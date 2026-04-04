@@ -230,15 +230,29 @@ export interface MigrationRunnerResult {
   totalFailed: number;
 }
 
+export interface MigrationRunnerOptions {
+  /** When false, migration is skipped entirely. Controlled by developerMode setting. */
+  enabled: boolean;
+}
+
 /**
  * Run migration for all workspaces found in the app data directory.
  *
- * Call this before WorkspaceStateService.initialize() to ensure
- * v5 data is available. Safe to call multiple times — already-migrated
- * workspaces are skipped.
+ * Gated by `options.enabled` — when disabled, returns immediately with
+ * an empty result. The caller passes the feature flag; the runner owns
+ * the decision to skip.
+ *
+ * Safe to call multiple times — already-migrated workspaces are skipped.
  */
-export async function runMigration(appDataPath: string): Promise<MigrationRunnerResult> {
-  log.info('Starting v4 → v5 migration check...');
+export async function runMigration(
+  appDataPath: string,
+  options: MigrationRunnerOptions = { enabled: true },
+): Promise<MigrationRunnerResult> {
+  if (!options.enabled) {
+    return { reports: [], totalMigrated: 0, totalSkipped: 0, totalFailed: 0 };
+  }
+
+  log.info('Starting v4 → v5 migration preview (developerMode)...');
 
   const result: MigrationRunnerResult = {
     reports: [],

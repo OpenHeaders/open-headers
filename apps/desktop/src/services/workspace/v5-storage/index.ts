@@ -1,4 +1,4 @@
-export type { MigrationRunnerResult } from './MigrationRunner';
+export type { MigrationRunnerOptions, MigrationRunnerResult } from './MigrationRunner';
 export { runMigration } from './MigrationRunner';
 export type { V4WorkspaceShape } from './V5DataAdapter';
 export { convertV5toV4 } from './V5DataAdapter';

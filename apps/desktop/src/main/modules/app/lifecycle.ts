@@ -5,6 +5,7 @@ import httpRequestHandlers from '@/main/modules/ipc/handlers/httpRequestHandlers
 import type { CliApiService } from '@/services/cli/CliApiService';
 import { AppStateMachine } from '@/services/core/AppStateMachine';
 import serviceRegistry from '@/services/core/ServiceRegistry';
+import settingsCache from '@/services/core/SettingsCache';
 import { HttpRequestService } from '@/services/http/HttpRequestService';
 import totpCooldownTracker from '@/services/http/TotpCooldownTracker';
 import networkService from '@/services/network/NetworkService';
@@ -126,15 +127,16 @@ class AppLifecycle {
 
       log.info('SourceRefreshService configured');
 
-      // Run v4 → v5 migration before WorkspaceStateService loads data.
-      // Safe to call every startup — already-migrated workspaces are skipped.
-      const appDataPath = electron.app.getPath('userData');
-      const migrationResult = await runMigration(appDataPath);
+      // v5 migration preview: converts v4 flat files into a v5/ directory tree
+      // for inspection. Gated behind developerMode — no runtime effect on the app.
+      const migrationResult = await runMigration(electron.app.getPath('userData'), {
+        enabled: settingsCache.get().developerMode,
+      });
       if (migrationResult.totalMigrated > 0) {
-        log.info(`v4 → v5 migration: ${migrationResult.totalMigrated} workspace(s) migrated`);
+        log.info(`v5 preview: ${migrationResult.totalMigrated} workspace(s) migrated`);
       }
       if (migrationResult.totalFailed > 0) {
-        log.warn(`v4 → v5 migration: ${migrationResult.totalFailed} workspace(s) failed`);
+        log.warn(`v5 preview: ${migrationResult.totalFailed} workspace(s) failed`);
       }
 
       // Configure and initialize WorkspaceStateService — the single owner of workspace state.
