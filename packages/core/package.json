@@ -26,6 +26,10 @@
     "./utils": {
       "import": "./src/utils/index.ts",
       "default": "./dist/utils/index.js"
+    },
+    "./migration": {
+      "import": "./src/migration/index.ts",
+      "default": "./dist/migration/index.js"
     }
   },
   "scripts": {

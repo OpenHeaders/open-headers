@@ -77,3 +77,6 @@ export type {
   SourceType,
   SourceUpdate,
 } from './source';
+
+// ── v5 types (new data model) ──────────────────────────────────────
+export * as V5 from './v5';
