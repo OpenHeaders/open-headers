@@ -18,7 +18,7 @@ type ViewMode = 'in-request' | 'all';
 
 // ── Types for variable display ─────────────────────────────────────
 
-interface DisplayVariable {
+export interface DisplayVariable {
   name: string;
   value: string;
   scope: 'vault' | 'environment' | 'collection' | 'globals';

@@ -1,18 +1,23 @@
 /**
  * EditorArea — editor content area (rendered inside the tab/breadcrumb container).
  *
- * Placeholder: shows a welcome screen until tab content is implemented.
+ * Routes to the appropriate editor based on the active tab type.
  */
 
 import { ApiOutlined, PlusOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Space, Typography, theme } from 'antd';
 import appIcon from '@/renderer/images/icon128.png';
+import type { Tab } from './hooks/useTabs';
+import { SettingsEditor } from './SettingsEditor';
 
 const { Title, Text } = Typography;
 
-export function EditorArea() {
-  const { token } = theme.useToken();
+interface EditorAreaProps {
+  activeTab?: Tab | null;
+}
 
+function WelcomeScreen() {
+  const { token } = theme.useToken();
   return (
     <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
       <img src={appIcon} alt="Open Headers" style={{ width: 48, height: 48, marginBottom: 16 }} />
@@ -36,4 +41,12 @@ export function EditorArea() {
       </Space>
     </div>
   );
+}
+
+export function EditorArea({ activeTab }: EditorAreaProps) {
+  if (activeTab?.type === 'settings') {
+    return <SettingsEditor />;
+  }
+
+  return <WelcomeScreen />;
 }

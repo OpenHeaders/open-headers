@@ -8,7 +8,9 @@
  */
 
 import { Typography, theme } from 'antd';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useEnvironments } from '@/renderer/hooks/useCentralizedWorkspace';
+import type { DisplayVariable } from './inspector/VariablesPanel';
 import { VariablesPanel } from './inspector/VariablesPanel';
 
 const { Text } = Typography;
@@ -18,6 +20,29 @@ type InspectorTab = 'variables' | 'linked-rules' | 'code-gen';
 export function Inspector() {
   const { token } = theme.useToken();
   const [activeTab, setActiveTab] = useState<InspectorTab>('variables');
+  const { environments, activeEnvironment } = useEnvironments();
+
+  const allVars = useMemo(() => {
+    const envVars: DisplayVariable[] = [];
+    const activeEnvData = environments[activeEnvironment];
+    if (activeEnvData) {
+      for (const [name, variable] of Object.entries(activeEnvData)) {
+        envVars.push({
+          name,
+          value: variable.value,
+          scope: 'environment',
+          isSecret: variable.isSecret,
+          resolved: true,
+        });
+      }
+    }
+    return {
+      vault: [],
+      environment: envVars,
+      collection: [],
+      globals: [],
+    };
+  }, [environments, activeEnvironment]);
 
   const tabs: Array<{ key: InspectorTab; label: string }> = [
     { key: 'variables', label: 'Variables' },
@@ -63,7 +88,7 @@ export function Inspector() {
       </div>
 
       <div className="v5-inspector-content">
-        {activeTab === 'variables' && <VariablesPanel activeEnvironment="Default" />}
+        {activeTab === 'variables' && <VariablesPanel activeEnvironment={activeEnvironment} allVars={allVars} />}
         {activeTab === 'linked-rules' && (
           <div style={{ padding: 10, color: token.colorTextTertiary, fontSize: 12 }}>
             <Text type="secondary">No linked rules. Select a request that is used as a value source by a rule.</Text>

@@ -6,6 +6,8 @@
  */
 
 import { Tooltip, theme } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
+import { useEnvironments, useHeaderRules, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
 
 interface PanelVisibility {
   sidebar: boolean;
@@ -105,6 +107,49 @@ function PanelToggle({
 
 export function StatusBar({ panels, onTogglePanel }: StatusBarProps) {
   const { token } = theme.useToken();
+  const { rules } = useHeaderRules();
+  const { workspaces, activeWorkspaceId } = useWorkspaces();
+  const { activeEnvironment } = useEnvironments();
+
+  const [appVersion, setAppVersion] = useState(window.startupData?.version ?? '');
+  const [clientCount, setClientCount] = useState(0);
+
+  useEffect(() => {
+    if (!appVersion && window.electronAPI?.getAppVersion) {
+      window.electronAPI
+        .getAppVersion()
+        .then(setAppVersion)
+        .catch(() => {});
+    }
+  }, [appVersion]);
+
+  const fetchClientCount = useCallback(async () => {
+    try {
+      if (window.electronAPI?.wsGetConnectionStatus) {
+        const status = await window.electronAPI.wsGetConnectionStatus();
+        setClientCount(status.totalConnections);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchClientCount();
+    const interval = setInterval(() => void fetchClientCount(), 5000);
+    const unsubscribe = window.electronAPI?.onWsConnectionStatusChanged?.((data) => {
+      setClientCount(data.totalConnections ?? 0);
+    });
+    return () => {
+      clearInterval(interval);
+      unsubscribe?.();
+    };
+  }, [fetchClientCount]);
+
+  const activeRuleCount = rules.filter((r) => r.isEnabled).length;
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
+  const workspaceName = activeWorkspace?.name ?? 'Workspace';
+  const workspaceType = activeWorkspace?.type === 'git' ? 'Git' : 'Local';
 
   return (
     <div
@@ -117,17 +162,23 @@ export function StatusBar({ panels, onTogglePanel }: StatusBarProps) {
     >
       <div className="v5-statusbar-left">
         <span className="v5-statusbar-item">
-          <span className="v5-dot" style={{ background: token.colorSuccess }} />0 clients
+          <span
+            className="v5-dot"
+            style={{ background: clientCount > 0 ? token.colorSuccess : token.colorTextTertiary }}
+          />
+          {clientCount} client{clientCount !== 1 ? 's' : ''}
         </span>
-        <span className="v5-statusbar-item">0 rules active</span>
-        <span className="v5-statusbar-item">Local workspace</span>
+        <span className="v5-statusbar-item">
+          {activeRuleCount} rule{activeRuleCount !== 1 ? 's' : ''} active
+        </span>
+        <span className="v5-statusbar-item">{workspaceType} workspace</span>
       </div>
 
       <div className="v5-statusbar-right">
-        <span className="v5-statusbar-item">Personal Workspace</span>
-        <span className="v5-statusbar-item">Development</span>
+        <span className="v5-statusbar-item">{workspaceName}</span>
+        <span className="v5-statusbar-item">{activeEnvironment || 'Default'}</span>
         <span className="v5-statusbar-item" style={{ opacity: 0.5 }}>
-          vNEXT
+          {appVersion ? `v${appVersion}` : 'vNEXT'}
         </span>
 
         <div className="v5-statusbar-divider" style={{ background: token.colorBorderSecondary }} />

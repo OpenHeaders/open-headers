@@ -20,6 +20,7 @@ export interface ShortcutHandlers {
   onToggleBottomPanel: () => void;
   onToggleInspector: () => void;
   onCommandPalette: () => void;
+  onOpenSettings?: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
@@ -58,6 +59,12 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
           if (!e.shiftKey && !e.altKey) {
             e.preventDefault();
             handlers.onCommandPalette();
+          }
+          break;
+        case ',':
+          if (!e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onOpenSettings?.();
           }
           break;
       }
