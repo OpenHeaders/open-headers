@@ -121,6 +121,7 @@ function migrateSources(
   }
 
   const collections: V5CollectionData[] = [];
+  const usedNames = new Set<string>();
 
   for (const [tag, tagSources] of tagGroups) {
     const collectionId = `migrated-collection-${slugify(tag)}`;
@@ -141,11 +142,14 @@ function migrateSources(
       });
     }
 
+    const collectionName = generateUniqueName('My Collection', usedNames);
+    usedNames.add(collectionName);
+
     collections.push({
       collection: {
         id: collectionId,
-        name: `${tag} API`,
-        description: `Migrated from v4 sources with tag "${tag}"`,
+        name: collectionName,
+        description: tag !== 'Imported' ? `Migrated from v4 sources (tag: ${tag})` : 'Migrated from v4 sources',
         variables: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -594,4 +598,17 @@ function isJsonString(str: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Generate a unique name using a base + numeric suffix pattern.
+ * "My Collection" → "My Collection" (first), "My Collection (2)", "My Collection (3)", etc.
+ */
+function generateUniqueName(baseName: string, existingNames: Set<string>): string {
+  if (!existingNames.has(baseName)) return baseName;
+  let counter = 2;
+  while (existingNames.has(`${baseName} (${counter})`)) {
+    counter++;
+  }
+  return `${baseName} (${counter})`;
 }

@@ -149,7 +149,7 @@ describe('migrateV4toV5', () => {
       expect(workspace.collections).toHaveLength(1);
 
       const collection = workspace.collections[0];
-      expect(collection.collection.name).toBe('TeamAlpha API');
+      expect(collection.collection.name).toBe('My Collection');
       expect(collection.requests).toHaveLength(1);
 
       const request = collection.requests[0];
@@ -221,8 +221,8 @@ describe('migrateV4toV5', () => {
 
       expect(workspace.collections).toHaveLength(2);
 
-      const mc2Collection = workspace.collections.find((c) => c.collection.name === 'TeamAlpha API');
-      const mc1Collection = workspace.collections.find((c) => c.collection.name === 'TeamBeta API');
+      const mc2Collection = workspace.collections.find((c) => c.collection.name === 'My Collection');
+      const mc1Collection = workspace.collections.find((c) => c.collection.name === 'My Collection (2)');
 
       expect(mc2Collection?.requests).toHaveLength(2);
       expect(mc1Collection?.requests).toHaveLength(1);
@@ -655,7 +655,7 @@ describe('migrateV4toV5', () => {
 
       // 1 collection (ALPHA) with 1 request (the token endpoint)
       expect(workspace.collections).toHaveLength(1);
-      expect(workspace.collections[0].collection.name).toBe('TeamAlpha API');
+      expect(workspace.collections[0].collection.name).toBe('My Collection');
       expect(workspace.collections[0].requests).toHaveLength(1);
 
       // 4 rules migrated
