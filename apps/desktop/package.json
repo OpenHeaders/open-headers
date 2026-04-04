@@ -270,6 +270,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
     "adm-zip": "^0.5.16",
+    "allotment": "^1.20.5",
     "antd": "^6.3.5",
     "auto-launch": "^5.0.6",
     "chokidar": "^3.5.3",

@@ -1,0 +1,538 @@
+// v5-shell.less — IDE-style layout for OpenHeaders v5
+
+// ── Shell layout ───────────────────────────────────────────────────
+
+.v5-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.v5-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+// ── Top Bar ────────────────────────────────────────────────────────
+
+.v5-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 36px;
+  -webkit-app-region: drag;
+
+  * {
+    -webkit-app-region: no-drag;
+  }
+}
+
+// macOS: add left padding to clear traffic light buttons (close/minimize/maximize)
+.v5-topbar.v5-topbar-darwin {
+  padding-left: 78px;
+}
+
+.v5-topbar-left,
+.v5-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.v5-topbar-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.v5-topbar-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.v5-topbar-chip {
+  font-size: 12px !important;
+  padding: 2px 8px !important;
+  height: auto !important;
+}
+
+.v5-topbar-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+}
+
+.v5-topbar-search {
+  flex: 1;
+  max-width: 320px;
+  height: 26px !important;
+  padding: 2px 10px !important;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.v5-kbd {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: inherit;
+}
+
+// ── Dot indicators ─────────────────────────────────────────────────
+
+.v5-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.v5-dot-blink {
+  animation: v5-blink 1.5s infinite;
+}
+
+@keyframes v5-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+// ── Activity Bar ───────────────────────────────────────────────────
+
+.v5-activity-bar {
+  width: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 6px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.v5-activity-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.15s;
+  border: 1px solid transparent;
+
+  &:hover {
+    opacity: 0.85;
+  }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────
+
+.v5-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.v5-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 12px;
+  padding-bottom: 4px;
+}
+
+.v5-sidebar-section {
+  padding: 10px 10px 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.v5-sidebar-section-title {
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.v5-sidebar-add {
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.6;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.v5-sidebar-empty {
+  padding: 8px 14px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.v5-sidebar-footer {
+  padding: 6px 10px;
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+// ── Editor Area ────────────────────────────────────────────────────
+
+.v5-editor-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.v5-tabs-bar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 34px;
+}
+
+.v5-tabs-scroll {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.v5-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  flex-shrink: 0;
+  position: relative;
+
+  &.active {
+    font-weight: 500;
+  }
+
+  &:hover .v5-tab-close {
+    opacity: 1;
+  }
+}
+
+.v5-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v5-tab-unsaved {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.v5-tab-close {
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-left: 2px;
+
+  &:hover {
+    opacity: 1 !important;
+  }
+}
+
+.v5-tab-overflow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  cursor: pointer;
+  font-size: 12px;
+  gap: 2px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.v5-tab-overflow-count {
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.v5-method-badge {
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: white;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.v5-editor-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.v5-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+// ── Bottom Panel ───────────────────────────────────────────────────
+
+.v5-bottom-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.v5-bottom-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  flex-shrink: 0;
+}
+
+.v5-bottom-tab {
+  font-size: 12px;
+  padding: 3px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+
+  &.active {
+    font-weight: 500;
+  }
+}
+
+.v5-live-indicator {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.v5-bottom-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+// ── Inspector (right sidebar) ──────────────────────────────────────
+
+.v5-inspector {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.v5-inspector-header {
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+
+.v5-inspector-title {
+  margin-bottom: 4px;
+}
+
+.v5-inspector-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.v5-inspector-tab {
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+
+  &.active {
+    font-weight: 500;
+  }
+}
+
+.v5-inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  font-size: 12px;
+}
+
+.v5-inspector-footer {
+  padding: 6px 10px;
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+
+// ── Status Bar ─────────────────────────────────────────────────────
+
+.v5-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 12px;
+  font-size: 11px;
+  flex-shrink: 0;
+  height: 24px;
+}
+
+.v5-statusbar-left,
+.v5-statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.v5-statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+
+.v5-statusbar-divider {
+  width: 1px;
+  height: 14px;
+}
+
+.v5-panel-toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.v5-panel-toggle {
+  width: 22px;
+  height: 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+// ── Breadcrumbs ────────────────────────────────────────────────────
+
+.v5-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 14px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.v5-breadcrumb {
+  padding: 1px 3px;
+  border-radius: 3px;
+
+  &:hover:not(.current) {
+    background: rgba(128, 128, 128, 0.1);
+  }
+}
+
+// ── Command Palette ────────────────────────────────────────────────
+
+.v5-cmd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.v5-cmd-palette {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 520px;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 100;
+  animation: v5-cmd-in 0.15s ease-out;
+}
+
+@keyframes v5-cmd-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.v5-cmd-input {
+  font-size: 14px !important;
+}
+
+.v5-cmd-results {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.v5-cmd-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.v5-cmd-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 12px;
+
+  &:hover,
+  &.selected {
+    background: rgba(128, 128, 128, 0.08);
+  }
+}
+
+.v5-cmd-result-icon {
+  font-size: 13px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.v5-cmd-result-label {
+  flex: 1;
+}
+
+.v5-cmd-result-scope {
+  font-size: 10px;
+}
+
+.v5-cmd-result-shortcut {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}

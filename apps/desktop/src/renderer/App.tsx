@@ -8,6 +8,7 @@ import { AppLayout } from './components/app/AppLayout';
 import WorkspaceSwitchOverlay from './components/common/WorkspaceSwitchOverlay';
 import type { InitialAction } from './components/modals/settings/SettingsModal';
 import TeamWorkspaceAcceptInviteModal from './components/modals/TeamWorkspaceAcceptInviteModal';
+import { V5Shell } from './components/v5-shell';
 import { useNavigation, useRefreshManager, useSettings, useWorkspaceSwitch } from './contexts';
 import { useAppEffects } from './hooks/app';
 import { useSourceRefresh } from './hooks/sources';
@@ -269,6 +270,11 @@ const AppComponent: React.FC = () => {
 
   // Show skeletons during initial load OR workspace switching
   const showSkeletons = !isReady || switchState.switching;
+
+  // v5 layout preview — renders the new IDE-style shell when developerMode is on
+  if (settings?.developerMode) {
+    return <V5Shell />;
+  }
 
   return (
     <>
