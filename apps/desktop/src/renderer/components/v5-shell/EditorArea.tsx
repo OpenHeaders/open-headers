@@ -7,6 +7,8 @@
 import { ApiOutlined, PlusOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Space, Typography, theme } from 'antd';
 import appIcon from '@/renderer/images/icon128.png';
+import { EnvironmentEditor } from './editors/EnvironmentEditor';
+import { RuleEditor } from './editors/RuleEditor';
 import type { Tab } from './hooks/useTabs';
 import { SettingsEditor } from './SettingsEditor';
 
@@ -46,6 +48,14 @@ function WelcomeScreen() {
 export function EditorArea({ activeTab }: EditorAreaProps) {
   if (activeTab?.type === 'settings') {
     return <SettingsEditor />;
+  }
+
+  if (activeTab?.type === 'rule' && activeTab.entityId) {
+    return <RuleEditor ruleId={activeTab.entityId} />;
+  }
+
+  if (activeTab?.type === 'environment' && activeTab.entityId) {
+    return <EnvironmentEditor environmentName={activeTab.entityId} />;
   }
 
   return <WelcomeScreen />;

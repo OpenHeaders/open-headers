@@ -181,7 +181,7 @@ export function V5Shell() {
             {/* Left Sidebar */}
             {panels.sidebar && (
               <Allotment.Pane preferredSize={230} minSize={180} maxSize={400}>
-                <Sidebar activePanel={activePanel} />
+                <Sidebar activePanel={activePanel} onOpenTab={openTab} />
               </Allotment.Pane>
             )}
 

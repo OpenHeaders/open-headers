@@ -13,8 +13,17 @@ import type { ActivityPanel } from './V5Shell';
 
 const { Text } = Typography;
 
+interface OpenTabRequest {
+  id: string;
+  type: 'rule' | 'environment' | 'collection';
+  label: string;
+  icon?: string;
+  entityId?: string;
+}
+
 interface SidebarProps {
   activePanel: ActivityPanel;
+  onOpenTab?: (tab: OpenTabRequest) => void;
 }
 
 function SidebarSection({ title, count, onAdd }: { title: string; count?: number; onAdd?: () => void }) {
@@ -30,7 +39,7 @@ function SidebarSection({ title, count, onAdd }: { title: string; count?: number
   );
 }
 
-function ItemsPanel() {
+function ItemsPanel({ onOpenTab }: { onOpenTab?: (tab: OpenTabRequest) => void }) {
   const { token } = theme.useToken();
   const { sources } = useSources();
   const { rules } = useHeaderRules();
@@ -72,7 +81,32 @@ function ItemsPanel() {
       <SidebarSection title="RULES" count={rules.length} onAdd={() => {}} />
       {rules.length > 0 ? (
         rules.map((rule) => (
-          <div key={rule.id} className="v5-sidebar-item" style={{ color: token.colorText }}>
+          <div
+            key={rule.id}
+            className="v5-sidebar-item"
+            style={{ color: token.colorText }}
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              onOpenTab?.({
+                id: `rule-${rule.id}`,
+                type: 'rule',
+                label: rule.name || rule.headerName,
+                icon: 'rule',
+                entityId: rule.id,
+              })
+            }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter')
+                onOpenTab?.({
+                  id: `rule-${rule.id}`,
+                  type: 'rule',
+                  label: rule.name || rule.headerName,
+                  icon: 'rule',
+                  entityId: rule.id,
+                });
+            }}
+          >
             <ThunderboltOutlined
               style={{ color: rule.isEnabled ? token.colorSuccess : token.colorTextTertiary, fontSize: 12 }}
             />
@@ -93,7 +127,32 @@ function ItemsPanel() {
       <SidebarSection title="ENVIRONMENTS" count={envNames.length} onAdd={() => {}} />
       {envNames.length > 0 ? (
         envNames.map((name) => (
-          <div key={name} className="v5-sidebar-item" style={{ color: token.colorText }}>
+          <div
+            key={name}
+            className="v5-sidebar-item"
+            style={{ color: token.colorText }}
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              onOpenTab?.({
+                id: `env-${name}`,
+                type: 'environment',
+                label: name,
+                icon: 'environment',
+                entityId: name,
+              })
+            }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter')
+                onOpenTab?.({
+                  id: `env-${name}`,
+                  type: 'environment',
+                  label: name,
+                  icon: 'environment',
+                  entityId: name,
+                });
+            }}
+          >
             <GlobalOutlined
               style={{ color: name === activeEnvironment ? token.colorPrimary : token.colorTextTertiary, fontSize: 12 }}
             />
@@ -135,13 +194,13 @@ function PlaceholderPanel({ title }: { title: string }) {
   );
 }
 
-export function Sidebar({ activePanel }: SidebarProps) {
+export function Sidebar({ activePanel, onOpenTab }: SidebarProps) {
   const { token } = theme.useToken();
 
   return (
     <div className="v5-sidebar" style={{ background: token.colorBgContainer }}>
       <div className="v5-sidebar-content">
-        {activePanel === 'items' && <ItemsPanel />}
+        {activePanel === 'items' && <ItemsPanel onOpenTab={onOpenTab} />}
         {activePanel === 'recordings' && <RecordingsPanel />}
         {activePanel === 'history' && <PlaceholderPanel title="History" />}
         {activePanel === 'files' && <PlaceholderPanel title="Local Files" />}
