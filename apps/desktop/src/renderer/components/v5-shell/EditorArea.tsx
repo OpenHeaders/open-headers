@@ -9,6 +9,7 @@ import { Button, Space, Typography, theme } from 'antd';
 import appIcon from '@/renderer/images/icon128.png';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
+import { SourceEditor } from './editors/SourceEditor';
 import type { Tab } from './hooks/useTabs';
 import { SettingsEditor } from './SettingsEditor';
 
@@ -56,6 +57,10 @@ export function EditorArea({ activeTab }: EditorAreaProps) {
 
   if (activeTab?.type === 'environment' && activeTab.entityId) {
     return <EnvironmentEditor environmentName={activeTab.entityId} />;
+  }
+
+  if ((activeTab?.type === 'collection' || activeTab?.type === 'request') && activeTab.entityId) {
+    return <SourceEditor sourceId={activeTab.entityId} />;
   }
 
   return <WelcomeScreen />;

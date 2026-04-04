@@ -5,9 +5,17 @@
  * Switches content based on the active ActivityBar panel.
  */
 
-import { ApiOutlined, GlobalOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  ApiOutlined,
+  CaretDownOutlined,
+  CaretRightOutlined,
+  FileOutlined,
+  GlobalOutlined,
+  PlusOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import { Badge, Typography, theme } from 'antd';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useEnvironments, useHeaderRules, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 import type { ActivityPanel } from './V5Shell';
 
@@ -39,11 +47,38 @@ function SidebarSection({ title, count, onAdd }: { title: string; count?: number
   );
 }
 
+function SourceMethodBadge({ method }: { method?: string }) {
+  const colors: Record<string, string> = {
+    GET: '#61affe',
+    POST: '#49cc90',
+    PUT: '#fca130',
+    PATCH: '#50e3c2',
+    DELETE: '#f93e3e',
+  };
+  const m = method || 'GET';
+  return (
+    <span
+      style={{
+        fontSize: 8,
+        fontWeight: 700,
+        color: 'white',
+        background: colors[m] || '#999',
+        padding: '1px 3px',
+        borderRadius: 2,
+        flexShrink: 0,
+      }}
+    >
+      {m}
+    </span>
+  );
+}
+
 function ItemsPanel({ onOpenTab }: { onOpenTab?: (tab: OpenTabRequest) => void }) {
   const { token } = theme.useToken();
   const { sources } = useSources();
   const { rules } = useHeaderRules();
   const { environments, activeEnvironment } = useEnvironments();
+  const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
 
   // Group sources by tag to form "collections"
   const collections = useMemo(() => {
@@ -57,21 +92,87 @@ function ItemsPanel({ onOpenTab }: { onOpenTab?: (tab: OpenTabRequest) => void }
     return grouped;
   }, [sources]);
 
+  const toggleCollection = (tag: string) => {
+    setExpandedCollections((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
   const envNames = Object.keys(environments);
 
   return (
     <>
       <SidebarSection title="COLLECTIONS" count={collections.size} onAdd={() => {}} />
       {collections.size > 0 ? (
-        [...collections.entries()].map(([tag, tagSources]) => (
-          <div key={tag} className="v5-sidebar-item" style={{ color: token.colorText }}>
-            <ApiOutlined style={{ color: token.colorTextTertiary, fontSize: 12 }} />
-            <span className="v5-sidebar-item-label">{tag}</span>
-            <Text type="secondary" style={{ fontSize: 10, marginLeft: 'auto' }}>
-              {tagSources.length}
-            </Text>
-          </div>
-        ))
+        [...collections.entries()].map(([tag, tagSources]) => {
+          const isExpanded = expandedCollections.has(tag);
+          return (
+            <div key={tag}>
+              <div
+                className="v5-sidebar-item"
+                style={{ color: token.colorText }}
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleCollection(tag)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') toggleCollection(tag);
+                }}
+              >
+                {isExpanded ? (
+                  <CaretDownOutlined style={{ color: token.colorTextTertiary, fontSize: 10 }} />
+                ) : (
+                  <CaretRightOutlined style={{ color: token.colorTextTertiary, fontSize: 10 }} />
+                )}
+                <ApiOutlined style={{ color: token.colorTextTertiary, fontSize: 12 }} />
+                <span className="v5-sidebar-item-label">{tag}</span>
+                <Text type="secondary" style={{ fontSize: 10, marginLeft: 'auto' }}>
+                  {tagSources.length}
+                </Text>
+              </div>
+              {isExpanded &&
+                tagSources.map((source) => (
+                  <div
+                    key={source.sourceId}
+                    className="v5-sidebar-item v5-sidebar-item-nested"
+                    style={{ color: token.colorText }}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                      onOpenTab?.({
+                        id: `source-${source.sourceId}`,
+                        type: 'collection',
+                        label: source.sourceName || source.sourcePath || 'Untitled',
+                        icon: source.sourceMethod || source.sourceType,
+                        entityId: source.sourceId,
+                      })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter')
+                        onOpenTab?.({
+                          id: `source-${source.sourceId}`,
+                          type: 'collection',
+                          label: source.sourceName || source.sourcePath || 'Untitled',
+                          icon: source.sourceMethod || source.sourceType,
+                          entityId: source.sourceId,
+                        });
+                    }}
+                  >
+                    {source.sourceType === 'http' ? (
+                      <SourceMethodBadge method={source.sourceMethod} />
+                    ) : (
+                      <FileOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />
+                    )}
+                    <span className="v5-sidebar-item-label">
+                      {source.sourceName || source.sourcePath || 'Untitled'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          );
+        })
       ) : (
         <div className="v5-sidebar-empty" style={{ color: token.colorTextTertiary }}>
           No collections yet. Create one to organize your API requests.

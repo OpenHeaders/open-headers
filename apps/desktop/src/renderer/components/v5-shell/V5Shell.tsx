@@ -85,34 +85,52 @@ export function V5Shell() {
 
     // Sources
     for (const source of sources) {
+      const sourceTabId = `source-${source.sourceId}`;
       items.push({
-        id: `source-${source.sourceId}`,
+        id: sourceTabId,
         icon: '🔗',
         label: source.sourceName || source.sourcePath || 'Untitled Source',
         scope: source.sourceTag || 'Source',
-        onSelect: () => {},
+        onSelect: () =>
+          openTab({
+            id: sourceTabId,
+            type: 'request',
+            label: source.sourceName || source.sourcePath || 'Untitled Source',
+            icon: source.sourceMethod || 'GET',
+            entityId: source.sourceId,
+          }),
       });
     }
 
     // Rules
     for (const rule of rules) {
+      const ruleTabId = `rule-${rule.id}`;
       items.push({
-        id: `rule-${rule.id}`,
+        id: ruleTabId,
         icon: '⚡',
         label: rule.name || rule.headerName,
         scope: rule.isEnabled ? 'Rule (active)' : 'Rule (disabled)',
-        onSelect: () => {},
+        onSelect: () =>
+          openTab({
+            id: ruleTabId,
+            type: 'rule',
+            label: rule.name || rule.headerName,
+            icon: 'rule',
+            entityId: rule.id,
+          }),
       });
     }
 
     // Environments
     for (const envName of Object.keys(environments)) {
+      const envTabId = `env-${envName}`;
       items.push({
-        id: `env-${envName}`,
+        id: envTabId,
         icon: '🌐',
         label: envName,
         scope: 'Environment',
-        onSelect: () => {},
+        onSelect: () =>
+          openTab({ id: envTabId, type: 'environment', label: envName, icon: 'environment', entityId: envName }),
       });
     }
 
@@ -146,7 +164,7 @@ export function V5Shell() {
     );
 
     return items;
-  }, [sources, rules, environments, togglePanel, openSettings]);
+  }, [sources, rules, environments, togglePanel, openSettings, openTab]);
 
   // Breadcrumbs for active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
