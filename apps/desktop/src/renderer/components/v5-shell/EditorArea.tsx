@@ -17,9 +17,11 @@ const { Title, Text } = Typography;
 
 interface EditorAreaProps {
   activeTab?: Tab | null;
+  onNewRequest?: () => void;
+  onNewRule?: () => void;
 }
 
-function WelcomeScreen() {
+function WelcomeScreen({ onNewRequest, onNewRule }: { onNewRequest?: () => void; onNewRule?: () => void }) {
   const { token } = theme.useToken();
   return (
     <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
@@ -32,10 +34,10 @@ function WelcomeScreen() {
       </Text>
 
       <Space direction="vertical" size={12} style={{ width: '100%', maxWidth: 320 }}>
-        <Button type="primary" icon={<ApiOutlined />} block>
+        <Button type="primary" icon={<ApiOutlined />} block onClick={onNewRequest}>
           <PlusOutlined /> New Request
         </Button>
-        <Button icon={<ThunderboltOutlined />} block>
+        <Button icon={<ThunderboltOutlined />} block onClick={onNewRule}>
           <PlusOutlined /> New Rule
         </Button>
         <Button icon={<RocketOutlined />} block>
@@ -46,7 +48,7 @@ function WelcomeScreen() {
   );
 }
 
-export function EditorArea({ activeTab }: EditorAreaProps) {
+export function EditorArea({ activeTab, onNewRequest, onNewRule }: EditorAreaProps) {
   if (activeTab?.type === 'settings') {
     return <SettingsEditor />;
   }
@@ -63,5 +65,5 @@ export function EditorArea({ activeTab }: EditorAreaProps) {
     return <SourceEditor sourceId={activeTab.entityId} />;
   }
 
-  return <WelcomeScreen />;
+  return <WelcomeScreen onNewRequest={onNewRequest} onNewRule={onNewRule} />;
 }

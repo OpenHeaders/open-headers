@@ -8,6 +8,7 @@
  * Panel visibility is toggled via keyboard shortcuts or status bar icons.
  */
 
+import type { HeaderRule, Source } from '@openheaders/core';
 import { Allotment } from 'allotment';
 import { theme } from 'antd';
 import { useCallback, useMemo, useState } from 'react';
@@ -40,8 +41,8 @@ interface PanelVisibility {
 export function V5Shell() {
   const { token } = theme.useToken();
   const { workspaces, activeWorkspaceId } = useWorkspaces();
-  const { sources } = useSources();
-  const { rules } = useHeaderRules();
+  const { sources, addSource } = useSources();
+  const { rules, addRule } = useHeaderRules();
   const { environments } = useEnvironments();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
@@ -62,6 +63,62 @@ export function V5Shell() {
     openTab({ id: 'settings', type: 'settings', label: 'Settings', icon: 'settings' });
   }, [openTab]);
 
+  const createNewRule = useCallback(async () => {
+    const now = new Date().toISOString();
+    const id = Date.now().toString();
+    const newRule: Partial<HeaderRule> = {
+      id,
+      type: 'header',
+      name: 'New Rule',
+      description: '',
+      isEnabled: true,
+      domains: [],
+      headerName: '',
+      headerValue: '',
+      tag: '',
+      isResponse: false,
+      isDynamic: false,
+      sourceId: null,
+      prefix: '',
+      suffix: '',
+      hasEnvVars: false,
+      envVars: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    const success = await addRule(newRule);
+    if (success) {
+      openTab({ id: `rule-${id}`, type: 'rule', label: 'New Rule', icon: 'rule', entityId: id });
+    }
+  }, [addRule, openTab]);
+
+  const createNewSource = useCallback(async () => {
+    const id = Date.now().toString();
+    const newSource: Source = {
+      sourceId: id,
+      sourceType: 'http',
+      sourcePath: '',
+      sourceMethod: 'GET',
+      sourceName: 'New Request',
+      sourceTag: '',
+      sourceContent: null,
+      requestOptions: { contentType: 'application/json' },
+      jsonFilter: { enabled: false },
+      refreshOptions: { enabled: false },
+      activationState: 'inactive',
+    };
+    const result = await addSource(newSource);
+    if (result) {
+      openTab({
+        id: `source-${id}`,
+        type: 'request',
+        label: 'New Request',
+        icon: 'GET',
+        entityId: id,
+      });
+    }
+  }, [addSource, openTab]);
+
   const togglePanel = useCallback((panel: keyof PanelVisibility) => {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
   }, []);
@@ -74,8 +131,10 @@ export function V5Shell() {
       onToggleInspector: () => togglePanel('inspector'),
       onCommandPalette: () => setCommandPaletteOpen(true),
       onOpenSettings: openSettings,
+      onNewRequest: () => void createNewSource(),
+      onNewRule: () => void createNewRule(),
     }),
-    [togglePanel, openSettings],
+    [togglePanel, openSettings, createNewSource, createNewRule],
   );
   useKeyboardShortcuts(shortcutHandlers);
 
@@ -136,8 +195,14 @@ export function V5Shell() {
 
     // Commands (always last, prefixed with > in search)
     items.push(
-      { id: 'cmd-new-request', icon: '▶', label: 'New Request', shortcut: '⌘N', onSelect: () => {} },
-      { id: 'cmd-new-rule', icon: '⚡', label: 'New Rule', shortcut: '⇧⌘N', onSelect: () => {} },
+      {
+        id: 'cmd-new-request',
+        icon: '▶',
+        label: 'New Request',
+        shortcut: '⌘N',
+        onSelect: () => void createNewSource(),
+      },
+      { id: 'cmd-new-rule', icon: '⚡', label: 'New Rule', shortcut: '⇧⌘N', onSelect: () => void createNewRule() },
       {
         id: 'cmd-toggle-sidebar',
         icon: '▶',
@@ -164,7 +229,7 @@ export function V5Shell() {
     );
 
     return items;
-  }, [sources, rules, environments, togglePanel, openSettings, openTab]);
+  }, [sources, rules, environments, togglePanel, openSettings, openTab, createNewSource, createNewRule]);
 
   // Breadcrumbs for active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -199,7 +264,12 @@ export function V5Shell() {
             {/* Left Sidebar */}
             {panels.sidebar && (
               <Allotment.Pane preferredSize={230} minSize={180} maxSize={400}>
-                <Sidebar activePanel={activePanel} onOpenTab={openTab} />
+                <Sidebar
+                  activePanel={activePanel}
+                  onOpenTab={openTab}
+                  onNewRequest={() => void createNewSource()}
+                  onNewRule={() => void createNewRule()}
+                />
               </Allotment.Pane>
             )}
 
@@ -217,7 +287,11 @@ export function V5Shell() {
                       onTogglePin={togglePin}
                     />
                     <BreadcrumbBar segments={breadcrumbs} />
-                    <EditorArea activeTab={activeTab} />
+                    <EditorArea
+                      activeTab={activeTab}
+                      onNewRequest={() => void createNewSource()}
+                      onNewRule={() => void createNewRule()}
+                    />
                   </div>
                 </Allotment.Pane>
 

@@ -21,6 +21,8 @@ export interface ShortcutHandlers {
   onToggleInspector: () => void;
   onCommandPalette: () => void;
   onOpenSettings?: () => void;
+  onNewRequest?: () => void;
+  onNewRule?: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
@@ -65,6 +67,15 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
           if (!e.shiftKey && !e.altKey) {
             e.preventDefault();
             handlers.onOpenSettings?.();
+          }
+          break;
+        case 'n':
+          if (e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onNewRule?.();
+          } else if (!e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onNewRequest?.();
           }
           break;
       }

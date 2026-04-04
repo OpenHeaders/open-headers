@@ -32,6 +32,8 @@ interface OpenTabRequest {
 interface SidebarProps {
   activePanel: ActivityPanel;
   onOpenTab?: (tab: OpenTabRequest) => void;
+  onNewRequest?: () => void;
+  onNewRule?: () => void;
 }
 
 function SidebarSection({ title, count, onAdd }: { title: string; count?: number; onAdd?: () => void }) {
@@ -73,7 +75,15 @@ function SourceMethodBadge({ method }: { method?: string }) {
   );
 }
 
-function ItemsPanel({ onOpenTab }: { onOpenTab?: (tab: OpenTabRequest) => void }) {
+function ItemsPanel({
+  onOpenTab,
+  onNewRequest,
+  onNewRule,
+}: {
+  onOpenTab?: (tab: OpenTabRequest) => void;
+  onNewRequest?: () => void;
+  onNewRule?: () => void;
+}) {
   const { token } = theme.useToken();
   const { sources } = useSources();
   const { rules } = useHeaderRules();
@@ -105,7 +115,7 @@ function ItemsPanel({ onOpenTab }: { onOpenTab?: (tab: OpenTabRequest) => void }
 
   return (
     <>
-      <SidebarSection title="COLLECTIONS" count={collections.size} onAdd={() => {}} />
+      <SidebarSection title="COLLECTIONS" count={collections.size} onAdd={onNewRequest} />
       {collections.size > 0 ? (
         [...collections.entries()].map(([tag, tagSources]) => {
           const isExpanded = expandedCollections.has(tag);
@@ -179,7 +189,7 @@ function ItemsPanel({ onOpenTab }: { onOpenTab?: (tab: OpenTabRequest) => void }
         </div>
       )}
 
-      <SidebarSection title="RULES" count={rules.length} onAdd={() => {}} />
+      <SidebarSection title="RULES" count={rules.length} onAdd={onNewRule} />
       {rules.length > 0 ? (
         rules.map((rule) => (
           <div
@@ -295,13 +305,15 @@ function PlaceholderPanel({ title }: { title: string }) {
   );
 }
 
-export function Sidebar({ activePanel, onOpenTab }: SidebarProps) {
+export function Sidebar({ activePanel, onOpenTab, onNewRequest, onNewRule }: SidebarProps) {
   const { token } = theme.useToken();
 
   return (
     <div className="v5-sidebar" style={{ background: token.colorBgContainer }}>
       <div className="v5-sidebar-content">
-        {activePanel === 'items' && <ItemsPanel onOpenTab={onOpenTab} />}
+        {activePanel === 'items' && (
+          <ItemsPanel onOpenTab={onOpenTab} onNewRequest={onNewRequest} onNewRule={onNewRule} />
+        )}
         {activePanel === 'recordings' && <RecordingsPanel />}
         {activePanel === 'history' && <PlaceholderPanel title="History" />}
         {activePanel === 'files' && <PlaceholderPanel title="Local Files" />}
