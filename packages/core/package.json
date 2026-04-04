@@ -30,6 +30,10 @@
     "./migration": {
       "import": "./src/migration/index.ts",
       "default": "./dist/migration/index.js"
+    },
+    "./variables": {
+      "import": "./src/variables/index.ts",
+      "default": "./dist/variables/index.js"
     }
   },
   "scripts": {
