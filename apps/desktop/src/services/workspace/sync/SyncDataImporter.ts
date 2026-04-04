@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Source } from '@openheaders/core';
+import { errorMessage } from '@openheaders/core';
 import electron from 'electron';
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import {
@@ -66,6 +67,17 @@ export async function importSyncedData(
     await importRules(workspacePath, workspaceId, data);
     await importProxyRules(workspacePath, workspaceId, data);
     await importEnvironments(workspacePath, workspaceId, data, broadcaster);
+
+    // Invalidate v5 cache: synced data updated the v4 flat files,
+    // so the v5/ directory is now stale. Delete it so the next boot
+    // re-migrates from the fresh v4 data. Migration is fast (~150ms).
+    const v5Dir = path.join(workspacePath, 'v5');
+    try {
+      await fs.promises.rm(v5Dir, { recursive: true, force: true });
+      log.debug(`Invalidated v5 cache for workspace ${workspaceId} after sync`);
+    } catch (e) {
+      log.debug(`No v5 cache to invalidate for workspace ${workspaceId}:`, errorMessage(e));
+    }
 
     // Merge synced data directly into in-memory state. The callback
     // receives the raw SyncData so it can merge against the current
