@@ -122,8 +122,15 @@ export function convertV5toV4(
   _collections: V5.CollectionWithTree[],
   v5Rules: V5.Rule[],
   environments: V5.Environment[],
+  requests?: V5.Request[],
 ): V4WorkspaceShape {
   const headerRules = v5Rules.filter((r): r is V5.HeaderRule => r.type === 'header');
+
+  // Build request lookup for source creation
+  const requestLookup = new Map<string, V5.Request>();
+  for (const req of requests ?? []) {
+    requestLookup.set(req.id, req);
+  }
 
   // Convert rules → v4 HeaderRules + Sources
   const sources: Source[] = [];
@@ -138,9 +145,8 @@ export function convertV5toV4(
 
       // Create a source if we haven't already for this requestId
       if (!sources.some((s) => s.sourceId === sourceId)) {
-        // We don't have the full Request object in this context,
-        // so create a minimal source from the rule's requestSource
-        sources.push(createSourceFromRequestSource(rule));
+        const linkedRequest = requestLookup.get(sourceId!);
+        sources.push(createSourceFromRequestSource(rule, linkedRequest));
       }
     }
 
@@ -187,17 +193,35 @@ export function convertV5toV4(
 // ── Helpers ────────────────────────────────────────────────────────
 
 /**
- * Create a minimal v4 Source from a v5 Rule's requestSource config.
- * Used when we don't have the full Request object.
+ * Create a v4 Source from a v5 Rule's requestSource config,
+ * enriched with the linked Request's URL/method/body when available.
  */
-function createSourceFromRequestSource(rule: V5.HeaderRule): Source {
+function createSourceFromRequestSource(rule: V5.HeaderRule, request?: V5.Request): Source {
   const rs = rule.requestSource!;
   return {
     sourceId: rs.requestId,
     sourceType: 'http',
-    sourcePath: '', // URL not available from rule alone
-    sourceMethod: 'GET',
+    sourcePath: request?.url ?? '',
+    sourceMethod: request?.method === 'HEAD' || request?.method === 'OPTIONS' ? 'GET' : (request?.method ?? 'GET'),
+    sourceName: request?.name,
     sourceTag: rule.tags[0] ?? '',
+    requestOptions: request
+      ? {
+          contentType:
+            request.body.type === 'x-www-form-urlencoded'
+              ? 'application/x-www-form-urlencoded'
+              : request.body.type === 'json'
+                ? 'application/json'
+                : undefined,
+          body:
+            request.body.type === 'x-www-form-urlencoded'
+              ? request.body.formData?.map((e) => `${e.key}:${e.value}`).join('\n')
+              : request.body.raw,
+          headers: request.headers.filter((h) => h.enabled).map((h) => ({ key: h.key, value: h.value })),
+          queryParams: request.params.filter((p) => p.enabled).map((p) => ({ key: p.key, value: p.value })),
+          totpSecret: request.totp?.secret,
+        }
+      : undefined,
     jsonFilter: {
       enabled: true,
       path: jsonPathToV4FilterPath(rs.responseExtract),

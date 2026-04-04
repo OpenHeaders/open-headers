@@ -7,6 +7,7 @@ export {
   isV5Workspace,
   readAllCollections,
   readAllEnvironments,
+  readAllRequests,
   readAllRules,
   readCollection,
   readGlobals,

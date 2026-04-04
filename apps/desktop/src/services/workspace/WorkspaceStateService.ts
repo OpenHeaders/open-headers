@@ -54,6 +54,7 @@ import {
   loadProxyRules,
   loadRules,
   loadSources,
+  loadWorkspaceDataV5Aware,
   // Persistence
   loadWorkspacesConfig,
   type ProxyServiceLike,
@@ -211,14 +212,20 @@ class WorkspaceStateService {
       await this.loadEnvironmentData(this.state.activeWorkspaceId);
 
       // Load workspace data into state (sources, rules, proxyRules).
-      // We inline the disk-read portion here instead of calling
-      // loadWorkspaceData() which also broadcasts. Broadcasting
-      // requires services — handled in Phase 2 below.
-      const [sources, rules, proxyRules] = await Promise.all([
-        loadSources(this.appDataPath, this.state.activeWorkspaceId),
-        loadRules(this.appDataPath, this.state.activeWorkspaceId),
-        loadProxyRules(this.appDataPath, this.state.activeWorkspaceId),
-      ]);
+      // Uses v5-aware loading: reads from v5/ directory tree if available,
+      // falls back to v4 flat files. Broadcasting requires services — handled in Phase 2 below.
+      const wsData = await loadWorkspaceDataV5Aware(this.appDataPath, this.state.activeWorkspaceId);
+      const sources = wsData?.sources ?? [];
+      const rules = wsData?.rules ?? { header: [], request: [], response: [] };
+      const proxyRules = wsData?.proxyRules ?? [];
+      if (wsData?.loadedFromV5) {
+        log.info(`Workspace ${this.state.activeWorkspaceId} loaded from v5 format`);
+        // Override environments with v5 data (more complete: includes vault resolution)
+        if (wsData.environments) {
+          this.state.environments = wsData.environments.environments;
+          this.state.activeEnvironment = wsData.environments.activeEnvironment;
+        }
+      }
       this.state.rules = rules;
       this.state.proxyRules = proxyRules;
       this.dirty.sources = false;
@@ -307,11 +314,13 @@ class WorkspaceStateService {
   // ── Workspace data loading ────────────────────────────────────
 
   private async loadWorkspaceData(workspaceId: string): Promise<void> {
-    const [sources, rules, proxyRules] = await Promise.all([
-      loadSources(this.appDataPath, workspaceId),
-      loadRules(this.appDataPath, workspaceId),
-      loadProxyRules(this.appDataPath, workspaceId),
-    ]);
+    const wsData = await loadWorkspaceDataV5Aware(this.appDataPath, workspaceId);
+    const sources = wsData?.sources ?? [];
+    const rules = wsData?.rules ?? { header: [], request: [], response: [] };
+    const proxyRules = wsData?.proxyRules ?? [];
+    if (wsData?.loadedFromV5) {
+      log.info(`Workspace ${workspaceId} loaded from v5 format (switch)`);
+    }
 
     this.state.sources = evaluateAllSourceDependencies(sources, this.envResolver);
     this.state.rules = rules;

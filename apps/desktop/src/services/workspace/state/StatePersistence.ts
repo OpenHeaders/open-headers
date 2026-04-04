@@ -12,6 +12,7 @@ import {
   isV5Workspace,
   readAllCollections,
   readAllEnvironments,
+  readAllRequests,
   readAllRules,
   readVault,
 } from '@/services/workspace/v5-storage';
@@ -201,11 +202,12 @@ export async function loadWorkspaceDataV5Aware(
     try {
       log.info(`Loading workspace ${workspaceId} from v5 format`);
 
-      const [collections, v5Rules, v5Environments, vault] = await Promise.all([
+      const [collections, v5Rules, v5Environments, vault, v5Requests] = await Promise.all([
         readAllCollections(v5Root),
         readAllRules(v5Root),
         readAllEnvironments(v5Root),
         readVault(v5Root),
+        readAllRequests(v5Root),
       ]);
 
       // Apply vault secrets to environment variables (vault has highest priority)
@@ -223,7 +225,7 @@ export async function loadWorkspaceDataV5Aware(
       const defaultEnv = v5Environments.find((e) => e.name === 'Default') ?? v5Environments[0];
       if (defaultEnv) defaultEnv.isActive = true;
 
-      const v4Shape = convertV5toV4(collections, v5Rules, v5Environments);
+      const v4Shape = convertV5toV4(collections, v5Rules, v5Environments, v5Requests);
 
       return {
         sources: v4Shape.sources,

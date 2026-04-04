@@ -204,6 +204,33 @@ export async function readRequest(requestPath: string): Promise<V5.Request | nul
   return readJsonSafe<V5.Request>(requestPath);
 }
 
+/**
+ * Read all requests from all collections in the workspace.
+ * Recursively scans for .request.json files.
+ */
+export async function readAllRequests(root: string): Promise<V5.Request[]> {
+  const requests: V5.Request[] = [];
+  await findRequestFiles(collectionsDir(root), requests);
+  return requests;
+}
+
+async function findRequestFiles(dir: string, results: V5.Request[]): Promise<void> {
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await findRequestFiles(fullPath, results);
+      } else if (entry.name.endsWith('.request.json')) {
+        const req = await readJsonSafe<V5.Request>(fullPath);
+        if (req) results.push(req);
+      }
+    }
+  } catch {
+    // Directory might not exist
+  }
+}
+
 export async function writeRequest(
   root: string,
   collectionName: string,
