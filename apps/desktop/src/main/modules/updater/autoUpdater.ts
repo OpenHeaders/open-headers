@@ -76,6 +76,13 @@ class AutoUpdaterManager {
   }
 
   setupAutoUpdater() {
+    // Skip auto-updater entirely in dev mode — there's no valid
+    // app-update.yml and version comparison is unreliable.
+    if (!app.isPackaged) {
+      log.info('Auto-updater disabled in development mode');
+      return;
+    }
+
     autoUpdater.logger = {
       info: (...args: unknown[]) => log.info('[AutoUpdater]', ...args),
       warn: (...args: unknown[]) => log.warn('[AutoUpdater]', ...args),
@@ -109,9 +116,7 @@ class AutoUpdaterManager {
   }
 
   logAppInfo() {
-    if (process.env.NODE_ENV === 'development' || process.argv.includes('--dev')) {
-      autoUpdater.forceDevUpdateConfig = true;
-    }
+    // No-op: dev mode is handled by the isPackaged guard in setupAutoUpdater.
   }
 
   // ── Event listeners ──────────────────────────────────────────
@@ -351,6 +356,11 @@ class AutoUpdaterManager {
    * Errors are shown to the user with friendly messages.
    */
   checkForUpdatesManual(isManual = true) {
+    if (!app.isPackaged) {
+      windowManager.sendToWindow('update-not-available', { isManual });
+      return;
+    }
+
     if (!networkService.getState().isOnline) {
       windowManager.sendToWindow('update-check-network-offline');
       return;
