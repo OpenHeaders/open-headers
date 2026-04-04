@@ -1,3 +1,5 @@
+export type { MigrationRunnerResult } from './MigrationRunner';
+export { runMigration } from './MigrationRunner';
 export type { V5WorkspaceWriteData } from './V5StorageService';
 export {
   isV5Workspace,
