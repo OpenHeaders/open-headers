@@ -7,6 +7,14 @@
 import path from 'node:path';
 import type { RulesCollection, RulesStorage, Source } from '@openheaders/core';
 import { DATA_FORMAT_VERSION } from '@/config/version';
+import {
+  convertV5toV4,
+  isV5Workspace,
+  readAllCollections,
+  readAllEnvironments,
+  readAllRules,
+  readVault,
+} from '@/services/workspace/v5-storage';
 import type { EnvironmentsFile } from '@/types/environment';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceSyncStatus, WorkspaceType } from '@/types/workspace';
@@ -162,6 +170,85 @@ export async function saveEnvironments(
 ): Promise<void> {
   const envPath = path.join(workspaceDir(appDataPath, workspaceId), 'environments.json');
   await atomicWriter.writeJson(envPath, data, { pretty: true });
+}
+
+// ── v5-aware loading ─────────────────────────────────────────────
+
+/**
+ * Load workspace data, preferring v5 format if available.
+ *
+ * When a v5/ subdirectory exists (created by MigrationRunner), reads from
+ * the v5 directory tree and converts back to v4 shapes. Falls back to the
+ * original v4 flat files if no v5 data exists.
+ *
+ * This allows the existing renderer to work with migrated v5 data
+ * without any changes to the renderer code.
+ */
+export async function loadWorkspaceDataV5Aware(
+  appDataPath: string,
+  workspaceId: string,
+): Promise<{
+  sources: Source[];
+  rules: RulesCollection;
+  proxyRules: ProxyRule[];
+  environments: EnvironmentsFile;
+  loadedFromV5: boolean;
+} | null> {
+  const wsDir = workspaceDir(appDataPath, workspaceId);
+  const v5Root = path.join(wsDir, 'v5');
+
+  if (await isV5Workspace(v5Root)) {
+    try {
+      log.info(`Loading workspace ${workspaceId} from v5 format`);
+
+      const [collections, v5Rules, v5Environments, vault] = await Promise.all([
+        readAllCollections(v5Root),
+        readAllRules(v5Root),
+        readAllEnvironments(v5Root),
+        readVault(v5Root),
+      ]);
+
+      // Apply vault secrets to environment variables (vault has highest priority)
+      for (const env of v5Environments) {
+        for (const secret of vault.secrets) {
+          const existing = env.variables.find((v) => v.name === secret.name);
+          if (existing) {
+            existing.value = secret.value;
+          }
+        }
+      }
+
+      // Mark active environment
+      // For now, mark the first (or 'Default') as active
+      const defaultEnv = v5Environments.find((e) => e.name === 'Default') ?? v5Environments[0];
+      if (defaultEnv) defaultEnv.isActive = true;
+
+      const v4Shape = convertV5toV4(collections, v5Rules, v5Environments);
+
+      return {
+        sources: v4Shape.sources,
+        rules: v4Shape.rules,
+        proxyRules: v4Shape.proxyRules,
+        environments: {
+          environments: v4Shape.environments,
+          activeEnvironment: v4Shape.activeEnvironment,
+        },
+        loadedFromV5: true,
+      };
+    } catch (err) {
+      log.warn(`Failed to load v5 data for workspace ${workspaceId}, falling back to v4:`, err);
+    }
+  }
+
+  // Fall back to v4
+  const [sources, rules, proxyRules, environments] = await Promise.all([
+    loadSources(appDataPath, workspaceId),
+    loadRules(appDataPath, workspaceId),
+    loadProxyRules(appDataPath, workspaceId),
+    loadEnvironments(appDataPath, workspaceId),
+  ]);
+
+  return { sources, rules, proxyRules, environments, loadedFromV5: false };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

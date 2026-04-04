@@ -30,6 +30,7 @@ export {
   loadProxyRules,
   loadRules,
   loadSources,
+  loadWorkspaceDataV5Aware,
   loadWorkspacesConfig,
   saveAll,
   saveEnvironments,
