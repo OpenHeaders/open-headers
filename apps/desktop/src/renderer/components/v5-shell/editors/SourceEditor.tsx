@@ -1,32 +1,46 @@
 /**
- * SourceEditor — inline editor for a Source, rendered in an editor tab.
+ * SourceEditor — Postman-style request editor rendered in an editor tab.
  *
- * Mirrors the v4 EditSourceModal fields but in a full-page layout.
- * Supports HTTP, file, and env source types. Auto-saves on change.
+ * Layout:
+ *   [Method ▾] [URL input ............................] [Send]
+ *   [Params] [Headers] [Body] [Settings]
+ *   ┌──────────────────────────────────────────────────────┐
+ *   │ Key-value table or body editor                       │
+ *   └──────────────────────────────────────────────────────┘
+ *   Response
+ *   ┌──────────────────────────────────────────────────────┐
+ *   │ Response body / status / headers                     │
+ *   └──────────────────────────────────────────────────────┘
  */
 
 import {
-  ApiOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
   DeleteOutlined,
-  FileOutlined,
-  FilterOutlined,
-  GlobalOutlined,
-  ReloadOutlined,
-  SettingOutlined,
+  MinusCircleOutlined,
+  PlusOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
-import type { Source } from '@openheaders/core';
-import { Button, Input, InputNumber, Radio, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import type { Source, SourceHeader, SourceQueryParam } from '@openheaders/core';
+import { Button, Checkbox, Input, InputNumber, Select, Space, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface SourceEditorProps {
   sourceId: string;
 }
+
+const METHOD_OPTIONS = [
+  { value: 'GET', label: 'GET' },
+  { value: 'POST', label: 'POST' },
+  { value: 'PUT', label: 'PUT' },
+  { value: 'PATCH', label: 'PATCH' },
+  { value: 'DELETE', label: 'DELETE' },
+];
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#61affe',
@@ -36,37 +50,256 @@ const METHOD_COLORS: Record<string, string> = {
   DELETE: '#f93e3e',
 };
 
-function SourceTypeBadge({ type }: { type: string }) {
-  const labels: Record<string, { icon: React.ReactNode; label: string }> = {
-    http: { icon: <GlobalOutlined />, label: 'HTTP' },
-    file: { icon: <FileOutlined />, label: 'File' },
-    env: { icon: <SettingOutlined />, label: 'Env Variable' },
-    manual: { icon: <SettingOutlined />, label: 'Manual' },
+// ── Key-value row for params/headers ──────────────────────────────
+
+interface KVRow {
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
+function KeyValueTable({
+  rows,
+  onChange,
+  keyPlaceholder,
+  valuePlaceholder,
+}: {
+  rows: KVRow[];
+  onChange: (rows: KVRow[]) => void;
+  keyPlaceholder: string;
+  valuePlaceholder: string;
+}) {
+  const { token } = theme.useToken();
+
+  const updateRow = (index: number, field: keyof KVRow, value: string | boolean) => {
+    const updated = rows.map((r, i) => (i === index ? { ...r, [field]: value } : r));
+    onChange(updated);
   };
-  const info = labels[type] || labels.manual;
+
+  const removeRow = (index: number) => {
+    onChange(rows.filter((_, i) => i !== index));
+  };
+
+  const addRow = () => {
+    onChange([...rows, { key: '', value: '', enabled: true }]);
+  };
+
+  // Always show an empty row at the bottom for quick entry
+  const displayRows =
+    rows.length === 0 || rows[rows.length - 1].key !== '' ? [...rows, { key: '', value: '', enabled: true }] : rows;
+
   return (
-    <Tag style={{ fontSize: 10 }}>
-      {info.icon} {info.label}
-    </Tag>
+    <div>
+      {/* Header */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '28px 1fr 1fr auto',
+          gap: 0,
+          fontSize: 11,
+          fontWeight: 600,
+          color: token.colorTextSecondary,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          padding: '6px 0',
+        }}
+      >
+        <span />
+        <span style={{ padding: '0 8px' }}>Key</span>
+        <span style={{ padding: '0 8px' }}>Value</span>
+        <span style={{ width: 28 }} />
+      </div>
+
+      {/* Rows */}
+      {displayRows.map((row, index) => {
+        const isPlaceholderRow = index === displayRows.length - 1 && index >= rows.length;
+        return (
+          <div
+            key={index}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '28px 1fr 1fr auto',
+              gap: 0,
+              alignItems: 'center',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              opacity: !row.enabled && !isPlaceholderRow ? 0.4 : 1,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              {!isPlaceholderRow && (
+                <Checkbox
+                  checked={row.enabled}
+                  onChange={(e) => updateRow(index, 'enabled', e.target.checked)}
+                  style={{ transform: 'scale(0.85)' }}
+                />
+              )}
+            </div>
+            <Input
+              variant="borderless"
+              size="small"
+              value={row.key}
+              placeholder={keyPlaceholder}
+              onChange={(e) => {
+                if (isPlaceholderRow) {
+                  // User typed in the placeholder row — materialize it
+                  onChange([...rows, { key: e.target.value, value: '', enabled: true }]);
+                } else {
+                  updateRow(index, 'key', e.target.value);
+                }
+              }}
+              style={{ fontSize: 12, borderRadius: 0 }}
+            />
+            <Input
+              variant="borderless"
+              size="small"
+              value={row.value}
+              placeholder={valuePlaceholder}
+              onChange={(e) => {
+                if (isPlaceholderRow) {
+                  onChange([...rows, { key: '', value: e.target.value, enabled: true }]);
+                } else {
+                  updateRow(index, 'value', e.target.value);
+                }
+              }}
+              style={{
+                fontSize: 12,
+                borderRadius: 0,
+                color: row.value.includes('{{') ? token.colorWarning : undefined,
+              }}
+            />
+            <div style={{ width: 28, display: 'flex', justifyContent: 'center' }}>
+              {!isPlaceholderRow && (
+                <MinusCircleOutlined
+                  style={{ color: token.colorTextTertiary, cursor: 'pointer', fontSize: 12 }}
+                  onClick={() => removeRow(index)}
+                />
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Add button (only if last real row has content) */}
+      {rows.length > 0 && rows[rows.length - 1].key === '' && (
+        <div style={{ padding: '4px 8px' }}>
+          <Button
+            type="link"
+            size="small"
+            icon={<PlusOutlined />}
+            onClick={addRow}
+            style={{ fontSize: 11, padding: 0 }}
+          >
+            Add
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
-function StatusIndicator({ source }: { source: Source }) {
+// ── Response pane ─────────────────────────────────────────────────
+
+function ResponsePane({ source }: { source: Source }) {
   const { token } = theme.useToken();
-  const state = source.activationState || 'inactive';
-  const configs: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
-    active: { color: token.colorSuccess, icon: <CheckCircleOutlined />, label: 'Active' },
-    inactive: { color: token.colorTextTertiary, icon: <ClockCircleOutlined />, label: 'Inactive' },
-    error: { color: token.colorError, icon: <CloseCircleOutlined />, label: 'Error' },
-    waiting_for_deps: { color: token.colorWarning, icon: <ClockCircleOutlined />, label: 'Waiting for deps' },
+  const content = source.sourceContent;
+  const originalResponse = source.originalResponse;
+  const responseHeaders = source.responseHeaders;
+  const isRefreshing = source.refreshStatus?.isRefreshing;
+  const lastRefresh = source.refreshStatus?.lastRefresh;
+  const hasError = source.refreshStatus?.error;
+
+  // Try to detect and pretty-print JSON
+  const formatContent = (raw: string | null | undefined): string => {
+    if (!raw) return '';
+    try {
+      const parsed = JSON.parse(raw);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return raw;
+    }
   };
-  const config = configs[state] || configs.inactive;
+
+  const [responseTab, setResponseTab] = useState<string>('body');
+
   return (
-    <Tag color={state === 'error' ? 'red' : state === 'active' ? 'green' : 'default'} style={{ fontSize: 10 }}>
-      {config.icon} {config.label}
-    </Tag>
+    <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 12px',
+          background: token.colorBgElevated,
+        }}
+      >
+        <Space size={12}>
+          <Text strong style={{ fontSize: 12 }}>
+            Response
+          </Text>
+          {source.activationState === 'active' && (
+            <Text style={{ fontSize: 11, color: token.colorSuccess }}>
+              <CheckCircleOutlined /> Active
+            </Text>
+          )}
+          {source.activationState === 'error' && (
+            <Text style={{ fontSize: 11, color: token.colorError }}>
+              <CloseCircleOutlined /> {hasError || 'Error'}
+            </Text>
+          )}
+          {isRefreshing && (
+            <Text style={{ fontSize: 11, color: token.colorPrimary }}>
+              <ClockCircleOutlined /> Fetching...
+            </Text>
+          )}
+        </Space>
+        {lastRefresh && (
+          <Text type="secondary" style={{ fontSize: 10 }}>
+            {new Date(lastRefresh).toLocaleString()}
+          </Text>
+        )}
+      </div>
+
+      <Tabs
+        size="small"
+        activeKey={responseTab}
+        onChange={setResponseTab}
+        style={{ padding: '0 12px' }}
+        items={[
+          { key: 'body', label: 'Body' },
+          { key: 'raw', label: 'Raw' },
+          ...(responseHeaders ? [{ key: 'headers', label: `Headers (${Object.keys(responseHeaders).length})` }] : []),
+        ]}
+      />
+
+      <div
+        style={{
+          padding: '8px 12px',
+          fontFamily: "'SF Mono', 'Fira Code', monospace",
+          fontSize: 11,
+          lineHeight: 1.6,
+          overflow: 'auto',
+          maxHeight: 300,
+          minHeight: 80,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-all',
+          color: content || originalResponse ? token.colorText : token.colorTextTertiary,
+          background: token.colorBgContainer,
+        }}
+      >
+        {responseTab === 'body' && (formatContent(content) || '(no response yet — click Send)')}
+        {responseTab === 'raw' && (originalResponse || content || '(no response yet)')}
+        {responseTab === 'headers' &&
+          responseHeaders &&
+          Object.entries(responseHeaders).map(([k, v]) => (
+            <div key={k}>
+              <span style={{ color: token.colorPrimary }}>{k}</span>: {v}
+            </div>
+          ))}
+      </div>
+    </div>
   );
 }
+
+// ── Main component ────────────────────────────────────────────────
 
 export function SourceEditor({ sourceId }: SourceEditorProps) {
   const { token } = theme.useToken();
@@ -75,9 +308,18 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
 
   // Local form state
   const [sourcePath, setSourcePath] = useState('');
+  const [sourceMethod, setSourceMethod] = useState('GET');
+  const [activeTab, setActiveTab] = useState('params');
+
+  // Params & headers as KVRow arrays (with enabled flag for checkboxes)
+  const [params, setParams] = useState<KVRow[]>([]);
+  const [headers, setHeaders] = useState<KVRow[]>([]);
+  const [body, setBody] = useState('');
+  const [contentType, setContentType] = useState('application/json');
+
+  // Settings
   const [sourceName, setSourceName] = useState('');
   const [sourceTag, setSourceTag] = useState('');
-  const [sourceMethod, setSourceMethod] = useState('GET');
   const [jsonFilterEnabled, setJsonFilterEnabled] = useState(false);
   const [jsonFilterPath, setJsonFilterPath] = useState('');
   const [refreshEnabled, setRefreshEnabled] = useState(false);
@@ -85,46 +327,62 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
 
   const initializedId = useRef<string | null>(null);
 
+  // Initialize from source
   useEffect(() => {
     if (source && initializedId.current !== source.sourceId) {
       initializedId.current = source.sourceId;
       setSourcePath(source.sourcePath || '');
+      setSourceMethod(source.sourceMethod || 'GET');
       setSourceName(source.sourceName || '');
       setSourceTag(source.sourceTag || '');
-      setSourceMethod(source.sourceMethod || 'GET');
+      setBody(source.requestOptions?.body || '');
+      setContentType(source.requestOptions?.contentType || 'application/json');
       setJsonFilterEnabled(source.jsonFilter?.enabled ?? false);
       setJsonFilterPath(source.jsonFilter?.path ?? '');
       setRefreshEnabled(source.refreshOptions?.enabled ?? false);
       setRefreshInterval((source.refreshOptions?.interval ?? 300000) / 60000);
+
+      // Convert headers/params to KVRow format
+      setParams(
+        (source.requestOptions?.queryParams || []).map((p: SourceQueryParam) => ({
+          key: p.key,
+          value: p.value,
+          enabled: true,
+        })),
+      );
+      setHeaders(
+        (source.requestOptions?.headers || []).map((h: SourceHeader) => ({
+          key: h.key,
+          value: h.value,
+          enabled: true,
+        })),
+      );
     }
   }, [source]);
 
-  // Debounced auto-save
+  // Debounced save
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const scheduleUpdate = useCallback(
     (updates: Partial<Source>) => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         void updateSource(sourceId, updates);
-      }, 600);
+      }, 800);
     },
     [sourceId, updateSource],
   );
 
-  const handlePathChange = (val: string) => {
+  // Convert KVRows back to source format (only enabled rows with keys)
+  const kvToHeaders = (rows: KVRow[]): SourceHeader[] =>
+    rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
+
+  const kvToParams = (rows: KVRow[]): SourceQueryParam[] =>
+    rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
+
+  // Field handlers
+  const handleUrlChange = (val: string) => {
     setSourcePath(val);
     scheduleUpdate({ sourcePath: val });
-  };
-
-  const handleNameChange = (val: string) => {
-    setSourceName(val);
-    scheduleUpdate({ sourceName: val });
-  };
-
-  const handleTagChange = (val: string) => {
-    setSourceTag(val);
-    scheduleUpdate({ sourceTag: val });
   };
 
   const handleMethodChange = (val: string) => {
@@ -132,28 +390,47 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
     scheduleUpdate({ sourceMethod: val as Source['sourceMethod'] });
   };
 
-  const handleJsonFilterToggle = (val: boolean) => {
-    setJsonFilterEnabled(val);
-    scheduleUpdate({ jsonFilter: { enabled: val, path: jsonFilterPath } });
-  };
-
-  const handleJsonFilterPathChange = (val: string) => {
-    setJsonFilterPath(val);
-    scheduleUpdate({ jsonFilter: { enabled: jsonFilterEnabled, path: val } });
-  };
-
-  const handleRefreshToggle = (val: boolean) => {
-    setRefreshEnabled(val);
+  const handleParamsChange = (rows: KVRow[]) => {
+    setParams(rows);
     scheduleUpdate({
-      refreshOptions: { enabled: val, type: 'custom', interval: refreshInterval * 60000 },
+      requestOptions: { queryParams: kvToParams(rows), headers: kvToHeaders(headers), body, contentType },
     });
   };
 
-  const handleRefreshIntervalChange = (val: number | null) => {
-    const minutes = val ?? 5;
-    setRefreshInterval(minutes);
+  const handleHeadersChange = (rows: KVRow[]) => {
+    setHeaders(rows);
     scheduleUpdate({
-      refreshOptions: { enabled: refreshEnabled, type: 'custom', interval: minutes * 60000 },
+      requestOptions: { headers: kvToHeaders(rows), queryParams: kvToParams(params), body, contentType },
+    });
+  };
+
+  const handleBodyChange = (val: string) => {
+    setBody(val);
+    scheduleUpdate({
+      requestOptions: { body: val, headers: kvToHeaders(headers), queryParams: kvToParams(params), contentType },
+    });
+  };
+
+  const handleContentTypeChange = (val: string) => {
+    setContentType(val);
+    scheduleUpdate({
+      requestOptions: { contentType: val, body, headers: kvToHeaders(headers), queryParams: kvToParams(params) },
+    });
+  };
+
+  const handleSend = () => {
+    // Save current state first, then refresh
+    void updateSource(sourceId, {
+      sourcePath,
+      sourceMethod: sourceMethod as Source['sourceMethod'],
+      requestOptions: {
+        headers: kvToHeaders(headers),
+        queryParams: kvToParams(params),
+        body,
+        contentType,
+      },
+    }).then(() => {
+      void refreshSource(sourceId);
     });
   };
 
@@ -165,192 +442,270 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
     );
   }
 
-  const isHttp = source.sourceType === 'http';
   const methodColor = METHOD_COLORS[sourceMethod] || '#999';
+  const isHttp = source.sourceType === 'http';
+
+  // Params count for tab badge
+  const activeParamsCount = params.filter((p) => p.key && p.enabled).length;
+  const activeHeadersCount = headers.filter((h) => h.key && h.enabled).length;
+
+  const requestTabs = [
+    {
+      key: 'params',
+      label: (
+        <span>
+          Params{' '}
+          {activeParamsCount > 0 && (
+            <span style={{ fontSize: 10, color: token.colorPrimary }}>({activeParamsCount})</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'headers',
+      label: (
+        <span>
+          Headers{' '}
+          {activeHeadersCount > 0 && (
+            <span style={{ fontSize: 10, color: token.colorPrimary }}>({activeHeadersCount})</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'body',
+      label: <span>Body {body ? <span style={{ fontSize: 8, color: token.colorSuccess }}>●</span> : null}</span>,
+    },
+    { key: 'settings', label: 'Settings' },
+  ];
 
   return (
-    <div className="v5-editor-content" style={{ background: token.colorBgContainer, overflow: 'auto' }}>
-      <div className="v5-rule-editor">
-        {/* Header */}
-        <div className="v5-rule-editor-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {isHttp ? (
-              <span style={{ fontWeight: 700, fontSize: 13, color: methodColor }}>{sourceMethod}</span>
-            ) : (
-              <ApiOutlined style={{ fontSize: 18, color: token.colorTextTertiary }} />
-            )}
-            <Title level={4} style={{ margin: 0 }}>
-              {source.sourceName || source.sourcePath || 'Untitled Source'}
-            </Title>
-            <SourceTypeBadge type={source.sourceType} />
-            <StatusIndicator source={source} />
-          </div>
-          <Space>
-            {isHttp && (
-              <Tooltip title="Refresh now">
-                <Button
+    <div
+      className="v5-editor-content"
+      style={{ background: token.colorBgContainer, display: 'flex', flexDirection: 'column' }}
+    >
+      {/* ── URL Bar ──────────────────────────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0,
+          padding: '10px 16px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          flexShrink: 0,
+        }}
+      >
+        <Select
+          value={sourceMethod}
+          onChange={handleMethodChange}
+          options={METHOD_OPTIONS}
+          style={{ width: 100 }}
+          size="middle"
+          variant="borderless"
+          popupMatchSelectWidth={false}
+          labelRender={({ label }) => (
+            <span style={{ fontWeight: 700, fontSize: 13, color: methodColor }}>{label}</span>
+          )}
+        />
+        <Input
+          value={sourcePath}
+          onChange={(e) => handleUrlChange(e.target.value)}
+          placeholder="Enter request URL"
+          variant="borderless"
+          size="middle"
+          style={{
+            flex: 1,
+            fontSize: 13,
+            fontFamily: "'SF Mono', 'Fira Code', monospace",
+          }}
+          onPressEnter={handleSend}
+        />
+        <Button
+          type="primary"
+          icon={<SendOutlined />}
+          onClick={handleSend}
+          loading={source.refreshStatus?.isRefreshing}
+          style={{ borderRadius: 6 }}
+        >
+          Send
+        </Button>
+        <Tooltip title="Delete source">
+          <Button
+            danger
+            type="text"
+            icon={<DeleteOutlined />}
+            onClick={() => void removeSource(sourceId)}
+            style={{ marginLeft: 8 }}
+          />
+        </Tooltip>
+      </div>
+
+      {/* ── Request Tabs ─────────────────────────────────── */}
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        <Tabs
+          size="small"
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          style={{ padding: '0 16px' }}
+          items={requestTabs}
+        />
+
+        <div style={{ padding: '0 16px 16px' }}>
+          {/* Params tab */}
+          {activeTab === 'params' && (
+            <KeyValueTable
+              rows={params}
+              onChange={handleParamsChange}
+              keyPlaceholder="Parameter name"
+              valuePlaceholder="Value"
+            />
+          )}
+
+          {/* Headers tab */}
+          {activeTab === 'headers' && (
+            <KeyValueTable
+              rows={headers}
+              onChange={handleHeadersChange}
+              keyPlaceholder="Header name"
+              valuePlaceholder="Value"
+            />
+          )}
+
+          {/* Body tab */}
+          {activeTab === 'body' && (
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Select
                   size="small"
-                  icon={<ReloadOutlined />}
-                  onClick={() => void refreshSource(sourceId)}
-                  loading={source.refreshStatus?.isRefreshing}
+                  value={contentType}
+                  onChange={handleContentTypeChange}
+                  style={{ width: 200 }}
+                  options={[
+                    { value: 'application/json', label: 'JSON' },
+                    { value: 'application/x-www-form-urlencoded', label: 'Form URL Encoded' },
+                    { value: 'text/plain', label: 'Plain Text' },
+                    { value: 'application/xml', label: 'XML' },
+                  ]}
                 />
-              </Tooltip>
-            )}
-            <Tooltip title="Delete source">
-              <Button danger type="text" icon={<DeleteOutlined />} onClick={() => void removeSource(sourceId)} />
-            </Tooltip>
-          </Space>
-        </div>
-
-        <div className="v5-rule-editor-body">
-          {/* ── Basic Info ────────────────────────────── */}
-          <div className="v5-editor-section">
-            <Text type="secondary" className="v5-editor-section-title">
-              SOURCE
-            </Text>
-
-            <div className="v5-editor-field">
-              <Text className="v5-editor-label">Name</Text>
-              <Input
-                size="small"
-                value={sourceName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="Display name"
-                style={{ maxWidth: 300 }}
-              />
-            </div>
-
-            <div className="v5-editor-field">
-              <Text className="v5-editor-label">
-                {isHttp ? 'URL' : source.sourceType === 'file' ? 'File path' : 'Variable'}
-              </Text>
-              <Input
-                size="small"
-                value={sourcePath}
-                onChange={(e) => handlePathChange(e.target.value)}
-                placeholder={
-                  isHttp
-                    ? 'https://api.openheaders.io/token'
-                    : source.sourceType === 'file'
-                      ? '/path/to/file'
-                      : 'ENV_VAR_NAME'
-                }
-                style={{ maxWidth: 480 }}
-              />
-            </div>
-
-            <div className="v5-editor-field">
-              <Text className="v5-editor-label">Tag</Text>
-              <Input
-                size="small"
-                value={sourceTag}
-                onChange={(e) => handleTagChange(e.target.value)}
-                placeholder="Collection tag"
-                style={{ maxWidth: 200 }}
-              />
-            </div>
-
-            {isHttp && (
-              <div className="v5-editor-field">
-                <Text className="v5-editor-label">Method</Text>
-                <Radio.Group value={sourceMethod} onChange={(e) => handleMethodChange(e.target.value)} size="small">
-                  {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
-                    <Radio.Button key={m} value={m} style={{ fontSize: 11, fontWeight: 600 }}>
-                      {m}
-                    </Radio.Button>
-                  ))}
-                </Radio.Group>
               </div>
-            )}
-          </div>
-
-          {/* ── Current Value ─────────────────────────── */}
-          <div className="v5-editor-section">
-            <Text type="secondary" className="v5-editor-section-title">
-              CURRENT VALUE
-            </Text>
-            <div
-              style={{
-                background: token.colorBgElevated,
-                border: `1px solid ${token.colorBorderSecondary}`,
-                borderRadius: 4,
-                padding: '8px 12px',
-                fontFamily: "'SF Mono', 'Fira Code', monospace",
-                fontSize: 11,
-                wordBreak: 'break-all',
-                maxHeight: 120,
-                overflow: 'auto',
-                color: source.sourceContent ? token.colorText : token.colorTextTertiary,
-              }}
-            >
-              {source.sourceContent || '(no value yet — refresh to fetch)'}
+              <TextArea
+                value={body}
+                onChange={(e) => handleBodyChange(e.target.value)}
+                placeholder={contentType === 'application/json' ? '{\n  "key": "value"\n}' : 'key1=value1&key2=value2'}
+                autoSize={{ minRows: 6, maxRows: 16 }}
+                style={{
+                  fontFamily: "'SF Mono', 'Fira Code', monospace",
+                  fontSize: 12,
+                }}
+              />
             </div>
-          </div>
+          )}
 
-          {/* ── JSON Filter (HTTP only) ───────────────── */}
-          {isHttp && (
-            <div className="v5-editor-section">
-              <Text type="secondary" className="v5-editor-section-title">
-                <FilterOutlined /> JSON FILTER
-              </Text>
-              <div className="v5-editor-field">
-                <Text className="v5-editor-label">Enabled</Text>
-                <Switch size="small" checked={jsonFilterEnabled} onChange={handleJsonFilterToggle} />
+          {/* Settings tab */}
+          {activeTab === 'settings' && (
+            <div style={{ maxWidth: 500 }}>
+              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                <Text className="v5-editor-label" style={{ width: 100 }}>
+                  Name
+                </Text>
+                <Input
+                  size="small"
+                  value={sourceName}
+                  onChange={(e) => {
+                    setSourceName(e.target.value);
+                    scheduleUpdate({ sourceName: e.target.value });
+                  }}
+                  placeholder="Display name"
+                  style={{ maxWidth: 280 }}
+                />
               </div>
-              {jsonFilterEnabled && (
-                <div className="v5-editor-field">
-                  <Text className="v5-editor-label">Path</Text>
-                  <Input
+
+              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                <Text className="v5-editor-label" style={{ width: 100 }}>
+                  Tag
+                </Text>
+                <Input
+                  size="small"
+                  value={sourceTag}
+                  onChange={(e) => {
+                    setSourceTag(e.target.value);
+                    scheduleUpdate({ sourceTag: e.target.value });
+                  }}
+                  placeholder="Collection tag"
+                  style={{ maxWidth: 200 }}
+                />
+              </div>
+
+              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                <Text className="v5-editor-label" style={{ width: 100 }}>
+                  JSON filter
+                </Text>
+                <Space size={8}>
+                  <Switch
                     size="small"
-                    value={jsonFilterPath}
-                    onChange={(e) => handleJsonFilterPathChange(e.target.value)}
-                    placeholder="e.g. data.access_token"
-                    style={{ maxWidth: 300 }}
+                    checked={jsonFilterEnabled}
+                    onChange={(v) => {
+                      setJsonFilterEnabled(v);
+                      scheduleUpdate({ jsonFilter: { enabled: v, path: jsonFilterPath } });
+                    }}
                   />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Auto-Refresh (HTTP only) ──────────────── */}
-          {isHttp && (
-            <div className="v5-editor-section">
-              <Text type="secondary" className="v5-editor-section-title">
-                <ReloadOutlined /> AUTO-REFRESH
-              </Text>
-              <div className="v5-editor-field">
-                <Text className="v5-editor-label">Enabled</Text>
-                <Switch size="small" checked={refreshEnabled} onChange={handleRefreshToggle} />
-              </div>
-              {refreshEnabled && (
-                <div className="v5-editor-field">
-                  <Text className="v5-editor-label">Interval</Text>
-                  <Space size={4}>
-                    <InputNumber
+                  {jsonFilterEnabled && (
+                    <Input
                       size="small"
-                      min={1}
-                      max={10080}
-                      value={refreshInterval}
-                      onChange={handleRefreshIntervalChange}
-                      style={{ width: 80 }}
+                      value={jsonFilterPath}
+                      onChange={(e) => {
+                        setJsonFilterPath(e.target.value);
+                        scheduleUpdate({ jsonFilter: { enabled: true, path: e.target.value } });
+                      }}
+                      placeholder="e.g. data.access_token"
+                      style={{ width: 200 }}
                     />
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      minutes
-                    </Text>
-                  </Space>
-                </div>
-              )}
-              {source.refreshStatus?.lastRefresh && (
-                <div className="v5-editor-field">
-                  <Text className="v5-editor-label">Last refresh</Text>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    {new Date(source.refreshStatus.lastRefresh).toLocaleString()}
-                  </Text>
-                </div>
-              )}
+                  )}
+                </Space>
+              </div>
+
+              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                <Text className="v5-editor-label" style={{ width: 100 }}>
+                  Auto-refresh
+                </Text>
+                <Space size={8}>
+                  <Switch
+                    size="small"
+                    checked={refreshEnabled}
+                    onChange={(v) => {
+                      setRefreshEnabled(v);
+                      scheduleUpdate({
+                        refreshOptions: { enabled: v, type: 'custom', interval: refreshInterval * 60000 },
+                      });
+                    }}
+                  />
+                  {refreshEnabled && (
+                    <>
+                      <InputNumber
+                        size="small"
+                        min={1}
+                        max={10080}
+                        value={refreshInterval}
+                        onChange={(v) => {
+                          const mins = v ?? 5;
+                          setRefreshInterval(mins);
+                          scheduleUpdate({ refreshOptions: { enabled: true, type: 'custom', interval: mins * 60000 } });
+                        }}
+                        style={{ width: 70 }}
+                      />
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        min
+                      </Text>
+                    </>
+                  )}
+                </Space>
+              </div>
             </div>
           )}
         </div>
+
+        {/* ── Response ────────────────────────────────────── */}
+        {isHttp && <ResponsePane source={source} />}
       </div>
     </div>
   );
