@@ -6,6 +6,8 @@
 
 import { ApiOutlined, PlusOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Space, Typography, theme } from 'antd';
+import type React from 'react';
+import { useEffect } from 'react';
 import appIcon from '@/renderer/images/icon128.png';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
@@ -19,6 +21,8 @@ interface EditorAreaProps {
   activeTab?: Tab | null;
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  saveRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 function WelcomeScreen({ onNewRequest, onNewRule }: { onNewRequest?: () => void; onNewRule?: () => void }) {
@@ -48,13 +52,19 @@ function WelcomeScreen({ onNewRequest, onNewRule }: { onNewRequest?: () => void;
   );
 }
 
-export function EditorArea({ activeTab, onNewRequest, onNewRule }: EditorAreaProps) {
+export function EditorArea({ activeTab, onNewRequest, onNewRule, onDirtyChange, saveRef }: EditorAreaProps) {
+  // Clear dirty state when switching tabs
+  useEffect(() => {
+    onDirtyChange?.(false);
+    if (saveRef) saveRef.current = null;
+  }, [onDirtyChange, saveRef]);
+
   if (activeTab?.type === 'settings') {
     return <SettingsEditor />;
   }
 
   if (activeTab?.type === 'rule' && activeTab.entityId) {
-    return <RuleEditor ruleId={activeTab.entityId} />;
+    return <RuleEditor ruleId={activeTab.entityId} onDirtyChange={onDirtyChange} saveRef={saveRef} />;
   }
 
   if (activeTab?.type === 'environment' && activeTab.entityId) {
@@ -62,7 +72,7 @@ export function EditorArea({ activeTab, onNewRequest, onNewRule }: EditorAreaPro
   }
 
   if ((activeTab?.type === 'collection' || activeTab?.type === 'request') && activeTab.entityId) {
-    return <SourceEditor sourceId={activeTab.entityId} />;
+    return <SourceEditor sourceId={activeTab.entityId} onDirtyChange={onDirtyChange} saveRef={saveRef} />;
   }
 
   return <WelcomeScreen onNewRequest={onNewRequest} onNewRule={onNewRule} />;

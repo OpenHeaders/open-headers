@@ -2,12 +2,13 @@
  * RuleEditor — inline editor for a HeaderRule, rendered in an editor tab.
  *
  * Mirrors the v4 UnifiedHeaderModal fields but in a full-page layout.
- * Auto-saves on change (debounced).
+ * Explicit save via Save button or ⌘S.
  */
 
 import { DeleteOutlined, GlobalOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import type { HeaderRule, Source } from '@openheaders/core';
+import type { Source } from '@openheaders/core';
 import { Button, Input, Radio, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHeaderRules, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 
@@ -15,16 +16,18 @@ const { Text, Title } = Typography;
 
 interface RuleEditorProps {
   ruleId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  saveRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function RuleEditor({ ruleId }: RuleEditorProps) {
+export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) {
   const { token } = theme.useToken();
   const { rules, updateRule, removeRule, toggleRule } = useHeaderRules();
   const { sources } = useSources();
 
   const rule = rules.find((r) => r.id === ruleId);
 
-  // Local form state — initialized from rule, synced back via debounced save
+  // Local form state
   const [headerName, setHeaderName] = useState('');
   const [headerValue, setHeaderValue] = useState('');
   const [tag, setTag] = useState('');
@@ -36,6 +39,7 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
   const [domains, setDomains] = useState<string[]>([]);
   const [newDomain, setNewDomain] = useState('');
   const [isEnabled, setIsEnabled] = useState(true);
+  const [isDirty, setIsDirty] = useState(false);
 
   // Track whether we've initialized from this rule
   const initializedRuleId = useRef<string | null>(null);
@@ -54,70 +58,55 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
       setSuffix(rule.suffix || '');
       setDomains(rule.domains || []);
       setIsEnabled(rule.isEnabled);
+      setIsDirty(false);
     }
   }, [rule]);
 
-  // Debounced auto-save
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const scheduleUpdate = useCallback(
-    (updates: Partial<HeaderRule>) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        void updateRule(ruleId, { ...updates, updatedAt: new Date().toISOString() });
-      }, 600);
-    },
-    [ruleId, updateRule],
-  );
-
-  // Field change handlers that update local state + schedule save
-  const handleHeaderNameChange = (val: string) => {
-    setHeaderName(val);
-    scheduleUpdate({ headerName: val });
-  };
-
-  const handleHeaderValueChange = (val: string) => {
-    setHeaderValue(val);
-    scheduleUpdate({ headerValue: val });
-  };
-
-  const handleTagChange = (val: string) => {
-    setTag(val);
-    scheduleUpdate({ tag: val });
-  };
-
-  const handleIsResponseChange = (val: boolean) => {
-    setIsResponse(val);
-    scheduleUpdate({ isResponse: val });
-  };
-
-  const handleIsDynamicChange = (val: boolean) => {
-    setIsDynamic(val);
-    if (!val) {
-      setSourceId(null);
-      setPrefix('');
-      setSuffix('');
-      scheduleUpdate({ isDynamic: val, sourceId: null, prefix: '', suffix: '' });
-    } else {
-      scheduleUpdate({ isDynamic: val });
+  const markDirty = useCallback(() => {
+    if (!isDirty) {
+      setIsDirty(true);
+      onDirtyChange?.(true);
     }
-  };
+  }, [isDirty, onDirtyChange]);
 
-  const handleSourceIdChange = (val: string | number | null) => {
-    setSourceId(val);
-    scheduleUpdate({ sourceId: val });
-  };
+  // Explicit save
+  const handleSave = useCallback(() => {
+    void updateRule(ruleId, {
+      headerName,
+      headerValue,
+      tag,
+      isResponse,
+      isDynamic,
+      sourceId,
+      prefix,
+      suffix,
+      domains,
+      updatedAt: new Date().toISOString(),
+    }).then(() => {
+      setIsDirty(false);
+      onDirtyChange?.(false);
+    });
+  }, [
+    ruleId,
+    headerName,
+    headerValue,
+    tag,
+    isResponse,
+    isDynamic,
+    sourceId,
+    prefix,
+    suffix,
+    domains,
+    updateRule,
+    onDirtyChange,
+  ]);
 
-  const handlePrefixChange = (val: string) => {
-    setPrefix(val);
-    scheduleUpdate({ prefix: val });
-  };
+  // Expose save to parent
+  useEffect(() => {
+    if (saveRef) saveRef.current = handleSave;
+  }, [saveRef, handleSave]);
 
-  const handleSuffixChange = (val: string) => {
-    setSuffix(val);
-    scheduleUpdate({ suffix: val });
-  };
-
+  // Toggle enabled is immediate (not part of dirty state)
   const handleToggleEnabled = (val: boolean) => {
     setIsEnabled(val);
     void toggleRule(ruleId, val);
@@ -126,19 +115,16 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
   const handleAddDomain = () => {
     const trimmed = newDomain.trim();
     if (!trimmed || domains.includes(trimmed)) return;
-    const updated = [...domains, trimmed];
-    setDomains(updated);
+    setDomains([...domains, trimmed]);
     setNewDomain('');
-    scheduleUpdate({ domains: updated });
+    markDirty();
   };
 
   const handleRemoveDomain = (domain: string) => {
-    const updated = domains.filter((d) => d !== domain);
-    setDomains(updated);
-    scheduleUpdate({ domains: updated });
+    setDomains(domains.filter((d) => d !== domain));
+    markDirty();
   };
 
-  // Source options for the dynamic value dropdown
   const sourceOptions = useMemo(
     () =>
       sources.map((s: Source) => ({
@@ -194,7 +180,10 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
               <Text className="v5-editor-label">Type</Text>
               <Radio.Group
                 value={isResponse ? 'response' : 'request'}
-                onChange={(e) => handleIsResponseChange(e.target.value === 'response')}
+                onChange={(e) => {
+                  setIsResponse(e.target.value === 'response');
+                  markDirty();
+                }}
                 size="small"
               >
                 <Radio.Button value="request">Request</Radio.Button>
@@ -207,7 +196,10 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
               <Input
                 size="small"
                 value={headerName}
-                onChange={(e) => handleHeaderNameChange(e.target.value)}
+                onChange={(e) => {
+                  setHeaderName(e.target.value);
+                  markDirty();
+                }}
                 placeholder="e.g. Authorization"
                 style={{ maxWidth: 360 }}
               />
@@ -218,7 +210,10 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
               <Input
                 size="small"
                 value={tag}
-                onChange={(e) => handleTagChange(e.target.value)}
+                onChange={(e) => {
+                  setTag(e.target.value);
+                  markDirty();
+                }}
                 placeholder="Optional label"
                 maxLength={20}
                 style={{ maxWidth: 200 }}
@@ -236,7 +231,16 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
               <Text className="v5-editor-label">Source</Text>
               <Radio.Group
                 value={isDynamic ? 'dynamic' : 'static'}
-                onChange={(e) => handleIsDynamicChange(e.target.value === 'dynamic')}
+                onChange={(e) => {
+                  const dynamic = e.target.value === 'dynamic';
+                  setIsDynamic(dynamic);
+                  if (!dynamic) {
+                    setSourceId(null);
+                    setPrefix('');
+                    setSuffix('');
+                  }
+                  markDirty();
+                }}
                 size="small"
               >
                 <Radio.Button value="static">Static</Radio.Button>
@@ -250,7 +254,10 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
                 <Input.TextArea
                   size="small"
                   value={headerValue}
-                  onChange={(e) => handleHeaderValueChange(e.target.value)}
+                  onChange={(e) => {
+                    setHeaderValue(e.target.value);
+                    markDirty();
+                  }}
                   placeholder="Header value"
                   autoSize={{ minRows: 1, maxRows: 4 }}
                   style={{ maxWidth: 480 }}
@@ -263,7 +270,10 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
                   <Select
                     size="small"
                     value={sourceId as string | undefined}
-                    onChange={handleSourceIdChange}
+                    onChange={(val) => {
+                      setSourceId(val);
+                      markDirty();
+                    }}
                     options={sourceOptions}
                     placeholder="Select a source"
                     style={{ width: 300 }}
@@ -275,7 +285,10 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
                   <Input
                     size="small"
                     value={prefix}
-                    onChange={(e) => handlePrefixChange(e.target.value)}
+                    onChange={(e) => {
+                      setPrefix(e.target.value);
+                      markDirty();
+                    }}
                     placeholder="e.g. Bearer "
                     style={{ maxWidth: 240 }}
                   />
@@ -285,7 +298,10 @@ export function RuleEditor({ ruleId }: RuleEditorProps) {
                   <Input
                     size="small"
                     value={suffix}
-                    onChange={(e) => handleSuffixChange(e.target.value)}
+                    onChange={(e) => {
+                      setSuffix(e.target.value);
+                      markDirty();
+                    }}
                     placeholder="Optional suffix"
                     style={{ maxWidth: 240 }}
                   />

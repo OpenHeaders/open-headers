@@ -54,6 +54,8 @@ export function V5Shell() {
     inspector: false,
   });
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const editorSaveRef = useRef<(() => void) | null>(null);
 
   // Tab management
   const { tabs, activeTabId, openTab, closeTab, switchTab, togglePin, canGoBack, canGoForward, goBack, goForward } =
@@ -167,6 +169,7 @@ export function V5Shell() {
       onOpenSettings: openSettings,
       onNewRequest: () => void createNewSource(),
       onNewRule: () => void createNewRule(),
+      onSave: () => editorSaveRef.current?.(),
     }),
     [togglePanel, openSettings, createNewSource, createNewRule],
   );
@@ -321,11 +324,17 @@ export function V5Shell() {
                       onClose={closeTab}
                       onTogglePin={togglePin}
                     />
-                    <BreadcrumbBar segments={breadcrumbs} />
+                    <BreadcrumbBar
+                      segments={breadcrumbs}
+                      isDirty={editorDirty}
+                      onSave={() => editorSaveRef.current?.()}
+                    />
                     <EditorArea
                       activeTab={activeTab}
                       onNewRequest={() => void createNewSource()}
                       onNewRule={() => void createNewRule()}
+                      onDirtyChange={setEditorDirty}
+                      saveRef={editorSaveRef}
                     />
                   </div>
                 </Allotment.Pane>

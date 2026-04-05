@@ -23,6 +23,7 @@ export interface ShortcutHandlers {
   onOpenSettings?: () => void;
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  onSave?: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
@@ -67,6 +68,12 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
           if (!e.shiftKey && !e.altKey) {
             e.preventDefault();
             handlers.onOpenSettings?.();
+          }
+          break;
+        case 's':
+          if (!e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onSave?.();
           }
           break;
         case 'n':

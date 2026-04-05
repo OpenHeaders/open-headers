@@ -33,6 +33,8 @@ const { TextArea } = Input;
 
 interface SourceEditorProps {
   sourceId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  saveRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 const METHOD_OPTIONS = [
@@ -305,7 +307,14 @@ function ResponsePane({ source }: { source: Source }) {
 
 // ── Main component ────────────────────────────────────────────────
 
-export function SourceEditor({ sourceId }: SourceEditorProps) {
+// Convert KVRows back to source format (only enabled rows with keys)
+const kvToHeaders = (rows: KVRow[]): SourceHeader[] =>
+  rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
+
+const kvToParams = (rows: KVRow[]): SourceQueryParam[] =>
+  rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
+
+export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorProps) {
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource, refreshSource } = useSources();
   const { environments, activeEnvironment } = useEnvironments();
@@ -366,66 +375,86 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
     }
   }, [source]);
 
-  // Debounced save
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleUpdate = useCallback(
-    (updates: Partial<Source>) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        void updateSource(sourceId, updates);
-      }, 800);
-    },
-    [sourceId, updateSource],
-  );
+  const [isDirty, setIsDirty] = useState(false);
 
-  // Convert KVRows back to source format (only enabled rows with keys)
-  const kvToHeaders = (rows: KVRow[]): SourceHeader[] =>
-    rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
+  // Mark dirty on any field change
+  const markDirty = useCallback(() => {
+    if (!isDirty) {
+      setIsDirty(true);
+      onDirtyChange?.(true);
+    }
+  }, [isDirty, onDirtyChange]);
 
-  const kvToParams = (rows: KVRow[]): SourceQueryParam[] =>
-    rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
+  // Explicit save — persists all local state to main process
+  const handleSave = useCallback(() => {
+    void updateSource(sourceId, {
+      sourcePath,
+      sourceName,
+      sourceTag,
+      sourceMethod: sourceMethod as Source['sourceMethod'],
+      requestOptions: {
+        headers: kvToHeaders(headers),
+        queryParams: kvToParams(params),
+        body,
+        contentType,
+      },
+      jsonFilter: { enabled: jsonFilterEnabled, path: jsonFilterPath },
+      refreshOptions: { enabled: refreshEnabled, type: 'custom', interval: refreshInterval },
+    }).then(() => {
+      setIsDirty(false);
+      onDirtyChange?.(false);
+    });
+  }, [
+    sourceId,
+    sourcePath,
+    sourceName,
+    sourceTag,
+    sourceMethod,
+    headers,
+    params,
+    body,
+    contentType,
+    jsonFilterEnabled,
+    jsonFilterPath,
+    refreshEnabled,
+    refreshInterval,
+    updateSource,
+    onDirtyChange,
+  ]);
 
-  // Field handlers
+  // Expose save function to parent via ref
+  useEffect(() => {
+    if (saveRef) saveRef.current = handleSave;
+  }, [saveRef, handleSave]);
+
+  // Field handlers — update local state only, mark dirty
   const handleUrlChange = (val: string) => {
     setSourcePath(val);
-    scheduleUpdate({ sourcePath: val });
+    markDirty();
   };
-
   const handleMethodChange = (val: string) => {
     setSourceMethod(val);
-    scheduleUpdate({ sourceMethod: val as Source['sourceMethod'] });
+    markDirty();
   };
-
   const handleParamsChange = (rows: KVRow[]) => {
     setParams(rows);
-    scheduleUpdate({
-      requestOptions: { queryParams: kvToParams(rows), headers: kvToHeaders(headers), body, contentType },
-    });
+    markDirty();
   };
-
   const handleHeadersChange = (rows: KVRow[]) => {
     setHeaders(rows);
-    scheduleUpdate({
-      requestOptions: { headers: kvToHeaders(rows), queryParams: kvToParams(params), body, contentType },
-    });
+    markDirty();
   };
-
   const handleBodyChange = (val: string) => {
     setBody(val);
-    scheduleUpdate({
-      requestOptions: { body: val, headers: kvToHeaders(headers), queryParams: kvToParams(params), contentType },
-    });
+    markDirty();
   };
-
   const handleContentTypeChange = (val: string) => {
     setContentType(val);
-    scheduleUpdate({
-      requestOptions: { contentType: val, body, headers: kvToHeaders(headers), queryParams: kvToParams(params) },
-    });
+    markDirty();
   };
 
   const handleSend = () => {
-    // Save current state first, then refresh
+    // Save then refresh
     void updateSource(sourceId, {
       sourcePath,
       sourceMethod: sourceMethod as Source['sourceMethod'],
@@ -436,6 +465,8 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
         contentType,
       },
     }).then(() => {
+      setIsDirty(false);
+      onDirtyChange?.(false);
       void refreshSource(sourceId);
     });
   };
@@ -622,7 +653,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                   value={sourceName}
                   onChange={(e) => {
                     setSourceName(e.target.value);
-                    scheduleUpdate({ sourceName: e.target.value });
+                    markDirty();
                   }}
                   placeholder="Display name"
                   style={{ maxWidth: 280 }}
@@ -638,7 +669,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                   value={sourceTag}
                   onChange={(e) => {
                     setSourceTag(e.target.value);
-                    scheduleUpdate({ sourceTag: e.target.value });
+                    markDirty();
                   }}
                   placeholder="Collection tag"
                   style={{ maxWidth: 200 }}
@@ -655,7 +686,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                     checked={jsonFilterEnabled}
                     onChange={(v) => {
                       setJsonFilterEnabled(v);
-                      scheduleUpdate({ jsonFilter: { enabled: v, path: jsonFilterPath } });
+                      markDirty();
                     }}
                   />
                   {jsonFilterEnabled && (
@@ -664,7 +695,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                       value={jsonFilterPath}
                       onChange={(e) => {
                         setJsonFilterPath(e.target.value);
-                        scheduleUpdate({ jsonFilter: { enabled: true, path: e.target.value } });
+                        markDirty();
                       }}
                       placeholder="e.g. data.access_token"
                       style={{ width: 200 }}
@@ -683,9 +714,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                     checked={refreshEnabled}
                     onChange={(v) => {
                       setRefreshEnabled(v);
-                      scheduleUpdate({
-                        refreshOptions: { enabled: v, type: 'custom', interval: refreshInterval },
-                      });
+                      markDirty();
                     }}
                   />
                   {refreshEnabled && (
@@ -698,7 +727,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                         onChange={(v) => {
                           const mins = v ?? 5;
                           setRefreshInterval(mins);
-                          scheduleUpdate({ refreshOptions: { enabled: true, type: 'custom', interval: mins } });
+                          markDirty();
                         }}
                         style={{ width: 70 }}
                       />
