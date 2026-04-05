@@ -106,31 +106,43 @@
 
 // ── Activity Bar ───────────────────────────────────────────────────
 
-.v5-activity-bar {
-  width: 38px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 6px;
-  gap: 2px;
-  flex-shrink: 0;
-}
+// ── Sidebar activity strip (horizontal icons at top) ──────────────
 
-.v5-activity-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 5px;
+.v5-sidebar-activity {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  gap: 0;
+  flex-shrink: 0;
+  padding: 6px 0 4px;
+}
+
+.v5-sidebar-activity-icon {
+  width: 36px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
   cursor: pointer;
+  border-bottom: 2px solid transparent;
   transition: color 0.15s;
-  border: 1px solid transparent;
 
   &:hover {
     opacity: 0.85;
   }
+
+  &.active {
+    font-weight: 500;
+  }
+}
+
+.v5-sidebar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  flex-shrink: 0;
 }
 
 // ── Sidebar ────────────────────────────────────────────────────────
@@ -144,9 +156,11 @@
 
 .v5-sidebar-content {
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   font-size: 12px;
-  padding-bottom: 4px;
+  min-height: 0;
 }
 
 .v5-sidebar-section {
@@ -206,12 +220,7 @@
   line-height: 1.5;
 }
 
-.v5-sidebar-footer {
-  padding: 6px 10px;
-  display: flex;
-  gap: 12px;
-  flex-shrink: 0;
-}
+
 
 // ── Editor Area ────────────────────────────────────────────────────
 
@@ -688,4 +697,18 @@
   width: 90px;
   flex-shrink: 0;
   text-align: right;
+}
+
+// ── Inspector variables table ─────────────────────────────────────
+
+// Force table-layout: fixed so columns respect widths and truncate
+.v5-inspector-vars .ant-table {
+  table-layout: fixed;
+}
+
+.v5-inspector-vars .ant-table-cell {
+  padding: 6px 8px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

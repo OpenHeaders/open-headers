@@ -23,9 +23,11 @@ import {
   SendOutlined,
 } from '@ant-design/icons';
 import type { Source, SourceHeader, SourceQueryParam } from '@openheaders/core';
+import { Allotment } from 'allotment';
 import { Button, Checkbox, Input, InputNumber, Select, Space, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { extractSourceVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 import { TemplateInput } from './TemplateInput';
 
 const { Text } = Typography;
@@ -35,6 +37,7 @@ interface SourceEditorProps {
   sourceId: string;
   onDirtyChange?: (dirty: boolean) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
+  responseSideBySide?: boolean;
 }
 
 const METHOD_OPTIONS = [
@@ -363,12 +366,13 @@ const kvToHeaders = (rows: KVRow[]): SourceHeader[] =>
 const kvToParams = (rows: KVRow[]): SourceQueryParam[] =>
   rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
 
-export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorProps) {
+export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideBySide }: SourceEditorProps) {
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource, refreshSource } = useSources();
   const { environments, activeEnvironment } = useEnvironments();
   const source = sources.find((s) => s.sourceId === sourceId);
   const activeEnvVars = environments[activeEnvironment] || {};
+  const { setUsedVariables, clearVariables } = useEditorVariables();
 
   // Local form state
   const [sourcePath, setSourcePath] = useState('');
@@ -480,6 +484,18 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
   }, [source]);
 
   const [isDirty, setIsDirty] = useState(false);
+
+  // Publish used variables to context for the Inspector panel
+  useEffect(() => {
+    const vars = extractSourceVariables({
+      url: sourcePath,
+      params: params.filter((r) => r.key).map((r) => ({ key: r.key, value: r.value })),
+      headers: headers.filter((r) => r.key).map((r) => ({ key: r.key, value: r.value })),
+      body,
+    });
+    setUsedVariables(vars);
+    return () => clearVariables();
+  }, [sourcePath, params, headers, body, setUsedVariables, clearVariables]);
 
   // Smart dirty detection — compare current state against snapshot
   const currentFingerprint = buildFingerprint();
@@ -680,150 +696,163 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
         </Tooltip>
       </div>
 
-      {/* ── Request Tabs ─────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-        <Tabs
-          size="small"
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          style={{ padding: '0 16px' }}
-          items={requestTabs}
-        />
+      {/* ── Request + Response split ────────────────────── */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <Allotment vertical={!responseSideBySide} proportionalLayout={false}>
+          {/* Request pane */}
+          <Allotment.Pane minSize={120}>
+            <div style={{ height: '100%', overflow: 'auto' }}>
+              <Tabs
+                size="small"
+                activeKey={activeTab}
+                onChange={setActiveTab}
+                style={{ padding: '0 16px' }}
+                items={requestTabs}
+              />
 
-        <div style={{ padding: '0 16px 16px' }}>
-          {/* Params tab */}
-          {activeTab === 'params' && (
-            <KeyValueTable
-              rows={params}
-              onChange={handleParamsChange}
-              keyPlaceholder="Parameter name"
-              valuePlaceholder="Value"
-              envVars={activeEnvVars}
-              activeEnvironment={activeEnvironment}
-            />
-          )}
-
-          {/* Headers tab */}
-          {activeTab === 'headers' && (
-            <KeyValueTable
-              rows={headers}
-              onChange={handleHeadersChange}
-              keyPlaceholder="Header name"
-              valuePlaceholder="Value"
-              envVars={activeEnvVars}
-              activeEnvironment={activeEnvironment}
-            />
-          )}
-
-          {/* Body tab */}
-          {activeTab === 'body' && (
-            <BodyTab
-              body={body}
-              contentType={contentType}
-              onBodyChange={handleBodyChange}
-              onContentTypeChange={handleContentTypeChange}
-              envVars={activeEnvVars}
-              activeEnvironment={activeEnvironment}
-            />
-          )}
-
-          {/* Settings tab */}
-          {activeTab === 'settings' && (
-            <div style={{ maxWidth: 500 }}>
-              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                <Text className="v5-editor-label" style={{ width: 100 }}>
-                  Name
-                </Text>
-                <Input
-                  size="small"
-                  value={sourceName}
-                  onChange={(e) => {
-                    setSourceName(e.target.value);
-                  }}
-                  placeholder="Display name"
-                  style={{ maxWidth: 280 }}
-                />
-              </div>
-
-              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                <Text className="v5-editor-label" style={{ width: 100 }}>
-                  Tag
-                </Text>
-                <Input
-                  size="small"
-                  value={sourceTag}
-                  onChange={(e) => {
-                    setSourceTag(e.target.value);
-                  }}
-                  placeholder="Collection tag"
-                  style={{ maxWidth: 200 }}
-                />
-              </div>
-
-              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                <Text className="v5-editor-label" style={{ width: 100 }}>
-                  JSON filter
-                </Text>
-                <Space size={8}>
-                  <Switch
-                    size="small"
-                    checked={jsonFilterEnabled}
-                    onChange={(v) => {
-                      setJsonFilterEnabled(v);
-                    }}
+              <div style={{ padding: '0 16px 16px' }}>
+                {/* Params tab */}
+                {activeTab === 'params' && (
+                  <KeyValueTable
+                    rows={params}
+                    onChange={handleParamsChange}
+                    keyPlaceholder="Parameter name"
+                    valuePlaceholder="Value"
+                    envVars={activeEnvVars}
+                    activeEnvironment={activeEnvironment}
                   />
-                  {jsonFilterEnabled && (
-                    <Input
-                      size="small"
-                      value={jsonFilterPath}
-                      onChange={(e) => {
-                        setJsonFilterPath(e.target.value);
-                      }}
-                      placeholder="e.g. data.access_token"
-                      style={{ width: 200 }}
-                    />
-                  )}
-                </Space>
-              </div>
+                )}
 
-              <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                <Text className="v5-editor-label" style={{ width: 100 }}>
-                  Auto-refresh
-                </Text>
-                <Space size={8}>
-                  <Switch
-                    size="small"
-                    checked={refreshEnabled}
-                    onChange={(v) => {
-                      setRefreshEnabled(v);
-                    }}
+                {/* Headers tab */}
+                {activeTab === 'headers' && (
+                  <KeyValueTable
+                    rows={headers}
+                    onChange={handleHeadersChange}
+                    keyPlaceholder="Header name"
+                    valuePlaceholder="Value"
+                    envVars={activeEnvVars}
+                    activeEnvironment={activeEnvironment}
                   />
-                  {refreshEnabled && (
-                    <>
-                      <InputNumber
-                        size="small"
-                        min={1}
-                        max={10080}
-                        value={refreshInterval}
-                        onChange={(v) => {
-                          const mins = v ?? 5;
-                          setRefreshInterval(mins);
-                        }}
-                        style={{ width: 70 }}
-                      />
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        min
+                )}
+
+                {/* Body tab */}
+                {activeTab === 'body' && (
+                  <BodyTab
+                    body={body}
+                    contentType={contentType}
+                    onBodyChange={handleBodyChange}
+                    onContentTypeChange={handleContentTypeChange}
+                    envVars={activeEnvVars}
+                    activeEnvironment={activeEnvironment}
+                  />
+                )}
+
+                {/* Settings tab */}
+                {activeTab === 'settings' && (
+                  <div style={{ maxWidth: 500 }}>
+                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                      <Text className="v5-editor-label" style={{ width: 100 }}>
+                        Name
                       </Text>
-                    </>
-                  )}
-                </Space>
+                      <Input
+                        size="small"
+                        value={sourceName}
+                        onChange={(e) => {
+                          setSourceName(e.target.value);
+                        }}
+                        placeholder="Display name"
+                        style={{ maxWidth: 280 }}
+                      />
+                    </div>
+
+                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                      <Text className="v5-editor-label" style={{ width: 100 }}>
+                        Tag
+                      </Text>
+                      <Input
+                        size="small"
+                        value={sourceTag}
+                        onChange={(e) => {
+                          setSourceTag(e.target.value);
+                        }}
+                        placeholder="Collection tag"
+                        style={{ maxWidth: 200 }}
+                      />
+                    </div>
+
+                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                      <Text className="v5-editor-label" style={{ width: 100 }}>
+                        JSON filter
+                      </Text>
+                      <Space size={8}>
+                        <Switch
+                          size="small"
+                          checked={jsonFilterEnabled}
+                          onChange={(v) => {
+                            setJsonFilterEnabled(v);
+                          }}
+                        />
+                        {jsonFilterEnabled && (
+                          <Input
+                            size="small"
+                            value={jsonFilterPath}
+                            onChange={(e) => {
+                              setJsonFilterPath(e.target.value);
+                            }}
+                            placeholder="e.g. data.access_token"
+                            style={{ width: 200 }}
+                          />
+                        )}
+                      </Space>
+                    </div>
+
+                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                      <Text className="v5-editor-label" style={{ width: 100 }}>
+                        Auto-refresh
+                      </Text>
+                      <Space size={8}>
+                        <Switch
+                          size="small"
+                          checked={refreshEnabled}
+                          onChange={(v) => {
+                            setRefreshEnabled(v);
+                          }}
+                        />
+                        {refreshEnabled && (
+                          <>
+                            <InputNumber
+                              size="small"
+                              min={1}
+                              max={10080}
+                              value={refreshInterval}
+                              onChange={(v) => {
+                                const mins = v ?? 5;
+                                setRefreshInterval(mins);
+                              }}
+                              style={{ width: 70 }}
+                            />
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              min
+                            </Text>
+                          </>
+                        )}
+                      </Space>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </div>
+          </Allotment.Pane>
 
-        {/* ── Response ────────────────────────────────────── */}
-        {isHttp && <ResponsePane source={source} />}
+          {/* Response pane */}
+          {isHttp && (
+            <Allotment.Pane preferredSize={250} minSize={60} maxSize={600}>
+              <div style={{ height: '100%', overflow: 'auto' }}>
+                <ResponsePane source={source} />
+              </div>
+            </Allotment.Pane>
+          )}
+        </Allotment>
       </div>
     </div>
   );

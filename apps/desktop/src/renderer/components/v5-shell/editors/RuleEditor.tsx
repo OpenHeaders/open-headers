@@ -11,6 +11,7 @@ import { Button, Input, Radio, Select, Space, Switch, Tag, Tooltip, Typography, 
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHeaderRules, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { extractRuleVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 
 const { Text, Title } = Typography;
 
@@ -77,6 +78,14 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
       });
     }
   }, [rule]);
+
+  // Publish used variables to context for the Inspector panel
+  const { setUsedVariables, clearVariables } = useEditorVariables();
+  useEffect(() => {
+    const vars = extractRuleVariables({ headerName, headerValue, prefix, suffix, domains });
+    setUsedVariables(vars);
+    return () => clearVariables();
+  }, [headerName, headerValue, prefix, suffix, domains, setUsedVariables, clearVariables]);
 
   // Smart dirty detection
   const currentFingerprint = buildFingerprint();

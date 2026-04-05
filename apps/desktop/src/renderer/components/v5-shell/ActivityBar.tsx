@@ -27,7 +27,7 @@ export function ActivityBar({ activePanel, onPanelChange }: ActivityBarProps) {
     <div
       className="v5-activity-bar"
       style={{
-        background: token.colorBgElevated,
+        background: token.colorBgLayout,
         borderRight: `1px solid ${token.colorBorderSecondary}`,
       }}
     >

@@ -90,9 +90,16 @@ class WindowManager {
     this.detectAutoLaunch();
     this.setupWindowEvents(settings);
 
-    // Development mode DevTools — auto-open only when unpackaged with --dev flag
-    if (!app.isPackaged && process.argv.includes('--dev')) {
-      this.mainWindow.webContents.openDevTools();
+    // Development mode DevTools — Cmd+Option+I (macOS) / Ctrl+Shift+I (Windows/Linux)
+    if (!app.isPackaged) {
+      this.mainWindow.webContents.on('before-input-event', (_event, input) => {
+        if (input.type === 'keyDown' && input.key === 'i') {
+          const isMac = process.platform === 'darwin';
+          if ((isMac && input.meta && input.alt) || (!isMac && input.control && input.shift)) {
+            this.mainWindow?.webContents.toggleDevTools();
+          }
+        }
+      });
     }
 
     return this.mainWindow;

@@ -2,7 +2,7 @@
  * V5Shell — the IDE-style three-panel layout.
  *
  * Replaces the flat-tab AppLayout with:
- *   TopBar | ActivityBar + Sidebar | Editor + BottomPanel | Inspector | StatusBar
+ *   TopBar | Sidebar | Editor + BottomPanel | Inspector | StatusBar
  *
  * All panels are resizable via allotment.
  * Panel visibility is toggled via keyboard shortcuts or status bar icons.
@@ -16,10 +16,10 @@ import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitch
 import { useWorkspaceSwitch } from '@/renderer/contexts';
 import { useEnvironments, useHeaderRules, useSources, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
 import 'allotment/dist/style.css';
-import { ActivityBar } from './ActivityBar';
 import { BottomPanel } from './BottomPanel';
 import { BreadcrumbBar } from './BreadcrumbBar';
 import { CommandPalette } from './CommandPalette';
+import { EditorVariablesProvider } from './contexts/EditorVariablesContext';
 import { EditorArea } from './EditorArea';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTabs } from './hooks/useTabs';
@@ -54,6 +54,8 @@ export function V5Shell() {
     inspector: false,
   });
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [bottomPanelTab, setBottomPanelTab] = useState('traffic');
+  const [responseSideBySide, setResponseSideBySide] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
   const editorSaveRef = useRef<(() => void) | null>(null);
 
@@ -270,6 +272,20 @@ export function V5Shell() {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
   }, []);
 
+  const openBottomTab = useCallback(
+    (tab: string) => {
+      if (panels.bottomPanel && bottomPanelTab === tab) {
+        // Already on this tab — close the panel
+        setPanels((prev) => ({ ...prev, bottomPanel: false }));
+      } else {
+        // Open panel and switch to tab
+        setBottomPanelTab(tab);
+        setPanels((prev) => ({ ...prev, bottomPanel: true }));
+      }
+    },
+    [panels.bottomPanel, bottomPanelTab],
+  );
+
   // Keyboard shortcuts
   const shortcutHandlers = useMemo(
     () => ({
@@ -384,99 +400,101 @@ export function V5Shell() {
   const breadcrumbs = activeTab ? [{ label: workspaceName }, { label: activeTab.label }] : [{ label: workspaceName }];
 
   return (
-    <>
-      <div
-        className="v5-shell"
-        style={{
-          background: token.colorBgLayout,
-          ...(switchState.switching ? { filter: 'blur(2px)', pointerEvents: 'none' } : {}),
-        }}
-      >
-        {/* Top Bar */}
-        <TopBar
-          canGoBack={canGoBack}
-          canGoForward={canGoForward}
-          onGoBack={goBack}
-          onGoForward={goForward}
-          onCommandPalette={() => setCommandPaletteOpen(true)}
-          onOpenSettings={openSettings}
-        />
+    <EditorVariablesProvider>
+      <>
+        <div
+          className="v5-shell"
+          style={{
+            background: token.colorBgLayout,
+            ...(switchState.switching ? { filter: 'blur(2px)', pointerEvents: 'none' } : {}),
+          }}
+        >
+          {/* Top Bar */}
+          <TopBar
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            onGoBack={goBack}
+            onGoForward={goForward}
+            onCommandPalette={() => setCommandPaletteOpen(true)}
+            onOpenSettings={openSettings}
+          />
 
-        {/* Main content area */}
-        <div className="v5-main">
-          {/* Activity Bar (always visible) */}
-          <ActivityBar activePanel={activePanel} onPanelChange={setActivePanel} />
-
-          {/* Resizable panels */}
-          <Allotment proportionalLayout={false}>
-            {/* Left Sidebar */}
-            {panels.sidebar && (
-              <Allotment.Pane preferredSize={230} minSize={180} maxSize={400}>
+          {/* Main content area */}
+          <div className="v5-main">
+            {/* Resizable panels — always render all panes, toggle with visible */}
+            <Allotment proportionalLayout={false}>
+              {/* Left Sidebar (with activity icons at top) */}
+              <Allotment.Pane preferredSize={250} minSize={180} maxSize={400} visible={panels.sidebar}>
                 <Sidebar
                   activePanel={activePanel}
+                  onPanelChange={setActivePanel}
                   onOpenTab={openTab}
                   onNewRequest={() => void createNewSource()}
                   onNewRule={() => void createNewRule()}
                   onNewEnvironment={() => void createNewEnvironment()}
                 />
               </Allotment.Pane>
-            )}
 
-            {/* Center: Editor + Bottom Panel */}
-            <Allotment.Pane>
-              <Allotment vertical proportionalLayout={false}>
-                {/* Editor Area */}
-                <Allotment.Pane>
-                  <div className="v5-editor-area" style={{ background: token.colorBgContainer }}>
-                    <TabBar
-                      tabs={tabs}
-                      activeTabId={activeTabId}
-                      onSwitch={switchTab}
-                      onClose={handleCloseTab}
-                      onTogglePin={togglePin}
-                    />
-                    <BreadcrumbBar
-                      segments={breadcrumbs}
-                      isDirty={editorDirty}
-                      onSave={() => editorSaveRef.current?.()}
-                    />
-                    <EditorArea
-                      activeTab={activeTab}
-                      onNewRequest={() => void createNewSource()}
-                      onNewRule={() => void createNewRule()}
-                      onDirtyChange={handleDirtyChange}
-                      saveRef={editorSaveRef}
-                    />
-                  </div>
-                </Allotment.Pane>
-
-                {/* Bottom Panel */}
-                {panels.bottomPanel && (
-                  <Allotment.Pane preferredSize={200} minSize={100} maxSize={500}>
-                    <BottomPanel />
+              {/* Center: Editor + Bottom Panel */}
+              <Allotment.Pane>
+                <Allotment vertical proportionalLayout={false}>
+                  {/* Editor Area */}
+                  <Allotment.Pane>
+                    <div className="v5-editor-area" style={{ background: token.colorBgContainer }}>
+                      <TabBar
+                        tabs={tabs}
+                        activeTabId={activeTabId}
+                        onSwitch={switchTab}
+                        onClose={handleCloseTab}
+                        onTogglePin={togglePin}
+                      />
+                      <BreadcrumbBar
+                        segments={breadcrumbs}
+                        isDirty={editorDirty}
+                        onSave={() => editorSaveRef.current?.()}
+                      />
+                      <EditorArea
+                        tabs={tabs}
+                        activeTab={activeTab}
+                        onNewRequest={() => void createNewSource()}
+                        onNewRule={() => void createNewRule()}
+                        onDirtyChange={handleDirtyChange}
+                        saveRef={editorSaveRef}
+                        responseSideBySide={responseSideBySide}
+                      />
+                    </div>
                   </Allotment.Pane>
-                )}
-              </Allotment>
-            </Allotment.Pane>
 
-            {/* Right Sidebar (Inspector) */}
-            {panels.inspector && (
-              <Allotment.Pane preferredSize={250} minSize={200} maxSize={400}>
-                <Inspector />
+                  {/* Bottom Panel */}
+                  <Allotment.Pane preferredSize={200} minSize={100} maxSize={500} visible={panels.bottomPanel}>
+                    <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
+                  </Allotment.Pane>
+                </Allotment>
               </Allotment.Pane>
-            )}
-          </Allotment>
+
+              {/* Right Sidebar (Inspector) */}
+              <Allotment.Pane preferredSize={300} minSize={220} maxSize={500} visible={panels.inspector}>
+                <Inspector onClose={() => togglePanel('inspector')} />
+              </Allotment.Pane>
+            </Allotment>
+          </div>
+
+          {/* Status Bar */}
+          <StatusBar
+            panels={panels}
+            onTogglePanel={togglePanel}
+            onOpenBottomTab={openBottomTab}
+            responseSideBySide={responseSideBySide}
+            onToggleResponseLayout={() => setResponseSideBySide((v) => !v)}
+          />
+
+          {/* Command Palette */}
+          <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} items={commandItems} />
         </div>
 
-        {/* Status Bar */}
-        <StatusBar panels={panels} onTogglePanel={togglePanel} />
-
-        {/* Command Palette */}
-        <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} items={commandItems} />
-      </div>
-
-      {/* Workspace Switch Overlay — outside blurred shell */}
-      <WorkspaceSwitchOverlay visible={switchState.switching} targetWorkspace={switchState.targetWorkspace} />
-    </>
+        {/* Workspace Switch Overlay — outside blurred shell */}
+        <WorkspaceSwitchOverlay visible={switchState.switching} targetWorkspace={switchState.targetWorkspace} />
+      </>
+    </EditorVariablesProvider>
   );
 }

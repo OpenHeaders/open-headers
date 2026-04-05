@@ -111,8 +111,16 @@ export function TemplateInput({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // All known var names for resolution checking
-  const knownVars = useMemo(() => new Set(Object.keys(envVars || {})), [envVars]);
+  // Var names that have a non-empty value (truly resolved)
+  const resolvedVars = useMemo(() => {
+    const set = new Set<string>();
+    if (envVars) {
+      for (const [name, info] of Object.entries(envVars)) {
+        if (info.value) set.add(name);
+      }
+    }
+    return set;
+  }, [envVars]);
 
   // All variables as suggestions
   const allSuggestions = useMemo(() => {
@@ -136,11 +144,11 @@ export function TemplateInput({
       const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return escaped.replace(/(\{\{([^}]*)\}\})/g, (_match, fullMatch: string, varName: string) => {
         const trimmed = varName.trim();
-        const cls = knownVars.has(trimmed) ? 'template-var-resolved' : 'template-var-unresolved';
+        const cls = resolvedVars.has(trimmed) ? 'template-var-resolved' : 'template-var-unresolved';
         return `<span class="${cls}" data-var="${trimmed}">${fullMatch}</span>`;
       });
     },
-    [knownVars],
+    [resolvedVars],
   );
 
   // Collect overlay positions for popover targets

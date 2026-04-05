@@ -1,7 +1,9 @@
 /**
  * EditorArea — editor content area (rendered inside the tab/breadcrumb container).
  *
- * Routes to the appropriate editor based on the active tab type.
+ * Renders ALL open tab editors simultaneously but hides inactive ones with
+ * display:none. This preserves local state (unsaved changes, cursor position,
+ * scroll position) when switching between tabs.
  */
 
 import { ApiOutlined, PlusOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
@@ -18,11 +20,13 @@ import { SettingsEditor } from './SettingsEditor';
 const { Title, Text } = Typography;
 
 interface EditorAreaProps {
+  tabs: Tab[];
   activeTab?: Tab | null;
   onNewRequest?: () => void;
   onNewRule?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
+  responseSideBySide?: boolean;
 }
 
 function WelcomeScreen({ onNewRequest, onNewRule }: { onNewRequest?: () => void; onNewRule?: () => void }) {
@@ -52,28 +56,98 @@ function WelcomeScreen({ onNewRequest, onNewRule }: { onNewRequest?: () => void;
   );
 }
 
-export function EditorArea({ activeTab, onNewRequest, onNewRule, onDirtyChange, saveRef }: EditorAreaProps) {
-  // Clear dirty state when switching tabs
+function TabEditor({
+  tab,
+  isActive,
+  onDirtyChange,
+  saveRef,
+  responseSideBySide,
+}: {
+  tab: Tab;
+  isActive: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
+  saveRef?: React.MutableRefObject<(() => void) | null>;
+  responseSideBySide?: boolean;
+}) {
+  // Only pass dirty/save callbacks to the active editor
+  const dirtyChange = isActive ? onDirtyChange : undefined;
+  const save = isActive ? saveRef : undefined;
+
+  let content: React.ReactNode = null;
+
+  if (tab.type === 'settings') {
+    content = <SettingsEditor />;
+  } else if (tab.type === 'rule' && tab.entityId) {
+    content = <RuleEditor ruleId={tab.entityId} onDirtyChange={dirtyChange} saveRef={save} />;
+  } else if (tab.type === 'environment' && tab.entityId) {
+    content = <EnvironmentEditor environmentName={tab.entityId} />;
+  } else if ((tab.type === 'collection' || tab.type === 'request') && tab.entityId) {
+    content = (
+      <SourceEditor
+        sourceId={tab.entityId}
+        onDirtyChange={dirtyChange}
+        saveRef={save}
+        responseSideBySide={responseSideBySide}
+      />
+    );
+  }
+
+  if (!content) return null;
+
+  return (
+    <div
+      style={{
+        display: isActive ? 'contents' : 'none',
+      }}
+    >
+      {content}
+    </div>
+  );
+}
+
+export function EditorArea({
+  tabs,
+  activeTab,
+  onNewRequest,
+  onNewRule,
+  onDirtyChange,
+  saveRef,
+  responseSideBySide,
+}: EditorAreaProps) {
+  // Clear dirty state when switching to a non-editor tab
   useEffect(() => {
-    onDirtyChange?.(false);
-    if (saveRef) saveRef.current = null;
-  }, [onDirtyChange, saveRef]);
+    if (!activeTab || activeTab.type === 'welcome') {
+      onDirtyChange?.(false);
+      if (saveRef) saveRef.current = null;
+    }
+  }, [activeTab, onDirtyChange, saveRef]);
 
-  if (activeTab?.type === 'settings') {
-    return <SettingsEditor />;
-  }
+  // Tabs that have editors (not welcome)
+  const editorTabs = tabs.filter((t) => t.type !== 'welcome' && t.entityId);
 
-  if (activeTab?.type === 'rule' && activeTab.entityId) {
-    return <RuleEditor ruleId={activeTab.entityId} onDirtyChange={onDirtyChange} saveRef={saveRef} />;
-  }
+  const showWelcome = !activeTab || activeTab.type === 'welcome';
 
-  if (activeTab?.type === 'environment' && activeTab.entityId) {
-    return <EnvironmentEditor environmentName={activeTab.entityId} />;
-  }
+  return (
+    <>
+      {showWelcome && <WelcomeScreen onNewRequest={onNewRequest} onNewRule={onNewRule} />}
 
-  if ((activeTab?.type === 'collection' || activeTab?.type === 'request') && activeTab.entityId) {
-    return <SourceEditor sourceId={activeTab.entityId} onDirtyChange={onDirtyChange} saveRef={saveRef} />;
-  }
+      {editorTabs.map((tab) => (
+        <TabEditor
+          key={tab.id}
+          tab={tab}
+          isActive={activeTab?.id === tab.id}
+          onDirtyChange={onDirtyChange}
+          saveRef={saveRef}
+          responseSideBySide={responseSideBySide}
+        />
+      ))}
 
-  return <WelcomeScreen onNewRequest={onNewRequest} onNewRule={onNewRule} />;
+      {/* Settings tab (singleton, no entityId) */}
+      {tabs.some((t) => t.type === 'settings') && (
+        <div style={{ display: activeTab?.type === 'settings' ? 'contents' : 'none' }}>
+          <SettingsEditor />
+        </div>
+      )}
+    </>
+  );
 }

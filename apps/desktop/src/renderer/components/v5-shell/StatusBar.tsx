@@ -5,7 +5,18 @@
  * Right: workspace, environment, version, panel toggles.
  */
 
-import { Tooltip, theme } from 'antd';
+import {
+  CheckOutlined,
+  CodeOutlined,
+  GlobalOutlined,
+  LayoutOutlined,
+  SwapOutlined,
+  SyncOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import type { MenuProps } from 'antd';
+import { Button, Dropdown, Space, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { useEnvironments, useHeaderRules, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
 
@@ -18,6 +29,9 @@ interface PanelVisibility {
 interface StatusBarProps {
   panels: PanelVisibility;
   onTogglePanel: (panel: keyof PanelVisibility) => void;
+  onOpenBottomTab?: (tab: string) => void;
+  responseSideBySide?: boolean;
+  onToggleResponseLayout?: () => void;
 }
 
 function PanelToggle({
@@ -105,11 +119,17 @@ function PanelToggle({
   );
 }
 
-export function StatusBar({ panels, onTogglePanel }: StatusBarProps) {
+export function StatusBar({
+  panels,
+  onTogglePanel,
+  onOpenBottomTab,
+  responseSideBySide,
+  onToggleResponseLayout,
+}: StatusBarProps) {
   const { token } = theme.useToken();
   const { rules } = useHeaderRules();
-  const { workspaces, activeWorkspaceId } = useWorkspaces();
-  const { activeEnvironment } = useEnvironments();
+  const { workspaces, activeWorkspaceId, switchWorkspace, syncStatus } = useWorkspaces();
+  const { environments, activeEnvironment, switchEnvironment } = useEnvironments();
 
   const [appVersion, setAppVersion] = useState(window.startupData?.version ?? '');
   const [clientCount, setClientCount] = useState(0);
@@ -149,13 +169,58 @@ export function StatusBar({ panels, onTogglePanel }: StatusBarProps) {
   const activeRuleCount = rules.filter((r) => r.isEnabled).length;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
-  const workspaceType = activeWorkspace?.type === 'git' ? 'Git' : 'Local';
+  const isSyncing = syncStatus[activeWorkspaceId]?.syncing;
+
+  // Workspace dropdown menu items
+  const workspaceMenuItems = workspaces.map((ws) => {
+    const isActive = ws.id === activeWorkspaceId;
+    const wsIcon = ws.type === 'git' ? <TeamOutlined key="icon" /> : <UserOutlined key="icon" />;
+    const wsSyncInfo = syncStatus[ws.id];
+    return {
+      key: ws.id,
+      label: (
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space>
+            {wsIcon}
+            <span>{ws.name}</span>
+            {ws.type === 'git' && wsSyncInfo?.syncing && <SyncOutlined spin style={{ fontSize: 12 }} />}
+          </Space>
+          {isActive && <CheckOutlined style={{ color: token.colorPrimary }} />}
+        </Space>
+      ),
+      onClick: () => {
+        if (!isActive) void switchWorkspace(ws.id);
+      },
+    };
+  });
+
+  // Environment dropdown menu items
+  const envNames = Object.keys(environments);
+  const environmentMenuItems = envNames.map((name) => {
+    const isActive = name === activeEnvironment;
+    const varCount = Object.keys(environments[name] || {}).length;
+    return {
+      key: name,
+      label: (
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <span>{name}</span>
+          <Space size={4}>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary }}>({varCount})</span>
+            {isActive && <CheckOutlined style={{ color: token.colorPrimary }} />}
+          </Space>
+        </Space>
+      ),
+      onClick: () => {
+        if (!isActive) void switchEnvironment(name);
+      },
+    };
+  });
 
   return (
     <div
       className="v5-statusbar"
       style={{
-        background: token.colorBgElevated,
+        background: token.colorBgContainer,
         borderTop: `1px solid ${token.colorBorderSecondary}`,
         color: token.colorTextSecondary,
       }}
@@ -168,19 +233,62 @@ export function StatusBar({ panels, onTogglePanel }: StatusBarProps) {
           />
           {clientCount} client{clientCount !== 1 ? 's' : ''}
         </span>
-        <span className="v5-statusbar-item">
-          {activeRuleCount} rule{activeRuleCount !== 1 ? 's' : ''} active
+        <span
+          className="v5-statusbar-item"
+          style={{ cursor: 'pointer' }}
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpenBottomTab?.('traffic')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onOpenBottomTab?.('traffic');
+          }}
+        >
+          <SwapOutlined style={{ fontSize: 11 }} /> Traffic
         </span>
-        <span className="v5-statusbar-item">{workspaceType} workspace</span>
+        <span
+          className="v5-statusbar-item"
+          style={{ cursor: 'pointer' }}
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpenBottomTab?.('console')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onOpenBottomTab?.('console');
+          }}
+        >
+          <CodeOutlined style={{ fontSize: 11 }} /> Console
+        </span>
+        <span
+          className="v5-statusbar-item"
+          style={{ cursor: 'pointer' }}
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpenBottomTab?.('terminal')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onOpenBottomTab?.('terminal');
+          }}
+        >
+          <GlobalOutlined style={{ fontSize: 11 }} /> Terminal
+        </span>
       </div>
 
       <div className="v5-statusbar-right">
-        <span className="v5-statusbar-item">{workspaceName}</span>
-        <span className="v5-statusbar-item">{activeEnvironment || 'Default'}</span>
-        <span className="v5-statusbar-item" style={{ opacity: 0.5 }}>
-          {appVersion ? `v${appVersion}` : 'vNEXT'}
-        </span>
-
+        <Dropdown menu={{ items: workspaceMenuItems }} trigger={['click']} placement="topRight">
+          <span className="v5-statusbar-item" style={{ cursor: 'pointer' }}>
+            {activeWorkspace?.type === 'git' ? (
+              <TeamOutlined style={{ fontSize: 10 }} />
+            ) : (
+              <UserOutlined style={{ fontSize: 10 }} />
+            )}
+            {workspaceName}
+            {isSyncing && <SyncOutlined spin style={{ fontSize: 9 }} />}▾
+          </span>
+        </Dropdown>
+        <Dropdown menu={{ items: environmentMenuItems }} trigger={['click']} placement="topRight">
+          <span className="v5-statusbar-item" style={{ cursor: 'pointer' }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: token.colorTextTertiary, marginRight: 2 }}>E</span>
+            {activeEnvironment || 'Default'} ▾
+          </span>
+        </Dropdown>
         <div className="v5-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
 
         <div className="v5-panel-toggles">
@@ -205,6 +313,71 @@ export function StatusBar({ panels, onTogglePanel }: StatusBarProps) {
             position="right"
             onClick={() => onTogglePanel('inspector')}
           />
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'two-pane',
+                  label: 'Two-pane response view',
+                  icon: responseSideBySide ? <CheckOutlined /> : null,
+                  extra: '⌘⇧V',
+                  onClick: onToggleResponseLayout,
+                },
+                { type: 'divider' },
+                {
+                  key: 'sidebar',
+                  label: 'Left sidebar',
+                  icon: panels.sidebar ? <CheckOutlined /> : null,
+                  extra: '⌘B',
+                  onClick: () => onTogglePanel('sidebar'),
+                },
+                {
+                  key: 'workbench',
+                  label: 'Middle workbench',
+                  icon: <CheckOutlined />,
+                  extra: '⌘⇧M',
+                  disabled: true,
+                },
+                {
+                  key: 'bottomPanel',
+                  label: 'Bottom bar',
+                  icon: panels.bottomPanel ? <CheckOutlined /> : null,
+                  extra: '⌘J',
+                  onClick: () => onTogglePanel('bottomPanel'),
+                },
+                {
+                  key: 'inspector',
+                  label: 'Right sidebar',
+                  icon: panels.inspector ? <CheckOutlined /> : null,
+                  extra: '⌥⌘\\',
+                  onClick: () => onTogglePanel('inspector'),
+                },
+                {
+                  key: 'swap',
+                  label: 'Swap left and right sidebar',
+                  extra: '⌘⇧S',
+                  disabled: true,
+                },
+                { type: 'divider' },
+                {
+                  key: 'reset',
+                  label: 'Reset layout',
+                  extra: '⌘⇧R',
+                  onClick: () => {
+                    if (!panels.sidebar) onTogglePanel('sidebar');
+                    if (!panels.bottomPanel) onTogglePanel('bottomPanel');
+                    if (panels.inspector) onTogglePanel('inspector');
+                  },
+                },
+              ] satisfies MenuProps['items'],
+            }}
+            trigger={['click']}
+            placement="topRight"
+          >
+            <div className="v5-panel-toggle" style={{ cursor: 'pointer' }}>
+              <LayoutOutlined style={{ fontSize: 13, color: token.colorTextTertiary }} />
+            </div>
+          </Dropdown>
         </div>
       </div>
     </div>

@@ -90,7 +90,7 @@ export function TabBar({ tabs, activeTabId, onSwitch, onClose }: TabBarProps) {
     <div
       className="v5-tabs-bar"
       style={{
-        background: token.colorBgElevated,
+        background: token.colorBgLayout,
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
