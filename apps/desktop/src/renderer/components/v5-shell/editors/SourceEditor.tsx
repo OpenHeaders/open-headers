@@ -23,101 +23,16 @@ import {
   SendOutlined,
 } from '@ant-design/icons';
 import type { Source, SourceHeader, SourceQueryParam } from '@openheaders/core';
-import {
-  Button,
-  Checkbox,
-  Input,
-  InputNumber,
-  Popover,
-  Select,
-  Space,
-  Switch,
-  Tabs,
-  Tooltip,
-  Typography,
-  theme,
-} from 'antd';
+import { Button, Checkbox, Input, InputNumber, Select, Space, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { TemplateInput } from './TemplateInput';
 
 const { Text } = Typography;
 const { TextArea } = Input;
 
 interface SourceEditorProps {
   sourceId: string;
-}
-
-/** Small hoverable badge that shows env var info in a popover */
-function EnvVarBadge({
-  text,
-  envVars,
-  activeEnvironment,
-}: {
-  text: string;
-  envVars: Record<string, { value: string; isSecret: boolean }>;
-  activeEnvironment: string;
-}) {
-  const { token } = theme.useToken();
-  const varNames = [...text.matchAll(/{{([^}]+)}}/g)].map((m) => m[1]);
-  if (varNames.length === 0) return null;
-
-  const allResolved = varNames.every((name) => envVars[name]);
-
-  return (
-    <Popover
-      content={
-        <div style={{ minWidth: 180 }}>
-          {varNames.map((name) => {
-            const variable = envVars[name];
-            const resolved = !!variable;
-            const displayValue = variable?.isSecret ? '••••••••' : variable?.value;
-            return (
-              <div
-                key={name}
-                style={{
-                  padding: '4px 0',
-                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                  fontSize: 12,
-                }}
-              >
-                <div style={{ fontFamily: "'SF Mono', monospace", color: token.colorWarning }}>{`{{${name}}}`}</div>
-                <div style={{ fontFamily: "'SF Mono', monospace", marginTop: 2 }}>
-                  {resolved ? displayValue : <Text type="danger">unresolved</Text>}
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: 10,
-                    marginTop: 2,
-                    color: token.colorTextTertiary,
-                  }}
-                >
-                  <span style={{ color: '#3498db', fontWeight: 700 }}>E</span>
-                  {activeEnvironment}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      }
-      title={null}
-      trigger="hover"
-      placement="bottom"
-    >
-      <span
-        style={{
-          fontSize: 10,
-          color: allResolved ? token.colorSuccess : token.colorError,
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {varNames.length} var{varNames.length !== 1 ? 's' : ''}
-      </span>
-    </Popover>
-  );
 }
 
 const METHOD_OPTIONS = [
@@ -238,28 +153,22 @@ function KeyValueTable({
               }}
               style={{ fontSize: 12, borderRadius: 0 }}
             />
-            <Input
-              variant="borderless"
-              size="small"
+            <TemplateInput
               value={row.value}
               placeholder={valuePlaceholder}
-              onChange={(e) => {
+              onChange={(val) => {
                 if (isPlaceholderRow) {
-                  onChange([...rows, { key: '', value: e.target.value, enabled: true }]);
+                  onChange([...rows, { key: '', value: val, enabled: true }]);
                 } else {
-                  updateRow(index, 'value', e.target.value);
+                  updateRow(index, 'value', val);
                 }
               }}
-              style={{
-                fontSize: 12,
-                borderRadius: 0,
-                color: row.value.includes('{{') ? token.colorWarning : undefined,
-              }}
-              suffix={
-                row.value.includes('{{') && envVars && activeEnvironment ? (
-                  <EnvVarBadge text={row.value} envVars={envVars} activeEnvironment={activeEnvironment} />
-                ) : undefined
-              }
+              envVars={envVars}
+              activeEnvironment={activeEnvironment}
+              borderless
+              fontSize={12}
+              mono
+              style={{ borderRadius: 0 }}
             />
             <div style={{ width: 28, display: 'flex', justifyContent: 'center' }}>
               {!isPlaceholderRow && (
@@ -604,24 +513,17 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
             <span style={{ fontWeight: 700, fontSize: 13, color: methodColor }}>{label}</span>
           )}
         />
-        <Input
+        <TemplateInput
           value={sourcePath}
-          onChange={(e) => handleUrlChange(e.target.value)}
+          onChange={handleUrlChange}
           placeholder="Enter request URL"
-          variant="borderless"
-          size="middle"
-          style={{
-            flex: 1,
-            fontSize: 13,
-            fontFamily: "'SF Mono', 'Fira Code', monospace",
-            color: sourcePath.includes('{{') ? token.colorWarning : undefined,
-          }}
+          envVars={activeEnvVars}
+          activeEnvironment={activeEnvironment}
+          borderless
+          fontSize={13}
+          mono
           onPressEnter={handleSend}
-          suffix={
-            sourcePath.includes('{{') ? (
-              <EnvVarBadge text={sourcePath} envVars={activeEnvVars} activeEnvironment={activeEnvironment} />
-            ) : undefined
-          }
+          style={{ flex: 1 }}
         />
         <Button
           type="primary"
