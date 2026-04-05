@@ -43,6 +43,11 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
 
   // Track whether we've initialized from this rule
   const initializedRuleId = useRef<string | null>(null);
+  const snapshotRef = useRef('');
+
+  const buildFingerprint = useCallback(() => {
+    return JSON.stringify({ headerName, headerValue, tag, isResponse, isDynamic, sourceId, prefix, suffix, domains });
+  }, [headerName, headerValue, tag, isResponse, isDynamic, sourceId, prefix, suffix, domains]);
 
   // Initialize local state from rule
   useEffect(() => {
@@ -58,16 +63,31 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
       setSuffix(rule.suffix || '');
       setDomains(rule.domains || []);
       setIsEnabled(rule.isEnabled);
-      setIsDirty(false);
+
+      snapshotRef.current = JSON.stringify({
+        headerName: rule.headerName,
+        headerValue: rule.headerValue,
+        tag: rule.tag || '',
+        isResponse: rule.isResponse,
+        isDynamic: rule.isDynamic,
+        sourceId: rule.sourceId,
+        prefix: rule.prefix || '',
+        suffix: rule.suffix || '',
+        domains: rule.domains || [],
+      });
     }
   }, [rule]);
 
-  const markDirty = useCallback(() => {
-    if (!isDirty) {
-      setIsDirty(true);
-      onDirtyChange?.(true);
+  // Smart dirty detection
+  const currentFingerprint = buildFingerprint();
+  const isActuallyDirty = snapshotRef.current !== '' && currentFingerprint !== snapshotRef.current;
+
+  useEffect(() => {
+    if (isActuallyDirty !== isDirty) {
+      setIsDirty(isActuallyDirty);
+      onDirtyChange?.(isActuallyDirty);
     }
-  }, [isDirty, onDirtyChange]);
+  }, [isActuallyDirty, isDirty, onDirtyChange]);
 
   // Explicit save
   const handleSave = useCallback(() => {
@@ -83,6 +103,7 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
       domains,
       updatedAt: new Date().toISOString(),
     }).then(() => {
+      snapshotRef.current = currentFingerprint;
       setIsDirty(false);
       onDirtyChange?.(false);
     });
@@ -99,6 +120,7 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
     domains,
     updateRule,
     onDirtyChange,
+    currentFingerprint,
   ]);
 
   // Expose save to parent
@@ -117,12 +139,10 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
     if (!trimmed || domains.includes(trimmed)) return;
     setDomains([...domains, trimmed]);
     setNewDomain('');
-    markDirty();
   };
 
   const handleRemoveDomain = (domain: string) => {
     setDomains(domains.filter((d) => d !== domain));
-    markDirty();
   };
 
   const sourceOptions = useMemo(
@@ -182,7 +202,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                 value={isResponse ? 'response' : 'request'}
                 onChange={(e) => {
                   setIsResponse(e.target.value === 'response');
-                  markDirty();
                 }}
                 size="small"
               >
@@ -198,7 +217,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                 value={headerName}
                 onChange={(e) => {
                   setHeaderName(e.target.value);
-                  markDirty();
                 }}
                 placeholder="e.g. Authorization"
                 style={{ maxWidth: 360 }}
@@ -212,7 +230,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                 value={tag}
                 onChange={(e) => {
                   setTag(e.target.value);
-                  markDirty();
                 }}
                 placeholder="Optional label"
                 maxLength={20}
@@ -239,7 +256,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                     setPrefix('');
                     setSuffix('');
                   }
-                  markDirty();
                 }}
                 size="small"
               >
@@ -256,7 +272,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                   value={headerValue}
                   onChange={(e) => {
                     setHeaderValue(e.target.value);
-                    markDirty();
                   }}
                   placeholder="Header value"
                   autoSize={{ minRows: 1, maxRows: 4 }}
@@ -272,7 +287,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                     value={sourceId as string | undefined}
                     onChange={(val) => {
                       setSourceId(val);
-                      markDirty();
                     }}
                     options={sourceOptions}
                     placeholder="Select a source"
@@ -287,7 +301,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                     value={prefix}
                     onChange={(e) => {
                       setPrefix(e.target.value);
-                      markDirty();
                     }}
                     placeholder="e.g. Bearer "
                     style={{ maxWidth: 240 }}
@@ -300,7 +313,6 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
                     value={suffix}
                     onChange={(e) => {
                       setSuffix(e.target.value);
-                      markDirty();
                     }}
                     placeholder="Optional suffix"
                     style={{ maxWidth: 240 }}

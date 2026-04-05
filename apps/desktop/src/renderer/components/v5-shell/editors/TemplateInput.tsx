@@ -1,15 +1,12 @@
 /**
- * TemplateInput — contentEditable input with inline variable highlighting
- * and hover popovers showing resolved values.
- *
- * Uses contentEditable (not <input>) so {{VAR}} can be rendered as colored
- * inline spans. Cursor position is preserved across re-highlights.
- * Invisible overlay divs track each var span's position for Ant Popover.
+ * TemplateInput — contentEditable input with inline variable highlighting,
+ * hover popovers, and autocomplete suggestions on {{ trigger.
  *
  * Adapted from the wat2 browser-extension MVP TemplateInput.
  */
 
-import { Popover, Typography, theme } from 'antd';
+import { RightOutlined } from '@ant-design/icons';
+import { List, Popover, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './TemplateInput.css';
@@ -31,6 +28,10 @@ export interface TemplateInputProps {
   fontSize?: number;
   mono?: boolean;
   onPressEnter?: () => void;
+  /** Allow multi-line input (newlines on Enter) */
+  multiline?: boolean;
+  /** Minimum height for multi-line mode */
+  minRows?: number;
   style?: React.CSSProperties;
 }
 
@@ -95,14 +96,39 @@ export function TemplateInput({
   fontSize,
   mono,
   onPressEnter,
+  multiline,
+  minRows,
   style,
 }: TemplateInputProps) {
   const { token } = theme.useToken();
   const editableRef = useRef<HTMLDivElement>(null);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
   const [varOverlays, setVarOverlays] = useState<VarOverlay[]>([]);
+
+  // Autocomplete state
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [autocompletePos, setAutocompletePos] = useState({ top: 0, left: 0 });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // All known var names for resolution checking
   const knownVars = useMemo(() => new Set(Object.keys(envVars || {})), [envVars]);
+
+  // All variables as suggestions
+  const allSuggestions = useMemo(() => {
+    if (!envVars) return [];
+    return Object.entries(envVars).map(([name, info]) => ({
+      name,
+      value: info.isSecret ? '••••••••' : info.value,
+      scope: 'environment' as const,
+    }));
+  }, [envVars]);
+
+  // Filtered suggestions
+  const suggestions = useMemo(() => {
+    if (!searchTerm) return allSuggestions.slice(0, 30);
+    return allSuggestions.filter((v) => v.name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 30);
+  }, [searchTerm, allSuggestions]);
 
   // Build highlighted HTML from text
   const highlightText = useCallback(
@@ -131,6 +157,86 @@ export function TemplateInput({
     setVarOverlays(overlays);
   }, []);
 
+  // Check if autocomplete should show
+  const checkAutocomplete = useCallback((text: string, cursorPos: number) => {
+    const beforeCursor = text.substring(0, cursorPos);
+    const lastOpenIndex = beforeCursor.lastIndexOf('{{');
+    const lastCloseIndex = beforeCursor.lastIndexOf('}}');
+
+    if (lastOpenIndex > -1 && lastOpenIndex > lastCloseIndex) {
+      const afterCursor = text.substring(cursorPos);
+      const nextCloseIndex = afterCursor.indexOf('}}');
+      if (nextCloseIndex === -1) {
+        setSearchTerm(beforeCursor.substring(lastOpenIndex + 2));
+        setShowAutocomplete(true);
+        setSelectedIndex(0);
+
+        const selection = window.getSelection();
+        if (selection?.rangeCount) {
+          const rect = selection.getRangeAt(0).getBoundingClientRect();
+          setAutocompletePos({ top: rect.bottom + 4, left: rect.left });
+        }
+        return;
+      }
+    } else if (beforeCursor.endsWith('{') && !beforeCursor.endsWith('{{')) {
+      setSearchTerm('');
+      setShowAutocomplete(true);
+      setSelectedIndex(0);
+
+      const selection = window.getSelection();
+      if (selection?.rangeCount) {
+        const rect = selection.getRangeAt(0).getBoundingClientRect();
+        setAutocompletePos({ top: rect.bottom + 4, left: rect.left });
+      }
+      return;
+    }
+
+    setShowAutocomplete(false);
+  }, []);
+
+  // Insert variable from autocomplete
+  const insertVariable = useCallback(
+    (varName: string) => {
+      if (!editableRef.current) return;
+
+      const text = editableRef.current.textContent || '';
+      const cursorPos = saveCursorPosition(editableRef.current);
+      const beforeCursor = text.substring(0, cursorPos);
+      const afterCursor = text.substring(cursorPos);
+
+      const insertText = `{{${varName}}}`;
+      let startPos = -1;
+
+      const doubleBraceMatch = beforeCursor.match(/\{\{([^}]*)$/);
+      const singleBraceMatch = beforeCursor.match(/(?<!\{)\{([^{]*)$/);
+
+      if (doubleBraceMatch) {
+        startPos = beforeCursor.length - doubleBraceMatch[0].length;
+      } else if (singleBraceMatch) {
+        startPos = beforeCursor.length - singleBraceMatch[0].length;
+      } else if (beforeCursor.endsWith('{')) {
+        startPos = beforeCursor.length - 1;
+      }
+
+      if (startPos !== -1) {
+        const newText = text.substring(0, startPos) + insertText + afterCursor;
+        onChange(newText);
+
+        setTimeout(() => {
+          if (editableRef.current) {
+            editableRef.current.innerHTML = highlightText(newText);
+            restoreCursorPosition(editableRef.current, startPos + insertText.length);
+            setTimeout(updateOverlays, 10);
+          }
+        }, 0);
+      }
+
+      setShowAutocomplete(false);
+      setSearchTerm('');
+    },
+    [onChange, highlightText, updateOverlays],
+  );
+
   // Handle input
   const handleInput = useCallback(() => {
     if (!editableRef.current) return;
@@ -139,17 +245,17 @@ export function TemplateInput({
     onChange(text);
     editableRef.current.innerHTML = highlightText(text);
     restoreCursorPosition(editableRef.current, cursorPos);
-    // Delay overlay update to let browser layout
     setTimeout(updateOverlays, 10);
-  }, [onChange, highlightText, updateOverlays]);
+    checkAutocomplete(text, cursorPos);
+  }, [onChange, highlightText, updateOverlays, checkAutocomplete]);
 
-  // Handle paste — insert plain text only
+  // Handle paste
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLDivElement>) => {
       e.preventDefault();
       const text = e.clipboardData.getData('text/plain');
       const selection = window.getSelection();
-      if (!selection || !selection.rangeCount) return;
+      if (!selection?.rangeCount) return;
       selection.deleteFromDocument();
       const textNode = document.createTextNode(text);
       selection.getRangeAt(0).insertNode(textNode);
@@ -166,12 +272,50 @@ export function TemplateInput({
   // Handle keyboard
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (showAutocomplete && suggestions.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedIndex((i) => Math.min(i + 1, suggestions.length - 1));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedIndex((i) => Math.max(i - 1, 0));
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          insertVariable(suggestions[selectedIndex].name);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setShowAutocomplete(false);
+          return;
+        }
+      }
       if (e.key === 'Enter') {
-        e.preventDefault();
-        onPressEnter?.();
+        if (!multiline) {
+          e.preventDefault();
+          onPressEnter?.();
+        } else {
+          // Insert a plain newline instead of letting the browser create a <div>
+          e.preventDefault();
+          const selection = window.getSelection();
+          if (selection?.rangeCount) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            const textNode = document.createTextNode('\n');
+            range.insertNode(textNode);
+            range.setStartAfter(textNode);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            handleInput();
+          }
+        }
       }
     },
-    [onPressEnter],
+    [showAutocomplete, suggestions, selectedIndex, insertVariable, onPressEnter, multiline, handleInput],
   );
 
   // Sync innerHTML when value or vars change externally
@@ -182,7 +326,6 @@ export function TemplateInput({
       editableRef.current.innerHTML = highlightText(value);
       setTimeout(updateOverlays, 10);
     } else {
-      // Same text but highlighting might need updating (e.g. vars changed)
       const newHTML = highlightText(value);
       if (editableRef.current.innerHTML !== newHTML) {
         const cursorPos = saveCursorPosition(editableRef.current);
@@ -204,6 +347,18 @@ export function TemplateInput({
     };
   }, [updateOverlays]);
 
+  // Close autocomplete on outside click
+  useEffect(() => {
+    if (!showAutocomplete) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
+        setShowAutocomplete(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAutocomplete]);
+
   const borderStyle = borderless ? {} : { border: `1px solid ${token.colorBorder}`, borderRadius: 6 };
 
   return (
@@ -221,21 +376,129 @@ export function TemplateInput({
         suppressContentEditableWarning
         spellCheck={false}
         style={{
-          minHeight: 24,
+          minHeight: multiline ? (minRows || 6) * 22 : 24,
+          maxHeight: multiline ? 400 : undefined,
+          overflowY: multiline ? 'auto' : undefined,
           padding: '4px 11px',
           outline: 'none',
           fontSize: fontSize || 12,
           lineHeight: '22px',
           fontFamily: mono ? "'SF Mono', 'Fira Code', monospace" : 'inherit',
           cursor: 'text',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
           color: token.colorText,
           background: 'transparent',
           ...borderStyle,
         }}
       />
+
+      {/* Autocomplete dropdown */}
+      {showAutocomplete && suggestions.length > 0 && (
+        <div
+          ref={autocompleteRef}
+          className="template-autocomplete"
+          style={{
+            position: 'fixed',
+            top: autocompletePos.top,
+            left: autocompletePos.left,
+            zIndex: 1050,
+            display: 'flex',
+            background: token.colorBgContainer,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: 6,
+            boxShadow: token.boxShadowSecondary,
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ minWidth: 200, maxWidth: 260, maxHeight: 250, overflowY: 'auto' }}>
+            <List
+              size="small"
+              dataSource={suggestions}
+              renderItem={(item, index) => (
+                <List.Item
+                  onClick={() => insertVariable(item.name)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  style={{
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    backgroundColor: index === selectedIndex ? token.colorPrimaryBg : 'transparent',
+                    borderBottom: 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    <Tag
+                      color={item.scope === 'environment' ? 'green' : 'purple'}
+                      style={{
+                        margin: '0 8px 0 0',
+                        fontWeight: 'bold',
+                        minWidth: 22,
+                        textAlign: 'center',
+                        fontSize: 11,
+                      }}
+                    >
+                      {item.scope === 'environment' ? 'E' : 'G'}
+                    </Tag>
+                    <Text style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}>{item.name}</Text>
+                  </div>
+                </List.Item>
+              )}
+            />
+          </div>
+
+          {/* Side panel showing selected variable details */}
+          {suggestions[selectedIndex] && (
+            <div
+              style={{
+                borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                padding: 12,
+                minWidth: 160,
+                background: token.colorBgElevated,
+              }}
+            >
+              <Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>
+                Current Value
+              </Text>
+              <div
+                style={{
+                  marginTop: 4,
+                  padding: '4px 8px',
+                  background: token.colorBgContainer,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontFamily: "'SF Mono', monospace",
+                  wordBreak: 'break-all',
+                  maxHeight: 60,
+                  overflow: 'auto',
+                  marginBottom: 8,
+                }}
+              >
+                {suggestions[selectedIndex].value || <Text type="secondary">No value</Text>}
+              </div>
+              <Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>
+                Scope
+              </Text>
+              <div style={{ marginTop: 4, marginBottom: 8 }}>
+                <Text style={{ fontSize: 12 }}>{activeEnvironment || 'Environment'}</Text>
+              </div>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={() => window.dispatchEvent(new CustomEvent('showVariablesPanel'))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') window.dispatchEvent(new CustomEvent('showVariablesPanel'));
+                }}
+                style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: '#1890ff', cursor: 'pointer' }}
+              >
+                Variables in request
+                <RightOutlined style={{ marginLeft: 4, fontSize: 10 }} />
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Invisible overlay divs for Popover hover targets */}
       {envVars &&
@@ -272,10 +535,22 @@ export function TemplateInput({
                   >
                     {resolved ? displayValue : <Text type="danger">Not defined</Text>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, marginBottom: 8 }}>
                     <span style={{ color: '#3498db', fontWeight: 700 }}>E</span>
                     <span>{activeEnvironment}</span>
                   </div>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => window.dispatchEvent(new CustomEvent('showVariablesPanel'))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') window.dispatchEvent(new CustomEvent('showVariablesPanel'));
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: '#1890ff', cursor: 'pointer' }}
+                  >
+                    Variables in request
+                    <RightOutlined style={{ marginLeft: 4, fontSize: 10 }} />
+                  </span>
                 </div>
               }
             >

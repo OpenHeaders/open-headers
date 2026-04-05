@@ -5,7 +5,7 @@
  */
 
 import { RightOutlined } from '@ant-design/icons';
-import { Button, theme } from 'antd';
+import { Button, Tooltip, theme } from 'antd';
 
 export interface BreadcrumbSegment {
   label: string;
@@ -61,10 +61,21 @@ export function BreadcrumbBar({ segments, isDirty, onSave }: BreadcrumbBarProps)
         })}
       </div>
 
-      {isDirty && onSave && (
-        <Button size="small" type="primary" onClick={onSave} style={{ fontSize: 11 }}>
-          Save
-        </Button>
+      {onSave && (
+        <Tooltip title="Save (⌘S)">
+          <Button
+            size="small"
+            type="primary"
+            onClick={onSave}
+            disabled={!isDirty}
+            style={{
+              fontSize: 11,
+              ...(isDirty ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+            }}
+          >
+            Save
+          </Button>
+        </Tooltip>
       )}
     </div>
   );

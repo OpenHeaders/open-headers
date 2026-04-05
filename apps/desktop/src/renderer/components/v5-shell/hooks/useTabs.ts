@@ -183,10 +183,15 @@ export function useTabs(activeWorkspaceId?: string) {
     });
   }, []);
 
-  const closeTab = useCallback((tabId: string) => {
+  const closeTab = useCallback((tabId: string, force = false) => {
     setState((prev) => {
       const tab = prev.tabs.find((t) => t.id === tabId);
       if (!tab || tab.pinned) return prev;
+
+      if (tab.unsaved && !force) {
+        // Don't close — the caller should show a modal and re-call with force=true
+        return prev;
+      }
 
       const newTabs = prev.tabs.filter((t) => t.id !== tabId);
       let newActiveId = prev.activeTabId;

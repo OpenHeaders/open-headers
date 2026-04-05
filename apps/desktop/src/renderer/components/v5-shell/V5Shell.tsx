@@ -10,7 +10,7 @@
 
 import type { HeaderRule, Source } from '@openheaders/core';
 import { Allotment } from 'allotment';
-import { theme } from 'antd';
+import { Modal, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitchOverlay';
 import { useWorkspaceSwitch } from '@/renderer/contexts';
@@ -58,8 +58,119 @@ export function V5Shell() {
   const editorSaveRef = useRef<(() => void) | null>(null);
 
   // Tab management
-  const { tabs, activeTabId, openTab, closeTab, switchTab, togglePin, canGoBack, canGoForward, goBack, goForward } =
-    useTabs(activeWorkspaceId);
+  const {
+    tabs,
+    activeTabId,
+    openTab,
+    closeTab,
+    switchTab,
+    togglePin,
+    markUnsaved,
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
+  } = useTabs(activeWorkspaceId);
+
+  const handleDirtyChange = useCallback(
+    (dirty: boolean) => {
+      setEditorDirty(dirty);
+      if (activeTabId) markUnsaved(activeTabId, dirty);
+    },
+    [activeTabId, markUnsaved],
+  );
+
+  // Close tab with unsaved changes modal (matching MVP design)
+  const handleCloseTab = useCallback(
+    (tabId: string) => {
+      const tab = tabs.find((t) => t.id === tabId);
+      if (!tab) return;
+
+      if (tab.unsaved) {
+        const modal = Modal.confirm({
+          title: 'Do you want to Save?',
+          width: 520,
+          content: (
+            <p>
+              This tab <strong>{tab.label}</strong> has unsaved changes which will be lost if you choose to close it.
+              Save these changes to avoid losing your work.
+            </p>
+          ),
+          footer: (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
+              <button
+                type="button"
+                style={{
+                  padding: '8px 24px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 6,
+                  background: '#ffffff',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                }}
+                onClick={() => {
+                  modal.destroy();
+                  closeTab(tabId, true);
+                }}
+              >
+                Don't save
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  style={{
+                    padding: '8px 24px',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 6,
+                    background: '#ffffff',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                  }}
+                  onClick={() => modal.destroy()}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '8px 24px',
+                    border: 'none',
+                    borderRadius: 6,
+                    background: '#ff7875',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 500,
+                  }}
+                  onClick={() => {
+                    editorSaveRef.current?.();
+                    modal.destroy();
+                    closeTab(tabId, true);
+                  }}
+                >
+                  Save changes
+                </button>
+              </div>
+            </div>
+          ),
+          closable: true,
+          onCancel: () => modal.destroy(),
+        });
+      } else {
+        closeTab(tabId);
+      }
+    },
+    [tabs, closeTab],
+  );
+
+  // Listen for "Variables in request" link clicks from TemplateInput popovers
+  useEffect(() => {
+    const handler = () => {
+      setPanels((prev) => ({ ...prev, inspector: true }));
+    };
+    window.addEventListener('showVariablesPanel', handler);
+    return () => window.removeEventListener('showVariablesPanel', handler);
+  }, []);
 
   // Auto-close tabs when their backing entity is deleted
   const prevEntityIds = useRef<Set<string>>(new Set());
@@ -321,7 +432,7 @@ export function V5Shell() {
                       tabs={tabs}
                       activeTabId={activeTabId}
                       onSwitch={switchTab}
-                      onClose={closeTab}
+                      onClose={handleCloseTab}
                       onTogglePin={togglePin}
                     />
                     <BreadcrumbBar
@@ -333,7 +444,7 @@ export function V5Shell() {
                       activeTab={activeTab}
                       onNewRequest={() => void createNewSource()}
                       onNewRule={() => void createNewRule()}
-                      onDirtyChange={setEditorDirty}
+                      onDirtyChange={handleDirtyChange}
                       saveRef={editorSaveRef}
                     />
                   </div>

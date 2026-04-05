@@ -31,7 +31,7 @@
   border-radius: 3px;
   font-weight: 500;
   border: 1px solid rgba(224, 140, 52, 0.25);
-  cursor: default;
+  cursor: text;
 }
 
 /* Variable highlighting — unresolved */
@@ -42,5 +42,5 @@
   border-radius: 3px;
   font-weight: 500;
   border: 1px solid rgba(255, 77, 79, 0.25);
-  cursor: default;
+  cursor: text;
 }

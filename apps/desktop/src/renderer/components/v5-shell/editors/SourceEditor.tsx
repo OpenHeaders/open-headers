@@ -305,6 +305,55 @@ function ResponsePane({ source }: { source: Source }) {
   );
 }
 
+// ── Body tab ─────────────────────────────────────────────────────
+
+function BodyTab({
+  body,
+  contentType,
+  onBodyChange,
+  onContentTypeChange,
+  envVars,
+  activeEnvironment,
+}: {
+  body: string;
+  contentType: string;
+  onBodyChange: (val: string) => void;
+  onContentTypeChange: (val: string) => void;
+  envVars: Record<string, { value: string; isSecret: boolean }>;
+  activeEnvironment: string;
+}) {
+  return (
+    <div>
+      <div style={{ marginBottom: 8 }}>
+        <Select
+          size="small"
+          value={contentType}
+          onChange={onContentTypeChange}
+          style={{ width: 200 }}
+          options={[
+            { value: 'application/json', label: 'JSON' },
+            { value: 'application/x-www-form-urlencoded', label: 'Form URL Encoded' },
+            { value: 'text/plain', label: 'Plain Text' },
+            { value: 'application/xml', label: 'XML' },
+          ]}
+        />
+      </div>
+      <TemplateInput
+        value={body}
+        onChange={onBodyChange}
+        placeholder={contentType === 'application/json' ? '{\n  "key": "value"\n}' : 'key1=value1&key2=value2'}
+        envVars={envVars}
+        activeEnvironment={activeEnvironment}
+        mono
+        fontSize={12}
+        multiline
+        minRows={6}
+        style={{ border: '1px solid var(--ant-color-border, #d9d9d9)', borderRadius: 6 }}
+      />
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────
 
 // Convert KVRows back to source format (only enabled rows with keys)
@@ -341,49 +390,107 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
   const [refreshInterval, setRefreshInterval] = useState(5);
 
   const initializedId = useRef<string | null>(null);
+  const snapshotRef = useRef('');
+
+  // Build a fingerprint of the current form state for dirty comparison
+  const buildFingerprint = useCallback(() => {
+    return JSON.stringify({
+      sourcePath,
+      sourceMethod,
+      sourceName,
+      sourceTag,
+      params: params.filter((r) => r.key),
+      headers: headers.filter((r) => r.key),
+      body,
+      contentType,
+      jsonFilterEnabled,
+      jsonFilterPath,
+      refreshEnabled,
+      refreshInterval,
+    });
+  }, [
+    sourcePath,
+    sourceMethod,
+    sourceName,
+    sourceTag,
+    params,
+    headers,
+    body,
+    contentType,
+    jsonFilterEnabled,
+    jsonFilterPath,
+    refreshEnabled,
+    refreshInterval,
+  ]);
 
   // Initialize from source
   useEffect(() => {
     if (source && initializedId.current !== source.sourceId) {
       initializedId.current = source.sourceId;
-      setSourcePath(source.sourcePath || '');
-      setSourceMethod(source.sourceMethod || 'GET');
-      setSourceName(source.sourceName || '');
-      setSourceTag(source.sourceTag || '');
-      setBody(source.requestOptions?.body || '');
-      setContentType(source.requestOptions?.contentType || 'application/json');
-      setJsonFilterEnabled(source.jsonFilter?.enabled ?? false);
-      setJsonFilterPath(source.jsonFilter?.path ?? '');
-      setRefreshEnabled(source.refreshOptions?.enabled ?? false);
-      setRefreshInterval(source.refreshOptions?.interval ?? 5);
+      const path = source.sourcePath || '';
+      const method = source.sourceMethod || 'GET';
+      const name = source.sourceName || '';
+      const tag = source.sourceTag || '';
+      const b = source.requestOptions?.body || '';
+      const ct = source.requestOptions?.contentType || 'application/json';
+      const jfe = source.jsonFilter?.enabled ?? false;
+      const jfp = source.jsonFilter?.path ?? '';
+      const re = source.refreshOptions?.enabled ?? false;
+      const ri = source.refreshOptions?.interval ?? 5;
+      const p = (source.requestOptions?.queryParams || []).map((q: SourceQueryParam) => ({
+        key: q.key,
+        value: q.value,
+        enabled: true,
+      }));
+      const h = (source.requestOptions?.headers || []).map((hdr: SourceHeader) => ({
+        key: hdr.key,
+        value: hdr.value,
+        enabled: true,
+      }));
 
-      // Convert headers/params to KVRow format
-      setParams(
-        (source.requestOptions?.queryParams || []).map((p: SourceQueryParam) => ({
-          key: p.key,
-          value: p.value,
-          enabled: true,
-        })),
-      );
-      setHeaders(
-        (source.requestOptions?.headers || []).map((h: SourceHeader) => ({
-          key: h.key,
-          value: h.value,
-          enabled: true,
-        })),
-      );
+      setSourcePath(path);
+      setSourceMethod(method);
+      setSourceName(name);
+      setSourceTag(tag);
+      setBody(b);
+      setContentType(ct);
+      setJsonFilterEnabled(jfe);
+      setJsonFilterPath(jfp);
+      setRefreshEnabled(re);
+      setRefreshInterval(ri);
+      setParams(p);
+      setHeaders(h);
+
+      // Store snapshot for dirty comparison
+      snapshotRef.current = JSON.stringify({
+        sourcePath: path,
+        sourceMethod: method,
+        sourceName: name,
+        sourceTag: tag,
+        params: p.filter((r: KVRow) => r.key),
+        headers: h.filter((r: KVRow) => r.key),
+        body: b,
+        contentType: ct,
+        jsonFilterEnabled: jfe,
+        jsonFilterPath: jfp,
+        refreshEnabled: re,
+        refreshInterval: ri,
+      });
     }
   }, [source]);
 
   const [isDirty, setIsDirty] = useState(false);
 
-  // Mark dirty on any field change
-  const markDirty = useCallback(() => {
-    if (!isDirty) {
-      setIsDirty(true);
-      onDirtyChange?.(true);
+  // Smart dirty detection — compare current state against snapshot
+  const currentFingerprint = buildFingerprint();
+  const isActuallyDirty = snapshotRef.current !== '' && currentFingerprint !== snapshotRef.current;
+
+  useEffect(() => {
+    if (isActuallyDirty !== isDirty) {
+      setIsDirty(isActuallyDirty);
+      onDirtyChange?.(isActuallyDirty);
     }
-  }, [isDirty, onDirtyChange]);
+  }, [isActuallyDirty, isDirty, onDirtyChange]);
 
   // Explicit save — persists all local state to main process
   const handleSave = useCallback(() => {
@@ -401,6 +508,8 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
       jsonFilter: { enabled: jsonFilterEnabled, path: jsonFilterPath },
       refreshOptions: { enabled: refreshEnabled, type: 'custom', interval: refreshInterval },
     }).then(() => {
+      // Reset snapshot to current state
+      snapshotRef.current = currentFingerprint;
       setIsDirty(false);
       onDirtyChange?.(false);
     });
@@ -411,6 +520,7 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
     sourceTag,
     sourceMethod,
     headers,
+    currentFingerprint,
     params,
     body,
     contentType,
@@ -430,27 +540,21 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
   // Field handlers — update local state only, mark dirty
   const handleUrlChange = (val: string) => {
     setSourcePath(val);
-    markDirty();
   };
   const handleMethodChange = (val: string) => {
     setSourceMethod(val);
-    markDirty();
   };
   const handleParamsChange = (rows: KVRow[]) => {
     setParams(rows);
-    markDirty();
   };
   const handleHeadersChange = (rows: KVRow[]) => {
     setHeaders(rows);
-    markDirty();
   };
   const handleBodyChange = (val: string) => {
     setBody(val);
-    markDirty();
   };
   const handleContentTypeChange = (val: string) => {
     setContentType(val);
-    markDirty();
   };
 
   const handleSend = () => {
@@ -613,32 +717,14 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
 
           {/* Body tab */}
           {activeTab === 'body' && (
-            <div>
-              <div style={{ marginBottom: 8 }}>
-                <Select
-                  size="small"
-                  value={contentType}
-                  onChange={handleContentTypeChange}
-                  style={{ width: 200 }}
-                  options={[
-                    { value: 'application/json', label: 'JSON' },
-                    { value: 'application/x-www-form-urlencoded', label: 'Form URL Encoded' },
-                    { value: 'text/plain', label: 'Plain Text' },
-                    { value: 'application/xml', label: 'XML' },
-                  ]}
-                />
-              </div>
-              <TextArea
-                value={body}
-                onChange={(e) => handleBodyChange(e.target.value)}
-                placeholder={contentType === 'application/json' ? '{\n  "key": "value"\n}' : 'key1=value1&key2=value2'}
-                autoSize={{ minRows: 6, maxRows: 16 }}
-                style={{
-                  fontFamily: "'SF Mono', 'Fira Code', monospace",
-                  fontSize: 12,
-                }}
-              />
-            </div>
+            <BodyTab
+              body={body}
+              contentType={contentType}
+              onBodyChange={handleBodyChange}
+              onContentTypeChange={handleContentTypeChange}
+              envVars={activeEnvVars}
+              activeEnvironment={activeEnvironment}
+            />
           )}
 
           {/* Settings tab */}
@@ -653,7 +739,6 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
                   value={sourceName}
                   onChange={(e) => {
                     setSourceName(e.target.value);
-                    markDirty();
                   }}
                   placeholder="Display name"
                   style={{ maxWidth: 280 }}
@@ -669,7 +754,6 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
                   value={sourceTag}
                   onChange={(e) => {
                     setSourceTag(e.target.value);
-                    markDirty();
                   }}
                   placeholder="Collection tag"
                   style={{ maxWidth: 200 }}
@@ -686,7 +770,6 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
                     checked={jsonFilterEnabled}
                     onChange={(v) => {
                       setJsonFilterEnabled(v);
-                      markDirty();
                     }}
                   />
                   {jsonFilterEnabled && (
@@ -695,7 +778,6 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
                       value={jsonFilterPath}
                       onChange={(e) => {
                         setJsonFilterPath(e.target.value);
-                        markDirty();
                       }}
                       placeholder="e.g. data.access_token"
                       style={{ width: 200 }}
@@ -714,7 +796,6 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
                     checked={refreshEnabled}
                     onChange={(v) => {
                       setRefreshEnabled(v);
-                      markDirty();
                     }}
                   />
                   {refreshEnabled && (
@@ -727,7 +808,6 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef }: SourceEditorP
                         onChange={(v) => {
                           const mins = v ?? 5;
                           setRefreshInterval(mins);
-                          markDirty();
                         }}
                         style={{ width: 70 }}
                       />

@@ -1,10 +1,20 @@
 /**
- * TabBar — horizontal tab strip with pinning, unsaved indicators, overflow, and close.
+ * TabBar — horizontal tab strip using Ant Design Tabs for proper tab styling.
+ *
+ * Features: method-colored labels, unsaved orange dot, close on X, pinned tabs.
  */
 
-import { CloseOutlined, EllipsisOutlined, PushpinOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { Dropdown, theme } from 'antd';
+import { ThunderboltOutlined } from '@ant-design/icons';
+import { Space, Tabs, theme } from 'antd';
 import type { Tab } from './hooks/useTabs';
+
+const METHOD_COLORS: Record<string, string> = {
+  GET: '#61affe',
+  POST: '#49cc90',
+  PUT: '#fca130',
+  PATCH: '#50e3c2',
+  DELETE: '#f93e3e',
+};
 
 interface TabBarProps {
   tabs: Tab[];
@@ -12,48 +22,69 @@ interface TabBarProps {
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onTogglePin: (tabId: string) => void;
-  maxVisibleTabs?: number;
 }
 
-function TabIcon({ tab }: { tab: Tab }) {
+function TabLabel({ tab }: { tab: Tab }) {
   const { token } = theme.useToken();
 
-  switch (tab.type) {
-    case 'request':
-      return (
-        <span
-          className="v5-method-badge"
-          style={{
-            background:
-              tab.icon === 'POST' ? token.colorSuccess : tab.icon === 'DELETE' ? token.colorError : token.colorPrimary,
-          }}
-        >
-          {tab.icon ?? 'GET'}
-        </span>
-      );
-    case 'rule':
-      return <ThunderboltOutlined style={{ color: token.colorWarning, fontSize: 11 }} />;
-    case 'environment':
-      return <span style={{ fontSize: 11 }}>🌐</span>;
-    case 'recording':
-      return <span style={{ fontSize: 11 }}>🎬</span>;
-    default:
-      return null;
+  let icon: React.ReactNode = null;
+
+  if (tab.type === 'request' || tab.type === 'collection') {
+    const method = tab.icon || 'GET';
+    const color = METHOD_COLORS[method] || token.colorPrimary;
+    icon = <span style={{ color, fontWeight: 600, fontSize: 11 }}>{method}</span>;
+  } else if (tab.type === 'rule') {
+    icon = <ThunderboltOutlined style={{ color: '#1890ff', fontSize: 12 }} />;
+  } else if (tab.type === 'environment') {
+    icon = (
+      <span
+        style={{
+          background: '#52c41a',
+          color: 'white',
+          fontSize: 9,
+          fontWeight: 700,
+          padding: '0 4px',
+          borderRadius: 3,
+          lineHeight: '16px',
+        }}
+      >
+        E
+      </span>
+    );
+  } else if (tab.type === 'settings') {
+    icon = <span style={{ fontSize: 11 }}>⚙</span>;
   }
+
+  return (
+    <Space size={4}>
+      {icon}
+      <span>{tab.label}</span>
+      {tab.unsaved && (
+        <span
+          style={{
+            display: 'inline-block',
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: '#ff7875',
+            marginLeft: 2,
+          }}
+        />
+      )}
+    </Space>
+  );
 }
 
-export function TabBar({
-  tabs,
-  activeTabId,
-  onSwitch,
-  onClose,
-  onTogglePin: _onTogglePin,
-  maxVisibleTabs = 8,
-}: TabBarProps) {
+export function TabBar({ tabs, activeTabId, onSwitch, onClose }: TabBarProps) {
   const { token } = theme.useToken();
 
-  const visibleTabs = tabs.slice(0, maxVisibleTabs);
-  const overflowTabs = tabs.slice(maxVisibleTabs);
+  if (tabs.length === 0) return null;
+
+  const items = tabs.map((tab) => ({
+    key: tab.id,
+    label: <TabLabel tab={tab} />,
+    closable: !tab.pinned,
+  }));
 
   return (
     <div
@@ -63,68 +94,21 @@ export function TabBar({
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
-      <div className="v5-tabs-scroll">
-        {visibleTabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={`v5-tab ${tab.id === activeTabId ? 'active' : ''}`}
-            style={
-              tab.id === activeTabId
-                ? { background: token.colorBgContainer, borderBottomColor: token.colorPrimary, color: token.colorText }
-                : { color: token.colorTextSecondary }
-            }
-            onClick={() => onSwitch(tab.id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              // Context menu would go here
-            }}
-            role="tab"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onSwitch(tab.id);
-            }}
-          >
-            {tab.pinned && <PushpinOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />}
-            <TabIcon tab={tab} />
-            <span className="v5-tab-label">{tab.label}</span>
-            {tab.unsaved && <span className="v5-tab-unsaved" style={{ background: token.colorTextSecondary }} />}
-            {!tab.pinned && (
-              <CloseOutlined
-                className="v5-tab-close"
-                style={{ color: token.colorTextTertiary, fontSize: 10 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClose(tab.id);
-                }}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {overflowTabs.length > 0 && (
-        <Dropdown
-          menu={{
-            items: overflowTabs.map((tab) => ({
-              key: tab.id,
-              label: tab.label,
-              icon: <TabIcon tab={tab} />,
-              onClick: () => onSwitch(tab.id),
-            })),
-          }}
-          trigger={['click']}
-        >
-          <div className="v5-tab-overflow" style={{ borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
-            <EllipsisOutlined />
-            <span
-              className="v5-tab-overflow-count"
-              style={{ background: token.colorBgElevated, color: token.colorTextSecondary }}
-            >
-              +{overflowTabs.length}
-            </span>
-          </div>
-        </Dropdown>
-      )}
+      <Tabs
+        type="editable-card"
+        size="small"
+        activeKey={activeTabId ?? undefined}
+        onChange={onSwitch}
+        onEdit={(targetKey, action) => {
+          if (action === 'remove' && typeof targetKey === 'string') {
+            onClose(targetKey);
+          }
+        }}
+        items={items}
+        hideAdd
+        style={{ margin: 0 }}
+        tabBarStyle={{ margin: 0, height: 34 }}
+      />
     </div>
   );
 }
