@@ -6,6 +6,9 @@
 
 import {
   CheckOutlined,
+  DownloadOutlined,
+  ExportOutlined,
+  ImportOutlined,
   LeftOutlined,
   MenuOutlined,
   RightOutlined,
@@ -15,6 +18,7 @@ import {
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import type { MenuProps } from 'antd';
 import { Button, Dropdown, Space, Tooltip, theme } from 'antd';
 import { useEnvironments, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
 import appIcon from '@/renderer/images/icon128.png';
@@ -45,6 +49,20 @@ export function TopBar({
   const isSyncing = syncStatus[activeWorkspaceId]?.syncing;
 
   const isDarwin = window.electronAPI?.platform === 'darwin';
+
+  // App menu items
+  const appMenuItems: MenuProps['items'] = [
+    { key: 'export', icon: <ExportOutlined />, label: 'Export', onClick: () => {} },
+    { key: 'import', icon: <ImportOutlined />, label: 'Import', onClick: () => {} },
+    { type: 'divider' },
+    {
+      key: 'check-updates',
+      icon: <DownloadOutlined />,
+      label: 'Check for Updates',
+      onClick: () => window.electronAPI?.checkForUpdates?.(true),
+    },
+    { key: 'settings', icon: <SettingOutlined />, label: 'Settings', onClick: onOpenSettings },
+  ];
 
   // Workspace dropdown menu
   const workspaceMenuItems = workspaces.map((ws) => {
@@ -155,7 +173,9 @@ export function TopBar({
         <Tooltip title="Settings (⌘,)">
           <Button size="small" type="text" icon={<SettingOutlined />} onClick={onOpenSettings} />
         </Tooltip>
-        <Button size="small" type="text" icon={<MenuOutlined />} />
+        <Dropdown menu={{ items: appMenuItems }} trigger={['click']} placement="bottomRight">
+          <Button size="small" type="text" icon={<MenuOutlined />} />
+        </Dropdown>
       </div>
     </div>
   );

@@ -11,7 +11,7 @@
 import type { HeaderRule, Source } from '@openheaders/core';
 import { Allotment } from 'allotment';
 import { theme } from 'antd';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitchOverlay';
 import { useWorkspaceSwitch } from '@/renderer/contexts';
 import { useEnvironments, useHeaderRules, useSources, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
@@ -43,7 +43,7 @@ export function V5Shell() {
   const { workspaces, activeWorkspaceId } = useWorkspaces();
   const { sources, addSource } = useSources();
   const { rules, addRule } = useHeaderRules();
-  const { environments } = useEnvironments();
+  const { environments, createEnvironment } = useEnvironments();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
@@ -58,6 +58,25 @@ export function V5Shell() {
   // Tab management
   const { tabs, activeTabId, openTab, closeTab, switchTab, togglePin, canGoBack, canGoForward, goBack, goForward } =
     useTabs(activeWorkspaceId);
+
+  // Auto-close tabs when their backing entity is deleted
+  const prevEntityIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const currentIds = new Set<string>();
+    for (const r of rules) currentIds.add(`rule-${r.id}`);
+    for (const s of sources) currentIds.add(`source-${s.sourceId}`);
+    for (const envName of Object.keys(environments)) currentIds.add(`env-${envName}`);
+
+    // Only run cleanup after initial load (prevIds is populated)
+    if (prevEntityIds.current.size > 0) {
+      for (const tab of tabs) {
+        if (tab.entityId && !currentIds.has(tab.id) && tab.type !== 'welcome' && tab.type !== 'settings') {
+          closeTab(tab.id);
+        }
+      }
+    }
+    prevEntityIds.current = currentIds;
+  }, [rules, sources, environments, tabs, closeTab]);
 
   const openSettings = useCallback(() => {
     openTab({ id: 'settings', type: 'settings', label: 'Settings', icon: 'settings' });
@@ -118,6 +137,21 @@ export function V5Shell() {
       });
     }
   }, [addSource, openTab]);
+
+  const createNewEnvironment = useCallback(async () => {
+    // Generate unique name
+    const existingNames = Object.keys(environments);
+    let name = 'New Environment';
+    let counter = 2;
+    while (existingNames.includes(name)) {
+      name = `New Environment (${counter})`;
+      counter++;
+    }
+    const success = await createEnvironment(name);
+    if (success) {
+      openTab({ id: `env-${name}`, type: 'environment', label: name, icon: 'environment', entityId: name });
+    }
+  }, [environments, createEnvironment, openTab]);
 
   const togglePanel = useCallback((panel: keyof PanelVisibility) => {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
@@ -269,6 +303,7 @@ export function V5Shell() {
                   onOpenTab={openTab}
                   onNewRequest={() => void createNewSource()}
                   onNewRule={() => void createNewRule()}
+                  onNewEnvironment={() => void createNewEnvironment()}
                 />
               </Allotment.Pane>
             )}

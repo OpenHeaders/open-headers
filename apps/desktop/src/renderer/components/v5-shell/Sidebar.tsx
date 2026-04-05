@@ -34,6 +34,7 @@ interface SidebarProps {
   onOpenTab?: (tab: OpenTabRequest) => void;
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  onNewEnvironment?: () => void;
 }
 
 function SidebarSection({ title, count, onAdd }: { title: string; count?: number; onAdd?: () => void }) {
@@ -79,10 +80,12 @@ function ItemsPanel({
   onOpenTab,
   onNewRequest,
   onNewRule,
+  onNewEnvironment,
 }: {
   onOpenTab?: (tab: OpenTabRequest) => void;
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  onNewEnvironment?: () => void;
 }) {
   const { token } = theme.useToken();
   const { sources } = useSources();
@@ -235,7 +238,7 @@ function ItemsPanel({
         </div>
       )}
 
-      <SidebarSection title="ENVIRONMENTS" count={envNames.length} onAdd={() => {}} />
+      <SidebarSection title="ENVIRONMENTS" count={envNames.length} onAdd={onNewEnvironment} />
       {envNames.length > 0 ? (
         envNames.map((name) => (
           <div
@@ -305,14 +308,19 @@ function PlaceholderPanel({ title }: { title: string }) {
   );
 }
 
-export function Sidebar({ activePanel, onOpenTab, onNewRequest, onNewRule }: SidebarProps) {
+export function Sidebar({ activePanel, onOpenTab, onNewRequest, onNewRule, onNewEnvironment }: SidebarProps) {
   const { token } = theme.useToken();
 
   return (
     <div className="v5-sidebar" style={{ background: token.colorBgContainer }}>
       <div className="v5-sidebar-content">
         {activePanel === 'items' && (
-          <ItemsPanel onOpenTab={onOpenTab} onNewRequest={onNewRequest} onNewRule={onNewRule} />
+          <ItemsPanel
+            onOpenTab={onOpenTab}
+            onNewRequest={onNewRequest}
+            onNewRule={onNewRule}
+            onNewEnvironment={onNewEnvironment}
+          />
         )}
         {activePanel === 'recordings' && <RecordingsPanel />}
         {activePanel === 'history' && <PlaceholderPanel title="History" />}
