@@ -23,15 +23,101 @@ import {
   SendOutlined,
 } from '@ant-design/icons';
 import type { Source, SourceHeader, SourceQueryParam } from '@openheaders/core';
-import { Button, Checkbox, Input, InputNumber, Select, Space, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
+import {
+  Button,
+  Checkbox,
+  Input,
+  InputNumber,
+  Popover,
+  Select,
+  Space,
+  Switch,
+  Tabs,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 
 const { Text } = Typography;
 const { TextArea } = Input;
 
 interface SourceEditorProps {
   sourceId: string;
+}
+
+/** Small hoverable badge that shows env var info in a popover */
+function EnvVarBadge({
+  text,
+  envVars,
+  activeEnvironment,
+}: {
+  text: string;
+  envVars: Record<string, { value: string; isSecret: boolean }>;
+  activeEnvironment: string;
+}) {
+  const { token } = theme.useToken();
+  const varNames = [...text.matchAll(/{{([^}]+)}}/g)].map((m) => m[1]);
+  if (varNames.length === 0) return null;
+
+  const allResolved = varNames.every((name) => envVars[name]);
+
+  return (
+    <Popover
+      content={
+        <div style={{ minWidth: 180 }}>
+          {varNames.map((name) => {
+            const variable = envVars[name];
+            const resolved = !!variable;
+            const displayValue = variable?.isSecret ? '••••••••' : variable?.value;
+            return (
+              <div
+                key={name}
+                style={{
+                  padding: '4px 0',
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ fontFamily: "'SF Mono', monospace", color: token.colorWarning }}>{`{{${name}}}`}</div>
+                <div style={{ fontFamily: "'SF Mono', monospace", marginTop: 2 }}>
+                  {resolved ? displayValue : <Text type="danger">unresolved</Text>}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 10,
+                    marginTop: 2,
+                    color: token.colorTextTertiary,
+                  }}
+                >
+                  <span style={{ color: '#3498db', fontWeight: 700 }}>E</span>
+                  {activeEnvironment}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      }
+      title={null}
+      trigger="hover"
+      placement="bottom"
+    >
+      <span
+        style={{
+          fontSize: 10,
+          color: allResolved ? token.colorSuccess : token.colorError,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {varNames.length} var{varNames.length !== 1 ? 's' : ''}
+      </span>
+    </Popover>
+  );
 }
 
 const METHOD_OPTIONS = [
@@ -63,11 +149,15 @@ function KeyValueTable({
   onChange,
   keyPlaceholder,
   valuePlaceholder,
+  envVars,
+  activeEnvironment,
 }: {
   rows: KVRow[];
   onChange: (rows: KVRow[]) => void;
   keyPlaceholder: string;
   valuePlaceholder: string;
+  envVars?: Record<string, { value: string; isSecret: boolean }>;
+  activeEnvironment?: string;
 }) {
   const { token } = theme.useToken();
 
@@ -165,6 +255,11 @@ function KeyValueTable({
                 borderRadius: 0,
                 color: row.value.includes('{{') ? token.colorWarning : undefined,
               }}
+              suffix={
+                row.value.includes('{{') && envVars && activeEnvironment ? (
+                  <EnvVarBadge text={row.value} envVars={envVars} activeEnvironment={activeEnvironment} />
+                ) : undefined
+              }
             />
             <div style={{ width: 28, display: 'flex', justifyContent: 'center' }}>
               {!isPlaceholderRow && (
@@ -304,7 +399,9 @@ function ResponsePane({ source }: { source: Source }) {
 export function SourceEditor({ sourceId }: SourceEditorProps) {
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource, refreshSource } = useSources();
+  const { environments, activeEnvironment } = useEnvironments();
   const source = sources.find((s) => s.sourceId === sourceId);
+  const activeEnvVars = environments[activeEnvironment] || {};
 
   // Local form state
   const [sourcePath, setSourcePath] = useState('');
@@ -340,7 +437,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
       setJsonFilterEnabled(source.jsonFilter?.enabled ?? false);
       setJsonFilterPath(source.jsonFilter?.path ?? '');
       setRefreshEnabled(source.refreshOptions?.enabled ?? false);
-      setRefreshInterval((source.refreshOptions?.interval ?? 300000) / 60000);
+      setRefreshInterval(source.refreshOptions?.interval ?? 5);
 
       // Convert headers/params to KVRow format
       setParams(
@@ -517,8 +614,14 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
             flex: 1,
             fontSize: 13,
             fontFamily: "'SF Mono', 'Fira Code', monospace",
+            color: sourcePath.includes('{{') ? token.colorWarning : undefined,
           }}
           onPressEnter={handleSend}
+          suffix={
+            sourcePath.includes('{{') ? (
+              <EnvVarBadge text={sourcePath} envVars={activeEnvVars} activeEnvironment={activeEnvironment} />
+            ) : undefined
+          }
         />
         <Button
           type="primary"
@@ -558,6 +661,8 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
               onChange={handleParamsChange}
               keyPlaceholder="Parameter name"
               valuePlaceholder="Value"
+              envVars={activeEnvVars}
+              activeEnvironment={activeEnvironment}
             />
           )}
 
@@ -568,6 +673,8 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
               onChange={handleHeadersChange}
               keyPlaceholder="Header name"
               valuePlaceholder="Value"
+              envVars={activeEnvVars}
+              activeEnvironment={activeEnvironment}
             />
           )}
 
@@ -675,7 +782,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                     onChange={(v) => {
                       setRefreshEnabled(v);
                       scheduleUpdate({
-                        refreshOptions: { enabled: v, type: 'custom', interval: refreshInterval * 60000 },
+                        refreshOptions: { enabled: v, type: 'custom', interval: refreshInterval },
                       });
                     }}
                   />
@@ -689,7 +796,7 @@ export function SourceEditor({ sourceId }: SourceEditorProps) {
                         onChange={(v) => {
                           const mins = v ?? 5;
                           setRefreshInterval(mins);
-                          scheduleUpdate({ refreshOptions: { enabled: true, type: 'custom', interval: mins * 60000 } });
+                          scheduleUpdate({ refreshOptions: { enabled: true, type: 'custom', interval: mins } });
                         }}
                         style={{ width: 70 }}
                       />
