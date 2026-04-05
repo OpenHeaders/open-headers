@@ -1,11 +1,15 @@
 /**
- * TabBar — horizontal tab strip using Ant Design Tabs for proper tab styling.
+ * TabBar — horizontal tab strip for editor tabs.
+ *
+ * Uses custom CSS tabs instead of antd Tabs to avoid EllipsisMeasure crashes
+ * inside Allotment panes. All styles use the existing v5-shell.less classes
+ * (.v5-tab, .v5-tab-label, .v5-tab-close, etc.).
  *
  * Features: method-colored labels, unsaved orange dot, close on X, pinned tabs.
  */
 
-import { ThunderboltOutlined } from '@ant-design/icons';
-import { Space, Tabs, theme } from 'antd';
+import { CloseOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { theme } from 'antd';
 import type { Tab } from './hooks/useTabs';
 
 const METHOD_COLORS: Record<string, string> = {
@@ -24,19 +28,19 @@ interface TabBarProps {
   onTogglePin: (tabId: string) => void;
 }
 
-function TabLabel({ tab }: { tab: Tab }) {
+function TabIcon({ tab }: { tab: Tab }) {
   const { token } = theme.useToken();
-
-  let icon: React.ReactNode = null;
 
   if (tab.type === 'request' || tab.type === 'collection') {
     const method = tab.icon || 'GET';
     const color = METHOD_COLORS[method] || token.colorPrimary;
-    icon = <span style={{ color, fontWeight: 600, fontSize: 11 }}>{method}</span>;
-  } else if (tab.type === 'rule') {
-    icon = <ThunderboltOutlined style={{ color: '#1890ff', fontSize: 12 }} />;
-  } else if (tab.type === 'environment') {
-    icon = (
+    return <span className="v5-method-badge" style={{ background: color }}>{method}</span>;
+  }
+  if (tab.type === 'rule') {
+    return <ThunderboltOutlined style={{ color: '#1890ff', fontSize: 12 }} />;
+  }
+  if (tab.type === 'environment') {
+    return (
       <span
         style={{
           background: '#52c41a',
@@ -51,40 +55,17 @@ function TabLabel({ tab }: { tab: Tab }) {
         E
       </span>
     );
-  } else if (tab.type === 'settings') {
-    icon = <span style={{ fontSize: 11 }}>⚙</span>;
   }
-
-  return (
-    <Space size={4}>
-      {icon}
-      <span>{tab.label}</span>
-      {tab.unsaved && (
-        <span
-          style={{
-            display: 'inline-block',
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: '#ff7875',
-            marginLeft: 2,
-          }}
-        />
-      )}
-    </Space>
-  );
+  if (tab.type === 'settings') {
+    return <span style={{ fontSize: 11 }}>⚙</span>;
+  }
+  return null;
 }
 
 export function TabBar({ tabs, activeTabId, onSwitch, onClose }: TabBarProps) {
   const { token } = theme.useToken();
 
   if (tabs.length === 0) return null;
-
-  const items = tabs.map((tab) => ({
-    key: tab.id,
-    label: <TabLabel tab={tab} />,
-    closable: !tab.pinned,
-  }));
 
   return (
     <div
@@ -94,21 +75,45 @@ export function TabBar({ tabs, activeTabId, onSwitch, onClose }: TabBarProps) {
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
-      <Tabs
-        type="editable-card"
-        size="small"
-        activeKey={activeTabId ?? undefined}
-        onChange={onSwitch}
-        onEdit={(targetKey, action) => {
-          if (action === 'remove' && typeof targetKey === 'string') {
-            onClose(targetKey);
-          }
-        }}
-        items={items}
-        hideAdd
-        style={{ margin: 0 }}
-        tabBarStyle={{ margin: 0, height: 34 }}
-      />
+      <div className="v5-tabs-scroll">
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTabId;
+          return (
+            <div
+              key={tab.id}
+              className={`v5-tab${isActive ? ' active' : ''}`}
+              style={{
+                color: isActive ? token.colorText : token.colorTextSecondary,
+                borderBottomColor: isActive ? token.colorPrimary : 'transparent',
+                background: isActive ? token.colorBgContainer : undefined,
+              }}
+              onClick={() => onSwitch(tab.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSwitch(tab.id);
+              }}
+              role="tab"
+              tabIndex={0}
+              aria-selected={isActive}
+            >
+              <TabIcon tab={tab} />
+              <span className="v5-tab-label">{tab.label}</span>
+              {tab.unsaved && (
+                <span className="v5-tab-unsaved" style={{ background: '#ff7875' }} />
+              )}
+              {!tab.pinned && (
+                <CloseOutlined
+                  className="v5-tab-close"
+                  style={{ fontSize: 10, color: token.colorTextTertiary }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose(tab.id);
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -522,6 +522,7 @@ declare global {
     platform: string;
     version: string;
     isPackaged: boolean;
+    layoutState?: Record<string, unknown> | null;
   }
 
   // noinspection JSUnusedGlobalSymbols — augments the global Window with electronAPI

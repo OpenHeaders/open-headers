@@ -22,6 +22,7 @@ import { useEnvironments, useHeaderRules, useWorkspaces } from '@/renderer/hooks
 
 interface PanelVisibility {
   sidebar: boolean;
+  workbench: boolean;
   bottomPanel: boolean;
   inspector: boolean;
 }
@@ -32,6 +33,9 @@ interface StatusBarProps {
   onOpenBottomTab?: (tab: string) => void;
   responseSideBySide?: boolean;
   onToggleResponseLayout?: () => void;
+  onResetLayout?: () => void;
+  sidebarsSwapped?: boolean;
+  onSwapSidebars?: () => void;
 }
 
 function PanelToggle({
@@ -125,6 +129,9 @@ export function StatusBar({
   onOpenBottomTab,
   responseSideBySide,
   onToggleResponseLayout,
+  onResetLayout,
+  sidebarsSwapped,
+  onSwapSidebars,
 }: StatusBarProps) {
   const { token } = theme.useToken();
   const { rules } = useHeaderRules();
@@ -296,7 +303,7 @@ export function StatusBar({
             title="Toggle sidebar"
             shortcut="⌘B"
             active={panels.sidebar}
-            position="left"
+            position={sidebarsSwapped ? 'right' : 'left'}
             onClick={() => onTogglePanel('sidebar')}
           />
           <PanelToggle
@@ -310,7 +317,7 @@ export function StatusBar({
             title="Toggle inspector"
             shortcut="⌥⌘\"
             active={panels.inspector}
-            position="right"
+            position={sidebarsSwapped ? 'left' : 'right'}
             onClick={() => onTogglePanel('inspector')}
           />
           <Dropdown
@@ -334,9 +341,9 @@ export function StatusBar({
                 {
                   key: 'workbench',
                   label: 'Middle workbench',
-                  icon: <CheckOutlined />,
+                  icon: panels.workbench ? <CheckOutlined /> : null,
                   extra: '⌘⇧M',
-                  disabled: true,
+                  onClick: () => onTogglePanel('workbench'),
                 },
                 {
                   key: 'bottomPanel',
@@ -355,19 +362,16 @@ export function StatusBar({
                 {
                   key: 'swap',
                   label: 'Swap left and right sidebar',
+                  icon: sidebarsSwapped ? <CheckOutlined /> : null,
                   extra: '⌘⇧S',
-                  disabled: true,
+                  onClick: onSwapSidebars,
                 },
                 { type: 'divider' },
                 {
                   key: 'reset',
                   label: 'Reset layout',
                   extra: '⌘⇧R',
-                  onClick: () => {
-                    if (!panels.sidebar) onTogglePanel('sidebar');
-                    if (!panels.bottomPanel) onTogglePanel('bottomPanel');
-                    if (panels.inspector) onTogglePanel('inspector');
-                  },
+                  onClick: onResetLayout,
                 },
               ] satisfies MenuProps['items'],
             }}

@@ -24,6 +24,10 @@ export interface ShortcutHandlers {
   onNewRequest?: () => void;
   onNewRule?: () => void;
   onSave?: () => void;
+  onToggleWorkbench?: () => void;
+  onToggleResponseLayout?: () => void;
+  onResetLayout?: () => void;
+  onSwapSidebars?: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
@@ -71,9 +75,30 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
           }
           break;
         case 's':
-          if (!e.shiftKey && !e.altKey) {
+          if (e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onSwapSidebars?.();
+          } else if (!e.shiftKey && !e.altKey) {
             e.preventDefault();
             handlers.onSave?.();
+          }
+          break;
+        case 'v':
+          if (e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onToggleResponseLayout?.();
+          }
+          break;
+        case 'm':
+          if (e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onToggleWorkbench?.();
+          }
+          break;
+        case 'r':
+          if (e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            handlers.onResetLayout?.();
           }
           break;
         case 'n':

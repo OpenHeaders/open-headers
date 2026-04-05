@@ -9,6 +9,7 @@ import type {
   MenuItemConstructorOptions,
 } from 'electron';
 import electron from 'electron';
+import storageHandlersEarly from './main/modules/ipc/handlers/storageHandlers';
 import settingsCache from './services/core/SettingsCache';
 import mainLogger from './utils/mainLogger';
 
@@ -90,6 +91,7 @@ if (!gotTheLock) {
         platform: process.platform,
         version: app.getVersion(),
         isPackaged: app.isPackaged,
+        layoutState: storageHandlersEarly.readJsonSync('layout-state.json'),
       };
     });
 

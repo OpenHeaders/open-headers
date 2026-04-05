@@ -9,6 +9,7 @@
  */
 
 import type { HeaderRule, Source } from '@openheaders/core';
+import type { AllotmentHandle } from 'allotment';
 import { Allotment } from 'allotment';
 import { Modal, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +23,7 @@ import { CommandPalette } from './CommandPalette';
 import { EditorVariablesProvider } from './contexts/EditorVariablesContext';
 import { EditorArea } from './EditorArea';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { DEFAULT_LAYOUT, useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { useTabs } from './hooks/useTabs';
 import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
@@ -34,6 +36,7 @@ export type ActivityPanel = 'items' | 'recordings' | 'history' | 'files';
 
 interface PanelVisibility {
   sidebar: boolean;
+  workbench: boolean;
   bottomPanel: boolean;
   inspector: boolean;
 }
@@ -47,17 +50,78 @@ export function V5Shell() {
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
-  const [activePanel, setActivePanel] = useState<ActivityPanel>('items');
-  const [panels, setPanels] = useState<PanelVisibility>({
-    sidebar: true,
-    bottomPanel: true,
-    inspector: false,
-  });
+  const { layoutState, setLayoutState } = useLayoutPersistence();
+  const panels = layoutState.panels;
+  const responseSideBySide = layoutState.responseSideBySide;
+  const sidebarsSwapped = layoutState.sidebarsSwapped;
+  const bottomPanelTab = layoutState.bottomPanelTab;
+  const activePanel = layoutState.sidebarActivePanel as ActivityPanel;
+  const sidebarExpandedSections = layoutState.sidebarExpandedSections;
+  const sidebarExpandedCollections = layoutState.sidebarExpandedCollections;
+  const inspectorExpandedKeys = layoutState.inspectorExpandedKeys;
+
+  const setPanels = useCallback(
+    (updater: PanelVisibility | ((prev: PanelVisibility) => PanelVisibility)) => {
+      setLayoutState((prev) => ({
+        ...prev,
+        panels: typeof updater === 'function' ? updater(prev.panels) : updater,
+      }));
+    },
+    [setLayoutState],
+  );
+  const setResponseSideBySide = useCallback(
+    (updater: boolean | ((prev: boolean) => boolean)) => {
+      setLayoutState((prev) => ({
+        ...prev,
+        responseSideBySide: typeof updater === 'function' ? updater(prev.responseSideBySide) : updater,
+      }));
+    },
+    [setLayoutState],
+  );
+  const setSidebarsSwapped = useCallback(
+    (updater: boolean | ((prev: boolean) => boolean)) => {
+      setLayoutState((prev) => ({
+        ...prev,
+        sidebarsSwapped: typeof updater === 'function' ? updater(prev.sidebarsSwapped) : updater,
+      }));
+    },
+    [setLayoutState],
+  );
+  const setBottomPanelTab = useCallback(
+    (tab: string) => {
+      setLayoutState((prev) => ({ ...prev, bottomPanelTab: tab }));
+    },
+    [setLayoutState],
+  );
+  const setActivePanel = useCallback(
+    (panel: ActivityPanel) => {
+      setLayoutState((prev) => ({ ...prev, sidebarActivePanel: panel }));
+    },
+    [setLayoutState],
+  );
+  const setSidebarExpandedSections = useCallback(
+    (sections: string[]) => {
+      setLayoutState((prev) => ({ ...prev, sidebarExpandedSections: sections }));
+    },
+    [setLayoutState],
+  );
+  const setSidebarExpandedCollections = useCallback(
+    (collections: string[]) => {
+      setLayoutState((prev) => ({ ...prev, sidebarExpandedCollections: collections }));
+    },
+    [setLayoutState],
+  );
+  const setInspectorExpandedKeys = useCallback(
+    (keys: string[]) => {
+      setLayoutState((prev) => ({ ...prev, inspectorExpandedKeys: keys }));
+    },
+    [setLayoutState],
+  );
+
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [bottomPanelTab, setBottomPanelTab] = useState('traffic');
-  const [responseSideBySide, setResponseSideBySide] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
   const editorSaveRef = useRef<(() => void) | null>(null);
+  const outerAllotmentRef = useRef<AllotmentHandle>(null);
 
   // Tab management
   const {
@@ -174,16 +238,21 @@ export function V5Shell() {
     return () => window.removeEventListener('showVariablesPanel', handler);
   }, []);
 
-  // Auto-close tabs when their backing entity is deleted
+  // Auto-close tabs when their backing entity is deleted.
+  // Skip during workspace transitions — sources/rules reset temporarily when switching.
   const prevEntityIds = useRef<Set<string>>(new Set());
+  const prevWorkspaceForCleanup = useRef(activeWorkspaceId);
   useEffect(() => {
+    const workspaceJustChanged = prevWorkspaceForCleanup.current !== activeWorkspaceId;
+    prevWorkspaceForCleanup.current = activeWorkspaceId;
+
     const currentIds = new Set<string>();
     for (const r of rules) currentIds.add(`rule-${r.id}`);
     for (const s of sources) currentIds.add(`source-${s.sourceId}`);
     for (const envName of Object.keys(environments)) currentIds.add(`env-${envName}`);
 
-    // Only run cleanup after initial load (prevIds is populated)
-    if (prevEntityIds.current.size > 0) {
+    // Only run cleanup after initial load (prevIds is populated) and not during workspace switch
+    if (prevEntityIds.current.size > 0 && !workspaceJustChanged) {
       for (const tab of tabs) {
         if (tab.entityId && !currentIds.has(tab.id) && tab.type !== 'welcome' && tab.type !== 'settings') {
           closeTab(tab.id);
@@ -191,7 +260,7 @@ export function V5Shell() {
       }
     }
     prevEntityIds.current = currentIds;
-  }, [rules, sources, environments, tabs, closeTab]);
+  }, [rules, sources, environments, tabs, closeTab, activeWorkspaceId]);
 
   const openSettings = useCallback(() => {
     openTab({ id: 'settings', type: 'settings', label: 'Settings', icon: 'settings' });
@@ -272,6 +341,16 @@ export function V5Shell() {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
   }, []);
 
+  const resetLayout = useCallback(() => {
+    setLayoutState(DEFAULT_LAYOUT);
+    // Restore all pane sizes to their preferredSize defaults
+    outerAllotmentRef.current?.reset();
+  }, [setLayoutState]);
+
+  const swapSidebars = useCallback(() => {
+    setSidebarsSwapped((v) => !v);
+  }, []);
+
   const openBottomTab = useCallback(
     (tab: string) => {
       if (panels.bottomPanel && bottomPanelTab === tab) {
@@ -297,8 +376,12 @@ export function V5Shell() {
       onNewRequest: () => void createNewSource(),
       onNewRule: () => void createNewRule(),
       onSave: () => editorSaveRef.current?.(),
+      onToggleWorkbench: () => togglePanel('workbench'),
+      onToggleResponseLayout: () => setResponseSideBySide((v) => !v),
+      onResetLayout: resetLayout,
+      onSwapSidebars: swapSidebars,
     }),
-    [togglePanel, openSettings, createNewSource, createNewRule],
+    [togglePanel, openSettings, createNewSource, createNewRule, resetLayout, swapSidebars],
   );
   useKeyboardShortcuts(shortcutHandlers);
 
@@ -422,21 +505,34 @@ export function V5Shell() {
           {/* Main content area */}
           <div className="v5-main">
             {/* Resizable panels — always render all panes, toggle with visible */}
-            <Allotment proportionalLayout={false}>
-              {/* Left Sidebar (with activity icons at top) */}
-              <Allotment.Pane preferredSize={250} minSize={180} maxSize={400} visible={panels.sidebar}>
-                <Sidebar
-                  activePanel={activePanel}
-                  onPanelChange={setActivePanel}
-                  onOpenTab={openTab}
-                  onNewRequest={() => void createNewSource()}
-                  onNewRule={() => void createNewRule()}
-                  onNewEnvironment={() => void createNewEnvironment()}
-                />
+            <Allotment ref={outerAllotmentRef} proportionalLayout={false}>
+              {/* Left pane — content swaps based on sidebarsSwapped */}
+              <Allotment.Pane
+                preferredSize={sidebarsSwapped ? 300 : 250}
+                minSize={sidebarsSwapped ? 220 : 180}
+                maxSize={panels.workbench ? (sidebarsSwapped ? 500 : 400) : Infinity}
+                visible={sidebarsSwapped ? panels.inspector : panels.sidebar}
+              >
+                {sidebarsSwapped ? (
+                  <Inspector onClose={() => togglePanel('inspector')} expandedKeys={inspectorExpandedKeys} onExpandedKeysChange={setInspectorExpandedKeys} />
+                ) : (
+                  <Sidebar
+                    activePanel={activePanel}
+                    onPanelChange={setActivePanel}
+                    onOpenTab={openTab}
+                    onNewRequest={() => void createNewSource()}
+                    onNewRule={() => void createNewRule()}
+                    onNewEnvironment={() => void createNewEnvironment()}
+                    expandedSections={sidebarExpandedSections}
+                    onExpandedSectionsChange={setSidebarExpandedSections}
+                    expandedCollections={sidebarExpandedCollections}
+                    onExpandedCollectionsChange={setSidebarExpandedCollections}
+                  />
+                )}
               </Allotment.Pane>
 
               {/* Center: Editor + Bottom Panel */}
-              <Allotment.Pane>
+              <Allotment.Pane visible={panels.workbench}>
                 <Allotment vertical proportionalLayout={false}>
                   {/* Editor Area */}
                   <Allotment.Pane>
@@ -472,9 +568,29 @@ export function V5Shell() {
                 </Allotment>
               </Allotment.Pane>
 
-              {/* Right Sidebar (Inspector) */}
-              <Allotment.Pane preferredSize={300} minSize={220} maxSize={500} visible={panels.inspector}>
-                <Inspector onClose={() => togglePanel('inspector')} />
+              {/* Right pane — content swaps based on sidebarsSwapped */}
+              <Allotment.Pane
+                preferredSize={sidebarsSwapped ? 250 : 300}
+                minSize={sidebarsSwapped ? 180 : 220}
+                maxSize={panels.workbench ? (sidebarsSwapped ? 400 : 500) : Infinity}
+                visible={sidebarsSwapped ? panels.sidebar : panels.inspector}
+              >
+                {sidebarsSwapped ? (
+                  <Sidebar
+                    activePanel={activePanel}
+                    onPanelChange={setActivePanel}
+                    onOpenTab={openTab}
+                    onNewRequest={() => void createNewSource()}
+                    onNewRule={() => void createNewRule()}
+                    onNewEnvironment={() => void createNewEnvironment()}
+                    expandedSections={sidebarExpandedSections}
+                    onExpandedSectionsChange={setSidebarExpandedSections}
+                    expandedCollections={sidebarExpandedCollections}
+                    onExpandedCollectionsChange={setSidebarExpandedCollections}
+                  />
+                ) : (
+                  <Inspector onClose={() => togglePanel('inspector')} expandedKeys={inspectorExpandedKeys} onExpandedKeysChange={setInspectorExpandedKeys} />
+                )}
               </Allotment.Pane>
             </Allotment>
           </div>
@@ -486,6 +602,9 @@ export function V5Shell() {
             onOpenBottomTab={openBottomTab}
             responseSideBySide={responseSideBySide}
             onToggleResponseLayout={() => setResponseSideBySide((v) => !v)}
+            onResetLayout={resetLayout}
+            sidebarsSwapped={sidebarsSwapped}
+            onSwapSidebars={swapSidebars}
           />
 
           {/* Command Palette */}

@@ -7,7 +7,6 @@
  *   - Unsaved indicator
  *   - Tab overflow count
  *   - Back/forward navigation history
- *   - Per-workspace tab persistence (disk via main process IPC)
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -42,8 +41,6 @@ interface TabsState {
   historyIndex: number;
 }
 
-const STORAGE_FILE = 'tab-sessions.json';
-
 const WELCOME_TAB: Tab = {
   id: 'welcome',
   type: 'welcome',
@@ -59,96 +56,31 @@ const DEFAULT_STATE: TabsState = {
   historyIndex: 0,
 };
 
-// ── Persistence helpers ───────────────────────────────────────────
-
-/** Strip transient fields before persisting */
-function toSerializable(tabsState: TabsState): TabsState {
-  return {
-    ...tabsState,
-    tabs: tabsState.tabs.map((t) => ({ ...t, unsaved: false })),
-  };
-}
-
-/** Validate a restored TabsState is structurally sound */
-function isValidTabsState(obj: unknown): obj is TabsState {
-  if (!obj || typeof obj !== 'object') return false;
-  const s = obj as Record<string, unknown>;
-  return Array.isArray(s.tabs) && Array.isArray(s.history) && typeof s.historyIndex === 'number';
-}
-
-// Module-level cache so the map survives re-mounts but the load only happens once
-let diskLoaded = false;
-const workspaceTabsMap = new Map<string, TabsState>();
-
-async function loadAllFromDisk(): Promise<void> {
-  if (diskLoaded) return;
-  diskLoaded = true;
-  try {
-    const raw = await window.electronAPI?.loadFromStorage?.(STORAGE_FILE);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    for (const [wsId, value] of Object.entries(parsed)) {
-      if (isValidTabsState(value)) {
-        // Reset unsaved flags on restore
-        workspaceTabsMap.set(wsId, toSerializable(value));
-      }
-    }
-  } catch {
-    // Corrupted or missing file — start fresh
-  }
-}
-
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-
-function scheduleSaveToDisk(): void {
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const serialized: Record<string, TabsState> = {};
-    for (const [wsId, tabsState] of workspaceTabsMap) {
-      serialized[wsId] = toSerializable(tabsState);
-    }
-    const json = JSON.stringify(serialized);
-    window.electronAPI?.saveToStorage?.(STORAGE_FILE, json).catch(() => {});
-  }, 1000);
-}
-
 // ── Hook ──────────────────────────────────────────────────────────
 
 export function useTabs(activeWorkspaceId?: string) {
   const currentWorkspaceRef = useRef(activeWorkspaceId);
-  const [loaded, setLoaded] = useState(diskLoaded);
+  const workspaceTabsMap = useRef(new Map<string, TabsState>());
 
-  // Get or create state for a workspace
   const getWorkspaceState = useCallback((wsId: string | undefined): TabsState => {
     if (!wsId) return { ...DEFAULT_STATE, tabs: [{ ...WELCOME_TAB }] };
-    const existing = workspaceTabsMap.get(wsId);
+    const existing = workspaceTabsMap.current.get(wsId);
     if (existing) return existing;
     const fresh: TabsState = { ...DEFAULT_STATE, tabs: [{ ...WELCOME_TAB }] };
-    workspaceTabsMap.set(wsId, fresh);
+    workspaceTabsMap.current.set(wsId, fresh);
     return fresh;
   }, []);
 
   const [state, setState] = useState<TabsState>(() => getWorkspaceState(activeWorkspaceId));
-
-  // Load persisted tabs from disk on first mount
-  useEffect(() => {
-    if (loaded) return;
-    loadAllFromDisk().then(() => {
-      setLoaded(true);
-      // Re-hydrate current workspace state from what was loaded
-      setState(getWorkspaceState(activeWorkspaceId));
-    });
-  }, [loaded, activeWorkspaceId, getWorkspaceState]);
 
   // Swap tabs when workspace changes
   useEffect(() => {
     const prevWsId = currentWorkspaceRef.current;
     if (prevWsId === activeWorkspaceId) return;
 
-    // Save current state for the previous workspace
     if (prevWsId) {
       setState((currentState) => {
-        workspaceTabsMap.set(prevWsId, currentState);
+        workspaceTabsMap.current.set(prevWsId, currentState);
         const restored = getWorkspaceState(activeWorkspaceId);
         currentWorkspaceRef.current = activeWorkspaceId;
         return restored;
@@ -160,11 +92,10 @@ export function useTabs(activeWorkspaceId?: string) {
     }
   }, [activeWorkspaceId, getWorkspaceState]);
 
-  // Keep the map in sync and schedule disk save on every state change
+  // Keep the map in sync
   useEffect(() => {
     if (activeWorkspaceId) {
-      workspaceTabsMap.set(activeWorkspaceId, state);
-      scheduleSaveToDisk();
+      workspaceTabsMap.current.set(activeWorkspaceId, state);
     }
   }, [state, activeWorkspaceId]);
 
@@ -189,7 +120,6 @@ export function useTabs(activeWorkspaceId?: string) {
       if (!tab || tab.pinned) return prev;
 
       if (tab.unsaved && !force) {
-        // Don't close — the caller should show a modal and re-call with force=true
         return prev;
       }
 
@@ -247,7 +177,6 @@ export function useTabs(activeWorkspaceId?: string) {
   const canGoBack = state.historyIndex > 0;
   const canGoForward = state.historyIndex < state.history.length - 1;
 
-  // Sort: pinned tabs first, then unpinned in order
   const sortedTabs = [...state.tabs.filter((t) => t.pinned), ...state.tabs.filter((t) => !t.pinned)];
 
   return {

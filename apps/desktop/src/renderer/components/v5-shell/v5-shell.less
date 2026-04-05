@@ -699,6 +699,34 @@
   text-align: right;
 }
 
+// ── Simple tabs (replaces antd Tabs inside Allotment panes) ───
+// antd Tabs uses EllipsisMeasure which crashes in zero-width
+// containers during Allotment's initial layout pass.
+
+.v5-simple-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.v5-simple-tab {
+  font-size: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 0.15s;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  &.active {
+    font-weight: 500;
+  }
+}
+
 // ── Inspector variables table ─────────────────────────────────────
 
 // Force table-layout: fixed so columns respect widths and truncate

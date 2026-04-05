@@ -50,6 +50,10 @@ interface SidebarProps {
   onNewRequest?: () => void;
   onNewRule?: () => void;
   onNewEnvironment?: () => void;
+  expandedSections?: string[];
+  onExpandedSectionsChange?: (sections: string[]) => void;
+  expandedCollections?: string[];
+  onExpandedCollectionsChange?: (collections: string[]) => void;
 }
 
 function SectionHeader({ title, expanded, onToggle }: { title: string; expanded: boolean; onToggle: () => void }) {
@@ -112,27 +116,37 @@ function ItemsPanel({
   onNewRule,
   onNewEnvironment,
   filterText = '',
+  expandedSections: expandedSectionsProp,
+  onExpandedSectionsChange,
+  expandedCollections: expandedCollectionsProp,
+  onExpandedCollectionsChange,
 }: {
   onOpenTab?: (tab: OpenTabRequest) => void;
   onNewRequest?: () => void;
   onNewRule?: () => void;
   onNewEnvironment?: () => void;
   filterText?: string;
+  expandedSections?: string[];
+  onExpandedSectionsChange?: (sections: string[]) => void;
+  expandedCollections?: string[];
+  onExpandedCollectionsChange?: (collections: string[]) => void;
 }) {
   const { token } = theme.useToken();
   const { sources } = useSources();
   const { rules } = useHeaderRules();
   const { environments, activeEnvironment } = useEnvironments();
-  const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  // Use controlled state from parent if provided, otherwise local
+  const expandedSectionsSet = useMemo(
+    () => new Set(expandedSectionsProp ?? []),
+    [expandedSectionsProp],
+  );
 
   const toggleSection = (section: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(section)) next.delete(section);
-      else next.add(section);
-      return next;
-    });
+    const next = new Set(expandedSectionsSet);
+    if (next.has(section)) next.delete(section);
+    else next.add(section);
+    onExpandedSectionsChange?.([...next]);
   };
 
   const filter = filterText.toLowerCase();
@@ -166,18 +180,21 @@ function ItemsPanel({
     return names.filter((n) => n.toLowerCase().includes(filter));
   }, [environments, filter]);
 
+  const expandedCollections = useMemo(
+    () => new Set(expandedCollectionsProp ?? []),
+    [expandedCollectionsProp],
+  );
+
   const toggleCollection = (tag: string) => {
-    setExpandedCollections((prev) => {
-      const next = new Set(prev);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return next;
-    });
+    const next = new Set(expandedCollections);
+    if (next.has(tag)) next.delete(tag);
+    else next.add(tag);
+    onExpandedCollectionsChange?.([...next]);
   };
 
-  const collectionsExpanded = expandedSections.has('collections');
-  const rulesExpanded = expandedSections.has('rules');
-  const envsExpanded = expandedSections.has('environments');
+  const collectionsExpanded = expandedSectionsSet.has('collections');
+  const rulesExpanded = expandedSectionsSet.has('rules');
+  const envsExpanded = expandedSectionsSet.has('environments');
 
   const collectionsContent =
     collections.size > 0 ? (
@@ -414,6 +431,10 @@ export function Sidebar({
   onNewRequest,
   onNewRule,
   onNewEnvironment,
+  expandedSections,
+  onExpandedSectionsChange,
+  expandedCollections,
+  onExpandedCollectionsChange,
 }: SidebarProps) {
   const { token } = theme.useToken();
   const [filterText, setFilterText] = useState('');
@@ -476,6 +497,10 @@ export function Sidebar({
             onNewRule={onNewRule}
             onNewEnvironment={onNewEnvironment}
             filterText={filterText}
+            expandedSections={expandedSections}
+            onExpandedSectionsChange={onExpandedSectionsChange}
+            expandedCollections={expandedCollections}
+            onExpandedCollectionsChange={onExpandedCollectionsChange}
           />
         )}
         {activePanel === 'recordings' && <RecordingsPanel />}

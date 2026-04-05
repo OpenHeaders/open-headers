@@ -83,6 +83,17 @@ class StorageHandlers {
     }
   }
 
+  /** Synchronous JSON read for startup data — no IPC, called directly by main process. */
+  readJsonSync(filename: string): Record<string, unknown> | null {
+    try {
+      const storagePath = path.join(app.getPath('userData'), filename);
+      const raw = fs.readFileSync(storagePath, 'utf-8');
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
   async handleLoadFromStorage(_: IpcInvokeEvent, filename: string) {
     try {
       const userDataPath = app.getPath('userData');

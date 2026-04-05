@@ -44,14 +44,17 @@ const SCOPE_LETTERS: Record<string, string> = {
 
 interface InspectorProps {
   onClose?: () => void;
+  expandedKeys?: string[];
+  onExpandedKeysChange?: (keys: string[]) => void;
 }
 
-export function Inspector({ onClose }: InspectorProps) {
+export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedKeysChange }: InspectorProps) {
   const { token } = theme.useToken();
   const { environments, activeEnvironment } = useEnvironments();
   const { usedVariables } = useEditorVariables();
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  const expandedKeys = expandedKeysProp ?? [];
+  const setExpandedKeys = (keys: string[]) => onExpandedKeysChange?.(keys);
 
   const activeEnvData = environments[activeEnvironment] || {};
 
@@ -120,7 +123,6 @@ export function Inspector({ onClose }: InspectorProps) {
     {
       key: 'name',
       width: '45%',
-      ellipsis: true,
       render: (_, r) => (
         <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 12, ...ellipsisStyle }}>
           {r.name}
@@ -129,7 +131,6 @@ export function Inspector({ onClose }: InspectorProps) {
     },
     {
       key: 'value',
-      ellipsis: true,
       render: (_, r) => (
         <Text
           style={{

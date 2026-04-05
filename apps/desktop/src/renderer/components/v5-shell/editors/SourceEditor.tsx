@@ -24,10 +24,11 @@ import {
 } from '@ant-design/icons';
 import type { Source, SourceHeader, SourceQueryParam } from '@openheaders/core';
 import { Allotment } from 'allotment';
-import { Button, Checkbox, Input, InputNumber, Select, Space, Switch, Tabs, Tooltip, Typography, theme } from 'antd';
+import { Button, Checkbox, Input, InputNumber, Select, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 import { extractSourceVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
+import { SimpleTabs } from '../SimpleTabs';
 import { TemplateInput } from './TemplateInput';
 
 const { Text } = Typography;
@@ -207,7 +208,17 @@ function KeyValueTable({
 
 // ── Response pane ─────────────────────────────────────────────────
 
-function ResponsePane({ source }: { source: Source }) {
+function ResponsePane({
+  source,
+  sideBySide,
+  responseTab,
+  onResponseTabChange,
+}: {
+  source: Source;
+  sideBySide?: boolean;
+  responseTab: string;
+  onResponseTabChange: (tab: string) => void;
+}) {
   const { token } = theme.useToken();
   const content = source.sourceContent;
   const originalResponse = source.originalResponse;
@@ -227,10 +238,16 @@ function ResponsePane({ source }: { source: Source }) {
     }
   };
 
-  const [responseTab, setResponseTab] = useState<string>('body');
-
   return (
-    <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        borderTop: sideBySide ? 'none' : `1px solid ${token.colorBorderSecondary}`,
+        borderLeft: sideBySide ? `1px solid ${token.colorBorderSecondary}` : 'none',
+      }}
+    >
       <div
         style={{
           display: 'flex',
@@ -238,6 +255,7 @@ function ResponsePane({ source }: { source: Source }) {
           justifyContent: 'space-between',
           padding: '6px 12px',
           background: token.colorBgElevated,
+          flexShrink: 0,
         }}
       >
         <Space size={12}>
@@ -267,16 +285,15 @@ function ResponsePane({ source }: { source: Source }) {
         )}
       </div>
 
-      <Tabs
-        size="small"
-        activeKey={responseTab}
-        onChange={setResponseTab}
-        style={{ padding: '0 12px' }}
+      <SimpleTabs
         items={[
           { key: 'body', label: 'Body' },
           { key: 'raw', label: 'Raw' },
           ...(responseHeaders ? [{ key: 'headers', label: `Headers (${Object.keys(responseHeaders).length})` }] : []),
         ]}
+        activeKey={responseTab}
+        onChange={onResponseTabChange}
+        style={{ padding: '0 12px', flexShrink: 0 }}
       />
 
       <div
@@ -286,7 +303,7 @@ function ResponsePane({ source }: { source: Source }) {
           fontSize: 11,
           lineHeight: 1.6,
           overflow: 'auto',
-          maxHeight: 300,
+          flex: 1,
           minHeight: 80,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-all',
@@ -378,6 +395,16 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
   const [sourcePath, setSourcePath] = useState('');
   const [sourceMethod, setSourceMethod] = useState('GET');
   const [activeTab, setActiveTab] = useState('params');
+  const [responseTab, setResponseTab] = useState('body');
+
+  // Remember Allotment sizes per orientation so toggling preserves the split position
+  const splitSizesRef = useRef<{ v?: number[]; h?: number[] }>({});
+  const handleSplitChange = useCallback(
+    (sizes: number[]) => {
+      splitSizesRef.current[responseSideBySide ? 'h' : 'v'] = sizes;
+    },
+    [responseSideBySide],
+  );
 
   // Params & headers as KVRow arrays (with enabled flag for checkboxes)
   const [params, setParams] = useState<KVRow[]>([]);
@@ -698,16 +725,21 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
 
       {/* ── Request + Response split ────────────────────── */}
       <div style={{ flex: 1, minHeight: 0 }}>
-        <Allotment vertical={!responseSideBySide} proportionalLayout={false}>
+        <Allotment
+          key={responseSideBySide ? 'h' : 'v'}
+          vertical={!responseSideBySide}
+          proportionalLayout={false}
+          defaultSizes={splitSizesRef.current[responseSideBySide ? 'h' : 'v']}
+          onChange={handleSplitChange}
+        >
           {/* Request pane */}
           <Allotment.Pane minSize={120}>
             <div style={{ height: '100%', overflow: 'auto' }}>
-              <Tabs
-                size="small"
+              <SimpleTabs
+                items={requestTabs}
                 activeKey={activeTab}
                 onChange={setActiveTab}
                 style={{ padding: '0 16px' }}
-                items={requestTabs}
               />
 
               <div style={{ padding: '0 16px 16px' }}>
@@ -846,9 +878,14 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
 
           {/* Response pane */}
           {isHttp && (
-            <Allotment.Pane preferredSize={250} minSize={60} maxSize={600}>
+            <Allotment.Pane minSize={60}>
               <div style={{ height: '100%', overflow: 'auto' }}>
-                <ResponsePane source={source} />
+                <ResponsePane
+                  source={source}
+                  sideBySide={responseSideBySide}
+                  responseTab={responseTab}
+                  onResponseTabChange={setResponseTab}
+                />
               </div>
             </Allotment.Pane>
           )}
