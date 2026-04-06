@@ -14,8 +14,8 @@ import appIcon from '@/renderer/images/icon128.png';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
 import { SourceEditor } from './editors/SourceEditor';
-import type { Tab } from './hooks/useTabs';
 import type { ResolvedTab } from './hooks/useResolvedTabs';
+import type { Tab } from './hooks/useTabs';
 import { SettingsEditor } from './SettingsEditor';
 
 const { Title, Text } = Typography;

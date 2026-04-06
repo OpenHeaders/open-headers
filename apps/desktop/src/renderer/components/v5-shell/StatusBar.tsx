@@ -44,19 +44,21 @@ function PanelToggle({
   active,
   position,
   onClick,
+  tooltipPlacement = 'top',
 }: {
   title: string;
   shortcut: string;
   active: boolean;
   position: 'left' | 'bottom' | 'right';
   onClick: () => void;
+  tooltipPlacement?: 'top' | 'topRight' | 'topLeft';
 }) {
   const { token } = theme.useToken();
   const fillColor = active ? token.colorTextSecondary : 'none';
   const strokeColor = token.colorTextTertiary;
 
   return (
-    <Tooltip title={`${title} (${shortcut})`}>
+    <Tooltip title={`${title} (${shortcut})`} placement={tooltipPlacement}>
       <div
         className="v5-panel-toggle"
         onClick={onClick}
@@ -139,6 +141,7 @@ export function StatusBar({
   const { environments, activeEnvironment, switchEnvironment } = useEnvironments();
 
   const [appVersion, setAppVersion] = useState(window.startupData?.version ?? '');
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const [clientCount, setClientCount] = useState(0);
 
   useEffect(() => {
@@ -296,29 +299,35 @@ export function StatusBar({
             {activeEnvironment || 'Default'} ▾
           </span>
         </Dropdown>
+        {appVersion && (
+          <span className="v5-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
+            v{appVersion}
+          </span>
+        )}
         <div className="v5-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
 
         <div className="v5-panel-toggles">
           <PanelToggle
-            title="Toggle sidebar"
+            title="Left sidebar"
             shortcut="⌘B"
             active={panels.sidebar}
             position={sidebarsSwapped ? 'right' : 'left'}
             onClick={() => onTogglePanel('sidebar')}
           />
           <PanelToggle
-            title="Toggle bottom panel"
+            title="Bottom bar"
             shortcut="⌘J"
             active={panels.bottomPanel}
             position="bottom"
             onClick={() => onTogglePanel('bottomPanel')}
           />
           <PanelToggle
-            title="Toggle inspector"
+            title="Right sidebar"
             shortcut="⌥⌘\"
             active={panels.inspector}
             position={sidebarsSwapped ? 'left' : 'right'}
             onClick={() => onTogglePanel('inspector')}
+            tooltipPlacement="topRight"
           />
           <Dropdown
             menu={{
@@ -361,7 +370,7 @@ export function StatusBar({
                 },
                 {
                   key: 'swap',
-                  label: 'Swap left and right sidebar',
+                  label: 'Swap left and right sidebars',
                   icon: sidebarsSwapped ? <CheckOutlined /> : null,
                   extra: '⌘⇧S',
                   onClick: onSwapSidebars,
@@ -377,10 +386,13 @@ export function StatusBar({
             }}
             trigger={['click']}
             placement="topRight"
+            onOpenChange={setLayoutMenuOpen}
           >
-            <div className="v5-panel-toggle" style={{ cursor: 'pointer' }}>
-              <LayoutOutlined style={{ fontSize: 13, color: token.colorTextTertiary }} />
-            </div>
+            <Tooltip title="Customize layout" placement="topRight" open={layoutMenuOpen ? false : undefined}>
+              <div className="v5-panel-toggle" style={{ cursor: 'pointer' }}>
+                <LayoutOutlined style={{ fontSize: 13, color: token.colorTextTertiary }} />
+              </div>
+            </Tooltip>
           </Dropdown>
         </div>
       </div>

@@ -68,7 +68,10 @@ export function BreadcrumbBar({ segments, isDirty, onSave, saveLabel, onRename }
         {segments.map((seg, i) => {
           const isLast = i === segments.length - 1;
           return (
-            <span key={`${seg.label}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+            <span
+              key={`${seg.label}-${i}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minWidth: 0 }}
+            >
               {isLast && editing ? (
                 <input
                   ref={inputRef}

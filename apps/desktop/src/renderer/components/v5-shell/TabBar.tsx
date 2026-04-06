@@ -9,13 +9,7 @@
  * + button (new Request/Rule), chevron dropdown (search/select open tabs).
  */
 
-import {
-  ApiOutlined,
-  CloseOutlined,
-  DownOutlined,
-  PlusOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { ApiOutlined, CloseOutlined, DownOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Dropdown, Input, type InputRef, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ResolvedTab } from './hooks/useResolvedTabs';
@@ -150,7 +144,9 @@ function TabSearchDropdown({
 
   const filter = search.toLowerCase();
   const filtered = tabs.filter(
-    (t) => t.type !== 'welcome' && (t.resolvedLabel.toLowerCase().includes(filter) || (t.resolvedIcon || '').toLowerCase().includes(filter)),
+    (t) =>
+      t.type !== 'welcome' &&
+      (t.resolvedLabel.toLowerCase().includes(filter) || (t.resolvedIcon || '').toLowerCase().includes(filter)),
   );
 
   const selectFocused = () => {
@@ -184,12 +180,28 @@ function TabSearchDropdown({
 
   return (
     <>
-      <div className="v5-tab-search-backdrop" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} role="presentation" />
+      <div
+        className="v5-tab-search-backdrop"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
+        role="presentation"
+      />
       <div
         className="v5-tab-search-dropdown"
         style={{ background: token.colorBgElevated, border: `1px solid ${token.colorBorderSecondary}` }}
       >
-        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            padding: '8px 12px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
           <Input
             ref={inputRef}
             placeholder="Search tabs"
@@ -221,16 +233,31 @@ function TabSearchDropdown({
                 role="button"
                 tabIndex={-1}
               >
-                {(tab.type === 'request' || tab.type === 'collection') && <MethodBadge method={tab.resolvedIcon || 'GET'} />}
+                {(tab.type === 'request' || tab.type === 'collection') && (
+                  <MethodBadge method={tab.resolvedIcon || 'GET'} />
+                )}
                 {tab.type === 'rule' && <ThunderboltOutlined style={{ color: '#1890ff', fontSize: 11 }} />}
                 {tab.type === 'environment' && (
-                  <span style={{ background: '#52c41a', color: 'white', fontSize: 8, fontWeight: 700, padding: '0 3px', borderRadius: 2 }}>E</span>
+                  <span
+                    style={{
+                      background: '#52c41a',
+                      color: 'white',
+                      fontSize: 8,
+                      fontWeight: 700,
+                      padding: '0 3px',
+                      borderRadius: 2,
+                    }}
+                  >
+                    E
+                  </span>
                 )}
                 {tab.type === 'settings' && <span style={{ fontSize: 10 }}>&#x2699;</span>}
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {tab.resolvedLabel}
                 </span>
-                {tab.unsaved && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff7875', flexShrink: 0 }} />}
+                {tab.unsaved && (
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff7875', flexShrink: 0 }} />
+                )}
               </div>
             ))
           ) : (
@@ -421,42 +448,42 @@ export function TabBar({
               <Dropdown menu={buildContextMenu(tab, index)} trigger={['contextMenu']}>
                 <div
                   className={`v5-tab${isActive ? ' active' : ''}`}
-                data-tab-id={tab.id}
-                style={{
-                  color: isActive ? token.colorText : token.colorTextSecondary,
-                  borderBottomColor: isActive ? token.colorPrimary : 'transparent',
-                  background: isActive ? token.colorBgContainer : undefined,
-                  ...dropIndicatorStyle,
-                }}
-                onClick={() => onSwitch(tab.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onSwitch(tab.id);
-                }}
-                role="tab"
-                tabIndex={0}
-                aria-selected={isActive}
-                draggable
-                onDragStart={(e) => handleDragStart(e, tab.id)}
-                onDragOver={(e) => handleDragOver(e, tab.id)}
-                onDrop={(e) => handleDrop(e, tab.id)}
-                onDragEnd={handleDragEnd}
-                onDragLeave={() => {
-                  if (dragOverId === tab.id) setDragOverId(null);
-                }}
-              >
-                <TabIcon tab={tab} />
-                <span className="v5-tab-label">{truncateMiddle(tab.resolvedLabel, TAB_LABEL_MAX)}</span>
-                {tab.unsaved && <span className="v5-tab-unsaved" style={{ background: '#ff7875' }} />}
-                {!tab.pinned && (
-                  <CloseOutlined
-                    className="v5-tab-close"
-                    style={{ fontSize: 10, color: token.colorTextTertiary }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClose(tab.id);
-                    }}
-                  />
-                )}
+                  data-tab-id={tab.id}
+                  style={{
+                    color: isActive ? token.colorText : token.colorTextSecondary,
+                    borderBottomColor: isActive ? token.colorPrimary : 'transparent',
+                    background: isActive ? token.colorBgContainer : undefined,
+                    ...dropIndicatorStyle,
+                  }}
+                  onClick={() => onSwitch(tab.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onSwitch(tab.id);
+                  }}
+                  role="tab"
+                  tabIndex={0}
+                  aria-selected={isActive}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, tab.id)}
+                  onDragOver={(e) => handleDragOver(e, tab.id)}
+                  onDrop={(e) => handleDrop(e, tab.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragLeave={() => {
+                    if (dragOverId === tab.id) setDragOverId(null);
+                  }}
+                >
+                  <TabIcon tab={tab} />
+                  <span className="v5-tab-label">{truncateMiddle(tab.resolvedLabel, TAB_LABEL_MAX)}</span>
+                  {tab.unsaved && <span className="v5-tab-unsaved" style={{ background: '#ff7875' }} />}
+                  {!tab.pinned && (
+                    <CloseOutlined
+                      className="v5-tab-close"
+                      style={{ fontSize: 10, color: token.colorTextTertiary }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onClose(tab.id);
+                      }}
+                    />
+                  )}
                 </div>
               </Dropdown>
             </Tooltip>

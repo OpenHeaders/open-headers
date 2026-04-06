@@ -17,6 +17,7 @@ import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitch
 import { useWorkspaceSwitch } from '@/renderer/contexts';
 import { useEnvironments, useHeaderRules, useSources, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
 import 'allotment/dist/style.css';
+import { ActivityBar } from './ActivityBar';
 import { BottomPanel } from './BottomPanel';
 import { BreadcrumbBar } from './BreadcrumbBar';
 import { CommandPalette } from './CommandPalette';
@@ -296,7 +297,10 @@ export function V5Shell() {
     (tabId: string) => {
       const idx = resolvedTabs.findIndex((t) => t.id === tabId);
       if (idx <= 0) return;
-      const toClose = resolvedTabs.slice(0, idx).filter((t) => !t.pinned).map((t) => t.id);
+      const toClose = resolvedTabs
+        .slice(0, idx)
+        .filter((t) => !t.pinned)
+        .map((t) => t.id);
       void handleBatchClose(toClose);
     },
     [resolvedTabs, handleBatchClose],
@@ -306,7 +310,10 @@ export function V5Shell() {
     (tabId: string) => {
       const idx = resolvedTabs.findIndex((t) => t.id === tabId);
       if (idx === -1) return;
-      const toClose = resolvedTabs.slice(idx + 1).filter((t) => !t.pinned).map((t) => t.id);
+      const toClose = resolvedTabs
+        .slice(idx + 1)
+        .filter((t) => !t.pinned)
+        .map((t) => t.id);
       void handleBatchClose(toClose);
     },
     [resolvedTabs, handleBatchClose],
@@ -434,6 +441,19 @@ export function V5Shell() {
   const togglePanel = useCallback((panel: keyof PanelVisibility) => {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
   }, []);
+
+  // Activity bar toggle: click same panel = hide sidebar, different = switch, hidden = show
+  const handleActivityPanelToggle = useCallback(
+    (panel: ActivityPanel) => {
+      if (panels.sidebar && activePanel === panel) {
+        setPanels((prev) => ({ ...prev, sidebar: false }));
+      } else {
+        setActivePanel(panel);
+        setPanels((prev) => ({ ...prev, sidebar: true }));
+      }
+    },
+    [panels.sidebar, activePanel, setActivePanel],
+  );
 
   const resetLayout = useCallback(() => {
     setLayoutState(DEFAULT_LAYOUT);
@@ -614,121 +634,131 @@ export function V5Shell() {
 
           {/* Main content area */}
           <div className="v5-main">
-            {/* Resizable panels — always render all panes, toggle with visible */}
-            <Allotment ref={outerAllotmentRef} proportionalLayout={false}>
-              {/* Left pane — content swaps based on sidebarsSwapped */}
-              <Allotment.Pane
-                preferredSize={sidebarsSwapped ? 300 : 250}
-                minSize={sidebarsSwapped ? 220 : 180}
-                maxSize={panels.workbench ? (sidebarsSwapped ? 500 : 400) : Infinity}
-                visible={sidebarsSwapped ? panels.inspector : panels.sidebar}
-              >
-                {sidebarsSwapped ? (
-                  <Inspector
-                    onClose={() => togglePanel('inspector')}
-                    expandedKeys={inspectorExpandedKeys}
-                    onExpandedKeysChange={setInspectorExpandedKeys}
-                  />
-                ) : (
-                  <Sidebar
-                    activePanel={activePanel}
-                    onPanelChange={setActivePanel}
-                    onOpenTab={openTab}
-                    onNewRequest={() => void createNewSource()}
-                    onNewRule={() => void createNewRule()}
-                    onNewEnvironment={() => void createNewEnvironment()}
-                    expandedSections={sidebarExpandedSections}
-                    onExpandedSectionsChange={setSidebarExpandedSections}
-                    expandedCollections={sidebarExpandedCollections}
-                    onExpandedCollectionsChange={setSidebarExpandedCollections}
-                  />
-                )}
-              </Allotment.Pane>
+            {/* Activity Bar — permanent vertical strip */}
+            <ActivityBar
+              activePanel={activePanel}
+              sidebarVisible={panels.sidebar}
+              onPanelToggle={handleActivityPanelToggle}
+              onOpenSettings={openSettings}
+            />
 
-              {/* Center: Editor + Bottom Panel */}
-              <Allotment.Pane visible={panels.workbench}>
-                <Allotment vertical proportionalLayout={false}>
-                  {/* Editor Area */}
-                  <Allotment.Pane>
-                    <div className="v5-editor-area" style={{ background: token.colorBgContainer }}>
-                      <TabBar
-                        tabs={resolvedTabs}
-                        activeTabId={activeTabId}
-                        onSwitch={switchTab}
-                        onClose={handleCloseTab}
-                        onTogglePin={togglePin}
-                        onReorder={reorderTab}
-                        onCloseOther={handleCloseOther}
-                        onCloseAll={handleCloseAll}
-                        onCloseUnmodified={handleCloseUnmodified}
-                        onCloseToLeft={handleCloseToLeft}
-                        onCloseToRight={handleCloseToRight}
-                        onNewRequest={() => void createNewSource()}
-                        onNewRule={() => void createNewRule()}
-                      />
-                      <BreadcrumbBar
-                        segments={breadcrumbs}
-                        isDirty={editorDirty}
-                        onSave={() => editorSaveRef.current?.()}
-                        saveLabel={editorSaveLabel}
-                        onRename={
-                          activeResolvedTab &&
-                          (activeResolvedTab.type === 'request' ||
-                            activeResolvedTab.type === 'collection' ||
-                            activeResolvedTab.type === 'rule')
-                            ? handleBreadcrumbRename
-                            : undefined
-                        }
-                      />
-                      <EditorArea
-                        tabs={resolvedTabs}
-                        activeTab={activeResolvedTab}
-                        onNewRequest={() => void createNewSource()}
-                        onNewRule={() => void createNewRule()}
-                        onDirtyChange={handleDirtyChange}
-                        onSaveLabelChange={setEditorSaveLabel}
-                        saveRef={editorSaveRef}
-                        responseSideBySide={responseSideBySide}
-                      />
-                    </div>
-                  </Allotment.Pane>
+            {/* Resizable panels */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Allotment ref={outerAllotmentRef} proportionalLayout={false}>
+                {/* Left pane — content swaps based on sidebarsSwapped */}
+                <Allotment.Pane
+                  preferredSize={sidebarsSwapped ? 300 : 250}
+                  minSize={sidebarsSwapped ? 220 : 180}
+                  maxSize={panels.workbench ? (sidebarsSwapped ? 500 : 400) : Infinity}
+                  visible={sidebarsSwapped ? panels.inspector : panels.sidebar}
+                >
+                  {sidebarsSwapped ? (
+                    <Inspector
+                      onClose={() => togglePanel('inspector')}
+                      expandedKeys={inspectorExpandedKeys}
+                      onExpandedKeysChange={setInspectorExpandedKeys}
+                    />
+                  ) : (
+                    <Sidebar
+                      activePanel={activePanel}
+                      onOpenTab={openTab}
+                      onNewRequest={() => void createNewSource()}
+                      onNewRule={() => void createNewRule()}
+                      onNewEnvironment={() => void createNewEnvironment()}
+                      expandedSections={sidebarExpandedSections}
+                      onExpandedSectionsChange={setSidebarExpandedSections}
+                      expandedCollections={sidebarExpandedCollections}
+                      onExpandedCollectionsChange={setSidebarExpandedCollections}
+                      activeTabId={activeTabId}
+                    />
+                  )}
+                </Allotment.Pane>
 
-                  {/* Bottom Panel */}
-                  <Allotment.Pane preferredSize={200} minSize={100} maxSize={500} visible={panels.bottomPanel}>
-                    <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
-                  </Allotment.Pane>
-                </Allotment>
-              </Allotment.Pane>
+                {/* Center: Editor + Bottom Panel */}
+                <Allotment.Pane visible={panels.workbench}>
+                  <Allotment vertical proportionalLayout={false}>
+                    {/* Editor Area */}
+                    <Allotment.Pane>
+                      <div className="v5-editor-area" style={{ background: token.colorBgContainer }}>
+                        <TabBar
+                          tabs={resolvedTabs}
+                          activeTabId={activeTabId}
+                          onSwitch={switchTab}
+                          onClose={handleCloseTab}
+                          onTogglePin={togglePin}
+                          onReorder={reorderTab}
+                          onCloseOther={handleCloseOther}
+                          onCloseAll={handleCloseAll}
+                          onCloseUnmodified={handleCloseUnmodified}
+                          onCloseToLeft={handleCloseToLeft}
+                          onCloseToRight={handleCloseToRight}
+                          onNewRequest={() => void createNewSource()}
+                          onNewRule={() => void createNewRule()}
+                        />
+                        <BreadcrumbBar
+                          segments={breadcrumbs}
+                          isDirty={editorDirty}
+                          onSave={() => editorSaveRef.current?.()}
+                          saveLabel={editorSaveLabel}
+                          onRename={
+                            activeResolvedTab &&
+                            (activeResolvedTab.type === 'request' ||
+                              activeResolvedTab.type === 'collection' ||
+                              activeResolvedTab.type === 'rule')
+                              ? handleBreadcrumbRename
+                              : undefined
+                          }
+                        />
+                        <EditorArea
+                          tabs={resolvedTabs}
+                          activeTab={activeResolvedTab}
+                          onNewRequest={() => void createNewSource()}
+                          onNewRule={() => void createNewRule()}
+                          onDirtyChange={handleDirtyChange}
+                          onSaveLabelChange={setEditorSaveLabel}
+                          saveRef={editorSaveRef}
+                          responseSideBySide={responseSideBySide}
+                        />
+                      </div>
+                    </Allotment.Pane>
 
-              {/* Right pane — content swaps based on sidebarsSwapped */}
-              <Allotment.Pane
-                preferredSize={sidebarsSwapped ? 250 : 300}
-                minSize={sidebarsSwapped ? 180 : 220}
-                maxSize={panels.workbench ? (sidebarsSwapped ? 400 : 500) : Infinity}
-                visible={sidebarsSwapped ? panels.sidebar : panels.inspector}
-              >
-                {sidebarsSwapped ? (
-                  <Sidebar
-                    activePanel={activePanel}
-                    onPanelChange={setActivePanel}
-                    onOpenTab={openTab}
-                    onNewRequest={() => void createNewSource()}
-                    onNewRule={() => void createNewRule()}
-                    onNewEnvironment={() => void createNewEnvironment()}
-                    expandedSections={sidebarExpandedSections}
-                    onExpandedSectionsChange={setSidebarExpandedSections}
-                    expandedCollections={sidebarExpandedCollections}
-                    onExpandedCollectionsChange={setSidebarExpandedCollections}
-                  />
-                ) : (
-                  <Inspector
-                    onClose={() => togglePanel('inspector')}
-                    expandedKeys={inspectorExpandedKeys}
-                    onExpandedKeysChange={setInspectorExpandedKeys}
-                  />
-                )}
-              </Allotment.Pane>
-            </Allotment>
+                    {/* Bottom Panel */}
+                    <Allotment.Pane preferredSize={200} minSize={100} maxSize={500} visible={panels.bottomPanel}>
+                      <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
+                    </Allotment.Pane>
+                  </Allotment>
+                </Allotment.Pane>
+
+                {/* Right pane — content swaps based on sidebarsSwapped */}
+                <Allotment.Pane
+                  preferredSize={sidebarsSwapped ? 250 : 300}
+                  minSize={sidebarsSwapped ? 180 : 220}
+                  maxSize={panels.workbench ? (sidebarsSwapped ? 400 : 500) : Infinity}
+                  visible={sidebarsSwapped ? panels.sidebar : panels.inspector}
+                >
+                  {sidebarsSwapped ? (
+                    <Sidebar
+                      activePanel={activePanel}
+                      onOpenTab={openTab}
+                      onNewRequest={() => void createNewSource()}
+                      onNewRule={() => void createNewRule()}
+                      onNewEnvironment={() => void createNewEnvironment()}
+                      expandedSections={sidebarExpandedSections}
+                      onExpandedSectionsChange={setSidebarExpandedSections}
+                      expandedCollections={sidebarExpandedCollections}
+                      onExpandedCollectionsChange={setSidebarExpandedCollections}
+                      activeTabId={activeTabId}
+                    />
+                  ) : (
+                    <Inspector
+                      onClose={() => togglePanel('inspector')}
+                      expandedKeys={inspectorExpandedKeys}
+                      onExpandedKeysChange={setInspectorExpandedKeys}
+                    />
+                  )}
+                </Allotment.Pane>
+              </Allotment>
+            </div>
           </div>
 
           {/* Status Bar */}

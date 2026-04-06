@@ -37,7 +37,6 @@ export function TopBar({
 }: TopBarProps) {
   const { token } = theme.useToken();
   const isDarwin = window.electronAPI?.platform === 'darwin';
-  const appVersion = window.startupData?.version ?? '';
 
   // App menu items
   const appMenuItems: MenuProps['items'] = [
@@ -64,19 +63,16 @@ export function TopBar({
       <div className="v5-topbar-left">
         <img src={appIcon} alt="Open Headers" className="v5-topbar-logo" />
         <span className="v5-topbar-title">Open Headers</span>
-        {appVersion && (
-          <span style={{ fontSize: 10, color: token.colorTextTertiary, fontWeight: 400 }}>v{appVersion}</span>
-        )}
+      </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, maxWidth: 420, justifyContent: 'center' }}>
         <Tooltip title="Back (⌘[)">
           <Button size="small" type="text" icon={<LeftOutlined />} disabled={!canGoBack} onClick={onGoBack} />
         </Tooltip>
         <Tooltip title="Forward (⌘])">
           <Button size="small" type="text" icon={<RightOutlined />} disabled={!canGoForward} onClick={onGoForward} />
         </Tooltip>
-      </div>
-
-      <Button
+        <Button
         className="v5-topbar-search"
         type="text"
         onClick={onCommandPalette}
@@ -93,6 +89,7 @@ export function TopBar({
           </kbd>
         </Space>
       </Button>
+      </div>
 
       <div className="v5-topbar-right">
         <Tooltip title="Settings (⌘,)">
