@@ -5,7 +5,7 @@ import { showMessage } from '@/renderer/utils/ui/messageUtil';
 
 interface UseHeaderRulesReturn {
   rules: HeaderRule[];
-  addRule: (ruleData: Partial<HeaderRule>) => Promise<boolean>;
+  addRule: (ruleData: Partial<HeaderRule>) => Promise<HeaderRule | null>;
   updateRule: (ruleId: string, updates: Partial<HeaderRule>) => Promise<boolean>;
   removeRule: (ruleId: string) => Promise<boolean>;
   toggleRule: (ruleId: string, enabled: boolean) => Promise<boolean>;
@@ -19,14 +19,14 @@ export function useHeaderRules(): UseHeaderRulesReturn {
   const headerRules = rules.header || [];
 
   const addRule = useCallback(
-    async (ruleData: Partial<HeaderRule>): Promise<boolean> => {
+    async (ruleData: Partial<HeaderRule>): Promise<HeaderRule | null> => {
       try {
-        await service.addHeaderRule(ruleData);
+        const rule = await service.addHeaderRule(ruleData);
         showMessage('success', 'Rule added successfully');
-        return true;
+        return rule;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
-        return false;
+        return null;
       }
     },
     [service],

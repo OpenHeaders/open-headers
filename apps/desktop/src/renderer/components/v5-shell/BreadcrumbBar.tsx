@@ -16,9 +16,11 @@ interface BreadcrumbBarProps {
   segments: BreadcrumbSegment[];
   isDirty?: boolean;
   onSave?: () => void;
+  /** Override Save button label (e.g. "Save & Activate" when auto-refresh is being enabled). */
+  saveLabel?: string | null;
 }
 
-export function BreadcrumbBar({ segments, isDirty, onSave }: BreadcrumbBarProps) {
+export function BreadcrumbBar({ segments, isDirty, onSave, saveLabel }: BreadcrumbBarProps) {
   const { token } = theme.useToken();
 
   if (segments.length === 0) return null;
@@ -70,10 +72,14 @@ export function BreadcrumbBar({ segments, isDirty, onSave }: BreadcrumbBarProps)
             disabled={!isDirty}
             style={{
               fontSize: 11,
-              ...(isDirty ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+              ...(isDirty && saveLabel
+                ? { background: '#7c3aed', borderColor: '#7c3aed' }
+                : isDirty
+                  ? { background: '#f5722d', borderColor: '#f5722d' }
+                  : {}),
             }}
           >
-            Save
+            {saveLabel || 'Save'}
           </Button>
         </Tooltip>
       )}

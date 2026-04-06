@@ -25,6 +25,7 @@ interface EditorAreaProps {
   onNewRequest?: () => void;
   onNewRule?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onSaveLabelChange?: (label: string | null) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
   responseSideBySide?: boolean;
 }
@@ -60,17 +61,20 @@ function TabEditor({
   tab,
   isActive,
   onDirtyChange,
+  onSaveLabelChange,
   saveRef,
   responseSideBySide,
 }: {
   tab: Tab;
   isActive: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  onSaveLabelChange?: (label: string | null) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
   responseSideBySide?: boolean;
 }) {
   // Only pass dirty/save callbacks to the active editor
   const dirtyChange = isActive ? onDirtyChange : undefined;
+  const saveLabelChange = isActive ? onSaveLabelChange : undefined;
   const save = isActive ? saveRef : undefined;
 
   let content: React.ReactNode = null;
@@ -86,6 +90,7 @@ function TabEditor({
       <SourceEditor
         sourceId={tab.entityId}
         onDirtyChange={dirtyChange}
+        onSaveLabelChange={saveLabelChange}
         saveRef={save}
         responseSideBySide={responseSideBySide}
       />
@@ -94,11 +99,24 @@ function TabEditor({
 
   if (!content) return null;
 
+  // Use visibility:hidden + absolute positioning instead of display:none.
+  // display:none causes zero-width containers that crash antd's internal
+  // EllipsisMeasure component (infinite setState loop in layout effect).
   return (
     <div
-      style={{
-        display: isActive ? 'contents' : 'none',
-      }}
+      style={
+        isActive
+          ? { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }
+          : {
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column' as const,
+              overflow: 'hidden',
+              visibility: 'hidden' as const,
+              pointerEvents: 'none' as const,
+            }
+      }
     >
       {content}
     </div>
@@ -111,6 +129,7 @@ export function EditorArea({
   onNewRequest,
   onNewRule,
   onDirtyChange,
+  onSaveLabelChange,
   saveRef,
   responseSideBySide,
 }: EditorAreaProps) {
@@ -118,9 +137,10 @@ export function EditorArea({
   useEffect(() => {
     if (!activeTab || activeTab.type === 'welcome') {
       onDirtyChange?.(false);
+      onSaveLabelChange?.(null);
       if (saveRef) saveRef.current = null;
     }
-  }, [activeTab, onDirtyChange, saveRef]);
+  }, [activeTab, onDirtyChange, onSaveLabelChange, saveRef]);
 
   // Tabs that have editors (not welcome)
   const editorTabs = tabs.filter((t) => t.type !== 'welcome' && t.entityId);
@@ -128,8 +148,12 @@ export function EditorArea({
   const showWelcome = !activeTab || activeTab.type === 'welcome';
 
   return (
-    <>
-      {showWelcome && <WelcomeScreen onNewRequest={onNewRequest} onNewRule={onNewRule} />}
+    <div className="v5-editor-content" style={{ position: 'relative' }}>
+      {showWelcome && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+          <WelcomeScreen onNewRequest={onNewRequest} onNewRule={onNewRule} />
+        </div>
+      )}
 
       {editorTabs.map((tab) => (
         <TabEditor
@@ -137,6 +161,7 @@ export function EditorArea({
           tab={tab}
           isActive={activeTab?.id === tab.id}
           onDirtyChange={onDirtyChange}
+          onSaveLabelChange={onSaveLabelChange}
           saveRef={saveRef}
           responseSideBySide={responseSideBySide}
         />
@@ -144,10 +169,16 @@ export function EditorArea({
 
       {/* Settings tab (singleton, no entityId) */}
       {tabs.some((t) => t.type === 'settings') && (
-        <div style={{ display: activeTab?.type === 'settings' ? 'contents' : 'none' }}>
+        <div
+          style={
+            activeTab?.type === 'settings'
+              ? { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }
+              : { position: 'absolute', inset: 0, overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none' }
+          }
+        >
           <SettingsEditor />
         </div>
       )}
-    </>
+    </div>
   );
 }

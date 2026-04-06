@@ -18,14 +18,18 @@ const { createLogger } = mainLogger;
 const log = createLogger('SourceCrud');
 
 export async function addSource(ctx: StateContext, sourceData: Source): Promise<Source> {
-  const isDuplicate = ctx.state.sources.some(
-    (src) =>
-      src.sourceType === sourceData.sourceType &&
-      src.sourcePath === sourceData.sourcePath &&
-      (sourceData.sourceType !== 'http' || src.sourceMethod === sourceData.sourceMethod),
-  );
-  if (isDuplicate) {
-    throw new Error(`Source already exists: ${sourceData.sourceType.toUpperCase()} ${sourceData.sourcePath}`);
+  // Only check for duplicates when the source has a non-empty path —
+  // new unconfigured sources (empty path) should always be allowed.
+  if (sourceData.sourcePath) {
+    const isDuplicate = ctx.state.sources.some(
+      (src) =>
+        src.sourceType === sourceData.sourceType &&
+        src.sourcePath === sourceData.sourcePath &&
+        (sourceData.sourceType !== 'http' || src.sourceMethod === sourceData.sourceMethod),
+    );
+    if (isDuplicate) {
+      throw new Error(`Source already exists: ${sourceData.sourceType.toUpperCase()} ${sourceData.sourcePath}`);
+    }
   }
 
   const maxId = ctx.state.sources.reduce((max, src) => {
@@ -188,7 +192,7 @@ export async function refreshSource(ctx: StateContext, sourceId: string): Promis
 
 // ── Header Rule CRUD ──────────────────────────────────────────────
 
-export async function addHeaderRule(ctx: StateContext, ruleData: Partial<HeaderRule>): Promise<void> {
+export async function addHeaderRule(ctx: StateContext, ruleData: Partial<HeaderRule>): Promise<HeaderRule> {
   const newRule: HeaderRule = {
     ...ruleData,
     id: Date.now().toString(),
@@ -199,6 +203,7 @@ export async function addHeaderRule(ctx: StateContext, ruleData: Partial<HeaderR
   ctx.scheduleDebouncedSave();
   broadcastToServices(ctx.state, ctx.webSocketService, ctx.proxyService);
   sendPatchToRenderers(ctx.state, ['rules']);
+  return newRule;
 }
 
 export async function updateHeaderRule(ctx: StateContext, ruleId: string, updates: Partial<HeaderRule>): Promise<void> {

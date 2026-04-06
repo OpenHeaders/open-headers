@@ -45,6 +45,28 @@
   cursor: text;
 }
 
+/* TOTP placeholder highlighting — resolved (purple) */
+.template-totp-resolved {
+  color: #722ed1;
+  background-color: #f9f0ff;
+  padding: 1px 3px;
+  border-radius: 3px;
+  font-weight: 500;
+  border: 1px solid #d3adf7;
+  cursor: text;
+}
+
+/* TOTP placeholder highlighting — unresolved (red, same as unresolved vars) */
+.template-totp-unresolved {
+  color: #ff4d4f;
+  background-color: #fff2f0;
+  padding: 1px 3px;
+  border-radius: 3px;
+  font-weight: 500;
+  border: 1px solid #ffccc7;
+  cursor: text;
+}
+
 /* Dark mode — softer colors */
 [data-theme="dark"] .template-var-resolved {
   color: #69b1ff;
@@ -53,6 +75,18 @@
 }
 
 [data-theme="dark"] .template-var-unresolved {
+  color: #ff7875;
+  background-color: rgba(255, 77, 79, 0.12);
+  border-color: rgba(255, 77, 79, 0.25);
+}
+
+[data-theme="dark"] .template-totp-resolved {
+  color: #b37feb;
+  background-color: rgba(114, 46, 209, 0.15);
+  border-color: rgba(114, 46, 209, 0.3);
+}
+
+[data-theme="dark"] .template-totp-unresolved {
   color: #ff7875;
   background-color: rgba(255, 77, 79, 0.12);
   border-color: rgba(255, 77, 79, 0.25);

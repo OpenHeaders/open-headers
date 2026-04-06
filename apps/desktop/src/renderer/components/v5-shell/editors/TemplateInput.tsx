@@ -32,11 +32,20 @@ export interface TemplateInputProps {
   multiline?: boolean;
   /** Minimum height for multi-line mode */
   minRows?: number;
+  /** Current TOTP code for [[TOTP_CODE]] popover display. */
+  totpCode?: string;
+  /** Whether TOTP is enabled and has a secret configured. */
+  totpReady?: boolean;
   style?: React.CSSProperties;
 }
 
 interface VarOverlay {
   varName: string;
+  rect: DOMRect;
+}
+
+interface TotpOverlay {
+  placeholder: string;
   rect: DOMRect;
 }
 
@@ -98,12 +107,15 @@ export function TemplateInput({
   onPressEnter,
   multiline,
   minRows,
+  totpCode,
+  totpReady,
   style,
 }: TemplateInputProps) {
   const { token } = theme.useToken();
   const editableRef = useRef<HTMLDivElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
   const [varOverlays, setVarOverlays] = useState<VarOverlay[]>([]);
+  const [totpOverlays, setTotpOverlays] = useState<TotpOverlay[]>([]);
 
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -142,13 +154,20 @@ export function TemplateInput({
   const highlightText = useCallback(
     (text: string): string => {
       const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return escaped.replace(/(\{\{([^}]*)\}\})/g, (_match, fullMatch: string, varName: string) => {
+      // Highlight {{VAR}} references
+      const withVars = escaped.replace(/(\{\{([^}]*)\}\})/g, (_match, fullMatch: string, varName: string) => {
         const trimmed = varName.trim();
         const cls = resolvedVars.has(trimmed) ? 'template-var-resolved' : 'template-var-unresolved';
         return `<span class="${cls}" data-var="${trimmed}">${fullMatch}</span>`;
       });
+      // Highlight [[TOTP_CODE]] placeholders — purple if TOTP is ready, red if not
+      const totpCls = totpReady ? 'template-totp-resolved' : 'template-totp-unresolved';
+      return withVars.replace(
+        /(\[\[([^\]]*)\]\])/g,
+        (_match, fullMatch: string) => `<span class="${totpCls}">${fullMatch}</span>`,
+      );
     },
-    [resolvedVars],
+    [resolvedVars, totpReady],
   );
 
   // Collect overlay positions for popover targets
@@ -163,6 +182,14 @@ export function TemplateInput({
       }
     }
     setVarOverlays(overlays);
+
+    // TOTP placeholders
+    const totpSpans = editableRef.current.querySelectorAll('.template-totp-resolved, .template-totp-unresolved');
+    const tOverlays: TotpOverlay[] = [];
+    for (const span of Array.from(totpSpans)) {
+      tOverlays.push({ placeholder: span.textContent || '', rect: span.getBoundingClientRect() });
+    }
+    setTotpOverlays(tOverlays);
   }, []);
 
   // Check if autocomplete should show
@@ -577,6 +604,64 @@ export function TemplateInput({
             </Popover>
           );
         })}
+
+      {/* TOTP placeholder popovers */}
+      {totpOverlays.map(({ placeholder, rect }, i) => (
+        <Popover
+          key={`totp-${i}`}
+          placement="bottom"
+          trigger="hover"
+          mouseEnterDelay={0.15}
+          content={
+            <div style={{ minWidth: 180 }}>
+              <div style={{ marginBottom: 6 }}>
+                <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}>
+                  {placeholder}
+                </Text>
+              </div>
+              <div
+                style={{
+                  padding: '4px 8px',
+                  background: token.colorBgElevated,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  borderRadius: 4,
+                  fontFamily: "'SF Mono', monospace",
+                  fontSize: 12,
+                  wordBreak: 'break-all',
+                  marginBottom: 6,
+                }}
+              >
+                {totpReady ? (
+                  totpCode ? (
+                    <span style={{ letterSpacing: 2 }}>{totpCode}</span>
+                  ) : (
+                    <Text type="secondary">Click Test in Settings to generate</Text>
+                  )
+                ) : (
+                  <Text type="danger">TOTP not configured</Text>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <span style={{ color: '#722ed1', fontWeight: 700 }}>T</span>
+                <span>{totpReady ? 'TOTP enabled' : 'Enable in Settings tab'}</span>
+              </div>
+            </div>
+          }
+        >
+          <div
+            style={{
+              position: 'fixed',
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
+              background: 'transparent',
+              pointerEvents: 'auto',
+              zIndex: 1,
+            }}
+          />
+        </Popover>
+      ))}
     </div>
   );
 }

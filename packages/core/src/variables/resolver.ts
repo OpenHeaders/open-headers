@@ -2,10 +2,10 @@
  * VariableResolver — centralized {{VAR}} resolution across the 4-scope chain.
  *
  * Resolution priority (highest → lowest):
- *   1. Vault (per-machine secrets, never synced)
+ *   1. Secret (per-machine secrets, never synced)
  *   2. Environment (switchable: dev/staging/prod)
  *   3. Collection (scoped to a collection, synced)
- *   4. Globals (workspace-wide, synced)
+ *   4. Workspace (workspace-wide, synced)
  *
  * This is pure domain logic — no I/O, no framework deps.
  * Both the main process and renderer use this.
@@ -13,12 +13,12 @@
 
 import type {
   Environment,
-  Globals,
   ResolutionContext,
   ResolvedVariable,
   Variable,
   VariableScope,
   Vault,
+  WorkspaceVariables,
 } from '../types/v5';
 
 // ── Regex for {{VAR}} matching ─────────────────────────────────────
@@ -35,13 +35,13 @@ export class VariableResolver {
   private vault: Vault;
   private environments: Environment[];
   private collectionVariables: Map<string, Variable[]>;
-  private globals: Globals;
+  private workspaceVariables: WorkspaceVariables;
 
   constructor() {
     this.vault = { secrets: [] };
     this.environments = [];
     this.collectionVariables = new Map();
-    this.globals = { variables: [] };
+    this.workspaceVariables = { variables: [] };
   }
 
   // ── Scope setters ────────────────────────────────────────────────
@@ -62,8 +62,8 @@ export class VariableResolver {
     this.collectionVariables.delete(collectionId);
   }
 
-  setGlobals(globals: Globals): void {
-    this.globals = globals;
+  setWorkspaceVariables(vars: WorkspaceVariables): void {
+    this.workspaceVariables = vars;
   }
 
   // ── Resolution ───────────────────────────────────────────────────
@@ -73,10 +73,10 @@ export class VariableResolver {
    * Returns the resolved value + which scope it came from, or null if unresolved.
    */
   resolve(name: string, context?: ResolutionContext): ResolvedVariable | null {
-    // 1. Vault (highest priority)
+    // 1. Secret (highest priority)
     const vaultSecret = this.vault.secrets.find((s) => s.name === name);
     if (vaultSecret?.value) {
-      return { name, value: vaultSecret.value, scope: 'vault', isSecret: true };
+      return { name, value: vaultSecret.value, scope: 'secret', isSecret: true };
     }
 
     // 2. Active environment
@@ -112,14 +112,14 @@ export class VariableResolver {
       }
     }
 
-    // 4. Globals (lowest priority)
-    const globalVar = this.globals.variables.find((v) => v.name === name);
-    if (globalVar && globalVar.value !== '') {
+    // 4. Workspace (lowest priority)
+    const workspaceVar = this.workspaceVariables.variables.find((v) => v.name === name);
+    if (workspaceVar && workspaceVar.value !== '') {
       return {
         name,
-        value: globalVar.value,
-        scope: 'globals',
-        isSecret: globalVar.type === 'secret',
+        value: workspaceVar.value,
+        scope: 'workspace',
+        isSecret: workspaceVar.type === 'secret',
       };
     }
 

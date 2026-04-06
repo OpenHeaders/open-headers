@@ -49,6 +49,9 @@ export interface EnvironmentResolverLike {
   resolveTemplate(template: string, variables: Record<string, string>): string;
   setVariables(variables: Record<string, string>): void;
   clearVariableCache(): void;
+  setSourceOutputResolver(
+    resolver: () => Array<{ sourceContent?: string | null; storeAsVariable?: string; activationState?: string }>,
+  ): void;
 }
 
 export interface SourceRefreshServiceLike {

@@ -152,10 +152,14 @@ export function useTabs(activeWorkspaceId?: string) {
   }, []);
 
   const markUnsaved = useCallback((tabId: string, unsaved: boolean) => {
-    setState((prev) => ({
-      ...prev,
-      tabs: prev.tabs.map((t) => (t.id === tabId ? { ...t, unsaved } : t)),
-    }));
+    setState((prev) => {
+      const tab = prev.tabs.find((t) => t.id === tabId);
+      if (!tab || tab.unsaved === unsaved) return prev;
+      return {
+        ...prev,
+        tabs: prev.tabs.map((t) => (t.id === tabId ? { ...t, unsaved } : t)),
+      };
+    });
   }, []);
 
   const goBack = useCallback(() => {

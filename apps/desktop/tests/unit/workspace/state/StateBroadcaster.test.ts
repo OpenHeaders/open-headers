@@ -70,6 +70,7 @@ describe('broadcastToServices', () => {
         resolveTemplate: vi.fn(),
         setVariables: vi.fn(),
         clearVariableCache: vi.fn(),
+        setSourceOutputResolver: vi.fn(),
       },
     };
     const proxy: ProxyServiceLike = {

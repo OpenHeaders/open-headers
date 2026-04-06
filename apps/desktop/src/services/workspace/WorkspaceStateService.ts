@@ -172,6 +172,10 @@ class WorkspaceStateService {
     this.envResolver = deps.webSocketService.environmentHandler;
     this.sourceRefreshService = deps.sourceRefreshService;
     this.syncScheduler = deps.syncScheduler;
+
+    // Wire source output resolver so {{VAR}} can resolve from source-produced variables
+    deps.webSocketService.environmentHandler.setSourceOutputResolver(() => this.state.sources);
+
     this._resolveConfigReady();
     log.info('WorkspaceStateService configured with dependencies');
   }
@@ -626,7 +630,7 @@ class WorkspaceStateService {
   async refreshSource(sourceId: string): Promise<boolean> {
     return crudRefreshSource(this.ctx, sourceId);
   }
-  async addHeaderRule(ruleData: Partial<HeaderRule>): Promise<void> {
+  async addHeaderRule(ruleData: Partial<HeaderRule>): Promise<HeaderRule> {
     return crudAddHeaderRule(this.ctx, ruleData);
   }
   async updateHeaderRule(ruleId: string, updates: Partial<HeaderRule>): Promise<void> {

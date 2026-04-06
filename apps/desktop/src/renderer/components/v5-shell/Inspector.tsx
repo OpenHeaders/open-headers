@@ -12,7 +12,7 @@ import { CaretRightOutlined, CloseOutlined, SearchOutlined } from '@ant-design/i
 import { Badge, Collapse, Input, Space, Table, Tag, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useState } from 'react';
-import { useEnvironments } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 import { useEditorVariables } from './contexts/EditorVariablesContext';
 
 const { Text } = Typography;
@@ -22,23 +22,25 @@ interface VarDisplay {
   key: string;
   name: string;
   value: string;
-  scope: 'environment' | 'collection' | 'global' | 'vault' | 'unresolved';
+  scope: 'environment' | 'collection' | 'workspace' | 'secret' | 'unresolved';
   isSecret: boolean;
+  /** Source name that produces this variable (when scope is environment but value comes from a source). */
+  producedBy?: string;
 }
 
 const SCOPE_COLORS: Record<string, string> = {
   environment: 'green',
   collection: 'orange',
-  global: 'purple',
-  vault: 'red',
+  workspace: 'purple',
+  secret: 'red',
   unresolved: 'default',
 };
 
 const SCOPE_LETTERS: Record<string, string> = {
   environment: 'E',
   collection: 'C',
-  global: 'G',
-  vault: 'V',
+  workspace: 'W',
+  secret: 'S',
   unresolved: '-',
 };
 
@@ -51,6 +53,7 @@ interface InspectorProps {
 export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedKeysChange }: InspectorProps) {
   const { token } = theme.useToken();
   const { environments, activeEnvironment } = useEnvironments();
+  const { sources } = useSources();
   const { usedVariables } = useEditorVariables();
   const [searchTerm, setSearchTerm] = useState('');
   const expandedKeys = expandedKeysProp ?? [];
@@ -58,24 +61,64 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
 
   const activeEnvData = environments[activeEnvironment] || {};
 
+  // Source-produced variable lookup: sources with storeAsVariable set
+  const sourceOutputMap = useMemo(() => {
+    const map = new Map<string, { value: string; sourceName: string }>();
+    for (const source of sources) {
+      if (
+        source.storeAsVariable &&
+        source.sourceContent !== null &&
+        source.sourceContent !== undefined &&
+        source.activationState !== 'waiting_for_deps'
+      ) {
+        map.set(source.storeAsVariable, {
+          value: source.sourceContent,
+          sourceName: source.sourceName || source.sourcePath || source.sourceId,
+        });
+      }
+    }
+    return map;
+  }, [sources]);
+
   // Variables used in the current request/rule
   const inRequestVars: VarDisplay[] = useMemo(() => {
     return usedVariables.map((uv) => {
+      // Check environment first
       const envVar = activeEnvData[uv.name];
-      const resolved = !!envVar && !!envVar.value;
+      if (envVar?.value) {
+        return {
+          key: uv.name,
+          name: uv.name,
+          value: envVar.isSecret ? '••••••••' : envVar.value,
+          scope: 'environment' as const,
+          isSecret: envVar.isSecret,
+        };
+      }
+
+      // Check source-produced variables
+      const sourceOutput = sourceOutputMap.get(uv.name);
+      if (sourceOutput) {
+        return {
+          key: uv.name,
+          name: uv.name,
+          value: sourceOutput.value,
+          scope: 'environment' as const,
+          isSecret: false,
+          producedBy: sourceOutput.sourceName,
+        };
+      }
+
       return {
         key: uv.name,
         name: uv.name,
-        value: envVar?.isSecret ? '••••••••' : envVar?.value || '',
-        scope: resolved ? 'environment' : 'unresolved',
-        isSecret: envVar?.isSecret || false,
+        value: '',
+        scope: 'unresolved' as const,
+        isSecret: false,
       };
     });
-  }, [usedVariables, activeEnvData]);
+  }, [usedVariables, activeEnvData, sourceOutputMap]);
 
   // All variables grouped by scope
-  // Note: v4 has no separate Vault/Collection/Global stores — all vars are environment vars.
-  // isSecret is just a flag, not a different scope.
   const allByScope = useMemo(() => {
     const envVars: VarDisplay[] = [];
     for (const [name, variable] of Object.entries(activeEnvData)) {
@@ -87,13 +130,28 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
         isSecret: variable.isSecret,
       });
     }
+
+    // Add source-produced variables that aren't already in the environment
+    for (const [name, output] of sourceOutputMap) {
+      if (!activeEnvData[name]) {
+        envVars.push({
+          key: name,
+          name,
+          value: output.value,
+          scope: 'environment',
+          isSecret: false,
+          producedBy: output.sourceName,
+        });
+      }
+    }
+
     return {
       environment: envVars,
       collection: [] as VarDisplay[],
-      global: [] as VarDisplay[],
-      vault: [] as VarDisplay[],
+      workspace: [] as VarDisplay[],
+      secret: [] as VarDisplay[],
     };
-  }, [activeEnvData]);
+  }, [activeEnvData, sourceOutputMap]);
 
   // Filter
   const filter = (vars: VarDisplay[]) => {
@@ -124,9 +182,16 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
       key: 'name',
       width: '45%',
       render: (_, r) => (
-        <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 12, ...ellipsisStyle }}>
-          {r.name}
-        </Text>
+        <div>
+          <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 12, ...ellipsisStyle }}>
+            {r.name}
+          </Text>
+          {r.producedBy && (
+            <Text type="secondary" style={{ fontSize: 10, display: 'block', ...ellipsisStyle }}>
+              ← {r.producedBy}
+            </Text>
+          )}
+        </div>
       ),
     },
     {
@@ -151,10 +216,13 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
 
   const totalInRequest = inRequestVars.length;
   const totalAll =
-    allByScope.environment.length + allByScope.collection.length + allByScope.global.length + allByScope.vault.length;
+    allByScope.environment.length +
+    allByScope.collection.length +
+    allByScope.workspace.length +
+    allByScope.secret.length;
 
   const renderScopeSection = (
-    scope: 'environment' | 'collection' | 'global' | 'vault',
+    scope: 'environment' | 'collection' | 'workspace' | 'secret',
     label: string,
     vars: VarDisplay[],
     emptyText: string,
@@ -312,8 +380,8 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
               activeEnvironment,
             )}
             {renderScopeSection('collection', 'Collection', allByScope.collection, 'No collection variables defined')}
-            {renderScopeSection('global', 'Globals', allByScope.global, 'No global variables defined')}
-            {renderScopeSection('vault', 'Vault', allByScope.vault, 'No vault secrets defined')}
+            {renderScopeSection('workspace', 'Workspace', allByScope.workspace, 'No workspace variables defined')}
+            {renderScopeSection('secret', 'Secret', allByScope.secret, 'No secrets defined')}
           </Collapse.Panel>
         </Collapse>
       </div>

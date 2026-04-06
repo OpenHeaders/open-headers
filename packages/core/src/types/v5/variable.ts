@@ -13,8 +13,8 @@
 
 // ── Variable scope ─────────────────────────────────────────────────
 
-/** Resolution priority: vault (highest) → environment → collection → globals (lowest). */
-export type VariableScope = 'vault' | 'environment' | 'collection' | 'globals';
+/** Resolution priority: secret (highest) → environment → collection → workspace (lowest). */
+export type VariableScope = 'secret' | 'environment' | 'collection' | 'workspace';
 
 /** Where the variable's value comes from. */
 export type VariableValueSource = 'static' | 'file';
@@ -94,10 +94,10 @@ export interface EnvironmentLocalValues {
   values: Record<string, string>;
 }
 
-// ── Globals ────────────────────────────────────────────────────────
+// ── Workspace ─────────────────────────────────────────────────────
 
 /** Workspace-wide variables. Lowest resolution priority. */
-export interface Globals {
+export interface WorkspaceVariables {
   variables: Variable[];
 }
 

@@ -122,6 +122,7 @@ describe('addSource', () => {
         resolveTemplate: vi.fn(),
         setVariables: vi.fn(),
         clearVariableCache: vi.fn(),
+        setSourceOutputResolver: vi.fn(),
       },
     });
     const result = await addSource(ctx, httpSource({ sourcePath: 'https://{{HOST}}/api' }));

@@ -53,6 +53,10 @@ interface UpdateSourceResult extends OperationResult {
   source?: Source | null;
 }
 
+interface AddHeaderRuleResult extends OperationResult {
+  rule?: HeaderRule;
+}
+
 interface CreateWorkspaceResult extends OperationResult {
   workspace?: Workspace;
 }
@@ -88,7 +92,7 @@ export function createWorkspaceStateAPI() {
       ipcRenderer.invoke('workspace-state:import-sources', sources, replace),
 
     // Header Rule CRUD
-    addHeaderRule: (ruleData: Partial<HeaderRule>): Promise<OperationResult> =>
+    addHeaderRule: (ruleData: Partial<HeaderRule>): Promise<AddHeaderRuleResult> =>
       ipcRenderer.invoke('workspace-state:add-header-rule', ruleData),
 
     updateHeaderRule: (ruleId: string, updates: Partial<HeaderRule>): Promise<OperationResult> =>

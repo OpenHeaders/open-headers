@@ -36,11 +36,11 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
       const meta = e.metaKey || e.ctrlKey;
       if (!meta) return;
 
-      // Don't intercept when typing in inputs
+      // Don't intercept when typing in inputs, except for global shortcuts
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        // Allow ⌘K even in inputs (command palette)
-        if (e.key !== 'k') return;
+        // Allow ⌘K (command palette) and ⌘S (save) even in inputs
+        if (e.key !== 'k' && e.key !== 's') return;
       }
 
       switch (e.key) {

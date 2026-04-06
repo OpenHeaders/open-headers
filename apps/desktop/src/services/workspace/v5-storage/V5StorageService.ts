@@ -5,7 +5,7 @@
  *   workspace-root/
  *   ├── .openheaders/
  *   │   ├── workspace.json          # WorkspaceManifest
- *   │   ├── globals.json            # GlobalsFile
+ *   │   ├── workspace-variables.json # WorkspaceVariablesFile
  *   │   └── vault.enc               # VaultFile (.gitignored)
  *   ├── collections/
  *   │   └── <name>/
@@ -105,17 +105,17 @@ export async function writeWorkspaceManifest(root: string, manifest: V5.Workspac
   await atomicWriter.writeJson(path.join(ohDir(root), 'workspace.json'), manifest, { pretty: true });
 }
 
-// ── Globals ────────────────────────────────────────────────────────
+// ── Workspace variables ───────────────────────────────────────────
 
-export async function readGlobals(root: string): Promise<V5.Globals> {
-  const data = await readJsonSafe<V5.GlobalsFile>(path.join(ohDir(root), 'globals.json'));
+export async function readWorkspaceVariables(root: string): Promise<V5.WorkspaceVariables> {
+  const data = await readJsonSafe<V5.WorkspaceVariablesFile>(path.join(ohDir(root), 'workspace-variables.json'));
   return { variables: data?.variables ?? [] };
 }
 
-export async function writeGlobals(root: string, globals: V5.Globals): Promise<void> {
+export async function writeWorkspaceVariables(root: string, vars: V5.WorkspaceVariables): Promise<void> {
   await ensureDir(ohDir(root));
-  const file: V5.GlobalsFile = { version: V5.STORAGE_VERSION, variables: globals.variables };
-  await atomicWriter.writeJson(path.join(ohDir(root), 'globals.json'), file, { pretty: true });
+  const file: V5.WorkspaceVariablesFile = { version: V5.STORAGE_VERSION, variables: vars.variables };
+  await atomicWriter.writeJson(path.join(ohDir(root), 'workspace-variables.json'), file, { pretty: true });
 }
 
 // ── Vault ──────────────────────────────────────────────────────────
@@ -356,7 +356,7 @@ export async function writeGitignore(root: string): Promise<void> {
 
 export interface V5WorkspaceWriteData {
   manifest: V5.WorkspaceManifest;
-  globals: V5.Globals;
+  workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
   collections: Array<{
     collection: V5.Collection;
@@ -373,7 +373,7 @@ export async function writeFullWorkspace(root: string, data: V5WorkspaceWriteDat
   log.info(`Writing v5 workspace to ${root}`);
 
   await writeWorkspaceManifest(root, data.manifest);
-  await writeGlobals(root, data.globals);
+  await writeWorkspaceVariables(root, data.workspaceVariables);
   await writeVault(root, data.vault);
   await writeGitignore(root);
 

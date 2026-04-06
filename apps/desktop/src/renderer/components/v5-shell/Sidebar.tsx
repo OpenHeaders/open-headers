@@ -11,10 +11,14 @@ import {
   CaretDownOutlined,
   CaretRightOutlined,
   ClockCircleOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
   EllipsisOutlined,
   FileOutlined,
   FolderOutlined,
   GlobalOutlined,
+  MoreOutlined,
   PlusOutlined,
   SearchOutlined,
   ThunderboltOutlined,
@@ -22,7 +26,7 @@ import {
 } from '@ant-design/icons';
 import { Allotment } from 'allotment';
 import { Button, Dropdown, Input, Tooltip, Typography, theme } from 'antd';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEnvironments, useHeaderRules, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 import type { ActivityPanel } from './V5Shell';
 
@@ -110,6 +114,86 @@ function SourceMethodBadge({ method }: { method?: string }) {
   );
 }
 
+function InlineRenameInput({
+  value,
+  onCommit,
+  onCancel,
+}: {
+  value: string;
+  onCommit: (newName: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <input
+      ref={inputRef}
+      autoFocus
+      className="v5-sidebar-rename-input"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const trimmed = text.trim();
+        if (trimmed && trimmed !== value) onCommit(trimmed);
+        else onCancel();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          const trimmed = text.trim();
+          if (trimmed && trimmed !== value) onCommit(trimmed);
+          else onCancel();
+        } else if (e.key === 'Escape') {
+          onCancel();
+        }
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
+}
+
+function ItemContextMenu({
+  onRename,
+  onDelete,
+  disableRename,
+  children,
+}: {
+  onRename?: () => void;
+  onDelete: () => void;
+  disableRename?: boolean;
+  children: React.ReactNode;
+}) {
+  const items = [
+    {
+      key: 'rename',
+      icon: <EditOutlined />,
+      label: 'Rename',
+      disabled: disableRename,
+      onClick: () => onRename?.(),
+    },
+    {
+      key: 'duplicate',
+      icon: <CopyOutlined />,
+      label: 'Duplicate',
+      disabled: true,
+    },
+    { type: 'divider' as const, key: 'divider' },
+    {
+      key: 'delete',
+      icon: <DeleteOutlined />,
+      label: 'Delete',
+      danger: true,
+      onClick: onDelete,
+    },
+  ];
+
+  return (
+    <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
+      {children}
+    </Dropdown>
+  );
+}
+
 function ItemsPanel({
   onOpenTab,
   onNewRequest,
@@ -132,9 +216,28 @@ function ItemsPanel({
   onExpandedCollectionsChange?: (collections: string[]) => void;
 }) {
   const { token } = theme.useToken();
-  const { sources } = useSources();
-  const { rules } = useHeaderRules();
-  const { environments, activeEnvironment } = useEnvironments();
+  const { sources, updateSource, removeSource } = useSources();
+  const { rules, updateRule, removeRule } = useHeaderRules();
+  const { environments, activeEnvironment, deleteEnvironment } = useEnvironments();
+
+  // Inline rename state: tracks which item is being renamed
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+
+  const handleRenameSource = useCallback(
+    async (sourceId: string, newName: string) => {
+      await updateSource(sourceId, { sourceName: newName });
+      setRenamingId(null);
+    },
+    [updateSource],
+  );
+
+  const handleRenameRule = useCallback(
+    async (ruleId: string, newName: string) => {
+      await updateRule(ruleId, { name: newName });
+      setRenamingId(null);
+    },
+    [updateRule],
+  );
 
   // Use controlled state from parent if provided, otherwise local
   const expandedSectionsSet = useMemo(
@@ -227,41 +330,65 @@ function ItemsPanel({
               </Text>
             </div>
             {isExpanded &&
-              tagSources.map((source) => (
-                <div
-                  key={source.sourceId}
-                  className="v5-sidebar-item v5-sidebar-item-nested"
-                  style={{ color: token.colorText }}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() =>
-                    onOpenTab?.({
-                      id: `source-${source.sourceId}`,
-                      type: 'collection',
-                      label: source.sourceName || source.sourcePath || 'Untitled',
-                      icon: source.sourceMethod || source.sourceType,
-                      entityId: source.sourceId,
-                    })
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter')
+              tagSources.map((source) => {
+                const sourceLabel = source.sourceName || source.sourcePath || 'Untitled';
+                const isRenaming = renamingId === `source-${source.sourceId}`;
+                return (
+                  <div
+                    key={source.sourceId}
+                    className="v5-sidebar-item v5-sidebar-item-nested"
+                    style={{ color: token.colorText }}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                      !isRenaming &&
                       onOpenTab?.({
                         id: `source-${source.sourceId}`,
                         type: 'collection',
-                        label: source.sourceName || source.sourcePath || 'Untitled',
+                        label: sourceLabel,
                         icon: source.sourceMethod || source.sourceType,
                         entityId: source.sourceId,
-                      });
-                  }}
-                >
-                  {source.sourceType === 'http' ? (
-                    <SourceMethodBadge method={source.sourceMethod} />
-                  ) : (
-                    <FileOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />
-                  )}
-                  <span className="v5-sidebar-item-label">{source.sourceName || source.sourcePath || 'Untitled'}</span>
-                </div>
-              ))}
+                      })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isRenaming)
+                        onOpenTab?.({
+                          id: `source-${source.sourceId}`,
+                          type: 'collection',
+                          label: sourceLabel,
+                          icon: source.sourceMethod || source.sourceType,
+                          entityId: source.sourceId,
+                        });
+                    }}
+                  >
+                    {source.sourceType === 'http' ? (
+                      <SourceMethodBadge method={source.sourceMethod} />
+                    ) : (
+                      <FileOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />
+                    )}
+                    {isRenaming ? (
+                      <InlineRenameInput
+                        value={sourceLabel}
+                        onCommit={(name) => handleRenameSource(source.sourceId, name)}
+                        onCancel={() => setRenamingId(null)}
+                      />
+                    ) : (
+                      <>
+                        <span className="v5-sidebar-item-label">{sourceLabel}</span>
+                        <ItemContextMenu
+                          onRename={() => setRenamingId(`source-${source.sourceId}`)}
+                          onDelete={() => removeSource(source.sourceId)}
+                        >
+                          <MoreOutlined
+                            className="v5-sidebar-item-menu"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </ItemContextMenu>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         );
       })
@@ -273,44 +400,68 @@ function ItemsPanel({
 
   const rulesContent =
     filteredRules.length > 0 ? (
-      filteredRules.map((rule) => (
-        <div
-          key={rule.id}
-          className="v5-sidebar-item"
-          style={{ color: token.colorText }}
-          role="button"
-          tabIndex={0}
-          onClick={() =>
-            onOpenTab?.({
-              id: `rule-${rule.id}`,
-              type: 'rule',
-              label: rule.name || rule.headerName,
-              icon: 'rule',
-              entityId: rule.id,
-            })
-          }
-          onKeyDown={(e) => {
-            if (e.key === 'Enter')
+      filteredRules.map((rule) => {
+        const ruleLabel = rule.name || rule.headerName;
+        const isRenaming = renamingId === `rule-${rule.id}`;
+        return (
+          <div
+            key={rule.id}
+            className="v5-sidebar-item"
+            style={{ color: token.colorText }}
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              !isRenaming &&
               onOpenTab?.({
                 id: `rule-${rule.id}`,
                 type: 'rule',
-                label: rule.name || rule.headerName,
+                label: ruleLabel,
                 icon: 'rule',
                 entityId: rule.id,
-              });
-          }}
-        >
-          <ThunderboltOutlined
-            style={{ color: rule.isEnabled ? token.colorSuccess : token.colorTextTertiary, fontSize: 12 }}
-          />
-          <span className="v5-sidebar-item-label">{rule.name || rule.headerName}</span>
-          {!rule.isEnabled && (
-            <Text type="secondary" style={{ fontSize: 9, marginLeft: 'auto' }}>
-              off
-            </Text>
-          )}
-        </div>
-      ))
+              })
+            }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isRenaming)
+                onOpenTab?.({
+                  id: `rule-${rule.id}`,
+                  type: 'rule',
+                  label: ruleLabel,
+                  icon: 'rule',
+                  entityId: rule.id,
+                });
+            }}
+          >
+            <ThunderboltOutlined
+              style={{ color: rule.isEnabled ? token.colorSuccess : token.colorTextTertiary, fontSize: 12 }}
+            />
+            {isRenaming ? (
+              <InlineRenameInput
+                value={ruleLabel}
+                onCommit={(name) => handleRenameRule(rule.id, name)}
+                onCancel={() => setRenamingId(null)}
+              />
+            ) : (
+              <>
+                <span className="v5-sidebar-item-label">{ruleLabel}</span>
+                {!rule.isEnabled && (
+                  <Text type="secondary" style={{ fontSize: 9, marginLeft: 'auto' }}>
+                    off
+                  </Text>
+                )}
+                <ItemContextMenu
+                  onRename={() => setRenamingId(`rule-${rule.id}`)}
+                  onDelete={() => removeRule(rule.id)}
+                >
+                  <MoreOutlined
+                    className="v5-sidebar-item-menu"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </ItemContextMenu>
+              </>
+            )}
+          </div>
+        );
+      })
     ) : (
       <div className="v5-sidebar-empty" style={{ color: token.colorTextTertiary }}>
         <ThunderboltOutlined /> No rules.
@@ -343,6 +494,15 @@ function ItemsPanel({
               active
             </Text>
           )}
+          <ItemContextMenu
+            disableRename
+            onDelete={() => deleteEnvironment(name)}
+          >
+            <MoreOutlined
+              className="v5-sidebar-item-menu"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </ItemContextMenu>
         </div>
       ))
     ) : (

@@ -137,7 +137,7 @@ describe('migrateV4toV5', () => {
     expect(workspace.rules).toHaveLength(0);
     expect(workspace.environments).toHaveLength(1); // Default
     expect(workspace.vault.secrets).toHaveLength(0);
-    expect(workspace.globals.variables).toHaveLength(0);
+    expect(workspace.workspaceVariables.variables).toHaveLength(0);
   });
 
   describe('source → request migration', () => {

@@ -113,8 +113,8 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle('workspace-state:add-header-rule', async (_event, ruleData: Partial<HeaderRule>) => {
     try {
-      await workspaceStateService.addHeaderRule(ruleData);
-      return { success: true };
+      const rule = await workspaceStateService.addHeaderRule(ruleData);
+      return { success: true, rule };
     } catch (error) {
       log.error('Add header rule failed:', error);
       return { success: false, error: errorMessage(error) };

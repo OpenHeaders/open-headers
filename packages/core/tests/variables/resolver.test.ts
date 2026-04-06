@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Environment, Globals, Variable, Vault } from '../../src/types/v5';
+import type { Environment, Variable, Vault, WorkspaceVariables } from '../../src/types/v5';
 import { resolveTemplate, VariableResolver } from '../../src/variables';
 
 // ── Factories ──────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
   };
 }
 
-function makeGlobals(vars: Variable[]): Globals {
+function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
   return { variables: vars };
 }
 
@@ -38,19 +38,19 @@ describe('VariableResolver', () => {
     });
 
     it('resolves from globals (lowest priority)', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('API_URL', 'https://api.openheaders.io')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('API_URL', 'https://api.openheaders.io')]));
 
       const result = resolver.resolve('API_URL');
       expect(result).toEqual({
         name: 'API_URL',
         value: 'https://api.openheaders.io',
-        scope: 'globals',
+        scope: 'workspace',
         isSecret: false,
       });
     });
 
     it('resolves from active environment over globals', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('BASE_URL', 'https://global.openheaders.io')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('BASE_URL', 'https://global.openheaders.io')]));
       resolver.setEnvironments([
         makeEnvironment('Development', [makeVariable('BASE_URL', 'https://dev.openheaders.io')], true),
       ]);
@@ -79,33 +79,33 @@ describe('VariableResolver', () => {
     });
 
     it('resolves from vault over everything', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('SECRET_KEY', 'from-globals')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('SECRET_KEY', 'from-globals')]));
       resolver.setEnvironments([makeEnvironment('Dev', [makeVariable('SECRET_KEY', 'from-env')], true)]);
       resolver.setCollectionVariables('coll-1', [makeVariable('SECRET_KEY', 'from-collection')]);
       resolver.setVault(makeVault([{ name: 'SECRET_KEY', value: 'from-vault' }]));
 
       const result = resolver.resolve('SECRET_KEY', { collectionId: 'coll-1' });
       expect(result?.value).toBe('from-vault');
-      expect(result?.scope).toBe('vault');
+      expect(result?.scope).toBe('secret');
       expect(result?.isSecret).toBe(true);
     });
 
     it('falls through to lower scope when higher scope has empty value', () => {
       resolver.setEnvironments([makeEnvironment('Dev', [makeVariable('TOKEN', '')], true)]);
-      resolver.setGlobals(makeGlobals([makeVariable('TOKEN', 'fallback')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('TOKEN', 'fallback')]));
 
       const result = resolver.resolve('TOKEN');
       expect(result?.value).toBe('fallback');
-      expect(result?.scope).toBe('globals');
+      expect(result?.scope).toBe('workspace');
     });
 
     it('skips vault secrets with empty value', () => {
       resolver.setVault(makeVault([{ name: 'KEY', value: '' }]));
-      resolver.setGlobals(makeGlobals([makeVariable('KEY', 'from-globals')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('KEY', 'from-globals')]));
 
       const result = resolver.resolve('KEY');
       expect(result?.value).toBe('from-globals');
-      expect(result?.scope).toBe('globals');
+      expect(result?.scope).toBe('workspace');
     });
 
     it('uses specific environment via context', () => {
@@ -135,23 +135,23 @@ describe('VariableResolver', () => {
 
   describe('resolveTemplate', () => {
     it('resolves a simple template', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('NAME', 'OpenHeaders')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('NAME', 'OpenHeaders')]));
 
       const { result, variables } = resolver.resolveTemplate('Hello {{NAME}}!');
       expect(result).toBe('Hello OpenHeaders!');
       expect(variables).toHaveLength(1);
-      expect(variables[0]).toEqual({ name: 'NAME', resolved: true, value: 'OpenHeaders', scope: 'globals' });
+      expect(variables[0]).toEqual({ name: 'NAME', resolved: true, value: 'OpenHeaders', scope: 'workspace' });
     });
 
     it('resolves multiple variables', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('HOST', 'api.openheaders.io'), makeVariable('VERSION', 'v2')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOST', 'api.openheaders.io'), makeVariable('VERSION', 'v2')]));
 
       const { result } = resolver.resolveTemplate('https://{{HOST}}/{{VERSION}}/users');
       expect(result).toBe('https://api.openheaders.io/v2/users');
     });
 
     it('leaves unresolved variables as-is', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('KNOWN', 'yes')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('KNOWN', 'yes')]));
 
       const { result, variables } = resolver.resolveTemplate('{{KNOWN}} and {{UNKNOWN}}');
       expect(result).toBe('yes and {{UNKNOWN}}');
@@ -166,7 +166,7 @@ describe('VariableResolver', () => {
     });
 
     it('handles duplicate variable references', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('X', 'val')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('X', 'val')]));
 
       const { result, variables } = resolver.resolveTemplate('{{X}} and {{X}}');
       expect(result).toBe('val and val');
@@ -174,7 +174,7 @@ describe('VariableResolver', () => {
     });
 
     it('handles whitespace in variable names', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('MY_VAR', 'trimmed')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('MY_VAR', 'trimmed')]));
 
       const { result } = resolver.resolveTemplate('{{ MY_VAR }}');
       expect(result).toBe('trimmed');
@@ -207,17 +207,17 @@ describe('VariableResolver', () => {
 
   describe('allResolved / getUnresolved', () => {
     it('returns true when all variables are resolved', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('A', '1'), makeVariable('B', '2')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('A', '1'), makeVariable('B', '2')]));
       expect(resolver.allResolved('{{A}} {{B}}')).toBe(true);
     });
 
     it('returns false when any variable is unresolved', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('A', '1')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('A', '1')]));
       expect(resolver.allResolved('{{A}} {{B}}')).toBe(false);
     });
 
     it('lists unresolved variables', () => {
-      resolver.setGlobals(makeGlobals([makeVariable('A', '1')]));
+      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('A', '1')]));
       expect(resolver.getUnresolved('{{A}} {{B}} {{C}}')).toEqual(['B', 'C']);
     });
   });
@@ -236,12 +236,12 @@ describe('VariableResolver', () => {
 describe('resolveTemplate (standalone)', () => {
   it('works with a custom lookup function', () => {
     const lookup = (name: string) => {
-      if (name === 'TOKEN') return { name, value: 'abc123', scope: 'vault' as const, isSecret: true };
+      if (name === 'TOKEN') return { name, value: 'abc123', scope: 'secret' as const, isSecret: true };
       return null;
     };
 
     const { result, variables } = resolveTemplate('Bearer {{TOKEN}}', lookup);
     expect(result).toBe('Bearer abc123');
-    expect(variables[0].scope).toBe('vault');
+    expect(variables[0].scope).toBe('secret');
   });
 });

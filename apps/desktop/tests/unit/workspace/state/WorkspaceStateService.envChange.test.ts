@@ -62,6 +62,7 @@ function createEnvResolver(initialVars: Record<string, string> = {}): Environmen
       vars = { ...newVars };
     }),
     clearVariableCache: vi.fn(),
+    setSourceOutputResolver: vi.fn(),
   };
 }
 

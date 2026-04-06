@@ -23,6 +23,7 @@ function envResolver(vars: Record<string, string> = {}): EnvironmentResolverLike
     resolveTemplate: vi.fn(),
     setVariables: vi.fn(),
     clearVariableCache: vi.fn(),
+    setSourceOutputResolver: vi.fn(),
   };
 }
 

@@ -57,7 +57,7 @@ export interface ExportImportDependencies {
   createWorkspace(workspace: WorkspaceData): Promise<WorkspaceData | null>;
   switchWorkspace(workspaceId: string): Promise<boolean>;
   rules: RulesCollection;
-  addHeaderRule(ruleData: Partial<HeaderRule>): Promise<boolean>;
+  addHeaderRule(ruleData: Partial<HeaderRule>): Promise<HeaderRule | null>;
   updateHeaderRule(ruleId: string, updates: Partial<HeaderRule>): Promise<boolean>;
   removeHeaderRule(ruleId: string): Promise<boolean>;
   environments: Record<string, Record<string, EnvironmentVariable>>;

@@ -200,6 +200,40 @@
   &:hover {
     background: rgba(128, 128, 128, 0.08);
   }
+
+  &:hover .v5-sidebar-item-menu {
+    opacity: 1;
+  }
+}
+
+.v5-sidebar-item-menu {
+  opacity: 0;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: opacity 0.12s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+.v5-sidebar-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 1px 4px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  outline: none;
+
+  &:focus {
+    border-color: var(--ant-color-primary, #1677ff);
+  }
 }
 
 .v5-sidebar-item-label {

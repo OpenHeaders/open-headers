@@ -80,13 +80,13 @@ export type {
   CollectionFile,
   EnvironmentFile,
   EnvironmentValuesFile,
-  GlobalsFile,
   RequestFile,
   RuleFile,
   StorageVersion,
   TeamConfigV4Compat,
   VaultFile,
   WorkspaceManifest,
+  WorkspaceVariablesFile,
 } from './storage';
 export { STORAGE_VERSION, V5_GITIGNORE } from './storage';
 // ── Variable ───────────────────────────────────────────────────────
@@ -95,7 +95,6 @@ export type {
   EnvironmentLocalValues,
   EnvironmentManifest,
   EnvironmentVariableDefinition,
-  Globals,
   ResolutionContext,
   ResolvedVariable,
   Variable,
@@ -103,4 +102,5 @@ export type {
   VariableValueSource,
   Vault,
   VaultSecret,
+  WorkspaceVariables,
 } from './variable';

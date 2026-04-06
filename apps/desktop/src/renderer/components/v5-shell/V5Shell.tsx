@@ -120,6 +120,7 @@ export function V5Shell() {
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
+  const [editorSaveLabel, setEditorSaveLabel] = useState<string | null>(null);
   const editorSaveRef = useRef<(() => void) | null>(null);
   const outerAllotmentRef = useRef<AllotmentHandle>(null);
 
@@ -239,7 +240,11 @@ export function V5Shell() {
   }, []);
 
   // Auto-close tabs when their backing entity is deleted.
-  // Skip during workspace transitions — sources/rules reset temporarily when switching.
+  // Uses a ref for tabs so this effect only fires on entity/workspace changes,
+  // not on tab additions — avoids race where a new tab is opened before its
+  // entity state has synced from main process.
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
   const prevEntityIds = useRef<Set<string>>(new Set());
   const prevWorkspaceForCleanup = useRef(activeWorkspaceId);
   useEffect(() => {
@@ -251,28 +256,31 @@ export function V5Shell() {
     for (const s of sources) currentIds.add(`source-${s.sourceId}`);
     for (const envName of Object.keys(environments)) currentIds.add(`env-${envName}`);
 
-    // Only run cleanup after initial load (prevIds is populated) and not during workspace switch
     if (prevEntityIds.current.size > 0 && !workspaceJustChanged) {
-      for (const tab of tabs) {
+      for (const tab of tabsRef.current) {
         if (tab.entityId && !currentIds.has(tab.id) && tab.type !== 'welcome' && tab.type !== 'settings') {
           closeTab(tab.id);
         }
       }
     }
     prevEntityIds.current = currentIds;
-  }, [rules, sources, environments, tabs, closeTab, activeWorkspaceId]);
+  }, [rules, sources, environments, closeTab, activeWorkspaceId]);
 
   const openSettings = useCallback(() => {
     openTab({ id: 'settings', type: 'settings', label: 'Settings', icon: 'settings' });
   }, [openTab]);
 
   const createNewRule = useCallback(async () => {
-    const now = new Date().toISOString();
-    const id = Date.now().toString();
+    const existingNames = new Set(rules.map((r) => r.name));
+    let name = 'New Rule';
+    let counter = 2;
+    while (existingNames.has(name)) {
+      name = `New Rule (${counter})`;
+      counter++;
+    }
     const newRule: Partial<HeaderRule> = {
-      id,
       type: 'header',
-      name: 'New Rule',
+      name,
       description: '',
       isEnabled: true,
       domains: [],
@@ -286,23 +294,27 @@ export function V5Shell() {
       suffix: '',
       hasEnvVars: false,
       envVars: [],
-      createdAt: now,
-      updatedAt: now,
     };
-    const success = await addRule(newRule);
-    if (success) {
-      openTab({ id: `rule-${id}`, type: 'rule', label: 'New Rule', icon: 'rule', entityId: id });
+    const rule = await addRule(newRule);
+    if (rule) {
+      openTab({ id: `rule-${rule.id}`, type: 'rule', label: name, icon: 'rule', entityId: rule.id });
     }
-  }, [addRule, openTab]);
+  }, [addRule, openTab, rules]);
 
   const createNewSource = useCallback(async () => {
-    const id = Date.now().toString();
+    const existingNames = new Set(sources.map((s) => s.sourceName));
+    let name = 'New Request';
+    let counter = 2;
+    while (existingNames.has(name)) {
+      name = `New Request (${counter})`;
+      counter++;
+    }
     const newSource: Source = {
-      sourceId: id,
+      sourceId: '',
       sourceType: 'http',
       sourcePath: '',
       sourceMethod: 'GET',
-      sourceName: 'New Request',
+      sourceName: name,
       sourceTag: '',
       sourceContent: null,
       requestOptions: { contentType: 'application/json' },
@@ -310,17 +322,17 @@ export function V5Shell() {
       refreshOptions: { enabled: false },
       activationState: 'inactive',
     };
-    const result = await addSource(newSource);
-    if (result) {
+    const source = await addSource(newSource);
+    if (source) {
       openTab({
-        id: `source-${id}`,
+        id: `source-${source.sourceId}`,
         type: 'request',
-        label: 'New Request',
+        label: name,
         icon: 'GET',
-        entityId: id,
+        entityId: source.sourceId,
       });
     }
-  }, [addSource, openTab]);
+  }, [addSource, openTab, sources]);
 
   const createNewEnvironment = useCallback(async () => {
     // Generate unique name
@@ -514,7 +526,11 @@ export function V5Shell() {
                 visible={sidebarsSwapped ? panels.inspector : panels.sidebar}
               >
                 {sidebarsSwapped ? (
-                  <Inspector onClose={() => togglePanel('inspector')} expandedKeys={inspectorExpandedKeys} onExpandedKeysChange={setInspectorExpandedKeys} />
+                  <Inspector
+                    onClose={() => togglePanel('inspector')}
+                    expandedKeys={inspectorExpandedKeys}
+                    onExpandedKeysChange={setInspectorExpandedKeys}
+                  />
                 ) : (
                   <Sidebar
                     activePanel={activePanel}
@@ -548,6 +564,7 @@ export function V5Shell() {
                         segments={breadcrumbs}
                         isDirty={editorDirty}
                         onSave={() => editorSaveRef.current?.()}
+                        saveLabel={editorSaveLabel}
                       />
                       <EditorArea
                         tabs={tabs}
@@ -555,6 +572,7 @@ export function V5Shell() {
                         onNewRequest={() => void createNewSource()}
                         onNewRule={() => void createNewRule()}
                         onDirtyChange={handleDirtyChange}
+                        onSaveLabelChange={setEditorSaveLabel}
                         saveRef={editorSaveRef}
                         responseSideBySide={responseSideBySide}
                       />
@@ -589,7 +607,11 @@ export function V5Shell() {
                     onExpandedCollectionsChange={setSidebarExpandedCollections}
                   />
                 ) : (
-                  <Inspector onClose={() => togglePanel('inspector')} expandedKeys={inspectorExpandedKeys} onExpandedKeysChange={setInspectorExpandedKeys} />
+                  <Inspector
+                    onClose={() => togglePanel('inspector')}
+                    expandedKeys={inspectorExpandedKeys}
+                    onExpandedKeysChange={setInspectorExpandedKeys}
+                  />
                 )}
               </Allotment.Pane>
             </Allotment>

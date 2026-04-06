@@ -5,6 +5,7 @@
  * Validates header rule CRUD and toggle operations.
  */
 
+import type { HeaderRule } from '@openheaders/core';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -53,7 +54,7 @@ describe('useHeaderRules', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     mockShowMessage.mockClear();
-    mockAddHeaderRule.mockReset().mockResolvedValue(undefined);
+    mockAddHeaderRule.mockReset().mockResolvedValue({ id: 'new-rule-id', headerName: 'test' });
     mockUpdateHeaderRule.mockReset().mockResolvedValue(undefined);
     mockRemoveHeaderRule.mockReset().mockResolvedValue(undefined);
   });
@@ -67,7 +68,7 @@ describe('useHeaderRules', () => {
     it('adds rule and shows success', async () => {
       const { result } = renderHook(() => useHeaderRules());
 
-      let added = false;
+      let added: HeaderRule | null = null;
       const newRule = {
         headerName: 'X-Correlation-ID',
         headerValue: 'req-c3d4e5f6-a7b8-9012',
@@ -76,7 +77,7 @@ describe('useHeaderRules', () => {
         added = await result.current.addRule(newRule);
       });
 
-      expect(added).toBe(true);
+      expect(added).toBeTruthy();
       expect(mockAddHeaderRule).toHaveBeenCalledOnce();
       expect(mockAddHeaderRule).toHaveBeenCalledWith(newRule);
       expect(mockShowMessage).toHaveBeenCalledWith('success', 'Rule added successfully');
@@ -87,12 +88,12 @@ describe('useHeaderRules', () => {
 
       const { result } = renderHook(() => useHeaderRules());
 
-      let added = true;
+      let added: HeaderRule | null = { id: 'placeholder' } as HeaderRule;
       await act(async () => {
         added = await result.current.addRule({ headerName: 'X-Dup' });
       });
 
-      expect(added).toBe(false);
+      expect(added).toBeNull();
       expect(mockShowMessage).toHaveBeenCalledWith('error', 'Duplicate');
     });
   });

@@ -175,9 +175,10 @@ class CentralizedWorkspaceService {
 
   // ── Header Rule CRUD (IPC forwards) ────────────────────────
 
-  async addHeaderRule(ruleData: Partial<HeaderRule>): Promise<void> {
+  async addHeaderRule(ruleData: Partial<HeaderRule>): Promise<HeaderRule> {
     const result = await window.electronAPI.workspaceState.addHeaderRule(ruleData);
-    if (!result.success) throw new Error(result.error ?? 'Failed to add header rule');
+    if (!result.success || !result.rule) throw new Error(result.error ?? 'Failed to add header rule');
+    return result.rule;
   }
 
   async updateHeaderRule(ruleId: string, updates: Partial<HeaderRule>): Promise<void> {

@@ -6,7 +6,7 @@
  *   workspace-root/
  *   ├── .openheaders/
  *   │   ├── workspace.json        # WorkspaceManifest
- *   │   ├── globals.json          # GlobalsFile
+ *   │   ├── workspace-variables.json # WorkspaceVariablesFile
  *   │   └── vault.enc             # encrypted VaultFile (.gitignored)
  *   ├── collections/
  *   │   └── <name>/
@@ -27,7 +27,7 @@
 import type { Collection } from './collection';
 import type { Request } from './request';
 import type { Rule } from './rule';
-import type { EnvironmentLocalValues, EnvironmentManifest, Variable, Vault } from './variable';
+import type { EnvironmentLocalValues, EnvironmentManifest, Variable, Vault, WorkspaceVariables } from './variable';
 
 // ── Version ────────────────────────────────────────────────────────
 
@@ -54,9 +54,9 @@ export interface WorkspaceManifest extends StorageVersion {
   updatedAt: string;
 }
 
-// ── Globals file (.openheaders/globals.json) ───────────────────────
+// ── Workspace variables file (.openheaders/workspace-variables.json)
 
-export interface GlobalsFile extends StorageVersion {
+export interface WorkspaceVariablesFile extends StorageVersion {
   variables: Variable[];
 }
 

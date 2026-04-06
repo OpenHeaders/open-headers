@@ -26,7 +26,7 @@ function makeDeps(overrides: Partial<ExportImportDependencies> = {}): ExportImpo
     })),
     createEnvironment: vi.fn(),
     rules: { header: [], request: [], response: [] },
-    addHeaderRule: vi.fn(async () => true),
+    addHeaderRule: vi.fn(async () => makeHeaderRule({ id: 'new-rule' })),
     updateHeaderRule: vi.fn(async () => true),
     removeHeaderRule: vi.fn(async () => true),
     ...overrides,
@@ -296,7 +296,7 @@ describe('RulesHandler.importRules', () => {
   });
 
   it('imports header rules via addHeaderRule in merge mode', async () => {
-    const addHeaderRule = vi.fn(async () => true);
+    const addHeaderRule = vi.fn(async () => makeHeaderRule({ id: 'new-rule' }));
     const deps = makeDeps({ addHeaderRule });
     const handler = new RulesHandler(deps);
 
@@ -317,7 +317,7 @@ describe('RulesHandler.importRules', () => {
   });
 
   it('skips duplicates by ID in merge mode', async () => {
-    const addHeaderRule = vi.fn(async () => true);
+    const addHeaderRule = vi.fn(async () => makeHeaderRule({ id: 'new-rule' }));
     const deps = makeDeps({
       addHeaderRule,
       rules: { header: [makeHeaderRule({ id: 'existing-rule' })], request: [], response: [] },
@@ -336,7 +336,7 @@ describe('RulesHandler.importRules', () => {
 
   it('clears existing rules in replace mode via removeHeaderRule', async () => {
     const removeHeaderRule = vi.fn(async () => true);
-    const addHeaderRule = vi.fn(async () => true);
+    const addHeaderRule = vi.fn(async () => makeHeaderRule({ id: 'new-rule' }));
     const deps = makeDeps({
       removeHeaderRule,
       addHeaderRule,

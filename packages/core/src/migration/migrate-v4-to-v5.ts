@@ -21,7 +21,6 @@ import type {
   Environment,
   EnvironmentLocalValues,
   EnvironmentManifest,
-  Globals,
   MigrationResult,
   MigrationWarning,
   Request,
@@ -36,6 +35,7 @@ import type {
   Variable,
   Vault,
   VaultSecret,
+  WorkspaceVariables,
 } from '../types/v5';
 
 // ── Output types ───────────────────────────────────────────────────
@@ -47,7 +47,7 @@ export interface V5WorkspaceData {
   environmentManifests: EnvironmentManifest[];
   environmentLocalValues: EnvironmentLocalValues[];
   vault: Vault;
-  globals: Globals;
+  workspaceVariables: WorkspaceVariables;
 }
 
 interface V5CollectionData {
@@ -87,7 +87,7 @@ export function migrateV4toV5(data: V4WorkspaceData): {
       environmentManifests,
       environmentLocalValues,
       vault,
-      globals: { variables: [] },
+      workspaceVariables: { variables: [] },
     },
     result: {
       success: true,

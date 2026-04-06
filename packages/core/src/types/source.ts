@@ -92,6 +92,13 @@ export interface Source {
   needsInitialFetch?: boolean;
   originalResponse?: string | null;
   responseHeaders?: Record<string, string> | null;
+  /**
+   * When set, the source's extracted content (sourceContent) is resolvable
+   * as a {{VAR}} in templates. The value lives on the source itself (workspace-scoped),
+   * not in any environment. On environment switch, sources with changed input vars
+   * are re-fetched automatically, keeping the output fresh.
+   */
+  storeAsVariable?: string;
 }
 
 /**

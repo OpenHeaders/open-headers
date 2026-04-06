@@ -119,7 +119,7 @@ function toWriteData(workspace: V5WorkspaceData, info: WorkspaceInfo): V5Workspa
 
   return {
     manifest,
-    globals: workspace.globals,
+    workspaceVariables: workspace.workspaceVariables,
     vault: workspace.vault,
     collections,
     rules: workspace.rules,

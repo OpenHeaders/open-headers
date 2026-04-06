@@ -20,11 +20,29 @@ import {
   DeleteOutlined,
   MinusCircleOutlined,
   PlusOutlined,
+  ReloadOutlined,
   SendOutlined,
+  SyncOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import type { Source, SourceHeader, SourceQueryParam } from '@openheaders/core';
 import { Allotment } from 'allotment';
-import { Button, Checkbox, Input, InputNumber, Select, Space, Switch, Tooltip, Typography, theme } from 'antd';
+import {
+  Button,
+  Card,
+  Checkbox,
+  Col,
+  Input,
+  InputNumber,
+  Progress,
+  Row,
+  Select,
+  Space,
+  Switch,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 import { extractSourceVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
@@ -37,6 +55,7 @@ const { TextArea } = Input;
 interface SourceEditorProps {
   sourceId: string;
   onDirtyChange?: (dirty: boolean) => void;
+  onSaveLabelChange?: (label: string | null) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
   responseSideBySide?: boolean;
 }
@@ -72,6 +91,8 @@ function KeyValueTable({
   valuePlaceholder,
   envVars,
   activeEnvironment,
+  totpCode,
+  totpReady,
 }: {
   rows: KVRow[];
   onChange: (rows: KVRow[]) => void;
@@ -79,6 +100,8 @@ function KeyValueTable({
   valuePlaceholder: string;
   envVars?: Record<string, { value: string; isSecret: boolean }>;
   activeEnvironment?: string;
+  totpCode?: string;
+  totpReady?: boolean;
 }) {
   const { token } = theme.useToken();
 
@@ -171,6 +194,8 @@ function KeyValueTable({
               }}
               envVars={envVars}
               activeEnvironment={activeEnvironment}
+              totpCode={totpCode}
+              totpReady={totpReady}
               borderless
               fontSize={12}
               mono
@@ -226,6 +251,13 @@ function ResponsePane({
   const isRefreshing = source.refreshStatus?.isRefreshing;
   const lastRefresh = source.refreshStatus?.lastRefresh;
   const hasError = source.refreshStatus?.error;
+  const wasSuccess = source.refreshStatus?.success;
+
+  // Derive HTTP status from response headers (stored by the execution pipeline)
+  const statusCode = responseHeaders?.['x-oh-status-code'];
+  const statusNum = statusCode ? Number.parseInt(statusCode, 10) : null;
+
+  const statusColor = statusNum ? (statusNum < 300 ? '#49cc90' : statusNum < 400 ? '#fca130' : '#f93e3e') : undefined;
 
   // Try to detect and pretty-print JSON
   const formatContent = (raw: string | null | undefined): string => {
@@ -262,23 +294,23 @@ function ResponsePane({
           <Text strong style={{ fontSize: 12 }}>
             Response
           </Text>
-          {source.activationState === 'active' && (
-            <Text style={{ fontSize: 11, color: token.colorSuccess }}>
-              <CheckCircleOutlined /> Active
-            </Text>
-          )}
-          {source.activationState === 'error' && (
-            <Text style={{ fontSize: 11, color: token.colorError }}>
-              <CloseCircleOutlined /> {hasError || 'Error'}
-            </Text>
-          )}
           {isRefreshing && (
             <Text style={{ fontSize: 11, color: token.colorPrimary }}>
-              <ClockCircleOutlined /> Fetching...
+              <SyncOutlined spin /> Sending...
+            </Text>
+          )}
+          {!isRefreshing && hasError && (
+            <Text style={{ fontSize: 11, color: token.colorError }}>
+              <CloseCircleOutlined /> {hasError}
+            </Text>
+          )}
+          {!isRefreshing && wasSuccess && !hasError && (
+            <Text style={{ fontSize: 11, color: token.colorSuccess }}>
+              <CheckCircleOutlined /> OK
             </Text>
           )}
         </Space>
-        {lastRefresh && (
+        {lastRefresh && !isRefreshing && (
           <Text type="secondary" style={{ fontSize: 10 }}>
             {new Date(lastRefresh).toLocaleString()}
           </Text>
@@ -334,6 +366,8 @@ function BodyTab({
   onContentTypeChange,
   envVars,
   activeEnvironment,
+  totpCode,
+  totpReady,
 }: {
   body: string;
   contentType: string;
@@ -341,6 +375,8 @@ function BodyTab({
   onContentTypeChange: (val: string) => void;
   envVars: Record<string, { value: string; isSecret: boolean }>;
   activeEnvironment: string;
+  totpCode?: string;
+  totpReady?: boolean;
 }) {
   return (
     <div>
@@ -364,12 +400,185 @@ function BodyTab({
         placeholder={contentType === 'application/json' ? '{\n  "key": "value"\n}' : 'key1=value1&key2=value2'}
         envVars={envVars}
         activeEnvironment={activeEnvironment}
+        totpCode={totpCode}
+        totpReady={totpReady}
         mono
         fontSize={12}
         multiline
         minRows={6}
         style={{ border: '1px solid var(--ant-color-border, #d9d9d9)', borderRadius: 6 }}
       />
+    </div>
+  );
+}
+
+// ── Automation status strip ──────────────────────────────────────
+
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function formatCountdown(nextRefresh: number | null | undefined): string {
+  if (!nextRefresh) return '';
+  const seconds = Math.max(0, Math.floor((nextRefresh - Date.now()) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+}
+
+function AutomationStrip({
+  source,
+  storeAsVariable,
+  formRefreshEnabled,
+  formRefreshInterval,
+  onRefresh,
+}: {
+  source: Source;
+  storeAsVariable: string;
+  /** Whether auto-refresh is enabled in the unsaved form state. */
+  formRefreshEnabled: boolean;
+  /** Interval in the unsaved form state. */
+  formRefreshInterval: number;
+  onRefresh: () => void;
+}) {
+  const { token } = theme.useToken();
+  const rs = source.refreshOptions;
+  const status = source.refreshStatus;
+  const hasActiveAutoRefresh = rs?.enabled && (rs.interval ?? 0) > 0;
+  const hasPendingAutoRefresh = formRefreshEnabled && formRefreshInterval > 0 && !hasActiveAutoRefresh;
+  const hasOutput = !!storeAsVariable;
+
+  const isRefreshing = status?.isRefreshing;
+  const failureCount = status?.failureCount ?? 0;
+  const hasError = status?.error;
+  const lastRefresh = status?.lastRefresh ?? rs?.lastRefresh;
+
+  // Force re-render every second for live countdowns
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!hasActiveAutoRefresh && !failureCount) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasActiveAutoRefresh, failureCount]);
+
+  // Don't render if no automation is configured (neither active, pending, nor output)
+  if (!hasActiveAutoRefresh && !hasPendingAutoRefresh && !hasOutput) return null;
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '4px 16px',
+        fontSize: 11,
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        background: failureCount > 0 ? token.colorErrorBg : token.colorBgElevated,
+        flexShrink: 0,
+        minHeight: 28,
+      }}
+    >
+      {/* Pending activation (configured in form but not yet saved) */}
+      {hasPendingAutoRefresh && (
+        <span style={{ color: '#7c3aed' }}>
+          <SyncOutlined style={{ marginRight: 4 }} />
+          Every {formRefreshInterval}m — will activate on save
+        </span>
+      )}
+
+      {/* Active schedule info */}
+      {hasActiveAutoRefresh && !failureCount && !isRefreshing && (
+        <span style={{ color: token.colorTextSecondary }}>
+          <SyncOutlined style={{ marginRight: 4 }} />
+          Every {rs!.interval}m
+        </span>
+      )}
+
+      {/* Refreshing */}
+      {isRefreshing && (
+        <span style={{ color: token.colorPrimary }}>
+          <SyncOutlined spin style={{ marginRight: 4 }} />
+          Fetching...
+        </span>
+      )}
+
+      {/* Failure state */}
+      {!isRefreshing && failureCount > 0 && (
+        <span style={{ color: token.colorError }}>
+          <WarningOutlined style={{ marginRight: 4 }} />
+          Failed {failureCount}x{rs?.nextRefresh ? ` \u2014 retry in ${formatCountdown(rs.nextRefresh)}` : ''}
+        </span>
+      )}
+
+      {/* Error message */}
+      {!isRefreshing && hasError && (
+        <span
+          style={{
+            color: token.colorTextTertiary,
+            maxWidth: 200,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {hasError}
+        </span>
+      )}
+
+      {/* Last refresh */}
+      {!isRefreshing && !failureCount && lastRefresh && (
+        <span style={{ color: token.colorTextTertiary }}>
+          Last: {formatTimeAgo(typeof lastRefresh === 'number' ? lastRefresh : Number(lastRefresh))}
+        </span>
+      )}
+
+      {/* Next refresh */}
+      {!isRefreshing && !failureCount && hasActiveAutoRefresh && rs?.nextRefresh && (
+        <span style={{ color: token.colorTextTertiary }}>Next: {formatCountdown(rs.nextRefresh)}</span>
+      )}
+
+      {/* Separator + output variable */}
+      {hasOutput && (
+        <>
+          <span style={{ color: token.colorBorderSecondary }}>|</span>
+          <span style={{ color: token.colorTextSecondary, fontFamily: "'SF Mono', 'Fira Code', monospace" }}>
+            {`→ {{${storeAsVariable}}}`}
+            {source.sourceContent ? (
+              <span style={{ color: token.colorSuccess, marginLeft: 4 }}>
+                <CheckCircleOutlined />
+              </span>
+            ) : (
+              <span style={{ color: token.colorTextTertiary, marginLeft: 4 }}>(empty)</span>
+            )}
+          </span>
+        </>
+      )}
+
+      {/* Spacer */}
+      <span style={{ flex: 1 }} />
+
+      {/* Manual refresh button */}
+      <Tooltip title={failureCount > 0 ? 'Force retry' : 'Refresh now'}>
+        <Button
+          type="text"
+          size="small"
+          icon={<ReloadOutlined />}
+          onClick={onRefresh}
+          loading={isRefreshing}
+          style={{ fontSize: 11, color: token.colorTextSecondary }}
+        >
+          {failureCount > 0 ? 'Retry' : 'Refresh'}
+        </Button>
+      </Tooltip>
     </div>
   );
 }
@@ -383,7 +592,13 @@ const kvToHeaders = (rows: KVRow[]): SourceHeader[] =>
 const kvToParams = (rows: KVRow[]): SourceQueryParam[] =>
   rows.filter((r) => r.key && r.enabled).map((r) => ({ key: r.key, value: r.value }));
 
-export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideBySide }: SourceEditorProps) {
+export function SourceEditor({
+  sourceId,
+  onDirtyChange,
+  onSaveLabelChange,
+  saveRef,
+  responseSideBySide,
+}: SourceEditorProps) {
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource, refreshSource } = useSources();
   const { environments, activeEnvironment } = useEnvironments();
@@ -419,6 +634,30 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
   const [jsonFilterPath, setJsonFilterPath] = useState('');
   const [refreshEnabled, setRefreshEnabled] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(5);
+  const [storeAsVariable, setStoreAsVariable] = useState('');
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSecret, setTotpSecret] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [totpTimeRemaining, setTotpTimeRemaining] = useState(30);
+  const [totpTesting, setTotpTesting] = useState(false);
+  const [totpError, setTotpError] = useState<string | null>(null);
+
+  // TOTP countdown timer — ticks every second when a code is displayed
+  useEffect(() => {
+    if (!totpCode || totpError) return;
+    const id = setInterval(() => {
+      const remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
+      setTotpTimeRemaining(remaining);
+      // Auto-regenerate when timer resets
+      if (remaining === 30 && totpSecret) {
+        window.electronAPI.httpRequest
+          .generateTotpPreview(totpSecret)
+          .then(setTotpCode)
+          .catch(() => {});
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [totpCode, totpError, totpSecret]);
 
   const initializedId = useRef<string | null>(null);
   const snapshotRef = useRef('');
@@ -438,6 +677,9 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
       jsonFilterPath,
       refreshEnabled,
       refreshInterval,
+      storeAsVariable,
+      totpEnabled,
+      totpSecret,
     });
   }, [
     sourcePath,
@@ -452,6 +694,9 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
     jsonFilterPath,
     refreshEnabled,
     refreshInterval,
+    storeAsVariable,
+    totpEnabled,
+    totpSecret,
   ]);
 
   // Initialize from source
@@ -468,6 +713,9 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
       const jfp = source.jsonFilter?.path ?? '';
       const re = source.refreshOptions?.enabled ?? false;
       const ri = source.refreshOptions?.interval ?? 5;
+      const sav = source.storeAsVariable || '';
+      const te = !!source.requestOptions?.totpSecret;
+      const ts = source.requestOptions?.totpSecret || '';
       const p = (source.requestOptions?.queryParams || []).map((q: SourceQueryParam) => ({
         key: q.key,
         value: q.value,
@@ -489,6 +737,9 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
       setJsonFilterPath(jfp);
       setRefreshEnabled(re);
       setRefreshInterval(ri);
+      setStoreAsVariable(sav);
+      setTotpEnabled(te);
+      setTotpSecret(ts);
       setParams(p);
       setHeaders(h);
 
@@ -506,6 +757,9 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
         jsonFilterPath: jfp,
         refreshEnabled: re,
         refreshInterval: ri,
+        storeAsVariable: sav,
+        totpEnabled: te,
+        totpSecret: ts,
       });
     }
   }, [source]);
@@ -535,6 +789,29 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
     }
   }, [isActuallyDirty, isDirty, onDirtyChange]);
 
+  // Update save button label when auto-refresh is being activated
+  useEffect(() => {
+    const sourceHasAutoRefresh = source?.refreshOptions?.enabled && (source.refreshOptions.interval ?? 0) > 0;
+    const formHasAutoRefresh = refreshEnabled && refreshInterval > 0;
+    // Show "Save & Activate" when form enables auto-refresh that isn't currently active
+    if (formHasAutoRefresh && !sourceHasAutoRefresh) {
+      onSaveLabelChange?.('Save & Activate');
+    } else {
+      onSaveLabelChange?.(null);
+    }
+  }, [
+    refreshEnabled,
+    refreshInterval,
+    source?.refreshOptions?.enabled,
+    source?.refreshOptions?.interval,
+    onSaveLabelChange,
+  ]);
+
+  // Clean up save label on unmount
+  useEffect(() => {
+    return () => onSaveLabelChange?.(null);
+  }, [onSaveLabelChange]);
+
   // Explicit save — persists all local state to main process
   const handleSave = useCallback(() => {
     void updateSource(sourceId, {
@@ -547,9 +824,11 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
         queryParams: kvToParams(params),
         body,
         contentType,
+        totpSecret: totpEnabled ? totpSecret : undefined,
       },
       jsonFilter: { enabled: jsonFilterEnabled, path: jsonFilterPath },
       refreshOptions: { enabled: refreshEnabled, type: 'custom', interval: refreshInterval },
+      storeAsVariable: storeAsVariable || undefined,
     }).then(() => {
       // Reset snapshot to current state
       snapshotRef.current = currentFingerprint;
@@ -571,6 +850,9 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
     jsonFilterPath,
     refreshEnabled,
     refreshInterval,
+    storeAsVariable,
+    totpEnabled,
+    totpSecret,
     updateSource,
     onDirtyChange,
   ]);
@@ -601,17 +883,24 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
   };
 
   const handleSend = () => {
-    // Save then refresh
+    // Save ALL fields then execute
     void updateSource(sourceId, {
       sourcePath,
+      sourceName,
+      sourceTag,
       sourceMethod: sourceMethod as Source['sourceMethod'],
       requestOptions: {
         headers: kvToHeaders(headers),
         queryParams: kvToParams(params),
         body,
         contentType,
+        totpSecret: totpEnabled ? totpSecret : undefined,
       },
+      jsonFilter: { enabled: jsonFilterEnabled, path: jsonFilterPath },
+      refreshOptions: { enabled: refreshEnabled, type: 'custom', interval: refreshInterval },
+      storeAsVariable: storeAsVariable || undefined,
     }).then(() => {
+      snapshotRef.current = buildFingerprint();
       setIsDirty(false);
       onDirtyChange?.(false);
       void refreshSource(sourceId);
@@ -697,6 +986,8 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
           placeholder="Enter request URL"
           envVars={activeEnvVars}
           activeEnvironment={activeEnvironment}
+          totpCode={totpCode}
+          totpReady={totpEnabled && !!totpSecret}
           borderless
           fontSize={13}
           mono
@@ -722,6 +1013,15 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
           />
         </Tooltip>
       </div>
+
+      {/* ── Automation status strip ────────────────────── */}
+      <AutomationStrip
+        source={source}
+        storeAsVariable={storeAsVariable}
+        formRefreshEnabled={refreshEnabled}
+        formRefreshInterval={refreshInterval}
+        onRefresh={() => void refreshSource(sourceId)}
+      />
 
       {/* ── Request + Response split ────────────────────── */}
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -752,6 +1052,8 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
                     valuePlaceholder="Value"
                     envVars={activeEnvVars}
                     activeEnvironment={activeEnvironment}
+                    totpCode={totpCode}
+                    totpReady={totpEnabled && !!totpSecret}
                   />
                 )}
 
@@ -764,6 +1066,8 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
                     valuePlaceholder="Value"
                     envVars={activeEnvVars}
                     activeEnvironment={activeEnvironment}
+                    totpCode={totpCode}
+                    totpReady={totpEnabled && !!totpSecret}
                   />
                 )}
 
@@ -776,100 +1080,243 @@ export function SourceEditor({ sourceId, onDirtyChange, saveRef, responseSideByS
                     onContentTypeChange={handleContentTypeChange}
                     envVars={activeEnvVars}
                     activeEnvironment={activeEnvironment}
+                    totpCode={totpCode}
+                    totpReady={totpEnabled && !!totpSecret}
                   />
                 )}
 
                 {/* Settings tab */}
                 {activeTab === 'settings' && (
-                  <div style={{ maxWidth: 500 }}>
-                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                      <Text className="v5-editor-label" style={{ width: 100 }}>
-                        Name
-                      </Text>
-                      <Input
-                        size="small"
-                        value={sourceName}
-                        onChange={(e) => {
-                          setSourceName(e.target.value);
-                        }}
-                        placeholder="Display name"
-                        style={{ maxWidth: 280 }}
-                      />
-                    </div>
-
-                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                      <Text className="v5-editor-label" style={{ width: 100 }}>
-                        Tag
-                      </Text>
-                      <Input
-                        size="small"
-                        value={sourceTag}
-                        onChange={(e) => {
-                          setSourceTag(e.target.value);
-                        }}
-                        placeholder="Collection tag"
-                        style={{ maxWidth: 200 }}
-                      />
-                    </div>
-
-                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                      <Text className="v5-editor-label" style={{ width: 100 }}>
-                        JSON filter
-                      </Text>
-                      <Space size={8}>
-                        <Switch
+                  <div style={{ padding: '4px 0' }}>
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        {/* ── Response Extraction ────────────── */}
+                        <Card
                           size="small"
-                          checked={jsonFilterEnabled}
-                          onChange={(v) => {
-                            setJsonFilterEnabled(v);
-                          }}
-                        />
-                        {jsonFilterEnabled && (
-                          <Input
-                            size="small"
-                            value={jsonFilterPath}
-                            onChange={(e) => {
-                              setJsonFilterPath(e.target.value);
-                            }}
-                            placeholder="e.g. data.access_token"
-                            style={{ width: 200 }}
-                          />
-                        )}
-                      </Space>
-                    </div>
-
-                    <div className="v5-editor-field" style={{ marginBottom: 10 }}>
-                      <Text className="v5-editor-label" style={{ width: 100 }}>
-                        Auto-refresh
-                      </Text>
-                      <Space size={8}>
-                        <Switch
-                          size="small"
-                          checked={refreshEnabled}
-                          onChange={(v) => {
-                            setRefreshEnabled(v);
-                          }}
-                        />
-                        {refreshEnabled && (
-                          <>
-                            <InputNumber
-                              size="small"
-                              min={1}
-                              max={10080}
-                              value={refreshInterval}
-                              onChange={(v) => {
-                                const mins = v ?? 5;
-                                setRefreshInterval(mins);
-                              }}
-                              style={{ width: 70 }}
-                            />
+                          title="Response Extraction"
+                          extra={<Switch size="small" checked={jsonFilterEnabled} onChange={setJsonFilterEnabled} />}
+                          style={{ marginBottom: 12 }}
+                        >
+                          {jsonFilterEnabled ? (
+                            <>
+                              <div className="v5-editor-field" style={{ marginBottom: 8 }}>
+                                <Text className="v5-editor-label" style={{ width: 80 }}>
+                                  JSON path
+                                </Text>
+                                <Input
+                                  size="small"
+                                  value={jsonFilterPath}
+                                  onChange={(e) => setJsonFilterPath(e.target.value)}
+                                  placeholder="e.g. data.access_token"
+                                  style={{ flex: 1 }}
+                                />
+                              </div>
+                              <div className="v5-editor-field">
+                                <Text className="v5-editor-label" style={{ width: 80 }}>
+                                  Store as
+                                </Text>
+                                <Space size={8}>
+                                  <Input
+                                    size="small"
+                                    value={storeAsVariable}
+                                    onChange={(e) =>
+                                      setStoreAsVariable(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))
+                                    }
+                                    placeholder="e.g. AUTH_TOKEN"
+                                    style={{
+                                      width: 160,
+                                      fontFamily: "'SF Mono', 'Fira Code', monospace",
+                                      fontSize: 12,
+                                    }}
+                                  />
+                                  {storeAsVariable && (
+                                    <Text type="secondary" style={{ fontSize: 11 }}>
+                                      {`→ {{${storeAsVariable}}}`}
+                                    </Text>
+                                  )}
+                                </Space>
+                              </div>
+                            </>
+                          ) : (
                             <Text type="secondary" style={{ fontSize: 11 }}>
-                              min
+                              Enable to extract a value from the response and optionally store it as a variable.
                             </Text>
-                          </>
-                        )}
-                      </Space>
-                    </div>
+                          )}
+                        </Card>
+
+                        {/* ── TOTP Authentication ────────────── */}
+                        <Card
+                          size="small"
+                          title="TOTP Authentication"
+                          extra={
+                            <Switch
+                              size="small"
+                              checked={totpEnabled}
+                              checkedChildren="On"
+                              unCheckedChildren="Off"
+                              onChange={(v) => {
+                                setTotpEnabled(v);
+                                if (!v) {
+                                  setTotpCode('');
+                                  setTotpError(null);
+                                }
+                              }}
+                            />
+                          }
+                          style={{ marginBottom: 12 }}
+                        >
+                          {totpEnabled ? (
+                            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                              <Space.Compact style={{ width: '100%' }}>
+                                <Input.Password
+                                  size="small"
+                                  value={totpSecret}
+                                  onChange={(e) => {
+                                    setTotpSecret(e.target.value);
+                                    setTotpError(null);
+                                  }}
+                                  placeholder="Enter TOTP secret key"
+                                  style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
+                                />
+                                <Button
+                                  size="small"
+                                  onClick={async () => {
+                                    if (!totpSecret) {
+                                      setTotpError('Enter a TOTP secret first');
+                                      return;
+                                    }
+                                    setTotpTesting(true);
+                                    setTotpError(null);
+                                    try {
+                                      const code = await window.electronAPI.httpRequest.generateTotpPreview(totpSecret);
+                                      setTotpCode(code);
+                                      setTotpTimeRemaining(30 - (Math.floor(Date.now() / 1000) % 30));
+                                    } catch (err) {
+                                      setTotpError(err instanceof Error ? err.message : String(err));
+                                      setTotpCode('');
+                                    } finally {
+                                      setTotpTesting(false);
+                                    }
+                                  }}
+                                  loading={totpTesting}
+                                >
+                                  Test
+                                </Button>
+                              </Space.Compact>
+                              {totpError && (
+                                <Text type="danger" style={{ fontSize: 11 }}>
+                                  {totpError}
+                                </Text>
+                              )}
+                              {totpCode && !totpError && (
+                                <Card size="small" style={{ textAlign: 'center' }}>
+                                  <Text
+                                    strong
+                                    copyable
+                                    style={{ fontSize: 24, fontFamily: "'SF Mono', monospace", letterSpacing: 6 }}
+                                  >
+                                    {totpCode}
+                                  </Text>
+                                  <div style={{ marginTop: 4 }}>
+                                    <Text
+                                      strong
+                                      type={totpTimeRemaining <= 5 ? 'danger' : 'success'}
+                                      style={{ fontSize: 13 }}
+                                    >
+                                      {totpTimeRemaining}s
+                                    </Text>
+                                    <Text type="secondary" style={{ fontSize: 10, marginLeft: 4 }}>
+                                      remaining
+                                    </Text>
+                                  </div>
+                                  <Progress
+                                    percent={(totpTimeRemaining / 30) * 100}
+                                    showInfo={false}
+                                    status={totpTimeRemaining <= 5 ? 'exception' : 'success'}
+                                    size="small"
+                                    style={{ marginTop: 4 }}
+                                  />
+                                </Card>
+                              )}
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                Use{' '}
+                                <Text code style={{ fontSize: 11 }}>
+                                  [[TOTP_CODE]]
+                                </Text>{' '}
+                                placeholder in URL, headers, params, or body
+                              </Text>
+                            </Space>
+                          ) : (
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              Enable to auto-generate TOTP codes from a secret key.
+                            </Text>
+                          )}
+                        </Card>
+                      </Col>
+
+                      <Col span={12}>
+                        {/* ── General ────────────────────────── */}
+                        <Card size="small" title="General" style={{ marginBottom: 12 }}>
+                          <div className="v5-editor-field" style={{ marginBottom: 10 }}>
+                            <Text className="v5-editor-label" style={{ width: 60 }}>
+                              Name
+                            </Text>
+                            <Input
+                              size="small"
+                              value={sourceName}
+                              onChange={(e) => setSourceName(e.target.value)}
+                              placeholder="Display name"
+                              style={{ flex: 1 }}
+                            />
+                          </div>
+                          <div className="v5-editor-field">
+                            <Text className="v5-editor-label" style={{ width: 60 }}>
+                              Tag
+                            </Text>
+                            <Input
+                              size="small"
+                              value={sourceTag}
+                              onChange={(e) => setSourceTag(e.target.value)}
+                              placeholder="Collection tag"
+                              style={{ flex: 1 }}
+                            />
+                          </div>
+                        </Card>
+
+                        {/* ── Auto-Refresh ───────────────────── */}
+                        <Card
+                          size="small"
+                          title="Auto-Refresh"
+                          extra={<Switch size="small" checked={refreshEnabled} onChange={setRefreshEnabled} />}
+                          style={{ marginBottom: 12 }}
+                        >
+                          {refreshEnabled ? (
+                            <div className="v5-editor-field">
+                              <Text className="v5-editor-label" style={{ width: 60 }}>
+                                Interval
+                              </Text>
+                              <Space size={8}>
+                                <InputNumber
+                                  size="small"
+                                  min={1}
+                                  max={10080}
+                                  value={refreshInterval}
+                                  onChange={(v) => setRefreshInterval(v ?? 5)}
+                                  style={{ width: 80 }}
+                                />
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                  minutes
+                                </Text>
+                              </Space>
+                            </div>
+                          ) : (
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              Enable to automatically re-execute this request on a schedule.
+                            </Text>
+                          )}
+                        </Card>
+                      </Col>
+                    </Row>
                   </div>
                 )}
               </div>
