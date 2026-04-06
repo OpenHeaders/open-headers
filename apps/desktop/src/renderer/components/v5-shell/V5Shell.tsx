@@ -24,6 +24,7 @@ import { EditorVariablesProvider } from './contexts/EditorVariablesContext';
 import { EditorArea } from './EditorArea';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { DEFAULT_LAYOUT, useLayoutPersistence } from './hooks/useLayoutPersistence';
+import type { Tab } from './hooks/useTabs';
 import { useTabs } from './hooks/useTabs';
 import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
@@ -577,6 +578,25 @@ export function V5Shell() {
     return items;
   }, [sources, rules, environments, togglePanel, openSettings, openTab, createNewSource, createNewRule]);
 
+  // Tab tooltip: show URL for requests, header name for rules, name for environments
+  const getTabTooltip = useCallback(
+    (tab: Tab): string => {
+      if ((tab.type === 'request' || tab.type === 'collection') && tab.entityId) {
+        const source = sources.find((s) => s.sourceId === tab.entityId);
+        return source?.sourcePath || 'Untitled request';
+      }
+      if (tab.type === 'rule' && tab.entityId) {
+        const rule = rules.find((r) => r.id === tab.entityId);
+        return rule?.headerName || 'Untitled rule';
+      }
+      if (tab.type === 'environment') {
+        return tab.label;
+      }
+      return tab.label;
+    },
+    [sources, rules],
+  );
+
   // Breadcrumbs for active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const breadcrumbs = activeTab ? [{ label: workspaceName }, { label: activeTab.label }] : [{ label: workspaceName }];
@@ -652,6 +672,9 @@ export function V5Shell() {
                         onCloseUnmodified={handleCloseUnmodified}
                         onCloseToLeft={handleCloseToLeft}
                         onCloseToRight={handleCloseToRight}
+                        onNewRequest={() => void createNewSource()}
+                        onNewRule={() => void createNewRule()}
+                        getTabTooltip={getTabTooltip}
                       />
                       <BreadcrumbBar
                         segments={breadcrumbs}

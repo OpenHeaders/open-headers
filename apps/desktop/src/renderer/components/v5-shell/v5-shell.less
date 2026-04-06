@@ -270,12 +270,18 @@
   align-items: center;
   flex-shrink: 0;
   height: 34px;
+  position: relative;
 }
 
 .v5-tabs-scroll {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; // Firefox
+  &::-webkit-scrollbar {
+    display: none; // Chrome/Safari
+  }
 }
 
 .v5-tab {
@@ -290,6 +296,11 @@
   flex-shrink: 0;
   position: relative;
   user-select: none;
+  border-right: 1px solid rgba(128, 128, 128, 0.15);
+
+  &:last-child {
+    border-right: none;
+  }
 
   &.active {
     font-weight: 500;
@@ -297,6 +308,60 @@
 
   &:hover .v5-tab-close {
     opacity: 1;
+  }
+}
+
+// ── Tab bar action buttons (+ and chevron) ───────────────────
+.v5-tab-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 100%;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.12s;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+// ── Tab search dropdown ──────────────────────────────────────
+.v5-tab-search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+}
+
+.v5-tab-search-dropdown {
+  position: absolute;
+  top: 33px;
+  right: 0;
+  width: 300px;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 99;
+  overflow: hidden;
+  animation: v5-tab-search-in 0.12s ease-out;
+}
+
+@keyframes v5-tab-search-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.v5-tab-search-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
   }
 }
 

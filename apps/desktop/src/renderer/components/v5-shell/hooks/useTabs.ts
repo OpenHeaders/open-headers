@@ -32,6 +32,8 @@ export interface Tab {
   unsaved: boolean;
   /** Associated entity ID (request ID, rule ID, etc.) */
   entityId?: string;
+  /** Tooltip text shown on hover (e.g. URL for requests, header name for rules) */
+  tooltip?: string;
 }
 
 interface TabsState {

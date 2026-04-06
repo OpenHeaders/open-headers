@@ -178,6 +178,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         colorPrimaryBg: isDark ? '#074360' : '#e6f7ff',
         colorPrimaryBgHover: isDark ? '#0a5a82' : '#bae7ff',
       },
+      components: {
+        Tooltip: isDark
+          ? {}
+          : {
+              colorBgSpotlight: '#ffffff',
+              colorTextLightSolid: '#333333',
+            },
+      },
     };
   };
 
