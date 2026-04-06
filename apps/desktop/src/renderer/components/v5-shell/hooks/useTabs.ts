@@ -162,6 +162,68 @@ export function useTabs(activeWorkspaceId?: string) {
     });
   }, []);
 
+  const reorderTab = useCallback((fromId: string, toId: string, side: 'left' | 'right') => {
+    setState((prev) => {
+      // Work on the display order (pinned first) since that's what the TabBar renders
+      const sorted = [...prev.tabs.filter((t) => t.pinned), ...prev.tabs.filter((t) => !t.pinned)];
+      const from = sorted.findIndex((t) => t.id === fromId);
+      const to = sorted.findIndex((t) => t.id === toId);
+      if (from === -1 || to === -1 || from === to) return prev;
+
+      const target = side === 'right' ? to + 1 : to;
+      if (target === from || target === from + 1) return prev;
+
+      const [moved] = sorted.splice(from, 1);
+      const insertAt = target > from ? target - 1 : target;
+      sorted.splice(insertAt, 0, moved);
+      return { ...prev, tabs: sorted };
+    });
+  }, []);
+
+  const closeOtherTabs = useCallback((tabId: string) => {
+    setState((prev) => {
+      const newTabs = prev.tabs.filter((t) => t.id === tabId || t.pinned);
+      return { ...prev, tabs: newTabs, activeTabId: tabId };
+    });
+  }, []);
+
+  const closeAllTabs = useCallback(() => {
+    setState((prev) => {
+      const pinned = prev.tabs.filter((t) => t.pinned);
+      const newTabs = pinned.length > 0 ? pinned : [{ ...WELCOME_TAB }];
+      return { ...prev, tabs: newTabs, activeTabId: newTabs[0].id };
+    });
+  }, []);
+
+  const closeUnmodifiedTabs = useCallback(() => {
+    setState((prev) => {
+      const newTabs = prev.tabs.filter((t) => t.unsaved || t.pinned);
+      if (newTabs.length === 0) newTabs.push({ ...WELCOME_TAB });
+      const activeStillExists = newTabs.some((t) => t.id === prev.activeTabId);
+      return { ...prev, tabs: newTabs, activeTabId: activeStillExists ? prev.activeTabId : newTabs[0].id };
+    });
+  }, []);
+
+  const closeTabsToLeft = useCallback((tabId: string) => {
+    setState((prev) => {
+      const idx = prev.tabs.findIndex((t) => t.id === tabId);
+      if (idx <= 0) return prev;
+      const newTabs = prev.tabs.filter((t, i) => i >= idx || t.pinned);
+      const activeStillExists = newTabs.some((t) => t.id === prev.activeTabId);
+      return { ...prev, tabs: newTabs, activeTabId: activeStillExists ? prev.activeTabId : tabId };
+    });
+  }, []);
+
+  const closeTabsToRight = useCallback((tabId: string) => {
+    setState((prev) => {
+      const idx = prev.tabs.findIndex((t) => t.id === tabId);
+      if (idx === -1 || idx >= prev.tabs.length - 1) return prev;
+      const newTabs = prev.tabs.filter((t, i) => i <= idx || t.pinned);
+      const activeStillExists = newTabs.some((t) => t.id === prev.activeTabId);
+      return { ...prev, tabs: newTabs, activeTabId: activeStillExists ? prev.activeTabId : tabId };
+    });
+  }, []);
+
   const goBack = useCallback(() => {
     setState((prev) => {
       if (prev.historyIndex <= 0) return prev;
@@ -193,6 +255,12 @@ export function useTabs(activeWorkspaceId?: string) {
     switchTab,
     togglePin,
     markUnsaved,
+    reorderTab,
+    closeOtherTabs,
+    closeAllTabs,
+    closeUnmodifiedTabs,
+    closeTabsToLeft,
+    closeTabsToRight,
     goBack,
     goForward,
   };

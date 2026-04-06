@@ -29,10 +29,7 @@ export function SimpleTabs({ items, activeKey, onChange, style }: SimpleTabsProp
   const { token } = theme.useToken();
 
   return (
-    <div
-      className="v5-simple-tabs"
-      style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, ...style }}
-    >
+    <div className="v5-simple-tabs" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, ...style }}>
       {items.map((tab) => {
         const isActive = activeKey === tab.key;
         return (

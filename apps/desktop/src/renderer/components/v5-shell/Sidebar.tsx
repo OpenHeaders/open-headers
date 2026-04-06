@@ -240,10 +240,7 @@ function ItemsPanel({
   );
 
   // Use controlled state from parent if provided, otherwise local
-  const expandedSectionsSet = useMemo(
-    () => new Set(expandedSectionsProp ?? []),
-    [expandedSectionsProp],
-  );
+  const expandedSectionsSet = useMemo(() => new Set(expandedSectionsProp ?? []), [expandedSectionsProp]);
 
   const toggleSection = (section: string) => {
     const next = new Set(expandedSectionsSet);
@@ -283,10 +280,7 @@ function ItemsPanel({
     return names.filter((n) => n.toLowerCase().includes(filter));
   }, [environments, filter]);
 
-  const expandedCollections = useMemo(
-    () => new Set(expandedCollectionsProp ?? []),
-    [expandedCollectionsProp],
-  );
+  const expandedCollections = useMemo(() => new Set(expandedCollectionsProp ?? []), [expandedCollectionsProp]);
 
   const toggleCollection = (tag: string) => {
     const next = new Set(expandedCollections);
@@ -379,10 +373,7 @@ function ItemsPanel({
                           onRename={() => setRenamingId(`source-${source.sourceId}`)}
                           onDelete={() => removeSource(source.sourceId)}
                         >
-                          <MoreOutlined
-                            className="v5-sidebar-item-menu"
-                            onClick={(e) => e.stopPropagation()}
-                          />
+                          <MoreOutlined className="v5-sidebar-item-menu" onClick={(e) => e.stopPropagation()} />
                         </ItemContextMenu>
                       </>
                     )}
@@ -448,14 +439,8 @@ function ItemsPanel({
                     off
                   </Text>
                 )}
-                <ItemContextMenu
-                  onRename={() => setRenamingId(`rule-${rule.id}`)}
-                  onDelete={() => removeRule(rule.id)}
-                >
-                  <MoreOutlined
-                    className="v5-sidebar-item-menu"
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                <ItemContextMenu onRename={() => setRenamingId(`rule-${rule.id}`)} onDelete={() => removeRule(rule.id)}>
+                  <MoreOutlined className="v5-sidebar-item-menu" onClick={(e) => e.stopPropagation()} />
                 </ItemContextMenu>
               </>
             )}
@@ -494,14 +479,8 @@ function ItemsPanel({
               active
             </Text>
           )}
-          <ItemContextMenu
-            disableRename
-            onDelete={() => deleteEnvironment(name)}
-          >
-            <MoreOutlined
-              className="v5-sidebar-item-menu"
-              onClick={(e) => e.stopPropagation()}
-            />
+          <ItemContextMenu disableRename onDelete={() => deleteEnvironment(name)}>
+            <MoreOutlined className="v5-sidebar-item-menu" onClick={(e) => e.stopPropagation()} />
           </ItemContextMenu>
         </div>
       ))

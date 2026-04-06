@@ -133,6 +133,7 @@ export function V5Shell() {
     switchTab,
     togglePin,
     markUnsaved,
+    reorderTab,
     canGoBack,
     canGoForward,
     goBack,
@@ -147,72 +148,70 @@ export function V5Shell() {
     [activeTabId, markUnsaved],
   );
 
-  // Close tab with unsaved changes modal (matching MVP design)
-  const handleCloseTab = useCallback(
-    (tabId: string) => {
-      const tab = tabs.find((t) => t.id === tabId);
-      if (!tab) return;
-
-      if (tab.unsaved) {
+  // Prompt for a single unsaved tab. Resolves: 'discard' | 'save' | 'cancel'
+  const confirmUnsaved = useCallback(
+    (tab: { id: string; label: string }): Promise<'discard' | 'save' | 'cancel'> =>
+      new Promise((resolve) => {
         const modal = Modal.confirm({
-          title: 'Do you want to Save?',
-          width: 520,
+          title: <span style={{ fontSize: 13, fontWeight: 600 }}>Save changes?</span>,
+          width: 380,
           content: (
-            <p>
-              This tab <strong>{tab.label}</strong> has unsaved changes which will be lost if you choose to close it.
-              Save these changes to avoid losing your work.
+            <p style={{ fontSize: 12, margin: '4px 0 0' }}>
+              <strong>{tab.label}</strong> has unsaved changes. Save these changes to avoid losing your work.
             </p>
           ),
           footer: (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
               <button
                 type="button"
                 style={{
-                  padding: '8px 24px',
+                  padding: '5px 16px',
                   border: '1px solid #d9d9d9',
-                  borderRadius: 6,
+                  borderRadius: 5,
                   background: '#ffffff',
                   cursor: 'pointer',
-                  fontSize: 14,
+                  fontSize: 12,
                 }}
                 onClick={() => {
                   modal.destroy();
-                  closeTab(tabId, true);
+                  resolve('discard');
                 }}
               >
                 Don't save
               </button>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
                 <button
                   type="button"
                   style={{
-                    padding: '8px 24px',
+                    padding: '5px 16px',
                     border: '1px solid #d9d9d9',
-                    borderRadius: 6,
+                    borderRadius: 5,
                     background: '#ffffff',
                     cursor: 'pointer',
-                    fontSize: 14,
+                    fontSize: 12,
                   }}
-                  onClick={() => modal.destroy()}
+                  onClick={() => {
+                    modal.destroy();
+                    resolve('cancel');
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   style={{
-                    padding: '8px 24px',
+                    padding: '5px 16px',
                     border: 'none',
-                    borderRadius: 6,
+                    borderRadius: 5,
                     background: '#ff7875',
                     color: '#ffffff',
                     cursor: 'pointer',
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: 500,
                   }}
                   onClick={() => {
-                    editorSaveRef.current?.();
                     modal.destroy();
-                    closeTab(tabId, true);
+                    resolve('save');
                   }}
                 >
                   Save changes
@@ -221,13 +220,101 @@ export function V5Shell() {
             </div>
           ),
           closable: true,
-          onCancel: () => modal.destroy(),
+          onCancel: () => {
+            modal.destroy();
+            resolve('cancel');
+          },
         });
-      } else {
+      }),
+    [],
+  );
+
+  // Close a single tab, prompting if unsaved
+  const handleCloseTab = useCallback(
+    async (tabId: string) => {
+      const tab = tabs.find((t) => t.id === tabId);
+      if (!tab) return;
+      if (!tab.unsaved) {
         closeTab(tabId);
+        return;
+      }
+      const result = await confirmUnsaved(tab);
+      if (result === 'save') editorSaveRef.current?.();
+      if (result !== 'cancel') closeTab(tabId, true);
+    },
+    [tabs, closeTab, confirmUnsaved],
+  );
+
+  // Close multiple tabs, prompting for each dirty one sequentially
+  const handleBatchClose = useCallback(
+    async (tabIds: string[]) => {
+      // Close clean tabs immediately
+      const clean = tabIds.filter((id) => {
+        const t = tabs.find((tab) => tab.id === id);
+        return t && !t.unsaved && !t.pinned;
+      });
+      for (const id of clean) closeTab(id, true);
+
+      // Process dirty tabs one by one
+      const dirty = tabIds.filter((id) => {
+        const t = tabs.find((tab) => tab.id === id);
+        return t && t.unsaved && !t.pinned;
+      });
+      for (const id of dirty) {
+        const tab = tabs.find((t) => t.id === id);
+        if (!tab) continue;
+        const result = await confirmUnsaved(tab);
+        if (result === 'cancel') return; // abort remaining
+        if (result === 'save') editorSaveRef.current?.();
+        closeTab(id, true);
       }
     },
-    [tabs, closeTab],
+    [tabs, closeTab, confirmUnsaved],
+  );
+
+  const handleCloseOther = useCallback(
+    (tabId: string) => {
+      const toClose = tabs.filter((t) => t.id !== tabId && !t.pinned).map((t) => t.id);
+      void handleBatchClose(toClose);
+    },
+    [tabs, handleBatchClose],
+  );
+
+  const handleCloseAll = useCallback(() => {
+    const toClose = tabs.filter((t) => !t.pinned).map((t) => t.id);
+    void handleBatchClose(toClose);
+  }, [tabs, handleBatchClose]);
+
+  const handleCloseUnmodified = useCallback(() => {
+    // Only close clean, unpinned tabs — no prompts needed
+    const toClose = tabs.filter((t) => !t.unsaved && !t.pinned && t.type !== 'welcome').map((t) => t.id);
+    for (const id of toClose) closeTab(id, true);
+  }, [tabs, closeTab]);
+
+  const handleCloseToLeft = useCallback(
+    (tabId: string) => {
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      if (idx <= 0) return;
+      const toClose = tabs
+        .slice(0, idx)
+        .filter((t) => !t.pinned)
+        .map((t) => t.id);
+      void handleBatchClose(toClose);
+    },
+    [tabs, handleBatchClose],
+  );
+
+  const handleCloseToRight = useCallback(
+    (tabId: string) => {
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      if (idx === -1) return;
+      const toClose = tabs
+        .slice(idx + 1)
+        .filter((t) => !t.pinned)
+        .map((t) => t.id);
+      void handleBatchClose(toClose);
+    },
+    [tabs, handleBatchClose],
   );
 
   // Listen for "Variables in request" link clicks from TemplateInput popovers
@@ -559,6 +646,12 @@ export function V5Shell() {
                         onSwitch={switchTab}
                         onClose={handleCloseTab}
                         onTogglePin={togglePin}
+                        onReorder={reorderTab}
+                        onCloseOther={handleCloseOther}
+                        onCloseAll={handleCloseAll}
+                        onCloseUnmodified={handleCloseUnmodified}
+                        onCloseToLeft={handleCloseToLeft}
+                        onCloseToRight={handleCloseToRight}
                       />
                       <BreadcrumbBar
                         segments={breadcrumbs}
