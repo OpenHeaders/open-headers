@@ -10,10 +10,7 @@ import type { Collection, CollectionSection } from '@openheaders/core';
 import { sendPatchToRenderers } from './StateBroadcaster';
 import type { StateContext } from './types';
 
-export async function addCollection(
-  ctx: StateContext,
-  data: Omit<Collection, 'id'>,
-): Promise<Collection> {
+export async function addCollection(ctx: StateContext, data: Omit<Collection, 'id'>): Promise<Collection> {
   const newCollection: Collection = {
     ...data,
     id: `col-${Date.now()}`,
@@ -31,9 +28,7 @@ export async function updateCollection(
   collectionId: string,
   updates: Partial<Collection>,
 ): Promise<void> {
-  ctx.state.collections = ctx.state.collections.map((c) =>
-    c.id === collectionId ? { ...c, ...updates } : c,
-  );
+  ctx.state.collections = ctx.state.collections.map((c) => (c.id === collectionId ? { ...c, ...updates } : c));
   ctx.dirty.collections = true;
   ctx.scheduleDebouncedSave();
   sendPatchToRenderers(ctx.state, ['collections']);

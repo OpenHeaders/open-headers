@@ -15,7 +15,7 @@ const { Text } = Typography;
 
 interface EnvVarInfo {
   value: string;
-  isSecret: boolean;
+  isSensitive: boolean;
 }
 
 export interface TemplateInputProps {
@@ -23,7 +23,7 @@ export interface TemplateInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   envVars?: Record<string, EnvVarInfo>;
-  activeEnvironment?: string;
+  activeEnvironment?: string | null;
   borderless?: boolean;
   fontSize?: number;
   mono?: boolean;
@@ -139,7 +139,7 @@ export function TemplateInput({
     if (!envVars) return [];
     return Object.entries(envVars).map(([name, info]) => ({
       name,
-      value: info.isSecret ? '••••••••' : info.value,
+      value: info.isSensitive ? '••••••••' : info.value,
       scope: 'environment' as const,
     }));
   }, [envVars]);
@@ -541,7 +541,7 @@ export function TemplateInput({
         varOverlays.map(({ varName, rect }, i) => {
           const variable = envVars[varName];
           const resolved = !!variable;
-          const displayValue = variable?.isSecret ? '••••••••' : variable?.value;
+          const displayValue = variable?.isSensitive ? '••••••••' : variable?.value;
 
           return (
             <Popover

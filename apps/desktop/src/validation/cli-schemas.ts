@@ -40,7 +40,7 @@ export const JoinWorkspaceDataSchema = v.object({
 
 const EnvironmentVariableSchema = v.object({
   value: v.string(),
-  isSecret: v.boolean(),
+  isSensitive: v.boolean(),
   updatedAt: v.optional(v.string()),
 });
 

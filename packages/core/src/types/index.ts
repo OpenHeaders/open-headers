@@ -79,6 +79,7 @@ export type {
 } from './source';
 
 export type { Collection, CollectionSection } from './collection';
+export type { Environment, EnvironmentVariable } from './environment';
 export type { Folder, FolderSection } from './folder';
 
 // ── v5 types (new data model) ──────────────────────────────────────

@@ -28,6 +28,7 @@ export function useCentralizedEnvironments() {
     // Functions from operations
     waitForEnvironments: operations.waitForEnvironments,
     createEnvironment: operations.createEnvironment,
+    updateEnvironment: operations.updateEnvironment,
     deleteEnvironment: operations.deleteEnvironment,
     switchEnvironment: operations.switchEnvironment,
     cloneEnvironment: operations.cloneEnvironment,

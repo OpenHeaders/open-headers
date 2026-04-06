@@ -81,11 +81,11 @@ function environmentsToV4(environments: V5.Environment[]): {
   let activeEnvironment = 'Default';
 
   for (const env of environments) {
-    const vars: Record<string, { value: string; isSecret: boolean; updatedAt?: string }> = {};
+    const vars: Record<string, { value: string; isSensitive: boolean; updatedAt?: string }> = {};
     for (const v of env.variables) {
       vars[v.name] = {
         value: v.value,
-        isSecret: v.type === 'secret',
+        isSensitive: v.type === 'secret',
         updatedAt: v.updatedAt,
       };
     }

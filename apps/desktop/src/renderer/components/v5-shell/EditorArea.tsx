@@ -85,7 +85,7 @@ function TabEditor({
   } else if (tab.type === 'rule' && tab.entityId) {
     content = <RuleEditor ruleId={tab.entityId} onDirtyChange={dirtyChange} saveRef={save} />;
   } else if (tab.type === 'environment' && tab.entityId) {
-    content = <EnvironmentEditor environmentName={tab.entityId} />;
+    content = <EnvironmentEditor environmentId={tab.entityId} onDirtyChange={dirtyChange} saveRef={save} />;
   } else if ((tab.type === 'collection' || tab.type === 'request') && tab.entityId) {
     content = (
       <SourceEditor

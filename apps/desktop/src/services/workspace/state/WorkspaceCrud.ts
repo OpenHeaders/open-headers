@@ -75,7 +75,7 @@ export async function createWorkspace(
     atomicWriter.writeJson(path.join(dir, 'proxy-rules.json'), []),
     atomicWriter.writeJson(
       path.join(dir, 'environments.json'),
-      { environments: { Default: {} }, activeEnvironment: 'Default' },
+      { environments: [], activeEnvironment: null },
       { pretty: true },
     ),
   ]);

@@ -104,7 +104,7 @@ export type EnvironmentValuesFile = StorageVersion & EnvironmentLocalValues;
 export interface TeamConfigV4Compat {
   version: string;
   environmentSchema?: {
-    environments: Record<string, { variables: Array<{ name: string; isSecret: boolean }> }>;
+    environments: Record<string, { variables: Array<{ name: string; isSensitive: boolean }> }>;
     variableDefinitions?: Record<string, { description: string; sensitive: boolean; usedIn: string[] }>;
   };
   sources?: Array<Record<string, unknown>>;

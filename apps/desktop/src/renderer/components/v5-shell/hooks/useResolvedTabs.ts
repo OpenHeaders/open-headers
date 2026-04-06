@@ -17,7 +17,7 @@
  *   No copies, no stale labels.
  */
 
-import type { Collection, Folder, HeaderRule, Source } from '@openheaders/core';
+import type { Collection, Environment, Folder, HeaderRule, Source } from '@openheaders/core';
 import { useMemo } from 'react';
 import type { Tab } from './useTabs';
 
@@ -34,14 +34,14 @@ export function useResolvedTabs(
   tabs: Tab[],
   sources: Source[],
   rules: HeaderRule[],
-  environments: Record<string, unknown>,
+  environments: Environment[],
   collections?: Collection[],
   folders?: Folder[],
 ): ResolvedTab[] {
   return useMemo(() => {
     const sourceMap = new Map(sources.map((s) => [s.sourceId, s]));
     const ruleMap = new Map(rules.map((r) => [r.id, r]));
-    const envNames = new Set(Object.keys(environments));
+    const envMap = new Map(environments.map((e) => [e.id, e]));
     const collectionMap = new Map((collections ?? []).map((c) => [c.id, c]));
     const folderMap = new Map((folders ?? []).map((f) => [f.id, f]));
 
@@ -71,11 +71,11 @@ export function useResolvedTabs(
       }
 
       if (tab.type === 'environment' && tab.entityId) {
-        const name = tab.entityId;
-        const exists = envNames.has(name);
+        const env = envMap.get(tab.entityId);
+        const name = env?.name ?? tab.label;
         return {
           ...tab,
-          resolvedLabel: exists ? name : `${name} (deleted)`,
+          resolvedLabel: env ? name : `${name} (deleted)`,
           resolvedIcon: 'environment',
           resolvedTooltip: name,
         };

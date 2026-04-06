@@ -1,3 +1,5 @@
+export { addCollection, removeCollection, updateCollection } from './CollectionCrud';
+export { addFolder, removeFolder, updateFolder } from './FolderCrud';
 export {
   addHeaderRule,
   addProxyRule,
@@ -12,8 +14,6 @@ export {
   updateSource,
   updateSourceFetchResult,
 } from './SourceCrud';
-export { addCollection, removeCollection, updateCollection } from './CollectionCrud';
-export { addFolder, removeFolder, updateFolder } from './FolderCrud';
 export {
   activateReadySources,
   evaluateAllSourceDependencies,
@@ -32,14 +32,14 @@ export {
   loadEnvironments,
   loadFolders,
   loadProxyRules,
-  saveCollections,
-  saveFolders,
   loadRules,
   loadSources,
   loadWorkspaceDataV5Aware,
   loadWorkspacesConfig,
   saveAll,
+  saveCollections,
   saveEnvironments,
+  saveFolders,
   saveProxyRules,
   saveRules,
   saveSources,

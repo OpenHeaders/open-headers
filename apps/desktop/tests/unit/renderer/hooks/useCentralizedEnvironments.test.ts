@@ -15,12 +15,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockCore = {
   environments: {
     Production: {
-      API_KEY: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSecret: true },
+      API_KEY: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSensitive: true },
       API_URL: { value: 'https://api.openheaders.io' },
-      BEARER_TOKEN: { value: 'Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig', isSecret: true },
+      BEARER_TOKEN: { value: 'Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig', isSensitive: true },
     },
     Staging: {
-      API_KEY: { value: 'ohk_test_abc123', isSecret: true },
+      API_KEY: { value: 'ohk_test_abc123', isSensitive: true },
       API_URL: { value: 'https://api.staging.openheaders.io' },
     },
     Development: {
@@ -66,7 +66,7 @@ const mockSchema = {
   generateEnvironmentSchema: vi.fn().mockReturnValue({
     environments: { Production: {}, Staging: {}, Development: {} },
     variableDefinitions: {
-      API_KEY: { description: 'API key', isSecret: true },
+      API_KEY: { description: 'API key', isSensitive: true },
       API_URL: { description: 'API base URL' },
     },
   }),

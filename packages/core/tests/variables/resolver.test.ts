@@ -45,7 +45,7 @@ describe('VariableResolver', () => {
         name: 'API_URL',
         value: 'https://api.openheaders.io',
         scope: 'workspace',
-        isSecret: false,
+        isSensitive: false,
       });
     });
 
@@ -87,7 +87,7 @@ describe('VariableResolver', () => {
       const result = resolver.resolve('SECRET_KEY', { collectionId: 'coll-1' });
       expect(result?.value).toBe('from-vault');
       expect(result?.scope).toBe('secret');
-      expect(result?.isSecret).toBe(true);
+      expect(result?.isSensitive).toBe(true);
     });
 
     it('falls through to lower scope when higher scope has empty value', () => {
@@ -122,7 +122,7 @@ describe('VariableResolver', () => {
       resolver.setEnvironments([makeEnvironment('Dev', [makeVariable('API_KEY', 'sk-123', 'secret')], true)]);
 
       const result = resolver.resolve('API_KEY');
-      expect(result?.isSecret).toBe(true);
+      expect(result?.isSensitive).toBe(true);
     });
 
     it('does not use collection scope without context', () => {
@@ -236,7 +236,7 @@ describe('VariableResolver', () => {
 describe('resolveTemplate (standalone)', () => {
   it('works with a custom lookup function', () => {
     const lookup = (name: string) => {
-      if (name === 'TOKEN') return { name, value: 'abc123', scope: 'secret' as const, isSecret: true };
+      if (name === 'TOKEN') return { name, value: 'abc123', scope: 'secret' as const, isSensitive: true };
       return null;
     };
 

@@ -115,7 +115,7 @@ export interface V4RulesStorage {
 
 export interface V4EnvironmentVariable {
   value: string;
-  isSecret: boolean;
+  isSensitive: boolean;
   updatedAt?: string;
 }
 

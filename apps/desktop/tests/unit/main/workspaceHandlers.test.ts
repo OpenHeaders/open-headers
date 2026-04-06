@@ -416,14 +416,14 @@ describe('WorkspaceHandlers', () => {
         environments: {
           production: {
             variables: [
-              { name: 'API_KEY', isSecret: true },
-              { name: 'BASE_URL', isSecret: false },
+              { name: 'API_KEY', isSensitive: true },
+              { name: 'BASE_URL', isSensitive: false },
             ],
           },
           staging: {
             variables: [
-              { name: 'API_KEY', isSecret: true },
-              { name: 'BASE_URL', isSecret: false },
+              { name: 'API_KEY', isSensitive: true },
+              { name: 'BASE_URL', isSensitive: false },
             ],
           },
         },
@@ -445,8 +445,8 @@ describe('WorkspaceHandlers', () => {
         includeValues: true,
         environments: {
           production: {
-            API_KEY: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSecret: true },
-            BASE_URL: { value: 'https://api.openheaders.io/v2', isSecret: false },
+            API_KEY: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSensitive: true },
+            BASE_URL: { value: 'https://api.openheaders.io/v2', isSensitive: false },
           },
         },
       });
@@ -456,11 +456,11 @@ describe('WorkspaceHandlers', () => {
       expect(envs).toBeDefined();
       expect(envs!.production.API_KEY).toEqual({
         value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc',
-        isSecret: true,
+        isSensitive: true,
       });
       expect(envs!.production.BASE_URL).toEqual({
         value: 'https://api.openheaders.io/v2',
-        isSecret: false,
+        isSensitive: false,
       });
     });
 
@@ -469,8 +469,8 @@ describe('WorkspaceHandlers', () => {
         includeValues: false,
         environments: {
           staging: {
-            DB_HOST: { value: 'db.staging.openheaders.io', isSecret: false },
-            DB_PASSWORD: { value: 'staging-pass-123', isSecret: true },
+            DB_HOST: { value: 'db.staging.openheaders.io', isSensitive: false },
+            DB_PASSWORD: { value: 'staging-pass-123', isSensitive: true },
           },
         },
       });
@@ -480,8 +480,8 @@ describe('WorkspaceHandlers', () => {
       const schema = result.envConfigData!.environmentSchema;
       expect(schema).toBeDefined();
       expect(schema!.environments.staging.variables).toEqual([
-        { name: 'DB_HOST', isSecret: false },
-        { name: 'DB_PASSWORD', isSecret: true },
+        { name: 'DB_HOST', isSensitive: false },
+        { name: 'DB_PASSWORD', isSensitive: true },
       ]);
     });
 
@@ -490,13 +490,13 @@ describe('WorkspaceHandlers', () => {
         includeValues: false,
         environmentSchema: {
           environments: {
-            development: { variables: [{ name: 'EXISTING_VAR', isSecret: false }] },
+            development: { variables: [{ name: 'EXISTING_VAR', isSensitive: false }] },
           },
         },
         environments: {
           development: {
-            EXISTING_VAR: { value: 'val', isSecret: false },
-            NEW_VAR: { value: 'new-val', isSecret: true },
+            EXISTING_VAR: { value: 'val', isSensitive: false },
+            NEW_VAR: { value: 'new-val', isSensitive: true },
           },
         },
       });
@@ -512,7 +512,7 @@ describe('WorkspaceHandlers', () => {
       const result = await handlers.handleGenerateEnvironmentConfigLink(mockEvent, {
         environmentSchema: {
           environments: {
-            production: { variables: [{ name: 'TOKEN', isSecret: true }] },
+            production: { variables: [{ name: 'TOKEN', isSensitive: true }] },
           },
         },
       });
@@ -529,7 +529,7 @@ describe('WorkspaceHandlers', () => {
       const result = await handlers.handleGenerateEnvironmentConfigLink(mockEvent, {
         environmentSchema: {
           environments: {
-            production: { variables: [{ name: 'API_KEY', isSecret: true }] },
+            production: { variables: [{ name: 'API_KEY', isSensitive: true }] },
           },
         },
       });

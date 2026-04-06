@@ -20,7 +20,7 @@ interface ConfigData {
   proxyRules?: ProxyRule[];
   environments?: EnvironmentMap;
   environmentSchema?: EnvironmentSchema & {
-    variableDefinitions?: Record<string, { description: string; isSecret: boolean }>;
+    variableDefinitions?: Record<string, { description: string; isSensitive: boolean }>;
   };
   workspace?: Partial<Workspace>;
 }

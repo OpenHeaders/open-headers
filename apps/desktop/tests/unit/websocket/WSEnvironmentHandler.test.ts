@@ -156,7 +156,7 @@ describe('WSEnvironmentHandler', () => {
     });
 
     it('setVariables stores plain strings — callers must normalize objects before calling', () => {
-      // The renderer sends { value, isSecret } objects via IPC.
+      // The renderer sends { value, isSensitive } objects via IPC.
       // WorkspaceStateService.onEnvironmentVariablesChanged normalizes them
       // to plain strings BEFORE calling setVariables. Verify that setVariables
       // stores and returns exactly what it receives.
@@ -170,11 +170,11 @@ describe('WSEnvironmentHandler', () => {
   });
 
   describe('environment variable normalization (integration pattern)', () => {
-    it('normalizes { value, isSecret } objects to plain strings', () => {
+    it('normalizes { value, isSensitive } objects to plain strings', () => {
       // This tests the normalization pattern used by WorkspaceStateService.onEnvironmentVariablesChanged
-      const rawFromRenderer: Record<string, string | { value: string; isSecret?: boolean }> = {
-        API_KEY: { value: 'ohk_live_key123', isSecret: true },
-        USERNAME: { value: 'admin@openheaders.io', isSecret: false },
+      const rawFromRenderer: Record<string, string | { value: string; isSensitive?: boolean }> = {
+        API_KEY: { value: 'ohk_live_key123', isSensitive: true },
+        USERNAME: { value: 'admin@openheaders.io', isSensitive: false },
         DOMAIN: 'openheaders.io', // already a string
       };
 

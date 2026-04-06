@@ -108,7 +108,7 @@ export interface ResolvedVariable {
   name: string;
   value: string;
   scope: VariableScope;
-  isSecret: boolean;
+  isSensitive: boolean;
 }
 
 /** Resolution context — determines which collection scope to check. */

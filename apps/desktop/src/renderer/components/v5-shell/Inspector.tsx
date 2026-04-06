@@ -9,7 +9,7 @@
  */
 
 import { CaretRightOutlined, CloseOutlined, SearchOutlined } from '@ant-design/icons';
-import { Badge, Collapse, Input, Space, Table, Tag, Typography, theme } from 'antd';
+import { Collapse, Input, Table, Tag, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useState } from 'react';
 import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
@@ -23,7 +23,7 @@ interface VarDisplay {
   name: string;
   value: string;
   scope: 'environment' | 'collection' | 'workspace' | 'secret' | 'unresolved';
-  isSecret: boolean;
+  isSensitive: boolean;
   /** Source name that produces this variable (when scope is environment but value comes from a source). */
   producedBy?: string;
 }
@@ -44,13 +44,96 @@ const SCOPE_LETTERS: Record<string, string> = {
   unresolved: '-',
 };
 
+// ── Expandable value cell — one-liner by default, click to expand ──
+
+function ExpandableValue({ value, color, isSensitive }: { value: string; color: string; isSensitive?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const borderStyle = { paddingLeft: 8, borderLeft: '1px solid var(--ant-color-border-secondary, #f0f0f0)' };
+
+  if (!value) {
+    return (
+      <span
+        style={{
+          fontFamily: "'SF Mono', monospace",
+          fontSize: 11,
+          color,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          display: 'block',
+          minWidth: 0,
+          ...borderStyle,
+        }}
+      >
+        Enter value
+      </span>
+    );
+  }
+
+  if (expanded) {
+    return (
+      <div style={{ minWidth: 0, ...borderStyle }}>
+        <Input.TextArea
+          value={value}
+          readOnly
+          variant="borderless"
+          autoSize={{ minRows: 1, maxRows: 4 }}
+          onBlur={() => setExpanded(false)}
+          autoFocus
+          style={{
+            fontFamily: "'SF Mono', monospace",
+            fontSize: 11,
+            color,
+            padding: 0,
+            resize: 'none',
+          }}
+        />
+      </div>
+    );
+  }
+
+  const displayValue = isSensitive ? '••••••••' : value;
+
+  return (
+    <div
+      style={{
+        fontFamily: "'SF Mono', monospace",
+        fontSize: 11,
+        color,
+        minWidth: 0,
+        cursor: 'pointer',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        ...borderStyle,
+      }}
+      onClick={() => setExpanded(true)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') setExpanded(true);
+      }}
+    >
+      {displayValue}
+    </div>
+  );
+}
+
 interface InspectorProps {
   onClose?: () => void;
   expandedKeys?: string[];
   onExpandedKeysChange?: (keys: string[]) => void;
+  /** Active tab type — controls which scope sections are shown */
+  activeTabType?: string;
 }
 
-export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedKeysChange }: InspectorProps) {
+export function Inspector({
+  onClose,
+  expandedKeys: expandedKeysProp,
+  onExpandedKeysChange,
+  activeTabType,
+}: InspectorProps) {
   const { token } = theme.useToken();
   const { environments, activeEnvironment } = useEnvironments();
   const { sources } = useSources();
@@ -59,7 +142,8 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
   const expandedKeys = expandedKeysProp ?? [];
   const setExpandedKeys = (keys: string[]) => onExpandedKeysChange?.(keys);
 
-  const activeEnvData = environments[activeEnvironment] || {};
+  const activeEnv = activeEnvironment ? environments.find((e) => e.id === activeEnvironment) : undefined;
+  const activeEnvData = activeEnv?.variables ?? {};
 
   // Source-produced variable lookup: sources with storeAsVariable set
   const sourceOutputMap = useMemo(() => {
@@ -89,9 +173,9 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
         return {
           key: uv.name,
           name: uv.name,
-          value: envVar.isSecret ? '••••••••' : envVar.value,
+          value: envVar.value,
           scope: 'environment' as const,
-          isSecret: envVar.isSecret,
+          isSensitive: envVar.isSensitive,
         };
       }
 
@@ -103,7 +187,7 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
           name: uv.name,
           value: sourceOutput.value,
           scope: 'environment' as const,
-          isSecret: false,
+          isSensitive: false,
           producedBy: sourceOutput.sourceName,
         };
       }
@@ -113,7 +197,7 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
         name: uv.name,
         value: '',
         scope: 'unresolved' as const,
-        isSecret: false,
+        isSensitive: false,
       };
     });
   }, [usedVariables, activeEnvData, sourceOutputMap]);
@@ -125,9 +209,9 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
       envVars.push({
         key: name,
         name,
-        value: variable.isSecret ? '••••••••' : variable.value,
+        value: variable.value,
         scope: 'environment',
-        isSecret: variable.isSecret,
+        isSensitive: variable.isSensitive,
       });
     }
 
@@ -139,7 +223,7 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
           name,
           value: output.value,
           scope: 'environment',
-          isSecret: false,
+          isSensitive: false,
           producedBy: output.sourceName,
         });
       }
@@ -201,25 +285,15 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
           style={{
             fontFamily: "'SF Mono', monospace",
             fontSize: 12,
-            color: r.isSecret ? '#8c8c8c' : r.value ? '#595959' : '#bfbfbf',
+            color: r.isSensitive ? '#8c8c8c' : r.value ? '#595959' : '#bfbfbf',
             ...ellipsisStyle,
           }}
         >
-          {r.value || 'Enter value'}
+          {r.isSensitive && r.value ? '••••••••' : r.value || 'Enter value'}
         </Text>
       ),
     },
   ];
-
-  // Columns without scope badge
-  const columnsNoScope: ColumnsType<VarDisplay> = columnsWithScope.slice(1);
-
-  const totalInRequest = inRequestVars.length;
-  const totalAll =
-    allByScope.environment.length +
-    allByScope.collection.length +
-    allByScope.workspace.length +
-    allByScope.secret.length;
 
   const renderScopeSection = (
     scope: 'environment' | 'collection' | 'workspace' | 'secret',
@@ -227,57 +301,81 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
     vars: VarDisplay[],
     emptyText: string,
     subtitle?: string,
-  ) => (
-    <div style={{ marginBottom: 4 }}>
-      <div
-        style={{
-          padding: '8px 16px',
-          background: token.colorBgElevated,
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Space size={6}>
+  ) => {
+    const filtered = filter(vars);
+    return (
+      <div style={{ marginBottom: 4 }}>
+        <div
+          style={{
+            padding: '8px 12px',
+            background: token.colorBgElevated,
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
           <Tag color={SCOPE_COLORS[scope]} style={{ margin: 0, minWidth: 22, textAlign: 'center', fontSize: 11 }}>
             {SCOPE_LETTERS[scope]}
           </Tag>
           <Text strong style={{ fontSize: 12 }}>
             {label}
           </Text>
-        </Space>
-        {subtitle && (
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {subtitle}
-          </Text>
+          {subtitle && (
+            <Text type="secondary" style={{ fontSize: 10, marginLeft: 'auto', ...ellipsisStyle, maxWidth: 100 }}>
+              {subtitle}
+            </Text>
+          )}
+        </div>
+        {filtered.length > 0 ? (
+          <div>
+            {filtered.map((v) => (
+              <div
+                key={v.key}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                  padding: '6px 12px',
+                  minWidth: 0,
+                }}
+              >
+                <Text
+                  strong
+                  style={{
+                    fontFamily: "'SF Mono', monospace",
+                    fontSize: 11,
+                    ...ellipsisStyle,
+                    minWidth: 0,
+                    paddingRight: 8,
+                  }}
+                >
+                  {v.name}
+                </Text>
+                <ExpandableValue
+                  value={v.value}
+                  isSensitive={v.isSensitive}
+                  color={
+                    v.isSensitive
+                      ? token.colorTextTertiary
+                      : v.value
+                        ? token.colorTextSecondary
+                        : token.colorTextQuaternary
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: '12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {emptyText}
+            </Text>
+          </div>
         )}
       </div>
-      {filter(vars).length > 0 ? (
-        <Table
-          dataSource={filter(vars)}
-          columns={columnsNoScope}
-          pagination={false}
-          size="small"
-          showHeader={false}
-          rowKey="key"
-          className="v5-inspector-vars"
-        />
-      ) : (
-        <div
-          style={{
-            padding: 16,
-            textAlign: 'center',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          }}
-        >
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {emptyText}
-          </Text>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: token.colorBgLayout }}>
@@ -292,12 +390,9 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
           flexShrink: 0,
         }}
       >
-        <Space size={8}>
-          <Text strong style={{ fontSize: 14 }}>
-            Variables in request
-          </Text>
-          {totalInRequest > 0 && <Badge count={totalInRequest} size="small" />}
-        </Space>
+        <Text strong style={{ fontSize: 14 }}>
+          Variables in request
+        </Text>
         {onClose && (
           <CloseOutlined
             style={{ color: token.colorTextTertiary, cursor: 'pointer', fontSize: 12 }}
@@ -362,24 +457,29 @@ export function Inspector({ onClose, expandedKeys: expandedKeysProp, onExpandedK
         >
           <Collapse.Panel
             header={
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                <Text strong style={{ fontSize: 12 }}>
-                  All variables
-                </Text>
-                {totalAll > 0 && <Badge count={totalAll} size="small" />}
-              </div>
+              <Text strong style={{ fontSize: 12 }}>
+                All variables
+              </Text>
             }
             key="all-vars"
             style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}
           >
+            {/* Environment — always visible */}
             {renderScopeSection(
               'environment',
               'Environment',
               allByScope.environment,
               'No environment variables defined',
-              activeEnvironment,
+              activeEnv?.name,
             )}
-            {renderScopeSection('collection', 'Collection', allByScope.collection, 'No collection variables defined')}
+            {/* Collection — only when inside a collection context (request/rule/collection/folder) */}
+            {(activeTabType === 'request' ||
+              activeTabType === 'collection' ||
+              activeTabType === 'rule' ||
+              activeTabType === 'collection-overview' ||
+              activeTabType === 'folder-overview') &&
+              renderScopeSection('collection', 'Collection', allByScope.collection, 'No collection variables defined')}
+            {/* Workspace (globals) + Secret (vault) — always visible */}
             {renderScopeSection('workspace', 'Workspace', allByScope.workspace, 'No workspace variables defined')}
             {renderScopeSection('secret', 'Secret', allByScope.secret, 'No secrets defined')}
           </Collapse.Panel>

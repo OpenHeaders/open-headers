@@ -35,7 +35,7 @@ const EnvironmentShareModal = ({ visible, environmentName, environmentData, onCl
         // Convert EnvironmentVariable (value optional) to EnvironmentVariable (value required)
         const envVars: EnvironmentVariables = {};
         for (const [key, entry] of Object.entries(environmentData || {})) {
-          envVars[key] = { value: entry.value ?? '', isSecret: entry.isSecret ?? false };
+          envVars[key] = { value: entry.value ?? '', isSensitive: entry.isSensitive ?? false };
         }
         const result = await window.electronAPI.generateEnvironmentConfigLink({
           environments: {

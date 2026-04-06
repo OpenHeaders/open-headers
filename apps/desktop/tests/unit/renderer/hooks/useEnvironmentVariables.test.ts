@@ -28,22 +28,36 @@ const mockSetVariable = vi.fn().mockResolvedValue(undefined);
 const mockSetVariableInEnvironment = vi.fn().mockResolvedValue(undefined);
 const mockGetAllVariables = vi.fn().mockReturnValue({});
 
-const mockEnvironments: Record<string, Record<string, { value: string; isSecret?: boolean }>> = {
-  Default: {
-    OAUTH2_CLIENT_ID: { value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890', isSecret: false },
-    API_GATEWAY_URL: { value: 'https://gateway.openheaders.io:8443/v2', isSecret: false },
-  },
-  'Staging — EU Region': {
-    OAUTH2_CLIENT_ID: { value: 'oidc-client-staging-b2c3d4e5-f6a7-8901-bcde-f12345678901', isSecret: false },
-    OAUTH2_CLIENT_SECRET: { value: 'ohk_test_7fD48IqMzkXEbskuU2aer8fg', isSecret: true },
-  },
-  Production: {
-    DATABASE_CONNECTION_STRING: {
-      value: 'postgresql://prod_user:Pr0d$ecret!@db.openheaders.io:5432/production?sslmode=verify-full',
-      isSecret: true,
+import type { Environment } from '@openheaders/core';
+
+const mockEnvironments: Environment[] = [
+  {
+    id: 'env-default',
+    name: 'Default',
+    variables: {
+      OAUTH2_CLIENT_ID: { value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890', isSensitive: false },
+      API_GATEWAY_URL: { value: 'https://gateway.openheaders.io:8443/v2', isSensitive: false },
     },
   },
-};
+  {
+    id: 'env-staging',
+    name: 'Staging — EU Region',
+    variables: {
+      OAUTH2_CLIENT_ID: { value: 'oidc-client-staging-b2c3d4e5-f6a7-8901-bcde-f12345678901', isSensitive: false },
+      OAUTH2_CLIENT_SECRET: { value: 'ohk_test_7fD48IqMzkXEbskuU2aer8fg', isSensitive: true },
+    },
+  },
+  {
+    id: 'env-prod',
+    name: 'Production',
+    variables: {
+      DATABASE_CONNECTION_STRING: {
+        value: 'postgresql://prod_user:Pr0d$ecret!@db.openheaders.io:5432/production?sslmode=verify-full',
+        isSensitive: true,
+      },
+    },
+  },
+];
 
 vi.mock('@/renderer/hooks/environment/useEnvironmentCore', () => ({
   useEnvironmentCore: () => ({
@@ -53,7 +67,7 @@ vi.mock('@/renderer/hooks/environment/useEnvironmentCore', () => ({
       getAllVariables: mockGetAllVariables,
     },
     state: {},
-    activeEnvironment: 'Default',
+    activeEnvironment: 'env-default',
     environments: mockEnvironments,
     isReady: true,
   }),
@@ -80,14 +94,14 @@ describe('useEnvironmentVariables', () => {
 
     it('returns variable from specified enterprise environment', () => {
       const { result } = renderHook(() => useEnvironmentVariables());
-      expect(result.current.getVariable('OAUTH2_CLIENT_SECRET', 'Staging — EU Region')).toBe(
+      expect(result.current.getVariable('OAUTH2_CLIENT_SECRET', 'env-staging')).toBe(
         'ohk_test_7fD48IqMzkXEbskuU2aer8fg',
       );
     });
 
     it('returns connection string with special characters', () => {
       const { result } = renderHook(() => useEnvironmentVariables());
-      expect(result.current.getVariable('DATABASE_CONNECTION_STRING', 'Production')).toBe(
+      expect(result.current.getVariable('DATABASE_CONNECTION_STRING', 'env-prod')).toBe(
         'postgresql://prod_user:Pr0d$ecret!@db.openheaders.io:5432/production?sslmode=verify-full',
       );
     });
@@ -117,7 +131,7 @@ describe('useEnvironmentVariables', () => {
 
     it('returns variables from specified enterprise environment', () => {
       const { result } = renderHook(() => useEnvironmentVariables());
-      const vars = result.current.getAllVariables('Staging — EU Region');
+      const vars = result.current.getAllVariables('env-staging');
       expect(vars).toEqual({
         OAUTH2_CLIENT_ID: 'oidc-client-staging-b2c3d4e5-f6a7-8901-bcde-f12345678901',
         OAUTH2_CLIENT_SECRET: 'ohk_test_7fD48IqMzkXEbskuU2aer8fg',
@@ -128,25 +142,25 @@ describe('useEnvironmentVariables', () => {
   // ── getAllVariablesWithMetadata ───────────────────────────────────
 
   describe('getAllVariablesWithMetadata', () => {
-    it('returns variables with metadata including isSecret', () => {
+    it('returns variables with metadata including isSensitive', () => {
       const { result } = renderHook(() => useEnvironmentVariables());
       const vars = result.current.getAllVariablesWithMetadata();
       expect(vars.OAUTH2_CLIENT_ID).toEqual({
         value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        isSecret: false,
+        isSensitive: false,
       });
       expect(vars.API_GATEWAY_URL).toEqual({
         value: 'https://gateway.openheaders.io:8443/v2',
-        isSecret: false,
+        isSensitive: false,
       });
     });
 
     it('returns metadata from specific environment', () => {
       const { result } = renderHook(() => useEnvironmentVariables());
-      const vars = result.current.getAllVariablesWithMetadata('Staging — EU Region');
+      const vars = result.current.getAllVariablesWithMetadata('env-staging');
       expect(vars.OAUTH2_CLIENT_SECRET).toEqual({
         value: 'ohk_test_7fD48IqMzkXEbskuU2aer8fg',
-        isSecret: true,
+        isSensitive: true,
       });
     });
   });

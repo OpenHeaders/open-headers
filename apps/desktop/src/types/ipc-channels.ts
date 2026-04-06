@@ -162,6 +162,7 @@ export const IPC_INVOKE = {
   WORKSPACE_STATE_SYNC_WORKSPACE: 'workspace-state:sync-workspace',
   WORKSPACE_STATE_GET_ENVIRONMENT_STATE: 'workspace-state:get-environment-state',
   WORKSPACE_STATE_CREATE_ENVIRONMENT: 'workspace-state:create-environment',
+  WORKSPACE_STATE_UPDATE_ENVIRONMENT: 'workspace-state:update-environment',
   WORKSPACE_STATE_DELETE_ENVIRONMENT: 'workspace-state:delete-environment',
   WORKSPACE_STATE_SWITCH_ENVIRONMENT: 'workspace-state:switch-environment',
   WORKSPACE_STATE_SET_VARIABLE: 'workspace-state:set-variable',

@@ -357,10 +357,10 @@ class WorkspaceHandlers {
           Object.entries(environmentData.environments).forEach(([envName, vars]) => {
             envs[envName] = {};
             Object.entries(vars).forEach(([varName, varData]) => {
-              // Copy only essential fields (value and isSecret)
+              // Copy only essential fields (value and isSensitive)
               envs[envName][varName] = {
                 value: varData.value,
-                isSecret: varData.isSecret || false,
+                isSensitive: varData.isSensitive || false,
               };
             });
           });
@@ -375,7 +375,7 @@ class WorkspaceHandlers {
               schema.environments[envName] = { variables: [] };
             }
 
-            // Extract variable names and isSecret flags
+            // Extract variable names and isSensitive flags
             Object.entries(vars).forEach(([varName, varData]) => {
               const existingVar = schema.environments[envName].variables.find(
                 (v: EnvironmentSchemaVariable) => v.name === varName,
@@ -384,7 +384,7 @@ class WorkspaceHandlers {
               if (!existingVar) {
                 schema.environments[envName].variables.push({
                   name: varName,
-                  isSecret: varData.isSecret ?? false,
+                  isSensitive: varData.isSensitive ?? false,
                 });
               }
             });

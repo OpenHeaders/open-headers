@@ -47,7 +47,8 @@ const EditSourceModal = ({ source, open, onCancel, onSave, refreshingSourceId }:
   // Context hooks
   const { canUseTotpSecret, getCooldownSeconds, trackTotpSecret, untrackTotpSecret } = useTotpState();
 
-  const envContext = useEnvironments();
+  const _envRaw = useEnvironments();
+  const envContext = { ..._envRaw, activeEnvironment: _envRaw.activeEnvironment ?? '' };
 
   // Form state preservation across rerenders
   const formStateRef = useRef({

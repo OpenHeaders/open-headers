@@ -13,13 +13,13 @@ import SecretInput from './SecretInput';
 const { TextArea } = Input;
 
 /**
- * Dynamic value input that switches between TextArea and SecretInput based on isSecret
+ * Dynamic value input that switches between TextArea and SecretInput based on isSensitive
  */
 const DynamicValueInput = forwardRef<TextAreaRef, React.TextareaHTMLAttributes<HTMLTextAreaElement>>((props, ref) => {
   const form = Form.useFormInstance();
-  const isSecret = Form.useWatch('isSecret', form);
+  const isSensitive = Form.useWatch('isSensitive', form);
 
-  if (isSecret) {
+  if (isSensitive) {
     return <SecretInput ref={ref} useGlobalPreference="edit" showButton={true} {...props} />;
   }
 
@@ -43,7 +43,7 @@ interface EditableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement>
   dataIndex: string;
   title: string;
   inputType: 'text' | 'password' | 'radio' | 'dynamic';
-  record: { name: string; value: string; isSecret: boolean; key: string };
+  record: { name: string; value: string; isSensitive: boolean; key: string };
   index: number;
   children: React.ReactNode;
 }
@@ -64,7 +64,7 @@ const EditableCell = ({
   const renderInputNode = () => {
     switch (inputType) {
       case 'dynamic':
-        // For value field that needs to respond to isSecret changes
+        // For value field that needs to respond to isSensitive changes
         return <DynamicValueInput />;
       case 'password':
         return <SecretInput useGlobalPreference="edit" showButton={true} />;
@@ -86,8 +86,8 @@ const EditableCell = ({
   const getValidationRules = () => {
     const rules = [];
 
-    // All fields except isSecret are required
-    if (dataIndex !== 'isSecret') {
+    // All fields except isSensitive are required
+    if (dataIndex !== 'isSensitive') {
       rules.push({
         required: true,
         message: `Please Input ${title}!`,

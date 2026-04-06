@@ -5,7 +5,7 @@
  */
 
 import path from 'node:path';
-import type { Collection, Folder, RulesCollection, RulesStorage, Source } from '@openheaders/core';
+import type { Collection, Environment, Folder, RulesCollection, RulesStorage, Source } from '@openheaders/core';
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import {
   convertV5toV4,
@@ -133,7 +133,11 @@ export async function loadCollections(appDataPath: string, workspaceId: string):
   return loadJson<Collection[]>(path.join(workspaceDir(appDataPath, workspaceId), 'collections.json'), []);
 }
 
-export async function saveCollections(appDataPath: string, workspaceId: string, collections: Collection[]): Promise<void> {
+export async function saveCollections(
+  appDataPath: string,
+  workspaceId: string,
+  collections: Collection[],
+): Promise<void> {
   const dir = workspaceDir(appDataPath, workspaceId);
   await atomicWriter.writeJson(path.join(dir, 'collections.json'), collections, { pretty: true });
 }
@@ -152,7 +156,14 @@ export async function saveFolders(appDataPath: string, workspaceId: string, fold
 export async function saveAll(
   appDataPath: string,
   workspaceId: string,
-  dirty: { sources: boolean; rules: boolean; proxyRules: boolean; collections: boolean; folders: boolean; workspaces: boolean },
+  dirty: {
+    sources: boolean;
+    rules: boolean;
+    proxyRules: boolean;
+    collections: boolean;
+    folders: boolean;
+    workspaces: boolean;
+  },
   data: {
     sources: Source[];
     rules: RulesCollection;
@@ -181,18 +192,47 @@ export async function saveAll(
 export async function loadEnvironments(appDataPath: string, workspaceId: string): Promise<EnvironmentsFile> {
   const envPath = path.join(workspaceDir(appDataPath, workspaceId), 'environments.json');
   try {
-    const data = await atomicWriter.readJson<EnvironmentsFile>(envPath);
-    if (data?.environments && Object.keys(data.environments).length > 0) {
+    const data = await atomicWriter.readJson<{
+      environments?:
+        | Environment[]
+        | Record<string, Record<string, { value: string; isSensitive: boolean; updatedAt?: string }>>;
+      activeEnvironment?: string | null;
+    }>(envPath);
+
+    if (!data?.environments) {
+      return { environments: [], activeEnvironment: null };
+    }
+
+    // New format: environments is an array
+    if (Array.isArray(data.environments)) {
       return {
         environments: data.environments,
-        activeEnvironment: data.activeEnvironment || 'Default',
+        activeEnvironment: data.activeEnvironment ?? null,
       };
     }
+
+    // Old format: environments is Record<string, vars> — migrate
+    const migrated: Environment[] = Object.entries(data.environments).map(([name, vars]) => ({
+      id: `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      variables: vars,
+      createdAt: new Date().toISOString(),
+    }));
+
+    // Find active env ID from name
+    const activeEnvName = data.activeEnvironment;
+    const activeEnv = activeEnvName ? migrated.find((e) => e.name === activeEnvName) : null;
+
+    log.info(`Migrated ${migrated.length} environments from old name-keyed format to Environment[]`);
+    return {
+      environments: migrated,
+      activeEnvironment: activeEnv?.id ?? null,
+    };
   } catch (_e) {
     /* fall through */
   }
 
-  return { environments: { Default: {} }, activeEnvironment: 'Default' };
+  return { environments: [], activeEnvironment: null };
 }
 
 export async function saveEnvironments(
@@ -258,13 +298,22 @@ export async function loadWorkspaceDataV5Aware(
 
       const v4Shape = convertV5toV4(collections, v5Rules, v5Environments, v5Requests);
 
+      // Convert v4 EnvironmentMap to Environment[]
+      const envArray: Environment[] = Object.entries(v4Shape.environments).map(([name, vars]) => ({
+        id: `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name,
+        variables: vars,
+        createdAt: new Date().toISOString(),
+      }));
+      const activeEnv = envArray.find((e) => e.name === v4Shape.activeEnvironment);
+
       return {
         sources: v4Shape.sources,
         rules: v4Shape.rules,
         proxyRules: v4Shape.proxyRules,
         environments: {
-          environments: v4Shape.environments,
-          activeEnvironment: v4Shape.activeEnvironment,
+          environments: envArray,
+          activeEnvironment: activeEnv?.id ?? null,
         },
         loadedFromV5: true,
       };

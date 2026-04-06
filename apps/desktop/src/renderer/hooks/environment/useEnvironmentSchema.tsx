@@ -94,31 +94,30 @@ export function useEnvironmentSchema(): UseEnvironmentSchemaReturn {
       };
 
       // Build environment structure
-      Object.entries(environments).forEach(([envName, envVars]: [string, Record<string, EnvironmentVariable>]) => {
-        schema.environments[envName] = {
-          variables: Object.keys(envVars).map((varName) => {
-            const variable = envVars[varName];
+      for (const env of environments) {
+        schema.environments[env.name] = {
+          variables: Object.keys(env.variables).map((varName) => {
+            const variable = env.variables[varName];
             return {
               name: varName,
-              isSecret: variable.isSecret || false,
+              isSensitive: variable.isSensitive || false,
             };
           }),
         };
-      });
+      }
 
       // Build variable definitions
       Object.entries(variableUsage).forEach(([varName, usedIn]) => {
-        let isSecret = false;
-        Object.values(environments).forEach((envVars: Record<string, EnvironmentVariable>) => {
-          const variable = envVars[varName];
-          if (variable?.isSecret) {
-            isSecret = true;
+        let isSensitive = false;
+        for (const env of environments) {
+          if (env.variables[varName]?.isSensitive) {
+            isSensitive = true;
           }
-        });
+        }
 
         schema.variableDefinitions[varName] = {
           description: '',
-          isSecret,
+          isSensitive,
           usedIn,
         };
 

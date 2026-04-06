@@ -22,7 +22,7 @@ export interface DisplayVariable {
   name: string;
   value: string;
   scope: 'vault' | 'environment' | 'collection' | 'globals';
-  isSecret: boolean;
+  isSensitive: boolean;
   resolved: boolean;
 }
 
@@ -60,7 +60,7 @@ function VariableRow({ variable }: { variable: DisplayVariable }) {
   const [showSecret, setShowSecret] = useState(false);
   const scopeConfig = SCOPE_CONFIG[variable.scope];
 
-  const displayValue = variable.isSecret && !showSecret ? '••••••••' : variable.value;
+  const displayValue = variable.isSensitive && !showSecret ? '••••••••' : variable.value;
 
   return (
     <div
@@ -81,7 +81,7 @@ function VariableRow({ variable }: { variable: DisplayVariable }) {
             <Text
               style={{
                 fontSize: 10,
-                color: variable.isSecret ? token.colorTextTertiary : token.colorTextSecondary,
+                color: variable.isSensitive ? token.colorTextTertiary : token.colorTextSecondary,
                 maxWidth: 140,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -93,7 +93,7 @@ function VariableRow({ variable }: { variable: DisplayVariable }) {
           ) : (
             <Text style={{ fontSize: 10, color: token.colorError }}>unresolved</Text>
           )}
-          {variable.isSecret && (
+          {variable.isSensitive && (
             <span
               style={{ cursor: 'pointer', fontSize: 10, color: token.colorTextTertiary }}
               onClick={() => setShowSecret(!showSecret)}
@@ -176,7 +176,7 @@ function ScopeSection({
                 whiteSpace: 'nowrap',
               }}
             >
-              {v.isSecret ? '••••••••' : v.value || '(empty)'}
+              {v.isSensitive ? '••••••••' : v.value || '(empty)'}
             </Text>
           </div>
         ))

@@ -133,10 +133,8 @@ class WorkspaceSettingsService implements WorkspaceSettingsServiceLike, SyncStat
       // Create default environment file for the workspace
       const envPath = path.join(workspaceDir, 'environments.json');
       const defaultEnv = {
-        environments: {
-          Default: {},
-        },
-        activeEnvironment: 'Default',
+        environments: [],
+        activeEnvironment: null,
       };
       await atomicWriter.writeJson(envPath, defaultEnv, { pretty: true });
 

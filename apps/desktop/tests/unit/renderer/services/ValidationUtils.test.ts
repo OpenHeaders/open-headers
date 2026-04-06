@@ -197,7 +197,7 @@ describe('validateEnvironmentVariable', () => {
       validateEnvironmentVariable({
         name: 'API_GATEWAY_KEY',
         value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc',
-        isSecret: true,
+        isSensitive: true,
       }).success,
     ).toBe(true);
   });
@@ -408,11 +408,11 @@ describe('validateEnvironmentSchema', () => {
         environments: {
           Development: { variables: [{ name: 'API_URL' }] },
           Staging: { variables: [{ name: 'API_URL' }] },
-          Production: { variables: [{ name: 'API_URL', isSecret: true }] },
+          Production: { variables: [{ name: 'API_URL', isSensitive: true }] },
         },
         variableDefinitions: {
-          API_URL: { description: 'OpenHeaders API gateway URL', isSecret: false },
-          API_KEY: { description: 'Production API key', isSecret: true, usedIn: ['src-gateway'] },
+          API_URL: { description: 'OpenHeaders API gateway URL', isSensitive: false },
+          API_KEY: { description: 'Production API key', isSensitive: true, usedIn: ['src-gateway'] },
         },
       }),
     ).toEqual({ success: true });
@@ -527,8 +527,8 @@ describe('validateImportPayload', () => {
         { isDynamic: true, headerRuleId: 'rule-c3d4e5f6' },
       ],
       environmentSchema: {
-        environments: { Production: { variables: [{ name: 'API_KEY', isSecret: true }] } },
-        variableDefinitions: { API_KEY: { description: 'Production API key', isSecret: true, usedIn: ['Production'] } },
+        environments: { Production: { variables: [{ name: 'API_KEY', isSensitive: true }] } },
+        variableDefinitions: { API_KEY: { description: 'Production API key', isSensitive: true, usedIn: ['Production'] } },
       },
     });
     expect(r.success).toBe(true);

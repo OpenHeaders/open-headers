@@ -11,17 +11,27 @@ import { describe, expect, it, vi } from 'vitest';
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockEnvironments = {
-  Default: {
-    OAUTH2_CLIENT_ID: { value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890', isSecret: false },
-    OAUTH2_CLIENT_SECRET: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSecret: true },
-    API_GATEWAY_URL: { value: 'https://gateway.openheaders.io:8443/v2' },
-    UNUSED_LEGACY_VAR: { value: 'deprecated-value' },
+import type { Environment } from '@openheaders/core';
+
+const mockEnvironments: Environment[] = [
+  {
+    id: 'env-default',
+    name: 'Default',
+    variables: {
+      OAUTH2_CLIENT_ID: { value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890', isSensitive: false },
+      OAUTH2_CLIENT_SECRET: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSensitive: true },
+      API_GATEWAY_URL: { value: 'https://gateway.openheaders.io:8443/v2', isSensitive: false },
+      UNUSED_LEGACY_VAR: { value: 'deprecated-value', isSensitive: false },
+    },
   },
-  Production: {
-    REDIS_URL: { value: 'rediss://redis.openheaders.io:6380/0', isSecret: true },
+  {
+    id: 'env-prod',
+    name: 'Production',
+    variables: {
+      REDIS_URL: { value: 'rediss://redis.openheaders.io:6380/0', isSensitive: true },
+    },
   },
-};
+];
 
 vi.mock('@/renderer/hooks/environment/useEnvironmentCore', () => ({
   useEnvironmentCore: () => ({
@@ -116,10 +126,10 @@ describe('useEnvironmentSchema', () => {
 
       expect(schema.environments.Default.variables).toEqual(
         expect.arrayContaining([
-          { name: 'OAUTH2_CLIENT_ID', isSecret: false },
-          { name: 'OAUTH2_CLIENT_SECRET', isSecret: true },
-          { name: 'API_GATEWAY_URL', isSecret: false },
-          { name: 'UNUSED_LEGACY_VAR', isSecret: false },
+          { name: 'OAUTH2_CLIENT_ID', isSensitive: false },
+          { name: 'OAUTH2_CLIENT_SECRET', isSensitive: true },
+          { name: 'API_GATEWAY_URL', isSensitive: false },
+          { name: 'UNUSED_LEGACY_VAR', isSensitive: false },
         ]),
       );
     });
@@ -128,9 +138,9 @@ describe('useEnvironmentSchema', () => {
       const { result } = renderHook(() => useEnvironmentSchema());
       const schema = result.current.generateEnvironmentSchema([oauthSource]);
 
-      expect(schema.variableDefinitions.OAUTH2_CLIENT_SECRET.isSecret).toBe(true);
-      expect(schema.variableDefinitions.API_GATEWAY_URL.isSecret).toBe(false);
-      expect(schema.variableDefinitions.OAUTH2_CLIENT_ID.isSecret).toBe(false);
+      expect(schema.variableDefinitions.OAUTH2_CLIENT_SECRET.isSensitive).toBe(true);
+      expect(schema.variableDefinitions.API_GATEWAY_URL.isSensitive).toBe(false);
+      expect(schema.variableDefinitions.OAUTH2_CLIENT_ID.isSensitive).toBe(false);
     });
 
     it('tracks which sources use each variable', () => {

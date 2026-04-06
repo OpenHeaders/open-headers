@@ -48,7 +48,7 @@ export const AddVariableModal = ({ visible, onCancel, onOk, form }: ModalProps) 
     <Form
       form={form}
       layout="horizontal"
-      initialValues={{ isSecret: false }}
+      initialValues={{ isSensitive: false }}
       labelCol={{ span: 4 }}
       wrapperCol={{ span: 20 }}
       labelAlign="left"
@@ -57,13 +57,13 @@ export const AddVariableModal = ({ visible, onCancel, onOk, form }: ModalProps) 
         <TextArea placeholder="e.g., API_URL, AUTH_TOKEN" autoSize={{ minRows: 1, maxRows: 3 }} />
       </Form.Item>
 
-      <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.isSecret !== currentValues.isSecret}>
+      <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.isSensitive !== currentValues.isSensitive}>
         {({ getFieldValue }) => {
-          const isSecret = getFieldValue('isSecret');
+          const isSensitive = getFieldValue('isSensitive');
 
           return (
             <Form.Item name="value" label="Value" rules={VARIABLE_VALUE_RULES}>
-              {isSecret ? (
+              {isSensitive ? (
                 <SecretInput showButton={true} useGlobalPreference="modal" />
               ) : (
                 <TextArea placeholder="Enter value" autoSize={{ minRows: 1, maxRows: 14 }} />
@@ -73,7 +73,7 @@ export const AddVariableModal = ({ visible, onCancel, onOk, form }: ModalProps) 
         }}
       </Form.Item>
 
-      <Form.Item name="isSecret" label="Type">
+      <Form.Item name="isSensitive" label="Type">
         <Radio.Group>
           <Radio value={false}>Default</Radio>
           <Radio value={true}>Secret</Radio>

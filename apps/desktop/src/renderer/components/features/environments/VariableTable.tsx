@@ -38,7 +38,7 @@ const { Text } = Typography;
  */
 interface VariableMetadata {
   value: string;
-  isSecret: boolean;
+  isSensitive: boolean;
   updatedAt?: string;
 }
 
@@ -46,7 +46,7 @@ interface VariableRecord {
   key: string;
   name: string;
   value: string;
-  isSecret: boolean;
+  isSensitive: boolean;
   usedIn: string[];
   missing?: boolean;
 }
@@ -65,7 +65,7 @@ interface RulesMap {
 interface JwtModalData {
   variableName: string;
   value: string;
-  isSecret: boolean;
+  isSensitive: boolean;
 }
 
 interface VariableTableProps {
@@ -114,7 +114,7 @@ const VariableTable = ({
       setJwtModalData({
         variableName: record.name,
         value: record.value,
-        isSecret: record.isSecret,
+        isSensitive: record.isSensitive,
       });
       setJwtModalVisible(true);
     } else {
@@ -125,7 +125,7 @@ const VariableTable = ({
       setEditingKey(record.key);
 
       // Automatically show secret values when editing
-      if (record.isSecret) {
+      if (record.isSensitive) {
         setShowSensitive((prev) => ({
           ...prev,
           [record.name]: true,
@@ -148,13 +148,13 @@ const VariableTable = ({
    */
   const save = async (key: string) => {
     try {
-      const row = (await form.validateFields()) as { name: string; value: string; isSecret: boolean };
+      const row = (await form.validateFields()) as { name: string; value: string; isSensitive: boolean };
       await onEditVariable(key, row);
       setEditingKey('');
 
       // Hide the secret value again after saving if it's a secret
       // The key is the variable name in this case
-      if (row.isSecret) {
+      if (row.isSensitive) {
         setShowSensitive((prev) => ({
           ...prev,
           [row.name]: false,
@@ -193,14 +193,14 @@ const VariableTable = ({
   /**
    * Handle JWT modal save
    *  newToken - New JWT token value
-   *  isSecret - Whether the variable should be secret
+   *  isSensitive - Whether the variable should be secret
    */
-  const handleJwtSave = async (newToken: string, isSecret: boolean) => {
+  const handleJwtSave = async (newToken: string, isSensitive: boolean) => {
     if (jwtModalData) {
       await onEditVariable(jwtModalData.variableName, {
         name: jwtModalData.variableName,
         value: newToken,
-        isSecret: isSecret,
+        isSensitive: isSensitive,
       });
       setJwtModalVisible(false);
       // Don't clear data immediately to allow animation to complete
@@ -231,7 +231,7 @@ const VariableTable = ({
     const editable = isEditing(record);
     if (editable) return value;
 
-    const isSensitive = record.isSecret;
+    const isSensitive = record.isSensitive;
     const isVisible = showSensitive[record.name];
     const isEmpty = !value || value === '';
 
@@ -381,7 +381,7 @@ const VariableTable = ({
             onClick={() => {
               cancel();
               // Hide the secret value when cancelling
-              if (record.isSecret) {
+              if (record.isSensitive) {
                 setShowSensitive((prev) => ({
                   ...prev,
                   [record.name]: false,
@@ -479,11 +479,11 @@ const VariableTable = ({
     },
     {
       title: 'Type',
-      dataIndex: 'isSecret',
-      key: 'isSecret',
+      dataIndex: 'isSensitive',
+      key: 'isSensitive',
       width: '15%',
       editable: true,
-      render: (isSecret: boolean) => <Tag color="default">{isSecret ? 'Secret' : 'Default'}</Tag>,
+      render: (isSensitive: boolean) => <Tag color="default">{isSensitive ? 'Secret' : 'Default'}</Tag>,
     },
     {
       title: 'Used In',
@@ -510,7 +510,7 @@ const VariableTable = ({
       ...col,
       onCell: (record: VariableRecord) => ({
         record,
-        inputType: col.dataIndex === 'isSecret' ? 'radio' : col.dataIndex === 'value' ? 'dynamic' : 'text',
+        inputType: col.dataIndex === 'isSensitive' ? 'radio' : col.dataIndex === 'value' ? 'dynamic' : 'text',
         dataIndex: col.dataIndex,
         title: col.title,
         editing: isEditing(record),
@@ -529,7 +529,7 @@ const VariableTable = ({
       key: name,
       name,
       value: variable.value || '',
-      isSecret: variable.isSecret || false,
+      isSensitive: variable.isSensitive || false,
       usedIn: variableUsage[name] || [],
     })),
     // Missing variables (used but not defined)
@@ -539,7 +539,7 @@ const VariableTable = ({
         key: name,
         name,
         value: '',
-        isSecret: false,
+        isSensitive: false,
         usedIn: variableUsage[name] || [],
         missing: true,
       })),
@@ -575,7 +575,7 @@ const VariableTable = ({
           visible={jwtModalVisible}
           variableName={jwtModalData.variableName}
           initialValue={jwtModalData.value}
-          isSecret={jwtModalData.isSecret}
+          isSensitive={jwtModalData.isSensitive}
           onSave={handleJwtSave}
           onCancel={handleJwtCancel}
         />

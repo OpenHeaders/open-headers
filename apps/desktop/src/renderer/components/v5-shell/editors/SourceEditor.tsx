@@ -98,8 +98,8 @@ function KeyValueTable({
   onChange: (rows: KVRow[]) => void;
   keyPlaceholder: string;
   valuePlaceholder: string;
-  envVars?: Record<string, { value: string; isSecret: boolean }>;
-  activeEnvironment?: string;
+  envVars?: Record<string, { value: string; isSensitive: boolean }>;
+  activeEnvironment?: string | null;
   totpCode?: string;
   totpReady?: boolean;
 }) {
@@ -373,8 +373,8 @@ function BodyTab({
   contentType: string;
   onBodyChange: (val: string) => void;
   onContentTypeChange: (val: string) => void;
-  envVars: Record<string, { value: string; isSecret: boolean }>;
-  activeEnvironment: string;
+  envVars: Record<string, { value: string; isSensitive: boolean }>;
+  activeEnvironment: string | null;
   totpCode?: string;
   totpReady?: boolean;
 }) {
@@ -603,7 +603,8 @@ export function SourceEditor({
   const { sources, updateSource, removeSource, refreshSource } = useSources();
   const { environments, activeEnvironment } = useEnvironments();
   const source = sources.find((s) => s.sourceId === sourceId);
-  const activeEnvVars = environments[activeEnvironment] || {};
+  const activeEnv = activeEnvironment ? environments.find((e) => e.id === activeEnvironment) : undefined;
+  const activeEnvVars = activeEnv?.variables ?? {};
   const { setUsedVariables, clearVariables } = useEditorVariables();
 
   // Local form state

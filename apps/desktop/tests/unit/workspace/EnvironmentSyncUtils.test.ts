@@ -44,9 +44,9 @@ describe('EnvironmentSyncUtils', () => {
           Production: {
             API_GATEWAY_TOKEN: {
               value: 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyQG9wZW5oZWFkZXJzLmlvIn0.sig',
-              isSecret: true,
+              isSensitive: true,
             },
-            OAUTH2_CLIENT_SECRET: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSecret: true },
+            OAUTH2_CLIENT_SECRET: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSensitive: true },
           },
         }),
       ).toBe(2);
@@ -56,8 +56,8 @@ describe('EnvironmentSyncUtils', () => {
       expect(
         countNonEmptyEnvValues({
           Staging: {
-            API_KEY: { value: 'staging-key-abc123', isSecret: false },
-            PENDING_SECRET: { value: '', isSecret: true },
+            API_KEY: { value: 'staging-key-abc123', isSensitive: false },
+            PENDING_SECRET: { value: '', isSensitive: true },
           },
         }),
       ).toBe(1);
@@ -67,17 +67,17 @@ describe('EnvironmentSyncUtils', () => {
       expect(
         countNonEmptyEnvValues({
           Development: {
-            API_URL: { value: 'https://api.dev.openheaders.io', isSecret: false },
-            DB_PASSWORD: { value: 'dev-pass-123', isSecret: true },
+            API_URL: { value: 'https://api.dev.openheaders.io', isSensitive: false },
+            DB_PASSWORD: { value: 'dev-pass-123', isSensitive: true },
           },
           Staging: {
-            API_URL: { value: 'https://api.staging.openheaders.io', isSecret: false },
-            DB_PASSWORD: { value: '', isSecret: true },
+            API_URL: { value: 'https://api.staging.openheaders.io', isSensitive: false },
+            DB_PASSWORD: { value: '', isSensitive: true },
           },
           Production: {
-            API_URL: { value: 'https://api.openheaders.io', isSecret: false },
-            DB_PASSWORD: { value: 'prod-secure-pass', isSecret: true },
-            EMPTY_PLACEHOLDER: { value: '', isSecret: false },
+            API_URL: { value: 'https://api.openheaders.io', isSensitive: false },
+            DB_PASSWORD: { value: 'prod-secure-pass', isSensitive: true },
+            EMPTY_PLACEHOLDER: { value: '', isSensitive: false },
           },
         }),
       ).toBe(5); // 2 dev + 1 staging + 2 prod (3 empties skipped)

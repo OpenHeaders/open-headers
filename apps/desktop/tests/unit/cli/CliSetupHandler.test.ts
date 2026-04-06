@@ -378,7 +378,7 @@ describe('CliSetupHandler', () => {
       mockImportEnvironments.mockResolvedValue(undefined);
 
       const envData = {
-        Default: { API_KEY: { value: 'test-key', isSecret: true } },
+        Default: { API_KEY: { value: 'test-key', isSensitive: true } },
       };
       const result = await handler.importEnvironment({ environments: envData });
 

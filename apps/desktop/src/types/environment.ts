@@ -1,59 +1,59 @@
 /**
  * Environment domain types.
  *
- * Environments hold key/value pairs (some secret) that are injected
- * into header rules and HTTP source requests via {{VAR_NAME}} syntax.
+ * The core Environment interface lives in @openheaders/core.
+ * This file re-exports it and adds desktop-specific persistence types.
  */
 
-// ── Environment variable ────────────────────────────────────────────
+// Re-export core types
+export type { Environment, EnvironmentVariable } from '@openheaders/core';
 
-export interface EnvironmentVariable {
-  value: string;
-  isSecret: boolean;
-  updatedAt?: string;
-}
+/** Variables keyed by name within a single environment (internal use). */
+export type EnvironmentVariables = Record<string, import('@openheaders/core').EnvironmentVariable>;
 
-/** Variables keyed by name within a single environment. */
-export type EnvironmentVariables = Record<string, EnvironmentVariable>;
-
-/** All environments keyed by environment name (e.g. "Default"). */
+/**
+ * Legacy name-keyed environment map. Still used as the wire format for
+ * Git sync (remote data) and config import/export. Internal state uses
+ * Environment[] instead.
+ */
 export type EnvironmentMap = Record<string, EnvironmentVariables>;
 
 /**
- * Create an independent deep copy of an EnvironmentMap.
- *
- * EnvironmentMap is two levels deep (envName → varName → EnvironmentVariable),
- * so a shallow spread only clones the outer Record while sharing the inner
- * EnvironmentVariables objects. Any mutation of the "copy" silently corrupts the
- * original — the exact class of bug that hit SyncDataImporter (issue #6) and
- * importEnvironments (issue A).
- *
- * Use this function whenever you need an EnvironmentMap you can freely mutate
- * without affecting the source.
+ * Convert Environment[] to legacy name-keyed EnvironmentMap.
+ * Used by v4 renderer components that still expect the old format.
  */
-export function cloneEnvironmentMap(env: EnvironmentMap): EnvironmentMap {
-  const clone: EnvironmentMap = {};
-  for (const [envName, vars] of Object.entries(env)) {
-    clone[envName] = {};
-    for (const [varName, varData] of Object.entries(vars)) {
-      clone[envName][varName] = { ...varData };
-    }
+export function toEnvironmentMap(environments: import('@openheaders/core').Environment[]): EnvironmentMap {
+  const map: EnvironmentMap = {};
+  for (const env of environments) {
+    map[env.name] = env.variables;
   }
-  return clone;
+  return map;
+}
+
+/**
+ * Create an independent deep copy of an Environment array.
+ */
+export function cloneEnvironments(
+  environments: import('@openheaders/core').Environment[],
+): import('@openheaders/core').Environment[] {
+  return environments.map((env) => ({
+    ...env,
+    variables: Object.fromEntries(Object.entries(env.variables).map(([k, v]) => [k, { ...v }])),
+  }));
 }
 
 // ── Persisted file shape (environments.json) ────────────────────────
 
 export interface EnvironmentsFile {
-  environments: EnvironmentMap;
-  activeEnvironment: string;
+  environments: import('@openheaders/core').Environment[];
+  activeEnvironment: string | null;
 }
 
 // ── Environment config sharing ──────────────────────────────────────
 
 export interface EnvironmentSchemaVariable {
   name: string;
-  isSecret: boolean;
+  isSensitive: boolean;
 }
 
 export interface EnvironmentSchemaEntry {

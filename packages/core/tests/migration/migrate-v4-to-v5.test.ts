@@ -104,8 +104,8 @@ function makeV4RulesStorage(headerRules: V4HeaderRule[] = [], requestRules: V4Pa
   };
 }
 
-function makeV4Environments(vars: Record<string, { value: string; isSecret: boolean }> = {}): V4EnvironmentsFile {
-  const envVars: Record<string, { value: string; isSecret: boolean; updatedAt?: string }> = {};
+function makeV4Environments(vars: Record<string, { value: string; isSensitive: boolean }> = {}): V4EnvironmentsFile {
+  const envVars: Record<string, { value: string; isSensitive: boolean; updatedAt?: string }> = {};
   for (const [name, data] of Object.entries(vars)) {
     envVars[name] = { ...data, updatedAt: '2026-04-04T10:58:27.107Z' };
   }
@@ -450,8 +450,8 @@ describe('migrateV4toV5', () => {
       const { workspace } = migrateV4toV5(
         makeV4Workspace({
           environments: makeV4Environments({
-            BASE_URL: { value: 'https://dev.openheaders.io', isSecret: false },
-            API_KEY: { value: 'sk-test-123', isSecret: true },
+            BASE_URL: { value: 'https://dev.openheaders.io', isSensitive: false },
+            API_KEY: { value: 'sk-test-123', isSensitive: true },
           }),
         }),
       );
@@ -475,8 +475,8 @@ describe('migrateV4toV5', () => {
       const { workspace } = migrateV4toV5(
         makeV4Workspace({
           environments: makeV4Environments({
-            BASE_URL: { value: 'https://dev.openheaders.io', isSecret: false },
-            API_KEY: { value: 'sk-test-123', isSecret: true },
+            BASE_URL: { value: 'https://dev.openheaders.io', isSensitive: false },
+            API_KEY: { value: 'sk-test-123', isSensitive: true },
           }),
         }),
       );
@@ -500,8 +500,8 @@ describe('migrateV4toV5', () => {
       const { workspace } = migrateV4toV5(
         makeV4Workspace({
           environments: makeV4Environments({
-            BASE_URL: { value: 'https://dev.openheaders.io', isSecret: false },
-            API_KEY: { value: 'sk-test-123', isSecret: true },
+            BASE_URL: { value: 'https://dev.openheaders.io', isSensitive: false },
+            API_KEY: { value: 'sk-test-123', isSensitive: true },
           }),
         }),
       );
@@ -517,9 +517,9 @@ describe('migrateV4toV5', () => {
       const { workspace, result } = migrateV4toV5(
         makeV4Workspace({
           environments: makeV4Environments({
-            PASSWORD: { value: 'secret123', isSecret: true },
-            PUBLIC_VAR: { value: 'hello', isSecret: false },
-            TOTP: { value: 'totp-seed', isSecret: true },
+            PASSWORD: { value: 'secret123', isSensitive: true },
+            PUBLIC_VAR: { value: 'hello', isSensitive: false },
+            TOTP: { value: 'totp-seed', isSensitive: true },
           }),
         }),
       );
@@ -536,7 +536,7 @@ describe('migrateV4toV5', () => {
       const { workspace } = migrateV4toV5(
         makeV4Workspace({
           environments: makeV4Environments({
-            EMPTY_SECRET: { value: '', isSecret: true },
+            EMPTY_SECRET: { value: '', isSensitive: true },
           }),
         }),
       );
@@ -550,10 +550,10 @@ describe('migrateV4toV5', () => {
           environments: {
             environments: {
               Default: {
-                VAR1: { value: 'a', isSecret: false },
+                VAR1: { value: 'a', isSensitive: false },
               },
               Staging: {
-                VAR1: { value: 'b', isSecret: false },
+                VAR1: { value: 'b', isSensitive: false },
               },
             },
             activeEnvironment: 'Default',
@@ -636,16 +636,16 @@ describe('migrateV4toV5', () => {
           { id: 'pr4', name: 'BETA_Auth', enabled: true, headerRuleId: '1004', isDynamic: true },
         ],
         environments: makeV4Environments({
-          ALPHA_CLIENT_ID: { value: '7koqk2jawr3li', isSecret: true },
-          ALPHA_PASSWORD: { value: 'test-password', isSecret: true },
-          ALPHA_TOTP_SECRET: { value: 'LJXXXXBNIQMM7DYY', isSecret: true },
-          ALPHA_BASIC_AUTH: { value: 'Basic N2tvcWsyamF3...', isSecret: true },
-          ALPHA_TENANT_ID: { value: '1', isSecret: false },
-          ALPHA_BEARER_TOKEN: { value: 'eyJ-bearer-token', isSecret: true },
-          ALPHA_USERNAME: { value: 'user@openheaders.io', isSecret: false },
-          BETA_TOKEN: { value: '', isSecret: true },
-          BETA_DOMAINS: { value: '', isSecret: false },
-          ALPHA_DOMAINS: { value: '*.1.development.openheaders.io,dev.openheaders.io', isSecret: false },
+          ALPHA_CLIENT_ID: { value: '7koqk2jawr3li', isSensitive: true },
+          ALPHA_PASSWORD: { value: 'test-password', isSensitive: true },
+          ALPHA_TOTP_SECRET: { value: 'LJXXXXBNIQMM7DYY', isSensitive: true },
+          ALPHA_BASIC_AUTH: { value: 'Basic N2tvcWsyamF3...', isSensitive: true },
+          ALPHA_TENANT_ID: { value: '1', isSensitive: false },
+          ALPHA_BEARER_TOKEN: { value: 'eyJ-bearer-token', isSensitive: true },
+          ALPHA_USERNAME: { value: 'user@openheaders.io', isSensitive: false },
+          BETA_TOKEN: { value: '', isSensitive: true },
+          BETA_DOMAINS: { value: '', isSensitive: false },
+          ALPHA_DOMAINS: { value: '*.1.development.openheaders.io,dev.openheaders.io', isSensitive: false },
         }),
       });
 

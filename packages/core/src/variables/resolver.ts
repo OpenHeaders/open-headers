@@ -76,7 +76,7 @@ export class VariableResolver {
     // 1. Secret (highest priority)
     const vaultSecret = this.vault.secrets.find((s) => s.name === name);
     if (vaultSecret?.value) {
-      return { name, value: vaultSecret.value, scope: 'secret', isSecret: true };
+      return { name, value: vaultSecret.value, scope: 'secret', isSensitive: true };
     }
 
     // 2. Active environment
@@ -91,7 +91,7 @@ export class VariableResolver {
           name,
           value: envVar.value,
           scope: 'environment',
-          isSecret: envVar.type === 'secret',
+          isSensitive: envVar.type === 'secret',
         };
       }
     }
@@ -106,7 +106,7 @@ export class VariableResolver {
             name,
             value: collVar.value,
             scope: 'collection',
-            isSecret: collVar.type === 'secret',
+            isSensitive: collVar.type === 'secret',
           };
         }
       }
@@ -119,7 +119,7 @@ export class VariableResolver {
         name,
         value: workspaceVar.value,
         scope: 'workspace',
-        isSecret: workspaceVar.type === 'secret',
+        isSensitive: workspaceVar.type === 'secret',
       };
     }
 

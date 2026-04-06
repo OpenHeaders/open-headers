@@ -60,29 +60,29 @@ export function ActivityBar({ activePanel, sidebarVisible, onPanelToggle, onOpen
             const isActive = sidebarVisible && activePanel === panel.key;
             return (
               <Tooltip key={panel.key} title={panel.label} placement="right" open={showLabels ? false : undefined}>
-              <div
-                className={`v5-activity-icon ${isActive ? 'active' : ''}`}
-                style={
-                  isActive
-                    ? {
-                        background: token.colorPrimaryBg,
-                        borderLeft: `2px solid ${token.colorPrimary}`,
-                        color: token.colorPrimary,
-                        borderRadius: 0,
-                        width: '100%',
-                      }
-                    : { color: token.colorTextSecondary }
-                }
-                onClick={() => onPanelToggle(panel.key)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') onPanelToggle(panel.key);
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                {panel.icon}
-                {showLabels && <span className="v5-activity-label">{panel.label}</span>}
-              </div>
+                <div
+                  className={`v5-activity-icon ${isActive ? 'active' : ''}`}
+                  style={
+                    isActive
+                      ? {
+                          background: token.colorPrimaryBg,
+                          borderLeft: `2px solid ${token.colorPrimary}`,
+                          color: token.colorPrimary,
+                          borderRadius: 0,
+                          width: '100%',
+                        }
+                      : { color: token.colorTextSecondary }
+                  }
+                  onClick={() => onPanelToggle(panel.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') onPanelToggle(panel.key);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {panel.icon}
+                  {showLabels && <span className="v5-activity-label">{panel.label}</span>}
+                </div>
               </Tooltip>
             );
           })}

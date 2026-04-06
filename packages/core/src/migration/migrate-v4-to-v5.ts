@@ -479,7 +479,7 @@ function migrateEnvironments(
       variables.push({
         name: varName,
         value: varData.value,
-        type: varData.isSecret ? 'secret' : 'default',
+        type: varData.isSensitive ? 'secret' : 'default',
         source: 'static',
         updatedAt: varData.updatedAt,
       });
@@ -487,7 +487,7 @@ function migrateEnvironments(
       // Manifest gets name + type (synced via Git)
       manifestVars.push({
         name: varName,
-        type: varData.isSecret ? 'secret' : 'default',
+        type: varData.isSensitive ? 'secret' : 'default',
         source: 'static',
       });
 
@@ -495,7 +495,7 @@ function migrateEnvironments(
       localValues[varName] = varData.value;
 
       // Secrets also go into vault (highest priority)
-      if (varData.isSecret && varData.value && !seenVaultNames.has(varName)) {
+      if (varData.isSensitive && varData.value && !seenVaultNames.has(varName)) {
         seenVaultNames.add(varName);
         vaultSecrets.push({
           name: varName,

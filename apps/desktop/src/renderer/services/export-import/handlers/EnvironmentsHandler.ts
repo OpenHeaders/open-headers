@@ -48,7 +48,7 @@ interface ImportStats {
 interface VariableToSet {
   name: string;
   value: string;
-  isSecret: boolean;
+  isSensitive: boolean;
 }
 
 interface EnvironmentData {
@@ -268,9 +268,9 @@ export class EnvironmentsHandler {
 
             // Handle both old format (direct value) and new format (object with value property)
             const value = typeof varData === 'object' ? varData.value || '' : varData;
-            const isSecret = typeof varData === 'object' ? varData.isSecret || false : false;
+            const isSensitive = typeof varData === 'object' ? varData.isSensitive || false : false;
 
-            variablesToSet.push({ name: varName, value, isSecret });
+            variablesToSet.push({ name: varName, value, isSensitive });
           } catch (error) {
             log.error(`Failed to prepare variable ${varName} in environment ${envName}:`, error);
             stats.errors.push({
@@ -430,7 +430,7 @@ export class EnvironmentsHandler {
           variablesToSet.push({
             name: varDef.name,
             value: '',
-            isSecret: varDef.isSecret || false,
+            isSensitive: varDef.isSensitive || false,
           });
         } else {
           stats.errors.push({
@@ -493,7 +493,7 @@ export class EnvironmentsHandler {
           stats.totalVariables++;
 
           if (typeof varData === 'object') {
-            if (varData.isSecret) stats.secretVariables++;
+            if (varData.isSensitive) stats.secretVariables++;
             if (!varData.value) stats.emptyVariables++;
           } else if (!varData) {
             stats.emptyVariables++;

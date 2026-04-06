@@ -56,8 +56,8 @@ interface JWTEditorModalProps {
   visible: boolean;
   variableName: string;
   initialValue: string;
-  isSecret: boolean;
-  onSave: (token: string, isSecret: boolean) => void;
+  isSensitive: boolean;
+  onSave: (token: string, isSensitive: boolean) => void;
   onCancel: () => void;
 }
 
@@ -65,7 +65,7 @@ const JWTEditorModal: React.FC<JWTEditorModalProps> = ({
   visible,
   variableName,
   initialValue,
-  isSecret: initialIsSecret,
+  isSensitive: initialIsSecret,
   onSave,
   onCancel,
 }) => {

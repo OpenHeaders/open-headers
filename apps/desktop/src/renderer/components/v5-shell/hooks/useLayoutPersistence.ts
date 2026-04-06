@@ -24,8 +24,6 @@ interface LayoutState {
   sidebarExpandedSections: string[];
   sidebarExpandedCollections: string[];
   inspectorExpandedKeys: string[];
-  /** Environment organization per workspace: workspaceId → envName → { collectionId, folderId } */
-  envOrganization: Record<string, Record<string, { collectionId?: string; folderId?: string }>>;
 }
 
 const DEFAULT_LAYOUT: LayoutState = {
@@ -42,7 +40,6 @@ const DEFAULT_LAYOUT: LayoutState = {
   sidebarExpandedSections: ['collections', 'rules', 'environments'],
   sidebarExpandedCollections: [],
   inspectorExpandedKeys: [],
-  envOrganization: {},
 };
 
 function isValidLayoutState(obj: unknown): obj is LayoutState {

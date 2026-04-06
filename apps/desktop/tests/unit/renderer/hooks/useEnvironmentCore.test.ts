@@ -67,13 +67,13 @@ function makeEnterpriseState() {
     activeEnvironment: 'Production',
     environments: {
       Default: {
-        OAUTH2_CLIENT_ID: { value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890', isSecret: false },
+        OAUTH2_CLIENT_ID: { value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890', isSensitive: false },
       },
       Production: {
-        OAUTH2_CLIENT_SECRET: { value: 'sk_prod_9hF60KrOalZGdumwW4cgt0hi', isSecret: true },
+        OAUTH2_CLIENT_SECRET: { value: 'sk_prod_9hF60KrOalZGdumwW4cgt0hi', isSensitive: true },
         DATABASE_CONNECTION_STRING: {
           value: 'postgresql://prod_user:Pr0d$ecret!@db.openheaders.io:5432/production',
-          isSecret: true,
+          isSensitive: true,
         },
       },
     },

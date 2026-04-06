@@ -39,6 +39,7 @@ import {
 } from '@/renderer/hooks/useCentralizedWorkspace';
 import { useWorkspaces } from '@/renderer/hooks/workspace';
 import { type ExportData, ExportService, FILE_FORMATS } from '@/renderer/services/export-import';
+import { toEnvironmentMap as __toEnvironmentMap } from '@/types/environment';
 import type { Workspace } from '@/types/workspace';
 import AuthenticationForm from './AuthenticationForm';
 import ConnectionProgressModal from './ConnectionProgressModal';
@@ -88,7 +89,8 @@ const WorkspaceModal = ({ visible, editingWorkspace, onCancel, onSuccess }: Work
 
   const workspaceContext = useWorkspaces();
   const { sources, exportSources } = useSources();
-  const { environments, generateEnvironmentSchema } = useEnvironments();
+  const { environments: envArray, generateEnvironmentSchema } = useEnvironments();
+  const environments = __toEnvironmentMap(envArray);
   const { rules: allRules } = useCentralizedWorkspace();
   const { addRule: addHeaderRule, updateRule: updateHeaderRule, removeRule: removeHeaderRule } = useHeaderRules();
 

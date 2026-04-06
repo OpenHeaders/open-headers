@@ -7,7 +7,7 @@ const log = createLogger('FormValidation');
 interface FormEnvContext {
   environmentsReady: boolean;
   getAllVariables: () => Record<string, string>;
-  activeEnvironment: string;
+  activeEnvironment: string | null;
 }
 
 /** Typed form accessor — overloads return proper types per field name */

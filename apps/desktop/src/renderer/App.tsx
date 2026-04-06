@@ -2,6 +2,7 @@ import type { Recording } from '@openheaders/core';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import type { EnvironmentConfigData } from '@/types/environment';
+import { toEnvironmentMap } from '@/types/environment';
 import type { AppSettings } from '@/types/settings';
 import type { TeamWorkspaceInvite } from '@/types/workspace';
 import { AppLayout } from './components/app/AppLayout';
@@ -97,8 +98,8 @@ const AppComponent: React.FC = () => {
     addHeaderRule,
     updateHeaderRule,
     removeHeaderRule,
-    environments,
-    createEnvironment,
+    environments: toEnvironmentMap(environments),
+    createEnvironment: async (name: string) => !!(await createEnvironment({ name })),
     setVariable,
     generateEnvironmentSchema,
   });

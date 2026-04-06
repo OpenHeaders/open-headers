@@ -25,12 +25,12 @@ function makeEnterpriseConfig() {
       variableDefinitions: {
         API_URL: {
           description: 'API base URL',
-          isSecret: false,
+          isSensitive: false,
           usedIn: ['rules'],
           example: 'https://api.openheaders.io',
         },
-        API_KEY: { description: 'API key for auth', isSecret: true, usedIn: ['sources'] },
-        OAUTH_CLIENT_ID: { description: 'OAuth2 client ID', isSecret: false, usedIn: ['sources'] },
+        API_KEY: { description: 'API key for auth', isSensitive: true, usedIn: ['sources'] },
+        OAUTH_CLIENT_ID: { description: 'OAuth2 client ID', isSensitive: false, usedIn: ['sources'] },
       },
     },
   };
@@ -118,7 +118,7 @@ describe('configValidator', () => {
               production: {},
             },
             variableDefinitions: {
-              API_URL: { description: 'API URL', isSecret: false, usedIn: ['rules'] },
+              API_URL: { description: 'API URL', isSensitive: false, usedIn: ['rules'] },
             },
           },
         };

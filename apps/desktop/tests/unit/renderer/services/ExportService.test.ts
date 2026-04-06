@@ -340,7 +340,7 @@ describe('ExportService.getExportStatistics', () => {
     const service = new ExportService(makeDeps());
     const stats = service.getExportStatistics({
       version: '3.0.0',
-      environments: { dev: { A: { value: 'val', isSecret: false } } },
+      environments: { dev: { A: { value: 'val', isSensitive: false } } },
     } as unknown as ExportData);
     expect(stats.dataTypes.environments).toBeDefined();
     expect(stats.dataTypes.environments!.environments).toBe(1);
@@ -364,7 +364,7 @@ describe('ExportService.getExportStatistics', () => {
       sources: [{ sourceType: 'file', sourceId: 's1', sourcePath: '/a' }],
       proxyRules: [{ id: 'pr1' }],
       rules: { header: [{ id: '1' }] },
-      environments: { dev: { A: { value: '1', isSecret: false } } },
+      environments: { dev: { A: { value: '1', isSensitive: false } } },
       workspace: { name: 'W', type: 'git' },
     } as unknown as ExportData);
     expect(Object.keys(stats.dataTypes)).toEqual(

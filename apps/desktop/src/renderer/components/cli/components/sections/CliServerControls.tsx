@@ -244,12 +244,12 @@ const CliServerControls = ({
   const curlCmds = {
     health: `curl http://127.0.0.1:${status.port}/cli/health \\\n  -H "Authorization: Bearer ${tokenValue}"`,
     workspaceJoin: `curl -X POST http://127.0.0.1:${status.port}/cli/workspace/join \\\n  -H "Authorization: Bearer ${tokenValue}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "repoUrl": "https://github.com/org/repo.git",\n    "branch": "main",\n    "configPath": "config/open-headers.json",\n    "workspaceName": "My Team",\n    "authType": "token",\n    "authData": {"token": "ghp_...", "tokenType": "auto"},\n    "inviterName": "John"\n  }'`,
-    envImport: `curl -X POST http://127.0.0.1:${status.port}/cli/environments/import \\\n  -H "Authorization: Bearer ${tokenValue}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "environments": {\n      "Default": {\n        "API_KEY": {"value": "sk-...", "isSecret": true}\n      }\n    }\n  }'`,
+    envImport: `curl -X POST http://127.0.0.1:${status.port}/cli/environments/import \\\n  -H "Authorization: Bearer ${tokenValue}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "environments": {\n      "Default": {\n        "API_KEY": {"value": "sk-...", "isSensitive": true}\n      }\n    }\n  }'`,
   };
   const psCmds = {
     health: `Invoke-RestMethod -Uri "http://127.0.0.1:${status.port}/cli/health" \`\n  -Headers @{"Authorization" = "Bearer ${tokenValue}"}`,
     workspaceJoin: `$body = @{\n    repoUrl = "https://github.com/org/repo.git"\n    branch = "main"\n    configPath = "config/open-headers.json"\n    workspaceName = "My Team"\n    authType = "token"\n    authData = @{token = "ghp_..."; tokenType = "auto"}\n    inviterName = "John"\n} | ConvertTo-Json -Depth 3\n\nInvoke-RestMethod -Uri "http://127.0.0.1:${status.port}/cli/workspace/join" \`\n  -Method POST \`\n  -Headers @{"Authorization" = "Bearer ${tokenValue}"} \`\n  -ContentType "application/json" \`\n  -Body $body`,
-    envImport: `$body = @{\n    environments = @{\n        Default = @{\n            API_KEY = @{value = "sk-..."; isSecret = $true}\n        }\n    }\n} | ConvertTo-Json -Depth 5\n\nInvoke-RestMethod -Uri "http://127.0.0.1:${status.port}/cli/environments/import" \`\n  -Method POST \`\n  -Headers @{"Authorization" = "Bearer ${tokenValue}"} \`\n  -ContentType "application/json" \`\n  -Body $body`,
+    envImport: `$body = @{\n    environments = @{\n        Default = @{\n            API_KEY = @{value = "sk-..."; isSensitive = $true}\n        }\n    }\n} | ConvertTo-Json -Depth 5\n\nInvoke-RestMethod -Uri "http://127.0.0.1:${status.port}/cli/environments/import" \`\n  -Method POST \`\n  -Headers @{"Authorization" = "Bearer ${tokenValue}"} \`\n  -ContentType "application/json" \`\n  -Body $body`,
   };
   const cmds = shellType === 'powershell' ? psCmds : curlCmds;
 
@@ -571,7 +571,7 @@ const CliServerControls = ({
                                 <tr>
                                   <td style={tdStyle}>
                                     <Text code style={paramCodeStyle}>
-                                      isSecret
+                                      isSensitive
                                     </Text>
                                   </td>
                                   <td style={tdOptStyle}>No</td>

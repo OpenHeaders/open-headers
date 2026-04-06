@@ -20,8 +20,8 @@ import { EnvironmentsHandler } from '@/renderer/services/export-import/handlers/
 // Enterprise-realistic helpers
 // ---------------------------------------------------------------------------
 
-function envVar(value: string, isSecret = false, updatedAt = '2026-01-10T16:30:00.000Z'): EnvironmentVariable {
-  return { value, isSecret, updatedAt };
+function envVar(value: string, isSensitive = false, updatedAt = '2026-01-10T16:30:00.000Z'): EnvironmentVariable {
+  return { value, isSensitive, updatedAt };
 }
 
 function makeEnterpriseEnvironments(): Record<string, Record<string, EnvironmentVariable>> {
@@ -68,22 +68,22 @@ function makeDeps(overrides: Partial<ExportImportDependencies> = {}): ExportImpo
       environments: {
         Default: {
           variables: [
-            { name: 'OAUTH2_CLIENT_ID', isSecret: false },
-            { name: 'OAUTH2_CLIENT_SECRET', isSecret: true },
+            { name: 'OAUTH2_CLIENT_ID', isSensitive: false },
+            { name: 'OAUTH2_CLIENT_SECRET', isSensitive: true },
           ],
         },
-        'Staging — EU Region': { variables: [{ name: 'OAUTH2_CLIENT_ID', isSecret: false }] },
+        'Staging — EU Region': { variables: [{ name: 'OAUTH2_CLIENT_ID', isSensitive: false }] },
         Production: {
           variables: [
-            { name: 'OAUTH2_CLIENT_ID', isSecret: false },
-            { name: 'REDIS_URL', isSecret: true },
+            { name: 'OAUTH2_CLIENT_ID', isSensitive: false },
+            { name: 'REDIS_URL', isSensitive: true },
           ],
         },
       },
       variableDefinitions: {
-        OAUTH2_CLIENT_ID: { isSecret: false, usedIn: ['src-gateway'] },
-        OAUTH2_CLIENT_SECRET: { isSecret: true, usedIn: ['src-auth'] },
-        REDIS_URL: { isSecret: true, usedIn: ['src-cache'] },
+        OAUTH2_CLIENT_ID: { isSensitive: false, usedIn: ['src-gateway'] },
+        OAUTH2_CLIENT_SECRET: { isSensitive: true, usedIn: ['src-auth'] },
+        REDIS_URL: { isSensitive: true, usedIn: ['src-cache'] },
       },
     })),
     createEnvironment: vi.fn(),
@@ -103,7 +103,7 @@ describe('EnvironmentsHandler._exportEnvironmentSchema', () => {
     const handler = new EnvironmentsHandler(makeDeps());
     const fullSchema = {
       environments: { Default: { variables: [] }, Production: { variables: [] } },
-      variableDefinitions: { OAUTH2_CLIENT_ID: { isSecret: false } },
+      variableDefinitions: { OAUTH2_CLIENT_ID: { isSensitive: false } },
     } as unknown as EnvironmentSchema;
 
     const result = handler._exportEnvironmentSchema(fullSchema, []);
@@ -129,12 +129,12 @@ describe('EnvironmentsHandler._exportEnvironmentSchema', () => {
         'Staging — EU Region': { variables: [{ name: 'B' }] },
         Production: { variables: [{ name: 'C' }] },
       },
-      variableDefinitions: { OAUTH2_CLIENT_ID: { isSecret: false } },
+      variableDefinitions: { OAUTH2_CLIENT_ID: { isSensitive: false } },
     } as unknown as EnvironmentSchema;
 
     const result = handler._exportEnvironmentSchema(fullSchema, ['Default', 'Production']);
     expect(Object.keys(result.environmentSchema.environments)).toEqual(['Default', 'Production']);
-    expect(result.environmentSchema.variableDefinitions).toEqual({ OAUTH2_CLIENT_ID: { isSecret: false } });
+    expect(result.environmentSchema.variableDefinitions).toEqual({ OAUTH2_CLIENT_ID: { isSensitive: false } });
   });
 
   it('ignores selected names that do not exist in schema', () => {
@@ -172,7 +172,7 @@ describe('EnvironmentsHandler._exportFullEnvironments', () => {
     const handler = new EnvironmentsHandler(makeDeps({ environments: envs }));
     const fullSchema = {
       environments: { Default: {}, 'Staging — EU Region': {}, Production: {} },
-      variableDefinitions: { OAUTH2_CLIENT_ID: { isSecret: false } },
+      variableDefinitions: { OAUTH2_CLIENT_ID: { isSensitive: false } },
     } as unknown as EnvironmentSchema;
 
     const result = handler._exportFullEnvironments(fullSchema, ['Default', 'Production']);
@@ -463,10 +463,10 @@ describe('EnvironmentsHandler._importFullEnvironments', () => {
     expect(stats.variablesCreated).toBe(1);
     const callArgs = (handler._batchCreateVariables as Mock).mock.calls[0];
     expect(callArgs[0]).toBe('Default');
-    expect(callArgs[1][0]).toEqual({ name: 'API_KEY', value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSecret: false });
+    expect(callArgs[1][0]).toEqual({ name: 'API_KEY', value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSensitive: false });
   });
 
-  it('handles new format (object with value/isSecret)', async () => {
+  it('handles new format (object with value/isSensitive)', async () => {
     const handler = new EnvironmentsHandler(makeDeps({ environments: {}, createEnvironment: vi.fn() }));
     handler._batchCreateVariables = vi.fn();
 
@@ -480,7 +480,7 @@ describe('EnvironmentsHandler._importFullEnvironments', () => {
     expect(callArgs[1][0]).toEqual({
       name: 'BEARER_TOKEN',
       value: 'Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig',
-      isSecret: true,
+      isSensitive: true,
     });
   });
 

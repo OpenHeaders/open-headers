@@ -14,11 +14,18 @@
  * submodules to the service's mutable state.
  */
 
-import type { Collection, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+import type {
+  Collection,
+  Environment,
+  EnvironmentVariable,
+  Folder,
+  HeaderRule,
+  Source,
+  SourceUpdate,
+} from '@openheaders/core';
 import { errorMessage } from '@openheaders/core';
 import electron from 'electron';
-import type { EnvironmentMap } from '@/types/environment';
-import { cloneEnvironmentMap } from '@/types/environment';
+import { cloneEnvironments } from '@/types/environment';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceMetadata, WorkspaceSyncStatus, WorkspaceType } from '@/types/workspace';
 import mainLogger from '@/utils/mainLogger';
@@ -27,12 +34,8 @@ import {
   broadcastToServices,
   // Collection CRUD
   addCollection as crudAddCollection,
-  removeCollection as crudRemoveCollection,
-  updateCollection as crudUpdateCollection,
   // Folder CRUD
   addFolder as crudAddFolder,
-  removeFolder as crudRemoveFolder,
-  updateFolder as crudUpdateFolder,
   addHeaderRule as crudAddHeaderRule,
   addProxyRule as crudAddProxyRule,
   // Source CRUD
@@ -43,10 +46,14 @@ import {
   deleteWorkspace as crudDeleteWorkspace,
   importSources as crudImportSources,
   refreshSource as crudRefreshSource,
+  removeCollection as crudRemoveCollection,
+  removeFolder as crudRemoveFolder,
   removeHeaderRule as crudRemoveHeaderRule,
   removeProxyRule as crudRemoveProxyRule,
   removeSource as crudRemoveSource,
   syncWorkspace as crudSyncWorkspace,
+  updateCollection as crudUpdateCollection,
+  updateFolder as crudUpdateFolder,
   updateHeaderRule as crudUpdateHeaderRule,
   updateHeaderRulesBatch as crudUpdateHeaderRulesBatch,
   updateSource as crudUpdateSource,
@@ -144,8 +151,8 @@ class WorkspaceStateService {
       proxyRules: [],
       collections: [],
       folders: [],
-      environments: { Default: {} },
-      activeEnvironment: 'Default',
+      environments: [],
+      activeEnvironment: null,
     };
     this.configReady = new Promise((resolve) => {
       this._resolveConfigReady = resolve;
@@ -628,7 +635,10 @@ class WorkspaceStateService {
    * Reads from in-memory state, not disk.
    */
   private applyActiveEnvVarsToServices(): void {
-    const activeVars = this.state.environments[this.state.activeEnvironment] ?? {};
+    const activeEnv = this.state.activeEnvironment
+      ? this.state.environments.find((e) => e.id === this.state.activeEnvironment)
+      : null;
+    const activeVars = activeEnv?.variables ?? {};
     const resolved = this.normalizeEnvVariables(activeVars);
     this.applyEnvVariablesToServices(resolved);
   }
@@ -806,10 +816,12 @@ class WorkspaceStateService {
     const mergedEnvs = mergeEnvironments(data, this.state.environments);
     if (mergedEnvs) {
       // Validate activeEnvironment still exists after pruning
-      const activeStillExists = this.state.activeEnvironment && mergedEnvs[this.state.activeEnvironment];
+      const activeStillExists = this.state.activeEnvironment
+        ? mergedEnvs.some((e) => e.id === this.state.activeEnvironment)
+        : false;
       this.state.environments = mergedEnvs;
       if (!activeStillExists) {
-        this.state.activeEnvironment = Object.keys(mergedEnvs)[0] || 'Default';
+        this.state.activeEnvironment = mergedEnvs[0]?.id ?? null;
       }
       this.dirty.environments = true;
       this.applyActiveEnvVarsToServices();
@@ -879,107 +891,157 @@ class WorkspaceStateService {
 
   // ── Environment CRUD ──────────────────────────────────────────
 
-  getEnvironmentState(): { environments: EnvironmentMap; activeEnvironment: string } {
+  getEnvironmentState(): { environments: Environment[]; activeEnvironment: string | null } {
     return { environments: this.state.environments, activeEnvironment: this.state.activeEnvironment };
   }
 
-  async createEnvironment(name: string): Promise<void> {
-    if (this.state.environments[name]) {
+  async createEnvironment(params: { name: string; collectionId?: string; folderId?: string }): Promise<Environment> {
+    const { name, collectionId, folderId } = params;
+    if (this.state.environments.some((e) => e.name === name)) {
       throw new Error(`Environment '${name}' already exists`);
     }
-    this.state.environments = { ...this.state.environments, [name]: {} };
+    const env: Environment = {
+      id: `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      collectionId,
+      folderId,
+      variables: {},
+      createdAt: new Date().toISOString(),
+    };
+    this.state.environments = [...this.state.environments, env];
     this.dirty.environments = true;
     await this.saveEnvironments();
     sendPatchToRenderers(this.state, ['environments']);
-    log.info(`Created environment: ${name}`);
+    log.info(`Created environment: ${name} (${env.id})`);
+    return env;
   }
 
-  async deleteEnvironment(name: string): Promise<void> {
-    if (name === 'Default') {
-      throw new Error('Cannot delete Default environment');
+  async updateEnvironment(
+    environmentId: string,
+    updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
+  ): Promise<void> {
+    const envIndex = this.state.environments.findIndex((e) => e.id === environmentId);
+    if (envIndex === -1) {
+      throw new Error(`Environment '${environmentId}' does not exist`);
     }
-    if (!this.state.environments[name]) {
-      throw new Error(`Environment '${name}' does not exist`);
+    if (updates.name !== undefined) {
+      const duplicate = this.state.environments.some((e) => e.id !== environmentId && e.name === updates.name);
+      if (duplicate) {
+        throw new Error(`Environment '${updates.name}' already exists`);
+      }
     }
-    const { [name]: _deleted, ...remaining } = this.state.environments;
-    this.state.environments = remaining;
+    const merged = { ...this.state.environments[envIndex], ...updates, updatedAt: new Date().toISOString() };
+    this.state.environments = this.state.environments.map((e) => (e.id === environmentId ? merged : e));
+    this.dirty.environments = true;
+    await this.saveEnvironments();
+    sendPatchToRenderers(this.state, ['environments']);
+
+    // If variables changed on the active environment, propagate to services
+    if (updates.variables && environmentId === this.state.activeEnvironment) {
+      await this.onEnvironmentVariablesChanged(merged.variables);
+    }
+    log.info(`Updated environment: ${environmentId}`);
+  }
+
+  async deleteEnvironment(environmentId: string): Promise<void> {
+    const env = this.state.environments.find((e) => e.id === environmentId);
+    if (!env) {
+      throw new Error(`Environment '${environmentId}' does not exist`);
+    }
+    this.state.environments = this.state.environments.filter((e) => e.id !== environmentId);
     this.dirty.environments = true;
 
-    const wasActive = this.state.activeEnvironment === name;
+    const wasActive = this.state.activeEnvironment === environmentId;
     if (wasActive) {
-      this.state.activeEnvironment = 'Default';
+      this.state.activeEnvironment = null;
     }
 
     await this.saveEnvironments();
     sendPatchToRenderers(this.state, ['environments', 'activeEnvironment']);
 
     if (wasActive) {
-      const activeVars = this.state.environments.Default ?? {};
-      await this.onEnvironmentVariablesChanged(activeVars);
+      await this.onEnvironmentVariablesChanged({});
     }
-    log.info(`Deleted environment: ${name}`);
+    log.info(`Deleted environment: ${env.name} (${environmentId})`);
   }
 
-  async switchEnvironment(name: string): Promise<void> {
-    if (!this.state.environments[name]) {
-      throw new Error(`Environment '${name}' does not exist`);
-    }
-    if (this.state.activeEnvironment === name) return;
+  async switchEnvironment(environmentId: string | null): Promise<void> {
+    if (this.state.activeEnvironment === environmentId) return;
 
-    log.info(`Switching environment: ${this.state.activeEnvironment} → ${name}`);
-    this.state.activeEnvironment = name;
+    if (environmentId !== null) {
+      const env = this.state.environments.find((e) => e.id === environmentId);
+      if (!env) {
+        throw new Error(`Environment '${environmentId}' does not exist`);
+      }
+    }
+
+    const prevName = this.state.activeEnvironment
+      ? (this.state.environments.find((e) => e.id === this.state.activeEnvironment)?.name ?? 'none')
+      : 'none';
+    const newName = environmentId
+      ? (this.state.environments.find((e) => e.id === environmentId)?.name ?? environmentId)
+      : 'none';
+    log.info(`Switching environment: ${prevName} → ${newName}`);
+
+    this.state.activeEnvironment = environmentId;
     this.dirty.environments = true;
     await this.saveEnvironments();
     sendPatchToRenderers(this.state, ['activeEnvironment']);
 
-    const activeVars = this.state.environments[name] ?? {};
-    await this.onEnvironmentVariablesChanged(activeVars);
+    const activeEnv = environmentId ? this.state.environments.find((e) => e.id === environmentId) : null;
+    await this.onEnvironmentVariablesChanged(activeEnv?.variables ?? {});
   }
 
-  async setVariable(name: string, value: string | null, environment: string, isSecret: boolean): Promise<void> {
-    if (!this.state.environments[environment]) {
-      throw new Error(`Environment '${environment}' does not exist`);
+  async setVariable(name: string, value: string | null, environmentId: string, isSensitive: boolean): Promise<void> {
+    const envIndex = this.state.environments.findIndex((e) => e.id === environmentId);
+    if (envIndex === -1) {
+      throw new Error(`Environment '${environmentId}' does not exist`);
     }
 
-    const envCopy = { ...this.state.environments[environment] };
+    const env = this.state.environments[envIndex];
+    const varsCopy = { ...env.variables };
     if (value === null || value === '') {
-      delete envCopy[name];
+      delete varsCopy[name];
     } else {
-      envCopy[name] = { value, isSecret, updatedAt: new Date().toISOString() };
+      varsCopy[name] = { value, isSensitive, updatedAt: new Date().toISOString() };
     }
-    this.state.environments = { ...this.state.environments, [environment]: envCopy };
+    const updated = { ...env, variables: varsCopy, updatedAt: new Date().toISOString() };
+    this.state.environments = this.state.environments.map((e, i) => (i === envIndex ? updated : e));
     this.dirty.environments = true;
     await this.saveEnvironments();
     sendPatchToRenderers(this.state, ['environments']);
 
-    if (environment === this.state.activeEnvironment) {
-      await this.onEnvironmentVariablesChanged(this.state.environments[environment]);
+    if (environmentId === this.state.activeEnvironment) {
+      await this.onEnvironmentVariablesChanged(updated.variables);
     }
   }
 
   async batchSetVariables(
-    environment: string,
-    variables: Array<{ name: string; value: string | null; isSecret?: boolean }>,
+    environmentId: string,
+    variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
   ): Promise<void> {
-    if (!this.state.environments[environment]) {
-      throw new Error(`Environment '${environment}' does not exist`);
+    const envIndex = this.state.environments.findIndex((e) => e.id === environmentId);
+    if (envIndex === -1) {
+      throw new Error(`Environment '${environmentId}' does not exist`);
     }
 
-    const envCopy = { ...this.state.environments[environment] };
-    for (const { name, value, isSecret } of variables) {
+    const env = this.state.environments[envIndex];
+    const varsCopy = { ...env.variables };
+    for (const { name, value, isSensitive } of variables) {
       if (value === null || value === '') {
-        delete envCopy[name];
+        delete varsCopy[name];
       } else {
-        envCopy[name] = { value, isSecret: isSecret ?? false, updatedAt: new Date().toISOString() };
+        varsCopy[name] = { value, isSensitive: isSensitive ?? false, updatedAt: new Date().toISOString() };
       }
     }
-    this.state.environments = { ...this.state.environments, [environment]: envCopy };
+    const updated = { ...env, variables: varsCopy, updatedAt: new Date().toISOString() };
+    this.state.environments = this.state.environments.map((e, i) => (i === envIndex ? updated : e));
     this.dirty.environments = true;
     await this.saveEnvironments();
     sendPatchToRenderers(this.state, ['environments']);
 
-    if (environment === this.state.activeEnvironment) {
-      await this.onEnvironmentVariablesChanged(this.state.environments[environment]);
+    if (environmentId === this.state.activeEnvironment) {
+      await this.onEnvironmentVariablesChanged(updated.variables);
     }
   }
 
@@ -992,15 +1054,22 @@ class WorkspaceStateService {
    * owner handles the merge, persistence, and all downstream effects.
    */
   async importEnvironments(
-    incoming: Record<string, Record<string, { value: string; isSecret: boolean }>>,
+    incoming: Record<string, Record<string, { value: string; isSensitive: boolean }>>,
   ): Promise<void> {
-    const merged = cloneEnvironmentMap(this.state.environments);
+    const merged = cloneEnvironments(this.state.environments);
     for (const [envName, variables] of Object.entries(incoming)) {
-      if (!merged[envName]) {
-        merged[envName] = {};
+      let env = merged.find((e) => e.name === envName);
+      if (!env) {
+        env = {
+          id: `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: envName,
+          variables: {},
+          createdAt: new Date().toISOString(),
+        };
+        merged.push(env);
       }
       for (const [varName, varData] of Object.entries(variables)) {
-        merged[envName][varName] = { ...varData };
+        env.variables[varName] = { ...varData };
       }
     }
     this.state.environments = merged;
@@ -1009,8 +1078,10 @@ class WorkspaceStateService {
     sendPatchToRenderers(this.state, ['environments']);
 
     // Re-evaluate source dependencies with the updated active environment vars
-    const activeVars = this.state.environments[this.state.activeEnvironment] ?? {};
-    await this.onEnvironmentVariablesChanged(activeVars);
+    const activeEnv = this.state.activeEnvironment
+      ? this.state.environments.find((e) => e.id === this.state.activeEnvironment)
+      : null;
+    await this.onEnvironmentVariablesChanged(activeEnv?.variables ?? {});
   }
 
   // ── Environment variable changes ────────────────────────────

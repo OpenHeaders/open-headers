@@ -73,22 +73,22 @@ export function TopBar({
           <Button size="small" type="text" icon={<RightOutlined />} disabled={!canGoForward} onClick={onGoForward} />
         </Tooltip>
         <Button
-        className="v5-topbar-search"
-        type="text"
-        onClick={onCommandPalette}
-        style={{
-          background: token.colorBgContainer,
-          border: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        <Space size={4}>
-          <SearchOutlined style={{ color: token.colorTextTertiary }} />
-          <span style={{ color: token.colorTextTertiary }}>Search or run a command...</span>
-          <kbd className="v5-kbd" style={{ background: token.colorBgElevated, color: token.colorTextTertiary }}>
-            ⌘K
-          </kbd>
-        </Space>
-      </Button>
+          className="v5-topbar-search"
+          type="text"
+          onClick={onCommandPalette}
+          style={{
+            background: token.colorBgContainer,
+            border: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <Space size={4}>
+            <SearchOutlined style={{ color: token.colorTextTertiary }} />
+            <span style={{ color: token.colorTextTertiary }}>Search or run a command...</span>
+            <kbd className="v5-kbd" style={{ background: token.colorBgElevated, color: token.colorTextTertiary }}>
+              ⌘K
+            </kbd>
+          </Space>
+        </Button>
       </div>
 
       <div className="v5-topbar-right">

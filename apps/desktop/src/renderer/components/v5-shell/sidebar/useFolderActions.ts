@@ -52,8 +52,5 @@ export function useFolderActions({
     [removeFolderCrud],
   );
 
-  return useMemo(
-    () => ({ addFolder, renameFolder, deleteFolder }),
-    [addFolder, renameFolder, deleteFolder],
-  );
+  return useMemo(() => ({ addFolder, renameFolder, deleteFolder }), [addFolder, renameFolder, deleteFolder]);
 }

@@ -15,7 +15,14 @@ import { Modal, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitchOverlay';
 import { useWorkspaceSwitch } from '@/renderer/contexts';
-import { useCollections, useEnvironments, useFolders, useHeaderRules, useSources, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
+import {
+  useCollections,
+  useEnvironments,
+  useFolders,
+  useHeaderRules,
+  useSources,
+  useWorkspaces,
+} from '@/renderer/hooks/useCentralizedWorkspace';
 import 'allotment/dist/style.css';
 import { ActivityBar } from './ActivityBar';
 import { BottomPanel } from './BottomPanel';
@@ -48,7 +55,7 @@ export function V5Shell() {
   const { workspaces, activeWorkspaceId } = useWorkspaces();
   const { sources, addSource, updateSource } = useSources();
   const { rules, addRule, updateRule } = useHeaderRules();
-  const { environments, createEnvironment } = useEnvironments();
+  const { environments, createEnvironment, updateEnvironment } = useEnvironments();
   const { collections, updateCollection: updateCollectionInV5 } = useCollections();
   const { folders, updateFolder: updateFolderInV5 } = useFolders();
   const { switchState } = useWorkspaceSwitch();
@@ -63,8 +70,6 @@ export function V5Shell() {
   const sidebarExpandedSections = layoutState.sidebarExpandedSections;
   const sidebarExpandedCollections = layoutState.sidebarExpandedCollections;
   const inspectorExpandedKeys = layoutState.inspectorExpandedKeys;
-  const envOrganization = layoutState.envOrganization;
-
   const setPanels = useCallback(
     (updater: PanelVisibility | ((prev: PanelVisibility) => PanelVisibility)) => {
       setLayoutState((prev) => ({
@@ -122,16 +127,6 @@ export function V5Shell() {
     },
     [setLayoutState],
   );
-  const setEnvOrganization = useCallback(
-    (updater: typeof envOrganization | ((prev: typeof envOrganization) => typeof envOrganization)) => {
-      setLayoutState((prev) => ({
-        ...prev,
-        envOrganization: typeof updater === 'function' ? updater(prev.envOrganization) : updater,
-      }));
-    },
-    [setLayoutState],
-  );
-
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
   const [editorSaveLabel, setEditorSaveLabel] = useState<string | null>(null);
@@ -274,7 +269,7 @@ export function V5Shell() {
 
       const dirty = tabIds.filter((id) => {
         const t = resolvedTabs.find((tab) => tab.id === id);
-        return t && t.unsaved && !t.pinned;
+        return t?.unsaved && !t.pinned;
       });
       for (const id of dirty) {
         const rt = resolvedTabs.find((t) => t.id === id);
@@ -356,7 +351,7 @@ export function V5Shell() {
     const currentIds = new Set<string>();
     for (const r of rules) currentIds.add(`rule-${r.id}`);
     for (const s of sources) currentIds.add(`source-${s.sourceId}`);
-    for (const envName of Object.keys(environments)) currentIds.add(`env-${envName}`);
+    for (const env of environments) currentIds.add(`env-${env.id}`);
 
     if (prevEntityIds.current.size > 0 && !workspaceJustChanged) {
       for (const tab of tabsRef.current) {
@@ -454,17 +449,19 @@ export function V5Shell() {
   );
 
   const createNewEnvironment = useCallback(
-    async (_options?: { collectionId?: string; folderId?: string }) => {
-      const existingNames = Object.keys(environments);
+    async (options?: { collectionId?: string; folderId?: string }) => {
+      const existingNames = new Set(environments.map((e) => e.name));
       let name = 'New Environment';
       let counter = 2;
-      while (existingNames.includes(name)) {
+      while (existingNames.has(name)) {
         name = `New Environment (${counter})`;
         counter++;
       }
-      const success = await createEnvironment(name);
-      if (success) {
-        openTab({ id: `env-${name}`, type: 'environment', label: name, icon: 'environment', entityId: name });
+      const env = await createEnvironment({ name, collectionId: options?.collectionId, folderId: options?.folderId });
+      if (env) {
+        const tabId = `env-${env.id}`;
+        openTab({ id: tabId, type: 'environment', label: name, icon: 'environment', entityId: env.id });
+        setPendingRenameTabId(tabId);
       }
     },
     [environments, createEnvironment, openTab],
@@ -574,15 +571,15 @@ export function V5Shell() {
     }
 
     // Environments
-    for (const envName of Object.keys(environments)) {
-      const envTabId = `env-${envName}`;
+    for (const env of environments) {
+      const envTabId = `env-${env.id}`;
       items.push({
         id: envTabId,
         icon: '🌐',
-        label: envName,
+        label: env.name,
         scope: 'Environment',
         onSelect: () =>
-          openTab({ id: envTabId, type: 'environment', label: envName, icon: 'environment', entityId: envName }),
+          openTab({ id: envTabId, type: 'environment', label: env.name, icon: 'environment', entityId: env.id }),
       });
     }
 
@@ -643,10 +640,12 @@ export function V5Shell() {
         void updateCollectionInV5(activeResolvedTab.entityId, { name: newName });
       } else if (activeResolvedTab.type === 'folder-overview') {
         void updateFolderInV5(activeResolvedTab.entityId, { name: newName });
+      } else if (activeResolvedTab.type === 'environment') {
+        void updateEnvironment(activeResolvedTab.entityId, { name: newName });
       }
       setPendingRenameTabId(null);
     },
-    [activeResolvedTab, updateSource, updateRule, updateCollectionInV5, updateFolderInV5],
+    [activeResolvedTab, updateSource, updateRule, updateCollectionInV5, updateFolderInV5, updateEnvironment],
   );
 
   return (
@@ -694,6 +693,7 @@ export function V5Shell() {
                       onClose={() => togglePanel('inspector')}
                       expandedKeys={inspectorExpandedKeys}
                       onExpandedKeysChange={setInspectorExpandedKeys}
+                      activeTabType={activeResolvedTab?.type}
                     />
                   ) : (
                     <Sidebar
@@ -707,8 +707,6 @@ export function V5Shell() {
                       expandedCollections={sidebarExpandedCollections}
                       onExpandedCollectionsChange={setSidebarExpandedCollections}
                       activeTabId={activeTabId}
-                      envOrganization={envOrganization}
-                      onEnvOrganizationChange={setEnvOrganization}
                       activeWorkspaceId={activeWorkspaceId}
                       onPendingRename={setPendingRenameTabId}
                     />
@@ -747,7 +745,8 @@ export function V5Shell() {
                               activeResolvedTab.type === 'collection' ||
                               activeResolvedTab.type === 'collection-overview' ||
                               activeResolvedTab.type === 'folder-overview' ||
-                              activeResolvedTab.type === 'rule')
+                              activeResolvedTab.type === 'rule' ||
+                              activeResolvedTab.type === 'environment')
                               ? handleBreadcrumbRename
                               : undefined
                           }
@@ -792,8 +791,6 @@ export function V5Shell() {
                       expandedCollections={sidebarExpandedCollections}
                       onExpandedCollectionsChange={setSidebarExpandedCollections}
                       activeTabId={activeTabId}
-                      envOrganization={envOrganization}
-                      onEnvOrganizationChange={setEnvOrganization}
                       activeWorkspaceId={activeWorkspaceId}
                       onPendingRename={setPendingRenameTabId}
                     />
@@ -802,6 +799,7 @@ export function V5Shell() {
                       onClose={() => togglePanel('inspector')}
                       expandedKeys={inspectorExpandedKeys}
                       onExpandedKeysChange={setInspectorExpandedKeys}
+                      activeTabType={activeResolvedTab?.type}
                     />
                   )}
                 </Allotment.Pane>

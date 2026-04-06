@@ -13,12 +13,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Source } from '@openheaders/core';
+import type { Environment, Source } from '@openheaders/core';
 import electron from 'electron';
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import {
   cleanupOldBackups,
-  countNonEmptyEnvValues,
   createBackupIfNeeded,
   ENV_FILE_READ_MAX_RETRIES,
   readFileWithAtomicWriter,
@@ -198,7 +197,7 @@ async function importEnvironments(
   if (!environmentsToImport) return; // Nothing to import
 
   // Validate write safety
-  const newValueCount = countNonEmptyEnvValues(environmentsToImport);
+  const newValueCount = countEnvArrayValues(environmentsToImport);
   const validation = validateEnvironmentWrite(existing.valueCount, newValueCount);
 
   if (!validation.safe || validation.shouldBackup) {
@@ -235,24 +234,24 @@ async function importEnvironments(
   }
 
   // Write — validate activeEnvironment still exists in the merged result
-  // (remote may have removed the environment that was locally active)
-  const activeEnvStillExists = existing.activeEnvironment && environmentsToImport[existing.activeEnvironment];
-  const environmentsData = {
+  const activeStillExists = existing.activeEnvironment
+    ? environmentsToImport.some((e) => e.id === existing.activeEnvironment)
+    : false;
+  const environmentsData: EnvironmentsFile = {
     environments: environmentsToImport,
-    activeEnvironment: activeEnvStillExists
-      ? existing.activeEnvironment!
-      : Object.keys(environmentsToImport)[0] || 'Default',
+    activeEnvironment: activeStillExists ? existing.activeEnvironment : (environmentsToImport[0]?.id ?? null),
   };
 
   await atomicWriter.writeJson(envPath, environmentsData, { pretty: true });
   await cleanupOldBackups(fs.promises, workspacePath, path, 3);
 
-  const envCount = Object.keys(environmentsToImport).length;
   let varCount = 0;
-  for (const env of Object.values(environmentsToImport)) {
-    varCount += Object.keys(env).length;
+  for (const env of environmentsToImport) {
+    varCount += Object.keys(env.variables).length;
   }
-  log.info(`Imported ${envCount} environment(s) with ${varCount} variables for workspace ${workspaceId}`);
+  log.info(
+    `Imported ${environmentsToImport.length} environment(s) with ${varCount} variables for workspace ${workspaceId}`,
+  );
 
   broadcastToRenderers(
     'environments-structure-changed',
@@ -264,10 +263,21 @@ async function importEnvironments(
   );
 }
 
+/** Count non-empty values across an Environment array. */
+function countEnvArrayValues(envs: Environment[]): number {
+  let count = 0;
+  for (const env of envs) {
+    for (const v of Object.values(env.variables)) {
+      if (v.value) count++;
+    }
+  }
+  return count;
+}
+
 // ── Environment helpers ──────────────────────────────────────────
 
 interface ExistingEnvResult {
-  environments: EnvironmentMap;
+  environments: Environment[];
   activeEnvironment: string | null;
   fileExists: boolean;
   loadFailed: boolean;
@@ -280,7 +290,7 @@ async function loadExistingEnvironments(
   broadcaster: BroadcasterFn | null,
 ): Promise<ExistingEnvResult> {
   const result: ExistingEnvResult = {
-    environments: {},
+    environments: [],
     activeEnvironment: null,
     fileExists: false,
     loadFailed: false,
@@ -292,16 +302,30 @@ async function loadExistingEnvironments(
     result.fileExists = readResult.exists;
 
     if (readResult.exists && readResult.content) {
-      const parsed: Partial<EnvironmentsFile> = JSON.parse(readResult.content);
+      const parsed = JSON.parse(readResult.content) as {
+        environments?: Environment[] | EnvironmentMap;
+        activeEnvironment?: string | null;
+      };
+
       if (parsed.environments) {
-        result.environments = parsed.environments;
-        result.valueCount = countNonEmptyEnvValues(result.environments);
+        if (Array.isArray(parsed.environments)) {
+          result.environments = parsed.environments;
+        } else {
+          // Old format — migrate inline
+          result.environments = Object.entries(parsed.environments).map(([name, vars]) => ({
+            id: `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name,
+            variables: vars,
+            createdAt: new Date().toISOString(),
+          }));
+        }
+        result.valueCount = countEnvArrayValues(result.environments);
       }
       if (parsed.activeEnvironment) {
         result.activeEnvironment = parsed.activeEnvironment;
       }
       log.info(`Loaded existing environments for workspace ${workspaceId}:`, {
-        environmentCount: Object.keys(result.environments).length,
+        environmentCount: result.environments.length,
         variablesWithValues: result.valueCount,
         activeEnvironment: result.activeEnvironment,
       });
@@ -336,29 +360,56 @@ async function loadExistingEnvironments(
  * Exported so both importEnvironments (disk merge) and
  * WorkspaceStateService.onSyncDataChanged (memory merge) share the logic.
  * Returns null when the sync data contains no environment information.
+ *
+ * The remote sends EnvironmentMap (name-keyed). We merge into the existing
+ * Environment[] by matching on name, preserving IDs and collectionId/folderId.
  */
-export function mergeEnvironments(data: SyncData, existing: EnvironmentMap): EnvironmentMap | null {
+export function mergeEnvironments(data: SyncData, existing: Environment[]): Environment[] | null {
+  let mergedMap: EnvironmentMap | null = null;
+
   if (data.environments && typeof data.environments === 'object' && !data.environmentSchema) {
-    return mergeDirectEnvironments(data.environments, existing);
+    mergedMap = mergeDirectEnvironmentsMap(data.environments, envArrayToMap(existing));
+  } else if (data.environmentSchema?.environments) {
+    mergedMap = mergeSchemaEnvironmentsMap(data, envArrayToMap(existing));
   }
 
-  if (data.environmentSchema?.environments) {
-    return mergeSchemaEnvironments(data, existing);
+  if (!mergedMap) return null;
+
+  // Convert merged map back to Environment[], preserving existing IDs and organization
+  const existingByName = new Map<string, Environment>();
+  for (const env of existing) {
+    existingByName.set(env.name, env);
   }
 
-  return null;
+  const result: Environment[] = [];
+  for (const [envName, vars] of Object.entries(mergedMap)) {
+    const existingEnv = existingByName.get(envName);
+    result.push({
+      id: existingEnv?.id ?? `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: envName,
+      collectionId: existingEnv?.collectionId,
+      folderId: existingEnv?.folderId,
+      variables: vars,
+      createdAt: existingEnv?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  return result;
+}
+
+/** Convert Environment[] to EnvironmentMap for internal merge logic. */
+function envArrayToMap(envs: Environment[]): EnvironmentMap {
+  const map: EnvironmentMap = {};
+  for (const env of envs) {
+    map[env.name] = env.variables;
+  }
+  return map;
 }
 
 /**
  * Merge direct environment data from the remote into existing local state.
- *
- * The remote is the structure authority: it defines which environments and
- * variables exist. Local-only environments and variables are pruned so that
- * remote deletions propagate. Local *values* are preserved when the remote
- * references the variable but provides no value (placeholder pattern used
- * for secrets that differ per team member).
  */
-function mergeDirectEnvironments(remoteEnvs: EnvironmentMap, existing: EnvironmentMap): EnvironmentMap {
+function mergeDirectEnvironmentsMap(remoteEnvs: EnvironmentMap, existing: EnvironmentMap): EnvironmentMap {
   const merged: EnvironmentMap = {};
 
   for (const [envName, envVars] of Object.entries(remoteEnvs)) {
@@ -366,16 +417,13 @@ function mergeDirectEnvironments(remoteEnvs: EnvironmentMap, existing: Environme
 
     for (const [varName, varData] of Object.entries(envVars)) {
       if (varData.value) {
-        // Remote provides an explicit value — use it
         merged[envName][varName] = { ...varData };
       } else {
-        // Remote placeholder — preserve local value if available,
-        // but adopt remote's isSecret flag (admin may have changed it)
         const existingVar = existing[envName]?.[varName];
         if (existingVar?.value) {
-          merged[envName][varName] = { ...existingVar, isSecret: varData.isSecret };
+          merged[envName][varName] = { ...existingVar, isSensitive: varData.isSensitive };
         } else {
-          merged[envName][varName] = { value: '', isSecret: varData.isSecret };
+          merged[envName][varName] = { value: '', isSensitive: varData.isSensitive };
         }
       }
     }
@@ -386,18 +434,11 @@ function mergeDirectEnvironments(remoteEnvs: EnvironmentMap, existing: Environme
 
 /**
  * Merge schema-based environment data from the remote into existing local state.
- *
- * The schema is the structure authority: it defines which environments and
- * variables exist plus their isSecret flags. Local-only environments and
- * variables are pruned. Local values are preserved for variables that the
- * schema still references. When `data.environments` is also present, its
- * explicit values overlay the schema-defined structure.
  */
-function mergeSchemaEnvironments(data: SyncData, existing: EnvironmentMap): EnvironmentMap {
+function mergeSchemaEnvironmentsMap(data: SyncData, existing: EnvironmentMap): EnvironmentMap {
   const merged: EnvironmentMap = {};
   const schema = data.environmentSchema!;
 
-  // Phase 1: Build structure from schema, preserving local values
   for (const [envName, envSchema] of Object.entries(schema.environments)) {
     merged[envName] = {};
 
@@ -406,17 +447,16 @@ function mergeSchemaEnvironments(data: SyncData, existing: EnvironmentMap): Envi
         if (!varDef.name) continue;
 
         const existingVar = existing[envName]?.[varDef.name];
-        const isSecret = varDef.isSecret !== undefined ? varDef.isSecret : (existingVar?.isSecret ?? false);
+        const isSensitive = varDef.isSensitive !== undefined ? varDef.isSensitive : (existingVar?.isSensitive ?? false);
 
         merged[envName][varDef.name] = {
           value: existingVar?.value ?? '',
-          isSecret,
+          isSensitive,
         };
       }
     }
   }
 
-  // Phase 2: Overlay explicit values from data.environments (if present alongside schema)
   if (data.environments) {
     for (const [envName, envVars] of Object.entries(data.environments)) {
       if (!merged[envName]) merged[envName] = {};
@@ -425,7 +465,7 @@ function mergeSchemaEnvironments(data: SyncData, existing: EnvironmentMap): Envi
         if (varData.value) {
           merged[envName][varName] = { ...varData };
         } else if (!merged[envName][varName]) {
-          merged[envName][varName] = { value: '', isSecret: varData.isSecret };
+          merged[envName][varName] = { value: '', isSensitive: varData.isSensitive };
         }
       }
     }

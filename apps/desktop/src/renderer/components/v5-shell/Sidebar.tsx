@@ -23,7 +23,13 @@ import {
 import { Allotment } from 'allotment';
 import { Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCollections, useEnvironments, useFolders, useHeaderRules, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import {
+  useCollections,
+  useEnvironments,
+  useFolders,
+  useHeaderRules,
+  useSources,
+} from '@/renderer/hooks/useCentralizedWorkspace';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
 import { useFolderActions } from './sidebar/useFolderActions';
@@ -32,15 +38,7 @@ import type { ActivityPanel } from './V5Shell';
 
 // ── Section header ──────────────────────────────────────────────
 
-function SectionHeader({
-  title,
-  expanded,
-  onToggle,
-}: {
-  title: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+function SectionHeader({ title, expanded, onToggle }: { title: string; expanded: boolean; onToggle: () => void }) {
   const { token } = theme.useToken();
   return (
     <div
@@ -92,12 +90,6 @@ interface SidebarProps {
   expandedCollections?: string[];
   onExpandedCollectionsChange?: (collections: string[]) => void;
   activeTabId?: string | null;
-  envOrganization?: Record<string, Record<string, { collectionId?: string; folderId?: string }>>;
-  onEnvOrganizationChange?: (
-    updater:
-      | Record<string, Record<string, { collectionId?: string; folderId?: string }>>
-      | ((prev: Record<string, Record<string, { collectionId?: string; folderId?: string }>>) => Record<string, Record<string, { collectionId?: string; folderId?: string }>>),
-  ) => void;
   activeWorkspaceId?: string;
   /** Signal to V5Shell that a newly created tab should start in breadcrumb rename mode */
   onPendingRename?: (tabId: string) => void;
@@ -142,17 +134,19 @@ export function Sidebar({
   expandedCollections: expandedCollectionsProp,
   onExpandedCollectionsChange,
   activeTabId,
-  envOrganization: envOrganizationProp,
-  onEnvOrganizationChange,
-  activeWorkspaceId,
   onPendingRename,
 }: SidebarProps) {
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource } = useSources();
   const { rules, updateRule, removeRule } = useHeaderRules();
-  const { environments, activeEnvironment, deleteEnvironment } = useEnvironments();
+  const { environments, activeEnvironment, updateEnvironment, deleteEnvironment } = useEnvironments();
   const { collections, addCollection, updateCollection, removeCollection } = useCollections();
-  const { folders: workspaceFolders, addFolder: addFolderCrud, updateFolder: updateFolderCrud, removeFolder: removeFolderCrud } = useFolders();
+  const {
+    folders: workspaceFolders,
+    addFolder: addFolderCrud,
+    updateFolder: updateFolderCrud,
+    removeFolder: removeFolderCrud,
+  } = useFolders();
 
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -209,12 +203,6 @@ export function Sidebar({
   const rulesExpanded = expandedSectionsSet.has('rules');
   const envsExpanded = expandedSectionsSet.has('environments');
 
-  type EnvOrg = Record<string, { collectionId?: string; folderId?: string }>;
-  const workspaceEnvOrganization = useMemo<EnvOrg>(
-    () => (activeWorkspaceId ? envOrganizationProp?.[activeWorkspaceId] ?? {} : {}),
-    [envOrganizationProp, activeWorkspaceId],
-  );
-
   // ── Confirm delete dialog ────────────────────────────────────
   const confirmDelete = useCallback((name: string, onConfirm: () => void) => {
     Modal.confirm({
@@ -242,7 +230,11 @@ export function Sidebar({
 
   // ── Create folder (centralized flow) ─────────────────────────
   const createNewFolder = useCallback(
-    async (section: 'requests' | 'rules' | 'environments' | 'recordings', collectionId: string, parentFolderId: string | null) => {
+    async (
+      section: 'requests' | 'rules' | 'environments' | 'recordings',
+      collectionId: string,
+      parentFolderId: string | null,
+    ) => {
       const nf = await folderActions.addFolder(section, collectionId, parentFolderId);
       if (nf) {
         const parentKey = parentFolderId ? `folder-${parentFolderId}` : collectionId;
@@ -262,16 +254,13 @@ export function Sidebar({
   );
 
   // ── Tree data ────────────────────────────────────────────────
-  const envNames = useMemo(() => Object.keys(environments), [environments]);
-
   const treeData = useTreeData({
     collections,
     sources,
     rules,
-    envNames,
+    environments,
     activeEnvironment,
     folders: workspaceFolders,
-    envOrganization: workspaceEnvOrganization,
     expandedKeys,
     filter: filterText,
     onOpenTab: onOpenTab ?? (() => {}),
@@ -284,6 +273,7 @@ export function Sidebar({
     removeSource,
     updateRule,
     removeRule,
+    updateEnvironment,
     deleteEnvironment,
     createNewFolder,
     renameFolder: folderActions.renameFolder,
@@ -313,12 +303,9 @@ export function Sidebar({
   const isFocused = useCallback((id: string) => focusedId === id, [focusedId]);
 
   // ── Item interaction ─────────────────────────────────────────
-  const openItem = useCallback(
-    (node: TreeNode) => {
-      node.onOpen?.();
-    },
-    [],
-  );
+  const openItem = useCallback((node: TreeNode) => {
+    node.onOpen?.();
+  }, []);
 
   const shouldOpenOnSingleClick = useCallback(
     (node: TreeNode) => {
@@ -352,8 +339,12 @@ export function Sidebar({
         const currentIdx = allFlatItems.findIndex((n) => n.id === focusedId);
         const nextIdx =
           e.key === 'ArrowDown'
-            ? currentIdx < allFlatItems.length - 1 ? currentIdx + 1 : 0
-            : currentIdx > 0 ? currentIdx - 1 : allFlatItems.length - 1;
+            ? currentIdx < allFlatItems.length - 1
+              ? currentIdx + 1
+              : 0
+            : currentIdx > 0
+              ? currentIdx - 1
+              : allFlatItems.length - 1;
         const next = allFlatItems[nextIdx];
         if (next) {
           setFocusedId(next.id);
@@ -388,7 +379,9 @@ export function Sidebar({
         if (node?.parentId) {
           setFocusedId(node.parentId);
           setTimeout(() => {
-            containerRef.current?.querySelector(`[data-item-id="${node.parentId}"]`)?.scrollIntoView({ block: 'nearest' });
+            containerRef.current
+              ?.querySelector(`[data-item-id="${node.parentId}"]`)
+              ?.scrollIntoView({ block: 'nearest' });
           }, 0);
         }
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && focusedId) {
@@ -428,7 +421,15 @@ export function Sidebar({
     setTimeout(() => {
       containerRef.current?.querySelector(`[data-item-id="${activeTabId}"]`)?.scrollIntoView({ block: 'nearest' });
     }, 50);
-  }, [activeTabId, expandedSectionsSet, sources, expandedKeys, expandedCollectionsProp, onExpandedSectionsChange, onExpandedCollectionsChange]);
+  }, [
+    activeTabId,
+    expandedSectionsSet,
+    sources,
+    expandedKeys,
+    expandedCollectionsProp,
+    onExpandedSectionsChange,
+    onExpandedCollectionsChange,
+  ]);
 
   selectOpenedFileRef.current = selectOpenedFile;
 
@@ -481,7 +482,12 @@ export function Sidebar({
     { key: 'request', icon: <ApiOutlined />, label: 'HTTP Request', onClick: () => onNewRequest?.() },
     { key: 'rule', icon: <ThunderboltOutlined />, label: 'Rule', onClick: () => onNewRule?.() },
     { type: 'divider' as const, key: 'div-1' },
-    { key: 'collection', icon: <ApiOutlined />, label: 'Collection', onClick: () => void createNewCollection('requests') },
+    {
+      key: 'collection',
+      icon: <ApiOutlined />,
+      label: 'Collection',
+      onClick: () => void createNewCollection('requests'),
+    },
     { key: 'environment', icon: <GlobalOutlined />, label: 'Environment', onClick: () => onNewEnvironment?.() },
   ];
 
@@ -511,7 +517,9 @@ export function Sidebar({
         isSelected={isSelected(node.id)}
         isFocused={isFocused(node.id)}
         isRenaming={renamingId === node.id}
-        isExpanded={node.expandable ? expandedKeys.has(node.id.startsWith('col-') ? node.id.slice(4) : node.id) : undefined}
+        isExpanded={
+          node.expandable ? expandedKeys.has(node.id.startsWith('col-') ? node.id.slice(4) : node.id) : undefined
+        }
         onClick={() => handleItemClick(node)}
         onDoubleClick={() => handleItemDoubleClick(node)}
         onStartRename={() => {
@@ -585,11 +593,7 @@ export function Sidebar({
           </div>
         </Tooltip>
         <Tooltip title="Expand All" placement="bottom">
-          <div
-            className="v5-sidebar-toolbar-icon"
-            style={{ color: token.colorTextSecondary }}
-            onClick={expandAll}
-          >
+          <div className="v5-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={expandAll}>
             <ExpandOutlined />
           </div>
         </Tooltip>
@@ -642,7 +646,6 @@ export function Sidebar({
       </div>
 
       {/* Tree content */}
-      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: sidebar tree needs focus for keyboard nav */}
       <div
         ref={containerRef}
         className="v5-sidebar-content"

@@ -15,7 +15,7 @@ interface ConfigData {
   environmentSchema?: EnvironmentSchema & {
     variableDefinitions?: Record<
       string,
-      { description: string; isSecret: boolean; usedIn: string[]; example?: string }
+      { description: string; isSensitive: boolean; usedIn: string[]; example?: string }
     >;
   };
   rules?: Array<{ id: string; name?: string }> | Record<string, Array<{ id: string; name?: string }>>;

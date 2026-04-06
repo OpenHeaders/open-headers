@@ -5,7 +5,15 @@
  * badge, and hover action buttons. No type-specific branching.
  */
 
-import { CaretRightOutlined, CopyOutlined, DeleteOutlined, EditOutlined, EllipsisOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  CaretRightOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  EllipsisOutlined,
+  MoreOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { Dropdown, theme } from 'antd';
 import { useState } from 'react';
 import type { TreeNode } from './types';
@@ -78,9 +86,7 @@ export function TreeNodeRow({
         <div style={{ fontWeight: 600, fontSize: 12, color: token.colorTextSecondary, marginBottom: 2 }}>
           {node.placeholderTitle}
         </div>
-        <div style={{ fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
-          {node.placeholderMessage}
-        </div>
+        <div style={{ fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>{node.placeholderMessage}</div>
         {node.placeholderActions?.map((action) => (
           <button
             key={action.label}
@@ -99,11 +105,7 @@ export function TreeNodeRow({
     );
   }
 
-  const className = [
-    'v5-sidebar-item',
-    isSelected ? 'selected' : '',
-    isFocused ? 'focused' : '',
-  ]
+  const className = ['v5-sidebar-item', isSelected ? 'selected' : '', isFocused ? 'focused' : '']
     .filter(Boolean)
     .join(' ');
 
@@ -161,15 +163,8 @@ export function TreeNodeRow({
                 }}
               />
               {node.addMenuItems && (
-                <Dropdown
-                  menu={{ items: node.addMenuItems }}
-                  trigger={['click']}
-                  placement="bottomRight"
-                >
-                  <EllipsisOutlined
-                    className="v5-sidebar-action-icon"
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                <Dropdown menu={{ items: node.addMenuItems }} trigger={['click']} placement="bottomRight">
+                  <EllipsisOutlined className="v5-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
                 </Dropdown>
               )}
             </div>
@@ -186,7 +181,15 @@ export function TreeNodeRow({
                   { key: 'duplicate', icon: <CopyOutlined />, label: 'Duplicate', disabled: true },
                   { type: 'divider' as const, key: 'div' },
                   ...(node.canDelete
-                    ? [{ key: 'delete', icon: <DeleteOutlined />, label: 'Delete', danger: true, onClick: () => node.onDelete?.() }]
+                    ? [
+                        {
+                          key: 'delete',
+                          icon: <DeleteOutlined />,
+                          label: 'Delete',
+                          danger: true,
+                          onClick: () => node.onDelete?.(),
+                        },
+                      ]
                     : []),
                 ],
               }}

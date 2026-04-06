@@ -30,7 +30,7 @@ export interface TestResponseContent {
 
 export interface EnvironmentContextLike {
   environmentsReady: boolean;
-  activeEnvironment: string;
+  activeEnvironment: string | null;
   getAllVariables: () => Record<string, string>;
   resolveTemplate: (text: string) => string;
 }

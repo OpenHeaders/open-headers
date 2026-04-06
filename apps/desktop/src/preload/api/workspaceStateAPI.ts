@@ -6,10 +6,17 @@
  * incremental state patches via IPC events.
  */
 
-import type { Collection, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+import type {
+  Collection,
+  Environment,
+  EnvironmentVariable,
+  Folder,
+  HeaderRule,
+  Source,
+  SourceUpdate,
+} from '@openheaders/core';
 import { ipcRenderer } from 'electron';
 import type { WorkspaceState } from '@/services/workspace/WorkspaceStateService';
-import type { EnvironmentMap } from '@/types/environment';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceType } from '@/types/workspace';
 
@@ -26,8 +33,8 @@ export interface WorkspaceStatePatch {
   error?: string | null;
   initialized?: boolean;
   isWorkspaceSwitching?: boolean;
-  environments?: EnvironmentMap;
-  activeEnvironment?: string;
+  environments?: Environment[];
+  activeEnvironment?: string | null;
 }
 
 export interface SwitchProgress {
@@ -156,30 +163,39 @@ export function createWorkspaceStateAPI() {
       ipcRenderer.invoke('workspace-state:sync-workspace', workspaceId),
 
     // Environment CRUD
-    getEnvironmentState: (): Promise<{ environments: EnvironmentMap; activeEnvironment: string }> =>
+    getEnvironmentState: (): Promise<{ environments: Environment[]; activeEnvironment: string | null }> =>
       ipcRenderer.invoke('workspace-state:get-environment-state'),
 
-    createEnvironment: (name: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:create-environment', name),
+    createEnvironment: (params: {
+      name: string;
+      collectionId?: string;
+      folderId?: string;
+    }): Promise<OperationResult & { environment?: Environment }> =>
+      ipcRenderer.invoke('workspace-state:create-environment', params),
 
-    deleteEnvironment: (name: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:delete-environment', name),
+    updateEnvironment: (
+      environmentId: string,
+      updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
+    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:update-environment', environmentId, updates),
 
-    switchEnvironment: (name: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:switch-environment', name),
+    deleteEnvironment: (environmentId: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:delete-environment', environmentId),
+
+    switchEnvironment: (environmentId: string | null): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:switch-environment', environmentId),
 
     setVariable: (
       name: string,
       value: string | null,
-      environment: string,
-      isSecret: boolean,
+      environmentId: string,
+      isSensitive: boolean,
     ): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:set-variable', name, value, environment, isSecret),
+      ipcRenderer.invoke('workspace-state:set-variable', name, value, environmentId, isSensitive),
 
     batchSetVariables: (
-      environment: string,
-      variables: Array<{ name: string; value: string | null; isSecret?: boolean }>,
-    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:batch-set-variables', environment, variables),
+      environmentId: string,
+      variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
+    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:batch-set-variables', environmentId, variables),
 
     // IPC event listeners (main → renderer)
     onStatePatch: (callback: (patch: WorkspaceStatePatch) => void): (() => void) => {

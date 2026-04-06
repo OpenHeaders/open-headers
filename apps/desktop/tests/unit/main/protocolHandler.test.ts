@@ -40,17 +40,17 @@ const ENTERPRISE_ENV_IMPORT = {
       environments: {
         production: {
           variables: [
-            { name: 'OAUTH_CLIENT_ID', isSecret: false },
-            { name: 'OAUTH_CLIENT_SECRET', isSecret: true },
-            { name: 'DATABASE_URL', isSecret: true },
-            { name: 'API_GATEWAY_URL', isSecret: false },
-            { name: 'REDIS_CONNECTION_STRING', isSecret: true },
+            { name: 'OAUTH_CLIENT_ID', isSensitive: false },
+            { name: 'OAUTH_CLIENT_SECRET', isSensitive: true },
+            { name: 'DATABASE_URL', isSensitive: true },
+            { name: 'API_GATEWAY_URL', isSensitive: false },
+            { name: 'REDIS_CONNECTION_STRING', isSensitive: true },
           ],
         },
         staging: {
           variables: [
-            { name: 'OAUTH_CLIENT_ID', isSecret: false },
-            { name: 'OAUTH_CLIENT_SECRET', isSecret: true },
+            { name: 'OAUTH_CLIENT_ID', isSensitive: false },
+            { name: 'OAUTH_CLIENT_SECRET', isSensitive: true },
           ],
         },
       },
@@ -213,7 +213,7 @@ describe('ProtocolHandler', () => {
         );
 
         const envData = result.data as {
-          environments: Record<string, Record<string, { value: string; isSecret?: boolean }>>;
+          environments: Record<string, Record<string, { value: string; isSensitive?: boolean }>>;
         };
         expect(envData.environments.development).toBeDefined();
         expect(envData.environments.production).toBeDefined();
@@ -221,7 +221,7 @@ describe('ProtocolHandler', () => {
 
         expect(envData.environments.development.API_KEY).toEqual({
           value: 'ohk_test_Q3W4E5R6T7Y8U9I0',
-          isSecret: true,
+          isSensitive: true,
         });
         expect(envData.environments.development.BASE_URL).toEqual({ value: 'https://api.dev.openheaders.io' });
 
@@ -260,9 +260,9 @@ describe('ProtocolHandler', () => {
         );
 
         const envData = result.data as {
-          environments: Record<string, Record<string, { value: string; isSecret?: boolean }>>;
+          environments: Record<string, Record<string, { value: string; isSensitive?: boolean }>>;
         };
-        expect(envData.environments.development.PUBLIC_URL.isSecret).toBeUndefined();
+        expect(envData.environments.development.PUBLIC_URL.isSensitive).toBeUndefined();
       });
     });
 
@@ -294,20 +294,20 @@ describe('ProtocolHandler', () => {
 
         const schemaData = result.data as {
           environmentSchema: {
-            environments: Record<string, { variables: Array<{ name: string; isSecret: boolean }> }>;
+            environments: Record<string, { variables: Array<{ name: string; isSensitive: boolean }> }>;
           };
         };
         const devVars = schemaData.environmentSchema.environments.development.variables;
         expect(devVars).toEqual([
-          { name: 'OAUTH_CLIENT_ID', isSecret: false },
-          { name: 'OAUTH_CLIENT_SECRET', isSecret: true },
-          { name: 'DATABASE_URL', isSecret: true },
+          { name: 'OAUTH_CLIENT_ID', isSensitive: false },
+          { name: 'OAUTH_CLIENT_SECRET', isSensitive: true },
+          { name: 'DATABASE_URL', isSensitive: true },
         ]);
 
         const prodVars = schemaData.environmentSchema.environments.production.variables;
         expect(prodVars).toEqual([
-          { name: 'OAUTH_CLIENT_ID', isSecret: false },
-          { name: 'OAUTH_CLIENT_SECRET', isSecret: true },
+          { name: 'OAUTH_CLIENT_ID', isSensitive: false },
+          { name: 'OAUTH_CLIENT_SECRET', isSensitive: true },
         ]);
       });
     });
@@ -371,15 +371,15 @@ describe('ProtocolHandler', () => {
         expect(result.d).toBeUndefined();
 
         const data = result.data as {
-          environments: Record<string, Record<string, { value: string; isSecret: boolean }>>;
+          environments: Record<string, Record<string, { value: string; isSensitive: boolean }>>;
           environmentSchema: {
-            environments: Record<string, { variables: Array<{ name: string; isSecret: boolean }> }>;
+            environments: Record<string, { variables: Array<{ name: string; isSensitive: boolean }> }>;
           };
         };
         expect(data.environments.production.AUTH_TOKEN.value).toBe('Bearer eyJhbGciOiJSUzI1NiJ9.xxx.yyy');
-        expect(data.environments.production.AUTH_TOKEN.isSecret).toBe(true);
+        expect(data.environments.production.AUTH_TOKEN.isSensitive).toBe(true);
         expect(data.environmentSchema.environments.production.variables).toEqual([
-          { name: 'AUTH_TOKEN', isSecret: true },
+          { name: 'AUTH_TOKEN', isSensitive: true },
         ]);
       });
     });
@@ -553,13 +553,13 @@ describe('ProtocolHandler', () => {
           environments: {
             production: {
               variables: [
-                { name: 'OAUTH_CLIENT_ID', isSecret: false },
-                { name: 'OAUTH_CLIENT_SECRET', isSecret: true },
-                { name: 'DATABASE_URL', isSecret: true },
+                { name: 'OAUTH_CLIENT_ID', isSensitive: false },
+                { name: 'OAUTH_CLIENT_SECRET', isSensitive: true },
+                { name: 'DATABASE_URL', isSensitive: true },
               ],
             },
             staging: {
-              variables: [{ name: 'OAUTH_CLIENT_ID', isSecret: false }],
+              variables: [{ name: 'OAUTH_CLIENT_ID', isSensitive: false }],
             },
           },
         },
@@ -573,7 +573,7 @@ describe('ProtocolHandler', () => {
       const envData = {
         environments: {
           production: {
-            API_KEY: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSecret: true },
+            API_KEY: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSensitive: true },
           },
         },
       };
@@ -648,7 +648,7 @@ describe('ProtocolHandler', () => {
       handler.pendingEnvironmentImport = {
         environmentSchema: {
           environments: {
-            production: { variables: [{ name: 'API_KEY', isSecret: true }] },
+            production: { variables: [{ name: 'API_KEY', isSensitive: true }] },
           },
         },
       };
@@ -737,7 +737,7 @@ describe('ProtocolHandler', () => {
         environmentSchema: {
           environments: {
             production: {
-              variables: [{ name: 'API_KEY', isSecret: true }],
+              variables: [{ name: 'API_KEY', isSensitive: true }],
             },
           },
         },
@@ -927,14 +927,14 @@ describe('ProtocolHandler', () => {
 
       expect(handler.pendingEnvironmentImport).toBeDefined();
       const envImport = handler.pendingEnvironmentImport as {
-        environments: Record<string, Record<string, { value: string; isSecret?: boolean }>>;
-        environmentSchema: { environments: Record<string, { variables: Array<{ name: string; isSecret: boolean }> }> };
+        environments: Record<string, Record<string, { value: string; isSensitive?: boolean }>>;
+        environmentSchema: { environments: Record<string, { variables: Array<{ name: string; isSensitive: boolean }> }> };
       };
       expect(envImport.environments.production.GATEWAY_URL.value).toBe('https://api.openheaders.io:8443/v2');
-      expect(envImport.environments.production.AUTH_SECRET.isSecret).toBe(true);
+      expect(envImport.environments.production.AUTH_SECRET.isSensitive).toBe(true);
       expect(envImport.environmentSchema.environments.production.variables).toEqual([
-        { name: 'GATEWAY_URL', isSecret: false },
-        { name: 'AUTH_SECRET', isSecret: true },
+        { name: 'GATEWAY_URL', isSensitive: false },
+        { name: 'AUTH_SECRET', isSensitive: true },
       ]);
     });
   });

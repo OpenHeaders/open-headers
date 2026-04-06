@@ -9,16 +9,16 @@
  *  - Dispatches local DOM events for renderer-internal UI updates
  */
 
+import type { Environment, EnvironmentVariable } from '@openheaders/core';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
-import type { EnvironmentMap } from '@/types/environment';
 import { EnvironmentVariableManager, TemplateResolver } from './environment';
 
 const log = createLogger('CentralizedEnvironmentService');
 
 export interface EnvironmentServiceState {
   currentWorkspaceId: string;
-  environments: EnvironmentMap;
-  activeEnvironment: string;
+  environments: Environment[];
+  activeEnvironment: string | null;
   isLoading: boolean;
   isReady: boolean;
   error: string | null;
@@ -36,8 +36,8 @@ class CentralizedEnvironmentService {
   constructor() {
     this.state = {
       currentWorkspaceId: 'default-personal',
-      environments: { Default: {} },
-      activeEnvironment: 'Default',
+      environments: [],
+      activeEnvironment: null,
       isLoading: false,
       isReady: false,
       error: null,
@@ -69,12 +69,13 @@ class CentralizedEnvironmentService {
           this.state.isLoading = false;
 
           // Dispatch DOM events for renderer-internal listeners (e.g. HeaderRules.tsx)
+          const activeEnv = this.getActiveEnv();
           if (changedKeys.includes('environments')) {
             window.dispatchEvent(
               new CustomEvent('environment-variables-changed', {
                 detail: {
-                  environment: this.state.activeEnvironment,
-                  variables: this.state.environments[this.state.activeEnvironment] ?? {},
+                  environment: activeEnv?.name ?? null,
+                  variables: activeEnv?.variables ?? {},
                 },
               }),
             );
@@ -83,8 +84,8 @@ class CentralizedEnvironmentService {
             window.dispatchEvent(
               new CustomEvent('environment-switched', {
                 detail: {
-                  environment: this.state.activeEnvironment,
-                  variables: this.state.environments[this.state.activeEnvironment] ?? {},
+                  environment: activeEnv?.name ?? null,
+                  variables: activeEnv?.variables ?? {},
                 },
               }),
             );
@@ -96,6 +97,14 @@ class CentralizedEnvironmentService {
     }
 
     log.info('CentralizedEnvironmentService initialized (IPC client)');
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────
+
+  private getActiveEnv(): Environment | undefined {
+    return this.state.activeEnvironment
+      ? this.state.environments.find((e) => e.id === this.state.activeEnvironment)
+      : undefined;
   }
 
   // ── State management ──────────────────────────────────────────
@@ -120,7 +129,7 @@ class CentralizedEnvironmentService {
   getState(): EnvironmentServiceState {
     return {
       ...this.state,
-      environments: { ...this.state.environments },
+      environments: [...this.state.environments],
     };
   }
 
@@ -171,32 +180,44 @@ class CentralizedEnvironmentService {
 
   // ── Environment CRUD (IPC forwards) ──────────────────────────
 
-  async createEnvironment(name: string): Promise<boolean> {
-    const result = await window.electronAPI.workspaceState.createEnvironment(name);
+  async createEnvironment(params: { name: string; collectionId?: string; folderId?: string }): Promise<Environment> {
+    const result = await window.electronAPI.workspaceState.createEnvironment(params);
     if (!result.success) throw new Error(result.error ?? 'Failed to create environment');
+    return result.environment!;
+  }
+
+  async updateEnvironment(
+    environmentId: string,
+    updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
+  ): Promise<boolean> {
+    const result = await window.electronAPI.workspaceState.updateEnvironment(environmentId, updates);
+    if (!result.success) throw new Error(result.error ?? 'Failed to update environment');
     return true;
   }
 
-  async deleteEnvironment(name: string): Promise<boolean> {
-    const result = await window.electronAPI.workspaceState.deleteEnvironment(name);
+  async deleteEnvironment(environmentId: string): Promise<boolean> {
+    const result = await window.electronAPI.workspaceState.deleteEnvironment(environmentId);
     if (!result.success) throw new Error(result.error ?? 'Failed to delete environment');
     return true;
   }
 
-  async switchEnvironment(name: string): Promise<boolean> {
-    const result = await window.electronAPI.workspaceState.switchEnvironment(name);
+  async switchEnvironment(environmentId: string | null): Promise<boolean> {
+    const result = await window.electronAPI.workspaceState.switchEnvironment(environmentId);
     if (!result.success) throw new Error(result.error ?? 'Failed to switch environment');
     return true;
   }
 
   // ── Variable CRUD (IPC forwards) ─────────────────────────────
 
-  async setVariable(name: string, value: string | null, isSecret = false): Promise<boolean> {
+  async setVariable(name: string, value: string | null, isSensitive = false): Promise<boolean> {
+    if (!this.state.activeEnvironment) {
+      throw new Error('No active environment — select an environment first');
+    }
     const result = await window.electronAPI.workspaceState.setVariable(
       name,
       value,
       this.state.activeEnvironment,
-      isSecret,
+      isSensitive,
     );
     if (!result.success) throw new Error(result.error ?? 'Failed to set variable');
     return true;
@@ -205,19 +226,19 @@ class CentralizedEnvironmentService {
   async setVariableInEnvironment(
     name: string,
     value: string | null,
-    environmentName: string,
-    isSecret = false,
+    environmentId: string,
+    isSensitive = false,
   ): Promise<boolean> {
-    const result = await window.electronAPI.workspaceState.setVariable(name, value, environmentName, isSecret);
+    const result = await window.electronAPI.workspaceState.setVariable(name, value, environmentId, isSensitive);
     if (!result.success) throw new Error(result.error ?? 'Failed to set variable');
     return true;
   }
 
   async batchSetVariablesInEnvironment(
-    environmentName: string,
-    variables: Array<{ name: string; value: string | null; isSecret?: boolean }>,
+    environmentId: string,
+    variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
   ): Promise<boolean> {
-    const result = await window.electronAPI.workspaceState.batchSetVariables(environmentName, variables);
+    const result = await window.electronAPI.workspaceState.batchSetVariables(environmentId, variables);
     if (!result.success) throw new Error(result.error ?? 'Failed to batch set variables');
     return true;
   }

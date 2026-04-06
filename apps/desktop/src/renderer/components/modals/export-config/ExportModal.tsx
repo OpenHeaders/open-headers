@@ -8,6 +8,7 @@ import { useEnvironments, useWorkspaces } from '@/renderer/contexts';
  * purpose, items, environment variables, workspace config, and file format
  */
 import type { ExportOptions } from '@/renderer/services/export-import/core/types';
+import { toEnvironmentMap } from '@/types/environment';
 import EnvironmentVariablesCard from './EnvironmentVariablesCard';
 import ExportItemsSelector from './ExportItemsSelector';
 import ExportPurposeSelector from './ExportPurposeSelector';
@@ -22,7 +23,8 @@ interface ExportModalProps {
 }
 const ExportModal = ({ visible, onCancel, onExport }: ExportModalProps) => {
   const { token } = theme.useToken();
-  const { environments, environmentsReady } = useEnvironments();
+  const { environments: envArray, environmentsReady } = useEnvironments();
+  const environments = toEnvironmentMap(envArray);
   const { workspaces, activeWorkspaceId } = useWorkspaces();
 
   // Export configuration state

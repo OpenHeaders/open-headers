@@ -2,9 +2,8 @@
  * Shared types for WorkspaceStateService and its submodules.
  */
 
-import type { Collection, Folder, HeaderRule, RulesCollection, Source } from '@openheaders/core';
+import type { Collection, Environment, Folder, HeaderRule, RulesCollection, Source } from '@openheaders/core';
 import type { SyncData } from '@/services/workspace/sync/types';
-import type { EnvironmentMap } from '@/types/environment';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceMetadata, WorkspaceSyncStatus } from '@/types/workspace';
 
@@ -23,8 +22,8 @@ export interface WorkspaceState {
   proxyRules: ProxyRule[];
   collections: Collection[];
   folders: Folder[];
-  environments: EnvironmentMap;
-  activeEnvironment: string;
+  environments: Environment[];
+  activeEnvironment: string | null;
 }
 
 // ── External service interfaces ───────────────────────────────────

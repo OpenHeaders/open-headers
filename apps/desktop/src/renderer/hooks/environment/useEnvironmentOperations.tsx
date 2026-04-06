@@ -1,18 +1,26 @@
+import type { Environment, EnvironmentVariable } from '@openheaders/core';
 import { useCallback } from 'react';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
 import { showMessage } from '@/renderer/utils/ui/messageUtil';
-import type { EnvironmentVariable } from '@/types/environment';
 import { useEnvironmentCore } from './useEnvironmentCore';
 
 const log = createLogger('useEnvironmentOperations');
 
 interface UseEnvironmentOperationsReturn {
-  environments: Record<string, Record<string, EnvironmentVariable>>;
-  activeEnvironment: string;
-  createEnvironment: (name: string) => Promise<boolean>;
-  deleteEnvironment: (name: string) => Promise<boolean>;
-  switchEnvironment: (name: string) => Promise<boolean>;
-  cloneEnvironment: (sourceEnv: string, newName: string) => Promise<boolean>;
+  environments: Environment[];
+  activeEnvironment: string | null;
+  createEnvironment: (params: {
+    name: string;
+    collectionId?: string;
+    folderId?: string;
+  }) => Promise<Environment | null>;
+  updateEnvironment: (
+    environmentId: string,
+    updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
+  ) => Promise<boolean>;
+  deleteEnvironment: (environmentId: string) => Promise<boolean>;
+  switchEnvironment: (environmentId: string | null) => Promise<boolean>;
+  cloneEnvironment: (sourceEnvId: string, newName: string) => Promise<boolean>;
   waitForEnvironments: (timeout?: number) => Promise<boolean>;
 }
 
@@ -23,10 +31,25 @@ export function useEnvironmentOperations(): UseEnvironmentOperationsReturn {
   const { service, environments, activeEnvironment } = useEnvironmentCore();
 
   const createEnvironment = useCallback(
-    async (name: string): Promise<boolean> => {
+    async (params: { name: string; collectionId?: string; folderId?: string }): Promise<Environment | null> => {
       try {
-        await service.createEnvironment(name);
-        showMessage('success', `Environment '${name}' created`);
+        const env = await service.createEnvironment(params);
+        return env;
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return null;
+      }
+    },
+    [service],
+  );
+
+  const updateEnvironment = useCallback(
+    async (
+      environmentId: string,
+      updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
+    ): Promise<boolean> => {
+      try {
+        await service.updateEnvironment(environmentId, updates);
         return true;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
@@ -37,10 +60,9 @@ export function useEnvironmentOperations(): UseEnvironmentOperationsReturn {
   );
 
   const deleteEnvironment = useCallback(
-    async (name: string): Promise<boolean> => {
+    async (environmentId: string): Promise<boolean> => {
       try {
-        await service.deleteEnvironment(name);
-        showMessage('success', `Environment '${name}' deleted`);
+        await service.deleteEnvironment(environmentId);
         return true;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
@@ -51,10 +73,9 @@ export function useEnvironmentOperations(): UseEnvironmentOperationsReturn {
   );
 
   const switchEnvironment = useCallback(
-    async (name: string): Promise<boolean> => {
+    async (environmentId: string | null): Promise<boolean> => {
       try {
-        await service.switchEnvironment(name);
-        showMessage('success', `Switched to '${name}' environment`);
+        await service.switchEnvironment(environmentId);
         return true;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
@@ -65,28 +86,31 @@ export function useEnvironmentOperations(): UseEnvironmentOperationsReturn {
   );
 
   const cloneEnvironment = useCallback(
-    async (sourceEnv: string, newName: string): Promise<boolean> => {
+    async (sourceEnvId: string, newName: string): Promise<boolean> => {
       try {
-        const sourceVars = environments[sourceEnv];
-        if (!sourceVars) {
-          showMessage('error', `Source environment '${sourceEnv}' does not exist`);
+        const sourceEnv = environments.find((e) => e.id === sourceEnvId);
+        if (!sourceEnv) {
+          showMessage('error', 'Source environment does not exist');
           return false;
         }
 
-        await service.createEnvironment(newName);
+        const newEnv = await service.createEnvironment({
+          name: newName,
+          collectionId: sourceEnv.collectionId,
+          folderId: sourceEnv.folderId,
+        });
 
         // Batch copy all variables (single save + single IPC event)
-        const variablesToSet = Object.entries(sourceVars).map(([varName, variable]: [string, EnvironmentVariable]) => ({
+        const variablesToSet = Object.entries(sourceEnv.variables).map(([varName, variable]) => ({
           name: varName,
           value: variable.value ?? null,
-          isSecret: variable.isSecret,
+          isSensitive: variable.isSensitive,
         }));
 
         if (variablesToSet.length > 0) {
-          await service.batchSetVariablesInEnvironment(newName, variablesToSet);
+          await service.batchSetVariablesInEnvironment(newEnv.id, variablesToSet);
         }
 
-        showMessage('success', `Environment '${sourceEnv}' cloned to '${newName}'`);
         return true;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
@@ -112,6 +136,7 @@ export function useEnvironmentOperations(): UseEnvironmentOperationsReturn {
     environments,
     activeEnvironment,
     createEnvironment,
+    updateEnvironment,
     deleteEnvironment,
     switchEnvironment,
     cloneEnvironment,

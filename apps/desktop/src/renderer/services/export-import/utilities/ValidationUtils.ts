@@ -35,7 +35,7 @@ interface ImportPayload {
   proxyRules?: Partial<ProxyRule>[];
   rules?: Record<string, unknown[]>;
   environmentSchema?: EnvironmentSchema;
-  environments?: Record<string, Record<string, { value: string; isSecret: boolean }>>;
+  environments?: Record<string, Record<string, { value: string; isSensitive: boolean }>>;
   rulesMetadata?: { totalRules?: number; lastUpdated?: string };
 }
 

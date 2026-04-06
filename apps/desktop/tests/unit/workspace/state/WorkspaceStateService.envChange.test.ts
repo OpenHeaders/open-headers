@@ -350,7 +350,7 @@ describe('WorkspaceStateService.onEnvironmentVariablesChanged', () => {
     });
   });
 
-  describe('normalizes { value, isSecret } objects to plain strings', () => {
+  describe('normalizes { value, isSensitive } objects to plain strings', () => {
     it('passes normalized string values to envResolver.setVariables', async () => {
       const source = httpSource({ sourceId: '1', sourcePath: 'https://api.openheaders.io/data' });
       const { service, envResolver } = createService({

@@ -42,15 +42,19 @@ class ProxyHandlers {
           if (activeWorkspaceId) {
             const envPath = path.join(app.getPath('userData'), 'workspaces', activeWorkspaceId, 'environments.json');
             const envData = await fsPromises.readFile(envPath, 'utf8');
-            const { environments, activeEnvironment } = JSON.parse(envData) as EnvironmentsFile;
-            const activeVars = environments[activeEnvironment] || {};
-            // Extract just the values from the environment variable objects
+            const parsed = JSON.parse(envData) as EnvironmentsFile;
+            // Find active environment variables
             const variables: Record<string, string> = {};
-            Object.entries(activeVars).forEach(([key, data]: [string, EnvironmentVariable]) => {
-              if (data && data.value !== undefined) {
-                variables[key] = data.value;
+            if (parsed.activeEnvironment && Array.isArray(parsed.environments)) {
+              const activeEnv = parsed.environments.find((e) => e.id === parsed.activeEnvironment);
+              if (activeEnv) {
+                for (const [key, data] of Object.entries(activeEnv.variables)) {
+                  if (data?.value !== undefined) {
+                    variables[key] = data.value;
+                  }
+                }
               }
-            });
+            }
             proxyService.updateEnvironmentVariables(variables);
             log.info(`Loaded ${Object.keys(variables).length} environment variables for proxy service`);
 

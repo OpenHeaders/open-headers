@@ -1,7 +1,7 @@
+import type { EnvironmentVariable } from '@openheaders/core';
 import { useCallback } from 'react';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
 import { showMessage } from '@/renderer/utils/ui/messageUtil';
-import type { EnvironmentVariable } from '@/types/environment';
 import { useEnvironmentCore } from './useEnvironmentCore';
 
 const log = createLogger('useEnvironmentVariables');
@@ -10,13 +10,13 @@ interface UseEnvironmentVariablesReturn {
   setVariable: (
     name: string,
     value: string | null,
-    environment?: string | null,
-    isSecret?: boolean,
+    environmentId?: string | null,
+    isSensitive?: boolean,
   ) => Promise<boolean>;
-  deleteVariable: (name: string, environment?: string | null) => Promise<boolean>;
-  getVariable: (name: string, environment?: string | null) => string;
-  getAllVariables: (environment?: string | null) => Record<string, string>;
-  getAllVariablesWithMetadata: (environment?: string | null) => Record<string, EnvironmentVariable>;
+  deleteVariable: (name: string, environmentId?: string | null) => Promise<boolean>;
+  getVariable: (name: string, environmentId?: string | null) => string;
+  getAllVariables: (environmentId?: string | null) => Record<string, string>;
+  getAllVariablesWithMetadata: (environmentId?: string | null) => Record<string, EnvironmentVariable>;
 }
 
 /**
@@ -29,16 +29,19 @@ export function useEnvironmentVariables(): UseEnvironmentVariablesReturn {
     async (
       name: string,
       value: string | null,
-      environment: string | null = null,
-      isSecret: boolean = false,
+      environmentId: string | null = null,
+      isSensitive: boolean = false,
     ): Promise<boolean> => {
       try {
-        if (environment && environment !== activeEnvironment) {
-          // Use the new method to set variable in specific environment without switching
-          await service.setVariableInEnvironment(name, value, environment, isSecret);
+        const targetId = environmentId || activeEnvironment;
+        if (!targetId) {
+          showMessage('error', 'No environment selected');
+          return false;
+        }
+        if (environmentId && environmentId !== activeEnvironment) {
+          await service.setVariableInEnvironment(name, value, environmentId, isSensitive);
         } else {
-          // Set in current active environment
-          await service.setVariable(name, value, isSecret);
+          await service.setVariable(name, value, isSensitive);
         }
         return true;
       } catch (error: unknown) {
@@ -50,24 +53,25 @@ export function useEnvironmentVariables(): UseEnvironmentVariablesReturn {
   );
 
   const deleteVariable = useCallback(
-    async (name: string, environment: string | null = null): Promise<boolean> => {
-      return setVariable(name, null, environment);
+    async (name: string, environmentId: string | null = null): Promise<boolean> => {
+      return setVariable(name, null, environmentId);
     },
     [setVariable],
   );
 
   const getVariable = useCallback(
-    (name: string, environment: string | null = null): string => {
-      const targetEnv = environment || activeEnvironment;
-      const variable = environments[targetEnv]?.[name];
-      return variable?.value || '';
+    (name: string, environmentId: string | null = null): string => {
+      const targetId = environmentId || activeEnvironment;
+      if (!targetId) return '';
+      const env = environments.find((e) => e.id === targetId);
+      return env?.variables[name]?.value || '';
     },
     [environments, activeEnvironment],
   );
 
   const getAllVariables = useCallback(
-    (environment: string | null = null): Record<string, string> => {
-      const targetEnv = environment || activeEnvironment;
+    (environmentId: string | null = null): Record<string, string> => {
+      const targetId = environmentId || activeEnvironment;
 
       // If service is not ready, use the service's getAllVariables which handles initialization
       if (!isReady) {
@@ -75,32 +79,32 @@ export function useEnvironmentVariables(): UseEnvironmentVariablesReturn {
         return service.getAllVariables();
       }
 
-      const envVars = environments[targetEnv] || {};
+      if (!targetId) return {};
+      const env = environments.find((e) => e.id === targetId);
+      if (!env) return {};
 
       const result: Record<string, string> = {};
-      Object.entries(envVars).forEach(([key, variable]: [string, EnvironmentVariable]) => {
+      for (const [key, variable] of Object.entries(env.variables)) {
         result[key] = variable.value || '';
-      });
-
+      }
       return result;
     },
     [environments, activeEnvironment, isReady, service],
   );
 
   const getAllVariablesWithMetadata = useCallback(
-    (environment: string | null = null): Record<string, EnvironmentVariable> => {
-      const targetEnv = environment || activeEnvironment;
-      const envData = environments[targetEnv] || {};
+    (environmentId: string | null = null): Record<string, EnvironmentVariable> => {
+      const targetId = environmentId || activeEnvironment;
+      if (!targetId) return {};
+      const env = environments.find((e) => e.id === targetId);
+      if (!env) return {};
 
-      // Filter out any non-variable properties
-      // Variables should have a 'value' property
       const variables: Record<string, EnvironmentVariable> = {};
-      Object.entries(envData).forEach(([key, data]: [string, EnvironmentVariable]) => {
+      for (const [key, data] of Object.entries(env.variables)) {
         if (data && typeof data === 'object' && 'value' in data) {
           variables[key] = data;
         }
-      });
-
+      }
       return variables;
     },
     [environments, activeEnvironment],

@@ -5,7 +5,7 @@
 /** A single variable in a schema environment listing */
 export interface SchemaVariable {
   name: string;
-  isSecret: boolean;
+  isSensitive: boolean;
 }
 
 /** Per-environment data inside the schema */
@@ -16,7 +16,7 @@ export interface SchemaEnvironmentEntry {
 /** Per-variable metadata */
 export interface SchemaVariableDefinition {
   description: string;
-  isSecret: boolean;
+  isSensitive: boolean;
   usedIn: string[];
   example?: string;
 }
@@ -62,7 +62,7 @@ export interface ExportImportDependencies {
   removeHeaderRule(ruleId: string): Promise<boolean>;
   environments: Record<string, Record<string, EnvironmentVariable>>;
   createEnvironment(name: string): Promise<boolean>;
-  setVariable(name: string, value: string | null, environment?: string | null, isSecret?: boolean): Promise<boolean>;
+  setVariable(name: string, value: string | null, environment?: string | null, isSensitive?: boolean): Promise<boolean>;
   generateEnvironmentSchema(sources: Source[]): EnvironmentSchema;
 }
 

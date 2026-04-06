@@ -3,9 +3,18 @@ import { Button, Dropdown, Space, Tag, Tooltip } from 'antd';
 import { useState } from 'react';
 import EnvironmentShareModal from '@/renderer/components/modals/EnvironmentShareModal';
 import { useEnvironments } from '@/renderer/contexts';
+import { toEnvironmentMap } from '@/types/environment';
 
 const EnvironmentStatus = () => {
-  const { environments, activeEnvironment, switchEnvironment, environmentsReady } = useEnvironments();
+  const {
+    environments: envArray,
+    activeEnvironment: activeEnvId,
+    switchEnvironment,
+    environmentsReady,
+  } = useEnvironments();
+  const environments = toEnvironmentMap(envArray);
+  const activeEnv = activeEnvId ? envArray.find((e) => e.id === activeEnvId) : undefined;
+  const activeEnvironment = activeEnv?.name ?? 'No Environment';
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
 
@@ -53,11 +62,13 @@ const EnvironmentStatus = () => {
       ),
       onClick: async () => {
         if (!isActive) {
-          try {
-            await switchEnvironment(envName);
-            // Don't show message here - switchEnvironment already shows one
-          } catch (_error) {
-            // Error message is already shown by switchEnvironment
+          const targetEnv = envArray.find((e) => e.name === envName);
+          if (targetEnv) {
+            try {
+              await switchEnvironment(targetEnv.id);
+            } catch (_error) {
+              // Error message is already shown by switchEnvironment
+            }
           }
         }
         setDropdownOpen(false);

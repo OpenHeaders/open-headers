@@ -5,7 +5,7 @@
  * The renderer calls ipcRenderer.invoke() and receives results.
  */
 
-import type { Collection, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+import type { Collection, EnvironmentVariable, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
 import { errorMessage } from '@openheaders/core';
 import { ipcMain } from 'electron';
 import workspaceStateService from '@/services/workspace/WorkspaceStateService';
@@ -175,15 +175,18 @@ export function registerWorkspaceStateHandlers(): void {
     }
   });
 
-  ipcMain.handle('workspace-state:update-collection', async (_event, collectionId: string, updates: Partial<Collection>) => {
-    try {
-      await workspaceStateService.updateCollection(collectionId, updates);
-      return { success: true };
-    } catch (error) {
-      log.error('Update collection failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
+  ipcMain.handle(
+    'workspace-state:update-collection',
+    async (_event, collectionId: string, updates: Partial<Collection>) => {
+      try {
+        await workspaceStateService.updateCollection(collectionId, updates);
+        return { success: true };
+      } catch (error) {
+        log.error('Update collection failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
 
   ipcMain.handle('workspace-state:remove-collection', async (_event, collectionId: string) => {
     try {
@@ -294,19 +297,39 @@ export function registerWorkspaceStateHandlers(): void {
     return workspaceStateService.getEnvironmentState();
   });
 
-  ipcMain.handle('workspace-state:create-environment', async (_event, name: string) => {
-    try {
-      await workspaceStateService.createEnvironment(name);
-      return { success: true };
-    } catch (error) {
-      log.error('Create environment failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
+  ipcMain.handle(
+    'workspace-state:create-environment',
+    async (_event, params: { name: string; collectionId?: string; folderId?: string }) => {
+      try {
+        const env = await workspaceStateService.createEnvironment(params);
+        return { success: true, environment: env };
+      } catch (error) {
+        log.error('Create environment failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
 
-  ipcMain.handle('workspace-state:delete-environment', async (_event, name: string) => {
+  ipcMain.handle(
+    'workspace-state:update-environment',
+    async (
+      _event,
+      environmentId: string,
+      updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
+    ) => {
+      try {
+        await workspaceStateService.updateEnvironment(environmentId, updates);
+        return { success: true };
+      } catch (error) {
+        log.error('Update environment failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle('workspace-state:delete-environment', async (_event, environmentId: string) => {
     try {
-      await workspaceStateService.deleteEnvironment(name);
+      await workspaceStateService.deleteEnvironment(environmentId);
       return { success: true };
     } catch (error) {
       log.error('Delete environment failed:', error);
@@ -314,9 +337,9 @@ export function registerWorkspaceStateHandlers(): void {
     }
   });
 
-  ipcMain.handle('workspace-state:switch-environment', async (_event, name: string) => {
+  ipcMain.handle('workspace-state:switch-environment', async (_event, environmentId: string | null) => {
     try {
-      await workspaceStateService.switchEnvironment(name);
+      await workspaceStateService.switchEnvironment(environmentId);
       return { success: true };
     } catch (error) {
       log.error('Switch environment failed:', error);
@@ -326,9 +349,9 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle(
     'workspace-state:set-variable',
-    async (_event, name: string, value: string | null, environment: string, isSecret: boolean) => {
+    async (_event, name: string, value: string | null, environmentId: string, isSensitive: boolean) => {
       try {
-        await workspaceStateService.setVariable(name, value, environment, isSecret);
+        await workspaceStateService.setVariable(name, value, environmentId, isSensitive);
         return { success: true };
       } catch (error) {
         log.error('Set variable failed:', error);
@@ -341,11 +364,11 @@ export function registerWorkspaceStateHandlers(): void {
     'workspace-state:batch-set-variables',
     async (
       _event,
-      environment: string,
-      variables: Array<{ name: string; value: string | null; isSecret?: boolean }>,
+      environmentId: string,
+      variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
     ) => {
       try {
-        await workspaceStateService.batchSetVariables(environment, variables);
+        await workspaceStateService.batchSetVariables(environmentId, variables);
         return { success: true };
       } catch (error) {
         log.error('Batch set variables failed:', error);

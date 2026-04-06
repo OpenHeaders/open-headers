@@ -353,7 +353,7 @@ class ProtocolHandler {
             }
 
             if (varData.s === 1) {
-              expandedVar.isSecret = true;
+              expandedVar.isSensitive = true;
             }
 
             environments[fullName][varName] = expandedVar;
@@ -384,7 +384,7 @@ class ProtocolHandler {
             environmentSchema.environments[fullName] = {
               variables: envData.v.map((v) => ({
                 name: v.n,
-                isSecret: v.s === 1,
+                isSensitive: v.s === 1,
               })),
             };
           }

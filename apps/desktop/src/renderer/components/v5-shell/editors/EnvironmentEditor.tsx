@@ -1,193 +1,485 @@
 /**
- * EnvironmentEditor — inline editor for an environment, rendered in an editor tab.
+ * EnvironmentEditor — Postman-style spreadsheet editor for environment variables.
  *
- * Shows a table of variables with inline editing, add/delete, and secret toggle.
- * Mirrors the v4 VariableTable + EnvironmentModals pattern.
+ * Local editing state with explicit Save. Variables are edited inline
+ * (borderless inputs), with a trailing empty row for adding new ones.
+ * Hover reveals drag handle, secret toggle, eye icon, and delete button.
  */
 
-import { DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, GlobalOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Input, Space, Switch, Table, Tag, Typography, theme } from 'antd';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  DeleteOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  GlobalOutlined,
+  HolderOutlined,
+  SecurityScanOutlined,
+  SecurityScanTwoTone,
+} from '@ant-design/icons';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { DndContext } from '@dnd-kit/core';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type { EnvironmentVariable } from '@openheaders/core';
+import { Input, Tag, Tooltip, Typography, theme } from 'antd';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnvironments } from '@/renderer/hooks/useCentralizedWorkspace';
 
 const { Text, Title } = Typography;
 
 interface EnvironmentEditorProps {
-  environmentName: string;
+  environmentId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  saveRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-interface VariableRow {
-  key: string;
+interface LocalVariable {
+  uid: string;
   name: string;
   value: string;
-  isSecret: boolean;
+  isSensitive: boolean;
+  description: string;
+  isPlaceholder: boolean;
 }
 
-export function EnvironmentEditor({ environmentName }: EnvironmentEditorProps) {
-  const { token } = theme.useToken();
-  const { environments, activeEnvironment, switchEnvironment, setVariable, deleteVariable } = useEnvironments();
+let nextUid = 1;
+function genUid(): string {
+  return `lv-${nextUid++}`;
+}
 
-  const envData = environments[environmentName];
-  const isActive = environmentName === activeEnvironment;
+function envVarsToLocal(variables: Record<string, EnvironmentVariable>): LocalVariable[] {
+  const rows: LocalVariable[] = Object.entries(variables).map(([name, v]) => ({
+    uid: genUid(),
+    name,
+    value: v.value,
+    isSensitive: v.isSensitive,
+    description: v.description ?? '',
+    isPlaceholder: false,
+  }));
+  rows.push({ uid: genUid(), name: '', value: '', isSensitive: false, description: '', isPlaceholder: true });
+  return rows;
+}
 
-  // New variable form
-  const [newVarName, setNewVarName] = useState('');
-  const [newVarValue, setNewVarValue] = useState('');
-  const [newVarSecret, setNewVarSecret] = useState(false);
-  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
+function localToEnvVars(rows: LocalVariable[]): Record<string, EnvironmentVariable> {
+  const result: Record<string, EnvironmentVariable> = {};
+  for (const row of rows) {
+    if (row.isPlaceholder || !row.name.trim()) continue;
+    result[row.name.trim()] = {
+      value: row.value,
+      isSensitive: row.isSensitive,
+      ...(row.description ? { description: row.description } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  return result;
+}
 
-  // Editing state
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-
-  const variables: VariableRow[] = useMemo(() => {
-    if (!envData) return [];
-    return Object.entries(envData).map(([name, variable]) => ({
-      key: name,
-      name,
-      value: variable.value,
-      isSecret: variable.isSecret,
-    }));
-  }, [envData]);
-
-  const toggleSecretReveal = (name: string) => {
-    setRevealedSecrets((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
-  const handleAddVariable = useCallback(() => {
-    const name = newVarName.trim();
-    if (!name) return;
-    void setVariable(name, newVarValue, environmentName, newVarSecret);
-    setNewVarName('');
-    setNewVarValue('');
-    setNewVarSecret(false);
-  }, [newVarName, newVarValue, newVarSecret, environmentName, setVariable]);
-
-  const handleDeleteVariable = useCallback(
-    (name: string) => {
-      void deleteVariable(name, environmentName);
-    },
-    [environmentName, deleteVariable],
+function fp(rows: LocalVariable[]): string {
+  return JSON.stringify(
+    rows
+      .filter((r) => !r.isPlaceholder && r.name.trim())
+      .map((r) => ({ n: r.name, v: r.value, s: r.isSensitive, d: r.description })),
   );
+}
 
-  const handleStartEdit = (name: string, currentValue: string) => {
-    setEditingKey(name);
-    setEditValue(currentValue);
+// ── Grid column template (shared between header + rows) ─────────
+const GRID_COLS = '32px 1fr 1fr 1fr 32px';
+
+// ── Value cell — 1-liner collapsed, expands on focus ────────────
+
+function ValueCell({
+  value,
+  placeholder,
+  masked,
+  color,
+  onChange,
+  onEdit,
+}: {
+  value: string;
+  placeholder?: string;
+  /** When true, show dots in collapsed mode; editing always shows real value */
+  masked?: boolean;
+  color: string;
+  onChange: (v: string) => void;
+  /** Called when entering edit mode (e.g. to auto-reveal secrets) */
+  onEdit?: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  const startEditing = () => {
+    onEdit?.();
+    setEditing(true);
   };
 
-  const handleSaveEdit = (name: string, isSecret: boolean) => {
-    void setVariable(name, editValue, environmentName, isSecret);
-    setEditingKey(null);
-  };
-
-  const columns = [
-    {
-      title: 'Variable',
-      dataIndex: 'name',
-      key: 'name',
-      width: 200,
-      render: (name: string) => (
-        <Text style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}>{name}</Text>
-      ),
-    },
-    {
-      title: 'Value',
-      dataIndex: 'value',
-      key: 'value',
-      render: (_: string, record: VariableRow) => {
-        if (editingKey === record.name) {
-          return (
-            <Input
-              size="small"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onPressEnter={() => handleSaveEdit(record.name, record.isSecret)}
-              onBlur={() => handleSaveEdit(record.name, record.isSecret)}
-              autoFocus
-              style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-            />
-          );
-        }
-
-        const isRevealed = revealedSecrets.has(record.name);
-        const displayValue = record.isSecret && !isRevealed ? '••••••••' : record.value;
-
-        return (
-          <Space size={4}>
-            <Text
-              style={{
-                fontFamily: "'SF Mono', monospace",
-                fontSize: 12,
-                cursor: 'pointer',
-                maxWidth: 300,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                display: 'inline-block',
-              }}
-              onClick={() => handleStartEdit(record.name, record.value)}
-            >
-              {displayValue || '(empty)'}
-            </Text>
-            {record.isSecret && (
-              <span
-                style={{ cursor: 'pointer', color: token.colorTextTertiary, fontSize: 11 }}
-                onClick={() => toggleSecretReveal(record.name)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') toggleSecretReveal(record.name);
-                }}
-              >
-                {isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-              </span>
-            )}
-          </Space>
-        );
-      },
-    },
-    {
-      title: 'Type',
-      dataIndex: 'isSecret',
-      key: 'type',
-      width: 80,
-      render: (isSecret: boolean) =>
-        isSecret ? (
-          <Tag color="red" style={{ fontSize: 10 }}>
-            Secret
-          </Tag>
-        ) : (
-          <Tag style={{ fontSize: 10 }}>Default</Tag>
-        ),
-    },
-    {
-      title: '',
-      key: 'actions',
-      width: 40,
-      render: (_: unknown, record: VariableRow) => (
-        <Button
-          type="text"
-          danger
-          size="small"
-          icon={<DeleteOutlined />}
-          onClick={() => handleDeleteVariable(record.name)}
-        />
-      ),
-    },
-  ];
-
-  if (!envData) {
+  if (editing) {
     return (
-      <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
-        <Text type="secondary">Environment "{environmentName}" not found.</Text>
+      <div style={{ overflow: 'hidden', width: '100%' }}>
+        <Input.TextArea
+          value={value}
+          placeholder={placeholder}
+          variant="borderless"
+          autoSize={{ minRows: 1, maxRows: 4 }}
+          autoFocus
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          style={{
+            fontFamily: "'SF Mono', 'Fira Code', monospace",
+            fontSize: 12,
+            color,
+            padding: '4px 6px',
+            resize: 'none',
+            width: '100%',
+          }}
+        />
       </div>
     );
   }
+
+  const displayValue = masked && value ? '••••••••' : value;
+
+  return (
+    <div
+      onClick={startEditing}
+      role="textbox"
+      tabIndex={0}
+      onFocus={startEditing}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') startEditing();
+      }}
+      style={{
+        fontFamily: "'SF Mono', 'Fira Code', monospace",
+        fontSize: 12,
+        color: displayValue ? color : 'var(--ant-color-text-quaternary)',
+        width: '100%',
+        padding: '4px 6px',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        cursor: 'text',
+        lineHeight: '22px',
+      }}
+    >
+      {displayValue || placeholder || ''}
+    </div>
+  );
+}
+
+// ── Sortable row component ──────────────────────────────────────
+
+interface SortableRowProps {
+  row: LocalVariable;
+  index: number;
+  isLast: boolean;
+  isRevealed: boolean;
+  token: Record<string, string>;
+  updateRow: (index: number, field: keyof LocalVariable, value: string | boolean) => void;
+  deleteRow: (index: number) => void;
+  toggleSecretReveal: (uid: string) => void;
+  toggleSecret: (index: number) => void;
+}
+
+function SortableRow({
+  row,
+  index,
+  isLast,
+  isRevealed,
+  token,
+  updateRow,
+  deleteRow,
+  toggleSecretReveal,
+  toggleSecret,
+}: SortableRowProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: row.uid,
+    disabled: row.isPlaceholder,
+  });
+
+  const style: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: GRID_COLS,
+    borderBottom: isLast ? undefined : `1px solid ${token.colorBorderSecondary}`,
+    transform: CSS.Translate.toString(transform),
+    transition,
+    ...(isDragging ? { position: 'relative' as const, zIndex: 50, opacity: 0.85 } : {}),
+  };
+
+  return (
+    <div ref={setNodeRef} className="v5-env-row" style={style} {...attributes}>
+      {/* Drag handle */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {!row.isPlaceholder && (
+          <span ref={setActivatorNodeRef} {...listeners} style={{ display: 'flex', cursor: 'grab' }}>
+            <HolderOutlined
+              className="v5-env-hover-action"
+              style={{ fontSize: 12, color: token.colorTextQuaternary }}
+            />
+          </span>
+        )}
+      </div>
+
+      {/* Variable name + secret toggle icon */}
+      <div
+        style={{
+          padding: '2px 4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          borderLeft: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <input
+          value={row.name}
+          placeholder={row.isPlaceholder ? 'Add variable...' : 'Name'}
+          onChange={(e) => updateRow(index, 'name', e.target.value)}
+          style={{
+            fontFamily: "'SF Mono', 'Fira Code', monospace",
+            fontSize: 12,
+            fontWeight: row.isPlaceholder ? 400 : 500,
+            color: row.isPlaceholder ? token.colorTextQuaternary : token.colorText,
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            flex: 1,
+            minWidth: 0,
+            padding: '6px',
+          }}
+        />
+        {!row.isPlaceholder &&
+          (row.isSensitive ? (
+            <Tooltip title="Unmark as sensitive">
+              <SecurityScanTwoTone
+                twoToneColor={token.colorPrimary}
+                style={{ fontSize: 14, cursor: 'pointer', flexShrink: 0 }}
+                onClick={() => toggleSecret(index)}
+              />
+            </Tooltip>
+          ) : (
+            <Tooltip title="Mark as sensitive">
+              <SecurityScanOutlined
+                className="v5-env-hover-action"
+                style={{ fontSize: 14, cursor: 'pointer', color: token.colorTextQuaternary, flexShrink: 0 }}
+                onClick={() => toggleSecret(index)}
+              />
+            </Tooltip>
+          ))}
+      </div>
+
+      {/* Value + eye icon */}
+      <div
+        style={{
+          padding: '2px 4px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 4,
+          borderLeft: `1px solid ${token.colorBorderSecondary}`,
+          overflow: 'hidden',
+          minWidth: 0,
+        }}
+      >
+        <ValueCell
+          value={row.value}
+          placeholder="Value"
+          masked={row.isSensitive && !isRevealed && !row.isPlaceholder}
+          color={row.isPlaceholder ? token.colorTextQuaternary : token.colorText}
+          onChange={(v) => updateRow(index, 'value', v)}
+          onEdit={() => {
+            if (row.isSensitive && !isRevealed) toggleSecretReveal(row.uid);
+          }}
+        />
+        {row.isSensitive && !row.isPlaceholder && (
+          <Tooltip title={isRevealed ? 'Hide value' : 'Show value'}>
+            <span
+              style={{
+                cursor: 'pointer',
+                color: token.colorTextTertiary,
+                fontSize: 12,
+                flexShrink: 0,
+                padding: '0 4px',
+              }}
+              onClick={() => toggleSecretReveal(row.uid)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') toggleSecretReveal(row.uid);
+              }}
+            >
+              {isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+            </span>
+          </Tooltip>
+        )}
+      </div>
+
+      {/* Description */}
+      <div
+        style={{
+          padding: '2px 4px',
+          display: 'flex',
+          alignItems: 'center',
+          borderLeft: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <input
+          value={row.description}
+          placeholder=""
+          onChange={(e) => updateRow(index, 'description', e.target.value)}
+          style={{
+            fontSize: 12,
+            color: row.isPlaceholder ? token.colorTextQuaternary : token.colorTextSecondary,
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            width: '100%',
+            padding: '6px',
+          }}
+        />
+      </div>
+
+      {/* Delete button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {!row.isPlaceholder && (
+          <DeleteOutlined
+            className="v5-env-hover-action"
+            style={{ fontSize: 12, color: token.colorErrorText, cursor: 'pointer' }}
+            onClick={() => deleteRow(index)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main editor ─────────────────────────────────────────────────
+
+export function EnvironmentEditor({ environmentId, onDirtyChange, saveRef }: EnvironmentEditorProps) {
+  const { token } = theme.useToken();
+  const { environments, activeEnvironment, updateEnvironment } = useEnvironments();
+
+  const env = environments.find((e) => e.id === environmentId);
+  const isActive = environmentId === activeEnvironment;
+
+  // ── Local editing state ───────────────────────────────────────
+  const [rows, setRows] = useState<LocalVariable[]>([]);
+  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
+  const snapshotRef = useRef('');
+  const initializedEnvId = useRef<string | null>(null);
+
+  // Initialize local state from environment
+  useEffect(() => {
+    if (env && initializedEnvId.current !== env.id) {
+      initializedEnvId.current = env.id;
+      const local = envVarsToLocal(env.variables);
+      setRows(local);
+      snapshotRef.current = fp(local);
+    }
+  }, [env]);
+
+  // ── Dirty detection ───────────────────────────────────────────
+  const isDirty = snapshotRef.current !== '' && fp(rows) !== snapshotRef.current;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // ── Save ──────────────────────────────────────────────────────
+  const handleSave = useCallback(() => {
+    const variables = localToEnvVars(rows);
+    void updateEnvironment(environmentId, { variables }).then((ok) => {
+      if (ok) {
+        snapshotRef.current = fp(rows);
+        onDirtyChange?.(false);
+      }
+    });
+  }, [rows, environmentId, updateEnvironment, onDirtyChange]);
+
+  useEffect(() => {
+    if (saveRef) saveRef.current = handleSave;
+  }, [saveRef, handleSave]);
+
+  // ── Row mutations ─────────────────────────────────────────────
+  const updateRow = useCallback((index: number, field: keyof LocalVariable, value: string | boolean) => {
+    setRows((prev) => {
+      const next = [...prev];
+      const row = { ...next[index], [field]: value };
+
+      if (row.isPlaceholder && (field === 'name' || field === 'value' || field === 'description') && value) {
+        row.isPlaceholder = false;
+        next[index] = row;
+        next.push({ uid: genUid(), name: '', value: '', isSensitive: false, description: '', isPlaceholder: true });
+      } else {
+        next[index] = row;
+      }
+
+      return next;
+    });
+  }, []);
+
+  const deleteRow = useCallback((index: number) => {
+    setRows((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (!next.some((r) => r.isPlaceholder)) {
+        next.push({ uid: genUid(), name: '', value: '', isSensitive: false, description: '', isPlaceholder: true });
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSecret = useCallback(
+    (index: number) => {
+      const becomingSecret = !rows[index].isSensitive;
+      updateRow(index, 'isSensitive', becomingSecret);
+      // Re-hide value when marking as secret
+      if (becomingSecret) {
+        setRevealedSecrets((prev) => {
+          const next = new Set(prev);
+          next.delete(rows[index].uid);
+          return next;
+        });
+      }
+    },
+    [rows, updateRow],
+  );
+
+  const toggleSecretReveal = useCallback((rowUid: string) => {
+    setRevealedSecrets((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowUid)) next.delete(rowUid);
+      else next.add(rowUid);
+      return next;
+    });
+  }, []);
+
+  // ── Drag & drop ───────────────────────────────────────────────
+  const handleDragEnd = useCallback(({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    setRows((prev) => {
+      const oldIndex = prev.findIndex((r) => r.uid === active.id);
+      const newIndex = prev.findIndex((r) => r.uid === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }, []);
+
+  // Token values as strings for the sortable row (avoids passing the full token object type)
+  const tokenStrings = {
+    colorBorderSecondary: token.colorBorderSecondary,
+    colorTextQuaternary: token.colorTextQuaternary,
+    colorText: token.colorText,
+    colorTextTertiary: token.colorTextTertiary,
+    colorTextSecondary: token.colorTextSecondary,
+    colorPrimary: token.colorPrimary,
+    colorErrorText: token.colorErrorText,
+  };
+
+  if (!env) {
+    return (
+      <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
+        <Text type="secondary">Environment not found.</Text>
+      </div>
+    );
+  }
+
+  const sortableIds = rows.map((r) => r.uid);
 
   return (
     <div className="v5-editor-content" style={{ background: token.colorBgContainer, overflow: 'auto' }}>
@@ -197,7 +489,7 @@ export function EnvironmentEditor({ environmentName }: EnvironmentEditorProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <GlobalOutlined style={{ fontSize: 18, color: isActive ? token.colorPrimary : token.colorTextTertiary }} />
             <Title level={4} style={{ margin: 0 }}>
-              {environmentName}
+              {env.name}
             </Title>
             {isActive && (
               <Tag color="blue" style={{ fontSize: 10 }}>
@@ -205,62 +497,88 @@ export function EnvironmentEditor({ environmentName }: EnvironmentEditorProps) {
               </Tag>
             )}
           </div>
-          {!isActive && (
-            <Button size="small" type="primary" onClick={() => void switchEnvironment(environmentName)}>
-              Activate
-            </Button>
-          )}
         </div>
 
+        {/* Variables table */}
         <div className="v5-rule-editor-body">
-          {/* Variables table */}
           <div className="v5-editor-section">
             <Text type="secondary" className="v5-editor-section-title">
-              VARIABLES ({variables.length})
+              VARIABLES ({rows.filter((r) => !r.isPlaceholder && r.name.trim()).length})
             </Text>
-            <Table
-              dataSource={variables}
-              columns={columns}
-              pagination={false}
-              size="small"
-              locale={{ emptyText: 'No variables defined. Add one below.' }}
-              style={{ marginBottom: 16 }}
-            />
-          </div>
 
-          {/* Add variable form */}
-          <div className="v5-editor-section">
-            <Text type="secondary" className="v5-editor-section-title">
-              ADD VARIABLE
-            </Text>
-            <Space size={8} align="start">
-              <Input
-                size="small"
-                value={newVarName}
-                onChange={(e) => setNewVarName(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
-                placeholder="VARIABLE_NAME"
-                style={{ width: 180, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-                onPressEnter={handleAddVariable}
-              />
-              <Input
-                size="small"
-                value={newVarValue}
-                onChange={(e) => setNewVarValue(e.target.value)}
-                placeholder="Value"
-                style={{ width: 240 }}
-                onPressEnter={handleAddVariable}
-              />
-              <Switch
-                size="small"
-                checked={newVarSecret}
-                onChange={setNewVarSecret}
-                checkedChildren="Secret"
-                unCheckedChildren="Default"
-              />
-              <Button size="small" icon={<PlusOutlined />} onClick={handleAddVariable} disabled={!newVarName.trim()}>
-                Add
-              </Button>
-            </Space>
+            <div
+              style={{
+                border: `1px solid ${token.colorBorderSecondary}`,
+                borderRadius: 6,
+                overflow: 'hidden',
+              }}
+            >
+              {/* Column headers */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: GRID_COLS,
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                  background: token.colorFillQuaternary,
+                }}
+              >
+                <div style={{ padding: '6px 8px' }} />
+                <div
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: token.colorTextSecondary,
+                    borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                  }}
+                >
+                  Variable
+                </div>
+                <div
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: token.colorTextSecondary,
+                    borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                  }}
+                >
+                  Value
+                </div>
+                <div
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: token.colorTextSecondary,
+                    borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                  }}
+                >
+                  Description
+                </div>
+                <div style={{ padding: '6px 8px' }} />
+              </div>
+
+              {/* Rows */}
+              <DndContext modifiers={[restrictToVerticalAxis]} onDragEnd={handleDragEnd}>
+                <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                  {rows.map((row, index) => (
+                    <SortableRow
+                      key={row.uid}
+                      row={row}
+                      index={index}
+                      isLast={index === rows.length - 1}
+                      isRevealed={revealedSecrets.has(row.uid)}
+                      token={tokenStrings}
+                      updateRow={updateRow}
+                      deleteRow={deleteRow}
+                      toggleSecretReveal={toggleSecretReveal}
+                      toggleSecret={toggleSecret}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            </div>
           </div>
         </div>
       </div>

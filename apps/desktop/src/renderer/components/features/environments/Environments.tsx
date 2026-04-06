@@ -12,6 +12,7 @@ import { useEnvironments, useSettings, useSources } from '@/renderer/contexts';
 import { useHeaderRules } from '@/renderer/hooks/useCentralizedWorkspace';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
 import { showMessage } from '@/renderer/utils/ui/messageUtil';
+import { toEnvironmentMap } from '@/types/environment';
 import { MissingVariablesAlert, TutorialInfo, VariableUsageSummary } from './EnvironmentInfo';
 import { AddVariableModal, CreateEnvironmentModal } from './EnvironmentModals';
 import EnvironmentSelector from './EnvironmentSelector';
@@ -28,19 +29,26 @@ const Environments = () => {
   const { token } = theme.useToken();
 
   // Context hooks
-  const {
-    environments,
-    activeEnvironment,
-    loading,
-    createEnvironment,
-    deleteEnvironment,
-    switchEnvironment,
-    setVariable,
-    deleteVariable,
-    getAllVariablesWithMetadata,
-    findVariableUsage,
-    cloneEnvironment,
-  } = useEnvironments();
+  const envHook = useEnvironments();
+  const environments = toEnvironmentMap(envHook.environments);
+  const activeEnv = envHook.activeEnvironment
+    ? envHook.environments.find((e) => e.id === envHook.activeEnvironment)
+    : undefined;
+  const activeEnvironment = activeEnv?.name ?? '';
+  const { loading, setVariable, deleteVariable, getAllVariablesWithMetadata, findVariableUsage } = envHook;
+  const createEnvironment = async (name: string) => !!(await envHook.createEnvironment({ name }));
+  const deleteEnvironment = async (name: string) => {
+    const env = envHook.environments.find((e) => e.name === name);
+    return env ? envHook.deleteEnvironment(env.id) : false;
+  };
+  const switchEnvironment = async (name: string) => {
+    const env = envHook.environments.find((e) => e.name === name);
+    return env ? envHook.switchEnvironment(env.id) : false;
+  };
+  const cloneEnvironment = async (sourceEnvName: string, newName: string) => {
+    const env = envHook.environments.find((e) => e.name === sourceEnvName);
+    return env ? envHook.cloneEnvironment(env.id, newName) : false;
+  };
 
   const { sources } = useSources();
   const { settings } = useSettings();
@@ -138,7 +146,7 @@ const Environments = () => {
   const handleAddVariable = async () => {
     try {
       const values = await variableForm.validateFields();
-      const success = await setVariable(values.name, values.value, null, values.isSecret);
+      const success = await setVariable(values.name, values.value, null, values.isSensitive);
       if (success) {
         setShowAddVariableModal(false);
         variableForm.resetFields();
@@ -155,7 +163,7 @@ const Environments = () => {
    *  newData - New variable data
    */
   const handleEditVariable = async (oldName: string, newData: unknown) => {
-    const data = newData as { name: string; value: string; isSecret?: boolean };
+    const data = newData as { name: string; value: string; isSensitive?: boolean };
     try {
       // If name changed, delete old and create new
       if (oldName !== data.name) {
@@ -166,7 +174,7 @@ const Environments = () => {
         }
       }
 
-      const success = await setVariable(data.name, data.value, null, data.isSecret);
+      const success = await setVariable(data.name, data.value, null, data.isSensitive);
       if (success) {
         showMessage('success', 'Variable updated successfully');
       }

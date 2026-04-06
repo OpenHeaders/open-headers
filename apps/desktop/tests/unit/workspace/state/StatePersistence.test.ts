@@ -168,7 +168,14 @@ describe('saveProxyRules', () => {
 
 describe('saveAll', () => {
   it('saves only dirty data types', async () => {
-    const dirty = { sources: true, rules: false, proxyRules: false, collections: false, folders: false, workspaces: true };
+    const dirty = {
+      sources: true,
+      rules: false,
+      proxyRules: false,
+      collections: false,
+      folders: false,
+      workspaces: true,
+    };
     const data = {
       sources: [],
       rules: { header: [], request: [], response: [] } as RulesCollection,
@@ -183,7 +190,15 @@ describe('saveAll', () => {
   });
 
   it('returns 0 when nothing is dirty', async () => {
-    const dirty = { sources: false, rules: false, proxyRules: false, collections: false, folders: false, workspaces: false, environments: false };
+    const dirty = {
+      sources: false,
+      rules: false,
+      proxyRules: false,
+      collections: false,
+      folders: false,
+      workspaces: false,
+      environments: false,
+    };
     const data = {
       sources: [],
       rules: { header: [], request: [], response: [] } as RulesCollection,

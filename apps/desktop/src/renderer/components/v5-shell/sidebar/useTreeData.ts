@@ -14,7 +14,16 @@ import {
   GlobalOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import type { Collection, CollectionSection, Folder, FolderSection, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+import type {
+  Collection,
+  CollectionSection,
+  Environment,
+  Folder,
+  FolderSection,
+  HeaderRule,
+  Source,
+  SourceUpdate,
+} from '@openheaders/core';
 import type { MenuItemType } from 'antd/es/menu/interface';
 import { createElement } from 'react';
 import type { TreeNode } from './types';
@@ -35,8 +44,13 @@ function methodBadge(method?: string): React.ReactNode {
     'span',
     {
       style: {
-        fontSize: 8, fontWeight: 700, color: 'white',
-        background: METHOD_COLORS[m] || '#999', padding: '1px 3px', borderRadius: 2, flexShrink: 0,
+        fontSize: 8,
+        fontWeight: 700,
+        color: 'white',
+        background: METHOD_COLORS[m] || '#999',
+        padding: '1px 3px',
+        borderRadius: 2,
+        flexShrink: 0,
       },
     },
     m,
@@ -61,7 +75,12 @@ function containerMenuItems(
   const ItemIcon = section === 'requests' ? ApiOutlined : section === 'rules' ? ThunderboltOutlined : GlobalOutlined;
   return [
     { key: 'add-item', icon: createElement(ItemIcon), label: itemLabel, onClick: onAddItem },
-    { key: 'add-folder', icon: createElement(FolderOutlined), label: isSubFolder ? 'Add Sub-folder' : 'Add Folder', onClick: onAddFolder },
+    {
+      key: 'add-folder',
+      icon: createElement(FolderOutlined),
+      label: isSubFolder ? 'Add Sub-folder' : 'Add Folder',
+      onClick: onAddFolder,
+    },
     { type: 'divider' as const, key: 'div' },
     { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
     { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
@@ -82,10 +101,9 @@ export interface UseTreeDataProps {
   collections: Collection[];
   sources: Source[];
   rules: HeaderRule[];
-  envNames: string[];
-  activeEnvironment: string;
+  environments: Environment[];
+  activeEnvironment: string | null;
   folders: Folder[];
-  envOrganization: Record<string, { collectionId?: string; folderId?: string }>;
   expandedKeys: Set<string>;
   filter: string;
   onOpenTab: (tab: OpenTabRequest) => void;
@@ -98,7 +116,8 @@ export interface UseTreeDataProps {
   removeSource: (sourceId: string) => Promise<boolean>;
   updateRule: (ruleId: string, updates: Partial<HeaderRule>) => void;
   removeRule: (ruleId: string) => void;
-  deleteEnvironment: (name: string) => void;
+  updateEnvironment: (environmentId: string, updates: { name?: string }) => Promise<boolean> | void;
+  deleteEnvironment: (environmentId: string) => void;
   /** Centralized folder creation — handles expand, open tab, trigger rename */
   createNewFolder: (section: FolderSection, collectionId: string, parentFolderId: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => void;
@@ -118,13 +137,32 @@ export interface UseTreeDataReturn {
 
 export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
   const {
-    collections, sources, rules, envNames, activeEnvironment,
-    folders, envOrganization, expandedKeys, filter,
-    onOpenTab, onToggleExpand, onStartRename,
-    onNewRequest, onNewRule, onNewEnvironment,
-    updateSource, removeSource, updateRule, removeRule, deleteEnvironment,
-    createNewFolder, renameFolder, deleteFolder,
-    updateCollection, removeCollection, confirmDelete,
+    collections,
+    sources,
+    rules,
+    environments,
+    activeEnvironment,
+    folders,
+    expandedKeys,
+    filter,
+    onOpenTab,
+    onToggleExpand,
+    onStartRename,
+    onNewRequest,
+    onNewRule,
+    onNewEnvironment,
+    updateSource,
+    removeSource,
+    updateRule,
+    removeRule,
+    updateEnvironment,
+    deleteEnvironment,
+    createNewFolder,
+    renameFolder,
+    deleteFolder,
+    updateCollection,
+    removeCollection,
+    confirmDelete,
   } = props;
 
   const lowerFilter = filter.toLowerCase();
@@ -155,15 +193,23 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     };
 
     const node: TreeNode = {
-      id: fid, kind: 'folder', label: folder.name, depth, expandable: true, parentId: parentNodeId,
+      id: fid,
+      kind: 'folder',
+      label: folder.name,
+      depth,
+      expandable: true,
+      parentId: parentNodeId,
       icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
-      canRename: true, canDelete: true, canAddChild: true,
+      canRename: true,
+      canDelete: true,
+      canAddChild: true,
       onOpen: () => onToggleExpand(fid),
       onRename: (name) => renameFolder(folder.id, name),
       onDelete: () => confirmDelete(folder.name, () => deleteFolder(folder.id)),
       onAddItem,
       addMenuItems: containerMenuItems(
-        section, onAddItem,
+        section,
+        onAddItem,
         () => createNewFolder(folderSection, folder.collectionId, folder.id),
         () => onStartRename(fid),
         () => confirmDelete(folder.name, () => deleteFolder(folder.id)),
@@ -190,7 +236,11 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
           placeholderTitle: 'Folder is empty',
           placeholderMessage: 'Add a request, a folder, or drag items here to group them together.',
           placeholderActions: [
-            { label: 'Add request', icon: iconEl(ApiOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddItem },
+            {
+              label: 'Add request',
+              icon: iconEl(ApiOutlined, 'var(--ant-color-text-tertiary, #999)'),
+              onClick: onAddItem,
+            },
             {
               label: 'Add folder',
               icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
@@ -221,18 +271,33 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     };
 
     const node: TreeNode = {
-      id: colId, kind: 'group', label: collection.name, depth: 0, expandable: true,
+      id: colId,
+      kind: 'group',
+      label: collection.name,
+      depth: 0,
+      expandable: true,
       icon: iconEl(ApiOutlined, 'var(--ant-color-text-tertiary, #999)'),
-      canRename: true, canDelete: true, canAddChild: true,
+      canRename: true,
+      canDelete: true,
+      canAddChild: true,
       onOpen: () => onToggleExpand(collection.id),
-      onRename: async (name) => { await updateCollection(collection.id, { name }); },
-      onDelete: () => confirmDelete(collection.name, () => { removeCollection(collection.id); }),
+      onRename: async (name) => {
+        await updateCollection(collection.id, { name });
+      },
+      onDelete: () =>
+        confirmDelete(collection.name, () => {
+          removeCollection(collection.id);
+        }),
       onAddItem,
       addMenuItems: containerMenuItems(
-        section, onAddItem,
+        section,
+        onAddItem,
         () => createNewFolder(folderSection, collection.id, null),
         () => onStartRename(colId),
-        () => confirmDelete(collection.name, () => { removeCollection(collection.id); }),
+        () =>
+          confirmDelete(collection.name, () => {
+            removeCollection(collection.id);
+          }),
       ),
     };
 
@@ -243,7 +308,8 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
         items.push(...children);
       } else {
         const itemLabel = section === 'requests' ? 'Add request' : section === 'rules' ? 'Add rule' : 'Add environment';
-        const ItemIcon = section === 'requests' ? ApiOutlined : section === 'rules' ? ThunderboltOutlined : GlobalOutlined;
+        const ItemIcon =
+          section === 'requests' ? ApiOutlined : section === 'rules' ? ThunderboltOutlined : GlobalOutlined;
         items.push({
           id: `${colId}-empty`,
           kind: 'placeholder',
@@ -282,31 +348,34 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
       if (lowerFilter && !col.name.toLowerCase().includes(lowerFilter)) {
         // Check if any source in this collection matches
         const hasMatch = sources.some(
-          (s) => s.collectionId === col.id &&
-            (s.sourceName || s.sourcePath || '').toLowerCase().includes(lowerFilter),
+          (s) => s.collectionId === col.id && (s.sourceName || s.sourcePath || '').toLowerCase().includes(lowerFilter),
         );
         if (!hasMatch) continue;
       }
 
-      items.push(...buildCollectionNode(col, 'requests', (collectionId, colNodeId) => {
-        const colSources = sources.filter((s) => s.collectionId === col.id);
-        const colFolders = folders.filter((f) => f.collectionId === collectionId);
+      items.push(
+        ...buildCollectionNode(col, 'requests', (collectionId, colNodeId) => {
+          const colSources = sources.filter((s) => s.collectionId === col.id);
+          const colFolders = folders.filter((f) => f.collectionId === collectionId);
 
-        const childrenOf = (parentFolderId: string | null, parentNodeId: string): TreeNode[] => {
-          const childItems: TreeNode[] = [];
-          for (const folder of colFolders.filter((f) => f.parentFolderId === parentFolderId)) {
-            const depth = parentFolderId === null ? 1 : getDepth(folder, colFolders) + 1;
-            childItems.push(...buildFolderNode(folder, depth, 'requests', parentNodeId, (pId, pNodeId) => childrenOf(pId, pNodeId)));
-          }
-          for (const source of colSources.filter((s) => (s.folderId ?? null) === parentFolderId)) {
-            const depth = parentFolderId === null ? 1 : getDepth({ parentFolderId } as Folder, colFolders) + 1;
-            childItems.push(buildSourceNode(source, depth, parentNodeId));
-          }
-          return childItems;
-        };
+          const childrenOf = (parentFolderId: string | null, parentNodeId: string): TreeNode[] => {
+            const childItems: TreeNode[] = [];
+            for (const folder of colFolders.filter((f) => f.parentFolderId === parentFolderId)) {
+              const depth = parentFolderId === null ? 1 : getDepth(folder, colFolders) + 1;
+              childItems.push(
+                ...buildFolderNode(folder, depth, 'requests', parentNodeId, (pId, pNodeId) => childrenOf(pId, pNodeId)),
+              );
+            }
+            for (const source of colSources.filter((s) => (s.folderId ?? null) === parentFolderId)) {
+              const depth = parentFolderId === null ? 1 : getDepth({ parentFolderId } as Folder, colFolders) + 1;
+              childItems.push(buildSourceNode(source, depth, parentNodeId));
+            }
+            return childItems;
+          };
 
-        return childrenOf(null, colNodeId);
-      }));
+          return childrenOf(null, colNodeId);
+        }),
+      );
     }
 
     return items;
@@ -316,12 +385,34 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     const label = source.sourceName || source.sourcePath || 'Untitled';
     const sid = `source-${source.sourceId}`;
     return {
-      id: sid, kind: 'leaf', label, depth, expandable: false, parentId,
-      icon: source.sourceType === 'http' ? methodBadge(source.sourceMethod) : iconEl(FileOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
-      canRename: true, canDelete: true, canAddChild: false,
-      onOpen: () => onOpenTab({ id: sid, type: 'collection', label, icon: source.sourceMethod || source.sourceType, entityId: source.sourceId }),
-      onRename: async (name) => { await updateSource(source.sourceId, { sourceName: name }); },
-      onDelete: () => confirmDelete(label, () => { removeSource(source.sourceId); }),
+      id: sid,
+      kind: 'leaf',
+      label,
+      depth,
+      expandable: false,
+      parentId,
+      icon:
+        source.sourceType === 'http'
+          ? methodBadge(source.sourceMethod)
+          : iconEl(FileOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+      canRename: true,
+      canDelete: true,
+      canAddChild: false,
+      onOpen: () =>
+        onOpenTab({
+          id: sid,
+          type: 'collection',
+          label,
+          icon: source.sourceMethod || source.sourceType,
+          entityId: source.sourceId,
+        }),
+      onRename: async (name) => {
+        await updateSource(source.sourceId, { sourceName: name });
+      },
+      onDelete: () =>
+        confirmDelete(label, () => {
+          removeSource(source.sourceId);
+        }),
     };
   }
 
@@ -338,23 +429,31 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     const items: TreeNode[] = [];
 
     for (const col of sectionCollections) {
-      items.push(...buildCollectionNode(col, 'rules', (collectionId, colNodeId) => {
-        const colFolders = folders.filter((f) => f.collectionId === collectionId);
+      items.push(
+        ...buildCollectionNode(col, 'rules', (collectionId, colNodeId) => {
+          const colFolders = folders.filter((f) => f.collectionId === collectionId);
 
-        const childrenOf = (parentFolderId: string | null, depth: number, parentNodeId: string): TreeNode[] => {
-          const childItems: TreeNode[] = [];
-          for (const folder of colFolders.filter((f) => f.parentFolderId === parentFolderId)) {
-            childItems.push(...buildFolderNode(folder, depth, 'rules', parentNodeId, (pId, pNodeId) => childrenOf(pId, depth + 1, pNodeId)));
-          }
-          const levelRules = filtered.filter((r) => (r.collectionId ?? null) === collectionId && (r.folderId ?? null) === parentFolderId);
-          for (const rule of levelRules) {
-            childItems.push(buildRuleNode(rule, depth, parentNodeId));
-          }
-          return childItems;
-        };
+          const childrenOf = (parentFolderId: string | null, depth: number, parentNodeId: string): TreeNode[] => {
+            const childItems: TreeNode[] = [];
+            for (const folder of colFolders.filter((f) => f.parentFolderId === parentFolderId)) {
+              childItems.push(
+                ...buildFolderNode(folder, depth, 'rules', parentNodeId, (pId, pNodeId) =>
+                  childrenOf(pId, depth + 1, pNodeId),
+                ),
+              );
+            }
+            const levelRules = filtered.filter(
+              (r) => (r.collectionId ?? null) === collectionId && (r.folderId ?? null) === parentFolderId,
+            );
+            for (const rule of levelRules) {
+              childItems.push(buildRuleNode(rule, depth, parentNodeId));
+            }
+            return childItems;
+          };
 
-        return childrenOf(null, 1, colNodeId);
-      }));
+          return childrenOf(null, 1, colNodeId);
+        }),
+      );
     }
 
     // Rules not in any collection
@@ -373,12 +472,23 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     const rid = `rule-${rule.id}`;
     const color = rule.isEnabled ? 'var(--ant-color-success, #52c41a)' : 'var(--ant-color-text-tertiary, #999)';
     return {
-      id: rid, kind: 'leaf', label, depth, expandable: false, parentId,
+      id: rid,
+      kind: 'leaf',
+      label,
+      depth,
+      expandable: false,
+      parentId,
       icon: iconEl(ThunderboltOutlined, color),
       badge: !rule.isEnabled
-        ? createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-text-secondary, #666)', marginLeft: 'auto' } }, 'off')
+        ? createElement(
+            'span',
+            { style: { fontSize: 9, color: 'var(--ant-color-text-secondary, #666)', marginLeft: 'auto' } },
+            'off',
+          )
         : undefined,
-      canRename: true, canDelete: true, canAddChild: false,
+      canRename: true,
+      canDelete: true,
+      canAddChild: false,
       onOpen: () => onOpenTab({ id: rid, type: 'rule', label, icon: 'rule', entityId: rule.id }),
       onRename: (name) => updateRule(rule.id, { name }),
       onDelete: () => confirmDelete(label, () => removeRule(rule.id)),
@@ -389,58 +499,77 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
 
   function buildEnvironmentsNodes(): TreeNode[] {
     const sectionCollections = collections.filter((c) => c.section === 'environments');
-    const filtered = lowerFilter ? envNames.filter((n) => n.toLowerCase().includes(lowerFilter)) : envNames;
+    const filtered = lowerFilter
+      ? environments.filter((e) => e.name.toLowerCase().includes(lowerFilter))
+      : environments;
 
     const items: TreeNode[] = [];
 
     for (const col of sectionCollections) {
-      items.push(...buildCollectionNode(col, 'environments', (collectionId, colNodeId) => {
-        const colFolders = folders.filter((f) => f.collectionId === collectionId);
+      items.push(
+        ...buildCollectionNode(col, 'environments', (collectionId, colNodeId) => {
+          const colFolders = folders.filter((f) => f.collectionId === collectionId);
 
-        const childrenOf = (parentFolderId: string | null, depth: number, parentNodeId: string): TreeNode[] => {
-          const childItems: TreeNode[] = [];
-          for (const folder of colFolders.filter((f) => f.parentFolderId === parentFolderId)) {
-            childItems.push(...buildFolderNode(folder, depth, 'environments', parentNodeId, (pId, pNodeId) => childrenOf(pId, depth + 1, pNodeId)));
-          }
-          const defaultEnvCollectionId = sectionCollections[0]?.id ?? null;
-          const levelEnvs = filtered.filter((name) => {
-            const org = envOrganization[name];
-            const envColId = org?.collectionId ?? defaultEnvCollectionId;
-            return envColId === collectionId && (org?.folderId ?? null) === parentFolderId;
-          });
-          for (const name of levelEnvs) {
-            childItems.push(buildEnvNode(name, depth, parentNodeId));
-          }
-          return childItems;
-        };
+          const childrenOf = (parentFolderId: string | null, depth: number, parentNodeId: string): TreeNode[] => {
+            const childItems: TreeNode[] = [];
+            for (const folder of colFolders.filter((f) => f.parentFolderId === parentFolderId)) {
+              childItems.push(
+                ...buildFolderNode(folder, depth, 'environments', parentNodeId, (pId, pNodeId) =>
+                  childrenOf(pId, depth + 1, pNodeId),
+                ),
+              );
+            }
+            const levelEnvs = filtered.filter(
+              (env) => (env.collectionId ?? null) === collectionId && (env.folderId ?? null) === parentFolderId,
+            );
+            for (const env of levelEnvs) {
+              childItems.push(buildEnvNode(env, depth, parentNodeId));
+            }
+            return childItems;
+          };
 
-        return childrenOf(null, 1, colNodeId);
-      }));
+          return childrenOf(null, 1, colNodeId);
+        }),
+      );
     }
 
-    // Environments not in any collection (legacy / ungrouped)
+    // Environments not in any collection (ungrouped)
     if (sectionCollections.length === 0) {
-      for (const name of filtered) {
-        items.push(buildEnvNode(name, 0));
+      for (const env of filtered) {
+        items.push(buildEnvNode(env, 0));
       }
     }
 
     return items;
   }
 
-  function buildEnvNode(name: string, depth: number, parentId?: string): TreeNode {
-    const eid = `env-${name}`;
-    const isActive = name === activeEnvironment;
+  function buildEnvNode(env: Environment, depth: number, parentId?: string): TreeNode {
+    const eid = `env-${env.id}`;
+    const isActive = env.id === activeEnvironment;
     const color = isActive ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)';
     return {
-      id: eid, kind: 'leaf', label: name, depth, expandable: false, parentId,
+      id: eid,
+      kind: 'leaf',
+      label: env.name,
+      depth,
+      expandable: false,
+      parentId,
       icon: iconEl(GlobalOutlined, color),
       badge: isActive
-        ? createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-primary, #1677ff)', marginLeft: 'auto' } }, 'active')
+        ? createElement(
+            'span',
+            { style: { fontSize: 9, color: 'var(--ant-color-primary, #1677ff)', marginLeft: 'auto' } },
+            'active',
+          )
         : undefined,
-      canRename: false, canDelete: true, canAddChild: false,
-      onOpen: () => onOpenTab({ id: eid, type: 'environment', label: name, icon: 'environment', entityId: name }),
-      onDelete: () => confirmDelete(name, () => deleteEnvironment(name)),
+      canRename: true,
+      canDelete: true,
+      canAddChild: false,
+      onOpen: () => onOpenTab({ id: eid, type: 'environment', label: env.name, icon: 'environment', entityId: env.id }),
+      onRename: async (name) => {
+        await updateEnvironment(env.id, { name });
+      },
+      onDelete: () => confirmDelete(env.name, () => deleteEnvironment(env.id)),
     };
   }
 

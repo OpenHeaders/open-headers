@@ -247,8 +247,8 @@ describe('WorkspaceStateService.onCliWorkspaceCreated', () => {
         return {
           environments: {
             Default: {
-              API_HOST: { value: 'api.openheaders.io', isSecret: false },
-              API_KEY: { value: 'secret123', isSecret: true },
+              API_HOST: { value: 'api.openheaders.io', isSensitive: false },
+              API_KEY: { value: 'secret123', isSensitive: true },
             },
           },
           activeEnvironment: 'Default',

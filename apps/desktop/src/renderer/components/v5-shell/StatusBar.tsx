@@ -205,26 +205,44 @@ export function StatusBar({
   });
 
   // Environment dropdown menu items
-  const envNames = Object.keys(environments);
-  const environmentMenuItems = envNames.map((name) => {
-    const isActive = name === activeEnvironment;
-    const varCount = Object.keys(environments[name] || {}).length;
-    return {
-      key: name,
+  const activeEnvName = activeEnvironment
+    ? (environments.find((e) => e.id === activeEnvironment)?.name ?? 'Unknown')
+    : 'No Environment';
+  const environmentMenuItems = [
+    {
+      key: 'no-env',
       label: (
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <span>{name}</span>
-          <Space size={4}>
-            <span style={{ fontSize: 11, color: token.colorTextTertiary }}>({varCount})</span>
-            {isActive && <CheckOutlined style={{ color: token.colorPrimary }} />}
-          </Space>
+          <span style={{ fontStyle: 'italic' }}>No Environment</span>
+          {!activeEnvironment && <CheckOutlined style={{ color: token.colorPrimary }} />}
         </Space>
       ),
       onClick: () => {
-        if (!isActive) void switchEnvironment(name);
+        if (activeEnvironment) void switchEnvironment(null);
       },
-    };
-  });
+    },
+    { type: 'divider' as const, key: 'div' },
+    ...environments.map((env) => {
+      const isActive = env.id === activeEnvironment;
+      const varCount = Object.keys(env.variables).length;
+      return {
+        key: env.id,
+        label: (
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <span>{env.name}</span>
+            <Space size={4}>
+              <span style={{ fontSize: 11, color: token.colorTextTertiary }}>({varCount})</span>
+              {isActive && <CheckOutlined style={{ color: token.colorPrimary }} />}
+            </Space>
+          </Space>
+        ),
+        onClick: () => {
+          if (isActive) void switchEnvironment(null);
+          else void switchEnvironment(env.id);
+        },
+      };
+    }),
+  ];
 
   return (
     <div
@@ -296,7 +314,7 @@ export function StatusBar({
         <Dropdown menu={{ items: environmentMenuItems }} trigger={['click']} placement="topRight">
           <span className="v5-statusbar-item" style={{ cursor: 'pointer' }}>
             <span style={{ fontSize: 9, fontWeight: 700, color: token.colorTextTertiary, marginRight: 2 }}>E</span>
-            {activeEnvironment || 'Default'} ▾
+            {activeEnvName} ▾
           </span>
         </Dropdown>
         {appVersion && (

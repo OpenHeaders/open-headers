@@ -42,7 +42,7 @@ vi.mock('@/services/workspace/git/utils/EnvironmentSyncUtils.js', () => ({
   readFileWithAtomicWriter: vi.fn().mockResolvedValue({ exists: false, content: null }),
   createBackupIfNeeded: vi.fn().mockResolvedValue(undefined),
   cleanupOldBackups: vi.fn().mockResolvedValue(undefined),
-  extractVarData: vi.fn().mockReturnValue({ value: '', isSecret: false, hasNonEmptyValue: false }),
+  extractVarData: vi.fn().mockReturnValue({ value: '', isSensitive: false, hasNonEmptyValue: false }),
   validateEnvironmentWrite: vi
     .fn()
     .mockReturnValue({ safe: true, shouldBackup: false, shouldBlock: false, lossPercentage: 0 }),
