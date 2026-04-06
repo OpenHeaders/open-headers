@@ -6,7 +6,7 @@
 
 import { RightOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface BreadcrumbSegment {
   label: string;
@@ -21,13 +21,30 @@ interface BreadcrumbBarProps {
   saveLabel?: string | null;
   /** Called when the user renames the last breadcrumb segment (the item name). */
   onRename?: (newName: string) => void;
+  /** Set to a unique value (e.g. tab ID) to trigger auto-rename mode. Change the value to re-trigger. */
+  autoRenameKey?: string | null;
 }
 
-export function BreadcrumbBar({ segments, isDirty, onSave, saveLabel, onRename }: BreadcrumbBarProps) {
+export function BreadcrumbBar({ segments, isDirty, onSave, saveLabel, onRename, autoRenameKey }: BreadcrumbBarProps) {
   const { token } = theme.useToken();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastAutoRenameKey = useRef<string | null>(null);
+
+  // Auto-enter rename mode when autoRenameKey changes to a new non-null value
+  useEffect(() => {
+    if (autoRenameKey && autoRenameKey !== lastAutoRenameKey.current && onRename && segments.length > 0) {
+      lastAutoRenameKey.current = autoRenameKey;
+      const label = segments[segments.length - 1].label;
+      setEditValue(label);
+      setEditing(true);
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 50);
+    }
+  }, [autoRenameKey, onRename, segments]);
 
   if (segments.length === 0) return null;
 

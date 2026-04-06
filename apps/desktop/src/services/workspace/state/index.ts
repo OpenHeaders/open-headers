@@ -12,6 +12,8 @@ export {
   updateSource,
   updateSourceFetchResult,
 } from './SourceCrud';
+export { addCollection, removeCollection, updateCollection } from './CollectionCrud';
+export { addFolder, removeFolder, updateFolder } from './FolderCrud';
 export {
   activateReadySources,
   evaluateAllSourceDependencies,
@@ -26,8 +28,12 @@ export {
 } from './StateBroadcaster';
 export type { WorkspacesConfig } from './StatePersistence';
 export {
+  loadCollections,
   loadEnvironments,
+  loadFolders,
   loadProxyRules,
+  saveCollections,
+  saveFolders,
   loadRules,
   loadSources,
   loadWorkspaceDataV5Aware,

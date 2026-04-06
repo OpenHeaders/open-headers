@@ -2,7 +2,7 @@
  * Shared types for WorkspaceStateService and its submodules.
  */
 
-import type { HeaderRule, RulesCollection, Source } from '@openheaders/core';
+import type { Collection, Folder, HeaderRule, RulesCollection, Source } from '@openheaders/core';
 import type { SyncData } from '@/services/workspace/sync/types';
 import type { EnvironmentMap } from '@/types/environment';
 import type { ProxyRule } from '@/types/proxy';
@@ -21,6 +21,8 @@ export interface WorkspaceState {
   sources: Source[];
   rules: RulesCollection;
   proxyRules: ProxyRule[];
+  collections: Collection[];
+  folders: Folder[];
   environments: EnvironmentMap;
   activeEnvironment: string;
 }
@@ -83,6 +85,8 @@ export interface DirtyFlags {
   sources: boolean;
   rules: boolean;
   proxyRules: boolean;
+  collections: boolean;
+  folders: boolean;
   workspaces: boolean;
   environments: boolean;
 }
@@ -106,6 +110,8 @@ export interface StateContext {
   scheduleDebouncedSave(): void;
   saveAll(): Promise<void>;
   saveSources(): Promise<void>;
+  saveCollections(): Promise<void>;
+  saveFolders(): Promise<void>;
   saveEnvironments(): Promise<void>;
   saveWorkspacesConfig(): Promise<void>;
   loadWorkspaceData(workspaceId: string): Promise<void>;

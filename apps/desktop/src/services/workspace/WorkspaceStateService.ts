@@ -14,7 +14,7 @@
  * submodules to the service's mutable state.
  */
 
-import type { HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+import type { Collection, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
 import { errorMessage } from '@openheaders/core';
 import electron from 'electron';
 import type { EnvironmentMap } from '@/types/environment';
@@ -25,6 +25,14 @@ import mainLogger from '@/utils/mainLogger';
 import {
   // Broadcasting
   broadcastToServices,
+  // Collection CRUD
+  addCollection as crudAddCollection,
+  removeCollection as crudRemoveCollection,
+  updateCollection as crudUpdateCollection,
+  // Folder CRUD
+  addFolder as crudAddFolder,
+  removeFolder as crudRemoveFolder,
+  updateFolder as crudUpdateFolder,
   addHeaderRule as crudAddHeaderRule,
   addProxyRule as crudAddProxyRule,
   // Source CRUD
@@ -50,14 +58,18 @@ import {
   // Source dependencies
   evaluateAllSourceDependencies,
   extractVariablesFromSource,
+  loadCollections,
   loadEnvironments,
+  loadFolders,
   loadProxyRules,
   loadRules,
   loadSources,
   // Persistence
   loadWorkspacesConfig,
   type ProxyServiceLike,
+  saveCollections as persistCollections,
   saveEnvironments as persistEnvironments,
+  saveFolders as persistFolders,
   saveProxyRules as persistProxyRules,
   saveRules as persistRules,
   saveSources as persistSources,
@@ -96,6 +108,8 @@ class WorkspaceStateService {
     sources: false,
     rules: false,
     proxyRules: false,
+    collections: false,
+    folders: false,
     workspaces: false,
     environments: false,
   };
@@ -128,6 +142,8 @@ class WorkspaceStateService {
       sources: [],
       rules: { header: [], request: [], response: [] },
       proxyRules: [],
+      collections: [],
+      folders: [],
       environments: { Default: {} },
       activeEnvironment: 'Default',
     };
@@ -152,6 +168,8 @@ class WorkspaceStateService {
       scheduleDebouncedSave: () => this.scheduleDebouncedSave(),
       saveAll: () => this.saveAll(),
       saveSources: () => this.saveSources(),
+      saveCollections: () => this.saveCollections(),
+      saveFolders: () => this.saveFolders(),
       saveEnvironments: () => this.saveEnvironments(),
       saveWorkspacesConfig: () => this.saveWorkspacesConfig(),
       loadWorkspaceData: (id) => this.loadWorkspaceData(id),
@@ -311,18 +329,25 @@ class WorkspaceStateService {
   // ── Workspace data loading ────────────────────────────────────
 
   private async loadWorkspaceData(workspaceId: string): Promise<void> {
-    const [sources, rules, proxyRules] = await Promise.all([
+    const [sources, rules, proxyRules, collections, folders] = await Promise.all([
       loadSources(this.appDataPath, workspaceId),
       loadRules(this.appDataPath, workspaceId),
       loadProxyRules(this.appDataPath, workspaceId),
+      loadCollections(this.appDataPath, workspaceId),
+      loadFolders(this.appDataPath, workspaceId),
     ]);
 
     this.state.sources = evaluateAllSourceDependencies(sources, this.envResolver);
     this.state.rules = rules;
     this.state.proxyRules = proxyRules;
+    this.state.folders = folders;
+    this.state.collections = collections;
+
     this.dirty.sources = false;
     this.dirty.rules = false;
     this.dirty.proxyRules = false;
+    this.dirty.collections = false;
+    this.dirty.folders = false;
     this.dirty.environments = false;
 
     const totalRules = rules.header.length + rules.request.length + rules.response.length;
@@ -345,6 +370,14 @@ class WorkspaceStateService {
   private async saveSources(): Promise<void> {
     await persistSources(this.appDataPath, this.state.activeWorkspaceId, this.state.sources);
     this.dirty.sources = false;
+  }
+  private async saveCollections(): Promise<void> {
+    await persistCollections(this.appDataPath, this.state.activeWorkspaceId, this.state.collections);
+    this.dirty.collections = false;
+  }
+  private async saveFolders(): Promise<void> {
+    await persistFolders(this.appDataPath, this.state.activeWorkspaceId, this.state.folders);
+    this.dirty.folders = false;
   }
   private async saveRules(): Promise<void> {
     await persistRules(this.appDataPath, this.state.activeWorkspaceId, this.state.rules);
@@ -378,6 +411,8 @@ class WorkspaceStateService {
       if (this.dirty.sources) saves.push(this.saveSources());
       if (this.dirty.rules) saves.push(this.saveRules());
       if (this.dirty.proxyRules) saves.push(this.saveProxyRules());
+      if (this.dirty.collections) saves.push(this.saveCollections());
+      if (this.dirty.folders) saves.push(this.saveFolders());
       if (this.dirty.environments) saves.push(this.saveEnvironments());
       if (this.dirty.workspaces) saves.push(this.saveWorkspacesConfig());
       if (saves.length > 0) {
@@ -647,6 +682,30 @@ class WorkspaceStateService {
   }
   async removeProxyRule(ruleId: string): Promise<void> {
     return crudRemoveProxyRule(this.ctx, ruleId);
+  }
+
+  // ── Collection CRUD (delegated) ───────────────────────────────
+
+  async addCollection(data: Omit<Collection, 'id'>): Promise<Collection> {
+    return crudAddCollection(this.ctx, data);
+  }
+  async updateCollection(collectionId: string, updates: Partial<Collection>): Promise<void> {
+    return crudUpdateCollection(this.ctx, collectionId, updates);
+  }
+  async removeCollection(collectionId: string): Promise<void> {
+    return crudRemoveCollection(this.ctx, collectionId);
+  }
+
+  // ── Folder CRUD (delegated) ──────────────────────────────────
+
+  async addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder> {
+    return crudAddFolder(this.ctx, folderData);
+  }
+  async updateFolder(folderId: string, updates: Partial<Folder>): Promise<void> {
+    return crudUpdateFolder(this.ctx, folderId, updates);
+  }
+  async removeFolder(folderId: string): Promise<void> {
+    return crudRemoveFolder(this.ctx, folderId);
   }
 
   // ── Workspace CRUD (delegated) ────────────────────────────────

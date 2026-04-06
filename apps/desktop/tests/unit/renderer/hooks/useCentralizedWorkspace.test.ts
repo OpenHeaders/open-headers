@@ -39,6 +39,8 @@ const defaultState = {
   sources: [],
   rules: { header: [], request: [], response: [] },
   proxyRules: [],
+  collections: [],
+  folders: [],
   syncStatus: {},
   lastSaved: {},
   isWorkspaceSwitching: false,

@@ -26,6 +26,10 @@ export interface BaseRule {
   domains: string[];
   createdAt: string;
   updatedAt: string;
+  /** Collection this rule belongs to */
+  collectionId?: string;
+  /** Folder within the collection for deeper organization */
+  folderId?: string;
 }
 
 // ── Header rule ─────────────────────────────────────────────────────

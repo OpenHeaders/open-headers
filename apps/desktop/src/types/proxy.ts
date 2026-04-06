@@ -19,6 +19,10 @@ export interface ProxyRule {
   suffix?: string;
   domains?: string[];
   hasEnvVars?: boolean;
+  /** Collection this proxy rule belongs to */
+  collectionId?: string;
+  /** Folder within the collection for deeper organization */
+  folderId?: string;
 }
 
 // ── Cache ───────────────────────────────────────────────────────────

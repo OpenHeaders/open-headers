@@ -171,7 +171,7 @@ describe('IPC Contract', () => {
     it('has expected number of invoke channels', () => {
       // Guard against accidental mass deletion/addition
       expect(mainHandleChannels.size).toBeGreaterThan(70);
-      expect(mainHandleChannels.size).toBeLessThan(120);
+      expect(mainHandleChannels.size).toBeLessThan(135);
     });
 
     it('has expected number of send channels', () => {

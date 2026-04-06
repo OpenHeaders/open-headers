@@ -5,7 +5,7 @@
  * The renderer calls ipcRenderer.invoke() and receives results.
  */
 
-import type { HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+import type { Collection, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
 import { errorMessage } from '@openheaders/core';
 import { ipcMain } from 'electron';
 import workspaceStateService from '@/services/workspace/WorkspaceStateService';
@@ -159,6 +159,70 @@ export function registerWorkspaceStateHandlers(): void {
       return { success: true };
     } catch (error) {
       log.error('Remove proxy rule failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  // ── Collection CRUD ────────────────────────────────────────────
+
+  ipcMain.handle('workspace-state:add-collection', async (_event, data: Omit<Collection, 'id'>) => {
+    try {
+      const collection = await workspaceStateService.addCollection(data);
+      return { success: true, collection };
+    } catch (error) {
+      log.error('Add collection failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  ipcMain.handle('workspace-state:update-collection', async (_event, collectionId: string, updates: Partial<Collection>) => {
+    try {
+      await workspaceStateService.updateCollection(collectionId, updates);
+      return { success: true };
+    } catch (error) {
+      log.error('Update collection failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  ipcMain.handle('workspace-state:remove-collection', async (_event, collectionId: string) => {
+    try {
+      await workspaceStateService.removeCollection(collectionId);
+      return { success: true };
+    } catch (error) {
+      log.error('Remove collection failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  // ── Folder CRUD ───────────────────────────────────────────────
+
+  ipcMain.handle('workspace-state:add-folder', async (_event, folderData: Omit<Folder, 'id'>) => {
+    try {
+      const folder = await workspaceStateService.addFolder(folderData);
+      return { success: true, folder };
+    } catch (error) {
+      log.error('Add folder failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  ipcMain.handle('workspace-state:update-folder', async (_event, folderId: string, updates: Partial<Folder>) => {
+    try {
+      await workspaceStateService.updateFolder(folderId, updates);
+      return { success: true };
+    } catch (error) {
+      log.error('Update folder failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  ipcMain.handle('workspace-state:remove-folder', async (_event, folderId: string) => {
+    try {
+      await workspaceStateService.removeFolder(folderId);
+      return { success: true };
+    } catch (error) {
+      log.error('Remove folder failed:', error);
       return { success: false, error: errorMessage(error) };
     }
   });

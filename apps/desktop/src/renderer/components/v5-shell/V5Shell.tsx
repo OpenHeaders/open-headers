@@ -15,7 +15,7 @@ import { Modal, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitchOverlay';
 import { useWorkspaceSwitch } from '@/renderer/contexts';
-import { useEnvironments, useHeaderRules, useSources, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useCollections, useEnvironments, useFolders, useHeaderRules, useSources, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
 import 'allotment/dist/style.css';
 import { ActivityBar } from './ActivityBar';
 import { BottomPanel } from './BottomPanel';
@@ -49,6 +49,8 @@ export function V5Shell() {
   const { sources, addSource, updateSource } = useSources();
   const { rules, addRule, updateRule } = useHeaderRules();
   const { environments, createEnvironment } = useEnvironments();
+  const { collections, updateCollection: updateCollectionInV5 } = useCollections();
+  const { folders, updateFolder: updateFolderInV5 } = useFolders();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
@@ -61,6 +63,7 @@ export function V5Shell() {
   const sidebarExpandedSections = layoutState.sidebarExpandedSections;
   const sidebarExpandedCollections = layoutState.sidebarExpandedCollections;
   const inspectorExpandedKeys = layoutState.inspectorExpandedKeys;
+  const envOrganization = layoutState.envOrganization;
 
   const setPanels = useCallback(
     (updater: PanelVisibility | ((prev: PanelVisibility) => PanelVisibility)) => {
@@ -119,11 +122,21 @@ export function V5Shell() {
     },
     [setLayoutState],
   );
+  const setEnvOrganization = useCallback(
+    (updater: typeof envOrganization | ((prev: typeof envOrganization) => typeof envOrganization)) => {
+      setLayoutState((prev) => ({
+        ...prev,
+        envOrganization: typeof updater === 'function' ? updater(prev.envOrganization) : updater,
+      }));
+    },
+    [setLayoutState],
+  );
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
   const [editorSaveLabel, setEditorSaveLabel] = useState<string | null>(null);
   const editorSaveRef = useRef<(() => void) | null>(null);
+  const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
   const outerAllotmentRef = useRef<AllotmentHandle>(null);
 
   // Tab management
@@ -143,7 +156,7 @@ export function V5Shell() {
   } = useTabs(activeWorkspaceId);
 
   // Derive live labels/icons/tooltips from entity data — single source of truth
-  const resolvedTabs = useResolvedTabs(tabs, sources, rules, environments);
+  const resolvedTabs = useResolvedTabs(tabs, sources, rules, environments, collections, folders);
 
   const handleDirtyChange = useCallback(
     (dirty: boolean) => {
@@ -347,7 +360,14 @@ export function V5Shell() {
 
     if (prevEntityIds.current.size > 0 && !workspaceJustChanged) {
       for (const tab of tabsRef.current) {
-        if (tab.entityId && !currentIds.has(tab.id) && tab.type !== 'welcome' && tab.type !== 'settings') {
+        if (
+          tab.entityId &&
+          !currentIds.has(tab.id) &&
+          tab.type !== 'welcome' &&
+          tab.type !== 'settings' &&
+          tab.type !== 'collection-overview' &&
+          tab.type !== 'folder-overview'
+        ) {
           closeTab(tab.id);
         }
       }
@@ -359,84 +379,96 @@ export function V5Shell() {
     openTab({ id: 'settings', type: 'settings', label: 'Settings', icon: 'settings' });
   }, [openTab]);
 
-  const createNewRule = useCallback(async () => {
-    const existingNames = new Set(rules.map((r) => r.name));
-    let name = 'New Rule';
-    let counter = 2;
-    while (existingNames.has(name)) {
-      name = `New Rule (${counter})`;
-      counter++;
-    }
-    const newRule: Partial<HeaderRule> = {
-      type: 'header',
-      name,
-      description: '',
-      isEnabled: true,
-      domains: [],
-      headerName: '',
-      headerValue: '',
-      tag: '',
-      isResponse: false,
-      isDynamic: false,
-      sourceId: null,
-      prefix: '',
-      suffix: '',
-      hasEnvVars: false,
-      envVars: [],
-    };
-    const rule = await addRule(newRule);
-    if (rule) {
-      openTab({ id: `rule-${rule.id}`, type: 'rule', label: name, icon: 'rule', entityId: rule.id });
-    }
-  }, [addRule, openTab, rules]);
+  const createNewRule = useCallback(
+    async (options?: { collectionId?: string; folderId?: string }) => {
+      const existingNames = new Set(rules.map((r) => r.name));
+      let name = 'New Rule';
+      let counter = 2;
+      while (existingNames.has(name)) {
+        name = `New Rule (${counter})`;
+        counter++;
+      }
+      const newRule: Partial<HeaderRule> = {
+        type: 'header',
+        name,
+        description: '',
+        isEnabled: true,
+        domains: [],
+        headerName: '',
+        headerValue: '',
+        tag: '',
+        isResponse: false,
+        isDynamic: false,
+        sourceId: null,
+        prefix: '',
+        suffix: '',
+        hasEnvVars: false,
+        envVars: [],
+        collectionId: options?.collectionId,
+        folderId: options?.folderId,
+      };
+      const rule = await addRule(newRule);
+      if (rule) {
+        openTab({ id: `rule-${rule.id}`, type: 'rule', label: name, icon: 'rule', entityId: rule.id });
+      }
+    },
+    [addRule, openTab, rules],
+  );
 
-  const createNewSource = useCallback(async () => {
-    const existingNames = new Set(sources.map((s) => s.sourceName));
-    let name = 'New Request';
-    let counter = 2;
-    while (existingNames.has(name)) {
-      name = `New Request (${counter})`;
-      counter++;
-    }
-    const newSource: Source = {
-      sourceId: '',
-      sourceType: 'http',
-      sourcePath: '',
-      sourceMethod: 'GET',
-      sourceName: name,
-      sourceTag: '',
-      sourceContent: null,
-      requestOptions: { contentType: 'application/json' },
-      jsonFilter: { enabled: false },
-      refreshOptions: { enabled: false },
-      activationState: 'inactive',
-    };
-    const source = await addSource(newSource);
-    if (source) {
-      openTab({
-        id: `source-${source.sourceId}`,
-        type: 'request',
-        label: name,
-        icon: 'GET',
-        entityId: source.sourceId,
-      });
-    }
-  }, [addSource, openTab, sources]);
+  const createNewSource = useCallback(
+    async (options?: { collectionId?: string; folderId?: string }) => {
+      const existingNames = new Set(sources.map((s) => s.sourceName));
+      let name = 'New Request';
+      let counter = 2;
+      while (existingNames.has(name)) {
+        name = `New Request (${counter})`;
+        counter++;
+      }
+      const newSource: Source = {
+        sourceId: '',
+        sourceType: 'http',
+        sourcePath: '',
+        sourceMethod: 'GET',
+        sourceName: name,
+        sourceTag: '',
+        sourceContent: null,
+        requestOptions: { contentType: 'application/json' },
+        jsonFilter: { enabled: false },
+        refreshOptions: { enabled: false },
+        activationState: 'inactive',
+        collectionId: options?.collectionId,
+        folderId: options?.folderId,
+      };
+      const source = await addSource(newSource);
+      if (source) {
+        openTab({
+          id: `source-${source.sourceId}`,
+          type: 'request',
+          label: name,
+          icon: 'GET',
+          entityId: source.sourceId,
+        });
+      }
+    },
+    [addSource, openTab, sources],
+  );
 
-  const createNewEnvironment = useCallback(async () => {
-    // Generate unique name
-    const existingNames = Object.keys(environments);
-    let name = 'New Environment';
-    let counter = 2;
-    while (existingNames.includes(name)) {
-      name = `New Environment (${counter})`;
-      counter++;
-    }
-    const success = await createEnvironment(name);
-    if (success) {
-      openTab({ id: `env-${name}`, type: 'environment', label: name, icon: 'environment', entityId: name });
-    }
-  }, [environments, createEnvironment, openTab]);
+  const createNewEnvironment = useCallback(
+    async (_options?: { collectionId?: string; folderId?: string }) => {
+      const existingNames = Object.keys(environments);
+      let name = 'New Environment';
+      let counter = 2;
+      while (existingNames.includes(name)) {
+        name = `New Environment (${counter})`;
+        counter++;
+      }
+      const success = await createEnvironment(name);
+      if (success) {
+        openTab({ id: `env-${name}`, type: 'environment', label: name, icon: 'environment', entityId: name });
+      }
+    },
+    [environments, createEnvironment, openTab],
+  );
 
   const togglePanel = useCallback((panel: keyof PanelVisibility) => {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
@@ -607,9 +639,14 @@ export function V5Shell() {
         void updateSource(activeResolvedTab.entityId, { sourceName: newName });
       } else if (activeResolvedTab.type === 'rule') {
         void updateRule(activeResolvedTab.entityId, { name: newName });
+      } else if (activeResolvedTab.type === 'collection-overview') {
+        void updateCollectionInV5(activeResolvedTab.entityId, { name: newName });
+      } else if (activeResolvedTab.type === 'folder-overview') {
+        void updateFolderInV5(activeResolvedTab.entityId, { name: newName });
       }
+      setPendingRenameTabId(null);
     },
-    [activeResolvedTab, updateSource, updateRule],
+    [activeResolvedTab, updateSource, updateRule, updateCollectionInV5, updateFolderInV5],
   );
 
   return (
@@ -662,14 +699,18 @@ export function V5Shell() {
                     <Sidebar
                       activePanel={activePanel}
                       onOpenTab={openTab}
-                      onNewRequest={() => void createNewSource()}
-                      onNewRule={() => void createNewRule()}
-                      onNewEnvironment={() => void createNewEnvironment()}
+                      onNewRequest={(opts) => void createNewSource(opts)}
+                      onNewRule={(opts) => void createNewRule(opts)}
+                      onNewEnvironment={(opts) => void createNewEnvironment(opts)}
                       expandedSections={sidebarExpandedSections}
                       onExpandedSectionsChange={setSidebarExpandedSections}
                       expandedCollections={sidebarExpandedCollections}
                       onExpandedCollectionsChange={setSidebarExpandedCollections}
                       activeTabId={activeTabId}
+                      envOrganization={envOrganization}
+                      onEnvOrganizationChange={setEnvOrganization}
+                      activeWorkspaceId={activeWorkspaceId}
+                      onPendingRename={setPendingRenameTabId}
                     />
                   )}
                 </Allotment.Pane>
@@ -704,10 +745,13 @@ export function V5Shell() {
                             activeResolvedTab &&
                             (activeResolvedTab.type === 'request' ||
                               activeResolvedTab.type === 'collection' ||
+                              activeResolvedTab.type === 'collection-overview' ||
+                              activeResolvedTab.type === 'folder-overview' ||
                               activeResolvedTab.type === 'rule')
                               ? handleBreadcrumbRename
                               : undefined
                           }
+                          autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
                         />
                         <EditorArea
                           tabs={resolvedTabs}
@@ -740,14 +784,18 @@ export function V5Shell() {
                     <Sidebar
                       activePanel={activePanel}
                       onOpenTab={openTab}
-                      onNewRequest={() => void createNewSource()}
-                      onNewRule={() => void createNewRule()}
-                      onNewEnvironment={() => void createNewEnvironment()}
+                      onNewRequest={(opts) => void createNewSource(opts)}
+                      onNewRule={(opts) => void createNewRule(opts)}
+                      onNewEnvironment={(opts) => void createNewEnvironment(opts)}
                       expandedSections={sidebarExpandedSections}
                       onExpandedSectionsChange={setSidebarExpandedSections}
                       expandedCollections={sidebarExpandedCollections}
                       onExpandedCollectionsChange={setSidebarExpandedCollections}
                       activeTabId={activeTabId}
+                      envOrganization={envOrganization}
+                      onEnvOrganizationChange={setEnvOrganization}
+                      activeWorkspaceId={activeWorkspaceId}
+                      onPendingRename={setPendingRenameTabId}
                     />
                   ) : (
                     <Inspector

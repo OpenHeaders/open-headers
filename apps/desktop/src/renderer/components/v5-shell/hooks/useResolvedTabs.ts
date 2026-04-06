@@ -17,7 +17,7 @@
  *   No copies, no stale labels.
  */
 
-import type { HeaderRule, Source } from '@openheaders/core';
+import type { Collection, Folder, HeaderRule, Source } from '@openheaders/core';
 import { useMemo } from 'react';
 import type { Tab } from './useTabs';
 
@@ -35,11 +35,15 @@ export function useResolvedTabs(
   sources: Source[],
   rules: HeaderRule[],
   environments: Record<string, unknown>,
+  collections?: Collection[],
+  folders?: Folder[],
 ): ResolvedTab[] {
   return useMemo(() => {
     const sourceMap = new Map(sources.map((s) => [s.sourceId, s]));
     const ruleMap = new Map(rules.map((r) => [r.id, r]));
     const envNames = new Set(Object.keys(environments));
+    const collectionMap = new Map((collections ?? []).map((c) => [c.id, c]));
+    const folderMap = new Map((folders ?? []).map((f) => [f.id, f]));
 
     return tabs.map((tab): ResolvedTab => {
       if ((tab.type === 'request' || tab.type === 'collection') && tab.entityId) {
@@ -77,6 +81,26 @@ export function useResolvedTabs(
         };
       }
 
+      if (tab.type === 'collection-overview' && tab.entityId) {
+        const col = collectionMap.get(tab.entityId);
+        return {
+          ...tab,
+          resolvedLabel: col?.name || tab.label,
+          resolvedIcon: 'collection',
+          resolvedTooltip: col?.name || tab.label,
+        };
+      }
+
+      if (tab.type === 'folder-overview' && tab.entityId) {
+        const folder = folderMap.get(tab.entityId);
+        return {
+          ...tab,
+          resolvedLabel: folder?.name || tab.label,
+          resolvedIcon: 'folder',
+          resolvedTooltip: folder?.name || tab.label,
+        };
+      }
+
       // Welcome, settings, etc.
       return {
         ...tab,
@@ -85,5 +109,5 @@ export function useResolvedTabs(
         resolvedTooltip: tab.label,
       };
     });
-  }, [tabs, sources, rules, environments]);
+  }, [tabs, sources, rules, environments, collections, folders]);
 }

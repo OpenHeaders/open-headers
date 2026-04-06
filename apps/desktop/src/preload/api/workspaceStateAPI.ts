@@ -6,7 +6,7 @@
  * incremental state patches via IPC events.
  */
 
-import type { HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+import type { Collection, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
 import { ipcRenderer } from 'electron';
 import type { WorkspaceState } from '@/services/workspace/WorkspaceStateService';
 import type { EnvironmentMap } from '@/types/environment';
@@ -17,6 +17,8 @@ export interface WorkspaceStatePatch {
   sources?: Source[];
   rules?: { header: HeaderRule[]; request: unknown[]; response: unknown[] };
   proxyRules?: ProxyRule[];
+  collections?: Collection[];
+  folders?: Folder[];
   workspaces?: Workspace[];
   activeWorkspaceId?: string;
   syncStatus?: Record<string, unknown>;
@@ -51,6 +53,14 @@ interface AddSourceResult extends OperationResult {
 
 interface UpdateSourceResult extends OperationResult {
   source?: Source | null;
+}
+
+interface AddCollectionResult extends OperationResult {
+  collection?: Collection;
+}
+
+interface AddFolderResult extends OperationResult {
+  folder?: Folder;
 }
 
 interface AddHeaderRuleResult extends OperationResult {
@@ -107,6 +117,26 @@ export function createWorkspaceStateAPI() {
 
     removeProxyRule: (ruleId: string): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:remove-proxy-rule', ruleId),
+
+    // Collection CRUD
+    addCollection: (data: Omit<Collection, 'id'>): Promise<AddCollectionResult> =>
+      ipcRenderer.invoke('workspace-state:add-collection', data),
+
+    updateCollection: (collectionId: string, updates: Partial<Collection>): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-collection', collectionId, updates),
+
+    removeCollection: (collectionId: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:remove-collection', collectionId),
+
+    // Folder CRUD
+    addFolder: (folderData: Omit<Folder, 'id'>): Promise<AddFolderResult> =>
+      ipcRenderer.invoke('workspace-state:add-folder', folderData),
+
+    updateFolder: (folderId: string, updates: Partial<Folder>): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-folder', folderId, updates),
+
+    removeFolder: (folderId: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:remove-folder', folderId),
 
     // Workspace CRUD
     createWorkspace: (

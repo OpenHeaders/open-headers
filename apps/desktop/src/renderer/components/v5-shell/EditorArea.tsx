@@ -96,13 +96,24 @@ function TabEditor({
         responseSideBySide={responseSideBySide}
       />
     );
+  } else if (tab.type === 'collection-overview' && tab.entityId) {
+    content = (
+      <div style={{ padding: '24px 32px' }}>
+        <Title level={4}>Collection Overview</Title>
+        <Text type="secondary">Collection details coming soon.</Text>
+      </div>
+    );
+  } else if (tab.type === 'folder-overview' && tab.entityId) {
+    content = (
+      <div style={{ padding: '24px 32px' }}>
+        <Title level={4}>Folder Overview</Title>
+        <Text type="secondary">Folder details coming soon.</Text>
+      </div>
+    );
   }
 
   if (!content) return null;
 
-  // Use visibility:hidden + absolute positioning instead of display:none.
-  // display:none causes zero-width containers that crash antd's internal
-  // EllipsisMeasure component (infinite setState loop in layout effect).
   return (
     <div
       style={

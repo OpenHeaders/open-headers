@@ -42,6 +42,8 @@ function makeState(overrides: Partial<WorkspaceState> = {}): WorkspaceState {
     sources: [],
     rules: { header: [], request: [], response: [] },
     proxyRules: [],
+    collections: [],
+    folders: [],
     environments: { Default: {} },
     activeEnvironment: 'Default',
     ...overrides,

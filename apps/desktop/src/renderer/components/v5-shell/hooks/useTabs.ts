@@ -18,6 +18,9 @@ export type TabType =
   | 'environment'
   | 'recording'
   | 'collection'
+  | 'collection-overview'
+  | 'folder'
+  | 'folder-overview'
   | 'globals'
   | 'vault'
   | 'settings';

@@ -9,7 +9,7 @@
  *  - Exposes subscribe/notify for React hooks (same API as before)
  */
 
-import type { HeaderRule, RulesCollection, Source, SourceUpdate } from '@openheaders/core';
+import type { Collection, Folder, HeaderRule, RulesCollection, Source, SourceUpdate } from '@openheaders/core';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceSyncStatus, WorkspaceType } from '@/types/workspace';
@@ -27,6 +27,8 @@ export interface WorkspaceServiceState {
   sources: Source[];
   rules: RulesCollection;
   proxyRules: ProxyRule[];
+  collections: Collection[];
+  folders: Folder[];
 }
 
 type StateListener = (state: WorkspaceServiceState, changedKeys: string[]) => void;
@@ -49,6 +51,8 @@ class CentralizedWorkspaceService {
       sources: [],
       rules: { header: [], request: [], response: [] },
       proxyRules: [],
+      collections: [],
+      folders: [],
     };
 
     // Subscribe to state patches from main process
@@ -201,6 +205,42 @@ class CentralizedWorkspaceService {
   async removeProxyRule(ruleId: string): Promise<void> {
     const result = await window.electronAPI.workspaceState.removeProxyRule(ruleId);
     if (!result.success) throw new Error(result.error ?? 'Failed to remove proxy rule');
+  }
+
+  // ── Collection CRUD (IPC forwards) ────────────────────────
+
+  async addCollection(data: Omit<Collection, 'id'>): Promise<Collection> {
+    const result = await window.electronAPI.workspaceState.addCollection(data);
+    if (!result.success) throw new Error(result.error ?? 'Failed to add collection');
+    return result.collection!;
+  }
+
+  async updateCollection(collectionId: string, updates: Partial<Collection>): Promise<void> {
+    const result = await window.electronAPI.workspaceState.updateCollection(collectionId, updates);
+    if (!result.success) throw new Error(result.error ?? 'Failed to update collection');
+  }
+
+  async removeCollection(collectionId: string): Promise<void> {
+    const result = await window.electronAPI.workspaceState.removeCollection(collectionId);
+    if (!result.success) throw new Error(result.error ?? 'Failed to remove collection');
+  }
+
+  // ── Folder CRUD (IPC forwards) ────────────────────────────
+
+  async addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder> {
+    const result = await window.electronAPI.workspaceState.addFolder(folderData);
+    if (!result.success) throw new Error(result.error ?? 'Failed to add folder');
+    return result.folder!;
+  }
+
+  async updateFolder(folderId: string, updates: Partial<Folder>): Promise<void> {
+    const result = await window.electronAPI.workspaceState.updateFolder(folderId, updates);
+    if (!result.success) throw new Error(result.error ?? 'Failed to update folder');
+  }
+
+  async removeFolder(folderId: string): Promise<void> {
+    const result = await window.electronAPI.workspaceState.removeFolder(folderId);
+    if (!result.success) throw new Error(result.error ?? 'Failed to remove folder');
   }
 
   // ── Workspace CRUD (IPC forwards) ──────────────────────────

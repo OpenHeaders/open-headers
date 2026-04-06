@@ -5,7 +5,7 @@
  */
 
 import path from 'node:path';
-import type { RulesCollection, RulesStorage, Source } from '@openheaders/core';
+import type { Collection, Folder, RulesCollection, RulesStorage, Source } from '@openheaders/core';
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import {
   convertV5toV4,
@@ -127,16 +127,47 @@ export async function saveProxyRules(appDataPath: string, workspaceId: string, p
   await atomicWriter.writeJson(path.join(dir, 'proxy-rules.json'), proxyRules);
 }
 
+// ── Collections (collections.json) ──────────────────────────────
+
+export async function loadCollections(appDataPath: string, workspaceId: string): Promise<Collection[]> {
+  return loadJson<Collection[]>(path.join(workspaceDir(appDataPath, workspaceId), 'collections.json'), []);
+}
+
+export async function saveCollections(appDataPath: string, workspaceId: string, collections: Collection[]): Promise<void> {
+  const dir = workspaceDir(appDataPath, workspaceId);
+  await atomicWriter.writeJson(path.join(dir, 'collections.json'), collections, { pretty: true });
+}
+
+// ── Folders (folders.json) ──────────────────────────────────────
+
+export async function loadFolders(appDataPath: string, workspaceId: string): Promise<Folder[]> {
+  return loadJson<Folder[]>(path.join(workspaceDir(appDataPath, workspaceId), 'folders.json'), []);
+}
+
+export async function saveFolders(appDataPath: string, workspaceId: string, folders: Folder[]): Promise<void> {
+  const dir = workspaceDir(appDataPath, workspaceId);
+  await atomicWriter.writeJson(path.join(dir, 'folders.json'), folders, { pretty: true });
+}
+
 export async function saveAll(
   appDataPath: string,
   workspaceId: string,
-  dirty: { sources: boolean; rules: boolean; proxyRules: boolean; workspaces: boolean },
-  data: { sources: Source[]; rules: RulesCollection; proxyRules: ProxyRule[]; workspacesConfig: WorkspacesConfig },
+  dirty: { sources: boolean; rules: boolean; proxyRules: boolean; collections: boolean; folders: boolean; workspaces: boolean },
+  data: {
+    sources: Source[];
+    rules: RulesCollection;
+    proxyRules: ProxyRule[];
+    collections: Collection[];
+    folders: Folder[];
+    workspacesConfig: WorkspacesConfig;
+  },
 ): Promise<number> {
   const saves: Promise<void>[] = [];
   if (dirty.sources) saves.push(saveSources(appDataPath, workspaceId, data.sources));
   if (dirty.rules) saves.push(saveRules(appDataPath, workspaceId, data.rules));
   if (dirty.proxyRules) saves.push(saveProxyRules(appDataPath, workspaceId, data.proxyRules));
+  if (dirty.collections) saves.push(saveCollections(appDataPath, workspaceId, data.collections));
+  if (dirty.folders) saves.push(saveFolders(appDataPath, workspaceId, data.folders));
   if (dirty.workspaces) saves.push(saveWorkspacesConfig(appDataPath, data.workspacesConfig));
   if (saves.length > 0) {
     await Promise.all(saves);

@@ -99,6 +99,10 @@ export interface Source {
    * are re-fetched automatically, keeping the output fresh.
    */
   storeAsVariable?: string;
+  /** Collection this source belongs to */
+  collectionId?: string;
+  /** Folder within the collection for deeper organization */
+  folderId?: string;
 }
 
 /**
