@@ -24,7 +24,7 @@ import { EditorVariablesProvider } from './contexts/EditorVariablesContext';
 import { EditorArea } from './EditorArea';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { DEFAULT_LAYOUT, useLayoutPersistence } from './hooks/useLayoutPersistence';
-import type { Tab } from './hooks/useTabs';
+import { useResolvedTabs } from './hooks/useResolvedTabs';
 import { useTabs } from './hooks/useTabs';
 import { Inspector } from './Inspector';
 import { Sidebar } from './Sidebar';
@@ -45,8 +45,8 @@ interface PanelVisibility {
 export function V5Shell() {
   const { token } = theme.useToken();
   const { workspaces, activeWorkspaceId } = useWorkspaces();
-  const { sources, addSource } = useSources();
-  const { rules, addRule } = useHeaderRules();
+  const { sources, addSource, updateSource } = useSources();
+  const { rules, addRule, updateRule } = useHeaderRules();
   const { environments, createEnvironment } = useEnvironments();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
@@ -141,6 +141,9 @@ export function V5Shell() {
     goForward,
   } = useTabs(activeWorkspaceId);
 
+  // Derive live labels/icons/tooltips from entity data — single source of truth
+  const resolvedTabs = useResolvedTabs(tabs, sources, rules, environments);
+
   const handleDirtyChange = useCallback(
     (dirty: boolean) => {
       setEditorDirty(dirty);
@@ -233,89 +236,80 @@ export function V5Shell() {
   // Close a single tab, prompting if unsaved
   const handleCloseTab = useCallback(
     async (tabId: string) => {
-      const tab = tabs.find((t) => t.id === tabId);
-      if (!tab) return;
-      if (!tab.unsaved) {
+      const rt = resolvedTabs.find((t) => t.id === tabId);
+      if (!rt) return;
+      if (!rt.unsaved) {
         closeTab(tabId);
         return;
       }
-      const result = await confirmUnsaved(tab);
+      const result = await confirmUnsaved({ id: rt.id, label: rt.resolvedLabel });
       if (result === 'save') editorSaveRef.current?.();
       if (result !== 'cancel') closeTab(tabId, true);
     },
-    [tabs, closeTab, confirmUnsaved],
+    [resolvedTabs, closeTab, confirmUnsaved],
   );
 
   // Close multiple tabs, prompting for each dirty one sequentially
   const handleBatchClose = useCallback(
     async (tabIds: string[]) => {
-      // Close clean tabs immediately
       const clean = tabIds.filter((id) => {
-        const t = tabs.find((tab) => tab.id === id);
+        const t = resolvedTabs.find((tab) => tab.id === id);
         return t && !t.unsaved && !t.pinned;
       });
       for (const id of clean) closeTab(id, true);
 
-      // Process dirty tabs one by one
       const dirty = tabIds.filter((id) => {
-        const t = tabs.find((tab) => tab.id === id);
+        const t = resolvedTabs.find((tab) => tab.id === id);
         return t && t.unsaved && !t.pinned;
       });
       for (const id of dirty) {
-        const tab = tabs.find((t) => t.id === id);
-        if (!tab) continue;
-        const result = await confirmUnsaved(tab);
-        if (result === 'cancel') return; // abort remaining
+        const rt = resolvedTabs.find((t) => t.id === id);
+        if (!rt) continue;
+        const result = await confirmUnsaved({ id: rt.id, label: rt.resolvedLabel });
+        if (result === 'cancel') return;
         if (result === 'save') editorSaveRef.current?.();
         closeTab(id, true);
       }
     },
-    [tabs, closeTab, confirmUnsaved],
+    [resolvedTabs, closeTab, confirmUnsaved],
   );
 
   const handleCloseOther = useCallback(
     (tabId: string) => {
-      const toClose = tabs.filter((t) => t.id !== tabId && !t.pinned).map((t) => t.id);
+      const toClose = resolvedTabs.filter((t) => t.id !== tabId && !t.pinned).map((t) => t.id);
       void handleBatchClose(toClose);
     },
-    [tabs, handleBatchClose],
+    [resolvedTabs, handleBatchClose],
   );
 
   const handleCloseAll = useCallback(() => {
-    const toClose = tabs.filter((t) => !t.pinned).map((t) => t.id);
+    const toClose = resolvedTabs.filter((t) => !t.pinned).map((t) => t.id);
     void handleBatchClose(toClose);
-  }, [tabs, handleBatchClose]);
+  }, [resolvedTabs, handleBatchClose]);
 
   const handleCloseUnmodified = useCallback(() => {
-    // Only close clean, unpinned tabs — no prompts needed
-    const toClose = tabs.filter((t) => !t.unsaved && !t.pinned && t.type !== 'welcome').map((t) => t.id);
+    const toClose = resolvedTabs.filter((t) => !t.unsaved && !t.pinned && t.type !== 'welcome').map((t) => t.id);
     for (const id of toClose) closeTab(id, true);
-  }, [tabs, closeTab]);
+  }, [resolvedTabs, closeTab]);
 
   const handleCloseToLeft = useCallback(
     (tabId: string) => {
-      const idx = tabs.findIndex((t) => t.id === tabId);
+      const idx = resolvedTabs.findIndex((t) => t.id === tabId);
       if (idx <= 0) return;
-      const toClose = tabs
-        .slice(0, idx)
-        .filter((t) => !t.pinned)
-        .map((t) => t.id);
+      const toClose = resolvedTabs.slice(0, idx).filter((t) => !t.pinned).map((t) => t.id);
       void handleBatchClose(toClose);
     },
-    [tabs, handleBatchClose],
+    [resolvedTabs, handleBatchClose],
   );
 
   const handleCloseToRight = useCallback(
     (tabId: string) => {
-      const idx = tabs.findIndex((t) => t.id === tabId);
+      const idx = resolvedTabs.findIndex((t) => t.id === tabId);
       if (idx === -1) return;
-      const toClose = tabs
-        .slice(idx + 1)
-        .filter((t) => !t.pinned)
-        .map((t) => t.id);
+      const toClose = resolvedTabs.slice(idx + 1).filter((t) => !t.pinned).map((t) => t.id);
       void handleBatchClose(toClose);
     },
-    [tabs, handleBatchClose],
+    [resolvedTabs, handleBatchClose],
   );
 
   // Listen for "Variables in request" link clicks from TemplateInput popovers
@@ -578,28 +572,25 @@ export function V5Shell() {
     return items;
   }, [sources, rules, environments, togglePanel, openSettings, openTab, createNewSource, createNewRule]);
 
-  // Tab tooltip: show URL for requests, header name for rules, name for environments
-  const getTabTooltip = useCallback(
-    (tab: Tab): string => {
-      if ((tab.type === 'request' || tab.type === 'collection') && tab.entityId) {
-        const source = sources.find((s) => s.sourceId === tab.entityId);
-        return source?.sourcePath || 'Untitled request';
-      }
-      if (tab.type === 'rule' && tab.entityId) {
-        const rule = rules.find((r) => r.id === tab.entityId);
-        return rule?.headerName || 'Untitled rule';
-      }
-      if (tab.type === 'environment') {
-        return tab.label;
-      }
-      return tab.label;
-    },
-    [sources, rules],
-  );
+  // Active resolved tab and breadcrumbs — derived from resolved tabs
+  const activeResolvedTab = resolvedTabs.find((t) => t.id === activeTabId);
+  const breadcrumbs = activeResolvedTab
+    ? [{ label: workspaceName }, { label: activeResolvedTab.resolvedLabel }]
+    : [{ label: workspaceName }];
 
-  // Breadcrumbs for active tab
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  const breadcrumbs = activeTab ? [{ label: workspaceName }, { label: activeTab.label }] : [{ label: workspaceName }];
+  // Rename via breadcrumb — updates the source/rule name in the main process.
+  // Tab labels and sidebar will auto-update via useResolvedTabs (derives from live data).
+  const handleBreadcrumbRename = useCallback(
+    (newName: string) => {
+      if (!activeResolvedTab?.entityId) return;
+      if (activeResolvedTab.type === 'request' || activeResolvedTab.type === 'collection') {
+        void updateSource(activeResolvedTab.entityId, { sourceName: newName });
+      } else if (activeResolvedTab.type === 'rule') {
+        void updateRule(activeResolvedTab.entityId, { name: newName });
+      }
+    },
+    [activeResolvedTab, updateSource, updateRule],
+  );
 
   return (
     <EditorVariablesProvider>
@@ -661,7 +652,7 @@ export function V5Shell() {
                   <Allotment.Pane>
                     <div className="v5-editor-area" style={{ background: token.colorBgContainer }}>
                       <TabBar
-                        tabs={tabs}
+                        tabs={resolvedTabs}
                         activeTabId={activeTabId}
                         onSwitch={switchTab}
                         onClose={handleCloseTab}
@@ -674,17 +665,24 @@ export function V5Shell() {
                         onCloseToRight={handleCloseToRight}
                         onNewRequest={() => void createNewSource()}
                         onNewRule={() => void createNewRule()}
-                        getTabTooltip={getTabTooltip}
                       />
                       <BreadcrumbBar
                         segments={breadcrumbs}
                         isDirty={editorDirty}
                         onSave={() => editorSaveRef.current?.()}
                         saveLabel={editorSaveLabel}
+                        onRename={
+                          activeResolvedTab &&
+                          (activeResolvedTab.type === 'request' ||
+                            activeResolvedTab.type === 'collection' ||
+                            activeResolvedTab.type === 'rule')
+                            ? handleBreadcrumbRename
+                            : undefined
+                        }
                       />
                       <EditorArea
-                        tabs={tabs}
-                        activeTab={activeTab}
+                        tabs={resolvedTabs}
+                        activeTab={activeResolvedTab}
                         onNewRequest={() => void createNewSource()}
                         onNewRule={() => void createNewRule()}
                         onDirtyChange={handleDirtyChange}

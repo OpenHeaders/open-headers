@@ -15,13 +15,14 @@ import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
 import { SourceEditor } from './editors/SourceEditor';
 import type { Tab } from './hooks/useTabs';
+import type { ResolvedTab } from './hooks/useResolvedTabs';
 import { SettingsEditor } from './SettingsEditor';
 
 const { Title, Text } = Typography;
 
 interface EditorAreaProps {
-  tabs: Tab[];
-  activeTab?: Tab | null;
+  tabs: ResolvedTab[];
+  activeTab?: ResolvedTab | null;
   onNewRequest?: () => void;
   onNewRule?: () => void;
   onDirtyChange?: (dirty: boolean) => void;

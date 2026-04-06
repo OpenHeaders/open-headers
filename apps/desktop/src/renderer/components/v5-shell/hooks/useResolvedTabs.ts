@@ -1,0 +1,89 @@
+/**
+ * useResolvedTabs — derives live tab labels, icons, and tooltips from entity data.
+ *
+ * Tabs store only { id, type, entityId } as stable identifiers.
+ * This hook enriches them with display properties (label, icon, tooltip)
+ * by looking up the current source/rule/environment data on every render.
+ *
+ * This is the single source of truth for how a tab displays across:
+ *   - TabBar (tab labels + icons + tooltips)
+ *   - BreadcrumbBar (item name in the path)
+ *   - Sidebar (already reads from entities directly)
+ *
+ * Architecture:
+ *   Main process owns sources/rules/environments → broadcasts to renderer via IPC →
+ *   renderer hooks (useSources, useHeaderRules, useEnvironments) hold live data →
+ *   this hook maps entityId → live display properties.
+ *   No copies, no stale labels.
+ */
+
+import type { HeaderRule, Source } from '@openheaders/core';
+import { useMemo } from 'react';
+import type { Tab } from './useTabs';
+
+export interface ResolvedTab extends Tab {
+  /** Display label derived from current entity data */
+  resolvedLabel: string;
+  /** Display icon derived from current entity data */
+  resolvedIcon: string;
+  /** Tooltip text for hover */
+  resolvedTooltip: string;
+}
+
+export function useResolvedTabs(
+  tabs: Tab[],
+  sources: Source[],
+  rules: HeaderRule[],
+  environments: Record<string, unknown>,
+): ResolvedTab[] {
+  return useMemo(() => {
+    const sourceMap = new Map(sources.map((s) => [s.sourceId, s]));
+    const ruleMap = new Map(rules.map((r) => [r.id, r]));
+    const envNames = new Set(Object.keys(environments));
+
+    return tabs.map((tab): ResolvedTab => {
+      if ((tab.type === 'request' || tab.type === 'collection') && tab.entityId) {
+        const source = sourceMap.get(tab.entityId);
+        const name = source?.sourceName || source?.sourcePath || 'Untitled request';
+        const url = source?.sourcePath || '';
+        // If name and URL match (or URL is empty), show just the name; otherwise name + URL on two lines
+        const tooltip = !url || name === url ? name : `${name}\n${url}`;
+        return {
+          ...tab,
+          resolvedLabel: name,
+          resolvedIcon: source?.sourceMethod || tab.icon || 'GET',
+          resolvedTooltip: tooltip,
+        };
+      }
+
+      if (tab.type === 'rule' && tab.entityId) {
+        const rule = ruleMap.get(tab.entityId);
+        return {
+          ...tab,
+          resolvedLabel: rule?.name || rule?.headerName || 'Untitled rule',
+          resolvedIcon: 'rule',
+          resolvedTooltip: rule?.headerName || 'Untitled rule',
+        };
+      }
+
+      if (tab.type === 'environment' && tab.entityId) {
+        const name = tab.entityId;
+        const exists = envNames.has(name);
+        return {
+          ...tab,
+          resolvedLabel: exists ? name : `${name} (deleted)`,
+          resolvedIcon: 'environment',
+          resolvedTooltip: name,
+        };
+      }
+
+      // Welcome, settings, etc.
+      return {
+        ...tab,
+        resolvedLabel: tab.label,
+        resolvedIcon: tab.icon || '',
+        resolvedTooltip: tab.label,
+      };
+    });
+  }, [tabs, sources, rules, environments]);
+}

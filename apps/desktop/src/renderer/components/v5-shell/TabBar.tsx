@@ -18,7 +18,16 @@ import {
 } from '@ant-design/icons';
 import { Dropdown, Input, type InputRef, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Tab } from './hooks/useTabs';
+import type { ResolvedTab } from './hooks/useResolvedTabs';
+
+const TAB_LABEL_MAX = 16;
+
+/** Middle-truncate: keep prefix and suffix, ellipsis in the middle */
+function truncateMiddle(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const half = Math.floor((max - 1) / 2);
+  return `${text.slice(0, half)}\u2026${text.slice(text.length - half)}`;
+}
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#61affe',
@@ -29,7 +38,7 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 interface TabBarProps {
-  tabs: Tab[];
+  tabs: ResolvedTab[];
   activeTabId: string | null;
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
@@ -42,7 +51,6 @@ interface TabBarProps {
   onCloseToRight: (tabId: string) => void;
   onNewRequest?: () => void;
   onNewRule?: () => void;
-  getTabTooltip?: (tab: Tab) => string;
 }
 
 function MethodBadge({ method, size = 'normal' }: { method: string; size?: 'normal' | 'small' }) {
@@ -66,11 +74,11 @@ function MethodBadge({ method, size = 'normal' }: { method: string; size?: 'norm
   );
 }
 
-function TabIcon({ tab }: { tab: Tab }) {
+function TabIcon({ tab }: { tab: ResolvedTab }) {
   const { token } = theme.useToken();
 
   if (tab.type === 'request' || tab.type === 'collection') {
-    const method = tab.icon || 'GET';
+    const method = tab.resolvedIcon || 'GET';
     const color = METHOD_COLORS[method] || token.colorPrimary;
     return (
       <span className="v5-method-badge" style={{ background: color }}>
@@ -115,7 +123,7 @@ function TabSearchDropdown({
 }: {
   open: boolean;
   onClose: () => void;
-  tabs: Tab[];
+  tabs: ResolvedTab[];
   activeTabId: string | null;
   onSwitch: (tabId: string) => void;
 }) {
@@ -142,7 +150,7 @@ function TabSearchDropdown({
 
   const filter = search.toLowerCase();
   const filtered = tabs.filter(
-    (t) => t.type !== 'welcome' && (t.label.toLowerCase().includes(filter) || (t.icon || '').toLowerCase().includes(filter)),
+    (t) => t.type !== 'welcome' && (t.resolvedLabel.toLowerCase().includes(filter) || (t.resolvedIcon || '').toLowerCase().includes(filter)),
   );
 
   const selectFocused = () => {
@@ -213,14 +221,14 @@ function TabSearchDropdown({
                 role="button"
                 tabIndex={-1}
               >
-                {(tab.type === 'request' || tab.type === 'collection') && <MethodBadge method={tab.icon || 'GET'} />}
+                {(tab.type === 'request' || tab.type === 'collection') && <MethodBadge method={tab.resolvedIcon || 'GET'} />}
                 {tab.type === 'rule' && <ThunderboltOutlined style={{ color: '#1890ff', fontSize: 11 }} />}
                 {tab.type === 'environment' && (
                   <span style={{ background: '#52c41a', color: 'white', fontSize: 8, fontWeight: 700, padding: '0 3px', borderRadius: 2 }}>E</span>
                 )}
                 {tab.type === 'settings' && <span style={{ fontSize: 10 }}>&#x2699;</span>}
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {tab.label}
+                  {tab.resolvedLabel}
                 </span>
                 {tab.unsaved && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff7875', flexShrink: 0 }} />}
               </div>
@@ -251,7 +259,6 @@ export function TabBar({
   onCloseToRight,
   onNewRequest,
   onNewRule,
-  getTabTooltip,
 }: TabBarProps) {
   const { token } = theme.useToken();
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -332,7 +339,7 @@ export function TabBar({
   }, []);
 
   const buildContextMenu = useCallback(
-    (tab: Tab, tabIndex: number) => ({
+    (tab: ResolvedTab, tabIndex: number) => ({
       items: [
         {
           key: 'close',
@@ -398,10 +405,19 @@ export function TabBar({
               ? { [dragSide === 'left' ? 'borderLeft' : 'borderRight']: `2px solid ${token.colorPrimary}` }
               : undefined;
 
-          const tooltipText = getTabTooltip?.(tab) ?? tab.label;
-
           return (
-            <Tooltip key={tab.id} title={tooltipText} placement="bottom" mouseEnterDelay={0.5}>
+            <Tooltip
+              key={tab.id}
+              placement="bottom"
+              mouseEnterDelay={0.5}
+              title={
+                tab.resolvedTooltip.includes('\n') ? (
+                  <span style={{ whiteSpace: 'pre-line', fontSize: 11 }}>{tab.resolvedTooltip}</span>
+                ) : (
+                  tab.resolvedTooltip
+                )
+              }
+            >
               <Dropdown menu={buildContextMenu(tab, index)} trigger={['contextMenu']}>
                 <div
                   className={`v5-tab${isActive ? ' active' : ''}`}
@@ -429,7 +445,7 @@ export function TabBar({
                 }}
               >
                 <TabIcon tab={tab} />
-                <span className="v5-tab-label">{tab.label}</span>
+                <span className="v5-tab-label">{truncateMiddle(tab.resolvedLabel, TAB_LABEL_MAX)}</span>
                 {tab.unsaved && <span className="v5-tab-unsaved" style={{ background: '#ff7875' }} />}
                 {!tab.pinned && (
                   <CloseOutlined

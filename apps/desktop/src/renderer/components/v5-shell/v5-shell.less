@@ -366,8 +366,7 @@
 }
 
 .v5-tab-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .v5-tab-unsaved {
@@ -600,7 +599,8 @@
   padding: 1px 3px;
   border-radius: 3px;
 
-  &:hover:not(.current) {
+  &:hover:not(.current),
+  &.current.editable:hover {
     background: rgba(128, 128, 128, 0.1);
   }
 }
