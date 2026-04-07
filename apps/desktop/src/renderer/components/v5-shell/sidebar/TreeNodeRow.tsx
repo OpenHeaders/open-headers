@@ -14,7 +14,7 @@ import {
   MoreOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import { Dropdown, theme } from 'antd';
+import { Dropdown, Tooltip, theme } from 'antd';
 import { useState } from 'react';
 import type { TreeNode } from './types';
 
@@ -191,6 +191,21 @@ export function TreeNodeRow({
                 </Dropdown>
               )}
             </div>
+          )}
+
+          {/* Hover action for leaf nodes (e.g. activate/deactivate environment) */}
+          {!node.canAddChild && node.hoverAction && (
+            <Tooltip title={node.hoverAction.tooltip} placement="top">
+              <span
+                className="v5-sidebar-item-hover-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  node.hoverAction!.onClick();
+                }}
+              >
+                {node.hoverAction.icon}
+              </span>
+            </Tooltip>
           )}
 
           {/* Context menu for leaf nodes (no + / ...) */}

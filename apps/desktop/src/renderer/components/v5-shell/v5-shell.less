@@ -253,8 +253,26 @@
 
   &:hover .v5-sidebar-item-menu,
   &.focused .v5-sidebar-item-menu,
-  &.selected .v5-sidebar-item-menu {
+  &.selected .v5-sidebar-item-menu,
+  &:hover .v5-sidebar-item-hover-action,
+  &.focused .v5-sidebar-item-hover-action,
+  &.selected .v5-sidebar-item-hover-action {
     opacity: 1;
+  }
+}
+
+.v5-sidebar-item-hover-action {
+  opacity: 0;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: auto;
+  cursor: pointer;
+  transition: opacity 0.12s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
   }
 }
 
@@ -264,7 +282,6 @@
   padding: 2px 4px;
   border-radius: 3px;
   flex-shrink: 0;
-  margin-left: auto;
   transition: opacity 0.12s;
 
   &:hover {
@@ -955,6 +972,36 @@
 
   &.active {
     font-weight: 500;
+  }
+}
+
+// ── Save to Collection modal rows ────────────────────────────────
+
+.v5-save-modal-breadcrumb {
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.12s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.1);
+    text-decoration: underline;
+  }
+}
+
+.v5-save-modal-row {
+  transition: background 0.12s;
+
+  .v5-save-modal-row-chevron {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+
+    .v5-save-modal-row-chevron {
+      opacity: 1;
+    }
   }
 }
 

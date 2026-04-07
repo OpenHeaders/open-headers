@@ -7,11 +7,14 @@
 
 import {
   ApiOutlined,
+  CheckCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   FileOutlined,
+  FolderOpenOutlined,
   FolderOutlined,
   GlobalOutlined,
+  StopOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import type {
@@ -118,6 +121,7 @@ export interface UseTreeDataProps {
   removeRule: (ruleId: string) => void;
   updateEnvironment: (environmentId: string, updates: { name?: string }) => Promise<boolean> | void;
   deleteEnvironment: (environmentId: string) => void;
+  switchEnvironment: (envId: string | null) => void;
   /** Centralized folder creation — handles expand, open tab, trigger rename */
   createNewFolder: (section: FolderSection, collectionId: string, parentFolderId: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => void;
@@ -157,6 +161,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     removeRule,
     updateEnvironment,
     deleteEnvironment,
+    switchEnvironment,
     createNewFolder,
     renameFolder,
     deleteFolder,
@@ -223,6 +228,10 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
       if (children.length > 0) {
         items.push(...children);
       } else {
+        const itemLabel = section === 'requests' ? 'Add request' : section === 'rules' ? 'Add rule' : 'Add environment';
+        const ItemIcon =
+          section === 'requests' ? ApiOutlined : section === 'rules' ? ThunderboltOutlined : GlobalOutlined;
+        const itemNoun = section === 'requests' ? 'request' : section === 'rules' ? 'rule' : 'environment';
         items.push({
           id: `${fid}-empty`,
           kind: 'placeholder',
@@ -234,11 +243,11 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
           canDelete: false,
           canAddChild: false,
           placeholderTitle: 'Folder is empty',
-          placeholderMessage: 'Add a request, a folder, or drag items here to group them together.',
+          placeholderMessage: `Add a ${itemNoun}, a folder, or drag items here to group them together.`,
           placeholderActions: [
             {
-              label: 'Add request',
-              icon: iconEl(ApiOutlined, 'var(--ant-color-text-tertiary, #999)'),
+              label: itemLabel,
+              icon: iconEl(ItemIcon, 'var(--ant-color-text-tertiary, #999)'),
               onClick: onAddItem,
             },
             {
@@ -276,7 +285,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
       label: collection.name,
       depth: 0,
       expandable: true,
-      icon: iconEl(ApiOutlined, 'var(--ant-color-text-tertiary, #999)'),
+      icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
       canRename: true,
       canDelete: true,
       canAddChild: true,
@@ -565,6 +574,17 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
       canRename: true,
       canDelete: true,
       canAddChild: false,
+      hoverAction: isActive
+        ? {
+            icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+            tooltip: 'Deactivate',
+            onClick: () => switchEnvironment(null),
+          }
+        : {
+            icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+            tooltip: 'Set Active',
+            onClick: () => switchEnvironment(env.id),
+          },
       onOpen: () => onOpenTab({ id: eid, type: 'environment', label: env.name, icon: 'environment', entityId: env.id }),
       onRename: async (name) => {
         await updateEnvironment(env.id, { name });

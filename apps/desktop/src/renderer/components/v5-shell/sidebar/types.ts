@@ -42,6 +42,8 @@ export interface TreeNode {
   onAddItem?: () => void;
   /** ... dropdown menu items */
   addMenuItems?: MenuItemType[];
+  /** Hover action icon button shown to the left of the ... menu on leaf nodes */
+  hoverAction?: { icon: React.ReactNode; tooltip: string; onClick: () => void };
 
   // ── Empty state placeholder ────────────────────────
   /** Title shown when container is empty (e.g. "Collection is empty") */

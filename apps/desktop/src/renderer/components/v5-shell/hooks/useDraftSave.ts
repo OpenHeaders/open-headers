@@ -30,6 +30,7 @@ export interface SaveModalProps {
 interface UseDraftSaveOptions {
   sources: Source[];
   rules: HeaderRule[];
+  environments: Environment[];
   tabs: Tab[];
   addSource: (source: Source) => Promise<Source | null>;
   addRule: (rule: Partial<HeaderRule>) => Promise<HeaderRule | null>;
@@ -42,6 +43,7 @@ interface UseDraftSaveOptions {
 export function useDraftSave({
   sources,
   rules,
+  environments,
   tabs,
   addSource,
   addRule,
@@ -115,6 +117,25 @@ export function useDraftSave({
       },
     } as Parameters<typeof openTab>[0]);
   }, [rules, openTab]);
+
+  const createDraftEnvironment = useCallback(() => {
+    const existingNames = new Set(environments.map((e) => e.name));
+    let name = 'New Environment';
+    let counter = 2;
+    while (existingNames.has(name)) {
+      name = `New Environment (${counter})`;
+      counter++;
+    }
+    const draftId = `draft-env-${Date.now()}`;
+    openTab({
+      id: draftId,
+      type: 'environment',
+      label: name,
+      icon: 'environment',
+      draft: true,
+      draftData: { name, variables: {} },
+    } as Parameters<typeof openTab>[0]);
+  }, [environments, openTab]);
 
   // ── Save to Collection modal ──
 
@@ -224,6 +245,7 @@ export function useDraftSave({
   return {
     createDraftSource,
     createDraftRule,
+    createDraftEnvironment,
     handleSaveDraft,
     handleSaveDraftRef,
     saveModalProps,

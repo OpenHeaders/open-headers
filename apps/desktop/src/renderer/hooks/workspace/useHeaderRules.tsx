@@ -22,7 +22,6 @@ export function useHeaderRules(): UseHeaderRulesReturn {
     async (ruleData: Partial<HeaderRule>): Promise<HeaderRule | null> => {
       try {
         const rule = await service.addHeaderRule(ruleData);
-        showMessage('success', 'Rule added successfully');
         return rule;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
@@ -49,7 +48,6 @@ export function useHeaderRules(): UseHeaderRulesReturn {
     async (ruleId: string): Promise<boolean> => {
       try {
         await service.removeHeaderRule(ruleId);
-        showMessage('success', 'Rule removed');
         return true;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));

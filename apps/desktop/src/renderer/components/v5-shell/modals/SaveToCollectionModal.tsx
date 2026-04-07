@@ -6,7 +6,7 @@
  * with inline folder creation and a search bar.
  */
 
-import { ApiOutlined, FolderOutlined, GlobalOutlined, PlusOutlined, SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { FolderOpenOutlined, FolderOutlined, PlusOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
 import type { Collection, CollectionSection, Folder, Source } from '@openheaders/core';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -37,12 +37,7 @@ interface SaveToCollectionModalProps {
   onCancel: () => void;
 }
 
-const SECTION_ICONS: Record<CollectionSection, typeof ApiOutlined> = {
-  requests: ApiOutlined,
-  rules: ThunderboltOutlined,
-  environments: GlobalOutlined,
-  recordings: ApiOutlined,
-};
+const CollectionIcon = FolderOpenOutlined;
 
 const SECTION_TITLES: Record<CollectionSection, string> = {
   requests: 'SAVE REQUEST',
@@ -100,8 +95,7 @@ export function SaveToCollectionModal({
     if (creatingFolder) setTimeout(() => newFolderInputRef.current?.focus(), 50);
   }, [creatingFolder]);
 
-  // Section-specific icon for collections
-  const CollectionIcon = SECTION_ICONS[section];
+  // Collection icon (same across all sections)
 
   // Filter collections by section
   const sectionCollections = useMemo(() => collections.filter((c) => c.section === section), [collections, section]);
@@ -248,6 +242,7 @@ export function SaveToCollectionModal({
         <Text style={{ fontSize: 12, fontWeight: 600 }}>Save to </Text>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: breadcrumb nav */}
         <span
+          className={selectedCollectionId ? 'v5-save-modal-breadcrumb' : undefined}
           style={{
             color: selectedCollectionId ? token.colorPrimary : token.colorText,
             cursor: selectedCollectionId ? 'pointer' : undefined,
@@ -268,6 +263,7 @@ export function SaveToCollectionModal({
             <span style={{ color: token.colorTextTertiary }}>{' / '}</span>
             {/* biome-ignore lint/a11y/useKeyWithClickEvents: breadcrumb nav */}
             <span
+              className={selectedFolderId ? 'v5-save-modal-breadcrumb' : undefined}
               style={{
                 color: selectedFolderId ? token.colorPrimary : token.colorText,
                 cursor: selectedFolderId ? 'pointer' : undefined,
@@ -389,7 +385,7 @@ export function SaveToCollectionModal({
             {filteredCollections.map((col) => (
               <div
                 key={col.id}
-                className="v5-save-modal-item"
+                className="v5-save-modal-row"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -415,7 +411,8 @@ export function SaveToCollectionModal({
                 tabIndex={0}
               >
                 <CollectionIcon style={{ fontSize: 13, color: token.colorTextTertiary }} />
-                <span style={{ color: token.colorText }}>{col.name}</span>
+                <span style={{ flex: 1, color: token.colorText }}>{col.name}</span>
+                <RightOutlined className="v5-save-modal-row-chevron" style={{ fontSize: 10, color: token.colorTextQuaternary }} />
               </div>
             ))}
           </>
@@ -478,6 +475,7 @@ export function SaveToCollectionModal({
               collectionFolders.map((fol) => (
                 <div
                   key={fol.id}
+                  className="v5-save-modal-row"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -495,7 +493,8 @@ export function SaveToCollectionModal({
                   tabIndex={0}
                 >
                   <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-                  <span style={{ color: token.colorText }}>{fol.name}</span>
+                  <span style={{ flex: 1, color: token.colorText }}>{fol.name}</span>
+                  <RightOutlined className="v5-save-modal-row-chevron" style={{ fontSize: 10, color: token.colorTextQuaternary }} />
                 </div>
               ))}
 

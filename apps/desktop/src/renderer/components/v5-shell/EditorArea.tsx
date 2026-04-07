@@ -6,7 +6,7 @@
  * scroll position) when switching between tabs.
  */
 
-import { ApiOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { ApiOutlined, GlobalOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
@@ -26,6 +26,7 @@ interface EditorAreaProps {
   activeTab?: ResolvedTab | null;
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  onNewEnvironment?: () => void;
   onOpenOverview?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   onSaveLabelChange?: (label: string | null) => void;
@@ -53,10 +54,12 @@ function OverviewScreen({ workspaceName }: { workspaceName?: string }) {
 function EmptyPlaceholder({
   onNewRequest,
   onNewRule,
+  onNewEnvironment,
   onOpenOverview,
 }: {
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  onNewEnvironment?: () => void;
   onOpenOverview?: () => void;
 }) {
   const { token } = theme.useToken();
@@ -75,6 +78,9 @@ function EmptyPlaceholder({
           <Text type="secondary" style={{ marginLeft: 'auto', fontSize: 11 }}>
             {'\u21E7\u2318'}N
           </Text>
+        </Button>
+        <Button type="text" block onClick={onNewEnvironment} style={{ justifyContent: 'flex-start' }}>
+          <GlobalOutlined /> Create new environment
         </Button>
         <Button type="text" block style={{ justifyContent: 'flex-start' }}>
           <RocketOutlined /> Import collection
@@ -208,6 +214,7 @@ export function EditorArea({
   activeTab,
   onNewRequest,
   onNewRule,
+  onNewEnvironment,
   onOpenOverview,
   onDirtyChange,
   onSaveLabelChange,
@@ -236,7 +243,7 @@ export function EditorArea({
       {/* Empty placeholder — shown when no tabs are open at all */}
       {showEmpty && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          <EmptyPlaceholder onNewRequest={onNewRequest} onNewRule={onNewRule} onOpenOverview={onOpenOverview} />
+          <EmptyPlaceholder onNewRequest={onNewRequest} onNewRule={onNewRule} onNewEnvironment={onNewEnvironment} onOpenOverview={onOpenOverview} />
         </div>
       )}
 

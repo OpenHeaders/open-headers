@@ -280,9 +280,10 @@ export function V5Shell() {
   });
 
   // Draft creation + save-to-collection modal
-  const { createDraftSource, createDraftRule, handleSaveDraft, saveModalProps } = useDraftSave({
+  const { createDraftSource, createDraftRule, createDraftEnvironment, handleSaveDraft, saveModalProps } = useDraftSave({
     sources,
     rules,
+    environments,
     tabs,
     addSource,
     addRule,
@@ -426,6 +427,7 @@ export function V5Shell() {
         onSelect: createDraftSource,
       },
       { id: 'cmd-new-rule', icon: '⚡', label: 'New Rule', shortcut: '⇧⌘N', onSelect: createDraftRule },
+      { id: 'cmd-new-env', icon: '🌐', label: 'New Environment', onSelect: createDraftEnvironment },
       {
         id: 'cmd-toggle-sidebar',
         icon: '▶',
@@ -468,6 +470,7 @@ export function V5Shell() {
     openTab,
     createDraftSource,
     createDraftRule,
+    createDraftEnvironment,
   ]);
 
   // Derive the collection the active tab belongs to (for pinned env feature)
@@ -592,6 +595,7 @@ export function V5Shell() {
                     onNewRequest={(opts) => void createNewSource(opts)}
                     onNewRule={(opts) => void createNewRule(opts)}
                     onNewEnvironment={(opts) => void createNewEnvironment(opts)}
+                    onNewDraftEnvironment={createDraftEnvironment}
                     onOpenWorkspaceVariables={openWorkspaceVariables}
                     expandedSections={sidebarExpandedSections}
                     onExpandedSectionsChange={setSidebarExpandedSections}
@@ -632,6 +636,7 @@ export function V5Shell() {
                         activeCollection={activeCollection}
                         onPinEnvironment={handlePinEnvironment}
                         onNewEnvironment={() => void createAndActivateEnvironment()}
+                        onNewDraftEnvironment={createDraftEnvironment}
                         onToggleInspector={() => togglePanel('inspector')}
                         recentlyClosed={recentlyClosed}
                         onReopenTab={(tab) => openTab(tab)}
@@ -659,6 +664,7 @@ export function V5Shell() {
                         activeTab={activeResolvedTab}
                         onNewRequest={createDraftSource}
                         onNewRule={createDraftRule}
+                        onNewEnvironment={createDraftEnvironment}
                         onOpenOverview={openOverview}
                         onDirtyChange={handleDirtyChange}
                         onSaveLabelChange={setEditorSaveLabel}
@@ -691,6 +697,7 @@ export function V5Shell() {
                     onNewRequest={(opts) => void createNewSource(opts)}
                     onNewRule={(opts) => void createNewRule(opts)}
                     onNewEnvironment={(opts) => void createNewEnvironment(opts)}
+                    onNewDraftEnvironment={createDraftEnvironment}
                     onOpenWorkspaceVariables={openWorkspaceVariables}
                     expandedSections={sidebarExpandedSections}
                     onExpandedSectionsChange={setSidebarExpandedSections}

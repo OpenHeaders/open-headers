@@ -14,6 +14,7 @@ import {
   CheckOutlined,
   CloseOutlined,
   DownOutlined,
+  GlobalOutlined,
   PlusOutlined,
   PushpinOutlined,
   ThunderboltOutlined,
@@ -63,6 +64,7 @@ interface TabBarProps {
   activeCollection?: Collection | null;
   onPinEnvironment?: (collectionId: string, envId: string | null) => void;
   onNewEnvironment?: () => void;
+  onNewDraftEnvironment?: () => void;
   onToggleInspector?: () => void;
   recentlyClosed?: Tab[];
   onReopenTab?: (tab: Tab) => void;
@@ -722,6 +724,7 @@ export function TabBar({
   activeCollection,
   onPinEnvironment,
   onNewEnvironment,
+  onNewDraftEnvironment,
   onToggleInspector,
   recentlyClosed,
   onReopenTab,
@@ -850,6 +853,7 @@ export function TabBar({
   const createMenuItems = [
     { key: 'request', icon: <ApiOutlined />, label: 'New Request', onClick: onNewRequest },
     { key: 'rule', icon: <ThunderboltOutlined />, label: 'New Rule', onClick: onNewRule },
+    { key: 'environment', icon: <GlobalOutlined />, label: 'New Environment', onClick: onNewDraftEnvironment },
   ];
 
   return (

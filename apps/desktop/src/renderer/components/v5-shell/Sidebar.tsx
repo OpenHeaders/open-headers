@@ -85,6 +85,8 @@ interface SidebarProps {
   onNewRequest?: (options?: { collectionId?: string; folderId?: string }) => void;
   onNewRule?: (options?: { collectionId?: string; folderId?: string }) => void;
   onNewEnvironment?: (options?: { collectionId?: string; folderId?: string }) => void;
+  /** Draft creation (no collection context) — used by toolbar create menu */
+  onNewDraftEnvironment?: () => void;
   onOpenWorkspaceVariables?: () => void;
   expandedSections?: string[];
   onExpandedSectionsChange?: (sections: string[]) => void;
@@ -132,6 +134,7 @@ export function Sidebar({
   onNewRequest,
   onNewRule,
   onNewEnvironment,
+  onNewDraftEnvironment,
   onOpenWorkspaceVariables,
   expandedSections: expandedSectionsProp,
   onExpandedSectionsChange,
@@ -145,7 +148,7 @@ export function Sidebar({
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource } = useSources();
   const { rules, updateRule, removeRule } = useHeaderRules();
-  const { environments, activeEnvironment, updateEnvironment, deleteEnvironment } = useEnvironments();
+  const { environments, activeEnvironment, switchEnvironment, updateEnvironment, deleteEnvironment } = useEnvironments();
   const { collections, addCollection, updateCollection, removeCollection } = useCollections();
   const {
     folders: workspaceFolders,
@@ -256,6 +259,7 @@ export function Sidebar({
     removeRule,
     updateEnvironment,
     deleteEnvironment,
+    switchEnvironment,
     createNewFolder,
     renameFolder: folderActions.renameFolder,
     deleteFolder: folderActions.deleteFolder,
@@ -458,7 +462,7 @@ export function Sidebar({
       label: 'Collection',
       onClick: () => void createNewCollection('requests'),
     },
-    { key: 'environment', icon: <GlobalOutlined />, label: 'Environment', onClick: () => onNewEnvironment?.() },
+    { key: 'environment', icon: <GlobalOutlined />, label: 'Environment', onClick: () => onNewDraftEnvironment?.() },
     { type: 'divider' as const, key: 'div-2' },
     {
       key: 'workspace-variables',
@@ -643,7 +647,7 @@ export function Sidebar({
               <SectionHeader title="RULES" expanded={rulesExpanded} onToggle={() => toggleSection('rules')} />
               {rulesExpanded && (
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {renderNodes(treeData.rulesNodes, () => onNewRule?.())}
+                  {renderNodes(treeData.rulesNodes, () => void createNewCollection('rules'))}
                 </div>
               )}
             </div>
@@ -657,7 +661,7 @@ export function Sidebar({
               />
               {envsExpanded && (
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {renderNodes(treeData.environmentsNodes, () => onNewEnvironment?.())}
+                  {renderNodes(treeData.environmentsNodes, () => void createNewCollection('environments'))}
                 </div>
               )}
             </div>
