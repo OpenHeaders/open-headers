@@ -12,7 +12,6 @@ const { createLogger } = mainLogger;
 const log = createLogger('GitHandlers');
 
 import type { ConnectionTestOptions } from '@/services/workspace/git/operations/ConnectionTester';
-import type { SyncOptions } from '@/services/workspace/git/operations/TeamWorkspaceSyncer';
 
 class GitHandlers {
   async handleTestGitConnection(event: IpcInvokeEvent, config: Omit<ConnectionTestOptions, 'onProgress'>) {
@@ -79,35 +78,13 @@ class GitHandlers {
     }
   }
 
-  async handleSyncGitWorkspace(_: IpcInvokeEvent, workspaceId: string) {
+  async handleSyncGitWorkspace(_: IpcInvokeEvent, _workspaceId: string) {
     try {
-      const workspaceSyncScheduler = appLifecycle.getWorkspaceSyncScheduler();
-      const workspaceSettingsService = appLifecycle.getWorkspaceSettingsService();
       const gitSyncService = appLifecycle.getGitSyncService();
-
-      // Prefer sync scheduler for coordinated workspace management
-      if (workspaceSyncScheduler) {
-        return await workspaceSyncScheduler.manualSync(workspaceId);
-      } else if (workspaceSettingsService && gitSyncService) {
-        // Direct sync fallback when scheduler unavailable
-        const workspaces = await workspaceSettingsService.getWorkspaces();
-        const workspace = workspaces.find((w: { id: string }) => w.id === workspaceId);
-        if (!workspace) {
-          return { success: false, error: 'Workspace not found' };
-        }
-
-        const config: SyncOptions = {
-          workspaceId,
-          url: workspace.gitUrl,
-          branch: workspace.gitBranch || 'main',
-          path: workspace.gitPath || 'config/open-headers.json',
-          authType: workspace.authType || 'none',
-          authData: workspace.authData ?? {},
-        };
-
-        return await gitSyncService.syncWorkspace(config);
+      if (!gitSyncService) {
+        return { success: false, error: 'Git sync service not ready' };
       }
-      return { success: false, error: 'Services not ready' };
+      return await gitSyncService.syncWorkspace({});
     } catch (error: unknown) {
       log.error('Error syncing Git workspace:', error);
       return { success: false, error: errorMessage(error) };

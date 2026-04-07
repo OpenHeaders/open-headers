@@ -183,19 +183,8 @@ class RecordingHandlers {
         },
       });
 
-      // Get proxy status to check if it's running
-      let proxyPort: number | null = null;
-      try {
-        const proxyServiceMod = (await import('../../../../services/proxy/ProxyService')).default;
-        if (proxyServiceMod?.isRunning) {
-          proxyPort = proxyServiceMod.port;
-          log.info(`Proxy is running on port ${proxyPort}, will prefetch resources`);
-        } else {
-          log.info('Proxy is not running, skipping resource prefetch');
-        }
-      } catch (error: unknown) {
-        log.warn('Could not check proxy status:', errorMessage(error));
-      }
+      // Proxy service removed in v5 — resource prefetch disabled
+      const proxyPort: number | null = null;
 
       // Create progress callback for prefetching
       const onPrefetchProgress = (stage: string, progress: number, details?: PreprocessProgressDetails) => {

@@ -3,7 +3,6 @@
 import { errorMessage } from '@openheaders/core';
 import type {
   BrowserWindow as BrowserWindowType,
-  IpcMainEvent,
   IpcMainInvokeEvent,
   MenuItemConstructorOptions,
 } from 'electron';
@@ -16,7 +15,6 @@ const { app, ipcMain, Menu, shell } = electron;
 const { createLogger } = mainLogger;
 
 // Only import modules needed before app.whenReady()
-import protocolHandler from './main/modules/protocol/protocolHandler';
 import { writeRestartHiddenFlag } from './main/modules/window/restartFlag';
 
 const log = createLogger('Main');
@@ -44,9 +42,6 @@ if (!gotTheLock) {
 
   app.setName('OpenHeaders');
   app.commandLine.appendSwitch('use-system-ca-store');
-
-  protocolHandler.setupProtocol();
-  protocolHandler.setupProtocolHandlers();
 
   app.whenReady().then(async () => {
     const settings = await phaseA_loadSettings();
@@ -116,7 +111,6 @@ if (!gotTheLock) {
       systemHandlers,
       httpRequestHandlers,
       recordingHandlers,
-      workspaceHandlers,
       gitHandlers,
     ] = await Promise.all([
       import('./main/modules/window/windowManager').then((m) => m.default),
@@ -131,7 +125,6 @@ if (!gotTheLock) {
       import('./main/modules/ipc/handlers/systemHandlers').then((m) => m.default),
       import('./main/modules/ipc/handlers/httpRequestHandlers').then((m) => m.default),
       import('./main/modules/ipc/handlers/recordingHandlers').then((m) => m.default),
-      import('./main/modules/ipc/handlers/workspaceHandlers').then((m) => m.default),
       import('./main/modules/ipc/handlers/gitHandlers').then((m) => m.default),
     ]);
 
@@ -142,25 +135,15 @@ if (!gotTheLock) {
       systemHandlers,
       httpRequestHandlers,
       recordingHandlers,
-      workspaceHandlers,
       gitHandlers,
       appLifecycle,
       autoUpdater,
       globalShortcuts,
       networkHandlers,
       windowManager,
-      protocolHandler,
     );
 
-    // If a protocol URL arrived before the window was created, ensure the
-    // window is shown regardless of hideOnLaunch / isAutoLaunch settings.
-    // Covers: macOS open-url (pendingInvite) and Windows/Linux argv (protocolUrl).
-    if (protocolHandler.pendingInvite || protocolHandler.pendingEnvironmentImport || protocolUrl) {
-      windowManager.setLaunchedByProtocol();
-    }
-
     mainWindow = windowManager.createWindow(settings);
-    protocolHandler.setMainWindow(mainWindow!);
 
     trayManager.createTray();
     setupMenu(windowManager);
@@ -198,7 +181,6 @@ if (!gotTheLock) {
       const webSocketService = (await import('./services/websocket/ws-service')).default;
 
       AppStateMachine.serversReady({
-        proxy: { isRunning: false },
         websocket: webSocketService.getConnectionStatus(),
       });
 
@@ -241,7 +223,6 @@ if (!gotTheLock) {
     app.on('activate', () => {
       if (windowManager.getAllWindows().length === 0) {
         mainWindow = windowManager.createWindow(settingsCache.get());
-        protocolHandler.setMainWindow(mainWindow!);
         const cliApi = appLifecycle.getCliApiService();
         if (cliApi && mainWindow) cliApi.setMainWindow(mainWindow);
       } else {
@@ -279,57 +260,7 @@ if (!gotTheLock) {
     }
   });
 
-  // macOS open-url is handled by protocolHandler.setupProtocolHandlers()
-  // Windows protocol URLs arrive via second-instance or command line args below
-
-  // Handle protocol URLs passed as command line arguments on first launch
-  let protocolUrl: string | null = null;
-
-  for (const arg of process.argv) {
-    if (arg.startsWith('openheaders://')) {
-      protocolUrl = arg;
-      break;
-    }
-    if (arg.includes('open?')) {
-      protocolUrl = arg.startsWith('openheaders://') ? arg : `openheaders://${arg}`;
-      break;
-    }
-    if (arg.match(/^[A-Za-z0-9+/]+=*$/) && arg.length > 50) {
-      try {
-        const decoded = atob(arg);
-        const parsed = JSON.parse(decoded);
-        if (parsed.action && parsed.version && parsed.data) {
-          log.info('Found base64 encoded unified payload, reconstructing URL');
-          protocolUrl = `openheaders://open?payload=${arg}`;
-          break;
-        }
-      } catch {
-        // Not a valid base64 JSON, continue
-      }
-    }
-  }
-
-  if (protocolUrl) {
-    log.info('Found protocol URL in initial argv:', protocolUrl);
-    const validation = protocolHandler.validateProtocolUrl(protocolUrl);
-    if (!validation.valid) {
-      log.error('Invalid protocol URL in initial argv:', validation.error);
-      app.whenReady().then(() => {
-        setTimeout(() => {
-          protocolHandler.handleProtocolError(validation.error!);
-        }, 1000);
-      });
-    } else {
-      app.whenReady().then(() => {
-        const protocolDelay = process.platform === 'win32' ? 2000 : 1000;
-        setTimeout(() => {
-          protocolHandler.handleProtocolUrl(protocolUrl!);
-        }, protocolDelay);
-      });
-    }
-  } else {
-    log.info('No protocol URL found in initial argv');
-  }
+  // Protocol handler (openheaders:// deep links) removed — will be rebuilt for v5
 }
 
 // ─── IPC Registration ───────────────────────────────────────────────────────
@@ -341,14 +272,12 @@ function setupIPC(
   systemHandlers: typeof import('./main/modules/ipc/handlers/systemHandlers').default,
   httpRequestHandlers: typeof import('./main/modules/ipc/handlers/httpRequestHandlers').default,
   recordingHandlers: typeof import('./main/modules/ipc/handlers/recordingHandlers').default,
-  workspaceHandlers: typeof import('./main/modules/ipc/handlers/workspaceHandlers').default,
   gitHandlers: typeof import('./main/modules/ipc/handlers/gitHandlers').default,
   appLifecycle: typeof import('./main/modules/app/lifecycle').default,
   autoUpdater: typeof import('./main/modules/updater/autoUpdater').default,
   globalShortcuts: typeof import('./main/modules/shortcuts/globalShortcuts').default,
   networkHandlers: typeof import('./main/modules/network/networkHandlers').default,
   windowManager: typeof import('./main/modules/window/windowManager').default,
-  protocolHandler: typeof import('./main/modules/protocol/protocolHandler').default,
 ) {
   // File operations
   ipcMain.handle('openFileDialog', fileHandlers.handleOpenFileDialog);
@@ -412,9 +341,6 @@ function setupIPC(
   ipcMain.handle('updateRecordingMetadata', recordingHandlers.handleUpdateRecordingMetadata);
 
 
-  // WebSocket
-  ipcMain.handle('ws-get-connection-status', workspaceHandlers.handleWsGetConnectionStatus.bind(workspaceHandlers));
-
   // Git
   ipcMain.handle('testGitConnection', gitHandlers.handleTestGitConnection);
   ipcMain.handle('getGitStatus', gitHandlers.handleGetGitStatus);
@@ -474,28 +400,6 @@ function setupIPC(
     }
   });
 
-  // Workspace
-  ipcMain.handle('deleteWorkspaceFolder', workspaceHandlers.handleDeleteWorkspaceFolder.bind(workspaceHandlers));
-  ipcMain.handle('workspace-test-connection', workspaceHandlers.handleWorkspaceTestConnection.bind(workspaceHandlers));
-  ipcMain.handle('workspace-sync', workspaceHandlers.handleWorkspaceSync.bind(workspaceHandlers));
-  ipcMain.handle('workspace-sync-all', workspaceHandlers.handleWorkspaceSyncAll.bind(workspaceHandlers));
-  ipcMain.handle('workspace-get-sync-status', workspaceHandlers.handleWorkspaceGetSyncStatus.bind(workspaceHandlers));
-  ipcMain.handle(
-    'workspace-auto-sync-enabled',
-    workspaceHandlers.handleWorkspaceAutoSyncEnabled.bind(workspaceHandlers),
-  );
-  ipcMain.handle('workspace-open-folder', workspaceHandlers.handleWorkspaceOpenFolder.bind(workspaceHandlers));
-  ipcMain.handle('services-health-check', workspaceHandlers.handleServicesHealthCheck.bind(workspaceHandlers));
-  ipcMain.handle('initializeWorkspaceSync', workspaceHandlers.handleInitializeWorkspaceSync.bind(workspaceHandlers));
-  ipcMain.handle(
-    'generate-team-workspace-invite',
-    workspaceHandlers.handleGenerateTeamWorkspaceInvite.bind(workspaceHandlers),
-  );
-  ipcMain.handle(
-    'generate-environment-config-link',
-    workspaceHandlers.handleGenerateEnvironmentConfigLink.bind(workspaceHandlers),
-  );
-
   // Updates
   ipcMain.on('check-for-updates', autoUpdater.handleManualUpdateCheck.bind(autoUpdater));
   ipcMain.on('install-update', autoUpdater.installUpdate.bind(autoUpdater));
@@ -528,25 +432,7 @@ function setupIPC(
   // Renderer ready signal
   ipcMain.on('renderer-ready', () => {
     log.info('Renderer signaled that it is ready');
-    protocolHandler.setRendererReady();
   });
-
-  // Runtime updates — proxy source updates are still used by some direct callers
-  ipcMain.on('proxy-update-source', async (_event: IpcMainEvent, sourceId: string, value: string) => {
-    const proxyService = (await import('./services/proxy/ProxyService')).default;
-    proxyService.updateSource(sourceId, value);
-  });
-
-  ipcMain.on('proxy-update-sources', async (_event: IpcMainEvent, sources: Source[]) => {
-    const proxyService = (await import('./services/proxy/ProxyService')).default;
-    if (Array.isArray(sources)) {
-      proxyService.updateSources(sources);
-    }
-  });
-
-  // Environment events — main process (WorkspaceStateService) now owns all environment
-  // state directly. No IPC listeners needed — CRUD operations come through
-  // workspace-state:* IPC handlers registered in workspaceStateHandlers.ts.
 }
 
 // ─── Application Menu ───────────────────────────────────────────────────────

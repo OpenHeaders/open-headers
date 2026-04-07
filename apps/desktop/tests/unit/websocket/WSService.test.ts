@@ -1,4 +1,4 @@
-import type { RulesCollection, Source } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock mainLogger to prevent .js extension resolution issues in CJS→ESM chains
@@ -49,9 +49,8 @@ describe('WebSocketService', () => {
       expect(service.clientInitializationLocks.size).toBe(0);
     });
 
-    it('initializes with empty sources and rules', () => {
-      expect(service.sources).toEqual([]);
-      expect(service.rules).toEqual({ header: [], request: [], response: [] });
+    it('initializes with empty rules', () => {
+      expect(service.rules).toEqual([]);
     });
 
     it('creates all handler instances with correct types', () => {
@@ -59,8 +58,6 @@ describe('WebSocketService', () => {
       expect(service.recordingHandler.constructor.name).toBe('WSRecordingHandler');
       expect(service.ruleHandler).toBeDefined();
       expect(service.ruleHandler.constructor.name).toBe('WSRuleHandler');
-      expect(service.sourceHandler).toBeDefined();
-      expect(service.sourceHandler.constructor.name).toBe('WSSourceHandler');
       expect(service.environmentHandler).toBeDefined();
       expect(service.environmentHandler.constructor.name).toBe('WSEnvironmentHandler');
       expect(service.clientHandler).toBeDefined();
@@ -203,28 +200,9 @@ describe('WebSocketService', () => {
   });
 
   describe('delegators', () => {
-    it('updateSources delegates to sourceHandler', () => {
-      const spy = vi.spyOn(service.sourceHandler, 'updateSources').mockImplementation(() => {});
-      const sources: Source[] = [
-        {
-          sourceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-          sourceType: 'http',
-          sourcePath: 'https://auth.openheaders.internal:8443/oauth2/token',
-          sourceName: 'Production API Gateway Token',
-          sourceContent: 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.sig',
-        },
-      ];
-      service.updateSources(sources);
-      expect(spy).toHaveBeenCalledWith(sources);
-    });
-
     it('updateRules delegates to ruleHandler', () => {
       const spy = vi.spyOn(service.ruleHandler, 'updateRules').mockImplementation(() => {});
-      const rules: RulesCollection = {
-        header: [],
-        request: [],
-        response: [],
-      };
+      const rules: V5.Rule[] = [];
       service.updateRules(rules);
       expect(spy).toHaveBeenCalledWith(rules);
     });

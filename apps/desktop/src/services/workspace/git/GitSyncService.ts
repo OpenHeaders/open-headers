@@ -24,7 +24,6 @@ import ConnectionTester from './operations/ConnectionTester';
 // TeamWorkspaceSyncer removed — will be rebuilt for YAML workspace format
 interface SyncOptions { force?: boolean }
 interface SyncResult { success: boolean; error?: string; status?: string }
-const SYNC_STATUS = { SUCCESS: 'success', FAILED: 'failed', NO_CHANGES: 'no_changes' } as const;
 import type { BranchResult } from './repository/GitBranchManager';
 import GitBranchManager from './repository/GitBranchManager';
 // Repository modules
@@ -81,7 +80,6 @@ class GitSyncService {
   private sparseCheckoutManager: SparseCheckoutManager | null;
   private commitManager: CommitManager | null;
   private cleanupManager: GitCleanupManager | null;
-  private teamWorkspaceSyncer: TeamWorkspaceSyncer | null;
   private connectionTester: ConnectionTester | null;
   private readonly configValidator: ConfigFileValidator;
   private gitAutoInstaller: GitAutoInstaller;
@@ -99,7 +97,6 @@ class GitSyncService {
     this.commitManager = null;
     this.cleanupManager = null;
 
-    this.teamWorkspaceSyncer = null;
     this.connectionTester = null;
 
     this.configValidator = new ConfigFileValidator();
@@ -141,7 +138,6 @@ class GitSyncService {
         configValidator: this.configValidator,
       };
 
-      this.teamWorkspaceSyncer = new TeamWorkspaceSyncer(dependencies);
       this.connectionTester = new ConnectionTester(dependencies);
 
       this.cleanupManager.schedulePeriodicCleanup(24);
@@ -193,51 +189,13 @@ class GitSyncService {
 
   // ── Sync ──────────────────────────────────────────────────────
 
-  async syncWorkspace(options: SyncOptions): Promise<SyncResult> {
-    await this.ensureInitialized();
-
-    try {
-      return await this._doSyncWorkspace(options);
-    } catch (error) {
-      const handled = this.errorHandler.handle(toError(error), {
-        operation: 'syncWorkspace',
-        ...options,
-      });
-      return {
-        success: false,
-        status: SYNC_STATUS.ERROR,
-        message: handled.message,
-        error: handled.message,
-      };
-    }
-  }
-
-  private async _doSyncWorkspace(options: SyncOptions): Promise<SyncResult> {
-    const repoDir = this.getWorkspaceRepoDir(options.workspaceId);
-
-    const repoExists = await fsPromises.access(path.join(repoDir, '.git')).then(
-      () => true,
-      () => false,
-    );
-
-    if (!repoExists) {
-      log.info(`Repository not found for workspace ${options.workspaceId}, cloning...`);
-
-      const cloneResult = await this.repositoryManager!.cloneRepository({
-        url: options.url!,
-        targetDir: repoDir,
-        branch: options.branch || 'main',
-        authType: options.authType || 'none',
-        authData: options.authData || {},
-        depth: 10,
-      });
-
-      if (!cloneResult.success) {
-        throw new Error(`Failed to clone repository: ${cloneResult.error || 'Unknown error'}`);
-      }
-    }
-
-    return await this.teamWorkspaceSyncer!.syncWorkspace({ ...options, repoDir });
+  async syncWorkspace(_options: SyncOptions): Promise<SyncResult> {
+    // Workspace sync will be rebuilt for the YAML workspace format.
+    // The git primitives (clone, push, pull) are still available via
+    // repositoryManager/branchManager — this method just needs new
+    // orchestration logic for the v5 file layout.
+    log.warn('syncWorkspace not yet implemented for v5 workspace format');
+    return { success: false, error: 'Workspace sync not yet implemented for v5 format' };
   }
 
   // ── Commit configuration ──────────────────────────────────────
@@ -476,11 +434,6 @@ class GitSyncService {
     }
   }
 
-  // ── Private helpers ───────────────────────────────────────────
-
-  private getWorkspaceRepoDir(workspaceId: string): string {
-    return path.join(this.initializer.getPaths().tempDir, `workspace-${workspaceId}`);
-  }
 }
 
 export { GitSyncService };

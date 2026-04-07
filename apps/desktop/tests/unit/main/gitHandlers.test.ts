@@ -258,25 +258,20 @@ describe('GitHandlers', () => {
   });
 
   describe('handleSyncGitWorkspace', () => {
-    it('syncs via workspace sync scheduler when available', async () => {
-      mockManualSync.mockResolvedValueOnce({
-        success: true,
-        hasChanges: true,
-        commitInfo: { commitHash: 'abc123def456' },
+    it('syncs via git sync service', async () => {
+      mockSyncWorkspace.mockResolvedValueOnce({
+        success: false,
+        error: 'Workspace sync not yet implemented for v5 format',
       });
 
       const result = await handlers.handleSyncGitWorkspace(mockEvent, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890');
 
-      expect(result).toEqual({
-        success: true,
-        hasChanges: true,
-        commitInfo: { commitHash: 'abc123def456' },
-      });
-      expect(mockManualSync).toHaveBeenCalledWith('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
+      expect(result.success).toBe(false);
+      expect(mockSyncWorkspace).toHaveBeenCalledWith({});
     });
 
     it('returns error on sync failure', async () => {
-      mockManualSync.mockRejectedValueOnce(new Error('Merge conflict'));
+      mockSyncWorkspace.mockRejectedValueOnce(new Error('Merge conflict'));
 
       const result = await handlers.handleSyncGitWorkspace(mockEvent, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890');
 

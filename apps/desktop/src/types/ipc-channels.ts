@@ -60,12 +60,6 @@ export const IPC_INVOKE = {
   HTTP_GET_TOTP_COOLDOWN: 'http:get-totp-cooldown',
   HTTP_GENERATE_TOTP_PREVIEW: 'http:generate-totp-preview',
 
-  // Source refresh (main-process owned)
-  SOURCE_REFRESH_MANUAL: 'source-refresh:manual',
-  SOURCE_REFRESH_UPDATE_SOURCE: 'source-refresh:update-source',
-  SOURCE_REFRESH_GET_STATUS: 'source-refresh:get-status',
-  SOURCE_REFRESH_GET_TIME_UNTIL: 'source-refresh:get-time-until',
-
   // Recording
   LOAD_RECORDINGS: 'loadRecordings',
   LOAD_RECORDING: 'loadRecording',
@@ -74,29 +68,6 @@ export const IPC_INVOKE = {
   DELETE_RECORDING: 'deleteRecording',
   DOWNLOAD_RECORDING: 'downloadRecording',
   UPDATE_RECORDING_METADATA: 'updateRecordingMetadata',
-
-  // Proxy
-  PROXY_START: 'proxy-start',
-  PROXY_STOP: 'proxy-stop',
-  PROXY_STATUS: 'proxy-status',
-  PROXY_GET_RULES: 'proxy-get-rules',
-  PROXY_SAVE_RULE: 'proxy-save-rule',
-  PROXY_DELETE_RULE: 'proxy-delete-rule',
-  PROXY_CLEAR_CACHE: 'proxy-clear-cache',
-  PROXY_GET_CACHE_STATS: 'proxy-get-cache-stats',
-  PROXY_GET_CACHE_ENTRIES: 'proxy-get-cache-entries',
-  PROXY_SET_CACHE_ENABLED: 'proxy-set-cache-enabled',
-  PROXY_UPDATE_HEADER_RULES: 'proxy-update-header-rules',
-  PROXY_CLEAR_RULES: 'proxyClearRules',
-  PROXY_SET_STRICT_SSL: 'proxy-set-strict-ssl',
-  PROXY_ADD_TRUSTED_CERTIFICATE: 'proxy-add-trusted-certificate',
-  PROXY_REMOVE_TRUSTED_CERTIFICATE: 'proxy-remove-trusted-certificate',
-  PROXY_ADD_CERTIFICATE_EXCEPTION: 'proxy-add-certificate-exception',
-  PROXY_REMOVE_CERTIFICATE_EXCEPTION: 'proxy-remove-certificate-exception',
-  PROXY_GET_CERTIFICATE_INFO: 'proxy-get-certificate-info',
-
-  // WebSocket
-  WS_GET_CONNECTION_STATUS: 'ws-get-connection-status',
 
   // Git
   TEST_GIT_CONNECTION: 'testGitConnection',
@@ -116,19 +87,6 @@ export const IPC_INVOKE = {
   CLI_API_CLEAR_LOGS: 'cli-api-clear-logs',
   CLI_API_REGENERATE_TOKEN: 'cli-api-regenerate-token',
 
-  // Workspace
-  DELETE_WORKSPACE_FOLDER: 'deleteWorkspaceFolder',
-  WORKSPACE_TEST_CONNECTION: 'workspace-test-connection',
-  WORKSPACE_SYNC: 'workspace-sync',
-  WORKSPACE_SYNC_ALL: 'workspace-sync-all',
-  WORKSPACE_GET_SYNC_STATUS: 'workspace-get-sync-status',
-  WORKSPACE_AUTO_SYNC_ENABLED: 'workspace-auto-sync-enabled',
-  WORKSPACE_OPEN_FOLDER: 'workspace-open-folder',
-  SERVICES_HEALTH_CHECK: 'services-health-check',
-  INITIALIZE_WORKSPACE_SYNC: 'initializeWorkspaceSync',
-  GENERATE_TEAM_WORKSPACE_INVITE: 'generate-team-workspace-invite',
-  GENERATE_ENVIRONMENT_CONFIG_LINK: 'generate-environment-config-link',
-
   // Video (handled by VideoExportManager IPC registration)
   CHECK_FFMPEG: 'check-ffmpeg',
   DOWNLOAD_FFMPEG: 'download-ffmpeg',
@@ -138,36 +96,17 @@ export const IPC_INVOKE = {
   WORKSPACE_STATE_INITIALIZE: 'workspace-state:initialize',
   WORKSPACE_STATE_GET_STATE: 'workspace-state:get-state',
   WORKSPACE_STATE_SWITCH_WORKSPACE: 'workspace-state:switch-workspace',
-  WORKSPACE_STATE_ADD_SOURCE: 'workspace-state:add-source',
-  WORKSPACE_STATE_UPDATE_SOURCE: 'workspace-state:update-source',
-  WORKSPACE_STATE_REMOVE_SOURCE: 'workspace-state:remove-source',
-  WORKSPACE_STATE_UPDATE_SOURCE_CONTENT: 'workspace-state:update-source-content',
-  WORKSPACE_STATE_REFRESH_SOURCE: 'workspace-state:refresh-source',
-  WORKSPACE_STATE_IMPORT_SOURCES: 'workspace-state:import-sources',
-  WORKSPACE_STATE_ADD_HEADER_RULE: 'workspace-state:add-header-rule',
-  WORKSPACE_STATE_UPDATE_HEADER_RULE: 'workspace-state:update-header-rule',
-  WORKSPACE_STATE_REMOVE_HEADER_RULE: 'workspace-state:remove-header-rule',
-  WORKSPACE_STATE_ADD_PROXY_RULE: 'workspace-state:add-proxy-rule',
-  WORKSPACE_STATE_REMOVE_PROXY_RULE: 'workspace-state:remove-proxy-rule',
   WORKSPACE_STATE_ADD_COLLECTION: 'workspace-state:add-collection',
   WORKSPACE_STATE_UPDATE_COLLECTION: 'workspace-state:update-collection',
   WORKSPACE_STATE_REMOVE_COLLECTION: 'workspace-state:remove-collection',
-  WORKSPACE_STATE_ADD_FOLDER: 'workspace-state:add-folder',
-  WORKSPACE_STATE_UPDATE_FOLDER: 'workspace-state:update-folder',
-  WORKSPACE_STATE_REMOVE_FOLDER: 'workspace-state:remove-folder',
   WORKSPACE_STATE_CREATE_WORKSPACE: 'workspace-state:create-workspace',
   WORKSPACE_STATE_UPDATE_WORKSPACE: 'workspace-state:update-workspace',
   WORKSPACE_STATE_DELETE_WORKSPACE: 'workspace-state:delete-workspace',
   WORKSPACE_STATE_COPY_WORKSPACE_DATA: 'workspace-state:copy-workspace-data',
-  WORKSPACE_STATE_SYNC_WORKSPACE: 'workspace-state:sync-workspace',
-  WORKSPACE_STATE_GET_ENVIRONMENT_STATE: 'workspace-state:get-environment-state',
   WORKSPACE_STATE_CREATE_ENVIRONMENT: 'workspace-state:create-environment',
-  WORKSPACE_STATE_UPDATE_ENVIRONMENT: 'workspace-state:update-environment',
   WORKSPACE_STATE_DELETE_ENVIRONMENT: 'workspace-state:delete-environment',
   WORKSPACE_STATE_SWITCH_ENVIRONMENT: 'workspace-state:switch-environment',
   WORKSPACE_STATE_SET_VARIABLE: 'workspace-state:set-variable',
-  WORKSPACE_STATE_BATCH_SET_VARIABLES: 'workspace-state:batch-set-variables',
-  WORKSPACE_STATE_UPDATE_WORKSPACE_VARIABLES: 'workspace-state:update-workspace-variables',
 } as const;
 
 // ── Send channels (renderer → main, fire-and-forget) ───────────────
@@ -189,10 +128,6 @@ export const IPC_SEND = {
   // Renderer lifecycle
   GET_STARTUP_DATA: 'get-startup-data',
   RENDERER_READY: 'renderer-ready',
-
-  // Runtime updates
-  PROXY_UPDATE_SOURCE: 'proxy-update-source',
-  PROXY_UPDATE_SOURCES: 'proxy-update-sources',
 } as const;
 
 // ── Push channels (main → renderer, via webContents.send) ──────────

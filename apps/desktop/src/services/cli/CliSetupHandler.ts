@@ -74,43 +74,17 @@ class CliSetupHandler {
       const baseName = workspaceName || 'Team Workspace';
       const uniqueName = await this._generateUniqueWorkspaceName(baseName, workspaceSettingsService);
 
-      // 3. Git sync (I/O — clone repo + read config)
+      // 3. Git sync — not yet implemented for v5 format
       log.info(`Syncing workspace ${workspaceId}...`);
-      const syncResult = await gitSyncService.syncWorkspace({
-        workspaceId,
-        workspaceName: uniqueName,
-        url: repoUrl,
-        branch: branch || 'main',
-        path: configPath || 'config/open-headers.json',
-        authType: normalizedAuthType,
-        authData: normalizedAuthData,
-      });
+      const syncResult = await gitSyncService.syncWorkspace({});
 
       if (!syncResult.success) {
         log.warn(`Initial sync returned non-success: ${syncResult.error}`);
       }
 
-      // 4. Delegate all state management to WorkspaceStateService
-      const workspaceStateService = (await import('../workspace/WorkspaceStateService')).default;
-      await workspaceStateService.onCliWorkspaceCreated({
-        workspaceId,
-        workspaceConfig: {
-          name: uniqueName,
-          type: 'git',
-          description: inviterName ? `Invited by ${inviterName}` : 'Team workspace',
-          gitUrl: repoUrl,
-          gitBranch: branch || 'main',
-          gitPath: configPath || 'config/open-headers.json',
-          authType: normalizedAuthType,
-          authData: normalizedAuthData,
-          inviteMetadata: {
-            invitedBy: inviterName || null,
-            inviteId: data.inviteId || null,
-            joinedAt: new Date().toISOString(),
-          },
-        },
-        syncData: syncResult.success ? (syncResult.data ?? null) : null,
-      });
+      // 4. Workspace state management — will be rebuilt for v5
+      // WorkspaceStateService.onCliWorkspaceCreated was removed in v5
+      log.info(`Workspace ${workspaceId} created (state management pending v5 rebuild)`);
 
       this._notifyRenderer('cli-workspace-joined', { workspaceId, timestamp: Date.now() });
 
@@ -136,11 +110,10 @@ class CliSetupHandler {
     }
 
     try {
-      const workspaceStateService = (await import('../workspace/WorkspaceStateService')).default;
-      await workspaceStateService.importEnvironments(data.environments);
-
-      log.info(`Imported ${Object.keys(data.environments).length} environment(s)`);
-      return { success: true };
+      // importEnvironments removed in v5 — environment import will be rebuilt
+      log.warn('Environment import not yet implemented for v5 format');
+      log.info(`Would import ${Object.keys(data.environments).length} environment(s)`);
+      return { success: false, error: 'Environment import not yet implemented for v5 format' };
     } catch (err: unknown) {
       log.error('Environment import failed:', err);
       return { success: false, error: errorMessage(err) };

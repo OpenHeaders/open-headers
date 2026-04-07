@@ -20,10 +20,6 @@ const log = createLogger('WorkspaceSettingsService');
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import type { Workspace, WorkspaceSyncStatus } from '@/types/workspace';
 // Inline interfaces (originally from deleted sync/types)
-interface WorkspaceSettingsServiceLike {
-  getWorkspaceSyncInterval(workspaceId: string): number;
-  getWorkspaceAutoSync(workspaceId: string): boolean;
-}
 interface SyncStatusOwnerLike {
   updateSyncStatus(workspaceId: string, status: Partial<WorkspaceSyncStatus>): void;
 }
@@ -41,7 +37,7 @@ interface WorkspacesData {
   syncStatus: Record<string, WorkspaceSyncStatus>;
 }
 
-class WorkspaceSettingsService implements WorkspaceSettingsServiceLike, SyncStatusOwnerLike {
+class WorkspaceSettingsService implements SyncStatusOwnerLike {
   settingsPath: string;
   workspacesDir: string;
   defaultSettings: WorkspaceSettings;

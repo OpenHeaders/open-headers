@@ -305,19 +305,10 @@ class WSRecordingHandler {
           eventCount: recordingData.record?.events?.length || 0,
         });
 
-        let proxyPort: number | null = null;
+        // Proxy service removed in v5 — resource prefetch disabled
+        const proxyPort: number | null = null;
         try {
-          const { default: proxyService } = await import('../proxy/ProxyService');
-          if (proxyService?.isRunning) {
-            proxyPort = proxyService.port;
-            log.info(`Proxy is running on port ${proxyPort}, will prefetch resources`);
-            const proxyStatus = proxyService.getStatus();
-            log.info(
-              `Proxy has ${proxyStatus.rulesCount} header rules and ${proxyStatus.sourcesCount} sources configured`,
-            );
-          } else {
-            log.info('Proxy is not running, skipping resource prefetch');
-          }
+          log.info('Proxy not available (removed in v5), skipping resource prefetch');
         } catch (error: unknown) {
           log.warn('Could not check proxy status:', errorMessage(error));
         }

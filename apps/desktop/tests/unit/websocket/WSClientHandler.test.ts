@@ -23,7 +23,6 @@ function createMockService(): ConstructorParameters<typeof WSClientHandler>[0] {
     wss: null,
     wsPort: 59210,
     stateReady: Promise.resolve(),
-    sourceHandler: { sendSourcesToClient: vi.fn().mockResolvedValue(undefined) },
     ruleHandler: { sendRulesToClient: vi.fn().mockResolvedValue(undefined) },
     recordingHandler: { sendVideoRecordingState: vi.fn().mockResolvedValue(undefined) },
     networkStateHandler: null,
@@ -240,13 +239,13 @@ describe('WSClientHandler', () => {
 
       // Not yet initialized — stateReady hasn't resolved
       await new Promise((r) => setTimeout(r, 10));
-      expect(mockService.sourceHandler.sendSourcesToClient).not.toHaveBeenCalled();
+      expect(mockService.ruleHandler.sendRulesToClient).not.toHaveBeenCalled();
 
       // Resolve the gate
       resolveReady();
       await initPromise;
       expect(mockWs.isInitialized).toBe(true);
-      expect(mockService.sourceHandler.sendSourcesToClient).toHaveBeenCalled();
+      expect(mockService.ruleHandler.sendRulesToClient).toHaveBeenCalled();
     });
 
     it('initializes client with sources, rules, and recording state', async () => {
@@ -256,7 +255,6 @@ describe('WSClientHandler', () => {
       await handler.initializeClient(mockWs, clientId);
 
       expect(mockWs.isInitialized).toBe(true);
-      expect(mockService.sourceHandler.sendSourcesToClient).toHaveBeenCalledWith(mockWs);
       expect(mockService.ruleHandler.sendRulesToClient).toHaveBeenCalledWith(mockWs);
       expect(mockService.recordingHandler.sendVideoRecordingState).toHaveBeenCalledWith(mockWs);
     });
@@ -301,7 +299,7 @@ describe('WSClientHandler', () => {
 
       await handler.initializeClient(mockWs, clientId);
       // Should NOT call any send methods (early return)
-      expect(mockService.sourceHandler.sendSourcesToClient).not.toHaveBeenCalled();
+      expect(mockService.ruleHandler.sendRulesToClient).not.toHaveBeenCalled();
     });
 
     it('waits for existing initializing lock', async () => {
@@ -320,12 +318,12 @@ describe('WSClientHandler', () => {
       resolveExisting(true);
       await initPromise;
       // Should return without calling send (waited on existing)
-      expect(mockService.sourceHandler.sendSourcesToClient).not.toHaveBeenCalled();
+      expect(mockService.ruleHandler.sendRulesToClient).not.toHaveBeenCalled();
     });
 
     it('cleans up lock on initialization failure', async () => {
       const clientId = 'client-fail';
-      (mockService.sourceHandler.sendSourcesToClient as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      (mockService.ruleHandler.sendRulesToClient as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error('Connection lost'),
       );
 

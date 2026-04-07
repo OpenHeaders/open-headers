@@ -354,7 +354,7 @@ class WebSocketService {
         void this.ruleHandler.handleToggleAllRules(data.ruleIds, data.enabled);
         break;
       case 'deleteRule':
-        void this.ruleHandler.handleDeleteRule(data.ruleId).then((success) => {
+        void this.ruleHandler.handleDeleteRule(data.ruleId).then((success: boolean) => {
           if (ws.readyState === WS.OPEN) {
             ws.send(JSON.stringify({ type: 'deleteRuleResponse', success }));
           }
