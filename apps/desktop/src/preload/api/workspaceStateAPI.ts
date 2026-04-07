@@ -35,6 +35,7 @@ export interface WorkspaceStatePatch {
   isWorkspaceSwitching?: boolean;
   environments?: Environment[];
   activeEnvironment?: string | null;
+  workspaceVariables?: Record<string, EnvironmentVariable>;
 }
 
 export interface SwitchProgress {
@@ -196,6 +197,11 @@ export function createWorkspaceStateAPI() {
       environmentId: string,
       variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
     ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:batch-set-variables', environmentId, variables),
+
+    // Workspace Variables
+    updateWorkspaceVariables: (
+      variables: Record<string, EnvironmentVariable>,
+    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:update-workspace-variables', variables),
 
     // IPC event listeners (main → renderer)
     onStatePatch: (callback: (patch: WorkspaceStatePatch) => void): (() => void) => {

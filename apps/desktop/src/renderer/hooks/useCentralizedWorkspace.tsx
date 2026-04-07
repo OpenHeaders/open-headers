@@ -6,7 +6,15 @@ import {
 import { useCentralizedEnvironments } from './useCentralizedEnvironments';
 
 // Re-export hooks from workspace module
-export { useCollections, useFolders, useHeaderRules, useProxyRules, useSources, useWorkspaces } from './workspace';
+export {
+  useCollections,
+  useFolders,
+  useHeaderRules,
+  useProxyRules,
+  useSources,
+  useWorkspaces,
+  useWorkspaceVariables,
+} from './workspace';
 
 /**
  * Main hook for accessing all workspace functionality

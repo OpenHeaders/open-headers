@@ -46,6 +46,7 @@ function makeState(overrides: Partial<WorkspaceState> = {}): WorkspaceState {
     folders: [],
     environments: [],
     activeEnvironment: null,
+    workspaceVariables: {},
     ...overrides,
   };
 }

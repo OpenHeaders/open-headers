@@ -101,7 +101,7 @@ export function useResolvedTabs(
         };
       }
 
-      // Welcome, settings, etc.
+      // Overview, settings, globals, etc.
       return {
         ...tab,
         resolvedLabel: tab.label,

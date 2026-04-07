@@ -50,6 +50,7 @@ function createCtx(overrides: Partial<StateContext> = {}): StateContext {
       folders: [],
       environments: [],
       activeEnvironment: null,
+      workspaceVariables: {},
     },
     dirty: {
       sources: false,
@@ -59,6 +60,7 @@ function createCtx(overrides: Partial<StateContext> = {}): StateContext {
       folders: false,
       workspaces: false,
       environments: false,
+      workspaceVariables: false,
     },
     appDataPath: '/tmp/test',
     webSocketService: null,
@@ -72,6 +74,7 @@ function createCtx(overrides: Partial<StateContext> = {}): StateContext {
     saveCollections: vi.fn().mockResolvedValue(undefined),
     saveFolders: vi.fn().mockResolvedValue(undefined),
     saveEnvironments: vi.fn().mockResolvedValue(undefined),
+    saveWorkspaceVariables: vi.fn().mockResolvedValue(undefined),
     saveWorkspacesConfig: vi.fn().mockResolvedValue(undefined),
     loadWorkspaceData: vi.fn().mockResolvedValue(undefined),
     updateWorkspaceMetadataInMemory: vi.fn(),

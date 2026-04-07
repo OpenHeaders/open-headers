@@ -16,9 +16,9 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Button, Dropdown, Space, Tooltip, theme } from 'antd';
+import { Dropdown, Space, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
-import { useEnvironments, useHeaderRules, useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useWorkspaces } from '@/renderer/hooks/useCentralizedWorkspace';
 
 interface PanelVisibility {
   sidebar: boolean;
@@ -136,10 +136,7 @@ export function StatusBar({
   onSwapSidebars,
 }: StatusBarProps) {
   const { token } = theme.useToken();
-  const { rules } = useHeaderRules();
   const { workspaces, activeWorkspaceId, switchWorkspace, syncStatus } = useWorkspaces();
-  const { environments, activeEnvironment, switchEnvironment } = useEnvironments();
-
   const [appVersion, setAppVersion] = useState(window.startupData?.version ?? '');
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const [clientCount, setClientCount] = useState(0);
@@ -176,7 +173,6 @@ export function StatusBar({
     };
   }, [fetchClientCount]);
 
-  const activeRuleCount = rules.filter((r) => r.isEnabled).length;
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
   const isSyncing = syncStatus[activeWorkspaceId]?.syncing;
@@ -203,46 +199,6 @@ export function StatusBar({
       },
     };
   });
-
-  // Environment dropdown menu items
-  const activeEnvName = activeEnvironment
-    ? (environments.find((e) => e.id === activeEnvironment)?.name ?? 'Unknown')
-    : 'No Environment';
-  const environmentMenuItems = [
-    {
-      key: 'no-env',
-      label: (
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <span style={{ fontStyle: 'italic' }}>No Environment</span>
-          {!activeEnvironment && <CheckOutlined style={{ color: token.colorPrimary }} />}
-        </Space>
-      ),
-      onClick: () => {
-        if (activeEnvironment) void switchEnvironment(null);
-      },
-    },
-    { type: 'divider' as const, key: 'div' },
-    ...environments.map((env) => {
-      const isActive = env.id === activeEnvironment;
-      const varCount = Object.keys(env.variables).length;
-      return {
-        key: env.id,
-        label: (
-          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-            <span>{env.name}</span>
-            <Space size={4}>
-              <span style={{ fontSize: 11, color: token.colorTextTertiary }}>({varCount})</span>
-              {isActive && <CheckOutlined style={{ color: token.colorPrimary }} />}
-            </Space>
-          </Space>
-        ),
-        onClick: () => {
-          if (isActive) void switchEnvironment(null);
-          else void switchEnvironment(env.id);
-        },
-      };
-    }),
-  ];
 
   return (
     <div
@@ -309,12 +265,6 @@ export function StatusBar({
             )}
             {workspaceName}
             {isSyncing && <SyncOutlined spin style={{ fontSize: 9 }} />}▾
-          </span>
-        </Dropdown>
-        <Dropdown menu={{ items: environmentMenuItems }} trigger={['click']} placement="topRight">
-          <span className="v5-statusbar-item" style={{ cursor: 'pointer' }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: token.colorTextTertiary, marginRight: 2 }}>E</span>
-            {activeEnvName} ▾
           </span>
         </Dropdown>
         {appVersion && (

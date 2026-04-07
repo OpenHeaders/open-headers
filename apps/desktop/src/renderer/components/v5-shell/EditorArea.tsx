@@ -6,7 +6,7 @@
  * scroll position) when switching between tabs.
  */
 
-import { ApiOutlined, PlusOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { ApiOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect } from 'react';
@@ -14,6 +14,7 @@ import appIcon from '@/renderer/images/icon128.png';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
 import { SourceEditor } from './editors/SourceEditor';
+import { WorkspaceVariablesEditor } from './editors/WorkspaceVariablesEditor';
 import type { ResolvedTab } from './hooks/useResolvedTabs';
 import type { Tab } from './hooks/useTabs';
 import { SettingsEditor } from './SettingsEditor';
@@ -25,33 +26,63 @@ interface EditorAreaProps {
   activeTab?: ResolvedTab | null;
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  onOpenOverview?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   onSaveLabelChange?: (label: string | null) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
   responseSideBySide?: boolean;
+  workspaceName?: string;
 }
 
-function WelcomeScreen({ onNewRequest, onNewRule }: { onNewRequest?: () => void; onNewRule?: () => void }) {
+function OverviewScreen({ workspaceName }: { workspaceName?: string }) {
   const { token } = theme.useToken();
   return (
     <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
       <img src={appIcon} alt="Open Headers" style={{ width: 48, height: 48, marginBottom: 16 }} />
       <Title level={3} style={{ marginBottom: 4 }}>
-        Open Headers — Next
+        {workspaceName ?? 'Workspace'}
       </Title>
       <Text type="secondary" style={{ marginBottom: 32 }}>
-        The definitive open-source browser DevTools platform
+        Open Headers — The definitive open-source browser DevTools platform
       </Text>
+    </div>
+  );
+}
 
-      <Space direction="vertical" size={12} style={{ width: '100%', maxWidth: 320 }}>
-        <Button type="primary" icon={<ApiOutlined />} block onClick={onNewRequest}>
-          <PlusOutlined /> New Request
+function EmptyPlaceholder({
+  onNewRequest,
+  onNewRule,
+  onOpenOverview,
+}: {
+  onNewRequest?: () => void;
+  onNewRule?: () => void;
+  onOpenOverview?: () => void;
+}) {
+  const { token } = theme.useToken();
+  return (
+    <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
+      <img src={appIcon} alt="Open Headers" style={{ width: 48, height: 48, marginBottom: 24, opacity: 0.3 }} />
+      <Space direction="vertical" size={4} style={{ width: '100%', maxWidth: 280 }}>
+        <Button type="text" block onClick={onNewRequest} style={{ justifyContent: 'flex-start' }}>
+          <ApiOutlined /> Create new request
+          <Text type="secondary" style={{ marginLeft: 'auto', fontSize: 11 }}>
+            {'\u2318'}N
+          </Text>
         </Button>
-        <Button icon={<ThunderboltOutlined />} block onClick={onNewRule}>
-          <PlusOutlined /> New Rule
+        <Button type="text" block onClick={onNewRule} style={{ justifyContent: 'flex-start' }}>
+          <ThunderboltOutlined /> Create new rule
+          <Text type="secondary" style={{ marginLeft: 'auto', fontSize: 11 }}>
+            {'\u21E7\u2318'}N
+          </Text>
         </Button>
-        <Button icon={<RocketOutlined />} block>
-          Import from Postman / Bruno / Insomnia
+        <Button type="text" block style={{ justifyContent: 'flex-start' }}>
+          <RocketOutlined /> Import collection
+          <Text type="secondary" style={{ marginLeft: 'auto', fontSize: 11 }}>
+            {'\u2318'}O
+          </Text>
+        </Button>
+        <Button type="text" block onClick={onOpenOverview} style={{ justifyContent: 'flex-start' }}>
+          Open workspace overview
         </Button>
       </Space>
     </div>
@@ -82,6 +113,8 @@ function TabEditor({
 
   if (tab.type === 'settings') {
     content = <SettingsEditor />;
+  } else if (tab.type === 'globals') {
+    content = <WorkspaceVariablesEditor onDirtyChange={dirtyChange} saveRef={save} />;
   } else if (tab.type === 'rule' && tab.entityId) {
     content = <RuleEditor ruleId={tab.entityId} onDirtyChange={dirtyChange} saveRef={save} />;
   } else if (tab.type === 'environment' && tab.entityId) {
@@ -140,30 +173,41 @@ export function EditorArea({
   activeTab,
   onNewRequest,
   onNewRule,
+  onOpenOverview,
   onDirtyChange,
   onSaveLabelChange,
   saveRef,
   responseSideBySide,
+  workspaceName,
 }: EditorAreaProps) {
   // Clear dirty state when switching to a non-editor tab
   useEffect(() => {
-    if (!activeTab || activeTab.type === 'welcome') {
+    if (!activeTab || activeTab.type === 'overview') {
       onDirtyChange?.(false);
       onSaveLabelChange?.(null);
       if (saveRef) saveRef.current = null;
     }
   }, [activeTab, onDirtyChange, onSaveLabelChange, saveRef]);
 
-  // Tabs that have editors (not welcome)
-  const editorTabs = tabs.filter((t) => t.type !== 'welcome' && t.entityId);
+  // Tabs that have editors (not overview, not settings — those are singletons rendered separately)
+  const editorTabs = tabs.filter((t) => t.type !== 'overview' && (t.entityId || t.type === 'globals'));
 
-  const showWelcome = !activeTab || activeTab.type === 'welcome';
+  const showOverview = activeTab?.type === 'overview';
+  const showEmpty = !activeTab;
 
   return (
     <div className="v5-editor-content" style={{ position: 'relative' }}>
-      {showWelcome && (
+      {/* Empty placeholder — shown when no tabs are open at all */}
+      {showEmpty && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          <WelcomeScreen onNewRequest={onNewRequest} onNewRule={onNewRule} />
+          <EmptyPlaceholder onNewRequest={onNewRequest} onNewRule={onNewRule} onOpenOverview={onOpenOverview} />
+        </div>
+      )}
+
+      {/* Overview tab */}
+      {showOverview && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
+          <OverviewScreen workspaceName={workspaceName} />
         </div>
       )}
 

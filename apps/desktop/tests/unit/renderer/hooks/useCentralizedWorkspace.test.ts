@@ -44,6 +44,7 @@ const defaultState = {
   syncStatus: {},
   lastSaved: {},
   isWorkspaceSwitching: false,
+  workspaceVariables: {},
 };
 
 const mockService = {

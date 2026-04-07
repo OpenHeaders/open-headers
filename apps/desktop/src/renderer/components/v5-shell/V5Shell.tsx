@@ -55,7 +55,7 @@ export function V5Shell() {
   const { workspaces, activeWorkspaceId } = useWorkspaces();
   const { sources, addSource, updateSource } = useSources();
   const { rules, addRule, updateRule } = useHeaderRules();
-  const { environments, createEnvironment, updateEnvironment } = useEnvironments();
+  const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } = useEnvironments();
   const { collections, updateCollection: updateCollectionInV5 } = useCollections();
   const { folders, updateFolder: updateFolderInV5 } = useFolders();
   const { switchState } = useWorkspaceSwitch();
@@ -144,6 +144,7 @@ export function V5Shell() {
     togglePin,
     markUnsaved,
     reorderTab,
+    recentlyClosed,
     canGoBack,
     canGoForward,
     goBack,
@@ -297,7 +298,7 @@ export function V5Shell() {
   }, [resolvedTabs, handleBatchClose]);
 
   const handleCloseUnmodified = useCallback(() => {
-    const toClose = resolvedTabs.filter((t) => !t.unsaved && !t.pinned && t.type !== 'welcome').map((t) => t.id);
+    const toClose = resolvedTabs.filter((t) => !t.unsaved && !t.pinned && t.type !== 'overview').map((t) => t.id);
     for (const id of toClose) closeTab(id, true);
   }, [resolvedTabs, closeTab]);
 
@@ -358,7 +359,7 @@ export function V5Shell() {
         if (
           tab.entityId &&
           !currentIds.has(tab.id) &&
-          tab.type !== 'welcome' &&
+          tab.type !== 'overview' &&
           tab.type !== 'settings' &&
           tab.type !== 'collection-overview' &&
           tab.type !== 'folder-overview'
@@ -370,8 +371,47 @@ export function V5Shell() {
     prevEntityIds.current = currentIds;
   }, [rules, sources, environments, closeTab, activeWorkspaceId]);
 
+  // Auto-switch environment when opening an item in a collection with a pinned environment
+  const prevTabForEnvSwitch = useRef(activeTabId);
+  useEffect(() => {
+    if (prevTabForEnvSwitch.current === activeTabId) return;
+    prevTabForEnvSwitch.current = activeTabId;
+    if (!activeTabId) return;
+
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (!activeTab?.entityId) return;
+
+    // Find the entity's collectionId
+    let collectionId: string | undefined;
+    if (activeTab.type === 'request' || activeTab.type === 'collection') {
+      collectionId = sources.find((s) => s.sourceId === activeTab.entityId)?.collectionId;
+    } else if (activeTab.type === 'rule') {
+      collectionId = rules.find((r) => r.id === activeTab.entityId)?.collectionId;
+    } else if (activeTab.type === 'collection-overview') {
+      collectionId = activeTab.entityId;
+    }
+
+    if (!collectionId) return;
+    const collection = collections.find((c) => c.id === collectionId);
+    if (!collection?.pinnedEnvironmentId) return;
+
+    // Only switch if the pinned env exists and differs from current
+    const pinnedEnvExists = environments.some((e) => e.id === collection.pinnedEnvironmentId);
+    if (pinnedEnvExists && collection.pinnedEnvironmentId !== activeEnvironment) {
+      void switchEnvironment(collection.pinnedEnvironmentId);
+    }
+  }, [activeTabId, tabs, sources, rules, collections, environments, activeEnvironment, switchEnvironment]);
+
+  const openOverview = useCallback(() => {
+    openTab({ id: 'overview', type: 'overview', label: 'Overview', icon: 'overview' });
+  }, [openTab]);
+
   const openSettings = useCallback(() => {
     openTab({ id: 'settings', type: 'settings', label: 'Settings', icon: 'settings' });
+  }, [openTab]);
+
+  const openWorkspaceVariables = useCallback(() => {
+    openTab({ id: 'globals', type: 'globals', label: 'Workspace Variables', icon: 'globals' });
   }, [openTab]);
 
   const createNewRule = useCallback(
@@ -466,6 +506,35 @@ export function V5Shell() {
     },
     [environments, createEnvironment, openTab],
   );
+
+  // Create + activate — used by the env selector dropdown (not the sidebar create flow)
+  const createAndActivateEnvironment = useCallback(async () => {
+    const existingNames = new Set(environments.map((e) => e.name));
+    let name = 'New Environment';
+    let counter = 2;
+    while (existingNames.has(name)) {
+      name = `New Environment (${counter})`;
+      counter++;
+    }
+    const env = await createEnvironment({ name });
+    if (env) {
+      const tabId = `env-${env.id}`;
+      openTab({ id: tabId, type: 'environment', label: env.name, icon: 'environment', entityId: env.id });
+      setPendingRenameTabId(tabId);
+      void switchEnvironment(env.id);
+    }
+  }, [environments, createEnvironment, openTab, switchEnvironment]);
+
+  const openActiveEnvironment = useCallback(() => {
+    const env = activeEnvironment
+      ? environments.find((e) => e.id === activeEnvironment)
+      : environments[0];
+    if (env) {
+      openTab({ id: `env-${env.id}`, type: 'environment', label: env.name, icon: 'environment', entityId: env.id });
+    } else {
+      void createNewEnvironment();
+    }
+  }, [environments, activeEnvironment, openTab, createNewEnvironment]);
 
   const togglePanel = useCallback((panel: keyof PanelVisibility) => {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
@@ -616,10 +685,41 @@ export function V5Shell() {
       },
       { id: 'cmd-import', icon: '📋', label: 'Import from Postman / Bruno / Insomnia', onSelect: () => {} },
       { id: 'cmd-settings', icon: '⚙', label: 'Open Settings', shortcut: '⌘,', onSelect: openSettings },
+      {
+        id: 'cmd-workspace-variables',
+        icon: '🌐',
+        label: 'Open Workspace Variables',
+        onSelect: openWorkspaceVariables,
+      },
     );
 
     return items;
-  }, [sources, rules, environments, togglePanel, openSettings, openTab, createNewSource, createNewRule]);
+  }, [sources, rules, environments, togglePanel, openSettings, openWorkspaceVariables, openTab, createNewSource, createNewRule]);
+
+  // Derive the collection the active tab belongs to (for pinned env feature)
+  const activeCollection = useMemo(() => {
+    if (!activeTabId) return null;
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (!tab?.entityId) return null;
+
+    let collectionId: string | undefined;
+    if (tab.type === 'request' || tab.type === 'collection') {
+      collectionId = sources.find((s) => s.sourceId === tab.entityId)?.collectionId;
+    } else if (tab.type === 'rule') {
+      collectionId = rules.find((r) => r.id === tab.entityId)?.collectionId;
+    } else if (tab.type === 'collection-overview') {
+      collectionId = tab.entityId;
+    }
+
+    return collectionId ? (collections.find((c) => c.id === collectionId) ?? null) : null;
+  }, [activeTabId, tabs, sources, rules, collections]);
+
+  const handlePinEnvironment = useCallback(
+    (collectionId: string, envId: string | null) => {
+      void updateCollectionInV5(collectionId, { pinnedEnvironmentId: envId ?? undefined });
+    },
+    [updateCollectionInV5],
+  );
 
   // Active resolved tab and breadcrumbs — derived from resolved tabs
   const activeResolvedTab = resolvedTabs.find((t) => t.id === activeTabId);
@@ -694,6 +794,8 @@ export function V5Shell() {
                       expandedKeys={inspectorExpandedKeys}
                       onExpandedKeysChange={setInspectorExpandedKeys}
                       activeTabType={activeResolvedTab?.type}
+                      onOpenEnvironment={openActiveEnvironment}
+                      onOpenWorkspaceVariables={openWorkspaceVariables}
                     />
                   ) : (
                     <Sidebar
@@ -702,6 +804,7 @@ export function V5Shell() {
                       onNewRequest={(opts) => void createNewSource(opts)}
                       onNewRule={(opts) => void createNewRule(opts)}
                       onNewEnvironment={(opts) => void createNewEnvironment(opts)}
+                      onOpenWorkspaceVariables={openWorkspaceVariables}
                       expandedSections={sidebarExpandedSections}
                       onExpandedSectionsChange={setSidebarExpandedSections}
                       expandedCollections={sidebarExpandedCollections}
@@ -733,6 +836,15 @@ export function V5Shell() {
                           onCloseToRight={handleCloseToRight}
                           onNewRequest={() => void createNewSource()}
                           onNewRule={() => void createNewRule()}
+                          environments={environments}
+                          activeEnvironment={activeEnvironment}
+                          onSwitchEnvironment={switchEnvironment}
+                          activeCollection={activeCollection}
+                          onPinEnvironment={handlePinEnvironment}
+                          onNewEnvironment={() => void createAndActivateEnvironment()}
+                          onToggleInspector={() => togglePanel('inspector')}
+                          recentlyClosed={recentlyClosed}
+                          onReopenTab={(tab) => openTab(tab)}
                         />
                         <BreadcrumbBar
                           segments={breadcrumbs}
@@ -757,10 +869,12 @@ export function V5Shell() {
                           activeTab={activeResolvedTab}
                           onNewRequest={() => void createNewSource()}
                           onNewRule={() => void createNewRule()}
+                          onOpenOverview={openOverview}
                           onDirtyChange={handleDirtyChange}
                           onSaveLabelChange={setEditorSaveLabel}
                           saveRef={editorSaveRef}
                           responseSideBySide={responseSideBySide}
+                          workspaceName={workspaceName}
                         />
                       </div>
                     </Allotment.Pane>
@@ -786,6 +900,7 @@ export function V5Shell() {
                       onNewRequest={(opts) => void createNewSource(opts)}
                       onNewRule={(opts) => void createNewRule(opts)}
                       onNewEnvironment={(opts) => void createNewEnvironment(opts)}
+                      onOpenWorkspaceVariables={openWorkspaceVariables}
                       expandedSections={sidebarExpandedSections}
                       onExpandedSectionsChange={setSidebarExpandedSections}
                       expandedCollections={sidebarExpandedCollections}
@@ -800,6 +915,8 @@ export function V5Shell() {
                       expandedKeys={inspectorExpandedKeys}
                       onExpandedKeysChange={setInspectorExpandedKeys}
                       activeTabType={activeResolvedTab?.type}
+                      onOpenEnvironment={openActiveEnvironment}
+                      onOpenWorkspaceVariables={openWorkspaceVariables}
                     />
                   )}
                 </Allotment.Pane>

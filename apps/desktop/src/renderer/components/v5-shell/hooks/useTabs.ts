@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type TabType =
-  | 'welcome'
+  | 'overview'
   | 'request'
   | 'rule'
   | 'environment'
@@ -39,26 +39,30 @@ export interface Tab {
   tooltip?: string;
 }
 
+const MAX_RECENTLY_CLOSED = 20;
+
 interface TabsState {
   tabs: Tab[];
   activeTabId: string | null;
   history: string[];
   historyIndex: number;
+  recentlyClosed: Tab[];
 }
 
-const WELCOME_TAB: Tab = {
-  id: 'welcome',
-  type: 'welcome',
-  label: 'Welcome',
+const OVERVIEW_TAB: Tab = {
+  id: 'overview',
+  type: 'overview',
+  label: 'Overview',
   pinned: false,
   unsaved: false,
 };
 
 const DEFAULT_STATE: TabsState = {
-  tabs: [WELCOME_TAB],
-  activeTabId: 'welcome',
-  history: ['welcome'],
+  tabs: [OVERVIEW_TAB],
+  activeTabId: 'overview',
+  history: ['overview'],
   historyIndex: 0,
+  recentlyClosed: [],
 };
 
 // ── Hook ──────────────────────────────────────────────────────────
@@ -68,10 +72,10 @@ export function useTabs(activeWorkspaceId?: string) {
   const workspaceTabsMap = useRef(new Map<string, TabsState>());
 
   const getWorkspaceState = useCallback((wsId: string | undefined): TabsState => {
-    if (!wsId) return { ...DEFAULT_STATE, tabs: [{ ...WELCOME_TAB }] };
+    if (!wsId) return { ...DEFAULT_STATE, tabs: [{ ...OVERVIEW_TAB }] };
     const existing = workspaceTabsMap.current.get(wsId);
     if (existing) return existing;
-    const fresh: TabsState = { ...DEFAULT_STATE, tabs: [{ ...WELCOME_TAB }] };
+    const fresh: TabsState = { ...DEFAULT_STATE, tabs: [{ ...OVERVIEW_TAB }] };
     workspaceTabsMap.current.set(wsId, fresh);
     return fresh;
   }, []);
@@ -107,15 +111,29 @@ export function useTabs(activeWorkspaceId?: string) {
   const openTab = useCallback((tab: Omit<Tab, 'pinned' | 'unsaved'>) => {
     setState((prev) => {
       const existing = prev.tabs.find((t) => t.id === tab.id);
+      const newHistory = [...prev.history.slice(0, prev.historyIndex + 1), tab.id];
+      const recentlyClosed = prev.recentlyClosed.filter((t) => t.id !== tab.id);
+
       if (existing) {
-        const newHistory = [...prev.history.slice(0, prev.historyIndex + 1), tab.id];
-        return { ...prev, activeTabId: tab.id, history: newHistory, historyIndex: newHistory.length - 1 };
+        return {
+          ...prev,
+          activeTabId: tab.id,
+          history: newHistory,
+          historyIndex: newHistory.length - 1,
+          recentlyClosed,
+        };
       }
 
       const newTab: Tab = { ...tab, pinned: false, unsaved: false };
       const newTabs = [...prev.tabs, newTab];
-      const newHistory = [...prev.history.slice(0, prev.historyIndex + 1), tab.id];
-      return { tabs: newTabs, activeTabId: tab.id, history: newHistory, historyIndex: newHistory.length - 1 };
+      return {
+        ...prev,
+        tabs: newTabs,
+        activeTabId: tab.id,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+        recentlyClosed,
+      };
     });
   }, []);
 
@@ -137,7 +155,13 @@ export function useTabs(activeWorkspaceId?: string) {
         newActiveId = nextTab?.id ?? null;
       }
 
-      return { ...prev, tabs: newTabs, activeTabId: newActiveId };
+      // Track recently closed (skip welcome/settings singletons)
+      const recentlyClosed =
+        tab.type !== 'overview' && tab.type !== 'settings'
+          ? [tab, ...prev.recentlyClosed.filter((t) => t.id !== tab.id)].slice(0, MAX_RECENTLY_CLOSED)
+          : prev.recentlyClosed;
+
+      return { ...prev, tabs: newTabs, activeTabId: newActiveId, recentlyClosed };
     });
   }, []);
 
@@ -195,7 +219,7 @@ export function useTabs(activeWorkspaceId?: string) {
   const closeAllTabs = useCallback(() => {
     setState((prev) => {
       const pinned = prev.tabs.filter((t) => t.pinned);
-      const newTabs = pinned.length > 0 ? pinned : [{ ...WELCOME_TAB }];
+      const newTabs = pinned.length > 0 ? pinned : [{ ...OVERVIEW_TAB }];
       return { ...prev, tabs: newTabs, activeTabId: newTabs[0].id };
     });
   }, []);
@@ -203,7 +227,7 @@ export function useTabs(activeWorkspaceId?: string) {
   const closeUnmodifiedTabs = useCallback(() => {
     setState((prev) => {
       const newTabs = prev.tabs.filter((t) => t.unsaved || t.pinned);
-      if (newTabs.length === 0) newTabs.push({ ...WELCOME_TAB });
+      if (newTabs.length === 0) newTabs.push({ ...OVERVIEW_TAB });
       const activeStillExists = newTabs.some((t) => t.id === prev.activeTabId);
       return { ...prev, tabs: newTabs, activeTabId: activeStillExists ? prev.activeTabId : newTabs[0].id };
     });
@@ -252,6 +276,7 @@ export function useTabs(activeWorkspaceId?: string) {
 
   return {
     tabs: sortedTabs,
+    recentlyClosed: state.recentlyClosed,
     activeTabId: state.activeTabId,
     canGoBack,
     canGoForward,

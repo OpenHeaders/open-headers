@@ -167,6 +167,7 @@ export const IPC_INVOKE = {
   WORKSPACE_STATE_SWITCH_ENVIRONMENT: 'workspace-state:switch-environment',
   WORKSPACE_STATE_SET_VARIABLE: 'workspace-state:set-variable',
   WORKSPACE_STATE_BATCH_SET_VARIABLES: 'workspace-state:batch-set-variables',
+  WORKSPACE_STATE_UPDATE_WORKSPACE_VARIABLES: 'workspace-state:update-workspace-variables',
 } as const;
 
 // ── Send channels (renderer → main, fire-and-forget) ───────────────

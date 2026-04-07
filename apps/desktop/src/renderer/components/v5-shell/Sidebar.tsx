@@ -85,6 +85,7 @@ interface SidebarProps {
   onNewRequest?: (options?: { collectionId?: string; folderId?: string }) => void;
   onNewRule?: (options?: { collectionId?: string; folderId?: string }) => void;
   onNewEnvironment?: (options?: { collectionId?: string; folderId?: string }) => void;
+  onOpenWorkspaceVariables?: () => void;
   expandedSections?: string[];
   onExpandedSectionsChange?: (sections: string[]) => void;
   expandedCollections?: string[];
@@ -129,6 +130,7 @@ export function Sidebar({
   onNewRequest,
   onNewRule,
   onNewEnvironment,
+  onOpenWorkspaceVariables,
   expandedSections: expandedSectionsProp,
   onExpandedSectionsChange,
   expandedCollections: expandedCollectionsProp,
@@ -489,6 +491,13 @@ export function Sidebar({
       onClick: () => void createNewCollection('requests'),
     },
     { key: 'environment', icon: <GlobalOutlined />, label: 'Environment', onClick: () => onNewEnvironment?.() },
+    { type: 'divider' as const, key: 'div-2' },
+    {
+      key: 'workspace-variables',
+      icon: <GlobalOutlined />,
+      label: 'Workspace Variables',
+      onClick: () => onOpenWorkspaceVariables?.(),
+    },
   ];
 
   // ── Render section ───────────────────────────────────────────

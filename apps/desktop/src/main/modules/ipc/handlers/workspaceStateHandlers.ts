@@ -6,6 +6,7 @@
  */
 
 import type { Collection, EnvironmentVariable, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
+
 import { errorMessage } from '@openheaders/core';
 import { ipcMain } from 'electron';
 import workspaceStateService from '@/services/workspace/WorkspaceStateService';
@@ -372,6 +373,21 @@ export function registerWorkspaceStateHandlers(): void {
         return { success: true };
       } catch (error) {
         log.error('Batch set variables failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  // ── Workspace Variables ────────────────────────────────────────
+
+  ipcMain.handle(
+    'workspace-state:update-workspace-variables',
+    async (_event, variables: Record<string, EnvironmentVariable>) => {
+      try {
+        await workspaceStateService.updateWorkspaceVariables(variables);
+        return { success: true };
+      } catch (error) {
+        log.error('Update workspace variables failed:', error);
         return { success: false, error: errorMessage(error) };
       }
     },

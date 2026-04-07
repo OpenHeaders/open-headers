@@ -2,7 +2,7 @@
  * Shared types for WorkspaceStateService and its submodules.
  */
 
-import type { Collection, Environment, Folder, HeaderRule, RulesCollection, Source } from '@openheaders/core';
+import type { Collection, Environment, EnvironmentVariable, Folder, HeaderRule, RulesCollection, Source } from '@openheaders/core';
 import type { SyncData } from '@/services/workspace/sync/types';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceMetadata, WorkspaceSyncStatus } from '@/types/workspace';
@@ -24,6 +24,7 @@ export interface WorkspaceState {
   folders: Folder[];
   environments: Environment[];
   activeEnvironment: string | null;
+  workspaceVariables: Record<string, EnvironmentVariable>;
 }
 
 // ── External service interfaces ───────────────────────────────────
@@ -88,6 +89,7 @@ export interface DirtyFlags {
   folders: boolean;
   workspaces: boolean;
   environments: boolean;
+  workspaceVariables: boolean;
 }
 
 // ── Context passed to CRUD submodules ─────────────────────────────
@@ -112,6 +114,7 @@ export interface StateContext {
   saveCollections(): Promise<void>;
   saveFolders(): Promise<void>;
   saveEnvironments(): Promise<void>;
+  saveWorkspaceVariables(): Promise<void>;
   saveWorkspacesConfig(): Promise<void>;
   loadWorkspaceData(workspaceId: string): Promise<void>;
   updateWorkspaceMetadataInMemory(workspaceId: string, metadata: Partial<WorkspaceMetadata>): void;

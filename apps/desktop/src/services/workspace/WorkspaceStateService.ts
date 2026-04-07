@@ -72,6 +72,7 @@ import {
   loadRules,
   loadSources,
   // Persistence
+  loadWorkspaceVariables,
   loadWorkspacesConfig,
   type ProxyServiceLike,
   saveCollections as persistCollections,
@@ -80,6 +81,7 @@ import {
   saveProxyRules as persistProxyRules,
   saveRules as persistRules,
   saveSources as persistSources,
+  saveWorkspaceVariables as persistWorkspaceVariables,
   saveWorkspacesConfig as persistWorkspacesConfig,
   type SourceRefreshServiceLike,
   type StateContext,
@@ -119,6 +121,7 @@ class WorkspaceStateService {
     folders: false,
     workspaces: false,
     environments: false,
+    workspaceVariables: false,
   };
   private autoSaveTimer: ReturnType<typeof setInterval> | null = null;
   private isSaving = false;
@@ -153,6 +156,7 @@ class WorkspaceStateService {
       folders: [],
       environments: [],
       activeEnvironment: null,
+      workspaceVariables: {},
     };
     this.configReady = new Promise((resolve) => {
       this._resolveConfigReady = resolve;
@@ -178,6 +182,7 @@ class WorkspaceStateService {
       saveCollections: () => this.saveCollections(),
       saveFolders: () => this.saveFolders(),
       saveEnvironments: () => this.saveEnvironments(),
+      saveWorkspaceVariables: () => this.saveWorkspaceVariablesData(),
       saveWorkspacesConfig: () => this.saveWorkspacesConfig(),
       loadWorkspaceData: (id) => this.loadWorkspaceData(id),
       updateWorkspaceMetadataInMemory: (id, m) => this.updateWorkspaceMetadataInMemory(id, m),
@@ -238,6 +243,7 @@ class WorkspaceStateService {
       }
 
       await this.loadEnvironmentData(this.state.activeWorkspaceId);
+      this.state.workspaceVariables = await loadWorkspaceVariables(this.appDataPath, this.state.activeWorkspaceId);
 
       // Load workspace data into state (sources, rules, proxyRules).
       // Reads from v4 flat files. v5 migration runs at startup to create
@@ -254,6 +260,7 @@ class WorkspaceStateService {
       this.dirty.rules = false;
       this.dirty.proxyRules = false;
       this.dirty.environments = false;
+      this.dirty.workspaceVariables = false;
 
       this.state.loading = false;
       sendPatchToRenderers(this.state, [
@@ -265,6 +272,7 @@ class WorkspaceStateService {
         'proxyRules',
         'environments',
         'activeEnvironment',
+        'workspaceVariables',
       ]);
 
       log.info(
@@ -336,12 +344,13 @@ class WorkspaceStateService {
   // ── Workspace data loading ────────────────────────────────────
 
   private async loadWorkspaceData(workspaceId: string): Promise<void> {
-    const [sources, rules, proxyRules, collections, folders] = await Promise.all([
+    const [sources, rules, proxyRules, collections, folders, workspaceVariables] = await Promise.all([
       loadSources(this.appDataPath, workspaceId),
       loadRules(this.appDataPath, workspaceId),
       loadProxyRules(this.appDataPath, workspaceId),
       loadCollections(this.appDataPath, workspaceId),
       loadFolders(this.appDataPath, workspaceId),
+      loadWorkspaceVariables(this.appDataPath, workspaceId),
     ]);
 
     this.state.sources = evaluateAllSourceDependencies(sources, this.envResolver);
@@ -349,6 +358,7 @@ class WorkspaceStateService {
     this.state.proxyRules = proxyRules;
     this.state.folders = folders;
     this.state.collections = collections;
+    this.state.workspaceVariables = workspaceVariables;
 
     this.dirty.sources = false;
     this.dirty.rules = false;
@@ -356,6 +366,7 @@ class WorkspaceStateService {
     this.dirty.collections = false;
     this.dirty.folders = false;
     this.dirty.environments = false;
+    this.dirty.workspaceVariables = false;
 
     const totalRules = rules.header.length + rules.request.length + rules.response.length;
     this.updateWorkspaceMetadataInMemory(workspaceId, {
@@ -401,6 +412,10 @@ class WorkspaceStateService {
     });
     this.dirty.environments = false;
   }
+  private async saveWorkspaceVariablesData(): Promise<void> {
+    await persistWorkspaceVariables(this.appDataPath, this.state.activeWorkspaceId, this.state.workspaceVariables);
+    this.dirty.workspaceVariables = false;
+  }
   private async saveWorkspacesConfig(): Promise<void> {
     await persistWorkspacesConfig(this.appDataPath, {
       workspaces: this.state.workspaces,
@@ -421,6 +436,7 @@ class WorkspaceStateService {
       if (this.dirty.collections) saves.push(this.saveCollections());
       if (this.dirty.folders) saves.push(this.saveFolders());
       if (this.dirty.environments) saves.push(this.saveEnvironments());
+      if (this.dirty.workspaceVariables) saves.push(this.saveWorkspaceVariablesData());
       if (this.dirty.workspaces) saves.push(this.saveWorkspacesConfig());
       if (saves.length > 0) {
         await Promise.all(saves);
@@ -443,6 +459,7 @@ class WorkspaceStateService {
           this.dirty.rules ||
           this.dirty.proxyRules ||
           this.dirty.environments ||
+          this.dirty.workspaceVariables ||
           this.dirty.workspaces) &&
         !this.state.isWorkspaceSwitching
       ) {
@@ -583,6 +600,7 @@ class WorkspaceStateService {
       'isWorkspaceSwitching',
       'environments',
       'activeEnvironment',
+      'workspaceVariables',
     ]);
     sendProgressToRenderers('complete', 100, `Successfully switched to "${workspaceName}"`, false, target);
 
@@ -615,6 +633,7 @@ class WorkspaceStateService {
       'error',
       'environments',
       'activeEnvironment',
+      'workspaceVariables',
     ]);
   }
 
@@ -1082,6 +1101,16 @@ class WorkspaceStateService {
       ? this.state.environments.find((e) => e.id === this.state.activeEnvironment)
       : null;
     await this.onEnvironmentVariablesChanged(activeEnv?.variables ?? {});
+  }
+
+  // ── Workspace Variables ───────────────────────────────────────
+
+  async updateWorkspaceVariables(variables: Record<string, EnvironmentVariable>): Promise<void> {
+    this.state.workspaceVariables = variables;
+    this.dirty.workspaceVariables = true;
+    await this.saveWorkspaceVariablesData();
+    sendPatchToRenderers(this.state, ['workspaceVariables']);
+    log.info(`Updated workspace variables (${Object.keys(variables).length} entries)`);
   }
 
   // ── Environment variable changes ────────────────────────────

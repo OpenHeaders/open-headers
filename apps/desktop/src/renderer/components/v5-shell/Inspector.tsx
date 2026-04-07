@@ -12,7 +12,7 @@ import { CaretRightOutlined, CloseOutlined, SearchOutlined } from '@ant-design/i
 import { Collapse, Input, Table, Tag, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useState } from 'react';
-import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useEnvironments, useSources, useWorkspaceVariables } from '@/renderer/hooks/useCentralizedWorkspace';
 import { useEditorVariables } from './contexts/EditorVariablesContext';
 
 const { Text } = Typography;
@@ -126,6 +126,14 @@ interface InspectorProps {
   onExpandedKeysChange?: (keys: string[]) => void;
   /** Active tab type — controls which scope sections are shown */
   activeTabType?: string;
+  /** Open the active environment editor (or create one if none exists) */
+  onOpenEnvironment?: () => void;
+  /** Open the collection variables editor for the current context */
+  onOpenCollectionVariables?: () => void;
+  /** Open the workspace variables (globals) editor */
+  onOpenWorkspaceVariables?: () => void;
+  /** Open the vault/secrets editor */
+  onOpenSecrets?: () => void;
 }
 
 export function Inspector({
@@ -133,10 +141,15 @@ export function Inspector({
   expandedKeys: expandedKeysProp,
   onExpandedKeysChange,
   activeTabType,
+  onOpenEnvironment,
+  onOpenCollectionVariables,
+  onOpenWorkspaceVariables,
+  onOpenSecrets,
 }: InspectorProps) {
   const { token } = theme.useToken();
   const { environments, activeEnvironment } = useEnvironments();
   const { sources } = useSources();
+  const { workspaceVariables } = useWorkspaceVariables();
   const { usedVariables } = useEditorVariables();
   const [searchTerm, setSearchTerm] = useState('');
   const expandedKeys = expandedKeysProp ?? [];
@@ -192,6 +205,18 @@ export function Inspector({
         };
       }
 
+      // Check workspace variables
+      const wsVar = workspaceVariables[uv.name];
+      if (wsVar?.value) {
+        return {
+          key: uv.name,
+          name: uv.name,
+          value: wsVar.value,
+          scope: 'workspace' as const,
+          isSensitive: wsVar.isSensitive,
+        };
+      }
+
       return {
         key: uv.name,
         name: uv.name,
@@ -200,7 +225,7 @@ export function Inspector({
         isSensitive: false,
       };
     });
-  }, [usedVariables, activeEnvData, sourceOutputMap]);
+  }, [usedVariables, activeEnvData, sourceOutputMap, workspaceVariables]);
 
   // All variables grouped by scope
   const allByScope = useMemo(() => {
@@ -229,13 +254,21 @@ export function Inspector({
       }
     }
 
+    const wsVars: VarDisplay[] = Object.entries(workspaceVariables).map(([name, variable]) => ({
+      key: name,
+      name,
+      value: variable.value,
+      scope: 'workspace',
+      isSensitive: variable.isSensitive,
+    }));
+
     return {
       environment: envVars,
       collection: [] as VarDisplay[],
-      workspace: [] as VarDisplay[],
+      workspace: wsVars,
       secret: [] as VarDisplay[],
     };
-  }, [activeEnvData, sourceOutputMap]);
+  }, [activeEnvData, sourceOutputMap, workspaceVariables]);
 
   // Filter
   const filter = (vars: VarDisplay[]) => {
@@ -300,7 +333,7 @@ export function Inspector({
     label: string,
     vars: VarDisplay[],
     emptyText: string,
-    subtitle?: string,
+    options?: { subtitle?: string; action?: { label: string; onClick: () => void } },
   ) => {
     const filtered = filter(vars);
     return (
@@ -321,9 +354,9 @@ export function Inspector({
           <Text strong style={{ fontSize: 12 }}>
             {label}
           </Text>
-          {subtitle && (
+          {options?.subtitle && (
             <Text type="secondary" style={{ fontSize: 10, marginLeft: 'auto', ...ellipsisStyle, maxWidth: 100 }}>
-              {subtitle}
+              {options.subtitle}
             </Text>
           )}
         </div>
@@ -371,11 +404,65 @@ export function Inspector({
             <Text type="secondary" style={{ fontSize: 11 }}>
               {emptyText}
             </Text>
+            {options?.action && (
+              <button
+                type="button"
+                style={{
+                  fontSize: 11,
+                  display: 'block',
+                  marginTop: 4,
+                  color: token.colorPrimary,
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                }}
+                onClick={options.action.onClick}
+              >
+                {options.action.label}
+              </button>
+            )}
           </div>
         )}
       </div>
     );
   };
+
+  // Context-dependent title and "used in" section visibility
+  const entityContext =
+    activeTabType === 'request' || activeTabType === 'collection'
+      ? 'request'
+      : activeTabType === 'rule'
+        ? 'rule'
+        : null;
+  const headerTitle = entityContext ? `Variables in ${entityContext}` : 'All variables';
+
+  const scopeSections = (
+    <>
+      {renderScopeSection('environment', 'Environment', allByScope.environment, 'No environment variables defined', {
+        subtitle: activeEnv?.name,
+        action: onOpenEnvironment ? { label: 'Add environment variables', onClick: onOpenEnvironment } : undefined,
+      })}
+      {(activeTabType === 'request' ||
+        activeTabType === 'collection' ||
+        activeTabType === 'rule' ||
+        activeTabType === 'collection-overview' ||
+        activeTabType === 'folder-overview') &&
+        renderScopeSection('collection', 'Collection', allByScope.collection, 'No collection variables defined', {
+          action: onOpenCollectionVariables
+            ? { label: 'Add collection variables', onClick: onOpenCollectionVariables }
+            : undefined,
+        })}
+      {renderScopeSection('workspace', 'Workspace', allByScope.workspace, 'No workspace variables defined', {
+        action: onOpenWorkspaceVariables
+          ? { label: 'Add workspace variables', onClick: onOpenWorkspaceVariables }
+          : undefined,
+      })}
+      {renderScopeSection('secret', 'Secret', allByScope.secret, 'No secrets defined', {
+        action: onOpenSecrets ? { label: 'Add secrets', onClick: onOpenSecrets } : undefined,
+      })}
+    </>
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: token.colorBgLayout }}>
@@ -391,7 +478,7 @@ export function Inspector({
         }}
       >
         <Text strong style={{ fontSize: 14 }}>
-          Variables in request
+          {headerTitle}
         </Text>
         {onClose && (
           <CloseOutlined
@@ -415,8 +502,8 @@ export function Inspector({
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {/* Used in this request */}
-        {filter(inRequestVars).length > 0 && (
+        {/* "Used in this ..." — only when editing a request or rule */}
+        {entityContext && filter(inRequestVars).length > 0 && (
           <div>
             <div
               style={{
@@ -426,7 +513,7 @@ export function Inspector({
               }}
             >
               <Text strong style={{ fontSize: 12 }}>
-                Used in this request
+                Used in this {entityContext}
               </Text>
             </div>
             <Table
@@ -440,50 +527,37 @@ export function Inspector({
           </div>
         )}
 
-        {inRequestVars.length === 0 && (
+        {entityContext && inRequestVars.length === 0 && (
           <div style={{ padding: 16, textAlign: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              No variables used. Use {`{{variable_name}}`} syntax in your request.
+              No variables used. Use {`{{variable_name}}`} syntax in your {entityContext}.
             </Text>
           </div>
         )}
 
-        {/* All variables */}
-        <Collapse
-          activeKey={expandedKeys}
-          onChange={(keys) => setExpandedKeys(keys as string[])}
-          ghost
-          expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
-        >
-          <Collapse.Panel
-            header={
-              <Text strong style={{ fontSize: 12 }}>
-                All variables
-              </Text>
-            }
-            key="all-vars"
-            style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}
+        {/* All variables — collapsible when in entity context, flat list otherwise */}
+        {entityContext ? (
+          <Collapse
+            activeKey={expandedKeys}
+            onChange={(keys) => setExpandedKeys(keys as string[])}
+            ghost
+            expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
           >
-            {/* Environment — always visible */}
-            {renderScopeSection(
-              'environment',
-              'Environment',
-              allByScope.environment,
-              'No environment variables defined',
-              activeEnv?.name,
-            )}
-            {/* Collection — only when inside a collection context (request/rule/collection/folder) */}
-            {(activeTabType === 'request' ||
-              activeTabType === 'collection' ||
-              activeTabType === 'rule' ||
-              activeTabType === 'collection-overview' ||
-              activeTabType === 'folder-overview') &&
-              renderScopeSection('collection', 'Collection', allByScope.collection, 'No collection variables defined')}
-            {/* Workspace (globals) + Secret (vault) — always visible */}
-            {renderScopeSection('workspace', 'Workspace', allByScope.workspace, 'No workspace variables defined')}
-            {renderScopeSection('secret', 'Secret', allByScope.secret, 'No secrets defined')}
-          </Collapse.Panel>
-        </Collapse>
+            <Collapse.Panel
+              header={
+                <Text strong style={{ fontSize: 12 }}>
+                  All variables
+                </Text>
+              }
+              key="all-vars"
+              style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}
+            >
+              {scopeSections}
+            </Collapse.Panel>
+          </Collapse>
+        ) : (
+          scopeSections
+        )}
       </div>
     </div>
   );

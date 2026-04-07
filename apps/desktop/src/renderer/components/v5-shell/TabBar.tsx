@@ -9,10 +9,21 @@
  * + button (new Request/Rule), chevron dropdown (search/select open tabs).
  */
 
-import { ApiOutlined, CloseOutlined, DownOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  ApiOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  DownOutlined,
+  PlusOutlined,
+  PushpinOutlined,
+  ThunderboltOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons';
+import type { Collection, Environment } from '@openheaders/core';
 import { Dropdown, Input, type InputRef, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ResolvedTab } from './hooks/useResolvedTabs';
+import type { Tab } from './hooks/useTabs';
 
 const TAB_LABEL_MAX = 16;
 
@@ -45,6 +56,16 @@ interface TabBarProps {
   onCloseToRight: (tabId: string) => void;
   onNewRequest?: () => void;
   onNewRule?: () => void;
+  environments?: Environment[];
+  activeEnvironment?: string | null;
+  onSwitchEnvironment?: (envId: string | null) => void;
+  /** The collection the active tab belongs to (if any) — used for pin environment feature */
+  activeCollection?: Collection | null;
+  onPinEnvironment?: (collectionId: string, envId: string | null) => void;
+  onNewEnvironment?: () => void;
+  onToggleInspector?: () => void;
+  recentlyClosed?: Tab[];
+  onReopenTab?: (tab: Tab) => void;
 }
 
 function MethodBadge({ method, size = 'normal' }: { method: string; size?: 'normal' | 'small' }) {
@@ -112,14 +133,17 @@ function TabSearchDropdown({
   open,
   onClose,
   tabs,
-  activeTabId,
   onSwitch,
+  recentlyClosed,
+  onReopen,
 }: {
   open: boolean;
   onClose: () => void;
   tabs: ResolvedTab[];
   activeTabId: string | null;
   onSwitch: (tabId: string) => void;
+  recentlyClosed: Tab[];
+  onReopen: (tab: Tab) => void;
 }) {
   const { token } = theme.useToken();
   const [search, setSearch] = useState('');
@@ -136,18 +160,22 @@ function TabSearchDropdown({
   }, [open]);
 
   // Reset focused index when search changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset on search change
   useEffect(() => {
     setFocusedIndex(0);
   }, [search]);
+
+  const [closedExpanded, setClosedExpanded] = useState(false);
 
   if (!open) return null;
 
   const filter = search.toLowerCase();
   const filtered = tabs.filter(
     (t) =>
-      t.type !== 'welcome' &&
+      t.type !== 'overview' &&
       (t.resolvedLabel.toLowerCase().includes(filter) || (t.resolvedIcon || '').toLowerCase().includes(filter)),
   );
+  const filteredClosed = recentlyClosed.filter((t) => t.label.toLowerCase().includes(filter));
 
   const selectFocused = () => {
     if (filtered.length > 0 && focusedIndex < filtered.length) {
@@ -162,7 +190,6 @@ function TabSearchDropdown({
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setFocusedIndex((i) => Math.min(i + 1, filtered.length - 1));
-      // Scroll focused item into view
       setTimeout(() => {
         listRef.current?.querySelector('[data-focused="true"]')?.scrollIntoView({ block: 'nearest' });
       }, 0);
@@ -178,8 +205,44 @@ function TabSearchDropdown({
     }
   };
 
+  const renderTabIcon = (tab: { type: string; icon?: string }) => {
+    if (tab.type === 'request' || tab.type === 'collection') {
+      return <MethodBadge method={tab.icon || 'GET'} />;
+    }
+    if (tab.type === 'rule') {
+      return <ThunderboltOutlined style={{ color: '#1890ff', fontSize: 11 }} />;
+    }
+    if (tab.type === 'environment') {
+      return (
+        <span
+          style={{
+            background: '#52c41a',
+            color: 'white',
+            fontSize: 8,
+            fontWeight: 700,
+            padding: '0 3px',
+            borderRadius: 2,
+          }}
+        >
+          E
+        </span>
+      );
+    }
+    if (tab.type === 'globals') {
+      return <span style={{ fontSize: 10 }}>&#x1F310;</span>;
+    }
+    if (tab.type === 'settings') {
+      return <span style={{ fontSize: 10 }}>&#x2699;</span>;
+    }
+    if (tab.type === 'collection-overview' || tab.type === 'folder-overview') {
+      return <span style={{ fontSize: 10 }}>&#x1F4C1;</span>;
+    }
+    return null;
+  };
+
   return (
     <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismiss */}
       <div
         className="v5-tab-search-backdrop"
         onMouseDown={(e) => {
@@ -193,6 +256,7 @@ function TabSearchDropdown({
         className="v5-tab-search-dropdown"
         style={{ background: token.colorBgElevated, border: `1px solid ${token.colorBorderSecondary}` }}
       >
+        {/* Search */}
         <div
           style={{
             padding: '8px 12px',
@@ -214,7 +278,9 @@ function TabSearchDropdown({
           />
           <span style={{ fontSize: 10, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>&#x21E7;&#x2318;A</span>
         </div>
-        <div ref={listRef} style={{ maxHeight: 300, overflowY: 'auto' }}>
+
+        <div ref={listRef} style={{ maxHeight: 400, overflowY: 'auto' }}>
+          {/* Open tabs */}
           {filtered.length > 0 ? (
             filtered.map((tab, index) => (
               <div
@@ -229,29 +295,17 @@ function TabSearchDropdown({
                   onSwitch(tab.id);
                   onClose();
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onSwitch(tab.id);
+                    onClose();
+                  }
+                }}
                 onMouseEnter={() => setFocusedIndex(index)}
                 role="button"
                 tabIndex={-1}
               >
-                {(tab.type === 'request' || tab.type === 'collection') && (
-                  <MethodBadge method={tab.resolvedIcon || 'GET'} />
-                )}
-                {tab.type === 'rule' && <ThunderboltOutlined style={{ color: '#1890ff', fontSize: 11 }} />}
-                {tab.type === 'environment' && (
-                  <span
-                    style={{
-                      background: '#52c41a',
-                      color: 'white',
-                      fontSize: 8,
-                      fontWeight: 700,
-                      padding: '0 3px',
-                      borderRadius: 2,
-                    }}
-                  >
-                    E
-                  </span>
-                )}
-                {tab.type === 'settings' && <span style={{ fontSize: 10 }}>&#x2699;</span>}
+                {renderTabIcon({ type: tab.type, icon: tab.resolvedIcon })}
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {tab.resolvedLabel}
                 </span>
@@ -261,13 +315,389 @@ function TabSearchDropdown({
               </div>
             ))
           ) : (
+            <div style={{ padding: '12px', fontSize: 11, color: token.colorTextTertiary }}>No open tabs</div>
+          )}
+
+          {/* Recently closed */}
+          {filteredClosed.length > 0 && (
+            <>
+              <div
+                style={{
+                  borderTop: `1px solid ${token.colorBorderSecondary}`,
+                  padding: '8px 12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setClosedExpanded((v) => !v)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setClosedExpanded((v) => !v);
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <span style={{ fontSize: 12, fontWeight: 600, color: token.colorText }}>Recently closed</span>
+                <DownOutlined
+                  style={{
+                    fontSize: 10,
+                    color: token.colorTextTertiary,
+                    transform: closedExpanded ? 'rotate(180deg)' : undefined,
+                    transition: 'transform 0.2s',
+                  }}
+                />
+              </div>
+              {closedExpanded &&
+                filteredClosed.map((tab) => (
+                  <div
+                    key={`closed-${tab.id}`}
+                    className="v5-tab-search-item"
+                    style={{ color: token.colorTextSecondary }}
+                    onClick={() => {
+                      onReopen(tab);
+                      onClose();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        onReopen(tab);
+                        onClose();
+                      }
+                    }}
+                    role="button"
+                    tabIndex={-1}
+                  >
+                    {renderTabIcon(tab)}
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {tab.label}
+                    </span>
+                  </div>
+                ))}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Environment selector ────────────────────────────────────────
+
+function EnvSelectorDropdown({
+  open,
+  onClose,
+  environments,
+  activeEnvironment,
+  activeCollection,
+  onSwitch,
+  onPin,
+  onCreate,
+}: {
+  open: boolean;
+  onClose: () => void;
+  environments: Environment[];
+  activeEnvironment: string | null;
+  activeCollection: Collection | null;
+  onSwitch: (envId: string | null) => void;
+  onPin?: (collectionId: string, envId: string | null) => void;
+  onCreate?: () => void;
+}) {
+  const { token } = theme.useToken();
+  const [search, setSearch] = useState('');
+  const inputRef = useRef<InputRef>(null);
+
+  useEffect(() => {
+    if (open) {
+      setSearch('');
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const pinnedId = activeCollection?.pinnedEnvironmentId;
+  const canPin = !!activeCollection && !!onPin;
+  const filter = search.toLowerCase();
+  const filtered = environments.filter((e) => e.name.toLowerCase().includes(filter));
+
+  const handleSelect = (envId: string | null) => {
+    onSwitch(envId);
+    onClose();
+  };
+
+  return (
+    <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismiss */}
+      <div
+        className="v5-tab-search-backdrop"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
+        role="presentation"
+      />
+      <div
+        className="v5-env-dropdown"
+        style={{
+          position: 'absolute',
+          top: '100%',
+          right: 0,
+          zIndex: 1000,
+          width: 300,
+          background: token.colorBgElevated,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 8,
+          boxShadow: token.boxShadowSecondary,
+          marginTop: 2,
+        }}
+      >
+        {/* Search + actions bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '8px 12px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            gap: 8,
+          }}
+        >
+          <Input
+            ref={inputRef}
+            placeholder="Search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            variant="borderless"
+            size="small"
+            style={{ flex: 1, fontSize: 12 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onClose();
+            }}
+          />
+          {onCreate && (
+            <Tooltip title="New Environment" placement="bottom">
+              <PlusOutlined
+                style={{ fontSize: 12, color: token.colorTextSecondary, cursor: 'pointer', flexShrink: 0 }}
+                onClick={() => {
+                  onCreate();
+                  onClose();
+                }}
+              />
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Pin hint — only when in a collection context */}
+        {canPin && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 6,
+              padding: '8px 12px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 1, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, lineHeight: '16px' }}>
+              Pin an environment to auto-switch when working in this collection
+            </span>
+          </div>
+        )}
+
+        {/* Environment list */}
+        <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+          {/* No Environment */}
+          <div
+            className="v5-env-dropdown-item"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: 12,
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              background: !activeEnvironment ? token.colorBgTextHover : undefined,
+            }}
+            onClick={() => handleSelect(null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSelect(null);
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            {!activeEnvironment ? (
+              <CheckOutlined style={{ fontSize: 11, color: token.colorPrimary, flexShrink: 0 }} />
+            ) : (
+              <span style={{ width: 11, flexShrink: 0 }} />
+            )}
+            <span style={{ color: token.colorTextSecondary, fontStyle: 'italic' }}>No environment</span>
+          </div>
+
+          {/* Environments */}
+          {filtered.map((env) => {
+            const isActive = env.id === activeEnvironment;
+            const isPinned = env.id === pinnedId;
+            return (
+              <div
+                key={env.id}
+                className="v5-env-dropdown-item"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  background: isActive ? token.colorBgTextHover : undefined,
+                }}
+                onClick={() => handleSelect(env.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSelect(env.id);
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  {isActive ? (
+                    <CheckOutlined style={{ fontSize: 11, color: token.colorPrimary, flexShrink: 0 }} />
+                  ) : (
+                    <span style={{ width: 11, flexShrink: 0 }} />
+                  )}
+                  <span
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      color: token.colorText,
+                    }}
+                  >
+                    {env.name}
+                  </span>
+                  {isPinned && (
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: token.colorTextTertiary,
+                        border: `1px solid ${token.colorBorderSecondary}`,
+                        borderRadius: 3,
+                        padding: '0 4px',
+                        lineHeight: '16px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      DEFAULT
+                    </span>
+                  )}
+                </div>
+                {canPin && (
+                  <Tooltip title={isPinned ? 'Unpin' : 'Set as default'} placement="left">
+                    <PushpinOutlined
+                      className="v5-env-hover-action"
+                      style={{
+                        fontSize: 12,
+                        color: isPinned ? token.colorPrimary : token.colorTextQuaternary,
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPin!(activeCollection!.id, isPinned ? null : env.id);
+                      }}
+                    />
+                  </Tooltip>
+                )}
+              </div>
+            );
+          })}
+
+          {filtered.length === 0 && environments.length > 0 && (
             <div style={{ padding: '16px 12px', textAlign: 'center', fontSize: 11, color: token.colorTextTertiary }}>
-              No matching tabs
+              No matching environments
+            </div>
+          )}
+
+          {environments.length === 0 && (
+            <div style={{ padding: '16px 12px', textAlign: 'center', fontSize: 11, color: token.colorTextTertiary }}>
+              No environments created yet
             </div>
           )}
         </div>
       </div>
     </>
+  );
+}
+
+function EnvSelector({
+  token,
+  environments,
+  activeEnvironment,
+  activeCollection,
+  onSwitch,
+  onPin,
+  onCreate,
+}: {
+  token: ReturnType<typeof theme.useToken>['token'];
+  environments: Environment[];
+  activeEnvironment: string | null;
+  activeCollection: Collection | null;
+  onSwitch: (envId: string | null) => void;
+  onPin?: (collectionId: string, envId: string | null) => void;
+  onCreate?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const activeEnvName = activeEnvironment
+    ? (environments.find((e) => e.id === activeEnvironment)?.name ?? 'Unknown')
+    : 'No Environment';
+
+  return (
+    <div style={{ position: 'relative', height: '100%' }}>
+      <div
+        className="v5-env-selector"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '0 8px',
+          height: '100%',
+          cursor: 'pointer',
+          fontSize: 11,
+          color: activeEnvironment ? token.colorText : token.colorTextTertiary,
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') setOpen((v) => !v);
+        }}
+        role="button"
+        tabIndex={0}
+      >
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: activeEnvironment ? '#52c41a' : token.colorTextQuaternary,
+          }}
+        >
+          E
+        </span>
+        {activeEnvName}
+        <DownOutlined style={{ fontSize: 8, color: token.colorTextTertiary }} />
+      </div>
+      <EnvSelectorDropdown
+        open={open}
+        onClose={() => setOpen(false)}
+        environments={environments}
+        activeEnvironment={activeEnvironment}
+        activeCollection={activeCollection}
+        onSwitch={onSwitch}
+        onPin={onPin}
+        onCreate={onCreate}
+      />
+    </div>
   );
 }
 
@@ -286,6 +716,15 @@ export function TabBar({
   onCloseToRight,
   onNewRequest,
   onNewRule,
+  environments,
+  activeEnvironment,
+  onSwitchEnvironment,
+  activeCollection,
+  onPinEnvironment,
+  onNewEnvironment,
+  onToggleInspector,
+  recentlyClosed,
+  onReopenTab,
 }: TabBarProps) {
   const { token } = theme.useToken();
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -413,8 +852,6 @@ export function TabBar({
     { key: 'rule', icon: <ThunderboltOutlined />, label: 'New Rule', onClick: onNewRule },
   ];
 
-  if (tabs.length === 0) return null;
-
   return (
     <div
       className="v5-tabs-bar"
@@ -489,37 +926,96 @@ export function TabBar({
             </Tooltip>
           );
         })}
+
+        {/* + button — inside scroll area, right after last tab */}
+        <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
+          <div className="v5-tab-action" style={{ color: token.colorTextSecondary, flexShrink: 0 }}>
+            <PlusOutlined style={{ fontSize: 12 }} />
+          </div>
+        </Dropdown>
       </div>
 
-      {/* + button */}
-      <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-        <div className="v5-tab-action" style={{ color: token.colorTextSecondary }}>
-          <PlusOutlined style={{ fontSize: 12 }} />
+      {/* Tab search/select chevron + dropdown */}
+      <div style={{ position: 'relative' }}>
+        <div
+          className="v5-tab-action"
+          style={{ color: token.colorTextSecondary }}
+          onClick={() => setTabSearchOpen((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') setTabSearchOpen((v) => !v);
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <DownOutlined style={{ fontSize: 10 }} />
         </div>
-      </Dropdown>
-
-      {/* Tab search/select chevron */}
-      <div
-        className="v5-tab-action"
-        style={{ color: token.colorTextSecondary }}
-        onClick={() => setTabSearchOpen((v) => !v)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') setTabSearchOpen((v) => !v);
-        }}
-        role="button"
-        tabIndex={0}
-      >
-        <DownOutlined style={{ fontSize: 10 }} />
+        <TabSearchDropdown
+          open={tabSearchOpen}
+          onClose={() => setTabSearchOpen(false)}
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSwitch={onSwitch}
+          recentlyClosed={recentlyClosed ?? []}
+          onReopen={onReopenTab ?? (() => {})}
+        />
       </div>
 
-      {/* Tab search dropdown — anchored to the tab bar */}
-      <TabSearchDropdown
-        open={tabSearchOpen}
-        onClose={() => setTabSearchOpen(false)}
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onSwitch={onSwitch}
-      />
+      {/* Divider before env selector */}
+      {environments && (
+        <div
+          style={{
+            width: 1,
+            height: 16,
+            background: token.colorTextQuaternary,
+            flexShrink: 0,
+            margin: '0 4px',
+          }}
+        />
+      )}
+
+      {/* Environment selector — right-aligned, always visible */}
+      {environments && onSwitchEnvironment && (
+        <EnvSelector
+          token={token}
+          environments={environments}
+          activeEnvironment={activeEnvironment ?? null}
+          activeCollection={activeCollection ?? null}
+          onSwitch={onSwitchEnvironment}
+          onPin={onPinEnvironment}
+          onCreate={onNewEnvironment}
+        />
+      )}
+
+      {/* Divider before variables toggle */}
+      {onToggleInspector && (
+        <div
+          style={{
+            width: 1,
+            height: 16,
+            background: token.colorTextQuaternary,
+            flexShrink: 0,
+            margin: '0 4px',
+          }}
+        />
+      )}
+
+      {/* Variables panel toggle */}
+      {onToggleInspector && (
+        <Tooltip title="Toggle Variables" placement="bottomRight">
+          <div
+            className="v5-tab-action"
+            style={{ color: token.colorTextSecondary }}
+            onClick={onToggleInspector}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onToggleInspector();
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <UnorderedListOutlined style={{ fontSize: 12 }} />
+          </div>
+        </Tooltip>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@
  *  - Exposes subscribe/notify for React hooks (same API as before)
  */
 
-import type { Collection, Folder, HeaderRule, RulesCollection, Source, SourceUpdate } from '@openheaders/core';
+import type { Collection, EnvironmentVariable, Folder, HeaderRule, RulesCollection, Source, SourceUpdate } from '@openheaders/core';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceSyncStatus, WorkspaceType } from '@/types/workspace';
@@ -29,6 +29,7 @@ export interface WorkspaceServiceState {
   proxyRules: ProxyRule[];
   collections: Collection[];
   folders: Folder[];
+  workspaceVariables: Record<string, EnvironmentVariable>;
 }
 
 type StateListener = (state: WorkspaceServiceState, changedKeys: string[]) => void;
@@ -53,6 +54,7 @@ class CentralizedWorkspaceService {
       proxyRules: [],
       collections: [],
       folders: [],
+      workspaceVariables: {},
     };
 
     // Subscribe to state patches from main process
@@ -278,6 +280,13 @@ class CentralizedWorkspaceService {
   async copyWorkspaceData(sourceWorkspaceId: string, targetWorkspaceId: string): Promise<void> {
     const result = await window.electronAPI.workspaceState.copyWorkspaceData(sourceWorkspaceId, targetWorkspaceId);
     if (!result.success) throw new Error(result.error ?? 'Failed to copy workspace data');
+  }
+
+  // ── Workspace Variables (IPC forward) ──────────────────────
+
+  async updateWorkspaceVariables(variables: Record<string, EnvironmentVariable>): Promise<void> {
+    const result = await window.electronAPI.workspaceState.updateWorkspaceVariables(variables);
+    if (!result.success) throw new Error(result.error ?? 'Failed to update workspace variables');
   }
 
   // ── Cleanup ────────────────────────────────────────────────

@@ -5,7 +5,7 @@
  */
 
 import path from 'node:path';
-import type { Collection, Environment, Folder, RulesCollection, RulesStorage, Source } from '@openheaders/core';
+import type { Collection, Environment, EnvironmentVariable, Folder, RulesCollection, RulesStorage, Source } from '@openheaders/core';
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import {
   convertV5toV4,
@@ -151,6 +151,27 @@ export async function loadFolders(appDataPath: string, workspaceId: string): Pro
 export async function saveFolders(appDataPath: string, workspaceId: string, folders: Folder[]): Promise<void> {
   const dir = workspaceDir(appDataPath, workspaceId);
   await atomicWriter.writeJson(path.join(dir, 'folders.json'), folders, { pretty: true });
+}
+
+// ── Workspace Variables (workspace-variables.json) ──────────────
+
+export async function loadWorkspaceVariables(
+  appDataPath: string,
+  workspaceId: string,
+): Promise<Record<string, EnvironmentVariable>> {
+  return loadJson<Record<string, EnvironmentVariable>>(
+    path.join(workspaceDir(appDataPath, workspaceId), 'workspace-variables.json'),
+    {},
+  );
+}
+
+export async function saveWorkspaceVariables(
+  appDataPath: string,
+  workspaceId: string,
+  variables: Record<string, EnvironmentVariable>,
+): Promise<void> {
+  const dir = workspaceDir(appDataPath, workspaceId);
+  await atomicWriter.writeJson(path.join(dir, 'workspace-variables.json'), variables, { pretty: true });
 }
 
 export async function saveAll(

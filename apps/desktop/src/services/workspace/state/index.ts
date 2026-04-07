@@ -44,6 +44,8 @@ export {
   saveRules,
   saveSources,
   saveWorkspacesConfig,
+  loadWorkspaceVariables,
+  saveWorkspaceVariables,
   workspaceDir,
 } from './StatePersistence';
 export type {

@@ -14,4 +14,6 @@ export interface Collection {
   section: CollectionSection;
   description?: string;
   createdAt?: string;
+  /** Environment auto-selected when opening items in this collection */
+  pinnedEnvironmentId?: string;
 }
