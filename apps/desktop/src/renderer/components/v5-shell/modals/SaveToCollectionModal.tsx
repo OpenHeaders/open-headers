@@ -208,9 +208,7 @@ export function SaveToCollectionModal({
                   disabled={!selectedCollectionId || !name.trim()}
                   onClick={handleSave}
                   style={
-                    selectedCollectionId && name.trim()
-                      ? { background: '#f5722d', borderColor: '#f5722d' }
-                      : undefined
+                    selectedCollectionId && name.trim() ? { background: '#f5722d', borderColor: '#f5722d' } : undefined
                   }
                 >
                   Save
@@ -364,10 +362,11 @@ export function SaveToCollectionModal({
           <>
             {filteredCollections.length === 0 && !creatingCollection && (
               <div style={{ padding: 24, textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: sectionCollections.length === 0 ? 12 : 0 }}>
-                  {sectionCollections.length === 0
-                    ? 'No collections yet.'
-                    : 'No matching collections.'}
+                <Text
+                  type="secondary"
+                  style={{ fontSize: 12, display: 'block', marginBottom: sectionCollections.length === 0 ? 12 : 0 }}
+                >
+                  {sectionCollections.length === 0 ? 'No collections yet.' : 'No matching collections.'}
                 </Text>
                 {sectionCollections.length === 0 && (
                   <Button
@@ -412,7 +411,10 @@ export function SaveToCollectionModal({
               >
                 <CollectionIcon style={{ fontSize: 13, color: token.colorTextTertiary }} />
                 <span style={{ flex: 1, color: token.colorText }}>{col.name}</span>
-                <RightOutlined className="v5-save-modal-row-chevron" style={{ fontSize: 10, color: token.colorTextQuaternary }} />
+                <RightOutlined
+                  className="v5-save-modal-row-chevron"
+                  style={{ fontSize: 10, color: token.colorTextQuaternary }}
+                />
               </div>
             ))}
           </>
@@ -494,7 +496,10 @@ export function SaveToCollectionModal({
                 >
                   <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
                   <span style={{ flex: 1, color: token.colorText }}>{fol.name}</span>
-                  <RightOutlined className="v5-save-modal-row-chevron" style={{ fontSize: 10, color: token.colorTextQuaternary }} />
+                  <RightOutlined
+                    className="v5-save-modal-row-chevron"
+                    style={{ fontSize: 10, color: token.colorTextQuaternary }}
+                  />
                 </div>
               ))}
 

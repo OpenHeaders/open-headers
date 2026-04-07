@@ -5,7 +5,15 @@
  */
 
 import path from 'node:path';
-import type { Collection, Environment, EnvironmentVariable, Folder, RulesCollection, RulesStorage, Source } from '@openheaders/core';
+import type {
+  Collection,
+  Environment,
+  EnvironmentVariable,
+  Folder,
+  RulesCollection,
+  RulesStorage,
+  Source,
+} from '@openheaders/core';
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import {
   convertV5toV4,

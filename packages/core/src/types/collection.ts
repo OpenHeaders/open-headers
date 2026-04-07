@@ -16,4 +16,6 @@ export interface Collection {
   createdAt?: string;
   /** Environment auto-selected when opening items in this collection */
   pinnedEnvironmentId?: string;
+  /** Collection-scoped variables (resolved between environment and workspace scope). */
+  variables?: Record<string, import('./environment').EnvironmentVariable>;
 }

@@ -28,7 +28,10 @@ function makeEnterpriseVars(): EnvironmentVariables {
     OAUTH2_CLIENT_ID: { value: 'oidc-client-a1b2c3d4-e5f6-7890-abcd-ef1234567890', isSensitive: false },
     OAUTH2_CLIENT_SECRET: { value: 'ohk_live_4eC39HqLyjWDarjtT1zdp7dc', isSensitive: true },
     API_GATEWAY_URL: { value: 'https://gateway.openheaders.io:8443/v2', isSensitive: false },
-    DATABASE_CONNECTION_STRING: { value: 'postgresql://admin:P@ss=w0rd@db.openheaders.io:5432/prod', isSensitive: true },
+    DATABASE_CONNECTION_STRING: {
+      value: 'postgresql://admin:P@ss=w0rd@db.openheaders.io:5432/prod',
+      isSensitive: true,
+    },
     TOTP_SECRET: { value: 'JBSWY3DPEHPK3PXP', isSensitive: true },
     JSON_FILTER_PATH: { value: '$.access_token', isSensitive: false },
   };

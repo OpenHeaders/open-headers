@@ -36,6 +36,7 @@ export {
   loadSources,
   loadWorkspaceDataV5Aware,
   loadWorkspacesConfig,
+  loadWorkspaceVariables,
   saveAll,
   saveCollections,
   saveEnvironments,
@@ -44,7 +45,6 @@ export {
   saveRules,
   saveSources,
   saveWorkspacesConfig,
-  loadWorkspaceVariables,
   saveWorkspaceVariables,
   workspaceDir,
 } from './StatePersistence';

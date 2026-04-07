@@ -15,7 +15,6 @@
 
 import {
   CheckCircleOutlined,
-  ClockCircleOutlined,
   CloseCircleOutlined,
   DeleteOutlined,
   MinusCircleOutlined,
@@ -44,13 +43,14 @@ import {
   theme,
 } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useEnvironments, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import type { ResolvedVarInfo } from '@/renderer/hooks/useResolvedVariables';
+import { useResolvedVariables } from '@/renderer/hooks/useResolvedVariables';
 import { extractSourceVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 import { SimpleTabs } from '../SimpleTabs';
 import { TemplateInput } from './TemplateInput';
 
 const { Text } = Typography;
-const { TextArea } = Input;
 
 interface SourceEditorProps {
   sourceId?: string;
@@ -91,8 +91,7 @@ function KeyValueTable({
   onChange,
   keyPlaceholder,
   valuePlaceholder,
-  envVars,
-  activeEnvironment,
+  variables,
   totpCode,
   totpReady,
 }: {
@@ -100,8 +99,7 @@ function KeyValueTable({
   onChange: (rows: KVRow[]) => void;
   keyPlaceholder: string;
   valuePlaceholder: string;
-  envVars?: Record<string, { value: string; isSensitive: boolean }>;
-  activeEnvironment?: string | null;
+  variables?: Record<string, ResolvedVarInfo>;
   totpCode?: string;
   totpReady?: boolean;
 }) {
@@ -194,8 +192,7 @@ function KeyValueTable({
                   updateRow(index, 'value', val);
                 }
               }}
-              envVars={envVars}
-              activeEnvironment={activeEnvironment}
+              variables={variables}
               totpCode={totpCode}
               totpReady={totpReady}
               borderless
@@ -259,7 +256,7 @@ function ResponsePane({
   const statusCode = responseHeaders?.['x-oh-status-code'];
   const statusNum = statusCode ? Number.parseInt(statusCode, 10) : null;
 
-  const statusColor = statusNum ? (statusNum < 300 ? '#49cc90' : statusNum < 400 ? '#fca130' : '#f93e3e') : undefined;
+  const _statusColor = statusNum ? (statusNum < 300 ? '#49cc90' : statusNum < 400 ? '#fca130' : '#f93e3e') : undefined;
 
   // Try to detect and pretty-print JSON
   const formatContent = (raw: string | null | undefined): string => {
@@ -366,8 +363,7 @@ function BodyTab({
   contentType,
   onBodyChange,
   onContentTypeChange,
-  envVars,
-  activeEnvironment,
+  variables,
   totpCode,
   totpReady,
 }: {
@@ -375,8 +371,7 @@ function BodyTab({
   contentType: string;
   onBodyChange: (val: string) => void;
   onContentTypeChange: (val: string) => void;
-  envVars: Record<string, { value: string; isSensitive: boolean }>;
-  activeEnvironment: string | null;
+  variables: Record<string, ResolvedVarInfo>;
   totpCode?: string;
   totpReady?: boolean;
 }) {
@@ -400,8 +395,7 @@ function BodyTab({
         value={body}
         onChange={onBodyChange}
         placeholder={contentType === 'application/json' ? '{\n  "key": "value"\n}' : 'key1=value1&key2=value2'}
-        envVars={envVars}
-        activeEnvironment={activeEnvironment}
+        variables={variables}
         totpCode={totpCode}
         totpReady={totpReady}
         mono
@@ -605,11 +599,9 @@ export function SourceEditor({
 }: SourceEditorProps) {
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource, refreshSource } = useSources();
-  const { environments, activeEnvironment } = useEnvironments();
   const isDraft = !!draftData && !sourceId;
   const source = isDraft ? undefined : sources.find((s) => s.sourceId === sourceId);
-  const activeEnv = activeEnvironment ? environments.find((e) => e.id === activeEnvironment) : undefined;
-  const activeEnvVars = activeEnv?.variables ?? {};
+  const { resolved: resolvedVars } = useResolvedVariables(source?.collectionId);
   const { setUsedVariables, clearVariables } = useEditorVariables();
 
   // Local form state
@@ -1052,8 +1044,7 @@ export function SourceEditor({
           value={sourcePath}
           onChange={handleUrlChange}
           placeholder="Enter request URL"
-          envVars={activeEnvVars}
-          activeEnvironment={activeEnvironment}
+          variables={resolvedVars}
           totpCode={totpCode}
           totpReady={totpEnabled && !!totpSecret}
           borderless
@@ -1123,8 +1114,7 @@ export function SourceEditor({
                     onChange={handleParamsChange}
                     keyPlaceholder="Parameter name"
                     valuePlaceholder="Value"
-                    envVars={activeEnvVars}
-                    activeEnvironment={activeEnvironment}
+                    variables={resolvedVars}
                     totpCode={totpCode}
                     totpReady={totpEnabled && !!totpSecret}
                   />
@@ -1137,8 +1127,7 @@ export function SourceEditor({
                     onChange={handleHeadersChange}
                     keyPlaceholder="Header name"
                     valuePlaceholder="Value"
-                    envVars={activeEnvVars}
-                    activeEnvironment={activeEnvironment}
+                    variables={resolvedVars}
                     totpCode={totpCode}
                     totpReady={totpEnabled && !!totpSecret}
                   />
@@ -1151,8 +1140,7 @@ export function SourceEditor({
                     contentType={contentType}
                     onBodyChange={handleBodyChange}
                     onContentTypeChange={handleContentTypeChange}
-                    envVars={activeEnvVars}
-                    activeEnvironment={activeEnvironment}
+                    variables={resolvedVars}
                     totpCode={totpCode}
                     totpReady={totpEnabled && !!totpSecret}
                   />

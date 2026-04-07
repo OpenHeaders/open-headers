@@ -206,6 +206,7 @@ export function V5Shell() {
     for (const r of rules) currentIds.add(`rule-${r.id}`);
     for (const s of sources) currentIds.add(`source-${s.sourceId}`);
     for (const env of environments) currentIds.add(`env-${env.id}`);
+    for (const col of collections) currentIds.add(`col-vars-${col.id}`);
 
     if (prevEntityIds.current.size > 0 && !workspaceJustChanged) {
       for (const tab of tabsRef.current) {
@@ -223,7 +224,7 @@ export function V5Shell() {
       }
     }
     prevEntityIds.current = currentIds;
-  }, [rules, sources, environments, closeTab, activeWorkspaceId]);
+  }, [rules, sources, environments, collections, closeTab, activeWorkspaceId]);
 
   // Auto-switch environment when opening an item in a collection with a pinned environment
   const prevTabForEnvSwitch = useRef(activeTabId);
@@ -261,6 +262,7 @@ export function V5Shell() {
     openOverview,
     openSettings,
     openWorkspaceVariables,
+    openCollectionVariables,
     createNewSource,
     createNewRule,
     createNewEnvironment,
@@ -270,6 +272,7 @@ export function V5Shell() {
     sources,
     rules,
     environments,
+    collections,
     activeEnvironment,
     addSource,
     addRule,
@@ -585,7 +588,11 @@ export function V5Shell() {
                     expandedKeys={inspectorExpandedKeys}
                     onExpandedKeysChange={setInspectorExpandedKeys}
                     activeTabType={activeResolvedTab?.type}
+                    activeCollectionId={activeCollection?.id}
                     onOpenEnvironment={openActiveEnvironment}
+                    onOpenCollectionVariables={
+                      activeCollection ? () => openCollectionVariables(activeCollection.id) : undefined
+                    }
                     onOpenWorkspaceVariables={openWorkspaceVariables}
                   />
                 ) : (
@@ -597,6 +604,7 @@ export function V5Shell() {
                     onNewEnvironment={(opts) => void createNewEnvironment(opts)}
                     onNewDraftEnvironment={createDraftEnvironment}
                     onOpenWorkspaceVariables={openWorkspaceVariables}
+                    onOpenCollectionVariables={openCollectionVariables}
                     expandedSections={sidebarExpandedSections}
                     onExpandedSectionsChange={setSidebarExpandedSections}
                     expandedKeys={sidebarExpansion.expandedKeys}
@@ -699,6 +707,7 @@ export function V5Shell() {
                     onNewEnvironment={(opts) => void createNewEnvironment(opts)}
                     onNewDraftEnvironment={createDraftEnvironment}
                     onOpenWorkspaceVariables={openWorkspaceVariables}
+                    onOpenCollectionVariables={openCollectionVariables}
                     expandedSections={sidebarExpandedSections}
                     onExpandedSectionsChange={setSidebarExpandedSections}
                     expandedKeys={sidebarExpansion.expandedKeys}
@@ -715,7 +724,11 @@ export function V5Shell() {
                     expandedKeys={inspectorExpandedKeys}
                     onExpandedKeysChange={setInspectorExpandedKeys}
                     activeTabType={activeResolvedTab?.type}
+                    activeCollectionId={activeCollection?.id}
                     onOpenEnvironment={openActiveEnvironment}
+                    onOpenCollectionVariables={
+                      activeCollection ? () => openCollectionVariables(activeCollection.id) : undefined
+                    }
                     onOpenWorkspaceVariables={openWorkspaceVariables}
                   />
                 )}

@@ -9,8 +9,9 @@
 import { ApiOutlined, GlobalOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Space, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import appIcon from '@/renderer/images/icon128.png';
+import { CollectionVariablesEditor } from './editors/CollectionVariablesEditor';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
 import { SourceEditor } from './editors/SourceEditor';
@@ -156,6 +157,8 @@ function TabEditor({
     content = <SettingsEditor />;
   } else if (tab.type === 'globals') {
     content = <WorkspaceVariablesEditor onDirtyChange={dirtyChange} saveRef={save} />;
+  } else if (tab.type === 'collection-variables' && tab.entityId) {
+    content = <CollectionVariablesEditor collectionId={tab.entityId} onDirtyChange={dirtyChange} saveRef={save} />;
   } else if (tab.type === 'rule' && tab.entityId) {
     content = <RuleEditor ruleId={tab.entityId} onDirtyChange={dirtyChange} saveRef={save} />;
   } else if (tab.type === 'environment' && tab.entityId) {
@@ -243,7 +246,12 @@ export function EditorArea({
       {/* Empty placeholder — shown when no tabs are open at all */}
       {showEmpty && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          <EmptyPlaceholder onNewRequest={onNewRequest} onNewRule={onNewRule} onNewEnvironment={onNewEnvironment} onOpenOverview={onOpenOverview} />
+          <EmptyPlaceholder
+            onNewRequest={onNewRequest}
+            onNewRule={onNewRule}
+            onNewEnvironment={onNewEnvironment}
+            onOpenOverview={onOpenOverview}
+          />
         </div>
       )}
 

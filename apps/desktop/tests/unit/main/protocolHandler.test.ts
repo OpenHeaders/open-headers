@@ -928,7 +928,9 @@ describe('ProtocolHandler', () => {
       expect(handler.pendingEnvironmentImport).toBeDefined();
       const envImport = handler.pendingEnvironmentImport as {
         environments: Record<string, Record<string, { value: string; isSensitive?: boolean }>>;
-        environmentSchema: { environments: Record<string, { variables: Array<{ name: string; isSensitive: boolean }> }> };
+        environmentSchema: {
+          environments: Record<string, { variables: Array<{ name: string; isSensitive: boolean }> }>;
+        };
       };
       expect(envImport.environments.production.GATEWAY_URL.value).toBe('https://api.openheaders.io:8443/v2');
       expect(envImport.environments.production.AUTH_SECRET.isSensitive).toBe(true);

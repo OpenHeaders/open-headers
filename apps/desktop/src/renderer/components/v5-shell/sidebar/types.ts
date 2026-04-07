@@ -7,7 +7,7 @@
  * badge, and attached callbacks.
  */
 
-import type { MenuItemType } from 'antd/es/menu/interface';
+import type { ItemType } from 'antd/es/menu/interface';
 
 export type NodeKind = 'group' | 'folder' | 'leaf' | 'placeholder';
 
@@ -41,7 +41,7 @@ export interface TreeNode {
   /** + button default action */
   onAddItem?: () => void;
   /** ... dropdown menu items */
-  addMenuItems?: MenuItemType[];
+  addMenuItems?: ItemType[];
   /** Hover action icon button shown to the left of the ... menu on leaf nodes */
   hoverAction?: { icon: React.ReactNode; tooltip: string; onClick: () => void };
 

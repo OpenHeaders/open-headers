@@ -2,28 +2,36 @@
  * TemplateInput — contentEditable input with inline variable highlighting,
  * hover popovers, and autocomplete suggestions on {{ trigger.
  *
- * Adapted from the wat2 browser-extension MVP TemplateInput.
+ * Variable-scope-aware: shows scope badges (E/C/W/S) in autocomplete
+ * and hover popovers. Consumes `variables` from useResolvedVariables.
  */
 
 import { RightOutlined } from '@ant-design/icons';
 import { List, Popover, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ResolvedVarInfo, VariableScope } from '@/renderer/hooks/useResolvedVariables';
 import './TemplateInput.css';
 
 const { Text } = Typography;
 
-interface EnvVarInfo {
-  value: string;
-  isSensitive: boolean;
-}
+// ── Scope display config ─────────────────────────────────────────
+
+const SCOPE_TAG: Record<VariableScope, { letter: string; color: string }> = {
+  secret: { letter: 'S', color: 'red' },
+  environment: { letter: 'E', color: 'green' },
+  collection: { letter: 'C', color: 'orange' },
+  workspace: { letter: 'W', color: 'purple' },
+};
+
+// ── Props ────────────────────────────────────────────────────────
 
 export interface TemplateInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  envVars?: Record<string, EnvVarInfo>;
-  activeEnvironment?: string | null;
+  /** Resolved variables from useResolvedVariables — all scopes merged. */
+  variables?: Record<string, ResolvedVarInfo>;
   borderless?: boolean;
   fontSize?: number;
   mono?: boolean;
@@ -99,8 +107,7 @@ export function TemplateInput({
   value,
   onChange,
   placeholder = '',
-  envVars,
-  activeEnvironment,
+  variables,
   borderless,
   fontSize,
   mono,
@@ -126,23 +133,24 @@ export function TemplateInput({
   // Var names that have a non-empty value (truly resolved)
   const resolvedVars = useMemo(() => {
     const set = new Set<string>();
-    if (envVars) {
-      for (const [name, info] of Object.entries(envVars)) {
+    if (variables) {
+      for (const [name, info] of Object.entries(variables)) {
         if (info.value) set.add(name);
       }
     }
     return set;
-  }, [envVars]);
+  }, [variables]);
 
-  // All variables as suggestions
+  // All variables as suggestions (with scope info)
   const allSuggestions = useMemo(() => {
-    if (!envVars) return [];
-    return Object.entries(envVars).map(([name, info]) => ({
+    if (!variables) return [];
+    return Object.entries(variables).map(([name, info]) => ({
       name,
       value: info.isSensitive ? '••••••••' : info.value,
-      scope: 'environment' as const,
+      scope: info.scope,
+      scopeLabel: info.scopeLabel,
     }));
-  }, [envVars]);
+  }, [variables]);
 
   // Filtered suggestions
   const suggestions = useMemo(() => {
@@ -396,6 +404,10 @@ export function TemplateInput({
 
   const borderStyle = borderless ? {} : { border: `1px solid ${token.colorBorder}`, borderRadius: 6 };
 
+  // Selected suggestion for the side panel
+  const selectedSuggestion = suggestions[selectedIndex];
+  const selectedScopeTag = selectedSuggestion ? SCOPE_TAG[selectedSuggestion.scope] : undefined;
+
   return (
     <div className="template-input-wrapper" style={style}>
       <div
@@ -451,39 +463,42 @@ export function TemplateInput({
             <List
               size="small"
               dataSource={suggestions}
-              renderItem={(item, index) => (
-                <List.Item
-                  onClick={() => insertVariable(item.name)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  style={{
-                    padding: '6px 12px',
-                    cursor: 'pointer',
-                    backgroundColor: index === selectedIndex ? token.colorPrimaryBg : 'transparent',
-                    borderBottom: 'none',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                    <Tag
-                      color={item.scope === 'environment' ? 'green' : 'purple'}
-                      style={{
-                        margin: '0 8px 0 0',
-                        fontWeight: 'bold',
-                        minWidth: 22,
-                        textAlign: 'center',
-                        fontSize: 11,
-                      }}
-                    >
-                      {item.scope === 'environment' ? 'E' : 'G'}
-                    </Tag>
-                    <Text style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}>{item.name}</Text>
-                  </div>
-                </List.Item>
-              )}
+              renderItem={(item, index) => {
+                const scopeTag = SCOPE_TAG[item.scope];
+                return (
+                  <List.Item
+                    onClick={() => insertVariable(item.name)}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                    style={{
+                      padding: '6px 12px',
+                      cursor: 'pointer',
+                      backgroundColor: index === selectedIndex ? token.colorPrimaryBg : 'transparent',
+                      borderBottom: 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <Tag
+                        color={scopeTag.color}
+                        style={{
+                          margin: '0 8px 0 0',
+                          fontWeight: 'bold',
+                          minWidth: 22,
+                          textAlign: 'center',
+                          fontSize: 11,
+                        }}
+                      >
+                        {scopeTag.letter}
+                      </Tag>
+                      <Text style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}>{item.name}</Text>
+                    </div>
+                  </List.Item>
+                );
+              }}
             />
           </div>
 
           {/* Side panel showing selected variable details */}
-          {suggestions[selectedIndex] && (
+          {selectedSuggestion && selectedScopeTag && (
             <div
               style={{
                 borderLeft: `1px solid ${token.colorBorderSecondary}`,
@@ -510,13 +525,19 @@ export function TemplateInput({
                   marginBottom: 8,
                 }}
               >
-                {suggestions[selectedIndex].value || <Text type="secondary">No value</Text>}
+                {selectedSuggestion.value || <Text type="secondary">No value</Text>}
               </div>
               <Text type="secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>
                 Scope
               </Text>
-              <div style={{ marginTop: 4, marginBottom: 8 }}>
-                <Text style={{ fontSize: 12 }}>{activeEnvironment || 'Environment'}</Text>
+              <div style={{ marginTop: 4, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Tag
+                  color={selectedScopeTag.color}
+                  style={{ margin: 0, fontWeight: 'bold', minWidth: 22, textAlign: 'center', fontSize: 11 }}
+                >
+                  {selectedScopeTag.letter}
+                </Tag>
+                <Text style={{ fontSize: 12 }}>{selectedSuggestion.scopeLabel}</Text>
               </div>
               <span
                 role="button"
@@ -536,12 +557,12 @@ export function TemplateInput({
       )}
 
       {/* Invisible overlay divs for Popover hover targets */}
-      {envVars &&
-        activeEnvironment &&
+      {variables &&
         varOverlays.map(({ varName, rect }, i) => {
-          const variable = envVars[varName];
-          const resolved = !!variable;
+          const variable = variables[varName];
+          const resolved = !!variable?.value;
           const displayValue = variable?.isSensitive ? '••••••••' : variable?.value;
+          const scopeTag = variable ? SCOPE_TAG[variable.scope] : undefined;
 
           return (
             <Popover
@@ -570,10 +591,17 @@ export function TemplateInput({
                   >
                     {resolved ? displayValue : <Text type="danger">Not defined</Text>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, marginBottom: 8 }}>
-                    <span style={{ color: '#3498db', fontWeight: 700 }}>E</span>
-                    <span>{activeEnvironment}</span>
-                  </div>
+                  {scopeTag && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, marginBottom: 8 }}>
+                      <Tag
+                        color={scopeTag.color}
+                        style={{ margin: 0, fontWeight: 'bold', minWidth: 22, textAlign: 'center', fontSize: 11 }}
+                      >
+                        {scopeTag.letter}
+                      </Tag>
+                      <span>{variable?.scopeLabel}</span>
+                    </div>
+                  )}
                   <span
                     role="button"
                     tabIndex={0}
@@ -606,7 +634,7 @@ export function TemplateInput({
         })}
 
       {/* TOTP placeholder popovers */}
-      {totpOverlays.map(({ placeholder, rect }, i) => (
+      {totpOverlays.map(({ placeholder: ph, rect }, i) => (
         <Popover
           key={`totp-${i}`}
           placement="bottom"
@@ -616,7 +644,7 @@ export function TemplateInput({
             <div style={{ minWidth: 180 }}>
               <div style={{ marginBottom: 6 }}>
                 <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}>
-                  {placeholder}
+                  {ph}
                 </Text>
               </div>
               <div

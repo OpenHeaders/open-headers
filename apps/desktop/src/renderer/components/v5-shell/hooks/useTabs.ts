@@ -19,6 +19,7 @@ export type TabType =
   | 'recording'
   | 'collection'
   | 'collection-overview'
+  | 'collection-variables'
   | 'folder'
   | 'folder-overview'
   | 'globals'

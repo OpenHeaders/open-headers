@@ -27,7 +27,7 @@ import type {
   Source,
   SourceUpdate,
 } from '@openheaders/core';
-import type { MenuItemType } from 'antd/es/menu/interface';
+import type { ItemType } from 'antd/es/menu/interface';
 import { createElement } from 'react';
 import type { TreeNode } from './types';
 
@@ -72,22 +72,33 @@ function containerMenuItems(
   onAddFolder: () => void,
   onRename: () => void,
   onDelete: () => void,
-  isSubFolder?: boolean,
-): MenuItemType[] {
+  options?: { isSubFolder?: boolean; onOpenVariables?: () => void },
+): ItemType[] {
   const itemLabel = section === 'requests' ? 'Add Request' : section === 'rules' ? 'Add Rule' : 'Add Environment';
   const ItemIcon = section === 'requests' ? ApiOutlined : section === 'rules' ? ThunderboltOutlined : GlobalOutlined;
-  return [
+  const items: ItemType[] = [
     { key: 'add-item', icon: createElement(ItemIcon), label: itemLabel, onClick: onAddItem },
     {
       key: 'add-folder',
       icon: createElement(FolderOutlined),
-      label: isSubFolder ? 'Add Sub-folder' : 'Add Folder',
+      label: options?.isSubFolder ? 'Add Sub-folder' : 'Add Folder',
       onClick: onAddFolder,
     },
+  ];
+  if (options?.onOpenVariables) {
+    items.push({
+      key: 'collection-variables',
+      icon: createElement(GlobalOutlined),
+      label: 'Collection Variables',
+      onClick: options.onOpenVariables,
+    });
+  }
+  items.push(
     { type: 'divider' as const, key: 'div' },
     { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
     { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
-  ] as MenuItemType[];
+  );
+  return items;
 }
 
 // ── Props ────────────────────────────────────────────────────────
@@ -119,7 +130,7 @@ export interface UseTreeDataProps {
   removeSource: (sourceId: string) => Promise<boolean>;
   updateRule: (ruleId: string, updates: Partial<HeaderRule>) => void;
   removeRule: (ruleId: string) => void;
-  updateEnvironment: (environmentId: string, updates: { name?: string }) => Promise<boolean> | void;
+  updateEnvironment: (environmentId: string, updates: { name?: string }) => Promise<boolean> | undefined;
   deleteEnvironment: (environmentId: string) => void;
   switchEnvironment: (envId: string | null) => void;
   /** Centralized folder creation — handles expand, open tab, trigger rename */
@@ -129,6 +140,7 @@ export interface UseTreeDataProps {
   updateCollection: (id: string, updates: Partial<Collection>) => Promise<boolean>;
   removeCollection: (id: string) => Promise<boolean>;
   confirmDelete: (name: string, onConfirm: () => void) => void;
+  onOpenCollectionVariables?: (collectionId: string) => void;
 }
 
 export interface UseTreeDataReturn {
@@ -168,6 +180,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     updateCollection,
     removeCollection,
     confirmDelete,
+    onOpenCollectionVariables,
   } = props;
 
   const lowerFilter = filter.toLowerCase();
@@ -218,7 +231,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
         () => createNewFolder(folderSection, folder.collectionId, folder.id),
         () => onStartRename(fid),
         () => confirmDelete(folder.name, () => deleteFolder(folder.id)),
-        true,
+        { isSubFolder: true },
       ),
     };
 
@@ -307,6 +320,12 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
           confirmDelete(collection.name, () => {
             removeCollection(collection.id);
           }),
+        {
+          onOpenVariables:
+            onOpenCollectionVariables && (section === 'requests' || section === 'rules')
+              ? () => onOpenCollectionVariables(collection.id)
+              : undefined,
+        },
       ),
     };
 

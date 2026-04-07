@@ -6,7 +6,7 @@
  * services. Only state + persistence + broadcast to renderers.
  */
 
-import type { Collection, CollectionSection } from '@openheaders/core';
+import type { Collection } from '@openheaders/core';
 import { sendPatchToRenderers } from './StateBroadcaster';
 import type { StateContext } from './types';
 

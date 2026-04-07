@@ -1,16 +1,15 @@
 /**
- * EnvironmentEditor — spreadsheet editor for environment variables.
+ * CollectionVariablesEditor — editor for collection-scoped variables.
  *
- * Local editing state with explicit Save. Variables are edited inline
- * (borderless inputs), with a trailing empty row for adding new ones.
- * Hover reveals drag handle, secret toggle, eye icon, and delete button.
+ * Same Postman-style spreadsheet as WorkspaceVariablesEditor / EnvironmentEditor,
+ * but scoped to a single collection. Variables stored on Collection.variables.
  */
 
 import {
   DeleteOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
-  GlobalOutlined,
+  FolderOutlined,
   HolderOutlined,
   SecurityScanOutlined,
   SecurityScanTwoTone,
@@ -21,19 +20,17 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { EnvironmentVariable } from '@openheaders/core';
-import { Input, Tag, Tooltip, Typography, theme } from 'antd';
+import { Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useEnvironments } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useCollections } from '@/renderer/hooks/useCentralizedWorkspace';
 
 const { Text, Title } = Typography;
 
-interface EnvironmentEditorProps {
-  environmentId?: string;
-  draftData?: Record<string, unknown>;
+interface CollectionVariablesEditorProps {
+  collectionId: string;
   onDirtyChange?: (dirty: boolean) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
-  onSaveDraft?: (data: Record<string, unknown>) => void;
 }
 
 interface LocalVariable {
@@ -47,7 +44,7 @@ interface LocalVariable {
 
 let nextUid = 1;
 function genUid(): string {
-  return `lv-${nextUid++}`;
+  return `cv-${nextUid++}`;
 }
 
 function envVarsToLocal(variables: Record<string, EnvironmentVariable>): LocalVariable[] {
@@ -85,10 +82,9 @@ function fp(rows: LocalVariable[]): string {
   );
 }
 
-// ── Grid column template (shared between header + rows) ─────────
 const GRID_COLS = '32px 1fr 1fr 1fr 32px';
 
-// ── Value cell — 1-liner collapsed, expands on focus ────────────
+// ── Value cell ─────────────────────────────────────────────────
 
 function ValueCell({
   value,
@@ -100,11 +96,9 @@ function ValueCell({
 }: {
   value: string;
   placeholder?: string;
-  /** When true, show dots in collapsed mode; editing always shows real value */
   masked?: boolean;
   color: string;
   onChange: (v: string) => void;
-  /** Called when entering edit mode (e.g. to auto-reveal secrets) */
   onEdit?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -167,7 +161,7 @@ function ValueCell({
   );
 }
 
-// ── Sortable row component ──────────────────────────────────────
+// ── Sortable row ───────────────────────────────────────────────
 
 interface SortableRowProps {
   row: LocalVariable;
@@ -208,7 +202,6 @@ function SortableRow({
 
   return (
     <div ref={setNodeRef} className="v5-env-row" style={style} {...attributes}>
-      {/* Drag handle */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {!row.isPlaceholder && (
           <span ref={setActivatorNodeRef} {...listeners} style={{ display: 'flex', cursor: 'grab' }}>
@@ -220,7 +213,6 @@ function SortableRow({
         )}
       </div>
 
-      {/* Variable name + secret toggle icon */}
       <div
         style={{
           padding: '2px 4px',
@@ -267,7 +259,6 @@ function SortableRow({
           ))}
       </div>
 
-      {/* Value + eye icon */}
       <div
         style={{
           padding: '2px 4px',
@@ -312,7 +303,6 @@ function SortableRow({
         )}
       </div>
 
-      {/* Description */}
       <div
         style={{
           padding: '2px 4px',
@@ -337,7 +327,6 @@ function SortableRow({
         />
       </div>
 
-      {/* Delete button */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {!row.isPlaceholder && (
           <DeleteOutlined
@@ -351,78 +340,48 @@ function SortableRow({
   );
 }
 
-// ── Main editor ─────────────────────────────────────────────────
+// ── Main editor ────────────────────────────────────────────────
 
-export function EnvironmentEditor({
-  environmentId,
-  draftData,
-  onDirtyChange,
-  saveRef,
-  onSaveDraft,
-}: EnvironmentEditorProps) {
+export function CollectionVariablesEditor({ collectionId, onDirtyChange, saveRef }: CollectionVariablesEditorProps) {
   const { token } = theme.useToken();
-  const { environments, activeEnvironment, updateEnvironment } = useEnvironments();
+  const { collections, updateCollection } = useCollections();
+  const collection = collections.find((c) => c.id === collectionId);
 
-  const isDraft = !!draftData && !environmentId;
-  const env = isDraft ? undefined : environments.find((e) => e.id === environmentId);
-  const isActive = !isDraft && environmentId === activeEnvironment;
-
-  // ── Local editing state ───────────────────────────────────────
   const [rows, setRows] = useState<LocalVariable[]>([]);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
   const snapshotRef = useRef('');
-  const initializedEnvId = useRef<string | null>(null);
+  const initializedRef = useRef<string | null>(null);
 
-  // Initialize from draft data
-  const draftInitialized = useRef(false);
+  // Initialize local state when collection changes
   useEffect(() => {
-    if (isDraft && draftData && !draftInitialized.current) {
-      draftInitialized.current = true;
-      const local = [{ uid: genUid(), name: '', value: '', isSensitive: false, description: '', isPlaceholder: true }];
+    if (collection && initializedRef.current !== collection.id) {
+      initializedRef.current = collection.id;
+      const local = envVarsToLocal(collection.variables ?? {});
       setRows(local);
       snapshotRef.current = fp(local);
     }
-  }, [isDraft, draftData]);
+  }, [collection]);
 
-  // Initialize local state from environment
-  useEffect(() => {
-    if (env && initializedEnvId.current !== env.id) {
-      initializedEnvId.current = env.id;
-      const local = envVarsToLocal(env.variables);
-      setRows(local);
-      snapshotRef.current = fp(local);
-    }
-  }, [env]);
-
-  // ── Dirty detection ───────────────────────────────────────────
   const isDirty = snapshotRef.current !== '' && fp(rows) !== snapshotRef.current;
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  // ── Save ──────────────────────────────────────────────────────
   const handleSave = useCallback(() => {
-    if (isDraft && onSaveDraft) {
-      const variables = localToEnvVars(rows);
-      onSaveDraft({ name: (draftData?.name as string) || 'New Environment', variables });
-      return;
-    }
-    if (!environmentId) return;
     const variables = localToEnvVars(rows);
-    void updateEnvironment(environmentId, { variables }).then((ok) => {
+    void updateCollection(collectionId, { variables }).then((ok) => {
       if (ok) {
         snapshotRef.current = fp(rows);
         onDirtyChange?.(false);
       }
     });
-  }, [rows, environmentId, updateEnvironment, onDirtyChange, draftData?.name, isDraft, onSaveDraft]);
+  }, [rows, collectionId, updateCollection, onDirtyChange]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;
   }, [saveRef, handleSave]);
 
-  // ── Row mutations ─────────────────────────────────────────────
   const updateRow = useCallback((index: number, field: keyof LocalVariable, value: string | boolean) => {
     setRows((prev) => {
       const next = [...prev];
@@ -454,7 +413,6 @@ export function EnvironmentEditor({
     (index: number) => {
       const becomingSecret = !rows[index].isSensitive;
       updateRow(index, 'isSensitive', becomingSecret);
-      // Re-hide value when marking as secret
       if (becomingSecret) {
         setRevealedSecrets((prev) => {
           const next = new Set(prev);
@@ -475,7 +433,6 @@ export function EnvironmentEditor({
     });
   }, []);
 
-  // ── Drag & drop ───────────────────────────────────────────────
   const handleDragEnd = useCallback(({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
     setRows((prev) => {
@@ -486,7 +443,6 @@ export function EnvironmentEditor({
     });
   }, []);
 
-  // Token values as strings for the sortable row (avoids passing the full token object type)
   const tokenStrings = {
     colorBorderSecondary: token.colorBorderSecondary,
     colorTextQuaternary: token.colorTextQuaternary,
@@ -497,15 +453,16 @@ export function EnvironmentEditor({
     colorErrorText: token.colorErrorText,
   };
 
-  if (!env && !isDraft) {
+  if (!collection) {
     return (
       <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
-        <Text type="secondary">Environment not found.</Text>
+        <Text type="secondary">Collection not found.</Text>
       </div>
     );
   }
 
   const sortableIds = rows.map((r) => r.uid);
+  const userVarCount = rows.filter((r) => !r.isPlaceholder && r.name.trim()).length;
 
   return (
     <div className="v5-editor-content" style={{ background: token.colorBgContainer, overflow: 'auto' }}>
@@ -513,23 +470,21 @@ export function EnvironmentEditor({
         {/* Header */}
         <div className="v5-rule-editor-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <GlobalOutlined style={{ fontSize: 18, color: isActive ? token.colorPrimary : token.colorTextTertiary }} />
+            <FolderOutlined style={{ fontSize: 18, color: token.colorPrimary }} />
             <Title level={4} style={{ margin: 0 }}>
-              {env?.name ?? (draftData?.name as string) ?? 'New Environment'}
+              {collection.name} — Variables
             </Title>
-            {isActive && (
-              <Tag color="blue" style={{ fontSize: 10 }}>
-                Active
-              </Tag>
-            )}
           </div>
+          <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+            Variables scoped to this collection. Available to all requests and rules inside it.
+          </Text>
         </div>
 
         {/* Variables table */}
         <div className="v5-rule-editor-body">
           <div className="v5-editor-section">
             <Text type="secondary" className="v5-editor-section-title">
-              VARIABLES ({rows.filter((r) => !r.isPlaceholder && r.name.trim()).length})
+              COLLECTION VARIABLES ({userVarCount})
             </Text>
 
             <div
@@ -539,7 +494,6 @@ export function EnvironmentEditor({
                 overflow: 'hidden',
               }}
             >
-              {/* Column headers */}
               <div
                 style={{
                   display: 'grid',
@@ -585,7 +539,6 @@ export function EnvironmentEditor({
                 <div style={{ padding: '6px 8px' }} />
               </div>
 
-              {/* Rows */}
               <DndContext modifiers={[restrictToVerticalAxis]} onDragEnd={handleDragEnd}>
                 <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
                   {rows.map((row, index) => (

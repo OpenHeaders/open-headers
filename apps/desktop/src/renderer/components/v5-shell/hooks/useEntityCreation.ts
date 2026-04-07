@@ -8,7 +8,7 @@
  *   - Opening the active environment tab
  */
 
-import type { Environment, HeaderRule, Source } from '@openheaders/core';
+import type { Collection, Environment, HeaderRule, Source } from '@openheaders/core';
 import { useCallback } from 'react';
 import type { Tab } from './useTabs';
 
@@ -16,6 +16,7 @@ interface UseEntityCreationOptions {
   sources: Source[];
   rules: HeaderRule[];
   environments: Environment[];
+  collections: Collection[];
   activeEnvironment: string | null;
   addSource: (source: Source) => Promise<Source | null>;
   addRule: (rule: Partial<HeaderRule>) => Promise<HeaderRule | null>;
@@ -29,6 +30,7 @@ export function useEntityCreation({
   sources,
   rules,
   environments,
+  collections,
   activeEnvironment,
   addSource,
   addRule,
@@ -160,6 +162,21 @@ export function useEntityCreation({
     }
   }, [environments, createEnvironment, openTab, switchEnvironment, setPendingRenameTabId]);
 
+  const openCollectionVariables = useCallback(
+    (collectionId: string) => {
+      const col = collections.find((c) => c.id === collectionId);
+      const label = col ? `${col.name} — Variables` : 'Collection Variables';
+      openTab({
+        id: `col-vars-${collectionId}`,
+        type: 'collection-variables',
+        label,
+        icon: 'collection-variables',
+        entityId: collectionId,
+      });
+    },
+    [collections, openTab],
+  );
+
   const openActiveEnvironment = useCallback(() => {
     const env = activeEnvironment ? environments.find((e) => e.id === activeEnvironment) : environments[0];
     if (env) {
@@ -173,6 +190,7 @@ export function useEntityCreation({
     openOverview,
     openSettings,
     openWorkspaceVariables,
+    openCollectionVariables,
     createNewSource,
     createNewRule,
     createNewEnvironment,

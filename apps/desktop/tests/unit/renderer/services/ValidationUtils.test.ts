@@ -528,7 +528,9 @@ describe('validateImportPayload', () => {
       ],
       environmentSchema: {
         environments: { Production: { variables: [{ name: 'API_KEY', isSensitive: true }] } },
-        variableDefinitions: { API_KEY: { description: 'Production API key', isSensitive: true, usedIn: ['Production'] } },
+        variableDefinitions: {
+          API_KEY: { description: 'Production API key', isSensitive: true, usedIn: ['Production'] },
+        },
       },
     });
     expect(r.success).toBe(true);

@@ -199,9 +199,8 @@ export function createWorkspaceStateAPI() {
     ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:batch-set-variables', environmentId, variables),
 
     // Workspace Variables
-    updateWorkspaceVariables: (
-      variables: Record<string, EnvironmentVariable>,
-    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:update-workspace-variables', variables),
+    updateWorkspaceVariables: (variables: Record<string, EnvironmentVariable>): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-workspace-variables', variables),
 
     // IPC event listeners (main → renderer)
     onStatePatch: (callback: (patch: WorkspaceStatePatch) => void): (() => void) => {

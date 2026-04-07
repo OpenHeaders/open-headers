@@ -265,35 +265,32 @@ export function VariablesPanel({
       </div>
 
       {/* In-request mode */}
-      {mode === 'in-request' && (
-        <>
-          {inRequestVars.length > 0 ? (
-            <>
-              {inRequestVars.map((v) => (
-                <VariableRow key={v.name} variable={v} />
-              ))}
-              <div style={{ marginTop: 8, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
-                {inRequestVars.every((v) => v.resolved) ? (
-                  <Text style={{ color: token.colorSuccess }}>
-                    ✓ All {inRequestVars.length} variable{inRequestVars.length !== 1 ? 's' : ''} resolved
-                  </Text>
-                ) : (
-                  <Text style={{ color: token.colorError }}>
-                    ⚠ {inRequestVars.filter((v) => !v.resolved).length} unresolved variable
-                    {inRequestVars.filter((v) => !v.resolved).length !== 1 ? 's' : ''}
-                  </Text>
-                )}
-              </div>
-            </>
-          ) : (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {activeItemLabel
-                ? 'No variables referenced in this item.'
-                : 'Select a request or rule to see its variables.'}
-            </Text>
-          )}
-        </>
-      )}
+      {mode === 'in-request' &&
+        (inRequestVars.length > 0 ? (
+          <>
+            {inRequestVars.map((v) => (
+              <VariableRow key={v.name} variable={v} />
+            ))}
+            <div style={{ marginTop: 8, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {inRequestVars.every((v) => v.resolved) ? (
+                <Text style={{ color: token.colorSuccess }}>
+                  ✓ All {inRequestVars.length} variable{inRequestVars.length !== 1 ? 's' : ''} resolved
+                </Text>
+              ) : (
+                <Text style={{ color: token.colorError }}>
+                  ⚠ {inRequestVars.filter((v) => !v.resolved).length} unresolved variable
+                  {inRequestVars.filter((v) => !v.resolved).length !== 1 ? 's' : ''}
+                </Text>
+              )}
+            </div>
+          </>
+        ) : (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {activeItemLabel
+              ? 'No variables referenced in this item.'
+              : 'Select a request or rule to see its variables.'}
+          </Text>
+        ))}
 
       {/* All mode — scoped sections */}
       {mode === 'all' && (

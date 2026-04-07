@@ -6,7 +6,7 @@ import electron from 'electron';
 import type { HeaderRule } from '@/services/proxy/ProxyService';
 import proxyService from '@/services/proxy/ProxyService';
 import type { IpcInvokeEvent } from '@/types/common';
-import type { EnvironmentsFile, EnvironmentVariable } from '@/types/environment';
+import type { EnvironmentsFile } from '@/types/environment';
 import type { ProxyRule } from '@/types/proxy';
 import mainLogger from '@/utils/mainLogger';
 import settingsHandlers from './settingsHandlers';

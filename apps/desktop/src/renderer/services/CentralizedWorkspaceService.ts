@@ -9,7 +9,15 @@
  *  - Exposes subscribe/notify for React hooks (same API as before)
  */
 
-import type { Collection, EnvironmentVariable, Folder, HeaderRule, RulesCollection, Source, SourceUpdate } from '@openheaders/core';
+import type {
+  Collection,
+  EnvironmentVariable,
+  Folder,
+  HeaderRule,
+  RulesCollection,
+  Source,
+  SourceUpdate,
+} from '@openheaders/core';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
 import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceSyncStatus, WorkspaceType } from '@/types/workspace';

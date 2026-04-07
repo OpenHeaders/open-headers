@@ -101,6 +101,17 @@ export function useResolvedTabs(
         };
       }
 
+      if (tab.type === 'collection-variables' && tab.entityId) {
+        const col = collectionMap.get(tab.entityId);
+        const name = col ? `${col.name} — Variables` : tab.label;
+        return {
+          ...tab,
+          resolvedLabel: name,
+          resolvedIcon: 'collection-variables',
+          resolvedTooltip: name,
+        };
+      }
+
       // Overview, settings, globals, etc.
       return {
         ...tab,

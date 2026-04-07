@@ -27,7 +27,7 @@
 import type { Collection } from './collection';
 import type { Request } from './request';
 import type { Rule } from './rule';
-import type { EnvironmentLocalValues, EnvironmentManifest, Variable, Vault, WorkspaceVariables } from './variable';
+import type { EnvironmentLocalValues, EnvironmentManifest, Variable, Vault } from './variable';
 
 // ── Version ────────────────────────────────────────────────────────
 

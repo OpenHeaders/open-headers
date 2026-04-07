@@ -144,7 +144,9 @@ describe('VariableResolver', () => {
     });
 
     it('resolves multiple variables', () => {
-      resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOST', 'api.openheaders.io'), makeVariable('VERSION', 'v2')]));
+      resolver.setWorkspaceVariables(
+        makeWorkspaceVars([makeVariable('HOST', 'api.openheaders.io'), makeVariable('VERSION', 'v2')]),
+      );
 
       const { result } = resolver.resolveTemplate('https://{{HOST}}/{{VERSION}}/users');
       expect(result).toBe('https://api.openheaders.io/v2/users');

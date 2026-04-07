@@ -5,7 +5,7 @@
 import type { Environment, EnvironmentVariable } from '@openheaders/core';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
 
-const log = createLogger('EnvironmentVariableManager');
+const _log = createLogger('EnvironmentVariableManager');
 
 class EnvironmentVariableManager {
   getAllVariables(environments: Environment[], activeEnvironmentId: string | null): Record<string, string> {

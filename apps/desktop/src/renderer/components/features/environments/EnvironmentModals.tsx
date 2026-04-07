@@ -57,7 +57,10 @@ export const AddVariableModal = ({ visible, onCancel, onOk, form }: ModalProps) 
         <TextArea placeholder="e.g., API_URL, AUTH_TOKEN" autoSize={{ minRows: 1, maxRows: 3 }} />
       </Form.Item>
 
-      <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.isSensitive !== currentValues.isSensitive}>
+      <Form.Item
+        noStyle
+        shouldUpdate={(prevValues, currentValues) => prevValues.isSensitive !== currentValues.isSensitive}
+      >
         {({ getFieldValue }) => {
           const isSensitive = getFieldValue('isSensitive');
 

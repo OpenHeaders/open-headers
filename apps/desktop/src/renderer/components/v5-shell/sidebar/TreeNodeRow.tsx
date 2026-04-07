@@ -41,7 +41,6 @@ function InlineRenameInput({
   const [text, setText] = useState(value);
   return (
     <input
-      autoFocus
       className="v5-sidebar-rename-input"
       value={text}
       onChange={(e) => setText(e.target.value)}
@@ -157,14 +156,18 @@ export function TreeNodeRow({
             <div className="v5-sidebar-collection-actions">
               {node.addMenuItems && node.addMenuItems.length > 0 && (
                 <Dropdown
-                  menu={{ items: node.addMenuItems.filter((i) => i.key === 'add-item' || i.key === 'add-folder') }}
+                  menu={{ items: node.addMenuItems.filter((i) => i?.key === 'add-item' || i?.key === 'add-folder') }}
                   trigger={['click']}
                   placement="bottomRight"
                 >
                   <PlusOutlined className="v5-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
                 </Dropdown>
               )}
-              {(node.canRename || node.canDelete) && (
+              {node.addMenuItems && node.addMenuItems.length > 0 ? (
+                <Dropdown menu={{ items: node.addMenuItems }} trigger={['click']} placement="bottomRight">
+                  <EllipsisOutlined className="v5-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
+                </Dropdown>
+              ) : node.canRename || node.canDelete ? (
                 <Dropdown
                   menu={{
                     items: [
@@ -189,7 +192,7 @@ export function TreeNodeRow({
                 >
                   <EllipsisOutlined className="v5-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
                 </Dropdown>
-              )}
+              ) : null}
             </div>
           )}
 

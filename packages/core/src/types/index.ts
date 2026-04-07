@@ -1,3 +1,4 @@
+export type { Collection, CollectionSection } from './collection';
 export type {
   JsonArray,
   JsonObject,
@@ -6,7 +7,8 @@ export type {
   OperationResult,
 } from './common';
 export { errorMessage, toError } from './common';
-
+export type { Environment, EnvironmentVariable } from './environment';
+export type { Folder, FolderSection } from './folder';
 export type {
   ConsoleArg,
   ConsoleArgObject,
@@ -41,7 +43,6 @@ export type {
   WorkflowRecordingFileMetadata,
   WorkflowTag,
 } from './recording';
-
 export type {
   BaseRule,
   ContentType,
@@ -61,7 +62,6 @@ export type {
   UrlRule,
   UrlRuleAction,
 } from './rules';
-
 export type {
   ActivationState,
   JsonFilter,
@@ -77,10 +77,6 @@ export type {
   SourceType,
   SourceUpdate,
 } from './source';
-
-export type { Collection, CollectionSection } from './collection';
-export type { Environment, EnvironmentVariable } from './environment';
-export type { Folder, FolderSection } from './folder';
 
 // ── v5 types (new data model) ──────────────────────────────────────
 export * as V5 from './v5';

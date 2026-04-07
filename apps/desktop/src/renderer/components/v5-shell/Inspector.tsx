@@ -12,7 +12,7 @@ import { CaretRightOutlined, CloseOutlined, SearchOutlined } from '@ant-design/i
 import { Collapse, Input, Table, Tag, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useState } from 'react';
-import { useEnvironments, useSources, useWorkspaceVariables } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useResolvedVariables } from '@/renderer/hooks/useResolvedVariables';
 import { useEditorVariables } from './contexts/EditorVariablesContext';
 
 const { Text } = Typography;
@@ -126,6 +126,8 @@ interface InspectorProps {
   onExpandedKeysChange?: (keys: string[]) => void;
   /** Active tab type — controls which scope sections are shown */
   activeTabType?: string;
+  /** Collection ID the active tab belongs to (derived from source/rule collectionId) */
+  activeCollectionId?: string;
   /** Open the active environment editor (or create one if none exists) */
   onOpenEnvironment?: () => void;
   /** Open the collection variables editor for the current context */
@@ -141,82 +143,33 @@ export function Inspector({
   expandedKeys: expandedKeysProp,
   onExpandedKeysChange,
   activeTabType,
+  activeCollectionId,
   onOpenEnvironment,
   onOpenCollectionVariables,
   onOpenWorkspaceVariables,
   onOpenSecrets,
 }: InspectorProps) {
   const { token } = theme.useToken();
-  const { environments, activeEnvironment } = useEnvironments();
-  const { sources } = useSources();
-  const { workspaceVariables } = useWorkspaceVariables();
+  const { resolved, byScope, activeEnvironmentName, activeCollectionName } = useResolvedVariables(activeCollectionId);
   const { usedVariables } = useEditorVariables();
   const [searchTerm, setSearchTerm] = useState('');
   const expandedKeys = expandedKeysProp ?? [];
   const setExpandedKeys = (keys: string[]) => onExpandedKeysChange?.(keys);
 
-  const activeEnv = activeEnvironment ? environments.find((e) => e.id === activeEnvironment) : undefined;
-  const activeEnvData = activeEnv?.variables ?? {};
-
-  // Source-produced variable lookup: sources with storeAsVariable set
-  const sourceOutputMap = useMemo(() => {
-    const map = new Map<string, { value: string; sourceName: string }>();
-    for (const source of sources) {
-      if (
-        source.storeAsVariable &&
-        source.sourceContent !== null &&
-        source.sourceContent !== undefined &&
-        source.activationState !== 'waiting_for_deps'
-      ) {
-        map.set(source.storeAsVariable, {
-          value: source.sourceContent,
-          sourceName: source.sourceName || source.sourcePath || source.sourceId,
-        });
-      }
-    }
-    return map;
-  }, [sources]);
-
-  // Variables used in the current request/rule
+  // Variables used in the current request/rule — resolved via the central hook
   const inRequestVars: VarDisplay[] = useMemo(() => {
     return usedVariables.map((uv) => {
-      // Check environment first
-      const envVar = activeEnvData[uv.name];
-      if (envVar?.value) {
+      const rv = resolved[uv.name];
+      if (rv?.value) {
         return {
           key: uv.name,
           name: uv.name,
-          value: envVar.value,
-          scope: 'environment' as const,
-          isSensitive: envVar.isSensitive,
+          value: rv.value,
+          scope: rv.scope,
+          isSensitive: rv.isSensitive,
+          producedBy: rv.producedBy,
         };
       }
-
-      // Check source-produced variables
-      const sourceOutput = sourceOutputMap.get(uv.name);
-      if (sourceOutput) {
-        return {
-          key: uv.name,
-          name: uv.name,
-          value: sourceOutput.value,
-          scope: 'environment' as const,
-          isSensitive: false,
-          producedBy: sourceOutput.sourceName,
-        };
-      }
-
-      // Check workspace variables
-      const wsVar = workspaceVariables[uv.name];
-      if (wsVar?.value) {
-        return {
-          key: uv.name,
-          name: uv.name,
-          value: wsVar.value,
-          scope: 'workspace' as const,
-          isSensitive: wsVar.isSensitive,
-        };
-      }
-
       return {
         key: uv.name,
         name: uv.name,
@@ -225,50 +178,30 @@ export function Inspector({
         isSensitive: false,
       };
     });
-  }, [usedVariables, activeEnvData, sourceOutputMap, workspaceVariables]);
+  }, [usedVariables, resolved]);
 
-  // All variables grouped by scope
+  // All variables grouped by scope — derived from the central hook's byScope
   const allByScope = useMemo(() => {
-    const envVars: VarDisplay[] = [];
-    for (const [name, variable] of Object.entries(activeEnvData)) {
-      envVars.push({
+    const toVarDisplay = (
+      scope: VarDisplay['scope'],
+      entries: Record<string, { value: string; isSensitive: boolean; producedBy?: string }>,
+    ): VarDisplay[] =>
+      Object.entries(entries).map(([name, entry]) => ({
         key: name,
         name,
-        value: variable.value,
-        scope: 'environment',
-        isSensitive: variable.isSensitive,
-      });
-    }
-
-    // Add source-produced variables that aren't already in the environment
-    for (const [name, output] of sourceOutputMap) {
-      if (!activeEnvData[name]) {
-        envVars.push({
-          key: name,
-          name,
-          value: output.value,
-          scope: 'environment',
-          isSensitive: false,
-          producedBy: output.sourceName,
-        });
-      }
-    }
-
-    const wsVars: VarDisplay[] = Object.entries(workspaceVariables).map(([name, variable]) => ({
-      key: name,
-      name,
-      value: variable.value,
-      scope: 'workspace',
-      isSensitive: variable.isSensitive,
-    }));
+        value: entry.value,
+        scope,
+        isSensitive: entry.isSensitive,
+        producedBy: entry.producedBy,
+      }));
 
     return {
-      environment: envVars,
-      collection: [] as VarDisplay[],
-      workspace: wsVars,
-      secret: [] as VarDisplay[],
+      environment: toVarDisplay('environment', byScope.environment),
+      collection: toVarDisplay('collection', byScope.collection),
+      workspace: toVarDisplay('workspace', byScope.workspace),
+      secret: toVarDisplay('secret', byScope.secret),
     };
-  }, [activeEnvData, sourceOutputMap, workspaceVariables]);
+  }, [byScope]);
 
   // Filter
   const filter = (vars: VarDisplay[]) => {
@@ -440,7 +373,7 @@ export function Inspector({
   const scopeSections = (
     <>
       {renderScopeSection('environment', 'Environment', allByScope.environment, 'No environment variables defined', {
-        subtitle: activeEnv?.name,
+        subtitle: activeEnvironmentName ?? undefined,
         action: onOpenEnvironment ? { label: 'Add environment variables', onClick: onOpenEnvironment } : undefined,
       })}
       {(activeTabType === 'request' ||
@@ -449,6 +382,7 @@ export function Inspector({
         activeTabType === 'collection-overview' ||
         activeTabType === 'folder-overview') &&
         renderScopeSection('collection', 'Collection', allByScope.collection, 'No collection variables defined', {
+          subtitle: activeCollectionName ?? undefined,
           action: onOpenCollectionVariables
             ? { label: 'Add collection variables', onClick: onOpenCollectionVariables }
             : undefined,

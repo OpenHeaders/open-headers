@@ -88,6 +88,7 @@ interface SidebarProps {
   /** Draft creation (no collection context) — used by toolbar create menu */
   onNewDraftEnvironment?: () => void;
   onOpenWorkspaceVariables?: () => void;
+  onOpenCollectionVariables?: (collectionId: string) => void;
   expandedSections?: string[];
   onExpandedSectionsChange?: (sections: string[]) => void;
   expandedKeys: Set<string>;
@@ -136,6 +137,7 @@ export function Sidebar({
   onNewEnvironment,
   onNewDraftEnvironment,
   onOpenWorkspaceVariables,
+  onOpenCollectionVariables,
   expandedSections: expandedSectionsProp,
   onExpandedSectionsChange,
   expandedKeys,
@@ -148,7 +150,8 @@ export function Sidebar({
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource } = useSources();
   const { rules, updateRule, removeRule } = useHeaderRules();
-  const { environments, activeEnvironment, switchEnvironment, updateEnvironment, deleteEnvironment } = useEnvironments();
+  const { environments, activeEnvironment, switchEnvironment, updateEnvironment, deleteEnvironment } =
+    useEnvironments();
   const { collections, addCollection, updateCollection, removeCollection } = useCollections();
   const {
     folders: workspaceFolders,
@@ -266,6 +269,7 @@ export function Sidebar({
     updateCollection,
     removeCollection,
     confirmDelete,
+    onOpenCollectionVariables,
   });
 
   // ── Flat items for keyboard nav ──────────────────────────────
@@ -626,7 +630,13 @@ export function Sidebar({
 
       {/* Tree content */}
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation requires focus */}
-      <div ref={containerRef} className="v5-sidebar-content" onKeyDown={handleKeyDown} tabIndex={0} style={{ outline: 'none' }}>
+      <div
+        ref={containerRef}
+        className="v5-sidebar-content"
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        style={{ outline: 'none' }}
+      >
         <Allotment key={sectionKey} vertical proportionalLayout={expandedCount > 1} defaultSizes={computeSizes()}>
           <Allotment.Pane minSize={HEADER_HEIGHT}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
