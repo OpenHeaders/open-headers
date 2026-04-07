@@ -748,7 +748,6 @@ export function V5Shell() {
           workspaceName={workspaceName}
           onCreateCollection={async (name, section) => {
             const col = await addCollection({ name, section });
-            if (col) sidebarExpansion.ensureExpanded(`col-${col.id}`);
             return col;
           }}
           onCreateFolder={async (name, collectionId, parentFolderId) => {
@@ -759,7 +758,7 @@ export function V5Shell() {
               parentFolderId: parentFolderId ?? null,
             });
             if (fol) {
-              const keys = [`col-${collectionId}`, `folder-${fol.id}`];
+              const keys = [`col-${collectionId}`];
               if (parentFolderId) keys.push(`folder-${parentFolderId}`);
               sidebarExpansion.ensureExpanded(...keys);
             }

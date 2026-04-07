@@ -479,7 +479,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
   function buildRuleNode(rule: HeaderRule, depth: number, parentId?: string): TreeNode {
     const label = rule.name || rule.headerName;
     const rid = `rule-${rule.id}`;
-    const color = rule.isEnabled ? 'var(--ant-color-success, #52c41a)' : 'var(--ant-color-text-tertiary, #999)';
+    const color = rule.isEnabled ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)';
     return {
       id: rid,
       kind: 'leaf',
@@ -488,16 +488,20 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
       expandable: false,
       parentId,
       icon: iconEl(ThunderboltOutlined, color),
-      badge: !rule.isEnabled
-        ? createElement(
-            'span',
-            { style: { fontSize: 9, color: 'var(--ant-color-text-secondary, #666)', marginLeft: 'auto' } },
-            'off',
-          )
-        : undefined,
       canRename: true,
       canDelete: true,
       canAddChild: false,
+      hoverAction: rule.isEnabled
+        ? {
+            icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+            tooltip: 'Disable',
+            onClick: () => updateRule(rule.id, { isEnabled: false }),
+          }
+        : {
+            icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+            tooltip: 'Enable',
+            onClick: () => updateRule(rule.id, { isEnabled: true }),
+          },
       onOpen: () => onOpenTab({ id: rid, type: 'rule', label, icon: 'rule', entityId: rule.id }),
       onRename: (name) => updateRule(rule.id, { name }),
       onDelete: () => confirmDelete(label, () => removeRule(rule.id)),
