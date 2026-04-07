@@ -909,8 +909,12 @@ export function TabBar({
                   }}
                 >
                   <TabIcon tab={tab} />
-                  <span className="v5-tab-label">{truncateMiddle(tab.resolvedLabel, TAB_LABEL_MAX)}</span>
-                  {tab.unsaved && <span className="v5-tab-unsaved" style={{ background: '#ff7875' }} />}
+                  <span className="v5-tab-label" style={tab.draft ? { fontStyle: 'italic' } : undefined}>
+                    {truncateMiddle(tab.resolvedLabel, TAB_LABEL_MAX)}
+                  </span>
+                  {(tab.unsaved || tab.draft) && (
+                    <span className="v5-tab-unsaved" style={{ background: tab.draft ? '#7c3aed' : '#ff7875' }} />
+                  )}
                   {!tab.pinned && (
                     <CloseOutlined
                       className="v5-tab-close"

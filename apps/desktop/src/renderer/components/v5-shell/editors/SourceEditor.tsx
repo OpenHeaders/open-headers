@@ -1,5 +1,5 @@
 /**
- * SourceEditor — Postman-style request editor rendered in an editor tab.
+ * SourceEditor — request editor rendered in an editor tab.
  *
  * Layout:
  *   [Method ▾] [URL input ............................] [Send]
@@ -53,11 +53,13 @@ const { Text } = Typography;
 const { TextArea } = Input;
 
 interface SourceEditorProps {
-  sourceId: string;
+  sourceId?: string;
+  draftData?: Record<string, unknown>;
   onDirtyChange?: (dirty: boolean) => void;
   onSaveLabelChange?: (label: string | null) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
   responseSideBySide?: boolean;
+  onSaveDraft?: (data: Record<string, unknown>) => void;
 }
 
 const METHOD_OPTIONS = [
@@ -594,15 +596,18 @@ const kvToParams = (rows: KVRow[]): SourceQueryParam[] =>
 
 export function SourceEditor({
   sourceId,
+  draftData,
   onDirtyChange,
   onSaveLabelChange,
   saveRef,
   responseSideBySide,
+  onSaveDraft,
 }: SourceEditorProps) {
   const { token } = theme.useToken();
   const { sources, updateSource, removeSource, refreshSource } = useSources();
   const { environments, activeEnvironment } = useEnvironments();
-  const source = sources.find((s) => s.sourceId === sourceId);
+  const isDraft = !!draftData && !sourceId;
+  const source = isDraft ? undefined : sources.find((s) => s.sourceId === sourceId);
   const activeEnv = activeEnvironment ? environments.find((e) => e.id === activeEnvironment) : undefined;
   const activeEnvVars = activeEnv?.variables ?? {};
   const { setUsedVariables, clearVariables } = useEditorVariables();
@@ -700,6 +705,37 @@ export function SourceEditor({
     totpSecret,
   ]);
 
+  // Initialize from draft data
+  const draftInitialized = useRef(false);
+  useEffect(() => {
+    if (isDraft && draftData && !draftInitialized.current) {
+      draftInitialized.current = true;
+      const path = (draftData.sourcePath as string) || '';
+      const method = (draftData.sourceMethod as string) || 'GET';
+      const name = (draftData.sourceName as string) || '';
+      setSourcePath(path);
+      setSourceMethod(method);
+      setSourceName(name);
+      snapshotRef.current = JSON.stringify({
+        sourcePath: path,
+        sourceMethod: method,
+        sourceName: name,
+        sourceTag: '',
+        params: [],
+        headers: [],
+        body: '',
+        contentType: 'application/json',
+        jsonFilterEnabled: false,
+        jsonFilterPath: '',
+        refreshEnabled: false,
+        refreshInterval: 5,
+        storeAsVariable: '',
+        totpEnabled: false,
+        totpSecret: '',
+      });
+    }
+  }, [isDraft, draftData]);
+
   // Initialize from source
   useEffect(() => {
     if (source && initializedId.current !== source.sourceId) {
@@ -786,8 +822,10 @@ export function SourceEditor({
   useEffect(() => {
     if (isActuallyDirty !== isDirty) {
       setIsDirty(isActuallyDirty);
-      onDirtyChange?.(isActuallyDirty);
     }
+    // Always report — not just on change — so the parent gets the correct state
+    // when this editor becomes active (onDirtyChange transitions from undefined to a function)
+    onDirtyChange?.(isActuallyDirty);
   }, [isActuallyDirty, isDirty, onDirtyChange]);
 
   // Update save button label when auto-refresh is being activated
@@ -813,8 +851,29 @@ export function SourceEditor({
     return () => onSaveLabelChange?.(null);
   }, [onSaveLabelChange]);
 
-  // Explicit save — persists all local state to main process
+  // Explicit save — persists all local state to main process (or triggers draft save)
   const handleSave = useCallback(() => {
+    if (isDraft && onSaveDraft) {
+      onSaveDraft({
+        sourceName: sourceName || 'New Request',
+        sourceMethod,
+        sourcePath,
+        sourceType: 'http',
+        sourceContent: null,
+        requestOptions: {
+          headers: kvToHeaders(headers),
+          queryParams: kvToParams(params),
+          body,
+          contentType,
+          totpSecret: totpEnabled ? totpSecret : undefined,
+        },
+        jsonFilter: { enabled: jsonFilterEnabled, path: jsonFilterPath },
+        refreshOptions: { enabled: refreshEnabled, type: 'custom', interval: refreshInterval },
+        storeAsVariable: storeAsVariable || undefined,
+      });
+      return;
+    }
+    if (!sourceId) return;
     void updateSource(sourceId, {
       sourcePath,
       sourceName,
@@ -837,6 +896,8 @@ export function SourceEditor({
       onDirtyChange?.(false);
     });
   }, [
+    isDraft,
+    onSaveDraft,
     sourceId,
     sourcePath,
     sourceName,
@@ -884,7 +945,13 @@ export function SourceEditor({
   };
 
   const handleSend = () => {
+    if (isDraft) {
+      // For drafts, we can't persist — but we could still fire the request
+      // For now, prompt user to save first
+      return;
+    }
     // Save ALL fields then execute
+    if (!sourceId) return;
     void updateSource(sourceId, {
       sourcePath,
       sourceName,
@@ -908,7 +975,7 @@ export function SourceEditor({
     });
   };
 
-  if (!source) {
+  if (!source && !isDraft) {
     return (
       <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
         <Text type="secondary">Source not found. It may have been deleted.</Text>
@@ -917,7 +984,7 @@ export function SourceEditor({
   }
 
   const methodColor = METHOD_COLORS[sourceMethod] || '#999';
-  const isHttp = source.sourceType === 'http';
+  const isHttp = isDraft || source?.sourceType === 'http';
 
   // Params count for tab badge
   const activeParamsCount = params.filter((p) => p.key && p.enabled).length;
@@ -999,30 +1066,35 @@ export function SourceEditor({
           type="primary"
           icon={<SendOutlined />}
           onClick={handleSend}
-          loading={source.refreshStatus?.isRefreshing}
+          loading={source?.refreshStatus?.isRefreshing}
+          disabled={isDraft}
           style={{ borderRadius: 6 }}
         >
           Send
         </Button>
-        <Tooltip title="Delete source">
-          <Button
-            danger
-            type="text"
-            icon={<DeleteOutlined />}
-            onClick={() => void removeSource(sourceId)}
-            style={{ marginLeft: 8 }}
-          />
-        </Tooltip>
+        {!isDraft && sourceId && (
+          <Tooltip title="Delete source">
+            <Button
+              danger
+              type="text"
+              icon={<DeleteOutlined />}
+              onClick={() => void removeSource(sourceId)}
+              style={{ marginLeft: 8 }}
+            />
+          </Tooltip>
+        )}
       </div>
 
       {/* ── Automation status strip ────────────────────── */}
-      <AutomationStrip
-        source={source}
-        storeAsVariable={storeAsVariable}
-        formRefreshEnabled={refreshEnabled}
-        formRefreshInterval={refreshInterval}
-        onRefresh={() => void refreshSource(sourceId)}
-      />
+      {source && sourceId && (
+        <AutomationStrip
+          source={source}
+          storeAsVariable={storeAsVariable}
+          formRefreshEnabled={refreshEnabled}
+          formRefreshInterval={refreshInterval}
+          onRefresh={() => void refreshSource(sourceId)}
+        />
+      )}
 
       {/* ── Request + Response split ────────────────────── */}
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -1325,7 +1397,7 @@ export function SourceEditor({
           </Allotment.Pane>
 
           {/* Response pane */}
-          {isHttp && (
+          {isHttp && source && (
             <Allotment.Pane minSize={60}>
               <div style={{ height: '100%', overflow: 'auto' }}>
                 <ResponsePane

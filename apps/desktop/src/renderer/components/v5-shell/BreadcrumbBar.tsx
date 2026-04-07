@@ -4,7 +4,7 @@
  * The last segment (item name) is editable inline: click to edit, Enter/blur to save, Escape to cancel.
  */
 
-import { RightOutlined } from '@ant-design/icons';
+import { RightOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 
@@ -146,6 +146,7 @@ export function BreadcrumbBar({ segments, isDirty, onSave, saveLabel, onRename, 
           <Button
             size="small"
             type="primary"
+            icon={<SaveOutlined />}
             onClick={onSave}
             disabled={!isDirty}
             style={{

@@ -9,7 +9,7 @@
 import { ApiOutlined, RocketOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Space, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import appIcon from '@/renderer/images/icon128.png';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
@@ -32,6 +32,7 @@ interface EditorAreaProps {
   saveRef?: React.MutableRefObject<(() => void) | null>;
   responseSideBySide?: boolean;
   workspaceName?: string;
+  onSaveDraft?: (tabId: string, draftData: Record<string, unknown>) => void;
 }
 
 function OverviewScreen({ workspaceName }: { workspaceName?: string }) {
@@ -43,7 +44,7 @@ function OverviewScreen({ workspaceName }: { workspaceName?: string }) {
         {workspaceName ?? 'Workspace'}
       </Title>
       <Text type="secondary" style={{ marginBottom: 32 }}>
-        Open Headers — The definitive open-source browser DevTools platform
+        Open Headers — The open-source browser DevTools you're missing
       </Text>
     </div>
   );
@@ -96,6 +97,7 @@ function TabEditor({
   onSaveLabelChange,
   saveRef,
   responseSideBySide,
+  onSaveDraft,
 }: {
   tab: Tab;
   isActive: boolean;
@@ -103,6 +105,7 @@ function TabEditor({
   onSaveLabelChange?: (label: string | null) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
   responseSideBySide?: boolean;
+  onSaveDraft?: (tabId: string, draftData: Record<string, unknown>) => void;
 }) {
   // Only pass dirty/save callbacks to the active editor
   const dirtyChange = isActive ? onDirtyChange : undefined;
@@ -111,7 +114,39 @@ function TabEditor({
 
   let content: React.ReactNode = null;
 
-  if (tab.type === 'settings') {
+  if (tab.draft && tab.draftData) {
+    // Draft tabs — editors work with local-only state
+    if (tab.type === 'request') {
+      content = (
+        <SourceEditor
+          draftData={tab.draftData}
+          onDirtyChange={dirtyChange}
+          onSaveLabelChange={saveLabelChange}
+          saveRef={save}
+          responseSideBySide={responseSideBySide}
+          onSaveDraft={onSaveDraft ? (data) => onSaveDraft(tab.id, data) : undefined}
+        />
+      );
+    } else if (tab.type === 'rule') {
+      content = (
+        <RuleEditor
+          draftData={tab.draftData}
+          onDirtyChange={dirtyChange}
+          saveRef={save}
+          onSaveDraft={onSaveDraft ? (data) => onSaveDraft(tab.id, data) : undefined}
+        />
+      );
+    } else if (tab.type === 'environment') {
+      content = (
+        <EnvironmentEditor
+          draftData={tab.draftData}
+          onDirtyChange={dirtyChange}
+          saveRef={save}
+          onSaveDraft={onSaveDraft ? (data) => onSaveDraft(tab.id, data) : undefined}
+        />
+      );
+    }
+  } else if (tab.type === 'settings') {
     content = <SettingsEditor />;
   } else if (tab.type === 'globals') {
     content = <WorkspaceVariablesEditor onDirtyChange={dirtyChange} saveRef={save} />;
@@ -179,6 +214,7 @@ export function EditorArea({
   saveRef,
   responseSideBySide,
   workspaceName,
+  onSaveDraft,
 }: EditorAreaProps) {
   // Clear dirty state when switching to a non-editor tab
   useEffect(() => {
@@ -190,7 +226,7 @@ export function EditorArea({
   }, [activeTab, onDirtyChange, onSaveLabelChange, saveRef]);
 
   // Tabs that have editors (not overview, not settings — those are singletons rendered separately)
-  const editorTabs = tabs.filter((t) => t.type !== 'overview' && (t.entityId || t.type === 'globals'));
+  const editorTabs = tabs.filter((t) => t.type !== 'overview' && (t.entityId || t.type === 'globals' || t.draft));
 
   const showOverview = activeTab?.type === 'overview';
   const showEmpty = !activeTab;
@@ -220,6 +256,7 @@ export function EditorArea({
           onSaveLabelChange={onSaveLabelChange}
           saveRef={saveRef}
           responseSideBySide={responseSideBySide}
+          onSaveDraft={onSaveDraft}
         />
       ))}
 

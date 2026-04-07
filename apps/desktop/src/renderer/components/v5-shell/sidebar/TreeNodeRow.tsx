@@ -152,18 +152,41 @@ export function TreeNodeRow({
           {/* Badge (e.g. "off", "active") */}
           {node.badge}
 
-          {/* Hover actions: + and ... for nodes that can add children */}
+          {/* Hover actions: + dropdown (add item/folder) and ... (rename/delete) for container nodes */}
           {node.canAddChild && (
             <div className="v5-sidebar-collection-actions">
-              <PlusOutlined
-                className="v5-sidebar-action-icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  node.onAddItem?.();
-                }}
-              />
-              {node.addMenuItems && (
-                <Dropdown menu={{ items: node.addMenuItems }} trigger={['click']} placement="bottomRight">
+              {node.addMenuItems && node.addMenuItems.length > 0 && (
+                <Dropdown
+                  menu={{ items: node.addMenuItems.filter((i) => i.key === 'add-item' || i.key === 'add-folder') }}
+                  trigger={['click']}
+                  placement="bottomRight"
+                >
+                  <PlusOutlined className="v5-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
+                </Dropdown>
+              )}
+              {(node.canRename || node.canDelete) && (
+                <Dropdown
+                  menu={{
+                    items: [
+                      ...(node.canRename
+                        ? [{ key: 'rename', icon: <EditOutlined />, label: 'Rename', onClick: () => onStartRename() }]
+                        : []),
+                      ...(node.canDelete
+                        ? [
+                            {
+                              key: 'delete',
+                              icon: <DeleteOutlined />,
+                              label: 'Delete',
+                              danger: true,
+                              onClick: () => node.onDelete?.(),
+                            },
+                          ]
+                        : []),
+                    ],
+                  }}
+                  trigger={['click']}
+                  placement="bottomRight"
+                >
                   <EllipsisOutlined className="v5-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
                 </Dropdown>
               )}

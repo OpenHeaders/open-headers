@@ -88,8 +88,10 @@ interface SidebarProps {
   onOpenWorkspaceVariables?: () => void;
   expandedSections?: string[];
   onExpandedSectionsChange?: (sections: string[]) => void;
-  expandedCollections?: string[];
-  onExpandedCollectionsChange?: (collections: string[]) => void;
+  expandedKeys: Set<string>;
+  ensureExpanded: (...keys: string[]) => void;
+  toggleExpand: (key: string) => void;
+  setAllExpanded: (keys: string[]) => void;
   activeTabId?: string | null;
   activeWorkspaceId?: string;
   /** Signal to V5Shell that a newly created tab should start in breadcrumb rename mode */
@@ -133,8 +135,10 @@ export function Sidebar({
   onOpenWorkspaceVariables,
   expandedSections: expandedSectionsProp,
   onExpandedSectionsChange,
-  expandedCollections: expandedCollectionsProp,
-  onExpandedCollectionsChange,
+  expandedKeys,
+  ensureExpanded,
+  toggleExpand,
+  setAllExpanded,
   activeTabId,
   onPendingRename,
 }: SidebarProps) {
@@ -163,8 +167,8 @@ export function Sidebar({
   const selectOpenedFileRef = useRef<(() => void) | null>(null);
 
   // ── Expanded state ───────────────────────────────────────────
+  // expandedKeys, ensureExpanded, toggleExpand come from props (useSidebarExpansion hook)
   const expandedSectionsSet = useMemo(() => new Set(expandedSectionsProp ?? []), [expandedSectionsProp]);
-  const expandedKeys = useMemo(() => new Set(expandedCollectionsProp ?? []), [expandedCollectionsProp]);
 
   const toggleSection = useCallback(
     (section: string) => {
@@ -174,31 +178,6 @@ export function Sidebar({
       onExpandedSectionsChange?.([...next]);
     },
     [expandedSectionsSet, onExpandedSectionsChange],
-  );
-
-  const toggleExpand = useCallback(
-    (key: string) => {
-      const next = new Set(expandedKeys);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      onExpandedCollectionsChange?.([...next]);
-    },
-    [expandedKeys, onExpandedCollectionsChange],
-  );
-
-  const ensureExpandedKeys = useCallback(
-    (...keys: string[]) => {
-      const current = new Set(expandedCollectionsProp ?? []);
-      let changed = false;
-      for (const key of keys) {
-        if (!current.has(key)) {
-          current.add(key);
-          changed = true;
-        }
-      }
-      if (changed) onExpandedCollectionsChange?.([...current]);
-    },
-    [expandedCollectionsProp, onExpandedCollectionsChange],
   );
 
   const collectionsExpanded = expandedSectionsSet.has('collections');
@@ -239,8 +218,8 @@ export function Sidebar({
     ) => {
       const nf = await folderActions.addFolder(section, collectionId, parentFolderId);
       if (nf) {
-        const parentKey = parentFolderId ? `folder-${parentFolderId}` : collectionId;
-        ensureExpandedKeys(parentKey, `folder-${nf.id}`);
+        const parentKey = parentFolderId ? `folder-${parentFolderId}` : `col-${collectionId}`;
+        ensureExpanded(parentKey, `folder-${nf.id}`);
         const tabId = `folder-${nf.id}`;
         onOpenTab?.({
           id: tabId,
@@ -252,7 +231,7 @@ export function Sidebar({
         onPendingRename?.(tabId);
       }
     },
-    [folderActions, ensureExpandedKeys, onOpenTab, onPendingRename],
+    [folderActions, ensureExpanded, onOpenTab, onPendingRename],
   );
 
   // ── Tree data ────────────────────────────────────────────────
@@ -330,7 +309,7 @@ export function Sidebar({
     (node: TreeNode) => {
       if (!shouldOpenOnSingleClick(node)) openItem(node);
     },
-    [openWithSingleClick, openItem],
+    [openItem, shouldOpenOnSingleClick],
   );
 
   // ── Keyboard navigation ──────────────────────────────────────
@@ -363,14 +342,14 @@ export function Sidebar({
         const node = allFlatItems.find((n) => n.id === focusedId);
         if (node?.expandable) {
           e.preventDefault();
-          const ek = node.id.startsWith('col-') ? node.id.slice(4) : node.id;
+          const ek = node.id;
           if (!expandedKeys.has(ek)) toggleExpand(ek);
         }
       } else if (e.key === 'ArrowLeft' && focusedId) {
         e.preventDefault();
         const node = allFlatItems.find((n) => n.id === focusedId);
         if (node?.expandable) {
-          const ek = node.id.startsWith('col-') ? node.id.slice(4) : node.id;
+          const ek = node.id;
           if (expandedKeys.has(ek)) {
             // Collapse this node
             toggleExpand(ek);
@@ -396,7 +375,7 @@ export function Sidebar({
         if (node?.canRename) setRenamingId(focusedId);
       }
     },
-    [allFlatItems, focusedId, openItem, openWithSingleClick, expandedKeys, toggleExpand],
+    [allFlatItems, focusedId, openItem, expandedKeys, toggleExpand, shouldOpenOnSingleClick],
   );
 
   // ── Select opened file ───────────────────────────────────────
@@ -405,13 +384,12 @@ export function Sidebar({
     const sections = new Set(expandedSectionsSet);
     if (activeTabId.startsWith('source-')) {
       sections.add('collections');
-      // Expand the containing collection
+      // Expand the containing collection (and folder)
       const source = sources.find((s) => `source-${s.sourceId}` === activeTabId);
-      if (source) {
-        const tag = source.sourceTag || 'Ungrouped';
-        if (!expandedKeys.has(tag)) {
-          onExpandedCollectionsChange?.([...(expandedCollectionsProp ?? []), tag]);
-        }
+      if (source?.collectionId) {
+        const keys: string[] = [`col-${source.collectionId}`];
+        if (source.folderId) keys.push(`folder-${source.folderId}`);
+        ensureExpanded(...keys);
       }
     } else if (activeTabId.startsWith('rule-')) {
       sections.add('rules');
@@ -423,15 +401,7 @@ export function Sidebar({
     setTimeout(() => {
       containerRef.current?.querySelector(`[data-item-id="${activeTabId}"]`)?.scrollIntoView({ block: 'nearest' });
     }, 50);
-  }, [
-    activeTabId,
-    expandedSectionsSet,
-    sources,
-    expandedKeys,
-    expandedCollectionsProp,
-    onExpandedSectionsChange,
-    onExpandedCollectionsChange,
-  ]);
+  }, [activeTabId, expandedSectionsSet, sources, ensureExpanded, onExpandedSectionsChange]);
 
   selectOpenedFileRef.current = selectOpenedFile;
 
@@ -447,25 +417,23 @@ export function Sidebar({
   const expandAll = useCallback(() => {
     onExpandedSectionsChange?.(['collections', 'rules', 'environments']);
     const allKeys: string[] = [];
-    // Collection tags
-    const tags = new Set<string>();
-    for (const s of sources) tags.add(s.sourceTag || 'Ungrouped');
-    allKeys.push(...tags);
+    // All collection keys
+    for (const c of collections) allKeys.push(`col-${c.id}`);
     // All folder keys
     for (const f of workspaceFolders) allKeys.push(`folder-${f.id}`);
-    onExpandedCollectionsChange?.(allKeys);
-  }, [sources, workspaceFolders, onExpandedSectionsChange, onExpandedCollectionsChange]);
+    setAllExpanded?.(allKeys);
+  }, [collections, workspaceFolders, onExpandedSectionsChange, setAllExpanded]);
 
   const collapseAll = useCallback(() => {
     onExpandedSectionsChange?.([]);
-    onExpandedCollectionsChange?.([]);
-  }, [onExpandedSectionsChange, onExpandedCollectionsChange]);
+    setAllExpanded?.([]);
+  }, [onExpandedSectionsChange, setAllExpanded]);
 
   const createNewCollection = useCallback(
     async (section: 'requests' | 'rules' | 'environments' | 'recordings') => {
       const col = await addCollection({ name: 'New Collection', section });
       if (col) {
-        ensureExpandedKeys(col.id);
+        ensureExpanded(`col-${col.id}`);
         const tabId = `col-${col.id}`;
         onOpenTab?.({
           id: tabId,
@@ -477,7 +445,7 @@ export function Sidebar({
         onPendingRename?.(tabId);
       }
     },
-    [addCollection, ensureExpandedKeys, onOpenTab, onPendingRename],
+    [addCollection, ensureExpanded, onOpenTab, onPendingRename],
   );
 
   const createMenuItems = [
@@ -526,9 +494,7 @@ export function Sidebar({
         isSelected={isSelected(node.id)}
         isFocused={isFocused(node.id)}
         isRenaming={renamingId === node.id}
-        isExpanded={
-          node.expandable ? expandedKeys.has(node.id.startsWith('col-') ? node.id.slice(4) : node.id) : undefined
-        }
+        isExpanded={node.expandable ? expandedKeys.has(node.id) : undefined}
         onClick={() => handleItemClick(node)}
         onDoubleClick={() => handleItemDoubleClick(node)}
         onStartRename={() => {
@@ -655,13 +621,8 @@ export function Sidebar({
       </div>
 
       {/* Tree content */}
-      <div
-        ref={containerRef}
-        className="v5-sidebar-content"
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        style={{ outline: 'none' }}
-      >
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation requires focus */}
+      <div ref={containerRef} className="v5-sidebar-content" onKeyDown={handleKeyDown} tabIndex={0} style={{ outline: 'none' }}>
         <Allotment key={sectionKey} vertical proportionalLayout={expandedCount > 1} defaultSizes={computeSizes()}>
           <Allotment.Pane minSize={HEADER_HEIGHT}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

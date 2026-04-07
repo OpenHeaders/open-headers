@@ -37,6 +37,10 @@ export interface Tab {
   entityId?: string;
   /** Tooltip text shown on hover (e.g. URL for requests, header name for rules) */
   tooltip?: string;
+  /** When true, this tab holds a draft entity not yet persisted to main process */
+  draft?: boolean;
+  /** Local draft data (only set when draft=true) */
+  draftData?: Record<string, unknown>;
 }
 
 const MAX_RECENTLY_CLOSED = 20;
@@ -155,9 +159,9 @@ export function useTabs(activeWorkspaceId?: string) {
         newActiveId = nextTab?.id ?? null;
       }
 
-      // Track recently closed (skip welcome/settings singletons)
+      // Track recently closed (skip welcome/settings singletons and drafts)
       const recentlyClosed =
-        tab.type !== 'overview' && tab.type !== 'settings'
+        tab.type !== 'overview' && tab.type !== 'settings' && !tab.draft
           ? [tab, ...prev.recentlyClosed.filter((t) => t.id !== tab.id)].slice(0, MAX_RECENTLY_CLOSED)
           : prev.recentlyClosed;
 
@@ -174,9 +178,20 @@ export function useTabs(activeWorkspaceId?: string) {
   }, []);
 
   const togglePin = useCallback((tabId: string) => {
+    setState((prev) => {
+      const tab = prev.tabs.find((t) => t.id === tabId);
+      if (!tab || tab.draft) return prev; // drafts cannot be pinned
+      return {
+        ...prev,
+        tabs: prev.tabs.map((t) => (t.id === tabId ? { ...t, pinned: !t.pinned } : t)),
+      };
+    });
+  }, []);
+
+  const updateTab = useCallback((tabId: string, updates: Partial<Tab>) => {
     setState((prev) => ({
       ...prev,
-      tabs: prev.tabs.map((t) => (t.id === tabId ? { ...t, pinned: !t.pinned } : t)),
+      tabs: prev.tabs.map((t) => (t.id === tabId ? { ...t, ...updates } : t)),
     }));
   }, []);
 
@@ -284,6 +299,7 @@ export function useTabs(activeWorkspaceId?: string) {
     closeTab,
     switchTab,
     togglePin,
+    updateTab,
     markUnsaved,
     reorderTab,
     closeOtherTabs,

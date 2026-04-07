@@ -1,5 +1,5 @@
 /**
- * EnvironmentEditor — Postman-style spreadsheet editor for environment variables.
+ * EnvironmentEditor — spreadsheet editor for environment variables.
  *
  * Local editing state with explicit Save. Variables are edited inline
  * (borderless inputs), with a trailing empty row for adding new ones.
@@ -29,9 +29,11 @@ import { useEnvironments } from '@/renderer/hooks/useCentralizedWorkspace';
 const { Text, Title } = Typography;
 
 interface EnvironmentEditorProps {
-  environmentId: string;
+  environmentId?: string;
+  draftData?: Record<string, unknown>;
   onDirtyChange?: (dirty: boolean) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
+  onSaveDraft?: (data: Record<string, unknown>) => void;
 }
 
 interface LocalVariable {
@@ -351,18 +353,36 @@ function SortableRow({
 
 // ── Main editor ─────────────────────────────────────────────────
 
-export function EnvironmentEditor({ environmentId, onDirtyChange, saveRef }: EnvironmentEditorProps) {
+export function EnvironmentEditor({
+  environmentId,
+  draftData,
+  onDirtyChange,
+  saveRef,
+  onSaveDraft,
+}: EnvironmentEditorProps) {
   const { token } = theme.useToken();
   const { environments, activeEnvironment, updateEnvironment } = useEnvironments();
 
-  const env = environments.find((e) => e.id === environmentId);
-  const isActive = environmentId === activeEnvironment;
+  const isDraft = !!draftData && !environmentId;
+  const env = isDraft ? undefined : environments.find((e) => e.id === environmentId);
+  const isActive = !isDraft && environmentId === activeEnvironment;
 
   // ── Local editing state ───────────────────────────────────────
   const [rows, setRows] = useState<LocalVariable[]>([]);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
   const snapshotRef = useRef('');
   const initializedEnvId = useRef<string | null>(null);
+
+  // Initialize from draft data
+  const draftInitialized = useRef(false);
+  useEffect(() => {
+    if (isDraft && draftData && !draftInitialized.current) {
+      draftInitialized.current = true;
+      const local = [{ uid: genUid(), name: '', value: '', isSensitive: false, description: '', isPlaceholder: true }];
+      setRows(local);
+      snapshotRef.current = fp(local);
+    }
+  }, [isDraft, draftData]);
 
   // Initialize local state from environment
   useEffect(() => {
@@ -383,6 +403,12 @@ export function EnvironmentEditor({ environmentId, onDirtyChange, saveRef }: Env
 
   // ── Save ──────────────────────────────────────────────────────
   const handleSave = useCallback(() => {
+    if (isDraft && onSaveDraft) {
+      const variables = localToEnvVars(rows);
+      onSaveDraft({ name: (draftData?.name as string) || 'New Environment', variables });
+      return;
+    }
+    if (!environmentId) return;
     const variables = localToEnvVars(rows);
     void updateEnvironment(environmentId, { variables }).then((ok) => {
       if (ok) {
@@ -471,7 +497,7 @@ export function EnvironmentEditor({ environmentId, onDirtyChange, saveRef }: Env
     colorErrorText: token.colorErrorText,
   };
 
-  if (!env) {
+  if (!env && !isDraft) {
     return (
       <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
         <Text type="secondary">Environment not found.</Text>
@@ -489,7 +515,7 @@ export function EnvironmentEditor({ environmentId, onDirtyChange, saveRef }: Env
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <GlobalOutlined style={{ fontSize: 18, color: isActive ? token.colorPrimary : token.colorTextTertiary }} />
             <Title level={4} style={{ margin: 0 }}>
-              {env.name}
+              {env?.name ?? (draftData?.name as string) ?? 'New Environment'}
             </Title>
             {isActive && (
               <Tag color="blue" style={{ fontSize: 10 }}>

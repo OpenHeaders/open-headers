@@ -8,10 +8,9 @@
  * Panel visibility is toggled via keyboard shortcuts or status bar icons.
  */
 
-import type { HeaderRule, Source } from '@openheaders/core';
 import type { AllotmentHandle } from 'allotment';
 import { Allotment } from 'allotment';
-import { Modal, theme } from 'antd';
+import { theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitchOverlay';
 import { useWorkspaceSwitch } from '@/renderer/contexts';
@@ -30,11 +29,16 @@ import { BreadcrumbBar } from './BreadcrumbBar';
 import { CommandPalette } from './CommandPalette';
 import { EditorVariablesProvider } from './contexts/EditorVariablesContext';
 import { EditorArea } from './EditorArea';
+import { useDraftSave } from './hooks/useDraftSave';
+import { useEntityCreation } from './hooks/useEntityCreation';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { DEFAULT_LAYOUT, useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { useResolvedTabs } from './hooks/useResolvedTabs';
+import { useSidebarExpansion } from './hooks/useSidebarExpansion';
+import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabs } from './hooks/useTabs';
 import { Inspector } from './Inspector';
+import { SaveToCollectionModal } from './modals/SaveToCollectionModal';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
@@ -55,9 +59,10 @@ export function V5Shell() {
   const { workspaces, activeWorkspaceId } = useWorkspaces();
   const { sources, addSource, updateSource } = useSources();
   const { rules, addRule, updateRule } = useHeaderRules();
-  const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } = useEnvironments();
-  const { collections, updateCollection: updateCollectionInV5 } = useCollections();
-  const { folders, updateFolder: updateFolderInV5 } = useFolders();
+  const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } =
+    useEnvironments();
+  const { collections, addCollection, updateCollection: updateCollectionInV5 } = useCollections();
+  const { folders, addFolder, updateFolder: updateFolderInV5 } = useFolders();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
@@ -121,6 +126,9 @@ export function V5Shell() {
     },
     [setLayoutState],
   );
+  // Sidebar tree expansion — shared hook provides typed methods
+  const sidebarExpansion = useSidebarExpansion(sidebarExpandedCollections, setSidebarExpandedCollections);
+
   const setInspectorExpandedKeys = useCallback(
     (keys: string[]) => {
       setLayoutState((prev) => ({ ...prev, inspectorExpandedKeys: keys }));
@@ -142,6 +150,7 @@ export function V5Shell() {
     closeTab,
     switchTab,
     togglePin,
+    updateTab,
     markUnsaved,
     reorderTab,
     recentlyClosed,
@@ -162,171 +171,15 @@ export function V5Shell() {
     [activeTabId, markUnsaved],
   );
 
-  // Prompt for a single unsaved tab. Resolves: 'discard' | 'save' | 'cancel'
-  const confirmUnsaved = useCallback(
-    (tab: { id: string; label: string }): Promise<'discard' | 'save' | 'cancel'> =>
-      new Promise((resolve) => {
-        const modal = Modal.confirm({
-          title: <span style={{ fontSize: 13, fontWeight: 600 }}>Save changes?</span>,
-          width: 380,
-          content: (
-            <p style={{ fontSize: 12, margin: '4px 0 0' }}>
-              <strong>{tab.label}</strong> has unsaved changes. Save these changes to avoid losing your work.
-            </p>
-          ),
-          footer: (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
-              <button
-                type="button"
-                style={{
-                  padding: '5px 16px',
-                  border: '1px solid #d9d9d9',
-                  borderRadius: 5,
-                  background: '#ffffff',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                }}
-                onClick={() => {
-                  modal.destroy();
-                  resolve('discard');
-                }}
-              >
-                Don't save
-              </button>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  type="button"
-                  style={{
-                    padding: '5px 16px',
-                    border: '1px solid #d9d9d9',
-                    borderRadius: 5,
-                    background: '#ffffff',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                  }}
-                  onClick={() => {
-                    modal.destroy();
-                    resolve('cancel');
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  style={{
-                    padding: '5px 16px',
-                    border: 'none',
-                    borderRadius: 5,
-                    background: '#ff7875',
-                    color: '#ffffff',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                  onClick={() => {
-                    modal.destroy();
-                    resolve('save');
-                  }}
-                >
-                  Save changes
-                </button>
-              </div>
-            </div>
-          ),
-          closable: true,
-          onCancel: () => {
-            modal.destroy();
-            resolve('cancel');
-          },
-        });
-      }),
-    [],
-  );
-
-  // Close a single tab, prompting if unsaved
-  const handleCloseTab = useCallback(
-    async (tabId: string) => {
-      const rt = resolvedTabs.find((t) => t.id === tabId);
-      if (!rt) return;
-      if (!rt.unsaved) {
-        closeTab(tabId);
-        return;
-      }
-      const result = await confirmUnsaved({ id: rt.id, label: rt.resolvedLabel });
-      if (result === 'save') editorSaveRef.current?.();
-      if (result !== 'cancel') closeTab(tabId, true);
-    },
-    [resolvedTabs, closeTab, confirmUnsaved],
-  );
-
-  // Close multiple tabs, prompting for each dirty one sequentially
-  const handleBatchClose = useCallback(
-    async (tabIds: string[]) => {
-      const clean = tabIds.filter((id) => {
-        const t = resolvedTabs.find((tab) => tab.id === id);
-        return t && !t.unsaved && !t.pinned;
-      });
-      for (const id of clean) closeTab(id, true);
-
-      const dirty = tabIds.filter((id) => {
-        const t = resolvedTabs.find((tab) => tab.id === id);
-        return t?.unsaved && !t.pinned;
-      });
-      for (const id of dirty) {
-        const rt = resolvedTabs.find((t) => t.id === id);
-        if (!rt) continue;
-        const result = await confirmUnsaved({ id: rt.id, label: rt.resolvedLabel });
-        if (result === 'cancel') return;
-        if (result === 'save') editorSaveRef.current?.();
-        closeTab(id, true);
-      }
-    },
-    [resolvedTabs, closeTab, confirmUnsaved],
-  );
-
-  const handleCloseOther = useCallback(
-    (tabId: string) => {
-      const toClose = resolvedTabs.filter((t) => t.id !== tabId && !t.pinned).map((t) => t.id);
-      void handleBatchClose(toClose);
-    },
-    [resolvedTabs, handleBatchClose],
-  );
-
-  const handleCloseAll = useCallback(() => {
-    const toClose = resolvedTabs.filter((t) => !t.pinned).map((t) => t.id);
-    void handleBatchClose(toClose);
-  }, [resolvedTabs, handleBatchClose]);
-
-  const handleCloseUnmodified = useCallback(() => {
-    const toClose = resolvedTabs.filter((t) => !t.unsaved && !t.pinned && t.type !== 'overview').map((t) => t.id);
-    for (const id of toClose) closeTab(id, true);
-  }, [resolvedTabs, closeTab]);
-
-  const handleCloseToLeft = useCallback(
-    (tabId: string) => {
-      const idx = resolvedTabs.findIndex((t) => t.id === tabId);
-      if (idx <= 0) return;
-      const toClose = resolvedTabs
-        .slice(0, idx)
-        .filter((t) => !t.pinned)
-        .map((t) => t.id);
-      void handleBatchClose(toClose);
-    },
-    [resolvedTabs, handleBatchClose],
-  );
-
-  const handleCloseToRight = useCallback(
-    (tabId: string) => {
-      const idx = resolvedTabs.findIndex((t) => t.id === tabId);
-      if (idx === -1) return;
-      const toClose = resolvedTabs
-        .slice(idx + 1)
-        .filter((t) => !t.pinned)
-        .map((t) => t.id);
-      void handleBatchClose(toClose);
-    },
-    [resolvedTabs, handleBatchClose],
-  );
+  // Tab close operations (unsaved confirmation, batch close, etc.)
+  const {
+    handleCloseTab,
+    handleCloseOther,
+    handleCloseAll,
+    handleCloseUnmodified,
+    handleCloseToLeft,
+    handleCloseToRight,
+  } = useTabLifecycle({ resolvedTabs, closeTab, switchTab, editorSaveRef });
 
   // Listen for "Variables in request" link clicks from TemplateInput popovers
   useEffect(() => {
@@ -335,7 +188,7 @@ export function V5Shell() {
     };
     window.addEventListener('showVariablesPanel', handler);
     return () => window.removeEventListener('showVariablesPanel', handler);
-  }, []);
+  }, [setPanels]);
 
   // Auto-close tabs when their backing entity is deleted.
   // Uses a ref for tabs so this effect only fires on entity/workspace changes,
@@ -358,6 +211,7 @@ export function V5Shell() {
       for (const tab of tabsRef.current) {
         if (
           tab.entityId &&
+          !tab.draft &&
           !currentIds.has(tab.id) &&
           tab.type !== 'overview' &&
           tab.type !== 'settings' &&
@@ -402,143 +256,48 @@ export function V5Shell() {
     }
   }, [activeTabId, tabs, sources, rules, collections, environments, activeEnvironment, switchEnvironment]);
 
-  const openOverview = useCallback(() => {
-    openTab({ id: 'overview', type: 'overview', label: 'Overview', icon: 'overview' });
-  }, [openTab]);
+  // Entity creation (persisted — for sidebar context actions)
+  const {
+    openOverview,
+    openSettings,
+    openWorkspaceVariables,
+    createNewSource,
+    createNewRule,
+    createNewEnvironment,
+    createAndActivateEnvironment,
+    openActiveEnvironment,
+  } = useEntityCreation({
+    sources,
+    rules,
+    environments,
+    activeEnvironment,
+    addSource,
+    addRule,
+    createEnvironment,
+    switchEnvironment,
+    openTab,
+    setPendingRenameTabId,
+  });
 
-  const openSettings = useCallback(() => {
-    openTab({ id: 'settings', type: 'settings', label: 'Settings', icon: 'settings' });
-  }, [openTab]);
+  // Draft creation + save-to-collection modal
+  const { createDraftSource, createDraftRule, handleSaveDraft, saveModalProps } = useDraftSave({
+    sources,
+    rules,
+    tabs,
+    addSource,
+    addRule,
+    createEnvironment,
+    closeTab,
+    openTab,
+    ensureSidebarExpanded: sidebarExpansion.ensureExpanded,
+  });
 
-  const openWorkspaceVariables = useCallback(() => {
-    openTab({ id: 'globals', type: 'globals', label: 'Workspace Variables', icon: 'globals' });
-  }, [openTab]);
-
-  const createNewRule = useCallback(
-    async (options?: { collectionId?: string; folderId?: string }) => {
-      const existingNames = new Set(rules.map((r) => r.name));
-      let name = 'New Rule';
-      let counter = 2;
-      while (existingNames.has(name)) {
-        name = `New Rule (${counter})`;
-        counter++;
-      }
-      const newRule: Partial<HeaderRule> = {
-        type: 'header',
-        name,
-        description: '',
-        isEnabled: true,
-        domains: [],
-        headerName: '',
-        headerValue: '',
-        tag: '',
-        isResponse: false,
-        isDynamic: false,
-        sourceId: null,
-        prefix: '',
-        suffix: '',
-        hasEnvVars: false,
-        envVars: [],
-        collectionId: options?.collectionId,
-        folderId: options?.folderId,
-      };
-      const rule = await addRule(newRule);
-      if (rule) {
-        openTab({ id: `rule-${rule.id}`, type: 'rule', label: name, icon: 'rule', entityId: rule.id });
-      }
+  const togglePanel = useCallback(
+    (panel: keyof PanelVisibility) => {
+      setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
     },
-    [addRule, openTab, rules],
+    [setPanels],
   );
-
-  const createNewSource = useCallback(
-    async (options?: { collectionId?: string; folderId?: string }) => {
-      const existingNames = new Set(sources.map((s) => s.sourceName));
-      let name = 'New Request';
-      let counter = 2;
-      while (existingNames.has(name)) {
-        name = `New Request (${counter})`;
-        counter++;
-      }
-      const newSource: Source = {
-        sourceId: '',
-        sourceType: 'http',
-        sourcePath: '',
-        sourceMethod: 'GET',
-        sourceName: name,
-        sourceTag: '',
-        sourceContent: null,
-        requestOptions: { contentType: 'application/json' },
-        jsonFilter: { enabled: false },
-        refreshOptions: { enabled: false },
-        activationState: 'inactive',
-        collectionId: options?.collectionId,
-        folderId: options?.folderId,
-      };
-      const source = await addSource(newSource);
-      if (source) {
-        openTab({
-          id: `source-${source.sourceId}`,
-          type: 'request',
-          label: name,
-          icon: 'GET',
-          entityId: source.sourceId,
-        });
-      }
-    },
-    [addSource, openTab, sources],
-  );
-
-  const createNewEnvironment = useCallback(
-    async (options?: { collectionId?: string; folderId?: string }) => {
-      const existingNames = new Set(environments.map((e) => e.name));
-      let name = 'New Environment';
-      let counter = 2;
-      while (existingNames.has(name)) {
-        name = `New Environment (${counter})`;
-        counter++;
-      }
-      const env = await createEnvironment({ name, collectionId: options?.collectionId, folderId: options?.folderId });
-      if (env) {
-        const tabId = `env-${env.id}`;
-        openTab({ id: tabId, type: 'environment', label: name, icon: 'environment', entityId: env.id });
-        setPendingRenameTabId(tabId);
-      }
-    },
-    [environments, createEnvironment, openTab],
-  );
-
-  // Create + activate — used by the env selector dropdown (not the sidebar create flow)
-  const createAndActivateEnvironment = useCallback(async () => {
-    const existingNames = new Set(environments.map((e) => e.name));
-    let name = 'New Environment';
-    let counter = 2;
-    while (existingNames.has(name)) {
-      name = `New Environment (${counter})`;
-      counter++;
-    }
-    const env = await createEnvironment({ name });
-    if (env) {
-      const tabId = `env-${env.id}`;
-      openTab({ id: tabId, type: 'environment', label: env.name, icon: 'environment', entityId: env.id });
-      setPendingRenameTabId(tabId);
-      void switchEnvironment(env.id);
-    }
-  }, [environments, createEnvironment, openTab, switchEnvironment]);
-
-  const openActiveEnvironment = useCallback(() => {
-    const env = activeEnvironment
-      ? environments.find((e) => e.id === activeEnvironment)
-      : environments[0];
-    if (env) {
-      openTab({ id: `env-${env.id}`, type: 'environment', label: env.name, icon: 'environment', entityId: env.id });
-    } else {
-      void createNewEnvironment();
-    }
-  }, [environments, activeEnvironment, openTab, createNewEnvironment]);
-
-  const togglePanel = useCallback((panel: keyof PanelVisibility) => {
-    setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
-  }, []);
 
   // Activity bar toggle: click same panel = hide sidebar, different = switch, hidden = show
   const handleActivityPanelToggle = useCallback(
@@ -550,7 +309,7 @@ export function V5Shell() {
         setPanels((prev) => ({ ...prev, sidebar: true }));
       }
     },
-    [panels.sidebar, activePanel, setActivePanel],
+    [panels.sidebar, activePanel, setActivePanel, setPanels],
   );
 
   const resetLayout = useCallback(() => {
@@ -561,7 +320,7 @@ export function V5Shell() {
 
   const swapSidebars = useCallback(() => {
     setSidebarsSwapped((v) => !v);
-  }, []);
+  }, [setSidebarsSwapped]);
 
   const openBottomTab = useCallback(
     (tab: string) => {
@@ -574,7 +333,12 @@ export function V5Shell() {
         setPanels((prev) => ({ ...prev, bottomPanel: true }));
       }
     },
-    [panels.bottomPanel, bottomPanelTab],
+    [
+      panels.bottomPanel,
+      bottomPanelTab, // Open panel and switch to tab
+      setBottomPanelTab,
+      setPanels,
+    ],
   );
 
   // Keyboard shortcuts
@@ -585,15 +349,15 @@ export function V5Shell() {
       onToggleInspector: () => togglePanel('inspector'),
       onCommandPalette: () => setCommandPaletteOpen(true),
       onOpenSettings: openSettings,
-      onNewRequest: () => void createNewSource(),
-      onNewRule: () => void createNewRule(),
+      onNewRequest: createDraftSource,
+      onNewRule: createDraftRule,
       onSave: () => editorSaveRef.current?.(),
       onToggleWorkbench: () => togglePanel('workbench'),
       onToggleResponseLayout: () => setResponseSideBySide((v) => !v),
       onResetLayout: resetLayout,
       onSwapSidebars: swapSidebars,
     }),
-    [togglePanel, openSettings, createNewSource, createNewRule, resetLayout, swapSidebars],
+    [togglePanel, openSettings, createDraftSource, createDraftRule, resetLayout, swapSidebars, setResponseSideBySide],
   );
   useKeyboardShortcuts(shortcutHandlers);
 
@@ -659,9 +423,9 @@ export function V5Shell() {
         icon: '▶',
         label: 'New Request',
         shortcut: '⌘N',
-        onSelect: () => void createNewSource(),
+        onSelect: createDraftSource,
       },
-      { id: 'cmd-new-rule', icon: '⚡', label: 'New Rule', shortcut: '⇧⌘N', onSelect: () => void createNewRule() },
+      { id: 'cmd-new-rule', icon: '⚡', label: 'New Rule', shortcut: '⇧⌘N', onSelect: createDraftRule },
       {
         id: 'cmd-toggle-sidebar',
         icon: '▶',
@@ -694,7 +458,17 @@ export function V5Shell() {
     );
 
     return items;
-  }, [sources, rules, environments, togglePanel, openSettings, openWorkspaceVariables, openTab, createNewSource, createNewRule]);
+  }, [
+    sources,
+    rules,
+    environments,
+    togglePanel,
+    openSettings,
+    openWorkspaceVariables,
+    openTab,
+    createDraftSource,
+    createDraftRule,
+  ]);
 
   // Derive the collection the active tab belongs to (for pinned env feature)
   const activeCollection = useMemo(() => {
@@ -731,7 +505,22 @@ export function V5Shell() {
   // Tab labels and sidebar will auto-update via useResolvedTabs (derives from live data).
   const handleBreadcrumbRename = useCallback(
     (newName: string) => {
-      if (!activeResolvedTab?.entityId) return;
+      if (!activeResolvedTab) return;
+
+      // Draft tabs — update the tab label and draft data locally
+      if (activeResolvedTab.draft) {
+        const draftData = { ...(activeResolvedTab.draftData ?? {}) };
+        if (activeResolvedTab.type === 'request') {
+          draftData.sourceName = newName;
+        } else {
+          draftData.name = newName;
+        }
+        updateTab(activeResolvedTab.id, { label: newName, draftData });
+        setPendingRenameTabId(null);
+        return;
+      }
+
+      if (!activeResolvedTab.entityId) return;
       if (activeResolvedTab.type === 'request' || activeResolvedTab.type === 'collection') {
         void updateSource(activeResolvedTab.entityId, { sourceName: newName });
       } else if (activeResolvedTab.type === 'rule') {
@@ -745,204 +534,235 @@ export function V5Shell() {
       }
       setPendingRenameTabId(null);
     },
-    [activeResolvedTab, updateSource, updateRule, updateCollectionInV5, updateFolderInV5, updateEnvironment],
+    [activeResolvedTab, updateTab, updateSource, updateRule, updateCollectionInV5, updateFolderInV5, updateEnvironment],
   );
 
   return (
     <EditorVariablesProvider>
-      <>
-        <div
-          className="v5-shell"
-          style={{
-            background: token.colorBgLayout,
-            ...(switchState.switching ? { filter: 'blur(2px)', pointerEvents: 'none' } : {}),
-          }}
-        >
-          {/* Top Bar */}
-          <TopBar
-            canGoBack={canGoBack}
-            canGoForward={canGoForward}
-            onGoBack={goBack}
-            onGoForward={goForward}
-            onCommandPalette={() => setCommandPaletteOpen(true)}
+      <div
+        className="v5-shell"
+        style={{
+          background: token.colorBgLayout,
+          ...(switchState.switching ? { filter: 'blur(2px)', pointerEvents: 'none' } : {}),
+        }}
+      >
+        {/* Top Bar */}
+        <TopBar
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onGoBack={goBack}
+          onGoForward={goForward}
+          onCommandPalette={() => setCommandPaletteOpen(true)}
+          onOpenSettings={openSettings}
+        />
+
+        {/* Main content area */}
+        <div className="v5-main">
+          {/* Activity Bar — permanent vertical strip */}
+          <ActivityBar
+            activePanel={activePanel}
+            sidebarVisible={panels.sidebar}
+            onPanelToggle={handleActivityPanelToggle}
             onOpenSettings={openSettings}
           />
 
-          {/* Main content area */}
-          <div className="v5-main">
-            {/* Activity Bar — permanent vertical strip */}
-            <ActivityBar
-              activePanel={activePanel}
-              sidebarVisible={panels.sidebar}
-              onPanelToggle={handleActivityPanelToggle}
-              onOpenSettings={openSettings}
-            />
+          {/* Resizable panels */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Allotment ref={outerAllotmentRef} proportionalLayout={false}>
+              {/* Left pane — content swaps based on sidebarsSwapped */}
+              <Allotment.Pane
+                preferredSize={sidebarsSwapped ? 300 : 250}
+                minSize={sidebarsSwapped ? 220 : 180}
+                maxSize={panels.workbench ? (sidebarsSwapped ? 500 : 400) : Infinity}
+                visible={sidebarsSwapped ? panels.inspector : panels.sidebar}
+              >
+                {sidebarsSwapped ? (
+                  <Inspector
+                    onClose={() => togglePanel('inspector')}
+                    expandedKeys={inspectorExpandedKeys}
+                    onExpandedKeysChange={setInspectorExpandedKeys}
+                    activeTabType={activeResolvedTab?.type}
+                    onOpenEnvironment={openActiveEnvironment}
+                    onOpenWorkspaceVariables={openWorkspaceVariables}
+                  />
+                ) : (
+                  <Sidebar
+                    activePanel={activePanel}
+                    onOpenTab={openTab}
+                    onNewRequest={(opts) => void createNewSource(opts)}
+                    onNewRule={(opts) => void createNewRule(opts)}
+                    onNewEnvironment={(opts) => void createNewEnvironment(opts)}
+                    onOpenWorkspaceVariables={openWorkspaceVariables}
+                    expandedSections={sidebarExpandedSections}
+                    onExpandedSectionsChange={setSidebarExpandedSections}
+                    expandedKeys={sidebarExpansion.expandedKeys}
+                    ensureExpanded={sidebarExpansion.ensureExpanded}
+                    toggleExpand={sidebarExpansion.toggleExpand}
+                    setAllExpanded={sidebarExpansion.setAll}
+                    activeTabId={activeTabId}
+                    activeWorkspaceId={activeWorkspaceId}
+                    onPendingRename={setPendingRenameTabId}
+                  />
+                )}
+              </Allotment.Pane>
 
-            {/* Resizable panels */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Allotment ref={outerAllotmentRef} proportionalLayout={false}>
-                {/* Left pane — content swaps based on sidebarsSwapped */}
-                <Allotment.Pane
-                  preferredSize={sidebarsSwapped ? 300 : 250}
-                  minSize={sidebarsSwapped ? 220 : 180}
-                  maxSize={panels.workbench ? (sidebarsSwapped ? 500 : 400) : Infinity}
-                  visible={sidebarsSwapped ? panels.inspector : panels.sidebar}
-                >
-                  {sidebarsSwapped ? (
-                    <Inspector
-                      onClose={() => togglePanel('inspector')}
-                      expandedKeys={inspectorExpandedKeys}
-                      onExpandedKeysChange={setInspectorExpandedKeys}
-                      activeTabType={activeResolvedTab?.type}
-                      onOpenEnvironment={openActiveEnvironment}
-                      onOpenWorkspaceVariables={openWorkspaceVariables}
-                    />
-                  ) : (
-                    <Sidebar
-                      activePanel={activePanel}
-                      onOpenTab={openTab}
-                      onNewRequest={(opts) => void createNewSource(opts)}
-                      onNewRule={(opts) => void createNewRule(opts)}
-                      onNewEnvironment={(opts) => void createNewEnvironment(opts)}
-                      onOpenWorkspaceVariables={openWorkspaceVariables}
-                      expandedSections={sidebarExpandedSections}
-                      onExpandedSectionsChange={setSidebarExpandedSections}
-                      expandedCollections={sidebarExpandedCollections}
-                      onExpandedCollectionsChange={setSidebarExpandedCollections}
-                      activeTabId={activeTabId}
-                      activeWorkspaceId={activeWorkspaceId}
-                      onPendingRename={setPendingRenameTabId}
-                    />
-                  )}
-                </Allotment.Pane>
+              {/* Center: Editor + Bottom Panel */}
+              <Allotment.Pane visible={panels.workbench}>
+                <Allotment vertical proportionalLayout={false}>
+                  {/* Editor Area */}
+                  <Allotment.Pane>
+                    <div className="v5-editor-area" style={{ background: token.colorBgContainer }}>
+                      <TabBar
+                        tabs={resolvedTabs}
+                        activeTabId={activeTabId}
+                        onSwitch={switchTab}
+                        onClose={handleCloseTab}
+                        onTogglePin={togglePin}
+                        onReorder={reorderTab}
+                        onCloseOther={handleCloseOther}
+                        onCloseAll={handleCloseAll}
+                        onCloseUnmodified={handleCloseUnmodified}
+                        onCloseToLeft={handleCloseToLeft}
+                        onCloseToRight={handleCloseToRight}
+                        onNewRequest={createDraftSource}
+                        onNewRule={createDraftRule}
+                        environments={environments}
+                        activeEnvironment={activeEnvironment}
+                        onSwitchEnvironment={switchEnvironment}
+                        activeCollection={activeCollection}
+                        onPinEnvironment={handlePinEnvironment}
+                        onNewEnvironment={() => void createAndActivateEnvironment()}
+                        onToggleInspector={() => togglePanel('inspector')}
+                        recentlyClosed={recentlyClosed}
+                        onReopenTab={(tab) => openTab(tab)}
+                      />
+                      <BreadcrumbBar
+                        segments={breadcrumbs}
+                        isDirty={editorDirty}
+                        onSave={() => editorSaveRef.current?.()}
+                        saveLabel={editorSaveLabel}
+                        onRename={
+                          activeResolvedTab &&
+                          (activeResolvedTab.type === 'request' ||
+                            activeResolvedTab.type === 'collection' ||
+                            activeResolvedTab.type === 'collection-overview' ||
+                            activeResolvedTab.type === 'folder-overview' ||
+                            activeResolvedTab.type === 'rule' ||
+                            activeResolvedTab.type === 'environment')
+                            ? handleBreadcrumbRename
+                            : undefined
+                        }
+                        autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
+                      />
+                      <EditorArea
+                        tabs={resolvedTabs}
+                        activeTab={activeResolvedTab}
+                        onNewRequest={createDraftSource}
+                        onNewRule={createDraftRule}
+                        onOpenOverview={openOverview}
+                        onDirtyChange={handleDirtyChange}
+                        onSaveLabelChange={setEditorSaveLabel}
+                        saveRef={editorSaveRef}
+                        responseSideBySide={responseSideBySide}
+                        workspaceName={workspaceName}
+                        onSaveDraft={handleSaveDraft}
+                      />
+                    </div>
+                  </Allotment.Pane>
 
-                {/* Center: Editor + Bottom Panel */}
-                <Allotment.Pane visible={panels.workbench}>
-                  <Allotment vertical proportionalLayout={false}>
-                    {/* Editor Area */}
-                    <Allotment.Pane>
-                      <div className="v5-editor-area" style={{ background: token.colorBgContainer }}>
-                        <TabBar
-                          tabs={resolvedTabs}
-                          activeTabId={activeTabId}
-                          onSwitch={switchTab}
-                          onClose={handleCloseTab}
-                          onTogglePin={togglePin}
-                          onReorder={reorderTab}
-                          onCloseOther={handleCloseOther}
-                          onCloseAll={handleCloseAll}
-                          onCloseUnmodified={handleCloseUnmodified}
-                          onCloseToLeft={handleCloseToLeft}
-                          onCloseToRight={handleCloseToRight}
-                          onNewRequest={() => void createNewSource()}
-                          onNewRule={() => void createNewRule()}
-                          environments={environments}
-                          activeEnvironment={activeEnvironment}
-                          onSwitchEnvironment={switchEnvironment}
-                          activeCollection={activeCollection}
-                          onPinEnvironment={handlePinEnvironment}
-                          onNewEnvironment={() => void createAndActivateEnvironment()}
-                          onToggleInspector={() => togglePanel('inspector')}
-                          recentlyClosed={recentlyClosed}
-                          onReopenTab={(tab) => openTab(tab)}
-                        />
-                        <BreadcrumbBar
-                          segments={breadcrumbs}
-                          isDirty={editorDirty}
-                          onSave={() => editorSaveRef.current?.()}
-                          saveLabel={editorSaveLabel}
-                          onRename={
-                            activeResolvedTab &&
-                            (activeResolvedTab.type === 'request' ||
-                              activeResolvedTab.type === 'collection' ||
-                              activeResolvedTab.type === 'collection-overview' ||
-                              activeResolvedTab.type === 'folder-overview' ||
-                              activeResolvedTab.type === 'rule' ||
-                              activeResolvedTab.type === 'environment')
-                              ? handleBreadcrumbRename
-                              : undefined
-                          }
-                          autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
-                        />
-                        <EditorArea
-                          tabs={resolvedTabs}
-                          activeTab={activeResolvedTab}
-                          onNewRequest={() => void createNewSource()}
-                          onNewRule={() => void createNewRule()}
-                          onOpenOverview={openOverview}
-                          onDirtyChange={handleDirtyChange}
-                          onSaveLabelChange={setEditorSaveLabel}
-                          saveRef={editorSaveRef}
-                          responseSideBySide={responseSideBySide}
-                          workspaceName={workspaceName}
-                        />
-                      </div>
-                    </Allotment.Pane>
+                  {/* Bottom Panel */}
+                  <Allotment.Pane preferredSize={200} minSize={100} maxSize={500} visible={panels.bottomPanel}>
+                    <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
+                  </Allotment.Pane>
+                </Allotment>
+              </Allotment.Pane>
 
-                    {/* Bottom Panel */}
-                    <Allotment.Pane preferredSize={200} minSize={100} maxSize={500} visible={panels.bottomPanel}>
-                      <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
-                    </Allotment.Pane>
-                  </Allotment>
-                </Allotment.Pane>
-
-                {/* Right pane — content swaps based on sidebarsSwapped */}
-                <Allotment.Pane
-                  preferredSize={sidebarsSwapped ? 250 : 300}
-                  minSize={sidebarsSwapped ? 180 : 220}
-                  maxSize={panels.workbench ? (sidebarsSwapped ? 400 : 500) : Infinity}
-                  visible={sidebarsSwapped ? panels.sidebar : panels.inspector}
-                >
-                  {sidebarsSwapped ? (
-                    <Sidebar
-                      activePanel={activePanel}
-                      onOpenTab={openTab}
-                      onNewRequest={(opts) => void createNewSource(opts)}
-                      onNewRule={(opts) => void createNewRule(opts)}
-                      onNewEnvironment={(opts) => void createNewEnvironment(opts)}
-                      onOpenWorkspaceVariables={openWorkspaceVariables}
-                      expandedSections={sidebarExpandedSections}
-                      onExpandedSectionsChange={setSidebarExpandedSections}
-                      expandedCollections={sidebarExpandedCollections}
-                      onExpandedCollectionsChange={setSidebarExpandedCollections}
-                      activeTabId={activeTabId}
-                      activeWorkspaceId={activeWorkspaceId}
-                      onPendingRename={setPendingRenameTabId}
-                    />
-                  ) : (
-                    <Inspector
-                      onClose={() => togglePanel('inspector')}
-                      expandedKeys={inspectorExpandedKeys}
-                      onExpandedKeysChange={setInspectorExpandedKeys}
-                      activeTabType={activeResolvedTab?.type}
-                      onOpenEnvironment={openActiveEnvironment}
-                      onOpenWorkspaceVariables={openWorkspaceVariables}
-                    />
-                  )}
-                </Allotment.Pane>
-              </Allotment>
-            </div>
+              {/* Right pane — content swaps based on sidebarsSwapped */}
+              <Allotment.Pane
+                preferredSize={sidebarsSwapped ? 250 : 300}
+                minSize={sidebarsSwapped ? 180 : 220}
+                maxSize={panels.workbench ? (sidebarsSwapped ? 400 : 500) : Infinity}
+                visible={sidebarsSwapped ? panels.sidebar : panels.inspector}
+              >
+                {sidebarsSwapped ? (
+                  <Sidebar
+                    activePanel={activePanel}
+                    onOpenTab={openTab}
+                    onNewRequest={(opts) => void createNewSource(opts)}
+                    onNewRule={(opts) => void createNewRule(opts)}
+                    onNewEnvironment={(opts) => void createNewEnvironment(opts)}
+                    onOpenWorkspaceVariables={openWorkspaceVariables}
+                    expandedSections={sidebarExpandedSections}
+                    onExpandedSectionsChange={setSidebarExpandedSections}
+                    expandedKeys={sidebarExpansion.expandedKeys}
+                    ensureExpanded={sidebarExpansion.ensureExpanded}
+                    toggleExpand={sidebarExpansion.toggleExpand}
+                    setAllExpanded={sidebarExpansion.setAll}
+                    activeTabId={activeTabId}
+                    activeWorkspaceId={activeWorkspaceId}
+                    onPendingRename={setPendingRenameTabId}
+                  />
+                ) : (
+                  <Inspector
+                    onClose={() => togglePanel('inspector')}
+                    expandedKeys={inspectorExpandedKeys}
+                    onExpandedKeysChange={setInspectorExpandedKeys}
+                    activeTabType={activeResolvedTab?.type}
+                    onOpenEnvironment={openActiveEnvironment}
+                    onOpenWorkspaceVariables={openWorkspaceVariables}
+                  />
+                )}
+              </Allotment.Pane>
+            </Allotment>
           </div>
-
-          {/* Status Bar */}
-          <StatusBar
-            panels={panels}
-            onTogglePanel={togglePanel}
-            onOpenBottomTab={openBottomTab}
-            responseSideBySide={responseSideBySide}
-            onToggleResponseLayout={() => setResponseSideBySide((v) => !v)}
-            onResetLayout={resetLayout}
-            sidebarsSwapped={sidebarsSwapped}
-            onSwapSidebars={swapSidebars}
-          />
-
-          {/* Command Palette */}
-          <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} items={commandItems} />
         </div>
 
-        {/* Workspace Switch Overlay — outside blurred shell */}
-        <WorkspaceSwitchOverlay visible={switchState.switching} targetWorkspace={switchState.targetWorkspace} />
-      </>
+        {/* Status Bar */}
+        <StatusBar
+          panels={panels}
+          onTogglePanel={togglePanel}
+          onOpenBottomTab={openBottomTab}
+          responseSideBySide={responseSideBySide}
+          onToggleResponseLayout={() => setResponseSideBySide((v) => !v)}
+          onResetLayout={resetLayout}
+          sidebarsSwapped={sidebarsSwapped}
+          onSwapSidebars={swapSidebars}
+        />
+
+        {/* Command Palette */}
+        <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} items={commandItems} />
+
+        {/* Save to Collection Modal */}
+        <SaveToCollectionModal
+          {...saveModalProps}
+          collections={collections}
+          folders={folders}
+          sources={sources}
+          workspaceName={workspaceName}
+          onCreateCollection={async (name, section) => {
+            const col = await addCollection({ name, section });
+            if (col) sidebarExpansion.ensureExpanded(`col-${col.id}`);
+            return col;
+          }}
+          onCreateFolder={async (name, collectionId, parentFolderId) => {
+            const fol = await addFolder({
+              name,
+              collectionId,
+              section: saveModalProps.section,
+              parentFolderId: parentFolderId ?? null,
+            });
+            if (fol) {
+              const keys = [`col-${collectionId}`, `folder-${fol.id}`];
+              if (parentFolderId) keys.push(`folder-${parentFolderId}`);
+              sidebarExpansion.ensureExpanded(...keys);
+            }
+            return fol;
+          }}
+        />
+      </div>
+
+      {/* Workspace Switch Overlay — outside blurred shell */}
+      <WorkspaceSwitchOverlay visible={switchState.switching} targetWorkspace={switchState.targetWorkspace} />
     </EditorVariablesProvider>
   );
 }

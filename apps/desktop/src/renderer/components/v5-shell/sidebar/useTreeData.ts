@@ -261,7 +261,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     buildChildren: (collectionId: string, collectionNodeId: string) => TreeNode[],
   ): TreeNode[] {
     const colId = `col-${collection.id}`;
-    const isExpanded = expandedKeys.has(collection.id);
+    const isExpanded = expandedKeys.has(colId);
     const folderSection = sectionToFolder[section];
 
     const onAddItem = () => {
@@ -280,7 +280,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
       canRename: true,
       canDelete: true,
       canAddChild: true,
-      onOpen: () => onToggleExpand(collection.id),
+      onOpen: () => onToggleExpand(colId),
       onRename: async (name) => {
         await updateCollection(collection.id, { name });
       },

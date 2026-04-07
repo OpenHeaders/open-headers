@@ -16,17 +16,20 @@ import { extractRuleVariables, useEditorVariables } from '../contexts/EditorVari
 const { Text, Title } = Typography;
 
 interface RuleEditorProps {
-  ruleId: string;
+  ruleId?: string;
+  draftData?: Record<string, unknown>;
   onDirtyChange?: (dirty: boolean) => void;
   saveRef?: React.MutableRefObject<(() => void) | null>;
+  onSaveDraft?: (data: Record<string, unknown>) => void;
 }
 
-export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) {
+export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDraft }: RuleEditorProps) {
   const { token } = theme.useToken();
   const { rules, updateRule, removeRule, toggleRule } = useHeaderRules();
   const { sources } = useSources();
 
-  const rule = rules.find((r) => r.id === ruleId);
+  const isDraft = !!draftData && !ruleId;
+  const rule = isDraft ? undefined : rules.find((r) => r.id === ruleId);
 
   // Local form state
   const [headerName, setHeaderName] = useState('');
@@ -49,6 +52,35 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
   const buildFingerprint = useCallback(() => {
     return JSON.stringify({ headerName, headerValue, tag, isResponse, isDynamic, sourceId, prefix, suffix, domains });
   }, [headerName, headerValue, tag, isResponse, isDynamic, sourceId, prefix, suffix, domains]);
+
+  // Initialize from draft data
+  const draftInitialized = useRef(false);
+  useEffect(() => {
+    if (isDraft && draftData && !draftInitialized.current) {
+      draftInitialized.current = true;
+      setHeaderName((draftData.headerName as string) || '');
+      setHeaderValue((draftData.headerValue as string) || '');
+      setTag((draftData.tag as string) || '');
+      setIsResponse(!!draftData.isResponse);
+      setIsDynamic(!!draftData.isDynamic);
+      setSourceId((draftData.sourceId as string | number | null) ?? null);
+      setPrefix((draftData.prefix as string) || '');
+      setSuffix((draftData.suffix as string) || '');
+      setDomains((draftData.domains as string[]) || []);
+      setIsEnabled(draftData.isEnabled !== false);
+      snapshotRef.current = JSON.stringify({
+        headerName: '',
+        headerValue: '',
+        tag: '',
+        isResponse: false,
+        isDynamic: false,
+        sourceId: null,
+        prefix: '',
+        suffix: '',
+        domains: [],
+      });
+    }
+  }, [isDraft, draftData]);
 
   // Initialize local state from rule
   useEffect(() => {
@@ -94,12 +126,33 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
   useEffect(() => {
     if (isActuallyDirty !== isDirty) {
       setIsDirty(isActuallyDirty);
-      onDirtyChange?.(isActuallyDirty);
     }
+    onDirtyChange?.(isActuallyDirty);
   }, [isActuallyDirty, isDirty, onDirtyChange]);
 
   // Explicit save
   const handleSave = useCallback(() => {
+    if (isDraft && onSaveDraft) {
+      onSaveDraft({
+        type: 'header',
+        name: headerName || 'New Rule',
+        headerName,
+        headerValue,
+        tag,
+        isResponse,
+        isDynamic,
+        sourceId,
+        prefix,
+        suffix,
+        domains,
+        isEnabled,
+        description: '',
+        hasEnvVars: false,
+        envVars: [],
+      });
+      return;
+    }
+    if (!ruleId) return;
     void updateRule(ruleId, {
       headerName,
       headerValue,
@@ -117,6 +170,8 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
       onDirtyChange?.(false);
     });
   }, [
+    isDraft,
+    onSaveDraft,
     ruleId,
     headerName,
     headerValue,
@@ -127,6 +182,7 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
     prefix,
     suffix,
     domains,
+    isEnabled,
     updateRule,
     onDirtyChange,
     currentFingerprint,
@@ -140,7 +196,9 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
   // Toggle enabled is immediate (not part of dirty state)
   const handleToggleEnabled = (val: boolean) => {
     setIsEnabled(val);
-    void toggleRule(ruleId, val);
+    if (!isDraft && ruleId) {
+      void toggleRule(ruleId, val);
+    }
   };
 
   const handleAddDomain = () => {
@@ -163,7 +221,7 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
     [sources],
   );
 
-  if (!rule) {
+  if (!rule && !isDraft) {
     return (
       <div className="v5-editor-content v5-welcome" style={{ background: token.colorBgContainer }}>
         <Text type="secondary">Rule not found. It may have been deleted.</Text>
@@ -181,7 +239,7 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
               style={{ fontSize: 18, color: isEnabled ? token.colorSuccess : token.colorTextTertiary }}
             />
             <Title level={4} style={{ margin: 0 }}>
-              {rule.name || rule.headerName}
+              {rule?.name || headerName || 'New Rule'}
             </Title>
           </div>
           <Space>
@@ -191,9 +249,11 @@ export function RuleEditor({ ruleId, onDirtyChange, saveRef }: RuleEditorProps) 
               checkedChildren="Enabled"
               unCheckedChildren="Disabled"
             />
-            <Tooltip title="Delete rule">
-              <Button danger type="text" icon={<DeleteOutlined />} onClick={() => void removeRule(ruleId)} />
-            </Tooltip>
+            {!isDraft && ruleId && (
+              <Tooltip title="Delete rule">
+                <Button danger type="text" icon={<DeleteOutlined />} onClick={() => void removeRule(ruleId)} />
+              </Tooltip>
+            )}
           </Space>
         </div>
 
