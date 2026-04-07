@@ -1,78 +1,58 @@
 /**
- * Collection types for v5.
+ * Collection types for the git-based workspace format.
  *
- * Collections organize Requests into a folder hierarchy.
- * They also hold collection-scoped variables and inherited auth.
+ * Collections organize Requests (or Rules) into a folder hierarchy.
+ * On disk, a collection is a directory containing `_collection.yaml`:
  *
- * On disk, the folder structure IS the collection tree:
- *   collections/payments-api/
- *     collection.json
- *     authentication/
- *       login.request.json
- *       otp.request.json
- *     cards/
- *       list-cards.request.json
+ *   requests/auth/
+ *     _collection.yaml   — name, vars, sort order
+ *     login-x7k2/        — request item folder
+ *     tokens/             — grouping folder (has _folder.yaml or children)
+ *       refresh-m9p1/     — request item folder
+ *
+ * Identity is the filesystem path. The 4-char uid suffix on the
+ * folder name provides a stable key for in-memory lookups.
  */
 
-import type { AuthConfig, HttpMethod, Request } from './request';
+import type { HttpMethod } from './request';
 import type { Variable } from './variable';
 
 // ── Collection ─────────────────────────────────────────────────────
 
 export interface Collection {
-  id: string;
+  /** 4-char uid from folder name suffix. */
+  uid: string;
+  /** Relative path within workspace (e.g. "requests/auth"). */
+  path: string;
   name: string;
   description?: string;
-  /** Default auth inherited by all requests unless overridden. */
-  auth?: AuthConfig;
   /** Collection-scoped variables (synced via Git, non-secret only). */
   variables: Variable[];
-  /** Pre-request script run before every request in collection (Phase 2). */
-  preRequestScript?: string;
-  /** Test script run after every response in collection (Phase 2). */
-  testScript?: string;
-  createdAt: string;
-  updatedAt: string;
+  /** Sort order within the sidebar. */
+  sort?: number;
 }
 
-// ── Collection tree (in-memory) ────────────────────────────────────
+// ── Tree nodes (sidebar) ───────────────────────────────────────────
 
-/**
- * Lightweight folder node for the sidebar tree.
- * Full Request data is loaded on demand when opened in a tab.
- */
-export interface CollectionFolder {
+export interface FolderNode {
   type: 'folder';
-  id: string;
+  uid: string;
   name: string;
-  children: CollectionNode[];
+  path: string;
+  children: TreeNode[];
 }
 
-/**
- * Lightweight request reference for the sidebar tree.
- * Contains just enough info to render the sidebar item.
- */
-export interface CollectionRequestRef {
+export interface RequestNode {
   type: 'request';
-  id: string;
+  uid: string;
   name: string;
+  path: string;
   method: HttpMethod;
 }
 
-export type CollectionNode = CollectionFolder | CollectionRequestRef;
+export type TreeNode = FolderNode | RequestNode;
 
-/**
- * Full collection with its tree structure, as held in memory.
- * The tree is built by scanning the disk directory structure.
- */
-export interface CollectionWithTree extends Collection {
-  tree: CollectionNode[];
-}
-
-/**
- * Collection with all requests loaded (used during migration/export).
- */
-export interface CollectionFull extends Collection {
-  tree: CollectionNode[];
-  requests: Request[];
+/** Collection with its full sidebar tree loaded. */
+export interface CollectionTree extends Collection {
+  tree: TreeNode[];
 }

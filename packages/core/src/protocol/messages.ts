@@ -5,7 +5,7 @@
  * and the browser extension (WS client).
  */
 
-import type { PayloadRule, RecordingEvent, RecordingMetadata, Rule, Source } from '../types';
+import type { RecordingEvent, RecordingMetadata } from '../types';
 
 // ── Shared protocol types ──────────────────────────────────────────
 
@@ -169,16 +169,6 @@ export interface StopSyncRecordingMessage {
 
 // ── Outgoing messages (desktop → extension) ────────────────────────
 
-export interface SourcesInitialMessage {
-  type: 'sourcesInitial';
-  sources: Source[];
-}
-
-export interface SourcesUpdatedMessage {
-  type: 'sourcesUpdated';
-  sources: Source[];
-}
-
 export interface RulesUpdateMessage {
   type: 'rules-update';
   data: {
@@ -233,6 +223,4 @@ export interface HeaderRuleFromApp {
 
 export interface RulesData {
   header?: HeaderRuleFromApp[];
-  request?: PayloadRule[];
-  response?: Rule[];
 }

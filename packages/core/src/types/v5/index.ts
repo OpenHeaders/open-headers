@@ -1,48 +1,22 @@
-// ── Request ────────────────────────────────────────────────────────
-
 // ── Collection ─────────────────────────────────────────────────────
 export type {
   Collection,
-  CollectionFolder,
-  CollectionFull,
-  CollectionNode,
-  CollectionRequestRef,
-  CollectionWithTree,
+  CollectionTree,
+  FolderNode,
+  RequestNode,
+  TreeNode,
 } from './collection';
-// ── Migration ──────────────────────────────────────────────────────
+
+// ── Request ────────────────────────────────────────────────────────
 export type {
-  MigrationResult,
-  MigrationWarning,
-  V4EnvironmentsFile,
-  V4EnvironmentVariable,
-  V4HeaderRule,
-  V4JsonFilter,
-  V4PayloadRule,
-  V4ProxyRule,
-  V4RefreshOptions,
-  V4RulesStorage,
-  V4Source,
-  V4SourceHeader,
-  V4SourceQueryParam,
-  V4SourceRequestOptions,
-  V4WorkspaceData,
-} from './migration';
-export type {
-  ApiKeyAuth,
   AuthConfig,
   AuthType,
-  BasicAuth,
-  BearerAuth,
-  BodyConfig,
   BodyType,
-  CachedResponse,
-  FormDataEntry,
-  GraphQLBody,
   HttpMethod,
   QueryParam,
   Request,
+  RequestBody,
   RequestHeader,
-  TotpConfig,
 } from './request';
 
 // ── Rule ───────────────────────────────────────────────────────────
@@ -54,7 +28,6 @@ export type {
   ContentType,
   DelayAction,
   DelayRule,
-  ExtractTarget,
   HeaderAction,
   HeaderOperation,
   HeaderRule,
@@ -66,41 +39,26 @@ export type {
   MockRule,
   RedirectAction,
   RedirectRule,
-  RefreshMode,
-  RequestSource,
   ResourceType,
   Rule,
   RuleBase,
   RuleType,
-  ValueSource,
 } from './rule';
 
-// ── Storage ────────────────────────────────────────────────────────
-export type {
-  CollectionFile,
-  EnvironmentFile,
-  EnvironmentValuesFile,
-  RequestFile,
-  RuleFile,
-  StorageVersion,
-  TeamConfigV4Compat,
-  VaultFile,
-  WorkspaceManifest,
-  WorkspaceVariablesFile,
-} from './storage';
-export { STORAGE_VERSION, V5_GITIGNORE } from './storage';
 // ── Variable ───────────────────────────────────────────────────────
 export type {
   Environment,
-  EnvironmentLocalValues,
-  EnvironmentManifest,
-  EnvironmentVariableDefinition,
   ResolutionContext,
   ResolvedVariable,
   Variable,
   VariableScope,
-  VariableValueSource,
   Vault,
   VaultSecret,
   WorkspaceVariables,
 } from './variable';
+
+// ── Workspace ──────────────────────────────────────────────────────
+export type { Workspace } from './workspace';
+
+// ── Storage ────────────────────────────────────────────────────────
+export { V5_GITIGNORE } from './storage';

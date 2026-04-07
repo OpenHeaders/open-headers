@@ -1,58 +1,16 @@
 /**
- * Rule types for v5.
+ * Rule types for the git-based workspace format.
  *
- * Rules define how the proxy/extension modifies HTTP traffic.
- * Key changes from v4:
- * - Rules own the relationship to Requests (replaces Source linking)
- * - New rule types: redirect, inject, block, delay, mock
- * - Tags are arrays (rules can belong to multiple groups)
- * - Proxy rules merged into main rules (proxyEnabled flag)
+ * Rules define how the browser extension modifies HTTP traffic.
+ * On disk, each rule is a folder containing rule.yaml + optional scripts.js,
+ * organized in the same collection/folder/item hierarchy as requests.
+ *
+ * Rule types: header, redirect, body, inject, block, delay, mock.
+ * Header rules have static values with {{VAR}} interpolation.
+ * Dynamic value linking (to requests) is deferred to a later phase.
  */
 
-// ── Value source ───────────────────────────────────────────────────
-
-/**
- * Where a rule gets its value from.
- * - 'static': value is a template string, may contain {{VAR}} references
- * - 'request': value is extracted from a linked Request's response
- */
-export type ValueSource = 'static' | 'request';
-
-// ── Request source (replaces v4 Source + isDynamic/sourceId) ───────
-
-export type RefreshMode = 'manual' | 'interval' | 'on-expire';
-
-export type ExtractTarget = 'body' | 'header' | 'status';
-
-/**
- * Configuration for extracting a value from a Request's response.
- * This replaces the v4 pattern of Source.jsonFilter + Rule.isDynamic/sourceId/prefix/suffix.
- */
-export interface RequestSource {
-  /** ID of a Request in Collections. */
-  requestId: string;
-  /** JSONPath expression to extract value (e.g. "$.access_token"). */
-  responseExtract: string;
-  /** Which part of the response to extract from. */
-  extractTarget: ExtractTarget;
-  /**
-   * Template for the final value. Use {value} as placeholder for the extracted value.
-   * Example: "Bearer {value}" wraps the extracted token.
-   * If omitted, the raw extracted value is used.
-   */
-  valueTemplate?: string;
-  /** How the value is refreshed. */
-  refreshMode: RefreshMode;
-  /** Seconds between refreshes (when refreshMode is 'interval'). */
-  refreshInterval?: number;
-  /** Optionally also store the extracted value as an environment variable. */
-  storeAsVariable?: string;
-
-  // ── Runtime state (not synced via Git) ───────────────────────────
-  lastRefreshed?: string;
-  lastValue?: string | null;
-  nextRefresh?: string;
-}
+import type { HttpMethod } from './request';
 
 // ── Rule types ─────────────────────────────────────────────────────
 
@@ -61,13 +19,16 @@ export type RuleType = 'header' | 'redirect' | 'body' | 'inject' | 'block' | 'de
 // ── Base rule ──────────────────────────────────────────────────────
 
 export interface RuleBase {
-  id: string;
+  /** 4-char uid from folder name suffix. */
+  uid: string;
+  /** Relative path within workspace. */
+  path: string;
   name: string;
   type: RuleType;
   enabled: boolean;
-  /** Tags for grouping (e.g. ["backend"]). Replaces v4 singular `tag` string. */
+  /** Tags for grouping (e.g. ["dev-overrides"]). */
   tags: string[];
-  /** Domain patterns with glob support (e.g. "*.example.com"). Supports {{VAR}} interpolation. */
+  /** Domain patterns with glob support (e.g. "*.openheaders.io"). Supports {{VAR}}. */
   domains: string[];
   /** URL path patterns (optional, for finer matching). */
   urlPatterns?: string[];
@@ -75,13 +36,7 @@ export interface RuleBase {
   methods?: HttpMethod[];
   /** Filter by resource type (optional). */
   resourceTypes?: ResourceType[];
-  /** Whether this rule also applies in the proxy server. Replaces v4 proxy-rules.json. */
-  proxyEnabled: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
-
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
 export type ResourceType =
   | 'page'
@@ -107,18 +62,8 @@ export interface HeaderAction {
 export interface HeaderRule extends RuleBase {
   type: 'header';
   action: HeaderAction;
-  valueSource: ValueSource;
-  /**
-   * Static value template. Supports {{VAR}} interpolation.
-   * Used when valueSource is 'static'.
-   * Example: "{{MC2_VOS_X_TENANT_ID}}" or "Bearer {{TOKEN}}"
-   */
+  /** Static value template. Supports {{VAR}} interpolation. */
   staticValue?: string;
-  /**
-   * Request-sourced value configuration.
-   * Used when valueSource is 'request'.
-   */
-  requestSource?: RequestSource;
 }
 
 // ── Redirect rule ──────────────────────────────────────────────────
@@ -135,7 +80,7 @@ export interface RedirectRule extends RuleBase {
   action: RedirectAction;
 }
 
-// ── Body rule (replaces v4 PayloadRule) ────────────────────────────
+// ── Body rule ──────────────────────────────────────────────────────
 
 export type MatchType = 'contains' | 'regex' | 'exact';
 

@@ -27,10 +27,6 @@
       "import": "./src/utils/index.ts",
       "default": "./dist/utils/index.js"
     },
-    "./migration": {
-      "import": "./src/migration/index.ts",
-      "default": "./dist/migration/index.js"
-    },
     "./variables": {
       "import": "./src/variables/index.ts",
       "default": "./dist/variables/index.js"
@@ -44,7 +40,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "valibot": "^1.3.1"
+    "valibot": "^1.3.1",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

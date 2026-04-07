@@ -1,18 +1,11 @@
 /**
  * Shared types for WorkspaceStateService and its submodules.
+ *
+ * Workspace state is the single source of truth for the active workspace's
+ * data in memory. The storage layer (V5StorageService) handles disk I/O.
  */
 
-import type {
-  Collection,
-  Environment,
-  EnvironmentVariable,
-  Folder,
-  HeaderRule,
-  RulesCollection,
-  Source,
-} from '@openheaders/core';
-import type { SyncData } from '@/services/workspace/sync/types';
-import type { ProxyRule } from '@/types/proxy';
+import type { V5 } from '@openheaders/core/types';
 import type { Workspace, WorkspaceMetadata, WorkspaceSyncStatus } from '@/types/workspace';
 
 // ── State shape ───────────────────────────────────────────────────
@@ -25,33 +18,28 @@ export interface WorkspaceState {
   activeWorkspaceId: string;
   isWorkspaceSwitching: boolean;
   syncStatus: Record<string, WorkspaceSyncStatus>;
-  sources: Source[];
-  rules: RulesCollection;
-  proxyRules: ProxyRule[];
-  collections: Collection[];
-  folders: Folder[];
-  environments: Environment[];
-  activeEnvironment: string | null;
-  workspaceVariables: Record<string, EnvironmentVariable>;
+  /** Request collections with their tree structure. */
+  requestCollections: V5.CollectionTree[];
+  /** Rule collections with their tree structure. */
+  ruleCollections: V5.CollectionTree[];
+  /** All rules across all collections. */
+  rules: V5.Rule[];
+  /** Environments available in this workspace. */
+  environments: V5.Environment[];
+  /** Name of the active environment (null = no environment). */
+  activeEnvironmentName: string | null;
+  /** Workspace-level variables. */
+  workspaceVariables: V5.WorkspaceVariables;
+  /** Vault secrets (local, never synced). */
+  vault: V5.Vault;
 }
 
 // ── External service interfaces ───────────────────────────────────
 
 export interface WebSocketServiceLike {
-  sources: Source[];
-  rules: RulesCollection;
-  sourceHandler: { broadcastSources(): void };
+  rules: V5.Rule[];
   ruleHandler: { broadcastRules(): void };
   environmentHandler: EnvironmentResolverLike;
-}
-
-export interface ProxyServiceLike {
-  switchWorkspace(workspaceId: string): Promise<void>;
-  updateSources(sources: Source[]): void;
-  updateHeaderRules(rules: HeaderRule[]): void;
-  updateProxyRules(rules: ProxyRule[]): void;
-  updateEnvironmentVariables(variables: Record<string, string | { value: string }> | null): void;
-  clearRules(): void;
 }
 
 export interface EnvironmentResolverLike {
@@ -59,45 +47,24 @@ export interface EnvironmentResolverLike {
   resolveTemplate(template: string, variables: Record<string, string>): string;
   setVariables(variables: Record<string, string>): void;
   clearVariableCache(): void;
-  setSourceOutputResolver(
-    resolver: () => Array<{ sourceContent?: string | null; storeAsVariable?: string; activationState?: string }>,
-  ): void;
-}
-
-export interface SourceRefreshServiceLike {
-  activeWorkspaceId: string;
-  updateSource(source: Source): Promise<void>;
-  removeSourcesNotIn(ids: Set<string>): Promise<void>;
-  clearAllSources(): Promise<void>;
-  manualRefresh(sourceId: string): Promise<{ success: boolean; error?: string }>;
-  resetCircuitBreaker(sourceId: string): void;
-  fetchOnce?(source: Source): Promise<{
-    content: string;
-    originalResponse: string | null;
-    headers: Record<string, string>;
-    isFiltered: boolean;
-    filteredWith: string | null;
-  }>;
 }
 
 export interface WorkspaceSyncSchedulerLike {
   activateWorkspace(workspaceId: string, options?: { skipInitialSync?: boolean }): Promise<void>;
   onWorkspaceSwitch(workspaceId: string, options?: { skipInitialSync?: boolean }): Promise<void>;
   onWorkspaceUpdated(workspaceId: string, workspace: Workspace): Promise<void>;
-  importSyncedData(workspaceId: string, data: SyncData, options?: { broadcastToExtensions?: boolean }): Promise<void>;
 }
 
 // ── Dirty tracking ────────────────────────────────────────────────
 
 export interface DirtyFlags {
-  sources: boolean;
+  requestCollections: boolean;
+  ruleCollections: boolean;
   rules: boolean;
-  proxyRules: boolean;
-  collections: boolean;
-  folders: boolean;
-  workspaces: boolean;
   environments: boolean;
   workspaceVariables: boolean;
+  vault: boolean;
+  workspaces: boolean;
 }
 
 // ── Context passed to CRUD submodules ─────────────────────────────
@@ -110,20 +77,12 @@ export interface DirtyFlags {
 export interface StateContext {
   state: WorkspaceState;
   dirty: DirtyFlags;
-  appDataPath: string;
+  workspaceRootPath: string;
   webSocketService: WebSocketServiceLike | null;
-  proxyService: ProxyServiceLike | null;
   envResolver: EnvironmentResolverLike | null;
-  sourceRefreshService: SourceRefreshServiceLike | null;
   syncScheduler: WorkspaceSyncSchedulerLike | null;
   scheduleDebouncedSave(): void;
   saveAll(): Promise<void>;
-  saveSources(): Promise<void>;
-  saveCollections(): Promise<void>;
-  saveFolders(): Promise<void>;
-  saveEnvironments(): Promise<void>;
-  saveWorkspaceVariables(): Promise<void>;
-  saveWorkspacesConfig(): Promise<void>;
   loadWorkspaceData(workspaceId: string): Promise<void>;
   updateWorkspaceMetadataInMemory(workspaceId: string, metadata: Partial<WorkspaceMetadata>): void;
 }

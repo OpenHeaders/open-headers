@@ -5,17 +5,16 @@ import { resolveTemplate, VariableResolver } from '../../src/variables';
 // ── Factories ──────────────────────────────────────────────────────
 
 function makeVariable(name: string, value: string, type: 'default' | 'secret' = 'default'): Variable {
-  return { name, value, type, source: 'static' };
+  return { name, value, type };
 }
 
 function makeEnvironment(name: string, vars: Variable[], isActive = false): Environment {
-  return { id: `env-${name.toLowerCase()}`, name, variables: vars, isActive };
+  return { name, path: `environments/${name.toLowerCase()}.yaml`, variables: vars, isActive };
 }
 
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
-  const now = new Date().toISOString();
   return {
-    secrets: secrets.map((s) => ({ ...s, createdAt: now, updatedAt: now })),
+    secrets: secrets.map((s) => ({ ...s })),
   };
 }
 
@@ -86,7 +85,7 @@ describe('VariableResolver', () => {
 
       const result = resolver.resolve('SECRET_KEY', { collectionId: 'coll-1' });
       expect(result?.value).toBe('from-vault');
-      expect(result?.scope).toBe('secret');
+      expect(result?.scope).toBe('vault');
       expect(result?.isSensitive).toBe(true);
     });
 
@@ -114,7 +113,7 @@ describe('VariableResolver', () => {
         makeEnvironment('Prod', [makeVariable('URL', 'https://prod.openheaders.io')], false),
       ]);
 
-      const result = resolver.resolve('URL', { environmentId: 'env-prod' });
+      const result = resolver.resolve('URL', { environmentName: 'Prod' });
       expect(result?.value).toBe('https://prod.openheaders.io');
     });
 
@@ -238,12 +237,12 @@ describe('VariableResolver', () => {
 describe('resolveTemplate (standalone)', () => {
   it('works with a custom lookup function', () => {
     const lookup = (name: string) => {
-      if (name === 'TOKEN') return { name, value: 'abc123', scope: 'secret' as const, isSensitive: true };
+      if (name === 'TOKEN') return { name, value: 'abc123', scope: 'vault' as const, isSensitive: true };
       return null;
     };
 
     const { result, variables } = resolveTemplate('Bearer {{TOKEN}}', lookup);
     expect(result).toBe('Bearer abc123');
-    expect(variables[0].scope).toBe('secret');
+    expect(variables[0].scope).toBe('vault');
   });
 });

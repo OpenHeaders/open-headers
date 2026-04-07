@@ -13,7 +13,6 @@ import proxyService from '@/services/proxy/ProxyService';
 import sourceRefreshService from '@/services/source-refresh/SourceRefreshService';
 import webSocketService from '@/services/websocket/ws-service';
 import GitSyncService from '@/services/workspace/git/GitSyncService';
-import { runMigration } from '@/services/workspace/v5-storage';
 import WorkspaceSettingsService from '@/services/workspace/WorkspaceSettingsService';
 import workspaceStateService from '@/services/workspace/WorkspaceStateService';
 import WorkspaceSyncScheduler from '@/services/workspace/WorkspaceSyncScheduler';
@@ -126,18 +125,6 @@ class AppLifecycle {
       };
 
       log.info('SourceRefreshService configured');
-
-      // v5 migration preview: converts v4 flat files into a v5/ directory tree
-      // for inspection. Gated behind developerMode — no runtime effect on the app.
-      const migrationResult = await runMigration(electron.app.getPath('userData'), {
-        enabled: settingsCache.get().developerMode,
-      });
-      if (migrationResult.totalMigrated > 0) {
-        log.info(`v5 preview: ${migrationResult.totalMigrated} workspace(s) migrated`);
-      }
-      if (migrationResult.totalFailed > 0) {
-        log.warn(`v5 preview: ${migrationResult.totalFailed} workspace(s) failed`);
-      }
 
       // Configure and initialize WorkspaceStateService — the single owner of workspace state.
       // This must happen after all services are initialized so it can broadcast to them.

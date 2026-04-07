@@ -1,8 +1,8 @@
 /**
  * Desktop-only type re-exports.
  *
- * Shared types (Source, HeaderRule, Recording, etc.) are imported
- * directly from '@openheaders/core'. This barrel only re-exports
+ * Shared types (Request, Rule, Environment, etc.) are imported
+ * directly from '@openheaders/core/types'. This barrel only re-exports
  * types that are specific to the desktop app.
  */
 
@@ -12,15 +12,11 @@ export type {
 } from './common';
 export { toErrno } from './common';
 export type {
-  EnvironmentConfigData,
-  EnvironmentMap,
-  EnvironmentSchema,
-  EnvironmentSchemaEntry,
-  EnvironmentSchemaVariable,
-  EnvironmentsFile,
-  EnvironmentVariable,
-  EnvironmentVariables,
+  Environment,
+  EnvironmentsState,
+  Variable,
 } from './environment';
+export { cloneEnvironments } from './environment';
 export type {
   EnvironmentContextLike,
   HttpProgressCallback,

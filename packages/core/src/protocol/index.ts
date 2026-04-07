@@ -28,8 +28,6 @@ export type {
   RulesUpdateMessage,
   SaveWorkflowMessage,
   SettingsTabId,
-  SourcesInitialMessage,
-  SourcesUpdatedMessage,
   StartSyncRecordingMessage,
   StopSyncRecordingMessage,
   ToggleAllRulesMessage,

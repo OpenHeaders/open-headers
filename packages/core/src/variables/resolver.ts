@@ -73,15 +73,15 @@ export class VariableResolver {
    * Returns the resolved value + which scope it came from, or null if unresolved.
    */
   resolve(name: string, context?: ResolutionContext): ResolvedVariable | null {
-    // 1. Secret (highest priority)
+    // 1. Vault (highest priority)
     const vaultSecret = this.vault.secrets.find((s) => s.name === name);
     if (vaultSecret?.value) {
-      return { name, value: vaultSecret.value, scope: 'secret', isSensitive: true };
+      return { name, value: vaultSecret.value, scope: 'vault', isSensitive: true };
     }
 
     // 2. Active environment
-    const activeEnv = context?.environmentId
-      ? this.environments.find((e) => e.id === context.environmentId)
+    const activeEnv = context?.environmentName
+      ? this.environments.find((e) => e.name === context.environmentName)
       : this.environments.find((e) => e.isActive);
 
     if (activeEnv) {

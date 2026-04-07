@@ -1,7 +1,7 @@
-export {
-  generateSavedDataHash,
-  generateSourcesHash,
-} from './hash';
+export type {
+  HeaderNameValidation,
+  HeaderValueValidation,
+} from './headers';
 export {
   normalizeHeaderName,
   sanitizeHeaderValue,

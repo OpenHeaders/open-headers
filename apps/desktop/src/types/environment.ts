@@ -1,71 +1,29 @@
 /**
- * Environment domain types.
+ * Environment types for the desktop app.
  *
- * The core Environment interface lives in @openheaders/core.
- * This file re-exports it and adds desktop-specific persistence types.
+ * Re-exports V5 environment types and adds desktop-specific helpers.
  */
 
-// Re-export core types
-export type { Environment, EnvironmentVariable } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 
-/** Variables keyed by name within a single environment (internal use). */
-export type EnvironmentVariables = Record<string, import('@openheaders/core').EnvironmentVariable>;
+// Re-export core types for convenience
+export type Environment = V5.Environment;
+export type Variable = V5.Variable;
 
 /**
- * Legacy name-keyed environment map. Still used as the wire format for
- * Git sync (remote data) and config import/export. Internal state uses
- * Environment[] instead.
+ * Persisted environments state (tracks which environment is active).
  */
-export type EnvironmentMap = Record<string, EnvironmentVariables>;
-
-/**
- * Convert Environment[] to legacy name-keyed EnvironmentMap.
- * Used by v4 renderer components that still expect the old format.
- */
-export function toEnvironmentMap(environments: import('@openheaders/core').Environment[]): EnvironmentMap {
-  const map: EnvironmentMap = {};
-  for (const env of environments) {
-    map[env.name] = env.variables;
-  }
-  return map;
+export interface EnvironmentsState {
+  environments: V5.Environment[];
+  activeEnvironmentName: string | null;
 }
 
 /**
  * Create an independent deep copy of an Environment array.
  */
-export function cloneEnvironments(
-  environments: import('@openheaders/core').Environment[],
-): import('@openheaders/core').Environment[] {
+export function cloneEnvironments(environments: V5.Environment[]): V5.Environment[] {
   return environments.map((env) => ({
     ...env,
-    variables: Object.fromEntries(Object.entries(env.variables).map(([k, v]) => [k, { ...v }])),
+    variables: env.variables.map((v) => ({ ...v })),
   }));
-}
-
-// ── Persisted file shape (environments.json) ────────────────────────
-
-export interface EnvironmentsFile {
-  environments: import('@openheaders/core').Environment[];
-  activeEnvironment: string | null;
-}
-
-// ── Environment config sharing ──────────────────────────────────────
-
-export interface EnvironmentSchemaVariable {
-  name: string;
-  isSensitive: boolean;
-}
-
-export interface EnvironmentSchemaEntry {
-  variables: EnvironmentSchemaVariable[];
-}
-
-export interface EnvironmentSchema {
-  environments: Record<string, EnvironmentSchemaEntry>;
-}
-
-export interface EnvironmentConfigData {
-  version: string;
-  environments?: EnvironmentMap;
-  environmentSchema?: EnvironmentSchema;
 }

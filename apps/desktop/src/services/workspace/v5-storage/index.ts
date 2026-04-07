@@ -1,15 +1,11 @@
-export type { MigrationRunnerOptions, MigrationRunnerResult } from './MigrationRunner';
-export { runMigration } from './MigrationRunner';
-export type { V4WorkspaceShape } from './V5DataAdapter';
-export { convertV5toV4 } from './V5DataAdapter';
-export type { V5WorkspaceWriteData } from './V5StorageService';
+export type { WorkspaceWriteData } from './V5StorageService';
 export {
   isV5Workspace,
   readAllCollections,
   readAllEnvironments,
   readAllRequests,
+  readAllRuleCollections,
   readAllRules,
-  readCollection,
   readRequest,
   readVault,
   readWorkspaceManifest,
