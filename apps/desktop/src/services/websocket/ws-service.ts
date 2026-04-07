@@ -1,7 +1,8 @@
 // ws-service.ts - WebSocket service core: server lifecycle, message routing, public API
 
 import http from 'node:http';
-import type { AppNavigationIntent, RulesCollection, Source } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
+import type { AppNavigationIntent } from '@openheaders/core';
 import electron from 'electron';
 import WS, { WebSocketServer } from 'ws';
 import settingsCache from '@/services/core/SettingsCache';
@@ -13,7 +14,6 @@ import { WSNetworkStateHandler } from './ws-network-state';
 import type { RecordingStateSyncData, StartSyncRecordingData, StopSyncRecordingData } from './ws-recording-handler';
 import { WSRecordingHandler } from './ws-recording-handler';
 import { WSRuleHandler } from './ws-rule-handler';
-import { WSSourceHandler } from './ws-source-handler';
 
 const { createLogger } = mainLogger;
 const log = createLogger('WebSocketService');
@@ -57,8 +57,7 @@ class WebSocketService {
   wsPort: number;
   host: string;
   isInitializing: boolean;
-  sources: Source[];
-  rules: RulesCollection;
+  rules: V5.Rule[];
   appDataPath: string | null;
   connectedClients: Map<string, WSClientInfo>;
   clientInitializationLocks: Map<string, InitLock>;
@@ -72,7 +71,6 @@ class WebSocketService {
   // Handlers
   recordingHandler: WSRecordingHandler;
   ruleHandler: WSRuleHandler;
-  sourceHandler: WSSourceHandler;
   environmentHandler: WSEnvironmentHandler;
   clientHandler: WSClientHandler;
   networkStateHandler: WSNetworkStateHandler | null;
@@ -83,8 +81,7 @@ class WebSocketService {
     this.wsPort = 59210;
     this.host = '127.0.0.1';
     this.isInitializing = false;
-    this.sources = [];
-    this.rules = { header: [], request: [], response: [] };
+    this.rules = [];
     this.appDataPath = null;
     this.connectedClients = new Map();
     this.clientInitializationLocks = new Map();
@@ -98,7 +95,6 @@ class WebSocketService {
     this.recordingHandler.onFocusApp = (nav) => this._handleFocusApp(nav);
     this.recordingHandler.onNotifyRenderers = (channel, data) => this._sendToRenderers(channel, data);
     this.ruleHandler = new WSRuleHandler(this);
-    this.sourceHandler = new WSSourceHandler(this);
     this.environmentHandler = new WSEnvironmentHandler();
     this.clientHandler = new WSClientHandler(this);
     this.networkStateHandler = null;
@@ -490,13 +486,8 @@ class WebSocketService {
     return n > 0;
   }
 
-  // Source delegators
-  updateSources(sources: Source[]): void {
-    this.sourceHandler.updateSources(sources);
-  }
-
   // Rule delegators
-  updateRules(rules: RulesCollection): void {
+  updateRules(rules: V5.Rule[]): void {
     this.ruleHandler.updateRules(rules);
   }
   broadcastRules(): void {

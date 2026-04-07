@@ -5,12 +5,10 @@
  * The renderer calls ipcRenderer.invoke() and receives results.
  */
 
-import type { Collection, EnvironmentVariable, Folder, HeaderRule, Source, SourceUpdate } from '@openheaders/core';
-
+import type { V5 } from '@openheaders/core/types';
 import { errorMessage } from '@openheaders/core';
 import { ipcMain } from 'electron';
 import workspaceStateService from '@/services/workspace/WorkspaceStateService';
-import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceType } from '@/types/workspace';
 import mainLogger from '@/utils/mainLogger';
 
@@ -48,139 +46,26 @@ export function registerWorkspaceStateHandlers(): void {
     }
   });
 
-  // ── Source CRUD ────────────────────────────────────────────────
+  // ── Collection CRUD ───────────────────────────────────────────
 
-  ipcMain.handle('workspace-state:add-source', async (_event, sourceData: Source) => {
-    try {
-      const source = await workspaceStateService.addSource(sourceData);
-      return { success: true, source };
-    } catch (error) {
-      log.error('Add source failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:update-source', async (_event, sourceId: string, updates: SourceUpdate) => {
-    try {
-      const source = await workspaceStateService.updateSource(sourceId, updates);
-      return { success: true, source };
-    } catch (error) {
-      log.error('Update source failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:remove-source', async (_event, sourceId: string) => {
-    try {
-      await workspaceStateService.removeSource(sourceId);
-      return { success: true };
-    } catch (error) {
-      log.error('Remove source failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:update-source-content', async (_event, sourceId: string, content: string) => {
-    try {
-      await workspaceStateService.updateSourceContent(sourceId, content);
-      return { success: true };
-    } catch (error) {
-      log.error('Update source content failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:refresh-source', async (_event, sourceId: string) => {
-    try {
-      const result = await workspaceStateService.refreshSource(sourceId);
-      return { success: result };
-    } catch (error) {
-      log.error('Refresh source failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:import-sources', async (_event, sources: Source[], replace: boolean) => {
-    try {
-      await workspaceStateService.importSources(sources, replace);
-      return { success: true };
-    } catch (error) {
-      log.error('Import sources failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  // ── Header Rule CRUD ──────────────────────────────────────────
-
-  ipcMain.handle('workspace-state:add-header-rule', async (_event, ruleData: Partial<HeaderRule>) => {
-    try {
-      const rule = await workspaceStateService.addHeaderRule(ruleData);
-      return { success: true, rule };
-    } catch (error) {
-      log.error('Add header rule failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:update-header-rule', async (_event, ruleId: string, updates: Partial<HeaderRule>) => {
-    try {
-      await workspaceStateService.updateHeaderRule(ruleId, updates);
-      return { success: true };
-    } catch (error) {
-      log.error('Update header rule failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:remove-header-rule', async (_event, ruleId: string) => {
-    try {
-      await workspaceStateService.removeHeaderRule(ruleId);
-      return { success: true };
-    } catch (error) {
-      log.error('Remove header rule failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  // ── Proxy Rule CRUD ───────────────────────────────────────────
-
-  ipcMain.handle('workspace-state:add-proxy-rule', async (_event, ruleData: ProxyRule) => {
-    try {
-      await workspaceStateService.addProxyRule(ruleData);
-      return { success: true };
-    } catch (error) {
-      log.error('Add proxy rule failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:remove-proxy-rule', async (_event, ruleId: string) => {
-    try {
-      await workspaceStateService.removeProxyRule(ruleId);
-      return { success: true };
-    } catch (error) {
-      log.error('Remove proxy rule failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  // ── Collection CRUD ────────────────────────────────────────────
-
-  ipcMain.handle('workspace-state:add-collection', async (_event, data: Omit<Collection, 'id'>) => {
-    try {
-      const collection = await workspaceStateService.addCollection(data);
-      return { success: true, collection };
-    } catch (error) {
-      log.error('Add collection failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
+  ipcMain.handle(
+    'workspace-state:add-collection',
+    async (_event, section: 'requests' | 'rules', data: Omit<V5.Collection, 'uid' | 'path'>) => {
+      try {
+        const collection = await workspaceStateService.addCollection(section, data);
+        return { success: true, collection };
+      } catch (error) {
+        log.error('Add collection failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
 
   ipcMain.handle(
     'workspace-state:update-collection',
-    async (_event, collectionId: string, updates: Partial<Collection>) => {
+    async (_event, section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>) => {
       try {
-        await workspaceStateService.updateCollection(collectionId, updates);
+        await workspaceStateService.updateCollection(section, uid, updates);
         return { success: true };
       } catch (error) {
         log.error('Update collection failed:', error);
@@ -189,44 +74,12 @@ export function registerWorkspaceStateHandlers(): void {
     },
   );
 
-  ipcMain.handle('workspace-state:remove-collection', async (_event, collectionId: string) => {
+  ipcMain.handle('workspace-state:remove-collection', async (_event, section: 'requests' | 'rules', uid: string) => {
     try {
-      await workspaceStateService.removeCollection(collectionId);
+      await workspaceStateService.removeCollection(section, uid);
       return { success: true };
     } catch (error) {
       log.error('Remove collection failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  // ── Folder CRUD ───────────────────────────────────────────────
-
-  ipcMain.handle('workspace-state:add-folder', async (_event, folderData: Omit<Folder, 'id'>) => {
-    try {
-      const folder = await workspaceStateService.addFolder(folderData);
-      return { success: true, folder };
-    } catch (error) {
-      log.error('Add folder failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:update-folder', async (_event, folderId: string, updates: Partial<Folder>) => {
-    try {
-      await workspaceStateService.updateFolder(folderId, updates);
-      return { success: true };
-    } catch (error) {
-      log.error('Update folder failed:', error);
-      return { success: false, error: errorMessage(error) };
-    }
-  });
-
-  ipcMain.handle('workspace-state:remove-folder', async (_event, folderId: string) => {
-    try {
-      await workspaceStateService.removeFolder(folderId);
-      return { success: true };
-    } catch (error) {
-      log.error('Remove folder failed:', error);
       return { success: false, error: errorMessage(error) };
     }
   });
@@ -235,9 +88,9 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle(
     'workspace-state:create-workspace',
-    async (_event, workspace: Partial<Workspace> & { id: string; name: string; type: WorkspaceType }) => {
+    async (_event, name: string, type: WorkspaceType, options?: { description?: string; gitUrl?: string }) => {
       try {
-        const created = await workspaceStateService.createWorkspace(workspace);
+        const created = await workspaceStateService.createWorkspace(name, type, options);
         return { success: true, workspace: created };
       } catch (error) {
         log.error('Create workspace failed:', error);
@@ -282,55 +135,21 @@ export function registerWorkspaceStateHandlers(): void {
     },
   );
 
-  ipcMain.handle('workspace-state:sync-workspace', async (_event, workspaceId: string) => {
+  // ── Environment CRUD ───────────────────────────────────────────
+
+  ipcMain.handle('workspace-state:create-environment', async (_event, name: string) => {
     try {
-      const result = await workspaceStateService.syncWorkspace(workspaceId);
-      return result;
+      const env = await workspaceStateService.createEnvironment(name);
+      return { success: true, environment: env };
     } catch (error) {
-      log.error('Sync workspace failed:', error);
+      log.error('Create environment failed:', error);
       return { success: false, error: errorMessage(error) };
     }
   });
 
-  // ── Environment CRUD ───────────────────────────────────────────
-
-  ipcMain.handle('workspace-state:get-environment-state', () => {
-    return workspaceStateService.getEnvironmentState();
-  });
-
-  ipcMain.handle(
-    'workspace-state:create-environment',
-    async (_event, params: { name: string; collectionId?: string; folderId?: string }) => {
-      try {
-        const env = await workspaceStateService.createEnvironment(params);
-        return { success: true, environment: env };
-      } catch (error) {
-        log.error('Create environment failed:', error);
-        return { success: false, error: errorMessage(error) };
-      }
-    },
-  );
-
-  ipcMain.handle(
-    'workspace-state:update-environment',
-    async (
-      _event,
-      environmentId: string,
-      updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
-    ) => {
-      try {
-        await workspaceStateService.updateEnvironment(environmentId, updates);
-        return { success: true };
-      } catch (error) {
-        log.error('Update environment failed:', error);
-        return { success: false, error: errorMessage(error) };
-      }
-    },
-  );
-
-  ipcMain.handle('workspace-state:delete-environment', async (_event, environmentId: string) => {
+  ipcMain.handle('workspace-state:delete-environment', async (_event, name: string) => {
     try {
-      await workspaceStateService.deleteEnvironment(environmentId);
+      await workspaceStateService.deleteEnvironment(name);
       return { success: true };
     } catch (error) {
       log.error('Delete environment failed:', error);
@@ -338,9 +157,9 @@ export function registerWorkspaceStateHandlers(): void {
     }
   });
 
-  ipcMain.handle('workspace-state:switch-environment', async (_event, environmentId: string | null) => {
+  ipcMain.handle('workspace-state:switch-environment', async (_event, name: string | null) => {
     try {
-      await workspaceStateService.switchEnvironment(environmentId);
+      await workspaceStateService.switchEnvironment(name);
       return { success: true };
     } catch (error) {
       log.error('Switch environment failed:', error);
@@ -350,44 +169,12 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle(
     'workspace-state:set-variable',
-    async (_event, name: string, value: string | null, environmentId: string, isSensitive: boolean) => {
+    async (_event, envName: string, varName: string, value: string, type: 'default' | 'secret') => {
       try {
-        await workspaceStateService.setVariable(name, value, environmentId, isSensitive);
+        await workspaceStateService.setVariable(envName, varName, value, type);
         return { success: true };
       } catch (error) {
         log.error('Set variable failed:', error);
-        return { success: false, error: errorMessage(error) };
-      }
-    },
-  );
-
-  ipcMain.handle(
-    'workspace-state:batch-set-variables',
-    async (
-      _event,
-      environmentId: string,
-      variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
-    ) => {
-      try {
-        await workspaceStateService.batchSetVariables(environmentId, variables);
-        return { success: true };
-      } catch (error) {
-        log.error('Batch set variables failed:', error);
-        return { success: false, error: errorMessage(error) };
-      }
-    },
-  );
-
-  // ── Workspace Variables ────────────────────────────────────────
-
-  ipcMain.handle(
-    'workspace-state:update-workspace-variables',
-    async (_event, variables: Record<string, EnvironmentVariable>) => {
-      try {
-        await workspaceStateService.updateWorkspaceVariables(variables);
-        return { success: true };
-      } catch (error) {
-        log.error('Update workspace variables failed:', error);
         return { success: false, error: errorMessage(error) };
       }
     },

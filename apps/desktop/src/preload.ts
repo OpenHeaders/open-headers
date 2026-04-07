@@ -23,7 +23,6 @@ import networkAPI from './preload/api/networkAPI';
 import proxyAPI from './preload/api/proxyAPI';
 import recordingAPI from './preload/api/recordingAPI';
 import settingsAPI from './preload/api/settingsAPI';
-import sourceRefreshAPI from './preload/api/sourceRefreshAPI';
 import systemAPI from './preload/api/systemAPI';
 import updateAPI from './preload/api/updateAPI';
 import videoAPI from './preload/api/videoAPI';
@@ -64,9 +63,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // CLI API server
   ...cliAPI,
-
-  // Source refresh (main-process owned lifecycle)
-  sourceRefresh: sourceRefreshAPI,
 
   // HTTP request execution (main-process owned)
   httpRequest: httpRequestAPI,

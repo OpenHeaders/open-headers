@@ -1,104 +1,57 @@
 /**
  * WorkspaceStateService — main-process owner of all workspace state.
  *
- * Thin orchestrator that delegates to submodules in ./state/:
- *  - StatePersistence.ts         — reading/writing workspace data to disk
- *  - SourceDependencyEvaluator.ts — env var dependency checking
- *  - StateBroadcaster.ts         — pushing state to WS/proxy/renderer
- *  - SourceCrud.ts               — source + rule CRUD operations
- *  - WorkspaceCrud.ts            — workspace CRUD operations
- *  - types.ts                    — shared interfaces and state shape
+ * Orchestrates:
+ *  - Workspace lifecycle (load, switch, create, delete)
+ *  - Environment management (create, switch, set variables)
+ *  - Collection/rule CRUD (delegated to submodules)
+ *  - Auto-save with dirty tracking
+ *  - Broadcasting state to renderer and WebSocket
  *
- * This file owns: lifecycle (configure/initialize/stop), auto-save,
- * workspace switching orchestration, and the StateContext that binds
- * submodules to the service's mutable state.
+ * Data is read/written via V5StorageService (YAML workspace format).
  */
 
-import type {
-  Collection,
-  Environment,
-  EnvironmentVariable,
-  Folder,
-  HeaderRule,
-  Source,
-  SourceUpdate,
-} from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { errorMessage } from '@openheaders/core';
 import electron from 'electron';
-import { cloneEnvironments } from '@/types/environment';
-import type { ProxyRule } from '@/types/proxy';
-import type { Workspace, WorkspaceMetadata, WorkspaceSyncStatus, WorkspaceType } from '@/types/workspace';
+import {
+  readAllCollections,
+  readAllEnvironments,
+  readAllRuleCollections,
+  readAllRules,
+  readVault,
+  readWorkspaceManifest,
+  readWorkspaceVariables,
+  writeEnvironment,
+  writeVault,
+  writeWorkspaceVariables,
+} from '@/services/workspace/v5-storage';
+import type { Workspace, WorkspaceMetadata, WorkspaceType } from '@/types/workspace';
 import mainLogger from '@/utils/mainLogger';
 import {
-  // Broadcasting
   broadcastToServices,
-  // Collection CRUD
   addCollection as crudAddCollection,
-  // Folder CRUD
-  addFolder as crudAddFolder,
-  addHeaderRule as crudAddHeaderRule,
-  addProxyRule as crudAddProxyRule,
-  // Source CRUD
-  addSource as crudAddSource,
+  removeCollection as crudRemoveCollection,
+  updateCollection as crudUpdateCollection,
   copyWorkspaceData as crudCopyWorkspaceData,
-  // Workspace CRUD
   createWorkspace as crudCreateWorkspace,
   deleteWorkspace as crudDeleteWorkspace,
-  importSources as crudImportSources,
-  refreshSource as crudRefreshSource,
-  removeCollection as crudRemoveCollection,
-  removeFolder as crudRemoveFolder,
-  removeHeaderRule as crudRemoveHeaderRule,
-  removeProxyRule as crudRemoveProxyRule,
-  removeSource as crudRemoveSource,
-  syncWorkspace as crudSyncWorkspace,
-  updateCollection as crudUpdateCollection,
-  updateFolder as crudUpdateFolder,
-  updateHeaderRule as crudUpdateHeaderRule,
-  updateHeaderRulesBatch as crudUpdateHeaderRulesBatch,
-  updateSource as crudUpdateSource,
-  updateSourceFetchResult as crudUpdateSourceFetchResult,
   updateWorkspace as crudUpdateWorkspace,
   type DirtyFlags,
   type EnvironmentResolverLike,
-  activateReadySources as evaluateActivations,
-  // Source dependencies
-  evaluateAllSourceDependencies,
-  extractVariablesFromSource,
-  loadCollections,
-  loadEnvironments,
-  loadFolders,
-  loadProxyRules,
-  loadRules,
-  loadSources,
   loadWorkspacesConfig,
-  // Persistence
-  loadWorkspaceVariables,
-  type ProxyServiceLike,
-  saveCollections as persistCollections,
-  saveEnvironments as persistEnvironments,
-  saveFolders as persistFolders,
-  saveProxyRules as persistProxyRules,
-  saveRules as persistRules,
-  saveSources as persistSources,
   saveWorkspacesConfig as persistWorkspacesConfig,
-  saveWorkspaceVariables as persistWorkspaceVariables,
-  type SourceRefreshServiceLike,
-  type StateContext,
   sendPatchToRenderers,
   sendProgressToRenderers,
-  syncToRefreshService,
+  type StateContext,
   type WebSocketServiceLike,
   type WorkspaceState,
   type WorkspaceSyncSchedulerLike,
 } from './state';
-import { mergeEnvironments, mergeSyncedSources } from './sync/SyncDataImporter';
-import type { SyncData } from './sync/types';
 
 const { createLogger } = mainLogger;
 const log = createLogger('WorkspaceStateService');
 
-// Re-export for consumers that import the type from this module
 export type { WorkspaceState } from './state';
 
 class WorkspaceStateService {
@@ -107,21 +60,18 @@ class WorkspaceStateService {
 
   // External services (wired after construction)
   private webSocketService: WebSocketServiceLike | null = null;
-  private proxyService: ProxyServiceLike | null = null;
   private envResolver: EnvironmentResolverLike | null = null;
-  private sourceRefreshService: SourceRefreshServiceLike | null = null;
   private syncScheduler: WorkspaceSyncSchedulerLike | null = null;
 
   // Auto-save
   private dirty: DirtyFlags = {
-    sources: false,
+    requestCollections: false,
+    ruleCollections: false,
     rules: false,
-    proxyRules: false,
-    collections: false,
-    folders: false,
-    workspaces: false,
     environments: false,
     workspaceVariables: false,
+    vault: false,
+    workspaces: false,
   };
   private autoSaveTimer: ReturnType<typeof setInterval> | null = null;
   private isSaving = false;
@@ -129,15 +79,11 @@ class WorkspaceStateService {
 
   // Init
   private initPromise: Promise<boolean> | null = null;
-
-  /** Resolves when configure() has wired external services.
-   *  _doInitialize() loads data from disk immediately (so the renderer
-   *  can show skeletons), then awaits this before broadcasting to
-   *  WebSocket/proxy/refresh services. This eliminates the race where
-   *  the renderer's IPC call triggers initialize() before lifecycle.ts
-   *  calls configure(). */
   private configReady: Promise<void>;
   private _resolveConfigReady!: () => void;
+
+  /** Path to the active workspace root directory. */
+  private workspaceRootPath = '';
 
   constructor() {
     this.appDataPath = electron.app.getPath('userData');
@@ -149,14 +95,13 @@ class WorkspaceStateService {
       activeWorkspaceId: 'default-personal',
       isWorkspaceSwitching: false,
       syncStatus: {},
-      sources: [],
-      rules: { header: [], request: [], response: [] },
-      proxyRules: [],
-      collections: [],
-      folders: [],
+      requestCollections: [],
+      ruleCollections: [],
+      rules: [],
       environments: [],
-      activeEnvironment: null,
-      workspaceVariables: {},
+      activeEnvironmentName: null,
+      workspaceVariables: { variables: [] },
+      vault: { secrets: [] },
     };
     this.configReady = new Promise((resolve) => {
       this._resolveConfigReady = resolve;
@@ -170,47 +115,29 @@ class WorkspaceStateService {
     return {
       state: this.state,
       dirty: this.dirty,
-      appDataPath: this.appDataPath,
+      workspaceRootPath: this.workspaceRootPath,
       webSocketService: this.webSocketService,
-      proxyService: this.proxyService,
       envResolver: this.envResolver,
-      sourceRefreshService: this.sourceRefreshService,
       syncScheduler: this.syncScheduler,
       scheduleDebouncedSave: () => this.scheduleDebouncedSave(),
       saveAll: () => this.saveAll(),
-      saveSources: () => this.saveSources(),
-      saveCollections: () => this.saveCollections(),
-      saveFolders: () => this.saveFolders(),
-      saveEnvironments: () => this.saveEnvironments(),
-      saveWorkspaceVariables: () => this.saveWorkspaceVariablesData(),
-      saveWorkspacesConfig: () => this.saveWorkspacesConfig(),
       loadWorkspaceData: (id) => this.loadWorkspaceData(id),
-      updateWorkspaceMetadataInMemory: (id, m) => this.updateWorkspaceMetadataInMemory(id, m),
+      updateWorkspaceMetadataInMemory: (id, meta) => this.updateWorkspaceMetadataInMemory(id, meta),
     };
   }
 
-  // ── Configuration ─────────────────────────────────────────────
+  // ── Lifecycle ─────────────────────────────────────────────────
 
   configure(deps: {
     webSocketService: WebSocketServiceLike;
-    proxyService: ProxyServiceLike;
-    sourceRefreshService: SourceRefreshServiceLike;
-    syncScheduler: WorkspaceSyncSchedulerLike;
+    syncScheduler?: WorkspaceSyncSchedulerLike;
   }): void {
     this.webSocketService = deps.webSocketService;
-    this.proxyService = deps.proxyService;
     this.envResolver = deps.webSocketService.environmentHandler;
-    this.sourceRefreshService = deps.sourceRefreshService;
-    this.syncScheduler = deps.syncScheduler;
-
-    // Wire source output resolver so {{VAR}} can resolve from source-produced variables
-    deps.webSocketService.environmentHandler.setSourceOutputResolver(() => this.state.sources);
-
+    this.syncScheduler = deps.syncScheduler ?? null;
     this._resolveConfigReady();
-    log.info('WorkspaceStateService configured with dependencies');
+    log.info('WorkspaceStateService configured');
   }
-
-  // ── Initialization ────────────────────────────────────────────
 
   async initialize(): Promise<boolean> {
     if (this.initPromise) return this.initPromise;
@@ -221,1044 +148,306 @@ class WorkspaceStateService {
   private async _doInitialize(): Promise<boolean> {
     try {
       this.state.loading = true;
-      this.state.error = null;
 
-      // ── Phase 1: Load from disk (no service dependencies) ────
-      // Runs immediately even if configure() hasn't been called yet,
-      // so the renderer can hydrate its skeleton UI from state.
-
+      // Load workspace registry
       const config = await loadWorkspacesConfig(this.appDataPath);
       this.state.workspaces = config.workspaces;
       this.state.activeWorkspaceId = config.activeWorkspaceId;
       this.state.syncStatus = config.syncStatus;
 
-      // Clear stale syncing flags from crash recovery. If the app was killed
-      // mid-sync, `syncing: true` would be persisted to disk. Nothing is
-      // actually syncing at startup — the scheduler hasn't started yet.
-      for (const [workspaceId, status] of Object.entries(this.state.syncStatus)) {
-        if (status.syncing) {
-          this.state.syncStatus[workspaceId] = { ...status, syncing: false };
-          this.dirty.workspaces = true;
-        }
-      }
+      // Load active workspace data
+      await this.loadWorkspaceData(this.state.activeWorkspaceId);
 
-      await this.loadEnvironmentData(this.state.activeWorkspaceId);
-      this.state.workspaceVariables = await loadWorkspaceVariables(this.appDataPath, this.state.activeWorkspaceId);
-
-      // Load workspace data into state (sources, rules, proxyRules).
-      // Reads from v4 flat files. v5 migration runs at startup to create
-      // a v5/ preview directory, but loading from it is deferred until
-      // all write paths also support v5 (prevents stale data issues).
-      const [sources, rules, proxyRules] = await Promise.all([
-        loadSources(this.appDataPath, this.state.activeWorkspaceId),
-        loadRules(this.appDataPath, this.state.activeWorkspaceId),
-        loadProxyRules(this.appDataPath, this.state.activeWorkspaceId),
-      ]);
-      this.state.rules = rules;
-      this.state.proxyRules = proxyRules;
-      this.dirty.sources = false;
-      this.dirty.rules = false;
-      this.dirty.proxyRules = false;
-      this.dirty.environments = false;
-      this.dirty.workspaceVariables = false;
-
-      this.state.loading = false;
-      sendPatchToRenderers(this.state, [
-        'loading',
-        'workspaces',
-        'activeWorkspaceId',
-        'syncStatus',
-        'rules',
-        'proxyRules',
-        'environments',
-        'activeEnvironment',
-        'workspaceVariables',
-      ]);
-
-      log.info(
-        `Loaded workspace ${this.state.activeWorkspaceId}: ${sources.length} sources, ${rules.header.length + rules.request.length + rules.response.length} rules, ${proxyRules.length} proxy rules`,
-      );
-
-      // ── Phase 2: Await services, then broadcast ──────────────
-      // If configure() already ran, this resolves immediately.
-      // If the renderer triggered initialize() first, we wait here
-      // until lifecycle.ts calls configure().
-
+      // Wait for services to be wired before broadcasting
       await this.configReady;
 
-      if (this.sourceRefreshService) {
-        this.sourceRefreshService.activeWorkspaceId = this.state.activeWorkspaceId;
-      }
+      // Broadcast to extension
+      broadcastToServices(this.state, this.webSocketService);
 
-      // Now that envResolver is wired, apply env vars and evaluate source dependencies
-      this.applyActiveEnvVarsToServices();
-      this.state.sources = evaluateAllSourceDependencies(sources, this.envResolver);
-
-      const totalRules = rules.header.length + rules.request.length + rules.response.length;
-      this.updateWorkspaceMetadataInMemory(this.state.activeWorkspaceId, {
-        sourceCount: this.state.sources.length,
-        ruleCount: totalRules,
-        proxyRuleCount: proxyRules.length,
-        lastDataLoad: new Date().toISOString(),
-      });
-
-      broadcastToServices(this.state, this.webSocketService, this.proxyService);
-      syncToRefreshService(this.state.sources, this.sourceRefreshService);
-
-      // Activate sync scheduling for the initial workspace. On boot there
-      // is no switch — we use activateWorkspace() directly (onWorkspaceSwitch
-      // is for transitions that first stop the previous workspace's sync).
-      if (this.syncScheduler) {
-        this.syncScheduler
-          .activateWorkspace(this.state.activeWorkspaceId)
-          .catch((e) => log.warn('Failed to start initial workspace sync:', errorMessage(e)));
-      }
-
-      this.startAutoSave();
+      // Start auto-save
+      this.autoSaveTimer = setInterval(() => this.saveAll(), 30_000);
 
       this.state.initialized = true;
-      sendPatchToRenderers(this.state, ['initialized', 'sources']);
-
-      log.info(
-        `Initialized with workspace ${this.state.activeWorkspaceId}: ${this.state.sources.length} sources, ${this.state.rules.header.length} header rules`,
-      );
-      setTimeout(() => {
-        this.activateReadySources().catch((e) => log.warn('Activation check failed:', errorMessage(e)));
-      }, 200);
+      this.state.loading = false;
+      log.info('WorkspaceStateService initialized');
       return true;
     } catch (error) {
-      log.error('Initialization failed:', error);
-      this.state.initialized = false;
-      this.state.loading = false;
       this.state.error = errorMessage(error);
-      throw error;
+      this.state.loading = false;
+      log.error('Initialization failed:', error);
+      return false;
     }
-  }
-
-  // ── State access ──────────────────────────────────────────────
-
-  getState(): WorkspaceState {
-    return { ...this.state };
   }
 
   // ── Workspace data loading ────────────────────────────────────
 
   private async loadWorkspaceData(workspaceId: string): Promise<void> {
-    const [sources, rules, proxyRules, collections, folders, workspaceVariables] = await Promise.all([
-      loadSources(this.appDataPath, workspaceId),
-      loadRules(this.appDataPath, workspaceId),
-      loadProxyRules(this.appDataPath, workspaceId),
-      loadCollections(this.appDataPath, workspaceId),
-      loadFolders(this.appDataPath, workspaceId),
-      loadWorkspaceVariables(this.appDataPath, workspaceId),
+    // For now, workspaces live inside appData. Will be changed to user-chosen paths.
+    this.workspaceRootPath = `${this.appDataPath}/workspaces/${workspaceId}`;
+
+    const manifest = await readWorkspaceManifest(this.workspaceRootPath);
+    if (!manifest) {
+      log.info(`No workspace.yaml found in ${this.workspaceRootPath}, starting fresh`);
+      this.state.requestCollections = [];
+      this.state.ruleCollections = [];
+      this.state.rules = [];
+      this.state.environments = [];
+      this.state.workspaceVariables = { variables: [] };
+      this.state.vault = { secrets: [] };
+      return;
+    }
+
+    const [requestCollections, ruleCollections, rules, environments, workspaceVars, vault] = await Promise.all([
+      readAllCollections(this.workspaceRootPath),
+      readAllRuleCollections(this.workspaceRootPath),
+      readAllRules(this.workspaceRootPath),
+      readAllEnvironments(this.workspaceRootPath),
+      readWorkspaceVariables(this.workspaceRootPath),
+      readVault(this.workspaceRootPath),
     ]);
 
-    this.state.sources = evaluateAllSourceDependencies(sources, this.envResolver);
+    this.state.requestCollections = requestCollections;
+    this.state.ruleCollections = ruleCollections;
     this.state.rules = rules;
-    this.state.proxyRules = proxyRules;
-    this.state.folders = folders;
-    this.state.collections = collections;
-    this.state.workspaceVariables = workspaceVariables;
+    this.state.environments = environments;
+    this.state.workspaceVariables = workspaceVars;
+    this.state.vault = vault;
 
-    this.dirty.sources = false;
-    this.dirty.rules = false;
-    this.dirty.proxyRules = false;
-    this.dirty.collections = false;
-    this.dirty.folders = false;
-    this.dirty.environments = false;
-    this.dirty.workspaceVariables = false;
+    // Activate the stored environment
+    if (this.state.activeEnvironmentName) {
+      const activeEnv = environments.find((e) => e.name === this.state.activeEnvironmentName);
+      if (activeEnv) activeEnv.isActive = true;
+    }
 
-    const totalRules = rules.header.length + rules.request.length + rules.response.length;
-    this.updateWorkspaceMetadataInMemory(workspaceId, {
-      sourceCount: this.state.sources.length,
-      ruleCount: totalRules,
-      proxyRuleCount: proxyRules.length,
-      lastDataLoad: new Date().toISOString(),
-    });
-
-    broadcastToServices(this.state, this.webSocketService, this.proxyService);
-    syncToRefreshService(this.state.sources, this.sourceRefreshService);
     log.info(
-      `Loaded workspace ${workspaceId}: ${this.state.sources.length} sources, ${totalRules} rules, ${proxyRules.length} proxy rules`,
+      `Loaded workspace: ${requestCollections.length} request collections, ${ruleCollections.length} rule collections, ${rules.length} rules, ${environments.length} environments`,
     );
   }
 
-  // ── Persistence ───────────────────────────────────────────────
+  // ── Auto-save ─────────────────────────────────────────────────
 
-  private async saveSources(): Promise<void> {
-    await persistSources(this.appDataPath, this.state.activeWorkspaceId, this.state.sources);
-    this.dirty.sources = false;
-  }
-  private async saveCollections(): Promise<void> {
-    await persistCollections(this.appDataPath, this.state.activeWorkspaceId, this.state.collections);
-    this.dirty.collections = false;
-  }
-  private async saveFolders(): Promise<void> {
-    await persistFolders(this.appDataPath, this.state.activeWorkspaceId, this.state.folders);
-    this.dirty.folders = false;
-  }
-  private async saveRules(): Promise<void> {
-    await persistRules(this.appDataPath, this.state.activeWorkspaceId, this.state.rules);
-    this.dirty.rules = false;
-  }
-  private async saveProxyRules(): Promise<void> {
-    await persistProxyRules(this.appDataPath, this.state.activeWorkspaceId, this.state.proxyRules);
-    this.dirty.proxyRules = false;
-  }
-  private async saveEnvironments(): Promise<void> {
-    await persistEnvironments(this.appDataPath, this.state.activeWorkspaceId, {
-      environments: this.state.environments,
-      activeEnvironment: this.state.activeEnvironment,
-    });
-    this.dirty.environments = false;
-  }
-  private async saveWorkspaceVariablesData(): Promise<void> {
-    await persistWorkspaceVariables(this.appDataPath, this.state.activeWorkspaceId, this.state.workspaceVariables);
-    this.dirty.workspaceVariables = false;
-  }
-  private async saveWorkspacesConfig(): Promise<void> {
-    await persistWorkspacesConfig(this.appDataPath, {
-      workspaces: this.state.workspaces,
-      activeWorkspaceId: this.state.activeWorkspaceId,
-      syncStatus: this.state.syncStatus,
-    });
-    this.dirty.workspaces = false;
+  private scheduleDebouncedSave(): void {
+    if (this.debounceSaveTimer) clearTimeout(this.debounceSaveTimer);
+    this.debounceSaveTimer = setTimeout(() => this.saveAll(), 2000);
   }
 
-  async saveAll(): Promise<void> {
+  private async saveAll(): Promise<void> {
     if (this.isSaving) return;
     this.isSaving = true;
+
     try {
       const saves: Promise<void>[] = [];
-      if (this.dirty.sources) saves.push(this.saveSources());
-      if (this.dirty.rules) saves.push(this.saveRules());
-      if (this.dirty.proxyRules) saves.push(this.saveProxyRules());
-      if (this.dirty.collections) saves.push(this.saveCollections());
-      if (this.dirty.folders) saves.push(this.saveFolders());
-      if (this.dirty.environments) saves.push(this.saveEnvironments());
-      if (this.dirty.workspaceVariables) saves.push(this.saveWorkspaceVariablesData());
-      if (this.dirty.workspaces) saves.push(this.saveWorkspacesConfig());
+
+      if (this.dirty.workspaceVariables) {
+        saves.push(writeWorkspaceVariables(this.workspaceRootPath, this.state.workspaceVariables));
+        this.dirty.workspaceVariables = false;
+      }
+
+      if (this.dirty.vault) {
+        saves.push(writeVault(this.workspaceRootPath, this.state.vault));
+        this.dirty.vault = false;
+      }
+
+      if (this.dirty.environments) {
+        for (const env of this.state.environments) {
+          saves.push(writeEnvironment(this.workspaceRootPath, env));
+        }
+        this.dirty.environments = false;
+      }
+
+      if (this.dirty.workspaces) {
+        saves.push(
+          persistWorkspacesConfig(this.appDataPath, {
+            workspaces: this.state.workspaces,
+            activeWorkspaceId: this.state.activeWorkspaceId,
+            syncStatus: this.state.syncStatus,
+          }),
+        );
+        this.dirty.workspaces = false;
+      }
+
+      // TODO: save collections and rules when dirty
+
       if (saves.length > 0) {
         await Promise.all(saves);
         log.debug(`Saved ${saves.length} data types`);
       }
     } catch (error) {
-      log.error('Auto-save failed:', error);
+      log.error('Save failed:', errorMessage(error));
     } finally {
       this.isSaving = false;
     }
   }
 
-  // ── Auto-save ─────────────────────────────────────────────────
-
-  private startAutoSave(): void {
-    if (this.autoSaveTimer) return;
-    this.autoSaveTimer = setInterval(() => {
-      if (
-        (this.dirty.sources ||
-          this.dirty.rules ||
-          this.dirty.proxyRules ||
-          this.dirty.environments ||
-          this.dirty.workspaceVariables ||
-          this.dirty.workspaces) &&
-        !this.state.isWorkspaceSwitching
-      ) {
-        this.saveAll().catch((e) => log.error('Periodic save failed:', errorMessage(e)));
-      }
-    }, 5000);
-  }
-
-  private scheduleDebouncedSave(): void {
-    if (this.state.isWorkspaceSwitching) return;
-    if (this.debounceSaveTimer) clearTimeout(this.debounceSaveTimer);
-    this.debounceSaveTimer = setTimeout(() => {
-      this.debounceSaveTimer = null;
-      if (!this.state.isWorkspaceSwitching) {
-        this.saveAll().catch((e) => log.error('Debounced save failed:', errorMessage(e)));
-      }
-    }, 1000);
-  }
-
   // ── Workspace switching ───────────────────────────────────────
 
-  async switchWorkspace(workspaceId: string, options: { skipInitialSync?: boolean } = {}): Promise<void> {
-    if (this.state.activeWorkspaceId === workspaceId) return;
+  async switchWorkspace(workspaceId: string): Promise<boolean> {
+    if (workspaceId === this.state.activeWorkspaceId) return true;
+    if (this.state.isWorkspaceSwitching) return false;
 
-    const previousWorkspaceId = this.state.activeWorkspaceId;
-    const workspace = this.state.workspaces.find((w) => w.id === workspaceId);
-    if (!workspace) throw new Error(`Workspace ${workspaceId} not found`);
-
-    log.info(`Switching workspace: ${previousWorkspaceId} → ${workspaceId}`);
-    const target = { id: workspace.id, name: workspace.name, type: workspace.type };
+    const target = this.state.workspaces.find((w) => w.id === workspaceId);
+    if (!target) return false;
 
     try {
-      this.beginWorkspaceSwitch(target);
-      await this.saveCurrentWorkspace(target);
-      await this.teardownCurrentWorkspace(target);
-      await this.activateNewWorkspace(workspaceId, workspace.name, target, options);
-      await this.loadNewWorkspaceData(workspaceId, workspace.name, target);
-      this.finalizeWorkspaceSwitch(workspace.name, target);
+      this.state.isWorkspaceSwitching = true;
+      sendProgressToRenderers('saving', 10, 'Saving current workspace...', false, target);
+
+      await this.saveAll();
+
+      sendProgressToRenderers('loading', 50, 'Loading workspace data...', false, target);
+
+      this.state.activeWorkspaceId = workspaceId;
+      await this.loadWorkspaceData(workspaceId);
+
+      broadcastToServices(this.state, this.webSocketService);
+
+      this.dirty.workspaces = true;
+      await this.saveAll();
+
+      this.state.isWorkspaceSwitching = false;
+      sendPatchToRenderers(this.state, [
+        'activeWorkspaceId',
+        'requestCollections',
+        'ruleCollections',
+        'rules',
+        'environments',
+        'workspaceVariables',
+        'vault',
+        'isWorkspaceSwitching',
+      ]);
+
+      log.info(`Switched to workspace "${target.name}"`);
+      return true;
     } catch (error) {
-      await this.recoverFromSwitchFailure(previousWorkspaceId, error);
-      throw error;
+      this.state.isWorkspaceSwitching = false;
+      log.error(`Failed to switch workspace:`, errorMessage(error));
+      return false;
     }
   }
 
-  // ── Workspace switch helpers ─────────────────────────────────
+  // ── Collection CRUD ───────────────────────────────────────────
 
-  private beginWorkspaceSwitch(target: { id: string; name: string; type: string }): void {
-    this.state.isWorkspaceSwitching = true;
-    this.state.loading = true;
-    this.state.error = null;
-    sendProgressToRenderers('saving', 10, 'Saving current workspace data...', false, target);
+  async addCollection(section: 'requests' | 'rules', data: Omit<V5.Collection, 'uid' | 'path'>): Promise<V5.Collection> {
+    return crudAddCollection(this.ctx, section, data);
   }
 
-  private async saveCurrentWorkspace(target: { id: string; name: string; type: string }): Promise<void> {
-    await this.saveAll();
-    sendProgressToRenderers('saving', 25, 'Current workspace saved', false, target);
+  async updateCollection(section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>): Promise<void> {
+    return crudUpdateCollection(this.ctx, section, uid, updates);
   }
 
-  private async teardownCurrentWorkspace(target: { id: string; name: string; type: string }): Promise<void> {
-    sendProgressToRenderers('clearing', 30, 'Clearing current data...', false, target);
-
-    this.state.sources = [];
-    this.state.rules = { header: [], request: [], response: [] };
-    this.state.proxyRules = [];
-
-    if (this.envResolver) this.envResolver.clearVariableCache();
-    if (this.proxyService) {
-      try {
-        this.proxyService.clearRules();
-      } catch (e: unknown) {
-        log.warn('Failed to clear proxy rules:', errorMessage(e));
-      }
-    }
-  }
-
-  private async activateNewWorkspace(
-    workspaceId: string,
-    workspaceName: string,
-    target: { id: string; name: string; type: string },
-    options: { skipInitialSync?: boolean } = {},
-  ): Promise<void> {
-    sendProgressToRenderers('switching', 40, `Switching to "${workspaceName}"...`, false, target);
-
-    this.state.activeWorkspaceId = workspaceId;
-    this.dirty.workspaces = true;
-    await this.saveWorkspacesConfig();
-
-    if (this.proxyService) {
-      await this.proxyService
-        .switchWorkspace(workspaceId)
-        .catch((e) => log.error('Proxy switch failed:', errorMessage(e)));
-    }
-    // Load env data from disk + apply to envResolver + proxy before loadWorkspaceData
-    // so evaluateAllSourceDependencies can resolve template variables.
-    await this.loadEnvironmentData(workspaceId);
-    this.applyActiveEnvVarsToServices();
-    if (this.webSocketService) {
-      this.webSocketService.sources = [];
-      this.webSocketService.rules = { header: [], request: [], response: [] };
-    }
-    if (this.syncScheduler) {
-      await this.syncScheduler
-        .onWorkspaceSwitch(workspaceId, { skipInitialSync: options.skipInitialSync })
-        .catch((e) => log.warn('Sync scheduler switch failed:', errorMessage(e)));
-    }
-    if (this.sourceRefreshService) {
-      this.sourceRefreshService.activeWorkspaceId = workspaceId;
-      await this.sourceRefreshService
-        .clearAllSources()
-        .catch((e) => log.warn('Failed to clear refresh sources:', errorMessage(e)));
-    }
-
-    sendProgressToRenderers('switching', 45, 'Workspace context updated', false, target);
-  }
-
-  private async loadNewWorkspaceData(
-    workspaceId: string,
-    workspaceName: string,
-    target: { id: string; name: string; type: string },
-  ): Promise<void> {
-    sendProgressToRenderers('loading', 80, 'Loading workspace data...', false, target);
-    await this.loadWorkspaceData(workspaceId);
-    sendProgressToRenderers('loading', 90, `"${workspaceName}" data loaded`, false, target);
-  }
-
-  private finalizeWorkspaceSwitch(workspaceName: string, target: { id: string; name: string; type: string }): void {
-    sendProgressToRenderers('finalizing', 95, 'Updating interface...', false, target);
-
-    this.state.loading = false;
-    this.state.isWorkspaceSwitching = false;
-    sendPatchToRenderers(this.state, [
-      'sources',
-      'rules',
-      'proxyRules',
-      'workspaces',
-      'activeWorkspaceId',
-      'loading',
-      'isWorkspaceSwitching',
-      'environments',
-      'activeEnvironment',
-      'workspaceVariables',
-    ]);
-    sendProgressToRenderers('complete', 100, `Successfully switched to "${workspaceName}"`, false, target);
-
-    log.info(`Successfully switched to workspace: ${target.id}`);
-    setTimeout(() => {
-      this.activateReadySources().catch(() => {});
-    }, 200);
-  }
-
-  private async recoverFromSwitchFailure(previousWorkspaceId: string, error: unknown): Promise<void> {
-    log.error('Workspace switch failed:', error);
-    try {
-      this.state.activeWorkspaceId = previousWorkspaceId;
-      await this.saveWorkspacesConfig();
-      await this.loadWorkspaceData(previousWorkspaceId);
-    } catch (recoveryError) {
-      log.error('Recovery failed:', recoveryError);
-      this.state.activeWorkspaceId = 'default-personal';
-    }
-    this.state.loading = false;
-    this.state.isWorkspaceSwitching = false;
-    this.state.error = errorMessage(error);
-    sendPatchToRenderers(this.state, [
-      'sources',
-      'rules',
-      'proxyRules',
-      'activeWorkspaceId',
-      'loading',
-      'isWorkspaceSwitching',
-      'error',
-      'environments',
-      'activeEnvironment',
-      'workspaceVariables',
-    ]);
-  }
-
-  /**
-   * Load environment data from disk into state.
-   */
-  private async loadEnvironmentData(workspaceId: string): Promise<void> {
-    const envData = await loadEnvironments(this.appDataPath, workspaceId);
-    this.state.environments = envData.environments;
-    this.state.activeEnvironment = envData.activeEnvironment;
-    this.dirty.environments = false;
-  }
-
-  /**
-   * Apply the active environment's variables to envResolver + proxy.
-   * Must be called BEFORE loadWorkspaceData when the workspace changes,
-   * so that evaluateAllSourceDependencies has the variables available.
-   * Reads from in-memory state, not disk.
-   */
-  private applyActiveEnvVarsToServices(): void {
-    const activeEnv = this.state.activeEnvironment
-      ? this.state.environments.find((e) => e.id === this.state.activeEnvironment)
-      : null;
-    const activeVars = activeEnv?.variables ?? {};
-    const resolved = this.normalizeEnvVariables(activeVars);
-    this.applyEnvVariablesToServices(resolved);
-  }
-
-  // ── Source + Rule CRUD (delegated) ────────────────────────────
-
-  async addSource(sourceData: Source): Promise<Source> {
-    return crudAddSource(this.ctx, sourceData);
-  }
-  async updateSource(sourceId: string, updates: SourceUpdate): Promise<Source | null> {
-    return crudUpdateSource(this.ctx, sourceId, updates);
-  }
-  async removeSource(sourceId: string): Promise<void> {
-    return crudRemoveSource(this.ctx, sourceId);
-  }
-  async updateSourceContent(sourceId: string, content: string): Promise<void> {
-    await crudUpdateSource(this.ctx, sourceId, { sourceContent: content });
-  }
-  async updateSourceFetchResult(
-    sourceId: string,
-    result: {
-      content: string;
-      originalResponse: string;
-      headers: Record<string, string>;
-      isFiltered: boolean;
-      filteredWith?: string;
-    },
-  ): Promise<void> {
-    return crudUpdateSourceFetchResult(this.ctx, sourceId, result);
-  }
-  async importSources(newSources: Source[], replace: boolean): Promise<void> {
-    return crudImportSources(this.ctx, newSources, replace);
-  }
-  async refreshSource(sourceId: string): Promise<boolean> {
-    return crudRefreshSource(this.ctx, sourceId);
-  }
-  async addHeaderRule(ruleData: Partial<HeaderRule>): Promise<HeaderRule> {
-    return crudAddHeaderRule(this.ctx, ruleData);
-  }
-  async updateHeaderRule(ruleId: string, updates: Partial<HeaderRule>): Promise<void> {
-    return crudUpdateHeaderRule(this.ctx, ruleId, updates);
-  }
-  async updateHeaderRulesBatch(updates: Array<{ ruleId: string; changes: Partial<HeaderRule> }>): Promise<void> {
-    return crudUpdateHeaderRulesBatch(this.ctx, updates);
-  }
-  async removeHeaderRule(ruleId: string): Promise<void> {
-    return crudRemoveHeaderRule(this.ctx, ruleId);
-  }
-  async addProxyRule(ruleData: ProxyRule): Promise<void> {
-    return crudAddProxyRule(this.ctx, ruleData);
-  }
-  async removeProxyRule(ruleId: string): Promise<void> {
-    return crudRemoveProxyRule(this.ctx, ruleId);
-  }
-
-  // ── Collection CRUD (delegated) ───────────────────────────────
-
-  async addCollection(data: Omit<Collection, 'id'>): Promise<Collection> {
-    return crudAddCollection(this.ctx, data);
-  }
-  async updateCollection(collectionId: string, updates: Partial<Collection>): Promise<void> {
-    return crudUpdateCollection(this.ctx, collectionId, updates);
-  }
-  async removeCollection(collectionId: string): Promise<void> {
-    return crudRemoveCollection(this.ctx, collectionId);
-  }
-
-  // ── Folder CRUD (delegated) ──────────────────────────────────
-
-  async addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder> {
-    return crudAddFolder(this.ctx, folderData);
-  }
-  async updateFolder(folderId: string, updates: Partial<Folder>): Promise<void> {
-    return crudUpdateFolder(this.ctx, folderId, updates);
-  }
-  async removeFolder(folderId: string): Promise<void> {
-    return crudRemoveFolder(this.ctx, folderId);
-  }
-
-  // ── Workspace CRUD (delegated) ────────────────────────────────
-
-  async createWorkspace(
-    workspace: Partial<Workspace> & { id: string; name: string; type: WorkspaceType },
-  ): Promise<Workspace> {
-    return crudCreateWorkspace(this.ctx, workspace, (id) => this.switchWorkspace(id));
-  }
-  async updateWorkspace(workspaceId: string, updates: Partial<Workspace>): Promise<boolean> {
-    return crudUpdateWorkspace(this.ctx, workspaceId, updates);
-  }
-  async deleteWorkspace(workspaceId: string): Promise<boolean> {
-    return crudDeleteWorkspace(this.ctx, workspaceId, (id) => this.switchWorkspace(id));
-  }
-  async syncWorkspace(workspaceId: string): Promise<{ success: boolean; error?: string }> {
-    return crudSyncWorkspace(this.ctx, workspaceId, (id, s) => this.updateSyncStatus(id, s));
-  }
-  async copyWorkspaceData(sourceWorkspaceId: string, targetWorkspaceId: string): Promise<void> {
-    return crudCopyWorkspaceData(this.ctx, sourceWorkspaceId, targetWorkspaceId);
-  }
-
-  // ── Source dependency activation ──────────────────────────────
-
-  async activateReadySources(): Promise<number> {
-    const result = evaluateActivations(this.state.sources, this.envResolver);
-    if (result.hasChanges) {
-      this.state.sources = result.sources;
-      this.dirty.sources = true;
-      this.scheduleDebouncedSave();
-      sendPatchToRenderers(this.state, ['sources']);
-    }
-    if (result.activated > 0) log.info(`Activated ${result.activated} sources after dependency resolution`);
-    return result.activated;
-  }
-
-  // ── Workspace metadata ────────────────────────────────────────
-
-  private updateWorkspaceMetadataInMemory(workspaceId: string, metadata: Partial<WorkspaceMetadata>): void {
-    this.state.workspaces = this.state.workspaces.map((w) =>
-      w.id === workspaceId
-        ? { ...w, metadata: { ...w.metadata, ...metadata }, updatedAt: new Date().toISOString() }
-        : w,
-    );
-    this.dirty.workspaces = true;
-  }
-
-  // ── Sync status ──────────────────────────────────────────────
-
-  updateSyncStatus(workspaceId: string, status: Partial<WorkspaceSyncStatus>): void {
-    this.state.syncStatus = {
-      ...this.state.syncStatus,
-      [workspaceId]: { ...this.state.syncStatus[workspaceId], ...status },
-    };
-    this.dirty.workspaces = true;
-    sendPatchToRenderers(this.state, ['syncStatus']);
-  }
-
-  /**
-   * Merge synced data directly into in-memory state.
-   *
-   * Previous design: write to disk → reload from disk. This had a TOCTOU
-   * race — a CRUD operation between disk-write and reload would be lost
-   * because the reload overwrites in-memory state with the (now stale) disk.
-   *
-   * Current design: merge into the authoritative in-memory state directly.
-   * importSyncedData already wrote to disk for persistence (cold boot /
-   * crash recovery). Here we merge the same SyncData against the current
-   * in-memory state — which may include CRUD changes not yet persisted —
-   * so both sync changes and CRUD changes coexist. Auto-save persists
-   * the combined state to disk within 5 seconds.
-   */
-  async onSyncDataChanged(workspaceId: string, data: SyncData): Promise<void> {
-    if (workspaceId !== this.state.activeWorkspaceId) return;
-
-    log.info('Merging synced data into in-memory state');
-
-    // Sources: remote defines structure, preserve local execution state
-    if (data.sources && Array.isArray(data.sources)) {
-      const merged = mergeSyncedSources(data.sources, this.state.sources);
-      this.state.sources = evaluateAllSourceDependencies(merged, this.envResolver);
-      this.dirty.sources = true;
-    }
-
-    // Rules: remote wins (complete replacement)
-    if (data.rules) {
-      this.state.rules = data.rules;
-      this.dirty.rules = true;
-    }
-
-    // Proxy rules: remote wins (complete replacement)
-    if (data.proxyRules && Array.isArray(data.proxyRules)) {
-      this.state.proxyRules = data.proxyRules;
-      this.dirty.proxyRules = true;
-    }
-
-    // Environments: merge with pruning (remote is structure authority)
-    const mergedEnvs = mergeEnvironments(data, this.state.environments);
-    if (mergedEnvs) {
-      // Validate activeEnvironment still exists after pruning
-      const activeStillExists = this.state.activeEnvironment
-        ? mergedEnvs.some((e) => e.id === this.state.activeEnvironment)
-        : false;
-      this.state.environments = mergedEnvs;
-      if (!activeStillExists) {
-        this.state.activeEnvironment = mergedEnvs[0]?.id ?? null;
-      }
-      this.dirty.environments = true;
-      this.applyActiveEnvVarsToServices();
-    }
-
-    // Update metadata + broadcast to WS/proxy/renderer
-    const totalRules =
-      this.state.rules.header.length + this.state.rules.request.length + this.state.rules.response.length;
-    this.updateWorkspaceMetadataInMemory(workspaceId, {
-      sourceCount: this.state.sources.length,
-      ruleCount: totalRules,
-      proxyRuleCount: this.state.proxyRules.length,
-      lastDataLoad: new Date().toISOString(),
-    });
-
-    broadcastToServices(this.state, this.webSocketService, this.proxyService);
-    syncToRefreshService(this.state.sources, this.sourceRefreshService);
-    sendPatchToRenderers(this.state, [
-      'workspaces',
-      'sources',
-      'rules',
-      'proxyRules',
-      'environments',
-      'activeEnvironment',
-    ]);
-  }
-
-  /**
-   * Called by CliSetupHandler after it tests the git connection and syncs
-   * the repository. Reuses crudCreateWorkspace for workspace entry creation,
-   * imports synced data to disk, then switchWorkspace handles the rest.
-   */
-  async onCliWorkspaceCreated(params: {
-    workspaceId: string;
-    workspaceConfig: Partial<Workspace> & { name: string; type: WorkspaceType };
-    syncData: SyncData | null;
-  }): Promise<void> {
-    const { workspaceId, workspaceConfig, syncData } = params;
-    log.info(`CLI workspace created: ${workspaceId}`);
-
-    // 1. Create workspace entry via crudCreateWorkspace. Pass a no-op switch
-    //    callback — we'll do the actual switch after importing synced data.
-    await crudCreateWorkspace(this.ctx, { ...workspaceConfig, id: workspaceId }, async () => {});
-
-    // 2. Import synced data (sources, rules, proxy rules, environments) to disk
-    //    BEFORE switching, so loadWorkspaceData reads populated files.
-    if (syncData && this.syncScheduler) {
-      await this.syncScheduler.importSyncedData(workspaceId, syncData, { broadcastToExtensions: false });
-    }
-
-    // 3. Set initial sync status so the workspace never appears as "Not synced".
-    //    The CLI flow already synced the data above — record that fact before
-    //    switching, so the renderer sees a valid lastSync immediately.
-    if (syncData) {
-      this.updateSyncStatus(workspaceId, {
-        syncing: false,
-        lastSync: new Date().toISOString(),
-        error: null,
-      });
-    }
-
-    // 4. Delegate switch lifecycle: teardown → load env vars → load data →
-    //    start sync scheduler → broadcast. skipInitialSync because we just synced.
-    await this.switchWorkspace(workspaceId, { skipInitialSync: true });
-    log.info(`CLI workspace ${workspaceId} fully activated`);
+  async removeCollection(section: 'requests' | 'rules', uid: string): Promise<void> {
+    return crudRemoveCollection(this.ctx, section, uid);
   }
 
   // ── Environment CRUD ──────────────────────────────────────────
 
-  getEnvironmentState(): { environments: Environment[]; activeEnvironment: string | null } {
-    return { environments: this.state.environments, activeEnvironment: this.state.activeEnvironment };
-  }
-
-  async createEnvironment(params: { name: string; collectionId?: string; folderId?: string }): Promise<Environment> {
-    const { name, collectionId, folderId } = params;
-    if (this.state.environments.some((e) => e.name === name)) {
-      throw new Error(`Environment '${name}' already exists`);
-    }
-    const env: Environment = {
-      id: `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  async createEnvironment(name: string): Promise<V5.Environment> {
+    const env: V5.Environment = {
       name,
-      collectionId,
-      folderId,
-      variables: {},
-      createdAt: new Date().toISOString(),
+      path: `environments/${name.toLowerCase()}.yaml`,
+      variables: [],
+      isActive: false,
     };
-    this.state.environments = [...this.state.environments, env];
+    this.state.environments.push(env);
     this.dirty.environments = true;
-    await this.saveEnvironments();
+    this.scheduleDebouncedSave();
     sendPatchToRenderers(this.state, ['environments']);
-    log.info(`Created environment: ${name} (${env.id})`);
     return env;
   }
 
-  async updateEnvironment(
-    environmentId: string,
-    updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
-  ): Promise<void> {
-    const envIndex = this.state.environments.findIndex((e) => e.id === environmentId);
-    if (envIndex === -1) {
-      throw new Error(`Environment '${environmentId}' does not exist`);
+  async deleteEnvironment(name: string): Promise<void> {
+    this.state.environments = this.state.environments.filter((e) => e.name !== name);
+    if (this.state.activeEnvironmentName === name) {
+      this.state.activeEnvironmentName = null;
     }
-    if (updates.name !== undefined) {
-      const duplicate = this.state.environments.some((e) => e.id !== environmentId && e.name === updates.name);
-      if (duplicate) {
-        throw new Error(`Environment '${updates.name}' already exists`);
-      }
-    }
-    const merged = { ...this.state.environments[envIndex], ...updates, updatedAt: new Date().toISOString() };
-    this.state.environments = this.state.environments.map((e) => (e.id === environmentId ? merged : e));
     this.dirty.environments = true;
-    await this.saveEnvironments();
-    sendPatchToRenderers(this.state, ['environments']);
-
-    // If variables changed on the active environment, propagate to services
-    if (updates.variables && environmentId === this.state.activeEnvironment) {
-      await this.onEnvironmentVariablesChanged(merged.variables);
-    }
-    log.info(`Updated environment: ${environmentId}`);
+    this.scheduleDebouncedSave();
+    sendPatchToRenderers(this.state, ['environments', 'activeEnvironmentName']);
   }
 
-  async deleteEnvironment(environmentId: string): Promise<void> {
-    const env = this.state.environments.find((e) => e.id === environmentId);
-    if (!env) {
-      throw new Error(`Environment '${environmentId}' does not exist`);
+  async switchEnvironment(name: string | null): Promise<void> {
+    for (const env of this.state.environments) {
+      env.isActive = env.name === name;
     }
-    this.state.environments = this.state.environments.filter((e) => e.id !== environmentId);
-    this.dirty.environments = true;
+    this.state.activeEnvironmentName = name;
+    this.dirty.workspaces = true;
+    this.scheduleDebouncedSave();
 
-    const wasActive = this.state.activeEnvironment === environmentId;
-    if (wasActive) {
-      this.state.activeEnvironment = null;
-    }
-
-    await this.saveEnvironments();
-    sendPatchToRenderers(this.state, ['environments', 'activeEnvironment']);
-
-    if (wasActive) {
-      await this.onEnvironmentVariablesChanged({});
-    }
-    log.info(`Deleted environment: ${env.name} (${environmentId})`);
+    broadcastToServices(this.state, this.webSocketService);
+    sendPatchToRenderers(this.state, ['environments', 'activeEnvironmentName']);
   }
 
-  async switchEnvironment(environmentId: string | null): Promise<void> {
-    if (this.state.activeEnvironment === environmentId) return;
+  async setVariable(envName: string, varName: string, value: string, type: 'default' | 'secret' = 'default'): Promise<void> {
+    const env = this.state.environments.find((e) => e.name === envName);
+    if (!env) return;
 
-    if (environmentId !== null) {
-      const env = this.state.environments.find((e) => e.id === environmentId);
-      if (!env) {
-        throw new Error(`Environment '${environmentId}' does not exist`);
-      }
-    }
-
-    const prevName = this.state.activeEnvironment
-      ? (this.state.environments.find((e) => e.id === this.state.activeEnvironment)?.name ?? 'none')
-      : 'none';
-    const newName = environmentId
-      ? (this.state.environments.find((e) => e.id === environmentId)?.name ?? environmentId)
-      : 'none';
-    log.info(`Switching environment: ${prevName} → ${newName}`);
-
-    this.state.activeEnvironment = environmentId;
-    this.dirty.environments = true;
-    await this.saveEnvironments();
-    sendPatchToRenderers(this.state, ['activeEnvironment']);
-
-    const activeEnv = environmentId ? this.state.environments.find((e) => e.id === environmentId) : null;
-    await this.onEnvironmentVariablesChanged(activeEnv?.variables ?? {});
-  }
-
-  async setVariable(name: string, value: string | null, environmentId: string, isSensitive: boolean): Promise<void> {
-    const envIndex = this.state.environments.findIndex((e) => e.id === environmentId);
-    if (envIndex === -1) {
-      throw new Error(`Environment '${environmentId}' does not exist`);
-    }
-
-    const env = this.state.environments[envIndex];
-    const varsCopy = { ...env.variables };
-    if (value === null || value === '') {
-      delete varsCopy[name];
+    const existing = env.variables.find((v) => v.name === varName);
+    if (existing) {
+      existing.value = value;
+      existing.type = type;
     } else {
-      varsCopy[name] = { value, isSensitive, updatedAt: new Date().toISOString() };
+      env.variables.push({ name: varName, value, type });
     }
-    const updated = { ...env, variables: varsCopy, updatedAt: new Date().toISOString() };
-    this.state.environments = this.state.environments.map((e, i) => (i === envIndex ? updated : e));
+
     this.dirty.environments = true;
-    await this.saveEnvironments();
+    this.scheduleDebouncedSave();
     sendPatchToRenderers(this.state, ['environments']);
+  }
 
-    if (environmentId === this.state.activeEnvironment) {
-      await this.onEnvironmentVariablesChanged(updated.variables);
+  // ── Workspace CRUD ────────────────────────────────────────────
+
+  async createWorkspace(
+    name: string,
+    type: WorkspaceType,
+    options?: { description?: string; gitUrl?: string; path?: string },
+  ): Promise<Workspace> {
+    const id = `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const workspace = {
+      id,
+      name,
+      type,
+      description: options?.description,
+      gitUrl: options?.gitUrl,
+    };
+    return crudCreateWorkspace(this.ctx, workspace, (wsId) => this.switchWorkspace(wsId).then(() => {}));
+  }
+
+  async updateWorkspace(workspaceId: string, updates: Partial<Workspace>): Promise<boolean> {
+    return crudUpdateWorkspace(this.ctx, workspaceId, updates);
+  }
+
+  async deleteWorkspace(workspaceId: string): Promise<boolean> {
+    return crudDeleteWorkspace(this.ctx, workspaceId, (wsId) => this.switchWorkspace(wsId).then(() => {}));
+  }
+
+  async copyWorkspaceData(sourceId: string, targetId: string): Promise<void> {
+    return crudCopyWorkspaceData(this.ctx, sourceId, targetId);
+  }
+
+  // ── Metadata helpers ──────────────────────────────────────────
+
+  private updateWorkspaceMetadataInMemory(workspaceId: string, metadata: Partial<WorkspaceMetadata>): void {
+    const ws = this.state.workspaces.find((w) => w.id === workspaceId);
+    if (ws) {
+      ws.metadata = { ...ws.metadata, ...metadata };
+      ws.updatedAt = new Date().toISOString();
+      this.dirty.workspaces = true;
     }
   }
 
-  async batchSetVariables(
-    environmentId: string,
-    variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
-  ): Promise<void> {
-    const envIndex = this.state.environments.findIndex((e) => e.id === environmentId);
-    if (envIndex === -1) {
-      throw new Error(`Environment '${environmentId}' does not exist`);
-    }
+  // ── State accessors ───────────────────────────────────────────
 
-    const env = this.state.environments[envIndex];
-    const varsCopy = { ...env.variables };
-    for (const { name, value, isSensitive } of variables) {
-      if (value === null || value === '') {
-        delete varsCopy[name];
-      } else {
-        varsCopy[name] = { value, isSensitive: isSensitive ?? false, updatedAt: new Date().toISOString() };
-      }
-    }
-    const updated = { ...env, variables: varsCopy, updatedAt: new Date().toISOString() };
-    this.state.environments = this.state.environments.map((e, i) => (i === envIndex ? updated : e));
-    this.dirty.environments = true;
-    await this.saveEnvironments();
-    sendPatchToRenderers(this.state, ['environments']);
-
-    if (environmentId === this.state.activeEnvironment) {
-      await this.onEnvironmentVariablesChanged(updated.variables);
-    }
+  getState(): WorkspaceState {
+    return this.state;
   }
 
-  /**
-   * Merge imported environment data into the active workspace's state.
-   * Creates missing environments and merges variables into existing ones.
-   * Persists to disk, broadcasts to renderer, and triggers source re-evaluation.
-   *
-   * This is the proper entry point for CLI environment imports — the state
-   * owner handles the merge, persistence, and all downstream effects.
-   */
-  async importEnvironments(
-    incoming: Record<string, Record<string, { value: string; isSensitive: boolean }>>,
-  ): Promise<void> {
-    const merged = cloneEnvironments(this.state.environments);
-    for (const [envName, variables] of Object.entries(incoming)) {
-      let env = merged.find((e) => e.name === envName);
-      if (!env) {
-        env = {
-          id: `env-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: envName,
-          variables: {},
-          createdAt: new Date().toISOString(),
-        };
-        merged.push(env);
-      }
-      for (const [varName, varData] of Object.entries(variables)) {
-        env.variables[varName] = { ...varData };
-      }
-    }
-    this.state.environments = merged;
-    this.dirty.environments = true;
-    await this.saveEnvironments();
-    sendPatchToRenderers(this.state, ['environments']);
-
-    // Re-evaluate source dependencies with the updated active environment vars
-    const activeEnv = this.state.activeEnvironment
-      ? this.state.environments.find((e) => e.id === this.state.activeEnvironment)
-      : null;
-    await this.onEnvironmentVariablesChanged(activeEnv?.variables ?? {});
-  }
-
-  // ── Workspace Variables ───────────────────────────────────────
-
-  async updateWorkspaceVariables(variables: Record<string, EnvironmentVariable>): Promise<void> {
-    this.state.workspaceVariables = variables;
-    this.dirty.workspaceVariables = true;
-    await this.saveWorkspaceVariablesData();
-    sendPatchToRenderers(this.state, ['workspaceVariables']);
-    log.info(`Updated workspace variables (${Object.keys(variables).length} entries)`);
-  }
-
-  // ── Environment variable changes ────────────────────────────
-
-  /**
-   * Called when environment variables change (switch environment, edit values, import).
-   *
-   * Three-tier refresh strategy:
-   *  1. Sources with NO env var references → untouched (timers preserved)
-   *  2. Sources with env var references but identical resolved values → untouched
-   *  3. Sources with env var references whose values changed → re-fetch immediately
-   *
-   * This runs in the main process so it works even without a renderer window.
-   */
-  async onEnvironmentVariablesChanged(variables: Record<string, string | { value: string }>): Promise<void> {
-    const resolved = this.normalizeEnvVariables(variables);
-    const previousVars = this.envResolver?.loadEnvironmentVariables() ?? {};
-
-    log.info(`Environment variables changed, ${Object.keys(resolved).length} variables`);
-
-    this.applyEnvVariablesToServices(resolved);
-
-    const changedVarNames = this.diffVariables(previousVars, resolved);
-    log.info(`${changedVarNames.size} variable(s) actually changed: ${Array.from(changedVarNames).join(', ')}`);
-
-    const previousSources = this.state.sources;
-    this.state.sources = evaluateAllSourceDependencies(this.state.sources, this.envResolver);
-
-    const { newlyActivated, affectedExisting } = this.categorizeSourcesByEnvImpact(
-      previousSources,
-      this.state.sources,
-      changedVarNames,
-    );
-
-    this.resetAffectedCircuitBreakers([...newlyActivated, ...affectedExisting]);
-    broadcastToServices(this.state, this.webSocketService, this.proxyService);
-    this.notifyRendererOfActivationChanges(previousSources);
-    this.registerNewlyActivatedSources(newlyActivated);
-    this.refreshAffectedSources(affectedExisting);
-  }
-
-  // ── Environment change helpers ───────────────────────────────
-
-  private normalizeEnvVariables(variables: Record<string, string | { value: string }>): Record<string, string> {
-    const resolved: Record<string, string> = {};
-    for (const [key, val] of Object.entries(variables)) {
-      resolved[key] = typeof val === 'object' && val !== null ? val.value : String(val);
-    }
-    return resolved;
-  }
-
-  private applyEnvVariablesToServices(resolved: Record<string, string>): void {
-    if (this.envResolver) {
-      this.envResolver.setVariables(resolved);
-    }
-    if (this.proxyService) {
-      this.proxyService.updateEnvironmentVariables(resolved);
-    }
-  }
-
-  private diffVariables(previous: Record<string, string>, current: Record<string, string>): Set<string> {
-    const changed = new Set<string>();
-    const allKeys = new Set([...Object.keys(previous), ...Object.keys(current)]);
-    for (const key of allKeys) {
-      if (previous[key] !== current[key]) {
-        changed.add(key);
-      }
-    }
-    return changed;
-  }
-
-  private categorizeSourcesByEnvImpact(
-    previousSources: Source[],
-    currentSources: Source[],
-    changedVarNames: Set<string>,
-  ): { newlyActivated: Source[]; affectedExisting: Source[] } {
-    const newlyActivated: Source[] = [];
-    const affectedExisting: Source[] = [];
-
-    for (let i = 0; i < currentSources.length; i++) {
-      const prev = previousSources[i];
-      const curr = currentSources[i];
-      if (!prev || !curr) continue;
-
-      if (prev.activationState === 'waiting_for_deps' && curr.activationState === 'active') {
-        newlyActivated.push(curr);
-      } else if (
-        curr.sourceType === 'http' &&
-        curr.activationState === 'active' &&
-        curr.sourceContent !== null &&
-        curr.sourceContent !== undefined
-      ) {
-        const referencedVars = extractVariablesFromSource(curr);
-        if (referencedVars.length > 0 && referencedVars.some((v) => changedVarNames.has(v))) {
-          affectedExisting.push(curr);
-        }
-      }
-    }
-
-    return { newlyActivated, affectedExisting };
-  }
-
-  private resetAffectedCircuitBreakers(sources: Source[]): void {
-    if (!this.sourceRefreshService || sources.length === 0) return;
-    for (const source of sources) {
-      this.sourceRefreshService.resetCircuitBreaker(source.sourceId);
-    }
-  }
-
-  private notifyRendererOfActivationChanges(previousSources: Source[]): void {
-    const hasChanges = previousSources.some(
-      (prev, i) => prev.activationState !== this.state.sources[i]?.activationState,
-    );
-    if (hasChanges) {
-      this.dirty.sources = true;
-      this.scheduleDebouncedSave();
-      sendPatchToRenderers(this.state, ['sources']);
-    }
-  }
-
-  private registerNewlyActivatedSources(sources: Source[]): void {
-    if (!this.sourceRefreshService || sources.length === 0) return;
-    log.info(`${sources.length} source(s) activated after environment change`);
-    for (const source of sources) {
-      this.sourceRefreshService
-        .updateSource(source)
-        .catch((e) => log.warn(`Failed to register newly-activated source ${source.sourceId}:`, errorMessage(e)));
-    }
-  }
-
-  private refreshAffectedSources(sources: Source[]): void {
-    if (!this.sourceRefreshService) return;
-    if (sources.length === 0) {
-      log.info('No active sources affected by env var change — all timers preserved');
-      return;
-    }
-    log.info(`${sources.length} source(s) affected by env var change, triggering re-fetch`);
-    for (const source of sources) {
-      this.sourceRefreshService
-        .manualRefresh(source.sourceId)
-        .catch((e) => log.warn(`Failed to refresh source ${source.sourceId} after env change:`, errorMessage(e)));
-    }
+  getActiveWorkspaceId(): string {
+    return this.state.activeWorkspaceId;
   }
 
   // ── Shutdown ──────────────────────────────────────────────────
 
   async stop(): Promise<void> {
-    log.info('Shutting down WorkspaceStateService');
     if (this.autoSaveTimer) {
       clearInterval(this.autoSaveTimer);
       this.autoSaveTimer = null;
@@ -1268,12 +457,9 @@ class WorkspaceStateService {
       this.debounceSaveTimer = null;
     }
     await this.saveAll();
-    log.info('WorkspaceStateService shut down');
+    log.info('WorkspaceStateService stopped');
   }
 }
 
-// Singleton
 const workspaceStateService = new WorkspaceStateService();
-
-export { WorkspaceStateService };
 export default workspaceStateService;

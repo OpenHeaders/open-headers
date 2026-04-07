@@ -405,14 +405,6 @@ function setupIPC(
   ipcMain.handle('http:get-totp-cooldown', httpRequestHandlers.handleGetTotpCooldown);
   ipcMain.handle('http:generate-totp-preview', httpRequestHandlers.handleGenerateTotpPreview);
 
-  // Source refresh (main-process owned)
-  void import('./main/modules/ipc/handlers/sourceRefreshHandlers').then(({ default: sourceRefreshHandlers }) => {
-    ipcMain.handle('source-refresh:manual', sourceRefreshHandlers.handleManualRefresh);
-    ipcMain.handle('source-refresh:update-source', sourceRefreshHandlers.handleUpdateSource);
-    ipcMain.handle('source-refresh:get-status', sourceRefreshHandlers.handleGetStatus);
-    ipcMain.handle('source-refresh:get-time-until', sourceRefreshHandlers.handleGetTimeUntil);
-  });
-
   // Workspace state (main-process owned)
   void import('./main/modules/ipc/handlers/workspaceStateHandlers').then(({ registerWorkspaceStateHandlers }) => {
     registerWorkspaceStateHandlers();
