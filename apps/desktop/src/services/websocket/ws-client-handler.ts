@@ -8,7 +8,6 @@ import WebSocket, { type WebSocketServer } from 'ws';
 import type { ExtendedWebSocket, WSClientInfo } from '@/types/websocket';
 import mainLogger from '@/utils/mainLogger';
 import type { RuleClientSender } from './ws-rule-handler';
-import type { SourceClientSender } from './ws-source-handler';
 
 const { createLogger } = mainLogger;
 const log = createLogger('WSClientHandler');
@@ -51,7 +50,6 @@ interface ClientHandlerDeps {
   /** Resolves when WorkspaceStateService has loaded initial state.
    *  Client init waits on this so we never send empty/stale data. */
   stateReady: Promise<void>;
-  sourceHandler: SourceClientSender;
   ruleHandler: RuleClientSender;
   recordingHandler: { sendVideoRecordingState(ws: WebSocket): Promise<void> };
   networkStateHandler: { sendInitialState(ws: WebSocket): void } | null;
@@ -108,7 +106,6 @@ class WSClientHandler {
       log.info(`Initializing client ${clientId}`);
 
       await Promise.all([
-        this.wsService.sourceHandler.sendSourcesToClient(ws),
         this.wsService.ruleHandler.sendRulesToClient(ws),
         this.wsService.recordingHandler.sendVideoRecordingState(ws),
       ]);

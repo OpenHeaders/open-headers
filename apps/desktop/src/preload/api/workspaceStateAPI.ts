@@ -6,26 +6,15 @@
  * incremental state patches via IPC events.
  */
 
-import type {
-  Collection,
-  Environment,
-  EnvironmentVariable,
-  Folder,
-  HeaderRule,
-  Source,
-  SourceUpdate,
-} from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { ipcRenderer } from 'electron';
 import type { WorkspaceState } from '@/services/workspace/WorkspaceStateService';
-import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceType } from '@/types/workspace';
 
 export interface WorkspaceStatePatch {
-  sources?: Source[];
-  rules?: { header: HeaderRule[]; request: unknown[]; response: unknown[] };
-  proxyRules?: ProxyRule[];
-  collections?: Collection[];
-  folders?: Folder[];
+  requestCollections?: V5.CollectionTree[];
+  ruleCollections?: V5.CollectionTree[];
+  rules?: V5.Rule[];
   workspaces?: Workspace[];
   activeWorkspaceId?: string;
   syncStatus?: Record<string, unknown>;
@@ -33,9 +22,10 @@ export interface WorkspaceStatePatch {
   error?: string | null;
   initialized?: boolean;
   isWorkspaceSwitching?: boolean;
-  environments?: Environment[];
-  activeEnvironment?: string | null;
-  workspaceVariables?: Record<string, EnvironmentVariable>;
+  environments?: V5.Environment[];
+  activeEnvironmentName?: string | null;
+  workspaceVariables?: V5.WorkspaceVariables;
+  vault?: V5.Vault;
 }
 
 export interface SwitchProgress {
@@ -55,101 +45,40 @@ interface InitResult extends OperationResult {
   state: WorkspaceState;
 }
 
-interface AddSourceResult extends OperationResult {
-  source?: Source;
-}
-
-interface UpdateSourceResult extends OperationResult {
-  source?: Source | null;
-}
-
-interface AddCollectionResult extends OperationResult {
-  collection?: Collection;
-}
-
-interface AddFolderResult extends OperationResult {
-  folder?: Folder;
-}
-
-interface AddHeaderRuleResult extends OperationResult {
-  rule?: HeaderRule;
-}
-
-interface CreateWorkspaceResult extends OperationResult {
-  workspace?: Workspace;
-}
-
 export function createWorkspaceStateAPI() {
   return {
     // State access
     initialize: (): Promise<InitResult> => ipcRenderer.invoke('workspace-state:initialize'),
-
     getState: (): Promise<WorkspaceState> => ipcRenderer.invoke('workspace-state:get-state'),
 
     // Workspace switching
     switchWorkspace: (workspaceId: string): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:switch-workspace', workspaceId),
 
-    // Source CRUD
-    addSource: (sourceData: Source): Promise<AddSourceResult> =>
-      ipcRenderer.invoke('workspace-state:add-source', sourceData),
-
-    updateSource: (sourceId: string, updates: SourceUpdate): Promise<UpdateSourceResult> =>
-      ipcRenderer.invoke('workspace-state:update-source', sourceId, updates),
-
-    removeSource: (sourceId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:remove-source', sourceId),
-
-    updateSourceContent: (sourceId: string, content: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:update-source-content', sourceId, content),
-
-    refreshSource: (sourceId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:refresh-source', sourceId),
-
-    importSources: (sources: Source[], replace: boolean): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:import-sources', sources, replace),
-
-    // Header Rule CRUD
-    addHeaderRule: (ruleData: Partial<HeaderRule>): Promise<AddHeaderRuleResult> =>
-      ipcRenderer.invoke('workspace-state:add-header-rule', ruleData),
-
-    updateHeaderRule: (ruleId: string, updates: Partial<HeaderRule>): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:update-header-rule', ruleId, updates),
-
-    removeHeaderRule: (ruleId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:remove-header-rule', ruleId),
-
-    // Proxy Rule CRUD
-    addProxyRule: (ruleData: ProxyRule): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:add-proxy-rule', ruleData),
-
-    removeProxyRule: (ruleId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:remove-proxy-rule', ruleId),
-
     // Collection CRUD
-    addCollection: (data: Omit<Collection, 'id'>): Promise<AddCollectionResult> =>
-      ipcRenderer.invoke('workspace-state:add-collection', data),
+    addCollection: (
+      section: 'requests' | 'rules',
+      data: Omit<V5.Collection, 'uid' | 'path'>,
+    ): Promise<OperationResult & { collection?: V5.Collection }> =>
+      ipcRenderer.invoke('workspace-state:add-collection', section, data),
 
-    updateCollection: (collectionId: string, updates: Partial<Collection>): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:update-collection', collectionId, updates),
+    updateCollection: (
+      section: 'requests' | 'rules',
+      uid: string,
+      updates: Partial<V5.Collection>,
+    ): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-collection', section, uid, updates),
 
-    removeCollection: (collectionId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:remove-collection', collectionId),
-
-    // Folder CRUD
-    addFolder: (folderData: Omit<Folder, 'id'>): Promise<AddFolderResult> =>
-      ipcRenderer.invoke('workspace-state:add-folder', folderData),
-
-    updateFolder: (folderId: string, updates: Partial<Folder>): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:update-folder', folderId, updates),
-
-    removeFolder: (folderId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:remove-folder', folderId),
+    removeCollection: (section: 'requests' | 'rules', uid: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:remove-collection', section, uid),
 
     // Workspace CRUD
     createWorkspace: (
-      workspace: Partial<Workspace> & { id: string; name: string; type: WorkspaceType },
-    ): Promise<CreateWorkspaceResult> => ipcRenderer.invoke('workspace-state:create-workspace', workspace),
+      name: string,
+      type: WorkspaceType,
+      options?: { description?: string; gitUrl?: string },
+    ): Promise<OperationResult & { workspace?: Workspace }> =>
+      ipcRenderer.invoke('workspace-state:create-workspace', name, type, options),
 
     updateWorkspace: (workspaceId: string, updates: Partial<Workspace>): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:update-workspace', workspaceId, updates),
@@ -160,47 +89,23 @@ export function createWorkspaceStateAPI() {
     copyWorkspaceData: (sourceWorkspaceId: string, targetWorkspaceId: string): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:copy-workspace-data', sourceWorkspaceId, targetWorkspaceId),
 
-    syncWorkspace: (workspaceId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:sync-workspace', workspaceId),
-
     // Environment CRUD
-    getEnvironmentState: (): Promise<{ environments: Environment[]; activeEnvironment: string | null }> =>
-      ipcRenderer.invoke('workspace-state:get-environment-state'),
+    createEnvironment: (name: string): Promise<OperationResult & { environment?: V5.Environment }> =>
+      ipcRenderer.invoke('workspace-state:create-environment', name),
 
-    createEnvironment: (params: {
-      name: string;
-      collectionId?: string;
-      folderId?: string;
-    }): Promise<OperationResult & { environment?: Environment }> =>
-      ipcRenderer.invoke('workspace-state:create-environment', params),
+    deleteEnvironment: (name: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:delete-environment', name),
 
-    updateEnvironment: (
-      environmentId: string,
-      updates: { name?: string; variables?: Record<string, EnvironmentVariable> },
-    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:update-environment', environmentId, updates),
-
-    deleteEnvironment: (environmentId: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:delete-environment', environmentId),
-
-    switchEnvironment: (environmentId: string | null): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:switch-environment', environmentId),
+    switchEnvironment: (name: string | null): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:switch-environment', name),
 
     setVariable: (
-      name: string,
-      value: string | null,
-      environmentId: string,
-      isSensitive: boolean,
+      envName: string,
+      varName: string,
+      value: string,
+      type: 'default' | 'secret',
     ): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:set-variable', name, value, environmentId, isSensitive),
-
-    batchSetVariables: (
-      environmentId: string,
-      variables: Array<{ name: string; value: string | null; isSensitive?: boolean }>,
-    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:batch-set-variables', environmentId, variables),
-
-    // Workspace Variables
-    updateWorkspaceVariables: (variables: Record<string, EnvironmentVariable>): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:update-workspace-variables', variables),
+      ipcRenderer.invoke('workspace-state:set-variable', envName, varName, value, type),
 
     // IPC event listeners (main → renderer)
     onStatePatch: (callback: (patch: WorkspaceStatePatch) => void): (() => void) => {
