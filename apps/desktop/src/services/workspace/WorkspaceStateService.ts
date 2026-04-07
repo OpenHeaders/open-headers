@@ -116,11 +116,13 @@ class WorkspaceStateService {
       state: this.state,
       dirty: this.dirty,
       workspaceRootPath: this.workspaceRootPath,
+      appDataPath: this.appDataPath,
       webSocketService: this.webSocketService,
       envResolver: this.envResolver,
       syncScheduler: this.syncScheduler,
       scheduleDebouncedSave: () => this.scheduleDebouncedSave(),
       saveAll: () => this.saveAll(),
+      saveWorkspacesConfig: () => this.saveWorkspacesConfig(),
       loadWorkspaceData: (id) => this.loadWorkspaceData(id),
       updateWorkspaceMetadataInMemory: (id, meta) => this.updateWorkspaceMetadataInMemory(id, meta),
     };
@@ -422,6 +424,14 @@ class WorkspaceStateService {
 
   async copyWorkspaceData(sourceId: string, targetId: string): Promise<void> {
     return crudCopyWorkspaceData(this.ctx, sourceId, targetId);
+  }
+
+  private async saveWorkspacesConfig(): Promise<void> {
+    await persistWorkspacesConfig(this.appDataPath, {
+      workspaces: this.state.workspaces,
+      activeWorkspaceId: this.state.activeWorkspaceId,
+      syncStatus: this.state.syncStatus,
+    });
   }
 
   // ── Metadata helpers ──────────────────────────────────────────

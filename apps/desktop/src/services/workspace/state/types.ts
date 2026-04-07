@@ -78,11 +78,14 @@ export interface StateContext {
   state: WorkspaceState;
   dirty: DirtyFlags;
   workspaceRootPath: string;
+  /** App data directory (for workspaces.json registry). */
+  appDataPath: string;
   webSocketService: WebSocketServiceLike | null;
   envResolver: EnvironmentResolverLike | null;
   syncScheduler: WorkspaceSyncSchedulerLike | null;
   scheduleDebouncedSave(): void;
   saveAll(): Promise<void>;
+  saveWorkspacesConfig(): Promise<void>;
   loadWorkspaceData(workspaceId: string): Promise<void>;
   updateWorkspaceMetadataInMemory(workspaceId: string, metadata: Partial<WorkspaceMetadata>): void;
 }

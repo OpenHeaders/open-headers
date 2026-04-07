@@ -1,6 +1,5 @@
 // Electron main process — phased startup for fast window display
 
-import type { Source } from '@openheaders/core';
 import { errorMessage } from '@openheaders/core';
 import type {
   BrowserWindow as BrowserWindowType,
@@ -117,7 +116,6 @@ if (!gotTheLock) {
       systemHandlers,
       httpRequestHandlers,
       recordingHandlers,
-      proxyHandlers,
       workspaceHandlers,
       gitHandlers,
     ] = await Promise.all([
@@ -133,7 +131,6 @@ if (!gotTheLock) {
       import('./main/modules/ipc/handlers/systemHandlers').then((m) => m.default),
       import('./main/modules/ipc/handlers/httpRequestHandlers').then((m) => m.default),
       import('./main/modules/ipc/handlers/recordingHandlers').then((m) => m.default),
-      import('./main/modules/ipc/handlers/proxyHandlers').then((m) => m.default),
       import('./main/modules/ipc/handlers/workspaceHandlers').then((m) => m.default),
       import('./main/modules/ipc/handlers/gitHandlers').then((m) => m.default),
     ]);
@@ -145,7 +142,6 @@ if (!gotTheLock) {
       systemHandlers,
       httpRequestHandlers,
       recordingHandlers,
-      proxyHandlers,
       workspaceHandlers,
       gitHandlers,
       appLifecycle,
@@ -176,7 +172,6 @@ if (!gotTheLock) {
       globalShortcuts,
       autoUpdater,
       networkHandlers,
-      proxyHandlers,
     };
   }
 
@@ -185,11 +180,10 @@ if (!gotTheLock) {
   // until workspace data is loaded via IPC.
 
   function phaseC_backgroundInit(modules: Awaited<ReturnType<typeof phaseB_createWindow>>) {
-    const { appLifecycle, proxyHandlers, networkHandlers, autoUpdater, globalShortcuts } = modules;
+    const { appLifecycle, networkHandlers, autoUpdater, globalShortcuts } = modules;
 
     const run = async () => {
       await appLifecycle.initializeApp();
-      await proxyHandlers.autoStartProxy();
 
       const cliApiService = appLifecycle.getCliApiService();
       if (cliApiService && mainWindow) cliApiService.setMainWindow(mainWindow);
@@ -201,11 +195,10 @@ if (!gotTheLock) {
       await globalShortcuts.initialize(app);
 
       const { AppStateMachine } = await import('./services/core/AppStateMachine');
-      const proxyService = (await import('./services/proxy/ProxyService')).default;
       const webSocketService = (await import('./services/websocket/ws-service')).default;
 
       AppStateMachine.serversReady({
-        proxy: proxyService.getStatus(),
+        proxy: { isRunning: false },
         websocket: webSocketService.getConnectionStatus(),
       });
 
@@ -348,7 +341,6 @@ function setupIPC(
   systemHandlers: typeof import('./main/modules/ipc/handlers/systemHandlers').default,
   httpRequestHandlers: typeof import('./main/modules/ipc/handlers/httpRequestHandlers').default,
   recordingHandlers: typeof import('./main/modules/ipc/handlers/recordingHandlers').default,
-  proxyHandlers: typeof import('./main/modules/ipc/handlers/proxyHandlers').default,
   workspaceHandlers: typeof import('./main/modules/ipc/handlers/workspaceHandlers').default,
   gitHandlers: typeof import('./main/modules/ipc/handlers/gitHandlers').default,
   appLifecycle: typeof import('./main/modules/app/lifecycle').default,
@@ -419,25 +411,6 @@ function setupIPC(
   ipcMain.handle('downloadRecording', recordingHandlers.handleDownloadRecording);
   ipcMain.handle('updateRecordingMetadata', recordingHandlers.handleUpdateRecordingMetadata);
 
-  // Proxy
-  ipcMain.handle('proxy-start', proxyHandlers.handleProxyStart);
-  ipcMain.handle('proxy-stop', proxyHandlers.handleProxyStop);
-  ipcMain.handle('proxy-status', proxyHandlers.handleProxyStatus);
-  ipcMain.handle('proxy-get-rules', proxyHandlers.handleProxyGetRules);
-  ipcMain.handle('proxy-save-rule', proxyHandlers.handleProxySaveRule);
-  ipcMain.handle('proxy-delete-rule', proxyHandlers.handleProxyDeleteRule);
-  ipcMain.handle('proxy-clear-cache', proxyHandlers.handleProxyClearCache);
-  ipcMain.handle('proxy-get-cache-stats', proxyHandlers.handleProxyGetCacheStats);
-  ipcMain.handle('proxy-get-cache-entries', proxyHandlers.handleProxyGetCacheEntries);
-  ipcMain.handle('proxy-set-cache-enabled', proxyHandlers.handleProxySetCacheEnabled);
-  ipcMain.handle('proxy-update-header-rules', proxyHandlers.handleProxyUpdateHeaderRules);
-  ipcMain.handle('proxyClearRules', proxyHandlers.handleProxyClearRules);
-  ipcMain.handle('proxy-set-strict-ssl', proxyHandlers.handleProxySetStrictSSL);
-  ipcMain.handle('proxy-add-trusted-certificate', proxyHandlers.handleProxyAddTrustedCertificate);
-  ipcMain.handle('proxy-remove-trusted-certificate', proxyHandlers.handleProxyRemoveTrustedCertificate);
-  ipcMain.handle('proxy-add-certificate-exception', proxyHandlers.handleProxyAddCertificateException);
-  ipcMain.handle('proxy-remove-certificate-exception', proxyHandlers.handleProxyRemoveCertificateException);
-  ipcMain.handle('proxy-get-certificate-info', proxyHandlers.handleProxyGetCertificateInfo);
 
   // WebSocket
   ipcMain.handle('ws-get-connection-status', workspaceHandlers.handleWsGetConnectionStatus.bind(workspaceHandlers));

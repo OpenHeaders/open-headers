@@ -21,9 +21,10 @@ import type { CommitOptions, CommitResult } from './operations/CommitManager';
 import CommitManager from './operations/CommitManager';
 import type { ConnectionTestOptions, ConnectionTestResult } from './operations/ConnectionTester';
 import ConnectionTester from './operations/ConnectionTester';
-import type { SyncOptions, SyncResult } from './operations/TeamWorkspaceSyncer';
-// Operation modules
-import TeamWorkspaceSyncer, { SYNC_STATUS } from './operations/TeamWorkspaceSyncer';
+// TeamWorkspaceSyncer removed — will be rebuilt for YAML workspace format
+interface SyncOptions { force?: boolean }
+interface SyncResult { success: boolean; error?: string; status?: string }
+const SYNC_STATUS = { SUCCESS: 'success', FAILED: 'failed', NO_CHANGES: 'no_changes' } as const;
 import type { BranchResult } from './repository/GitBranchManager';
 import GitBranchManager from './repository/GitBranchManager';
 // Repository modules

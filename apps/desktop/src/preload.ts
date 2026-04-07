@@ -20,13 +20,11 @@ import fileAPI from './preload/api/fileAPI';
 import gitAPI from './preload/api/gitAPI';
 import httpRequestAPI from './preload/api/httpRequestAPI';
 import networkAPI from './preload/api/networkAPI';
-import proxyAPI from './preload/api/proxyAPI';
 import recordingAPI from './preload/api/recordingAPI';
 import settingsAPI from './preload/api/settingsAPI';
 import systemAPI from './preload/api/systemAPI';
 import updateAPI from './preload/api/updateAPI';
 import videoAPI from './preload/api/videoAPI';
-import workspaceAPI from './preload/api/workspaceAPI';
 import { createWorkspaceStateAPI } from './preload/api/workspaceStateAPI';
 
 // Expose protected methods to the renderer process
@@ -49,14 +47,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Recording functionality
   ...recordingAPI,
 
-  // Proxy server APIs
-  ...proxyAPI,
-
   // Git sync APIs
   ...gitAPI,
-
-  // Workspace management
-  ...workspaceAPI,
 
   // Video recording
   ...videoAPI,
