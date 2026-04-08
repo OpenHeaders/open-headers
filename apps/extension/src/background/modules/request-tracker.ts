@@ -6,6 +6,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { isRuleComplete } from '@openheaders/core/utils';
 import { tabs } from '@utils/browser-api';
 import { sendMessageWithCallback } from '@utils/messaging';
 import type { ActiveRule, MatchedRequest } from '@/types/browser';
@@ -20,28 +21,32 @@ import {
 
 // ── Rule summary ─────────────────────────────────────────────────
 
-/** Human-readable one-liner for any rule type. */
+/** Compact one-liner — same format as getRuleDetails in RulesTable. */
 function getRuleSummary(rule: V5.Rule): string {
   switch (rule.type) {
     case 'header': {
       const hr = rule as V5.HeaderRule;
-      const dir = hr.action.isResponse ? 'response' : 'request';
-      return `${hr.action.operation} ${dir} header "${hr.action.headerName}"`;
+      const { operation, headerName, isResponse } = hr.action;
+      const dir = isResponse ? 'res' : 'req';
+      if (operation === 'remove') return headerName ? `Remove ${dir} ${headerName}` : '';
+      if (!headerName && !hr.staticValue) return '';
+      if (!headerName) return hr.staticValue || '';
+      return `${headerName}: ${hr.staticValue || ''}`;
     }
     case 'block':
       return 'Block requests';
     case 'redirect': {
       const rr = rule as V5.RedirectRule;
-      return `Redirect to ${rr.action.redirectTo || '...'}`;
+      return `→ ${rr.action.redirectTo || '...'}`;
     }
     case 'query-param': {
       const qr = rule as V5.QueryParamRule;
       const count = qr.action.params.length;
-      return `Modify ${count} query param${count !== 1 ? 's' : ''}`;
+      return `${count} param${count !== 1 ? 's' : ''}`;
     }
     case 'inject': {
       const ir = rule as V5.InjectRule;
-      return `Inject ${ir.action.injectType}`;
+      return `${ir.action.injectType} @ ${ir.action.position}`;
     }
     default:
       return rule.type;
@@ -86,6 +91,7 @@ export function precompileRulePatterns(): void {
 export function checkIfUrlMatchesAnyRule(url: string): boolean {
   const normalizedUrl = normalizeUrlForTracking(url);
   for (const rule of getRules()) {
+    if (!isRuleComplete(rule)) continue;
     for (const domain of rule.domains) {
       if (doesUrlMatchPattern(normalizedUrl, domain)) {
         return true;
@@ -124,6 +130,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
 
   for (const rule of rules) {
     if (!extensionTypes.has(rule.type)) continue;
+    if (!isRuleComplete(rule)) continue;
 
     const domains = rule.domains;
     let matchType: 'direct' | 'indirect' | null = null;

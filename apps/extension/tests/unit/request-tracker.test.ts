@@ -140,12 +140,13 @@ describe('getActiveRulesForTab', () => {
     expect(result[0].name).toBe('Test Rule');
   });
 
-  it('returns rules with no domains as direct matches with tab URL in matchedUrls', () => {
+  it('returns rules with wildcard domain as direct matches with tab URL in matchedUrls', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
         action: { operation: 'override', headerName: 'X-Global', isResponse: false },
-        domains: [],
+        staticValue: 'value',
+        domains: ['*'],
       }),
     ]);
 
@@ -156,6 +157,19 @@ describe('getActiveRulesForTab', () => {
     expect(result[0].matchedUrls[0].url).toBe('https://any-site.com/page');
     expect(result[0].matchedUrls[0].pattern).toBe('*');
     expect(result[0].matchedUrls[0].timestamp).toBeGreaterThan(0);
+  });
+
+  it('skips incomplete (draft) rules', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'draft-rule',
+        action: { operation: 'override', headerName: '', isResponse: false },
+        domains: [],
+      }),
+    ]);
+
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://openheaders.io');
+    expect(result).toHaveLength(0);
   });
 
   it('preserves rule uid in results', () => {
@@ -172,12 +186,13 @@ describe('getActiveRulesForTab', () => {
     expect(result[0].key).toBe('my-rule-id');
   });
 
-  it('includes tags and isResponse in results', () => {
+  it('includes tags and rule details in results', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
         tags: ['DEV'],
         action: { operation: 'override', headerName: 'X-Tagged', isResponse: true },
+        staticValue: 'true',
         domains: ['*.openheaders.io'],
       }),
     ]);
@@ -185,7 +200,7 @@ describe('getActiveRulesForTab', () => {
     const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/test');
     expect(result[0].tags).toEqual(['DEV']);
     expect(result[0].ruleType).toBe('header');
-    expect(result[0].summary).toContain('response');
+    expect(result[0].summary).toContain('X-Tagged');
   });
 });
 
@@ -315,9 +330,7 @@ describe('uniqueRequestCount', () => {
   });
 
   it('counts tab URL as a request when rule matches', () => {
-    seedRules([
-      makeHeaderRule({ domains: ['*.openheaders.io'] }),
-    ]);
+    seedRules([makeHeaderRule({ domains: ['*.openheaders.io'] })]);
     const { uniqueRequestCount } = getActiveRulesForTab(1, 'https://app.openheaders.io');
     expect(uniqueRequestCount).toBe(1);
   });

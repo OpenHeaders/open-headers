@@ -55,10 +55,8 @@ export async function updateExtensionBadge(
   let badgeState: BadgeState = 'none';
   const activeRulesCount = activeRules ? activeRules.length : 0;
 
-  // Priority: disconnected > paused > active > none
-  if (!connected && reconnectAttempts >= DISCONNECTED_BADGE_THRESHOLD) {
-    badgeState = 'disconnected';
-  } else if (isPaused) {
+  // Priority: paused > active > none (disconnected state no longer shown)
+  if (isPaused) {
     badgeState = 'paused';
   } else if (activeRulesCount > 0) {
     badgeState = 'active';
@@ -74,26 +72,7 @@ export async function updateExtensionBadge(
 
   lastBadgeState = currentStateKey;
 
-  if (badgeState === 'disconnected') {
-    // Show a yellow dot/exclamation when disconnected
-    actionAPI.setBadgeText({ text: '!' }, () => {
-      if (browserAPI.runtime.lastError) {
-        logger.debug('BadgeManager', 'Badge text error:', browserAPI.runtime.lastError);
-      }
-    });
-    actionAPI.setBadgeBackgroundColor({ color: '#ffcd04' }, () => {
-      if (browserAPI.runtime.lastError) {
-        logger.debug('BadgeManager', 'Badge color error:', browserAPI.runtime.lastError);
-      }
-    });
-
-    // Update the tooltip
-    if (actionAPI.setTitle) {
-      actionAPI.setTitle({
-        title: 'Open Headers - Disconnected\nUsing cached data',
-      });
-    }
-  } else if (badgeState === 'paused') {
+  if (badgeState === 'paused') {
     // Show a gray dash when rules execution is paused
     actionAPI.setBadgeText({ text: '\u2212' }, () => {
       if (browserAPI.runtime.lastError) {

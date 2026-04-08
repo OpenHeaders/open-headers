@@ -1,18 +1,24 @@
 import {
   CheckOutlined,
+  CodeOutlined,
   CopyTwoTone,
   DeleteOutlined,
   EditOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
+  LinkOutlined,
+  SendOutlined,
+  SortAscendingOutlined,
+  StopOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
-import { getAppLauncher } from '@utils/app-launcher';
 import {
   App,
   Badge,
   Button,
+  Dropdown,
   Empty,
   Input,
   Popconfirm,
@@ -30,11 +36,11 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
+import { getBrowserAPI } from '@/types/browser';
 import { getTagColor, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderDomainTags,
   renderTagOverflow,
-  renderValueWithCopy,
   type TagDescriptor,
   truncateValue,
 } from './columns/sharedColumnRenderers';
@@ -43,6 +49,36 @@ import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 declare const browser: typeof chrome | undefined;
 
 const { Text } = Typography;
+
+/** Open the full-page rules editor in a new tab. */
+function openRulesPage(hash: string): void {
+  const url = getBrowserAPI().runtime.getURL(`workspace.html#${hash}`);
+  getBrowserAPI().tabs.create({ url });
+}
+
+const RULE_TYPE_ICON: Record<string, React.ReactNode> = {
+  header: <SwapOutlined />,
+  block: <StopOutlined />,
+  redirect: <SendOutlined />,
+  'query-param': <LinkOutlined />,
+  inject: <CodeOutlined />,
+};
+
+const RULE_TYPE_LABEL: Record<string, string> = {
+  header: 'Header',
+  block: 'Block',
+  redirect: 'Redirect',
+  'query-param': 'Query Param',
+  inject: 'Inject',
+};
+
+const RULE_TYPE_DESCRIPTION: Record<string, string> = {
+  header: 'Modify HTTP headers',
+  block: 'Block requests',
+  redirect: 'Redirect requests',
+  'query-param': 'Modify query parameters',
+  inject: 'Inject scripts or CSS',
+};
 
 interface MatchedRequest {
   url: string;
@@ -170,7 +206,6 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 }) => {
   const { message } = App.useApp();
   const { isConnected, disabledTagGroups } = useRules();
-  const appLauncher = getAppLauncher();
   const {
     expandedRowKey,
     nestedFocusIndex,
@@ -190,6 +225,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const [uniqueRequestCount, setUniqueRequestCount] = useState(0);
   const expandCountRef = useRef(0);
   const [searchText, setSearchText] = useState('');
+  const [sortMode, setSortMode] = useState<'status' | 'manual'>('status');
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
   const [sortedInfo, setSortedInfo] = useState<SorterResult<TableRecord>>({});
 
@@ -289,10 +325,17 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       })
     : filteredRules;
 
-  const dataSource: TableRecord[] = sortedFilteredRules.map((rule, index) => ({
-    ...rule,
-    key: (rule.id || index) as string | number,
-  }));
+  const dataSource: TableRecord[] = sortedFilteredRules
+    .map((rule, index) => ({
+      ...rule,
+      key: (rule.id || index) as string | number,
+    }))
+    .sort((a, b) => {
+      if (sortMode !== 'status') return 0;
+      const rankA = a.isEnabled === false ? 2 : disabledTagGroups.has((a.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
+      const rankB = b.isEnabled === false ? 2 : disabledTagGroups.has((b.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
+      return rankA - rankB || a.name.localeCompare(b.name);
+    });
 
   // Keep ref in sync for keyboard callbacks
   dataSourceRef.current = dataSource;
@@ -319,15 +362,11 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     });
   }, []);
 
-  const handleEditRow = useCallback(
-    (index: number) => {
-      const record = dataSourceRef.current[index];
-      if (!record) return;
-      void appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers', action: 'edit', itemId: record.id });
-      void message.info('Opening edit dialog in OpenHeaders app');
-    },
-    [appLauncher, message],
-  );
+  const handleEditRow = useCallback((index: number) => {
+    const record = dataSourceRef.current[index];
+    if (!record) return;
+    openRulesPage(`/edit/${record.id}`);
+  }, []);
 
   const handleCopyRow = useCallback((index: number) => {
     const record = dataSourceRef.current[index];
@@ -376,40 +415,50 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      width: 130,
+      width: 200,
+      fixed: 'left',
       sorter: (a, b) => a.name.localeCompare(b.name),
       sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
       filters: [...new Set(dataSource.map((item) => item.name))].map((name) => ({ text: name, value: name })),
       filteredValue: filteredInfo.name || null,
       filterSearch: true,
       onFilter: (value, record) => record.name === value,
-      render: (text: string) => {
-        const display = truncateValue(text);
+      render: (text: string, record: TableRecord) => {
+        const displayName = truncateValue(text, 24);
         return (
-          <Tooltip title={text.length > 16 ? text : undefined}>
-            <Text strong style={{ fontSize: '13px' }}>
-              {display}
+          <Tooltip title={text.length > 24 ? text : undefined}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+              <span style={{ fontSize: '12px', flexShrink: 0 }}>{RULE_TYPE_ICON[record.ruleType] ?? null}</span>
+              <Text strong style={{ fontSize: '13px' }}>
+                {displayName}
+              </Text>
+            </div>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: 'Details',
+      dataIndex: 'summary',
+      key: 'details',
+      width: 140,
+      render: (text: string) => {
+        const fullValue = text || '';
+        const displayValue = truncateValue(fullValue, 15);
+        return (
+          <Tooltip title={fullValue !== displayValue ? fullValue : undefined}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {displayValue}
             </Text>
           </Tooltip>
         );
       },
     },
     {
-      title: 'Summary',
-      dataIndex: 'summary',
-      key: 'summary',
-      width: 150,
-      render: (text: string) => (
-        <Text type="secondary" style={{ fontSize: '12px' }}>
-          {text}
-        </Text>
-      ),
-    },
-    {
       title: 'Domains',
       dataIndex: 'domains',
       key: 'domains',
-      width: 160,
+      width: 130,
       sorter: (a, b) => (a.domains || []).join(',').localeCompare((b.domains || []).join(',')),
       sortOrder: sortedInfo.columnKey === 'domains' ? sortedInfo.order : null,
       filters: [...new Set(dataSource.flatMap((item) => item.domains || []))].map((domain) => ({
@@ -419,12 +468,12 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       filteredValue: filteredInfo.domains || null,
       filterSearch: true,
       onFilter: (value, record) => (record.domains || []).includes(value as string),
-      render: (domains: string[]) => renderDomainTags(domains),
+      render: (domains: string[]) => renderDomainTags(domains, false),
     },
     {
       title: 'Tags',
       key: 'tags',
-      width: 130,
+      width: 110,
       align: 'center',
       sorter: (a, b) => {
         const tagA = `${a.matchType}${a.tags?.[0] ? `-${a.tags[0]}` : ''}`;
@@ -437,7 +486,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           'Page',
           'Resource',
           ...dataSource.flatMap((item) => item.tags ?? []),
-          ...dataSource.filter((item) => disabledTagGroups.has((item.tags ?? [])[0] || '__no_tag__')).map(() => 'Paused'),
+          ...dataSource
+            .filter((item) => disabledTagGroups.has((item.tags ?? [])[0] || '__no_tag__'))
+            .map(() => 'Paused'),
         ]),
       ].map((tag) => ({ text: tag, value: tag })),
       filteredValue: filteredInfo.tags || null,
@@ -461,11 +512,10 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         if (disabledTagGroups.has(tagGroup)) {
           allTags.push({
             label: 'Paused',
-            color: 'warning',
-            tooltip: `Tag group "${tag || 'Untagged'}" is paused — rule not injected`,
+            color: 'default',
+            tooltip: `Tag group "${tag || 'Untagged'}" is paused — rule not applied`,
           });
         }
-        // Derive Page/Resource from actual matched URLs, not just matchType
         const urls = record.matchedUrls || [];
         const hasDirectMatch = urls.some((m) => m.url === currentTab?.url) || record.matchType === 'direct';
         const hasIndirectMatch = urls.some((m) => m.url !== currentTab?.url) || record.matchType === 'indirect';
@@ -476,81 +526,71 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           allTags.push({ label: 'Resource', tooltip: 'Applied to resources loaded by this page' });
         }
         if (tag) {
-          allTags.push({ label: tag, color: getTagColor(tag) });
+          allTags.push({ label: tag, color: getTagColor(tag), tooltip: 'Tag group — manage in Tags tab' });
         }
-        allTags.push({ label: record.ruleType, tooltip: record.summary });
+        allTags.push({
+          label: RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
+          tooltip: RULE_TYPE_DESCRIPTION[record.ruleType] ?? record.ruleType,
+        });
         const hasStatusTag =
           allTags[0]?.label === 'Paused' || allTags[0]?.label === 'Page' || allTags[0]?.label === 'Resource';
         return renderTagOverflow(allTags, hasStatusTag ? 1 : 2);
       },
     },
     {
-      title: 'Status',
+      title: '',
       dataIndex: 'isEnabled',
       key: 'isEnabled',
-      width: 80,
+      width: 50,
       align: 'center',
       fixed: 'right',
       sorter: (a, b) => Number(b.isEnabled !== false) - Number(a.isEnabled !== false),
       sortOrder: sortedInfo.columnKey === 'isEnabled' ? sortedInfo.order : null,
       render: (enabled: unknown, record: TableRecord) => {
         const isEnabled = enabled !== false;
-        const groupPaused = disabledTagGroups.has(record.tags?.[0] || '__no_tag__');
-        const tooltip = !isConnected
-          ? 'App not connected'
-          : groupPaused && isEnabled
-            ? 'Enabled but tag group is paused — not being injected'
-            : 'Enable/disable rule';
+        const isLocal = (record.id || '').startsWith('local-');
+        const canToggle = isLocal || isConnected;
         return (
-          <Tooltip title={tooltip}>
-            <Switch
-              checked={isEnabled}
-              disabled={!isConnected}
-              onChange={() => {
-                setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-                const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-                browserAPI.runtime.sendMessage(
-                  { type: 'toggleRule', ruleId: record.id, enabled: !isEnabled },
-                  (response: unknown) => {
-                    const resp = response as { success?: boolean } | undefined;
-                    if (resp?.success) {
-                      browserAPI.runtime.sendMessage({ type: 'rulesUpdated' });
-                    } else {
-                      setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-                      void message.error('Failed to toggle rule');
-                    }
-                  },
-                );
-              }}
-              size="small"
-            />
-          </Tooltip>
+          <Switch
+            checked={isEnabled}
+            disabled={!canToggle}
+            onChange={() => {
+              setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
+              const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+              browserAPI.runtime.sendMessage(
+                { type: 'toggleRule', ruleId: record.id, enabled: !isEnabled },
+                (response: unknown) => {
+                  const resp = response as { success?: boolean } | undefined;
+                  if (resp?.success) {
+                    browserAPI.runtime.sendMessage({ type: 'rulesUpdated' });
+                  } else {
+                    setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
+                    void message.error('Failed to toggle rule');
+                  }
+                },
+              );
+            }}
+            size="small"
+          />
         );
       },
     },
     {
-      title: 'Actions',
+      title: '',
       key: 'actions',
-      width: 70,
+      width: 60,
       align: 'center',
       fixed: 'right',
-      render: (_: unknown, record: TableRecord) => (
-        <Tooltip title={!isConnected ? 'App not connected' : 'Edit or delete rule'}>
+      render: (_: unknown, record: TableRecord) => {
+        const isLocal = (record.id || '').startsWith('local-');
+        const canAct = isLocal || isConnected;
+        return (
           <Space size={2}>
             <Button
               type="text"
               icon={<EditOutlined />}
               size="small"
-              disabled={!isConnected}
-              onClick={async () => {
-                await appLauncher.launchOrFocus({
-                  tab: 'rules',
-                  subTab: 'headers',
-                  action: 'edit',
-                  itemId: record.id,
-                });
-                void message.info('Opening edit dialog in OpenHeaders app');
-              }}
+              onClick={() => openRulesPage(`/edit/${record.id}`)}
             />
             <Popconfirm
               title="Delete rule"
@@ -570,13 +610,13 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               okText="Delete"
               okType="danger"
               cancelText="Cancel"
-              disabled={!isConnected}
+              disabled={!canAct}
             >
-              <Button type="text" danger icon={<DeleteOutlined />} size="small" disabled={!isConnected} />
+              <Button type="text" danger icon={<DeleteOutlined />} size="small" disabled={!canAct} />
             </Popconfirm>
           </Space>
-        </Tooltip>
-      ),
+        );
+      },
     },
   ];
 
@@ -601,7 +641,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     !currentTab.domain ||
     /^(chrome|chrome-extension|edge|moz-extension|about|opera|vivaldi|brave):/.test(currentTab.url);
 
-  const enabledCount = activeRules.filter((r) => r.isEnabled !== false).length;
+  const activeCount = activeRules.filter(
+    (r) => r.isEnabled !== false && !disabledTagGroups.has((r.tags ?? [])[0] || '__no_tag__'),
+  ).length;
 
   return (
     <div className="header-rules-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -620,10 +662,12 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             </Tooltip>
             <Space size={4} style={{ display: 'flex' }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
-                {enabledCount} of {activeRules.length} enabled
+                {activeCount} of {activeRules.length} active
               </Text>
               {(() => {
-                const pausedCount = activeRules.filter((r) => disabledTagGroups.has(r.tags?.[0] || '__no_tag__')).length;
+                const pausedCount = activeRules.filter((r) =>
+                  disabledTagGroups.has(r.tags?.[0] || '__no_tag__'),
+                ).length;
                 return pausedCount > 0 ? (
                   <>
                     <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -649,7 +693,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 placeholder="Search anything..."
                 allowClear
                 size="small"
-                style={{ width: 300 }}
+                style={{ width: 260 }}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 onKeyDown={(e) => {
@@ -659,6 +703,71 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                   }
                 }}
               />
+              <Dropdown
+                menu={{
+                  items: [
+                    {
+                      key: 'label',
+                      label: (
+                        <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
+                          SORT ORDER
+                        </Text>
+                      ),
+                      disabled: true,
+                    },
+                    {
+                      key: 'status',
+                      label: (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            minWidth: 220,
+                          }}
+                        >
+                          <div>
+                            <div>By status</div>
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              Active → Paused → Disabled
+                            </Text>
+                          </div>
+                          {sortMode === 'status' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                        </div>
+                      ),
+                      onClick: () => setSortMode('status'),
+                    },
+                    {
+                      key: 'manual',
+                      label: (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            minWidth: 220,
+                          }}
+                        >
+                          <div>
+                            <div>As created</div>
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              Original order, as in the workspace tree
+                            </Text>
+                          </div>
+                          {sortMode === 'manual' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                        </div>
+                      ),
+                      onClick: () => setSortMode('manual'),
+                    },
+                  ],
+                }}
+                placement="bottomRight"
+                trigger={['click']}
+              >
+                <Tooltip title="Sort order">
+                  <Button type="text" size="small" icon={<SortAscendingOutlined />} />
+                </Tooltip>
+              </Dropdown>
             </div>
             <div
               className="value-cell"
@@ -738,7 +847,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           onChange={handleTableChange}
           pagination={paginationConfig}
           size="small"
-          scroll={{ x: 770, y: 290 }}
+          scroll={{ x: 690, y: 290 }}
           onRow={(_record: TableRecord, index) => ({
             onClick: () => {
               if (index !== undefined) {
@@ -750,6 +859,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
             if (disabledTagGroups.has(record.tags?.[0] || '__no_tag__')) classes.push('row-group-paused');
+            else if (record.isEnabled === false) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');
             return classes.join(' ');

@@ -54,26 +54,20 @@ describe('updateExtensionBadge', () => {
   // ── Priority: disconnected > paused > active > none ──
 
   describe('badge state priority', () => {
-    it('shows disconnected badge when not connected (above threshold), even when paused with active rules', async () => {
+    it('shows paused badge when paused, even when disconnected with active rules', async () => {
       const action = getActionMock();
       await updateExtensionBadge(false, makeActiveRules(5), true, null, 10);
 
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
-      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#ffcd04' }, expect.any(Function));
-      expect(action.setTitle).toHaveBeenCalledWith({
-        title: 'Open Headers - Disconnected\nUsing cached data',
-      });
+      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '\u2212' }, expect.any(Function));
+      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#8c8c8c' }, expect.any(Function));
     });
 
-    it('shows disconnected badge when not connected (above threshold), not paused', async () => {
+    it('shows active badge when disconnected but has active rules and not paused', async () => {
       const action = getActionMock();
       await updateExtensionBadge(false, makeActiveRules(3), false, null, 3);
 
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
-      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#ffcd04' }, expect.any(Function));
-      expect(action.setTitle).toHaveBeenCalledWith({
-        title: 'Open Headers - Disconnected\nUsing cached data',
-      });
+      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '3' }, expect.any(Function));
+      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#E8E8E8' }, expect.any(Function));
     });
 
     it('shows paused badge when paused and connected', async () => {
@@ -151,30 +145,19 @@ describe('updateExtensionBadge', () => {
 
   // ── Disconnected badge threshold ──
 
-  describe('disconnected badge threshold', () => {
-    it('does NOT show disconnected badge when reconnectAttempts < 3', async () => {
-      const action = getActionMock();
-      // With 2 reconnect attempts and no active rules → should be "none" state
-      await updateExtensionBadge(false, [], false, null, 2);
-
-      // Should clear badge (none state), not show disconnected
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '' });
-    });
-
-    it('shows disconnected badge when reconnectAttempts === 3', async () => {
-      const action = getActionMock();
-      await updateExtensionBadge(false, [], false, null, 3);
-
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
-      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#ffcd04' }, expect.any(Function));
-    });
-
-    it('shows disconnected badge when reconnectAttempts > 3', async () => {
+  describe('disconnected state does not show special badge', () => {
+    it('clears badge when disconnected with no active rules', async () => {
       const action = getActionMock();
       await updateExtensionBadge(false, [], false, null, 10);
 
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
-      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#ffcd04' }, expect.any(Function));
+      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '' });
+    });
+
+    it('shows active count when disconnected but has cached rules', async () => {
+      const action = getActionMock();
+      await updateExtensionBadge(false, makeActiveRules(3), false, null, 10);
+
+      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '3' }, expect.any(Function));
     });
   });
 
