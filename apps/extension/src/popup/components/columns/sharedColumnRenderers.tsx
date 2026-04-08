@@ -1,4 +1,5 @@
 import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
+import type { ActionDetail } from '@openheaders/core/utils';
 import { Space, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
 
@@ -147,17 +148,11 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
   );
 }
 
-export interface ActionDetail {
-  tag: string;
-  tooltip: string;
-  /** Optional direction line: "↑ Outgoing request" or "↓ Incoming response" */
-  direction?: string;
-  value: string;
-}
+export type { ActionDetail } from '@openheaders/core/utils';
 
 /** Render a compact [TAG] value for the Details column. */
-export function renderActionDetails(detail: ActionDetail, opacity = 1): React.ReactNode {
-  const displayValue = truncateValue(detail.value, 16);
+export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueLen = 16): React.ReactNode {
+  const displayValue = truncateValue(detail.value, maxValueLen);
   // Strip direction arrow from tag for tooltip (e.g. "OVERRIDE ↑" → "OVERRIDE")
   const tooltipTag = detail.tag.replace(/ [↑↓]$/, '');
   // Parse direction: "↑ Outgoing request" → arrow "↑", label "Outgoing request"

@@ -8,9 +8,9 @@ export {
   validateHeaderName,
   validateHeaderValue,
 } from './headers';
-export {
-  isRuleComplete,
-} from './rule-validation';
+export type { ActionDetail } from './rule-display';
+export { DNR_PRIORITY, getActionDetail } from './rule-display';
+export { isRuleComplete } from './rule-validation';
 export {
   buildBreadcrumbTrail,
   findNodeChildren,

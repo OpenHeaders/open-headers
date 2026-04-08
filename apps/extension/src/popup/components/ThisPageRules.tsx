@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
+import { DNR_PRIORITY } from '@openheaders/core/utils';
 import {
   App,
   Badge,
@@ -35,7 +36,6 @@ import { getBrowserAPI } from '@/types/browser';
 import { getTagColor, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderActionDetails,
-  renderDomainTags,
   renderTagOverflow,
   type TagDescriptor,
   truncateValue,
@@ -51,14 +51,6 @@ function openRulesPage(hash: string): void {
   const url = getBrowserAPI().runtime.getURL(`workspace.html#${hash}`);
   getBrowserAPI().tabs.create({ url });
 }
-
-const DNR_PRIORITY: Record<string, number> = {
-  header: 100,
-  'query-param': 150,
-  redirect: 150,
-  block: 200,
-  inject: 50,
-};
 
 const RULE_TYPE_LABEL: Record<string, string> = {
   header: 'Header',
@@ -444,30 +436,18 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     {
       title: 'Details',
       key: 'details',
-      width: 180,
+      width: 240,
       render: (_: unknown, record: TableRecord) =>
-        renderActionDetails({
-          tag: record.actionTag || record.ruleType,
-          tooltip: record.actionTooltip || record.summary,
-          direction: record.actionDirection,
-          value: record.actionValue || '',
-        }),
-    },
-    {
-      title: 'Domains',
-      dataIndex: 'domains',
-      key: 'domains',
-      width: 110,
-      sorter: (a, b) => (a.domains || []).join(',').localeCompare((b.domains || []).join(',')),
-      sortOrder: sortedInfo.columnKey === 'domains' ? sortedInfo.order : null,
-      filters: [...new Set(dataSource.flatMap((item) => item.domains || []))].map((domain) => ({
-        text: domain,
-        value: domain,
-      })),
-      filteredValue: filteredInfo.domains || null,
-      filterSearch: true,
-      onFilter: (value, record) => (record.domains || []).includes(value as string),
-      render: (domains: string[]) => renderDomainTags(domains, false),
+        renderActionDetails(
+          {
+            tag: record.actionTag || record.ruleType,
+            tooltip: record.actionTooltip || record.summary,
+            direction: record.actionDirection,
+            value: record.actionValue || '',
+          },
+          1,
+          24,
+        ),
     },
     {
       title: 'Tags',
@@ -868,7 +848,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           onChange={handleTableChange}
           pagination={paginationConfig}
           size="small"
-          scroll={{ x: 680, y: 290 }}
+          scroll={{ x: 630, y: 290 }}
           onRow={(_record: TableRecord, index) => ({
             onClick: () => {
               if (index !== undefined) {

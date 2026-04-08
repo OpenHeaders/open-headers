@@ -9,6 +9,7 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
+import { type ActionDetail, getActionDetail } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -16,49 +17,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import type { PageInfo, RowActions } from '../utils/table-shared';
-import { type ActionDetail, renderActionDetails, renderDomainTags } from './columns/sharedColumnRenderers';
-
-const HEADER_OP_TOOLTIP: Record<string, string> = {
-  override: 'Replaces existing header value',
-  add: 'Adds header if not present',
-  remove: 'Removes header entirely',
-};
-
-function getActionDetail(rule: V5.Rule): ActionDetail {
-  switch (rule.type) {
-    case 'header': {
-      const { operation, headerName, isResponse } = rule.action;
-      const dir = isResponse ? ' ↓' : ' ↑';
-      const opMap: Record<string, string> = { override: 'OVERRIDE', add: 'ADD', remove: 'REMOVE' };
-      const tag = `${opMap[operation] ?? operation.toUpperCase()}${dir}`;
-      const tooltip = HEADER_OP_TOOLTIP[operation] ?? operation;
-      const direction = isResponse ? '↓ Incoming response' : '↑ Outgoing request';
-      if (operation === 'remove') return { tag, tooltip, direction, value: headerName || '' };
-      const value = headerName ? `${headerName}: ${rule.staticValue || ''}` : rule.staticValue || '';
-      return { tag, tooltip, direction, value };
-    }
-    case 'block':
-      return { tag: 'BLOCK', tooltip: 'Prevents request from completing', value: '' };
-    case 'redirect':
-      return { tag: 'REDIRECT', tooltip: 'Redirects to a different URL', value: rule.action.redirectTo || '' };
-    case 'query-param': {
-      const count = rule.action.params.length;
-      return {
-        tag: 'QUERY',
-        tooltip: 'Modifies URL query parameters',
-        value: `${count} param${count !== 1 ? 's' : ''}`,
-      };
-    }
-    case 'inject':
-      return {
-        tag: rule.action.injectType === 'css' ? 'CSS' : 'JS',
-        tooltip: rule.action.injectType === 'css' ? 'Injects stylesheet into page' : 'Injects JavaScript into page',
-        value: rule.action.position,
-      };
-    default:
-      return { tag: rule.type.toUpperCase(), tooltip: rule.type, value: '' };
-  }
-}
+import { renderActionDetails, renderDomainTags } from './columns/sharedColumnRenderers';
 
 const { Text } = Typography;
 

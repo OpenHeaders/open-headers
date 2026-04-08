@@ -6,7 +6,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
+import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { tabs } from '@utils/browser-api';
 import { sendMessageWithCallback } from '@utils/messaging';
 import type { ActiveRule, MatchedRequest } from '@/types/browser';
@@ -20,57 +20,6 @@ import {
 } from './url-utils';
 
 // ── Rule summary ─────────────────────────────────────────────────
-
-const HEADER_OP_TOOLTIP: Record<string, string> = {
-  override: 'Replaces existing header value',
-  add: 'Adds header if not present',
-  remove: 'Removes header entirely',
-};
-
-/** Structured action detail for compact display. */
-function getActionDetail(rule: V5.Rule): { tag: string; tooltip: string; direction?: string; value: string } {
-  switch (rule.type) {
-    case 'header': {
-      const { operation, headerName, isResponse } = (rule as V5.HeaderRule).action;
-      const dir = isResponse ? ' ↓' : ' ↑';
-      const opMap: Record<string, string> = { override: 'OVERRIDE', add: 'ADD', remove: 'REMOVE' };
-      const tag = `${opMap[operation] ?? operation.toUpperCase()}${dir}`;
-      const tooltip = HEADER_OP_TOOLTIP[operation] ?? operation;
-      const direction = isResponse ? '↓ Incoming response' : '↑ Outgoing request';
-      if (operation === 'remove') return { tag, tooltip, direction, value: headerName || '' };
-      const value = headerName
-        ? `${headerName}: ${(rule as V5.HeaderRule).staticValue || ''}`
-        : (rule as V5.HeaderRule).staticValue || '';
-      return { tag, tooltip, direction, value };
-    }
-    case 'block':
-      return { tag: 'BLOCK', tooltip: 'Prevents request from completing', value: '' };
-    case 'redirect':
-      return {
-        tag: 'REDIRECT',
-        tooltip: 'Redirects to a different URL',
-        value: (rule as V5.RedirectRule).action.redirectTo || '',
-      };
-    case 'query-param': {
-      const count = (rule as V5.QueryParamRule).action.params.length;
-      return {
-        tag: 'QUERY',
-        tooltip: 'Modifies URL query parameters',
-        value: `${count} param${count !== 1 ? 's' : ''}`,
-      };
-    }
-    case 'inject': {
-      const ir = rule as V5.InjectRule;
-      return {
-        tag: ir.action.injectType === 'css' ? 'CSS' : 'JS',
-        tooltip: ir.action.injectType === 'css' ? 'Injects stylesheet into page' : 'Injects JavaScript into page',
-        value: ir.action.position,
-      };
-    }
-    default:
-      return { tag: rule.type.toUpperCase(), tooltip: rule.type, value: '' };
-  }
-}
 
 // ── Tracked state ─────────────────────────────────────────────────
 
