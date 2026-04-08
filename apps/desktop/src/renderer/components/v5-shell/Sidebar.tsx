@@ -22,6 +22,7 @@ import {
 import { Allotment } from 'allotment';
 import { Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { V5 } from '@openheaders/core/types';
 import {
   useCollections,
   useEnvironments,
@@ -32,6 +33,21 @@ import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
 import { useTreeData } from './sidebar/useTreeData';
 import type { ActivityPanel } from './V5Shell';
+
+/**
+ * Walk a collection tree to find the path of ancestors leading to a node with the given uid.
+ * Returns the ancestor nodes (folders) in order from root to parent, or null if not found.
+ */
+function findPathToNode(nodes: V5.TreeNode[], uid: string, path: V5.TreeNode[] = []): V5.TreeNode[] | null {
+  for (const node of nodes) {
+    if (node.uid === uid) return path;
+    if (node.type === 'folder') {
+      const found = findPathToNode(node.children, uid, [...path, node]);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 // ── Section header ──────────────────────────────────────────────
 
@@ -344,19 +360,44 @@ export function Sidebar({
   );
 
   // ── Select opened file ───────────────────────────────────────
+
+  /** Walk collection trees to find the collection (and folder chain) containing a node uid. */
+  const findAncestorKeys = useCallback(
+    (uid: string, allCollections: V5.CollectionTree[]): string[] => {
+      const keys: string[] = [];
+      for (const coll of allCollections) {
+        const path = findPathToNode(coll.tree, uid);
+        if (path) {
+          keys.push(`col-${coll.uid}`);
+          for (const ancestor of path) {
+            if (ancestor.type === 'folder') keys.push(`folder-${ancestor.uid}`);
+          }
+          return keys;
+        }
+      }
+      return keys;
+    },
+    [],
+  );
+
   const selectOpenedFile = useCallback(() => {
     if (!activeTabId) return;
     const sections = new Set(expandedSectionsSet);
     if (activeTabId.startsWith('request-')) {
       sections.add('collections');
-      // Expand the containing collection (and folder)
-      const request = requests.find((r) => `request-${r.uid}` === activeTabId);
-      if (request) {
-        // TODO: derive collection key from request path
-        sections.add('collections');
-      }
+      const requestUid = activeTabId.replace('request-', '');
+      const ancestorKeys = findAncestorKeys(requestUid, requestCollections);
+      if (ancestorKeys.length > 0) ensureExpanded(...ancestorKeys);
     } else if (activeTabId.startsWith('rule-')) {
       sections.add('rules');
+      const ruleUid = activeTabId.replace('rule-', '');
+      const ancestorKeys = findAncestorKeys(ruleUid, ruleCollections);
+      if (ancestorKeys.length > 0) ensureExpanded(...ancestorKeys);
+    } else if (activeTabId.startsWith('col-')) {
+      const colUid = activeTabId.replace('col-vars-', '').replace('col-', '');
+      const isRequest = requestCollections.some((c) => c.uid === colUid);
+      sections.add(isRequest ? 'collections' : 'rules');
+      ensureExpanded(`col-${colUid}`);
     } else if (activeTabId.startsWith('env-')) {
       sections.add('environments');
     }
@@ -365,7 +406,7 @@ export function Sidebar({
     setTimeout(() => {
       containerRef.current?.querySelector(`[data-item-id="${activeTabId}"]`)?.scrollIntoView({ block: 'nearest' });
     }, 50);
-  }, [activeTabId, expandedSectionsSet, requests, ensureExpanded, onExpandedSectionsChange]);
+  }, [activeTabId, expandedSectionsSet, requestCollections, ruleCollections, findAncestorKeys, ensureExpanded, onExpandedSectionsChange]);
 
   selectOpenedFileRef.current = selectOpenedFile;
 
@@ -392,7 +433,7 @@ export function Sidebar({
   }, [onExpandedSectionsChange, setAllExpanded]);
 
   const createNewCollection = useCallback(
-    async (section: 'requests' | 'rules') => {
+    async (section: V5.WorkspaceSection) => {
       const col = await addCollection(section, { name: 'New Collection', description: '', variables: [] });
       if (col) {
         ensureExpanded(`col-${col.uid}`);

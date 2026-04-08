@@ -20,7 +20,7 @@ function generateUid(): string {
 
 export async function addCollection(
   ctx: StateContext,
-  section: 'requests' | 'rules',
+  section: V5.WorkspaceSection,
   data: Omit<V5.Collection, 'uid' | 'path'>,
 ): Promise<V5.Collection> {
   const uid = generateUid();
@@ -48,7 +48,7 @@ export async function addCollection(
 
 export async function updateCollection(
   ctx: StateContext,
-  section: 'requests' | 'rules',
+  section: V5.WorkspaceSection,
   collectionUid: string,
   updates: Partial<V5.Collection>,
 ): Promise<void> {
@@ -65,7 +65,7 @@ export async function updateCollection(
 
 export async function removeCollection(
   ctx: StateContext,
-  section: 'requests' | 'rules',
+  section: V5.WorkspaceSection,
   collectionUid: string,
 ): Promise<void> {
   if (section === 'requests') {

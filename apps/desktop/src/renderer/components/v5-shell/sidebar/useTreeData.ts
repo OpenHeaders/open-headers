@@ -54,10 +54,8 @@ function iconEl(Icon: typeof ApiOutlined, color: string, size = 12): React.React
   return createElement(Icon, { style: { color, fontSize: size } });
 }
 
-type CollectionSection = 'requests' | 'rules';
-
 function containerMenuItems(
-  section: CollectionSection,
+  section: V5.WorkspaceSection,
   onAddItem: () => void,
   onRename: () => void,
   onDelete: () => void,
@@ -111,8 +109,8 @@ export interface UseTreeDataProps {
   onNewEnvironment: () => void;
   switchEnvironment: (envName: string | null) => void;
   deleteEnvironment: (envName: string) => void;
-  updateCollection: (section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>) => Promise<boolean>;
-  removeCollection: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
+  updateCollection: (section: V5.WorkspaceSection, uid: string, updates: Partial<V5.Collection>) => Promise<boolean>;
+  removeCollection: (section: V5.WorkspaceSection, uid: string) => Promise<boolean>;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   onOpenCollectionVariables?: (collectionId: string) => void;
   // Item CRUD callbacks (from domain hooks)
@@ -121,8 +119,8 @@ export interface UseTreeDataProps {
   toggleRule: (uid: string, enabled: boolean) => Promise<boolean>;
   removeRule: (uid: string) => Promise<boolean>;
   updateRule: (uid: string, updates: { name?: string }) => Promise<boolean>;
-  renameFolder: (section: 'requests' | 'rules', uid: string, newName: string) => Promise<boolean>;
-  removeFolder: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
+  renameFolder: (section: V5.WorkspaceSection, uid: string, newName: string) => Promise<boolean>;
+  removeFolder: (section: V5.WorkspaceSection, uid: string) => Promise<boolean>;
   updateEnvironment: (oldName: string, updates: { name?: string }) => Promise<boolean>;
 }
 
@@ -169,7 +167,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
 
   // ── Walk V5 tree nodes ──────────────────────────────────────
 
-  function walkTreeNodes(nodes: V5.TreeNode[], depth: number, parentId: string, section: CollectionSection): TreeNode[] {
+  function walkTreeNodes(nodes: V5.TreeNode[], depth: number, parentId: string, section: V5.WorkspaceSection): TreeNode[] {
     const items: TreeNode[] = [];
     for (const node of nodes) {
       if (node.type === 'folder') {
@@ -225,7 +223,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
 
   // ── Collection node builder ──────────────────────────────────
 
-  function buildCollectionNodes(collections: V5.CollectionTree[], section: CollectionSection): TreeNode[] {
+  function buildCollectionNodes(collections: V5.CollectionTree[], section: V5.WorkspaceSection): TreeNode[] {
     const items: TreeNode[] = [];
 
     for (const col of collections) {

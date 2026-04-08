@@ -60,7 +60,7 @@ export function V5Shell() {
   const { rules, addRule, updateRule } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } =
     useEnvironments();
-  const { collections, addCollection, updateCollection: updateCollectionInV5 } = useCollections();
+  const { collections, addCollection, updateCollection: updateCollectionInV5, getSectionForCollection } = useCollections();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
@@ -254,6 +254,8 @@ export function V5Shell() {
     environments,
     collections,
     activeEnvironment,
+    addRequest,
+    addRule,
     createEnvironment,
     switchEnvironment,
     openTab,
@@ -498,8 +500,8 @@ export function V5Shell() {
 
       if (!activeResolvedTab.entityId) return;
       if (activeResolvedTab.type === 'collection-overview') {
-        // TODO: determine section from tab context
-        void updateCollectionInV5('requests', activeResolvedTab.entityId, { name: newName });
+        const section = getSectionForCollection(activeResolvedTab.entityId);
+        void updateCollectionInV5(section, activeResolvedTab.entityId, { name: newName });
       } else if (activeResolvedTab.type === 'environment') {
         void updateEnvironment(activeResolvedTab.entityId, { name: newName });
       } else if (activeResolvedTab.type === 'request' || activeResolvedTab.type === 'collection') {
@@ -509,7 +511,7 @@ export function V5Shell() {
       }
       setPendingRenameTabId(null);
     },
-    [activeResolvedTab, updateTab, updateCollectionInV5, updateEnvironment, updateRequest, updateRule],
+    [activeResolvedTab, updateTab, updateCollectionInV5, getSectionForCollection, updateEnvironment, updateRequest, updateRule],
   );
 
   return (

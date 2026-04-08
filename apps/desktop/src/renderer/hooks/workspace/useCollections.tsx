@@ -1,5 +1,5 @@
 import type { V5 } from '@openheaders/core/types';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useCentralizedWorkspace } from '@/renderer/hooks/useCentralizedWorkspace';
 import { showMessage } from '@/renderer/utils';
 
@@ -7,12 +7,14 @@ interface UseCollectionsReturn {
   collections: V5.Collection[];
   requestCollections: V5.CollectionTree[];
   ruleCollections: V5.CollectionTree[];
-  addCollection: (section: 'requests' | 'rules', data: Omit<V5.Collection, 'uid' | 'path'>) => Promise<V5.Collection | null>;
-  updateCollection: (section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>) => Promise<boolean>;
-  removeCollection: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
-  addFolder: (collectionUid: string, section: 'requests' | 'rules', name: string, parentPath?: string) => Promise<V5.FolderNode | null>;
-  renameFolder: (section: 'requests' | 'rules', uid: string, newName: string) => Promise<boolean>;
-  removeFolder: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
+  /** Determine which workspace section a collection belongs to. */
+  getSectionForCollection: (uid: string) => V5.WorkspaceSection;
+  addCollection: (section: V5.WorkspaceSection, data: Omit<V5.Collection, 'uid' | 'path'>) => Promise<V5.Collection | null>;
+  updateCollection: (section: V5.WorkspaceSection, uid: string, updates: Partial<V5.Collection>) => Promise<boolean>;
+  removeCollection: (section: V5.WorkspaceSection, uid: string) => Promise<boolean>;
+  addFolder: (collectionUid: string, section: V5.WorkspaceSection, name: string, parentPath?: string) => Promise<V5.FolderNode | null>;
+  renameFolder: (section: V5.WorkspaceSection, uid: string, newName: string) => Promise<boolean>;
+  removeFolder: (section: V5.WorkspaceSection, uid: string) => Promise<boolean>;
 }
 
 export function useCollections(): UseCollectionsReturn {
@@ -24,9 +26,21 @@ export function useCollections(): UseCollectionsReturn {
     ...ruleCollections.map(({ tree: _tree, ...c }) => c),
   ];
 
+  const requestCollectionUids = useMemo(
+    () => new Set(requestCollections.map((c) => c.uid)),
+    [requestCollections],
+  );
+
+  const getSectionForCollection = useCallback(
+    (uid: string): V5.WorkspaceSection => {
+      return requestCollectionUids.has(uid) ? 'requests' : 'rules';
+    },
+    [requestCollectionUids],
+  );
+
   const addCollection = useCallback(
     async (
-      section: 'requests' | 'rules',
+      section: V5.WorkspaceSection,
       data: Omit<V5.Collection, 'uid' | 'path'>,
     ): Promise<V5.Collection | null> => {
       try {
@@ -40,7 +54,7 @@ export function useCollections(): UseCollectionsReturn {
   );
 
   const updateCollection = useCallback(
-    async (section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>): Promise<boolean> => {
+    async (section: V5.WorkspaceSection, uid: string, updates: Partial<V5.Collection>): Promise<boolean> => {
       try {
         await service.updateCollection(section, uid, updates);
         return true;
@@ -53,7 +67,7 @@ export function useCollections(): UseCollectionsReturn {
   );
 
   const removeCollection = useCallback(
-    async (section: 'requests' | 'rules', uid: string): Promise<boolean> => {
+    async (section: V5.WorkspaceSection, uid: string): Promise<boolean> => {
       try {
         await service.removeCollection(section, uid);
         return true;
@@ -68,7 +82,7 @@ export function useCollections(): UseCollectionsReturn {
   const addFolder = useCallback(
     async (
       collectionUid: string,
-      section: 'requests' | 'rules',
+      section: V5.WorkspaceSection,
       name: string,
       parentPath?: string,
     ): Promise<V5.FolderNode | null> => {
@@ -83,7 +97,7 @@ export function useCollections(): UseCollectionsReturn {
   );
 
   const renameFolder = useCallback(
-    async (section: 'requests' | 'rules', uid: string, newName: string): Promise<boolean> => {
+    async (section: V5.WorkspaceSection, uid: string, newName: string): Promise<boolean> => {
       try {
         await service.renameFolder(section, uid, newName);
         return true;
@@ -96,7 +110,7 @@ export function useCollections(): UseCollectionsReturn {
   );
 
   const removeFolder = useCallback(
-    async (section: 'requests' | 'rules', uid: string): Promise<boolean> => {
+    async (section: V5.WorkspaceSection, uid: string): Promise<boolean> => {
       try {
         await service.removeFolder(section, uid);
         return true;
@@ -112,6 +126,7 @@ export function useCollections(): UseCollectionsReturn {
     collections,
     requestCollections,
     ruleCollections,
+    getSectionForCollection,
     addCollection,
     updateCollection,
     removeCollection,

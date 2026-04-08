@@ -12,9 +12,7 @@ import type { V5 } from '@openheaders/core/types';
 import { useCallback, useRef, useState } from 'react';
 import type { Tab, TabType } from './useTabs';
 
-type CollectionSection = 'requests' | 'rules' | 'environments';
-
-const TAB_TYPE_TO_SECTION: Partial<Record<TabType, CollectionSection>> = {
+const TAB_TYPE_TO_SECTION: Partial<Record<TabType, V5.WorkspaceSection>> = {
   request: 'requests',
   collection: 'requests',
   rule: 'rules',
@@ -23,7 +21,7 @@ const TAB_TYPE_TO_SECTION: Partial<Record<TabType, CollectionSection>> = {
 
 export interface SaveModalProps {
   open: boolean;
-  section: CollectionSection;
+  section: V5.WorkspaceSection;
   entityName: string;
   onSave: (params: { name: string; collectionId: string; folderId?: string }) => void;
   onCancel: () => void;
@@ -134,7 +132,7 @@ export function useDraftSave({
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveModalDraftTabId, setSaveModalDraftTabId] = useState<string | null>(null);
   const [saveModalDraftData, setSaveModalDraftData] = useState<Record<string, unknown> | null>(null);
-  const [saveModalSection, setSaveModalSection] = useState<CollectionSection>('requests');
+  const [saveModalSection, setSaveModalSection] = useState<V5.WorkspaceSection>('requests');
   const [saveModalEntityName, setSaveModalEntityName] = useState('');
 
   const handleSaveDraftRef = useRef<(tabId: string, draftData: Record<string, unknown>) => void>(() => {});

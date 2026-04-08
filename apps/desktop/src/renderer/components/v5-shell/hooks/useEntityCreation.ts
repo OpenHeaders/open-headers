@@ -7,8 +7,9 @@
  *   - Create-and-activate environment (for env selector dropdown)
  *   - Opening the active environment tab
  *
- * Direct creation (createNewRequest/createNewRule) is stubbed — use draft-based
- * creation (useDraftSave) which persists via addRequest/addRule IPC.
+ * Direct creation (createNewRequest/createNewRule) creates empty entities directly
+ * in a collection when called with a collectionId. Draft-based creation (useDraftSave)
+ * is the alternative path for entities without a pre-selected collection.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -21,6 +22,8 @@ interface UseEntityCreationOptions {
   environments: V5.Environment[];
   collections: V5.Collection[];
   activeEnvironment: string | null;
+  addRequest: (collectionUid: string, request: Omit<V5.Request, 'uid' | 'path'>) => Promise<V5.Request | null>;
+  addRule: (collectionUid: string, rule: Omit<V5.Rule, 'uid' | 'path'>) => Promise<V5.Rule | null>;
   createEnvironment: (opts: { name: string }) => Promise<V5.Environment | null>;
   switchEnvironment: (name: string | null) => Promise<boolean> | Promise<void>;
   openTab: (tab: Omit<Tab, 'pinned' | 'unsaved'>) => void;
@@ -33,6 +36,8 @@ export function useEntityCreation({
   environments,
   collections,
   activeEnvironment,
+  addRequest,
+  addRule,
   createEnvironment,
   switchEnvironment,
   openTab,
@@ -51,19 +56,59 @@ export function useEntityCreation({
   }, [openTab]);
 
   const createNewRule = useCallback(
-    async (_options?: { collectionId?: string; folderId?: string }) => {
-      // TODO: add IPC handler for creating a rule in a collection
-      // For now, use draft tabs (createDraftRule)
+    async (options?: { collectionId?: string; folderId?: string }) => {
+      if (!options?.collectionId) return;
+      const existingNames = new Set(rules.map((r) => r.name));
+      let name = 'New Rule';
+      let counter = 2;
+      while (existingNames.has(name)) {
+        name = `New Rule (${counter})`;
+        counter++;
+      }
+      const rule = await addRule(options.collectionId, {
+        type: 'header',
+        name,
+        enabled: true,
+        tags: [],
+        domains: [],
+        action: { operation: 'add', headerName: '', isResponse: false },
+        staticValue: '',
+      } as Omit<V5.HeaderRule, 'uid' | 'path'>);
+      if (rule) {
+        const tabId = `rule-${rule.uid}`;
+        openTab({ id: tabId, type: 'rule', label: rule.name, icon: 'rule', entityId: rule.uid });
+        setPendingRenameTabId(tabId);
+      }
     },
-    [],
+    [rules, addRule, openTab, setPendingRenameTabId],
   );
 
   const createNewRequest = useCallback(
-    async (_options?: { collectionId?: string; folderId?: string }) => {
-      // TODO: add IPC handler for creating a request in a collection
-      // For now, use draft tabs (createDraftRequest)
+    async (options?: { collectionId?: string; folderId?: string }) => {
+      if (!options?.collectionId) return;
+      const existingNames = new Set(requests.map((r) => r.name));
+      let name = 'New Request';
+      let counter = 2;
+      while (existingNames.has(name)) {
+        name = `New Request (${counter})`;
+        counter++;
+      }
+      const request = await addRequest(options.collectionId, {
+        name,
+        method: 'GET',
+        url: '',
+        headers: [],
+        params: [],
+        auth: { type: 'none' },
+        body: { type: 'none' },
+      });
+      if (request) {
+        const tabId = `request-${request.uid}`;
+        openTab({ id: tabId, type: 'request', label: request.name, icon: request.method, entityId: request.uid });
+        setPendingRenameTabId(tabId);
+      }
     },
-    [],
+    [requests, addRequest, openTab, setPendingRenameTabId],
   );
 
   const createNewEnvironment = useCallback(

@@ -26,6 +26,7 @@ import {
   readWorkspaceManifest,
   readWorkspaceVariables,
   renameEnvironmentFiles,
+  writeCollection,
   writeEnvironment,
   writeRequest,
   writeRule,
@@ -290,7 +291,21 @@ class WorkspaceStateService {
         this.dirty.workspaces = false;
       }
 
-      // TODO: save collections and rules when dirty
+      if (this.dirty.requestCollections) {
+        const sectionDir = `${this.workspaceRootPath}/requests`;
+        for (const coll of this.state.requestCollections) {
+          saves.push(writeCollection(sectionDir, coll));
+        }
+        this.dirty.requestCollections = false;
+      }
+
+      if (this.dirty.ruleCollections) {
+        const sectionDir = `${this.workspaceRootPath}/rules`;
+        for (const coll of this.state.ruleCollections) {
+          saves.push(writeCollection(sectionDir, coll));
+        }
+        this.dirty.ruleCollections = false;
+      }
 
       if (saves.length > 0) {
         await Promise.all(saves);
@@ -351,15 +366,15 @@ class WorkspaceStateService {
 
   // ── Collection CRUD ───────────────────────────────────────────
 
-  async addCollection(section: 'requests' | 'rules', data: Omit<V5.Collection, 'uid' | 'path'>): Promise<V5.Collection> {
+  async addCollection(section: V5.WorkspaceSection, data: Omit<V5.Collection, 'uid' | 'path'>): Promise<V5.Collection> {
     return crudAddCollection(this.ctx, section, data);
   }
 
-  async updateCollection(section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>): Promise<void> {
+  async updateCollection(section: V5.WorkspaceSection, uid: string, updates: Partial<V5.Collection>): Promise<void> {
     return crudUpdateCollection(this.ctx, section, uid, updates);
   }
 
-  async removeCollection(section: 'requests' | 'rules', uid: string): Promise<void> {
+  async removeCollection(section: V5.WorkspaceSection, uid: string): Promise<void> {
     return crudRemoveCollection(this.ctx, section, uid);
   }
 
@@ -567,7 +582,7 @@ class WorkspaceStateService {
 
   // ── Folder CRUD ───────────────────────────────────────────────
 
-  async addFolder(collectionUid: string, section: 'requests' | 'rules', name: string, parentPath?: string): Promise<V5.FolderNode> {
+  async addFolder(collectionUid: string, section: V5.WorkspaceSection, name: string, parentPath?: string): Promise<V5.FolderNode> {
     const collections = section === 'requests' ? this.state.requestCollections : this.state.ruleCollections;
     const collection = collections.find((c) => c.uid === collectionUid);
     if (!collection) throw new Error(`Collection ${collectionUid} not found`);
@@ -599,7 +614,7 @@ class WorkspaceStateService {
     return node;
   }
 
-  async renameFolder(section: 'requests' | 'rules', uid: string, newName: string): Promise<void> {
+  async renameFolder(section: V5.WorkspaceSection, uid: string, newName: string): Promise<void> {
     const collections = section === 'requests' ? this.state.requestCollections : this.state.ruleCollections;
     for (const coll of collections) {
       const node = this.findFolderNodeByUid(coll.tree, uid);
@@ -614,7 +629,7 @@ class WorkspaceStateService {
     }
   }
 
-  async removeFolder(section: 'requests' | 'rules', uid: string): Promise<void> {
+  async removeFolder(section: V5.WorkspaceSection, uid: string): Promise<void> {
     const collections = section === 'requests' ? this.state.requestCollections : this.state.ruleCollections;
     for (const coll of collections) {
       const node = this.findFolderNodeByUid(coll.tree, uid);

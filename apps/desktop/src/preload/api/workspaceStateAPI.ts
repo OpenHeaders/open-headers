@@ -57,19 +57,19 @@ export function createWorkspaceStateAPI() {
 
     // Collection CRUD
     addCollection: (
-      section: 'requests' | 'rules',
+      section: V5.WorkspaceSection,
       data: Omit<V5.Collection, 'uid' | 'path'>,
     ): Promise<OperationResult & { collection?: V5.Collection }> =>
       ipcRenderer.invoke('workspace-state:add-collection', section, data),
 
     updateCollection: (
-      section: 'requests' | 'rules',
+      section: V5.WorkspaceSection,
       uid: string,
       updates: Partial<V5.Collection>,
     ): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:update-collection', section, uid, updates),
 
-    removeCollection: (section: 'requests' | 'rules', uid: string): Promise<OperationResult> =>
+    removeCollection: (section: V5.WorkspaceSection, uid: string): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:remove-collection', section, uid),
 
     // Workspace CRUD
@@ -148,16 +148,16 @@ export function createWorkspaceStateAPI() {
     // Folder CRUD
     addFolder: (
       collectionUid: string,
-      section: 'requests' | 'rules',
+      section: V5.WorkspaceSection,
       name: string,
       parentPath?: string,
     ): Promise<OperationResult & { folder?: V5.FolderNode }> =>
       ipcRenderer.invoke('workspace-state:add-folder', collectionUid, section, name, parentPath),
 
-    renameFolder: (section: 'requests' | 'rules', uid: string, newName: string): Promise<OperationResult> =>
+    renameFolder: (section: V5.WorkspaceSection, uid: string, newName: string): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:rename-folder', section, uid, newName),
 
-    removeFolder: (section: 'requests' | 'rules', uid: string): Promise<OperationResult> =>
+    removeFolder: (section: V5.WorkspaceSection, uid: string): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:remove-folder', section, uid),
 
     // Workspace variables

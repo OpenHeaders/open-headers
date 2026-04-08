@@ -58,7 +58,7 @@ export type {
 } from './variable';
 
 // ── Workspace ──────────────────────────────────────────────────────
-export type { Workspace } from './workspace';
+export type { Workspace, WorkspaceSection } from './workspace';
 
 // ── Storage ────────────────────────────────────────────────────────
 export { V5_GITIGNORE } from './storage';

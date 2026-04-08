@@ -343,7 +343,7 @@ function SortableRow({
 
 export function CollectionVariablesEditor({ collectionId, onDirtyChange, saveRef }: CollectionVariablesEditorProps) {
   const { token } = theme.useToken();
-  const { collections, updateCollection } = useCollections();
+  const { collections, updateCollection, getSectionForCollection } = useCollections();
   const collection = collections.find((c) => c.uid === collectionId);
 
   const [rows, setRows] = useState<LocalVariable[]>([]);
@@ -369,14 +369,14 @@ export function CollectionVariablesEditor({ collectionId, onDirtyChange, saveRef
 
   const handleSave = useCallback(() => {
     const variables = localToEnvVars(rows);
-    // TODO: determine section from context
-    void updateCollection('requests', collectionId, { variables }).then((ok: boolean) => {
+    const section = getSectionForCollection(collectionId);
+    void updateCollection(section, collectionId, { variables }).then((ok: boolean) => {
       if (ok) {
         snapshotRef.current = fp(rows);
         onDirtyChange?.(false);
       }
     });
-  }, [rows, collectionId, updateCollection, onDirtyChange]);
+  }, [rows, collectionId, updateCollection, getSectionForCollection, onDirtyChange]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;

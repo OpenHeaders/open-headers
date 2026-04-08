@@ -9,6 +9,12 @@
  * that carries a format version number.
  */
 
+/**
+ * Top-level sections that organize collections within a workspace.
+ * Each section corresponds to a directory on disk and a sidebar panel.
+ */
+export type WorkspaceSection = 'requests' | 'rules' | 'environments' | 'recordings' | 'proxy-rules';
+
 export interface Workspace {
   version: number;
   name: string;

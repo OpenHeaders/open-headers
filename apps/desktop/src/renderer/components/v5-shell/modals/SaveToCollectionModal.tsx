@@ -8,8 +8,6 @@
 
 import { FolderOpenOutlined, FolderOutlined, PlusOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-
-type CollectionSection = 'requests' | 'rules' | 'environments' | 'recordings';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -25,7 +23,7 @@ const METHOD_COLORS: Record<string, string> = {
 
 interface SaveToCollectionModalProps {
   open: boolean;
-  section: CollectionSection;
+  section: V5.WorkspaceSection;
   entityName: string;
   collections: V5.Collection[];
   /** Requests in the current workspace — used to show existing items in a collection */
@@ -33,17 +31,18 @@ interface SaveToCollectionModalProps {
   /** Workspace name shown as the root level in the breadcrumb */
   workspaceName: string;
   onSave: (params: { name: string; collectionId: string; folderId?: string }) => void;
-  onCreateCollection: (name: string, section: CollectionSection) => Promise<V5.Collection | null>;
+  onCreateCollection: (name: string, section: V5.WorkspaceSection) => Promise<V5.Collection | null>;
   onCancel: () => void;
 }
 
 const CollectionIcon = FolderOpenOutlined;
 
-const SECTION_TITLES: Record<CollectionSection, string> = {
+const SECTION_TITLES: Record<V5.WorkspaceSection, string> = {
   requests: 'SAVE REQUEST',
   rules: 'SAVE RULE',
   environments: 'SAVE ENVIRONMENT',
   recordings: 'SAVE RECORDING',
+  'proxy-rules': 'SAVE PROXY RULE',
 };
 
 export function SaveToCollectionModal({

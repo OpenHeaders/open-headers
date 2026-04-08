@@ -149,7 +149,7 @@ class CentralizedWorkspaceService {
   // ── Collection CRUD (IPC forwards) ────────────────────────
 
   async addCollection(
-    section: 'requests' | 'rules',
+    section: V5.WorkspaceSection,
     data: Omit<V5.Collection, 'uid' | 'path'>,
   ): Promise<V5.Collection> {
     const result = await window.electronAPI.workspaceState.addCollection(section, data);
@@ -158,7 +158,7 @@ class CentralizedWorkspaceService {
   }
 
   async updateCollection(
-    section: 'requests' | 'rules',
+    section: V5.WorkspaceSection,
     uid: string,
     updates: Partial<V5.Collection>,
   ): Promise<void> {
@@ -166,7 +166,7 @@ class CentralizedWorkspaceService {
     if (!result.success) throw new Error(result.error ?? 'Failed to update collection');
   }
 
-  async removeCollection(section: 'requests' | 'rules', uid: string): Promise<void> {
+  async removeCollection(section: V5.WorkspaceSection, uid: string): Promise<void> {
     const result = await window.electronAPI.workspaceState.removeCollection(section, uid);
     if (!result.success) throw new Error(result.error ?? 'Failed to remove collection');
   }
@@ -262,7 +262,7 @@ class CentralizedWorkspaceService {
 
   async addFolder(
     collectionUid: string,
-    section: 'requests' | 'rules',
+    section: V5.WorkspaceSection,
     name: string,
     parentPath?: string,
   ): Promise<V5.FolderNode> {
@@ -271,12 +271,12 @@ class CentralizedWorkspaceService {
     return result.folder!;
   }
 
-  async renameFolder(section: 'requests' | 'rules', uid: string, newName: string): Promise<void> {
+  async renameFolder(section: V5.WorkspaceSection, uid: string, newName: string): Promise<void> {
     const result = await window.electronAPI.workspaceState.renameFolder(section, uid, newName);
     if (!result.success) throw new Error(result.error ?? 'Failed to rename folder');
   }
 
-  async removeFolder(section: 'requests' | 'rules', uid: string): Promise<void> {
+  async removeFolder(section: V5.WorkspaceSection, uid: string): Promise<void> {
     const result = await window.electronAPI.workspaceState.removeFolder(section, uid);
     if (!result.success) throw new Error(result.error ?? 'Failed to remove folder');
   }

@@ -50,7 +50,7 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle(
     'workspace-state:add-collection',
-    async (_event, section: 'requests' | 'rules', data: Omit<V5.Collection, 'uid' | 'path'>) => {
+    async (_event, section: V5.WorkspaceSection, data: Omit<V5.Collection, 'uid' | 'path'>) => {
       try {
         const collection = await workspaceStateService.addCollection(section, data);
         return { success: true, collection };
@@ -63,7 +63,7 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle(
     'workspace-state:update-collection',
-    async (_event, section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>) => {
+    async (_event, section: V5.WorkspaceSection, uid: string, updates: Partial<V5.Collection>) => {
       try {
         await workspaceStateService.updateCollection(section, uid, updates);
         return { success: true };
@@ -74,7 +74,7 @@ export function registerWorkspaceStateHandlers(): void {
     },
   );
 
-  ipcMain.handle('workspace-state:remove-collection', async (_event, section: 'requests' | 'rules', uid: string) => {
+  ipcMain.handle('workspace-state:remove-collection', async (_event, section: V5.WorkspaceSection, uid: string) => {
     try {
       await workspaceStateService.removeCollection(section, uid);
       return { success: true };
@@ -293,7 +293,7 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle(
     'workspace-state:add-folder',
-    async (_event, collectionUid: string, section: 'requests' | 'rules', name: string, parentPath?: string) => {
+    async (_event, collectionUid: string, section: V5.WorkspaceSection, name: string, parentPath?: string) => {
       try {
         const folder = await workspaceStateService.addFolder(collectionUid, section, name, parentPath);
         return { success: true, folder };
@@ -306,7 +306,7 @@ export function registerWorkspaceStateHandlers(): void {
 
   ipcMain.handle(
     'workspace-state:rename-folder',
-    async (_event, section: 'requests' | 'rules', uid: string, newName: string) => {
+    async (_event, section: V5.WorkspaceSection, uid: string, newName: string) => {
       try {
         await workspaceStateService.renameFolder(section, uid, newName);
         return { success: true };
@@ -317,7 +317,7 @@ export function registerWorkspaceStateHandlers(): void {
     },
   );
 
-  ipcMain.handle('workspace-state:remove-folder', async (_event, section: 'requests' | 'rules', uid: string) => {
+  ipcMain.handle('workspace-state:remove-folder', async (_event, section: V5.WorkspaceSection, uid: string) => {
     try {
       await workspaceStateService.removeFolder(section, uid);
       return { success: true };
