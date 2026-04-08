@@ -1,7 +1,8 @@
-import { AppstoreTwoTone, TagsTwoTone, ThunderboltTwoTone } from '@ant-design/icons';
+import { AppstoreOutlined, AppstoreTwoTone, TagsTwoTone, ThunderboltTwoTone } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { Tabs } from 'antd';
+import { Button, Tabs, Tooltip } from 'antd';
 import type React from 'react';
+import { getBrowserAPI } from '@/types/browser';
 import RulesTable from './RulesTable';
 import TagManager from './TagManager';
 import ThisPageRules from './ThisPageRules';
@@ -68,6 +69,22 @@ const RulesList: React.FC = () => {
       style={{ height: '100%' }}
       tabBarStyle={{ marginBottom: 8, paddingLeft: 8, paddingRight: 8 }}
       tabBarGutter={4}
+      tabBarExtraContent={{
+        right: (
+          <Tooltip title="Open full workspace editor">
+            <Button
+              size="small"
+              icon={<AppstoreOutlined />}
+              onClick={() => {
+                const url = getBrowserAPI().runtime.getURL('workspace.html');
+                getBrowserAPI().tabs.create({ url });
+              }}
+            >
+              Workspace
+            </Button>
+          </Tooltip>
+        ),
+      }}
     />
   );
 };

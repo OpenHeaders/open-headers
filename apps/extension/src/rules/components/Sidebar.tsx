@@ -9,10 +9,12 @@
  */
 
 import {
+  AimOutlined,
   CheckCircleOutlined,
   CodeOutlined,
   DeleteOutlined,
   EditOutlined,
+  EllipsisOutlined,
   ExpandOutlined,
   FolderOpenOutlined,
   FolderOutlined,
@@ -26,11 +28,12 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
+import { isRuleComplete } from '@openheaders/core/utils';
 import { useRules } from '@hooks/useRules';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { createElement, useCallback, useMemo, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
 
@@ -107,17 +110,19 @@ function SectionHeader({
 interface SidebarProps {
   activeTabId?: string | null;
   onSelectRule: (uid: string) => void;
-  onCreateRule: (type: string) => void;
+  onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }) => void;
   onDeleteRule?: (uid: string) => void;
+  onOpenCollectionOverview?: (uid: string, name: string) => void;
+  onOpenFolderOverview?: (uid: string, name: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRule, onDeleteRule }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRule, onDeleteRule, onOpenCollectionOverview, onOpenFolderOverview }) => {
   const { token } = theme.useToken();
   const {
     rules, localCollectionTrees, isConnected,
     updateLocalRule, deleteLocalRule, deleteLocalCollection,
     createLocalFolder, renameLocalFolder, deleteLocalFolder,
-    renameLocalCollection,
+    renameLocalCollection, createLocalCollection,
   } = useRules();
   const { message } = App.useApp();
 
@@ -130,16 +135,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
     rules: true,
     environments: false,
   });
+  const [openWithSingleClick, setOpenWithSingleClick] = useState(true);
+  const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = useState(true);
+  const [openFoldersWithSingleClick, setOpenFoldersWithSingleClick] = useState(true);
+  const [alwaysSelectOpened, setAlwaysSelectOpened] = useState(true);
+  const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-expand new collections
-  const prevCollectionCount = useRef(0);
-  if (localCollectionTrees.length > prevCollectionCount.current) {
-    const newKeys = new Set(expandedKeys);
-    for (const col of localCollectionTrees) newKeys.add(`col-${col.uid}`);
-    if (newKeys.size !== expandedKeys.size) setExpandedKeys(newKeys);
-  }
-  prevCollectionCount.current = localCollectionTrees.length;
 
   const toggleSection = useCallback((key: string) => {
     setSectionsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -157,7 +159,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
   const expandAll = useCallback(() => {
     setSectionsExpanded({ requests: true, rules: true, environments: true });
     const allKeys = new Set<string>();
-    for (const col of localCollectionTrees) allKeys.add(`col-${col.uid}`);
+    const collectKeys = (nodes: V5.TreeNode[]) => {
+      for (const n of nodes) {
+        if (n.type === 'folder') {
+          allKeys.add(`folder-${n.uid}`);
+          collectKeys(n.children);
+        }
+      }
+    };
+    for (const col of localCollectionTrees) {
+      allKeys.add(`col-${col.uid}`);
+      collectKeys(col.tree);
+    }
     setExpandedKeys(allKeys);
   }, [localCollectionTrees]);
 
@@ -193,15 +206,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
 
   /** Walk V5.TreeNode[] (folder/rule) and produce sidebar TreeNode[] */
   const walkV5Tree = useCallback(
-    (v5Nodes: V5.TreeNode[], depth: number, parentId: string): TreeNode[] => {
+    (v5Nodes: V5.TreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
       const items: TreeNode[] = [];
 
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           const fid = `folder-${node.uid}`;
           const isExpanded = expandedKeys.has(fid);
-          const onAddRule = () => onCreateRule('header');
-          const onAddFolder = () => { void createLocalFolder('New Folder', node.path); };
+          const onAddRule = () => onCreateRule('header', { collectionId, folderPath: node.path });
+          const onAddFolder = () => {
+            void createLocalFolder('New Folder', node.path).then((f) => {
+              if (f) {
+                setExpandedKeys((prev) => { const next = new Set(prev); next.add(fid); return next; });
+                onOpenFolderOverview?.(f.uid, f.name);
+              }
+            });
+          };
 
           items.push({
             id: fid,
@@ -221,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
             addMenuItems: folderMenuItems(onAddRule, onAddFolder, () => setRenamingId(fid), () => confirmDelete(node.name, () => { void deleteLocalFolder(node.uid); })),
           });
           if (isExpanded) {
-            const children = walkV5Tree(node.children, depth + 1, fid);
+            const children = walkV5Tree(node.children, depth + 1, fid, collectionId);
             if (children.length > 0) {
               items.push(...children);
             } else {
@@ -236,8 +256,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
                 canDelete: false,
                 canAddChild: false,
                 placeholderTitle: 'Folder is empty',
-                placeholderMessage: 'Add a rule to get started.',
-                placeholderActions: [{ label: 'Add rule', icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddRule }],
+                placeholderMessage: 'Add a rule or folder to get started.',
+                placeholderActions: [
+                  { label: 'Add rule', icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddRule },
+                  { label: 'Add folder', icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddFolder },
+                ],
               });
             }
           }
@@ -245,8 +268,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `rule-${node.uid}`;
           const isLocal = node.uid.startsWith('local-');
-          const color = node.enabled ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)';
           const fullRule = rules.find((r) => r.uid === node.uid);
+          const complete = fullRule ? isRuleComplete(fullRule) : true;
+          const color = node.enabled && complete
+            ? 'var(--ant-color-primary, #1677ff)'
+            : 'var(--ant-color-text-tertiary, #999)';
+
+          // Badge: "draft" for incomplete rules, "off" for disabled complete rules
+          let badge: React.ReactNode;
+          if (!complete) {
+            badge = createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } }, 'draft');
+          } else if (!node.enabled) {
+            badge = createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } }, 'off');
+          }
 
           items.push({
             id: rid,
@@ -256,13 +290,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
             expandable: false,
             parentId,
             icon: iconEl(ThunderboltOutlined, color),
-            badge: !node.enabled ? createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } }, 'off') : undefined,
+            badge,
             canRename: isLocal,
             canDelete: isLocal,
             canAddChild: false,
             hoverAction: node.enabled
-              ? { icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11), tooltip: 'Disable', onClick: () => handleToggleRule(node.uid, false) }
-              : { icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11), tooltip: 'Enable', onClick: () => handleToggleRule(node.uid, true) },
+              ? { icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11), tooltip: 'Disable rule', onClick: () => handleToggleRule(node.uid, false) }
+              : { icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11), tooltip: 'Enable rule', onClick: () => handleToggleRule(node.uid, true) },
             onOpen: () => onSelectRule(node.uid),
             onRename: isLocal && fullRule ? async (name: string) => { void updateLocalRule(node.uid, { name }); } : undefined,
             onDelete: isLocal ? () => confirmDelete(node.name, () => { onDeleteRule?.(node.uid); }) : undefined,
@@ -272,7 +306,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
 
       return items;
     },
-    [expandedKeys, lowerFilter, rules, toggleExpand, onCreateRule, onSelectRule, onDeleteRule, handleToggleRule, updateLocalRule, createLocalFolder, renameLocalFolder, deleteLocalFolder, confirmDelete],
+    [expandedKeys, lowerFilter, rules, toggleExpand, onCreateRule, onSelectRule, onDeleteRule, handleToggleRule, updateLocalRule, createLocalFolder, renameLocalFolder, deleteLocalFolder, confirmDelete, onOpenFolderOverview],
   );
 
   const rulesNodes = useMemo((): TreeNode[] => {
@@ -287,8 +321,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
 
       const colId = `col-${collection.uid}`;
       const isExpanded = expandedKeys.has(colId);
-      const onAddRule = () => onCreateRule('header');
-      const onAddFolder = () => { void createLocalFolder('New Folder', collection.path); };
+      const onAddRule = () => onCreateRule('header', { collectionId: collection.uid });
+      const onAddFolder = () => {
+        void createLocalFolder('New Folder', collection.path).then((f) => {
+          if (f) {
+            setExpandedKeys((prev) => { const next = new Set(prev); next.add(colId); return next; });
+            onOpenFolderOverview?.(f.uid, f.name);
+          }
+        });
+      };
 
       items.push({
         id: colId,
@@ -308,7 +349,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
       });
 
       if (isExpanded) {
-        const children = walkV5Tree(collection.tree, 1, colId);
+        const children = walkV5Tree(collection.tree, 1, colId, collection.uid);
         if (children.length > 0) {
           items.push(...children);
         } else {
@@ -323,8 +364,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
             canDelete: false,
             canAddChild: false,
             placeholderTitle: 'Collection is empty',
-            placeholderMessage: 'Add a rule to get started.',
-            placeholderActions: [{ label: 'Add rule', icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddRule }],
+            placeholderMessage: 'Add a rule or folder to get started.',
+            placeholderActions: [
+              { label: 'Add rule', icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddRule },
+              { label: 'Add folder', icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddFolder },
+            ],
           });
         }
       }
@@ -339,15 +383,119 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
 
   const isSelected = useCallback(
     (id: string) => {
-      if (!activeTabId) return false;
-      return activeTabId === id || `edit-${id.replace('rule-', '')}` === activeTabId;
+      if (!alwaysSelectOpened || !activeTabId) return false;
+      // Direct match: col-{uid}, folder-{uid} tabs match their sidebar node IDs
+      if (activeTabId === id) return true;
+      // Rule tabs: edit-{uid} matches rule-{uid} sidebar node
+      if (id.startsWith('rule-') && activeTabId === `edit-${id.replace('rule-', '')}`) return true;
+      return false;
     },
-    [activeTabId],
+    [activeTabId, alwaysSelectOpened],
   );
 
   const isFocused = useCallback((id: string) => focusedId === id, [focusedId]);
 
-  const handleItemClick = useCallback((node: TreeNode) => { setFocusedId(node.id); node.onOpen?.(); }, []);
+  const shouldOpenOnSingleClick = useCallback(
+    (node: TreeNode) => {
+      if (node.kind === 'group') return openCollectionsWithSingleClick;
+      if (node.kind === 'folder') return openFoldersWithSingleClick;
+      return openWithSingleClick;
+    },
+    [openWithSingleClick, openCollectionsWithSingleClick, openFoldersWithSingleClick],
+  );
+
+  const handleItemClick = useCallback(
+    (node: TreeNode) => {
+      setFocusedId(node.id);
+      if (shouldOpenOnSingleClick(node)) node.onOpen?.();
+    },
+    [shouldOpenOnSingleClick],
+  );
+
+  const handleItemDoubleClick = useCallback(
+    (node: TreeNode) => {
+      if (!shouldOpenOnSingleClick(node)) node.onOpen?.();
+    },
+    [shouldOpenOnSingleClick],
+  );
+
+  // Select Opened Tab — expand ancestors, focus, and scroll to the active tab's sidebar node.
+  // Returns true if the node was found and selected, false otherwise.
+  const selectOpenedFile = useCallback((): boolean => {
+    if (!activeTabId) return false;
+
+    // Determine which sidebar node ID corresponds to this tab
+    let nodeId: string | null = null;
+    if (activeTabId.startsWith('edit-')) {
+      nodeId = `rule-${activeTabId.replace('edit-', '')}`;
+    } else if (activeTabId.startsWith('col-') || activeTabId.startsWith('folder-')) {
+      nodeId = activeTabId; // collection/folder overview tabs match sidebar IDs directly
+    }
+    if (!nodeId) return false;
+
+    // For collection nodes, just ensure the section is open
+    if (nodeId.startsWith('col-')) {
+      setSectionsExpanded((prev) => ({ ...prev, rules: true }));
+      setFocusedId(nodeId);
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
+    }
+
+    // For rule/folder nodes, find ancestors and expand them
+    const targetUid = nodeId.startsWith('rule-') ? nodeId.replace('rule-', '') : nodeId.replace('folder-', '');
+    const targetType = nodeId.startsWith('rule-') ? 'rule' : 'folder';
+
+    for (const col of localCollectionTrees) {
+      const colKey = `col-${col.uid}`;
+      const findInTree = (nodes: V5.TreeNode[], ancestors: string[]): string[] | null => {
+        for (const n of nodes) {
+          if (n.type === targetType && n.uid === targetUid) return ancestors;
+          if (n.type === 'folder') {
+            const found = findInTree(n.children, [...ancestors, `folder-${n.uid}`]);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const ancestors = findInTree(col.tree, [colKey]);
+      if (ancestors) {
+        setExpandedKeys((prev) => {
+          const next = new Set(prev);
+          for (const k of ancestors) next.add(k);
+          return next;
+        });
+        setSectionsExpanded((prev) => ({ ...prev, rules: true }));
+        setFocusedId(nodeId);
+        setTimeout(() => {
+          containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
+        }, 50);
+        return true;
+      }
+    }
+    return false;
+  }, [activeTabId, localCollectionTrees]);
+
+  // Auto-select on active tab change, with retry when tree data arrives async
+  const prevActiveTabRef = useRef(activeTabId);
+  const pendingSelectRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!alwaysSelectOpened || !activeTabId) return;
+
+    const tabChanged = prevActiveTabRef.current !== activeTabId;
+    prevActiveTabRef.current = activeTabId;
+
+    if (tabChanged) {
+      // Tab just changed — attempt selection, mark pending if rule not found yet
+      const found = selectOpenedFile();
+      pendingSelectRef.current = found ? null : activeTabId;
+    } else if (pendingSelectRef.current === activeTabId) {
+      // Tree data updated — retry pending selection
+      const found = selectOpenedFile();
+      if (found) pendingSelectRef.current = null;
+    }
+  }, [alwaysSelectOpened, activeTabId, selectOpenedFile, localCollectionTrees]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -380,12 +528,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
     [allFlatItems, focusedId, expandedKeys, toggleExpand],
   );
 
+  // Create a new collection — appears collapsed, opens overview tab with breadcrumb rename
+  const createNewCollection = useCallback(async () => {
+    const col = await createLocalCollection('New Collection');
+    if (col) {
+      setSectionsExpanded((prev) => ({ ...prev, rules: true }));
+      onOpenCollectionOverview?.(col.uid, col.name);
+    }
+  }, [createLocalCollection, onOpenCollectionOverview]);
+
   const createMenuItems = [
     { key: 'header', icon: <SwapOutlined />, label: 'Modify Headers', onClick: () => onCreateRule('header') },
     { key: 'block', icon: <StopOutlined />, label: 'Block Requests', onClick: () => onCreateRule('block') },
     { key: 'redirect', icon: <SendOutlined />, label: 'Redirect Requests', onClick: () => onCreateRule('redirect') },
     { key: 'query-param', icon: <LinkOutlined />, label: 'Modify Query Params', onClick: () => onCreateRule('query-param') },
     { key: 'inject', icon: <CodeOutlined />, label: 'Inject Scripts/CSS', onClick: () => onCreateRule('inject') },
+    { type: 'divider' as const, key: 'div-1' },
+    { key: 'collection', icon: <FolderOpenOutlined />, label: 'Collection', onClick: () => void createNewCollection() },
   ];
 
   const renderNodes = (nodes: TreeNode[], emptyCreate?: () => void) => {
@@ -410,7 +569,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
         isRenaming={renamingId === node.id}
         isExpanded={node.expandable ? expandedKeys.has(node.id) : undefined}
         onClick={() => handleItemClick(node)}
-        onDoubleClick={() => node.onOpen?.()}
+        onDoubleClick={() => handleItemDoubleClick(node)}
         onStartRename={() => { if (renamingId === node.id) setRenamingId(null); else setRenamingId(node.id); }}
       />
     ));
@@ -423,8 +582,34 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
         <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
           <Tooltip title="New rule" placement="bottom"><div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}><PlusOutlined /></div></Tooltip>
         </Dropdown>
+        <Tooltip title="Select Opened Tab" placement="bottom">
+          <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={selectOpenedFile}><AimOutlined /></div>
+        </Tooltip>
         <Tooltip title="Expand All" placement="bottom"><div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={expandAll}><ExpandOutlined /></div></Tooltip>
         <Tooltip title="Collapse All" placement="bottom"><div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={collapseAll}><NodeCollapseOutlined /></div></Tooltip>
+        <Dropdown
+          menu={{
+            items: [
+              {
+                key: 'behavior',
+                label: 'Behavior',
+                children: [
+                  { key: 'single-click', label: `${openWithSingleClick ? '✓ ' : ''}Open Entries with Single Click`, onClick: () => setOpenWithSingleClick((v) => !v) },
+                  { key: 'collections-single-click', label: `${openCollectionsWithSingleClick ? '✓ ' : ''}Open Collections with Single Click`, onClick: () => setOpenCollectionsWithSingleClick((v) => !v) },
+                  { key: 'folders-single-click', label: `${openFoldersWithSingleClick ? '✓ ' : ''}Open Folders with Single Click`, onClick: () => setOpenFoldersWithSingleClick((v) => !v) },
+                  { key: 'always-select', label: `${alwaysSelectOpened ? '✓ ' : ''}Always Select Opened Tab`, onClick: () => setAlwaysSelectOpened((v) => !v) },
+                ],
+              },
+            ],
+          }}
+          trigger={['click']}
+          placement="bottomRight"
+          onOpenChange={setOptionsMenuOpen}
+        >
+          <Tooltip title="Options" placement="bottom" open={optionsMenuOpen ? false : undefined}>
+            <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}><EllipsisOutlined /></div>
+          </Tooltip>
+        </Dropdown>
       </div>
 
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation */}
@@ -437,7 +622,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
             <PlusOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }} onClick={(e) => e.stopPropagation()} />
           </Dropdown>
         } />
-        {sectionsExpanded.rules && <div style={{ flex: 1, overflowY: 'auto' }}>{renderNodes(rulesNodes, () => onCreateRule('header'))}</div>}
+        {sectionsExpanded.rules && <div style={{ flex: 1, overflowY: 'auto' }}>{renderNodes(rulesNodes, () => void createNewCollection())}</div>}
 
         <SectionHeader title="ENVIRONMENTS" expanded={sectionsExpanded.environments} onToggle={() => toggleSection('environments')} />
         {sectionsExpanded.environments && <div className="rules-sidebar-empty" style={{ color: token.colorTextTertiary }}>{isConnected ? 'Environments are managed in the desktop app.' : 'Connect to desktop app to see environments.'}</div>}

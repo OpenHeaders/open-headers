@@ -42,6 +42,21 @@ let localRules: V5.Rule[] = [];
 let localCollections: V5.Collection[] = [];
 let localFolders: LocalFolder[] = [];
 
+// ── Change listeners ────────────────────────────────────────────────
+
+type ChangeListener = () => void;
+const changeListeners: Set<ChangeListener> = new Set();
+
+/** Register a listener that fires after any rule/collection/folder mutation. */
+export function onStoreChange(listener: ChangeListener): () => void {
+  changeListeners.add(listener);
+  return () => changeListeners.delete(listener);
+}
+
+function notifyChange(): void {
+  for (const listener of changeListeners) listener();
+}
+
 // ── Reads ────────────────────────────────────────────────────────────
 
 export function getRules(): V5.Rule[] {
@@ -123,6 +138,7 @@ export function setRulesFromApp(incoming: V5.Rule[]): void {
   storage.local.set({ [APP_STORAGE_KEY]: incoming }, () => {
     logger.debug('RuleStore', `Persisted ${incoming.length} app rules to storage`);
   });
+  notifyChange();
 }
 
 // ── Local collections ────────────────────────────────────────────────
@@ -193,6 +209,7 @@ function persistLocalCollections(): void {
   storage.local.set({ [LOCAL_COLLECTIONS_KEY]: localCollections }, () => {
     logger.debug('RuleStore', `Persisted ${localCollections.length} local collections to storage`);
   });
+  notifyChange();
 }
 
 // ── Local folders ───────────────────────────────────────────────────
@@ -242,6 +259,7 @@ function persistLocalFolders(): void {
   storage.local.set({ [LOCAL_FOLDERS_KEY]: localFolders }, () => {
     logger.debug('RuleStore', `Persisted ${localFolders.length} local folders to storage`);
   });
+  notifyChange();
 }
 
 // ── Local rules (extension CRUD) ─────────────────────────────────────
@@ -311,6 +329,7 @@ function persistLocalRules(): void {
   storage.local.set({ [LOCAL_RULES_KEY]: localRules }, () => {
     logger.debug('RuleStore', `Persisted ${localRules.length} local rules to storage`);
   });
+  notifyChange();
 }
 
 // ── Hydration ────────────────────────────────────────────────────────

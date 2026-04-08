@@ -25,7 +25,7 @@ import {
   revalidateTrackedRequests,
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
-import { hydrateFromStorage } from './modules/rule-store';
+import { getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
 import { setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { generateRulesHash } from './modules/utils';
 import {
@@ -94,6 +94,15 @@ async function initializeExtension(): Promise<void> {
   setupTabListeners(debouncedUpdateBadge, recordingService);
   setupPeriodicCleanup();
   setupInjectListener();
+
+  // Broadcast rule changes to all open extension pages (popup, workspace)
+  onStoreChange(() => {
+    try {
+      runtime.sendMessage({ type: 'rulesUpdated', rules: getRules() });
+    } catch {
+      // No listeners — popup/workspace not open
+    }
+  });
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 

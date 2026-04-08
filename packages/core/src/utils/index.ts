@@ -9,6 +9,13 @@ export {
   validateHeaderValue,
 } from './headers';
 export {
+  isRuleComplete,
+} from './rule-validation';
+export {
+  buildBreadcrumbTrail,
+  findNodeChildren,
+} from './tree';
+export {
   extractUid,
   generateUid,
   slugify,

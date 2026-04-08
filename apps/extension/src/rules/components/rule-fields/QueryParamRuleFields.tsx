@@ -12,7 +12,6 @@ const QueryParamRuleFields: React.FC = () => {
               <Form.Item
                 {...field}
                 name={[field.name, 'param']}
-                rules={[{ required: true, message: 'Param name required' }]}
                 style={{ marginBottom: 0 }}
               >
                 <Input placeholder="Param name" style={{ width: 160 }} />

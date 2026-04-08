@@ -43,6 +43,9 @@ export function BreadcrumbBar({ segments, isDirty, onSave, saveLabel, onRename, 
         inputRef.current?.focus();
         inputRef.current?.select();
       }, 50);
+    } else if (!autoRenameKey && lastAutoRenameKey.current) {
+      lastAutoRenameKey.current = null;
+      setEditing(false);
     }
   }, [autoRenameKey, onRename, segments]);
 

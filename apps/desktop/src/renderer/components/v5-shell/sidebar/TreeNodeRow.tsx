@@ -15,7 +15,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { Dropdown, Tooltip, theme } from 'antd';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TreeNode } from './types';
 
 interface TreeNodeRowProps {
@@ -39,8 +39,14 @@ function InlineRenameInput({
   onCancel: () => void;
 }) {
   const [text, setText] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
   return (
     <input
+      ref={inputRef}
       className="v5-sidebar-rename-input"
       value={text}
       onChange={(e) => setText(e.target.value)}

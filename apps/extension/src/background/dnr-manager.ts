@@ -13,6 +13,7 @@
 declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
+import { isRuleComplete } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from './dnr-builders';
@@ -77,7 +78,7 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
   let ruleId = 1;
 
   for (const rule of rules) {
-    if (!rule.enabled) continue;
+    if (!rule.enabled || !isRuleComplete(rule)) continue;
 
     // Check tag groups
     const tagGroup = rule.tags[0] || '__no_tag__';

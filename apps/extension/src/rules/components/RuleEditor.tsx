@@ -167,10 +167,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    try {
-      const values = await form.validateFields();
-      setSaving(true);
+    const values = form.getFieldsValue();
+    setSaving(true);
 
+    try {
       const rule = buildRule(values);
       if (!rule) { message.error('Unknown rule type'); return; }
 
@@ -178,7 +178,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         // Draft mode: trigger SaveToCollectionModal
         if (onSaveDraft) {
           onSaveDraft(tabId, { ...rule } as Record<string, unknown>);
-          setSaving(false);
           return;
         }
         // Fallback: save to first collection directly
@@ -202,8 +201,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           message.error('Failed to update rule');
         }
       }
-    } catch (_e) {
-      // Validation errors handled by antd
     } finally {
       setSaving(false);
     }
@@ -218,39 +215,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   return (
     <div className="rules-rule-editor">
       <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
-        {/* Row 1: Name + Type (create only) + Enabled */}
-        <Row gutter={12} align="middle">
-          <Col flex="auto">
-            <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 8 }}>
-              <Input placeholder="Rule name" />
-            </Form.Item>
-          </Col>
-          {!isEdit && (
-            <Col flex="160px">
-              <Form.Item name="ruleType" label="Type" style={{ marginBottom: 8 }}>
-                <Select
-                  options={RULE_TYPE_OPTIONS.map((o) => ({
-                    value: o.value,
-                    label: <Space size={4}>{o.icon}<span>{o.label}</span></Space>,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-          )}
-          <Col>
-            <Form.Item name="enabled" label="Active" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Switch size="small" />
-            </Form.Item>
-          </Col>
-        </Row>
+        {/* Name is managed via the tab/breadcrumb — click breadcrumb to rename */}
+        <Form.Item name="name" hidden><Input /></Form.Item>
 
-        {/* Row 2: Domains + Tag */}
-        <Row gutter={12}>
+        {/* Row 1: Domains + Tag + Active */}
+        <Row gutter={12} align="top">
           <Col flex="auto">
             <Form.Item
               name="domains"
               label="Domains"
-              rules={[{ required: true, message: 'Required' }]}
               extra="Comma-separated. Wildcards: *.openheaders.io"
               style={{ marginBottom: 8 }}
             >
@@ -262,7 +235,23 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               <Input placeholder="e.g. dev" />
             </Form.Item>
           </Col>
+          <Col>
+            <Form.Item name="enabled" label="Active" valuePropName="checked" style={{ marginBottom: 8 }}>
+              <Switch size="small" />
+            </Form.Item>
+          </Col>
         </Row>
+
+        {/* Type selector */}
+        <Form.Item name="ruleType" label="Type" style={{ marginBottom: 8, maxWidth: 200 }}>
+          <Select
+            disabled={isEdit}
+            options={RULE_TYPE_OPTIONS.map((o) => ({
+              value: o.value,
+              label: <Space size={4}>{o.icon}<span>{o.label}</span></Space>,
+            }))}
+          />
+        </Form.Item>
 
         <Divider style={{ margin: '8px 0' }} />
 

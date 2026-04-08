@@ -2,12 +2,23 @@
  * SaveToCollectionModal — "Save to Collection" modal for draft entities.
  *
  * Appears when saving a draft entity that has no collection context.
- * Shows a browsable tree of collections/folders filtered by the entity's section,
- * with inline folder creation and a search bar.
+ * Shows a browsable tree of collections/folders with existing items,
+ * inline collection and folder creation, and a search bar.
+ *
+ * Tree navigation uses shared utilities from @openheaders/core/utils.
  */
 
-import { FolderOpenOutlined, FolderOutlined, PlusOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
+import {
+  ApiOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
+  PlusOutlined,
+  RightOutlined,
+  SaveOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
+import { buildBreadcrumbTrail, findNodeChildren } from '@openheaders/core/utils';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -21,22 +32,6 @@ const METHOD_COLORS: Record<string, string> = {
   DELETE: '#f93e3e',
 };
 
-interface SaveToCollectionModalProps {
-  open: boolean;
-  section: V5.WorkspaceSection;
-  entityName: string;
-  collections: V5.Collection[];
-  /** Requests in the current workspace — used to show existing items in a collection */
-  requests: V5.RequestNode[];
-  /** Workspace name shown as the root level in the breadcrumb */
-  workspaceName: string;
-  onSave: (params: { name: string; collectionId: string; folderId?: string }) => void;
-  onCreateCollection: (name: string, section: V5.WorkspaceSection) => Promise<V5.Collection | null>;
-  onCancel: () => void;
-}
-
-const CollectionIcon = FolderOpenOutlined;
-
 const SECTION_TITLES: Record<V5.WorkspaceSection, string> = {
   requests: 'SAVE REQUEST',
   rules: 'SAVE RULE',
@@ -45,26 +40,43 @@ const SECTION_TITLES: Record<V5.WorkspaceSection, string> = {
   'proxy-rules': 'SAVE PROXY RULE',
 };
 
+interface SaveToCollectionModalProps {
+  open: boolean;
+  section: V5.WorkspaceSection;
+  entityName: string;
+  collections: V5.Collection[];
+  collectionTrees: V5.CollectionTree[];
+  workspaceName: string;
+  onSave: (params: { name: string; collectionId: string; folderId?: string }) => void;
+  onCreateCollection: (name: string, section: V5.WorkspaceSection) => Promise<V5.Collection | null>;
+  onCreateFolder: (collectionUid: string, section: V5.WorkspaceSection, name: string, parentPath?: string) => Promise<V5.FolderNode | null>;
+  onCancel: () => void;
+}
+
 export function SaveToCollectionModal({
   open,
   section,
   entityName,
   collections,
-  requests,
+  collectionTrees,
   workspaceName,
   onSave,
   onCreateCollection,
+  onCreateFolder,
   onCancel,
 }: SaveToCollectionModalProps) {
   const { token } = theme.useToken();
   const [name, setName] = useState(entityName);
   const [search, setSearch] = useState('');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined);
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | undefined>(undefined);
   const [creatingCollection, setCreatingCollection] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const nameInputRef = useRef<InputRef>(null);
   const newCollectionInputRef = useRef<InputRef>(null);
+  const newFolderInputRef = useRef<InputRef>(null);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -72,53 +84,78 @@ export function SaveToCollectionModal({
       setName(entityName);
       setSearch('');
       setSelectedCollectionId(null);
-      setSelectedFolderId(undefined);
+      setSelectedFolderPath(undefined);
       setCreatingCollection(false);
       setNewCollectionName('');
+      setCreatingFolder(false);
+      setNewFolderName('');
       setTimeout(() => nameInputRef.current?.focus(), 100);
     }
   }, [open, entityName]);
 
-  // Focus new collection/folder input when toggled
   useEffect(() => {
     if (creatingCollection) setTimeout(() => newCollectionInputRef.current?.focus(), 50);
   }, [creatingCollection]);
 
-  // Collection icon (same across all sections)
+  useEffect(() => {
+    if (creatingFolder) setTimeout(() => newFolderInputRef.current?.focus(), 50);
+  }, [creatingFolder]);
 
-  // Filter collections by section
-  // V5 collections don't have a section field — all passed collections are valid for the current section
-  const sectionCollections = collections;
-
-  // Filter by search
+  // Filter collections by search
   const filter = search.toLowerCase();
   const filteredCollections = useMemo(
-    () => (filter ? sectionCollections.filter((c) => c.name.toLowerCase().includes(filter)) : sectionCollections),
-    [sectionCollections, filter],
+    () => (filter ? collections.filter((c) => c.name.toLowerCase().includes(filter)) : collections),
+    [collections, filter],
   );
 
-  // Existing items in the selected collection
-  const existingItems = useMemo(() => {
-    if (!selectedCollectionId || section !== 'requests') return [];
-    return requests
-      .filter((r) => r.path.startsWith(`requests/${selectedCollectionId}`))
-      .map((r) => ({ name: r.name || 'Untitled', method: r.method || 'GET' }));
-  }, [selectedCollectionId, requests, section]);
+  const selectedCollection = selectedCollectionId ? collections.find((c) => c.uid === selectedCollectionId) : null;
+  const selectedTree = selectedCollectionId ? collectionTrees.find((c) => c.uid === selectedCollectionId) : null;
 
-  // Build breadcrumb path
+  // Current folder's children (uses shared tree utility)
+  const currentNodes = useMemo((): V5.TreeNode[] => {
+    if (!selectedTree) return [];
+    return findNodeChildren(selectedTree.tree, selectedFolderPath) ?? [];
+  }, [selectedTree, selectedFolderPath]);
+
+  // Breadcrumb segments (uses shared tree utility)
   const breadcrumb = useMemo(() => {
-    const parts: string[] = [];
-    if (selectedCollectionId) {
-      const col = sectionCollections.find((c) => c.uid === selectedCollectionId);
-      if (col) parts.push(col.name);
-    }
-    return parts;
-  }, [selectedCollectionId, sectionCollections]);
+    if (!selectedCollection || !selectedTree) return [];
+    const folderTrail = buildBreadcrumbTrail(selectedTree.tree, selectedFolderPath);
+    return [
+      {
+        label: selectedCollection.name,
+        onClick: selectedFolderPath ? () => setSelectedFolderPath(undefined) : undefined,
+      },
+      ...folderTrail.map((seg, i) => ({
+        label: seg.name,
+        onClick: i < folderTrail.length - 1 ? () => setSelectedFolderPath(seg.path) : undefined,
+      })),
+    ];
+  }, [selectedCollection, selectedTree, selectedFolderPath]);
 
   const handleSave = useCallback(() => {
     if (!selectedCollectionId || !name.trim()) return;
-    onSave({ name: name.trim(), collectionId: selectedCollectionId, folderId: selectedFolderId });
-  }, [name, selectedCollectionId, selectedFolderId, onSave]);
+    // If inside a folder, extract the folder uid for the save callback
+    const folderNode = selectedFolderPath
+      ? currentNodes.length >= 0 // we have a valid folder path
+        ? (() => {
+          // Find the folder node to get its uid
+          const findFolder = (nodes: V5.TreeNode[], path: string): V5.FolderNode | null => {
+            for (const n of nodes) {
+              if (n.type === 'folder' && n.path === path) return n;
+              if (n.type === 'folder') {
+                const found = findFolder(n.children, path);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          return selectedTree ? findFolder(selectedTree.tree, selectedFolderPath) : null;
+        })()
+        : null
+      : null;
+    onSave({ name: name.trim(), collectionId: selectedCollectionId, folderId: folderNode?.uid });
+  }, [name, selectedCollectionId, selectedFolderPath, selectedTree, currentNodes, onSave]);
 
   const handleCreateCollection = useCallback(async () => {
     const trimmed = newCollectionName.trim();
@@ -126,11 +163,24 @@ export function SaveToCollectionModal({
     const col = await onCreateCollection(trimmed, section);
     if (col) {
       setSelectedCollectionId(col.uid);
-      setSelectedFolderId(undefined);
+      setSelectedFolderPath(undefined);
       setCreatingCollection(false);
       setNewCollectionName('');
     }
   }, [newCollectionName, section, onCreateCollection]);
+
+  const handleCreateFolder = useCallback(async () => {
+    const trimmed = newFolderName.trim();
+    if (!trimmed || !selectedCollectionId) return;
+    // parentPath: current folder path, or the collection's root path
+    const parentPath = selectedFolderPath ?? selectedTree?.path;
+    const folder = await onCreateFolder(selectedCollectionId, section, trimmed, parentPath);
+    if (folder) {
+      setSelectedFolderPath(folder.path);
+      setCreatingFolder(false);
+      setNewFolderName('');
+    }
+  }, [newFolderName, selectedCollectionId, selectedFolderPath, selectedTree, section, onCreateFolder]);
 
   return (
     <Modal
@@ -139,17 +189,27 @@ export function SaveToCollectionModal({
       onCancel={onCancel}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Button
-            type="link"
-            size="small"
-            icon={<PlusOutlined />}
-            style={{ padding: 0, fontSize: 12 }}
-            onClick={() => {
-              setCreatingCollection(true);
-            }}
-          >
-            New collection
-          </Button>
+          {selectedCollectionId ? (
+            <Button
+              type="link"
+              size="small"
+              icon={<PlusOutlined />}
+              style={{ padding: 0, fontSize: 12 }}
+              onClick={() => setCreatingFolder(true)}
+            >
+              New folder
+            </Button>
+          ) : (
+            <Button
+              type="link"
+              size="small"
+              icon={<PlusOutlined />}
+              style={{ padding: 0, fontSize: 12 }}
+              onClick={() => setCreatingCollection(true)}
+            >
+              New collection
+            </Button>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={onCancel} size="small">
               Cancel
@@ -206,39 +266,30 @@ export function SaveToCollectionModal({
           onClick={() => {
             if (selectedCollectionId) {
               setSelectedCollectionId(null);
-              setSelectedFolderId(undefined);
+              setSelectedFolderPath(undefined);
+              setCreatingFolder(false);
             }
           }}
         >
           {workspaceName}
         </span>
-        {breadcrumb[0] && (
-          <>
+        {breadcrumb.map((seg, i) => (
+          <span key={i}>
             <span style={{ color: token.colorTextTertiary }}>{' / '}</span>
-            {/* biome-ignore lint/a11y/useKeyWithClickEvents: breadcrumb nav */}
-            <span
-              className={selectedFolderId ? 'v5-save-modal-breadcrumb' : undefined}
-              style={{
-                color: selectedFolderId ? token.colorPrimary : token.colorText,
-                cursor: selectedFolderId ? 'pointer' : undefined,
-                fontWeight: selectedFolderId ? 400 : 600,
-              }}
-              onClick={() => {
-                if (selectedFolderId) {
-                  setSelectedFolderId(undefined);
-                }
-              }}
-            >
-              {breadcrumb[0]}
-            </span>
-          </>
-        )}
-        {breadcrumb[1] && (
-          <>
-            <span style={{ color: token.colorTextTertiary }}>{' / '}</span>
-            <span style={{ fontWeight: 600 }}>{breadcrumb[1]}</span>
-          </>
-        )}
+            {seg.onClick ? (
+              // biome-ignore lint/a11y/useKeyWithClickEvents: breadcrumb nav
+              <span
+                className="v5-save-modal-breadcrumb"
+                style={{ color: token.colorPrimary, cursor: 'pointer' }}
+                onClick={seg.onClick}
+              >
+                {seg.label}
+              </span>
+            ) : (
+              <span style={{ fontWeight: 600 }}>{seg.label}</span>
+            )}
+          </span>
+        ))}
       </div>
 
       {/* Search */}
@@ -274,7 +325,7 @@ export function SaveToCollectionModal({
               borderBottom: `1px solid ${token.colorBorderSecondary}`,
             }}
           >
-            <CollectionIcon style={{ fontSize: 12, color: token.colorTextTertiary }} />
+            <FolderOpenOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
             <Input
               ref={newCollectionInputRef}
               value={newCollectionName}
@@ -290,40 +341,32 @@ export function SaveToCollectionModal({
                 }
               }}
             />
-            <Button
-              type="link"
-              size="small"
-              style={{ padding: 0, fontSize: 11 }}
-              onClick={() => void handleCreateCollection()}
-            >
+            <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }} onClick={() => void handleCreateCollection()}>
               Create
             </Button>
             <Button
               type="link"
               size="small"
               style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }}
-              onClick={() => {
-                setCreatingCollection(false);
-                setNewCollectionName('');
-              }}
+              onClick={() => { setCreatingCollection(false); setNewCollectionName(''); }}
             >
               Cancel
             </Button>
           </div>
         )}
 
-        {/* Browse: not inside a collection yet */}
+        {/* Browse: collection list */}
         {!selectedCollectionId && (
           <>
             {filteredCollections.length === 0 && !creatingCollection && (
               <div style={{ padding: 24, textAlign: 'center' }}>
                 <Text
                   type="secondary"
-                  style={{ fontSize: 12, display: 'block', marginBottom: sectionCollections.length === 0 ? 12 : 0 }}
+                  style={{ fontSize: 12, display: 'block', marginBottom: collections.length === 0 ? 12 : 0 }}
                 >
-                  {sectionCollections.length === 0 ? 'No collections yet.' : 'No matching collections.'}
+                  {collections.length === 0 ? 'No collections yet.' : 'No matching collections.'}
                 </Text>
-                {sectionCollections.length === 0 && (
+                {collections.length === 0 && (
                   <Button
                     type="link"
                     size="small"
@@ -351,20 +394,20 @@ export function SaveToCollectionModal({
                 }}
                 onClick={() => {
                   setSelectedCollectionId(col.uid);
-                  setSelectedFolderId(undefined);
+                  setSelectedFolderPath(undefined);
                   setSearch('');
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     setSelectedCollectionId(col.uid);
-                    setSelectedFolderId(undefined);
+                    setSelectedFolderPath(undefined);
                     setSearch('');
                   }
                 }}
                 role="button"
                 tabIndex={0}
               >
-                <CollectionIcon style={{ fontSize: 13, color: token.colorTextTertiary }} />
+                <FolderOpenOutlined style={{ fontSize: 13, color: token.colorTextTertiary }} />
                 <span style={{ flex: 1, color: token.colorText }}>{col.name}</span>
                 <RightOutlined
                   className="v5-save-modal-row-chevron"
@@ -375,40 +418,112 @@ export function SaveToCollectionModal({
           </>
         )}
 
-        {/* Browse: inside a collection */}
+        {/* Browse: inside a collection (folders + existing items) */}
         {selectedCollectionId && (
           <>
-            {/* Existing items in current location */}
-            {existingItems.map((item, i) => (
+            {/* Inline new folder */}
+            {creatingFolder && (
               <div
-                key={i}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                   padding: '6px 12px',
-                  fontSize: 12,
-                  color: token.colorTextSecondary,
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
                 }}
               >
-                {section === 'requests' && (
-                  <span
-                    style={{
-                      fontSize: 8,
-                      fontWeight: 700,
-                      color: METHOD_COLORS[item.method] || '#999',
-                      width: 36,
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {item.method}
-                  </span>
-                )}
-                <span>{item.name}</span>
+                <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+                <Input
+                  ref={newFolderInputRef}
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Name your folder"
+                  size="small"
+                  style={{ flex: 1, fontSize: 12 }}
+                  onPressEnter={() => void handleCreateFolder()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setCreatingFolder(false);
+                      setNewFolderName('');
+                    }
+                  }}
+                />
+                <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }} onClick={() => void handleCreateFolder()}>
+                  Create
+                </Button>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }}
+                  onClick={() => { setCreatingFolder(false); setNewFolderName(''); }}
+                >
+                  Cancel
+                </Button>
               </div>
-            ))}
+            )}
 
-            {existingItems.length === 0 && (
+            {currentNodes.map((node) => {
+              if (node.type === 'folder') {
+                return (
+                  <div
+                    key={node.uid}
+                    className="v5-save-modal-row"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                    }}
+                    onClick={() => { setSelectedFolderPath(node.path); setCreatingFolder(false); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedFolderPath(node.path); }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+                    <span style={{ flex: 1, color: token.colorText }}>{node.name}</span>
+                    <RightOutlined style={{ fontSize: 10, color: token.colorTextQuaternary }} />
+                  </div>
+                );
+              }
+              if (node.type === 'request') {
+                return (
+                  <div
+                    key={node.uid}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, color: token.colorTextSecondary }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: METHOD_COLORS[node.method] || '#999',
+                        width: 36,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {node.method}
+                    </span>
+                    <span>{node.name}</span>
+                  </div>
+                );
+              }
+              if (node.type === 'rule') {
+                return (
+                  <div
+                    key={node.uid}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, color: token.colorTextSecondary }}
+                  >
+                    <ThunderboltOutlined style={{ fontSize: 11, color: node.enabled ? token.colorPrimary : token.colorTextTertiary }} />
+                    <span>{node.name}</span>
+                  </div>
+                );
+              }
+              return null;
+            })}
+
+            {currentNodes.length === 0 && !creatingFolder && (
               <div
                 style={{
                   display: 'flex',
@@ -421,7 +536,7 @@ export function SaveToCollectionModal({
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  This {selectedFolderId ? 'folder' : 'collection'} is empty.
+                  This {selectedFolderPath ? 'folder' : 'collection'} is empty.
                 </Text>
               </div>
             )}

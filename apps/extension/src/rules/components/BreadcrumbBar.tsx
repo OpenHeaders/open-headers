@@ -8,20 +8,41 @@
 import { RightOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface BreadcrumbBarProps {
   segments: string[];
   isDirty?: boolean;
   onSave?: () => void;
   onRename?: (newName: string) => void;
+  /** Set to a unique value (e.g. tab ID) to auto-enter rename mode. Change the value to re-trigger. */
+  autoRenameKey?: string | null;
 }
 
-const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ segments, isDirty, onSave, onRename }) => {
+const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ segments, isDirty, onSave, onRename, autoRenameKey }) => {
   const { token } = theme.useToken();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastAutoRenameKey = useRef<string | null>(null);
+
+  // Auto-enter rename mode when autoRenameKey changes to a new non-null value
+  useEffect(() => {
+    if (autoRenameKey && autoRenameKey !== lastAutoRenameKey.current && onRename && segments.length > 0) {
+      lastAutoRenameKey.current = autoRenameKey;
+      const label = segments[segments.length - 1];
+      setEditValue(label);
+      setEditing(true);
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 50);
+    } else if (!autoRenameKey && lastAutoRenameKey.current) {
+      // Tab switched or rename cleared — exit editing mode
+      lastAutoRenameKey.current = null;
+      setEditing(false);
+    }
+  }, [autoRenameKey, onRename, segments]);
 
   const startEditing = useCallback(
     (label: string) => {

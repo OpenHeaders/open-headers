@@ -1,24 +1,28 @@
 /**
- * Types for the rules.html full-page editor.
+ * Types for the workspace.html full-page editor.
  */
 
+export type TabMode = 'create' | 'edit' | 'collection-overview' | 'folder-overview';
+
 export interface RulesTab {
-  /** Unique tab identifier. Format: 'create-{counter}' or 'edit-{uid}'. */
+  /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
   id: string;
-  /** Display label (rule name or "New Header Rule"). */
+  /** Display label. */
   label: string;
-  /** The rule type for icon display. */
+  /** The rule type for icon display (rules only). */
   ruleType: string;
   /** Whether the editor has unsaved changes. */
   dirty: boolean;
-  /** Mode: creating a new rule or editing an existing one. */
-  mode: 'create' | 'edit';
+  /** Tab mode. */
+  mode: TabMode;
   /** For create tabs: the rule type to create. */
   createType?: string;
   /** For edit tabs: the rule uid being edited. */
   ruleUid?: string;
   /** Auto-generated draft name for create tabs (e.g. "New Header Rule (2)"). */
   draftName?: string;
+  /** For collection/folder overview tabs: the entity uid. */
+  entityId?: string;
 }
 
 export interface PanelVisibility {

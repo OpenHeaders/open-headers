@@ -12,9 +12,11 @@ import type { V5 } from '@openheaders/core/types';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
+import { Allotment } from 'allotment';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import 'allotment/dist/style.css';
 import ActivityBar from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
@@ -43,7 +45,7 @@ let createCounter = 0;
 const RulesAppInner: React.FC = () => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
-  const { rules, deleteLocalRule, localCollections, localCollectionTrees, createLocalRule, createLocalCollection } = useRules();
+  const { rules, deleteLocalRule, localCollections, localCollectionTrees, createLocalRule, createLocalCollection, createLocalFolder, renameLocalCollection, renameLocalFolder } = useRules();
 
   const [tabs, setTabs] = useState<RulesTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -53,6 +55,7 @@ const RulesAppInner: React.FC = () => {
     inspector: false,
   });
   const [bottomPanelTab, setBottomPanelTab] = useState('traffic');
+  const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
 
   const dirtyMap = useRef<Map<string, boolean>>(new Map());
   const saveRefMap = useRef<Map<string, () => void>>(new Map());
@@ -87,15 +90,58 @@ const RulesAppInner: React.FC = () => {
   // ── Tab operations ────────────────────────────────────────────
 
   const openCreateTab = useCallback(
-    (type: string) => {
-      createCounter++;
-      const id = `create-${createCounter}`;
-      const draftName = generateDraftName(type);
-      const tab: RulesTab = { id, label: draftName, ruleType: type, dirty: false, mode: 'create', createType: type, draftName };
-      setTabs((prev) => [...prev, tab]);
-      setActiveTabId(id);
+    (type: string, context?: { collectionId: string; folderPath?: string }) => {
+      if (context?.collectionId) {
+        // Direct creation — collection/folder is known, skip the modal
+        const draftName = generateDraftName(type);
+        const base = { name: draftName, type, enabled: true, tags: [] as string[], domains: [] as string[] };
+        let rule: Omit<V5.Rule, 'uid' | 'path'>;
+        switch (type) {
+          case 'header':
+            rule = { ...base, type: 'header', action: { operation: 'override' as const, headerName: '', isResponse: false }, staticValue: '' } as Omit<V5.HeaderRule, 'uid' | 'path'>;
+            break;
+          case 'block':
+            rule = { ...base, type: 'block', action: { statusCode: 403 } } as Omit<V5.BlockRule, 'uid' | 'path'>;
+            break;
+          case 'redirect':
+            rule = { ...base, type: 'redirect', action: { matchPattern: '', redirectTo: '' } } as Omit<V5.RedirectRule, 'uid' | 'path'>;
+            break;
+          case 'query-param':
+            rule = { ...base, type: 'query-param', action: { params: [] } } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
+            break;
+          case 'inject':
+            rule = { ...base, type: 'inject', action: { injectType: 'script', code: '', position: 'body-end' } } as Omit<V5.InjectRule, 'uid' | 'path'>;
+            break;
+          default:
+            return;
+        }
+        void createLocalRule(rule, context.collectionId, context.folderPath).then((created) => {
+          if (created) {
+            const editId = `edit-${created.uid}`;
+            const tab: RulesTab = { id: editId, label: created.name, ruleType: created.type, dirty: false, mode: 'edit', ruleUid: created.uid };
+            setTabs((prev) => [...prev, tab]);
+            setActiveTabId(editId);
+            setPendingRenameTabId(editId);
+          }
+        });
+        return;
+      }
+
+      // No context — auto-resolve collection (create "My Rules" if none exist)
+      const resolveAndCreate = async () => {
+        let collectionId: string;
+        if (localCollections.length > 0) {
+          collectionId = localCollections[0].uid;
+        } else {
+          const col = await createLocalCollection('My Rules');
+          if (!col) return;
+          collectionId = col.uid;
+        }
+        openCreateTab(type, { collectionId });
+      };
+      void resolveAndCreate();
     },
-    [generateDraftName],
+    [generateDraftName, createLocalRule, localCollections, createLocalCollection],
   );
 
   const openEditTab = useCallback(
@@ -109,6 +155,32 @@ const RulesAppInner: React.FC = () => {
       setActiveTabId(id);
     },
     [tabs, rules],
+  );
+
+  const openCollectionOverview = useCallback(
+    (uid: string, name: string) => {
+      const id = `col-${uid}`;
+      const existing = tabs.find((t) => t.id === id);
+      if (existing) { setActiveTabId(id); return; }
+      const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'collection-overview', entityId: uid };
+      setTabs((prev) => [...prev, tab]);
+      setActiveTabId(id);
+      setPendingRenameTabId(id);
+    },
+    [tabs],
+  );
+
+  const openFolderOverview = useCallback(
+    (uid: string, name: string) => {
+      const id = `folder-${uid}`;
+      const existing = tabs.find((t) => t.id === id);
+      if (existing) { setActiveTabId(id); return; }
+      const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'folder-overview', entityId: uid };
+      setTabs((prev) => [...prev, tab]);
+      setActiveTabId(id);
+      setPendingRenameTabId(id);
+    },
+    [tabs],
   );
 
   const closeTab = useCallback(
@@ -235,21 +307,76 @@ const RulesAppInner: React.FC = () => {
 
   const breadcrumbs = useMemo(() => {
     if (!activeTab) return [];
+
+    if (activeTab.mode === 'collection-overview') {
+      return ['Rules', activeTab.label];
+    }
+
+    if (activeTab.mode === 'folder-overview' && activeTab.entityId) {
+      // Find folder's parent collection
+      for (const col of localCollectionTrees) {
+        const trail: string[] = [];
+        const findFolder = (nodes: V5.TreeNode[]): boolean => {
+          for (const n of nodes) {
+            if (n.type === 'folder' && n.uid === activeTab.entityId) return true;
+            if (n.type === 'folder') {
+              trail.push(n.name);
+              if (findFolder(n.children)) return true;
+              trail.pop();
+            }
+          }
+          return false;
+        };
+        if (findFolder(col.tree)) {
+          return ['Rules', col.name, ...trail, activeTab.label];
+        }
+      }
+      return ['Rules', activeTab.label];
+    }
+
     if (activeTab.mode === 'edit' && activeTab.ruleUid) {
       const rule = rules.find((r) => r.uid === activeTab.ruleUid);
-      const pathParts = rule?.path.split('/');
-      const collectionSlug = pathParts && pathParts.length >= 2 ? pathParts[1] : 'Rules';
-      return ['Rules', collectionSlug, activeTab.label];
+      if (rule) {
+        for (const col of localCollectionTrees) {
+          const trail: string[] = [];
+          const findRule = (nodes: V5.TreeNode[]): boolean => {
+            for (const n of nodes) {
+              if (n.type === 'rule' && n.uid === rule.uid) return true;
+              if (n.type === 'folder') {
+                trail.push(n.name);
+                if (findRule(n.children)) return true;
+                trail.pop();
+              }
+            }
+            return false;
+          };
+          if (findRule(col.tree)) {
+            return ['Rules', col.name, ...trail, activeTab.label];
+          }
+        }
+      }
+      return ['Rules', activeTab.label];
     }
+
     return ['Rules', activeTab.label];
-  }, [activeTab, rules]);
+  }, [activeTab, rules, localCollectionTrees]);
 
   const handleBreadcrumbRename = useCallback(
     (newName: string) => {
-      if (!activeTab?.ruleUid) return;
-      setTabs((prev) => prev.map((t) => (t.id === activeTab.id ? { ...t, label: newName, dirty: true } : t)));
+      if (!activeTab) return;
+
+      if (activeTab.mode === 'collection-overview' && activeTab.entityId) {
+        void renameLocalCollection(activeTab.entityId, newName);
+        setTabs((prev) => prev.map((t) => (t.id === activeTab.id ? { ...t, label: newName } : t)));
+      } else if (activeTab.mode === 'folder-overview' && activeTab.entityId) {
+        void renameLocalFolder(activeTab.entityId, newName);
+        setTabs((prev) => prev.map((t) => (t.id === activeTab.id ? { ...t, label: newName } : t)));
+      } else {
+        setTabs((prev) => prev.map((t) => (t.id === activeTab.id ? { ...t, label: newName, draftName: t.mode === 'create' ? newName : t.draftName, dirty: true } : t)));
+      }
+      setPendingRenameTabId(null);
     },
-    [activeTab],
+    [activeTab, renameLocalCollection, renameLocalFolder],
   );
 
   const handleSave = useCallback(() => {
@@ -276,85 +403,95 @@ const RulesAppInner: React.FC = () => {
         {/* Activity Bar */}
         <ActivityBar sidebarVisible={panels.sidebar} onToggleSidebar={() => togglePanel('sidebar')} />
 
-        {/* Left sidebar */}
-        {panels.sidebar && (
-          <div
-            style={{
-              width: 260,
-              flexShrink: 0,
-              borderRight: `1px solid ${token.colorBorderSecondary}`,
-              overflow: 'hidden',
-            }}
-          >
-            <Sidebar
-              activeTabId={activeTabId}
-              onSelectRule={openEditTab}
-              onCreateRule={openCreateTab}
-              onDeleteRule={handleDeleteRule}
-            />
-          </div>
-        )}
-
-        {/* Center: editor + bottom panel */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Editor area */}
-          <div className="rules-editor-area" style={{ background: token.colorBgContainer, flex: 1, minHeight: 0 }}>
-            <TabBar
-              tabs={tabs}
-              activeTabId={activeTabId}
-              onSwitch={switchTab}
-              onClose={closeTab}
-              onCreateRule={openCreateTab}
-            />
-            {activeTab && (
-              <BreadcrumbBar
-                segments={breadcrumbs}
-                isDirty={activeTab.dirty}
-                onSave={handleSave}
-                onRename={activeTab.mode === 'edit' ? handleBreadcrumbRename : undefined}
+        {/* Resizable panels */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Allotment proportionalLayout={false}>
+            {/* Left sidebar */}
+            <Allotment.Pane preferredSize={250} minSize={180} maxSize={400} visible={panels.sidebar}>
+              <Sidebar
+                activeTabId={activeTabId}
+                onSelectRule={openEditTab}
+                onCreateRule={openCreateTab}
+                onDeleteRule={handleDeleteRule}
+                onOpenCollectionOverview={openCollectionOverview}
+                onOpenFolderOverview={openFolderOverview}
               />
-            )}
-            <div className="rules-editor-content">
-              {!activeTab && <EmptyState onCreateRule={openCreateTab} />}
-              {tabs.map((tab) => (
-                <div key={tab.id} style={{ display: tab.id === activeTabId ? 'block' : 'none', height: '100%' }}>
-                  <RuleEditor
-                    mode={tab.mode}
-                    ruleType={tab.createType}
-                    ruleUid={tab.ruleUid}
-                    tabId={tab.id}
-                    draftName={tab.draftName}
-                    onSaved={(uid) => handleSaved(tab.id, uid)}
-                    onSaveDraft={tab.mode === 'create' ? handleSaveDraft : undefined}
-                    onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-                    registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+            </Allotment.Pane>
 
-          {/* Bottom panel */}
-          {panels.bottomPanel && (
-            <div style={{ height: 200, flexShrink: 0, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
-              <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
-            </div>
-          )}
+            {/* Center: editor + bottom panel */}
+            <Allotment.Pane>
+              <Allotment vertical proportionalLayout={false}>
+                {/* Editor area */}
+                <Allotment.Pane>
+                  <div className="rules-editor-area" style={{ background: token.colorBgContainer }}>
+                    <TabBar
+                      tabs={tabs}
+                      activeTabId={activeTabId}
+                      onSwitch={switchTab}
+                      onClose={closeTab}
+                      onCreateRule={openCreateTab}
+                    />
+                    {activeTab && (
+                      <BreadcrumbBar
+                        segments={breadcrumbs}
+                        isDirty={activeTab.mode === 'create' || activeTab.dirty}
+                        onSave={activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSave : undefined}
+                        onRename={handleBreadcrumbRename}
+                        autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
+                      />
+                    )}
+                    <div className="rules-editor-content">
+                      {!activeTab && <EmptyState onCreateRule={openCreateTab} />}
+                      {tabs.map((tab) => (
+                        <div key={tab.id} style={{ display: tab.id === activeTabId ? 'block' : 'none', height: '100%' }}>
+                          {(tab.mode === 'create' || tab.mode === 'edit') && (
+                            <RuleEditor
+                              mode={tab.mode}
+                              ruleType={tab.createType}
+                              ruleUid={tab.ruleUid}
+                              tabId={tab.id}
+                              draftName={tab.draftName}
+                              onSaved={(uid) => handleSaved(tab.id, uid)}
+                              onSaveDraft={tab.mode === 'create' ? handleSaveDraft : undefined}
+                              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+                              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+                            />
+                          )}
+                          {tab.mode === 'collection-overview' && (
+                            <div style={{ padding: '24px 32px' }}>
+                              <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Collection Overview</h4>
+                              <p style={{ fontSize: 13, color: token.colorTextSecondary }}>
+                                Expand this collection in the sidebar to add rules and folders.
+                              </p>
+                            </div>
+                          )}
+                          {tab.mode === 'folder-overview' && (
+                            <div style={{ padding: '24px 32px' }}>
+                              <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Folder Overview</h4>
+                              <p style={{ fontSize: 13, color: token.colorTextSecondary }}>
+                                Expand this folder in the sidebar to add rules and subfolders.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Allotment.Pane>
+
+                {/* Bottom panel */}
+                <Allotment.Pane preferredSize={200} minSize={100} maxSize={500} visible={panels.bottomPanel}>
+                  <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
+                </Allotment.Pane>
+              </Allotment>
+            </Allotment.Pane>
+
+            {/* Right sidebar (Inspector) */}
+            <Allotment.Pane preferredSize={300} minSize={220} maxSize={500} visible={panels.inspector}>
+              <Inspector onClose={() => togglePanel('inspector')} />
+            </Allotment.Pane>
+          </Allotment>
         </div>
-
-        {/* Right sidebar (Inspector) */}
-        {panels.inspector && (
-          <div
-            style={{
-              width: 300,
-              flexShrink: 0,
-              borderLeft: `1px solid ${token.colorBorderSecondary}`,
-              overflow: 'hidden',
-            }}
-          >
-            <Inspector onClose={() => togglePanel('inspector')} />
-          </div>
-        )}
       </div>
 
       {/* Status Bar */}
@@ -368,6 +505,7 @@ const RulesAppInner: React.FC = () => {
         collections={localCollections}
         onSave={(params) => void handleSaveModalConfirm(params)}
         onCreateCollection={createLocalCollection}
+        onCreateFolder={createLocalFolder}
         onCancel={() => setSaveModalOpen(false)}
       />
     </div>

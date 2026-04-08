@@ -10,8 +10,7 @@ const HeaderRuleFields: React.FC = () => {
       <Form.Item
         name="headerName"
         label="Header Name"
-        rules={[{ required: true, message: 'Header name is required' }]}
-      >
+              >
         <Input placeholder="e.g. Authorization, X-Custom-Header" />
       </Form.Item>
 
@@ -27,7 +26,6 @@ const HeaderRuleFields: React.FC = () => {
         <Form.Item
           name="staticValue"
           label="Value"
-          rules={[{ required: true, message: 'Value is required' }]}
         >
           <Input.TextArea
             placeholder="e.g. Bearer my-token, {{API_KEY}}"

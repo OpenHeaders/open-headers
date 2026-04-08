@@ -37,7 +37,7 @@ import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 
 /** Open the full-page rules editor in a new tab. */
 function openRulesPage(hash: string): void {
-  const url = getBrowserAPI().runtime.getURL(`rules.html#${hash}`);
+  const url = getBrowserAPI().runtime.getURL(`workspace.html#${hash}`);
   getBrowserAPI().tabs.create({ url });
 }
 

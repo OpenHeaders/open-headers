@@ -60,7 +60,7 @@ export function V5Shell() {
   const { rules, addRule, updateRule } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } =
     useEnvironments();
-  const { collections, addCollection, updateCollection: updateCollectionInV5, getSectionForCollection } = useCollections();
+  const { collections, requestCollections, ruleCollections, addCollection, updateCollection: updateCollectionInV5, getSectionForCollection, addFolder } = useCollections();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
@@ -727,13 +727,14 @@ export function V5Shell() {
         <SaveToCollectionModal
           {...saveModalProps}
           collections={collections}
-          requests={requests}
+          collectionTrees={saveModalProps.section === 'requests' ? requestCollections : ruleCollections}
           workspaceName={workspaceName}
           onCreateCollection={async (name, section) => {
             if (section !== 'requests' && section !== 'rules') return null;
             const col = await addCollection(section, { name, description: '', variables: [] });
             return col;
           }}
+          onCreateFolder={addFolder}
         />
       </div>
 

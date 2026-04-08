@@ -15,7 +15,6 @@ const RedirectRuleFields: React.FC = () => {
       <Form.Item
         name="redirectTo"
         label="Redirect To"
-        rules={[{ required: true, message: 'Redirect URL is required' }]}
       >
         <Input placeholder="e.g. https://new.openheaders.io/$1" />
       </Form.Item>

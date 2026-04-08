@@ -8,6 +8,8 @@
 import {
   CloseOutlined,
   CodeOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
   LinkOutlined,
   PlusOutlined,
   SendOutlined,
@@ -93,11 +95,13 @@ const TabBar: React.FC<TabBarProps> = ({ tabs, activeTabId, onSwitch, onClose, o
                 }}
               >
                 <span className="rules-type-badge">
-                  {RULE_TYPE_ICONS[tab.ruleType] ?? <ThunderboltOutlined style={{ fontSize: 12 }} />}
+                  {tab.mode === 'collection-overview' ? <FolderOpenOutlined style={{ fontSize: 12, color: '#999' }} />
+                    : tab.mode === 'folder-overview' ? <FolderOutlined style={{ fontSize: 12, color: '#999' }} />
+                    : RULE_TYPE_ICONS[tab.ruleType] ?? <ThunderboltOutlined style={{ fontSize: 12 }} />}
                 </span>
-                <span className="rules-tab-label">{tab.label}</span>
-                {tab.dirty && (
-                  <span className="rules-tab-unsaved" style={{ background: '#ff7875' }} />
+                <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>{tab.label}</span>
+                {(tab.dirty || tab.mode === 'create') && (
+                  <span className="rules-tab-unsaved" style={{ background: tab.mode === 'create' ? '#999' : '#ff7875' }} />
                 )}
                 <CloseOutlined
                   className="rules-tab-close"

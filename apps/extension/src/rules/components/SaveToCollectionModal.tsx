@@ -1,8 +1,10 @@
 /**
  * SaveToCollectionModal — "Save to Collection" modal for draft rules.
  *
- * Mirrors desktop v5-shell/modals/SaveToCollectionModal.tsx exactly.
- * Shows a browsable tree of collections with folders and existing rules.
+ * Shows a browsable tree of collections with folders and existing rules,
+ * inline collection and folder creation, and a search bar.
+ *
+ * Tree navigation uses shared utilities from @openheaders/core/utils.
  */
 
 import {
@@ -14,6 +16,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
+import { buildBreadcrumbTrail, findNodeChildren } from '@openheaders/core/utils';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +30,7 @@ interface SaveToCollectionModalProps {
   collections: V5.Collection[];
   onSave: (params: { name: string; collectionId: string; folderPath?: string }) => void;
   onCreateCollection: (name: string) => Promise<V5.Collection | null>;
+  onCreateFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string; name: string } | null>;
   onCancel: () => void;
 }
 
@@ -37,6 +41,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   collections,
   onSave,
   onCreateCollection,
+  onCreateFolder,
   onCancel,
 }) => {
   const { token } = theme.useToken();
@@ -46,8 +51,11 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | undefined>(undefined);
   const [creatingCollection, setCreatingCollection] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const nameInputRef = useRef<InputRef>(null);
   const newCollectionInputRef = useRef<InputRef>(null);
+  const newFolderInputRef = useRef<InputRef>(null);
 
   useEffect(() => {
     if (open) {
@@ -57,6 +65,8 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       setSelectedFolderPath(undefined);
       setCreatingCollection(false);
       setNewCollectionName('');
+      setCreatingFolder(false);
+      setNewFolderName('');
       setTimeout(() => nameInputRef.current?.focus(), 100);
     }
   }, [open, entityName]);
@@ -64,6 +74,10 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   useEffect(() => {
     if (creatingCollection) setTimeout(() => newCollectionInputRef.current?.focus(), 50);
   }, [creatingCollection]);
+
+  useEffect(() => {
+    if (creatingFolder) setTimeout(() => newFolderInputRef.current?.focus(), 50);
+  }, [creatingFolder]);
 
   const filter = search.toLowerCase();
   const filteredCollections = useMemo(
@@ -74,36 +88,27 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   const selectedCollection = selectedCollectionId ? collections.find((c) => c.uid === selectedCollectionId) : null;
   const selectedTree = selectedCollectionId ? collectionTrees.find((c) => c.uid === selectedCollectionId) : null;
 
-  // Get the tree nodes to display for current browsing location
+  // Current folder's children (shared tree utility)
   const currentNodes = useMemo((): V5.TreeNode[] => {
     if (!selectedTree) return [];
-    if (!selectedFolderPath) return selectedTree.tree;
-    // Find the folder in the tree and return its children
-    const findFolder = (nodes: V5.TreeNode[], targetPath: string): V5.TreeNode[] | null => {
-      for (const node of nodes) {
-        if (node.type === 'folder' && node.path === targetPath) return node.children;
-        if (node.type === 'folder') {
-          const found = findFolder(node.children, targetPath);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    return findFolder(selectedTree.tree, selectedFolderPath) ?? [];
+    return findNodeChildren(selectedTree.tree, selectedFolderPath) ?? [];
   }, [selectedTree, selectedFolderPath]);
 
-  // Breadcrumb path
+  // Breadcrumb segments (shared tree utility)
   const breadcrumb = useMemo(() => {
-    const parts: Array<{ label: string; onClick?: () => void }> = [];
-    if (selectedCollection) {
-      parts.push({
+    if (!selectedCollection || !selectedTree) return [];
+    const folderTrail = buildBreadcrumbTrail(selectedTree.tree, selectedFolderPath);
+    return [
+      {
         label: selectedCollection.name,
         onClick: selectedFolderPath ? () => setSelectedFolderPath(undefined) : undefined,
-      });
-    }
-    // Could add nested folder breadcrumbs here if needed
-    return parts;
-  }, [selectedCollection, selectedFolderPath]);
+      },
+      ...folderTrail.map((seg, i) => ({
+        label: seg.name,
+        onClick: i < folderTrail.length - 1 ? () => setSelectedFolderPath(seg.path) : undefined,
+      })),
+    ];
+  }, [selectedCollection, selectedTree, selectedFolderPath]);
 
   const handleSave = useCallback(() => {
     if (!selectedCollectionId || !name.trim()) return;
@@ -122,6 +127,23 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
     }
   }, [newCollectionName, onCreateCollection]);
 
+  // Compute the parent path for new folders — current folder path, or the collection's root path
+  const currentParentPath = useMemo(() => {
+    if (!selectedCollectionId || !selectedTree) return '';
+    return selectedFolderPath ?? selectedTree.path;
+  }, [selectedCollectionId, selectedTree, selectedFolderPath]);
+
+  const handleCreateFolder = useCallback(async () => {
+    const trimmed = newFolderName.trim();
+    if (!trimmed || !currentParentPath) return;
+    const folder = await onCreateFolder(trimmed, currentParentPath);
+    if (folder) {
+      setSelectedFolderPath(folder.path);
+      setCreatingFolder(false);
+      setNewFolderName('');
+    }
+  }, [newFolderName, currentParentPath, onCreateFolder]);
+
   return (
     <Modal
       open={open}
@@ -129,9 +151,15 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       onCancel={onCancel}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Button type="link" size="small" icon={<PlusOutlined />} style={{ padding: 0, fontSize: 12 }} onClick={() => setCreatingCollection(true)}>
-            New collection
-          </Button>
+          {selectedCollectionId ? (
+            <Button type="link" size="small" icon={<PlusOutlined />} style={{ padding: 0, fontSize: 12 }} onClick={() => setCreatingFolder(true)}>
+              New folder
+            </Button>
+          ) : (
+            <Button type="link" size="small" icon={<PlusOutlined />} style={{ padding: 0, fontSize: 12 }} onClick={() => setCreatingCollection(true)}>
+              New collection
+            </Button>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={onCancel} size="small">Cancel</Button>
             <Tooltip title={!selectedCollectionId ? 'Select a collection first' : !name.trim() ? 'Enter a name' : undefined}>
@@ -172,7 +200,13 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
             padding: '1px 3px',
             borderRadius: 3,
           }}
-          onClick={() => { if (selectedCollectionId) { setSelectedCollectionId(null); setSelectedFolderPath(undefined); } }}
+          onClick={() => {
+            if (selectedCollectionId) {
+              setSelectedCollectionId(null);
+              setSelectedFolderPath(undefined);
+              setCreatingFolder(false);
+            }
+          }}
         >
           Local Rules
         </span>
@@ -267,13 +301,32 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
         {/* Browse: inside a collection (folders + existing rules) */}
         {selectedCollectionId && (
           <>
+            {/* Inline new folder */}
+            {creatingFolder && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+                <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+                <Input
+                  ref={newFolderInputRef}
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Name your folder"
+                  size="small"
+                  style={{ flex: 1, fontSize: 12 }}
+                  onPressEnter={() => void handleCreateFolder()}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); } }}
+                />
+                <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }} onClick={() => void handleCreateFolder()}>Create</Button>
+                <Button type="link" size="small" style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }} onClick={() => { setCreatingFolder(false); setNewFolderName(''); }}>Cancel</Button>
+              </div>
+            )}
+
             {currentNodes.map((node) => {
               if (node.type === 'folder') {
                 return (
                   <div
                     key={node.uid}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-                    onClick={() => setSelectedFolderPath(node.path)}
+                    onClick={() => { setSelectedFolderPath(node.path); setCreatingFolder(false); }}
                     onKeyDown={(e) => { if (e.key === 'Enter') setSelectedFolderPath(node.path); }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(128,128,128,0.08)'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
@@ -300,7 +353,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
               return null;
             })}
 
-            {currentNodes.length === 0 && (
+            {currentNodes.length === 0 && !creatingFolder && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 120, padding: '16px 12px', gap: 8 }}>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   This {selectedFolderPath ? 'folder' : 'collection'} is empty.

@@ -14,7 +14,6 @@ const InjectRuleFields: React.FC = () => {
       <Form.Item
         name="injectCode"
         label="Code"
-        rules={[{ required: true, message: 'Code is required' }]}
       >
         <Input.TextArea
           placeholder="Enter JavaScript or CSS code..."
