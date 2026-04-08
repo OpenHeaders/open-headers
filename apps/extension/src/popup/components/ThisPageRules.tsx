@@ -1,16 +1,11 @@
 import {
   CheckOutlined,
-  CodeOutlined,
   CopyTwoTone,
   DeleteOutlined,
   EditOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
-  LinkOutlined,
-  SendOutlined,
   SortAscendingOutlined,
-  StopOutlined,
-  SwapOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
@@ -39,6 +34,7 @@ import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
 import { getTagColor, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
+  renderActionDetails,
   renderDomainTags,
   renderTagOverflow,
   type TagDescriptor,
@@ -55,14 +51,6 @@ function openRulesPage(hash: string): void {
   const url = getBrowserAPI().runtime.getURL(`workspace.html#${hash}`);
   getBrowserAPI().tabs.create({ url });
 }
-
-const RULE_TYPE_ICON: Record<string, React.ReactNode> = {
-  header: <SwapOutlined />,
-  block: <StopOutlined />,
-  redirect: <SendOutlined />,
-  'query-param': <LinkOutlined />,
-  inject: <CodeOutlined />,
-};
 
 const RULE_TYPE_LABEL: Record<string, string> = {
   header: 'Header',
@@ -141,6 +129,10 @@ interface ActiveRule {
   name: string;
   ruleType: string;
   summary: string;
+  actionTag?: string;
+  actionTooltip?: string;
+  actionDirection?: string;
+  actionValue?: string;
   isEnabled?: boolean;
   domains?: string[];
   tags?: string[];
@@ -415,7 +407,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      width: 170,
       fixed: 'left',
       sorter: (a, b) => a.name.localeCompare(b.name),
       sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
@@ -424,41 +416,33 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       filterSearch: true,
       onFilter: (value, record) => record.name === value,
       render: (text: string, record: TableRecord) => {
-        const displayName = truncateValue(text, 24);
+        const displayName = truncateValue(text, 20);
         return (
-          <Tooltip title={text.length > 24 ? text : undefined}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <span style={{ fontSize: '12px', flexShrink: 0 }}>{RULE_TYPE_ICON[record.ruleType] ?? null}</span>
-              <Text strong style={{ fontSize: '13px' }}>
-                {displayName}
-              </Text>
-            </div>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      title: 'Details',
-      dataIndex: 'summary',
-      key: 'details',
-      width: 140,
-      render: (text: string) => {
-        const fullValue = text || '';
-        const displayValue = truncateValue(fullValue, 15);
-        return (
-          <Tooltip title={fullValue !== displayValue ? fullValue : undefined}>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {displayValue}
+          <Tooltip title={text.length > 20 ? text : undefined}>
+            <Text strong style={{ fontSize: '13px' }}>
+              {displayName}
             </Text>
           </Tooltip>
         );
       },
     },
     {
+      title: 'Details',
+      key: 'details',
+      width: 180,
+      render: (_: unknown, record: TableRecord) =>
+        renderActionDetails({
+          tag: record.actionTag || record.ruleType,
+          tooltip: record.actionTooltip || record.summary,
+          direction: record.actionDirection,
+          value: record.actionValue || '',
+        }),
+    },
+    {
       title: 'Domains',
       dataIndex: 'domains',
       key: 'domains',
-      width: 130,
+      width: 110,
       sorter: (a, b) => (a.domains || []).join(',').localeCompare((b.domains || []).join(',')),
       sortOrder: sortedInfo.columnKey === 'domains' ? sortedInfo.order : null,
       filters: [...new Set(dataSource.flatMap((item) => item.domains || []))].map((domain) => ({
@@ -847,7 +831,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           onChange={handleTableChange}
           pagination={paginationConfig}
           size="small"
-          scroll={{ x: 690, y: 290 }}
+          scroll={{ x: 680, y: 290 }}
           onRow={(_record: TableRecord, index) => ({
             onClick: () => {
               if (index !== undefined) {

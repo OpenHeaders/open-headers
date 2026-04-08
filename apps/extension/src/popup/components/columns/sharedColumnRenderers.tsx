@@ -147,6 +147,70 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
   );
 }
 
+export interface ActionDetail {
+  tag: string;
+  tooltip: string;
+  /** Optional direction line: "↑ Outgoing request" or "↓ Incoming response" */
+  direction?: string;
+  value: string;
+}
+
+/** Render a compact [TAG] value for the Details column. */
+export function renderActionDetails(detail: ActionDetail, opacity = 1): React.ReactNode {
+  const displayValue = truncateValue(detail.value, 16);
+  // Strip direction arrow from tag for tooltip (e.g. "OVERRIDE ↑" → "OVERRIDE")
+  const tooltipTag = detail.tag.replace(/ [↑↓]$/, '');
+  // Parse direction: "↑ Outgoing request" → arrow "↑", label "Outgoing request"
+  const dirArrow = detail.direction?.charAt(0);
+  const dirLabel = detail.direction?.substring(2);
+  const tagStyle = {
+    margin: 0,
+    fontSize: '10px',
+    flexShrink: 0,
+    fontWeight: 600,
+    minWidth: 56,
+    textAlign: 'center' as const,
+  };
+  const tooltipContent = (
+    <div style={{ fontSize: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Tag variant="outlined" style={tagStyle}>
+          {tooltipTag}
+        </Tag>
+        <span style={{ opacity: 0.6 }}>{detail.tooltip}</span>
+      </div>
+      {detail.direction && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+          <Tag variant="outlined" style={tagStyle}>
+            {dirArrow}
+          </Tag>
+          <span style={{ opacity: 0.6 }}>{dirLabel}</span>
+        </div>
+      )}
+      {detail.value && (
+        <div style={{ marginTop: 4, fontFamily: 'monospace', wordBreak: 'break-all' }}>{detail.value}</div>
+      )}
+    </div>
+  );
+  return (
+    <Tooltip title={tooltipContent} styles={{ root: { maxWidth: 400 } }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', opacity }}>
+        <Tag
+          variant="outlined"
+          style={{ margin: 0, fontSize: '10px', padding: '0 3px', lineHeight: '18px', flexShrink: 0, fontWeight: 600 }}
+        >
+          {detail.tag}
+        </Tag>
+        {detail.value && (
+          <Text style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+            {displayValue}
+          </Text>
+        )}
+      </div>
+    </Tooltip>
+  );
+}
+
 export function truncateValue(value: string, maxLen = 16): string {
   if (value.length <= maxLen) return value;
   const suffixLen = Math.max(4, Math.floor(maxLen * 0.25));

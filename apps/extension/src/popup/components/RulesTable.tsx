@@ -29,9 +29,10 @@ import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
 import { getTagColor, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
+  type ActionDetail,
+  renderActionDetails,
   renderDomainTags,
   renderTagOverflow,
-  renderValueWithCopy,
   type TagDescriptor,
   truncateValue,
 } from './columns/sharedColumnRenderers';
@@ -45,18 +46,6 @@ function openRulesPage(hash: string): void {
 
 const { Search } = Input;
 const { Text } = Typography;
-
-/** Rule type → icon mapping (matches workspace editor + Add Rule dropdown). */
-const RULE_TYPE_ICON: Record<V5.RuleType, React.ReactNode> = {
-  header: <SwapOutlined />,
-  block: <StopOutlined />,
-  redirect: <SendOutlined />,
-  'query-param': <LinkOutlined />,
-  inject: <CodeOutlined />,
-  body: <ApiOutlined />,
-  delay: <ClockCircleOutlined />,
-  mock: <DatabaseOutlined />,
-};
 
 const RULE_TYPE_LABEL: Record<string, string> = {
   header: 'Header',
@@ -80,43 +69,69 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   mock: 'Mock response',
 };
 
-/** Type-specific one-liner for the Details column. */
-function getRuleDetails(rule: V5.Rule): string {
+/** Structured action detail for the Details column. */
+const HEADER_OP_TOOLTIP: Record<string, string> = {
+  override: 'Replaces existing header value',
+  add: 'Adds header if not present',
+  remove: 'Removes header entirely',
+};
+
+function getActionDetail(rule: V5.Rule): ActionDetail {
   switch (rule.type) {
     case 'header': {
       const { operation, headerName, isResponse } = rule.action;
-      const dir = isResponse ? 'res' : 'req';
-      if (operation === 'remove') return headerName ? `Remove ${dir} ${headerName}` : '';
-      if (!headerName && !rule.staticValue) return '';
-      if (!headerName) return rule.staticValue || '';
-      return `${headerName}: ${rule.staticValue || ''}`;
+      const dir = isResponse ? ' ↓' : ' ↑';
+      const opMap: Record<string, string> = { override: 'OVERRIDE', add: 'ADD', remove: 'REMOVE' };
+      const tag = `${opMap[operation] ?? operation.toUpperCase()}${dir}`;
+      const tooltip = HEADER_OP_TOOLTIP[operation] ?? operation;
+      const direction = isResponse ? '↓ Incoming response' : '↑ Outgoing request';
+      if (operation === 'remove') return { tag, tooltip, direction, value: headerName || '' };
+      const value = headerName ? `${headerName}: ${rule.staticValue || ''}` : rule.staticValue || '';
+      return { tag, tooltip, direction, value };
     }
     case 'block':
-      return 'Block requests';
+      return { tag: 'BLOCK', tooltip: 'Prevents request from completing', value: '' };
     case 'redirect':
-      return `→ ${rule.action.redirectTo || '...'}`;
+      return { tag: 'REDIRECT', tooltip: 'Redirects to a different URL', value: rule.action.redirectTo || '' };
     case 'query-param': {
       const count = rule.action.params.length;
-      return `${count} param${count !== 1 ? 's' : ''}`;
+      return {
+        tag: 'QUERY',
+        tooltip: 'Modifies URL query parameters',
+        value: `${count} param${count !== 1 ? 's' : ''}`,
+      };
     }
     case 'inject':
-      return `${rule.action.injectType} @ ${rule.action.position}`;
+      return {
+        tag: rule.action.injectType === 'css' ? 'CSS' : 'JS',
+        tooltip: rule.action.injectType === 'css' ? 'Injects stylesheet into page' : 'Injects JavaScript into page',
+        value: rule.action.position,
+      };
     default:
-      return rule.type;
+      return { tag: rule.type.toUpperCase(), tooltip: rule.type, value: '' };
   }
 }
 
 /** 0 = active, 1 = paused, 2 = disabled, 3 = draft */
 type StatusRank = 0 | 1 | 2 | 3;
 
-type SortMode = 'status' | 'manual';
+/** DNR priority by rule type — higher number = higher priority in Chrome's declarativeNetRequest. */
+const DNR_PRIORITY: Record<string, number> = {
+  header: 100,
+  'query-param': 150,
+  redirect: 150,
+  block: 200,
+  inject: 50,
+};
+
+type SortMode = 'status' | 'priority' | 'manual';
 
 interface TableRecord {
   key: string;
   id: string;
   name: string;
   ruleType: V5.RuleType;
-  details: string;
+  actionDetail: ActionDetail;
   domains: string[];
   isEnabled: boolean;
   isComplete: boolean;
@@ -142,7 +157,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
   const { rules, isConnected, uiState, updateUiState, disabledTagGroups } = useRules();
   const { setFocusedRowIndex } = useKeyboardNav();
 
-  const [copiedRowId, setCopiedRowId] = useState<string | number | null>(null);
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
   const [sortMode, setSortMode] = useState<SortMode>((uiState?.tableState?.sortMode as SortMode) || 'status');
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>(
@@ -183,7 +197,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
         id: rule.uid,
         name: rule.name,
         ruleType: rule.type,
-        details: getRuleDetails(rule),
+        actionDetail: getActionDetail(rule),
         domains: rule.domains,
         isEnabled,
         isComplete: complete,
@@ -193,6 +207,11 @@ const RulesTable: React.FC<RulesTableProps> = ({
     })
     .sort((a, b) => {
       if (sortMode === 'status') return a.statusRank - b.statusRank || a.name.localeCompare(b.name);
+      if (sortMode === 'priority') {
+        const pa = DNR_PRIORITY[a.ruleType] ?? 0;
+        const pb = DNR_PRIORITY[b.ruleType] ?? 0;
+        return pb - pa || a.name.localeCompare(b.name);
+      }
       return 0; // manual — preserve original order
     });
 
@@ -202,7 +221,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     (item) =>
       item.name.toLowerCase().includes(searchText.toLowerCase()) ||
       item.domains.some((domain) => domain.toLowerCase().includes(searchText.toLowerCase())) ||
-      item.details.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.actionDetail.value.toLowerCase().includes(searchText.toLowerCase()) ||
       item.tag.toLowerCase().includes(searchText.toLowerCase()) ||
       item.ruleType.toLowerCase().includes(searchText.toLowerCase()),
   );
@@ -252,10 +271,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
 
   const handleCopyRow = useCallback((index: number) => {
     const record = dataSourceRef.current[index];
-    if (!record?.details) return;
-    void navigator.clipboard.writeText(record.details);
-    setCopiedRowId(record.id);
-    setTimeout(() => setCopiedRowId(null), 1000);
+    if (!record?.actionDetail.value) return;
+    void navigator.clipboard.writeText(record.actionDetail.value);
   }, []);
 
   const handleDeleteRow = useCallback(
@@ -341,7 +358,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      width: 170,
       fixed: 'left',
       sorter: (a, b) => a.name.localeCompare(b.name),
       filters: [...new Set(dataSource.map((item) => item.name))].map((name) => ({ text: name, value: name })),
@@ -350,47 +367,29 @@ const RulesTable: React.FC<RulesTableProps> = ({
       onFilter: (value, record) => record.name === value,
       sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
       render: (text: string, record: TableRecord) => {
-        const displayName = truncateValue(text, 24);
+        const displayName = truncateValue(text, 20);
         return (
-          <Tooltip title={text.length > 24 ? text : undefined}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <span style={{ fontSize: '12px', flexShrink: 0 }}>{RULE_TYPE_ICON[record.ruleType]}</span>
-              <Text strong style={{ fontSize: '13px' }}>
-                {displayName}
-              </Text>
-            </div>
+          <Tooltip title={text.length > 20 ? text : undefined}>
+            <Text strong style={{ fontSize: '13px' }}>
+              {displayName}
+            </Text>
           </Tooltip>
         );
       },
     },
     {
       title: 'Details',
-      dataIndex: 'details',
       key: 'details',
-      width: 140,
-      sorter: (a, b) => a.details.localeCompare(b.details),
+      width: 180,
+      sorter: (a, b) => a.actionDetail.value.localeCompare(b.actionDetail.value),
       sortOrder: sortedInfo.columnKey === 'details' ? sortedInfo.order : null,
-      render: (text: string, record: TableRecord) => {
-        const fullValue = text || '';
-        const displayValue = truncateValue(fullValue, 15);
-        return (
-          <Tooltip title={fullValue !== displayValue ? fullValue : undefined}>
-            {renderValueWithCopy({
-              fullValue,
-              displayValue,
-              rowKey: record.id,
-              copiedRowId,
-              setCopiedRowId,
-            })}
-          </Tooltip>
-        );
-      },
+      render: (_: unknown, record: TableRecord) => renderActionDetails(record.actionDetail),
     },
     {
       title: 'Domains',
       dataIndex: 'domains',
       key: 'domains',
-      width: 130,
+      width: 110,
       sorter: (a, b) => a.domains.join(',').localeCompare(b.domains.join(',')),
       filters: [...new Set(dataSource.flatMap((item) => item.domains))].map((domain) => ({
         text: domain,
@@ -449,7 +448,11 @@ const RulesTable: React.FC<RulesTableProps> = ({
           });
         }
         if (record.tag) {
-          allTags.push({ label: record.tag, color: getTagColor(record.tag), tooltip: 'Tag group — manage in Tags tab' });
+          allTags.push({
+            label: record.tag,
+            color: getTagColor(record.tag),
+            tooltip: 'Tag group — manage in Tags tab',
+          });
         }
         allTags.push({
           label: RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
@@ -616,6 +619,21 @@ const RulesTable: React.FC<RulesTableProps> = ({
       onClick: () => handleSortModeChange('status'),
     },
     {
+      key: 'priority',
+      label: (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
+          <div>
+            <div>By browser priority</div>
+            <Text type="secondary" style={{ fontSize: '11px' }}>
+              Block → Redirect/Query → Header → Inject
+            </Text>
+          </div>
+          {sortMode === 'priority' && <CheckOutlined style={{ color: '#1677ff' }} />}
+        </div>
+      ),
+      onClick: () => handleSortModeChange('priority'),
+    },
+    {
       key: 'manual',
       label: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
@@ -705,7 +723,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           columns={columns}
           pagination={paginationConfig}
           size="small"
-          scroll={{ x: 690, y: 290 }}
+          scroll={{ x: 680, y: 290 }}
           onChange={handleChange}
           onRow={(_record: TableRecord, index) => ({
             onClick: () => {

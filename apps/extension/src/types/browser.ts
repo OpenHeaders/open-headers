@@ -44,6 +44,10 @@ export interface ActiveRule {
   name: string;
   ruleType: string;
   summary: string;
+  actionTag: string;
+  actionTooltip: string;
+  actionDirection?: string;
+  actionValue: string;
   isEnabled: boolean;
   domains: string[];
   tags: string[];
