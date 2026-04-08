@@ -11,7 +11,7 @@ import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { Allotment } from 'allotment';
+import { Allotment, LayoutPriority } from 'allotment';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -474,7 +474,7 @@ const RulesAppInner: React.FC = () => {
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <Allotment proportionalLayout={false}>
-            <Allotment.Pane preferredSize={250} minSize={180} maxSize={400} visible={panels.sidebar}>
+            <Allotment.Pane preferredSize={250} minSize={180} maxSize={400} visible={panels.sidebar} priority={LayoutPriority.Low}>
               <Sidebar
                 activeTabId={activeTabId}
                 onSelectRule={openEditTab}
@@ -485,7 +485,7 @@ const RulesAppInner: React.FC = () => {
               />
             </Allotment.Pane>
 
-            <Allotment.Pane>
+            <Allotment.Pane priority={LayoutPriority.High}>
               <Allotment vertical proportionalLayout={false}>
                 <Allotment.Pane>
                   <div className="rules-editor-area" style={{ background: token.colorBgContainer }}>

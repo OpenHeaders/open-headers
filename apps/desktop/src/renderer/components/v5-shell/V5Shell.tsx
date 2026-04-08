@@ -9,7 +9,7 @@
  */
 
 import type { AllotmentHandle } from 'allotment';
-import { Allotment } from 'allotment';
+import { Allotment, LayoutPriority } from 'allotment';
 import { theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorkspaceSwitchOverlay from '@/renderer/components/common/WorkspaceSwitchOverlay';
@@ -552,6 +552,7 @@ export function V5Shell() {
                 minSize={sidebarsSwapped ? 220 : 180}
                 maxSize={panels.workbench ? (sidebarsSwapped ? 500 : 400) : Infinity}
                 visible={sidebarsSwapped ? panels.inspector : panels.sidebar}
+                priority={LayoutPriority.Low}
               >
                 {sidebarsSwapped ? (
                   <Inspector
@@ -590,7 +591,7 @@ export function V5Shell() {
               </Allotment.Pane>
 
               {/* Center: Editor + Bottom Panel */}
-              <Allotment.Pane visible={panels.workbench}>
+              <Allotment.Pane visible={panels.workbench} priority={LayoutPriority.High}>
                 <Allotment vertical proportionalLayout={false}>
                   {/* Editor Area */}
                   <Allotment.Pane>
@@ -668,6 +669,7 @@ export function V5Shell() {
                 minSize={sidebarsSwapped ? 180 : 220}
                 maxSize={panels.workbench ? (sidebarsSwapped ? 400 : 500) : Infinity}
                 visible={sidebarsSwapped ? panels.sidebar : panels.inspector}
+                priority={LayoutPriority.Low}
               >
                 {sidebarsSwapped ? (
                   <Sidebar
