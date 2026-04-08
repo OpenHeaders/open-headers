@@ -89,7 +89,7 @@ function containerMenuItems(
 
 interface OpenTabRequest {
   id: string;
-  type: 'rule' | 'environment' | 'collection' | 'collection-overview' | 'folder' | 'folder-overview';
+  type: 'request' | 'rule' | 'environment' | 'collection' | 'collection-overview' | 'folder' | 'folder-overview';
   label: string;
   icon?: string;
   entityId?: string;
@@ -195,9 +195,9 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
         }
       } else if (node.type === 'request') {
         if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
-        const sid = `source-${node.uid}`;
+        const rid = `request-${node.uid}`;
         items.push({
-          id: sid,
+          id: rid,
           kind: 'leaf',
           label: node.name || 'Untitled',
           depth,
@@ -209,8 +209,8 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
           canAddChild: false,
           onOpen: () =>
             onOpenTab({
-              id: sid,
-              type: 'collection',
+              id: rid,
+              type: 'request',
               label: node.name || 'Untitled',
               icon: node.method || 'GET',
               entityId: node.uid,

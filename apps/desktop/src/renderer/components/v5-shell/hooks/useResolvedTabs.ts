@@ -3,7 +3,7 @@
  *
  * Tabs store only { id, type, entityId } as stable identifiers.
  * This hook enriches them with display properties (label, icon, tooltip)
- * by looking up the current source/rule/environment data on every render.
+ * by looking up the current request/rule/environment data on every render.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -18,20 +18,20 @@ export interface ResolvedTab extends Tab {
 
 export function useResolvedTabs(
   tabs: Tab[],
-  sources: V5.RequestNode[],
+  requests: V5.RequestNode[],
   rules: V5.Rule[],
   environments: V5.Environment[],
   collections?: V5.Collection[],
 ): ResolvedTab[] {
   return useMemo(() => {
-    const sourceMap = new Map(sources.map((s) => [s.uid, s]));
+    const requestMap = new Map(requests.map((r) => [r.uid, r]));
     const ruleMap = new Map(rules.map((r) => [r.uid, r]));
     const envMap = new Map(environments.map((e) => [e.name, e]));
     const collectionMap = new Map((collections ?? []).map((c) => [c.uid, c]));
 
     return tabs.map((tab): ResolvedTab => {
       if ((tab.type === 'request' || tab.type === 'collection') && tab.entityId) {
-        const request = sourceMap.get(tab.entityId);
+        const request = requestMap.get(tab.entityId);
         const name = request?.name || 'Untitled request';
         return {
           ...tab,
@@ -91,5 +91,5 @@ export function useResolvedTabs(
         resolvedTooltip: tab.label,
       };
     });
-  }, [tabs, sources, rules, environments, collections]);
+  }, [tabs, requests, rules, environments, collections]);
 }

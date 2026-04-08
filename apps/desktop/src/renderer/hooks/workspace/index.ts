@@ -2,6 +2,6 @@
 
 export { useCollections } from './useCollections';
 export { useHeaderRules } from './useHeaderRules';
-export { useSources } from './useSources';
+export { useRequests } from './useSources';
 export { useWorkspaces } from './useWorkspaces';
 export { useWorkspaceVariables } from './useWorkspaceVariables';

@@ -18,7 +18,7 @@ import {
   useCollections,
   useEnvironments,
   useHeaderRules,
-  useSources,
+  useRequests,
   useWorkspaces,
 } from '@/renderer/hooks/useCentralizedWorkspace';
 import 'allotment/dist/style.css';
@@ -56,7 +56,7 @@ interface PanelVisibility {
 export function V5Shell() {
   const { token } = theme.useToken();
   const { workspaces, activeWorkspaceId } = useWorkspaces();
-  const { sources, addRequest, updateRequest } = useSources();
+  const { requests, addRequest, updateRequest } = useRequests();
   const { rules, addRule, updateRule } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } =
     useEnvironments();
@@ -159,7 +159,7 @@ export function V5Shell() {
   } = useTabs(activeWorkspaceId);
 
   // Derive live labels/icons/tooltips from entity data — single source of truth
-  const resolvedTabs = useResolvedTabs(tabs, sources, rules, environments, collections);
+  const resolvedTabs = useResolvedTabs(tabs, requests, rules, environments, collections);
 
   const handleDirtyChange = useCallback(
     (dirty: boolean) => {
@@ -202,7 +202,7 @@ export function V5Shell() {
 
     const currentIds = new Set<string>();
     for (const r of rules) currentIds.add(`rule-${r.uid}`);
-    for (const s of sources) currentIds.add(`source-${s.uid}`);
+    for (const r of requests) currentIds.add(`request-${r.uid}`);
     for (const env of environments) currentIds.add(`env-${env.name}`);
     for (const col of collections) currentIds.add(`col-vars-${col.uid}`);
 
@@ -222,7 +222,7 @@ export function V5Shell() {
       }
     }
     prevEntityIds.current = currentIds;
-  }, [rules, sources, environments, collections, closeTab, activeWorkspaceId]);
+  }, [rules, requests, environments, collections, closeTab, activeWorkspaceId]);
 
   // Auto-switch environment when opening an item in a collection with a pinned environment
   const prevTabForEnvSwitch = useRef(activeTabId);
@@ -235,7 +235,7 @@ export function V5Shell() {
     if (!activeTab?.entityId) return;
 
     // Pinned environment per collection — deferred to later phase
-  }, [activeTabId, tabs, sources, rules, collections, environments, activeEnvironment, switchEnvironment]);
+  }, [activeTabId, tabs, requests, rules, collections, environments, activeEnvironment, switchEnvironment]);
 
   // Entity creation (persisted — for sidebar context actions)
   const {
@@ -243,13 +243,13 @@ export function V5Shell() {
     openSettings,
     openWorkspaceVariables,
     openCollectionVariables,
-    createNewSource,
+    createNewRequest,
     createNewRule,
     createNewEnvironment,
     createAndActivateEnvironment,
     openActiveEnvironment,
   } = useEntityCreation({
-    sources,
+    requests,
     rules,
     environments,
     collections,
@@ -261,8 +261,8 @@ export function V5Shell() {
   });
 
   // Draft creation + save-to-collection modal
-  const { createDraftSource, createDraftRule, createDraftEnvironment, handleSaveDraft, saveModalProps } = useDraftSave({
-    sources,
+  const { createDraftRequest, createDraftRule, createDraftEnvironment, handleSaveDraft, saveModalProps } = useDraftSave({
+    requests,
     rules,
     environments,
     tabs,
@@ -331,7 +331,7 @@ export function V5Shell() {
       onToggleInspector: () => togglePanel('inspector'),
       onCommandPalette: () => setCommandPaletteOpen(true),
       onOpenSettings: openSettings,
-      onNewRequest: createDraftSource,
+      onNewRequest: createDraftRequest,
       onNewRule: createDraftRule,
       onSave: () => editorSaveRef.current?.(),
       onToggleWorkbench: () => togglePanel('workbench'),
@@ -339,7 +339,7 @@ export function V5Shell() {
       onResetLayout: resetLayout,
       onSwapSidebars: swapSidebars,
     }),
-    [togglePanel, openSettings, createDraftSource, createDraftRule, resetLayout, swapSidebars, setResponseSideBySide],
+    [togglePanel, openSettings, createDraftRequest, createDraftRule, resetLayout, swapSidebars, setResponseSideBySide],
   );
   useKeyboardShortcuts(shortcutHandlers);
 
@@ -348,8 +348,8 @@ export function V5Shell() {
     const items = [];
 
     // Requests
-    for (const request of sources) {
-      const requestTabId = `source-${request.uid}`;
+    for (const request of requests) {
+      const requestTabId = `request-${request.uid}`;
       items.push({
         id: requestTabId,
         icon: '🔗',
@@ -405,7 +405,7 @@ export function V5Shell() {
         icon: '▶',
         label: 'New Request',
         shortcut: '⌘N',
-        onSelect: createDraftSource,
+        onSelect: createDraftRequest,
       },
       { id: 'cmd-new-rule', icon: '⚡', label: 'New Rule', shortcut: '⇧⌘N', onSelect: createDraftRule },
       { id: 'cmd-new-env', icon: '🌐', label: 'New Environment', onSelect: createDraftEnvironment },
@@ -442,14 +442,14 @@ export function V5Shell() {
 
     return items;
   }, [
-    sources,
+    requests,
     rules,
     environments,
     togglePanel,
     openSettings,
     openWorkspaceVariables,
     openTab,
-    createDraftSource,
+    createDraftRequest,
     createDraftRule,
     createDraftEnvironment,
   ]);
@@ -490,11 +490,7 @@ export function V5Shell() {
       // Draft tabs — update the tab label and draft data locally
       if (activeResolvedTab.draft) {
         const draftData = { ...(activeResolvedTab.draftData ?? {}) };
-        if (activeResolvedTab.type === 'request') {
-          draftData.sourceName = newName;
-        } else {
-          draftData.name = newName;
-        }
+        draftData.name = newName;
         updateTab(activeResolvedTab.id, { label: newName, draftData });
         setPendingRenameTabId(null);
         return;
@@ -572,7 +568,7 @@ export function V5Shell() {
                   <Sidebar
                     activePanel={activePanel}
                     onOpenTab={openTab}
-                    onNewRequest={(opts) => void createNewSource(opts)}
+                    onNewRequest={(opts) => void createNewRequest(opts)}
                     onNewRule={(opts) => void createNewRule(opts)}
                     onNewEnvironment={(opts) => void createNewEnvironment(opts)}
                     onNewDraftEnvironment={createDraftEnvironment}
@@ -609,7 +605,7 @@ export function V5Shell() {
                         onCloseUnmodified={handleCloseUnmodified}
                         onCloseToLeft={handleCloseToLeft}
                         onCloseToRight={handleCloseToRight}
-                        onNewRequest={createDraftSource}
+                        onNewRequest={createDraftRequest}
                         onNewRule={createDraftRule}
                         environments={environments}
                         activeEnvironment={activeEnvironment}
@@ -643,7 +639,7 @@ export function V5Shell() {
                       <EditorArea
                         tabs={resolvedTabs}
                         activeTab={activeResolvedTab}
-                        onNewRequest={createDraftSource}
+                        onNewRequest={createDraftRequest}
                         onNewRule={createDraftRule}
                         onNewEnvironment={createDraftEnvironment}
                         onOpenOverview={openOverview}
@@ -675,7 +671,7 @@ export function V5Shell() {
                   <Sidebar
                     activePanel={activePanel}
                     onOpenTab={openTab}
-                    onNewRequest={(opts) => void createNewSource(opts)}
+                    onNewRequest={(opts) => void createNewRequest(opts)}
                     onNewRule={(opts) => void createNewRule(opts)}
                     onNewEnvironment={(opts) => void createNewEnvironment(opts)}
                     onNewDraftEnvironment={createDraftEnvironment}
@@ -729,7 +725,7 @@ export function V5Shell() {
         <SaveToCollectionModal
           {...saveModalProps}
           collections={collections}
-          sources={sources}
+          requests={requests}
           workspaceName={workspaceName}
           onCreateCollection={async (name, section) => {
             if (section !== 'requests' && section !== 'rules') return null;

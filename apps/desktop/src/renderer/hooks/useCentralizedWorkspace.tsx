@@ -8,7 +8,7 @@ import {
 export {
   useCollections,
   useHeaderRules,
-  useSources,
+  useRequests,
   useWorkspaces,
   useWorkspaceVariables,
 } from './workspace';

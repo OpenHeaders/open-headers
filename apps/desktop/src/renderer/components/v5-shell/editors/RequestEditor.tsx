@@ -1,10 +1,7 @@
 /**
  * RequestEditor — V5 HTTP request editor rendered in an editor tab.
  *
- * Replaces the v4 SourceEditor. Displays method, URL, headers, params,
- * body, and auth for a V5.Request. Full request data comes from the
- * CollectionTree (RequestNode only has uid/name/path/method).
- *
+ * Displays method, URL, headers, params, body, and auth for a V5.Request.
  * Loads the full V5.Request from main process via getRequest(uid) IPC.
  * Saves changes via updateRequest(uid, updates) IPC.
  */
@@ -14,13 +11,13 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Input, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSources } from '@/renderer/hooks/useCentralizedWorkspace';
-import { extractSourceVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
+import { useRequests } from '@/renderer/hooks/useCentralizedWorkspace';
+import { extractRequestVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 
 const { Text, Title } = Typography;
 
 interface RequestEditorProps {
-  sourceId?: string;
+  requestId?: string;
   draftData?: Record<string, unknown>;
   onDirtyChange?: (dirty: boolean) => void;
   onSaveLabelChange?: (label: string | null) => void;
@@ -69,7 +66,7 @@ function genUid(): string {
 }
 
 export function RequestEditor({
-  sourceId,
+  requestId,
   draftData,
   onDirtyChange,
   onSaveLabelChange,
@@ -77,10 +74,10 @@ export function RequestEditor({
   onSaveDraft,
 }: RequestEditorProps) {
   const { token } = theme.useToken();
-  const { sources, getRequest, updateRequest: updateRequestIpc } = useSources();
+  const { requests, getRequest, updateRequest: updateRequestIpc } = useRequests();
 
-  const isDraft = !!draftData && !sourceId;
-  const requestNode = isDraft ? undefined : sources.find((s) => s.uid === sourceId);
+  const isDraft = !!draftData && !requestId;
+  const requestNode = isDraft ? undefined : requests.find((r) => r.uid === requestId);
 
   // Local form state
   const [method, setMethod] = useState<V5.HttpMethod>('GET');
@@ -154,7 +151,7 @@ export function RequestEditor({
   // Publish used variables
   const { setUsedVariables, clearVariables } = useEditorVariables();
   useEffect(() => {
-    const vars = extractSourceVariables({
+    const vars = extractRequestVariables({
       url,
       headers: headers.map((h) => ({ key: h.key, value: h.value })),
       params: params.map((p) => ({ key: p.key, value: p.value })),
@@ -192,10 +189,10 @@ export function RequestEditor({
       });
       return;
     }
-    if (!sourceId) return;
+    if (!requestId) return;
     const activeHeaders = headers.filter((h) => h.key.trim());
     const activeParams = params.filter((p) => p.key.trim());
-    updateRequestIpc(sourceId, {
+    updateRequestIpc(requestId, {
       method,
       url,
       headers: activeHeaders.map((h) => ({ key: h.key, value: h.value, enabled: h.enabled })),
@@ -204,7 +201,7 @@ export function RequestEditor({
       snapshotRef.current = buildFingerprint();
       onDirtyChange?.(false);
     }).catch(() => {});
-  }, [isDraft, onSaveDraft, draftData, method, url, headers, params, sourceId, updateRequestIpc, buildFingerprint, onDirtyChange]);
+  }, [isDraft, onSaveDraft, draftData, method, url, headers, params, requestId, updateRequestIpc, buildFingerprint, onDirtyChange]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;
@@ -299,6 +296,3 @@ export function RequestEditor({
     </div>
   );
 }
-
-// Keep backward-compatible export name for EditorArea
-export { RequestEditor as SourceEditor };

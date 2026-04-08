@@ -23,8 +23,8 @@ function flattenRequests(collections: V5.CollectionTree[]): V5.RequestNode[] {
   return result;
 }
 
-interface UseSourcesReturn {
-  sources: V5.RequestNode[];
+interface UseRequestsReturn {
+  requests: V5.RequestNode[];
   requestCollections: V5.CollectionTree[];
   getRequest: (uid: string) => Promise<V5.Request | null>;
   addRequest: (collectionUid: string, request: Omit<V5.Request, 'uid' | 'path'>) => Promise<V5.Request | null>;
@@ -36,10 +36,10 @@ interface UseSourcesReturn {
  * Hook for request data access and CRUD.
  * Returns flat list of request nodes, full collection trees, and mutation callbacks.
  */
-export function useSources(): UseSourcesReturn {
+export function useRequests(): UseRequestsReturn {
   const { requestCollections, service } = useCentralizedWorkspace();
 
-  const sources = useMemo(() => flattenRequests(requestCollections), [requestCollections]);
+  const requests = useMemo(() => flattenRequests(requestCollections), [requestCollections]);
 
   const getRequest = useCallback(
     async (uid: string): Promise<V5.Request | null> => {
@@ -92,7 +92,7 @@ export function useSources(): UseSourcesReturn {
   );
 
   return {
-    sources,
+    requests,
     requestCollections,
     getRequest,
     addRequest,

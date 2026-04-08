@@ -26,7 +26,7 @@ import {
   useCollections,
   useEnvironments,
   useHeaderRules,
-  useSources,
+  useRequests,
 } from '@/renderer/hooks/useCentralizedWorkspace';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
@@ -70,7 +70,7 @@ function SectionHeader({ title, expanded, onToggle }: { title: string; expanded:
 
 interface OpenTabRequest {
   id: string;
-  type: 'rule' | 'environment' | 'collection' | 'collection-overview' | 'folder' | 'folder-overview';
+  type: 'request' | 'rule' | 'environment' | 'collection' | 'collection-overview' | 'folder' | 'folder-overview';
   label: string;
   icon?: string;
   entityId?: string;
@@ -145,7 +145,7 @@ export function Sidebar({
   onPendingRename,
 }: SidebarProps) {
   const { token } = theme.useToken();
-  const { sources, requestCollections, updateRequest, removeRequest } = useSources();
+  const { requests, requestCollections, updateRequest, removeRequest } = useRequests();
   const { rules, ruleCollections, updateRule, removeRule, toggleRule } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, deleteEnvironment, updateEnvironment } =
     useEnvironments();
@@ -347,10 +347,10 @@ export function Sidebar({
   const selectOpenedFile = useCallback(() => {
     if (!activeTabId) return;
     const sections = new Set(expandedSectionsSet);
-    if (activeTabId.startsWith('source-')) {
+    if (activeTabId.startsWith('request-')) {
       sections.add('collections');
       // Expand the containing collection (and folder)
-      const request = sources.find((s) => `source-${s.uid}` === activeTabId);
+      const request = requests.find((r) => `request-${r.uid}` === activeTabId);
       if (request) {
         // TODO: derive collection key from request path
         sections.add('collections');
@@ -365,7 +365,7 @@ export function Sidebar({
     setTimeout(() => {
       containerRef.current?.querySelector(`[data-item-id="${activeTabId}"]`)?.scrollIntoView({ block: 'nearest' });
     }, 50);
-  }, [activeTabId, expandedSectionsSet, sources, ensureExpanded, onExpandedSectionsChange]);
+  }, [activeTabId, expandedSectionsSet, requests, ensureExpanded, onExpandedSectionsChange]);
 
   selectOpenedFileRef.current = selectOpenedFile;
 

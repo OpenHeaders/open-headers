@@ -29,7 +29,7 @@ interface SaveToCollectionModalProps {
   entityName: string;
   collections: V5.Collection[];
   /** Requests in the current workspace — used to show existing items in a collection */
-  sources: V5.RequestNode[];
+  requests: V5.RequestNode[];
   /** Workspace name shown as the root level in the breadcrumb */
   workspaceName: string;
   onSave: (params: { name: string; collectionId: string; folderId?: string }) => void;
@@ -51,7 +51,7 @@ export function SaveToCollectionModal({
   section,
   entityName,
   collections,
-  sources,
+  requests,
   workspaceName,
   onSave,
   onCreateCollection,
@@ -101,10 +101,10 @@ export function SaveToCollectionModal({
   // Existing items in the selected collection
   const existingItems = useMemo(() => {
     if (!selectedCollectionId || section !== 'requests') return [];
-    return sources
-      .filter((s) => s.path.startsWith(`requests/${selectedCollectionId}`))
-      .map((s) => ({ name: s.name || 'Untitled', method: s.method || 'GET' }));
-  }, [selectedCollectionId, sources, section]);
+    return requests
+      .filter((r) => r.path.startsWith(`requests/${selectedCollectionId}`))
+      .map((r) => ({ name: r.name || 'Untitled', method: r.method || 'GET' }));
+  }, [selectedCollectionId, requests, section]);
 
   // Build breadcrumb path
   const breadcrumb = useMemo(() => {

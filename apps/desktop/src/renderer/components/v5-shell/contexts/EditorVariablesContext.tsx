@@ -3,7 +3,7 @@
  * references the currently active editor uses.
  *
  * Architecture:
- * - Each editor (SourceEditor, RuleEditor) calls `setUsedVariables(vars)` whenever
+ * - Each editor (RequestEditor, RuleEditor) calls `setUsedVariables(vars)` whenever
  *   its content changes, passing all unique {{VAR}} names found across all fields.
  * - The Inspector panel reads `usedVariables` to show "Variables in request" in real-time.
  * - When the active tab changes, `clearVariables()` resets the list.
@@ -66,16 +66,16 @@ export function extractVarNames(text: string): string[] {
   return [...new Set([...text.matchAll(/\{\{([^}]+)\}\}/g)].map((m) => m[1].trim()))];
 }
 
-// ── Helper: extract all vars from a source's fields ──────────────
+// ── Helper: extract all vars from a request's fields ─────────────
 
-interface SourceFields {
+interface RequestFields {
   url: string;
   params: Array<{ key: string; value: string }>;
   headers: Array<{ key: string; value: string }>;
   body: string;
 }
 
-export function extractSourceVariables(fields: SourceFields): UsedVariable[] {
+export function extractRequestVariables(fields: RequestFields): UsedVariable[] {
   const varMap = new Map<string, Set<string>>();
 
   const add = (name: string, location: string) => {

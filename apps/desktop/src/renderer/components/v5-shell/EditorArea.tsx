@@ -14,7 +14,7 @@ import appIcon from '@/renderer/images/icon128.png';
 import { CollectionVariablesEditor } from './editors/CollectionVariablesEditor';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
-import { SourceEditor } from './editors/RequestEditor';
+import { RequestEditor } from './editors/RequestEditor';
 import { WorkspaceVariablesEditor } from './editors/WorkspaceVariablesEditor';
 import type { ResolvedTab } from './hooks/useResolvedTabs';
 import type { Tab } from './hooks/useTabs';
@@ -125,7 +125,7 @@ function TabEditor({
     // Draft tabs — editors work with local-only state
     if (tab.type === 'request') {
       content = (
-        <SourceEditor
+        <RequestEditor
           draftData={tab.draftData}
           onDirtyChange={dirtyChange}
           onSaveLabelChange={saveLabelChange}
@@ -165,8 +165,8 @@ function TabEditor({
     content = <EnvironmentEditor environmentId={tab.entityId} onDirtyChange={dirtyChange} saveRef={save} />;
   } else if ((tab.type === 'collection' || tab.type === 'request') && tab.entityId) {
     content = (
-      <SourceEditor
-        sourceId={tab.entityId}
+      <RequestEditor
+        requestId={tab.entityId}
         onDirtyChange={dirtyChange}
         onSaveLabelChange={saveLabelChange}
         saveRef={save}

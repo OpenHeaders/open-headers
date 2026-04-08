@@ -7,8 +7,8 @@
  *   - Create-and-activate environment (for env selector dropdown)
  *   - Opening the active environment tab
  *
- * Note: Request/rule creation requires IPC handlers not yet built.
- * Draft-based creation (useDraftSave) works for now.
+ * Direct creation (createNewRequest/createNewRule) is stubbed — use draft-based
+ * creation (useDraftSave) which persists via addRequest/addRule IPC.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -16,7 +16,7 @@ import { useCallback } from 'react';
 import type { Tab } from './useTabs';
 
 interface UseEntityCreationOptions {
-  sources: V5.RequestNode[];
+  requests: V5.RequestNode[];
   rules: V5.Rule[];
   environments: V5.Environment[];
   collections: V5.Collection[];
@@ -28,7 +28,7 @@ interface UseEntityCreationOptions {
 }
 
 export function useEntityCreation({
-  sources,
+  requests,
   rules,
   environments,
   collections,
@@ -58,10 +58,10 @@ export function useEntityCreation({
     [],
   );
 
-  const createNewSource = useCallback(
+  const createNewRequest = useCallback(
     async (_options?: { collectionId?: string; folderId?: string }) => {
       // TODO: add IPC handler for creating a request in a collection
-      // For now, use draft tabs (createDraftSource)
+      // For now, use draft tabs (createDraftRequest)
     },
     [],
   );
@@ -137,7 +137,7 @@ export function useEntityCreation({
     openSettings,
     openWorkspaceVariables,
     openCollectionVariables,
-    createNewSource,
+    createNewRequest,
     createNewRule,
     createNewEnvironment,
     createAndActivateEnvironment,

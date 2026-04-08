@@ -2,7 +2,7 @@
  * useDraftSave — draft tab creation and save-to-collection modal flow.
  *
  * Extracted from V5Shell to reduce component size. Handles:
- *   - Creating draft source/rule tabs (no collection context)
+ *   - Creating draft request/rule tabs (no collection context)
  *   - Save-to-collection modal state and confirmation
  *   - Persisting draft entities and transitioning tabs
  *   - Auto-expanding sidebar collections after save
@@ -30,7 +30,7 @@ export interface SaveModalProps {
 }
 
 interface UseDraftSaveOptions {
-  sources: V5.RequestNode[];
+  requests: V5.RequestNode[];
   rules: V5.Rule[];
   environments: V5.Environment[];
   tabs: Tab[];
@@ -43,7 +43,7 @@ interface UseDraftSaveOptions {
 }
 
 export function useDraftSave({
-  sources,
+  requests,
   rules,
   environments,
   tabs,
@@ -56,8 +56,8 @@ export function useDraftSave({
 }: UseDraftSaveOptions) {
   // ── Draft creation ──
 
-  const createDraftSource = useCallback(() => {
-    const existingNames = new Set(sources.map((s) => s.name));
+  const createDraftRequest = useCallback(() => {
+    const existingNames = new Set(requests.map((r) => r.name));
     let name = 'New Request';
     let counter = 2;
     while (existingNames.has(name)) {
@@ -77,7 +77,7 @@ export function useDraftSave({
         url: '',
       },
     } as Parameters<typeof openTab>[0]);
-  }, [sources, openTab]);
+  }, [requests, openTab]);
 
   const createDraftRule = useCallback(() => {
     const existingNames = new Set(rules.map((r) => r.name));
@@ -189,7 +189,7 @@ export function useDraftSave({
         if (created) {
           closeTab(draftTabId, true);
           openTab({
-            id: `source-${created.uid}`,
+            id: `request-${created.uid}`,
             type: 'request',
             label: created.name,
             icon: created.method,
@@ -239,7 +239,7 @@ export function useDraftSave({
   };
 
   return {
-    createDraftSource,
+    createDraftRequest,
     createDraftRule,
     createDraftEnvironment,
     handleSaveDraft,

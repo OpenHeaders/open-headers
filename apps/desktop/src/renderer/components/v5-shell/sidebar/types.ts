@@ -12,7 +12,7 @@ import type { ItemType } from 'antd/es/menu/interface';
 export type NodeKind = 'group' | 'folder' | 'leaf' | 'placeholder';
 
 export interface TreeNode {
-  /** Unique sidebar ID (e.g. 'source-123', 'folder-f-1', 'col-MyAPI') */
+  /** Unique sidebar ID (e.g. 'request-123', 'folder-f-1', 'col-MyAPI') */
   id: string;
   kind: NodeKind;
   label: string;
