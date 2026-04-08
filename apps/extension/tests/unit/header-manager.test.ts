@@ -1,18 +1,9 @@
-import type { SavedDataMap, Source } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────────
 
-let mockSavedData: SavedDataMap = {};
-
-vi.mock('@/utils/storage-chunking', () => ({
-  getChunkedData: vi.fn((_key: string, cb: (data: SavedDataMap | null) => void) => {
-    cb(mockSavedData);
-  }),
-  setChunkedData: vi.fn(),
-}));
-
-vi.mock('@/utils/browser-api', () => ({
+vi.mock('@utils/browser-api', () => ({
   declarativeNetRequest: {
     getDynamicRules: vi.fn(() => Promise.resolve([])),
     updateDynamicRules: vi.fn(() => Promise.resolve()),
@@ -20,11 +11,11 @@ vi.mock('@/utils/browser-api', () => ({
   storage: { sync: { get: vi.fn((_k: string[], cb: (r: Record<string, unknown>) => void) => cb({})) } },
 }));
 
-vi.mock('@/utils/messaging', () => ({
+vi.mock('@utils/messaging', () => ({
   sendMessageWithCallback: vi.fn(),
 }));
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@utils/logger', () => ({
   logger: {
     info: vi.fn(),
     debug: vi.fn(),
@@ -45,23 +36,21 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function makeSource(overrides: Partial<Source> = {}): Source {
+function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
-    sourceId: `src-${crypto.randomUUID?.() ?? 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'}`,
-    sourceType: 'http',
-    sourceContent: 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
-    ...overrides,
-  };
-}
-
-function makeSavedEntry(overrides: Partial<SavedDataMap[string]> = {}): SavedDataMap[string] {
-  return {
-    headerName: 'Authorization',
-    headerValue: '',
+    uid: `rule-${crypto.randomUUID?.() ?? 'a1b2'}`.slice(0, 8),
+    path: 'rules/test',
+    name: 'Test Rule',
+    type: 'header',
+    enabled: true,
+    tags: [],
     domains: ['*.openheaders.io'],
-    isDynamic: true,
-    sourceId: 'src-1',
-    isEnabled: true,
+    action: {
+      operation: 'override',
+      headerName: 'Authorization',
+      isResponse: false,
+    },
+    staticValue: 'Bearer test-token',
     ...overrides,
   };
 }
@@ -76,166 +65,115 @@ function getRulesFromLastCall(): unknown[] {
 describe('header-manager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSavedData = {};
     setRulesPaused(false);
     setDisabledTagGroups([]);
     mockGetDynamicRules.mockResolvedValue([]);
     mockUpdateDynamicRules.mockResolvedValue(undefined);
   });
 
-  // ── Dynamic headers with cached sources (no connection gate) ──
+  // ── Static header injection ──
 
-  describe('dynamic headers inject from available sources regardless of connection', () => {
-    it('injects dynamic header when source has content (simulates cached/offline start)', async () => {
-      const source = makeSource({ sourceId: 'src-1', sourceContent: 'token-abc-123' });
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ headerName: 'Authorization', sourceId: 'src-1', prefix: 'Bearer ' }),
-      };
+  describe('static header injection', () => {
+    it('injects header rule with static value', async () => {
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'X-Custom', isResponse: false },
+        staticValue: 'static-value',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([source]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       expect(mockUpdateDynamicRules).toHaveBeenCalledTimes(1);
       const rules = getRulesFromLastCall();
       expect(rules.length).toBeGreaterThan(0);
-      const rule = rules[0] as { action: { requestHeaders: { value: string }[] } };
-      expect(rule.action.requestHeaders[0].value).toBe('Bearer token-abc-123');
+      const dnrRule = rules[0] as { action: { requestHeaders: { header: string; value: string }[] } };
+      expect(dnrRule.action.requestHeaders[0].header).toBe('X-Custom');
+      expect(dnrRule.action.requestHeaders[0].value).toBe('static-value');
     });
 
-    it('injects dynamic header with empty sources array when source was restored from storage', async () => {
-      // No sources passed — simulates init before WebSocket connects
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ headerName: 'Authorization', sourceId: 'src-1' }),
-      };
+    it('skips rule with empty static value', async () => {
+      const rule = makeHeaderRule({ staticValue: '   ' });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
-      expect(mockUpdateDynamicRules).toHaveBeenCalledTimes(1);
-      // No matching source → source_not_found, no rules produced
       const rules = getRulesFromLastCall();
       expect(rules).toHaveLength(0);
     });
 
-    it('produces source_not_found when source is missing', () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ headerName: 'Authorization', sourceId: 'src-missing' }),
-      };
+    it('skips rule with no static value (undefined)', async () => {
+      const rule = makeHeaderRule({ staticValue: undefined });
 
-      updateNetworkRules([makeSource({ sourceId: 'src-other' })]);
+      updateNetworkRules([rule]);
+      await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules).toHaveLength(0);
     });
   });
 
-  // ── Dynamic header resolution ──
+  // ── Header operations ──
 
-  describe('dynamic header resolution', () => {
-    it('resolves dynamic header with prefix and suffix', async () => {
-      const source = makeSource({ sourceId: 'src-1', sourceContent: 'my-token' });
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ sourceId: 'src-1', prefix: 'Bearer ', suffix: ' ;extra' }),
-      };
+  describe('header operations', () => {
+    it('uses "set" operation for override', async () => {
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'X-Test', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([source]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules.length).toBeGreaterThan(0);
-      const rule = rules[0] as { action: { requestHeaders: { value: string }[] } };
-      expect(rule.action.requestHeaders[0].value).toBe('Bearer my-token ;extra');
+      const dnrRule = rules[0] as { action: { requestHeaders: { operation: string }[] } };
+      expect(dnrRule.action.requestHeaders[0].operation).toBe('set');
     });
 
-    it('returns empty_source placeholder when source exists but has no content', () => {
-      const source = makeSource({ sourceId: 'src-1', sourceContent: '' });
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ sourceId: 'src-1' }),
-      };
+    it('uses "append" operation for add', async () => {
+      const rule = makeHeaderRule({
+        action: { operation: 'add', headerName: 'X-Test', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([source]);
-
-      const rules = getRulesFromLastCall();
-      expect(rules).toHaveLength(0);
-    });
-
-    it('returns source_not_found placeholder when source does not exist', () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ sourceId: 'src-nonexistent' }),
-      };
-
-      updateNetworkRules([makeSource({ sourceId: 'src-other' })]);
-
-      const rules = getRulesFromLastCall();
-      expect(rules).toHaveLength(0);
-    });
-
-    it('matches source by string-coerced sourceId', async () => {
-      const source = makeSource({ sourceId: '42', sourceContent: 'val' });
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ sourceId: 42 as unknown as string }),
-      };
-
-      updateNetworkRules([source]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules.length).toBeGreaterThan(0);
+      const dnrRule = rules[0] as { action: { requestHeaders: { operation: string }[] } };
+      expect(dnrRule.action.requestHeaders[0].operation).toBe('append');
     });
-  });
 
-  // ── Static headers ──
+    it('creates remove rules without needing a value', async () => {
+      const rule = makeHeaderRule({
+        action: { operation: 'remove', headerName: 'X-Unwanted', isResponse: false },
+        staticValue: undefined,
+        domains: ['openheaders.io'],
+      });
 
-  describe('static header resolution', () => {
-    it('injects static header with literal value', async () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Custom',
-          headerValue: 'static-value',
-          domains: ['example.com'],
-        }),
-      };
-
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules.length).toBeGreaterThan(0);
-      const rule = rules[0] as { action: { requestHeaders: { header: string; value: string }[] } };
-      expect(rule.action.requestHeaders[0].header).toBe('X-Custom');
-      expect(rule.action.requestHeaders[0].value).toBe('static-value');
-    });
-
-    it('returns empty_value placeholder for static header with empty value', () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Custom',
-          headerValue: '   ',
-          domains: ['example.com'],
-        }),
-      };
-
-      updateNetworkRules([]);
-
-      const rules = getRulesFromLastCall();
-      expect(rules).toHaveLength(0);
+      const dnrRule = rules[0] as { action: { requestHeaders: { operation: string; header: string }[] } };
+      expect(dnrRule.action.requestHeaders[0].operation).toBe('remove');
+      expect(dnrRule.action.requestHeaders[0].header).toBe('X-Unwanted');
     });
   });
 
   // ── Disabled rules ──
 
   describe('disabled rules', () => {
-    it('skips disabled rules entirely', () => {
-      const source = makeSource({ sourceId: 'src-1', sourceContent: 'token' });
-      mockSavedData = {
-        'rule-1': makeSavedEntry({ isEnabled: false }),
-      };
+    it('skips disabled rules entirely', async () => {
+      const rule = makeHeaderRule({ enabled: false });
 
-      updateNetworkRules([source]);
+      updateNetworkRules([rule]);
+      await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules).toHaveLength(0);
@@ -248,7 +186,7 @@ describe('header-manager', () => {
     it('clears all rules when paused', async () => {
       setRulesPaused(true);
 
-      updateNetworkRules([makeSource()]);
+      updateNetworkRules([makeHeaderRule()]);
       await flushPromises();
 
       expect(mockUpdateDynamicRules).toHaveBeenCalledWith(expect.objectContaining({ addRules: [] }));
@@ -260,18 +198,14 @@ describe('header-manager', () => {
   describe('disabled tag groups', () => {
     it('skips rules whose tag group is disabled', async () => {
       setDisabledTagGroups(['api']);
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Api',
-          headerValue: 'value',
-          domains: ['openheaders.io'],
-          tag: 'api',
-        }),
-      };
+      const rule = makeHeaderRule({
+        tags: ['api'],
+        action: { operation: 'override', headerName: 'X-Api', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
@@ -280,18 +214,14 @@ describe('header-manager', () => {
 
     it('injects rules from non-disabled tag groups', async () => {
       setDisabledTagGroups(['api']);
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Other',
-          headerValue: 'value',
-          domains: ['openheaders.io'],
-          tag: 'other',
-        }),
-      };
+      const rule = makeHeaderRule({
+        tags: ['other'],
+        action: { operation: 'override', headerName: 'X-Other', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
@@ -300,17 +230,14 @@ describe('header-manager', () => {
 
     it('skips untagged rules when __no_tag__ group is disabled', async () => {
       setDisabledTagGroups(['__no_tag__']);
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Untagged',
-          headerValue: 'value',
-          domains: ['openheaders.io'],
-        }),
-      };
+      const rule = makeHeaderRule({
+        tags: [],
+        action: { operation: 'override', headerName: 'X-Untagged', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
@@ -319,24 +246,20 @@ describe('header-manager', () => {
 
     it('allows rules when tag group is re-enabled', async () => {
       setDisabledTagGroups(['api']);
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Api',
-          headerValue: 'value',
-          domains: ['openheaders.io'],
-          tag: 'api',
-        }),
-      };
+      const rule = makeHeaderRule({
+        tags: ['api'],
+        action: { operation: 'override', headerName: 'X-Api', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
       expect(getRulesFromLastCall()).toHaveLength(0);
 
       // Re-enable the group
       setDisabledTagGroups([]);
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
@@ -348,25 +271,20 @@ describe('header-manager', () => {
 
   describe('response headers', () => {
     it('creates response header rules with higher priority', async () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Frame-Options',
-          headerValue: 'DENY',
-          isResponse: true,
-          domains: ['example.com'],
-        }),
-      };
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'X-Frame-Options', isResponse: true },
+        staticValue: 'DENY',
+        domains: ['openheaders.io'],
+      });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules.length).toBeGreaterThan(0);
-      const rule = rules[0] as { priority: number; action: { responseHeaders: { header: string }[] } };
-      expect(rule.priority).toBe(1000);
-      expect(rule.action.responseHeaders[0].header).toBe('X-Frame-Options');
+      const dnrRule = rules[0] as { priority: number; action: { responseHeaders: { header: string }[] } };
+      expect(dnrRule.priority).toBe(1000);
+      expect(dnrRule.action.responseHeaders[0].header).toBe('X-Frame-Options');
     });
   });
 
@@ -374,17 +292,13 @@ describe('header-manager', () => {
 
   describe('multiple domains', () => {
     it('creates one rule per domain', async () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Test',
-          headerValue: 'value',
-          domains: ['example.com', 'other.com', 'third.com'],
-        }),
-      };
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'X-Test', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io', 'api.openheaders.io', 'cdn.openheaders.io'],
+      });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
@@ -392,17 +306,13 @@ describe('header-manager', () => {
     });
 
     it('skips empty domain strings', async () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Test',
-          headerValue: 'value',
-          domains: ['example.com', '', '  '],
-        }),
-      };
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'X-Test', isResponse: false },
+        staticValue: 'value',
+        domains: ['openheaders.io', '', '  '],
+      });
 
-      updateNetworkRules([]);
+      updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
@@ -413,18 +323,38 @@ describe('header-manager', () => {
   // ── No domains ──
 
   describe('no domains', () => {
-    it('skips entry with empty domains array', () => {
-      mockSavedData = {
-        'rule-1': makeSavedEntry({
-          isDynamic: false,
-          sourceId: undefined,
-          headerName: 'X-Test',
-          headerValue: 'value',
-          domains: [],
-        }),
+    it('skips rule with empty domains array', async () => {
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'X-Test', isResponse: false },
+        staticValue: 'value',
+        domains: [],
+      });
+
+      updateNetworkRules([rule]);
+      await flushPromises();
+
+      const rules = getRulesFromLastCall();
+      expect(rules).toHaveLength(0);
+    });
+  });
+
+  // ── Non-header rule types are ignored ──
+
+  describe('non-header rule types', () => {
+    it('ignores non-header rules', async () => {
+      const redirectRule: V5.Rule = {
+        uid: 'rdr1',
+        path: 'rules/redirect',
+        name: 'Redirect Rule',
+        type: 'redirect',
+        enabled: true,
+        tags: [],
+        domains: ['openheaders.io'],
+        action: { matchPattern: '/old', redirectTo: '/new' },
       };
 
-      updateNetworkRules([]);
+      updateNetworkRules([redirectRule]);
+      await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules).toHaveLength(0);
@@ -435,19 +365,19 @@ describe('header-manager', () => {
 
   describe('formatUrlPattern', () => {
     it('wraps plain domain with protocol wildcard and path', () => {
-      expect(formatUrlPattern('example.com')).toBe('*://example.com/*');
+      expect(formatUrlPattern('openheaders.io')).toBe('*://openheaders.io/*');
     });
 
     it('preserves explicit protocol', () => {
-      expect(formatUrlPattern('https://example.com')).toBe('https://example.com/*');
+      expect(formatUrlPattern('https://openheaders.io')).toBe('https://openheaders.io/*');
     });
 
     it('preserves explicit protocol with path', () => {
-      expect(formatUrlPattern('https://example.com/api')).toBe('https://example.com/api');
+      expect(formatUrlPattern('https://openheaders.io/api')).toBe('https://openheaders.io/api');
     });
 
     it('handles wildcard subdomain', () => {
-      expect(formatUrlPattern('*.example.com')).toBe('*://*.example.com/*');
+      expect(formatUrlPattern('*.openheaders.io')).toBe('*://*.openheaders.io/*');
     });
 
     it('handles IP address', () => {

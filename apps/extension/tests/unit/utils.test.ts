@@ -1,52 +1,24 @@
-import type { SavedDataMap, Source } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { normalizeHeaderName } from '@utils/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatUrlPattern } from '@/background/modules/url-utils';
-import { debounce, generateSavedDataHash, generateSourcesHash } from '@/background/modules/utils';
+import { debounce, generateRulesHash } from '@/background/modules/utils';
 
 // ---------------------------------------------------------------------------
 //  Factory functions
 // ---------------------------------------------------------------------------
 
-function makeSource(overrides: Partial<Source> = {}): Source {
+function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
-    sourceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    sourceType: 'http',
-    sourcePath: 'https://auth.openheaders.io/oauth2/token',
-    sourceMethod: 'POST',
-    sourceName: 'ACME Corp OAuth Token',
-    sourceTag: 'production',
-    sourceContent: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
-    createdAt: '2025-11-15T09:30:00.000Z',
-    updatedAt: '2025-11-15T10:00:00.000Z',
-    ...overrides,
-  };
-}
-
-function makeSavedDataMap(overrides: Partial<SavedDataMap> = {}): SavedDataMap {
-  return {
-    'b2c3d4e5-f6a7-8901-bcde-f12345678901': {
-      headerName: 'Authorization',
-      headerValue: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
-      domains: ['*.openheaders.io', 'api.partner-service.io:8443'],
-      isDynamic: true,
-      sourceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-      prefix: 'Bearer ',
-      isResponse: false,
-      isEnabled: true,
-      tag: 'production',
-      createdAt: '2025-11-15T09:30:00.000Z',
-      updatedAt: '2025-11-15T10:00:00.000Z',
-    },
-    'c3d4e5f6-a7b8-9012-cdef-123456789012': {
-      headerName: 'X-API-Key',
-      headerValue: 'oh_live_a1b2c3d4e5f6g7h8i9j0klmnopqrstuvwxyz1234567890ABCDEF',
-      domains: ['localhost:3000'],
-      isDynamic: false,
-      isResponse: false,
-      isEnabled: true,
-      createdAt: '2025-11-15T09:30:00.000Z',
-    },
+    uid: 'r1a2',
+    path: 'rules/auth/bearer-r1a2',
+    name: 'Bearer Token',
+    type: 'header',
+    enabled: true,
+    tags: ['production'],
+    domains: ['*.openheaders.io', 'api.partner-service.io:8443'],
+    action: { operation: 'override', headerName: 'Authorization', isResponse: false },
+    staticValue: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
     ...overrides,
   };
 }
@@ -89,108 +61,54 @@ describe('normalizeHeaderName', () => {
 });
 
 // ---------------------------------------------------------------------------
-//  generateSourcesHash (from src/utils/utils.ts)
+//  generateRulesHash
 // ---------------------------------------------------------------------------
 
-describe('generateSourcesHash', () => {
-  it('returns empty string for null/undefined', () => {
-    expect(generateSourcesHash(null as never)).toBe('');
-    expect(generateSourcesHash(undefined as never)).toBe('');
-  });
-
-  it('returns empty string for non-array', () => {
-    expect(generateSourcesHash('string' as never)).toBe('');
-  });
-
-  it('creates consistent hash for same enterprise sources', () => {
-    const sources = [makeSource(), makeSource({ sourceId: 'f1e2d3c4-b5a6-0987-fedc-ba9876543210' })];
-    const hash1 = generateSourcesHash(sources);
-    const hash2 = generateSourcesHash(sources);
+describe('generateRulesHash', () => {
+  it('returns consistent hash for same rules', () => {
+    const rules = [makeHeaderRule(), makeHeaderRule({ uid: 'r3b4' })];
+    const hash1 = generateRulesHash(rules);
+    const hash2 = generateRulesHash(rules);
     expect(hash1).toBe(hash2);
   });
 
-  it('creates different hash for different sourceContent', () => {
-    const s1 = [makeSource({ sourceContent: 'Bearer token-v1' })];
-    const s2 = [makeSource({ sourceContent: 'Bearer token-v2' })];
-    expect(generateSourcesHash(s1)).not.toBe(generateSourcesHash(s2));
+  it('creates different hash when uid changes', () => {
+    const r1 = [makeHeaderRule({ uid: 'aaaa' })];
+    const r2 = [makeHeaderRule({ uid: 'bbbb' })];
+    expect(generateRulesHash(r1)).not.toBe(generateRulesHash(r2));
   });
 
-  it('ignores fields other than sourceId and sourceContent', () => {
-    const source1 = makeSource({ sourceName: 'Name A' });
-    const source2 = makeSource({ sourceName: 'Name B' });
-    // Same sourceId + sourceContent → same hash regardless of other fields
-    expect(generateSourcesHash([source1])).toBe(generateSourcesHash([source2]));
+  it('creates different hash when enabled changes', () => {
+    const r1 = [makeHeaderRule({ enabled: true })];
+    const r2 = [makeHeaderRule({ enabled: false })];
+    expect(generateRulesHash(r1)).not.toBe(generateRulesHash(r2));
   });
 
-  it('returns empty string for empty array', () => {
-    expect(generateSourcesHash([])).toBe('');
+  it('creates different hash when type changes', () => {
+    const r1 = [makeHeaderRule({ uid: 'x1y2' })];
+    const r2: V5.Rule[] = [{
+      uid: 'x1y2',
+      path: 'rules/test',
+      name: 'Block Rule',
+      type: 'block',
+      enabled: true,
+      tags: [],
+      domains: ['*.openheaders.io'],
+      action: { statusCode: 403 },
+    }];
+    expect(generateRulesHash(r1)).not.toBe(generateRulesHash(r2));
   });
 
-  it('handles source with undefined sourceContent', () => {
-    const source = makeSource({ sourceContent: undefined });
-    const hash = generateSourcesHash([source]);
-    expect(hash).toBeTruthy();
-    // Should differ from source with content
-    expect(hash).not.toBe(generateSourcesHash([makeSource()]));
-  });
-});
-
-// ---------------------------------------------------------------------------
-//  generateSavedDataHash (from src/background/modules/utils.ts)
-// ---------------------------------------------------------------------------
-
-describe('generateSavedDataHash', () => {
-  it('returns empty string for null/undefined', () => {
-    expect(generateSavedDataHash(null as unknown as SavedDataMap)).toBe('');
-    expect(generateSavedDataHash(undefined as unknown as SavedDataMap)).toBe('');
+  it('ignores fields other than uid, enabled, and type', () => {
+    const r1 = [makeHeaderRule({ name: 'Name A', staticValue: 'value-1' })];
+    const r2 = [makeHeaderRule({ name: 'Name B', staticValue: 'value-2' })];
+    // Same uid + enabled + type → same hash regardless of other fields
+    expect(generateRulesHash(r1)).toBe(generateRulesHash(r2));
   });
 
-  it('creates consistent hash for same saved data', () => {
-    const data = makeSavedDataMap();
-    const hash1 = generateSavedDataHash(data);
-    const hash2 = generateSavedDataHash(data);
-    expect(hash1).toBe(hash2);
-  });
-
-  it('creates different hash when header value changes', () => {
-    const data1 = makeSavedDataMap();
-    const data2 = makeSavedDataMap({
-      'b2c3d4e5-f6a7-8901-bcde-f12345678901': {
-        ...data1['b2c3d4e5-f6a7-8901-bcde-f12345678901'],
-        headerValue: 'Bearer new-token-value',
-      },
-    });
-    expect(generateSavedDataHash(data1)).not.toBe(generateSavedDataHash(data2));
-  });
-
-  it('uses only key fields for hashing (ignores domains, tags, etc.)', () => {
-    const data1: SavedDataMap = {
-      'entry-001': {
-        headerName: 'X-Test',
-        headerValue: 'test-value',
-        domains: ['*.example.com'],
-        isDynamic: false,
-        sourceId: 'src-001',
-        sourceMissing: false,
-      },
-    };
-    const data2: SavedDataMap = {
-      'entry-001': {
-        headerName: 'X-Test',
-        headerValue: 'test-value',
-        domains: ['*.different.com'],
-        isDynamic: false,
-        sourceId: 'src-001',
-        sourceMissing: false,
-        tag: 'production',
-      },
-    };
-    // Same key fields → same hash (domains/tag not included)
-    expect(generateSavedDataHash(data1)).toBe(generateSavedDataHash(data2));
-  });
-
-  it('returns empty string for empty object', () => {
-    expect(generateSavedDataHash({})).toBe('');
+  it('returns a hash for empty array', () => {
+    const hash = generateRulesHash([]);
+    expect(typeof hash).toBe('string');
   });
 });
 
@@ -284,15 +202,15 @@ describe('debounce', () => {
 
 describe('formatUrlPattern', () => {
   it('adds protocol and path to bare domains', () => {
-    expect(formatUrlPattern('example.com')).toBe('*://example.com/*');
+    expect(formatUrlPattern('openheaders.io')).toBe('*://openheaders.io/*');
   });
 
   it('preserves full URL patterns', () => {
-    expect(formatUrlPattern('https://example.com/path')).toBe('https://example.com/path');
+    expect(formatUrlPattern('https://openheaders.io/path')).toBe('https://openheaders.io/path');
   });
 
   it('adds path to URL patterns without path', () => {
-    expect(formatUrlPattern('https://example.com')).toBe('https://example.com/*');
+    expect(formatUrlPattern('https://openheaders.io')).toBe('https://openheaders.io/*');
   });
 
   it('handles IP addresses', () => {
@@ -306,11 +224,11 @@ describe('formatUrlPattern', () => {
   });
 
   it('handles wildcard subdomains', () => {
-    expect(formatUrlPattern('*.example.com')).toBe('*://*.example.com/*');
+    expect(formatUrlPattern('*.openheaders.io')).toBe('*://*.openheaders.io/*');
   });
 
   it('trims whitespace', () => {
-    expect(formatUrlPattern('  example.com  ')).toBe('*://example.com/*');
+    expect(formatUrlPattern('  openheaders.io  ')).toBe('*://openheaders.io/*');
   });
 
   it('handles enterprise domain patterns', () => {
@@ -319,9 +237,9 @@ describe('formatUrlPattern', () => {
   });
 
   it('handles bare single-label domains from env vars', () => {
-    // Real-world: MC2_DOMAIN_LIST includes "medicenter" and "ifap.vos"
-    expect(formatUrlPattern('medicenter')).toBe('*://medicenter/*');
-    expect(formatUrlPattern('ifap.vos')).toBe('*://ifap.vos/*');
-    expect(formatUrlPattern('development.medicenter.cgm.ag')).toBe('*://development.medicenter.cgm.ag/*');
+    // Real-world: CORP_DOMAIN_LIST includes "intranet" and "portal.corp"
+    expect(formatUrlPattern('intranet')).toBe('*://intranet/*');
+    expect(formatUrlPattern('portal.corp')).toBe('*://portal.corp/*');
+    expect(formatUrlPattern('development.api.openheaders.io')).toBe('*://development.api.openheaders.io/*');
   });
 });

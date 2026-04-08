@@ -1,4 +1,4 @@
-import type { SavedDataMap, Source } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock header-manager before importing rule-engine
@@ -6,11 +6,11 @@ vi.mock('@/background/header-manager', () => ({
   updateNetworkRules: vi.fn(),
 }));
 
-vi.mock('@/background/modules/sources-store', () => ({
-  getCurrentSources: vi.fn(() => []),
+vi.mock('@/background/modules/rule-store', () => ({
+  getRules: vi.fn(() => []),
 }));
 
-vi.mock('@/utils/logger', () => ({
+vi.mock('@utils/logger', () => ({
   logger: {
     info: vi.fn(),
     debug: vi.fn(),
@@ -21,25 +21,26 @@ vi.mock('@/utils/logger', () => ({
 
 import { updateNetworkRules } from '@/background/header-manager';
 import {
-  getLastRulesUpdateTime,
-  getLastSavedDataHash,
-  getLastSourcesHash,
+  getLastRulesHash,
   scheduleUpdate,
-  setLastRulesUpdateTime,
-  setLastSavedDataHash,
-  setLastSourcesHash,
-  updateSavedDataHash,
+  setLastRulesHash,
 } from '@/background/modules/rule-engine';
-import { getCurrentSources } from '@/background/modules/sources-store';
+import { getRules } from '@/background/modules/rule-store';
 
 const mockUpdateNetworkRules = updateNetworkRules as ReturnType<typeof vi.fn>;
-const mockGetCurrentSources = getCurrentSources as ReturnType<typeof vi.fn>;
+const mockGetRules = getRules as ReturnType<typeof vi.fn>;
 
-function makeSource(overrides: Partial<Source> = {}): Source {
+function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
-    sourceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    sourceType: 'http',
-    sourceContent: 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.sig',
+    uid: 'r1a2',
+    path: 'rules/test',
+    name: 'Test Rule',
+    type: 'header',
+    enabled: true,
+    tags: [],
+    domains: ['*.openheaders.io'],
+    action: { operation: 'override', headerName: 'Authorization', isResponse: false },
+    staticValue: 'Bearer test-token',
     ...overrides,
   };
 }
@@ -48,9 +49,7 @@ describe('RuleEngine', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    setLastSourcesHash('');
-    setLastSavedDataHash('');
-    setLastRulesUpdateTime(0);
+    setLastRulesHash('');
   });
 
   afterEach(() => {
@@ -59,49 +58,48 @@ describe('RuleEngine', () => {
 
   describe('scheduleUpdate with immediate: true', () => {
     it('calls updateNetworkRules immediately', () => {
-      const sources = [makeSource()];
-      mockGetCurrentSources.mockReturnValue(sources);
+      const rules = [makeHeaderRule()];
+      mockGetRules.mockReturnValue(rules);
 
       scheduleUpdate('init', { immediate: true });
 
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
-      expect(mockUpdateNetworkRules).toHaveBeenCalledWith(sources);
+      expect(mockUpdateNetworkRules).toHaveBeenCalledWith(rules);
     });
 
-    it('uses explicit sources when provided', () => {
-      const sources = [makeSource({ sourceId: 'explicit-source' })];
+    it('updates lastRulesHash', () => {
+      mockGetRules.mockReturnValue([makeHeaderRule()]);
 
-      scheduleUpdate('init', { immediate: true, sources });
-
-      expect(mockUpdateNetworkRules).toHaveBeenCalledWith(sources);
-    });
-
-    it('updates lastRulesUpdateTime', () => {
       scheduleUpdate('init', { immediate: true });
 
-      expect(getLastRulesUpdateTime()).toBeGreaterThan(0);
+      expect(getLastRulesHash()).toBeTruthy();
+      expect(getLastRulesHash()).not.toBe('');
     });
   });
 
   describe('scheduleUpdate with debounce (default)', () => {
     it('does not call updateNetworkRules before debounce period', () => {
-      scheduleUpdate('sources');
+      scheduleUpdate('rulesUpdated');
       expect(mockUpdateNetworkRules).not.toHaveBeenCalled();
     });
 
     it('calls updateNetworkRules after debounce period', () => {
-      scheduleUpdate('sources');
+      mockGetRules.mockReturnValue([makeHeaderRule()]);
+
+      scheduleUpdate('rulesUpdated');
       vi.advanceTimersByTime(150);
 
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
     });
 
     it('coalesces multiple rapid calls into one', () => {
-      scheduleUpdate('sources');
-      scheduleUpdate('sources');
-      scheduleUpdate('sources');
-      scheduleUpdate('sources');
-      scheduleUpdate('sources');
+      mockGetRules.mockReturnValue([makeHeaderRule()]);
+
+      scheduleUpdate('rulesUpdated');
+      scheduleUpdate('rulesUpdated');
+      scheduleUpdate('rulesUpdated');
+      scheduleUpdate('rulesUpdated');
+      scheduleUpdate('rulesUpdated');
 
       vi.advanceTimersByTime(150);
 
@@ -109,10 +107,12 @@ describe('RuleEngine', () => {
     });
 
     it('resets debounce timer on each call', () => {
-      scheduleUpdate('sources');
+      mockGetRules.mockReturnValue([makeHeaderRule()]);
+
+      scheduleUpdate('rulesUpdated');
       vi.advanceTimersByTime(100);
 
-      scheduleUpdate('sources');
+      scheduleUpdate('rulesUpdated');
       vi.advanceTimersByTime(100);
       expect(mockUpdateNetworkRules).not.toHaveBeenCalled();
 
@@ -122,22 +122,23 @@ describe('RuleEngine', () => {
   });
 
   describe('hash deduplication', () => {
-    it('skips update when source hash is unchanged for non-forced reasons', () => {
-      const sources = [makeSource()];
-      mockGetCurrentSources.mockReturnValue(sources);
+    it('skips update when rules hash is unchanged for non-forced reasons', () => {
+      const rules = [makeHeaderRule()];
+      mockGetRules.mockReturnValue(rules);
 
       // First call sets the hash
-      scheduleUpdate('sources', { immediate: true });
+      scheduleUpdate('rulesUpdated', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
 
-      // Second call with same sources — skipped
-      scheduleUpdate('sources', { immediate: true });
+      // Second call with same rules — skipped (rulesUpdated is a forced reason,
+      // so use a non-forced reason to test dedup)
+      scheduleUpdate('other', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
     });
 
     it('does NOT skip for forced reasons even when hash matches', () => {
-      const sources = [makeSource()];
-      mockGetCurrentSources.mockReturnValue(sources);
+      const rules = [makeHeaderRule()];
+      mockGetRules.mockReturnValue(rules);
 
       scheduleUpdate('init', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
@@ -146,70 +147,43 @@ describe('RuleEngine', () => {
       scheduleUpdate('pause', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(2);
 
-      scheduleUpdate('import', { immediate: true });
+      scheduleUpdate('rules', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(3);
 
-      scheduleUpdate('rules', { immediate: true });
+      scheduleUpdate('init', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(4);
 
-      scheduleUpdate('init', { immediate: true });
+      scheduleUpdate('rulesUpdated', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(5);
+
+      scheduleUpdate('tagGroups', { immediate: true });
+      expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(6);
     });
 
-    it('updates when sources actually change', () => {
-      mockGetCurrentSources.mockReturnValue([makeSource({ sourceId: 'src-1' })]);
-      scheduleUpdate('sources', { immediate: true });
+    it('updates when rules actually change', () => {
+      mockGetRules.mockReturnValue([makeHeaderRule({ uid: 'r1a2' })]);
+      scheduleUpdate('init', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
 
-      mockGetCurrentSources.mockReturnValue([makeSource({ sourceId: 'src-2' })]);
-      scheduleUpdate('sources', { immediate: true });
+      mockGetRules.mockReturnValue([makeHeaderRule({ uid: 'r3b4' })]);
+      scheduleUpdate('init', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('hash tracking', () => {
-    it('tracks source hash after update', () => {
-      const sources = [makeSource()];
-      mockGetCurrentSources.mockReturnValue(sources);
+    it('tracks rules hash after update', () => {
+      mockGetRules.mockReturnValue([makeHeaderRule()]);
 
       scheduleUpdate('init', { immediate: true });
 
-      expect(getLastSourcesHash()).toBeTruthy();
-      expect(getLastSourcesHash()).not.toBe('');
+      expect(getLastRulesHash()).toBeTruthy();
+      expect(getLastRulesHash()).not.toBe('');
     });
 
-    it('setLastSourcesHash / getLastSourcesHash round-trip', () => {
-      setLastSourcesHash('abc123');
-      expect(getLastSourcesHash()).toBe('abc123');
-    });
-
-    it('setLastSavedDataHash / getLastSavedDataHash round-trip', () => {
-      setLastSavedDataHash('def456');
-      expect(getLastSavedDataHash()).toBe('def456');
-    });
-
-    it('updateSavedDataHash computes hash from SavedDataMap', () => {
-      const savedData: SavedDataMap = {
-        'rule-1': {
-          headerName: 'Authorization',
-          headerValue: 'Bearer token',
-          domains: ['*.openheaders.io'],
-          isDynamic: false,
-        },
-      };
-
-      updateSavedDataHash(savedData);
-      const hash = getLastSavedDataHash();
-      expect(hash).toBeTruthy();
-
-      // Same data produces same hash
-      updateSavedDataHash(savedData);
-      expect(getLastSavedDataHash()).toBe(hash);
-    });
-
-    it('setLastRulesUpdateTime / getLastRulesUpdateTime round-trip', () => {
-      setLastRulesUpdateTime(1700000000);
-      expect(getLastRulesUpdateTime()).toBe(1700000000);
+    it('setLastRulesHash / getLastRulesHash round-trip', () => {
+      setLastRulesHash('abc123');
+      expect(getLastRulesHash()).toBe('abc123');
     });
   });
 });

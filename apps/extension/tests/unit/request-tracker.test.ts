@@ -1,13 +1,13 @@
+import type { V5 } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock storage-chunking before importing the module under test
-const mockGetChunkedData = vi.fn();
-vi.mock('@utils/storage-chunking.js', () => ({
-  getChunkedData: (...args: unknown[]) => mockGetChunkedData(...args),
-  setChunkedData: vi.fn(),
+// Mock rule-store before importing request-tracker
+const mockGetRules = vi.fn<() => V5.Rule[]>(() => []);
+vi.mock('@/background/modules/rule-store', () => ({
+  getRules: (...args: unknown[]) => mockGetRules(...(args as [])),
 }));
 
-vi.mock('@utils/browser-api.js', () => ({
+vi.mock('@utils/browser-api', () => ({
   storage: { onChanged: { addListener: vi.fn() } },
   tabs: { query: vi.fn() },
 }));
@@ -26,69 +26,65 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-import type { SavedDataMap } from '@openheaders/core';
 import {
   addTrackedUrl,
   checkIfUrlMatchesAnyRule,
   getActiveRulesForTab,
-  refreshSavedDataCache,
+  precompileRulePatterns,
   tabsWithActiveRules,
 } from '@/background/modules/request-tracker';
 
-function makeSavedData(
-  entries: Record<
-    string,
-    { headerName: string; domains: string[]; isEnabled?: boolean; isResponse?: boolean; tag?: string }
-  >,
-): SavedDataMap {
-  const data: SavedDataMap = {};
-  for (const [id, entry] of Object.entries(entries)) {
-    data[id] = {
-      headerName: entry.headerName,
-      headerValue: 'test-value',
-      domains: entry.domains,
-      isEnabled: entry.isEnabled !== false,
-      isResponse: entry.isResponse || false,
-      tag: entry.tag || '',
-      isDynamic: false,
-      sourceId: '',
-      prefix: '',
-      suffix: '',
-      createdAt: new Date().toISOString(),
-    };
-  }
-  return data;
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+  return {
+    uid: `rule-${Math.random().toString(36).slice(2, 6)}`,
+    path: 'rules/test',
+    name: 'Test Rule',
+    type: 'header',
+    enabled: true,
+    tags: [],
+    domains: ['*.openheaders.io'],
+    action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+    staticValue: 'test-value',
+    ...overrides,
+  };
 }
 
-function seedCache(data: SavedDataMap): void {
-  mockGetChunkedData.mockImplementation((_key: string, cb: (data: SavedDataMap) => void) => cb(data));
-  refreshSavedDataCache();
+function seedRules(rules: V5.Rule[]): void {
+  mockGetRules.mockReturnValue(rules);
+  precompileRulePatterns();
 }
+
+// ── Tests ────────────────────────────────────────────────────────────
 
 describe('getActiveRulesForTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tabsWithActiveRules.clear();
+    mockGetRules.mockReturnValue([]);
   });
 
-  it('returns empty array for non-trackable URLs', async () => {
-    const { activeRules: result } = await getActiveRulesForTab(1, 'chrome://extensions');
+  it('returns empty array for non-trackable URLs', () => {
+    const { activeRules: result } = getActiveRulesForTab(1, 'chrome://extensions');
     expect(result).toEqual([]);
   });
 
-  it('returns empty array for empty URL', async () => {
-    const { activeRules: result } = await getActiveRulesForTab(1, '');
+  it('returns empty array for empty URL', () => {
+    const { activeRules: result } = getActiveRulesForTab(1, '');
     expect(result).toEqual([]);
   });
 
-  it('returns matching enabled rules with matchedUrls', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'], isEnabled: true },
+  it('returns matching enabled rules with matchedUrls', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+        domains: ['*.openheaders.io'],
       }),
-    );
+    ]);
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
     expect(result).toHaveLength(1);
     expect(result[0].headerName).toBe('X-Debug');
     expect(result[0].isEnabled).toBe(true);
@@ -99,15 +95,23 @@ describe('getActiveRulesForTab', () => {
     expect(result[0].matchedUrls[0].timestamp).toBeGreaterThan(0);
   });
 
-  it('returns disabled matching rules (Option B — show all matching)', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'], isEnabled: true },
-        'rule-2': { headerName: 'X-Disabled', domains: ['*.openheaders.io'], isEnabled: false },
+  it('returns disabled matching rules (show all matching)', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+        domains: ['*.openheaders.io'],
+        enabled: true,
       }),
-    );
+      makeHeaderRule({
+        uid: 'rule-2',
+        action: { operation: 'override', headerName: 'X-Disabled', isResponse: false },
+        domains: ['*.openheaders.io'],
+        enabled: false,
+      }),
+    ]);
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
     expect(result).toHaveLength(2);
 
     const enabled = result.find((r) => r.headerName === 'X-Debug');
@@ -116,27 +120,35 @@ describe('getActiveRulesForTab', () => {
     expect(disabled?.isEnabled).toBe(false);
   });
 
-  it('does not return rules that do not match the domain', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'] },
-        'rule-2': { headerName: 'X-Other', domains: ['*.example.com'] },
+  it('does not return rules that do not match the domain', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+        domains: ['*.openheaders.io'],
       }),
-    );
+      makeHeaderRule({
+        uid: 'rule-2',
+        action: { operation: 'override', headerName: 'X-Other', isResponse: false },
+        domains: ['*.example.com'],
+      }),
+    ]);
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
     expect(result).toHaveLength(1);
     expect(result[0].headerName).toBe('X-Debug');
   });
 
-  it('returns rules with no domains as direct matches with tab URL in matchedUrls', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Global', domains: [] },
+  it('returns rules with no domains as direct matches with tab URL in matchedUrls', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Global', isResponse: false },
+        domains: [],
       }),
-    );
+    ]);
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://any-site.com/page');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://any-site.com/page');
     expect(result).toHaveLength(1);
     expect(result[0].matchType).toBe('direct');
     expect(result[0].matchedUrls).toHaveLength(1);
@@ -145,27 +157,32 @@ describe('getActiveRulesForTab', () => {
     expect(result[0].matchedUrls[0].timestamp).toBeGreaterThan(0);
   });
 
-  it('preserves rule id and key in results', async () => {
-    seedCache(
-      makeSavedData({
-        'my-rule-id': { headerName: 'X-Test', domains: ['*.openheaders.io'] },
+  it('preserves rule uid in results', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'my-rule-id',
+        action: { operation: 'override', headerName: 'X-Test', isResponse: false },
+        domains: ['*.openheaders.io'],
       }),
-    );
+    ]);
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://api.openheaders.io/test');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/test');
     expect(result[0].id).toBe('my-rule-id');
     expect(result[0].key).toBe('my-rule-id');
   });
 
-  it('includes tag and isResponse in results', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Tagged', domains: ['*.openheaders.io'], tag: 'DEV', isResponse: true },
+  it('includes tags and isResponse in results', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        tags: ['DEV'],
+        action: { operation: 'override', headerName: 'X-Tagged', isResponse: true },
+        domains: ['*.openheaders.io'],
       }),
-    );
+    ]);
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://api.openheaders.io/test');
-    expect(result[0].tag).toBe('DEV');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/test');
+    expect(result[0].tags).toEqual(['DEV']);
     expect(result[0].isResponse).toBe(true);
   });
 });
@@ -174,56 +191,59 @@ describe('checkIfUrlMatchesAnyRule', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tabsWithActiveRules.clear();
+    mockGetRules.mockReturnValue([]);
   });
 
-  it('returns true when URL matches an enabled rule', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'], isEnabled: true },
+  it('returns true when URL matches an enabled rule', () => {
+    seedRules([
+      makeHeaderRule({
+        domains: ['*.openheaders.io'],
+        enabled: true,
       }),
-    );
+    ]);
 
-    const result = await checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
+    const result = checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
     expect(result).toBe(true);
   });
 
-  it('returns true when URL matches a disabled rule (tracks for Active tab)', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'], isEnabled: false },
+  it('returns true when URL matches a disabled rule (tracks for Active tab)', () => {
+    seedRules([
+      makeHeaderRule({
+        domains: ['*.openheaders.io'],
+        enabled: false,
       }),
-    );
+    ]);
 
-    const result = await checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
+    const result = checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
     expect(result).toBe(true);
   });
 
-  it('returns false when URL matches no rules', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.example.com'] },
+  it('returns false when URL matches no rules', () => {
+    seedRules([
+      makeHeaderRule({
+        domains: ['*.example.com'],
       }),
-    );
+    ]);
 
-    const result = await checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
+    const result = checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
     expect(result).toBe(false);
   });
 
-  it('returns false when no rules exist', async () => {
-    seedCache({});
+  it('returns false when no rules exist', () => {
+    seedRules([]);
 
-    const result = await checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
+    const result = checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2');
     expect(result).toBe(false);
   });
 
-  it('matches path-based patterns against full URLs', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['github.githubassets.com/assets'] },
+  it('matches path-based patterns against full URLs', () => {
+    seedRules([
+      makeHeaderRule({
+        domains: ['github.githubassets.com/assets'],
       }),
-    );
+    ]);
 
-    const result = await checkIfUrlMatchesAnyRule('https://github.githubassets.com/assets/37160-72dc5a515abc7d3b.js');
+    const result = checkIfUrlMatchesAnyRule('https://github.githubassets.com/assets/37160-72dc5a515abc7d3b.js');
     expect(result).toBe(true);
   });
 });
@@ -283,47 +303,58 @@ describe('uniqueRequestCount', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tabsWithActiveRules.clear();
+    mockGetRules.mockReturnValue([]);
   });
 
-  it('returns 0 when no rules match', async () => {
-    seedCache({});
-    const { uniqueRequestCount } = await getActiveRulesForTab(1, 'https://openheaders.io');
+  it('returns 0 when no rules match', () => {
+    seedRules([]);
+    const { uniqueRequestCount } = getActiveRulesForTab(1, 'https://openheaders.io');
     expect(uniqueRequestCount).toBe(0);
   });
 
-  it('counts tab URL as a request when rule matches', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'] },
-      }),
-    );
-    const { uniqueRequestCount } = await getActiveRulesForTab(1, 'https://app.openheaders.io');
+  it('counts tab URL as a request when rule matches', () => {
+    seedRules([
+      makeHeaderRule({ domains: ['*.openheaders.io'] }),
+    ]);
+    const { uniqueRequestCount } = getActiveRulesForTab(1, 'https://app.openheaders.io');
     expect(uniqueRequestCount).toBe(1);
   });
 
-  it('deduplicates the same request matched by multiple rules', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'] },
-        'rule-2': { headerName: 'X-Token', domains: ['*.openheaders.io'] },
+  it('deduplicates the same request matched by multiple rules', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+        domains: ['*.openheaders.io'],
       }),
-    );
+      makeHeaderRule({
+        uid: 'rule-2',
+        action: { operation: 'override', headerName: 'X-Token', isResponse: false },
+        domains: ['*.openheaders.io'],
+      }),
+    ]);
     addTrackedUrl(1, 'https://api.openheaders.io/data');
-    const { uniqueRequestCount, activeRules } = await getActiveRulesForTab(1, 'https://app.openheaders.io');
+    const { uniqueRequestCount, activeRules } = getActiveRulesForTab(1, 'https://app.openheaders.io');
     expect(activeRules).toHaveLength(2);
     // 2 unique requests: tab URL + 1 resource URL (not doubled across rules)
     expect(uniqueRequestCount).toBe(2);
   });
 
-  it('counts resource URLs not matching all rules correctly', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'] },
-        'rule-2': { headerName: 'X-Other', domains: ['*.cdn.openheaders.io'] },
+  it('counts resource URLs not matching all rules correctly', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+        domains: ['*.openheaders.io'],
       }),
-    );
+      makeHeaderRule({
+        uid: 'rule-2',
+        action: { operation: 'override', headerName: 'X-Other', isResponse: false },
+        domains: ['*.cdn.openheaders.io'],
+      }),
+    ]);
     addTrackedUrl(1, 'https://assets.cdn.openheaders.io/bundle.js');
-    const { uniqueRequestCount } = await getActiveRulesForTab(1, 'https://app.openheaders.io');
+    const { uniqueRequestCount } = getActiveRulesForTab(1, 'https://app.openheaders.io');
     // tab URL (matches rule-1) + resource URL (matches both rules) = 2 unique
     expect(uniqueRequestCount).toBe(2);
   });
@@ -333,19 +364,22 @@ describe('getActiveRulesForTab with tracked resource URLs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tabsWithActiveRules.clear();
+    mockGetRules.mockReturnValue([]);
   });
 
-  it('returns indirect matches with timestamps from tracked URLs', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.cdn.openheaders.io'] },
+  it('returns indirect matches with timestamps from tracked URLs', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+        domains: ['*.cdn.openheaders.io'],
       }),
-    );
+    ]);
 
     // Simulate a tracked resource URL
     addTrackedUrl(1, 'https://assets.cdn.openheaders.io/bundle.js');
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://openheaders.io');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://openheaders.io');
     expect(result).toHaveLength(1);
     expect(result[0].matchType).toBe('indirect');
     expect(result[0].matchedUrls).toHaveLength(1);
@@ -353,16 +387,18 @@ describe('getActiveRulesForTab with tracked resource URLs', () => {
     expect(result[0].matchedUrls[0].timestamp).toBeGreaterThan(0);
   });
 
-  it('returns both direct and indirect matchedUrls for a rule matching both', async () => {
-    seedCache(
-      makeSavedData({
-        'rule-1': { headerName: 'X-Debug', domains: ['*.openheaders.io'] },
+  it('returns both direct and indirect matchedUrls for a rule matching both', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-1',
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
+        domains: ['*.openheaders.io'],
       }),
-    );
+    ]);
 
     addTrackedUrl(1, 'https://api.openheaders.io/data');
 
-    const { activeRules: result } = await getActiveRulesForTab(1, 'https://app.openheaders.io/dashboard');
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://app.openheaders.io/dashboard');
     expect(result).toHaveLength(1);
     expect(result[0].matchType).toBe('direct');
     expect(result[0].matchedUrls).toHaveLength(2);
