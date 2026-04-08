@@ -2,7 +2,7 @@ import type { V5 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock header-manager before importing rule-engine
-vi.mock('@/background/header-manager', () => ({
+vi.mock('@/background/dnr-manager', () => ({
   updateNetworkRules: vi.fn(),
 }));
 
@@ -19,7 +19,7 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-import { updateNetworkRules } from '@/background/header-manager';
+import { updateNetworkRules } from '@/background/dnr-manager';
 import {
   getLastRulesHash,
   scheduleUpdate,

@@ -1,0 +1,133 @@
+/**
+ * BreadcrumbBar — shows path segments and a Save button when dirty.
+ *
+ * Mirrors the desktop V5Shell BreadcrumbBar (simplified for extension).
+ * The last segment supports inline editing for renaming.
+ */
+
+import { RightOutlined, SaveOutlined } from '@ant-design/icons';
+import { Button, Tooltip, theme } from 'antd';
+import type React from 'react';
+import { useCallback, useRef, useState } from 'react';
+
+interface BreadcrumbBarProps {
+  segments: string[];
+  isDirty?: boolean;
+  onSave?: () => void;
+  onRename?: (newName: string) => void;
+}
+
+const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ segments, isDirty, onSave, onRename }) => {
+  const { token } = theme.useToken();
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEditing = useCallback(
+    (label: string) => {
+      if (!onRename) return;
+      setEditValue(label);
+      setEditing(true);
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 0);
+    },
+    [onRename],
+  );
+
+  const commitEdit = useCallback(() => {
+    const trimmed = editValue.trim();
+    setEditing(false);
+    if (trimmed && trimmed !== segments[segments.length - 1]) {
+      onRename?.(trimmed);
+    }
+  }, [editValue, segments, onRename]);
+
+  if (segments.length === 0) return null;
+
+  return (
+    <div
+      className="rules-breadcrumbs"
+      style={{
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        background: token.colorBgContainer,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
+        {segments.map((seg, i) => {
+          const isLast = i === segments.length - 1;
+          return (
+            <span key={`${seg}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+              {isLast && editing ? (
+                <input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitEdit();
+                    if (e.key === 'Escape') setEditing(false);
+                  }}
+                  style={{
+                    fontSize: 11,
+                    padding: '1px 4px',
+                    border: `1px solid ${token.colorPrimary}`,
+                    borderRadius: 3,
+                    outline: 'none',
+                    background: token.colorBgContainer,
+                    color: token.colorText,
+                    minWidth: 80,
+                    maxWidth: 300,
+                  }}
+                />
+              ) : (
+                <span
+                  className={`rules-breadcrumb ${isLast && onRename ? 'editable' : ''}`}
+                  style={{
+                    color: isLast ? token.colorTextSecondary : token.colorTextTertiary,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onClick={isLast && onRename ? () => startEditing(seg) : undefined}
+                  role={isLast && onRename ? 'button' : undefined}
+                  tabIndex={isLast && onRename ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if (isLast && onRename && e.key === 'Enter') startEditing(seg);
+                  }}
+                >
+                  {seg}
+                </span>
+              )}
+              {!isLast && <RightOutlined style={{ fontSize: 8, color: token.colorTextTertiary, margin: '0 2px' }} />}
+            </span>
+          );
+        })}
+      </div>
+
+      {onSave && (
+        <Tooltip title="Save">
+          <Button
+            size="small"
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={onSave}
+            disabled={!isDirty}
+            style={{
+              fontSize: 11,
+              ...(isDirty ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+            }}
+          >
+            Save
+          </Button>
+        </Tooltip>
+      )}
+    </div>
+  );
+};
+
+export default BreadcrumbBar;

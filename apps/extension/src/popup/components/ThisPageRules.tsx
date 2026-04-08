@@ -7,7 +7,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useHeader } from '@hooks/useHeader';
+import { useRules } from '@hooks/useRules';
 import { getAppLauncher } from '@utils/app-launcher';
 import {
   App,
@@ -102,15 +102,14 @@ function formatTimestampFull(timestamp: number): React.ReactNode {
 
 interface ActiveRule {
   id?: string;
-  headerName: string;
-  headerValue?: string;
-  isResponse?: boolean;
+  name: string;
+  ruleType: string;
+  summary: string;
   isEnabled?: boolean;
   domains?: string[];
-  tag?: string;
+  tags?: string[];
   matchType?: string;
   matchedUrls?: MatchedRequest[];
-  [key: string]: unknown;
 }
 
 interface CurrentTabInfo {
@@ -170,7 +169,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   onRowActionsChange,
 }) => {
   const { message } = App.useApp();
-  const { isConnected, disabledTagGroups } = useHeader();
+  const { isConnected, disabledTagGroups } = useRules();
   const appLauncher = getAppLauncher();
   const {
     expandedRowKey,
@@ -270,9 +269,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     ? activeRules.filter((r) => {
         const q = searchText.toLowerCase();
         const matchesByRule =
-          r.headerName.toLowerCase().includes(q) ||
-          (r.headerValue || '').toLowerCase().includes(q) ||
-          (r.tag || '').toLowerCase().includes(q);
+          r.name.toLowerCase().includes(q) ||
+          (r.summary || '').toLowerCase().includes(q) ||
+          (r.tags?.[0] || '').toLowerCase().includes(q);
         const matchingUrlCount = (r.matchedUrls || []).filter((m) => m.url.toLowerCase().includes(q)).length;
         if (matchingUrlCount > 0 && r.id) urlMatchCountMap.set(r.id, matchingUrlCount);
         return matchesByRule || matchingUrlCount > 0;
@@ -332,8 +331,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
   const handleCopyRow = useCallback((index: number) => {
     const record = dataSourceRef.current[index];
-    if (!record?.headerValue) return;
-    void navigator.clipboard.writeText(record.headerValue);
+    if (!record?.summary) return;
+    void navigator.clipboard.writeText(record.summary);
     setCopiedRowId(record.key);
     setTimeout(() => setCopiedRowId(null), 1000);
   }, []);
@@ -374,16 +373,16 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
   const columns: ColumnsType<TableRecord> = [
     {
-      title: 'Header Name',
-      dataIndex: 'headerName',
-      key: 'headerName',
+      title: 'Name',
+      dataIndex: 'name',
+      key: 'name',
       width: 130,
-      sorter: (a, b) => a.headerName.localeCompare(b.headerName),
-      sortOrder: sortedInfo.columnKey === 'headerName' ? sortedInfo.order : null,
-      filters: [...new Set(dataSource.map((item) => item.headerName))].map((name) => ({ text: name, value: name })),
-      filteredValue: filteredInfo.headerName || null,
+      sorter: (a, b) => a.name.localeCompare(b.name),
+      sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
+      filters: [...new Set(dataSource.map((item) => item.name))].map((name) => ({ text: name, value: name })),
+      filteredValue: filteredInfo.name || null,
       filterSearch: true,
-      onFilter: (value, record) => record.headerName === value,
+      onFilter: (value, record) => record.name === value,
       render: (text: string) => {
         const display = truncateValue(text);
         return (
@@ -396,17 +395,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       },
     },
     {
-      title: 'Value',
-      dataIndex: 'headerValue',
-      key: 'headerValue',
+      title: 'Summary',
+      dataIndex: 'summary',
+      key: 'summary',
       width: 150,
-      sorter: (a, b) => (a.headerValue || '').localeCompare(b.headerValue || ''),
-      sortOrder: sortedInfo.columnKey === 'headerValue' ? sortedInfo.order : null,
-      render: (text: string, record: TableRecord) => {
-        const fullValue = text || '';
-        const displayValue = fullValue ? truncateValue(fullValue) : '[Dynamic]';
-        return renderValueWithCopy({ fullValue, displayValue, rowKey: record.key, copiedRowId, setCopiedRowId });
-      },
+      render: (text: string) => (
+        <Text type="secondary" style={{ fontSize: '12px' }}>
+          {text}
+        </Text>
+      ),
     },
     {
       title: 'Domains',
@@ -430,8 +427,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       width: 130,
       align: 'center',
       sorter: (a, b) => {
-        const tagA = `${a.matchType}${a.tag ? `-${a.tag}` : ''}`;
-        const tagB = `${b.matchType}${b.tag ? `-${b.tag}` : ''}`;
+        const tagA = `${a.matchType}${a.tags?.[0] ? `-${a.tags[0]}` : ''}`;
+        const tagB = `${b.matchType}${b.tags?.[0] ? `-${b.tags[0]}` : ''}`;
         return tagA.localeCompare(tagB);
       },
       sortOrder: sortedInfo.columnKey === 'tags' ? sortedInfo.order : null,
@@ -439,9 +436,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         ...new Set([
           'Page',
           'Resource',
-          ...dataSource.map((item) => (item.isResponse ? 'Response' : 'Request')),
-          ...dataSource.filter((item) => item.tag).map((item) => item.tag as string),
-          ...dataSource.filter((item) => disabledTagGroups.has(item.tag || '__no_tag__')).map(() => 'Paused'),
+          ...dataSource.flatMap((item) => item.tags ?? []),
+          ...dataSource.filter((item) => disabledTagGroups.has((item.tags ?? [])[0] || '__no_tag__')).map(() => 'Paused'),
         ]),
       ].map((tag) => ({ text: tag, value: tag })),
       filteredValue: filteredInfo.tags || null,
@@ -453,20 +449,20 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         const tags = [
           ...(hasDirectMatch ? ['Page'] : []),
           ...(hasIndirectMatch ? ['Resource'] : []),
-          record.isResponse ? 'Response' : 'Request',
-          ...(record.tag ? [record.tag] : []),
-          ...(disabledTagGroups.has(record.tag || '__no_tag__') ? ['Paused'] : []),
+          ...(record.tags ?? []),
+          ...(disabledTagGroups.has((record.tags ?? [])[0] || '__no_tag__') ? ['Paused'] : []),
         ];
         return tags.includes(value as string);
       },
       render: (_: unknown, record: TableRecord) => {
         const allTags: TagDescriptor[] = [];
-        const tagGroup = record.tag || '__no_tag__';
+        const tag = (record.tags ?? [])[0];
+        const tagGroup = tag || '__no_tag__';
         if (disabledTagGroups.has(tagGroup)) {
           allTags.push({
             label: 'Paused',
             color: 'warning',
-            tooltip: `Tag group "${record.tag || 'Untagged'}" is paused — rule not injected`,
+            tooltip: `Tag group "${tag || 'Untagged'}" is paused — rule not injected`,
           });
         }
         // Derive Page/Resource from actual matched URLs, not just matchType
@@ -479,10 +475,10 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         if (hasIndirectMatch) {
           allTags.push({ label: 'Resource', tooltip: 'Applied to resources loaded by this page' });
         }
-        if (record.tag) {
-          allTags.push({ label: record.tag, color: getTagColor(record.tag) });
+        if (tag) {
+          allTags.push({ label: tag, color: getTagColor(tag) });
         }
-        allTags.push({ label: record.isResponse ? 'Res' : 'Req', tooltip: record.isResponse ? 'Response' : 'Request' });
+        allTags.push({ label: record.ruleType, tooltip: record.summary });
         const hasStatusTag =
           allTags[0]?.label === 'Paused' || allTags[0]?.label === 'Page' || allTags[0]?.label === 'Resource';
         return renderTagOverflow(allTags, hasStatusTag ? 1 : 2);
@@ -499,7 +495,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       sortOrder: sortedInfo.columnKey === 'isEnabled' ? sortedInfo.order : null,
       render: (enabled: unknown, record: TableRecord) => {
         const isEnabled = enabled !== false;
-        const groupPaused = disabledTagGroups.has(record.tag || '__no_tag__');
+        const groupPaused = disabledTagGroups.has(record.tags?.[0] || '__no_tag__');
         const tooltip = !isConnected
           ? 'App not connected'
           : groupPaused && isEnabled
@@ -558,7 +554,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             />
             <Popconfirm
               title="Delete rule"
-              description={`Delete "${record.headerName}"?`}
+              description={`Delete "${record.name}"?`}
               onConfirm={() => {
                 setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
                 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -627,7 +623,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 {enabledCount} of {activeRules.length} enabled
               </Text>
               {(() => {
-                const pausedCount = activeRules.filter((r) => disabledTagGroups.has(r.tag || '__no_tag__')).length;
+                const pausedCount = activeRules.filter((r) => disabledTagGroups.has(r.tags?.[0] || '__no_tag__')).length;
                 return pausedCount > 0 ? (
                   <>
                     <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -753,7 +749,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           })}
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
-            if (disabledTagGroups.has(record.tag || '__no_tag__')) classes.push('row-group-paused');
+            if (disabledTagGroups.has(record.tags?.[0] || '__no_tag__')) classes.push('row-group-paused');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');
             return classes.join(' ');
@@ -1069,7 +1065,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         />
         <DeleteConfirmOverlay
           pendingDeleteIndex={pendingDeleteIndex}
-          itemName={dataSource[pendingDeleteIndex]?.headerName ?? ''}
+          itemName={dataSource[pendingDeleteIndex]?.name ?? ''}
         />
       </div>
     </div>

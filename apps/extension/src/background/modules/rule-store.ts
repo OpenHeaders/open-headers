@@ -8,13 +8,15 @@
  * getRules() returns the merged set (app rules first, then local rules).
  * Local rules have `uid` prefixed with "local-" to avoid collisions.
  *
- * Local rules belong to **local collections** — same V5.Collection structure
- * as the desktop, so data can be synced when the desktop app connects.
+ * Local rules belong to **local collections** with the same
+ * Collection → Folder → Rule hierarchy as the desktop (V5.CollectionTree).
+ * The tree is derived at read time from flat stored data (paths encode hierarchy).
  *
  * Persistence:
  *   - App rules → storage.local key "v5Rules" (cache for offline restart)
  *   - Local rules → storage.local key "v5LocalRules" (user-created, permanent)
  *   - Local collections → storage.local key "v5LocalCollections"
+ *   - Local folders → storage.local key "v5LocalFolders"
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -25,53 +27,97 @@ import { logger } from '@utils/logger';
 const APP_STORAGE_KEY = 'v5Rules';
 const LOCAL_RULES_KEY = 'v5LocalRules';
 const LOCAL_COLLECTIONS_KEY = 'v5LocalCollections';
+const LOCAL_FOLDERS_KEY = 'v5LocalFolders';
+
+/** Stored folder — same concept as a directory with _folder.yaml on disk. */
+export interface LocalFolder {
+  uid: string;
+  /** Relative path (e.g. "rules/my-rules-abc1/staging-f1k2"). */
+  path: string;
+  name: string;
+}
 
 let appRules: V5.Rule[] = [];
 let localRules: V5.Rule[] = [];
 let localCollections: V5.Collection[] = [];
+let localFolders: LocalFolder[] = [];
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-/**
- * Get all rules (app + local) from memory.
- */
 export function getRules(): V5.Rule[] {
   return [...appRules, ...localRules];
 }
 
-/**
- * Get only app rules (from desktop).
- */
 export function getAppRules(): V5.Rule[] {
   return appRules;
 }
 
-/**
- * Get only local rules (created in extension).
- */
 export function getLocalRules(): V5.Rule[] {
   return localRules;
 }
 
-/**
- * Get local collections.
- */
 export function getLocalCollections(): V5.Collection[] {
   return localCollections;
 }
 
+export function getLocalFolders(): LocalFolder[] {
+  return localFolders;
+}
+
 /**
- * Get only enabled header rules (the subset that affects network traffic).
+ * Build CollectionTree[] from flat collections + folders + rules.
+ * Same structure as the desktop derives from the filesystem.
  */
-export function getEnabledHeaderRules(): V5.HeaderRule[] {
-  return getRules().filter((r): r is V5.HeaderRule => r.type === 'header' && r.enabled);
+export function getLocalCollectionTrees(): V5.CollectionTree[] {
+  return localCollections.map((collection) => {
+    const tree = buildTreeForPath(collection.path);
+    return { ...collection, tree };
+  });
+}
+
+/** Recursively build V5.TreeNode[] for items under a given parent path. */
+function buildTreeForPath(parentPath: string): V5.TreeNode[] {
+  const nodes: V5.TreeNode[] = [];
+
+  // Find folders that are direct children of this path
+  const childFolders = localFolders.filter((f) => {
+    const parentOfFolder = f.path.substring(0, f.path.lastIndexOf('/'));
+    return parentOfFolder === parentPath;
+  });
+
+  for (const folder of childFolders) {
+    const children = buildTreeForPath(folder.path);
+    nodes.push({
+      type: 'folder',
+      uid: folder.uid,
+      name: folder.name,
+      path: folder.path,
+      children,
+    });
+  }
+
+  // Find rules that are direct children of this path
+  const childRules = localRules.filter((r) => {
+    const parentOfRule = r.path.substring(0, r.path.lastIndexOf('/'));
+    return parentOfRule === parentPath;
+  });
+
+  for (const rule of childRules) {
+    nodes.push({
+      type: 'rule',
+      uid: rule.uid,
+      name: rule.name,
+      path: rule.path,
+      ruleType: rule.type,
+      enabled: rule.enabled,
+    });
+  }
+
+  return nodes;
 }
 
 // ── App rules (from WebSocket) ───────────────────────────────────────
 
-/**
- * Update rules from WebSocket. Persists to storage for offline restart.
- */
 export function setRulesFromApp(incoming: V5.Rule[]): void {
   appRules = incoming;
   storage.local.set({ [APP_STORAGE_KEY]: incoming }, () => {
@@ -83,17 +129,10 @@ export function setRulesFromApp(incoming: V5.Rule[]): void {
 
 const DEFAULT_COLLECTION_NAME = 'My Rules';
 
-/**
- * Generate a uid prefixed with "local-" to distinguish from app-created entities.
- * Uses the shared 4-char alphanumeric generator from core.
- */
 function generateLocalUid(): string {
   return `local-${generateUid()}`;
 }
 
-/**
- * Ensure the default collection exists. Returns it.
- */
 export function ensureDefaultCollection(): V5.Collection {
   const existing = localCollections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
@@ -111,9 +150,6 @@ export function ensureDefaultCollection(): V5.Collection {
   return collection;
 }
 
-/**
- * Create a local collection. Returns the created collection.
- */
 export function createLocalCollection(name: string): V5.Collection {
   const uid = generateLocalUid();
   const folderName = toFolderName(name, uid);
@@ -128,9 +164,6 @@ export function createLocalCollection(name: string): V5.Collection {
   return collection;
 }
 
-/**
- * Rename a local collection. Returns true if found and renamed.
- */
 export function renameLocalCollection(uid: string, name: string): boolean {
   const index = localCollections.findIndex((c) => c.uid === uid);
   if (index === -1) return false;
@@ -143,19 +176,16 @@ export function renameLocalCollection(uid: string, name: string): boolean {
   return true;
 }
 
-/**
- * Delete a local collection and all its rules. Returns true if found.
- */
 export function deleteLocalCollection(uid: string): boolean {
   const collection = localCollections.find((c) => c.uid === uid);
   if (!collection) return false;
 
   localCollections = localCollections.filter((c) => c.uid !== uid);
-
-  // Delete all rules whose path starts with this collection's path
   localRules = localRules.filter((r) => !r.path.startsWith(collection.path));
+  localFolders = localFolders.filter((f) => !f.path.startsWith(collection.path));
   persistLocalCollections();
   persistLocalRules();
+  persistLocalFolders();
   return true;
 }
 
@@ -165,47 +195,98 @@ function persistLocalCollections(): void {
   });
 }
 
+// ── Local folders ───────────────────────────────────────────────────
+
+/**
+ * Create a folder within a collection or another folder.
+ * parentPath is the path of the parent (collection or folder).
+ */
+export function createLocalFolder(name: string, parentPath: string): LocalFolder {
+  const uid = generateLocalUid();
+  const folderName = toFolderName(name, uid);
+  const folder: LocalFolder = {
+    uid,
+    path: `${parentPath}/${folderName}`,
+    name,
+  };
+  localFolders = [...localFolders, folder];
+  persistLocalFolders();
+  return folder;
+}
+
+export function renameLocalFolder(uid: string, name: string): boolean {
+  const index = localFolders.findIndex((f) => f.uid === uid);
+  if (index === -1) return false;
+  localFolders = [
+    ...localFolders.slice(0, index),
+    { ...localFolders[index], name },
+    ...localFolders.slice(index + 1),
+  ];
+  persistLocalFolders();
+  return true;
+}
+
+export function deleteLocalFolder(uid: string): boolean {
+  const folder = localFolders.find((f) => f.uid === uid);
+  if (!folder) return false;
+
+  // Delete the folder and all nested folders + rules
+  localFolders = localFolders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
+  localRules = localRules.filter((r) => !r.path.startsWith(`${folder.path}/`));
+  persistLocalFolders();
+  persistLocalRules();
+  return true;
+}
+
+function persistLocalFolders(): void {
+  storage.local.set({ [LOCAL_FOLDERS_KEY]: localFolders }, () => {
+    logger.debug('RuleStore', `Persisted ${localFolders.length} local folders to storage`);
+  });
+}
+
 // ── Local rules (extension CRUD) ─────────────────────────────────────
 
 /**
- * Add a local rule within a collection. Returns the created rule.
+ * Add a local rule. parentPath is the collection or folder path.
  */
-export function addLocalRule(rule: Omit<V5.HeaderRule, 'uid' | 'path'>, collectionUid: string): V5.HeaderRule {
-  const collection = localCollections.find((c) => c.uid === collectionUid);
-  const collectionPath = collection?.path ?? `rules/${collectionUid}`;
-
+export function addLocalRule(rule: Omit<V5.Rule, 'uid' | 'path'>, parentPath: string): V5.Rule {
   const uid = generateLocalUid();
   const folderName = toFolderName(rule.name, uid);
-  const created: V5.HeaderRule = {
+  const created: V5.Rule = {
     ...rule,
     uid,
-    path: `${collectionPath}/${folderName}`,
-  };
+    path: `${parentPath}/${folderName}`,
+  } as V5.Rule;
   localRules = [...localRules, created];
   persistLocalRules();
   return created;
 }
 
 /**
- * Update a local rule by uid. Returns true if found and updated.
+ * Add a local rule within a collection (by collection uid).
+ * Resolves the collection path, then calls addLocalRule.
  */
-export function updateLocalRule(uid: string, updates: Partial<Omit<V5.HeaderRule, 'uid' | 'path'>>): boolean {
+export function addLocalRuleToCollection(rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid: string): V5.Rule {
+  const collection = localCollections.find((c) => c.uid === collectionUid);
+  const parentPath = collection?.path ?? `rules/${collectionUid}`;
+  return addLocalRule(rule, parentPath);
+}
+
+export function updateLocalRule(uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): boolean {
   const index = localRules.findIndex((r) => r.uid === uid);
   if (index === -1) return false;
 
-  const existing = localRules[index] as V5.HeaderRule;
+  const existing = localRules[index];
+  const updated = { ...existing, ...updates } as V5.Rule;
   localRules = [
     ...localRules.slice(0, index),
-    { ...existing, ...updates },
+    updated,
     ...localRules.slice(index + 1),
   ];
   persistLocalRules();
   return true;
 }
 
-/**
- * Delete a local rule by uid. Returns true if found and deleted.
- */
 export function deleteLocalRule(uid: string): boolean {
   const before = localRules.length;
   localRules = localRules.filter((r) => r.uid !== uid);
@@ -214,9 +295,6 @@ export function deleteLocalRule(uid: string): boolean {
   return true;
 }
 
-/**
- * Toggle a local rule's enabled state. Returns true if found.
- */
 export function toggleLocalRule(uid: string, enabled: boolean): boolean {
   const index = localRules.findIndex((r) => r.uid === uid);
   if (index === -1) return false;
@@ -237,31 +315,35 @@ function persistLocalRules(): void {
 
 // ── Hydration ────────────────────────────────────────────────────────
 
-/**
- * Hydrate from storage on startup (before WebSocket connects).
- * Returns all restored rules (app + local).
- */
 export function hydrateFromStorage(): Promise<V5.Rule[]> {
   return new Promise((resolve) => {
-    storage.local.get([APP_STORAGE_KEY, LOCAL_RULES_KEY, LOCAL_COLLECTIONS_KEY], (result: Record<string, unknown>) => {
-      const storedApp = result[APP_STORAGE_KEY] as V5.Rule[] | undefined;
-      const storedLocal = result[LOCAL_RULES_KEY] as V5.Rule[] | undefined;
-      const storedCollections = result[LOCAL_COLLECTIONS_KEY] as V5.Collection[] | undefined;
+    storage.local.get(
+      [APP_STORAGE_KEY, LOCAL_RULES_KEY, LOCAL_COLLECTIONS_KEY, LOCAL_FOLDERS_KEY],
+      (result: Record<string, unknown>) => {
+        const storedApp = result[APP_STORAGE_KEY] as V5.Rule[] | undefined;
+        const storedLocal = result[LOCAL_RULES_KEY] as V5.Rule[] | undefined;
+        const storedCollections = result[LOCAL_COLLECTIONS_KEY] as V5.Collection[] | undefined;
+        const storedFolders = result[LOCAL_FOLDERS_KEY] as LocalFolder[] | undefined;
 
-      if (Array.isArray(storedApp) && storedApp.length > 0) {
-        appRules = storedApp;
-        logger.info('RuleStore', `Hydrated ${storedApp.length} app rules from storage`);
-      }
-      if (Array.isArray(storedLocal) && storedLocal.length > 0) {
-        localRules = storedLocal;
-        logger.info('RuleStore', `Hydrated ${storedLocal.length} local rules from storage`);
-      }
-      if (Array.isArray(storedCollections) && storedCollections.length > 0) {
-        localCollections = storedCollections;
-        logger.info('RuleStore', `Hydrated ${storedCollections.length} local collections from storage`);
-      }
+        if (Array.isArray(storedApp) && storedApp.length > 0) {
+          appRules = storedApp;
+          logger.info('RuleStore', `Hydrated ${storedApp.length} app rules from storage`);
+        }
+        if (Array.isArray(storedLocal) && storedLocal.length > 0) {
+          localRules = storedLocal;
+          logger.info('RuleStore', `Hydrated ${storedLocal.length} local rules from storage`);
+        }
+        if (Array.isArray(storedCollections) && storedCollections.length > 0) {
+          localCollections = storedCollections;
+          logger.info('RuleStore', `Hydrated ${storedCollections.length} local collections from storage`);
+        }
+        if (Array.isArray(storedFolders) && storedFolders.length > 0) {
+          localFolders = storedFolders;
+          logger.info('RuleStore', `Hydrated ${storedFolders.length} local folders from storage`);
+        }
 
-      resolve(getRules());
-    });
+        resolve(getRules());
+      },
+    );
   });
 }

@@ -7,7 +7,7 @@
  */
 
 import { logger } from '@utils/logger';
-import { updateNetworkRules } from '@/background/header-manager';
+import { updateNetworkRules } from '@/background/dnr-manager';
 import { getRules } from './rule-store';
 import { generateRulesHash } from './utils';
 

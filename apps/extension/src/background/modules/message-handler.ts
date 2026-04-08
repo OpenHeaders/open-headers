@@ -9,14 +9,20 @@ import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import { clearAllTracking, getActiveRulesForTab } from './request-tracker';
 import {
   addLocalRule,
+  addLocalRuleToCollection,
   createLocalCollection,
+  createLocalFolder,
   deleteLocalCollection,
+  deleteLocalFolder,
   deleteLocalRule,
   ensureDefaultCollection,
+  getLocalCollectionTrees,
   getLocalCollections,
+  getLocalFolders,
   getLocalRules,
   getRules,
   renameLocalCollection,
+  renameLocalFolder,
   toggleLocalRule,
   updateLocalRule,
 } from './rule-store';
@@ -153,20 +159,26 @@ export function handleGeneralMessage(
       }
       return true;
     } else if (message.type === 'createLocalRule') {
-      const ruleData = message.rule as Omit<V5.HeaderRule, 'uid' | 'path'>;
+      const ruleData = message.rule as Omit<V5.Rule, 'uid' | 'path'>;
+      const parentPath = message.parentPath as string | undefined;
       const collectionUid = message.collectionUid as string | undefined;
-      // Use provided collection or ensure the default one exists
-      const collection = collectionUid
-        ? { uid: collectionUid }
-        : ensureDefaultCollection();
-      const created = addLocalRule(ruleData, collection.uid);
+
+      let created: V5.Rule;
+      if (parentPath) {
+        created = addLocalRule(ruleData, parentPath);
+      } else {
+        const collection = collectionUid
+          ? { uid: collectionUid }
+          : ensureDefaultCollection();
+        created = addLocalRuleToCollection(ruleData, collection.uid);
+      }
       scheduleUpdate('rules', { immediate: true });
       updateBadgeCallback();
       safeResponse({ success: true, rule: created });
       return true;
     } else if (message.type === 'updateLocalRule') {
       const ruleId = message.ruleId as string;
-      const updates = message.updates as Partial<Omit<V5.HeaderRule, 'uid' | 'path'>>;
+      const updates = message.updates as Partial<Omit<V5.Rule, 'uid' | 'path'>>;
       const success = updateLocalRule(ruleId, updates);
       if (success) {
         scheduleUpdate('rules', { immediate: true });
@@ -179,6 +191,28 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'getLocalCollections') {
       safeResponse({ collections: getLocalCollections() });
+      return true;
+    } else if (message.type === 'getLocalCollectionTrees') {
+      safeResponse({ collectionTrees: getLocalCollectionTrees() });
+      return true;
+    } else if (message.type === 'getLocalFolders') {
+      safeResponse({ folders: getLocalFolders() });
+      return true;
+    } else if (message.type === 'createLocalFolder') {
+      const folder = createLocalFolder(message.name as string, message.parentPath as string);
+      safeResponse({ success: true, folder });
+      return true;
+    } else if (message.type === 'renameLocalFolder') {
+      const success = renameLocalFolder(message.folderUid as string, message.name as string);
+      safeResponse({ success });
+      return true;
+    } else if (message.type === 'deleteLocalFolder') {
+      const success = deleteLocalFolder(message.folderUid as string);
+      if (success) {
+        scheduleUpdate('rules', { immediate: true });
+        updateBadgeCallback();
+      }
+      safeResponse({ success });
       return true;
     } else if (message.type === 'createLocalCollection') {
       const name = message.name as string;

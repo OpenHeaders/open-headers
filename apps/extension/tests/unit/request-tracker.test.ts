@@ -86,7 +86,8 @@ describe('getActiveRulesForTab', () => {
 
     const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
     expect(result).toHaveLength(1);
-    expect(result[0].headerName).toBe('X-Debug');
+    expect(result[0].name).toBe('Test Rule');
+    expect(result[0].ruleType).toBe('header');
     expect(result[0].isEnabled).toBe(true);
     expect(result[0].matchType).toBe('direct');
     expect(result[0].matchedUrls).toHaveLength(1);
@@ -114,8 +115,8 @@ describe('getActiveRulesForTab', () => {
     const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
     expect(result).toHaveLength(2);
 
-    const enabled = result.find((r) => r.headerName === 'X-Debug');
-    const disabled = result.find((r) => r.headerName === 'X-Disabled');
+    const enabled = result.find((r) => r.id === 'rule-1');
+    const disabled = result.find((r) => r.id === 'rule-2');
     expect(enabled?.isEnabled).toBe(true);
     expect(disabled?.isEnabled).toBe(false);
   });
@@ -136,7 +137,7 @@ describe('getActiveRulesForTab', () => {
 
     const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/v2');
     expect(result).toHaveLength(1);
-    expect(result[0].headerName).toBe('X-Debug');
+    expect(result[0].name).toBe('Test Rule');
   });
 
   it('returns rules with no domains as direct matches with tab URL in matchedUrls', () => {
@@ -183,7 +184,8 @@ describe('getActiveRulesForTab', () => {
 
     const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/test');
     expect(result[0].tags).toEqual(['DEV']);
-    expect(result[0].isResponse).toBe(true);
+    expect(result[0].ruleType).toBe('header');
+    expect(result[0].summary).toContain('response');
   });
 });
 

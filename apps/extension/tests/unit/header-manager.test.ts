@@ -25,7 +25,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { declarativeNetRequest } from '@utils/browser-api';
-import { setDisabledTagGroups, setRulesPaused, updateNetworkRules } from '@/background/header-manager';
+import { setDisabledTagGroups, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
 import { formatUrlPattern } from '@/background/modules/url-utils';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;
@@ -341,19 +341,19 @@ describe('header-manager', () => {
   // ── Non-header rule types are ignored ──
 
   describe('non-header rule types', () => {
-    it('ignores non-header rules', async () => {
-      const redirectRule: V5.Rule = {
-        uid: 'rdr1',
-        path: 'rules/redirect',
-        name: 'Redirect Rule',
-        type: 'redirect',
+    it('ignores desktop-only rule types (body, delay, mock)', async () => {
+      const bodyRule: V5.Rule = {
+        uid: 'bdy1',
+        path: 'rules/body',
+        name: 'Body Rule',
+        type: 'body',
         enabled: true,
         tags: [],
         domains: ['openheaders.io'],
-        action: { matchPattern: '/old', redirectTo: '/new' },
+        action: { matchPattern: 'old', matchType: 'contains', replaceWith: 'new', isRequest: true, isResponse: false, contentType: 'json' },
       };
 
-      updateNetworkRules([redirectRule]);
+      updateNetworkRules([bodyRule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();

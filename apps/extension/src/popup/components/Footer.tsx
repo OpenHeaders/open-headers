@@ -12,7 +12,7 @@ import {
   VideoCameraTwoTone,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useHeader } from '@hooks/useHeader';
+import { useRules } from '@hooks/useRules';
 import { getAppLauncher } from '@utils/app-launcher';
 import { runtime } from '@utils/browser-api';
 import { sendMessage } from '@utils/messaging';
@@ -47,7 +47,7 @@ const Footer: React.FC = () => {
   const { message } = App.useApp();
   const appLauncher = getAppLauncher();
 
-  const { rules, isConnected } = useHeader();
+  const { rules, isConnected } = useRules();
   const totalRules = rules.length;
 
   const checkVideoRecordingState = useCallback(async () => {

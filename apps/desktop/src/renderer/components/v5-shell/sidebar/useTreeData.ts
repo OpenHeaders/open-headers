@@ -216,6 +216,13 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
           onRename: async (name: string) => { void updateRequest(node.uid, { name }); },
           onDelete: () => confirmDelete(node.name, () => { void removeRequest(node.uid); }),
         });
+      } else if (node.type === 'rule') {
+        if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
+        // Find the full rule object for callbacks that need the full Rule
+        const fullRule = rules.find((r) => r.uid === node.uid);
+        if (fullRule) {
+          items.push(buildRuleNode(fullRule, depth, parentId));
+        }
       }
     }
     return items;

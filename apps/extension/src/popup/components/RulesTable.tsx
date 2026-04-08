@@ -1,14 +1,14 @@
 import {
   ApiOutlined,
+  ClockCircleOutlined,
   CodeOutlined,
+  DatabaseOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
-  LaptopOutlined,
   LinkOutlined,
-  MoreOutlined,
   PlusOutlined,
   SendOutlined,
   StopOutlined,
@@ -16,13 +16,13 @@ import {
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useHeader } from '@hooks/useHeader';
-import { getAppLauncher } from '@utils/app-launcher';
+import { useRules } from '@hooks/useRules';
 import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getBrowserAPI } from '@/types/browser';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { getTagColor, type PageInfo, type RowActions } from '../utils/table-shared';
@@ -34,7 +34,12 @@ import {
   truncateValue,
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
-import RuleFormModal from './RuleFormModal';
+
+/** Open the full-page rules editor in a new tab. */
+function openRulesPage(hash: string): void {
+  const url = getBrowserAPI().runtime.getURL(`rules.html#${hash}`);
+  getBrowserAPI().tabs.create({ url });
+}
 
 const { Search } = Input;
 const { Text } = Typography;
@@ -51,27 +56,24 @@ interface TableRecord {
   tag: string;
 }
 
-interface HeaderTableProps {
+interface RulesTableProps {
   focusedRowIndex?: number;
   pendingDeleteIndex?: number;
   onPageInfoChange?: (info: PageInfo) => void;
   onRowActionsChange?: (actions: RowActions) => void;
 }
 
-const HeaderTable: React.FC<HeaderTableProps> = ({
+const RulesTable: React.FC<RulesTableProps> = ({
   focusedRowIndex = -1,
   pendingDeleteIndex = -1,
   onPageInfoChange,
   onRowActionsChange,
 }) => {
   const { message } = App.useApp();
-  const appLauncher = getAppLauncher();
 
-  const { rules, isConnected, uiState, updateUiState, disabledTagGroups } = useHeader();
+  const { rules, isConnected, uiState, updateUiState, disabledTagGroups } = useRules();
   const { setFocusedRowIndex } = useKeyboardNav();
 
-  const [ruleFormOpen, setRuleFormOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<V5.HeaderRule | null>(null);
   const [copiedRowId, setCopiedRowId] = useState<string | number | null>(null);
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>(
@@ -150,22 +152,12 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   );
 
   const handleEditRow = useCallback(
-    async (index: number) => {
+    (index: number) => {
       const record = dataSourceRef.current[index];
       if (!record) return;
-      if (record.id.startsWith('local-')) {
-        const rule = rules.find((r): r is V5.HeaderRule => r.uid === record.id && r.type === 'header');
-        if (rule) {
-          setEditingRule(rule);
-          setRuleFormOpen(true);
-        }
-        return;
-      }
-      if (!isConnected) return;
-      await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers', action: 'edit', itemId: record.id });
-      message.info('Opening edit dialog in OpenHeaders app');
+      openRulesPage(`/edit/${record.id}`);
     },
-    [isConnected, appLauncher, message, rules],
+    [],
   );
 
   const handleCopyRow = useCallback((index: number) => {
@@ -195,21 +187,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   );
 
   const handleAddRule = useCallback(() => {
-    const btn = document.querySelector('.add-rule-button') as HTMLButtonElement | null;
-    if (!btn) return;
-    btn.click();
-    // Dropdown renders async — focus the first menu item so arrow keys work
-    const tryFocus = (attempts: number) => {
-      const firstItem = document.querySelector(
-        '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)',
-      ) as HTMLElement | null;
-      if (firstItem) {
-        firstItem.focus();
-      } else if (attempts > 0) {
-        requestAnimationFrame(() => tryFocus(attempts - 1));
-      }
-    };
-    requestAnimationFrame(() => tryFocus(5));
+    openRulesPage('/create/header');
   }, []);
 
   useRowActionRegistration(onRowActionsChange, {
@@ -413,19 +391,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
                 type="text"
                 icon={<EditOutlined />}
                 size="small"
-                disabled={!canAct}
-                onClick={async () => {
-                  if (isLocal) {
-                    const rule = rules.find((r): r is V5.HeaderRule => r.uid === record.id && r.type === 'header');
-                    if (rule) {
-                      setEditingRule(rule);
-                      setRuleFormOpen(true);
-                    }
-                  } else {
-                    await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers', action: 'edit', itemId: record.id });
-                    message.info('Opening edit dialog in OpenHeaders app');
-                  }
-                }}
+                onClick={() => openRulesPage(`/edit/${record.id}`)}
               />
               <Popconfirm
                 title="Delete rule"
@@ -456,128 +422,29 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   ];
 
   const addRuleMenuItems = [
-    {
-      key: 'local-header-rule',
-      icon: <LaptopOutlined />,
-      label: 'Add Header Rule (Local)',
-      onClick: () => {
-        setEditingRule(null);
-        setRuleFormOpen(true);
-      },
-    },
+    { key: 'header', icon: <SwapOutlined />, label: 'Modify Headers', onClick: () => openRulesPage('/create/header') },
+    { key: 'block', icon: <StopOutlined />, label: 'Block Requests', onClick: () => openRulesPage('/create/block') },
+    { key: 'redirect', icon: <SendOutlined />, label: 'Redirect Requests', onClick: () => openRulesPage('/create/redirect') },
+    { key: 'query-param', icon: <LinkOutlined />, label: 'Modify Query Params', onClick: () => openRulesPage('/create/query-param') },
+    { key: 'inject', icon: <CodeOutlined />, label: 'Inject Scripts/CSS', onClick: () => openRulesPage('/create/inject') },
     { type: 'divider' as const },
     {
-      key: 'modify-headers',
-      icon: <SwapOutlined />,
-      label: !isConnected ? (
-        <Tooltip title="App not connected" placement="right">
-          <span>Modify Headers (via Desktop App)</span>
-        </Tooltip>
-      ) : (
-        'Modify Headers (via Desktop App)'
-      ),
-      disabled: !isConnected,
-      onClick: async () => {
-        await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers', action: 'create' });
-        message.info('Opening new rule dialog in OpenHeaders app');
-      },
-    },
-    {
-      key: 'modify-payload',
+      key: 'body',
       icon: <ApiOutlined />,
-      label: !isConnected ? (
-        <Tooltip title="App not connected" placement="right">
-          <span>Modify Payload (Request/Response)</span>
-        </Tooltip>
-      ) : (
-        'Modify Payload (Request/Response)'
-      ),
-      disabled: !isConnected,
-      onClick: async () => {
-        await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'payload', action: 'create' });
-        message.info('Opening payload rules in OpenHeaders app');
-      },
+      label: <Tooltip title="Requires desktop app — needs HTTP proxy" placement="right"><span>Modify Payload</span></Tooltip>,
+      disabled: true,
     },
     {
-      key: 'modify-params',
-      icon: <LinkOutlined />,
-      label: !isConnected ? (
-        <Tooltip title="App not connected" placement="right">
-          <span>Modify URL Query Params</span>
-        </Tooltip>
-      ) : (
-        'Modify URL Query Params'
-      ),
-      disabled: !isConnected,
-      onClick: async () => {
-        await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'query-params', action: 'create' });
-        message.info('Opening query params rules in OpenHeaders app');
-      },
+      key: 'delay',
+      icon: <ClockCircleOutlined />,
+      label: <Tooltip title="Requires desktop app" placement="right"><span>Delay Response</span></Tooltip>,
+      disabled: true,
     },
     {
-      key: 'block-requests',
-      icon: <StopOutlined />,
-      label: !isConnected ? (
-        <Tooltip title="App not connected" placement="right">
-          <span>Block Requests</span>
-        </Tooltip>
-      ) : (
-        'Block Requests'
-      ),
-      disabled: !isConnected,
-      onClick: async () => {
-        await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'block', action: 'create' });
-        message.info('Opening block rules in OpenHeaders app');
-      },
-    },
-    {
-      key: 'redirect-requests',
-      icon: <SendOutlined />,
-      label: !isConnected ? (
-        <Tooltip title="App not connected" placement="right">
-          <span>Redirect Requests</span>
-        </Tooltip>
-      ) : (
-        'Redirect Requests'
-      ),
-      disabled: !isConnected,
-      onClick: async () => {
-        await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'redirect', action: 'create' });
-        message.info('Opening redirect rules in OpenHeaders app');
-      },
-    },
-    {
-      key: 'inject-scripts',
-      icon: <CodeOutlined />,
-      label: !isConnected ? (
-        <Tooltip title="App not connected" placement="right">
-          <span>Inject Scripts/CSS</span>
-        </Tooltip>
-      ) : (
-        'Inject Scripts/CSS'
-      ),
-      disabled: !isConnected,
-      onClick: async () => {
-        await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'inject', action: 'create' });
-        message.info('Opening inject rules in OpenHeaders app');
-      },
-    },
-    { type: 'divider' as const },
-    {
-      key: 'more-options',
-      icon: <MoreOutlined />,
-      label: !isConnected ? (
-        <Tooltip title="App not connected" placement="right">
-          <span>And more inside the app...</span>
-        </Tooltip>
-      ) : (
-        'And more inside the app...'
-      ),
-      disabled: !isConnected,
-      onClick: async () => {
-        await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers' });
-        message.info('Switch to OpenHeaders app to add rule');
-      },
+      key: 'mock',
+      icon: <DatabaseOutlined />,
+      label: <Tooltip title="Requires desktop app" placement="right"><span>Mock Response</span></Tooltip>,
+      disabled: true,
     },
   ];
 
@@ -586,7 +453,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
       <div className="table-toolbar">
         <div className="header-rules-title">
           <div>
-            <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Header Rules</Text>
+            <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Rules</Text>
             {totalCount > 0 && (
               <Space size={4} style={{ display: 'flex' }}>
                 <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -695,16 +562,8 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
           itemName={filteredData[pendingDeleteIndex]?.headerName ?? ''}
         />
       </div>
-      <RuleFormModal
-        open={ruleFormOpen}
-        onClose={() => {
-          setRuleFormOpen(false);
-          setEditingRule(null);
-        }}
-        editRule={editingRule}
-      />
     </div>
   );
 };
 
-export default HeaderTable;
+export default RulesTable;

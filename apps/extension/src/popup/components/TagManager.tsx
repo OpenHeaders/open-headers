@@ -1,7 +1,7 @@
 import { FolderOpenOutlined, FolderOutlined, PauseCircleOutlined, TagsOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useHeader } from '@hooks/useHeader';
+import { useRules } from '@hooks/useRules';
 import { App, Empty, Input, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -49,7 +49,7 @@ const TagManager: React.FC<TagManagerProps> = ({
   onPageInfoChange,
   onRowActionsChange,
 }) => {
-  const { rules, isConnected, disabledTagGroups, toggleTagGroup } = useHeader();
+  const { rules, isConnected, disabledTagGroups, toggleTagGroup } = useRules();
   const { message } = App.useApp();
   const { expandedRowKey, setNestedRowCount, toggleExpandedRow, setFocusedRowIndex } = useKeyboardNav();
   const [searchText, setSearchText] = useState('');

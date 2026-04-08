@@ -15,6 +15,7 @@
  */
 
 import type { HttpMethod } from './request';
+import type { RuleType } from './rule';
 import type { Variable } from './variable';
 
 // ── Collection ─────────────────────────────────────────────────────
@@ -50,7 +51,16 @@ export interface RequestNode {
   method: HttpMethod;
 }
 
-export type TreeNode = FolderNode | RequestNode;
+export interface RuleNode {
+  type: 'rule';
+  uid: string;
+  name: string;
+  path: string;
+  ruleType: RuleType;
+  enabled: boolean;
+}
+
+export type TreeNode = FolderNode | RequestNode | RuleNode;
 
 /** Collection with its full sidebar tree loaded. */
 export interface CollectionTree extends Collection {

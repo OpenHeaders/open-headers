@@ -16,6 +16,7 @@ import type {
   HeaderRule,
   InjectRule,
   MockRule,
+  QueryParamRule,
   RedirectRule,
   ResolutionContext,
   Rule,
@@ -54,6 +55,8 @@ export function resolveRule(rule: Rule, resolver: VariableResolver, context?: Re
       return base as DelayRule;
     case 'mock':
       return resolveMockRule(base as MockRule, resolver, context);
+    case 'query-param':
+      return resolveQueryParamRule(base as QueryParamRule, resolver, context);
   }
 }
 
@@ -133,6 +136,24 @@ function resolveMockRule(rule: MockRule, resolver: VariableResolver, context?: R
       ...rule.action,
       responseBody: resolveString(rule.action.responseBody, resolver, context),
       responseHeaders: resolvedHeaders,
+    },
+  };
+}
+
+function resolveQueryParamRule(
+  rule: QueryParamRule,
+  resolver: VariableResolver,
+  context?: ResolutionContext,
+): QueryParamRule {
+  return {
+    ...rule,
+    action: {
+      ...rule.action,
+      params: rule.action.params.map((entry) => ({
+        ...entry,
+        param: resolveString(entry.param, resolver, context),
+        value: entry.value ? resolveString(entry.value, resolver, context) : undefined,
+      })),
     },
   };
 }

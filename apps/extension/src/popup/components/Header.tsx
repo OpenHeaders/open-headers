@@ -4,6 +4,7 @@ import {
   BulbOutlined,
   CloseCircleOutlined,
   CompressOutlined,
+  DownloadOutlined,
   InfoCircleOutlined,
   KeyOutlined,
   MenuOutlined,
@@ -13,7 +14,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { useTheme } from '@context';
-import { useHeader } from '@hooks/useHeader';
+import { useRules } from '@hooks/useRules';
 import { type LogLevel, logger } from '@utils/logger';
 import { Badge, Button, Dropdown, type MenuProps, Select, Space, Switch, Tooltip, Typography } from 'antd';
 import type React from 'react';
@@ -75,7 +76,7 @@ const LOG_LEVEL_OPTIONS: Array<{ value: LogLevel; label: React.ReactNode }> = [
 ];
 
 const Header: React.FC<HeaderProps> = ({ onShowShortcuts, onShowTour }) => {
-  const { isConnected, isStatusLoaded } = useHeader();
+  const { isConnected, isStatusLoaded } = useRules();
   const { themeMode, setThemeMode, isCompactMode, toggleCompactMode } = useTheme();
   const [logLevel, setLogLevel] = useState<LogLevel>(logger.getLevel());
 
@@ -269,19 +270,28 @@ const Header: React.FC<HeaderProps> = ({ onShowShortcuts, onShowTour }) => {
         </Title>
       </Space>
       <Space align="center" size={12}>
-        <div className="connection-status">
-          <Space align="center" size={6}>
-            <Badge
-              status={!isStatusLoaded ? 'default' : isConnected ? 'success' : 'error'}
-              text={
-                <Space size={4}>
-                  <Text style={{ fontSize: '12px' }}>
-                    {!isStatusLoaded ? '' : isConnected ? 'Connected' : 'Disconnected'}
-                  </Text>
-                </Space>
-              }
-            />
-          </Space>
+        <div className="connection-status" style={{ position: 'relative' }}>
+          <Badge
+            status={!isStatusLoaded ? 'default' : isConnected ? 'success' : 'error'}
+            text={
+              <Text style={{ fontSize: '12px' }}>
+                {!isStatusLoaded ? '' : isConnected ? 'Connected' : 'Disconnected'}
+              </Text>
+            }
+          />
+          {isStatusLoaded && !isConnected && (
+            <Tooltip title="Download the desktop app for workspaces, variables, team sync, and more">
+              <Button
+                type="link"
+                size="small"
+                icon={<DownloadOutlined />}
+                onClick={() => window.open('https://openheaders.io', '_blank')}
+                style={{ fontSize: '11px', padding: 0, height: 0, lineHeight: '14px', position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
+              >
+                Get App
+              </Button>
+            </Tooltip>
+          )}
         </div>
         <Dropdown menu={{ items: themeMenuItems }} placement="bottomRight" trigger={['click']}>
           <Button

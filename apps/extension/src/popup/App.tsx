@@ -1,5 +1,5 @@
 import ErrorBoundary from '@components/ErrorBoundary';
-import { HeaderProvider } from '@context/HeaderContext';
+import { RuleProvider } from '@context/RuleContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { useTheme } from '@context/ThemeContext';
 import { runtime } from '@utils/browser-api';
@@ -7,7 +7,6 @@ import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { getBrowserAPI } from '@/types/browser';
-import ConnectionInfo from './components/ConnectionInfo';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
@@ -31,7 +30,6 @@ const AppInner: React.FC = () => {
       <Layout className="app-container" data-theme={isDarkMode ? 'dark' : 'light'}>
         <Header onShowShortcuts={() => setIsShortcutsOverlayVisible(true)} onShowTour={handleShowTour} />
         <Content className="content">
-          <ConnectionInfo />
           <div className="entries-list">
             <RulesList />
           </div>
@@ -130,7 +128,7 @@ const AppContent: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <HeaderProvider>
+      <RuleProvider>
         <KeyboardNavProvider
           activeTab={activeTab}
           onTabChange={handleTabChange}
@@ -139,7 +137,7 @@ const AppContent: React.FC = () => {
         >
           <AppInner />
         </KeyboardNavProvider>
-      </HeaderProvider>
+      </RuleProvider>
     </ErrorBoundary>
   );
 };

@@ -2,7 +2,7 @@ import { AppstoreTwoTone, TagsTwoTone, ThunderboltTwoTone } from '@ant-design/ic
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Tabs } from 'antd';
 import type React from 'react';
-import HeaderTable from './HeaderTable';
+import RulesTable from './RulesTable';
 import TagManager from './TagManager';
 import ThisPageRules from './ThisPageRules';
 
@@ -28,7 +28,7 @@ const RulesList: React.FC = () => {
       key: 'all-rules',
       label: 'All Rules',
       children: (
-        <HeaderTable
+        <RulesTable
           focusedRowIndex={activeTab === 'all-rules' ? focusedRowIndex : -1}
           pendingDeleteIndex={activeTab === 'all-rules' ? pendingDeleteIndex : -1}
           onPageInfoChange={activeTab === 'all-rules' ? setPageInfo : undefined}

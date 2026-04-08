@@ -518,8 +518,19 @@ async function buildTree(dir: string, itemType: 'request' | 'rule'): Promise<V5.
             method: data.method,
           });
         }
+      } else {
+        const data = await readYaml<Record<string, unknown>>(path.join(subDir, 'rule.yaml'));
+        if (data && typeof data.name === 'string' && typeof data.type === 'string') {
+          nodes.push({
+            type: 'rule',
+            uid,
+            name: data.name,
+            path: subDir,
+            ruleType: data.type as V5.RuleType,
+            enabled: data.enabled !== false,
+          });
+        }
       }
-      // Rule tree nodes can be added here when needed
     } else {
       // It's a grouping folder — recurse
       const children = await buildTree(subDir, itemType);

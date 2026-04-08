@@ -3,7 +3,7 @@
  *
  * Consolidates the sendMessageSafely pattern that was duplicated across
  * popup/App.tsx, popup/components/Footer.tsx, popup/components/ConnectionInfo.tsx,
- * context/HeaderContext.tsx, background/header-manager.ts, and background/websocket.ts.
+ * context/RuleContext.tsx, background/dnr-manager.ts, and background/websocket.ts.
  */
 
 import { getBrowserAPI } from '@/types/browser';

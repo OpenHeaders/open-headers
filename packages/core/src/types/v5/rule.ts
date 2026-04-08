@@ -14,7 +14,13 @@ import type { HttpMethod } from './request';
 
 // ── Rule types ─────────────────────────────────────────────────────
 
-export type RuleType = 'header' | 'redirect' | 'body' | 'inject' | 'block' | 'delay' | 'mock';
+export type RuleType = 'header' | 'redirect' | 'body' | 'inject' | 'block' | 'delay' | 'mock' | 'query-param';
+
+/** Rule types supported by the browser extension (no proxy needed). */
+export type ExtensionRuleType = 'header' | 'block' | 'redirect' | 'query-param' | 'inject';
+
+/** Rule types that require the desktop app (proxy-based). */
+export type DesktopOnlyRuleType = 'body' | 'delay' | 'mock';
 
 // ── Base rule ──────────────────────────────────────────────────────
 
@@ -156,6 +162,27 @@ export interface MockRule extends RuleBase {
   action: MockAction;
 }
 
+// ── Query Param rule ──────────────────────────────────────────────
+
+export type QueryParamOperation = 'add' | 'override' | 'remove';
+
+export interface QueryParamEntry {
+  /** Parameter name. Supports {{VAR}}. */
+  param: string;
+  /** Parameter value. Not needed for 'remove'. Supports {{VAR}}. */
+  value?: string;
+  operation: QueryParamOperation;
+}
+
+export interface QueryParamAction {
+  params: QueryParamEntry[];
+}
+
+export interface QueryParamRule extends RuleBase {
+  type: 'query-param';
+  action: QueryParamAction;
+}
+
 // ── Union ──────────────────────────────────────────────────────────
 
-export type Rule = HeaderRule | RedirectRule | BodyRule | InjectRule | BlockRule | DelayRule | MockRule;
+export type Rule = HeaderRule | RedirectRule | BodyRule | InjectRule | BlockRule | DelayRule | MockRule | QueryParamRule;

@@ -41,7 +41,12 @@ export interface ActiveRule {
   key: string;
   matchType: 'direct' | 'indirect';
   matchedUrls: MatchedRequest[];
-  [key: string]: unknown;
+  name: string;
+  ruleType: string;
+  summary: string;
+  isEnabled: boolean;
+  domains: string[];
+  tags: string[];
 }
 
 /** Context object passed to handleGeneralMessage */

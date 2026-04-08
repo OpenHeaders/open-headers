@@ -4,6 +4,7 @@ export type {
   CollectionTree,
   FolderNode,
   RequestNode,
+  RuleNode,
   TreeNode,
 } from './collection';
 
@@ -28,6 +29,8 @@ export type {
   ContentType,
   DelayAction,
   DelayRule,
+  DesktopOnlyRuleType,
+  ExtensionRuleType,
   HeaderAction,
   HeaderOperation,
   HeaderRule,
@@ -37,6 +40,10 @@ export type {
   MatchType,
   MockAction,
   MockRule,
+  QueryParamAction,
+  QueryParamEntry,
+  QueryParamOperation,
+  QueryParamRule,
   RedirectAction,
   RedirectRule,
   ResourceType,

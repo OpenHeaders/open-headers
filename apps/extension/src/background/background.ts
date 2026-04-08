@@ -12,7 +12,8 @@ import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs }
 import { logger } from '@utils/logger';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
-import { getDisabledTagGroups, initPauseState, setDisabledTagGroups, setRulesPaused } from './header-manager';
+import { getDisabledTagGroups, initPauseState, setDisabledTagGroups, setRulesPaused } from './dnr-manager';
+import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { handleGeneralMessage } from './modules/message-handler';
 import { handleRecordingMessage } from './modules/recording-handler';
@@ -92,6 +93,7 @@ async function initializeExtension(): Promise<void> {
   setupRequestMonitoring(debouncedUpdateBadge);
   setupTabListeners(debouncedUpdateBadge, recordingService);
   setupPeriodicCleanup();
+  setupInjectListener();
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 

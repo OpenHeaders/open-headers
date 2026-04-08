@@ -23,7 +23,7 @@ export interface UiState {
   [key: string]: unknown;
 }
 
-export interface HeaderContextValue {
+export interface RuleContextValue {
   /** All rules from the background (desktop + local). */
   rules: V5.Rule[];
   /** Whether the desktop app is connected via WebSocket. */
@@ -40,19 +40,32 @@ export interface HeaderContextValue {
   refreshRules: () => void;
   /** Update persisted UI state. */
   updateUiState: (updates: Partial<UiState>) => void;
-  /** Local collections for organizing extension-created rules. */
+  /** Local collections (flat, without tree). */
   localCollections: V5.Collection[];
-  /** Create a local header rule (extension standalone). */
-  createLocalRule: (rule: Omit<V5.HeaderRule, 'uid' | 'path'>, collectionUid?: string) => Promise<V5.HeaderRule | null>;
+  /** Local collection trees (with folder → rule hierarchy). */
+  localCollectionTrees: V5.CollectionTree[];
+  /** Create a local rule (extension standalone). */
+  /** Create a local rule. Provide collectionUid or parentPath (folder path) to control placement. */
+  createLocalRule: (rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid?: string, parentPath?: string) => Promise<V5.Rule | null>;
   /** Update a local rule by uid. */
-  updateLocalRule: (uid: string, updates: Partial<Omit<V5.HeaderRule, 'uid' | 'path'>>) => Promise<boolean>;
+  updateLocalRule: (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>) => Promise<boolean>;
   /** Delete a local rule by uid. */
   deleteLocalRule: (uid: string) => Promise<boolean>;
   /** Create a local collection. */
   createLocalCollection: (name: string) => Promise<V5.Collection | null>;
+  /** Rename a local collection. */
+  renameLocalCollection: (uid: string, name: string) => Promise<boolean>;
+  /** Delete a local collection and all its contents. */
+  deleteLocalCollection: (uid: string) => Promise<boolean>;
+  /** Create a folder within a collection or another folder. */
+  createLocalFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string; name: string } | null>;
+  /** Rename a local folder. */
+  renameLocalFolder: (uid: string, name: string) => Promise<boolean>;
+  /** Delete a local folder and its contents. */
+  deleteLocalFolder: (uid: string) => Promise<boolean>;
 }
 
-const defaultContextValue: HeaderContextValue = {
+const defaultContextValue: RuleContextValue = {
   rules: [],
   isConnected: false,
   isStatusLoaded: false,
@@ -65,6 +78,7 @@ const defaultContextValue: HeaderContextValue = {
   },
   disabledTagGroups: new Set(),
   localCollections: [],
+  localCollectionTrees: [],
   toggleTagGroup: () => {},
   refreshRules: () => {},
   updateUiState: () => {},
@@ -72,17 +86,22 @@ const defaultContextValue: HeaderContextValue = {
   updateLocalRule: () => Promise.resolve(false),
   deleteLocalRule: () => Promise.resolve(false),
   createLocalCollection: () => Promise.resolve(null),
+  renameLocalCollection: () => Promise.resolve(false),
+  deleteLocalCollection: () => Promise.resolve(false),
+  createLocalFolder: () => Promise.resolve(null),
+  renameLocalFolder: () => Promise.resolve(false),
+  deleteLocalFolder: () => Promise.resolve(false),
 };
 
-export const HeaderContext = createContext<HeaderContextValue>(defaultContextValue);
+export const RuleContext = createContext<RuleContextValue>(defaultContextValue);
 
 // ── Provider ──────────────────────────────────────────────────────
 
-interface HeaderProviderProps {
+interface RuleProviderProps {
   children: React.ReactNode;
 }
 
-export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
+export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   const [rules, setRules] = useState<V5.Rule[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoaded, setIsStatusLoaded] = useState(false);
@@ -91,6 +110,7 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
   });
   const [disabledTagGroups, setDisabledTagGroups] = useState<Set<string>>(new Set());
   const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);
+  const [localCollectionTrees, setLocalCollectionTrees] = useState<V5.CollectionTree[]>([]);
 
   // ── Load rules from background ────────────────────────────────
 
@@ -113,6 +133,12 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
       if (!error && response) {
         const resp = response as { collections?: V5.Collection[] };
         setLocalCollections(resp.collections ?? []);
+      }
+    });
+    sendMessageWithCallback({ type: 'getLocalCollectionTrees' }, (response, error) => {
+      if (!error && response) {
+        const resp = response as { collectionTrees?: V5.CollectionTree[] };
+        setLocalCollectionTrees(resp.collectionTrees ?? []);
       }
     });
   }, []);
@@ -238,11 +264,11 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
   // ── Local rule CRUD ───────────────────────────────────────────
 
   const createLocalRule = useCallback(
-    (rule: Omit<V5.HeaderRule, 'uid' | 'path'>, collectionUid?: string): Promise<V5.HeaderRule | null> => {
+    (rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid?: string, parentPath?: string): Promise<V5.Rule | null> => {
       return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createLocalRule', rule, collectionUid }, (response, error) => {
+        sendMessageWithCallback({ type: 'createLocalRule', rule, collectionUid, parentPath }, (response, error) => {
           if (!error && response) {
-            const resp = response as { success?: boolean; rule?: V5.HeaderRule };
+            const resp = response as { success?: boolean; rule?: V5.Rule };
             if (resp.success && resp.rule) {
               loadRules();
               loadLocalCollections();
@@ -258,7 +284,7 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
   );
 
   const updateLocalRuleFn = useCallback(
-    (uid: string, updates: Partial<Omit<V5.HeaderRule, 'uid' | 'path'>>): Promise<boolean> => {
+    (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
       return new Promise((resolve) => {
         sendMessageWithCallback({ type: 'updateLocalRule', ruleId: uid, updates }, (response, error) => {
           if (!error && response) {
@@ -314,15 +340,111 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     [loadLocalCollections],
   );
 
+  // ── Collection rename/delete ──────────────────────────────────
+
+  const renameLocalCollectionFn = useCallback(
+    (uid: string, name: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'renameLocalCollection', collectionUid: uid, name }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            loadLocalCollections();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
+      });
+    },
+    [loadLocalCollections],
+  );
+
+  const deleteLocalCollectionFn = useCallback(
+    (uid: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'deleteLocalCollection', collectionUid: uid }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            loadRules();
+            loadLocalCollections();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
+      });
+    },
+    [loadRules, loadLocalCollections],
+  );
+
+  // ── Folder CRUD ──────────────────────────────────────────────
+
+  const createLocalFolderFn = useCallback(
+    (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'createLocalFolder', name, parentPath }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean; folder?: { uid: string; path: string; name: string } };
+            if (resp.success && resp.folder) {
+              loadLocalCollections();
+              resolve(resp.folder);
+              return;
+            }
+          }
+          resolve(null);
+        });
+      });
+    },
+    [loadLocalCollections],
+  );
+
+  const renameLocalFolderFn = useCallback(
+    (uid: string, name: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'renameLocalFolder', folderUid: uid, name }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean };
+            if (resp.success) {
+              loadLocalCollections();
+              resolve(true);
+              return;
+            }
+          }
+          resolve(false);
+        });
+      });
+    },
+    [loadLocalCollections],
+  );
+
+  const deleteLocalFolderFn = useCallback(
+    (uid: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'deleteLocalFolder', folderUid: uid }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean };
+            if (resp.success) {
+              loadRules();
+              loadLocalCollections();
+              resolve(true);
+              return;
+            }
+          }
+          resolve(false);
+        });
+      });
+    },
+    [loadRules, loadLocalCollections],
+  );
+
   // ── Render ────────────────────────────────────────────────────
 
-  const contextValue: HeaderContextValue = {
+  const contextValue: RuleContextValue = {
     rules,
     isConnected,
     isStatusLoaded,
     uiState,
     disabledTagGroups,
     localCollections,
+    localCollectionTrees,
     toggleTagGroup,
     refreshRules,
     updateUiState,
@@ -330,7 +452,12 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     updateLocalRule: updateLocalRuleFn,
     deleteLocalRule: deleteLocalRuleFn,
     createLocalCollection: createLocalCollectionFn,
+    renameLocalCollection: renameLocalCollectionFn,
+    deleteLocalCollection: deleteLocalCollectionFn,
+    createLocalFolder: createLocalFolderFn,
+    renameLocalFolder: renameLocalFolderFn,
+    deleteLocalFolder: deleteLocalFolderFn,
   };
 
-  return <HeaderContext.Provider value={contextValue}>{children}</HeaderContext.Provider>;
+  return <RuleContext.Provider value={contextValue}>{children}</RuleContext.Provider>;
 };

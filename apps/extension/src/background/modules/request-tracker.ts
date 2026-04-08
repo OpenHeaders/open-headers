@@ -18,6 +18,36 @@ import {
   precompileAllPatterns,
 } from './url-utils';
 
+// ── Rule summary ─────────────────────────────────────────────────
+
+/** Human-readable one-liner for any rule type. */
+function getRuleSummary(rule: V5.Rule): string {
+  switch (rule.type) {
+    case 'header': {
+      const hr = rule as V5.HeaderRule;
+      const dir = hr.action.isResponse ? 'response' : 'request';
+      return `${hr.action.operation} ${dir} header "${hr.action.headerName}"`;
+    }
+    case 'block':
+      return 'Block requests';
+    case 'redirect': {
+      const rr = rule as V5.RedirectRule;
+      return `Redirect to ${rr.action.redirectTo || '...'}`;
+    }
+    case 'query-param': {
+      const qr = rule as V5.QueryParamRule;
+      const count = qr.action.params.length;
+      return `Modify ${count} query param${count !== 1 ? 's' : ''}`;
+    }
+    case 'inject': {
+      const ir = rule as V5.InjectRule;
+      return `Inject ${ir.action.injectType}`;
+    }
+    default:
+      return rule.type;
+  }
+}
+
 // ── Tracked state ─────────────────────────────────────────────────
 
 const REVALIDATION_QUEUE = new Set<number>();
@@ -90,11 +120,11 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   const now = Date.now();
   const rules = getRules();
 
-  for (const rule of rules) {
-    // Only include header rules for now (other rule types aren't applied via DNR yet)
-    if (rule.type !== 'header') continue;
+  const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject']);
 
-    const headerRule = rule as V5.HeaderRule;
+  for (const rule of rules) {
+    if (!extensionTypes.has(rule.type)) continue;
+
     const domains = rule.domains;
     let matchType: 'direct' | 'indirect' | null = null;
     const matchedUrls: MatchedRequest[] = [];
@@ -133,10 +163,9 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
         key: rule.uid,
         matchType,
         matchedUrls,
-        // V5 rule fields for popup display
         name: rule.name,
-        headerName: headerRule.action.headerName,
-        isResponse: headerRule.action.isResponse,
+        ruleType: rule.type,
+        summary: getRuleSummary(rule),
         isEnabled: rule.enabled,
         domains: rule.domains,
         tags: rule.tags,
