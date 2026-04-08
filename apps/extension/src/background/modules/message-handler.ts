@@ -7,7 +7,19 @@ import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import { clearAllTracking, getActiveRulesForTab } from './request-tracker';
-import { addLocalRule, deleteLocalRule, getLocalRules, getRules, toggleLocalRule, updateLocalRule } from './rule-store';
+import {
+  addLocalRule,
+  createLocalCollection,
+  deleteLocalCollection,
+  deleteLocalRule,
+  ensureDefaultCollection,
+  getLocalCollections,
+  getLocalRules,
+  getRules,
+  renameLocalCollection,
+  toggleLocalRule,
+  updateLocalRule,
+} from './rule-store';
 
 const browserAPI = { runtime: browserRuntime };
 
@@ -142,7 +154,12 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'createLocalRule') {
       const ruleData = message.rule as Omit<V5.HeaderRule, 'uid' | 'path'>;
-      const created = addLocalRule(ruleData);
+      const collectionUid = message.collectionUid as string | undefined;
+      // Use provided collection or ensure the default one exists
+      const collection = collectionUid
+        ? { uid: collectionUid }
+        : ensureDefaultCollection();
+      const created = addLocalRule(ruleData, collection.uid);
       scheduleUpdate('rules', { immediate: true });
       updateBadgeCallback();
       safeResponse({ success: true, rule: created });
@@ -159,6 +176,26 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'getLocalRules') {
       safeResponse({ rules: getLocalRules() });
+      return true;
+    } else if (message.type === 'getLocalCollections') {
+      safeResponse({ collections: getLocalCollections() });
+      return true;
+    } else if (message.type === 'createLocalCollection') {
+      const name = message.name as string;
+      const collection = createLocalCollection(name);
+      safeResponse({ success: true, collection });
+      return true;
+    } else if (message.type === 'renameLocalCollection') {
+      const success = renameLocalCollection(message.collectionUid as string, message.name as string);
+      safeResponse({ success });
+      return true;
+    } else if (message.type === 'deleteLocalCollection') {
+      const success = deleteLocalCollection(message.collectionUid as string);
+      if (success) {
+        scheduleUpdate('rules', { immediate: true });
+        updateBadgeCallback();
+      }
+      safeResponse({ success });
       return true;
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);

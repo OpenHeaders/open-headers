@@ -114,36 +114,9 @@ async function listSubdirectories(dirPath: string): Promise<string[]> {
   }
 }
 
-// ── Slug + UID helpers ─────────────────────────────────────────────
+// ── Slug + UID helpers (from @openheaders/core) ──────────────────
 
-function slugify(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function generateUid(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let uid = '';
-  for (let i = 0; i < 4; i++) {
-    uid += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return uid;
-}
-
-/** Extract the 4-char uid suffix from a folder name (e.g. "login-x7k2" → "x7k2"). */
-function extractUid(folderName: string): string {
-  const lastDash = folderName.lastIndexOf('-');
-  if (lastDash === -1 || lastDash === folderName.length - 1) return folderName;
-  return folderName.slice(lastDash + 1);
-}
-
-/** Build a folder name from a display name and uid: "Login" + "x7k2" → "login-x7k2" */
-function toFolderName(name: string, uid: string): string {
-  const slug = slugify(name);
-  return slug ? `${slug}-${uid}` : uid;
-}
+import { extractUid, generateUid, toFolderName } from '@openheaders/core/utils';
 
 // ── Body type ↔ file extension mapping ─────────────────────────────
 

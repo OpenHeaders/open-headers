@@ -2,15 +2,18 @@
  * RuleFormModal — create/edit header rules in the extension popup.
  *
  * Used for standalone local rules (no desktop app needed).
- * Supports: header name, value, domains, operation (add/override/remove),
+ * Rules belong to a collection (matching the desktop workspace model).
+ * Supports: collection, header name, value, domains, operation (add/override/remove),
  * request vs response, enabled/disabled, tag.
  */
 
 import type { V5 } from '@openheaders/core/types';
 import { useHeader } from '@hooks/useHeader';
-import { App, Form, Input, Modal, Radio, Select, Space, Switch, Tag, Typography } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { App, Button, Divider, Form, Input, Modal, Radio, Select, Space, Switch, Tag, Typography } from 'antd';
+import type { InputRef } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const { Text } = Typography;
 
@@ -22,6 +25,7 @@ interface RuleFormModalProps {
 }
 
 interface RuleFormValues {
+  collectionUid: string;
   headerName: string;
   staticValue: string;
   domains: string;
@@ -33,15 +37,23 @@ interface RuleFormValues {
 
 const RuleFormModal: React.FC<RuleFormModalProps> = ({ open, onClose, editRule }) => {
   const { message } = App.useApp();
-  const { createLocalRule, updateLocalRule } = useHeader();
+  const { createLocalRule, updateLocalRule, localCollections, createLocalCollection } = useHeader();
   const [form] = Form.useForm<RuleFormValues>();
   const [saving, setSaving] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const newCollectionInputRef = useRef<InputRef>(null);
   const isEdit = !!editRule;
 
   useEffect(() => {
     if (open) {
       if (editRule) {
+        // Find collection uid from rule path: "rules/{collection-folder}/{rule-folder}"
+        const pathParts = editRule.path.split('/');
+        const collectionFolder = pathParts.length >= 2 ? pathParts[1] : '';
+        const collectionUid = localCollections.find((c) => c.path === `rules/${collectionFolder}`)?.uid ?? '';
+
         form.setFieldsValue({
+          collectionUid,
           headerName: editRule.action.headerName,
           staticValue: editRule.staticValue ?? '',
           domains: editRule.domains.join(', '),
@@ -53,6 +65,7 @@ const RuleFormModal: React.FC<RuleFormModalProps> = ({ open, onClose, editRule }
       } else {
         form.resetFields();
         form.setFieldsValue({
+          collectionUid: localCollections[0]?.uid ?? '',
           operation: 'override',
           isResponse: false,
           enabled: true,
@@ -63,7 +76,17 @@ const RuleFormModal: React.FC<RuleFormModalProps> = ({ open, onClose, editRule }
         });
       }
     }
-  }, [open, editRule, form]);
+  }, [open, editRule, form, localCollections]);
+
+  const handleAddCollection = async () => {
+    const name = newCollectionName.trim();
+    if (!name) return;
+    const collection = await createLocalCollection(name);
+    if (collection) {
+      form.setFieldsValue({ collectionUid: collection.uid });
+      setNewCollectionName('');
+    }
+  };
 
   const handleSubmit = async () => {
     try {
@@ -98,19 +121,22 @@ const RuleFormModal: React.FC<RuleFormModalProps> = ({ open, onClose, editRule }
           message.error('Failed to update rule');
         }
       } else {
-        const rule = await createLocalRule({
-          name: values.headerName,
-          type: 'header',
-          enabled: values.enabled,
-          tags,
-          domains,
-          action: {
-            operation: values.operation,
-            headerName: values.headerName,
-            isResponse: values.isResponse,
+        const rule = await createLocalRule(
+          {
+            name: values.headerName,
+            type: 'header',
+            enabled: values.enabled,
+            tags,
+            domains,
+            action: {
+              operation: values.operation,
+              headerName: values.headerName,
+              isResponse: values.isResponse,
+            },
+            staticValue: values.operation === 'remove' ? undefined : values.staticValue,
           },
-          staticValue: values.operation === 'remove' ? undefined : values.staticValue,
-        });
+          values.collectionUid || undefined,
+        );
         if (rule) {
           message.success('Rule created');
           onClose();
@@ -149,6 +175,41 @@ const RuleFormModal: React.FC<RuleFormModalProps> = ({ open, onClose, editRule }
         size="small"
         style={{ marginTop: 16 }}
       >
+        {!isEdit && (
+          <Form.Item
+            name="collectionUid"
+            label="Collection"
+            extra="Rules are organized into collections, same as the desktop app"
+          >
+            <Select
+              placeholder="Select or create a collection"
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Space style={{ padding: '0 8px 4px' }}>
+                    <Input
+                      placeholder="New collection name"
+                      ref={newCollectionInputRef}
+                      value={newCollectionName}
+                      onChange={(e) => setNewCollectionName(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      size="small"
+                    />
+                    <Button type="text" icon={<PlusOutlined />} onClick={handleAddCollection} size="small">
+                      Add
+                    </Button>
+                  </Space>
+                </>
+              )}
+              options={localCollections.map((c) => ({
+                label: c.name,
+                value: c.uid,
+              }))}
+            />
+          </Form.Item>
+        )}
+
         <Form.Item
           name="headerName"
           label="Header Name"

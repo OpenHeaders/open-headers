@@ -40,12 +40,16 @@ export interface HeaderContextValue {
   refreshRules: () => void;
   /** Update persisted UI state. */
   updateUiState: (updates: Partial<UiState>) => void;
+  /** Local collections for organizing extension-created rules. */
+  localCollections: V5.Collection[];
   /** Create a local header rule (extension standalone). */
-  createLocalRule: (rule: Omit<V5.HeaderRule, 'uid' | 'path'>) => Promise<V5.HeaderRule | null>;
+  createLocalRule: (rule: Omit<V5.HeaderRule, 'uid' | 'path'>, collectionUid?: string) => Promise<V5.HeaderRule | null>;
   /** Update a local rule by uid. */
   updateLocalRule: (uid: string, updates: Partial<Omit<V5.HeaderRule, 'uid' | 'path'>>) => Promise<boolean>;
   /** Delete a local rule by uid. */
   deleteLocalRule: (uid: string) => Promise<boolean>;
+  /** Create a local collection. */
+  createLocalCollection: (name: string) => Promise<V5.Collection | null>;
 }
 
 const defaultContextValue: HeaderContextValue = {
@@ -60,12 +64,14 @@ const defaultContextValue: HeaderContextValue = {
     },
   },
   disabledTagGroups: new Set(),
+  localCollections: [],
   toggleTagGroup: () => {},
   refreshRules: () => {},
   updateUiState: () => {},
   createLocalRule: () => Promise.resolve(null),
   updateLocalRule: () => Promise.resolve(false),
   deleteLocalRule: () => Promise.resolve(false),
+  createLocalCollection: () => Promise.resolve(null),
 };
 
 export const HeaderContext = createContext<HeaderContextValue>(defaultContextValue);
@@ -84,6 +90,7 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     tableState: { searchText: '', filteredInfo: {}, sortedInfo: {} },
   });
   const [disabledTagGroups, setDisabledTagGroups] = useState<Set<string>>(new Set());
+  const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);
 
   // ── Load rules from background ────────────────────────────────
 
@@ -101,14 +108,25 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     });
   }, []);
 
+  const loadLocalCollections = useCallback(() => {
+    sendMessageWithCallback({ type: 'getLocalCollections' }, (response, error) => {
+      if (!error && response) {
+        const resp = response as { collections?: V5.Collection[] };
+        setLocalCollections(resp.collections ?? []);
+      }
+    });
+  }, []);
+
   const refreshRules = useCallback(() => {
     loadRules();
-  }, [loadRules]);
+    loadLocalCollections();
+  }, [loadRules, loadLocalCollections]);
 
   // ── Lifecycle ─────────────────────────────────────────────────
 
   useEffect(() => {
     loadRules();
+    loadLocalCollections();
 
     // Load disabled tag groups
     storage.local.get(['disabledTagGroups'], (result: Record<string, unknown>) => {
@@ -158,7 +176,7 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
       storage.onChanged.removeListener(handleStorageChange);
       clearInterval(intervalId);
     };
-  }, [loadRules]);
+  }, [loadRules, loadLocalCollections]);
 
   // ── UI state persistence ──────────────────────────────────────
 
@@ -220,13 +238,14 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
   // ── Local rule CRUD ───────────────────────────────────────────
 
   const createLocalRule = useCallback(
-    (rule: Omit<V5.HeaderRule, 'uid' | 'path'>): Promise<V5.HeaderRule | null> => {
+    (rule: Omit<V5.HeaderRule, 'uid' | 'path'>, collectionUid?: string): Promise<V5.HeaderRule | null> => {
       return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createLocalRule', rule }, (response, error) => {
+        sendMessageWithCallback({ type: 'createLocalRule', rule, collectionUid }, (response, error) => {
           if (!error && response) {
             const resp = response as { success?: boolean; rule?: V5.HeaderRule };
             if (resp.success && resp.rule) {
               loadRules();
+              loadLocalCollections();
               resolve(resp.rule);
               return;
             }
@@ -235,7 +254,7 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
         });
       });
     },
-    [loadRules],
+    [loadRules, loadLocalCollections],
   );
 
   const updateLocalRuleFn = useCallback(
@@ -276,6 +295,25 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     [loadRules],
   );
 
+  const createLocalCollectionFn = useCallback(
+    (name: string): Promise<V5.Collection | null> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'createLocalCollection', name }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean; collection?: V5.Collection };
+            if (resp.success && resp.collection) {
+              loadLocalCollections();
+              resolve(resp.collection);
+              return;
+            }
+          }
+          resolve(null);
+        });
+      });
+    },
+    [loadLocalCollections],
+  );
+
   // ── Render ────────────────────────────────────────────────────
 
   const contextValue: HeaderContextValue = {
@@ -284,12 +322,14 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     isStatusLoaded,
     uiState,
     disabledTagGroups,
+    localCollections,
     toggleTagGroup,
     refreshRules,
     updateUiState,
     createLocalRule,
     updateLocalRule: updateLocalRuleFn,
     deleteLocalRule: deleteLocalRuleFn,
+    createLocalCollection: createLocalCollectionFn,
   };
 
   return <HeaderContext.Provider value={contextValue}>{children}</HeaderContext.Provider>;

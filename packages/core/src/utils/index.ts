@@ -8,3 +8,9 @@ export {
   validateHeaderName,
   validateHeaderValue,
 } from './headers';
+export {
+  extractUid,
+  generateUid,
+  slugify,
+  toFolderName,
+} from './workspace';

@@ -6,17 +6,9 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { sendPatchToRenderers } from './StateBroadcaster';
 import type { StateContext } from './types';
-
-function generateUid(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let uid = '';
-  for (let i = 0; i < 4; i++) {
-    uid += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return uid;
-}
 
 export async function addCollection(
   ctx: StateContext,
@@ -24,11 +16,7 @@ export async function addCollection(
   data: Omit<V5.Collection, 'uid' | 'path'>,
 ): Promise<V5.Collection> {
   const uid = generateUid();
-  const slug = data.name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  const folderName = slug ? `${slug}-${uid}` : uid;
+  const folderName = toFolderName(data.name, uid);
 
   const newCollection: V5.Collection = {
     ...data,
