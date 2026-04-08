@@ -13,6 +13,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { errorMessage } from '@openheaders/core';
+import { resolveRules, VariableResolver } from '@openheaders/core/variables';
 import electron from 'electron';
 import {
   deleteEnvironmentFiles,
@@ -80,6 +81,9 @@ export type { WorkspaceState } from './state';
 class WorkspaceStateService {
   private readonly state: WorkspaceState;
   private readonly appDataPath: string;
+
+  // Variable resolution (single source of truth for {{VAR}} interpolation)
+  private readonly variableResolver = new VariableResolver();
 
   // External services (wired after construction)
   private webSocketService: WebSocketServiceLike | null = null;
@@ -160,6 +164,13 @@ class WorkspaceStateService {
     this.webSocketService = deps.webSocketService;
     this.envResolver = deps.webSocketService.environmentHandler;
     this.syncScheduler = deps.syncScheduler ?? null;
+
+    // Wire extension→desktop rule mutations (toggle/delete from extension popup)
+    deps.webSocketService.setRuleMutationCallbacks({
+      toggleRule: (uid, enabled) => this.toggleRule(uid, enabled),
+      removeRule: (uid) => this.removeRule(uid),
+    });
+
     this._resolveConfigReady();
     log.info('WorkspaceStateService configured');
   }
@@ -187,7 +198,7 @@ class WorkspaceStateService {
       await this.configReady;
 
       // Broadcast to extension
-      broadcastToServices(this.state, this.webSocketService);
+      this.broadcastResolvedRules();
 
       // Start auto-save
       this.autoSaveTimer = setInterval(() => this.saveAll(), 30_000);
@@ -243,6 +254,9 @@ class WorkspaceStateService {
       const activeEnv = environments.find((e) => e.name === this.state.activeEnvironmentName);
       if (activeEnv) activeEnv.isActive = true;
     }
+
+    // Keep resolver in sync with loaded data
+    this.syncVariableResolver();
 
     log.info(
       `Loaded workspace: ${requestCollections.length} request collections, ${ruleCollections.length} rule collections, ${rules.length} rules, ${environments.length} environments`,
@@ -338,7 +352,7 @@ class WorkspaceStateService {
       this.state.activeWorkspaceId = workspaceId;
       await this.loadWorkspaceData(workspaceId);
 
-      broadcastToServices(this.state, this.webSocketService);
+      this.broadcastResolvedRules();
 
       this.dirty.workspaces = true;
       await this.saveAll();
@@ -413,7 +427,8 @@ class WorkspaceStateService {
     this.dirty.workspaces = true;
     this.scheduleDebouncedSave();
 
-    broadcastToServices(this.state, this.webSocketService);
+    this.syncVariableResolver();
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['environments', 'activeEnvironmentName']);
   }
 
@@ -430,7 +445,9 @@ class WorkspaceStateService {
     }
 
     this.dirty.environments = true;
+    this.syncVariableResolver();
     this.scheduleDebouncedSave();
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['environments']);
   }
 
@@ -451,7 +468,9 @@ class WorkspaceStateService {
     }
 
     this.dirty.environments = true;
+    this.syncVariableResolver();
     this.scheduleDebouncedSave();
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['environments', 'activeEnvironmentName']);
   }
 
@@ -536,7 +555,7 @@ class WorkspaceStateService {
     this.state.rules.push(newRule);
     this.dirty.rules = true;
     this.scheduleDebouncedSave();
-    broadcastToServices(this.state, this.webSocketService);
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['rules', 'ruleCollections']);
     return newRule;
   }
@@ -551,7 +570,7 @@ class WorkspaceStateService {
     await writeRule(existing.path, updated);
 
     this.dirty.rules = true;
-    broadcastToServices(this.state, this.webSocketService);
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['rules']);
   }
 
@@ -564,7 +583,7 @@ class WorkspaceStateService {
 
     this.dirty.rules = true;
     this.scheduleDebouncedSave();
-    broadcastToServices(this.state, this.webSocketService);
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['rules']);
   }
 
@@ -576,7 +595,7 @@ class WorkspaceStateService {
     await writeRule(rule.path, rule);
 
     this.dirty.rules = true;
-    broadcastToServices(this.state, this.webSocketService);
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['rules']);
   }
 
@@ -650,8 +669,44 @@ class WorkspaceStateService {
   async updateWorkspaceVariables(variables: V5.WorkspaceVariables): Promise<void> {
     this.state.workspaceVariables = variables;
     this.dirty.workspaceVariables = true;
+    this.syncVariableResolver();
     this.scheduleDebouncedSave();
+    this.broadcastResolvedRules();
     sendPatchToRenderers(this.state, ['workspaceVariables']);
+  }
+
+  // ── Variable resolution ──────────────────────────────────────
+
+  /**
+   * Sync the VariableResolver with the current state.
+   * Called after any state change that affects variable scopes:
+   * workspace load, environment CRUD, workspace variable update, vault update, collection variable update.
+   */
+  private syncVariableResolver(): void {
+    this.variableResolver.setVault(this.state.vault);
+    this.variableResolver.setEnvironments(this.state.environments);
+    this.variableResolver.setWorkspaceVariables(this.state.workspaceVariables);
+
+    // Sync collection variables from all collections (request + rule)
+    for (const coll of [...this.state.requestCollections, ...this.state.ruleCollections]) {
+      if (coll.variables.length > 0) {
+        this.variableResolver.setCollectionVariables(coll.uid, coll.variables);
+      }
+    }
+  }
+
+  /** Expose resolver for WSRuleHandler to use when broadcasting. */
+  getVariableResolver(): VariableResolver {
+    return this.variableResolver;
+  }
+
+  /**
+   * Resolve all {{VAR}} templates in rules and broadcast to WebSocket clients.
+   * Called after any state change that affects rules or variables.
+   */
+  private broadcastResolvedRules(): void {
+    const resolved = resolveRules(this.state.rules, this.variableResolver);
+    broadcastToServices(resolved, this.webSocketService);
   }
 
   // ── Tree helpers ──────────────────────────────────────────────

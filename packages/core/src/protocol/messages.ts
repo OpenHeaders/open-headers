@@ -169,11 +169,13 @@ export interface StopSyncRecordingMessage {
 
 // ── Outgoing messages (desktop → extension) ────────────────────────
 
+/**
+ * V5 rule update message. Rules are fully resolved (no {{VAR}} templates)
+ * and ready for the extension to apply directly.
+ */
 export interface RulesUpdateMessage {
-  type: 'rules-update';
-  data: {
-    rules: RulesData;
-  };
+  type: 'rulesUpdate';
+  rules: import('../types/v5/rule').Rule[];
 }
 
 export interface VideoRecordingStateChangedMessage {
@@ -195,32 +197,4 @@ export interface RecordingHotkeyChangedMessage {
 
 export interface RecordingHotkeyPressedMessage {
   type: 'recordingHotkeyPressed';
-}
-
-// ── Rules data from desktop app ─────────────────────────────────────
-
-export interface HeaderRuleFromApp {
-  id: string;
-  type?: 'header';
-  name?: string;
-  description?: string;
-  headerName: string;
-  headerValue?: string;
-  domains?: string[];
-  isDynamic?: boolean;
-  sourceId?: string | number | null;
-  prefix?: string;
-  suffix?: string;
-  isResponse?: boolean;
-  isEnabled?: boolean;
-  tag?: string;
-  hasEnvVars?: boolean;
-  envVars?: string[];
-  cookieName?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface RulesData {
-  header?: HeaderRuleFromApp[];
 }

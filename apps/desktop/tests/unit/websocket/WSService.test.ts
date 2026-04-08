@@ -49,8 +49,8 @@ describe('WebSocketService', () => {
       expect(service.clientInitializationLocks.size).toBe(0);
     });
 
-    it('initializes with empty rules', () => {
-      expect(service.rules).toEqual([]);
+    it('initializes with null appDataPath', () => {
+      expect(service.appDataPath).toBeNull();
     });
 
     it('creates all handler instances with correct types', () => {
@@ -207,10 +207,11 @@ describe('WebSocketService', () => {
       expect(spy).toHaveBeenCalledWith(rules);
     });
 
-    it('broadcastRules delegates to ruleHandler', () => {
-      const spy = vi.spyOn(service.ruleHandler, 'broadcastRules').mockImplementation(() => {});
-      service.broadcastRules();
-      expect(spy).toHaveBeenCalled();
+    it('setRuleMutationCallbacks delegates to ruleHandler', () => {
+      const spy = vi.spyOn(service.ruleHandler, 'setMutationCallbacks').mockImplementation(() => {});
+      const callbacks = { toggleRule: vi.fn(), removeRule: vi.fn() };
+      service.setRuleMutationCallbacks(callbacks);
+      expect(spy).toHaveBeenCalledWith(callbacks);
     });
 
     it('getConnectionStatus delegates to clientHandler', () => {

@@ -5,4 +5,3 @@
 export * from './browser';
 export * from './header';
 export * from './recording';
-export * from './websocket';

@@ -57,7 +57,6 @@ class WebSocketService {
   wsPort: number;
   host: string;
   isInitializing: boolean;
-  rules: V5.Rule[];
   appDataPath: string | null;
   connectedClients: Map<string, WSClientInfo>;
   clientInitializationLocks: Map<string, InitLock>;
@@ -81,7 +80,6 @@ class WebSocketService {
     this.wsPort = 59210;
     this.host = '127.0.0.1';
     this.isInitializing = false;
-    this.rules = [];
     this.appDataPath = null;
     this.connectedClients = new Map();
     this.clientInitializationLocks = new Map();
@@ -129,7 +127,7 @@ class WebSocketService {
       this.recordingHandler.onReadSetting = (key) => settingsCache.get()[key];
 
       // Initial data loading is handled by WorkspaceStateService.initialize()
-      // which calls broadcastToServices() to populate this.sources and this.rules.
+      // which resolves rules and pushes them via updateRules().
       this.clientHandler.startClientCleanup();
 
       this.networkStateHandler = new WSNetworkStateHandler(this);
@@ -490,8 +488,9 @@ class WebSocketService {
   updateRules(rules: V5.Rule[]): void {
     this.ruleHandler.updateRules(rules);
   }
-  broadcastRules(): void {
-    this.ruleHandler.broadcastRules();
+
+  setRuleMutationCallbacks(callbacks: { toggleRule(uid: string, enabled: boolean): Promise<void>; removeRule(uid: string): Promise<void> }): void {
+    this.ruleHandler.setMutationCallbacks(callbacks);
   }
 
   // Client delegators

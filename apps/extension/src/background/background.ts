@@ -1,18 +1,15 @@
 /**
- * Main background service worker - Minimal orchestrator
+ * Main background service worker — minimal orchestrator.
  *
  * Rule update ownership is centralized in rule-engine.ts.
- * All modules call scheduleUpdate(reason) — the engine coalesces,
- * deduplicates, and makes exactly one updateNetworkRules() call.
+ * Rules arrive pre-resolved from the desktop app via WebSocket.
  */
 
 declare const browser: typeof chrome | undefined;
 
-import { RecordingService } from '@assets/recording/background/recording-service.js';
-import type { SavedDataMap } from '@openheaders/core';
-import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api.js';
+import { RecordingService } from '@assets/recording/background/recording-service';
+import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { getChunkedData } from '@utils/storage-chunking.js';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
 import { getDisabledTagGroups, initPauseState, setDisabledTagGroups, setRulesPaused } from './header-manager';
@@ -22,23 +19,14 @@ import { handleRecordingMessage } from './modules/recording-handler';
 import { setupRequestMonitoring } from './modules/request-monitor';
 import {
   getActiveRulesForTab,
-  refreshSavedDataCache,
+  precompileRulePatterns,
   restoreTrackingState,
   revalidateTrackedRequests,
 } from './modules/request-tracker';
-import {
-  getLastRulesUpdateTime,
-  getLastSavedDataHash,
-  getLastSourcesHash,
-  scheduleUpdate,
-  setLastRulesUpdateTime,
-  setLastSavedDataHash,
-  setLastSourcesHash,
-  updateSavedDataHash,
-} from './modules/rule-engine';
-import { getCurrentSources, hydrateFromStorage } from './modules/sources-store';
+import { scheduleUpdate } from './modules/rule-engine';
+import { hydrateFromStorage } from './modules/rule-store';
 import { setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
-import { generateSavedDataHash, generateSourcesHash } from './modules/utils';
+import { generateRulesHash } from './modules/utils';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -53,9 +41,11 @@ initPauseState();
 
 const recordingService: IRecordingService = new RecordingService();
 
+// ── Badge update ──────────────────────────────────────────────────
+
 async function updateBadgeForCurrentTab(): Promise<void> {
   const isConnected = isWebSocketConnected();
-  const reconnectAttempts = getReconnectAttempts();
+  const attempts = getReconnectAttempts();
 
   const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
   browserAPI.storage.sync.get(['isRulesExecutionPaused'], async (result: { [key: string]: unknown }) => {
@@ -65,16 +55,14 @@ async function updateBadgeForCurrentTab(): Promise<void> {
       const currentTab = tabList[0];
       const currentUrl = currentTab?.url || '';
 
-      if (currentTab?.id && recordingService.isRecording(currentTab.id)) {
-        return;
-      }
+      if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
-      const { activeRules: allMatchingRules } = await getActiveRulesForTab(currentTab?.id, currentUrl);
+      const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
       const disabledGroups = new Set(getDisabledTagGroups());
       const activeRules = allMatchingRules.filter(
-        (r) => r.isEnabled !== false && !disabledGroups.has((r.tag as string) || '__no_tag__'),
+        (r) => r.isEnabled !== false && !disabledGroups.has((r.tags as string[])?.[0] || '__no_tag__'),
       );
-      await updateExtensionBadge(isConnected, activeRules, isPaused, recordingService, reconnectAttempts);
+      await updateExtensionBadge(isConnected, activeRules, isPaused, recordingService, attempts);
     });
   });
 }
@@ -89,6 +77,8 @@ const debouncedUpdateBadge = (() => {
     }, 100);
   };
 })();
+
+// ── Initialization ────────────────────────────────────────────────
 
 let extensionInitialized = false;
 async function initializeExtension(): Promise<void> {
@@ -105,47 +95,40 @@ async function initializeExtension(): Promise<void> {
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 
-  // Hydrate sources from storage (offline start before WebSocket connects)
-  const restoredSources = await hydrateFromStorage();
-  if (restoredSources.length > 0) {
-    logger.info('Background', 'Restored dynamic sources from storage:', restoredSources.length);
-    setLastSourcesHash(generateSourcesHash(restoredSources));
-    scheduleUpdate('init', { immediate: true, sources: restoredSources });
+  // Hydrate rules from storage (offline start before WebSocket connects)
+  const restoredRules = await hydrateFromStorage();
+  if (restoredRules.length > 0) {
+    logger.info('Background', `Restored ${restoredRules.length} rules from storage`);
+    precompileRulePatterns();
+    scheduleUpdate('init', { immediate: true });
   }
-
-  getChunkedData('savedData', (savedData: SavedDataMap | null) => {
-    if (savedData) {
-      updateSavedDataHash(savedData);
-      logger.debug('Background', 'Initialized saved data hash');
-    }
-  });
 
   await connectWebSocket();
 
-  // Fallback: if WebSocket didn't provide sources yet, apply empty rules
+  // Fallback: if WebSocket didn't provide rules, apply whatever we have
   setTimeout(() => {
-    if (getCurrentSources().length === 0 && !getLastRulesUpdateTime()) {
-      scheduleUpdate('init', { immediate: true, sources: [] });
+    if (!isWebSocketConnected()) {
+      scheduleUpdate('init', { immediate: true });
     }
   }, 1000);
 }
 
-// Alarms
+// ── Alarms ────────────────────────────────────────────────────────
+
 alarms!.create('keepAlive', { periodInMinutes: 0.5 });
 alarms!.create('updateBadge', { delayInMinutes: 0.01, periodInMinutes: 0.033 });
 
 alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
   if (alarm.name === 'keepAlive') {
     logger.debug('Background', 'Keep alive ping');
-
     if (!isWebSocketConnected() && !isWebSocketConnecting()) {
       const attempts = getReconnectAttempts();
       const log = attempts <= 1 ? logger.info : logger.debug;
-      log.call(logger, 'Background', 'WebSocket disconnected, reconnecting via keepAlive...');
+      log.call(logger, 'Background', 'WebSocket disconnected, reconnecting...');
       try {
         await connectWebSocket();
       } catch (error) {
-        logger.debug('Background', 'Failed to reconnect WebSocket:', (error as Error).message);
+        logger.debug('Background', 'Failed to reconnect:', (error as Error).message);
       }
     }
   } else if (alarm.name === 'updateBadge') {
@@ -153,18 +136,19 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
   }
 });
 
-// Storage change listeners
+// ── Storage listeners ─────────────────────────────────────────────
+
 storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
-  // Pause state — immediate rule update
+  // Pause state
   if (area === 'sync' && changes.isRulesExecutionPaused) {
     const paused = (changes.isRulesExecutionPaused.newValue as boolean) || false;
-    logger.info('Background', 'Rules execution pause state changed to:', paused);
+    logger.info('Background', 'Pause state changed to:', paused);
     setRulesPaused(paused);
     scheduleUpdate('pause', { immediate: true });
     debouncedUpdateBadge();
   }
 
-  // Tag group state — immediate rule update
+  // Tag groups
   if (area === 'local' && changes.disabledTagGroups) {
     const groups = (changes.disabledTagGroups.newValue as string[]) || [];
     logger.info('Background', 'Disabled tag groups changed:', groups);
@@ -176,138 +160,73 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
   // Log level
   if (area === 'sync' && changes.logLevel) {
     const newLevel = changes.logLevel.newValue as string;
-    if (newLevel) {
-      logger.setLevel(newLevel as 'error' | 'warn' | 'info' | 'debug');
-    }
+    if (newLevel) logger.setLevel(newLevel as 'error' | 'warn' | 'info' | 'debug');
   }
 
   // Hotkey commands
   if (area === 'local' && changes.hotkeyCommand) {
     const command = changes.hotkeyCommand.newValue as HotkeyCommand | undefined;
-    if (!command) return;
+    if (!command || command.type !== 'TOGGLE_RECORDING') return;
 
-    if (command.type === 'TOGGLE_RECORDING') {
-      tabs.query({ active: true, currentWindow: true }, (tabList: chrome.tabs.Tab[]) => {
-        if (!tabList?.[0]) {
-          logger.info('Background', 'No active tab found for recording toggle');
-          return;
-        }
+    tabs.query({ active: true, currentWindow: true }, (tabList: chrome.tabs.Tab[]) => {
+      if (!tabList?.[0]) return;
+      const tabId = tabList[0].id!;
 
-        const tabId = tabList[0].id!;
-
-        if (recordingService.isRecording(tabId)) {
-          logger.info('Background', 'Stopping recording from hotkey for tab:', tabId);
+      if (recordingService.isRecording(tabId)) {
+        recordingService.stopRecording(tabId).catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
+      } else {
+        tabs.query({}, (allTabs: chrome.tabs.Tab[]) => {
+          for (const tab of allTabs) {
+            if (tab.id && recordingService.isRecording(tab.id)) {
+              recordingService.stopRecording(tab.id).catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
+              return;
+            }
+          }
           recordingService
-            .stopRecording(tabId)
-            .then(() => logger.info('Background', 'Recording stopped from hotkey for tab:', tabId))
-            .catch((error: Error) => logger.error('Background', 'Failed to stop recording from hotkey:', error));
-        } else {
-          tabs.query({}, (allTabs: chrome.tabs.Tab[]) => {
-            let hasActiveRecording = false;
-            for (const tab of allTabs) {
-              if (tab.id && recordingService.isRecording(tab.id)) {
-                hasActiveRecording = true;
-                logger.info('Background', 'Stopping recording on tab:', tab.id, 'from hotkey');
-                recordingService
-                  .stopRecording(tab.id)
-                  .then(() => logger.info('Background', 'Recording stopped on tab:', tab.id))
-                  .catch((error: Error) => logger.error('Background', 'Failed to stop recording:', error));
-                break;
-              }
-            }
-
-            if (!hasActiveRecording) {
-              logger.info('Background', 'Starting recording from hotkey for tab:', tabId);
-              recordingService
-                .startRecording(tabId, { useWidget: true })
-                .then(() => logger.info('Background', 'Recording started from hotkey for tab:', tabId))
-                .catch((error: Error) => logger.error('Background', 'Failed to start recording from hotkey:', error));
-            }
-          });
-        }
-      });
-    }
+            .startRecording(tabId, { useWidget: true })
+            .catch((e: Error) => logger.error('Background', 'Start recording failed:', e));
+        });
+      }
+    });
 
     storage.local.remove('hotkeyCommand');
   }
 });
 
-// Saved data changes — debounced rule update via engine
-storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
-  if (area === 'sync') {
-    const hasDataChange =
-      changes.savedData ||
-      changes.savedData_chunked ||
-      Object.keys(changes).some((key) => key.startsWith('savedData_chunk_'));
+// ── Message listener ──────────────────────────────────────────────
 
-    if (hasDataChange) {
-      refreshSavedDataCache(() => {
-        getChunkedData('savedData', (newSavedData: SavedDataMap | null) => {
-          const effectiveSavedData: SavedDataMap = newSavedData || {};
-          const newHash = generateSavedDataHash(effectiveSavedData);
-
-          if (newHash === getLastSavedDataHash()) {
-            logger.debug('Background', 'Saved data changed but content is identical, skipping update');
-            return;
-          }
-
-          logger.info('Background', 'Saved header data changed, scheduling rule update');
-          updateSavedDataHash(effectiveSavedData);
-          revalidateTrackedRequests().then(() => {
-            scheduleUpdate('savedData');
-            debouncedUpdateBadge();
-          });
-        });
-      });
-    }
-  }
-});
-
-// Message listener
 runtime.onMessage.addListener(
   (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
     const msg = message as Record<string, unknown>;
-    const recordingHandled = handleRecordingMessage(
-      msg,
-      sender,
-      sendResponse,
-      recordingService,
-      sendRecordingViaWebSocket,
-    );
+    const recordingHandled = handleRecordingMessage(msg, sender, sendResponse, recordingService, sendRecordingViaWebSocket);
     if (recordingHandled) return recordingHandled;
 
     return handleGeneralMessage(msg, sender, sendResponse, {
-      getCurrentSources,
       isWebSocketConnected,
       sendViaWebSocket,
       scheduleUpdate,
       revalidateTrackedRequests,
       updateBadgeCallback: debouncedUpdateBadge,
-      lastSourcesHash: getLastSourcesHash(),
-      setLastSourcesHash,
-      lastRulesUpdateTime: getLastRulesUpdateTime(),
-      setLastRulesUpdateTime,
-      lastSavedDataHash: getLastSavedDataHash(),
-      setLastSavedDataHash: (hash: string) => setLastSavedDataHash(hash),
     });
   },
 );
 
+// ── Startup ───────────────────────────────────────────────────────
+
 runtime.onStartup.addListener(() => {
-  logger.info('Background', 'Browser started up, connecting WebSocket...');
+  logger.info('Background', 'Browser started up');
   void initializeExtension();
 });
 
 runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
-  logger.info('Background', 'Extension installed or updated:', details.reason);
+  logger.info('Background', 'Extension installed/updated:', details.reason);
   logger.info(
     'Background',
-    'Browser detected:',
+    'Browser:',
     isFirefox ? 'Firefox' : isChrome ? 'Chrome' : isEdge ? 'Edge' : isSafari ? 'Safari' : 'Unknown',
   );
-
   void initializeExtension();
 });
 
-logger.info('Background', 'Background script started, initializing...');
+logger.info('Background', 'Background script started');
 void initializeExtension();

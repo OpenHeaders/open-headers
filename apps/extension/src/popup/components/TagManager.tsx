@@ -1,5 +1,5 @@
 import { FolderOpenOutlined, FolderOutlined, PauseCircleOutlined, TagsOutlined } from '@ant-design/icons';
-import type { HeaderEntry } from '@context/HeaderContext';
+import type { V5 } from '@openheaders/core/types';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useHeader } from '@hooks/useHeader';
 import { App, Empty, Input, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
@@ -13,15 +13,11 @@ import { renderDomainTags } from './columns/sharedColumnRenderers';
 
 const { Text } = Typography;
 
-interface RuleWithId extends HeaderEntry {
-  id: string;
-}
-
 interface TagGroupRecord {
   key: string;
   groupKey: string;
   name: string;
-  rules: RuleWithId[];
+  rules: V5.Rule[];
   totalCount: number;
   enabledCount: number;
   allEnabled: boolean;
@@ -53,24 +49,23 @@ const TagManager: React.FC<TagManagerProps> = ({
   onPageInfoChange,
   onRowActionsChange,
 }) => {
-  const { headerEntries, isConnected, disabledTagGroups, toggleTagGroup } = useHeader();
+  const { rules, isConnected, disabledTagGroups, toggleTagGroup } = useHeader();
   const { message } = App.useApp();
   const { expandedRowKey, setNestedRowCount, toggleExpandedRow, setFocusedRowIndex } = useKeyboardNav();
   const [searchText, setSearchText] = useState('');
 
   const groupedRules = useMemo((): TagGroupRecord[] => {
-    const groups: Record<string, { name: string; rules: RuleWithId[] }> = {};
+    const groups: Record<string, { name: string; rules: V5.Rule[] }> = {};
     groups.__no_tag__ = { name: 'Untagged Rules', rules: [] };
 
-    Object.entries(headerEntries).forEach(([id, rule]) => {
-      const tag = rule.tag || '__no_tag__';
+    for (const rule of rules) {
+      const tag = rule.tags[0] || '__no_tag__';
       if (tag !== '__no_tag__' && !groups[tag]) {
         groups[tag] = { name: tag, rules: [] };
       }
-      groups[tag].rules.push({ id, ...rule });
-    });
+      groups[tag].rules.push(rule);
+    }
 
-    // Remove empty groups
     for (const key of Object.keys(groups)) {
       if (groups[key].rules.length === 0) delete groups[key];
     }
@@ -82,7 +77,7 @@ const TagManager: React.FC<TagManagerProps> = ({
     });
 
     return sorted.map(([groupKey, groupData]) => {
-      const enabled = groupData.rules.filter((r) => r.isEnabled !== false).length;
+      const enabled = groupData.rules.filter((r) => r.enabled).length;
       return {
         key: groupKey,
         groupKey,
@@ -94,7 +89,7 @@ const TagManager: React.FC<TagManagerProps> = ({
         isGroupDisabled: disabledTagGroups.has(groupKey),
       };
     });
-  }, [headerEntries, disabledTagGroups]);
+  }, [rules, disabledTagGroups]);
 
   // Filter by search — track rule-level matches separately from group name matches
   const ruleMatchCountMap = useMemo(() => new Map<string, number>(), []);
@@ -108,16 +103,16 @@ const TagManager: React.FC<TagManagerProps> = ({
         const nameMatch = group.name.toLowerCase().includes(q);
         const matchingRules = group.rules.filter(
           (r) =>
-            r.headerName.toLowerCase().includes(q) ||
-            (r.domains || []).some((d) => d.toLowerCase().includes(q)) ||
-            (r.tag || '').toLowerCase().includes(q),
+            r.name.toLowerCase().includes(q) ||
+            r.domains.some((d: string) => d.toLowerCase().includes(q)) ||
+            (r.tags[0] ?? '').toLowerCase().includes(q),
         );
         if (matchingRules.length > 0) {
           ruleMatchCountMap.set(group.groupKey, matchingRules.length);
         }
         if (nameMatch) return group;
         if (matchingRules.length > 0) {
-          const enabled = matchingRules.filter((r) => r.isEnabled !== false).length;
+          const enabled = matchingRules.filter((r) => r.enabled).length;
           return {
             ...group,
             rules: matchingRules,
@@ -160,7 +155,7 @@ const TagManager: React.FC<TagManagerProps> = ({
     onToggleRow: handleToggleRow,
   });
 
-  const totalRules = Object.keys(headerEntries).length;
+  const totalRules = rules.length;
 
   const columns: ColumnsType<TagGroupRecord> = [
     {
@@ -420,15 +415,17 @@ const TagManager: React.FC<TagManagerProps> = ({
               (document.activeElement as HTMLElement)?.blur();
             },
             expandedRowRender: (record: TagGroupRecord) => {
-              const nestedData: NestedRuleRecord[] = record.rules.map((rule) => ({
-                key: rule.id,
-                id: rule.id,
-                headerName: rule.headerName,
-                isResponse: rule.isResponse,
-                isEnabled: rule.isEnabled !== false,
-                domains: rule.domains || [],
-                tag: rule.tag || '',
-              }));
+              const nestedData: NestedRuleRecord[] = record.rules
+                .filter((r): r is V5.HeaderRule => r.type === 'header')
+                .map((rule) => ({
+                  key: rule.uid,
+                  id: rule.uid,
+                  headerName: rule.action.headerName,
+                  isResponse: rule.action.isResponse,
+                  isEnabled: rule.enabled,
+                  domains: rule.domains,
+                  tag: rule.tags[0] ?? '',
+                }));
 
               // Report nested row count to keyboard nav when this is the keyboard-expanded row
               if (record.key === expandedRowKey) {

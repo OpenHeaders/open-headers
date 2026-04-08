@@ -2,8 +2,6 @@
  * Browser API helper types
  */
 
-import type { Source } from '@openheaders/core';
-
 declare const browser: typeof chrome | undefined;
 
 /** The cross-browser API object (Firefox `browser` or Chrome `chrome`) */
@@ -48,18 +46,11 @@ export interface ActiveRule {
 
 /** Context object passed to handleGeneralMessage */
 export interface MessageHandlerContext {
-  getCurrentSources: () => Source[];
   isWebSocketConnected: () => boolean;
   sendViaWebSocket: (data: Record<string, unknown>) => boolean;
-  scheduleUpdate: (reason: string, options?: { immediate?: boolean; sources?: Source[] }) => void;
+  scheduleUpdate: (reason: string, options?: { immediate?: boolean }) => void;
   revalidateTrackedRequests: () => Promise<void>;
   updateBadgeCallback: () => void;
-  lastSourcesHash: string;
-  setLastSourcesHash: (hash: string) => void;
-  lastRulesUpdateTime: number;
-  setLastRulesUpdateTime: (time: number) => void;
-  lastSavedDataHash: string;
-  setLastSavedDataHash: (hash: string) => void;
 }
 
 /** Hotkey command stored in local storage */

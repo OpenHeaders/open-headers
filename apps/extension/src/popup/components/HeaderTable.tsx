@@ -13,7 +13,7 @@ import {
   StopOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
-import type { DynamicSource, HeaderEntry } from '@context/HeaderContext';
+import type { V5 } from '@openheaders/core/types';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useHeader } from '@hooks/useHeader';
 import { getAppLauncher } from '@utils/app-launcher';
@@ -37,34 +37,16 @@ import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 const { Search } = Input;
 const { Text } = Typography;
 
-type PlaceholderType = 'source_not_found' | 'empty_source' | 'empty_value' | null;
-
 interface TableRecord {
   key: string;
   id: string;
   headerName: string;
   headerValue: string;
   domains: string[];
-  isDynamic: boolean | undefined;
-  sourceId: string | number | null | undefined;
-  prefix: string;
-  suffix: string;
-  isResponse: boolean | undefined;
+  operation: V5.HeaderOperation;
+  isResponse: boolean;
   isEnabled: boolean;
-  sourceInfo: string;
-  sourceTag: string;
-  placeholderType: PlaceholderType;
-  actualValue: string;
   tag: string;
-  isCachedValue: boolean;
-}
-
-interface DynamicValueInfo {
-  sourceInfo: string;
-  sourceTag: string;
-  placeholderType: PlaceholderType;
-  actualValue: string;
-  isCachedValue: boolean;
 }
 
 interface HeaderTableProps {
@@ -83,7 +65,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   const { message } = App.useApp();
   const appLauncher = getAppLauncher();
 
-  const { headerEntries, dynamicSources, isConnected, uiState, updateUiState, disabledTagGroups } = useHeader();
+  const { rules, isConnected, uiState, updateUiState, disabledTagGroups } = useHeader();
   const { setFocusedRowIndex } = useKeyboardNav();
 
   const [copiedRowId, setCopiedRowId] = useState<string | number | null>(null);
@@ -103,72 +85,20 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
     }
   }, [uiState?.tableState]);
 
-  function getDynamicValueInfo(entry: HeaderEntry, sources: DynamicSource[], connected: boolean): DynamicValueInfo {
-    if (!entry.isDynamic || !entry.sourceId) {
-      if (!entry.headerValue?.trim()) {
-        return { sourceInfo: '', sourceTag: '', placeholderType: 'empty_value', actualValue: '', isCachedValue: false };
-      }
-      return {
-        sourceInfo: '',
-        sourceTag: '',
-        placeholderType: null,
-        actualValue: entry.headerValue,
-        isCachedValue: false,
-      };
-    }
-
-    const source = sources.find(
-      (s) =>
-        s.sourceId?.toString() === entry.sourceId?.toString() ||
-        s.locationId?.toString() === entry.sourceId?.toString(),
-    );
-
-    const sourceTag = source ? source.sourceTag || source.locationTag || '' : '';
-    const sourcePath = source
-      ? source.sourcePath || source.locationPath || source.sourceUrl || source.locationUrl || ''
-      : '';
-    const sourceType = source ? source.sourceType || source.locationType || '' : '';
-    const displayPath =
-      sourceType.toLowerCase().includes('env') && sourcePath && !sourcePath.startsWith('$')
-        ? `$${sourcePath}`
-        : sourcePath;
-    const sourceInfo = displayPath || `Source #${entry.sourceId}`;
-    const content = source ? source.sourceContent || source.locationContent || '' : '';
-    const actualValue = content ? `${entry.prefix || ''}${content}${entry.suffix || ''}` : '';
-
-    if (!source) {
-      return { sourceInfo, sourceTag, placeholderType: 'source_not_found', actualValue: '', isCachedValue: false };
-    }
-
-    if (!content) {
-      return { sourceInfo, sourceTag, placeholderType: 'empty_source', actualValue: '', isCachedValue: false };
-    }
-
-    return { sourceInfo, sourceTag, placeholderType: null, actualValue, isCachedValue: !connected };
-  }
-
-  const dataSource: TableRecord[] = Object.entries(headerEntries).map(([id, entry]) => {
-    const dynamicInfo = getDynamicValueInfo(entry, dynamicSources, isConnected);
-    return {
-      key: id,
-      id,
-      headerName: entry.headerName,
-      headerValue: entry.headerValue,
-      domains: entry.domains || [],
-      isDynamic: entry.isDynamic,
-      sourceId: entry.sourceId,
-      prefix: entry.prefix || '',
-      suffix: entry.suffix || '',
-      isResponse: entry.isResponse,
-      isEnabled: entry.isEnabled !== false,
-      sourceInfo: dynamicInfo.sourceInfo,
-      sourceTag: dynamicInfo.sourceTag,
-      placeholderType: dynamicInfo.placeholderType,
-      actualValue: dynamicInfo.actualValue,
-      isCachedValue: dynamicInfo.isCachedValue,
-      tag: entry.tag || '',
-    };
-  });
+  // Build table records from V5 header rules
+  const dataSource: TableRecord[] = rules
+    .filter((r): r is V5.HeaderRule => r.type === 'header')
+    .map((rule) => ({
+      key: rule.uid,
+      id: rule.uid,
+      headerName: rule.action.headerName,
+      headerValue: rule.staticValue ?? '',
+      domains: rule.domains,
+      operation: rule.action.operation,
+      isResponse: rule.action.isResponse,
+      isEnabled: rule.enabled,
+      tag: rule.tags[0] ?? '',
+    }));
 
   const dataSourceRef = useRef<TableRecord[]>([]);
 
@@ -176,7 +106,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
     (item) =>
       item.headerName.toLowerCase().includes(searchText.toLowerCase()) ||
       item.domains.some((domain) => domain.toLowerCase().includes(searchText.toLowerCase())) ||
-      item.actualValue.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.headerValue.toLowerCase().includes(searchText.toLowerCase()) ||
       item.tag.toLowerCase().includes(searchText.toLowerCase()),
   );
 
@@ -184,7 +114,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   dataSourceRef.current = filteredData;
 
   const enabledCount = dataSource.filter((item) => item.isEnabled).length;
-  const injectingCount = dataSource.filter((item) => item.isEnabled && !item.placeholderType).length;
+  const injectingCount = dataSource.filter((item) => item.isEnabled && item.headerValue.trim()).length;
   const pausedCount = dataSource.filter(
     (item) => item.isEnabled && disabledTagGroups.has(item.tag || '__no_tag__'),
   ).length;
@@ -226,8 +156,8 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
 
   const handleCopyRow = useCallback((index: number) => {
     const record = dataSourceRef.current[index];
-    if (!record?.actualValue) return;
-    void navigator.clipboard.writeText(record.actualValue);
+    if (!record?.headerValue) return;
+    void navigator.clipboard.writeText(record.headerValue);
     setCopiedRowId(record.id);
     setTimeout(() => setCopiedRowId(null), 1000);
   }, []);
@@ -303,19 +233,6 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
     }
   };
 
-  function getPlaceholderTooltip(type: PlaceholderType, sourceId?: string | number | null): string {
-    switch (type) {
-      case 'source_not_found':
-        return `Not injecting — source #${sourceId} was deleted. Recreate to resume.`;
-      case 'empty_source':
-        return `Not injecting — source #${sourceId} is empty. Will resume when it has content.`;
-      case 'empty_value':
-        return 'Not injecting — header value is empty. Set a value to activate.';
-      default:
-        return '';
-    }
-  }
-
   const columns: ColumnsType<TableRecord> = [
     {
       title: 'Header Name',
@@ -329,31 +246,30 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
       filterSearch: true,
       onFilter: (value, record) => record.headerName === value,
       sortOrder: sortedInfo.columnKey === 'headerName' ? sortedInfo.order : null,
-      render: (text: string, record: TableRecord) => {
-        const hasPlaceholder = record.placeholderType && record.isEnabled;
-        const tooltipMessage = hasPlaceholder ? getPlaceholderTooltip(record.placeholderType, record.sourceId) : '';
-        return (
-          <Space align="center">
-            <Text strong style={{ fontSize: '13px' }}>
-              {text}
-            </Text>
-            {hasPlaceholder && (
-              <Tooltip title={tooltipMessage}>
-                <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '12px' }} />
-              </Tooltip>
-            )}
-          </Space>
-        );
-      },
+      render: (text: string, record: TableRecord) => (
+        <Space align="center">
+          <Text strong style={{ fontSize: '13px', opacity: record.isEnabled ? 1 : 0.5 }}>
+            {text}
+          </Text>
+          {record.isEnabled && !record.headerValue.trim() && record.operation !== 'remove' && (
+            <Tooltip title="Not injecting — header value is empty">
+              <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '12px' }} />
+            </Tooltip>
+          )}
+        </Space>
+      ),
     },
     {
       title: 'Value',
-      dataIndex: 'actualValue',
-      key: 'actualValue',
+      dataIndex: 'headerValue',
+      key: 'headerValue',
       width: 150,
-      sorter: (a, b) => (a.actualValue || '').localeCompare(b.actualValue || ''),
-      sortOrder: sortedInfo.columnKey === 'actualValue' ? sortedInfo.order : null,
+      sorter: (a, b) => a.headerValue.localeCompare(b.headerValue),
+      sortOrder: sortedInfo.columnKey === 'headerValue' ? sortedInfo.order : null,
       render: (text: string, record: TableRecord) => {
+        if (record.operation === 'remove') {
+          return <Text type="secondary" style={{ fontSize: '12px', fontStyle: 'italic' }}>Remove header</Text>;
+        }
         const fullValue = text || '';
         return renderValueWithCopy({
           fullValue,
@@ -396,22 +312,6 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
           ...dataSource.map((item) => (item.isResponse ? 'Response' : 'Request')),
           ...dataSource.filter((item) => item.tag).map((item) => item.tag),
           ...dataSource.filter((item) => disabledTagGroups.has(item.tag || '__no_tag__')).map(() => 'Paused'),
-          ...dataSource.filter((item) => item.isCachedValue).map(() => 'Cached'),
-          ...dataSource
-            .filter((item) => item.placeholderType)
-            .map((item) => {
-              switch (item.placeholderType) {
-                case 'source_not_found':
-                  return 'Missing';
-                case 'empty_source':
-                  return 'Empty Source';
-                case 'empty_value':
-                  return 'Empty Value';
-                default:
-                  return '';
-              }
-            })
-            .filter(Boolean),
         ]),
       ].map((tag) => ({ text: tag, value: tag })),
       filteredValue: filteredInfo.tags || null,
@@ -419,20 +319,6 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
       onFilter: (value, record) => {
         const tags = [record.isResponse ? 'Response' : 'Request', ...(record.tag ? [record.tag] : [])];
         if (disabledTagGroups.has(record.tag || '__no_tag__')) tags.push('Paused');
-        if (record.isCachedValue) tags.push('Cached');
-        if (record.placeholderType) {
-          switch (record.placeholderType) {
-            case 'source_not_found':
-              tags.push('Missing');
-              break;
-            case 'empty_source':
-              tags.push('Empty Source');
-              break;
-            case 'empty_value':
-              tags.push('Empty Value');
-              break;
-          }
-        }
         return tags.includes(value as string);
       },
       sortOrder: sortedInfo.columnKey === 'tags' ? sortedInfo.order : null,
@@ -446,51 +332,13 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
             tooltip: `Tag group "${record.tag || 'Untagged'}" is paused — rule not injected`,
           });
         }
-        if (!record.placeholderType && record.isCachedValue && record.isEnabled) {
-          allTags.push({
-            label: 'Cached',
-            color: 'warning',
-            tooltip: 'Using cached value — app disconnected, source may be outdated',
-          });
-        }
-        if (record.placeholderType) {
-          allTags.push({
-            label: record.placeholderType === 'source_not_found' ? 'Missing' : 'Empty',
-            color: record.placeholderType === 'source_not_found' ? 'error' : 'warning',
-            tooltip: getPlaceholderTooltip(record.placeholderType, record.sourceId),
-          });
-        }
         if (record.tag) {
           allTags.push({ label: record.tag, color: getTagColor(record.tag) });
         }
         allTags.push({ label: record.isResponse ? 'Res' : 'Req', tooltip: record.isResponse ? 'Response' : 'Request' });
 
-        const hasStatusTag =
-          allTags[0]?.label === 'Paused' ||
-          allTags[0]?.label === 'Cached' ||
-          allTags[0]?.label === 'Missing' ||
-          allTags[0]?.label === 'Empty';
+        const hasStatusTag = allTags[0]?.label === 'Paused';
         return renderTagOverflow(allTags, hasStatusTag ? 1 : 2);
-      },
-    },
-    {
-      title: 'Source',
-      dataIndex: 'sourceInfo',
-      key: 'sourceInfo',
-      width: 150,
-      sorter: (a, b) => (a.isDynamic ? a.sourceInfo : 'Static').localeCompare(b.isDynamic ? b.sourceInfo : 'Static'),
-      sortOrder: sortedInfo.columnKey === 'sourceInfo' ? sortedInfo.order : null,
-      render: (sourceInfo: string, record: TableRecord) => {
-        if (!record.isDynamic) {
-          return <Text style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Static value</Text>;
-        }
-        return (
-          <Tooltip title={sourceInfo}>
-            <Text ellipsis style={{ display: 'block', fontSize: '12px' }}>
-              {sourceInfo}
-            </Text>
-          </Tooltip>
-        );
       },
     },
     {
@@ -774,7 +622,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
           })}
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
-            if (record.isEnabled && record.placeholderType) classes.push('row-not-injecting');
+            if (record.isEnabled && !record.headerValue.trim() && record.operation !== 'remove') classes.push('row-not-injecting');
             if (disabledTagGroups.has(record.tag || '__no_tag__')) classes.push('row-group-paused');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');

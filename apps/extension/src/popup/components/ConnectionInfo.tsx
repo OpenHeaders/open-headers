@@ -7,7 +7,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 
 const ConnectionInfo: React.FC = () => {
-  const { isConnected, isStatusLoaded, headerEntries } = useHeader();
+  const { isConnected, isStatusLoaded, rules } = useHeader();
   const { isTourOpen } = useKeyboardNav();
   const [dismissed, setDismissed] = useState(false);
   const [lastConnectionState, setLastConnectionState] = useState(isConnected);
@@ -58,7 +58,7 @@ const ConnectionInfo: React.FC = () => {
         title="Desktop App Not Connected"
         description={
           <div>
-            {Object.keys(headerEntries).length > 0 && (
+            {rules.length > 0 && (
               <div style={{ fontSize: 12, marginBottom: 6 }}>
                 Your rules are still active using cached data.
                 <br />

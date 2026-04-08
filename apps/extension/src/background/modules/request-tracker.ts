@@ -1,12 +1,15 @@
 /**
- * Request Tracker - Tracks which tabs are making requests to domains with rules
+ * Request Tracker — tracks which tabs have requests matching V5 rules.
+ *
+ * Used for badge display and the Active tab in the popup.
+ * Reads rules from the in-memory rule store (no storage reads in hot paths).
  */
 
-import type { HeaderEntry, SavedDataMap } from '@openheaders/core';
-import { storage, tabs } from '@utils/browser-api.js';
+import type { V5 } from '@openheaders/core/types';
+import { tabs } from '@utils/browser-api';
 import { sendMessageWithCallback } from '@utils/messaging';
-import { getChunkedData } from '@utils/storage-chunking.js';
 import type { ActiveRule, MatchedRequest } from '@/types/browser';
+import { getRules } from './rule-store';
 import {
   clearPatternCache,
   doesUrlMatchPattern,
@@ -15,192 +18,148 @@ import {
   precompileAllPatterns,
 } from './url-utils';
 
-// Constants
-const REVALIDATION_QUEUE = new Set<number>(); // Track pending revalidations
-let isRevalidating = false; // Prevent concurrent revalidations
+// ── Tracked state ─────────────────────────────────────────────────
 
-// Track which tabs are making requests to domains with rules.
-// Map<tabId, Map<normalizedUrl, timestamp>> — timestamp enables
-// the Active tab to show when each request was intercepted.
+const REVALIDATION_QUEUE = new Set<number>();
+let isRevalidating = false;
+
+/**
+ * Map<tabId, Map<normalizedUrl, timestamp>> — tracks which resource URLs
+ * were seen on which tabs. Used for indirect matching.
+ */
 export const tabsWithActiveRules: Map<number, Map<string, number>> = new Map();
 
-// ── In-memory savedData cache ──────────────────────────────────────
-let cachedSavedData: SavedDataMap | null = null;
-let cacheInitialized = false;
-
-/** Warm the cache from storage (called once at startup) */
-function ensureCache(callback: (data: SavedDataMap) => void): void {
-  if (cacheInitialized && cachedSavedData !== null) {
-    callback(cachedSavedData);
-    return;
-  }
-  refreshSavedDataCache(() => {
-    callback(cachedSavedData!);
-  });
-}
-
-/** Force-refresh the cache from storage right now and pre-compile URL patterns */
-export function refreshSavedDataCache(callback?: () => void): void {
-  getChunkedData('savedData', (data: SavedDataMap | null) => {
-    cachedSavedData = data || {};
-    cacheInitialized = true;
-
-    // Pre-compile all domain patterns for fast matching
-    clearPatternCache();
-    const allDomains: string[] = [];
-    for (const id in cachedSavedData) {
-      const entry = cachedSavedData[id];
-      if (entry.isEnabled !== false && entry.domains) {
-        allDomains.push(...entry.domains);
-      }
-    }
-    if (allDomains.length > 0) {
-      precompileAllPatterns(allDomains);
-    }
-
-    if (callback) callback();
-  });
-}
-
-// Listen for storage changes that affect savedData and auto-refresh cache
-storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
-  if (area === 'sync') {
-    const hasDataChange =
-      changes.savedData ||
-      changes.savedData_chunked ||
-      Object.keys(changes).some((key) => key.startsWith('savedData_chunk_'));
-    if (hasDataChange) {
-      refreshSavedDataCache();
-    }
-  }
-});
+// ── Pattern precompilation ────────────────────────────────────────
 
 /**
- * Check if a URL matches any active rule
+ * Precompile URL patterns from all rules for fast matching.
+ * Called when rules change.
  */
-export async function checkIfUrlMatchesAnyRule(url: string): Promise<boolean> {
+export function precompileRulePatterns(): void {
+  clearPatternCache();
+  const allDomains: string[] = [];
+  for (const rule of getRules()) {
+    if (rule.domains.length > 0) {
+      allDomains.push(...rule.domains);
+    }
+  }
+  if (allDomains.length > 0) {
+    precompileAllPatterns(allDomains);
+  }
+}
+
+// ── Matching ──────────────────────────────────────────────────────
+
+/**
+ * Check if a URL matches any rule's domain patterns.
+ */
+export function checkIfUrlMatchesAnyRule(url: string): boolean {
   const normalizedUrl = normalizeUrlForTracking(url);
-
-  return new Promise<boolean>((resolve) => {
-    ensureCache((savedData: SavedDataMap) => {
-      // Check if this URL matches any rule (enabled or disabled).
-      // Disabled rules still need tracking so the Active tab can show
-      // them as indirect matches with the toggle off.
-      for (const id in savedData) {
-        const entry: HeaderEntry = savedData[id];
-
-        const domains: string[] = entry.domains || [];
-        for (const domain of domains) {
-          if (doesUrlMatchPattern(normalizedUrl, domain)) {
-            resolve(true);
-            return;
-          }
-        }
+  for (const rule of getRules()) {
+    for (const domain of rule.domains) {
+      if (doesUrlMatchPattern(normalizedUrl, domain)) {
+        return true;
       }
-
-      resolve(false);
-    });
-  });
+    }
+  }
+  return false;
 }
 
-/**
- * Get all matching rules for a specific tab (direct and indirect matches).
- * Returns both enabled and disabled rules so the Active tab can show
- * everything that matches this domain and let the user toggle them.
- */
 export interface ActiveRulesResult {
   activeRules: ActiveRule[];
   uniqueRequestCount: number;
 }
 
-export async function getActiveRulesForTab(tabId: number | undefined, tabUrl: string): Promise<ActiveRulesResult> {
+/**
+ * Get all matching rules for a specific tab (direct and indirect matches).
+ * Returns both enabled and disabled rules so the popup can show toggles.
+ */
+export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string): ActiveRulesResult {
   if (!tabUrl || !isTrackableUrl(tabUrl)) {
     return { activeRules: [], uniqueRequestCount: 0 };
   }
 
-  // Get tracked resource URLs with timestamps for this tab (indirect matches)
   const trackedResources: Map<string, number> = new Map();
   if (tabId && tabsWithActiveRules.has(tabId)) {
-    const tracked = tabsWithActiveRules.get(tabId)!;
-    for (const [url, ts] of tracked) {
+    for (const [url, ts] of tabsWithActiveRules.get(tabId)!) {
       trackedResources.set(url, ts);
     }
   }
 
-  return new Promise<ActiveRulesResult>((resolve) => {
-    ensureCache((savedData: SavedDataMap) => {
-      const activeRules: ActiveRule[] = [];
-      const now = Date.now(); // Shared timestamp for tab URL across all rules
+  const activeRules: ActiveRule[] = [];
+  const now = Date.now();
+  const rules = getRules();
 
-      for (const id in savedData) {
-        const entry: HeaderEntry = savedData[id];
+  for (const rule of rules) {
+    // Only include header rules for now (other rule types aren't applied via DNR yet)
+    if (rule.type !== 'header') continue;
 
-        const domains: string[] = entry.domains || [];
-        let matchType: 'direct' | 'indirect' | null = null;
+    const headerRule = rule as V5.HeaderRule;
+    const domains = rule.domains;
+    let matchType: 'direct' | 'indirect' | null = null;
+    const matchedUrls: MatchedRequest[] = [];
 
-        // Collect matched URLs with the pattern that matched them
-        const matchedUrls: MatchedRequest[] = [];
+    if (domains.length === 0) {
+      matchType = 'direct';
+      matchedUrls.push({ url: tabUrl, pattern: '*', timestamp: now });
+      for (const [resourceUrl, ts] of trackedResources) {
+        matchedUrls.push({ url: resourceUrl, pattern: '*', timestamp: ts });
+      }
+    } else {
+      for (const domain of domains) {
+        if (doesUrlMatchPattern(tabUrl, domain)) {
+          matchType = 'direct';
+          matchedUrls.push({ url: tabUrl, pattern: domain, timestamp: now });
+          break;
+        }
+      }
 
-        // Check if rule applies to all domains
-        if (domains.length === 0) {
-          matchType = 'direct'; // Rules without domains apply everywhere
-          matchedUrls.push({ url: tabUrl, pattern: '*', timestamp: now });
-          for (const [resourceUrl, ts] of trackedResources) {
-            matchedUrls.push({ url: resourceUrl, pattern: '*', timestamp: ts });
-          }
-        } else {
-          // Check for direct match (main page domain)
+      if (trackedResources.size > 0) {
+        for (const [resourceUrl, ts] of trackedResources) {
           for (const domain of domains) {
-            if (doesUrlMatchPattern(tabUrl, domain)) {
-              matchType = 'direct';
-              matchedUrls.push({ url: tabUrl, pattern: domain, timestamp: now });
+            if (doesUrlMatchPattern(resourceUrl, domain)) {
+              matchedUrls.push({ url: resourceUrl, pattern: domain, timestamp: ts });
+              if (!matchType) matchType = 'indirect';
               break;
             }
           }
-
-          // Check resource URLs — collect ALL matching ones regardless of direct match
-          if (trackedResources.size > 0) {
-            for (const [resourceUrl, ts] of trackedResources) {
-              for (const domain of domains) {
-                if (doesUrlMatchPattern(resourceUrl, domain)) {
-                  matchedUrls.push({ url: resourceUrl, pattern: domain, timestamp: ts });
-                  if (!matchType) matchType = 'indirect';
-                  break;
-                }
-              }
-            }
-          }
-        }
-
-        if (matchType) {
-          activeRules.push({
-            ...entry,
-            id: id,
-            key: id,
-            matchType,
-            matchedUrls,
-          });
         }
       }
+    }
 
-      // Count unique requests across all rules (dedup by url+timestamp)
-      const uniqueRequests = new Set<string>();
-      for (const rule of activeRules) {
-        for (const m of rule.matchedUrls) {
-          uniqueRequests.add(`${m.url}\0${m.timestamp}`);
-        }
-      }
+    if (matchType) {
+      activeRules.push({
+        id: rule.uid,
+        key: rule.uid,
+        matchType,
+        matchedUrls,
+        // V5 rule fields for popup display
+        name: rule.name,
+        headerName: headerRule.action.headerName,
+        isResponse: headerRule.action.isResponse,
+        isEnabled: rule.enabled,
+        domains: rule.domains,
+        tags: rule.tags,
+      });
+    }
+  }
 
-      resolve({ activeRules, uniqueRequestCount: uniqueRequests.size });
-    });
-  });
+  const uniqueRequests = new Set<string>();
+  for (const rule of activeRules) {
+    for (const m of rule.matchedUrls) {
+      uniqueRequests.add(`${m.url}\0${m.timestamp}`);
+    }
+  }
+
+  return { activeRules, uniqueRequestCount: uniqueRequests.size };
 }
 
+// ── Revalidation ──────────────────────────────────────────────────
+
 /**
- * Re-evaluate tracked requests when rules change
+ * Re-evaluate tracked requests when rules change.
  */
 export async function revalidateTrackedRequests(): Promise<void> {
-  // Add to queue if already revalidating
   if (isRevalidating) {
     REVALIDATION_QUEUE.add(Date.now());
     return;
@@ -209,58 +168,41 @@ export async function revalidateTrackedRequests(): Promise<void> {
   isRevalidating = true;
 
   try {
-    await new Promise<void>((resolve) => {
-      ensureCache(async (savedData: SavedDataMap) => {
-        const allRules: [string, HeaderEntry][] = Object.entries(savedData);
+    const rules = getRules();
 
-        // If no rules at all, clear all tracking
-        if (allRules.length === 0) {
-          tabsWithActiveRules.clear();
-          resolve();
-          return;
-        }
+    if (rules.length === 0) {
+      tabsWithActiveRules.clear();
+      return;
+    }
 
-        // For each tracked tab, re-evaluate if its requests still match any rule
-        // (enabled or disabled — tracking represents observed resource domains,
-        // not rule enable state, so disabled rules keep their tracked URLs)
-        for (const [tabId, trackedUrls] of tabsWithActiveRules.entries()) {
-          const validUrls = new Map<string, number>();
+    for (const [tabId, trackedUrls] of tabsWithActiveRules.entries()) {
+      const validUrls = new Map<string, number>();
 
-          // Check each tracked URL against all rules
-          for (const [url, ts] of trackedUrls) {
-            let stillMatches = false;
-
-            for (const [_id, entry] of allRules) {
-              const domains: string[] = entry.domains || [];
-              for (const domain of domains) {
-                if (doesUrlMatchPattern(url, domain)) {
-                  stillMatches = true;
-                  break;
-                }
-              }
-              if (stillMatches) break;
-            }
-
-            if (stillMatches) {
-              validUrls.set(url, ts);
+      for (const [url, ts] of trackedUrls) {
+        let stillMatches = false;
+        for (const rule of rules) {
+          for (const domain of rule.domains) {
+            if (doesUrlMatchPattern(url, domain)) {
+              stillMatches = true;
+              break;
             }
           }
-
-          // Update or remove the tab's tracking based on results
-          if (validUrls.size > 0) {
-            tabsWithActiveRules.set(tabId, validUrls);
-          } else {
-            tabsWithActiveRules.delete(tabId);
-          }
+          if (stillMatches) break;
         }
+        if (stillMatches) {
+          validUrls.set(url, ts);
+        }
+      }
 
-        resolve();
-      });
-    });
+      if (validUrls.size > 0) {
+        tabsWithActiveRules.set(tabId, validUrls);
+      } else {
+        tabsWithActiveRules.delete(tabId);
+      }
+    }
   } finally {
     isRevalidating = false;
 
-    // Process any queued revalidations
     if (REVALIDATION_QUEUE.size > 0) {
       REVALIDATION_QUEUE.clear();
       setTimeout(() => revalidateTrackedRequests(), 100);
@@ -268,16 +210,13 @@ export async function revalidateTrackedRequests(): Promise<void> {
   }
 }
 
-/**
- * Restore tracking state after service worker restart
- */
+// ── Tracking state ────────────────────────────────────────────────
+
 export async function restoreTrackingState(updateBadgeCallback: () => void): Promise<void> {
-  // Get all tabs
   tabs.query({}, async (allTabs: chrome.tabs.Tab[]) => {
     for (const tab of allTabs) {
       if (tab.url && tab.id && isTrackableUrl(tab.url)) {
-        const matchesRule = await checkIfUrlMatchesAnyRule(tab.url);
-        if (matchesRule) {
+        if (checkIfUrlMatchesAnyRule(tab.url)) {
           if (!tabsWithActiveRules.has(tab.id)) {
             tabsWithActiveRules.set(tab.id, new Map());
           }
@@ -285,36 +224,20 @@ export async function restoreTrackingState(updateBadgeCallback: () => void): Pro
         }
       }
     }
-
-    // Update badge for current tab
-    if (updateBadgeCallback) {
-      updateBadgeCallback();
-    }
+    if (updateBadgeCallback) updateBadgeCallback();
   });
 }
 
-/**
- * Add a tracked URL for a tab
- */
 export function addTrackedUrl(tabId: number, url: string): void {
   if (!tabsWithActiveRules.has(tabId)) {
     tabsWithActiveRules.set(tabId, new Map());
   }
-
   const trackedUrls = tabsWithActiveRules.get(tabId)!;
-
-  // Skip if already tracked (no-op, no notification needed)
   if (trackedUrls.has(url)) return;
-
   trackedUrls.set(url, Date.now());
-
-  // Notify the popup (if open) that tracked URLs changed
   sendMessageWithCallback({ type: 'trackedUrlsUpdated', tabId }, () => {});
 }
 
-/**
- * Clear all tracking
- */
 export function clearAllTracking(): void {
   tabsWithActiveRules.clear();
 }

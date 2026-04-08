@@ -138,19 +138,17 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
   tabs.onCreated?.addListener((tab: chrome.tabs.Tab) => {
     // When a new tab is created, check if it should be tracked
     if (tab.url && tab.id && isTrackableUrl(tab.url)) {
-      checkIfUrlMatchesAnyRule(tab.url).then((matches) => {
-        if (matches) {
-          if (!tabsWithActiveRules.has(tab.id!)) {
-            tabsWithActiveRules.set(tab.id!, new Map());
-          }
-          tabsWithActiveRules.get(tab.id!)!.set(normalizeUrlForTracking(tab.url!), Date.now());
-          logger.info('TabListeners', `New tab ${tab.id} created with URL that matches rules`);
-
-          if (tab.active) {
-            updateBadgeCallback();
-          }
+      if (checkIfUrlMatchesAnyRule(tab.url)) {
+        if (!tabsWithActiveRules.has(tab.id!)) {
+          tabsWithActiveRules.set(tab.id!, new Map());
         }
-      });
+        tabsWithActiveRules.get(tab.id!)!.set(normalizeUrlForTracking(tab.url!), Date.now());
+        logger.info('TabListeners', `New tab ${tab.id} created with URL that matches rules`);
+
+        if (tab.active) {
+          updateBadgeCallback();
+        }
+      }
     }
   });
 
@@ -254,21 +252,19 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
           }
 
           // Re-evaluate if this URL should be tracked
-          checkIfUrlMatchesAnyRule(normalizeUrlForTracking(details.url)).then((matches) => {
-            if (matches) {
-              // URL matches rules, ensure it's tracked
-              if (!tabsWithActiveRules.has(details.tabId)) {
-                tabsWithActiveRules.set(details.tabId, new Map());
-              }
-              tabsWithActiveRules.get(details.tabId)!.set(normalizeUrlForTracking(details.url), Date.now());
+          const matches = checkIfUrlMatchesAnyRule(normalizeUrlForTracking(details.url));
+          if (matches) {
+            if (!tabsWithActiveRules.has(details.tabId)) {
+              tabsWithActiveRules.set(details.tabId, new Map());
             }
+            tabsWithActiveRules.get(details.tabId)!.set(normalizeUrlForTracking(details.url), Date.now());
+          }
 
-            // Update badge
-            tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
-              if (tabsList[0] && tabsList[0].id === details.tabId) {
-                updateBadgeCallback();
-              }
-            });
+          // Update badge
+          tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
+            if (tabsList[0] && tabsList[0].id === details.tabId) {
+              updateBadgeCallback();
+            }
           });
         }
       },

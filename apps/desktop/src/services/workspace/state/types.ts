@@ -36,9 +36,16 @@ export interface WorkspaceState {
 
 // ── External service interfaces ───────────────────────────────────
 
+export interface RuleMutationCallbacks {
+  toggleRule(uid: string, enabled: boolean): Promise<void>;
+  removeRule(uid: string): Promise<void>;
+}
+
 export interface WebSocketServiceLike {
-  rules: V5.Rule[];
-  ruleHandler: { broadcastRules(): void };
+  /** Update rules and broadcast to connected extensions. */
+  updateRules(resolvedRules: V5.Rule[]): void;
+  /** Wire callbacks so extension-initiated mutations round-trip through the state service. */
+  setRuleMutationCallbacks(callbacks: RuleMutationCallbacks): void;
   environmentHandler: EnvironmentResolverLike;
 }
 

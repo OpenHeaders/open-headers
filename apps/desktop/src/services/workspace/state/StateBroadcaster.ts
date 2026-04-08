@@ -4,19 +4,20 @@
  * Centralizes all outbound communication: WebSocket clients and renderer windows via IPC.
  */
 
+import type { V5 } from '@openheaders/core/types';
 import electron from 'electron';
 import type { WebSocketServiceLike, WorkspaceState } from './types';
 
 /**
- * Push current rules to WebSocket service (for browser extensions).
+ * Push resolved rules to WebSocket service (for browser extensions).
+ * The caller is responsible for resolving {{VAR}} templates before calling this.
  */
 export function broadcastToServices(
-  state: WorkspaceState,
+  resolvedRules: V5.Rule[],
   webSocketService: WebSocketServiceLike | null,
 ): void {
   if (webSocketService) {
-    webSocketService.rules = state.rules;
-    webSocketService.ruleHandler.broadcastRules();
+    webSocketService.updateRules(resolvedRules);
   }
 }
 

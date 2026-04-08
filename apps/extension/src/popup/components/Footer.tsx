@@ -47,8 +47,8 @@ const Footer: React.FC = () => {
   const { message } = App.useApp();
   const appLauncher = getAppLauncher();
 
-  const { headerEntries, isConnected } = useHeader();
-  const totalRules = Object.keys(headerEntries).length;
+  const { rules, isConnected } = useHeader();
+  const totalRules = rules.length;
 
   const checkVideoRecordingState = useCallback(async () => {
     try {

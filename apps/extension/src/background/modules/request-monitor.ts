@@ -41,41 +41,41 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
       const normalizedUrl = normalizeUrlForTracking(details.url);
 
       // Check if this request URL matches any of our rules
-      checkIfUrlMatchesAnyRule(normalizedUrl).then((matchesRule) => {
-        // Track this request with whether headers were applied
-        pendingRequests.set(details.requestId, {
-          tabId: details.tabId,
-          url: normalizedUrl,
-          headersApplied: matchesRule,
-          method: details.method,
-        });
+      const matchesRule = checkIfUrlMatchesAnyRule(normalizedUrl);
 
-        // Clean up old pending requests periodically
-        if (pendingRequests.size > 1000) {
-          const oldRequests = Array.from(pendingRequests.keys()).slice(0, 500);
-          oldRequests.forEach((id) => {
-            pendingRequests.delete(id);
-          });
-        }
-
-        // Skip if this is not a main frame or sub frame request
-        // This helps avoid tracking every single subresource
-        if (!['main_frame', 'sub_frame', 'xmlhttprequest', 'other'].includes(details.type)) {
-          return;
-        }
-
-        if (matchesRule) {
-          // Track this tab as having active rules
-          addTrackedUrl(details.tabId, normalizedUrl);
-
-          // Update badge if this is the active tab
-          tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
-            if (tabsList[0] && tabsList[0].id === details.tabId) {
-              updateBadgeCallback();
-            }
-          });
-        }
+      // Track this request with whether headers were applied
+      pendingRequests.set(details.requestId, {
+        tabId: details.tabId,
+        url: normalizedUrl,
+        headersApplied: matchesRule,
+        method: details.method,
       });
+
+      // Clean up old pending requests periodically
+      if (pendingRequests.size > 1000) {
+        const oldRequests = Array.from(pendingRequests.keys()).slice(0, 500);
+        oldRequests.forEach((id) => {
+          pendingRequests.delete(id);
+        });
+      }
+
+      // Skip if this is not a main frame or sub frame request
+      // This helps avoid tracking every single subresource
+      if (!['main_frame', 'sub_frame', 'xmlhttprequest', 'other'].includes(details.type)) {
+        return;
+      }
+
+      if (matchesRule) {
+        // Track this tab as having active rules
+        addTrackedUrl(details.tabId, normalizedUrl);
+
+        // Update badge if this is the active tab
+        tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
+          if (tabsList[0] && tabsList[0].id === details.tabId) {
+            updateBadgeCallback();
+          }
+        });
+      }
     }) as Parameters<typeof webRequestAPI.onBeforeRequest.addListener>[0],
     { urls: ['<all_urls>'] },
   );
@@ -198,25 +198,24 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
         const normalizedRedirectUrl = normalizeUrlForTracking(details.redirectUrl);
 
         // Check if the redirect URL matches any rules
-        checkIfUrlMatchesAnyRule(normalizedRedirectUrl).then((matchesRule) => {
-          if (matchesRule) {
-            addTrackedUrl(details.tabId, normalizedRedirectUrl);
+        const matchesRule = checkIfUrlMatchesAnyRule(normalizedRedirectUrl);
+        if (matchesRule) {
+          addTrackedUrl(details.tabId, normalizedRedirectUrl);
 
-            // Update badge if active tab
-            tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
-              if (tabsList[0] && tabsList[0].id === details.tabId) {
-                updateBadgeCallback();
-              }
-            });
-          }
+          // Update badge if active tab
+          tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
+            if (tabsList[0] && tabsList[0].id === details.tabId) {
+              updateBadgeCallback();
+            }
+          });
+        }
 
-          // Update pending request with new URL and header status
-          const pending = pendingRequests.get(details.requestId);
-          if (pending) {
-            pending.url = normalizedRedirectUrl;
-            pending.headersApplied = matchesRule;
-          }
-        });
+        // Update pending request with new URL and header status
+        const pending = pendingRequests.get(details.requestId);
+        if (pending) {
+          pending.url = normalizedRedirectUrl;
+          pending.headersApplied = matchesRule;
+        }
       }) as Parameters<typeof webRequestAPI.onBeforeRedirect.addListener>[0],
       { urls: ['<all_urls>'] },
     );

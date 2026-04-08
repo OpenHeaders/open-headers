@@ -1,54 +1,40 @@
 /**
- * Header Manager — builds declarativeNetRequest rules from saved data and dynamic sources.
+ * Header Manager — builds declarativeNetRequest rules from V5 resolved rules.
  *
- * Performance notes:
- * - isPaused is cached in-memory, updated via setRulesPaused() from storage.onChanged
- * - savedData is read from chunked storage (unavoidable — it's the source of truth)
- * - Rule arrays are built in a single pass, no intermediate allocations
+ * Receives pre-resolved V5.Rule[] (no {{VAR}} templates) and converts
+ * header rules into chrome.declarativeNetRequest dynamic rules.
+ *
+ * Currently handles HeaderRule only. Other rule types (redirect, block, etc.)
+ * will be added as the extension gains support for them.
  */
 declare const browser: typeof chrome | undefined;
 
-import type { HeaderEntry, SavedDataMap, Source } from '@openheaders/core';
-import { declarativeNetRequest } from '@utils/browser-api.js';
-import { validateHeaderName } from '@utils/header-validator.js';
+import type { V5 } from '@openheaders/core/types';
+import { declarativeNetRequest } from '@utils/browser-api';
+import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
-import { sendMessageWithCallback } from '@utils/messaging';
-import { getChunkedData } from '@utils/storage-chunking.js';
-import { normalizeHeaderName } from '@utils/utils.js';
-import type { EntryResult, HeaderDnrRule, PlaceholderInfo, ResolvedEntry } from '@/types/header';
+import { normalizeHeaderName } from '@utils/utils';
+import type { HeaderDnrRule } from '@/types/header';
 import { formatUrlPattern } from './modules/url-utils';
 import { isValidHeaderValue, sanitizeHeaderValue } from './rule-validator';
 
-// Cached pause state — updated by setRulesPaused() from storage.onChanged listener
-let isPaused = false;
+// ── Cached state ──────────────────────────────────────────────────
 
-// Cached disabled tag groups — updated by setDisabledTagGroups() from storage.onChanged listener
+let isPaused = false;
 let disabledTagGroups: Set<string> = new Set();
 
-/**
- * Set the paused state. Called from background.ts when isRulesExecutionPaused changes.
- */
 export function setRulesPaused(paused: boolean): void {
   isPaused = paused;
 }
 
-/**
- * Set disabled tag groups. Called from background.ts when disabledTagGroups changes.
- */
 export function setDisabledTagGroups(groups: string[]): void {
   disabledTagGroups = new Set(groups);
 }
 
-/**
- * Get current disabled tag groups.
- */
 export function getDisabledTagGroups(): string[] {
   return [...disabledTagGroups];
 }
 
-/**
- * Initialize pause state and tag group states from storage. Called once at startup.
- */
 export function initPauseState(): void {
   const browserAPI = (typeof browser !== 'undefined' ? browser : chrome) as typeof chrome;
   browserAPI.storage.sync.get(['isRulesExecutionPaused'], (result: Record<string, unknown>) => {
@@ -62,267 +48,266 @@ export function initPauseState(): void {
   });
 }
 
+// ── Main update function ──────────────────────────────────────────
+
 /**
- * Updates the network request rules based on saved data and dynamic sources.
+ * Build and apply declarativeNetRequest rules from V5 header rules.
  */
-export function updateNetworkRules(dynamicSources: Source[]): void {
+export function updateNetworkRules(rules: V5.Rule[]): void {
   if (isPaused) {
     logger.info('HeaderManager', 'Rules execution is paused, clearing all active rules');
-    declarativeNetRequest!
-      .getDynamicRules()
-      .then((existingRules) => {
-        const removeIds = existingRules.map((r) => r.id);
-        return declarativeNetRequest!.updateDynamicRules({
-          removeRuleIds: removeIds,
-          addRules: [],
-        });
-      })
-      .then(() => {
-        logger.debug('HeaderManager', 'All rules cleared while paused');
-      });
+    clearAllDnrRules();
     return;
   }
 
-  getChunkedData('savedData', (savedData: SavedDataMap | null) => {
-    savedData = savedData || {};
+  const headerRules = rules.filter((r): r is V5.HeaderRule => r.type === 'header');
+  const dnrRules: HeaderDnrRule[] = [];
+  let ruleId = 1;
 
-    const rules: HeaderDnrRule[] = [];
-    let ruleId = 1;
+  for (const rule of headerRules) {
+    if (!rule.enabled) continue;
 
-    const requestEntries: ResolvedEntry[] = [];
-    const responseEntries: ResolvedEntry[] = [];
-    const placeholders: PlaceholderInfo[] = [];
+    // Check tag groups
+    const tagGroup = rule.tags[0] || '__no_tag__';
+    if (disabledTagGroups.has(tagGroup)) continue;
 
-    for (const id in savedData) {
-      const entry: HeaderEntry = savedData[id];
-
-      if (entry.isEnabled === false) {
-        logger.debug('HeaderManager', `Skipping disabled rule for ${entry.headerName}`);
-        continue;
-      }
-
-      const tagGroup = entry.tag || '__no_tag__';
-      if (disabledTagGroups.has(tagGroup)) {
-        logger.debug('HeaderManager', `Skipping rule for ${entry.headerName} — tag group "${tagGroup}" is disabled`);
-        continue;
-      }
-
-      const result = processEntry(entry, dynamicSources);
-      if (!result) continue;
-
-      if (result.resolved) {
-        if (result.entry.isResponse) {
-          responseEntries.push(result.entry);
-        } else {
-          requestEntries.push(result.entry);
-        }
-      } else {
-        placeholders.push(result.placeholder);
-      }
-    }
-
-    requestEntries.forEach((entry) => {
-      const requestRules = createRequestHeaderDnrRules(entry, ruleId);
-      rules.push(...requestRules);
-      ruleId += requestRules.length;
-    });
-
-    responseEntries.forEach((entry) => {
-      const responseRules = createResponseHeaderDnrRules(entry, ruleId);
-      rules.push(...responseRules);
-      ruleId += responseRules.length;
-    });
-
-    if (placeholders.length > 0) {
-      logger.warn('HeaderManager', `${placeholders.length} headers not injected (unresolved):`, placeholders);
-    }
-
-    // Get ALL existing dynamic rule IDs so we remove everything —
-    // including stale rules from previous sessions or versions
-    declarativeNetRequest!
-      .getDynamicRules()
-      .then((existingRules) => {
-        const removeRuleIds = existingRules.map((r) => r.id);
-
-        return declarativeNetRequest!.updateDynamicRules({
-          removeRuleIds,
-          addRules: rules,
-        });
-      })
-      .then(() => {
-        logger.info('HeaderManager', `Successfully updated ${rules.length} network rules`);
-      })
-      .catch((e: Error) => {
-        logger.error('HeaderManager', 'Error updating rules:', e.message || 'Unknown error');
-        sendMessageWithCallback(
-          {
-            type: 'ruleUpdateError',
-            error: e.message || 'Unknown error',
-          },
-          (_response, _error) => {},
-        );
-      });
-  });
-}
-
-function processEntry(entry: HeaderEntry, dynamicSources: Source[]): EntryResult | null {
-  const headerNameValidation = validateHeaderName(entry.headerName, entry.isResponse);
-  if (!headerNameValidation.valid) {
-    logger.debug('HeaderManager', `Skipping rule for ${entry.headerName} - ${headerNameValidation.message}`);
-    return null;
+    const newRules = buildDnrRulesForHeader(rule, ruleId);
+    dnrRules.push(...newRules);
+    ruleId += newRules.length;
   }
 
-  const domains: string[] = Array.isArray(entry.domains) ? entry.domains : entry.domain ? [entry.domain] : [];
+  applyDnrRules(dnrRules);
+}
+
+// ── DNR rule building ─────────────────────────────────────────────
+
+function buildDnrRulesForHeader(rule: V5.HeaderRule, startId: number): HeaderDnrRule[] {
+  const { action, staticValue, domains } = rule;
+
+  // Validate header name
+  const validation = validateHeaderName(action.headerName, action.isResponse);
+  if (!validation.valid) {
+    logger.debug('HeaderManager', `Skipping rule "${rule.name}" — invalid header: ${validation.message}`);
+    return [];
+  }
 
   if (domains.length === 0) {
-    logger.debug('HeaderManager', `Skipping rule for ${entry.headerName} - no domains specified`);
-    return null;
+    logger.debug('HeaderManager', `Skipping rule "${rule.name}" — no domains`);
+    return [];
   }
 
-  const headerName = headerNameValidation.sanitized || normalizeHeaderName(entry.headerName);
+  const headerName = validation.sanitized || normalizeHeaderName(action.headerName);
 
-  if (entry.isDynamic && entry.sourceId) {
-    const source = dynamicSources.find((s) => s.sourceId?.toString() === entry.sourceId?.toString());
-
-    if (!source) {
-      logger.warn('HeaderManager', `Header "${entry.headerName}" not injected — source #${entry.sourceId} not found`);
-      return {
-        resolved: false,
-        placeholder: { headerName, sourceId: entry.sourceId, reason: 'source_not_found', domains },
-      };
-    }
-
-    const dynamicContent = source.sourceContent || '';
-
-    if (!dynamicContent) {
-      logger.warn('HeaderManager', `Header "${entry.headerName}" not injected — source #${entry.sourceId} is empty`);
-      return {
-        resolved: false,
-        placeholder: { headerName, sourceId: entry.sourceId, reason: 'empty_source', domains },
-      };
-    }
-
-    const headerValue = `${entry.prefix || ''}${dynamicContent}${entry.suffix || ''}`;
-    if (!isValidHeaderValue(headerValue, entry.headerName)) {
-      const sanitized = sanitizeHeaderValue(headerValue);
-      if (!isValidHeaderValue(sanitized, entry.headerName)) {
-        logger.debug('HeaderManager', `Skipping invalid header value for ${entry.headerName}`);
-        return null;
-      }
-      return {
-        resolved: true,
-        entry: { headerName, headerValue: sanitized, domains, isResponse: entry.isResponse === true },
-      };
-    }
-    return { resolved: true, entry: { headerName, headerValue, domains, isResponse: entry.isResponse === true } };
+  // For 'remove' operation, no value needed
+  if (action.operation === 'remove') {
+    return buildRemoveHeaderRules(headerName, domains, action.isResponse, startId);
   }
 
-  if (!entry.headerValue?.trim()) {
-    logger.warn('HeaderManager', `Header "${entry.headerName}" not injected — value is empty`);
-    return { resolved: false, placeholder: { headerName, reason: 'empty_value', domains } };
+  // For 'add' / 'override', value is required
+  const rawValue = staticValue ?? '';
+  if (!rawValue.trim()) {
+    logger.debug('HeaderManager', `Skipping rule "${rule.name}" — empty value`);
+    return [];
   }
 
-  let headerValue = entry.headerValue;
-  if (!isValidHeaderValue(headerValue, entry.headerName)) {
+  let headerValue = rawValue;
+  if (!isValidHeaderValue(headerValue, headerName)) {
     headerValue = sanitizeHeaderValue(headerValue);
-    if (!isValidHeaderValue(headerValue, entry.headerName)) {
-      logger.debug('HeaderManager', `Skipping invalid header value for ${entry.headerName}`);
-      return null;
+    if (!isValidHeaderValue(headerValue, headerName)) {
+      logger.debug('HeaderManager', `Skipping rule "${rule.name}" — invalid value after sanitization`);
+      return [];
     }
   }
 
-  return { resolved: true, entry: { headerName, headerValue, domains, isResponse: entry.isResponse === true } };
+  if (action.isResponse) {
+    return buildResponseHeaderRules(headerName, headerValue, action.operation, domains, startId);
+  }
+  return buildRequestHeaderRules(headerName, headerValue, action.operation, domains, startId);
 }
 
-function createRequestHeaderDnrRules(entry: ResolvedEntry, startId: number): HeaderDnrRule[] {
+// ── Request header rules ──────────────────────────────────────────
+
+const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
+  'main_frame',
+  'sub_frame',
+  'stylesheet',
+  'script',
+  'image',
+  'font',
+  'object',
+  'xmlhttprequest',
+  'websocket',
+  'other',
+] as chrome.declarativeNetRequest.ResourceType[];
+
+function buildRequestHeaderRules(
+  headerName: string,
+  headerValue: string,
+  operation: V5.HeaderOperation,
+  domains: string[],
+  startId: number,
+): HeaderDnrRule[] {
   const rules: HeaderDnrRule[] = [];
   let ruleId = startId;
+  const dnrOp = operation === 'add' ? 'append' : 'set';
 
-  const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
-    'main_frame',
-    'sub_frame',
-    'stylesheet',
-    'script',
-    'image',
-    'font',
-    'object',
-    'xmlhttprequest',
-    'websocket',
-    'other',
-  ] as chrome.declarativeNetRequest.ResourceType[];
-
-  entry.domains.forEach((domain) => {
-    if (!domain || domain.trim() === '') return;
-
-    const urlFilter = formatUrlPattern(domain);
-
+  for (const domain of domains) {
+    if (!domain?.trim()) continue;
     rules.push({
       id: ruleId++,
       priority: 100,
       action: {
         type: 'modifyHeaders',
         requestHeaders: [
-          { header: entry.headerName, operation: 'set', value: entry.headerValue },
+          { header: headerName, operation: dnrOp, value: headerValue },
           { header: 'Cache-Control', operation: 'set', value: 'no-cache, no-store, must-revalidate' },
           { header: 'Pragma', operation: 'set', value: 'no-cache' },
         ],
       },
       condition: {
-        urlFilter: urlFilter,
+        urlFilter: formatUrlPattern(domain),
         resourceTypes: ALL_RESOURCE_TYPES,
       },
     });
-  });
+  }
 
   return rules;
 }
 
-function createResponseHeaderDnrRules(entry: ResolvedEntry, startId: number): HeaderDnrRule[] {
+// ── Response header rules ─────────────────────────────────────────
+
+const SUB_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
+  'sub_frame',
+  'stylesheet',
+  'script',
+  'image',
+  'font',
+  'xmlhttprequest',
+  'websocket',
+  'other',
+] as chrome.declarativeNetRequest.ResourceType[];
+
+function buildResponseHeaderRules(
+  headerName: string,
+  headerValue: string,
+  operation: V5.HeaderOperation,
+  domains: string[],
+  startId: number,
+): HeaderDnrRule[] {
   const rules: HeaderDnrRule[] = [];
   let ruleId = startId;
+  const dnrOp = operation === 'add' ? 'append' : 'set';
 
-  const SUB_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
-    'sub_frame',
-    'stylesheet',
-    'script',
-    'image',
-    'font',
-    'xmlhttprequest',
-    'websocket',
-    'other',
-  ] as chrome.declarativeNetRequest.ResourceType[];
-
-  entry.domains.forEach((domain) => {
-    if (!domain || domain.trim() === '') return;
-
+  for (const domain of domains) {
+    if (!domain?.trim()) continue;
     const urlFilter = formatUrlPattern(domain);
 
+    // Main frame — higher priority
     rules.push({
       id: ruleId++,
       priority: 1000,
       action: {
         type: 'modifyHeaders',
-        responseHeaders: [{ header: entry.headerName, operation: 'set', value: entry.headerValue }],
+        responseHeaders: [{ header: headerName, operation: dnrOp, value: headerValue }],
       },
       condition: {
-        urlFilter: urlFilter,
+        urlFilter,
         resourceTypes: ['main_frame' as chrome.declarativeNetRequest.ResourceType],
       },
     });
 
+    // Sub-resources — lower priority
     rules.push({
       id: ruleId++,
       priority: 950,
       action: {
         type: 'modifyHeaders',
-        responseHeaders: [{ header: entry.headerName, operation: 'set', value: entry.headerValue }],
+        responseHeaders: [{ header: headerName, operation: dnrOp, value: headerValue }],
       },
       condition: {
-        urlFilter: urlFilter,
+        urlFilter,
         resourceTypes: SUB_RESOURCE_TYPES,
       },
     });
-  });
+  }
 
   return rules;
+}
+
+// ── Remove header rules ───────────────────────────────────────────
+
+function buildRemoveHeaderRules(
+  headerName: string,
+  domains: string[],
+  isResponse: boolean,
+  startId: number,
+): HeaderDnrRule[] {
+  const rules: HeaderDnrRule[] = [];
+  let ruleId = startId;
+
+  for (const domain of domains) {
+    if (!domain?.trim()) continue;
+
+    const modification = { header: headerName, operation: 'remove' as const, value: '' };
+    const urlFilter = formatUrlPattern(domain);
+
+    if (isResponse) {
+      rules.push({
+        id: ruleId++,
+        priority: 1000,
+        action: { type: 'modifyHeaders', responseHeaders: [modification] },
+        condition: {
+          urlFilter,
+          resourceTypes: ['main_frame' as chrome.declarativeNetRequest.ResourceType],
+        },
+      });
+      rules.push({
+        id: ruleId++,
+        priority: 950,
+        action: { type: 'modifyHeaders', responseHeaders: [modification] },
+        condition: { urlFilter, resourceTypes: SUB_RESOURCE_TYPES },
+      });
+    } else {
+      rules.push({
+        id: ruleId++,
+        priority: 100,
+        action: { type: 'modifyHeaders', requestHeaders: [modification] },
+        condition: { urlFilter, resourceTypes: ALL_RESOURCE_TYPES },
+      });
+    }
+  }
+
+  return rules;
+}
+
+// ── DNR rule application ──────────────────────────────────────────
+
+function applyDnrRules(newRules: HeaderDnrRule[]): void {
+  declarativeNetRequest!
+    .getDynamicRules()
+    .then((existingRules) => {
+      const removeRuleIds = existingRules.map((r) => r.id);
+      return declarativeNetRequest!.updateDynamicRules({
+        removeRuleIds,
+        addRules: newRules,
+      });
+    })
+    .then(() => {
+      logger.info('HeaderManager', `Applied ${newRules.length} DNR rules`);
+    })
+    .catch((e: Error) => {
+      logger.error('HeaderManager', 'Error updating rules:', e.message || 'Unknown error');
+    });
+}
+
+function clearAllDnrRules(): void {
+  declarativeNetRequest!
+    .getDynamicRules()
+    .then((existingRules) => {
+      const removeIds = existingRules.map((r) => r.id);
+      return declarativeNetRequest!.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
+    })
+    .then(() => {
+      logger.debug('HeaderManager', 'All rules cleared (paused)');
+    });
 }
