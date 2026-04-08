@@ -107,6 +107,63 @@ export function createWorkspaceStateAPI() {
     ): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:set-variable', envName, varName, value, type),
 
+    updateEnvironment: (
+      oldName: string,
+      updates: { name?: string; variables?: V5.Variable[] },
+    ): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-environment', oldName, updates),
+
+    // Request CRUD
+    getRequest: (uid: string): Promise<OperationResult & { request?: V5.Request }> =>
+      ipcRenderer.invoke('workspace-state:get-request', uid),
+
+    addRequest: (
+      collectionUid: string,
+      request: Omit<V5.Request, 'uid' | 'path'>,
+    ): Promise<OperationResult & { request?: V5.Request }> =>
+      ipcRenderer.invoke('workspace-state:add-request', collectionUid, request),
+
+    updateRequest: (uid: string, updates: Partial<V5.Request>): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-request', uid, updates),
+
+    removeRequest: (uid: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:remove-request', uid),
+
+    // Rule CRUD
+    addRule: (
+      collectionUid: string,
+      rule: Omit<V5.Rule, 'uid' | 'path'>,
+    ): Promise<OperationResult & { rule?: V5.Rule }> =>
+      ipcRenderer.invoke('workspace-state:add-rule', collectionUid, rule),
+
+    updateRule: (uid: string, updates: Partial<V5.Rule>): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-rule', uid, updates),
+
+    removeRule: (uid: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:remove-rule', uid),
+
+    toggleRule: (uid: string, enabled: boolean): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:toggle-rule', uid, enabled),
+
+    // Folder CRUD
+    addFolder: (
+      collectionUid: string,
+      section: 'requests' | 'rules',
+      name: string,
+      parentPath?: string,
+    ): Promise<OperationResult & { folder?: V5.FolderNode }> =>
+      ipcRenderer.invoke('workspace-state:add-folder', collectionUid, section, name, parentPath),
+
+    renameFolder: (section: 'requests' | 'rules', uid: string, newName: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:rename-folder', section, uid, newName),
+
+    removeFolder: (section: 'requests' | 'rules', uid: string): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:remove-folder', section, uid),
+
+    // Workspace variables
+    updateWorkspaceVariables: (variables: V5.WorkspaceVariables): Promise<OperationResult> =>
+      ipcRenderer.invoke('workspace-state:update-workspace-variables', variables),
+
     // IPC event listeners (main → renderer)
     onStatePatch: (callback: (patch: WorkspaceStatePatch) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, patch: WorkspaceStatePatch) => callback(patch);

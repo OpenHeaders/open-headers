@@ -747,6 +747,40 @@ export async function writeFullWorkspace(root: string, data: WorkspaceWriteData)
 
 // ── Detection ──────────────────────────────────────────────────────
 
+/** Delete an item folder (request or rule) from disk. */
+export async function deleteItemFolder(itemDir: string): Promise<void> {
+  await fs.promises.rm(itemDir, { recursive: true, force: true });
+}
+
+/** Delete an environment's YAML files from disk. */
+export async function deleteEnvironmentFiles(root: string, envName: string): Promise<void> {
+  const envDir = environmentsDir(root);
+  const filesToDelete = [
+    path.join(envDir, `${envName}.yaml`),
+    path.join(envDir, `${envName}.secret.yaml`),
+    path.join(envDir, `${envName}.secret.yaml.template`),
+  ];
+  for (const f of filesToDelete) {
+    await fs.promises.rm(f, { force: true }).catch(() => {});
+  }
+}
+
+/** Rename an environment's YAML files on disk. */
+export async function renameEnvironmentFiles(root: string, oldName: string, newName: string): Promise<void> {
+  const envDir = environmentsDir(root);
+  const renames: [string, string][] = [
+    [`${oldName}.yaml`, `${newName}.yaml`],
+    [`${oldName}.secret.yaml`, `${newName}.secret.yaml`],
+    [`${oldName}.secret.yaml.template`, `${newName}.secret.yaml.template`],
+  ];
+  for (const [from, to] of renames) {
+    const src = path.join(envDir, from);
+    if (await fileExists(src)) {
+      await fs.promises.rename(src, path.join(envDir, to));
+    }
+  }
+}
+
 /** Check if a directory contains a workspace (has workspace.yaml). */
 export async function isV5Workspace(root: string): Promise<boolean> {
   return fileExists(path.join(root, 'workspace.yaml'));

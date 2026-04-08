@@ -107,6 +107,27 @@ export const IPC_INVOKE = {
   WORKSPACE_STATE_DELETE_ENVIRONMENT: 'workspace-state:delete-environment',
   WORKSPACE_STATE_SWITCH_ENVIRONMENT: 'workspace-state:switch-environment',
   WORKSPACE_STATE_SET_VARIABLE: 'workspace-state:set-variable',
+  WORKSPACE_STATE_UPDATE_ENVIRONMENT: 'workspace-state:update-environment',
+
+  // Request CRUD
+  WORKSPACE_STATE_GET_REQUEST: 'workspace-state:get-request',
+  WORKSPACE_STATE_ADD_REQUEST: 'workspace-state:add-request',
+  WORKSPACE_STATE_UPDATE_REQUEST: 'workspace-state:update-request',
+  WORKSPACE_STATE_REMOVE_REQUEST: 'workspace-state:remove-request',
+
+  // Rule CRUD
+  WORKSPACE_STATE_ADD_RULE: 'workspace-state:add-rule',
+  WORKSPACE_STATE_UPDATE_RULE: 'workspace-state:update-rule',
+  WORKSPACE_STATE_REMOVE_RULE: 'workspace-state:remove-rule',
+  WORKSPACE_STATE_TOGGLE_RULE: 'workspace-state:toggle-rule',
+
+  // Folder CRUD
+  WORKSPACE_STATE_ADD_FOLDER: 'workspace-state:add-folder',
+  WORKSPACE_STATE_RENAME_FOLDER: 'workspace-state:rename-folder',
+  WORKSPACE_STATE_REMOVE_FOLDER: 'workspace-state:remove-folder',
+
+  // Workspace variables
+  WORKSPACE_STATE_UPDATE_WORKSPACE_VARIABLES: 'workspace-state:update-workspace-variables',
 } as const;
 
 // ── Send channels (renderer → main, fire-and-forget) ───────────────

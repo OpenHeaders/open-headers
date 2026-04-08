@@ -1,5 +1,7 @@
 export type { WorkspaceWriteData } from './V5StorageService';
 export {
+  deleteEnvironmentFiles,
+  deleteItemFolder,
   isV5Workspace,
   readAllCollections,
   readAllEnvironments,
@@ -10,6 +12,7 @@ export {
   readVault,
   readWorkspaceManifest,
   readWorkspaceVariables,
+  renameEnvironmentFiles,
   writeAllRules,
   writeCollection,
   writeEnvironment,

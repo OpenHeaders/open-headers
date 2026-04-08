@@ -15,14 +15,20 @@ import type { V5 } from '@openheaders/core/types';
 import { errorMessage } from '@openheaders/core';
 import electron from 'electron';
 import {
+  deleteEnvironmentFiles,
+  deleteItemFolder,
   readAllCollections,
   readAllEnvironments,
   readAllRuleCollections,
   readAllRules,
+  readRequest,
   readVault,
   readWorkspaceManifest,
   readWorkspaceVariables,
+  renameEnvironmentFiles,
   writeEnvironment,
+  writeRequest,
+  writeRule,
   writeVault,
   writeWorkspaceVariables,
 } from '@/services/workspace/v5-storage';
@@ -51,6 +57,22 @@ import {
 
 const { createLogger } = mainLogger;
 const log = createLogger('WorkspaceStateService');
+
+function generateUid(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let uid = '';
+  for (let i = 0; i < 4; i++) {
+    uid += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return uid;
+}
+
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 export type { WorkspaceState } from './state';
 
@@ -362,6 +384,7 @@ class WorkspaceStateService {
     if (this.state.activeEnvironmentName === name) {
       this.state.activeEnvironmentName = null;
     }
+    await deleteEnvironmentFiles(this.workspaceRootPath, name);
     this.dirty.environments = true;
     this.scheduleDebouncedSave();
     sendPatchToRenderers(this.state, ['environments', 'activeEnvironmentName']);
@@ -394,6 +417,287 @@ class WorkspaceStateService {
     this.dirty.environments = true;
     this.scheduleDebouncedSave();
     sendPatchToRenderers(this.state, ['environments']);
+  }
+
+  async updateEnvironment(oldName: string, updates: { name?: string; variables?: V5.Variable[] }): Promise<void> {
+    const env = this.state.environments.find((e) => e.name === oldName);
+    if (!env) return;
+
+    if (updates.name && updates.name !== oldName) {
+      await renameEnvironmentFiles(this.workspaceRootPath, oldName, updates.name);
+      env.name = updates.name;
+      env.path = `environments/${updates.name.toLowerCase()}.yaml`;
+      if (this.state.activeEnvironmentName === oldName) {
+        this.state.activeEnvironmentName = updates.name;
+      }
+    }
+    if (updates.variables !== undefined) {
+      env.variables = updates.variables;
+    }
+
+    this.dirty.environments = true;
+    this.scheduleDebouncedSave();
+    sendPatchToRenderers(this.state, ['environments', 'activeEnvironmentName']);
+  }
+
+  // ── Request CRUD ──────────────────────────────────────────────
+
+  async getRequest(uid: string): Promise<V5.Request | null> {
+    const node = this.findRequestNode(uid);
+    if (!node) return null;
+    return readRequest(node.path);
+  }
+
+  async addRequest(collectionUid: string, request: Omit<V5.Request, 'uid' | 'path'>): Promise<V5.Request> {
+    const collection = this.state.requestCollections.find((c) => c.uid === collectionUid);
+    if (!collection) throw new Error(`Collection ${collectionUid} not found`);
+
+    const uid = generateUid();
+    const slug = slugify(request.name);
+    const folderName = slug ? `${slug}-${uid}` : uid;
+    const itemDir = `${collection.path}/${folderName}`;
+
+    const newRequest: V5.Request = { ...request, uid, path: itemDir };
+    await writeRequest(itemDir, newRequest);
+
+    collection.tree.push({
+      type: 'request',
+      uid,
+      name: request.name,
+      path: itemDir,
+      method: request.method,
+    });
+
+    this.dirty.requestCollections = true;
+    this.scheduleDebouncedSave();
+    sendPatchToRenderers(this.state, ['requestCollections']);
+    return newRequest;
+  }
+
+  async updateRequest(uid: string, updates: Partial<V5.Request>): Promise<void> {
+    const node = this.findRequestNode(uid);
+    if (!node) return;
+
+    const existing = await readRequest(node.path);
+    if (!existing) return;
+
+    const updated: V5.Request = { ...existing, ...updates, uid: existing.uid, path: existing.path };
+    await writeRequest(node.path, updated);
+
+    // Update tree node metadata if name/method changed
+    if (updates.name) node.name = updates.name;
+    if (updates.method) node.method = updates.method;
+
+    this.dirty.requestCollections = true;
+    sendPatchToRenderers(this.state, ['requestCollections']);
+  }
+
+  async removeRequest(uid: string): Promise<void> {
+    const node = this.findRequestNode(uid);
+    if (!node) return;
+
+    await deleteItemFolder(node.path);
+    this.removeNodeFromTree(this.state.requestCollections, uid);
+
+    this.dirty.requestCollections = true;
+    this.scheduleDebouncedSave();
+    sendPatchToRenderers(this.state, ['requestCollections']);
+  }
+
+  // ── Rule CRUD ─────────────────────────────────────────────────
+
+  async addRule(collectionUid: string, rule: Omit<V5.Rule, 'uid' | 'path'>): Promise<V5.Rule> {
+    const collection = this.state.ruleCollections.find((c) => c.uid === collectionUid);
+    if (!collection) throw new Error(`Rule collection ${collectionUid} not found`);
+
+    const uid = generateUid();
+    const slug = slugify(rule.name);
+    const folderName = slug ? `${slug}-${uid}` : uid;
+    const itemDir = `${collection.path}/${folderName}`;
+
+    const newRule = { ...rule, uid, path: itemDir } as V5.Rule;
+    await writeRule(itemDir, newRule);
+
+    this.state.rules.push(newRule);
+    this.dirty.rules = true;
+    this.scheduleDebouncedSave();
+    broadcastToServices(this.state, this.webSocketService);
+    sendPatchToRenderers(this.state, ['rules', 'ruleCollections']);
+    return newRule;
+  }
+
+  async updateRule(uid: string, updates: Partial<V5.Rule>): Promise<void> {
+    const idx = this.state.rules.findIndex((r) => r.uid === uid);
+    if (idx === -1) return;
+
+    const existing = this.state.rules[idx];
+    const updated = { ...existing, ...updates, uid: existing.uid, path: existing.path } as V5.Rule;
+    this.state.rules[idx] = updated;
+    await writeRule(existing.path, updated);
+
+    this.dirty.rules = true;
+    broadcastToServices(this.state, this.webSocketService);
+    sendPatchToRenderers(this.state, ['rules']);
+  }
+
+  async removeRule(uid: string): Promise<void> {
+    const rule = this.state.rules.find((r) => r.uid === uid);
+    if (!rule) return;
+
+    await deleteItemFolder(rule.path);
+    this.state.rules = this.state.rules.filter((r) => r.uid !== uid);
+
+    this.dirty.rules = true;
+    this.scheduleDebouncedSave();
+    broadcastToServices(this.state, this.webSocketService);
+    sendPatchToRenderers(this.state, ['rules']);
+  }
+
+  async toggleRule(uid: string, enabled: boolean): Promise<void> {
+    const rule = this.state.rules.find((r) => r.uid === uid);
+    if (!rule) return;
+
+    rule.enabled = enabled;
+    await writeRule(rule.path, rule);
+
+    this.dirty.rules = true;
+    broadcastToServices(this.state, this.webSocketService);
+    sendPatchToRenderers(this.state, ['rules']);
+  }
+
+  // ── Folder CRUD ───────────────────────────────────────────────
+
+  async addFolder(collectionUid: string, section: 'requests' | 'rules', name: string, parentPath?: string): Promise<V5.FolderNode> {
+    const collections = section === 'requests' ? this.state.requestCollections : this.state.ruleCollections;
+    const collection = collections.find((c) => c.uid === collectionUid);
+    if (!collection) throw new Error(`Collection ${collectionUid} not found`);
+
+    const uid = generateUid();
+    const slug = slugify(name);
+    const folderName = slug ? `${slug}-${uid}` : uid;
+    const baseDir = parentPath || collection.path;
+    const folderDir = `${baseDir}/${folderName}`;
+
+    // Create directory and _folder.yaml
+    const fs = await import('node:fs');
+    await fs.promises.mkdir(folderDir, { recursive: true });
+
+    const node: V5.FolderNode = { type: 'folder', uid, name, path: folderDir, children: [] };
+
+    if (parentPath) {
+      const parent = this.findFolderNode(collection.tree, parentPath);
+      if (parent) parent.children.push(node);
+      else collection.tree.push(node);
+    } else {
+      collection.tree.push(node);
+    }
+
+    const dirtyKey = section === 'requests' ? 'requestCollections' : 'ruleCollections';
+    this.dirty[dirtyKey] = true;
+    this.scheduleDebouncedSave();
+    sendPatchToRenderers(this.state, [dirtyKey]);
+    return node;
+  }
+
+  async renameFolder(section: 'requests' | 'rules', uid: string, newName: string): Promise<void> {
+    const collections = section === 'requests' ? this.state.requestCollections : this.state.ruleCollections;
+    for (const coll of collections) {
+      const node = this.findFolderNodeByUid(coll.tree, uid);
+      if (node) {
+        node.name = newName;
+        const dirtyKey = section === 'requests' ? 'requestCollections' : 'ruleCollections';
+        this.dirty[dirtyKey] = true;
+        this.scheduleDebouncedSave();
+        sendPatchToRenderers(this.state, [dirtyKey]);
+        return;
+      }
+    }
+  }
+
+  async removeFolder(section: 'requests' | 'rules', uid: string): Promise<void> {
+    const collections = section === 'requests' ? this.state.requestCollections : this.state.ruleCollections;
+    for (const coll of collections) {
+      const node = this.findFolderNodeByUid(coll.tree, uid);
+      if (node) {
+        await deleteItemFolder(node.path);
+        this.removeNodeFromTree(collections, uid);
+        const dirtyKey = section === 'requests' ? 'requestCollections' : 'ruleCollections';
+        this.dirty[dirtyKey] = true;
+        this.scheduleDebouncedSave();
+        sendPatchToRenderers(this.state, [dirtyKey]);
+        return;
+      }
+    }
+  }
+
+  // ── Workspace variables update ────────────────────────────────
+
+  async updateWorkspaceVariables(variables: V5.WorkspaceVariables): Promise<void> {
+    this.state.workspaceVariables = variables;
+    this.dirty.workspaceVariables = true;
+    this.scheduleDebouncedSave();
+    sendPatchToRenderers(this.state, ['workspaceVariables']);
+  }
+
+  // ── Tree helpers ──────────────────────────────────────────────
+
+  private findRequestNode(uid: string): V5.RequestNode | null {
+    for (const coll of this.state.requestCollections) {
+      const found = this.findNodeInTree<V5.RequestNode>(coll.tree, uid, 'request');
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private findNodeInTree<T extends V5.TreeNode>(nodes: V5.TreeNode[], uid: string, type: string): T | null {
+    for (const node of nodes) {
+      if (node.uid === uid && node.type === type) return node as T;
+      if (node.type === 'folder') {
+        const found = this.findNodeInTree<T>(node.children, uid, type);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  private findFolderNode(nodes: V5.TreeNode[], path: string): V5.FolderNode | null {
+    for (const node of nodes) {
+      if (node.type === 'folder' && node.path === path) return node;
+      if (node.type === 'folder') {
+        const found = this.findFolderNode(node.children, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  private findFolderNodeByUid(nodes: V5.TreeNode[], uid: string): V5.FolderNode | null {
+    for (const node of nodes) {
+      if (node.type === 'folder' && node.uid === uid) return node;
+      if (node.type === 'folder') {
+        const found = this.findFolderNodeByUid(node.children, uid);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  private removeNodeFromTree(collections: V5.CollectionTree[], uid: string): void {
+    for (const coll of collections) {
+      if (this.removeFromNodes(coll.tree, uid)) return;
+    }
+  }
+
+  private removeFromNodes(nodes: V5.TreeNode[], uid: string): boolean {
+    const idx = nodes.findIndex((n) => n.uid === uid);
+    if (idx !== -1) {
+      nodes.splice(idx, 1);
+      return true;
+    }
+    for (const node of nodes) {
+      if (node.type === 'folder' && this.removeFromNodes(node.children, uid)) return true;
+    }
+    return false;
   }
 
   // ── Workspace CRUD ────────────────────────────────────────────

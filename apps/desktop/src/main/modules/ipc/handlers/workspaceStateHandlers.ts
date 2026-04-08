@@ -180,5 +180,164 @@ export function registerWorkspaceStateHandlers(): void {
     },
   );
 
+  ipcMain.handle(
+    'workspace-state:update-environment',
+    async (_event, oldName: string, updates: { name?: string; variables?: V5.Variable[] }) => {
+      try {
+        await workspaceStateService.updateEnvironment(oldName, updates);
+        return { success: true };
+      } catch (error) {
+        log.error('Update environment failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  // ── Request CRUD ───────────────────────────────────────────────
+
+  ipcMain.handle('workspace-state:get-request', async (_event, uid: string) => {
+    try {
+      const request = await workspaceStateService.getRequest(uid);
+      return { success: true, request };
+    } catch (error) {
+      log.error('Get request failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  ipcMain.handle(
+    'workspace-state:add-request',
+    async (_event, collectionUid: string, request: Omit<V5.Request, 'uid' | 'path'>) => {
+      try {
+        const created = await workspaceStateService.addRequest(collectionUid, request);
+        return { success: true, request: created };
+      } catch (error) {
+        log.error('Add request failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'workspace-state:update-request',
+    async (_event, uid: string, updates: Partial<V5.Request>) => {
+      try {
+        await workspaceStateService.updateRequest(uid, updates);
+        return { success: true };
+      } catch (error) {
+        log.error('Update request failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle('workspace-state:remove-request', async (_event, uid: string) => {
+    try {
+      await workspaceStateService.removeRequest(uid);
+      return { success: true };
+    } catch (error) {
+      log.error('Remove request failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  // ── Rule CRUD ──────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'workspace-state:add-rule',
+    async (_event, collectionUid: string, rule: Omit<V5.Rule, 'uid' | 'path'>) => {
+      try {
+        const created = await workspaceStateService.addRule(collectionUid, rule);
+        return { success: true, rule: created };
+      } catch (error) {
+        log.error('Add rule failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'workspace-state:update-rule',
+    async (_event, uid: string, updates: Partial<V5.Rule>) => {
+      try {
+        await workspaceStateService.updateRule(uid, updates);
+        return { success: true };
+      } catch (error) {
+        log.error('Update rule failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle('workspace-state:remove-rule', async (_event, uid: string) => {
+    try {
+      await workspaceStateService.removeRule(uid);
+      return { success: true };
+    } catch (error) {
+      log.error('Remove rule failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  ipcMain.handle('workspace-state:toggle-rule', async (_event, uid: string, enabled: boolean) => {
+    try {
+      await workspaceStateService.toggleRule(uid, enabled);
+      return { success: true };
+    } catch (error) {
+      log.error('Toggle rule failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  // ── Folder CRUD ────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'workspace-state:add-folder',
+    async (_event, collectionUid: string, section: 'requests' | 'rules', name: string, parentPath?: string) => {
+      try {
+        const folder = await workspaceStateService.addFolder(collectionUid, section, name, parentPath);
+        return { success: true, folder };
+      } catch (error) {
+        log.error('Add folder failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'workspace-state:rename-folder',
+    async (_event, section: 'requests' | 'rules', uid: string, newName: string) => {
+      try {
+        await workspaceStateService.renameFolder(section, uid, newName);
+        return { success: true };
+      } catch (error) {
+        log.error('Rename folder failed:', error);
+        return { success: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle('workspace-state:remove-folder', async (_event, section: 'requests' | 'rules', uid: string) => {
+    try {
+      await workspaceStateService.removeFolder(section, uid);
+      return { success: true };
+    } catch (error) {
+      log.error('Remove folder failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
+  // ── Workspace variables ────────────────────────────────────────
+
+  ipcMain.handle('workspace-state:update-workspace-variables', async (_event, variables: V5.WorkspaceVariables) => {
+    try {
+      await workspaceStateService.updateWorkspaceVariables(variables);
+      return { success: true };
+    } catch (error) {
+      log.error('Update workspace variables failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
+
   log.info('Workspace state IPC handlers registered');
 }
