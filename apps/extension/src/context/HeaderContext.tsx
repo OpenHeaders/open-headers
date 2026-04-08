@@ -40,6 +40,12 @@ export interface HeaderContextValue {
   refreshRules: () => void;
   /** Update persisted UI state. */
   updateUiState: (updates: Partial<UiState>) => void;
+  /** Create a local header rule (extension standalone). */
+  createLocalRule: (rule: Omit<V5.HeaderRule, 'uid' | 'path'>) => Promise<V5.HeaderRule | null>;
+  /** Update a local rule by uid. */
+  updateLocalRule: (uid: string, updates: Partial<Omit<V5.HeaderRule, 'uid' | 'path'>>) => Promise<boolean>;
+  /** Delete a local rule by uid. */
+  deleteLocalRule: (uid: string) => Promise<boolean>;
 }
 
 const defaultContextValue: HeaderContextValue = {
@@ -57,6 +63,9 @@ const defaultContextValue: HeaderContextValue = {
   toggleTagGroup: () => {},
   refreshRules: () => {},
   updateUiState: () => {},
+  createLocalRule: () => Promise.resolve(null),
+  updateLocalRule: () => Promise.resolve(false),
+  deleteLocalRule: () => Promise.resolve(false),
 };
 
 export const HeaderContext = createContext<HeaderContextValue>(defaultContextValue);
@@ -208,6 +217,65 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     });
   }, []);
 
+  // ── Local rule CRUD ───────────────────────────────────────────
+
+  const createLocalRule = useCallback(
+    (rule: Omit<V5.HeaderRule, 'uid' | 'path'>): Promise<V5.HeaderRule | null> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'createLocalRule', rule }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean; rule?: V5.HeaderRule };
+            if (resp.success && resp.rule) {
+              loadRules();
+              resolve(resp.rule);
+              return;
+            }
+          }
+          resolve(null);
+        });
+      });
+    },
+    [loadRules],
+  );
+
+  const updateLocalRuleFn = useCallback(
+    (uid: string, updates: Partial<Omit<V5.HeaderRule, 'uid' | 'path'>>): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'updateLocalRule', ruleId: uid, updates }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean };
+            if (resp.success) {
+              loadRules();
+              resolve(true);
+              return;
+            }
+          }
+          resolve(false);
+        });
+      });
+    },
+    [loadRules],
+  );
+
+  const deleteLocalRuleFn = useCallback(
+    (uid: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'deleteLocalRule', ruleId: uid }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean };
+            if (resp.success) {
+              loadRules();
+              resolve(true);
+              return;
+            }
+          }
+          resolve(false);
+        });
+      });
+    },
+    [loadRules],
+  );
+
   // ── Render ────────────────────────────────────────────────────
 
   const contextValue: HeaderContextValue = {
@@ -219,6 +287,9 @@ export const HeaderProvider: React.FC<HeaderProviderProps> = ({ children }) => {
     toggleTagGroup,
     refreshRules,
     updateUiState,
+    createLocalRule,
+    updateLocalRule: updateLocalRuleFn,
+    deleteLocalRule: deleteLocalRuleFn,
   };
 
   return <HeaderContext.Provider value={contextValue}>{children}</HeaderContext.Provider>;

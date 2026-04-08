@@ -6,6 +6,7 @@ import {
   EditOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
+  LaptopOutlined,
   LinkOutlined,
   MoreOutlined,
   PlusOutlined,
@@ -33,6 +34,7 @@ import {
   truncateValue,
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
+import RuleFormModal from './RuleFormModal';
 
 const { Search } = Input;
 const { Text } = Typography;
@@ -68,6 +70,8 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   const { rules, isConnected, uiState, updateUiState, disabledTagGroups } = useHeader();
   const { setFocusedRowIndex } = useKeyboardNav();
 
+  const [ruleFormOpen, setRuleFormOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<V5.HeaderRule | null>(null);
   const [copiedRowId, setCopiedRowId] = useState<string | number | null>(null);
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>(
@@ -129,7 +133,8 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   const handleToggleRow = useCallback(
     async (index: number) => {
       const record = dataSourceRef.current[index];
-      if (!record || !isConnected) return;
+      if (!record) return;
+      if (!record.id.startsWith('local-') && !isConnected) return;
       const { runtime } = await import('../../utils/browser-api');
       runtime.sendMessage(
         { type: 'toggleRule', ruleId: record.id, enabled: !record.isEnabled },
@@ -147,11 +152,20 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   const handleEditRow = useCallback(
     async (index: number) => {
       const record = dataSourceRef.current[index];
-      if (!record || !isConnected) return;
+      if (!record) return;
+      if (record.id.startsWith('local-')) {
+        const rule = rules.find((r): r is V5.HeaderRule => r.uid === record.id && r.type === 'header');
+        if (rule) {
+          setEditingRule(rule);
+          setRuleFormOpen(true);
+        }
+        return;
+      }
+      if (!isConnected) return;
       await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers', action: 'edit', itemId: record.id });
       message.info('Opening edit dialog in OpenHeaders app');
     },
-    [isConnected, appLauncher, message],
+    [isConnected, appLauncher, message, rules],
   );
 
   const handleCopyRow = useCallback((index: number) => {
@@ -165,7 +179,8 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
   const handleDeleteRow = useCallback(
     async (index: number) => {
       const record = dataSourceRef.current[index];
-      if (!record || !isConnected) return;
+      if (!record) return;
+      if (!record.id.startsWith('local-') && !isConnected) return;
       const { runtime } = await import('../../utils/browser-api');
       runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
         const resp = response as { success?: boolean } | undefined;
@@ -351,8 +366,10 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
       sorter: (a, b) => Number(b.isEnabled) - Number(a.isEnabled),
       sortOrder: sortedInfo.columnKey === 'isEnabled' ? sortedInfo.order : null,
       render: (enabled: boolean, record: TableRecord) => {
+        const isLocal = record.id.startsWith('local-');
+        const canToggle = isLocal || isConnected;
         const groupPaused = disabledTagGroups.has(record.tag || '__no_tag__');
-        const tooltip = !isConnected
+        const tooltip = !canToggle
           ? 'App not connected'
           : groupPaused && enabled
             ? 'Enabled but tag group is paused — not being injected'
@@ -361,7 +378,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
           <Tooltip title={tooltip}>
             <Switch
               checked={enabled}
-              disabled={!isConnected}
+              disabled={!canToggle}
               onChange={async () => {
                 const { runtime } = await import('../../utils/browser-api');
                 runtime.sendMessage(
@@ -386,56 +403,78 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
       width: 90,
       align: 'center',
       fixed: 'right',
-      render: (_: unknown, record: TableRecord) => (
-        <Tooltip title={!isConnected ? 'App not connected' : 'Edit or delete rule'}>
-          <Space size={2}>
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              size="small"
-              disabled={!isConnected}
-              onClick={async () => {
-                await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers', action: 'edit', itemId: record.id });
-                message.info('Opening edit dialog in OpenHeaders app');
-              }}
-            />
-            <Popconfirm
-              title="Delete rule"
-              description={`Delete "${record.headerName}"?`}
-              onConfirm={async () => {
-                const { runtime } = await import('../../utils/browser-api');
-                runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
-                  const resp = response as { success?: boolean } | undefined;
-                  if (resp?.success) {
-                    message.success('Rule deleted');
+      render: (_: unknown, record: TableRecord) => {
+        const isLocal = record.id.startsWith('local-');
+        const canAct = isLocal || isConnected;
+        return (
+          <Tooltip title={!canAct ? 'App not connected' : 'Edit or delete rule'}>
+            <Space size={2}>
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                size="small"
+                disabled={!canAct}
+                onClick={async () => {
+                  if (isLocal) {
+                    const rule = rules.find((r): r is V5.HeaderRule => r.uid === record.id && r.type === 'header');
+                    if (rule) {
+                      setEditingRule(rule);
+                      setRuleFormOpen(true);
+                    }
                   } else {
-                    message.error('Failed to delete rule');
+                    await appLauncher.launchOrFocus({ tab: 'rules', subTab: 'headers', action: 'edit', itemId: record.id });
+                    message.info('Opening edit dialog in OpenHeaders app');
                   }
-                });
-              }}
-              okText="Delete"
-              okType="danger"
-              cancelText="Cancel"
-              disabled={!isConnected}
-            >
-              <Button type="text" danger icon={<DeleteOutlined />} size="small" disabled={!isConnected} />
-            </Popconfirm>
-          </Space>
-        </Tooltip>
-      ),
+                }}
+              />
+              <Popconfirm
+                title="Delete rule"
+                description={`Delete "${record.headerName}"?`}
+                onConfirm={async () => {
+                  const { runtime } = await import('../../utils/browser-api');
+                  runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
+                    const resp = response as { success?: boolean } | undefined;
+                    if (resp?.success) {
+                      message.success('Rule deleted');
+                    } else {
+                      message.error('Failed to delete rule');
+                    }
+                  });
+                }}
+                okText="Delete"
+                okType="danger"
+                cancelText="Cancel"
+                disabled={!canAct}
+              >
+                <Button type="text" danger icon={<DeleteOutlined />} size="small" disabled={!canAct} />
+              </Popconfirm>
+            </Space>
+          </Tooltip>
+        );
+      },
     },
   ];
 
   const addRuleMenuItems = [
     {
+      key: 'local-header-rule',
+      icon: <LaptopOutlined />,
+      label: 'Add Header Rule (Local)',
+      onClick: () => {
+        setEditingRule(null);
+        setRuleFormOpen(true);
+      },
+    },
+    { type: 'divider' as const },
+    {
       key: 'modify-headers',
       icon: <SwapOutlined />,
       label: !isConnected ? (
         <Tooltip title="App not connected" placement="right">
-          <span>Modify Headers (Request/Response)</span>
+          <span>Modify Headers (via Desktop App)</span>
         </Tooltip>
       ) : (
-        'Modify Headers (Request/Response)'
+        'Modify Headers (via Desktop App)'
       ),
       disabled: !isConnected,
       onClick: async () => {
@@ -639,7 +678,7 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
                     <Space orientation="vertical" size={4}>
                       <Text type="secondary">No header rules yet</Text>
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Click "Add Rule" above to create rules in the desktop app
+                        Click "Add Rule" to create a local rule or use the desktop app
                       </Text>
                     </Space>
                   )
@@ -656,6 +695,14 @@ const HeaderTable: React.FC<HeaderTableProps> = ({
           itemName={filteredData[pendingDeleteIndex]?.headerName ?? ''}
         />
       </div>
+      <RuleFormModal
+        open={ruleFormOpen}
+        onClose={() => {
+          setRuleFormOpen(false);
+          setEditingRule(null);
+        }}
+        editRule={editingRule}
+      />
     </div>
   );
 };
