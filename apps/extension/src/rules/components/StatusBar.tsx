@@ -47,19 +47,49 @@ function PanelToggle({
           <rect x="0.5" y="0.5" width="15" height="12" rx="1.5" fill="none" stroke={strokeColor} strokeWidth={1} />
           {position === 'left' && (
             <>
-              <rect x="0.5" y="0.5" width="4.5" height="12" rx="1.5" fill={fillColor} stroke={strokeColor} strokeWidth={1} opacity={active ? 0.35 : 0.15} />
+              <rect
+                x="0.5"
+                y="0.5"
+                width="4.5"
+                height="12"
+                rx="1.5"
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={1}
+                opacity={active ? 0.35 : 0.15}
+              />
               <line x1="5" y1="0.5" x2="5" y2="12.5" stroke={strokeColor} strokeWidth={1} />
             </>
           )}
           {position === 'bottom' && (
             <>
-              <rect x="0.5" y="8.5" width="15" height="4" rx="1.5" fill={fillColor} stroke={strokeColor} strokeWidth={1} opacity={active ? 0.35 : 0.15} />
+              <rect
+                x="0.5"
+                y="8.5"
+                width="15"
+                height="4"
+                rx="1.5"
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={1}
+                opacity={active ? 0.35 : 0.15}
+              />
               <line x1="0.5" y1="8.5" x2="15.5" y2="8.5" stroke={strokeColor} strokeWidth={1} />
             </>
           )}
           {position === 'right' && (
             <>
-              <rect x="11" y="0.5" width="4.5" height="12" rx="1.5" fill={fillColor} stroke={strokeColor} strokeWidth={1} opacity={active ? 0.35 : 0.15} />
+              <rect
+                x="11"
+                y="0.5"
+                width="4.5"
+                height="12"
+                rx="1.5"
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={1}
+                opacity={active ? 0.35 : 0.15}
+              />
               <line x1="11" y1="0.5" x2="11" y2="12.5" stroke={strokeColor} strokeWidth={1} />
             </>
           )}
@@ -116,9 +146,24 @@ const StatusBar: React.FC<StatusBarProps> = ({ panels, onTogglePanel }) => {
         </span>
         <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
         <div className="rules-panel-toggles">
-          <PanelToggle title="Left sidebar" active={panels.sidebar} position="left" onClick={() => onTogglePanel('sidebar')} />
-          <PanelToggle title="Bottom panel" active={panels.bottomPanel} position="bottom" onClick={() => onTogglePanel('bottomPanel')} />
-          <PanelToggle title="Right sidebar" active={panels.inspector} position="right" onClick={() => onTogglePanel('inspector')} />
+          <PanelToggle
+            title="Left sidebar"
+            active={panels.sidebar}
+            position="left"
+            onClick={() => onTogglePanel('sidebar')}
+          />
+          <PanelToggle
+            title="Bottom panel"
+            active={panels.bottomPanel}
+            position="bottom"
+            onClick={() => onTogglePanel('bottomPanel')}
+          />
+          <PanelToggle
+            title="Right sidebar"
+            active={panels.inspector}
+            position="right"
+            onClick={() => onTogglePanel('inspector')}
+          />
         </div>
       </div>
     </div>

@@ -42,27 +42,37 @@ function InlineRenameInput({
 }) {
   const [text, setText] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
+  const committedRef = useRef(false);
+
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
+
+  const commit = () => {
+    if (committedRef.current) return; // prevent double-fire from Enter then blur
+    committedRef.current = true;
+    const t = text.trim();
+    if (t && t !== value) onCommit(t);
+    onCancel(); // always exit rename mode after commit
+  };
+
+  const cancel = () => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    onCancel();
+  };
+
   return (
     <input
       ref={inputRef}
       className="rules-sidebar-rename-input"
       value={text}
       onChange={(e) => setText(e.target.value)}
-      onBlur={() => {
-        const t = text.trim();
-        if (t && t !== value) onCommit(t);
-        else onCancel();
-      }}
+      onBlur={commit}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          const t = text.trim();
-          if (t && t !== value) onCommit(t);
-          else onCancel();
-        } else if (e.key === 'Escape') onCancel();
+        if (e.key === 'Enter') commit();
+        else if (e.key === 'Escape') cancel();
       }}
       onClick={(e) => e.stopPropagation()}
     />

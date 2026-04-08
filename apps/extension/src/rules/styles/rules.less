@@ -423,6 +423,54 @@ html, body, #root {
   }
 }
 
+// ── Drag-to-reorder ────────────────────────────────────────────────
+
+.rules-tab[draggable] {
+  cursor: grab;
+}
+.rules-tab:active[draggable] {
+  cursor: grabbing;
+}
+
+// ── Tab Search Dropdown ────────────────────────────────────────────
+
+.rules-tab-search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+}
+
+.rules-tab-search-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 300px;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  z-index: 99;
+  animation: rules-tab-search-in 0.15s ease-out;
+}
+
+@keyframes rules-tab-search-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rules-tab-search-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+}
+
 .rules-type-badge {
   font-size: 11px;
   flex-shrink: 0;
@@ -468,11 +516,24 @@ html, body, #root {
   text-align: center;
 }
 
-// ── Rule Editor (compact form) ─────────────────────────────────────
+// ── Rule Editor ────────────────────────────────────────────────────
 
 .rules-rule-editor {
-  padding: 16px 32px 48px;
-  max-width: 680px;
+  padding: 24px 32px 48px;
+  max-width: 640px;
+
+  .ant-form-item-label > label {
+    font-size: 12px;
+  }
+
+  .ant-divider {
+    border-color: var(--ant-color-border-secondary, #f0f0f0);
+  }
+
+  // Muted non-selected segments in edit mode
+  .ant-segmented-item-disabled {
+    opacity: 0.35;
+  }
 }
 
 // ── Status Bar ─────────────────────────────────────────────────────

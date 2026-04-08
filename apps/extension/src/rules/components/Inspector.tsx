@@ -31,11 +31,10 @@ const Inspector: React.FC<InspectorProps> = ({ onClose }) => {
           flexShrink: 0,
         }}
       >
-        <Text strong style={{ fontSize: 14 }}>Variables</Text>
-        <CloseOutlined
-          style={{ color: token.colorTextTertiary, cursor: 'pointer', fontSize: 12 }}
-          onClick={onClose}
-        />
+        <Text strong style={{ fontSize: 14 }}>
+          Variables
+        </Text>
+        <CloseOutlined style={{ color: token.colorTextTertiary, cursor: 'pointer', fontSize: 12 }} onClick={onClose} />
       </div>
 
       {/* Search */}
@@ -50,7 +49,16 @@ const Inspector: React.FC<InspectorProps> = ({ onClose }) => {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        }}
+      >
         <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', lineHeight: 1.6 }}>
           Variable inspection will be available when connected to the desktop app.
         </Text>

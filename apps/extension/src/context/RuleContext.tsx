@@ -46,7 +46,11 @@ export interface RuleContextValue {
   localCollectionTrees: V5.CollectionTree[];
   /** Create a local rule (extension standalone). */
   /** Create a local rule. Provide collectionUid or parentPath (folder path) to control placement. */
-  createLocalRule: (rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid?: string, parentPath?: string) => Promise<V5.Rule | null>;
+  createLocalRule: (
+    rule: Omit<V5.Rule, 'uid' | 'path'>,
+    collectionUid?: string,
+    parentPath?: string,
+  ) => Promise<V5.Rule | null>;
   /** Update a local rule by uid. */
   updateLocalRule: (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>) => Promise<boolean>;
   /** Delete a local rule by uid. */
@@ -162,10 +166,12 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       }
     });
 
-    // Listen for rule updates from background (pushed when desktop sends new rules)
+    // Listen for rule updates from background (pushed on any store mutation)
     const messageListener = (message: { type?: string; rules?: V5.Rule[] }) => {
       if (message.type === 'rulesUpdated' && Array.isArray(message.rules)) {
         setRules(message.rules);
+        // Collections/folders may have changed too (delete, rename, create)
+        loadLocalCollections();
       } else if (message.type === 'connectionStatus') {
         setIsConnected((message as { connected?: boolean }).connected ?? false);
       }
@@ -263,6 +269,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   // ── Local rule CRUD ───────────────────────────────────────────
 
+  // ── Local CRUD ─────────────────────────────────────────────────
+  // Every successful mutation calls refreshRules() which reloads both
+  // rules and collections. This is the single consistent pattern —
+  // no per-function guessing about which subset to reload.
+
   const createLocalRule = useCallback(
     (rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid?: string, parentPath?: string): Promise<V5.Rule | null> => {
       return new Promise((resolve) => {
@@ -270,8 +281,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
           if (!error && response) {
             const resp = response as { success?: boolean; rule?: V5.Rule };
             if (resp.success && resp.rule) {
-              loadRules();
-              loadLocalCollections();
+              refreshRules();
               resolve(resp.rule);
               return;
             }
@@ -280,45 +290,39 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
         });
       });
     },
-    [loadRules, loadLocalCollections],
+    [refreshRules],
   );
 
   const updateLocalRuleFn = useCallback(
     (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
       return new Promise((resolve) => {
         sendMessageWithCallback({ type: 'updateLocalRule', ruleId: uid, updates }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean };
-            if (resp.success) {
-              loadRules();
-              resolve(true);
-              return;
-            }
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
           }
           resolve(false);
         });
       });
     },
-    [loadRules],
+    [refreshRules],
   );
 
   const deleteLocalRuleFn = useCallback(
     (uid: string): Promise<boolean> => {
       return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'deleteLocalRule', ruleId: uid }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean };
-            if (resp.success) {
-              loadRules();
-              resolve(true);
-              return;
-            }
+        sendMessageWithCallback({ type: 'deleteRule', ruleId: uid }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
           }
           resolve(false);
         });
       });
     },
-    [loadRules],
+    [refreshRules],
   );
 
   const createLocalCollectionFn = useCallback(
@@ -328,7 +332,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
           if (!error && response) {
             const resp = response as { success?: boolean; collection?: V5.Collection };
             if (resp.success && resp.collection) {
-              loadLocalCollections();
+              refreshRules();
               resolve(resp.collection);
               return;
             }
@@ -337,17 +341,15 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
         });
       });
     },
-    [loadLocalCollections],
+    [refreshRules],
   );
-
-  // ── Collection rename/delete ──────────────────────────────────
 
   const renameLocalCollectionFn = useCallback(
     (uid: string, name: string): Promise<boolean> => {
       return new Promise((resolve) => {
         sendMessageWithCallback({ type: 'renameLocalCollection', collectionUid: uid, name }, (response, error) => {
           if (!error && response && (response as { success?: boolean }).success) {
-            loadLocalCollections();
+            refreshRules();
             resolve(true);
             return;
           }
@@ -355,7 +357,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
         });
       });
     },
-    [loadLocalCollections],
+    [refreshRules],
   );
 
   const deleteLocalCollectionFn = useCallback(
@@ -363,8 +365,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       return new Promise((resolve) => {
         sendMessageWithCallback({ type: 'deleteLocalCollection', collectionUid: uid }, (response, error) => {
           if (!error && response && (response as { success?: boolean }).success) {
-            loadRules();
-            loadLocalCollections();
+            refreshRules();
             resolve(true);
             return;
           }
@@ -372,10 +373,8 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
         });
       });
     },
-    [loadRules, loadLocalCollections],
+    [refreshRules],
   );
-
-  // ── Folder CRUD ──────────────────────────────────────────────
 
   const createLocalFolderFn = useCallback(
     (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
@@ -384,7 +383,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
           if (!error && response) {
             const resp = response as { success?: boolean; folder?: { uid: string; path: string; name: string } };
             if (resp.success && resp.folder) {
-              loadLocalCollections();
+              refreshRules();
               resolve(resp.folder);
               return;
             }
@@ -393,46 +392,39 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
         });
       });
     },
-    [loadLocalCollections],
+    [refreshRules],
   );
 
   const renameLocalFolderFn = useCallback(
     (uid: string, name: string): Promise<boolean> => {
       return new Promise((resolve) => {
         sendMessageWithCallback({ type: 'renameLocalFolder', folderUid: uid, name }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean };
-            if (resp.success) {
-              loadLocalCollections();
-              resolve(true);
-              return;
-            }
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
           }
           resolve(false);
         });
       });
     },
-    [loadLocalCollections],
+    [refreshRules],
   );
 
   const deleteLocalFolderFn = useCallback(
     (uid: string): Promise<boolean> => {
       return new Promise((resolve) => {
         sendMessageWithCallback({ type: 'deleteLocalFolder', folderUid: uid }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean };
-            if (resp.success) {
-              loadRules();
-              loadLocalCollections();
-              resolve(true);
-              return;
-            }
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
           }
           resolve(false);
         });
       });
     },
-    [loadRules, loadLocalCollections],
+    [refreshRules],
   );
 
   // ── Render ────────────────────────────────────────────────────

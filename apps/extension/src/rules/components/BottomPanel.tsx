@@ -63,15 +63,9 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ activeTab = 'traffic', onTabC
       </div>
 
       <div className="rules-bottom-content" style={{ color: token.colorTextTertiary }}>
-        {activeTab === 'traffic' && (
-          <Text type="secondary">Traffic monitoring available in desktop app.</Text>
-        )}
-        {activeTab === 'console' && (
-          <Text type="secondary">Console available in desktop app.</Text>
-        )}
-        {activeTab === 'terminal' && (
-          <Text type="secondary">Terminal available in desktop app.</Text>
-        )}
+        {activeTab === 'traffic' && <Text type="secondary">Traffic monitoring available in desktop app.</Text>}
+        {activeTab === 'console' && <Text type="secondary">Console available in desktop app.</Text>}
+        {activeTab === 'terminal' && <Text type="secondary">Terminal available in desktop app.</Text>}
       </div>
     </div>
   );

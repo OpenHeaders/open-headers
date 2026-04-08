@@ -30,3 +30,9 @@ export interface PanelVisibility {
   bottomPanel: boolean;
   inspector: boolean;
 }
+
+/** Snapshot of a tab when it was closed, for "recently closed" recovery. */
+export interface ClosedTab {
+  tab: RulesTab;
+  closedAt: number;
+}

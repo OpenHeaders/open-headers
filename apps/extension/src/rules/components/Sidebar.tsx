@@ -27,9 +27,9 @@ import {
   SwapOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
+import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
-import { useRules } from '@hooks/useRules';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
@@ -43,14 +43,44 @@ function iconEl(Icon: typeof ThunderboltOutlined, color: string, size = 12): Rea
   return createElement(Icon, { style: { color, fontSize: size } });
 }
 
+function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
+  return [
+    { key: 'header', icon: createElement(SwapOutlined), label: 'Modify Headers', onClick: () => onAddRule('header') },
+    { key: 'block', icon: createElement(StopOutlined), label: 'Block Requests', onClick: () => onAddRule('block') },
+    {
+      key: 'redirect',
+      icon: createElement(SendOutlined),
+      label: 'Redirect Requests',
+      onClick: () => onAddRule('redirect'),
+    },
+    {
+      key: 'query-param',
+      icon: createElement(LinkOutlined),
+      label: 'Modify Query Params',
+      onClick: () => onAddRule('query-param'),
+    },
+    {
+      key: 'inject',
+      icon: createElement(CodeOutlined),
+      label: 'Inject Scripts/CSS',
+      onClick: () => onAddRule('inject'),
+    },
+  ];
+}
+
 function collectionMenuItems(
-  onAddRule: () => void,
+  onAddRule: (type: string) => void,
   onAddFolder: () => void,
   onRename: () => void,
   onDelete: () => void,
 ): ItemType[] {
   return [
-    { key: 'add-item', icon: createElement(ThunderboltOutlined), label: 'Add Rule', onClick: onAddRule },
+    {
+      key: 'add-item',
+      icon: createElement(ThunderboltOutlined),
+      label: 'Add Rule',
+      children: ruleTypeSubmenu(onAddRule),
+    },
     { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
     { type: 'divider' as const, key: 'div' },
     { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
@@ -59,13 +89,18 @@ function collectionMenuItems(
 }
 
 function folderMenuItems(
-  onAddRule: () => void,
+  onAddRule: (type: string) => void,
   onAddFolder: () => void,
   onRename: () => void,
   onDelete: () => void,
 ): ItemType[] {
   return [
-    { key: 'add-item', icon: createElement(ThunderboltOutlined), label: 'Add Rule', onClick: onAddRule },
+    {
+      key: 'add-item',
+      icon: createElement(ThunderboltOutlined),
+      label: 'Add Rule',
+      children: ruleTypeSubmenu(onAddRule),
+    },
     { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
     { type: 'divider' as const, key: 'div' },
     { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
@@ -92,15 +127,31 @@ function SectionHeader({
       className="rules-sidebar-section"
       style={{ color: token.colorTextSecondary }}
       onClick={onToggle}
-      onKeyDown={(e) => { if (e.key === 'Enter') onToggle(); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onToggle();
+      }}
       role="button"
       tabIndex={-1}
     >
       <span className="rules-sidebar-section-title">
-        <span style={{ display: 'inline-block', fontSize: 10, marginRight: 4, transition: 'transform 0.2s ease', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
+        <span
+          style={{
+            display: 'inline-block',
+            fontSize: 10,
+            marginRight: 4,
+            transition: 'transform 0.2s ease',
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          }}
+        >
+          &#9654;
+        </span>
         {title}
       </span>
-      {actions && <span onClick={(e) => e.stopPropagation()} onKeyDown={() => {}}>{actions}</span>}
+      {actions && (
+        <span onClick={(e) => e.stopPropagation()} onKeyDown={() => {}}>
+          {actions}
+        </span>
+      )}
     </div>
   );
 }
@@ -116,13 +167,27 @@ interface SidebarProps {
   onOpenFolderOverview?: (uid: string, name: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRule, onDeleteRule, onOpenCollectionOverview, onOpenFolderOverview }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  activeTabId,
+  onSelectRule,
+  onCreateRule,
+  onDeleteRule,
+  onOpenCollectionOverview,
+  onOpenFolderOverview,
+}) => {
   const { token } = theme.useToken();
   const {
-    rules, localCollectionTrees, isConnected,
-    updateLocalRule, deleteLocalRule, deleteLocalCollection,
-    createLocalFolder, renameLocalFolder, deleteLocalFolder,
-    renameLocalCollection, createLocalCollection,
+    rules,
+    localCollectionTrees,
+    isConnected,
+    updateLocalRule,
+    deleteLocalRule,
+    deleteLocalCollection,
+    createLocalFolder,
+    renameLocalFolder,
+    deleteLocalFolder,
+    renameLocalCollection,
+    createLocalCollection,
   } = useRules();
   const { message } = App.useApp();
 
@@ -141,7 +206,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
   const [alwaysSelectOpened, setAlwaysSelectOpened] = useState(true);
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
 
   const toggleSection = useCallback((key: string) => {
     setSectionsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -183,7 +247,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
     Modal.confirm({
       title: <span style={{ fontSize: 13, fontWeight: 600 }}>Delete item?</span>,
       width: 380,
-      content: <p style={{ fontSize: 12, margin: '4px 0 0' }}>Are you sure you want to delete <strong>{name}</strong>? This action cannot be undone.</p>,
+      content: (
+        <p style={{ fontSize: 12, margin: '4px 0 0' }}>
+          Are you sure you want to delete <strong>{name}</strong>? This action cannot be undone.
+        </p>
+      ),
       okText: 'Delete',
       okButtonProps: { danger: true, size: 'small' },
       cancelButtonProps: { size: 'small' },
@@ -213,11 +281,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
         if (node.type === 'folder') {
           const fid = `folder-${node.uid}`;
           const isExpanded = expandedKeys.has(fid);
-          const onAddRule = () => onCreateRule('header', { collectionId, folderPath: node.path });
+          const onAddRule = (type: string) => onCreateRule(type, { collectionId, folderPath: node.path });
           const onAddFolder = () => {
             void createLocalFolder('New Folder', node.path).then((f) => {
               if (f) {
-                setExpandedKeys((prev) => { const next = new Set(prev); next.add(fid); return next; });
+                setExpandedKeys((prev) => {
+                  const next = new Set(prev);
+                  next.add(fid);
+                  return next;
+                });
                 onOpenFolderOverview?.(f.uid, f.name);
               }
             });
@@ -235,10 +307,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
             canDelete: true,
             canAddChild: true,
             onOpen: () => toggleExpand(fid),
-            onRename: async (name: string) => { void renameLocalFolder(node.uid, name); },
-            onDelete: () => confirmDelete(node.name, () => { void deleteLocalFolder(node.uid); }),
-            onAddItem: onAddRule,
-            addMenuItems: folderMenuItems(onAddRule, onAddFolder, () => setRenamingId(fid), () => confirmDelete(node.name, () => { void deleteLocalFolder(node.uid); })),
+            onRename: async (name: string) => {
+              void renameLocalFolder(node.uid, name);
+            },
+            onDelete: () =>
+              confirmDelete(node.name, () => {
+                void deleteLocalFolder(node.uid);
+              }),
+            addMenuItems: folderMenuItems(
+              onAddRule,
+              onAddFolder,
+              () => setRenamingId(fid),
+              () =>
+                confirmDelete(node.name, () => {
+                  void deleteLocalFolder(node.uid);
+                }),
+            ),
           });
           if (isExpanded) {
             const children = walkV5Tree(node.children, depth + 1, fid, collectionId);
@@ -258,8 +342,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
                 placeholderTitle: 'Folder is empty',
                 placeholderMessage: 'Add a rule or folder to get started.',
                 placeholderActions: [
-                  { label: 'Add rule', icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddRule },
-                  { label: 'Add folder', icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddFolder },
+                  {
+                    label: 'Add rule',
+                    icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                    onClick: () => onAddRule('header'),
+                  },
+                  {
+                    label: 'Add folder',
+                    icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                    onClick: onAddFolder,
+                  },
                 ],
               });
             }
@@ -270,16 +362,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
           const isLocal = node.uid.startsWith('local-');
           const fullRule = rules.find((r) => r.uid === node.uid);
           const complete = fullRule ? isRuleComplete(fullRule) : true;
-          const color = node.enabled && complete
-            ? 'var(--ant-color-primary, #1677ff)'
-            : 'var(--ant-color-text-tertiary, #999)';
+          const color =
+            node.enabled && complete ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)';
 
           // Badge: "draft" for incomplete rules, "off" for disabled complete rules
           let badge: React.ReactNode;
           if (!complete) {
-            badge = createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } }, 'draft');
+            badge = createElement(
+              'span',
+              { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } },
+              'draft',
+            );
           } else if (!node.enabled) {
-            badge = createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } }, 'off');
+            badge = createElement(
+              'span',
+              { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } },
+              'off',
+            );
           }
 
           items.push({
@@ -295,18 +394,51 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
             canDelete: isLocal,
             canAddChild: false,
             hoverAction: node.enabled
-              ? { icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11), tooltip: 'Disable rule', onClick: () => handleToggleRule(node.uid, false) }
-              : { icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11), tooltip: 'Enable rule', onClick: () => handleToggleRule(node.uid, true) },
+              ? {
+                  icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+                  tooltip: 'Disable rule',
+                  onClick: () => handleToggleRule(node.uid, false),
+                }
+              : {
+                  icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+                  tooltip: 'Enable rule',
+                  onClick: () => handleToggleRule(node.uid, true),
+                },
             onOpen: () => onSelectRule(node.uid),
-            onRename: isLocal && fullRule ? async (name: string) => { void updateLocalRule(node.uid, { name }); } : undefined,
-            onDelete: isLocal ? () => confirmDelete(node.name, () => { onDeleteRule?.(node.uid); }) : undefined,
+            onRename:
+              isLocal && fullRule
+                ? async (name: string) => {
+                    void updateLocalRule(node.uid, { name });
+                  }
+                : undefined,
+            onDelete: isLocal
+              ? () =>
+                  confirmDelete(node.name, () => {
+                    onDeleteRule?.(node.uid);
+                  })
+              : undefined,
           });
         }
       }
 
       return items;
     },
-    [expandedKeys, lowerFilter, rules, toggleExpand, onCreateRule, onSelectRule, onDeleteRule, handleToggleRule, updateLocalRule, createLocalFolder, renameLocalFolder, deleteLocalFolder, confirmDelete, onOpenFolderOverview],
+    [
+      expandedKeys,
+      lowerFilter,
+      rules,
+      toggleExpand,
+      onCreateRule,
+      onSelectRule,
+      onDeleteRule,
+      handleToggleRule,
+      updateLocalRule,
+      createLocalFolder,
+      renameLocalFolder,
+      deleteLocalFolder,
+      confirmDelete,
+      onOpenFolderOverview,
+    ],
   );
 
   const rulesNodes = useMemo((): TreeNode[] => {
@@ -321,11 +453,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
 
       const colId = `col-${collection.uid}`;
       const isExpanded = expandedKeys.has(colId);
-      const onAddRule = () => onCreateRule('header', { collectionId: collection.uid });
+      const onAddRule = (type: string) => onCreateRule(type, { collectionId: collection.uid });
       const onAddFolder = () => {
         void createLocalFolder('New Folder', collection.path).then((f) => {
           if (f) {
-            setExpandedKeys((prev) => { const next = new Set(prev); next.add(colId); return next; });
+            setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(colId);
+              return next;
+            });
             onOpenFolderOverview?.(f.uid, f.name);
           }
         });
@@ -342,10 +478,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
         canDelete: true,
         canAddChild: true,
         onOpen: () => toggleExpand(colId),
-        onRename: async (name) => { void renameLocalCollection(collection.uid, name); },
-        onDelete: () => confirmDelete(collection.name, () => { void deleteLocalCollection(collection.uid); }),
-        onAddItem: onAddRule,
-        addMenuItems: collectionMenuItems(onAddRule, onAddFolder, () => setRenamingId(colId), () => confirmDelete(collection.name, () => { void deleteLocalCollection(collection.uid); })),
+        onRename: async (name) => {
+          void renameLocalCollection(collection.uid, name);
+        },
+        onDelete: () =>
+          confirmDelete(collection.name, () => {
+            void deleteLocalCollection(collection.uid);
+          }),
+        addMenuItems: collectionMenuItems(
+          onAddRule,
+          onAddFolder,
+          () => setRenamingId(colId),
+          () =>
+            confirmDelete(collection.name, () => {
+              void deleteLocalCollection(collection.uid);
+            }),
+        ),
       });
 
       if (isExpanded) {
@@ -366,8 +514,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
             placeholderTitle: 'Collection is empty',
             placeholderMessage: 'Add a rule or folder to get started.',
             placeholderActions: [
-              { label: 'Add rule', icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddRule },
-              { label: 'Add folder', icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'), onClick: onAddFolder },
+              {
+                label: 'Add rule',
+                icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                onClick: () => onAddRule('header'),
+              },
+              {
+                label: 'Add folder',
+                icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                onClick: onAddFolder,
+              },
             ],
           });
         }
@@ -375,11 +531,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
     }
 
     return items;
-  }, [localCollectionTrees, lowerFilter, expandedKeys, toggleExpand, onCreateRule, walkV5Tree, renameLocalCollection, deleteLocalCollection, createLocalFolder, confirmDelete]);
+  }, [
+    localCollectionTrees,
+    lowerFilter,
+    expandedKeys,
+    toggleExpand,
+    onCreateRule,
+    walkV5Tree,
+    renameLocalCollection,
+    deleteLocalCollection,
+    createLocalFolder,
+    confirmDelete,
+  ]);
 
   // ── Flat items for keyboard nav ──────────────────────────────
 
-  const allFlatItems = useMemo(() => sectionsExpanded.rules ? rulesNodes : [], [sectionsExpanded.rules, rulesNodes]);
+  const allFlatItems = useMemo(() => (sectionsExpanded.rules ? rulesNodes : []), [sectionsExpanded.rules, rulesNodes]);
 
   const isSelected = useCallback(
     (id: string) => {
@@ -502,15 +669,26 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const currentIdx = allFlatItems.findIndex((n) => n.id === focusedId);
-        const nextIdx = e.key === 'ArrowDown' ? Math.min(currentIdx + 1, allFlatItems.length - 1) : Math.max(currentIdx - 1, 0);
+        const nextIdx =
+          e.key === 'ArrowDown' ? Math.min(currentIdx + 1, allFlatItems.length - 1) : Math.max(currentIdx - 1, 0);
         const next = allFlatItems[nextIdx];
-        if (next) { setFocusedId(next.id); setTimeout(() => containerRef.current?.querySelector(`[data-item-id="${next.id}"]`)?.scrollIntoView({ block: 'nearest' }), 0); }
+        if (next) {
+          setFocusedId(next.id);
+          setTimeout(
+            () =>
+              containerRef.current?.querySelector(`[data-item-id="${next.id}"]`)?.scrollIntoView({ block: 'nearest' }),
+            0,
+          );
+        }
       } else if (e.key === 'Enter' && focusedId) {
         e.preventDefault();
         allFlatItems.find((n) => n.id === focusedId)?.onOpen?.();
       } else if (e.key === 'ArrowRight' && focusedId) {
         const node = allFlatItems.find((n) => n.id === focusedId);
-        if (node?.expandable && !expandedKeys.has(node.id)) { e.preventDefault(); toggleExpand(node.id); }
+        if (node?.expandable && !expandedKeys.has(node.id)) {
+          e.preventDefault();
+          toggleExpand(node.id);
+        }
       } else if (e.key === 'ArrowLeft' && focusedId) {
         e.preventDefault();
         const node = allFlatItems.find((n) => n.id === focusedId);
@@ -541,7 +719,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
     { key: 'header', icon: <SwapOutlined />, label: 'Modify Headers', onClick: () => onCreateRule('header') },
     { key: 'block', icon: <StopOutlined />, label: 'Block Requests', onClick: () => onCreateRule('block') },
     { key: 'redirect', icon: <SendOutlined />, label: 'Redirect Requests', onClick: () => onCreateRule('redirect') },
-    { key: 'query-param', icon: <LinkOutlined />, label: 'Modify Query Params', onClick: () => onCreateRule('query-param') },
+    {
+      key: 'query-param',
+      icon: <LinkOutlined />,
+      label: 'Modify Query Params',
+      onClick: () => onCreateRule('query-param'),
+    },
     { key: 'inject', icon: <CodeOutlined />, label: 'Inject Scripts/CSS', onClick: () => onCreateRule('inject') },
     { type: 'divider' as const, key: 'div-1' },
     { key: 'collection', icon: <FolderOpenOutlined />, label: 'Collection', onClick: () => void createNewCollection() },
@@ -553,7 +736,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
         <div className="rules-sidebar-empty-state">
           <span style={{ color: token.colorTextSecondary, fontSize: 12, fontWeight: 600 }}>No items in this panel</span>
           {emptyCreate && (
-            <button type="button" className="rules-sidebar-create-btn" style={{ color: token.colorText }} onClick={emptyCreate}>
+            <button
+              type="button"
+              className="rules-sidebar-create-btn"
+              style={{ color: token.colorText }}
+              onClick={emptyCreate}
+            >
               <PlusOutlined style={{ fontSize: 10 }} /> Create
             </button>
           )}
@@ -570,7 +758,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
         isExpanded={node.expandable ? expandedKeys.has(node.id) : undefined}
         onClick={() => handleItemClick(node)}
         onDoubleClick={() => handleItemDoubleClick(node)}
-        onStartRename={() => { if (renamingId === node.id) setRenamingId(null); else setRenamingId(node.id); }}
+        onStartRename={() => {
+          if (renamingId === node.id) setRenamingId(null);
+          else setRenamingId(node.id);
+        }}
       />
     ));
   };
@@ -578,15 +769,42 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
   return (
     <div className="rules-sidebar" style={{ background: token.colorBgLayout }}>
       <div className="rules-sidebar-toolbar" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
-        <Input size="small" placeholder="Filter" prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />} value={filterText} onChange={(e) => setFilterText(e.target.value)} allowClear style={{ flex: 1, fontSize: 11 }} variant="borderless" />
+        <Input
+          size="small"
+          placeholder="Filter"
+          prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />}
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          allowClear
+          style={{ flex: 1, fontSize: 11 }}
+          variant="borderless"
+        />
         <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-          <Tooltip title="New rule" placement="bottom"><div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}><PlusOutlined /></div></Tooltip>
+          <Tooltip title="New rule" placement="bottom">
+            <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+              <PlusOutlined />
+            </div>
+          </Tooltip>
         </Dropdown>
         <Tooltip title="Select Opened Tab" placement="bottom">
-          <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={selectOpenedFile}><AimOutlined /></div>
+          <div
+            className="rules-sidebar-toolbar-icon"
+            style={{ color: token.colorTextSecondary }}
+            onClick={selectOpenedFile}
+          >
+            <AimOutlined />
+          </div>
         </Tooltip>
-        <Tooltip title="Expand All" placement="bottom"><div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={expandAll}><ExpandOutlined /></div></Tooltip>
-        <Tooltip title="Collapse All" placement="bottom"><div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={collapseAll}><NodeCollapseOutlined /></div></Tooltip>
+        <Tooltip title="Expand All" placement="bottom">
+          <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={expandAll}>
+            <ExpandOutlined />
+          </div>
+        </Tooltip>
+        <Tooltip title="Collapse All" placement="bottom">
+          <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={collapseAll}>
+            <NodeCollapseOutlined />
+          </div>
+        </Tooltip>
         <Dropdown
           menu={{
             items: [
@@ -594,10 +812,26 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
                 key: 'behavior',
                 label: 'Behavior',
                 children: [
-                  { key: 'single-click', label: `${openWithSingleClick ? '✓ ' : ''}Open Entries with Single Click`, onClick: () => setOpenWithSingleClick((v) => !v) },
-                  { key: 'collections-single-click', label: `${openCollectionsWithSingleClick ? '✓ ' : ''}Open Collections with Single Click`, onClick: () => setOpenCollectionsWithSingleClick((v) => !v) },
-                  { key: 'folders-single-click', label: `${openFoldersWithSingleClick ? '✓ ' : ''}Open Folders with Single Click`, onClick: () => setOpenFoldersWithSingleClick((v) => !v) },
-                  { key: 'always-select', label: `${alwaysSelectOpened ? '✓ ' : ''}Always Select Opened Tab`, onClick: () => setAlwaysSelectOpened((v) => !v) },
+                  {
+                    key: 'single-click',
+                    label: `${openWithSingleClick ? '✓ ' : ''}Open Entries with Single Click`,
+                    onClick: () => setOpenWithSingleClick((v) => !v),
+                  },
+                  {
+                    key: 'collections-single-click',
+                    label: `${openCollectionsWithSingleClick ? '✓ ' : ''}Open Collections with Single Click`,
+                    onClick: () => setOpenCollectionsWithSingleClick((v) => !v),
+                  },
+                  {
+                    key: 'folders-single-click',
+                    label: `${openFoldersWithSingleClick ? '✓ ' : ''}Open Folders with Single Click`,
+                    onClick: () => setOpenFoldersWithSingleClick((v) => !v),
+                  },
+                  {
+                    key: 'always-select',
+                    label: `${alwaysSelectOpened ? '✓ ' : ''}Always Select Opened Tab`,
+                    onClick: () => setAlwaysSelectOpened((v) => !v),
+                  },
                 ],
               },
             ],
@@ -607,25 +841,63 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTabId, onSelectRule, onCreateRu
           onOpenChange={setOptionsMenuOpen}
         >
           <Tooltip title="Options" placement="bottom" open={optionsMenuOpen ? false : undefined}>
-            <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}><EllipsisOutlined /></div>
+            <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+              <EllipsisOutlined />
+            </div>
           </Tooltip>
         </Dropdown>
       </div>
 
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation */}
-      <div ref={containerRef} className="rules-sidebar-content" onKeyDown={handleKeyDown} tabIndex={0} style={{ outline: 'none' }}>
-        <SectionHeader title="API REQUESTS" expanded={sectionsExpanded.requests} onToggle={() => toggleSection('requests')} />
-        {sectionsExpanded.requests && <div className="rules-sidebar-empty" style={{ color: token.colorTextTertiary }}>{isConnected ? 'API requests are managed in the desktop app.' : 'Connect to desktop app to see API requests.'}</div>}
+      <div
+        ref={containerRef}
+        className="rules-sidebar-content"
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        style={{ outline: 'none' }}
+      >
+        <SectionHeader
+          title="API REQUESTS"
+          expanded={sectionsExpanded.requests}
+          onToggle={() => toggleSection('requests')}
+        />
+        {sectionsExpanded.requests && (
+          <div className="rules-sidebar-empty" style={{ color: token.colorTextTertiary }}>
+            {isConnected
+              ? 'API requests are managed in the desktop app.'
+              : 'Connect to desktop app to see API requests.'}
+          </div>
+        )}
 
-        <SectionHeader title="RULES" expanded={sectionsExpanded.rules} onToggle={() => toggleSection('rules')} actions={
-          <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-            <PlusOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }} onClick={(e) => e.stopPropagation()} />
-          </Dropdown>
-        } />
-        {sectionsExpanded.rules && <div style={{ flex: 1, overflowY: 'auto' }}>{renderNodes(rulesNodes, () => void createNewCollection())}</div>}
+        <SectionHeader
+          title="RULES"
+          expanded={sectionsExpanded.rules}
+          onToggle={() => toggleSection('rules')}
+          actions={
+            <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
+              <PlusOutlined
+                style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </Dropdown>
+          }
+        />
+        {sectionsExpanded.rules && (
+          <div style={{ flex: 1, overflowY: 'auto' }}>{renderNodes(rulesNodes, () => void createNewCollection())}</div>
+        )}
 
-        <SectionHeader title="ENVIRONMENTS" expanded={sectionsExpanded.environments} onToggle={() => toggleSection('environments')} />
-        {sectionsExpanded.environments && <div className="rules-sidebar-empty" style={{ color: token.colorTextTertiary }}>{isConnected ? 'Environments are managed in the desktop app.' : 'Connect to desktop app to see environments.'}</div>}
+        <SectionHeader
+          title="ENVIRONMENTS"
+          expanded={sectionsExpanded.environments}
+          onToggle={() => toggleSection('environments')}
+        />
+        {sectionsExpanded.environments && (
+          <div className="rules-sidebar-empty" style={{ color: token.colorTextTertiary }}>
+            {isConnected
+              ? 'Environments are managed in the desktop app.'
+              : 'Connect to desktop app to see environments.'}
+          </div>
+        )}
       </div>
     </div>
   );

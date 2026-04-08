@@ -152,17 +152,33 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {selectedCollectionId ? (
-            <Button type="link" size="small" icon={<PlusOutlined />} style={{ padding: 0, fontSize: 12 }} onClick={() => setCreatingFolder(true)}>
+            <Button
+              type="link"
+              size="small"
+              icon={<PlusOutlined />}
+              style={{ padding: 0, fontSize: 12 }}
+              onClick={() => setCreatingFolder(true)}
+            >
               New folder
             </Button>
           ) : (
-            <Button type="link" size="small" icon={<PlusOutlined />} style={{ padding: 0, fontSize: 12 }} onClick={() => setCreatingCollection(true)}>
+            <Button
+              type="link"
+              size="small"
+              icon={<PlusOutlined />}
+              style={{ padding: 0, fontSize: 12 }}
+              onClick={() => setCreatingCollection(true)}
+            >
               New collection
             </Button>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
-            <Button onClick={onCancel} size="small">Cancel</Button>
-            <Tooltip title={!selectedCollectionId ? 'Select a collection first' : !name.trim() ? 'Enter a name' : undefined}>
+            <Button onClick={onCancel} size="small">
+              Cancel
+            </Button>
+            <Tooltip
+              title={!selectedCollectionId ? 'Select a collection first' : !name.trim() ? 'Enter a name' : undefined}
+            >
               <span>
                 <Button
                   type="primary"
@@ -170,7 +186,9 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                   icon={<SaveOutlined />}
                   disabled={!selectedCollectionId || !name.trim()}
                   onClick={handleSave}
-                  style={selectedCollectionId && name.trim() ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
+                  style={
+                    selectedCollectionId && name.trim() ? { background: '#f5722d', borderColor: '#f5722d' } : undefined
+                  }
                 >
                   Save
                 </Button>
@@ -185,7 +203,13 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       {/* Rule name */}
       <div style={{ marginBottom: 16 }}>
         <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Rule name</Text>
-        <Input ref={nameInputRef} value={name} onChange={(e) => setName(e.target.value)} size="small" style={{ fontSize: 12 }} />
+        <Input
+          ref={nameInputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          size="small"
+          style={{ fontSize: 12 }}
+        />
       </div>
 
       {/* Save to breadcrumb */}
@@ -215,7 +239,10 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
             <span style={{ color: token.colorTextTertiary }}>{' / '}</span>
             {seg.onClick ? (
               // biome-ignore lint/a11y/useKeyWithClickEvents: breadcrumb nav
-              <span style={{ color: token.colorPrimary, cursor: 'pointer', padding: '1px 3px', borderRadius: 3 }} onClick={seg.onClick}>
+              <span
+                style={{ color: token.colorPrimary, cursor: 'pointer', padding: '1px 3px', borderRadius: 3 }}
+                onClick={seg.onClick}
+              >
                 {seg.label}
               </span>
             ) : (
@@ -249,7 +276,15 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       >
         {/* Inline new collection */}
         {creatingCollection && !selectedCollectionId && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 12px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
             <FolderOpenOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
             <Input
               ref={newCollectionInputRef}
@@ -259,10 +294,32 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
               size="small"
               style={{ flex: 1, fontSize: 12 }}
               onPressEnter={() => void handleCreateCollection()}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setCreatingCollection(false); setNewCollectionName(''); } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setCreatingCollection(false);
+                  setNewCollectionName('');
+                }
+              }}
             />
-            <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }} onClick={() => void handleCreateCollection()}>Create</Button>
-            <Button type="link" size="small" style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }} onClick={() => { setCreatingCollection(false); setNewCollectionName(''); }}>Cancel</Button>
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, fontSize: 11 }}
+              onClick={() => void handleCreateCollection()}
+            >
+              Create
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }}
+              onClick={() => {
+                setCreatingCollection(false);
+                setNewCollectionName('');
+              }}
+            >
+              Cancel
+            </Button>
           </div>
         )}
 
@@ -271,22 +328,53 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
           <>
             {filteredCollections.length === 0 && !creatingCollection && (
               <div style={{ padding: 24, textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: collections.length === 0 ? 12 : 0 }}>
+                <Text
+                  type="secondary"
+                  style={{ fontSize: 12, display: 'block', marginBottom: collections.length === 0 ? 12 : 0 }}
+                >
                   {collections.length === 0 ? 'No collections yet.' : 'No matching collections.'}
                 </Text>
                 {collections.length === 0 && (
-                  <Button type="link" size="small" icon={<PlusOutlined />} style={{ fontSize: 12, padding: 0 }} onClick={() => setCreatingCollection(true)}>Create collection</Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    style={{ fontSize: 12, padding: 0 }}
+                    onClick={() => setCreatingCollection(true)}
+                  >
+                    Create collection
+                  </Button>
                 )}
               </div>
             )}
             {filteredCollections.map((col) => (
               <div
                 key={col.uid}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-                onClick={() => { setSelectedCollectionId(col.uid); setSearch(''); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedCollectionId(col.uid); setSearch(''); } }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(128,128,128,0.08)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                }}
+                onClick={() => {
+                  setSelectedCollectionId(col.uid);
+                  setSearch('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSelectedCollectionId(col.uid);
+                    setSearch('');
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(128,128,128,0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = '';
+                }}
                 role="button"
                 tabIndex={0}
               >
@@ -303,7 +391,15 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
           <>
             {/* Inline new folder */}
             {creatingFolder && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 12px',
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
                 <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
                 <Input
                   ref={newFolderInputRef}
@@ -313,10 +409,32 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                   size="small"
                   style={{ flex: 1, fontSize: 12 }}
                   onPressEnter={() => void handleCreateFolder()}
-                  onKeyDown={(e) => { if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); } }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setCreatingFolder(false);
+                      setNewFolderName('');
+                    }
+                  }}
                 />
-                <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }} onClick={() => void handleCreateFolder()}>Create</Button>
-                <Button type="link" size="small" style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }} onClick={() => { setCreatingFolder(false); setNewFolderName(''); }}>Cancel</Button>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, fontSize: 11 }}
+                  onClick={() => void handleCreateFolder()}
+                >
+                  Create
+                </Button>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }}
+                  onClick={() => {
+                    setCreatingFolder(false);
+                    setNewFolderName('');
+                  }}
+                >
+                  Cancel
+                </Button>
               </div>
             )}
 
@@ -325,11 +443,28 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                 return (
                   <div
                     key={node.uid}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-                    onClick={() => { setSelectedFolderPath(node.path); setCreatingFolder(false); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedFolderPath(node.path); }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(128,128,128,0.08)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                    }}
+                    onClick={() => {
+                      setSelectedFolderPath(node.path);
+                      setCreatingFolder(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setSelectedFolderPath(node.path);
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(128,128,128,0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = '';
+                    }}
                     role="button"
                     tabIndex={0}
                   >
@@ -343,9 +478,18 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                 return (
                   <div
                     key={node.uid}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, color: token.colorTextSecondary }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      color: token.colorTextSecondary,
+                    }}
                   >
-                    <ThunderboltOutlined style={{ fontSize: 11, color: node.enabled ? token.colorPrimary : token.colorTextTertiary }} />
+                    <ThunderboltOutlined
+                      style={{ fontSize: 11, color: node.enabled ? token.colorPrimary : token.colorTextTertiary }}
+                    />
                     <span>{node.name}</span>
                   </div>
                 );
@@ -354,7 +498,17 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
             })}
 
             {currentNodes.length === 0 && !creatingFolder && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 120, padding: '16px 12px', gap: 8 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 120,
+                  padding: '16px 12px',
+                  gap: 8,
+                }}
+              >
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   This {selectedFolderPath ? 'folder' : 'collection'} is empty.
                 </Text>

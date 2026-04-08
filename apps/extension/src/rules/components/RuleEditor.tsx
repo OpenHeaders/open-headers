@@ -1,48 +1,98 @@
 /**
- * RuleEditor — compact rule creation/editing form.
+ * RuleEditor — mirrors the desktop "Add Header Rule" modal UX exactly.
  *
- * Key fields on a single line where possible. Name is auto-filled
- * (e.g. "New Header Rule", "New Header Rule (2)").
- * Supports tab integration: dirty tracking + save ref registration.
- * In create mode, saving triggers the SaveToCollectionModal.
+ * Ownership model (separation of concerns):
+ *   - **Form** owns content fields: domains, tag, and per-type fields (headerName, staticValue, etc.)
+ *   - **Rule store** (via context) owns `enabled` and `name` for persisted rules
+ *   - **Local state** owns `enabled` for draft (create) tabs
+ *   - **Tab label** (via props) owns `name` for draft tabs
+ *
+ * This means toggling enabled from the sidebar immediately reflects here,
+ * and breadcrumb renames are never overwritten by a stale form value on save.
  */
 
-import {
-  CodeOutlined,
-  LinkOutlined,
-  SendOutlined,
-  StopOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import { CodeOutlined, LinkOutlined, SendOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import { App, Col, Divider, Form, Input, Row, Select, Space, Switch } from 'antd';
+import type { V5 } from '@openheaders/core/types';
+import { runtime } from '@utils/browser-api';
+import { App, Form, Input, Segmented, Switch, Typography } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import DomainTags from './DomainTags';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields from './rule-fields/InjectRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 
+const { Text } = Typography;
+
 type ExtensionRuleType = 'header' | 'block' | 'redirect' | 'query-param' | 'inject';
 
-const RULE_TYPE_OPTIONS: Array<{ value: ExtensionRuleType; label: string; icon: React.ReactNode }> = [
-  { value: 'header', label: 'Headers', icon: <SwapOutlined /> },
-  { value: 'block', label: 'Block', icon: <StopOutlined /> },
-  { value: 'redirect', label: 'Redirect', icon: <SendOutlined /> },
-  { value: 'query-param', label: 'Query Params', icon: <LinkOutlined /> },
-  { value: 'inject', label: 'Inject', icon: <CodeOutlined /> },
+const RULE_TYPE_SEGMENTS: Array<{ value: ExtensionRuleType; label: React.ReactNode }> = [
+  {
+    value: 'header',
+    label: (
+      <span>
+        <SwapOutlined style={{ marginRight: 5, color: '#1677ff' }} />
+        Headers
+      </span>
+    ),
+  },
+  {
+    value: 'block',
+    label: (
+      <span>
+        <StopOutlined style={{ marginRight: 5, color: '#ff4d4f' }} />
+        Block
+      </span>
+    ),
+  },
+  {
+    value: 'redirect',
+    label: (
+      <span>
+        <SendOutlined style={{ marginRight: 5, color: '#722ed1' }} />
+        Redirect
+      </span>
+    ),
+  },
+  {
+    value: 'query-param',
+    label: (
+      <span>
+        <LinkOutlined style={{ marginRight: 5, color: '#13c2c2' }} />
+        Params
+      </span>
+    ),
+  },
+  {
+    value: 'inject',
+    label: (
+      <span>
+        <CodeOutlined style={{ marginRight: 5, color: '#52c41a' }} />
+        Inject
+      </span>
+    ),
+  },
 ];
+
+const RULE_TYPE_TITLE: Record<string, string> = {
+  header: 'Header Rule',
+  block: 'Block Rule',
+  redirect: 'Redirect Rule',
+  'query-param': 'Query Param Rule',
+  inject: 'Inject Rule',
+};
 
 interface RuleEditorProps {
   mode: 'create' | 'edit';
   ruleType?: string;
   ruleUid?: string;
   tabId: string;
+  /** Display name for drafts (from tab label, managed by breadcrumb). */
   draftName?: string;
   onSaved: (uid: string) => void;
-  /** Called when the user clicks Save on a draft — triggers SaveToCollectionModal. */
   onSaveDraft?: (tabId: string, draftData: Record<string, unknown>) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
@@ -67,7 +117,33 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
 
-  // Load existing rule in edit mode, or set defaults in create mode
+  // ── Enabled state: owned by rule store (edit) or local (create) ──
+
+  const [draftEnabled, setDraftEnabled] = useState(true);
+
+  /** Live rule from context — always current for edit mode. */
+  const liveRule = useMemo(
+    () => (mode === 'edit' && ruleUid ? rules.find((r) => r.uid === ruleUid) : undefined),
+    [mode, ruleUid, rules],
+  );
+
+  /** Single source of truth for enabled state. */
+  const isEnabled = mode === 'edit' ? (liveRule?.enabled ?? true) : draftEnabled;
+
+  /** Single source of truth for name. */
+  const ruleName = mode === 'edit' ? (liveRule?.name ?? 'Rule') : (draftName ?? 'Untitled');
+
+  const handleToggleEnabled = useCallback(() => {
+    if (mode === 'edit' && ruleUid) {
+      // Same path as sidebar — goes through background, updates rule store, broadcasts back
+      runtime.sendMessage({ type: 'toggleRule', ruleId: ruleUid, enabled: !isEnabled });
+    } else {
+      setDraftEnabled((prev) => !prev);
+    }
+  }, [mode, ruleUid, isEnabled]);
+
+  // ── Form initialization (content fields only — no name/enabled) ──
+
   useEffect(() => {
     if (initializedRef.current) return;
 
@@ -78,10 +154,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
       const baseValues = {
         ruleType: rule.type,
-        name: rule.name,
-        domains: rule.domains.join(', '),
+        domains: rule.domains,
         tag: rule.tags[0] ?? '',
-        enabled: rule.enabled,
       };
 
       switch (rule.type) {
@@ -101,17 +175,33 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           break;
         case 'redirect': {
           const rr = rule as V5.RedirectRule;
-          form.setFieldsValue({ ...baseValues, redirectMatchPattern: rr.action.matchPattern, redirectTo: rr.action.redirectTo });
+          form.setFieldsValue({
+            ...baseValues,
+            redirectMatchPattern: rr.action.matchPattern,
+            redirectTo: rr.action.redirectTo,
+          });
           break;
         }
         case 'query-param': {
           const qr = rule as V5.QueryParamRule;
-          form.setFieldsValue({ ...baseValues, queryParams: qr.action.params.map((p) => ({ param: p.param, value: p.value ?? '', operation: p.operation })) });
+          form.setFieldsValue({
+            ...baseValues,
+            queryParams: qr.action.params.map((p) => ({
+              param: p.param,
+              value: p.value ?? '',
+              operation: p.operation,
+            })),
+          });
           break;
         }
         case 'inject': {
           const ir = rule as V5.InjectRule;
-          form.setFieldsValue({ ...baseValues, injectType: ir.action.injectType, injectCode: ir.action.code, injectPosition: ir.action.position });
+          form.setFieldsValue({
+            ...baseValues,
+            injectType: ir.action.injectType,
+            injectCode: ir.action.code,
+            injectPosition: ir.action.position,
+          });
           break;
         }
       }
@@ -119,10 +209,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       initializedRef.current = true;
       form.setFieldsValue({
         ruleType,
-        name: draftName ?? '',
-        domains: '',
+        domains: [],
         tag: '',
-        enabled: true,
         headerOperation: 'override',
         isResponse: false,
         staticValue: '',
@@ -135,7 +223,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         queryParams: [{ param: '', value: '', operation: 'add' }],
       });
     }
-  }, [mode, ruleType, ruleUid, rules, form, localCollections, draftName]);
+  }, [mode, ruleType, ruleUid, rules, form]);
 
   const handleValuesChange = useCallback(() => {
     if (!isDirtyRef.current) {
@@ -144,43 +232,83 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     }
   }, [onDirtyChange]);
 
-  const buildRule = useCallback((values: Record<string, unknown>): Omit<V5.Rule, 'uid' | 'path'> | null => {
-    const domains = (values.domains as string).split(/[,\n]/).map((d: string) => d.trim()).filter(Boolean);
-    const tags = (values.tag as string)?.trim() ? [(values.tag as string).trim()] : [];
-    const name = (values.name as string) || 'Untitled';
-    const base = { name, enabled: values.enabled as boolean, tags, domains };
+  // ── Build rule: merges form content with externally-owned name/enabled ──
 
-    switch (values.ruleType) {
-      case 'header':
-        return { ...base, type: 'header', action: { operation: values.headerOperation as V5.HeaderOperation, headerName: values.headerName as string, isResponse: values.isResponse as boolean }, staticValue: values.headerOperation === 'remove' ? undefined : (values.staticValue as string) } as Omit<V5.HeaderRule, 'uid' | 'path'>;
-      case 'block':
-        return { ...base, type: 'block', action: { statusCode: 403 } } as Omit<V5.BlockRule, 'uid' | 'path'>;
-      case 'redirect':
-        return { ...base, type: 'redirect', action: { matchPattern: (values.redirectMatchPattern as string) ?? '', redirectTo: values.redirectTo as string } } as Omit<V5.RedirectRule, 'uid' | 'path'>;
-      case 'query-param':
-        return { ...base, type: 'query-param', action: { params: (values.queryParams as Array<{ param: string; value: string; operation: string }>).map((p) => ({ param: p.param, value: p.operation === 'remove' ? undefined : p.value, operation: p.operation as V5.QueryParamOperation })) } } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
-      case 'inject':
-        return { ...base, type: 'inject', action: { injectType: values.injectType as V5.InjectType, code: values.injectCode as string, position: values.injectPosition as V5.InjectAction['position'] } } as Omit<V5.InjectRule, 'uid' | 'path'>;
-      default:
-        return null;
-    }
-  }, []);
+  const buildRule = useCallback(
+    (formValues: Record<string, unknown>): Omit<V5.Rule, 'uid' | 'path'> | null => {
+      const domains = Array.isArray(formValues.domains) ? (formValues.domains as string[]) : [];
+      const tags = (formValues.tag as string)?.trim() ? [(formValues.tag as string).trim()] : [];
+      const base = { name: ruleName, enabled: isEnabled, tags, domains };
+
+      switch (formValues.ruleType) {
+        case 'header':
+          return {
+            ...base,
+            type: 'header',
+            action: {
+              operation: formValues.headerOperation as V5.HeaderOperation,
+              headerName: formValues.headerName as string,
+              isResponse: formValues.isResponse as boolean,
+            },
+            staticValue: formValues.headerOperation === 'remove' ? undefined : (formValues.staticValue as string),
+          } as Omit<V5.HeaderRule, 'uid' | 'path'>;
+        case 'block':
+          return { ...base, type: 'block', action: { statusCode: 403 } } as Omit<V5.BlockRule, 'uid' | 'path'>;
+        case 'redirect':
+          return {
+            ...base,
+            type: 'redirect',
+            action: {
+              matchPattern: (formValues.redirectMatchPattern as string) ?? '',
+              redirectTo: formValues.redirectTo as string,
+            },
+          } as Omit<V5.RedirectRule, 'uid' | 'path'>;
+        case 'query-param':
+          return {
+            ...base,
+            type: 'query-param',
+            action: {
+              params: (formValues.queryParams as Array<{ param: string; value: string; operation: string }>).map(
+                (p) => ({
+                  param: p.param,
+                  value: p.operation === 'remove' ? undefined : p.value,
+                  operation: p.operation as V5.QueryParamOperation,
+                }),
+              ),
+            },
+          } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
+        case 'inject':
+          return {
+            ...base,
+            type: 'inject',
+            action: {
+              injectType: formValues.injectType as V5.InjectType,
+              code: formValues.injectCode as string,
+              position: formValues.injectPosition as V5.InjectAction['position'],
+            },
+          } as Omit<V5.InjectRule, 'uid' | 'path'>;
+        default:
+          return null;
+      }
+    },
+    [ruleName, isEnabled],
+  );
 
   const handleSubmit = useCallback(async () => {
     const values = form.getFieldsValue();
     setSaving(true);
-
     try {
       const rule = buildRule(values);
-      if (!rule) { message.error('Unknown rule type'); return; }
+      if (!rule) {
+        message.error('Unknown rule type');
+        return;
+      }
 
       if (mode === 'create') {
-        // Draft mode: trigger SaveToCollectionModal
         if (onSaveDraft) {
           onSaveDraft(tabId, { ...rule } as Record<string, unknown>);
           return;
         }
-        // Fallback: save to first collection directly
         const created = await createLocalRule(rule, localCollections[0]?.uid);
         if (created) {
           message.success('Rule created');
@@ -204,7 +332,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [form, buildRule, mode, ruleUid, tabId, updateLocalRule, createLocalRule, localCollections, message, onDirtyChange, onSaved, onSaveDraft]);
+  }, [
+    form,
+    buildRule,
+    mode,
+    ruleUid,
+    tabId,
+    updateLocalRule,
+    createLocalRule,
+    localCollections,
+    message,
+    onDirtyChange,
+    onSaved,
+    onSaveDraft,
+  ]);
 
   useEffect(() => {
     registerSaveRef?.(handleSubmit);
@@ -215,52 +356,57 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   return (
     <div className="rules-rule-editor">
       <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
-        {/* Name is managed via the tab/breadcrumb — click breadcrumb to rename */}
-        <Form.Item name="name" hidden><Input /></Form.Item>
+        {/* ── Top bar: title+toggle column | Segmented type ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Text strong style={{ fontSize: 15, whiteSpace: 'nowrap' }}>
+              {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
+            </Text>
+            {/* NOT a form field — owned by rule store (edit) or local state (create) */}
+            <Switch
+              checked={isEnabled}
+              onChange={handleToggleEnabled}
+              checkedChildren="Enabled"
+              unCheckedChildren="Disabled"
+            />
+          </div>
 
-        {/* Row 1: Domains + Tag + Active */}
-        <Row gutter={12} align="top">
-          <Col flex="auto">
-            <Form.Item
-              name="domains"
-              label="Domains"
-              extra="Comma-separated. Wildcards: *.openheaders.io"
-              style={{ marginBottom: 8 }}
-            >
-              <Input placeholder="*.openheaders.io, api.openheaders.io" />
-            </Form.Item>
-          </Col>
-          <Col flex="140px">
-            <Form.Item name="tag" label="Tag" style={{ marginBottom: 8 }}>
-              <Input placeholder="e.g. dev" />
-            </Form.Item>
-          </Col>
-          <Col>
-            <Form.Item name="enabled" label="Active" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Switch size="small" />
-            </Form.Item>
-          </Col>
-        </Row>
+          <Form.Item name="ruleType" style={{ marginBottom: 0 }}>
+            <Segmented
+              size="middle"
+              options={RULE_TYPE_SEGMENTS.map((s) => ({
+                ...s,
+                disabled: isEdit && s.value !== selectedType,
+              }))}
+              style={{ fontWeight: 500 }}
+            />
+          </Form.Item>
+        </div>
 
-        {/* Type selector */}
-        <Form.Item name="ruleType" label="Type" style={{ marginBottom: 8, maxWidth: 200 }}>
-          <Select
-            disabled={isEdit}
-            options={RULE_TYPE_OPTIONS.map((o) => ({
-              value: o.value,
-              label: <Space size={4}>{o.icon}<span>{o.label}</span></Space>,
-            }))}
-          />
-        </Form.Item>
-
-        <Divider style={{ margin: '8px 0' }} />
-
-        {/* Per-type fields */}
+        {/* ── Per-type fields (Tag is inline in each component's row 1) ── */}
         {selectedType === 'header' && <HeaderRuleFields />}
         {selectedType === 'block' && <BlockRuleFields />}
         {selectedType === 'redirect' && <RedirectRuleFields />}
         {selectedType === 'query-param' && <QueryParamRuleFields />}
         {selectedType === 'inject' && <InjectRuleFields />}
+
+        {/* ── Domains section ── */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 6 }}>
+            <Text strong style={{ fontSize: 13 }}>
+              Domains
+            </Text>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}>
+            Separate multiple domains with Enter or comma. Use * as wildcard. Press Backspace to delete last domain.
+            <br />
+            Examples: localhost:3001 &middot; openheaders.io &middot; *.openheaders.io &middot; {'{{DOMAIN_VAR}}'}{' '}
+            &middot; {'{{BASE_URL}}'}.com &middot; 192.168.1.1
+          </div>
+          <Form.Item name="domains" style={{ marginBottom: 0 }}>
+            <DomainTags />
+          </Form.Item>
+        </div>
       </Form>
     </div>
   );

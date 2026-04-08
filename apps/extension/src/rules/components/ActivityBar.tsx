@@ -28,8 +28,20 @@ const PANELS: Array<{
   tooltip?: string;
 }> = [
   { key: 'items', icon: <AppstoreOutlined />, label: 'Items', enabled: true },
-  { key: 'recordings', icon: <VideoCameraOutlined />, label: 'Recordings', enabled: false, tooltip: 'Available in desktop app' },
-  { key: 'history', icon: <ClockCircleOutlined />, label: 'History', enabled: false, tooltip: 'Available in desktop app' },
+  {
+    key: 'recordings',
+    icon: <VideoCameraOutlined />,
+    label: 'Recordings',
+    enabled: false,
+    tooltip: 'Available in desktop app',
+  },
+  {
+    key: 'history',
+    icon: <ClockCircleOutlined />,
+    label: 'History',
+    enabled: false,
+    tooltip: 'Available in desktop app',
+  },
   { key: 'files', icon: <FolderOutlined />, label: 'Local Files', enabled: false, tooltip: 'Available in desktop app' },
 ];
 
@@ -81,10 +93,7 @@ const ActivityBar: React.FC<ActivityBarProps> = ({ sidebarVisible, onToggleSideb
 
       {/* Settings at bottom — disabled */}
       <Tooltip title="Available in desktop app" placement="right">
-        <div
-          className="rules-activity-icon disabled"
-          style={{ color: token.colorTextSecondary, marginBottom: 4 }}
-        >
+        <div className="rules-activity-icon disabled" style={{ color: token.colorTextSecondary, marginBottom: 4 }}>
           <SettingOutlined />
           <span className="rules-activity-label">Settings</span>
         </div>

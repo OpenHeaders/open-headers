@@ -1,5 +1,11 @@
-import type { V5 } from '@openheaders/core/types';
-import { Form, Input, Radio } from 'antd';
+/**
+ * HeaderRuleFields — exact desktop "Add Header Rule" modal layout.
+ *
+ * Row 1: Header Name | Request/Response toggle | Tag (optional)  — ALL inline
+ * Row 2: Operation select | Value input  — compact Space.Compact
+ */
+
+import { Form, Input, Radio, Select, Space } from 'antd';
 import type React from 'react';
 
 const HeaderRuleFields: React.FC = () => {
@@ -7,39 +13,43 @@ const HeaderRuleFields: React.FC = () => {
 
   return (
     <>
-      <Form.Item
-        name="headerName"
-        label="Header Name"
-              >
-        <Input placeholder="e.g. Authorization, X-Custom-Header" />
-      </Form.Item>
+      {/* Row 1: Header Name + Request/Response + Tag — all inline */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
+        <Form.Item name="headerName" style={{ marginBottom: 0, flex: 1 }}>
+          <Input placeholder="Header Name" />
+        </Form.Item>
 
-      <Form.Item name="headerOperation" label="Operation">
-        <Radio.Group>
-          <Radio.Button value="override">Override</Radio.Button>
-          <Radio.Button value="add">Add</Radio.Button>
-          <Radio.Button value="remove">Remove</Radio.Button>
-        </Radio.Group>
-      </Form.Item>
+        <Form.Item name="isResponse" style={{ marginBottom: 0 }}>
+          <Radio.Group optionType="button" buttonStyle="solid" size="small">
+            <Radio.Button value={false}>Request</Radio.Button>
+            <Radio.Button value={true}>Response</Radio.Button>
+          </Radio.Group>
+        </Form.Item>
 
-      {operation !== 'remove' && (
-        <Form.Item
-          name="staticValue"
-          label="Value"
-        >
-          <Input.TextArea
-            placeholder="e.g. Bearer my-token, {{API_KEY}}"
-            autoSize={{ minRows: 1, maxRows: 4 }}
+        <Form.Item name="tag" style={{ marginBottom: 0, width: 180 }}>
+          <Input placeholder="Tag (optional)" maxLength={20} />
+        </Form.Item>
+      </div>
+
+      {/* Row 2: Operation + Value — compact inline */}
+      <Space.Compact block style={{ marginBottom: 16 }}>
+        <Form.Item name="headerOperation" style={{ marginBottom: 0 }}>
+          <Select
+            style={{ width: 120 }}
+            options={[
+              { value: 'override', label: 'Override' },
+              { value: 'add', label: 'Add' },
+              { value: 'remove', label: 'Remove' },
+            ]}
           />
         </Form.Item>
-      )}
 
-      <Form.Item name="isResponse" label="Apply to">
-        <Radio.Group>
-          <Radio.Button value={false}>Request</Radio.Button>
-          <Radio.Button value={true}>Response</Radio.Button>
-        </Radio.Group>
-      </Form.Item>
+        {operation !== 'remove' && (
+          <Form.Item name="staticValue" style={{ flex: 1, marginBottom: 0 }}>
+            <Input placeholder="Header Value (e.g., Bearer {{API_TOKEN}})" />
+          </Form.Item>
+        )}
+      </Space.Compact>
     </>
   );
 };
