@@ -17,6 +17,7 @@ import { createContext, useCallback, useEffect, useState } from 'react';
 export interface UiState {
   tableState: {
     searchText: string;
+    sortMode: string;
     filteredInfo: Record<string, unknown>;
     sortedInfo: Record<string, unknown>;
   };
@@ -76,6 +77,7 @@ const defaultContextValue: RuleContextValue = {
   uiState: {
     tableState: {
       searchText: '',
+      sortMode: 'status',
       filteredInfo: {},
       sortedInfo: {},
     },
@@ -110,7 +112,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoaded, setIsStatusLoaded] = useState(false);
   const [uiState, setUiState] = useState<UiState>({
-    tableState: { searchText: '', filteredInfo: {}, sortedInfo: {} },
+    tableState: { searchText: '', sortMode: 'status', filteredInfo: {}, sortedInfo: {} },
   });
   const [disabledTagGroups, setDisabledTagGroups] = useState<Set<string>>(new Set());
   const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);

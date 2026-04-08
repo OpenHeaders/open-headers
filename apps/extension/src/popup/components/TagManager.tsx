@@ -1,7 +1,7 @@
 import { FolderOpenOutlined, FolderOutlined, PauseCircleOutlined, TagsOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
+import type { V5 } from '@openheaders/core/types';
 import { App, Empty, Input, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -27,8 +27,8 @@ interface TagGroupRecord {
 interface NestedRuleRecord {
   key: string;
   id: string;
-  headerName: string;
-  isResponse: boolean | undefined;
+  name: string;
+  ruleType: string;
   isEnabled: boolean;
   domains: string[];
   tag: string;
@@ -235,11 +235,22 @@ const TagManager: React.FC<TagManagerProps> = ({
     },
   ];
 
+  const ruleTypeLabel: Record<string, string> = {
+    header: 'Header',
+    block: 'Block',
+    redirect: 'Redirect',
+    'query-param': 'Query Param',
+    inject: 'Inject',
+    body: 'Body',
+    delay: 'Delay',
+    mock: 'Mock',
+  };
+
   const nestedColumns: ColumnsType<NestedRuleRecord> = [
     {
-      title: 'Header Name',
-      dataIndex: 'headerName',
-      key: 'headerName',
+      title: 'Name',
+      dataIndex: 'name',
+      key: 'name',
       width: 160,
       render: (text: string) => (
         <Tooltip title={text.length > 20 ? text : undefined}>
@@ -255,8 +266,8 @@ const TagManager: React.FC<TagManagerProps> = ({
       width: 80,
       align: 'center',
       render: (_: unknown, record: NestedRuleRecord) => (
-        <Tag color={record.isResponse ? 'blue' : 'green'} variant="outlined" style={{ margin: 0, fontSize: '11px' }}>
-          {record.isResponse ? 'Res' : 'Req'}
+        <Tag variant="outlined" style={{ margin: 0, fontSize: '11px' }}>
+          {ruleTypeLabel[record.ruleType] ?? record.ruleType}
         </Tag>
       ),
     },
@@ -272,25 +283,28 @@ const TagManager: React.FC<TagManagerProps> = ({
       key: 'status',
       width: 70,
       align: 'center',
-      render: (_: unknown, record: NestedRuleRecord) => (
-        <Tooltip title={isConnected ? (record.isEnabled ? 'Disable rule' : 'Enable rule') : 'App not connected'}>
-          <Switch
-            size="small"
-            checked={record.isEnabled}
-            disabled={!isConnected}
-            onChange={async (checked) => {
-              if (!isConnected) {
-                message.warning('Please connect to the desktop app to toggle rules');
-                return;
-              }
-              const { runtime } = await import('../../utils/browser-api');
-              runtime.sendMessage({ type: 'toggleRule', ruleId: record.id, enabled: checked }, (response: unknown) => {
-                if (!(response as { success?: boolean })?.success) message.error('Failed to toggle rule');
-              });
-            }}
-          />
-        </Tooltip>
-      ),
+      render: (_: unknown, record: NestedRuleRecord) => {
+        const isLocal = record.id.startsWith('local-');
+        const canToggle = isLocal || isConnected;
+        return (
+          <Tooltip title={canToggle ? (record.isEnabled ? 'Disable rule' : 'Enable rule') : 'App not connected'}>
+            <Switch
+              size="small"
+              checked={record.isEnabled}
+              disabled={!canToggle}
+              onChange={async (checked) => {
+                const { runtime } = await import('../../utils/browser-api');
+                runtime.sendMessage(
+                  { type: 'toggleRule', ruleId: record.id, enabled: checked },
+                  (response: unknown) => {
+                    if (!(response as { success?: boolean })?.success) message.error('Failed to toggle rule');
+                  },
+                );
+              }}
+            />
+          </Tooltip>
+        );
+      },
     },
   ];
 
@@ -415,17 +429,15 @@ const TagManager: React.FC<TagManagerProps> = ({
               (document.activeElement as HTMLElement)?.blur();
             },
             expandedRowRender: (record: TagGroupRecord) => {
-              const nestedData: NestedRuleRecord[] = record.rules
-                .filter((r): r is V5.HeaderRule => r.type === 'header')
-                .map((rule) => ({
-                  key: rule.uid,
-                  id: rule.uid,
-                  headerName: rule.action.headerName,
-                  isResponse: rule.action.isResponse,
-                  isEnabled: rule.enabled,
-                  domains: rule.domains,
-                  tag: rule.tags[0] ?? '',
-                }));
+              const nestedData: NestedRuleRecord[] = record.rules.map((rule) => ({
+                key: rule.uid,
+                id: rule.uid,
+                name: rule.name,
+                ruleType: rule.type,
+                isEnabled: rule.enabled,
+                domains: rule.domains,
+                tag: rule.tags[0] ?? '',
+              }));
 
               // Report nested row count to keyboard nav when this is the keyboard-expanded row
               if (record.key === expandedRowKey) {

@@ -8,6 +8,7 @@ export interface TagDescriptor {
   label: string;
   color?: string;
   tooltip?: string;
+  variant?: 'outlined' | 'filled';
 }
 
 export function renderDomainTags(domains: string[], showAllDomains = true): React.ReactNode {
@@ -64,9 +65,9 @@ export function renderValueWithCopy({
   return (
     <div
       className="value-cell"
-      style={{ display: 'flex', alignItems: 'center', gap: 4, opacity, whiteSpace: 'nowrap', overflow: 'hidden' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 4, opacity, whiteSpace: 'nowrap' }}
     >
-      <Text style={{ fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayValue}</Text>
+      <Text style={{ fontSize: '13px', flex: 1, minWidth: 0 }}>{displayValue}</Text>
       {fullValue &&
         (copiedRowId === rowKey ? (
           <CheckOutlined
@@ -99,12 +100,12 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
       {visible.map((t, i) =>
         t.tooltip ? (
           <Tooltip key={i} title={t.tooltip}>
-            <Tag color={t.color} variant="outlined" style={{ ...tagStyle, cursor: 'help' }}>
+            <Tag color={t.color} variant={t.variant ?? 'outlined'} style={{ ...tagStyle, cursor: 'help' }}>
               {t.label}
             </Tag>
           </Tooltip>
         ) : (
-          <Tag key={i} color={t.color} variant="outlined" style={tagStyle}>
+          <Tag key={i} color={t.color} variant={t.variant ?? 'outlined'} style={tagStyle}>
             {t.label}
           </Tag>
         ),
@@ -119,14 +120,18 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 4,
+                    gap: 6,
                     marginBottom: i < allTags.length - 1 ? 4 : 0,
                   }}
                 >
-                  <span style={{ opacity: 0.6 }}>{i + 1}. </span>
-                  <Tag color={t.color} variant="outlined" style={{ margin: 0, fontSize: '11px' }}>
+                  <Tag
+                    color={t.color}
+                    variant={t.variant ?? 'outlined'}
+                    style={{ margin: 0, fontSize: '11px', flexShrink: 0 }}
+                  >
                     {t.label}
                   </Tag>
+                  {t.tooltip && <span style={{ opacity: 0.6, fontSize: '11px' }}>{t.tooltip}</span>}
                 </div>
               ))}
             </div>
@@ -144,5 +149,7 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
 
 export function truncateValue(value: string, maxLen = 16): string {
   if (value.length <= maxLen) return value;
-  return `${value.substring(0, 9)}...${value.substring(value.length - 4)}`;
+  const suffixLen = Math.max(4, Math.floor(maxLen * 0.25));
+  const prefixLen = maxLen - suffixLen - 3;
+  return `${value.substring(0, prefixLen)}...${value.substring(value.length - suffixLen)}`;
 }
