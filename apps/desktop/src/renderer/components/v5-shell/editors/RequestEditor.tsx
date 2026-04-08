@@ -14,7 +14,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Input, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useCentralizedWorkspace, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 import { extractSourceVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 
 const { Text, Title } = Typography;
@@ -78,9 +78,10 @@ export function RequestEditor({
 }: RequestEditorProps) {
   const { token } = theme.useToken();
   const { sources } = useSources();
+  const { service } = useCentralizedWorkspace();
 
   const isDraft = !!draftData && !sourceId;
-  const request = isDraft ? undefined : sources.find((s) => s.uid === sourceId);
+  const requestNode = isDraft ? undefined : sources.find((s) => s.uid === sourceId);
 
   // Local form state
   const [method, setMethod] = useState<V5.HttpMethod>('GET');
@@ -88,6 +89,7 @@ export function RequestEditor({
   const [headers, setHeaders] = useState<LocalHeader[]>([]);
   const [params, setParams] = useState<LocalParam[]>([]);
   const [isDirty, setIsDirty] = useState(false);
+  const [loadingRequest, setLoadingRequest] = useState(false);
 
   const initializedId = useRef<string | null>(null);
   const snapshotRef = useRef('');
@@ -109,17 +111,46 @@ export function RequestEditor({
     }
   }, [isDraft, draftData]);
 
-  // Initialize from persisted request (RequestNode only has basic info)
+  // Load full request from main process
   useEffect(() => {
-    if (request && initializedId.current !== request.uid) {
-      initializedId.current = request.uid;
-      setMethod(request.method || 'GET');
-      setUrl(''); // TODO: load full request from main process
-      setHeaders([{ uid: genUid(), key: '', value: '', enabled: true }]);
-      setParams([{ uid: genUid(), key: '', value: '', enabled: true }]);
-      snapshotRef.current = buildFingerprint();
+    if (requestNode && initializedId.current !== requestNode.uid) {
+      initializedId.current = requestNode.uid;
+      setLoadingRequest(true);
+      service.getRequest(requestNode.uid).then((fullRequest) => {
+        if (fullRequest) {
+          setMethod(fullRequest.method);
+          setUrl(fullRequest.url);
+          setHeaders(
+            fullRequest.headers.length > 0
+              ? fullRequest.headers.map((h) => ({ uid: genUid(), key: h.key, value: h.value, enabled: h.enabled !== false }))
+              : [{ uid: genUid(), key: '', value: '', enabled: true }],
+          );
+          setParams(
+            fullRequest.params.length > 0
+              ? fullRequest.params.map((p) => ({ uid: genUid(), key: p.key, value: p.value, enabled: p.enabled !== false }))
+              : [{ uid: genUid(), key: '', value: '', enabled: true }],
+          );
+        } else {
+          setMethod(requestNode.method || 'GET');
+          setUrl('');
+          setHeaders([{ uid: genUid(), key: '', value: '', enabled: true }]);
+          setParams([{ uid: genUid(), key: '', value: '', enabled: true }]);
+        }
+        setLoadingRequest(false);
+        // Set snapshot after state settles
+        setTimeout(() => {
+          snapshotRef.current = JSON.stringify({
+            method: fullRequest?.method || requestNode.method || 'GET',
+            url: fullRequest?.url || '',
+            headers: fullRequest?.headers.map((h) => ({ uid: '', key: h.key, value: h.value, enabled: h.enabled !== false })) || [],
+            params: fullRequest?.params.map((p) => ({ uid: '', key: p.key, value: p.value, enabled: p.enabled !== false })) || [],
+          });
+        }, 0);
+      }).catch(() => {
+        setLoadingRequest(false);
+      });
     }
-  }, [request, buildFingerprint]);
+  }, [requestNode, service]);
 
   // Publish used variables
   const { setUsedVariables, clearVariables } = useEditorVariables();
@@ -162,8 +193,19 @@ export function RequestEditor({
       });
       return;
     }
-    // TODO: save request via IPC
-  }, [isDraft, onSaveDraft, draftData, method, url]);
+    if (!sourceId) return;
+    const activeHeaders = headers.filter((h) => h.key.trim());
+    const activeParams = params.filter((p) => p.key.trim());
+    service.updateRequest(sourceId, {
+      method,
+      url,
+      headers: activeHeaders.map((h) => ({ key: h.key, value: h.value, enabled: h.enabled })),
+      params: activeParams.map((p) => ({ key: p.key, value: p.value, enabled: p.enabled })),
+    }).then(() => {
+      snapshotRef.current = buildFingerprint();
+      onDirtyChange?.(false);
+    }).catch(() => {});
+  }, [isDraft, onSaveDraft, draftData, method, url, headers, params, sourceId, service, buildFingerprint, onDirtyChange]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;
@@ -182,10 +224,18 @@ export function RequestEditor({
     setHeaders((prev) => prev.filter((h) => h.uid !== uid));
   }, []);
 
-  if (!isDraft && !request) {
+  if (!isDraft && !requestNode) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
         <Text type="secondary">Request not found.</Text>
+      </div>
+    );
+  }
+
+  if (loadingRequest) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <Text type="secondary">Loading request...</Text>
       </div>
     );
   }

@@ -75,12 +75,19 @@ export function useCentralizedEnvironments(): UseEnvironmentsReturn {
   );
 
   const updateEnvironment = useCallback(
-    async (_name: string, _updates: Partial<V5.Environment>): Promise<boolean> => {
-      // TODO: Add IPC handler for full environment update (rename, bulk variable changes)
-      showMessage('error', 'Environment update not yet implemented');
-      return false;
+    async (name: string, updates: Partial<V5.Environment>): Promise<boolean> => {
+      try {
+        await service.updateEnvironment(name, {
+          name: updates.name,
+          variables: updates.variables,
+        });
+        return true;
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return false;
+      }
     },
-    [],
+    [service],
   );
 
   return {
