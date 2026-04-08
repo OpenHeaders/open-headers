@@ -1,15 +1,64 @@
-import { FolderOpenOutlined, FolderOutlined, PauseCircleOutlined, TagsOutlined } from '@ant-design/icons';
+import {
+  CheckOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
+  PauseCircleOutlined,
+  SortAscendingOutlined,
+  TagsOutlined,
+} from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { App, Empty, Input, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
+import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import type { PageInfo, RowActions } from '../utils/table-shared';
-import { renderDomainTags } from './columns/sharedColumnRenderers';
+import { type ActionDetail, renderActionDetails, renderDomainTags } from './columns/sharedColumnRenderers';
+
+const HEADER_OP_TOOLTIP: Record<string, string> = {
+  override: 'Replaces existing header value',
+  add: 'Adds header if not present',
+  remove: 'Removes header entirely',
+};
+
+function getActionDetail(rule: V5.Rule): ActionDetail {
+  switch (rule.type) {
+    case 'header': {
+      const { operation, headerName, isResponse } = rule.action;
+      const dir = isResponse ? ' ↓' : ' ↑';
+      const opMap: Record<string, string> = { override: 'OVERRIDE', add: 'ADD', remove: 'REMOVE' };
+      const tag = `${opMap[operation] ?? operation.toUpperCase()}${dir}`;
+      const tooltip = HEADER_OP_TOOLTIP[operation] ?? operation;
+      const direction = isResponse ? '↓ Incoming response' : '↑ Outgoing request';
+      if (operation === 'remove') return { tag, tooltip, direction, value: headerName || '' };
+      const value = headerName ? `${headerName}: ${rule.staticValue || ''}` : rule.staticValue || '';
+      return { tag, tooltip, direction, value };
+    }
+    case 'block':
+      return { tag: 'BLOCK', tooltip: 'Prevents request from completing', value: '' };
+    case 'redirect':
+      return { tag: 'REDIRECT', tooltip: 'Redirects to a different URL', value: rule.action.redirectTo || '' };
+    case 'query-param': {
+      const count = rule.action.params.length;
+      return {
+        tag: 'QUERY',
+        tooltip: 'Modifies URL query parameters',
+        value: `${count} param${count !== 1 ? 's' : ''}`,
+      };
+    }
+    case 'inject':
+      return {
+        tag: rule.action.injectType === 'css' ? 'CSS' : 'JS',
+        tooltip: rule.action.injectType === 'css' ? 'Injects stylesheet into page' : 'Injects JavaScript into page',
+        value: rule.action.position,
+      };
+    default:
+      return { tag: rule.type.toUpperCase(), tooltip: rule.type, value: '' };
+  }
+}
 
 const { Text } = Typography;
 
@@ -29,6 +78,7 @@ interface NestedRuleRecord {
   id: string;
   name: string;
   ruleType: string;
+  actionDetail: ActionDetail;
   isEnabled: boolean;
   domains: string[];
   tag: string;
@@ -53,6 +103,7 @@ const TagManager: React.FC<TagManagerProps> = ({
   const { message } = App.useApp();
   const { expandedRowKey, setNestedRowCount, toggleExpandedRow, setFocusedRowIndex } = useKeyboardNav();
   const [searchText, setSearchText] = useState('');
+  const [sortMode, setSortMode] = useState<'status' | 'manual'>('status');
 
   const groupedRules = useMemo((): TagGroupRecord[] => {
     const groups: Record<string, { name: string; rules: V5.Rule[] }> = {};
@@ -126,11 +177,20 @@ const TagManager: React.FC<TagManagerProps> = ({
       .filter((g): g is TagGroupRecord => g !== null);
   }, [groupedRules, searchText, ruleMatchCountMap]);
 
+  const sortedGroups = useMemo(() => {
+    if (sortMode !== 'status') return filteredGroups;
+    return [...filteredGroups].sort((a, b) => {
+      const rankA = a.isGroupDisabled ? 1 : 0;
+      const rankB = b.isGroupDisabled ? 1 : 0;
+      return rankA - rankB || a.name.localeCompare(b.name);
+    });
+  }, [filteredGroups, sortMode]);
+
   const dataSourceRef = useRef<TagGroupRecord[]>([]);
-  dataSourceRef.current = filteredGroups;
+  dataSourceRef.current = sortedGroups;
 
   const { paginationConfig } = useTablePagination({
-    dataSource: filteredGroups,
+    dataSource: sortedGroups,
     onPageInfoChange,
   });
 
@@ -235,74 +295,53 @@ const TagManager: React.FC<TagManagerProps> = ({
     },
   ];
 
-  const ruleTypeLabel: Record<string, string> = {
-    header: 'Header',
-    block: 'Block',
-    redirect: 'Redirect',
-    'query-param': 'Query Param',
-    inject: 'Inject',
-    body: 'Body',
-    delay: 'Delay',
-    mock: 'Mock',
-  };
-
   const nestedColumns: ColumnsType<NestedRuleRecord> = [
     {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      width: 160,
+      width: 130,
       render: (text: string) => (
-        <Tooltip title={text.length > 20 ? text : undefined}>
+        <Tooltip title={text.length > 16 ? text : undefined}>
           <Text style={{ fontSize: '13px' }}>
-            {text.length > 20 ? `${text.substring(0, 14)}...${text.substring(text.length - 4)}` : text}
+            {text.length > 16 ? `${text.substring(0, 10)}...${text.substring(text.length - 4)}` : text}
           </Text>
         </Tooltip>
       ),
     },
     {
-      title: 'Type',
-      key: 'type',
-      width: 80,
-      align: 'center',
-      render: (_: unknown, record: NestedRuleRecord) => (
-        <Tag variant="outlined" style={{ margin: 0, fontSize: '11px' }}>
-          {ruleTypeLabel[record.ruleType] ?? record.ruleType}
-        </Tag>
-      ),
+      title: 'Details',
+      key: 'details',
+      width: 150,
+      render: (_: unknown, record: NestedRuleRecord) => renderActionDetails(record.actionDetail),
     },
     {
       title: 'Domains',
       dataIndex: 'domains',
       key: 'domains',
-      width: 160,
-      render: (domains: string[]) => renderDomainTags(domains),
+      width: 100,
+      render: (domains: string[]) => renderDomainTags(domains, false),
     },
     {
-      title: 'Status',
+      title: '',
       key: 'status',
-      width: 70,
+      width: 50,
       align: 'center',
       render: (_: unknown, record: NestedRuleRecord) => {
         const isLocal = record.id.startsWith('local-');
         const canToggle = isLocal || isConnected;
         return (
-          <Tooltip title={canToggle ? (record.isEnabled ? 'Disable rule' : 'Enable rule') : 'App not connected'}>
-            <Switch
-              size="small"
-              checked={record.isEnabled}
-              disabled={!canToggle}
-              onChange={async (checked) => {
-                const { runtime } = await import('../../utils/browser-api');
-                runtime.sendMessage(
-                  { type: 'toggleRule', ruleId: record.id, enabled: checked },
-                  (response: unknown) => {
-                    if (!(response as { success?: boolean })?.success) message.error('Failed to toggle rule');
-                  },
-                );
-              }}
-            />
-          </Tooltip>
+          <Switch
+            size="small"
+            checked={record.isEnabled}
+            disabled={!canToggle}
+            onChange={async (checked) => {
+              const { runtime } = await import('../../utils/browser-api');
+              runtime.sendMessage({ type: 'toggleRule', ruleId: record.id, enabled: checked }, (response: unknown) => {
+                if (!(response as { success?: boolean })?.success) message.error('Failed to toggle rule');
+              });
+            }}
+          />
         );
       },
     },
@@ -325,7 +364,7 @@ const TagManager: React.FC<TagManagerProps> = ({
                 placeholder="Search anything..."
                 allowClear
                 size="small"
-                style={{ width: 300 }}
+                style={{ width: 260 }}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 onKeyDown={(e) => {
@@ -335,6 +374,71 @@ const TagManager: React.FC<TagManagerProps> = ({
                   }
                 }}
               />
+              <Dropdown
+                menu={{
+                  items: [
+                    {
+                      key: 'label',
+                      label: (
+                        <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
+                          SORT ORDER
+                        </Text>
+                      ),
+                      disabled: true,
+                    },
+                    {
+                      key: 'status',
+                      label: (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            minWidth: 220,
+                          }}
+                        >
+                          <div>
+                            <div>By status</div>
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              Active groups → Paused groups
+                            </Text>
+                          </div>
+                          {sortMode === 'status' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                        </div>
+                      ),
+                      onClick: () => setSortMode('status'),
+                    },
+                    {
+                      key: 'manual',
+                      label: (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            minWidth: 220,
+                          }}
+                        >
+                          <div>
+                            <div>As created</div>
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              Original order, as in the workspace tree
+                            </Text>
+                          </div>
+                          {sortMode === 'manual' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                        </div>
+                      ),
+                      onClick: () => setSortMode('manual'),
+                    },
+                  ],
+                }}
+                placement="bottomRight"
+                trigger={['click']}
+              >
+                <Tooltip title="Sort order">
+                  <Button type="text" size="small" icon={<SortAscendingOutlined />} />
+                </Tooltip>
+              </Dropdown>
             </div>
             <div style={{ textAlign: 'right', marginTop: 2 }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -357,7 +461,7 @@ const TagManager: React.FC<TagManagerProps> = ({
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingBottom: '8px' }}>
         <Table<TagGroupRecord>
-          dataSource={filteredGroups}
+          dataSource={sortedGroups}
           columns={columns}
           pagination={paginationConfig}
           size="small"
@@ -422,7 +526,7 @@ const TagManager: React.FC<TagManagerProps> = ({
               );
             },
             onExpand: (_expanded: boolean, record: TagGroupRecord) => {
-              const fullIndex = filteredGroups.findIndex((g) => g.key === record.key);
+              const fullIndex = sortedGroups.findIndex((g) => g.key === record.key);
               const pageStart = (paginationConfig.current - 1) * paginationConfig.pageSize;
               const pageRelativeIndex = fullIndex - pageStart;
               toggleExpandedRow(record.key, pageRelativeIndex >= 0 ? pageRelativeIndex : undefined);
@@ -434,6 +538,7 @@ const TagManager: React.FC<TagManagerProps> = ({
                 id: rule.uid,
                 name: rule.name,
                 ruleType: rule.type,
+                actionDetail: getActionDetail(rule),
                 isEnabled: rule.enabled,
                 domains: rule.domains,
                 tag: rule.tags[0] ?? '',

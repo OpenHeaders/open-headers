@@ -52,6 +52,14 @@ function openRulesPage(hash: string): void {
   getBrowserAPI().tabs.create({ url });
 }
 
+const DNR_PRIORITY: Record<string, number> = {
+  header: 100,
+  'query-param': 150,
+  redirect: 150,
+  block: 200,
+  inject: 50,
+};
+
 const RULE_TYPE_LABEL: Record<string, string> = {
   header: 'Header',
   block: 'Block',
@@ -217,7 +225,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const [uniqueRequestCount, setUniqueRequestCount] = useState(0);
   const expandCountRef = useRef(0);
   const [searchText, setSearchText] = useState('');
-  const [sortMode, setSortMode] = useState<'status' | 'manual'>('status');
+  const [sortMode, setSortMode] = useState<'status' | 'priority' | 'manual'>('status');
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
   const [sortedInfo, setSortedInfo] = useState<SorterResult<TableRecord>>({});
 
@@ -323,10 +331,17 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       key: (rule.id || index) as string | number,
     }))
     .sort((a, b) => {
-      if (sortMode !== 'status') return 0;
-      const rankA = a.isEnabled === false ? 2 : disabledTagGroups.has((a.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
-      const rankB = b.isEnabled === false ? 2 : disabledTagGroups.has((b.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
-      return rankA - rankB || a.name.localeCompare(b.name);
+      if (sortMode === 'status') {
+        const rankA = a.isEnabled === false ? 2 : disabledTagGroups.has((a.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
+        const rankB = b.isEnabled === false ? 2 : disabledTagGroups.has((b.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
+        return rankA - rankB || a.name.localeCompare(b.name);
+      }
+      if (sortMode === 'priority') {
+        const pa = DNR_PRIORITY[a.ruleType] ?? 0;
+        const pb = DNR_PRIORITY[b.ruleType] ?? 0;
+        return pb - pa || a.name.localeCompare(b.name);
+      }
+      return 0;
     });
 
   // Keep ref in sync for keyboard callbacks
@@ -720,6 +735,28 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                         </div>
                       ),
                       onClick: () => setSortMode('status'),
+                    },
+                    {
+                      key: 'priority',
+                      label: (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            minWidth: 220,
+                          }}
+                        >
+                          <div>
+                            <div>By browser priority</div>
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              Block → Redirect/Query → Header → Inject
+                            </Text>
+                          </div>
+                          {sortMode === 'priority' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                        </div>
+                      ),
+                      onClick: () => setSortMode('priority'),
                     },
                     {
                       key: 'manual',
