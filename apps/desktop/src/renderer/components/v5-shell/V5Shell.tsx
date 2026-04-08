@@ -56,8 +56,8 @@ interface PanelVisibility {
 export function V5Shell() {
   const { token } = theme.useToken();
   const { workspaces, activeWorkspaceId } = useWorkspaces();
-  const { sources } = useSources();
-  const { rules } = useHeaderRules();
+  const { sources, addRequest, updateRequest } = useSources();
+  const { rules, addRule, updateRule } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } =
     useEnvironments();
   const { collections, addCollection, updateCollection: updateCollectionInV5 } = useCollections();
@@ -267,6 +267,8 @@ export function V5Shell() {
     environments,
     tabs,
     createEnvironment,
+    addRequest,
+    addRule,
     closeTab,
     openTab,
     ensureSidebarExpanded: sidebarExpansion.ensureExpanded,
@@ -504,11 +506,14 @@ export function V5Shell() {
         void updateCollectionInV5('requests', activeResolvedTab.entityId, { name: newName });
       } else if (activeResolvedTab.type === 'environment') {
         void updateEnvironment(activeResolvedTab.entityId, { name: newName });
+      } else if (activeResolvedTab.type === 'request' || activeResolvedTab.type === 'collection') {
+        void updateRequest(activeResolvedTab.entityId, { name: newName });
+      } else if (activeResolvedTab.type === 'rule') {
+        void updateRule(activeResolvedTab.entityId, { name: newName });
       }
-      // TODO: request/rule rename via IPC
       setPendingRenameTabId(null);
     },
-    [activeResolvedTab, updateTab, updateCollectionInV5, updateEnvironment],
+    [activeResolvedTab, updateTab, updateCollectionInV5, updateEnvironment, updateRequest, updateRule],
   );
 
   return (

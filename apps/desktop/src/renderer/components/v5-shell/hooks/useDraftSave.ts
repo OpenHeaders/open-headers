@@ -35,6 +35,8 @@ interface UseDraftSaveOptions {
   environments: V5.Environment[];
   tabs: Tab[];
   createEnvironment: (opts: { name: string }) => Promise<V5.Environment | null>;
+  addRequest: (collectionUid: string, request: Omit<V5.Request, 'uid' | 'path'>) => Promise<V5.Request | null>;
+  addRule: (collectionUid: string, rule: Omit<V5.Rule, 'uid' | 'path'>) => Promise<V5.Rule | null>;
   closeTab: (tabId: string, force?: boolean) => void;
   openTab: (tab: Omit<Tab, 'pinned' | 'unsaved'>) => void;
   ensureSidebarExpanded: (...keys: string[]) => void;
@@ -46,6 +48,8 @@ export function useDraftSave({
   environments,
   tabs,
   createEnvironment,
+  addRequest,
+  addRule,
   closeTab,
   openTab,
   ensureSidebarExpanded,
@@ -171,8 +175,48 @@ export function useDraftSave({
             entityId: env.name,
           });
         }
+      } else if (tab.type === 'request') {
+        const method = (draftData.method as V5.HttpMethod) || 'GET';
+        const created = await addRequest(params.collectionId, {
+          name: params.name,
+          method,
+          url: (draftData.url as string) || '',
+          headers: [],
+          params: [],
+          auth: { type: 'none' },
+          body: { type: 'none' },
+        });
+        if (created) {
+          closeTab(draftTabId, true);
+          openTab({
+            id: `source-${created.uid}`,
+            type: 'request',
+            label: created.name,
+            icon: created.method,
+            entityId: created.uid,
+          });
+        }
+      } else if (tab.type === 'rule') {
+        const created = await addRule(params.collectionId, {
+          type: (draftData.type as V5.RuleType) || 'header',
+          name: params.name,
+          enabled: draftData.enabled !== false,
+          tags: (draftData.tags as string[]) || [],
+          domains: (draftData.domains as string[]) || [],
+          action: draftData.action as V5.HeaderAction,
+          staticValue: (draftData.staticValue as string) || '',
+        } as Omit<V5.HeaderRule, 'uid' | 'path'>);
+        if (created) {
+          closeTab(draftTabId, true);
+          openTab({
+            id: `rule-${created.uid}`,
+            type: 'rule',
+            label: created.name,
+            icon: 'rule',
+            entityId: created.uid,
+          });
+        }
       }
-      // TODO: request/rule creation via IPC — needs addRequest/addRule handlers
 
       // Auto-expand the collection in the sidebar
       const keys = [`col-${params.collectionId}`];
@@ -183,7 +227,7 @@ export function useDraftSave({
       setSaveModalDraftTabId(null);
       setSaveModalDraftData(null);
     },
-    [saveModalDraftTabId, saveModalDraftData, tabs, createEnvironment, closeTab, openTab, ensureSidebarExpanded],
+    [saveModalDraftTabId, saveModalDraftData, tabs, createEnvironment, addRequest, addRule, closeTab, openTab, ensureSidebarExpanded],
   );
 
   const saveModalProps: SaveModalProps = {

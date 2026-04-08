@@ -11,7 +11,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Input, Radio, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCentralizedWorkspace, useHeaderRules } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useHeaderRules } from '@/renderer/hooks/useCentralizedWorkspace';
 import { extractRuleVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 
 const { Text, Title } = Typography;
@@ -26,8 +26,7 @@ interface RuleEditorProps {
 
 export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDraft }: RuleEditorProps) {
   const { token } = theme.useToken();
-  const { rules } = useHeaderRules();
-  const { service } = useCentralizedWorkspace();
+  const { rules, updateRule: updateRuleIpc } = useHeaderRules();
 
   const isDraft = !!draftData && !ruleId;
   const rule = isDraft ? undefined : rules.find((r) => r.uid === ruleId);
@@ -136,7 +135,7 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
       return;
     }
     if (!ruleId) return;
-    service.updateRule(ruleId, {
+    updateRuleIpc(ruleId, {
       enabled,
       domains,
       tags,
@@ -146,7 +145,7 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
       snapshotRef.current = buildFingerprint();
       onDirtyChange?.(false);
     }).catch(() => {});
-  }, [isDraft, onSaveDraft, draftData, enabled, domains, tags, operation, headerName, isResponse, staticValue, ruleId, service, buildFingerprint, onDirtyChange]);
+  }, [isDraft, onSaveDraft, draftData, enabled, domains, tags, operation, headerName, isResponse, staticValue, ruleId, updateRuleIpc, buildFingerprint, onDirtyChange]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;

@@ -24,8 +24,8 @@ import type { V5 } from '@openheaders/core/types';
 import { SYSTEM_VARIABLES } from '@openheaders/core/variables';
 import { Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCentralizedWorkspace, useWorkspaceVariables } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useWorkspaceVariables } from '@/renderer/hooks/useCentralizedWorkspace';
 
 const { Text, Title } = Typography;
 
@@ -344,20 +344,7 @@ function SortableRow({
 
 export function WorkspaceVariablesEditor({ onDirtyChange, saveRef }: WorkspaceVariablesEditorProps) {
   const { token } = theme.useToken();
-  const { workspaceVariables } = useWorkspaceVariables();
-  const { service } = useCentralizedWorkspace();
-
-  const updateWorkspaceVariables = useMemo(
-    () => async (vars: V5.WorkspaceVariables): Promise<boolean> => {
-      try {
-        await service.updateWorkspaceVariables(vars);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    [service],
-  );
+  const { workspaceVariables, updateWorkspaceVariables } = useWorkspaceVariables();
 
   const [rows, setRows] = useState<LocalVariable[]>([]);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());

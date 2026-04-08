@@ -5,8 +5,8 @@
  * body, and auth for a V5.Request. Full request data comes from the
  * CollectionTree (RequestNode only has uid/name/path/method).
  *
- * TODO: Load full V5.Request from main process via IPC when opening a tab.
- * For now, this is a simplified editor that works with RequestNode data + drafts.
+ * Loads the full V5.Request from main process via getRequest(uid) IPC.
+ * Saves changes via updateRequest(uid, updates) IPC.
  */
 
 import { CaretRightOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -14,7 +14,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Input, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useCentralizedWorkspace, useSources } from '@/renderer/hooks/useCentralizedWorkspace';
+import { useSources } from '@/renderer/hooks/useCentralizedWorkspace';
 import { extractSourceVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 
 const { Text, Title } = Typography;
@@ -77,8 +77,7 @@ export function RequestEditor({
   onSaveDraft,
 }: RequestEditorProps) {
   const { token } = theme.useToken();
-  const { sources } = useSources();
-  const { service } = useCentralizedWorkspace();
+  const { sources, getRequest, updateRequest: updateRequestIpc } = useSources();
 
   const isDraft = !!draftData && !sourceId;
   const requestNode = isDraft ? undefined : sources.find((s) => s.uid === sourceId);
@@ -116,7 +115,7 @@ export function RequestEditor({
     if (requestNode && initializedId.current !== requestNode.uid) {
       initializedId.current = requestNode.uid;
       setLoadingRequest(true);
-      service.getRequest(requestNode.uid).then((fullRequest) => {
+      getRequest(requestNode.uid).then((fullRequest) => {
         if (fullRequest) {
           setMethod(fullRequest.method);
           setUrl(fullRequest.url);
@@ -150,7 +149,7 @@ export function RequestEditor({
         setLoadingRequest(false);
       });
     }
-  }, [requestNode, service]);
+  }, [requestNode, getRequest]);
 
   // Publish used variables
   const { setUsedVariables, clearVariables } = useEditorVariables();
@@ -196,7 +195,7 @@ export function RequestEditor({
     if (!sourceId) return;
     const activeHeaders = headers.filter((h) => h.key.trim());
     const activeParams = params.filter((p) => p.key.trim());
-    service.updateRequest(sourceId, {
+    updateRequestIpc(sourceId, {
       method,
       url,
       headers: activeHeaders.map((h) => ({ key: h.key, value: h.value, enabled: h.enabled })),
@@ -205,7 +204,7 @@ export function RequestEditor({
       snapshotRef.current = buildFingerprint();
       onDirtyChange?.(false);
     }).catch(() => {});
-  }, [isDraft, onSaveDraft, draftData, method, url, headers, params, sourceId, service, buildFingerprint, onDirtyChange]);
+  }, [isDraft, onSaveDraft, draftData, method, url, headers, params, sourceId, updateRequestIpc, buildFingerprint, onDirtyChange]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;

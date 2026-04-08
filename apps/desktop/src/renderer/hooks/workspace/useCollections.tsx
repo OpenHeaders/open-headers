@@ -10,6 +10,9 @@ interface UseCollectionsReturn {
   addCollection: (section: 'requests' | 'rules', data: Omit<V5.Collection, 'uid' | 'path'>) => Promise<V5.Collection | null>;
   updateCollection: (section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>) => Promise<boolean>;
   removeCollection: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
+  addFolder: (collectionUid: string, section: 'requests' | 'rules', name: string, parentPath?: string) => Promise<V5.FolderNode | null>;
+  renameFolder: (section: 'requests' | 'rules', uid: string, newName: string) => Promise<boolean>;
+  removeFolder: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
 }
 
 export function useCollections(): UseCollectionsReturn {
@@ -62,5 +65,58 @@ export function useCollections(): UseCollectionsReturn {
     [service],
   );
 
-  return { collections, requestCollections, ruleCollections, addCollection, updateCollection, removeCollection };
+  const addFolder = useCallback(
+    async (
+      collectionUid: string,
+      section: 'requests' | 'rules',
+      name: string,
+      parentPath?: string,
+    ): Promise<V5.FolderNode | null> => {
+      try {
+        return await service.addFolder(collectionUid, section, name, parentPath);
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return null;
+      }
+    },
+    [service],
+  );
+
+  const renameFolder = useCallback(
+    async (section: 'requests' | 'rules', uid: string, newName: string): Promise<boolean> => {
+      try {
+        await service.renameFolder(section, uid, newName);
+        return true;
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    },
+    [service],
+  );
+
+  const removeFolder = useCallback(
+    async (section: 'requests' | 'rules', uid: string): Promise<boolean> => {
+      try {
+        await service.removeFolder(section, uid);
+        return true;
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    },
+    [service],
+  );
+
+  return {
+    collections,
+    requestCollections,
+    ruleCollections,
+    addCollection,
+    updateCollection,
+    removeCollection,
+    addFolder,
+    renameFolder,
+    removeFolder,
+  };
 }

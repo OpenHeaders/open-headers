@@ -115,6 +115,15 @@ export interface UseTreeDataProps {
   removeCollection: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
   confirmDelete: (name: string, onConfirm: () => void) => void;
   onOpenCollectionVariables?: (collectionId: string) => void;
+  // Item CRUD callbacks (from domain hooks)
+  removeRequest: (uid: string) => Promise<boolean>;
+  updateRequest: (uid: string, updates: { name?: string }) => Promise<boolean>;
+  toggleRule: (uid: string, enabled: boolean) => Promise<boolean>;
+  removeRule: (uid: string) => Promise<boolean>;
+  updateRule: (uid: string, updates: { name?: string }) => Promise<boolean>;
+  renameFolder: (section: 'requests' | 'rules', uid: string, newName: string) => Promise<boolean>;
+  removeFolder: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
+  updateEnvironment: (oldName: string, updates: { name?: string }) => Promise<boolean>;
 }
 
 export interface UseTreeDataReturn {
@@ -146,6 +155,14 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
     removeCollection,
     confirmDelete,
     onOpenCollectionVariables,
+    removeRequest,
+    updateRequest,
+    toggleRule,
+    removeRule,
+    updateRule,
+    renameFolder,
+    removeFolder,
+    updateEnvironment,
   } = props;
 
   const lowerFilter = filter.toLowerCase();
@@ -170,8 +187,8 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
           canDelete: true,
           canAddChild: true,
           onOpen: () => onToggleExpand(fid),
-          onRename: () => {}, // TODO: folder rename via IPC
-          onDelete: () => {}, // TODO: folder delete via IPC
+          onRename: async (name: string) => { void renameFolder(section, node.uid, name); },
+          onDelete: () => confirmDelete(node.name, () => { void removeFolder(section, node.uid); }),
         });
         if (isExpanded) {
           items.push(...walkTreeNodes(node.children, depth + 1, fid, section));
@@ -198,8 +215,8 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
               icon: node.method || 'GET',
               entityId: node.uid,
             }),
-          onRename: () => {}, // TODO: request rename via IPC
-          onDelete: () => {}, // TODO: request delete via IPC
+          onRename: async (name: string) => { void updateRequest(node.uid, { name }); },
+          onDelete: () => confirmDelete(node.name, () => { void removeRequest(node.uid); }),
         });
       }
     }
@@ -325,16 +342,16 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
         ? {
             icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
             tooltip: 'Disable',
-            onClick: () => {}, // TODO: toggle rule via IPC
+            onClick: () => { void toggleRule(rule.uid, false); },
           }
         : {
             icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
             tooltip: 'Enable',
-            onClick: () => {}, // TODO: toggle rule via IPC
+            onClick: () => { void toggleRule(rule.uid, true); },
           },
       onOpen: () => onOpenTab({ id: rid, type: 'rule', label: rule.name, icon: 'rule', entityId: rule.uid }),
-      onRename: () => {}, // TODO: rename rule via IPC
-      onDelete: () => confirmDelete(rule.name, () => {}), // TODO: delete rule via IPC
+      onRename: async (name: string) => { void updateRule(rule.uid, { name }); },
+      onDelete: () => confirmDelete(rule.name, () => { void removeRule(rule.uid); }),
     };
   }
 
@@ -380,7 +397,7 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
             },
         onOpen: () =>
           onOpenTab({ id: eid, type: 'environment', label: env.name, icon: 'environment', entityId: env.name }),
-        onRename: () => {}, // TODO: rename environment via IPC
+        onRename: async (name: string) => { void updateEnvironment(env.name, { name }); },
         onDelete: () => confirmDelete(env.name, () => deleteEnvironment(env.name)),
       });
     }

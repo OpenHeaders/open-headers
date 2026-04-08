@@ -3,8 +3,7 @@
  *
  * Architecture:
  *   - **TreeNode model** (sidebar/types.ts): every item is a generic TreeNode
- *   - **useTreeData**: transforms entities → TreeNode[] per section
- *   - **useFolderActions**: folder CRUD
+ *   - **useTreeData**: transforms entities → TreeNode[] per section (with CRUD callbacks)
  *   - **TreeNodeRow**: renders any node uniformly
  *   - **This file**: slim orchestrator — toolbar, section layout, keyboard nav
  */
@@ -31,7 +30,6 @@ import {
 } from '@/renderer/hooks/useCentralizedWorkspace';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
-import { useFolderActions } from './sidebar/useFolderActions';
 import { useTreeData } from './sidebar/useTreeData';
 import type { ActivityPanel } from './V5Shell';
 
@@ -147,11 +145,11 @@ export function Sidebar({
   onPendingRename,
 }: SidebarProps) {
   const { token } = theme.useToken();
-  const { sources, requestCollections } = useSources();
-  const { rules, ruleCollections } = useHeaderRules();
-  const { environments, activeEnvironment, switchEnvironment, deleteEnvironment } =
+  const { sources, requestCollections, updateRequest, removeRequest } = useSources();
+  const { rules, ruleCollections, updateRule, removeRule, toggleRule } = useHeaderRules();
+  const { environments, activeEnvironment, switchEnvironment, deleteEnvironment, updateEnvironment } =
     useEnvironments();
-  const { collections, addCollection, updateCollection, removeCollection } = useCollections();
+  const { collections, addCollection, updateCollection, removeCollection, renameFolder, removeFolder } = useCollections();
 
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -200,21 +198,6 @@ export function Sidebar({
     });
   }, []);
 
-  // ── Folder CRUD ──────────────────────────────────────────────
-  const folderActions = useFolderActions();
-
-  // ── Create folder (stubbed — V5 folders are in collection trees) ──
-  const _createNewFolder = useCallback(
-    async (
-      _section: string,
-      _collectionId: string,
-      _parentFolderId: string | null,
-    ) => {
-      // TODO: add folder via IPC
-    },
-    [],
-  );
-
   // ── Tree data ────────────────────────────────────────────────
   const treeData = useTreeData({
     requestCollections,
@@ -236,6 +219,14 @@ export function Sidebar({
     removeCollection,
     confirmDelete,
     onOpenCollectionVariables,
+    removeRequest,
+    updateRequest,
+    toggleRule,
+    removeRule,
+    updateRule,
+    renameFolder,
+    removeFolder,
+    updateEnvironment,
   });
 
   // ── Flat items for keyboard nav ──────────────────────────────
