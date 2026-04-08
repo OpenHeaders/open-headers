@@ -1,5 +1,1 @@
-// Data contexts
-
-export { EnvironmentContext, EnvironmentProvider, useEnvironments } from './EnvironmentContext';
-export { SourceContext, SourceProvider, useSources } from './SourceContext';
-export { useWorkspaces, WorkspaceContext, WorkspaceProvider } from './WorkspaceContext';
+// Data contexts — v4 contexts deleted, v5 uses CentralizedWorkspaceService directly

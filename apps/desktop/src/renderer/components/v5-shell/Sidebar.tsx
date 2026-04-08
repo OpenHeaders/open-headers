@@ -26,7 +26,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useCollections,
   useEnvironments,
-  useFolders,
   useHeaderRules,
   useSources,
 } from '@/renderer/hooks/useCentralizedWorkspace';
@@ -148,17 +147,11 @@ export function Sidebar({
   onPendingRename,
 }: SidebarProps) {
   const { token } = theme.useToken();
-  const { sources, updateSource, removeSource } = useSources();
-  const { rules, updateRule, removeRule } = useHeaderRules();
-  const { environments, activeEnvironment, switchEnvironment, updateEnvironment, deleteEnvironment } =
+  const { sources, requestCollections } = useSources();
+  const { rules, ruleCollections } = useHeaderRules();
+  const { environments, activeEnvironment, switchEnvironment, deleteEnvironment } =
     useEnvironments();
   const { collections, addCollection, updateCollection, removeCollection } = useCollections();
-  const {
-    folders: workspaceFolders,
-    addFolder: addFolderCrud,
-    updateFolder: updateFolderCrud,
-    removeFolder: removeFolderCrud,
-  } = useFolders();
 
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -208,46 +201,27 @@ export function Sidebar({
   }, []);
 
   // ── Folder CRUD ──────────────────────────────────────────────
-  const folderActions = useFolderActions({
-    folders: workspaceFolders,
-    addFolder: addFolderCrud,
-    updateFolder: updateFolderCrud,
-    removeFolder: removeFolderCrud,
-  });
+  const folderActions = useFolderActions();
 
-  // ── Create folder (centralized flow) ─────────────────────────
-  const createNewFolder = useCallback(
+  // ── Create folder (stubbed — V5 folders are in collection trees) ──
+  const _createNewFolder = useCallback(
     async (
-      section: 'requests' | 'rules' | 'environments' | 'recordings',
-      collectionId: string,
-      parentFolderId: string | null,
+      _section: string,
+      _collectionId: string,
+      _parentFolderId: string | null,
     ) => {
-      const nf = await folderActions.addFolder(section, collectionId, parentFolderId);
-      if (nf) {
-        const parentKey = parentFolderId ? `folder-${parentFolderId}` : `col-${collectionId}`;
-        ensureExpanded(parentKey, `folder-${nf.id}`);
-        const tabId = `folder-${nf.id}`;
-        onOpenTab?.({
-          id: tabId,
-          type: 'folder-overview',
-          label: nf.name,
-          icon: 'folder',
-          entityId: nf.id,
-        });
-        onPendingRename?.(tabId);
-      }
+      // TODO: add folder via IPC
     },
-    [folderActions, ensureExpanded, onOpenTab, onPendingRename],
+    [],
   );
 
   // ── Tree data ────────────────────────────────────────────────
   const treeData = useTreeData({
-    collections,
-    sources,
+    requestCollections,
+    ruleCollections,
     rules,
     environments,
     activeEnvironment,
-    folders: workspaceFolders,
     expandedKeys,
     filter: filterText,
     onOpenTab: onOpenTab ?? (() => {}),
@@ -256,16 +230,8 @@ export function Sidebar({
     onNewRequest: onNewRequest ?? (() => {}),
     onNewRule: onNewRule ?? (() => {}),
     onNewEnvironment: onNewEnvironment ?? (() => {}),
-    updateSource,
-    removeSource,
-    updateRule,
-    removeRule,
-    updateEnvironment,
-    deleteEnvironment,
     switchEnvironment,
-    createNewFolder,
-    renameFolder: folderActions.renameFolder,
-    deleteFolder: folderActions.deleteFolder,
+    deleteEnvironment,
     updateCollection,
     removeCollection,
     confirmDelete,
@@ -393,11 +359,10 @@ export function Sidebar({
     if (activeTabId.startsWith('source-')) {
       sections.add('collections');
       // Expand the containing collection (and folder)
-      const source = sources.find((s) => `source-${s.sourceId}` === activeTabId);
-      if (source?.collectionId) {
-        const keys: string[] = [`col-${source.collectionId}`];
-        if (source.folderId) keys.push(`folder-${source.folderId}`);
-        ensureExpanded(...keys);
+      const request = sources.find((s) => `source-${s.uid}` === activeTabId);
+      if (request) {
+        // TODO: derive collection key from request path
+        sections.add('collections');
       }
     } else if (activeTabId.startsWith('rule-')) {
       sections.add('rules');
@@ -426,11 +391,9 @@ export function Sidebar({
     onExpandedSectionsChange?.(['collections', 'rules', 'environments']);
     const allKeys: string[] = [];
     // All collection keys
-    for (const c of collections) allKeys.push(`col-${c.id}`);
-    // All folder keys
-    for (const f of workspaceFolders) allKeys.push(`folder-${f.id}`);
+    for (const c of collections) allKeys.push(`col-${c.uid}`);
     setAllExpanded?.(allKeys);
-  }, [collections, workspaceFolders, onExpandedSectionsChange, setAllExpanded]);
+  }, [collections, onExpandedSectionsChange, setAllExpanded]);
 
   const collapseAll = useCallback(() => {
     onExpandedSectionsChange?.([]);
@@ -438,17 +401,17 @@ export function Sidebar({
   }, [onExpandedSectionsChange, setAllExpanded]);
 
   const createNewCollection = useCallback(
-    async (section: 'requests' | 'rules' | 'environments' | 'recordings') => {
-      const col = await addCollection({ name: 'New Collection', section });
+    async (section: 'requests' | 'rules') => {
+      const col = await addCollection(section, { name: 'New Collection', description: '', variables: [] });
       if (col) {
-        ensureExpanded(`col-${col.id}`);
-        const tabId = `col-${col.id}`;
+        ensureExpanded(`col-${col.uid}`);
+        const tabId = `col-${col.uid}`;
         onOpenTab?.({
           id: tabId,
           type: 'collection-overview',
           label: col.name,
           icon: 'collection',
-          entityId: col.id,
+          entityId: col.uid,
         });
         onPendingRename?.(tabId);
       }
@@ -671,7 +634,7 @@ export function Sidebar({
               />
               {envsExpanded && (
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {renderNodes(treeData.environmentsNodes, () => void createNewCollection('environments'))}
+                  {renderNodes(treeData.environmentsNodes, () => onNewEnvironment?.())}
                 </div>
               )}
             </div>

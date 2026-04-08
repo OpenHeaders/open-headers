@@ -1,25 +1,16 @@
 /**
- * CentralizedWorkspaceService — thin IPC client.
+ * CentralizedWorkspaceService — thin IPC client (V5).
  *
- * All state management, persistence, auto-save, and broadcasting now live in
+ * All state management, persistence, auto-save, and broadcasting live in
  * the main process (WorkspaceStateService). This renderer-side service:
  *  - Hydrates from main on init via IPC
  *  - Receives incremental state patches via IPC events
  *  - Forwards all mutations to main via IPC invokes
- *  - Exposes subscribe/notify for React hooks (same API as before)
+ *  - Exposes subscribe/notify for React hooks
  */
 
-import type {
-  Collection,
-  EnvironmentVariable,
-  Folder,
-  HeaderRule,
-  RulesCollection,
-  Source,
-  SourceUpdate,
-} from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { createLogger } from '@/renderer/utils/error-handling/logger';
-import type { ProxyRule } from '@/types/proxy';
 import type { Workspace, WorkspaceSyncStatus, WorkspaceType } from '@/types/workspace';
 
 const log = createLogger('CentralizedWorkspaceService');
@@ -32,12 +23,13 @@ export interface WorkspaceServiceState {
   activeWorkspaceId: string;
   isWorkspaceSwitching: boolean;
   syncStatus: Record<string, WorkspaceSyncStatus>;
-  sources: Source[];
-  rules: RulesCollection;
-  proxyRules: ProxyRule[];
-  collections: Collection[];
-  folders: Folder[];
-  workspaceVariables: Record<string, EnvironmentVariable>;
+  requestCollections: V5.CollectionTree[];
+  ruleCollections: V5.CollectionTree[];
+  rules: V5.Rule[];
+  environments: V5.Environment[];
+  activeEnvironmentName: string | null;
+  workspaceVariables: V5.WorkspaceVariables;
+  vault: V5.Vault;
 }
 
 type StateListener = (state: WorkspaceServiceState, changedKeys: string[]) => void;
@@ -57,12 +49,13 @@ class CentralizedWorkspaceService {
       activeWorkspaceId: 'default-personal',
       isWorkspaceSwitching: false,
       syncStatus: {},
-      sources: [],
-      rules: { header: [], request: [], response: [] },
-      proxyRules: [],
-      collections: [],
-      folders: [],
-      workspaceVariables: {},
+      requestCollections: [],
+      ruleCollections: [],
+      rules: [],
+      environments: [],
+      activeEnvironmentName: null,
+      workspaceVariables: { variables: [] },
+      vault: { secrets: [] },
     };
 
     // Subscribe to state patches from main process
@@ -81,7 +74,7 @@ class CentralizedWorkspaceService {
       });
     }
 
-    log.info('CentralizedWorkspaceService initialized (IPC client)');
+    log.info('CentralizedWorkspaceService initialized (V5 IPC client)');
   }
 
   // ── State management ──────────────────────────────────────────
@@ -153,112 +146,39 @@ class CentralizedWorkspaceService {
     return this.state.initialized && !this.state.loading;
   }
 
-  // ── Source CRUD (IPC forwards) ──────────────────────────────
-
-  async addSource(sourceData: Source): Promise<Source> {
-    const result = await window.electronAPI.workspaceState.addSource(sourceData);
-    if (!result.success) throw new Error(result.error ?? 'Failed to add source');
-    return result.source!;
-  }
-
-  async updateSource(sourceId: string, updates: SourceUpdate): Promise<Source | null> {
-    const result = await window.electronAPI.workspaceState.updateSource(sourceId, updates);
-    if (!result.success) throw new Error(result.error ?? 'Failed to update source');
-    return result.source ?? null;
-  }
-
-  async removeSource(sourceId: string): Promise<void> {
-    const result = await window.electronAPI.workspaceState.removeSource(sourceId);
-    if (!result.success) throw new Error(result.error ?? 'Failed to remove source');
-  }
-
-  async updateSourceContent(sourceId: string, content: string): Promise<void> {
-    const result = await window.electronAPI.workspaceState.updateSourceContent(sourceId, content);
-    if (!result.success) throw new Error(result.error ?? 'Failed to update source content');
-  }
-
-  async refreshSource(sourceId: string): Promise<boolean> {
-    const result = await window.electronAPI.workspaceState.refreshSource(sourceId);
-    return result.success;
-  }
-
-  async importSources(sources: Source[], replace = false): Promise<void> {
-    const result = await window.electronAPI.workspaceState.importSources(sources, replace);
-    if (!result.success) throw new Error(result.error ?? 'Failed to import sources');
-  }
-
-  // ── Header Rule CRUD (IPC forwards) ────────────────────────
-
-  async addHeaderRule(ruleData: Partial<HeaderRule>): Promise<HeaderRule> {
-    const result = await window.electronAPI.workspaceState.addHeaderRule(ruleData);
-    if (!result.success || !result.rule) throw new Error(result.error ?? 'Failed to add header rule');
-    return result.rule;
-  }
-
-  async updateHeaderRule(ruleId: string, updates: Partial<HeaderRule>): Promise<void> {
-    const result = await window.electronAPI.workspaceState.updateHeaderRule(ruleId, updates);
-    if (!result.success) throw new Error(result.error ?? 'Failed to update header rule');
-  }
-
-  async removeHeaderRule(ruleId: string): Promise<void> {
-    const result = await window.electronAPI.workspaceState.removeHeaderRule(ruleId);
-    if (!result.success) throw new Error(result.error ?? 'Failed to remove header rule');
-  }
-
-  // ── Proxy Rule CRUD (IPC forwards) ─────────────────────────
-
-  async addProxyRule(ruleData: ProxyRule): Promise<void> {
-    const result = await window.electronAPI.workspaceState.addProxyRule(ruleData);
-    if (!result.success) throw new Error(result.error ?? 'Failed to add proxy rule');
-  }
-
-  async removeProxyRule(ruleId: string): Promise<void> {
-    const result = await window.electronAPI.workspaceState.removeProxyRule(ruleId);
-    if (!result.success) throw new Error(result.error ?? 'Failed to remove proxy rule');
-  }
-
   // ── Collection CRUD (IPC forwards) ────────────────────────
 
-  async addCollection(data: Omit<Collection, 'id'>): Promise<Collection> {
-    const result = await window.electronAPI.workspaceState.addCollection(data);
+  async addCollection(
+    section: 'requests' | 'rules',
+    data: Omit<V5.Collection, 'uid' | 'path'>,
+  ): Promise<V5.Collection> {
+    const result = await window.electronAPI.workspaceState.addCollection(section, data);
     if (!result.success) throw new Error(result.error ?? 'Failed to add collection');
     return result.collection!;
   }
 
-  async updateCollection(collectionId: string, updates: Partial<Collection>): Promise<void> {
-    const result = await window.electronAPI.workspaceState.updateCollection(collectionId, updates);
+  async updateCollection(
+    section: 'requests' | 'rules',
+    uid: string,
+    updates: Partial<V5.Collection>,
+  ): Promise<void> {
+    const result = await window.electronAPI.workspaceState.updateCollection(section, uid, updates);
     if (!result.success) throw new Error(result.error ?? 'Failed to update collection');
   }
 
-  async removeCollection(collectionId: string): Promise<void> {
-    const result = await window.electronAPI.workspaceState.removeCollection(collectionId);
+  async removeCollection(section: 'requests' | 'rules', uid: string): Promise<void> {
+    const result = await window.electronAPI.workspaceState.removeCollection(section, uid);
     if (!result.success) throw new Error(result.error ?? 'Failed to remove collection');
-  }
-
-  // ── Folder CRUD (IPC forwards) ────────────────────────────
-
-  async addFolder(folderData: Omit<Folder, 'id'>): Promise<Folder> {
-    const result = await window.electronAPI.workspaceState.addFolder(folderData);
-    if (!result.success) throw new Error(result.error ?? 'Failed to add folder');
-    return result.folder!;
-  }
-
-  async updateFolder(folderId: string, updates: Partial<Folder>): Promise<void> {
-    const result = await window.electronAPI.workspaceState.updateFolder(folderId, updates);
-    if (!result.success) throw new Error(result.error ?? 'Failed to update folder');
-  }
-
-  async removeFolder(folderId: string): Promise<void> {
-    const result = await window.electronAPI.workspaceState.removeFolder(folderId);
-    if (!result.success) throw new Error(result.error ?? 'Failed to remove folder');
   }
 
   // ── Workspace CRUD (IPC forwards) ──────────────────────────
 
   async createWorkspace(
-    workspace: Partial<Workspace> & { id: string; name: string; type: WorkspaceType },
+    name: string,
+    type: WorkspaceType,
+    options?: { description?: string; gitUrl?: string },
   ): Promise<Workspace> {
-    const result = await window.electronAPI.workspaceState.createWorkspace(workspace);
+    const result = await window.electronAPI.workspaceState.createWorkspace(name, type, options);
     if (!result.success) throw new Error(result.error ?? 'Failed to create workspace');
     return result.workspace!;
   }
@@ -280,21 +200,37 @@ class CentralizedWorkspaceService {
     return true;
   }
 
-  async syncWorkspace(workspaceId: string): Promise<boolean> {
-    const result = await window.electronAPI.workspaceState.syncWorkspace(workspaceId);
-    return result.success;
-  }
-
   async copyWorkspaceData(sourceWorkspaceId: string, targetWorkspaceId: string): Promise<void> {
     const result = await window.electronAPI.workspaceState.copyWorkspaceData(sourceWorkspaceId, targetWorkspaceId);
     if (!result.success) throw new Error(result.error ?? 'Failed to copy workspace data');
   }
 
-  // ── Workspace Variables (IPC forward) ──────────────────────
+  // ── Environment CRUD (IPC forwards) ───────────────────────
 
-  async updateWorkspaceVariables(variables: Record<string, EnvironmentVariable>): Promise<void> {
-    const result = await window.electronAPI.workspaceState.updateWorkspaceVariables(variables);
-    if (!result.success) throw new Error(result.error ?? 'Failed to update workspace variables');
+  async createEnvironment(name: string): Promise<V5.Environment> {
+    const result = await window.electronAPI.workspaceState.createEnvironment(name);
+    if (!result.success) throw new Error(result.error ?? 'Failed to create environment');
+    return result.environment!;
+  }
+
+  async deleteEnvironment(name: string): Promise<void> {
+    const result = await window.electronAPI.workspaceState.deleteEnvironment(name);
+    if (!result.success) throw new Error(result.error ?? 'Failed to delete environment');
+  }
+
+  async switchEnvironment(name: string | null): Promise<void> {
+    const result = await window.electronAPI.workspaceState.switchEnvironment(name);
+    if (!result.success) throw new Error(result.error ?? 'Failed to switch environment');
+  }
+
+  async setVariable(
+    envName: string,
+    varName: string,
+    value: string,
+    type: 'default' | 'secret',
+  ): Promise<void> {
+    const result = await window.electronAPI.workspaceState.setVariable(envName, varName, value, type);
+    if (!result.success) throw new Error(result.error ?? 'Failed to set variable');
   }
 
   // ── Cleanup ────────────────────────────────────────────────

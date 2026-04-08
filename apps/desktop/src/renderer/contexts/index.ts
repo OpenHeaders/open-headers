@@ -1,19 +1,10 @@
 /**
- * Barrel export for all context providers and hooks
- * This allows for cleaner imports throughout the application
+ * Barrel export for context providers and hooks
  */
 
-// Core contexts
-export * from './core/AppContext';
-export * from './core/NavigationContext';
-export * from './data/EnvironmentContext';
-export * from './data/SourceContext';
-// Data contexts
-export * from './data/WorkspaceContext';
-export * from './services/RefreshManagerContext';
-export * from './services/TotpContext';
-// Service contexts
-export * from './services/WebSocketContext';
+// Core
+export { AppProvider } from './core';
+
 // UI contexts
 export * from './ui/SettingsContext';
 export * from './ui/ThemeContext';

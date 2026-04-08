@@ -20,7 +20,7 @@ import {
   ThunderboltOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
-import type { Collection, Environment } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { Dropdown, Input, type InputRef, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ResolvedTab } from './hooks/useResolvedTabs';
@@ -57,12 +57,12 @@ interface TabBarProps {
   onCloseToRight: (tabId: string) => void;
   onNewRequest?: () => void;
   onNewRule?: () => void;
-  environments?: Environment[];
+  environments?: V5.Environment[];
   activeEnvironment?: string | null;
-  onSwitchEnvironment?: (envId: string | null) => void;
+  onSwitchEnvironment?: (envName: string | null) => void;
   /** The collection the active tab belongs to (if any) — used for pin environment feature */
-  activeCollection?: Collection | null;
-  onPinEnvironment?: (collectionId: string, envId: string | null) => void;
+  activeCollection?: V5.Collection | null;
+  onPinEnvironment?: (collectionId: string, envName: string | null) => void;
   onNewEnvironment?: () => void;
   onNewDraftEnvironment?: () => void;
   onToggleInspector?: () => void;
@@ -396,11 +396,11 @@ function EnvSelectorDropdown({
 }: {
   open: boolean;
   onClose: () => void;
-  environments: Environment[];
+  environments: V5.Environment[];
   activeEnvironment: string | null;
-  activeCollection: Collection | null;
-  onSwitch: (envId: string | null) => void;
-  onPin?: (collectionId: string, envId: string | null) => void;
+  activeCollection: V5.Collection | null;
+  onSwitch: (envName: string | null) => void;
+  onPin?: (collectionId: string, envName: string | null) => void;
   onCreate?: () => void;
 }) {
   const { token } = theme.useToken();
@@ -416,7 +416,7 @@ function EnvSelectorDropdown({
 
   if (!open) return null;
 
-  const pinnedId = activeCollection?.pinnedEnvironmentId;
+  const pinnedId: string | undefined = undefined; // TODO: pinned env per collection
   const canPin = !!activeCollection && !!onPin;
   const filter = search.toLowerCase();
   const filtered = environments.filter((e) => e.name.toLowerCase().includes(filter));
@@ -538,11 +538,11 @@ function EnvSelectorDropdown({
 
           {/* Environments */}
           {filtered.map((env) => {
-            const isActive = env.id === activeEnvironment;
-            const isPinned = env.id === pinnedId;
+            const isActive = env.name === activeEnvironment;
+            const isPinned = env.name === pinnedId;
             return (
               <div
-                key={env.id}
+                key={env.name}
                 className="v5-env-dropdown-item"
                 style={{
                   display: 'flex',
@@ -553,9 +553,9 @@ function EnvSelectorDropdown({
                   fontSize: 12,
                   background: isActive ? token.colorBgTextHover : undefined,
                 }}
-                onClick={() => handleSelect(env.id)}
+                onClick={() => handleSelect(env.name)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSelect(env.id);
+                  if (e.key === 'Enter') handleSelect(env.name);
                 }}
                 role="button"
                 tabIndex={0}
@@ -605,7 +605,7 @@ function EnvSelectorDropdown({
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onPin!(activeCollection!.id, isPinned ? null : env.id);
+                        onPin!(activeCollection!.uid, isPinned ? null : env.name);
                       }}
                     />
                   </Tooltip>
@@ -641,17 +641,17 @@ function EnvSelector({
   onCreate,
 }: {
   token: ReturnType<typeof theme.useToken>['token'];
-  environments: Environment[];
+  environments: V5.Environment[];
   activeEnvironment: string | null;
-  activeCollection: Collection | null;
-  onSwitch: (envId: string | null) => void;
-  onPin?: (collectionId: string, envId: string | null) => void;
+  activeCollection: V5.Collection | null;
+  onSwitch: (envName: string | null) => void;
+  onPin?: (collectionId: string, envName: string | null) => void;
   onCreate?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
   const activeEnvName = activeEnvironment
-    ? (environments.find((e) => e.id === activeEnvironment)?.name ?? 'Unknown')
+    ? (environments.find((e) => e.name === activeEnvironment)?.name ?? 'Unknown')
     : 'No Environment';
 
   return (

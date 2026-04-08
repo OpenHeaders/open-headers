@@ -1,7 +1,6 @@
 // Main utils index - exports all utilities for convenience
 
-// Data structure utilities
-export * from './data-structures';
+// Data structure utilities (currently empty after v4 cleanup)
 // Error handling utilities
 export {
   CircuitBreaker,

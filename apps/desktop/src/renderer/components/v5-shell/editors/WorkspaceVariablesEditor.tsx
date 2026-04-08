@@ -20,7 +20,7 @@ import { DndContext } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { EnvironmentVariable } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { SYSTEM_VARIABLES } from '@openheaders/core/variables';
 import { Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -48,31 +48,30 @@ function genUid(): string {
   return `wv-${nextUid++}`;
 }
 
-function envVarsToLocal(variables: Record<string, EnvironmentVariable>): LocalVariable[] {
-  const rows: LocalVariable[] = Object.entries(variables).map(([name, v]) => ({
+function envVarsToLocal(wsVars: V5.WorkspaceVariables): LocalVariable[] {
+  const rows: LocalVariable[] = (wsVars?.variables ?? []).map((v) => ({
     uid: genUid(),
-    name,
+    name: v.name,
     value: v.value,
-    isSensitive: v.isSensitive,
-    description: v.description ?? '',
+    isSensitive: v.type === 'secret',
+    description: '',
     isPlaceholder: false,
   }));
   rows.push({ uid: genUid(), name: '', value: '', isSensitive: false, description: '', isPlaceholder: true });
   return rows;
 }
 
-function localToEnvVars(rows: LocalVariable[]): Record<string, EnvironmentVariable> {
-  const result: Record<string, EnvironmentVariable> = {};
+function localToEnvVars(rows: LocalVariable[]): V5.WorkspaceVariables {
+  const variables: V5.Variable[] = [];
   for (const row of rows) {
     if (row.isPlaceholder || !row.name.trim()) continue;
-    result[row.name.trim()] = {
+    variables.push({
+      name: row.name.trim(),
       value: row.value,
-      isSensitive: row.isSensitive,
-      ...(row.description ? { description: row.description } : {}),
-      updatedAt: new Date().toISOString(),
-    };
+      type: row.isSensitive ? 'secret' : 'default',
+    });
   }
-  return result;
+  return { variables };
 }
 
 function fp(rows: LocalVariable[]): string {
@@ -345,7 +344,9 @@ function SortableRow({
 
 export function WorkspaceVariablesEditor({ onDirtyChange, saveRef }: WorkspaceVariablesEditorProps) {
   const { token } = theme.useToken();
-  const { workspaceVariables, updateWorkspaceVariables } = useWorkspaceVariables();
+  const { workspaceVariables } = useWorkspaceVariables();
+  // TODO: add IPC handler for updating workspace variables
+  const updateWorkspaceVariables = async (_vars: V5.WorkspaceVariables): Promise<boolean> => false;
 
   const [rows, setRows] = useState<LocalVariable[]>([]);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
@@ -370,7 +371,7 @@ export function WorkspaceVariablesEditor({ onDirtyChange, saveRef }: WorkspaceVa
 
   const handleSave = useCallback(() => {
     const variables = localToEnvVars(rows);
-    void updateWorkspaceVariables(variables).then((ok) => {
+    void updateWorkspaceVariables(variables).then((ok: boolean) => {
       if (ok) {
         snapshotRef.current = fp(rows);
         onDirtyChange?.(false);

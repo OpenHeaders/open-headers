@@ -1,22 +1,33 @@
-import type { Collection } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
 import { useCentralizedWorkspace } from '@/renderer/hooks/useCentralizedWorkspace';
 import { showMessage } from '@/renderer/utils';
 
 interface UseCollectionsReturn {
-  collections: Collection[];
-  addCollection: (data: Omit<Collection, 'id'>) => Promise<Collection | null>;
-  updateCollection: (id: string, updates: Partial<Collection>) => Promise<boolean>;
-  removeCollection: (id: string) => Promise<boolean>;
+  collections: V5.Collection[];
+  requestCollections: V5.CollectionTree[];
+  ruleCollections: V5.CollectionTree[];
+  addCollection: (section: 'requests' | 'rules', data: Omit<V5.Collection, 'uid' | 'path'>) => Promise<V5.Collection | null>;
+  updateCollection: (section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>) => Promise<boolean>;
+  removeCollection: (section: 'requests' | 'rules', uid: string) => Promise<boolean>;
 }
 
 export function useCollections(): UseCollectionsReturn {
-  const { collections, service } = useCentralizedWorkspace();
+  const { requestCollections, ruleCollections, service } = useCentralizedWorkspace();
+
+  // Flat list of all collections (request + rule) for backward compat
+  const collections: V5.Collection[] = [
+    ...requestCollections.map(({ tree: _tree, ...c }) => c),
+    ...ruleCollections.map(({ tree: _tree, ...c }) => c),
+  ];
 
   const addCollection = useCallback(
-    async (data: Omit<Collection, 'id'>): Promise<Collection | null> => {
+    async (
+      section: 'requests' | 'rules',
+      data: Omit<V5.Collection, 'uid' | 'path'>,
+    ): Promise<V5.Collection | null> => {
       try {
-        return await service.addCollection(data);
+        return await service.addCollection(section, data);
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
         return null;
@@ -26,9 +37,9 @@ export function useCollections(): UseCollectionsReturn {
   );
 
   const updateCollection = useCallback(
-    async (id: string, updates: Partial<Collection>): Promise<boolean> => {
+    async (section: 'requests' | 'rules', uid: string, updates: Partial<V5.Collection>): Promise<boolean> => {
       try {
-        await service.updateCollection(id, updates);
+        await service.updateCollection(section, uid, updates);
         return true;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
@@ -39,9 +50,9 @@ export function useCollections(): UseCollectionsReturn {
   );
 
   const removeCollection = useCallback(
-    async (id: string): Promise<boolean> => {
+    async (section: 'requests' | 'rules', uid: string): Promise<boolean> => {
       try {
-        await service.removeCollection(id);
+        await service.removeCollection(section, uid);
         return true;
       } catch (error: unknown) {
         showMessage('error', error instanceof Error ? error.message : String(error));
@@ -51,5 +62,5 @@ export function useCollections(): UseCollectionsReturn {
     [service],
   );
 
-  return { collections, addCollection, updateCollection, removeCollection };
+  return { collections, requestCollections, ruleCollections, addCollection, updateCollection, removeCollection };
 }

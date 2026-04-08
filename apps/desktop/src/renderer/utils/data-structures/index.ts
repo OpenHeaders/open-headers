@@ -1,2 +1,1 @@
-// Export all data structure utilities
-export * from './rulesStructure';
+// Data structure utilities — v4 rulesStructure deleted

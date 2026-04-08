@@ -22,17 +22,15 @@ interface VarDisplay {
   key: string;
   name: string;
   value: string;
-  scope: 'environment' | 'collection' | 'workspace' | 'secret' | 'unresolved';
+  scope: 'environment' | 'collection' | 'workspace' | 'vault' | 'unresolved';
   isSensitive: boolean;
-  /** Source name that produces this variable (when scope is environment but value comes from a source). */
-  producedBy?: string;
 }
 
 const SCOPE_COLORS: Record<string, string> = {
   environment: 'green',
   collection: 'orange',
   workspace: 'purple',
-  secret: 'red',
+  vault: 'red',
   unresolved: 'default',
 };
 
@@ -40,7 +38,7 @@ const SCOPE_LETTERS: Record<string, string> = {
   environment: 'E',
   collection: 'C',
   workspace: 'W',
-  secret: 'S',
+  vault: 'V',
   unresolved: '-',
 };
 
@@ -167,7 +165,6 @@ export function Inspector({
           value: rv.value,
           scope: rv.scope,
           isSensitive: rv.isSensitive,
-          producedBy: rv.producedBy,
         };
       }
       return {
@@ -184,7 +181,7 @@ export function Inspector({
   const allByScope = useMemo(() => {
     const toVarDisplay = (
       scope: VarDisplay['scope'],
-      entries: Record<string, { value: string; isSensitive: boolean; producedBy?: string }>,
+      entries: Record<string, { value: string; isSensitive: boolean }>,
     ): VarDisplay[] =>
       Object.entries(entries).map(([name, entry]) => ({
         key: name,
@@ -192,14 +189,13 @@ export function Inspector({
         value: entry.value,
         scope,
         isSensitive: entry.isSensitive,
-        producedBy: entry.producedBy,
       }));
 
     return {
       environment: toVarDisplay('environment', byScope.environment),
       collection: toVarDisplay('collection', byScope.collection),
       workspace: toVarDisplay('workspace', byScope.workspace),
-      secret: toVarDisplay('secret', byScope.secret),
+      vault: toVarDisplay('vault', byScope.vault),
     };
   }, [byScope]);
 
@@ -236,11 +232,6 @@ export function Inspector({
           <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 12, ...ellipsisStyle }}>
             {r.name}
           </Text>
-          {r.producedBy && (
-            <Text type="secondary" style={{ fontSize: 10, display: 'block', ...ellipsisStyle }}>
-              ← {r.producedBy}
-            </Text>
-          )}
         </div>
       ),
     },
@@ -262,7 +253,7 @@ export function Inspector({
   ];
 
   const renderScopeSection = (
-    scope: 'environment' | 'collection' | 'workspace' | 'secret',
+    scope: 'environment' | 'collection' | 'workspace' | 'vault',
     label: string,
     vars: VarDisplay[],
     emptyText: string,
@@ -392,7 +383,7 @@ export function Inspector({
           ? { label: 'Add workspace variables', onClick: onOpenWorkspaceVariables }
           : undefined,
       })}
-      {renderScopeSection('secret', 'Secret', allByScope.secret, 'No secrets defined', {
+      {renderScopeSection('vault', 'Vault', allByScope.vault, 'No secrets defined', {
         action: onOpenSecrets ? { label: 'Add secrets', onClick: onOpenSecrets } : undefined,
       })}
     </>

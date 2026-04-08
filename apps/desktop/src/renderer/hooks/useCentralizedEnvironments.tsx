@@ -1,57 +1,99 @@
-import {
-  useEnvironmentCore,
-  useEnvironmentOperations,
-  useEnvironmentSchema,
-  useEnvironmentTemplates,
-  useEnvironmentVariables,
-} from './environment';
+import type { V5 } from '@openheaders/core/types';
+import { useCallback } from 'react';
+import { useCentralizedWorkspace } from './useCentralizedWorkspace';
+import { showMessage } from '@/renderer/utils';
+
+interface UseEnvironmentsReturn {
+  environments: V5.Environment[];
+  activeEnvironment: string | null;
+  loading: boolean;
+  environmentsReady: boolean;
+  createEnvironment: (params: { name: string }) => Promise<V5.Environment | null>;
+  deleteEnvironment: (name: string) => Promise<boolean>;
+  switchEnvironment: (name: string | null) => Promise<boolean>;
+  setVariable: (envName: string, varName: string, value: string, type: 'default' | 'secret') => Promise<boolean>;
+  updateEnvironment: (name: string, updates: Partial<V5.Environment>) => Promise<boolean>;
+}
 
 /**
- * Hook to use the centralized environment service
- * Provides the same API as useEnvironments but with guaranteed state consistency
- * This combines all the modular environment hooks into a single interface
+ * Hook for environment management — reads from workspace state,
+ * mutations go through main process via IPC.
  */
-export function useCentralizedEnvironments() {
-  const core = useEnvironmentCore();
-  const operations = useEnvironmentOperations();
-  const variables = useEnvironmentVariables();
-  const templates = useEnvironmentTemplates();
-  const schema = useEnvironmentSchema();
+export function useCentralizedEnvironments(): UseEnvironmentsReturn {
+  const { environments, activeEnvironmentName, loading, isReady, service } = useCentralizedWorkspace();
+
+  const createEnvironment = useCallback(
+    async (params: { name: string }): Promise<V5.Environment | null> => {
+      try {
+        return await service.createEnvironment(params.name);
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return null;
+      }
+    },
+    [service],
+  );
+
+  const deleteEnvironment = useCallback(
+    async (name: string): Promise<boolean> => {
+      try {
+        await service.deleteEnvironment(name);
+        showMessage('success', `Environment '${name}' deleted`);
+        return true;
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    },
+    [service],
+  );
+
+  const switchEnvironment = useCallback(
+    async (name: string | null): Promise<boolean> => {
+      try {
+        await service.switchEnvironment(name);
+        return true;
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    },
+    [service],
+  );
+
+  const setVariable = useCallback(
+    async (envName: string, varName: string, value: string, type: 'default' | 'secret'): Promise<boolean> => {
+      try {
+        await service.setVariable(envName, varName, value, type);
+        return true;
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    },
+    [service],
+  );
+
+  const updateEnvironment = useCallback(
+    async (_name: string, _updates: Partial<V5.Environment>): Promise<boolean> => {
+      // TODO: Add IPC handler for full environment update (rename, bulk variable changes)
+      showMessage('error', 'Environment update not yet implemented');
+      return false;
+    },
+    [],
+  );
 
   return {
-    // State from core
-    environments: core.environments,
-    activeEnvironment: core.activeEnvironment,
-    loading: core.isLoading,
-    environmentsReady: core.isReady,
-
-    // Functions from operations
-    waitForEnvironments: operations.waitForEnvironments,
-    createEnvironment: operations.createEnvironment,
-    updateEnvironment: operations.updateEnvironment,
-    deleteEnvironment: operations.deleteEnvironment,
-    switchEnvironment: operations.switchEnvironment,
-    cloneEnvironment: operations.cloneEnvironment,
-
-    // Functions from variables
-    setVariable: variables.setVariable,
-    deleteVariable: variables.deleteVariable,
-    getVariable: variables.getVariable,
-    getAllVariables: variables.getAllVariables,
-    getAllVariablesWithMetadata: variables.getAllVariablesWithMetadata,
-
-    // Functions from templates
-    resolveTemplate: templates.resolveTemplate,
-    resolveObjectTemplate: templates.resolveObjectTemplate,
-
-    // Functions from schema
-    findVariableUsage: schema.findVariableUsage,
-    generateEnvironmentSchema: schema.generateEnvironmentSchema,
-
-    // Direct service access if needed
-    service: core.service,
+    environments,
+    activeEnvironment: activeEnvironmentName,
+    loading,
+    environmentsReady: isReady,
+    createEnvironment,
+    deleteEnvironment,
+    switchEnvironment,
+    setVariable,
+    updateEnvironment,
   };
 }
 
-// Export with same name as original for drop-in replacement
 export const useEnvironments = useCentralizedEnvironments;

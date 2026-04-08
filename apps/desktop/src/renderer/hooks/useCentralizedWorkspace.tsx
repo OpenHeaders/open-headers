@@ -3,18 +3,18 @@ import {
   getCentralizedWorkspaceService,
   type WorkspaceServiceState,
 } from '@/renderer/services/CentralizedWorkspaceService';
-import { useCentralizedEnvironments } from './useCentralizedEnvironments';
 
 // Re-export hooks from workspace module
 export {
   useCollections,
-  useFolders,
   useHeaderRules,
-  useProxyRules,
   useSources,
   useWorkspaces,
   useWorkspaceVariables,
 } from './workspace';
+
+// Re-export environment hook
+export { useEnvironments } from './useCentralizedEnvironments';
 
 /**
  * Main hook for accessing all workspace functionality
@@ -44,12 +44,4 @@ export function useCentralizedWorkspace() {
     service,
     isReady: state.initialized && !state.loading,
   };
-}
-
-/**
- * Hook for environment management - delegates to CentralizedEnvironmentService
- */
-export function useEnvironments() {
-  // Directly use the centralized environments hook
-  return useCentralizedEnvironments();
 }

@@ -1,5 +1,1 @@
-// Service contexts
-
-export { RefreshManagerContext, RefreshManagerProvider, useRefreshManager } from './RefreshManagerContext';
-export { TotpContext, TotpProvider, useTotpState } from './TotpContext';
-export { WebSocketProvider } from './WebSocketContext';
+// Service contexts — v4 contexts deleted, v5 uses direct IPC

@@ -18,7 +18,7 @@ const { Text } = Typography;
 // ── Scope display config ─────────────────────────────────────────
 
 const SCOPE_TAG: Record<VariableScope, { letter: string; color: string }> = {
-  secret: { letter: 'S', color: 'red' },
+  vault: { letter: 'V', color: 'red' },
   environment: { letter: 'E', color: 'green' },
   collection: { letter: 'C', color: 'orange' },
   workspace: { letter: 'W', color: 'purple' },

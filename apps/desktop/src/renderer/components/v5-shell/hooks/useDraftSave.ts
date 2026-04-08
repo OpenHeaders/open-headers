@@ -8,9 +8,11 @@
  *   - Auto-expanding sidebar collections after save
  */
 
-import type { CollectionSection, Environment, HeaderRule, Source } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { useCallback, useRef, useState } from 'react';
 import type { Tab, TabType } from './useTabs';
+
+type CollectionSection = 'requests' | 'rules' | 'environments';
 
 const TAB_TYPE_TO_SECTION: Partial<Record<TabType, CollectionSection>> = {
   request: 'requests',
@@ -28,13 +30,11 @@ export interface SaveModalProps {
 }
 
 interface UseDraftSaveOptions {
-  sources: Source[];
-  rules: HeaderRule[];
-  environments: Environment[];
+  sources: V5.RequestNode[];
+  rules: V5.Rule[];
+  environments: V5.Environment[];
   tabs: Tab[];
-  addSource: (source: Source) => Promise<Source | null>;
-  addRule: (rule: Partial<HeaderRule>) => Promise<HeaderRule | null>;
-  createEnvironment: (opts: { name: string; collectionId?: string; folderId?: string }) => Promise<Environment | null>;
+  createEnvironment: (opts: { name: string }) => Promise<V5.Environment | null>;
   closeTab: (tabId: string, force?: boolean) => void;
   openTab: (tab: Omit<Tab, 'pinned' | 'unsaved'>) => void;
   ensureSidebarExpanded: (...keys: string[]) => void;
@@ -45,8 +45,6 @@ export function useDraftSave({
   rules,
   environments,
   tabs,
-  addSource,
-  addRule,
   createEnvironment,
   closeTab,
   openTab,
@@ -55,7 +53,7 @@ export function useDraftSave({
   // ── Draft creation ──
 
   const createDraftSource = useCallback(() => {
-    const existingNames = new Set(sources.map((s) => s.sourceName));
+    const existingNames = new Set(sources.map((s) => s.name));
     let name = 'New Request';
     let counter = 2;
     while (existingNames.has(name)) {
@@ -70,15 +68,9 @@ export function useDraftSave({
       icon: 'GET',
       draft: true,
       draftData: {
-        sourceName: name,
-        sourceMethod: 'GET',
-        sourcePath: '',
-        sourceType: 'http',
-        sourceContent: null,
-        requestOptions: { contentType: 'application/json' },
-        jsonFilter: { enabled: false },
-        refreshOptions: { enabled: false },
-        activationState: 'inactive',
+        name,
+        method: 'GET',
+        url: '',
       },
     } as Parameters<typeof openTab>[0]);
   }, [sources, openTab]);
@@ -101,19 +93,15 @@ export function useDraftSave({
       draftData: {
         type: 'header',
         name,
-        description: '',
-        isEnabled: true,
+        enabled: true,
         domains: [],
-        headerName: '',
-        headerValue: '',
-        tag: '',
-        isResponse: false,
-        isDynamic: false,
-        sourceId: null,
-        prefix: '',
-        suffix: '',
-        hasEnvVars: false,
-        envVars: [],
+        tags: [],
+        action: {
+          operation: 'add',
+          headerName: '',
+          isResponse: false,
+        },
+        staticValue: '',
       },
     } as Parameters<typeof openTab>[0]);
   }, [rules, openTab]);
@@ -133,7 +121,7 @@ export function useDraftSave({
       label: name,
       icon: 'environment',
       draft: true,
-      draftData: { name, variables: {} },
+      draftData: { name, variables: [] },
     } as Parameters<typeof openTab>[0]);
   }, [environments, openTab]);
 
@@ -156,7 +144,7 @@ export function useDraftSave({
       setSaveModalDraftTabId(tabId);
       setSaveModalDraftData(draftData);
       setSaveModalSection(section);
-      setSaveModalEntityName((draftData.sourceName as string) || (draftData.name as string) || tab.label);
+      setSaveModalEntityName((draftData.name as string) || tab.label);
       setSaveModalOpen(true);
     },
     [tabs],
@@ -171,48 +159,22 @@ export function useDraftSave({
       const tab = tabs.find((t) => t.id === draftTabId);
       if (!tab) return;
 
-      if (tab.type === 'request') {
-        const source = await addSource({
-          ...draftData,
-          sourceName: params.name,
-          collectionId: params.collectionId,
-          folderId: params.folderId,
-          sourceId: '',
-        } as Source);
-        if (source) {
-          closeTab(draftTabId, true);
-          openTab({
-            id: `source-${source.sourceId}`,
-            type: 'request',
-            label: source.sourceName || 'New Request',
-            icon: (source.sourceMethod as string) || 'GET',
-            entityId: source.sourceId,
-          });
-        }
-      } else if (tab.type === 'rule') {
-        const rule = await addRule({
-          ...draftData,
-          name: params.name,
-          collectionId: params.collectionId,
-          folderId: params.folderId,
-        } as Partial<HeaderRule>);
-        if (rule) {
-          closeTab(draftTabId, true);
-          openTab({ id: `rule-${rule.id}`, type: 'rule', label: rule.name, icon: 'rule', entityId: rule.id });
-        }
-      } else if (tab.type === 'environment') {
-        const env = await createEnvironment({
-          name: params.name,
-          collectionId: params.collectionId,
-          folderId: params.folderId,
-        });
+      if (tab.type === 'environment') {
+        const env = await createEnvironment({ name: params.name });
         if (env) {
           closeTab(draftTabId, true);
-          openTab({ id: `env-${env.id}`, type: 'environment', label: env.name, icon: 'environment', entityId: env.id });
+          openTab({
+            id: `env-${env.name}`,
+            type: 'environment',
+            label: env.name,
+            icon: 'environment',
+            entityId: env.name,
+          });
         }
       }
+      // TODO: request/rule creation via IPC — needs addRequest/addRule handlers
 
-      // Auto-expand the collection (and folder) in the sidebar
+      // Auto-expand the collection in the sidebar
       const keys = [`col-${params.collectionId}`];
       if (params.folderId) keys.push(`folder-${params.folderId}`);
       ensureSidebarExpanded(...keys);
@@ -221,17 +183,7 @@ export function useDraftSave({
       setSaveModalDraftTabId(null);
       setSaveModalDraftData(null);
     },
-    [
-      saveModalDraftTabId,
-      saveModalDraftData,
-      tabs,
-      addSource,
-      addRule,
-      createEnvironment,
-      closeTab,
-      openTab,
-      ensureSidebarExpanded,
-    ],
+    [saveModalDraftTabId, saveModalDraftData, tabs, createEnvironment, closeTab, openTab, ensureSidebarExpanded],
   );
 
   const saveModalProps: SaveModalProps = {

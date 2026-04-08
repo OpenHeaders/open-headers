@@ -14,7 +14,7 @@ import appIcon from '@/renderer/images/icon128.png';
 import { CollectionVariablesEditor } from './editors/CollectionVariablesEditor';
 import { EnvironmentEditor } from './editors/EnvironmentEditor';
 import { RuleEditor } from './editors/RuleEditor';
-import { SourceEditor } from './editors/SourceEditor';
+import { SourceEditor } from './editors/RequestEditor';
 import { WorkspaceVariablesEditor } from './editors/WorkspaceVariablesEditor';
 import type { ResolvedTab } from './hooks/useResolvedTabs';
 import type { Tab } from './hooks/useTabs';

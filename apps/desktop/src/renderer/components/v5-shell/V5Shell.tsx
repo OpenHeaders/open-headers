@@ -17,7 +17,6 @@ import { useWorkspaceSwitch } from '@/renderer/contexts';
 import {
   useCollections,
   useEnvironments,
-  useFolders,
   useHeaderRules,
   useSources,
   useWorkspaces,
@@ -57,12 +56,11 @@ interface PanelVisibility {
 export function V5Shell() {
   const { token } = theme.useToken();
   const { workspaces, activeWorkspaceId } = useWorkspaces();
-  const { sources, addSource, updateSource } = useSources();
-  const { rules, addRule, updateRule } = useHeaderRules();
+  const { sources } = useSources();
+  const { rules } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } =
     useEnvironments();
   const { collections, addCollection, updateCollection: updateCollectionInV5 } = useCollections();
-  const { folders, addFolder, updateFolder: updateFolderInV5 } = useFolders();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
@@ -161,7 +159,7 @@ export function V5Shell() {
   } = useTabs(activeWorkspaceId);
 
   // Derive live labels/icons/tooltips from entity data — single source of truth
-  const resolvedTabs = useResolvedTabs(tabs, sources, rules, environments, collections, folders);
+  const resolvedTabs = useResolvedTabs(tabs, sources, rules, environments, collections);
 
   const handleDirtyChange = useCallback(
     (dirty: boolean) => {
@@ -203,10 +201,10 @@ export function V5Shell() {
     prevWorkspaceForCleanup.current = activeWorkspaceId;
 
     const currentIds = new Set<string>();
-    for (const r of rules) currentIds.add(`rule-${r.id}`);
-    for (const s of sources) currentIds.add(`source-${s.sourceId}`);
-    for (const env of environments) currentIds.add(`env-${env.id}`);
-    for (const col of collections) currentIds.add(`col-vars-${col.id}`);
+    for (const r of rules) currentIds.add(`rule-${r.uid}`);
+    for (const s of sources) currentIds.add(`source-${s.uid}`);
+    for (const env of environments) currentIds.add(`env-${env.name}`);
+    for (const col of collections) currentIds.add(`col-vars-${col.uid}`);
 
     if (prevEntityIds.current.size > 0 && !workspaceJustChanged) {
       for (const tab of tabsRef.current) {
@@ -236,25 +234,7 @@ export function V5Shell() {
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (!activeTab?.entityId) return;
 
-    // Find the entity's collectionId
-    let collectionId: string | undefined;
-    if (activeTab.type === 'request' || activeTab.type === 'collection') {
-      collectionId = sources.find((s) => s.sourceId === activeTab.entityId)?.collectionId;
-    } else if (activeTab.type === 'rule') {
-      collectionId = rules.find((r) => r.id === activeTab.entityId)?.collectionId;
-    } else if (activeTab.type === 'collection-overview') {
-      collectionId = activeTab.entityId;
-    }
-
-    if (!collectionId) return;
-    const collection = collections.find((c) => c.id === collectionId);
-    if (!collection?.pinnedEnvironmentId) return;
-
-    // Only switch if the pinned env exists and differs from current
-    const pinnedEnvExists = environments.some((e) => e.id === collection.pinnedEnvironmentId);
-    if (pinnedEnvExists && collection.pinnedEnvironmentId !== activeEnvironment) {
-      void switchEnvironment(collection.pinnedEnvironmentId);
-    }
+    // Pinned environment per collection — deferred to later phase
   }, [activeTabId, tabs, sources, rules, collections, environments, activeEnvironment, switchEnvironment]);
 
   // Entity creation (persisted — for sidebar context actions)
@@ -274,8 +254,6 @@ export function V5Shell() {
     environments,
     collections,
     activeEnvironment,
-    addSource,
-    addRule,
     createEnvironment,
     switchEnvironment,
     openTab,
@@ -288,8 +266,6 @@ export function V5Shell() {
     rules,
     environments,
     tabs,
-    addSource,
-    addRule,
     createEnvironment,
     closeTab,
     openTab,
@@ -369,54 +345,54 @@ export function V5Shell() {
   const commandItems = useMemo(() => {
     const items = [];
 
-    // Sources
-    for (const source of sources) {
-      const sourceTabId = `source-${source.sourceId}`;
+    // Requests
+    for (const request of sources) {
+      const requestTabId = `source-${request.uid}`;
       items.push({
-        id: sourceTabId,
+        id: requestTabId,
         icon: '🔗',
-        label: source.sourceName || source.sourcePath || 'Untitled Source',
-        scope: source.sourceTag || 'Source',
+        label: request.name || 'Untitled Request',
+        scope: 'Request',
         onSelect: () =>
           openTab({
-            id: sourceTabId,
+            id: requestTabId,
             type: 'request',
-            label: source.sourceName || source.sourcePath || 'Untitled Source',
-            icon: source.sourceMethod || 'GET',
-            entityId: source.sourceId,
+            label: request.name || 'Untitled Request',
+            icon: request.method || 'GET',
+            entityId: request.uid,
           }),
       });
     }
 
     // Rules
     for (const rule of rules) {
-      const ruleTabId = `rule-${rule.id}`;
+      const ruleTabId = `rule-${rule.uid}`;
       items.push({
         id: ruleTabId,
         icon: '⚡',
-        label: rule.name || rule.headerName,
-        scope: rule.isEnabled ? 'Rule (active)' : 'Rule (disabled)',
+        label: rule.name,
+        scope: rule.enabled ? 'Rule (active)' : 'Rule (disabled)',
         onSelect: () =>
           openTab({
             id: ruleTabId,
             type: 'rule',
-            label: rule.name || rule.headerName,
+            label: rule.name,
             icon: 'rule',
-            entityId: rule.id,
+            entityId: rule.uid,
           }),
       });
     }
 
     // Environments
     for (const env of environments) {
-      const envTabId = `env-${env.id}`;
+      const envTabId = `env-${env.name}`;
       items.push({
         id: envTabId,
         icon: '🌐',
         label: env.name,
         scope: 'Environment',
         onSelect: () =>
-          openTab({ id: envTabId, type: 'environment', label: env.name, icon: 'environment', entityId: env.id }),
+          openTab({ id: envTabId, type: 'environment', label: env.name, icon: 'environment', entityId: env.name }),
       });
     }
 
@@ -482,23 +458,19 @@ export function V5Shell() {
     const tab = tabs.find((t) => t.id === activeTabId);
     if (!tab?.entityId) return null;
 
-    let collectionId: string | undefined;
-    if (tab.type === 'request' || tab.type === 'collection') {
-      collectionId = sources.find((s) => s.sourceId === tab.entityId)?.collectionId;
-    } else if (tab.type === 'rule') {
-      collectionId = rules.find((r) => r.id === tab.entityId)?.collectionId;
-    } else if (tab.type === 'collection-overview') {
-      collectionId = tab.entityId;
+    if (tab.type === 'collection-overview') {
+      return collections.find((c) => c.uid === tab.entityId) ?? null;
     }
 
-    return collectionId ? (collections.find((c) => c.id === collectionId) ?? null) : null;
-  }, [activeTabId, tabs, sources, rules, collections]);
+    // TODO: derive collection from request/rule path once full Request objects are available
+    return null;
+  }, [activeTabId, tabs, collections]);
 
   const handlePinEnvironment = useCallback(
-    (collectionId: string, envId: string | null) => {
-      void updateCollectionInV5(collectionId, { pinnedEnvironmentId: envId ?? undefined });
+    (_collectionId: string, _envName: string | null) => {
+      // TODO: pinned environment per collection — deferred
     },
-    [updateCollectionInV5],
+    [],
   );
 
   // Active resolved tab and breadcrumbs — derived from resolved tabs
@@ -527,20 +499,16 @@ export function V5Shell() {
       }
 
       if (!activeResolvedTab.entityId) return;
-      if (activeResolvedTab.type === 'request' || activeResolvedTab.type === 'collection') {
-        void updateSource(activeResolvedTab.entityId, { sourceName: newName });
-      } else if (activeResolvedTab.type === 'rule') {
-        void updateRule(activeResolvedTab.entityId, { name: newName });
-      } else if (activeResolvedTab.type === 'collection-overview') {
-        void updateCollectionInV5(activeResolvedTab.entityId, { name: newName });
-      } else if (activeResolvedTab.type === 'folder-overview') {
-        void updateFolderInV5(activeResolvedTab.entityId, { name: newName });
+      if (activeResolvedTab.type === 'collection-overview') {
+        // TODO: determine section from tab context
+        void updateCollectionInV5('requests', activeResolvedTab.entityId, { name: newName });
       } else if (activeResolvedTab.type === 'environment') {
         void updateEnvironment(activeResolvedTab.entityId, { name: newName });
       }
+      // TODO: request/rule rename via IPC
       setPendingRenameTabId(null);
     },
-    [activeResolvedTab, updateTab, updateSource, updateRule, updateCollectionInV5, updateFolderInV5, updateEnvironment],
+    [activeResolvedTab, updateTab, updateCollectionInV5, updateEnvironment],
   );
 
   return (
@@ -588,10 +556,10 @@ export function V5Shell() {
                     expandedKeys={inspectorExpandedKeys}
                     onExpandedKeysChange={setInspectorExpandedKeys}
                     activeTabType={activeResolvedTab?.type}
-                    activeCollectionId={activeCollection?.id}
+                    activeCollectionId={activeCollection?.uid}
                     onOpenEnvironment={openActiveEnvironment}
                     onOpenCollectionVariables={
-                      activeCollection ? () => openCollectionVariables(activeCollection.id) : undefined
+                      activeCollection ? () => openCollectionVariables(activeCollection.uid) : undefined
                     }
                     onOpenWorkspaceVariables={openWorkspaceVariables}
                   />
@@ -724,10 +692,10 @@ export function V5Shell() {
                     expandedKeys={inspectorExpandedKeys}
                     onExpandedKeysChange={setInspectorExpandedKeys}
                     activeTabType={activeResolvedTab?.type}
-                    activeCollectionId={activeCollection?.id}
+                    activeCollectionId={activeCollection?.uid}
                     onOpenEnvironment={openActiveEnvironment}
                     onOpenCollectionVariables={
-                      activeCollection ? () => openCollectionVariables(activeCollection.id) : undefined
+                      activeCollection ? () => openCollectionVariables(activeCollection.uid) : undefined
                     }
                     onOpenWorkspaceVariables={openWorkspaceVariables}
                   />
@@ -756,26 +724,12 @@ export function V5Shell() {
         <SaveToCollectionModal
           {...saveModalProps}
           collections={collections}
-          folders={folders}
           sources={sources}
           workspaceName={workspaceName}
           onCreateCollection={async (name, section) => {
-            const col = await addCollection({ name, section });
+            if (section !== 'requests' && section !== 'rules') return null;
+            const col = await addCollection(section, { name, description: '', variables: [] });
             return col;
-          }}
-          onCreateFolder={async (name, collectionId, parentFolderId) => {
-            const fol = await addFolder({
-              name,
-              collectionId,
-              section: saveModalProps.section,
-              parentFolderId: parentFolderId ?? null,
-            });
-            if (fol) {
-              const keys = [`col-${collectionId}`];
-              if (parentFolderId) keys.push(`folder-${parentFolderId}`);
-              sidebarExpansion.ensureExpanded(...keys);
-            }
-            return fol;
           }}
         />
       </div>
