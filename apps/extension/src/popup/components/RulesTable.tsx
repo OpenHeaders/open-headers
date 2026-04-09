@@ -70,7 +70,6 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
 /** 0 = active, 1 = paused, 2 = disabled, 3 = draft */
 type StatusRank = 0 | 1 | 2 | 3;
 
-
 interface TableRecord {
   key: string;
   id: string;
@@ -143,7 +142,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
         path: rule.path,
         ruleType: rule.type,
         actionDetail: getActionDetail(rule),
-        domains: rule.domains,
+        domains: rule.conditions.filter((c) => c.type === 'host' && !c.exclude).flatMap((c) => c.values),
         isEnabled,
         isComplete: complete,
         statusRank,
@@ -307,7 +306,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
       filterSearch: true,
       onFilter: (value, record) => record.name === value,
       sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
-      render: (text: string, record: TableRecord) => {
+      render: (text: string, _record: TableRecord) => {
         const displayName = truncateValue(text, 20);
         return (
           <Tooltip title={text.length > 20 ? text : undefined}>

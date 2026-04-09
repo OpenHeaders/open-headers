@@ -10,10 +10,10 @@ import type { V5 } from '@openheaders/core/types';
 import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
 import { normalizeHeaderName } from '@utils/utils';
-import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import { formatUrlPattern } from '../modules/url-utils';
+import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import type { DnrBuilder, DnrRule } from './types';
-import { ALL_RESOURCE_TYPES, SUB_RESOURCE_TYPES } from './types';
+import { ALL_RESOURCE_TYPES, extractDomains, SUB_RESOURCE_TYPES } from './types';
 
 // ── Builder ──────────────────────────────────────────────────────
 
@@ -27,7 +27,8 @@ export const headerBuilder: DnrBuilder<V5.HeaderRule> = {
 // ── DNR rule building ────────────────────────────────────────────
 
 function buildDnrRulesForHeader(rule: V5.HeaderRule, startId: number): DnrRule[] {
-  const { action, staticValue, domains } = rule;
+  const { action } = rule;
+  const domains = extractDomains(rule);
 
   const validation = validateHeaderName(action.headerName, action.isResponse);
   if (!validation.valid) {
@@ -46,7 +47,7 @@ function buildDnrRulesForHeader(rule: V5.HeaderRule, startId: number): DnrRule[]
     return buildRemoveHeaderRules(headerName, domains, action.isResponse, startId);
   }
 
-  const rawValue = staticValue ?? '';
+  const rawValue = action.value ?? '';
   if (!rawValue.trim()) {
     logger.debug('HeaderBuilder', `Skipping rule "${rule.name}" — empty value`);
     return [];

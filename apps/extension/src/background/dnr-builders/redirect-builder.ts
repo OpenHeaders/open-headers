@@ -11,7 +11,7 @@ import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { formatUrlPattern } from '../modules/url-utils';
 import type { DnrBuilder, DnrRule } from './types';
-import { ALL_RESOURCE_TYPES } from './types';
+import { ALL_RESOURCE_TYPES, extractDomains } from './types';
 
 /** Characters that indicate a regex pattern (beyond simple wildcards). */
 const REGEX_INDICATORS = /[()[\]{}+?|^$\\]/;
@@ -19,7 +19,8 @@ const REGEX_INDICATORS = /[()[\]{}+?|^$\\]/;
 export const redirectBuilder: DnrBuilder<V5.RedirectRule> = {
   ruleType: 'redirect',
   build(rule: V5.RedirectRule, startId: number): DnrRule[] {
-    const { domains, action } = rule;
+    const domains = extractDomains(rule);
+    const { action } = rule;
 
     if (domains.length === 0) {
       logger.debug('RedirectBuilder', `Skipping rule "${rule.name}" — no domains`);
@@ -36,20 +37,15 @@ export const redirectBuilder: DnrBuilder<V5.RedirectRule> = {
     const isRegex = REGEX_INDICATORS.test(action.matchPattern);
 
     for (const domain of domains) {
-      if (!domain?.trim()) continue;
-
       const condition: DnrRule['condition'] = {
         resourceTypes: ALL_RESOURCE_TYPES,
       };
 
       if (isRegex) {
-        // Use the match pattern as a regexFilter for complex patterns
         condition.regexFilter = action.matchPattern;
       } else if (action.matchPattern?.trim()) {
-        // Use matchPattern as urlFilter when it's a simple pattern
         condition.urlFilter = formatUrlPattern(action.matchPattern);
       } else {
-        // No match pattern — apply to the whole domain
         condition.urlFilter = formatUrlPattern(domain);
       }
 

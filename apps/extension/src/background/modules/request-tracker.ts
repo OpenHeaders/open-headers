@@ -19,7 +19,15 @@ import {
   precompileAllPatterns,
 } from './url-utils';
 
-// ── Rule summary ─────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────
+
+/** Extract host domain values from a rule's conditions (non-exclude). */
+function getHostDomains(rule: V5.Rule): string[] {
+  return rule.conditions
+    .filter((c) => c.type === 'host' && !c.exclude)
+    .flatMap((c) => c.values)
+    .filter((v) => v.trim());
+}
 
 // ── Tracked state ─────────────────────────────────────────────────
 
@@ -42,8 +50,9 @@ export function precompileRulePatterns(): void {
   clearPatternCache();
   const allDomains: string[] = [];
   for (const rule of getRules()) {
-    if (rule.domains.length > 0) {
-      allDomains.push(...rule.domains);
+    const domains = getHostDomains(rule);
+    if (domains.length > 0) {
+      allDomains.push(...domains);
     }
   }
   if (allDomains.length > 0) {
@@ -60,7 +69,8 @@ export function checkIfUrlMatchesAnyRule(url: string): boolean {
   const normalizedUrl = normalizeUrlForTracking(url);
   for (const rule of getRules()) {
     if (!isRuleComplete(rule)) continue;
-    for (const domain of rule.domains) {
+    const domains = getHostDomains(rule);
+    for (const domain of domains) {
       if (doesUrlMatchPattern(normalizedUrl, domain)) {
         return true;
       }
@@ -100,7 +110,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     if (!extensionTypes.has(rule.type)) continue;
     if (!isRuleComplete(rule)) continue;
 
-    const domains = rule.domains;
+    const domains = getHostDomains(rule);
     let matchType: 'direct' | 'indirect' | null = null;
     const matchedUrls: MatchedRequest[] = [];
 
@@ -148,7 +158,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
         actionDirection: detail.direction,
         actionValue: detail.value,
         isEnabled: rule.enabled,
-        domains: rule.domains,
+        domains,
         path: rule.path,
       });
     }
@@ -191,7 +201,8 @@ export async function revalidateTrackedRequests(): Promise<void> {
       for (const [url, ts] of trackedUrls) {
         let stillMatches = false;
         for (const rule of rules) {
-          for (const domain of rule.domains) {
+          const domains = getHostDomains(rule);
+          for (const domain of domains) {
             if (doesUrlMatchPattern(url, domain)) {
               stillMatches = true;
               break;

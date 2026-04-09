@@ -205,8 +205,8 @@ interface SidebarProps {
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }) => void;
   onDeleteRule?: (uid: string) => void;
-  onOpenCollectionOverview?: (uid: string, name: string) => void;
-  onOpenFolderOverview?: (uid: string, name: string) => void;
+  onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -332,7 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   next.add(fid);
                   return next;
                 });
-                onOpenFolderOverview?.(f.uid, f.name);
+                onOpenFolderOverview?.(f.uid, f.name, true);
               }
             });
           };
@@ -348,7 +348,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             canRename: true,
             canDelete: true,
             canAddChild: true,
-            onOpen: () => toggleExpand(fid),
+            onOpen: () => {
+              toggleExpand(fid);
+              onOpenFolderOverview?.(node.uid, node.name);
+            },
             onRename: async (name: string) => {
               void renameLocalFolder(node.uid, name);
             },
@@ -503,7 +506,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               next.add(colId);
               return next;
             });
-            onOpenFolderOverview?.(f.uid, f.name);
+            onOpenFolderOverview?.(f.uid, f.name, true);
           }
         });
       };
@@ -518,7 +521,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         canRename: true,
         canDelete: true,
         canAddChild: true,
-        onOpen: () => toggleExpand(colId),
+        onOpen: () => {
+          toggleExpand(colId);
+          onOpenCollectionOverview?.(collection.uid, collection.name);
+        },
         onRename: async (name) => {
           void renameLocalCollection(collection.uid, name);
         },
@@ -583,6 +589,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteLocalCollection,
     createLocalFolder,
     confirmDelete,
+    onOpenCollectionOverview,
   ]);
 
   // ── Flat items for keyboard nav ──────────────────────────────
@@ -752,7 +759,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const col = await createLocalCollection('New Collection');
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, rules: true }));
-      onOpenCollectionOverview?.(col.uid, col.name);
+      onOpenCollectionOverview?.(col.uid, col.name, true);
     }
   }, [createLocalCollection, onOpenCollectionOverview]);
 

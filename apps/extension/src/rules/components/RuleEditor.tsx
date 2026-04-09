@@ -15,7 +15,7 @@ import { CodeOutlined, LinkOutlined, SendOutlined, StopOutlined, SwapOutlined } 
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
-import { App, Form, Input, Segmented, Switch, Typography } from 'antd';
+import { App, Form, Segmented, Switch, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DomainTags from './DomainTags';
@@ -112,7 +112,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { message } = App.useApp();
   const { rules, createLocalRule, updateLocalRule, localCollections } = useRules();
   const [form] = Form.useForm();
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
   const selectedType = Form.useWatch('ruleType', form) as ExtensionRuleType | undefined;
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
@@ -152,9 +152,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       if (!rule) return;
       initializedRef.current = true;
 
+      const domains = rule.conditions.filter((c) => c.type === 'host' && !c.exclude).flatMap((c) => c.values);
       const baseValues = {
         ruleType: rule.type,
-        domains: rule.domains,
+        domains,
       };
 
       switch (rule.type) {
@@ -164,7 +165,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             ...baseValues,
             headerName: hr.action.headerName,
             headerOperation: hr.action.operation,
-            staticValue: hr.staticValue ?? '',
+            staticValue: hr.action.value ?? '',
             isResponse: hr.action.isResponse,
           });
           break;
@@ -234,8 +235,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const buildRule = useCallback(
     (formValues: Record<string, unknown>): Omit<V5.Rule, 'uid' | 'path'> | null => {
-      const domains = Array.isArray(formValues.domains) ? (formValues.domains as string[]) : [];
-      const base = { name: ruleName, enabled: isEnabled, domains };
+      const domainValues = Array.isArray(formValues.domains) ? (formValues.domains as string[]) : [];
+      const conditions: V5.RuleCondition[] =
+        domainValues.length > 0 ? [{ type: 'host' as const, operator: 'contains' as const, values: domainValues }] : [];
+      const base = { name: ruleName, enabled: isEnabled, conditions };
 
       switch (formValues.ruleType) {
         case 'header':
@@ -246,8 +249,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               operation: formValues.headerOperation as V5.HeaderOperation,
               headerName: formValues.headerName as string,
               isResponse: formValues.isResponse as boolean,
+              value: formValues.headerOperation === 'remove' ? undefined : (formValues.staticValue as string),
             },
-            staticValue: formValues.headerOperation === 'remove' ? undefined : (formValues.staticValue as string),
           } as Omit<V5.HeaderRule, 'uid' | 'path'>;
         case 'block':
           return { ...base, type: 'block', action: { statusCode: 403 } } as Omit<V5.BlockRule, 'uid' | 'path'>;

@@ -56,6 +56,31 @@ export interface DnrBuilder<T extends V5.Rule> {
   build(rule: T, startId: number): DnrRule[];
 }
 
+// ── Condition extraction helpers ─────────────────────────────────
+
+/**
+ * Extract host/domain values from a rule's conditions array.
+ * Returns the values from 'host' conditions (non-exclude).
+ * This is the primary condition used for DNR urlFilter generation.
+ */
+export function extractDomains(rule: V5.Rule): string[] {
+  return rule.conditions
+    .filter((c) => c.type === 'host' && !c.exclude)
+    .flatMap((c) => c.values)
+    .filter((v) => v.trim());
+}
+
+/**
+ * Extract URL filter values from a rule's conditions array.
+ * Returns the values from 'url' conditions (non-exclude).
+ */
+export function extractUrlFilters(rule: V5.Rule): string[] {
+  return rule.conditions
+    .filter((c) => c.type === 'url' && !c.exclude)
+    .flatMap((c) => c.values)
+    .filter((v) => v.trim());
+}
+
 // ── Shared resource type constants ───────────────────────────────
 
 export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [

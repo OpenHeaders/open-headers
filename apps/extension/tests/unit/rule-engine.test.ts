@@ -30,6 +30,10 @@ import { getRules } from '@/background/modules/rule-store';
 const mockUpdateNetworkRules = updateNetworkRules as ReturnType<typeof vi.fn>;
 const mockGetRules = getRules as ReturnType<typeof vi.fn>;
 
+function hostConditions(domains: string[]): V5.RuleCondition[] {
+  return domains.length > 0 ? [{ type: 'host', operator: 'contains', values: domains }] : [];
+}
+
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     uid: 'r1a2',
@@ -37,9 +41,8 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Test Rule',
     type: 'header',
     enabled: true,
-    domains: ['*.openheaders.io'],
-    action: { operation: 'override', headerName: 'Authorization', isResponse: false },
-    staticValue: 'Bearer test-token',
+    conditions: hostConditions(['*.openheaders.io']),
+    action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'Bearer test-token' },
     ...overrides,
   };
 }

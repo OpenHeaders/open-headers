@@ -44,15 +44,14 @@ const HEADER_OP_TOOLTIP: Record<string, Record<string, string>> = {
 export function getActionDetail(rule: Rule): ActionDetail {
   switch (rule.type) {
     case 'header': {
-      const { operation, headerName, isResponse } = (rule as HeaderRule).action;
-      const hr = rule as HeaderRule;
+      const { operation, headerName, isResponse, value: headerValue } = (rule as HeaderRule).action;
       const dir = isResponse ? 'response' : 'request';
       return {
         ruleType: 'header',
         direction: dir,
         operation,
         label: headerName || '',
-        value: operation === 'remove' ? '' : hr.staticValue || '',
+        value: operation === 'remove' ? '' : headerValue || '',
         tooltip: HEADER_OP_TOOLTIP[operation]?.[dir] ?? operation,
       };
     }

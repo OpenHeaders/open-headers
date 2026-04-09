@@ -76,10 +76,8 @@ function treeNodesToRecords(
         name: node.name,
         nodeType: 'rule' as const,
         ruleType: node.ruleType,
-        actionDetail: rule
-          ? getActionDetail(rule)
-          : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
-        domains: rule?.domains ?? [],
+        actionDetail: rule ? getActionDetail(rule) : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
+        domains: rule ? rule.conditions.filter((c) => c.type === 'host' && !c.exclude).flatMap((c) => c.values) : [],
         isEnabled: node.enabled,
         isComplete: rule ? isRuleComplete(rule) : true,
         isAncestorPaused: ancestorPaused,

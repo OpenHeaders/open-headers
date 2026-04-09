@@ -36,6 +36,10 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+function hostConditions(domains: string[]): V5.RuleCondition[] {
+  return domains.length > 0 ? [{ type: 'host', operator: 'contains', values: domains }] : [];
+}
+
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     uid: `rule-${Math.random().toString(36).slice(2, 6)}`,
@@ -43,9 +47,8 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Test Rule',
     type: 'header',
     enabled: true,
-    domains: ['*.openheaders.io'],
-    action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-    staticValue: 'test-value',
+    conditions: hostConditions(['*.openheaders.io']),
+    action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test-value' },
     ...overrides,
   };
 }
@@ -78,8 +81,8 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
 
@@ -99,14 +102,14 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
         enabled: true,
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Disabled', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Disabled', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
         enabled: false,
       }),
     ]);
@@ -124,13 +127,13 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Other', isResponse: false },
-        domains: ['*.example.com'],
+        action: { operation: 'override', headerName: 'X-Other', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.example.com']),
       }),
     ]);
 
@@ -143,9 +146,8 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Global', isResponse: false },
-        staticValue: 'value',
-        domains: ['*'],
+        action: { operation: 'override', headerName: 'X-Global', isResponse: false, value: 'value' },
+        conditions: hostConditions(['*']),
       }),
     ]);
 
@@ -163,7 +165,7 @@ describe('getActiveRulesForTab', () => {
       makeHeaderRule({
         uid: 'draft-rule',
         action: { operation: 'override', headerName: '', isResponse: false },
-        domains: [],
+        conditions: hostConditions([]),
       }),
     ]);
 
@@ -175,8 +177,8 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'my-rule-id',
-        action: { operation: 'override', headerName: 'X-Test', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Test', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
 
@@ -189,9 +191,8 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Tagged', isResponse: true },
-        staticValue: 'true',
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Tagged', isResponse: true, value: 'true' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
 
@@ -211,7 +212,7 @@ describe('checkIfUrlMatchesAnyRule', () => {
   it('returns true when URL matches an enabled rule', () => {
     seedRules([
       makeHeaderRule({
-        domains: ['*.openheaders.io'],
+        conditions: hostConditions(['*.openheaders.io']),
         enabled: true,
       }),
     ]);
@@ -223,7 +224,7 @@ describe('checkIfUrlMatchesAnyRule', () => {
   it('returns true when URL matches a disabled rule (tracks for Active tab)', () => {
     seedRules([
       makeHeaderRule({
-        domains: ['*.openheaders.io'],
+        conditions: hostConditions(['*.openheaders.io']),
         enabled: false,
       }),
     ]);
@@ -235,7 +236,7 @@ describe('checkIfUrlMatchesAnyRule', () => {
   it('returns false when URL matches no rules', () => {
     seedRules([
       makeHeaderRule({
-        domains: ['*.example.com'],
+        conditions: hostConditions(['*.example.com']),
       }),
     ]);
 
@@ -253,7 +254,7 @@ describe('checkIfUrlMatchesAnyRule', () => {
   it('matches path-based patterns against full URLs', () => {
     seedRules([
       makeHeaderRule({
-        domains: ['github.githubassets.com/assets'],
+        conditions: hostConditions(['github.githubassets.com/assets']),
       }),
     ]);
 
@@ -327,7 +328,7 @@ describe('uniqueRequestCount', () => {
   });
 
   it('counts tab URL as a request when rule matches', () => {
-    seedRules([makeHeaderRule({ domains: ['*.openheaders.io'] })]);
+    seedRules([makeHeaderRule({ conditions: hostConditions(['*.openheaders.io']) })]);
     const { uniqueRequestCount } = getActiveRulesForTab(1, 'https://app.openheaders.io');
     expect(uniqueRequestCount).toBe(1);
   });
@@ -336,13 +337,13 @@ describe('uniqueRequestCount', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Token', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Token', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
     addTrackedUrl(1, 'https://api.openheaders.io/data');
@@ -356,13 +357,13 @@ describe('uniqueRequestCount', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Other', isResponse: false },
-        domains: ['*.cdn.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Other', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.cdn.openheaders.io']),
       }),
     ]);
     addTrackedUrl(1, 'https://assets.cdn.openheaders.io/bundle.js');
@@ -383,8 +384,8 @@ describe('getActiveRulesForTab with tracked resource URLs', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-        domains: ['*.cdn.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.cdn.openheaders.io']),
       }),
     ]);
 
@@ -403,8 +404,8 @@ describe('getActiveRulesForTab with tracked resource URLs', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
-        domains: ['*.openheaders.io'],
+        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
 

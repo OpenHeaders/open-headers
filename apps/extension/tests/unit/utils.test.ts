@@ -8,6 +8,10 @@ import { debounce, generateRulesHash } from '@/background/modules/utils';
 //  Factory functions
 // ---------------------------------------------------------------------------
 
+function hostConditions(domains: string[]): V5.RuleCondition[] {
+  return domains.length > 0 ? [{ type: 'host', operator: 'contains', values: domains }] : [];
+}
+
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     uid: 'r1a2',
@@ -15,9 +19,8 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Bearer Token',
     type: 'header',
     enabled: true,
-    domains: ['*.openheaders.io', 'api.partner-service.io:8443'],
-    action: { operation: 'override', headerName: 'Authorization', isResponse: false },
-    staticValue: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
+    conditions: hostConditions(['*.openheaders.io', 'api.partner-service.io:8443']),
+    action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig' },
     ...overrides,
   };
 }
@@ -91,15 +94,15 @@ describe('generateRulesHash', () => {
       name: 'Block Rule',
       type: 'block',
       enabled: true,
-      domains: ['*.openheaders.io'],
+      conditions: hostConditions(['*.openheaders.io']),
       action: { statusCode: 403 },
     }];
     expect(generateRulesHash(r1)).not.toBe(generateRulesHash(r2));
   });
 
   it('ignores fields other than uid, enabled, and type', () => {
-    const r1 = [makeHeaderRule({ name: 'Name A', staticValue: 'value-1' })];
-    const r2 = [makeHeaderRule({ name: 'Name B', staticValue: 'value-2' })];
+    const r1 = [makeHeaderRule({ name: 'Name A', action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-1' } })];
+    const r2 = [makeHeaderRule({ name: 'Name B', action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-2' } })];
     // Same uid + enabled + type → same hash regardless of other fields
     expect(generateRulesHash(r1)).toBe(generateRulesHash(r2));
   });

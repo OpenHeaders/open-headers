@@ -10,12 +10,12 @@ import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { formatUrlPattern } from '../modules/url-utils';
 import type { DnrBuilder, DnrRule } from './types';
-import { ALL_RESOURCE_TYPES } from './types';
+import { ALL_RESOURCE_TYPES, extractDomains } from './types';
 
 export const blockBuilder: DnrBuilder<V5.BlockRule> = {
   ruleType: 'block',
   build(rule: V5.BlockRule, startId: number): DnrRule[] {
-    const { domains } = rule;
+    const domains = extractDomains(rule);
 
     if (domains.length === 0) {
       logger.debug('BlockBuilder', `Skipping rule "${rule.name}" — no domains`);
@@ -26,7 +26,6 @@ export const blockBuilder: DnrBuilder<V5.BlockRule> = {
     let ruleId = startId;
 
     for (const domain of domains) {
-      if (!domain?.trim()) continue;
       rules.push({
         id: ruleId++,
         priority: 200,

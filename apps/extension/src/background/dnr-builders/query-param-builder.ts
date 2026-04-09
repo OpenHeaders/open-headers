@@ -8,13 +8,14 @@
 import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { formatUrlPattern } from '../modules/url-utils';
-import type { DnrBuilder, DnrRule, DnrRedirect } from './types';
-import { ALL_RESOURCE_TYPES } from './types';
+import type { DnrBuilder, DnrRedirect, DnrRule } from './types';
+import { ALL_RESOURCE_TYPES, extractDomains } from './types';
 
 export const queryParamBuilder: DnrBuilder<V5.QueryParamRule> = {
   ruleType: 'query-param',
   build(rule: V5.QueryParamRule, startId: number): DnrRule[] {
-    const { domains, action } = rule;
+    const domains = extractDomains(rule);
+    const { action } = rule;
 
     if (domains.length === 0) {
       logger.debug('QueryParamBuilder', `Skipping rule "${rule.name}" — no domains`);
@@ -59,7 +60,6 @@ export const queryParamBuilder: DnrBuilder<V5.QueryParamRule> = {
     let ruleId = startId;
 
     for (const domain of domains) {
-      if (!domain?.trim()) continue;
       rules.push({
         id: ruleId++,
         priority: 150,

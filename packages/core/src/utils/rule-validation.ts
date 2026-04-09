@@ -8,24 +8,16 @@
  * This is the single source of truth for "can this rule do anything?"
  */
 
-import type {
-  BlockRule,
-  HeaderRule,
-  InjectRule,
-  QueryParamRule,
-  RedirectRule,
-  Rule,
-  RuleBase,
-} from '../types/v5/rule';
+import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule, RuleBase } from '../types/v5/rule';
 
 /**
  * Check whether a rule has all required fields to function.
  * Returns true if the rule can be activated, false if it's incomplete.
  *
- * Every rule needs at least one domain. Per-type checks:
- *   - header: headerName required; staticValue required unless operation is 'remove'
- *   - block: domains only (no extra fields)
- *   - redirect: matchPattern + redirectTo
+ * Every rule needs at least one condition with a non-empty value. Per-type checks:
+ *   - header: headerName required; value required unless operation is 'remove'
+ *   - block: conditions only (no extra fields)
+ *   - redirect: redirectTo
  *   - query-param: at least one param entry with a non-empty param name
  *   - inject: code must be non-empty
  *   - body: matchPattern + replaceWith
@@ -34,7 +26,11 @@ import type {
  */
 export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean {
   const base = rule as RuleBase | Omit<RuleBase, 'uid' | 'path'>;
-  if (!base.domains || base.domains.length === 0 || base.domains.every((d) => !d.trim())) {
+  if (
+    !base.conditions ||
+    base.conditions.length === 0 ||
+    base.conditions.every((c) => !c.values || c.values.length === 0 || c.values.every((v) => !v.trim()))
+  ) {
     return false;
   }
 
@@ -42,11 +38,11 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
     case 'header': {
       const hr = rule as HeaderRule | Omit<HeaderRule, 'uid' | 'path'>;
       if (!hr.action.headerName.trim()) return false;
-      if (hr.action.operation !== 'remove' && (!hr.staticValue || !hr.staticValue.trim())) return false;
+      if (hr.action.operation !== 'remove' && !hr.action.value?.trim()) return false;
       return true;
     }
     case 'block':
-      return true; // domains is sufficient
+      return true; // conditions is sufficient
     case 'redirect': {
       const rr = rule as RedirectRule | Omit<RedirectRule, 'uid' | 'path'>;
       if (!rr.action.redirectTo.trim()) return false;

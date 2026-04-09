@@ -26,6 +26,8 @@ export type {
   BlockRule,
   BodyAction,
   BodyRule,
+  ConditionOperator,
+  ConditionType,
   ContentType,
   DelayAction,
   DelayRule,
@@ -49,6 +51,7 @@ export type {
   ResourceType,
   Rule,
   RuleBase,
+  RuleCondition,
   RuleType,
 } from './rule';
 

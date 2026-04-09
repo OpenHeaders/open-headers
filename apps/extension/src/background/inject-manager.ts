@@ -64,7 +64,9 @@ export function setupInjectListener(): void {
 
 async function injectForUrl(tabId: number, url: string): Promise<void> {
   for (const rule of activeInjectRules) {
-    const matches = rule.domains.length === 0 || rule.domains.some((d) => doesUrlMatchPattern(url, d));
+    const hostConditions = rule.conditions.filter((c) => c.type === 'host' && !c.exclude);
+    const domains = hostConditions.flatMap((c) => c.values).filter((v) => v.trim());
+    const matches = domains.length === 0 || domains.some((d) => doesUrlMatchPattern(url, d));
     if (!matches) continue;
 
     try {

@@ -1,0 +1,332 @@
+/**
+ * CollectionOverview — shown when a collection tab is active.
+ *
+ * Displays: description, stats bar (rules/active/draft/paused counts),
+ * contents table (direct children), and quick action buttons.
+ */
+
+import {
+  CodeOutlined,
+  FolderOutlined,
+  LinkOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
+  PlusOutlined,
+  SendOutlined,
+  StopOutlined,
+  SwapOutlined,
+} from '@ant-design/icons';
+import { useRules } from '@hooks/useRules';
+import type { V5 } from '@openheaders/core/types';
+import { isRuleComplete } from '@openheaders/core/utils';
+import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import type React from 'react';
+import { useCallback, useMemo } from 'react';
+
+interface CollectionOverviewProps {
+  collectionUid: string;
+  onSelectRule: (uid: string) => void;
+  onCreateRule: (type: string, context: { collectionId: string; folderPath?: string }) => void;
+  onOpenFolderOverview: (uid: string, name: string) => void;
+}
+
+const RULE_TYPE_ICONS: Record<string, React.ReactNode> = {
+  header: <SwapOutlined style={{ color: '#1890ff' }} />,
+  block: <StopOutlined style={{ color: '#f5222d' }} />,
+  redirect: <SendOutlined style={{ color: '#fa8c16' }} />,
+  'query-param': <LinkOutlined style={{ color: '#52c41a' }} />,
+  inject: <CodeOutlined style={{ color: '#722ed1' }} />,
+};
+
+interface ContentRow {
+  key: string;
+  uid: string;
+  name: string;
+  kind: 'folder' | 'rule';
+  ruleType?: string;
+  enabled?: boolean;
+  complete?: boolean;
+  childCount?: number;
+}
+
+function countRulesDeep(nodes: V5.TreeNode[]): number {
+  let count = 0;
+  for (const n of nodes) {
+    if (n.type === 'rule') count++;
+    else if (n.type === 'folder') count += countRulesDeep(n.children);
+  }
+  return count;
+}
+
+const CollectionOverview: React.FC<CollectionOverviewProps> = ({
+  collectionUid,
+  onSelectRule,
+  onCreateRule,
+  onOpenFolderOverview,
+}) => {
+  const { token } = theme.useToken();
+  const { rules, localCollectionTrees, pausedGroups, toggleGroupPause } = useRules();
+
+  const collection = useMemo(
+    () => localCollectionTrees.find((c) => c.uid === collectionUid),
+    [localCollectionTrees, collectionUid],
+  );
+
+  // ── Stats ──────────────────────────────────────────────────────
+
+  const stats = useMemo(() => {
+    if (!collection) return { total: 0, folders: 0, active: 0, disabled: 0, draft: 0, paused: 0 };
+    let total = 0;
+    let folders = 0;
+    let active = 0;
+    let disabled = 0;
+    let draft = 0;
+
+    const walk = (nodes: V5.TreeNode[]) => {
+      for (const n of nodes) {
+        if (n.type === 'folder') {
+          folders++;
+          walk(n.children);
+        } else if (n.type === 'rule') {
+          total++;
+          const fullRule = rules.find((r) => r.uid === n.uid);
+          const complete = fullRule ? isRuleComplete(fullRule) : true;
+          if (!complete) draft++;
+          else if (!n.enabled) disabled++;
+          else active++;
+        }
+      }
+    };
+    walk(collection.tree);
+
+    const isPaused = pausedGroups.has(collection.path);
+    return { total, folders, active, disabled, draft, paused: isPaused ? active : 0 };
+  }, [collection, rules, pausedGroups]);
+
+  const isPaused = collection ? pausedGroups.has(collection.path) : false;
+
+  // ── Contents table ─────────────────────────────────────────────
+
+  const rows = useMemo((): ContentRow[] => {
+    if (!collection) return [];
+    return collection.tree.map((node): ContentRow => {
+      if (node.type === 'folder') {
+        return {
+          key: node.uid,
+          uid: node.uid,
+          name: node.name,
+          kind: 'folder',
+          childCount: countRulesDeep(node.children),
+        };
+      }
+      const fullRule = rules.find((r) => r.uid === node.uid);
+      return {
+        key: node.uid,
+        uid: node.uid,
+        name: node.name,
+        kind: 'rule',
+        ruleType: node.type === 'rule' ? node.ruleType : undefined,
+        enabled: node.type === 'rule' ? node.enabled : undefined,
+        complete: fullRule ? isRuleComplete(fullRule) : true,
+      };
+    });
+  }, [collection, rules]);
+
+  const handleRowClick = useCallback(
+    (row: ContentRow) => {
+      if (row.kind === 'rule') onSelectRule(row.uid);
+      else onOpenFolderOverview(row.uid, row.name);
+    },
+    [onSelectRule, onOpenFolderOverview],
+  );
+
+  const columns: ColumnsType<ContentRow> = useMemo(
+    () => [
+      {
+        title: 'Name',
+        dataIndex: 'name',
+        key: 'name',
+        render: (_: unknown, row: ContentRow) => (
+          <Space size={6}>
+            {row.kind === 'folder' ? (
+              <FolderOutlined style={{ color: token.colorTextTertiary }} />
+            ) : (
+              (RULE_TYPE_ICONS[row.ruleType ?? ''] ?? <SwapOutlined style={{ color: token.colorTextTertiary }} />)
+            )}
+            <span>{row.name}</span>
+          </Space>
+        ),
+      },
+      {
+        title: 'Type',
+        key: 'type',
+        width: 120,
+        render: (_: unknown, row: ContentRow) => {
+          if (row.kind === 'folder') {
+            return (
+              <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
+                Folder · {row.childCount} rule{row.childCount !== 1 ? 's' : ''}
+              </span>
+            );
+          }
+          return <Tag style={{ fontSize: 11, margin: 0 }}>{row.ruleType}</Tag>;
+        },
+      },
+      {
+        title: 'Status',
+        key: 'status',
+        width: 90,
+        render: (_: unknown, row: ContentRow) => {
+          if (row.kind === 'folder') return null;
+          if (!row.complete) return <Tag color="default">Draft</Tag>;
+          if (!row.enabled) return <Tag color="default">Disabled</Tag>;
+          if (isPaused) return <Tag color="warning">Paused</Tag>;
+          return <Tag color="success">Active</Tag>;
+        },
+      },
+    ],
+    [token, isPaused],
+  );
+
+  const addRuleMenuItems = [
+    {
+      key: 'header',
+      icon: <SwapOutlined />,
+      label: 'Modify Headers',
+      onClick: () => onCreateRule('header', { collectionId: collectionUid }),
+    },
+    {
+      key: 'block',
+      icon: <StopOutlined />,
+      label: 'Block Requests',
+      onClick: () => onCreateRule('block', { collectionId: collectionUid }),
+    },
+    {
+      key: 'redirect',
+      icon: <SendOutlined />,
+      label: 'Redirect Requests',
+      onClick: () => onCreateRule('redirect', { collectionId: collectionUid }),
+    },
+    {
+      key: 'query-param',
+      icon: <LinkOutlined />,
+      label: 'Modify Query Params',
+      onClick: () => onCreateRule('query-param', { collectionId: collectionUid }),
+    },
+    {
+      key: 'inject',
+      icon: <CodeOutlined />,
+      label: 'Inject Scripts/CSS',
+      onClick: () => onCreateRule('inject', { collectionId: collectionUid }),
+    },
+  ];
+
+  if (!collection) {
+    return (
+      <div style={{ padding: '24px 32px' }}>
+        <Empty description="Collection not found" />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '24px 32px', maxWidth: 720, overflowY: 'auto', height: '100%' }}>
+      {/* Stats bar */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 13, color: token.colorTextSecondary }}>
+          {stats.total} rule{stats.total !== 1 ? 's' : ''}
+          {stats.folders > 0 && (
+            <>
+              {' '}
+              · {stats.folders} folder{stats.folders !== 1 ? 's' : ''}
+            </>
+          )}
+        </span>
+        {stats.active > 0 && <Tag color="success">{stats.active} active</Tag>}
+        {stats.disabled > 0 && <Tag color="default">{stats.disabled} disabled</Tag>}
+        {stats.draft > 0 && <Tag color="default">{stats.draft} draft</Tag>}
+        {isPaused && <Tag color="warning">Paused</Tag>}
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <Dropdown menu={{ items: addRuleMenuItems }} trigger={['click']}>
+          <Button size="small" icon={<PlusOutlined />}>
+            Add Rule
+          </Button>
+        </Dropdown>
+        <Tooltip title={isPaused ? 'Resume all rules in this collection' : 'Pause all rules in this collection'}>
+          <Button
+            size="small"
+            icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+            onClick={() => toggleGroupPause(collection.path)}
+          >
+            {isPaused ? 'Resume' : 'Pause'}
+          </Button>
+        </Tooltip>
+      </div>
+
+      {/* Description */}
+      {collection.description && (
+        <div style={{ marginBottom: 20 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: token.colorTextTertiary,
+              marginBottom: 4,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}
+          >
+            Description
+          </div>
+          <div style={{ fontSize: 13, color: token.colorTextSecondary, lineHeight: 1.6 }}>{collection.description}</div>
+        </div>
+      )}
+
+      {/* Contents */}
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: token.colorTextTertiary,
+          marginBottom: 8,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+        }}
+      >
+        Contents
+      </div>
+      {rows.length > 0 ? (
+        <Table<ContentRow>
+          dataSource={rows}
+          columns={columns}
+          size="small"
+          pagination={false}
+          showHeader={false}
+          onRow={(row) => ({
+            onClick: () => handleRowClick(row),
+            style: { cursor: 'pointer' },
+          })}
+          rowClassName={(row) => {
+            if (row.kind === 'rule' && !row.complete) return 'row-draft';
+            if (row.kind === 'rule' && !row.enabled) return 'row-disabled';
+            return '';
+          }}
+        />
+      ) : (
+        <Empty description="No items yet" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '24px 0' }}>
+          <Dropdown menu={{ items: addRuleMenuItems }} trigger={['click']}>
+            <Button size="small" icon={<PlusOutlined />}>
+              Add Rule
+            </Button>
+          </Dropdown>
+        </Empty>
+      )}
+    </div>
+  );
+};
+
+export default CollectionOverview;

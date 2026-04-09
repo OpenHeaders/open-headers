@@ -1,7 +1,7 @@
 /**
  * Rule resolver — applies VariableResolver to V5.Rule fields.
  *
- * Resolves all {{VAR}} templates in rule string fields (domains, values,
+ * Resolves all {{VAR}} templates in rule string fields (conditions, values,
  * patterns, etc.) producing rules that are ready for wire transmission
  * or direct application.
  *
@@ -20,6 +20,7 @@ import type {
   RedirectRule,
   ResolutionContext,
   Rule,
+  RuleCondition,
 } from '../types/v5';
 import type { VariableResolver } from './resolver';
 
@@ -31,13 +32,11 @@ import type { VariableResolver } from './resolver';
  * Unresolved variables are left as-is in the output.
  */
 export function resolveRule(rule: Rule, resolver: VariableResolver, context?: ResolutionContext): Rule {
-  const resolvedDomains = resolveStrings(rule.domains, resolver, context);
-  const resolvedUrlPatterns = rule.urlPatterns ? resolveStrings(rule.urlPatterns, resolver, context) : undefined;
+  const resolvedConditions = resolveConditions(rule.conditions, resolver, context);
 
   const base = {
     ...rule,
-    domains: resolvedDomains,
-    ...(resolvedUrlPatterns ? { urlPatterns: resolvedUrlPatterns } : {}),
+    conditions: resolvedConditions,
   };
 
   switch (rule.type) {
@@ -67,12 +66,29 @@ export function resolveRules(rules: Rule[], resolver: VariableResolver, context?
   return rules.map((rule) => resolveRule(rule, resolver, context));
 }
 
+// ── Condition resolution ─────────────────────────────────────────
+
+function resolveConditions(
+  conditions: RuleCondition[],
+  resolver: VariableResolver,
+  context?: ResolutionContext,
+): RuleCondition[] {
+  return conditions.map((c) => ({
+    ...c,
+    values: resolveStrings(c.values, resolver, context),
+    ...(c.headerName ? { headerName: resolveString(c.headerName, resolver, context) } : {}),
+  }));
+}
+
 // ── Per-type resolvers ────────────────────────────────────────────
 
 function resolveHeaderRule(rule: HeaderRule, resolver: VariableResolver, context?: ResolutionContext): HeaderRule {
   return {
     ...rule,
-    staticValue: rule.staticValue ? resolveString(rule.staticValue, resolver, context) : undefined,
+    action: {
+      ...rule.action,
+      value: rule.action.value ? resolveString(rule.action.value, resolver, context) : undefined,
+    },
   };
 }
 
@@ -117,9 +133,7 @@ function resolveBlockRule(rule: BlockRule, resolver: VariableResolver, context?:
     ...rule,
     action: {
       ...rule.action,
-      responseBody: rule.action.responseBody
-        ? resolveString(rule.action.responseBody, resolver, context)
-        : undefined,
+      responseBody: rule.action.responseBody ? resolveString(rule.action.responseBody, resolver, context) : undefined,
     },
   };
 }

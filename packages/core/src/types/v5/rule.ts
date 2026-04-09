@@ -5,12 +5,10 @@
  * On disk, each rule is a folder containing rule.yaml + optional scripts.js,
  * organized in the same collection/folder/item hierarchy as requests.
  *
- * Rule types: header, redirect, body, inject, block, delay, mock.
- * Header rules have static values with {{VAR}} interpolation.
- * Dynamic value linking (to requests) is deferred to a later phase.
+ * A rule = conditions (when to match) + action (what to do).
+ * Conditions are AND-evaluated: all must match for the rule to fire.
+ * Actions are type-specific: header, redirect, body, inject, block, delay, mock, query-param.
  */
-
-import type { HttpMethod } from './request';
 
 // ── Rule types ─────────────────────────────────────────────────────
 
@@ -22,24 +20,39 @@ export type ExtensionRuleType = 'header' | 'block' | 'redirect' | 'query-param' 
 /** Rule types that require the desktop app (proxy-based). */
 export type DesktopOnlyRuleType = 'body' | 'delay' | 'mock';
 
-// ── Base rule ──────────────────────────────────────────────────────
+// ── Conditions ────────────────────────────────────────────────────
 
-export interface RuleBase {
-  /** 4-char uid from folder name suffix. */
-  uid: string;
-  /** Relative path within workspace. */
-  path: string;
-  name: string;
-  type: RuleType;
-  enabled: boolean;
-  /** Domain patterns with glob support (e.g. "*.openheaders.io"). Supports {{VAR}}. */
-  domains: string[];
-  /** URL path patterns (optional, for finer matching). */
-  urlPatterns?: string[];
-  /** Filter by HTTP method (optional). */
-  methods?: HttpMethod[];
-  /** Filter by resource type (optional). */
-  resourceTypes?: ResourceType[];
+/** What part of the request to match against. */
+export type ConditionType =
+  | 'url' // Full URL (urlFilter / regexFilter in DNR)
+  | 'host' // Request domain (requestDomains in DNR)
+  | 'path' // URL path segment
+  | 'method' // HTTP method (requestMethods in DNR)
+  | 'resource-type' // Resource type (resourceTypes in DNR)
+  | 'domain-type' // First-party vs third-party (domainType in DNR)
+  | 'initiator' // Page origin that initiated the request (initiatorDomains in DNR)
+  | 'request-header' // Match on request header presence/value (Chrome 128+)
+  | 'response-header'; // Match on response header presence/value (Chrome 128+)
+
+/** How to compare the condition value against the request. */
+export type ConditionOperator =
+  | 'equals' // Exact match
+  | 'contains' // Substring match
+  | 'matches' // Wildcard/glob (*, ?)
+  | 'regex'; // RE2 regular expression (Chrome's regex engine)
+
+/** A single condition entry — one row in the "If request" section. */
+export interface RuleCondition {
+  /** What to match against. */
+  type: ConditionType;
+  /** How to compare. */
+  operator: ConditionOperator;
+  /** Values to match. Always array — single value = ['x'], multi = ['GET','POST']. Supports {{VAR}}. */
+  values: string[];
+  /** Negate the match: "does NOT contain/equal/match". Maps to Chrome's excluded* fields. */
+  exclude?: boolean;
+  /** Header name — only for 'request-header' and 'response-header' conditions. */
+  headerName?: string;
 }
 
 export type ResourceType =
@@ -53,6 +66,20 @@ export type ResourceType =
   | 'websocket'
   | 'other';
 
+// ── Base rule ──────────────────────────────────────────────────────
+
+export interface RuleBase {
+  /** 4-char uid from folder name suffix. */
+  uid: string;
+  /** Relative path within workspace. */
+  path: string;
+  name: string;
+  type: RuleType;
+  enabled: boolean;
+  /** Conditions that must ALL match for this rule to fire (AND-evaluated). */
+  conditions: RuleCondition[];
+}
+
 // ── Header rule ────────────────────────────────────────────────────
 
 export type HeaderOperation = 'add' | 'override' | 'remove';
@@ -61,13 +88,13 @@ export interface HeaderAction {
   operation: HeaderOperation;
   headerName: string;
   isResponse: boolean;
+  /** Header value. Supports {{VAR}} interpolation. Not needed for 'remove'. */
+  value?: string;
 }
 
 export interface HeaderRule extends RuleBase {
   type: 'header';
   action: HeaderAction;
-  /** Static value template. Supports {{VAR}} interpolation. */
-  staticValue?: string;
 }
 
 // ── Redirect rule ──────────────────────────────────────────────────
@@ -183,4 +210,12 @@ export interface QueryParamRule extends RuleBase {
 
 // ── Union ──────────────────────────────────────────────────────────
 
-export type Rule = HeaderRule | RedirectRule | BodyRule | InjectRule | BlockRule | DelayRule | MockRule | QueryParamRule;
+export type Rule =
+  | HeaderRule
+  | RedirectRule
+  | BodyRule
+  | InjectRule
+  | BlockRule
+  | DelayRule
+  | MockRule
+  | QueryParamRule;

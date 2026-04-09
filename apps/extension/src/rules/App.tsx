@@ -19,7 +19,9 @@ import 'allotment/dist/style.css';
 import ActivityBar from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
+import CollectionOverview from './components/CollectionOverview';
 import EmptyState from './components/EmptyState';
+import FolderOverview from './components/FolderOverview';
 import Inspector from './components/Inspector';
 import RuleEditor from './components/RuleEditor';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
@@ -124,15 +126,14 @@ const RulesAppInner: React.FC = () => {
     (type: string, context?: { collectionId: string; folderPath?: string }) => {
       if (context?.collectionId) {
         const draftName = generateDraftName(type);
-        const base = { name: draftName, type, enabled: true, domains: [] as string[] };
+        const base = { name: draftName, type, enabled: true, conditions: [] as V5.RuleCondition[] };
         let rule: Omit<V5.Rule, 'uid' | 'path'>;
         switch (type) {
           case 'header':
             rule = {
               ...base,
               type: 'header',
-              action: { operation: 'override' as const, headerName: '', isResponse: false },
-              staticValue: '',
+              action: { operation: 'override' as const, headerName: '', isResponse: false, value: '' },
             } as Omit<V5.HeaderRule, 'uid' | 'path'>;
             break;
           case 'block':
@@ -214,7 +215,7 @@ const RulesAppInner: React.FC = () => {
   );
 
   const openCollectionOverview = useCallback(
-    (uid: string, name: string) => {
+    (uid: string, name: string, autoRename = false) => {
       const id = `col-${uid}`;
       const existing = tabs.find((t) => t.id === id);
       if (existing) {
@@ -223,13 +224,13 @@ const RulesAppInner: React.FC = () => {
       }
       const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'collection-overview', entityId: uid };
       addTab(tab);
-      setPendingRenameTabId(id);
+      if (autoRename) setPendingRenameTabId(id);
     },
     [tabs, addTab, switchTab],
   );
 
   const openFolderOverview = useCallback(
-    (uid: string, name: string) => {
+    (uid: string, name: string, autoRename = false) => {
       const id = `folder-${uid}`;
       const existing = tabs.find((t) => t.id === id);
       if (existing) {
@@ -238,7 +239,7 @@ const RulesAppInner: React.FC = () => {
       }
       const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'folder-overview', entityId: uid };
       addTab(tab);
-      setPendingRenameTabId(id);
+      if (autoRename) setPendingRenameTabId(id);
     },
     [tabs, addTab, switchTab],
   );
@@ -324,7 +325,7 @@ const RulesAppInner: React.FC = () => {
     if (parts[0] === 'create' && parts[1]) openCreateTab(parts[1]);
     else if (parts[0] === 'edit' && parts[1]) openEditTab(parts[1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [openCreateTab, openEditTab]);
 
   // ── Sync tab labels with rule changes ─────────────────────────
 
@@ -474,7 +475,13 @@ const RulesAppInner: React.FC = () => {
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <Allotment proportionalLayout={false}>
-            <Allotment.Pane preferredSize={250} minSize={180} maxSize={400} visible={panels.sidebar} priority={LayoutPriority.Low}>
+            <Allotment.Pane
+              preferredSize={250}
+              minSize={180}
+              maxSize={400}
+              visible={panels.sidebar}
+              priority={LayoutPriority.Low}
+            >
               <Sidebar
                 activeTabId={activeTabId}
                 onSelectRule={openEditTab}
@@ -533,21 +540,21 @@ const RulesAppInner: React.FC = () => {
                               registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
                             />
                           )}
-                          {tab.mode === 'collection-overview' && (
-                            <div style={{ padding: '24px 32px' }}>
-                              <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Collection Overview</h4>
-                              <p style={{ fontSize: 13, color: token.colorTextSecondary }}>
-                                Expand this collection in the sidebar to add rules and folders.
-                              </p>
-                            </div>
+                          {tab.mode === 'collection-overview' && tab.entityId && (
+                            <CollectionOverview
+                              collectionUid={tab.entityId}
+                              onSelectRule={openEditTab}
+                              onCreateRule={openCreateTab}
+                              onOpenFolderOverview={openFolderOverview}
+                            />
                           )}
-                          {tab.mode === 'folder-overview' && (
-                            <div style={{ padding: '24px 32px' }}>
-                              <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Folder Overview</h4>
-                              <p style={{ fontSize: 13, color: token.colorTextSecondary }}>
-                                Expand this folder in the sidebar to add rules and subfolders.
-                              </p>
-                            </div>
+                          {tab.mode === 'folder-overview' && tab.entityId && (
+                            <FolderOverview
+                              folderUid={tab.entityId}
+                              onSelectRule={openEditTab}
+                              onCreateRule={openCreateTab}
+                              onOpenFolderOverview={openFolderOverview}
+                            />
                           )}
                         </div>
                       ))}
