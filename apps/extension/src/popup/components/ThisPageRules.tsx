@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
-import { DNR_PRIORITY, isPathPausedByAncestor } from '@openheaders/core/utils';
+import { isPathPausedByAncestor } from '@openheaders/core/utils';
 import {
   App,
   Badge,
@@ -33,7 +33,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
-import { type PageInfo, type RowActions } from '../utils/table-shared';
+import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderActionDetails,
   renderTagOverflow,
@@ -150,6 +150,7 @@ interface CurrentTabInfo {
 
 interface TableRecord extends ActiveRule {
   key: string | number;
+  statusRank: number;
 }
 
 /**
@@ -318,23 +319,17 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     : filteredRules;
 
   const dataSource: TableRecord[] = sortedFilteredRules
-    .map((rule, index) => ({
-      ...rule,
-      key: (rule.id || index) as string | number,
-    }))
-    .sort((a, b) => {
-      if (sortMode === 'status') {
-        const rankA = a.isEnabled === false ? 2 : isPathPausedByAncestor(a.path ?? '', pausedGroups) ? 1 : 0;
-        const rankB = b.isEnabled === false ? 2 : isPathPausedByAncestor(b.path ?? '', pausedGroups) ? 1 : 0;
-        return rankA - rankB || a.name.localeCompare(b.name);
-      }
-      if (sortMode === 'priority') {
-        const pa = DNR_PRIORITY[a.ruleType] ?? 0;
-        const pb = DNR_PRIORITY[b.ruleType] ?? 0;
-        return pb - pa || a.name.localeCompare(b.name);
-      }
-      return 0;
-    });
+    .map((rule, index) => {
+      const isEnabled = rule.isEnabled !== false;
+      const groupPaused = isPathPausedByAncestor(rule.path ?? '', pausedGroups);
+      const statusRank = isEnabled && !groupPaused ? 0 : isEnabled && groupPaused ? 1 : 2;
+      return {
+        ...rule,
+        key: (rule.id || index) as string | number,
+        statusRank,
+      };
+    })
+    .sort((a, b) => compareBySortMode(a, b, sortMode));
 
   // Keep ref in sync for keyboard callbacks
   dataSourceRef.current = dataSource;
@@ -406,7 +401,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     sorter: SorterResult<TableRecord> | SorterResult<TableRecord>[],
   ) => {
     setFilteredInfo(filters);
-    setSortedInfo(Array.isArray(sorter) ? sorter[0] : sorter);
+    const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    setSortedInfo(singleSorter);
+    if (singleSorter.order) setSortMode('manual');
+  };
+
+  const handleSortModeChange = (mode: 'status' | 'priority' | 'manual') => {
+    setSortMode(mode);
+    setSortedInfo({});
   };
 
   const columns: ColumnsType<TableRecord> = [
@@ -703,13 +705,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                           <div>
                             <div>By status</div>
                             <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Active → Paused → Disabled
+                              Active → Paused → Disabled · priority within each
                             </Text>
                           </div>
-                          {sortMode === 'status' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                          {sortMode === 'status' && !sortedInfo.order && (
+                            <CheckOutlined style={{ color: '#1677ff' }} />
+                          )}
                         </div>
                       ),
-                      onClick: () => setSortMode('status'),
+                      onClick: () => handleSortModeChange('status'),
                     },
                     {
                       key: 'priority',
@@ -723,15 +727,17 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                           }}
                         >
                           <div>
-                            <div>By browser priority</div>
+                            <div>By priority</div>
                             <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Block → Redirect/Query → Header → Inject
+                              Block → Redirect → Query → Header → Inject · A-Z within each
                             </Text>
                           </div>
-                          {sortMode === 'priority' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                          {sortMode === 'priority' && !sortedInfo.order && (
+                            <CheckOutlined style={{ color: '#1677ff' }} />
+                          )}
                         </div>
                       ),
-                      onClick: () => setSortMode('priority'),
+                      onClick: () => handleSortModeChange('priority'),
                     },
                     {
                       key: 'manual',
@@ -745,16 +751,45 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                           }}
                         >
                           <div>
-                            <div>As created</div>
+                            <div>Workspace order</div>
                             <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Original order, as in the workspace tree
+                              Matches the workspace sidebar tree order
                             </Text>
                           </div>
-                          {sortMode === 'manual' && <CheckOutlined style={{ color: '#1677ff' }} />}
+                          {sortMode === 'manual' && !sortedInfo.order && (
+                            <CheckOutlined style={{ color: '#1677ff' }} />
+                          )}
                         </div>
                       ),
-                      onClick: () => setSortMode('manual'),
+                      onClick: () => handleSortModeChange('manual'),
                     },
+                    ...(sortedInfo.order
+                      ? [
+                          { type: 'divider' as const, key: 'div' },
+                          {
+                            key: 'column-sort',
+                            label: (
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  minWidth: 220,
+                                }}
+                              >
+                                <div>
+                                  <div>By column</div>
+                                  <Text type="secondary" style={{ fontSize: '11px' }}>
+                                    Sorted by {String(sortedInfo.columnKey)} — click an option above to reset
+                                  </Text>
+                                </div>
+                                <CheckOutlined style={{ color: '#1677ff' }} />
+                              </div>
+                            ),
+                            disabled: true,
+                          },
+                        ]
+                      : []),
                   ],
                 }}
                 placement="bottomRight"

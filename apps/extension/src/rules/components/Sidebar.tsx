@@ -79,7 +79,7 @@ function ruleIconForSidebar(rule: V5.Rule | undefined, node: V5.RuleNode, isActi
   const dirArrow =
     detail?.direction
       ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-          style: { fontSize: 9, color: gray, marginRight: 1 },
+          style: { fontSize: 9, color: 'var(--ant-color-text-secondary, #595959)', marginRight: 1 },
         })
       : null;
   return createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 1 } }, dirArrow, createElement(Icon, { style: { fontSize: 12, color: iconColor } }));

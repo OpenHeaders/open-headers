@@ -25,10 +25,19 @@ export interface ActionDetail {
   tooltip: string;
 }
 
-const HEADER_OP_TOOLTIP: Record<string, string> = {
-  override: 'Replaces existing header value',
-  add: 'Adds header if not present',
-  remove: 'Removes header entirely',
+const HEADER_OP_TOOLTIP: Record<string, Record<string, string>> = {
+  override: {
+    request: 'Sets outgoing header, replacing if already present',
+    response: 'Sets incoming header, replacing if already present',
+  },
+  add: {
+    request: 'Adds outgoing header only when not already present',
+    response: 'Adds incoming header only when not already present',
+  },
+  remove: {
+    request: 'Removes outgoing header from the request',
+    response: 'Removes incoming header from the response',
+  },
 };
 
 /** Structured action detail for compact display in table Details columns. */
@@ -37,13 +46,14 @@ export function getActionDetail(rule: Rule): ActionDetail {
     case 'header': {
       const { operation, headerName, isResponse } = (rule as HeaderRule).action;
       const hr = rule as HeaderRule;
+      const dir = isResponse ? 'response' : 'request';
       return {
         ruleType: 'header',
-        direction: isResponse ? 'response' : 'request',
+        direction: dir,
         operation,
         label: headerName || '',
         value: operation === 'remove' ? '' : hr.staticValue || '',
-        tooltip: HEADER_OP_TOOLTIP[operation] ?? operation,
+        tooltip: HEADER_OP_TOOLTIP[operation]?.[dir] ?? operation,
       };
     }
     case 'block':

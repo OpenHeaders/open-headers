@@ -18,7 +18,7 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { DNR_PRIORITY, getActionDetail, isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
+import { getActionDetail, isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
@@ -27,7 +27,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
-import { type PageInfo, type RowActions } from '../utils/table-shared';
+import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '../utils/table-shared';
 import {
   type ActionDetail,
   renderActionDetails,
@@ -70,7 +70,6 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
 /** 0 = active, 1 = paused, 2 = disabled, 3 = draft */
 type StatusRank = 0 | 1 | 2 | 3;
 
-type SortMode = 'status' | 'priority' | 'manual';
 
 interface TableRecord {
   key: string;
@@ -150,15 +149,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
         statusRank,
       };
     })
-    .sort((a, b) => {
-      if (sortMode === 'status') return a.statusRank - b.statusRank || a.name.localeCompare(b.name);
-      if (sortMode === 'priority') {
-        const pa = DNR_PRIORITY[a.ruleType] ?? 0;
-        const pb = DNR_PRIORITY[b.ruleType] ?? 0;
-        return pb - pa || a.name.localeCompare(b.name);
-      }
-      return 0; // manual — preserve original order
-    });
+    .sort((a, b) => compareBySortMode(a, b, sortMode));
 
   const dataSourceRef = useRef<TableRecord[]>([]);
 
@@ -257,11 +248,15 @@ const RulesTable: React.FC<RulesTableProps> = ({
     setFilteredInfo(filters);
     const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
     setSortedInfo(singleSorter);
+    // Column sort overrides dropdown sort
+    if (singleSorter.order) {
+      setSortMode('manual');
+    }
     if (updateUiState) {
       updateUiState({
         tableState: {
           searchText,
-          sortMode,
+          sortMode: singleSorter.order ? 'manual' : sortMode,
           filteredInfo: filters,
           sortedInfo: singleSorter as unknown as Record<string, unknown>,
         },
@@ -285,13 +280,15 @@ const RulesTable: React.FC<RulesTableProps> = ({
 
   const handleSortModeChange = (mode: SortMode) => {
     setSortMode(mode);
+    // Dropdown sort clears column sort
+    setSortedInfo({});
     if (updateUiState) {
       updateUiState({
         tableState: {
           searchText,
           sortMode: mode,
           filteredInfo,
-          sortedInfo: sortedInfo as unknown as Record<string, unknown>,
+          sortedInfo: {},
         },
       });
     }
@@ -325,8 +322,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
       title: 'Details',
       key: 'details',
       width: 180,
-      sorter: (a, b) => a.actionDetail.value.localeCompare(b.actionDetail.value),
-      sortOrder: sortedInfo.columnKey === 'details' ? sortedInfo.order : null,
       render: (_: unknown, record: TableRecord) => renderActionDetails(record.actionDetail),
     },
     {
@@ -501,6 +496,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     },
   ];
 
+  const hasColumnSort = !!sortedInfo.order;
   const sortMenuItems = [
     {
       key: 'label',
@@ -518,10 +514,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
           <div>
             <div>By status</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Active → Paused → Disabled → Draft
+              Active → Paused → Disabled → Draft · priority within each
             </Text>
           </div>
-          {sortMode === 'status' && <CheckOutlined style={{ color: '#1677ff' }} />}
+          {sortMode === 'status' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
         </div>
       ),
       onClick: () => handleSortModeChange('status'),
@@ -531,12 +527,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
       label: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
           <div>
-            <div>By browser priority</div>
+            <div>By priority</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Block → Redirect/Query → Header → Inject
+              Block → Redirect → Query → Header → Inject · A-Z within each
             </Text>
           </div>
-          {sortMode === 'priority' && <CheckOutlined style={{ color: '#1677ff' }} />}
+          {sortMode === 'priority' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
         </div>
       ),
       onClick: () => handleSortModeChange('priority'),
@@ -546,16 +542,36 @@ const RulesTable: React.FC<RulesTableProps> = ({
       label: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
           <div>
-            <div>As created</div>
+            <div>Workspace order</div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              Original order, as in the workspace tree
+              Matches the workspace sidebar tree order
             </Text>
           </div>
-          {sortMode === 'manual' && <CheckOutlined style={{ color: '#1677ff' }} />}
+          {sortMode === 'manual' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
         </div>
       ),
       onClick: () => handleSortModeChange('manual'),
     },
+    ...(hasColumnSort
+      ? [
+          { type: 'divider' as const, key: 'div' },
+          {
+            key: 'column-sort',
+            label: (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
+                <div>
+                  <div>By column</div>
+                  <Text type="secondary" style={{ fontSize: '11px' }}>
+                    Sorted by {String(sortedInfo.columnKey)} — click an option above to reset
+                  </Text>
+                </div>
+                <CheckOutlined style={{ color: '#1677ff' }} />
+              </div>
+            ),
+            disabled: true,
+          },
+        ]
+      : []),
   ];
 
   return (

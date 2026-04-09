@@ -527,7 +527,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                           <div>
                             <div>By status</div>
                             <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Active collections → Paused collections
+                              Active → Paused · A-Z within each
                             </Text>
                           </div>
                           {sortMode === 'status' && <CheckOutlined style={{ color: '#1677ff' }} />}
@@ -547,9 +547,9 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                           }}
                         >
                           <div>
-                            <div>As created</div>
+                            <div>Workspace order</div>
                             <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Original order
+                              Matches the workspace sidebar tree order
                             </Text>
                           </div>
                           {sortMode === 'manual' && <CheckOutlined style={{ color: '#1677ff' }} />}

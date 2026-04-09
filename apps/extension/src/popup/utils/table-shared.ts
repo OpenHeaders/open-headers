@@ -26,6 +26,40 @@ export interface RowActions {
 
 export const PAGE_SIZE = 10;
 
+// ── Sort utilities ──────────────────────────────────────────────
+
+import { DNR_PRIORITY } from '@openheaders/core/utils';
+
+export type SortMode = 'status' | 'priority' | 'manual';
+
+interface Sortable {
+  statusRank: number;
+  ruleType: string;
+  name: string;
+}
+
+/**
+ * Compare two sortable items by the selected sort mode.
+ * - status: status rank → browser priority → alphabetical
+ * - priority: browser priority → alphabetical
+ * - manual: preserve original order
+ */
+export function compareBySortMode<T extends Sortable>(a: T, b: T, mode: SortMode): number {
+  if (mode === 'status') {
+    if (a.statusRank !== b.statusRank) return a.statusRank - b.statusRank;
+    const pa = DNR_PRIORITY[a.ruleType] ?? 0;
+    const pb = DNR_PRIORITY[b.ruleType] ?? 0;
+    if (pa !== pb) return pb - pa;
+    return a.name.localeCompare(b.name);
+  }
+  if (mode === 'priority') {
+    const pa = DNR_PRIORITY[a.ruleType] ?? 0;
+    const pb = DNR_PRIORITY[b.ruleType] ?? 0;
+    return pb - pa || a.name.localeCompare(b.name);
+  }
+  return 0;
+}
+
 export const TAG_COLORS = [
   'blue',
   'volcano',

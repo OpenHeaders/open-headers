@@ -192,13 +192,48 @@ function getRuleTypeIcon(ruleType: string, operation?: string): React.ReactNode 
 export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueLen = 16): React.ReactNode {
   const displayValue = truncateValue(detail.value, maxValueLen);
 
+  const opLabel = detail.operation ? detail.operation.charAt(0).toUpperCase() + detail.operation.slice(1) : '';
   const tooltipContent = (
     <div style={{ fontSize: 12 }}>
-      <div>{detail.tooltip}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {detail.direction && (
+          <Tag
+            variant="outlined"
+            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
+          >
+            {detail.direction === 'response' ? '↓' : '↑'}
+          </Tag>
+        )}
+        {opLabel && (
+          <Tag
+            variant="outlined"
+            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
+          >
+            {opLabel}
+          </Tag>
+        )}
+        <span style={{ opacity: 0.7 }}>{detail.tooltip}</span>
+      </div>
       {detail.label && (
-        <div style={{ marginTop: 2, fontFamily: 'monospace' }}>
-          {detail.label}
-          {detail.value ? `: ${detail.value}` : ''}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+          <Tag
+            variant="outlined"
+            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
+          >
+            Header Name
+          </Tag>
+          <span style={{ opacity: 0.7, wordBreak: 'break-all' }}>{detail.label}</span>
+        </div>
+      )}
+      {detail.value && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+          <Tag
+            variant="outlined"
+            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
+          >
+            Header Value
+          </Tag>
+          <span style={{ opacity: 0.7, wordBreak: 'break-all' }}>{detail.value}</span>
         </div>
       )}
     </div>
@@ -209,7 +244,7 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', opacity }}>
         {/* Direction arrow (header only) */}
         {detail.direction && (
-          <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0, color: 'var(--ant-color-text-quaternary)' }}>
+          <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0, color: 'var(--ant-color-text-secondary)' }}>
             {detail.direction === 'response' ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
           </span>
         )}
