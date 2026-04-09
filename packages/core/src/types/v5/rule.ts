@@ -209,12 +209,12 @@ export interface MockRule extends RuleBase {
 
 // ── Query Param rule ──────────────────────────────────────────────
 
-export type QueryParamOperation = 'add' | 'override' | 'remove';
+export type QueryParamOperation = 'add' | 'override' | 'remove' | 'remove-all';
 
 export interface QueryParamEntry {
-  /** Parameter name. Supports {{VAR}}. */
+  /** Parameter name. Supports {{VAR}}. Not needed for 'remove-all'. */
   param: string;
-  /** Parameter value. Not needed for 'remove'. Supports {{VAR}}. */
+  /** Parameter value. Not needed for 'remove' or 'remove-all'. Supports {{VAR}}. */
   value?: string;
   operation: QueryParamOperation;
 }

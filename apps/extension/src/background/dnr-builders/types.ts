@@ -38,6 +38,7 @@ export interface DnrRedirect {
   url?: string;
   regexSubstitution?: string;
   transform?: {
+    query?: string;
     queryTransform?: {
       addOrReplaceParams?: Array<{ key: string; value: string; replaceOnly?: boolean }>;
       removeParams?: string[];
