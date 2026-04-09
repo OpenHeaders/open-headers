@@ -68,74 +68,45 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     key: 'body',
     icon: <FileTextOutlined />,
     label: 'Modify Request Body',
-    description: 'Modify request/response body content',
-    desktopOnly: true,
+    description: 'Modify request/response body content (fetch/XHR only)',
+    desktopOnly: false,
   },
   {
     key: 'delay',
     icon: <ClockCircleOutlined />,
     label: 'Delay Requests',
-    description: 'Add latency to network requests',
-    desktopOnly: true,
+    description: 'Add latency to network requests (fetch/XHR only)',
+    desktopOnly: false,
   },
   {
     key: 'mock',
     icon: <DatabaseOutlined />,
-    label: 'Mock Response',
-    description: 'Return a custom response without hitting the server',
-    desktopOnly: true,
+    label: 'Modify API Response',
+    description: 'Override API response status code and body (fetch/XHR only)',
+    desktopOnly: false,
   },
 ];
 
-/** Only extension-supported types (for creation flows). */
-export const EXTENSION_RULE_TYPES = ALL_RULE_TYPES.filter((t) => !t.desktopOnly);
-
-/** Only desktop-only types (shown disabled). */
-export const DESKTOP_ONLY_RULE_TYPES = ALL_RULE_TYPES.filter((t) => t.desktopOnly);
-
-const DESKTOP_ONLY_TOOLTIP = 'Available in desktop app — requires HTTP proxy';
-
 /**
  * Build Ant Design menu items for rule creation menus.
- * Extension types call onClick, desktop-only types are disabled with tooltip.
  */
 export function buildRuleTypeMenuItems(onClick: (type: string) => void) {
-  return [
-    ...EXTENSION_RULE_TYPES.map((t) => ({
-      key: t.key,
-      icon: t.icon,
-      label: t.label,
-      onClick: () => onClick(t.key),
-    })),
-    { type: 'divider' as const, key: 'div-desktop' },
-    ...DESKTOP_ONLY_RULE_TYPES.map((t) => ({
-      key: t.key,
-      icon: t.icon,
-      label: t.label,
-      disabled: true,
-      title: DESKTOP_ONLY_TOOLTIP,
-    })),
-  ];
+  return ALL_RULE_TYPES.map((t) => ({
+    key: t.key,
+    icon: t.icon,
+    label: t.label,
+    onClick: () => onClick(t.key),
+  }));
 }
 
 /**
  * Build menu items using createElement (for Sidebar which avoids JSX in callbacks).
  */
 export function buildRuleTypeMenuItemsCE(onClick: (type: string) => void) {
-  return [
-    ...EXTENSION_RULE_TYPES.map((t) => ({
-      key: t.key,
-      icon: createElement((t.icon as React.ReactElement).type as React.ComponentType<Record<string, unknown>>),
-      label: t.label,
-      onClick: () => onClick(t.key),
-    })),
-    { type: 'divider' as const, key: 'div-desktop' },
-    ...DESKTOP_ONLY_RULE_TYPES.map((t) => ({
-      key: t.key,
-      icon: createElement((t.icon as React.ReactElement).type as React.ComponentType<Record<string, unknown>>),
-      label: t.label,
-      disabled: true,
-      title: DESKTOP_ONLY_TOOLTIP,
-    })),
-  ];
+  return ALL_RULE_TYPES.map((t) => ({
+    key: t.key,
+    icon: createElement((t.icon as React.ReactElement).type as React.ComponentType<Record<string, unknown>>),
+    label: t.label,
+    onClick: () => onClick(t.key),
+  }));
 }

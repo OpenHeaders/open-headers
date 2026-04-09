@@ -14,11 +14,18 @@
 
 export type RuleType = 'header' | 'redirect' | 'body' | 'inject' | 'block' | 'delay' | 'mock' | 'query-param';
 
-/** Rule types supported by the browser extension (no proxy needed). */
-export type ExtensionRuleType = 'header' | 'block' | 'redirect' | 'query-param' | 'inject';
+/**
+ * Rule types supported by the browser extension.
+ * DNR-based: header, block, redirect, query-param (declarativeNetRequest API).
+ * Script-based: inject, delay, body, mock (chrome.scripting API — monkey-patches fetch/XHR).
+ */
+export type ExtensionRuleType = 'header' | 'block' | 'redirect' | 'query-param' | 'inject' | 'delay' | 'body' | 'mock';
 
-/** Rule types that require the desktop app (proxy-based). */
-export type DesktopOnlyRuleType = 'body' | 'delay' | 'mock';
+/** DNR rule types — use declarativeNetRequest API. */
+export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
+
+/** Script-based rule types — use chrome.scripting API to monkey-patch fetch/XHR. */
+export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock';
 
 // ── Conditions ────────────────────────────────────────────────────
 
@@ -173,13 +180,19 @@ export interface DelayRule extends RuleBase {
   action: DelayAction;
 }
 
-// ── Mock rule ──────────────────────────────────────────────────────
+// ── Mock rule (Modify API Response) ──────────────────────────────
+
+/** 'static' = fixed response body. 'dynamic' = JS function that receives request context and returns modified response. */
+export type MockBodyType = 'static' | 'dynamic';
 
 export interface MockAction {
   statusCode: number;
   responseHeaders: Record<string, string>;
+  /** For static mode: the literal response body. For dynamic mode: the JavaScript function code. */
   responseBody: string;
   contentType: string;
+  /** Response body mode. Defaults to 'static'. */
+  bodyType: MockBodyType;
 }
 
 export interface MockRule extends RuleBase {

@@ -1,40 +1,48 @@
 /**
- * Inject Manager — applies V5.InjectRule via chrome.scripting API.
+ * Inject Manager — applies rules that require chrome.scripting API.
  *
- * Inject rules cannot use declarativeNetRequest — they require the scripting
- * API to execute JavaScript or insert CSS into matching pages.
+ * Handles 4 rule types that can't use declarativeNetRequest:
+ *   - inject: user-authored JS/CSS injection
+ *   - delay: monkey-patches fetch/XHR with setTimeout
+ *   - body: monkey-patches fetch/XHR to modify request/response bodies
+ *   - mock: monkey-patches fetch/XHR to return fake responses
  *
  * Architecture:
- * - Keeps the current set of inject rules in memory
+ * - Keeps the current set of scriptable rules in memory
  * - Listens to webNavigation.onCommitted for main frame navigations
- * - For each navigation, checks if the URL matches any inject rule's domains
- * - Executes script or inserts CSS using chrome.scripting
- *
- * Position mapping:
- *   'head'       → runAt: 'document_start'
- *   'body-start' → runAt: 'document_end'
- *   'body-end'   → runAt: 'document_idle'
+ * - For each navigation, checks URL matches and injects appropriate scripts
+ * - delay/body/mock inject at document_start (before page JS runs)
+ * - inject rules respect their configured position
  */
 
 declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
+import { generateBodyScript, generateDelayScript, generateMockScript } from './content-scripts';
 import { doesUrlMatchPattern } from './modules/url-utils';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-let activeInjectRules: V5.InjectRule[] = [];
+/** All scriptable rule types — inject, delay, body, mock. */
+type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule;
+
+let activeScriptableRules: ScriptableRule[] = [];
 
 // ── Public API ───────────────────────────────────────────────────
 
 /**
- * Update the set of active inject rules. Called by dnr-manager
+ * Update the set of active scriptable rules. Called by dnr-manager
  * whenever rules change.
  */
+export function updateScriptableRules(rules: ScriptableRule[]): void {
+  activeScriptableRules = rules;
+  logger.debug('InjectManager', `Updated scriptable rules: ${rules.length} active`);
+}
+
+/** @deprecated Use updateScriptableRules instead. */
 export function updateInjectRules(rules: V5.InjectRule[]): void {
-  activeInjectRules = rules;
-  logger.debug('InjectManager', `Updated inject rules: ${rules.length} active`);
+  updateScriptableRules(rules);
 }
 
 /**
@@ -51,7 +59,7 @@ export function setupInjectListener(): void {
     (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
       // Main frame only
       if (details.frameId !== 0) return;
-      if (activeInjectRules.length === 0) return;
+      if (activeScriptableRules.length === 0) return;
 
       void injectForUrl(details.tabId, details.url);
     },
@@ -60,24 +68,48 @@ export function setupInjectListener(): void {
   logger.info('InjectManager', 'Navigation listener registered');
 }
 
+// ── Helpers ──────────────────────────────────────────────────────
+
+/** Extract host domains from a rule's conditions. */
+function getHostDomains(rule: ScriptableRule): string[] {
+  return rule.conditions
+    .filter((c) => c.type === 'host' && !c.exclude)
+    .flatMap((c) => c.values)
+    .filter((v) => v.trim());
+}
+
+function urlMatchesRule(url: string, rule: ScriptableRule): boolean {
+  const domains = getHostDomains(rule);
+  return domains.length === 0 || domains.some((d) => doesUrlMatchPattern(url, d));
+}
+
 // ── Injection logic ──────────────────────────────────────────────
 
 async function injectForUrl(tabId: number, url: string): Promise<void> {
-  for (const rule of activeInjectRules) {
-    const hostConditions = rule.conditions.filter((c) => c.type === 'host' && !c.exclude);
-    const domains = hostConditions.flatMap((c) => c.values).filter((v) => v.trim());
-    const matches = domains.length === 0 || domains.some((d) => doesUrlMatchPattern(url, d));
-    if (!matches) continue;
+  for (const rule of activeScriptableRules) {
+    if (!urlMatchesRule(url, rule)) continue;
 
     try {
-      if (rule.action.injectType === 'css') {
-        await injectCSS(tabId, rule);
-      } else {
-        await injectScript(tabId, rule);
+      switch (rule.type) {
+        case 'inject':
+          if (rule.action.injectType === 'css') {
+            await injectCSS(tabId, rule);
+          } else {
+            await injectScript(tabId, rule.action.code, rule.action.position);
+          }
+          break;
+        case 'delay':
+          await injectGeneratedScript(tabId, generateDelayScript(rule), rule.name);
+          break;
+        case 'body':
+          await injectGeneratedScript(tabId, generateBodyScript(rule), rule.name);
+          break;
+        case 'mock':
+          await injectGeneratedScript(tabId, generateMockScript(rule), rule.name);
+          break;
       }
     } catch (error) {
       const msg = (error as Error).message;
-      // Silently ignore expected errors (internal pages, closed tabs)
       if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
         logger.info('InjectManager', `Failed to inject "${rule.name}" into tab ${tabId}: ${msg}`);
       }
@@ -96,20 +128,37 @@ function mapRunAt(position: V5.InjectAction['position']): 'document_start' | 'do
   }
 }
 
-async function injectScript(tabId: number, rule: V5.InjectRule): Promise<void> {
+async function injectScript(tabId: number, code: string, position: V5.InjectAction['position']): Promise<void> {
   await browserAPI.scripting.executeScript({
     target: { tabId },
-    func: (code: string) => {
+    func: (injectedCode: string) => {
       const script = document.createElement('script');
-      script.textContent = code;
+      script.textContent = injectedCode;
       (document.head || document.documentElement).appendChild(script);
       script.remove();
     },
-    args: [rule.action.code],
+    args: [code],
     world: 'MAIN' as chrome.scripting.ExecutionWorld,
-    ...(mapRunAt(rule.action.position) !== 'document_idle' ? {} : {}),
+    ...(mapRunAt(position) !== 'document_idle' ? {} : {}),
   });
-  logger.debug('InjectManager', `Injected script "${rule.name}" into tab ${tabId}`);
+  logger.debug('InjectManager', `Injected script into tab ${tabId}`);
+}
+
+/** Inject a generated script (delay/body/mock) at document_start in MAIN world. */
+async function injectGeneratedScript(tabId: number, code: string, ruleName: string): Promise<void> {
+  await browserAPI.scripting.executeScript({
+    target: { tabId },
+    func: (injectedCode: string) => {
+      const script = document.createElement('script');
+      script.textContent = injectedCode;
+      (document.head || document.documentElement).appendChild(script);
+      script.remove();
+    },
+    args: [code],
+    world: 'MAIN' as chrome.scripting.ExecutionWorld,
+    injectImmediately: true,
+  });
+  logger.debug('InjectManager', `Injected ${ruleName} into tab ${tabId}`);
 }
 
 async function injectCSS(tabId: number, rule: V5.InjectRule): Promise<void> {

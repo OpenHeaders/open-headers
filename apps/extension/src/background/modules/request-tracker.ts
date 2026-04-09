@@ -104,7 +104,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   const now = Date.now();
   const rules = getRules();
 
-  const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject']);
+  const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'mock']);
 
   for (const rule of rules) {
     if (!extensionTypes.has(rule.type)) continue;

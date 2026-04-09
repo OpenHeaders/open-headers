@@ -11,7 +11,16 @@
  * and breadcrumb renames are never overwritten by a stale form value on save.
  */
 
-import { CodeOutlined, LinkOutlined, SendOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
+import {
+  ClockCircleOutlined,
+  CodeOutlined,
+  DatabaseOutlined,
+  FileTextOutlined,
+  LinkOutlined,
+  SendOutlined,
+  StopOutlined,
+  SwapOutlined,
+} from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
@@ -20,16 +29,19 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
+import BodyRuleFields from './rule-fields/BodyRuleFields';
+import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields from './rule-fields/InjectRuleFields';
+import MockRuleFields from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 
 const { Text } = Typography;
 
-type ExtensionRuleType = 'header' | 'block' | 'redirect' | 'query-param' | 'inject';
+type EditorRuleType = V5.ExtensionRuleType;
 
-const RULE_TYPE_SEGMENTS: Array<{ value: ExtensionRuleType; label: React.ReactNode }> = [
+const RULE_TYPE_SEGMENTS: Array<{ value: EditorRuleType; label: React.ReactNode }> = [
   {
     value: 'header',
     label: (
@@ -75,6 +87,33 @@ const RULE_TYPE_SEGMENTS: Array<{ value: ExtensionRuleType; label: React.ReactNo
       </span>
     ),
   },
+  {
+    value: 'body',
+    label: (
+      <span>
+        <FileTextOutlined style={{ marginRight: 5, color: '#fa8c16' }} />
+        Body
+      </span>
+    ),
+  },
+  {
+    value: 'delay',
+    label: (
+      <span>
+        <ClockCircleOutlined style={{ marginRight: 5, color: '#eb2f96' }} />
+        Delay
+      </span>
+    ),
+  },
+  {
+    value: 'mock',
+    label: (
+      <span>
+        <DatabaseOutlined style={{ marginRight: 5, color: '#1890ff' }} />
+        API Response
+      </span>
+    ),
+  },
 ];
 
 const RULE_TYPE_TITLE: Record<string, string> = {
@@ -83,6 +122,9 @@ const RULE_TYPE_TITLE: Record<string, string> = {
   redirect: 'Redirect Rule',
   'query-param': 'Query Param Rule',
   inject: 'Inject Rule',
+  body: 'Body Rule',
+  delay: 'Delay Rule',
+  mock: 'API Response Rule',
 };
 
 interface RuleEditorProps {
@@ -113,7 +155,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { rules, createLocalRule, updateLocalRule, localCollections } = useRules();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
-  const selectedType = Form.useWatch('ruleType', form) as ExtensionRuleType | undefined;
+  const selectedType = Form.useWatch('ruleType', form) as EditorRuleType | undefined;
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
 
@@ -203,6 +245,34 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           });
           break;
         }
+        case 'delay': {
+          const dr = rule as V5.DelayRule;
+          form.setFieldsValue({ ...baseValues, delayMs: dr.action.delayMs });
+          break;
+        }
+        case 'body': {
+          const br = rule as V5.BodyRule;
+          form.setFieldsValue({
+            ...baseValues,
+            bodyMatchType: br.action.matchType,
+            bodyMatchPattern: br.action.matchPattern,
+            bodyReplaceWith: br.action.replaceWith,
+            bodyIsRequest: br.action.isRequest,
+            bodyIsResponse: br.action.isResponse,
+          });
+          break;
+        }
+        case 'mock': {
+          const mr = rule as V5.MockRule;
+          form.setFieldsValue({
+            ...baseValues,
+            mockStatusCode: mr.action.statusCode,
+            mockContentType: mr.action.contentType,
+            mockResponseBody: mr.action.responseBody,
+            mockBodyType: mr.action.bodyType || 'static',
+          });
+          break;
+        }
       }
     } else if (mode === 'create' && ruleType) {
       initializedRef.current = true;
@@ -219,6 +289,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         injectCode: '',
         injectPosition: 'body-end',
         queryParams: [{ param: '', value: '', operation: 'add' }],
+        mockBodyType: 'static',
       });
     }
   }, [mode, ruleType, ruleUid, rules, form]);
@@ -284,6 +355,37 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               position: formValues.injectPosition as V5.InjectAction['position'],
             },
           } as Omit<V5.InjectRule, 'uid' | 'path'>;
+        case 'delay':
+          return {
+            ...base,
+            type: 'delay',
+            action: { delayMs: (formValues.delayMs as number) || 0 },
+          } as Omit<V5.DelayRule, 'uid' | 'path'>;
+        case 'body':
+          return {
+            ...base,
+            type: 'body',
+            action: {
+              matchPattern: (formValues.bodyMatchPattern as string) ?? '',
+              matchType: (formValues.bodyMatchType as V5.MatchType) ?? 'contains',
+              replaceWith: (formValues.bodyReplaceWith as string) ?? '',
+              isRequest: (formValues.bodyIsRequest as boolean) ?? true,
+              isResponse: (formValues.bodyIsResponse as boolean) ?? false,
+              contentType: 'any' as V5.ContentType,
+            },
+          } as Omit<V5.BodyRule, 'uid' | 'path'>;
+        case 'mock':
+          return {
+            ...base,
+            type: 'mock',
+            action: {
+              statusCode: (formValues.mockStatusCode as number) || 200,
+              responseBody: (formValues.mockResponseBody as string) ?? '',
+              contentType: (formValues.mockContentType as string) ?? 'application/json',
+              responseHeaders: {},
+              bodyType: ((formValues.mockBodyType as string) ?? 'static') as V5.MockBodyType,
+            },
+          } as Omit<V5.MockRule, 'uid' | 'path'>;
         default:
           return null;
       }
@@ -386,6 +488,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         {selectedType === 'redirect' && <RedirectRuleFields />}
         {selectedType === 'query-param' && <QueryParamRuleFields />}
         {selectedType === 'inject' && <InjectRuleFields />}
+        {selectedType === 'delay' && <DelayRuleFields />}
+        {selectedType === 'body' && <BodyRuleFields />}
+        {selectedType === 'mock' && <MockRuleFields />}
 
         {/* ── Conditions section ── */}
         <div style={{ marginBottom: 20 }}>

@@ -31,7 +31,7 @@ export type {
   ContentType,
   DelayAction,
   DelayRule,
-  DesktopOnlyRuleType,
+  DnrRuleType,
   ExtensionRuleType,
   HeaderAction,
   HeaderOperation,
@@ -41,6 +41,7 @@ export type {
   InjectType,
   MatchType,
   MockAction,
+  MockBodyType,
   MockRule,
   QueryParamAction,
   QueryParamEntry,
@@ -54,7 +55,8 @@ export type {
   RuleCondition,
   RuleType,
 } from './rule';
-
+// ── Storage ────────────────────────────────────────────────────────
+export { V5_GITIGNORE } from './storage';
 // ── Variable ───────────────────────────────────────────────────────
 export type {
   Environment,
@@ -66,9 +68,5 @@ export type {
   VaultSecret,
   WorkspaceVariables,
 } from './variable';
-
 // ── Workspace ──────────────────────────────────────────────────────
 export type { Workspace, WorkspaceSection } from './workspace';
-
-// ── Storage ────────────────────────────────────────────────────────
-export { V5_GITIGNORE } from './storage';

@@ -16,9 +16,9 @@ import type { V5 } from '@openheaders/core/types';
 import { isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from './dnr-builders';
 import type { DnrBuilder, DnrRule } from './dnr-builders';
-import { updateInjectRules } from './inject-manager';
+import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from './dnr-builders';
+import { updateScriptableRules } from './inject-manager';
 
 // ── Cached state ─────────────────────────────────────────────────
 
@@ -70,13 +70,16 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
     clearAllDnrRules();
-    updateInjectRules([]);
+    updateScriptableRules([]);
     return;
   }
 
   const dnrRules: DnrRule[] = [];
-  const injectRules: V5.InjectRule[] = [];
+  const scriptableRules: Array<V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule> = [];
   let ruleId = 1;
+
+  /** Rule types handled by content script injection (not DNR). */
+  const scriptableTypes = new Set(['inject', 'delay', 'body', 'mock']);
 
   for (const rule of rules) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
@@ -84,15 +87,15 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
     // Check collection/folder pausing
     if (isPathPausedByAncestor(rule.path, pausedGroups)) continue;
 
-    // Route inject rules to inject-manager
-    if (rule.type === 'inject') {
-      injectRules.push(rule as V5.InjectRule);
+    // Route scriptable rules to inject-manager
+    if (scriptableTypes.has(rule.type)) {
+      scriptableRules.push(rule as V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule);
       continue;
     }
 
     // Look up the DNR builder for this rule type
     const builder = dnrBuilders[rule.type];
-    if (!builder) continue; // body, delay, mock — not supported in extension
+    if (!builder) continue;
 
     const newRules = builder.build(rule, ruleId);
     dnrRules.push(...newRules);
@@ -100,7 +103,7 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
   }
 
   applyDnrRules(dnrRules);
-  updateInjectRules(injectRules);
+  updateScriptableRules(scriptableRules);
 }
 
 // ── DNR rule application ─────────────────────────────────────────

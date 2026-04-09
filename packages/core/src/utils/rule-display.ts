@@ -6,7 +6,16 @@
  * DNR priority constants, and human-readable operation tooltips.
  */
 
-import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule } from '../types/v5/rule';
+import type {
+  BodyRule,
+  DelayRule,
+  HeaderRule,
+  InjectRule,
+  MockRule,
+  QueryParamRule,
+  RedirectRule,
+  Rule,
+} from '../types/v5/rule';
 
 // ── Action detail ────────────────────────────────────────────────
 
@@ -88,8 +97,36 @@ export function getActionDetail(rule: Rule): ActionDetail {
         tooltip: ir.action.injectType === 'css' ? 'Injects stylesheet into page' : 'Injects JavaScript into page',
       };
     }
-    default:
-      return { ruleType: rule.type, label: '', value: '', tooltip: rule.type };
+    case 'delay':
+      return {
+        ruleType: 'delay',
+        label: `${(rule as DelayRule).action.delayMs}ms`,
+        value: '',
+        tooltip: 'Delays network requests (fetch/XHR)',
+      };
+    case 'body': {
+      const br = rule as BodyRule;
+      const dir =
+        br.action.isRequest && br.action.isResponse ? 'req+resp' : br.action.isRequest ? 'request' : 'response';
+      return {
+        ruleType: 'body',
+        direction: br.action.isRequest ? 'request' : 'response',
+        label: dir,
+        value: br.action.matchPattern || '',
+        tooltip: 'Modifies request/response body (fetch/XHR)',
+      };
+    }
+    case 'mock':
+      return {
+        ruleType: 'mock',
+        label: `${(rule as MockRule).action.statusCode}`,
+        value: (rule as MockRule).action.contentType || '',
+        tooltip: 'Overrides API response (fetch/XHR)',
+      };
+    default: {
+      const _exhaustive: never = rule;
+      return { ruleType: (rule as Rule).type, label: '', value: '', tooltip: (rule as Rule).type };
+    }
   }
 }
 

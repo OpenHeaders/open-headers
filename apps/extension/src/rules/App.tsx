@@ -39,6 +39,9 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   redirect: 'Redirect Rule',
   'query-param': 'Query Param Rule',
   inject: 'Inject Rule',
+  delay: 'Delay Rule',
+  body: 'Body Rule',
+  mock: 'API Response Rule',
 };
 
 // ── Inner component (needs RuleContext) ────────────────────────────
@@ -155,6 +158,40 @@ const RulesAppInner: React.FC = () => {
               type: 'inject',
               action: { injectType: 'script', code: '', position: 'body-end' },
             } as Omit<V5.InjectRule, 'uid' | 'path'>;
+            break;
+          case 'delay':
+            rule = {
+              ...base,
+              type: 'delay',
+              action: { delayMs: 1000 },
+            } as Omit<V5.DelayRule, 'uid' | 'path'>;
+            break;
+          case 'body':
+            rule = {
+              ...base,
+              type: 'body',
+              action: {
+                matchPattern: '',
+                matchType: 'contains',
+                replaceWith: '',
+                isRequest: true,
+                isResponse: false,
+                contentType: 'any',
+              },
+            } as Omit<V5.BodyRule, 'uid' | 'path'>;
+            break;
+          case 'mock':
+            rule = {
+              ...base,
+              type: 'mock',
+              action: {
+                statusCode: 200,
+                responseBody: '',
+                contentType: 'application/json',
+                responseHeaders: {},
+                bodyType: 'static',
+              },
+            } as Omit<V5.MockRule, 'uid' | 'path'>;
             break;
           default:
             return;
@@ -331,7 +368,7 @@ const RulesAppInner: React.FC = () => {
     const parts = hash.split('/');
     if (parts[0] === 'create' && parts[1]) openCreateTab(parts[1]);
     else if (parts[0] === 'edit' && parts[1]) openEditTab(parts[1]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: one-shot hash routing — only re-run when initial data loads, not on callback identity changes
   }, [isStatusLoaded]);
 
   // ── Sync tab labels with rule changes ─────────────────────────
