@@ -48,6 +48,7 @@ const RulesAppInner: React.FC = () => {
   const { token } = theme.useToken();
   const {
     rules,
+    isStatusLoaded,
     deleteLocalRule,
     updateLocalRule,
     localCollections,
@@ -316,16 +317,22 @@ const RulesAppInner: React.FC = () => {
     }
   }, [activeTabId, pendingRenameTabId]);
 
-  // ── Initial hash ──────────────────────────────────────────────
+  // ── Initial hash — deferred until data is loaded ───────────────
+  // Must wait for isStatusLoaded so localCollections is populated.
+  // Without this, openCreateTab sees empty collections and creates
+  // a duplicate "My Rules" collection every time.
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run once on mount — hash routing is a one-shot action
+  const hashProcessedRef = useRef(false);
   useEffect(() => {
+    if (!isStatusLoaded || hashProcessedRef.current) return;
+    hashProcessedRef.current = true;
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (!hash) return;
     const parts = hash.split('/');
     if (parts[0] === 'create' && parts[1]) openCreateTab(parts[1]);
     else if (parts[0] === 'edit' && parts[1]) openEditTab(parts[1]);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStatusLoaded]);
 
   // ── Sync tab labels with rule changes ─────────────────────────
 
