@@ -185,7 +185,7 @@ const RulesAppInner: React.FC = () => {
               ...base,
               type: 'mock',
               action: {
-                statusCode: 200,
+                statusCode: 0,
                 responseBody: '',
                 contentType: 'application/json',
                 responseHeaders: {},

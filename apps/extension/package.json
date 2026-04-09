@@ -30,8 +30,10 @@
     "@openheaders/core": "workspace:*",
     "allotment": "^1.20.5",
     "antd": "^6.3.5",
+    "prismjs": "^1.30.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-simple-code-editor": "^0.14.1",
     "rrweb": "^2.0.0-alpha.18",
     "rrweb-player": "^2.0.0-alpha.18",
     "styled-components": "^6.1.6"
@@ -41,6 +43,7 @@
     "@testing-library/react": "^16.3.2",
     "@types/archiver": "^7.0.0",
     "@types/chrome": "^0.1.38",
+    "@types/prismjs": "^1.26.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",

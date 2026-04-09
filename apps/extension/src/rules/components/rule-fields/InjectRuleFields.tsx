@@ -1,13 +1,17 @@
 /**
- * InjectRuleFields — type toggle, position, code.
+ * InjectRuleFields — type toggle, position, code with syntax highlighting.
  */
 
-import { Form, Input, Radio, Select, Typography } from 'antd';
+import { Form, Radio, Select, Typography } from 'antd';
 import type React from 'react';
+import CodeEditor from '../CodeEditor';
 
 const { Text } = Typography;
 
 const InjectRuleFields: React.FC = () => {
+  const injectType = Form.useWatch('injectType');
+  const language = injectType === 'css' ? 'css' : 'javascript';
+
   return (
     <>
       {/* Row 1: Type toggle + Position — all inline */}
@@ -38,16 +42,14 @@ const InjectRuleFields: React.FC = () => {
         }
         style={{ marginBottom: 16 }}
       >
-        <Input.TextArea
-          placeholder="Enter JavaScript or CSS code..."
-          autoSize={{ minRows: 8, maxRows: 24 }}
-          style={{
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-            fontSize: 13,
-            lineHeight: 1.5,
-            borderRadius: 8,
-            padding: '10px 14px',
-          }}
+        <CodeEditor
+          language={language}
+          placeholder={
+            language === 'css'
+              ? '/* Enter CSS rules */\nbody {\n  background: #f0f0f0;\n}'
+              : '// Enter JavaScript code\nconsole.log("Hello from Open Headers");'
+          }
+          minHeight={180}
         />
       </Form.Item>
     </>

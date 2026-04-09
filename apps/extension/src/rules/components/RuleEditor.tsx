@@ -266,7 +266,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           const mr = rule as V5.MockRule;
           form.setFieldsValue({
             ...baseValues,
-            mockStatusCode: mr.action.statusCode,
+            mockStatusCode: mr.action.statusCode || undefined,
             mockContentType: mr.action.contentType,
             mockResponseBody: mr.action.responseBody,
             mockBodyType: mr.action.bodyType || 'static',
@@ -379,7 +379,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             ...base,
             type: 'mock',
             action: {
-              statusCode: (formValues.mockStatusCode as number) || 200,
+              statusCode: (formValues.mockStatusCode as number) || 0,
               responseBody: (formValues.mockResponseBody as string) ?? '',
               contentType: (formValues.mockContentType as string) ?? 'application/json',
               responseHeaders: {},

@@ -8,11 +8,12 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Form, Input, Radio, Select, Tooltip, Typography } from 'antd';
+import { Alert, Form, Radio, Select, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { useEffect, useRef } from 'react';
+import CodeEditor from '../CodeEditor';
 
 const { Text } = Typography;
-const { TextArea } = Input;
 
 const STATUS_CODES = [
   {
@@ -112,7 +113,20 @@ const DYNAMIC_TEMPLATE = `function modifyResponse(args) {
 }`;
 
 const MockRuleFields: React.FC = () => {
+  const form = Form.useFormInstance();
   const bodyType = Form.useWatch('mockBodyType');
+  const prevBodyTypeRef = useRef(bodyType);
+
+  // Prefill template when switching to dynamic mode with empty body
+  useEffect(() => {
+    if (bodyType === 'dynamic' && prevBodyTypeRef.current !== 'dynamic') {
+      const currentBody = form.getFieldValue('mockResponseBody') as string;
+      if (!currentBody?.trim()) {
+        form.setFieldValue('mockResponseBody', DYNAMIC_TEMPLATE);
+      }
+    }
+    prevBodyTypeRef.current = bodyType;
+  }, [bodyType, form]);
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -129,10 +143,10 @@ const MockRuleFields: React.FC = () => {
         </Text>
         <Form.Item name="mockStatusCode" style={{ marginBottom: 0 }}>
           <Select
-            allowClear
+            allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
             showSearch
-            placeholder="Returns original code if left empty"
-            options={STATUS_CODES}
+            placeholder="Keep original status code"
+            options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
             style={{ width: '100%' }}
             filterOption={(input, option) => {
               const label = String(option?.label ?? '');
@@ -178,11 +192,11 @@ const MockRuleFields: React.FC = () => {
         )}
 
         <Form.Item name="mockResponseBody" style={{ marginBottom: 0 }}>
-          <TextArea
-            rows={bodyType === 'dynamic' ? 12 : 8}
-            placeholder={bodyType === 'dynamic' ? DYNAMIC_TEMPLATE : '{"message": "custom response", "data": []}'}
-            style={{ fontFamily: 'monospace', fontSize: 12 }}
-          />
+          {bodyType === 'dynamic' ? (
+            <CodeEditor language="javascript" minHeight={240} />
+          ) : (
+            <CodeEditor language="json" placeholder={'{"message": "custom response", "data": []}'} minHeight={160} />
+          )}
         </Form.Item>
       </div>
     </div>
