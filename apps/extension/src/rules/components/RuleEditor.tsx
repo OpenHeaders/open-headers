@@ -18,7 +18,7 @@ import { runtime } from '@utils/browser-api';
 import { App, Form, Segmented, Switch, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import DomainTags from './DomainTags';
+import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields from './rule-fields/InjectRuleFields';
@@ -152,10 +152,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       if (!rule) return;
       initializedRef.current = true;
 
-      const domains = rule.conditions.filter((c) => c.type === 'host' && !c.exclude).flatMap((c) => c.values);
       const baseValues = {
         ruleType: rule.type,
-        domains,
+        conditions: rule.conditions,
       };
 
       switch (rule.type) {
@@ -209,7 +208,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       initializedRef.current = true;
       form.setFieldsValue({
         ruleType,
-        domains: [],
+        conditions: [],
         headerOperation: 'override',
         isResponse: false,
         staticValue: '',
@@ -235,9 +234,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const buildRule = useCallback(
     (formValues: Record<string, unknown>): Omit<V5.Rule, 'uid' | 'path'> | null => {
-      const domainValues = Array.isArray(formValues.domains) ? (formValues.domains as string[]) : [];
-      const conditions: V5.RuleCondition[] =
-        domainValues.length > 0 ? [{ type: 'host' as const, operator: 'contains' as const, values: domainValues }] : [];
+      const conditions = Array.isArray(formValues.conditions) ? (formValues.conditions as V5.RuleCondition[]) : [];
       const base = { name: ruleName, enabled: isEnabled, conditions };
 
       switch (formValues.ruleType) {
@@ -390,21 +387,18 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         {selectedType === 'query-param' && <QueryParamRuleFields />}
         {selectedType === 'inject' && <InjectRuleFields />}
 
-        {/* ── Domains section ── */}
+        {/* ── Conditions section ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ marginBottom: 6 }}>
             <Text strong style={{ fontSize: 13 }}>
-              Domains
+              Conditions
             </Text>
           </div>
           <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}>
-            Separate multiple domains with Enter or comma. Use * as wildcard. Press Backspace to delete last domain.
-            <br />
-            Examples: localhost:3001 &middot; openheaders.io &middot; *.openheaders.io &middot; {'{{DOMAIN_VAR}}'}{' '}
-            &middot; {'{{BASE_URL}}'}.com &middot; 192.168.1.1
+            All conditions must match for this rule to fire (AND logic). Add at least one condition.
           </div>
-          <Form.Item name="domains" style={{ marginBottom: 0 }}>
-            <DomainTags />
+          <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+            <ConditionEditor />
           </Form.Item>
         </div>
       </Form>

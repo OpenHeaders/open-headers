@@ -160,6 +160,112 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
 
 export type { ActionDetail } from '@openheaders/core/utils';
 
+// ── Conditions summary ──────────────────────────────────────────
+
+const CONDITION_TYPE_SHORT: Record<string, string> = {
+  host: '',
+  url: 'URL',
+  path: 'Path',
+  method: 'Method',
+  'resource-type': 'Type',
+  'domain-type': 'Domain',
+  initiator: 'From',
+  'request-header': 'Req Hdr',
+  'response-header': 'Resp Hdr',
+};
+
+/** Render a compact conditions summary for table columns. */
+export function renderConditionsSummary(
+  conditions: Array<{ type: string; operator: string; values: string[]; exclude?: boolean; headerName?: string }>,
+  showAllDomains = true,
+): React.ReactNode {
+  if (!conditions || conditions.length === 0) {
+    return showAllDomains ? (
+      <Tag variant="outlined" color="default">
+        No conditions
+      </Tag>
+    ) : null;
+  }
+
+  // Simple case: single host condition — show as domain tags (most common)
+  const hostConditions = conditions.filter((c) => c.type === 'host' && !c.exclude);
+  const otherConditions = conditions.filter((c) => c.type !== 'host' || c.exclude);
+
+  const elements: React.ReactNode[] = [];
+
+  // Show host domains first (most common)
+  if (hostConditions.length > 0) {
+    const allDomains = hostConditions.flatMap((c) => c.values);
+    elements.push(...renderDomainTagsAsArray(allDomains));
+  }
+
+  // Show other conditions as compact tags
+  for (const cond of otherConditions) {
+    const prefix = CONDITION_TYPE_SHORT[cond.type] ?? cond.type;
+    const summary = cond.values.length > 0 ? cond.values.slice(0, 2).join(', ') : '';
+    const label = prefix ? `${prefix}: ${summary}` : summary;
+    elements.push(
+      <Tag
+        key={`${cond.type}-${cond.exclude ? 'ex' : ''}`}
+        variant="outlined"
+        color={cond.exclude ? 'warning' : 'default'}
+        style={{ fontSize: '11px', cursor: 'default', margin: 0 }}
+      >
+        {cond.exclude ? 'NOT ' : ''}
+        {label.length > 20 ? `${label.substring(0, 18)}…` : label}
+      </Tag>,
+    );
+  }
+
+  if (elements.length === 0) {
+    return showAllDomains ? (
+      <Tag variant="outlined" color="default">
+        All domains
+      </Tag>
+    ) : null;
+  }
+
+  const tooltip = (
+    <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
+      {conditions.map((c, i) => (
+        <div key={i} style={{ marginBottom: i < conditions.length - 1 ? 2 : 0 }}>
+          <span style={{ opacity: 0.6 }}>
+            {c.exclude ? 'NOT ' : ''}
+            {CONDITION_TYPE_SHORT[c.type] || c.type}
+            {c.headerName ? ` [${c.headerName}]` : ''} {c.operator}:{' '}
+          </span>
+          {c.values.join(', ')}
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <Tooltip title={tooltip} styles={{ root: { maxWidth: 500 } }}>
+      <Space size={2}>{elements}</Space>
+    </Tooltip>
+  );
+}
+
+/** Internal helper: convert domain strings to Tag elements. */
+function renderDomainTagsAsArray(domains: string[]): React.ReactNode[] {
+  if (domains.length === 0) return [];
+  const first = domains[0].length > 14 ? `${domains[0].substring(0, 14)}…` : domains[0];
+  const elements: React.ReactNode[] = [
+    <Tag key="d0" variant="outlined" style={{ fontSize: '12px', cursor: 'default', margin: 0 }}>
+      {first}
+    </Tag>,
+  ];
+  if (domains.length > 1) {
+    elements.push(
+      <Tag key="d-overflow" variant="outlined" style={{ fontSize: '12px', cursor: 'default', margin: 0 }}>
+        +{domains.length - 1}
+      </Tag>,
+    );
+  }
+  return elements;
+}
+
 // ── Rule type icon with operation color ─────────────────────────
 
 const HEADER_OP_COLOR: Record<string, string> = {
@@ -197,18 +303,12 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
     <div style={{ fontSize: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {detail.direction && (
-          <Tag
-            variant="outlined"
-            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
-          >
+          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
             {detail.direction === 'response' ? '↓' : '↑'}
           </Tag>
         )}
         {opLabel && (
-          <Tag
-            variant="outlined"
-            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
-          >
+          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
             {opLabel}
           </Tag>
         )}
@@ -216,10 +316,7 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
       </div>
       {detail.label && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <Tag
-            variant="outlined"
-            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
-          >
+          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
             Header Name
           </Tag>
           <span style={{ opacity: 0.7, wordBreak: 'break-all' }}>{detail.label}</span>
@@ -227,10 +324,7 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
       )}
       {detail.value && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <Tag
-            variant="outlined"
-            style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}
-          >
+          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
             Header Value
           </Tag>
           <span style={{ opacity: 0.7, wordBreak: 'break-all' }}>{detail.value}</span>

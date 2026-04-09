@@ -318,14 +318,14 @@ const RulesAppInner: React.FC = () => {
 
   // ── Initial hash ──────────────────────────────────────────────
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run once on mount — hash routing is a one-shot action
   useEffect(() => {
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (!hash) return;
     const parts = hash.split('/');
     if (parts[0] === 'create' && parts[1]) openCreateTab(parts[1]);
     else if (parts[0] === 'edit' && parts[1]) openEditTab(parts[1]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openCreateTab, openEditTab]);
+  }, []);
 
   // ── Sync tab labels with rule changes ─────────────────────────
 

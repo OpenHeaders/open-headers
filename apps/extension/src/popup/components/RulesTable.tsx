@@ -31,7 +31,7 @@ import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from
 import {
   type ActionDetail,
   renderActionDetails,
-  renderDomainTags,
+  renderConditionsSummary,
   truncateValue,
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
@@ -78,6 +78,7 @@ interface TableRecord {
   ruleType: V5.RuleType;
   actionDetail: ActionDetail;
   domains: string[];
+  conditions: V5.RuleCondition[];
   isEnabled: boolean;
   isComplete: boolean;
   statusRank: StatusRank;
@@ -143,6 +144,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
         ruleType: rule.type,
         actionDetail: getActionDetail(rule),
         domains: rule.conditions.filter((c) => c.type === 'host' && !c.exclude).flatMap((c) => c.values),
+        conditions: rule.conditions,
         isEnabled,
         isComplete: complete,
         statusRank,
@@ -324,10 +326,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
       render: (_: unknown, record: TableRecord) => renderActionDetails(record.actionDetail),
     },
     {
-      title: 'Domains',
-      dataIndex: 'domains',
-      key: 'domains',
-      width: 110,
+      title: 'Conditions',
+      dataIndex: 'conditions',
+      key: 'conditions',
+      width: 120,
       sorter: (a, b) => a.domains.join(',').localeCompare(b.domains.join(',')),
       filters: [...new Set(dataSource.flatMap((item) => item.domains))].map((domain) => ({
         text: domain,
@@ -336,8 +338,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
       filteredValue: filteredInfo.domains || null,
       filterSearch: true,
       onFilter: (value, record) => record.domains.includes(value as string),
-      sortOrder: sortedInfo.columnKey === 'domains' ? sortedInfo.order : null,
-      render: (domains: string[]) => renderDomainTags(domains, false),
+      sortOrder: sortedInfo.columnKey === 'conditions' ? sortedInfo.order : null,
+      render: (_: unknown, record: TableRecord) => renderConditionsSummary(record.conditions, false),
     },
     {
       title: 'Type',

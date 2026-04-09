@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { getBrowserAPI } from '@/types/browser';
 import type { PageInfo, RowActions } from '../utils/table-shared';
-import { renderActionDetails, renderDomainTags } from './columns/sharedColumnRenderers';
+import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
 
 const { Text } = Typography;
 
@@ -33,6 +33,7 @@ interface CollectionTreeRecord {
   ruleType?: V5.RuleType;
   actionDetail?: ActionDetail;
   domains?: string[];
+  conditions?: V5.RuleCondition[];
   isEnabled?: boolean;
   isComplete?: boolean;
   ruleCount?: number;
@@ -78,6 +79,7 @@ function treeNodesToRecords(
         ruleType: node.ruleType,
         actionDetail: rule ? getActionDetail(rule) : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
         domains: rule ? rule.conditions.filter((c) => c.type === 'host' && !c.exclude).flatMap((c) => c.values) : [],
+        conditions: rule?.conditions ?? [],
         isEnabled: node.enabled,
         isComplete: rule ? isRuleComplete(rule) : true,
         isAncestorPaused: ancestorPaused,
@@ -400,12 +402,12 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       },
     },
     {
-      title: 'Domains',
-      key: 'domains',
-      width: 100,
+      title: 'Conditions',
+      key: 'conditions',
+      width: 110,
       render: (_: unknown, record: CollectionTreeRecord) => {
-        if (record.nodeType === 'rule' && record.domains) {
-          return renderDomainTags(record.domains, false);
+        if (record.nodeType === 'rule' && record.conditions) {
+          return renderConditionsSummary(record.conditions, false);
         }
         return null;
       },
