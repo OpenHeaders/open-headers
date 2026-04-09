@@ -39,6 +39,7 @@ export type {
   HeaderRule,
   InjectAction,
   InjectRule,
+  InjectSource,
   InjectType,
   MockAction,
   MockBodyType,

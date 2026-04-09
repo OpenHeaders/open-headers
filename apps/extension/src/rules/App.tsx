@@ -156,7 +156,7 @@ const RulesAppInner: React.FC = () => {
             rule = {
               ...base,
               type: 'inject',
-              action: { injectType: 'script', code: '', position: 'body-end' },
+              action: { injectType: 'script', source: 'code', code: '', position: 'body-end' },
             } as Omit<V5.InjectRule, 'uid' | 'path'>;
             break;
           case 'delay':

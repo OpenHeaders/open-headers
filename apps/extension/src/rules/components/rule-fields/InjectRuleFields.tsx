@@ -1,57 +1,128 @@
 /**
- * InjectRuleFields — type toggle, position, code with syntax highlighting.
+ * InjectRuleFields — language, code source, position, and code/URL editor.
+ *
+ * 4 combinations:
+ *   JS + CODE  — syntax-highlighted JS editor, prefilled with <script> template
+ *   JS + URL   — URL input + read-only <script src="..."> preview
+ *   CSS + CODE — syntax-highlighted CSS editor, prefilled with <style> template
+ *   CSS + URL  — URL input + read-only <link href="..."> preview
  */
 
-import { Form, Radio, Select, Typography } from 'antd';
+import { Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
+import { useEffect, useRef } from 'react';
 import CodeEditor from '../CodeEditor';
 
 const { Text } = Typography;
 
+const TEMPLATES = {
+  js: '<script type="text/javascript">\n  console.log("Hello World");\n</script>',
+  css: '<style>\n  body {\n    background-color: #fff;\n  }\n</style>',
+  'js-url':
+    '<script src="{{scriptURL}}" type="text/javascript">\n  // Custom attributes to the script can be added here.\n  // Everything else will be ignored.\n</script>',
+  'css-url':
+    '<link href="{{scriptURL}}" rel="stylesheet" type="text/css">\n<!--\n  Custom attributes to the script can be added here.\n  Everything else will be ignored\n-->',
+};
+
 const InjectRuleFields: React.FC = () => {
+  const form = Form.useFormInstance();
   const injectType = Form.useWatch('injectType');
+  const codeSource = Form.useWatch('injectSource');
   const language = injectType === 'css' ? 'css' : 'javascript';
+  const prevTypeRef = useRef(injectType);
+
+  // Prefill code template when empty or when switching language
+  useEffect(() => {
+    const code = form.getFieldValue('injectCode') as string;
+    const templateValues = Object.values(TEMPLATES);
+    const isTemplate = !code?.trim() || templateValues.includes(code);
+    if (isTemplate) {
+      form.setFieldValue('injectCode', injectType === 'css' ? TEMPLATES.css : TEMPLATES.js);
+    }
+    prevTypeRef.current = injectType;
+  }, [injectType, form]);
+
+  const urlPreview = injectType === 'css' ? TEMPLATES['css-url'] : TEMPLATES['js-url'];
 
   return (
     <>
-      {/* Row 1: Type toggle + Position — all inline */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-        <Form.Item name="injectType" style={{ marginBottom: 0 }}>
-          <Radio.Group optionType="button" buttonStyle="solid" size="small">
-            <Radio.Button value="script">JavaScript</Radio.Button>
-            <Radio.Button value="css">CSS</Radio.Button>
-          </Radio.Group>
-        </Form.Item>
+      {/* Row 1: Language + Code Source + Insert timing — all inline */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            Language:
+          </Text>
+          <Form.Item name="injectType" style={{ marginBottom: 0 }}>
+            <Select
+              size="small"
+              style={{ width: 90 }}
+              options={[
+                { value: 'script', label: 'JS' },
+                { value: 'css', label: 'CSS' },
+              ]}
+            />
+          </Form.Item>
+        </div>
 
-        <Form.Item name="injectPosition" style={{ marginBottom: 0, width: 220 }}>
-          <Select>
-            <Select.Option value="head">Document Start (head)</Select.Option>
-            <Select.Option value="body-start">Document End (body start)</Select.Option>
-            <Select.Option value="body-end">Document Idle (body end)</Select.Option>
-          </Select>
-        </Form.Item>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            Code Source:
+          </Text>
+          <Form.Item name="injectSource" style={{ marginBottom: 0 }}>
+            <Select
+              size="small"
+              style={{ width: 90 }}
+              options={[
+                { value: 'code', label: 'CODE' },
+                { value: 'url', label: 'URL' },
+              ]}
+            />
+          </Form.Item>
+        </div>
+
+        {injectType !== 'css' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Insert:
+            </Text>
+            <Form.Item name="injectPosition" style={{ marginBottom: 0 }}>
+              <Select
+                size="small"
+                style={{ width: 170 }}
+                options={[
+                  { value: 'body-end', label: 'After Page Load' },
+                  { value: 'head', label: 'As Soon As Possible' },
+                ]}
+              />
+            </Form.Item>
+          </div>
+        )}
       </div>
 
-      {/* Code editor */}
-      <Form.Item
-        name="injectCode"
-        label={
-          <Text type="secondary" style={{ fontSize: 12 }}>
+      {/* URL mode */}
+      {codeSource === 'url' ? (
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+            Source
+          </Text>
+          <Form.Item name="injectSourceUrl" style={{ marginBottom: 8 }}>
+            <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
+          </Form.Item>
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
             Code
           </Text>
-        }
-        style={{ marginBottom: 16 }}
-      >
-        <CodeEditor
-          language={language}
-          placeholder={
-            language === 'css'
-              ? '/* Enter CSS rules */\nbody {\n  background: #f0f0f0;\n}'
-              : '// Enter JavaScript code\nconsole.log("Hello from Open Headers");'
-          }
-          minHeight={180}
-        />
-      </Form.Item>
+          <CodeEditor language={language} value={urlPreview} readOnly minHeight={100} />
+        </div>
+      ) : (
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+            Code
+          </Text>
+          <Form.Item name="injectCode" style={{ marginBottom: 0 }}>
+            <CodeEditor language={language} minHeight={180} />
+          </Form.Item>
+        </div>
+      )}
     </>
   );
 };

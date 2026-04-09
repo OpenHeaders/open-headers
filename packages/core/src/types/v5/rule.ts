@@ -149,9 +149,17 @@ export interface BodyRule extends RuleBase {
 
 export type InjectType = 'script' | 'css';
 
+/** 'code' = inline code. 'url' = load from external URL. */
+export type InjectSource = 'code' | 'url';
+
 export interface InjectAction {
   injectType: InjectType;
+  /** Inline code (when source is 'code'). */
   code: string;
+  /** External URL to load script/CSS from (when source is 'url'). */
+  sourceUrl?: string;
+  /** Code source mode. Defaults to 'code'. */
+  source: InjectSource;
   /** Where to inject: head, body-start, body-end. */
   position: 'head' | 'body-start' | 'body-end';
 }

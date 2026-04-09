@@ -92,7 +92,13 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     try {
       switch (rule.type) {
         case 'inject':
-          if (rule.action.injectType === 'css') {
+          if (rule.action.source === 'url' && rule.action.sourceUrl) {
+            if (rule.action.injectType === 'css') {
+              await injectCSSUrl(tabId, rule.action.sourceUrl);
+            } else {
+              await injectScriptUrl(tabId, rule.action.sourceUrl);
+            }
+          } else if (rule.action.injectType === 'css') {
             await injectCSS(tabId, rule);
           } else {
             await injectScript(tabId, rule.action.code, rule.action.position);
@@ -167,4 +173,35 @@ async function injectCSS(tabId: number, rule: V5.InjectRule): Promise<void> {
     css: rule.action.code,
   });
   logger.debug('InjectManager', `Injected CSS "${rule.name}" into tab ${tabId}`);
+}
+
+/** Inject an external script by URL — creates a <script src="..."> tag in MAIN world. */
+async function injectScriptUrl(tabId: number, url: string): Promise<void> {
+  await browserAPI.scripting.executeScript({
+    target: { tabId },
+    func: (srcUrl: string) => {
+      const script = document.createElement('script');
+      script.src = srcUrl;
+      (document.head || document.documentElement).appendChild(script);
+    },
+    args: [url],
+    world: 'MAIN' as chrome.scripting.ExecutionWorld,
+  });
+  logger.debug('InjectManager', `Injected script URL into tab ${tabId}: ${url}`);
+}
+
+/** Inject an external CSS by URL — creates a <link rel="stylesheet"> tag. */
+async function injectCSSUrl(tabId: number, url: string): Promise<void> {
+  await browserAPI.scripting.executeScript({
+    target: { tabId },
+    func: (href: string) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      (document.head || document.documentElement).appendChild(link);
+    },
+    args: [url],
+    world: 'MAIN' as chrome.scripting.ExecutionWorld,
+  });
+  logger.debug('InjectManager', `Injected CSS URL into tab ${tabId}: ${url}`);
 }

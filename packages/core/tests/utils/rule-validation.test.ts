@@ -82,11 +82,11 @@ describe('isRuleComplete', () => {
   // ── Inject ──────────────────────────────────────────────────────
 
   it('inject: complete with code', () => {
-    expect(isRuleComplete({ ...base, type: 'inject', action: { injectType: 'script', code: 'console.log(1)', position: 'body-end' } })).toBe(true);
+    expect(isRuleComplete({ ...base, type: 'inject', action: { injectType: 'script', source: 'code', code: 'console.log(1)', position: 'body-end' } })).toBe(true);
   });
 
   it('inject: incomplete without code', () => {
-    expect(isRuleComplete({ ...base, type: 'inject', action: { injectType: 'script', code: '', position: 'body-end' } })).toBe(false);
+    expect(isRuleComplete({ ...base, type: 'inject', action: { injectType: 'script', source: 'code', code: '', position: 'body-end' } })).toBe(false);
   });
 
   // ── Works without uid/path (for pre-save validation) ────────────

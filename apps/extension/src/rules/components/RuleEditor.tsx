@@ -239,7 +239,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           form.setFieldsValue({
             ...baseValues,
             injectType: ir.action.injectType,
+            injectSource: ir.action.source || 'code',
             injectCode: ir.action.code,
+            injectSourceUrl: ir.action.sourceUrl || '',
             injectPosition: ir.action.position,
           });
           break;
@@ -287,7 +289,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         headerName: '',
         redirectTo: '',
         injectType: 'script',
+        injectSource: 'code',
         injectCode: '',
+        injectSourceUrl: '',
         injectPosition: 'body-end',
         queryParams: [{ param: '', value: '', operation: 'add' }],
         mockBodyType: 'static',
@@ -355,7 +359,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             type: 'inject',
             action: {
               injectType: formValues.injectType as V5.InjectType,
-              code: formValues.injectCode as string,
+              source: ((formValues.injectSource as string) || 'code') as V5.InjectSource,
+              code: (formValues.injectCode as string) ?? '',
+              sourceUrl: (formValues.injectSourceUrl as string) || undefined,
               position: formValues.injectPosition as V5.InjectAction['position'],
             },
           } as Omit<V5.InjectRule, 'uid' | 'path'>;
