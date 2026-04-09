@@ -1,5 +1,5 @@
 /**
- * InjectRuleFields — type toggle, position, code + inline Tag.
+ * InjectRuleFields — type toggle, position, code.
  */
 
 import { Form, Input, Radio, Select, Typography } from 'antd';
@@ -10,7 +10,7 @@ const { Text } = Typography;
 const InjectRuleFields: React.FC = () => {
   return (
     <>
-      {/* Row 1: Type toggle + Position + Tag — all inline */}
+      {/* Row 1: Type toggle + Position — all inline */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
         <Form.Item name="injectType" style={{ marginBottom: 0 }}>
           <Radio.Group optionType="button" buttonStyle="solid" size="small">
@@ -25,10 +25,6 @@ const InjectRuleFields: React.FC = () => {
             <Select.Option value="body-start">Document End (body start)</Select.Option>
             <Select.Option value="body-end">Document Idle (body end)</Select.Option>
           </Select>
-        </Form.Item>
-
-        <Form.Item name="tag" style={{ marginBottom: 0, width: 180 }}>
-          <Input placeholder="Tag (optional)" maxLength={20} />
         </Form.Item>
       </div>
 

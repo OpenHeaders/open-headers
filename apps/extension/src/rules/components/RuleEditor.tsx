@@ -2,7 +2,7 @@
  * RuleEditor — mirrors the desktop "Add Header Rule" modal UX exactly.
  *
  * Ownership model (separation of concerns):
- *   - **Form** owns content fields: domains, tag, and per-type fields (headerName, staticValue, etc.)
+ *   - **Form** owns content fields: domains and per-type fields (headerName, staticValue, etc.)
  *   - **Rule store** (via context) owns `enabled` and `name` for persisted rules
  *   - **Local state** owns `enabled` for draft (create) tabs
  *   - **Tab label** (via props) owns `name` for draft tabs
@@ -155,7 +155,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       const baseValues = {
         ruleType: rule.type,
         domains: rule.domains,
-        tag: rule.tags[0] ?? '',
       };
 
       switch (rule.type) {
@@ -210,7 +209,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       form.setFieldsValue({
         ruleType,
         domains: [],
-        tag: '',
         headerOperation: 'override',
         isResponse: false,
         staticValue: '',
@@ -237,8 +235,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const buildRule = useCallback(
     (formValues: Record<string, unknown>): Omit<V5.Rule, 'uid' | 'path'> | null => {
       const domains = Array.isArray(formValues.domains) ? (formValues.domains as string[]) : [];
-      const tags = (formValues.tag as string)?.trim() ? [(formValues.tag as string).trim()] : [];
-      const base = { name: ruleName, enabled: isEnabled, tags, domains };
+      const base = { name: ruleName, enabled: isEnabled, domains };
 
       switch (formValues.ruleType) {
         case 'header':
@@ -383,7 +380,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           </Form.Item>
         </div>
 
-        {/* ── Per-type fields (Tag is inline in each component's row 1) ── */}
+        {/* ── Per-type fields ── */}
         {selectedType === 'header' && <HeaderRuleFields />}
         {selectedType === 'block' && <BlockRuleFields />}
         {selectedType === 'redirect' && <RedirectRuleFields />}

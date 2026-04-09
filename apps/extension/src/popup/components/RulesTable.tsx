@@ -18,8 +18,8 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { DNR_PRIORITY, getActionDetail, isRuleComplete } from '@openheaders/core/utils';
-import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
+import { DNR_PRIORITY, getActionDetail, isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
+import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
@@ -27,13 +27,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
-import { getTagColor, type PageInfo, type RowActions } from '../utils/table-shared';
+import { type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   type ActionDetail,
   renderActionDetails,
   renderDomainTags,
-  renderTagOverflow,
-  type TagDescriptor,
   truncateValue,
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
@@ -78,12 +76,12 @@ interface TableRecord {
   key: string;
   id: string;
   name: string;
+  path: string;
   ruleType: V5.RuleType;
   actionDetail: ActionDetail;
   domains: string[];
   isEnabled: boolean;
   isComplete: boolean;
-  tag: string;
   statusRank: StatusRank;
 }
 
@@ -102,7 +100,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
 }) => {
   const { message } = App.useApp();
 
-  const { rules, isConnected, uiState, updateUiState, disabledTagGroups } = useRules();
+  const { rules, isConnected, uiState, updateUiState, pausedGroups } = useRules();
   const { setFocusedRowIndex } = useKeyboardNav();
 
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
@@ -128,8 +126,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     .map((rule) => {
       const isEnabled = rule.enabled;
       const complete = isRuleComplete(rule);
-      const tag = rule.tags[0] ?? '';
-      const groupPaused = disabledTagGroups.has(tag || '__no_tag__');
+      const groupPaused = isPathPausedByAncestor(rule.path, pausedGroups);
 
       let statusRank: StatusRank;
       if (isEnabled && complete && !groupPaused)
@@ -144,12 +141,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
         key: rule.uid,
         id: rule.uid,
         name: rule.name,
+        path: rule.path,
         ruleType: rule.type,
         actionDetail: getActionDetail(rule),
         domains: rule.domains,
         isEnabled,
         isComplete: complete,
-        tag,
         statusRank,
       };
     })
@@ -170,7 +167,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
       item.name.toLowerCase().includes(searchText.toLowerCase()) ||
       item.domains.some((domain) => domain.toLowerCase().includes(searchText.toLowerCase())) ||
       item.actionDetail.value.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.tag.toLowerCase().includes(searchText.toLowerCase()) ||
       item.ruleType.toLowerCase().includes(searchText.toLowerCase()),
   );
 
@@ -178,11 +174,11 @@ const RulesTable: React.FC<RulesTableProps> = ({
   dataSourceRef.current = filteredData;
 
   const activeCount = dataSource.filter(
-    (item) => item.isEnabled && item.isComplete && !disabledTagGroups.has(item.tag || '__no_tag__'),
+    (item) => item.isEnabled && item.isComplete && !isPathPausedByAncestor(item.path, pausedGroups),
   ).length;
   const draftCount = dataSource.filter((item) => !item.isComplete).length;
   const pausedCount = dataSource.filter(
-    (item) => item.isEnabled && item.isComplete && disabledTagGroups.has(item.tag || '__no_tag__'),
+    (item) => item.isEnabled && item.isComplete && isPathPausedByAncestor(item.path, pausedGroups),
   ).length;
   const totalCount = dataSource.length;
 
@@ -350,65 +346,29 @@ const RulesTable: React.FC<RulesTableProps> = ({
       render: (domains: string[]) => renderDomainTags(domains, false),
     },
     {
-      title: 'Tags',
-      key: 'tags',
-      width: 110,
+      title: 'Type',
+      key: 'ruleType',
+      width: 90,
       align: 'center',
-      sorter: (a, b) => {
-        const tagA = `${a.ruleType}${a.tag ? `-${a.tag}` : ''}`;
-        const tagB = `${b.ruleType}${b.tag ? `-${b.tag}` : ''}`;
-        return tagA.localeCompare(tagB);
-      },
-      filters: [
-        ...new Set([
-          ...dataSource.map((item) => RULE_TYPE_LABEL[item.ruleType] ?? item.ruleType),
-          ...dataSource.filter((item) => item.tag).map((item) => item.tag),
-          ...dataSource.filter((item) => !item.isComplete).map(() => 'Draft'),
-          ...dataSource.filter((item) => disabledTagGroups.has(item.tag || '__no_tag__')).map(() => 'Paused'),
-        ]),
-      ].map((tag) => ({ text: tag, value: tag })),
-      filteredValue: filteredInfo.tags || null,
+      sorter: (a, b) => a.ruleType.localeCompare(b.ruleType),
+      filters: [...new Set(dataSource.map((item) => RULE_TYPE_LABEL[item.ruleType] ?? item.ruleType))].map((label) => ({
+        text: label,
+        value: label,
+      })),
+      filteredValue: filteredInfo.ruleType || null,
       filterSearch: true,
-      onFilter: (value, record) => {
-        const tags = [
-          RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
-          ...(record.tag ? [record.tag] : []),
-          ...(!record.isComplete ? ['Draft'] : []),
-          ...(disabledTagGroups.has(record.tag || '__no_tag__') ? ['Paused'] : []),
-        ];
-        return tags.includes(value as string);
-      },
-      sortOrder: sortedInfo.columnKey === 'tags' ? sortedInfo.order : null,
+      onFilter: (value, record) => (RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType) === value,
+      sortOrder: sortedInfo.columnKey === 'ruleType' ? sortedInfo.order : null,
       render: (_: unknown, record: TableRecord) => {
-        const allTags: TagDescriptor[] = [];
-        const tagGroup = record.tag || '__no_tag__';
-        if (!record.isComplete) {
-          allTags.push({
-            label: 'Draft',
-            color: 'default',
-            tooltip: 'Incomplete — missing required fields',
-          });
-        } else if (disabledTagGroups.has(tagGroup)) {
-          allTags.push({
-            label: 'Paused',
-            color: 'default',
-            tooltip: `Tag group "${record.tag || 'Untagged'}" is paused — rule not applied`,
-          });
-        }
-        if (record.tag) {
-          allTags.push({
-            label: record.tag,
-            color: getTagColor(record.tag),
-            tooltip: 'Tag group — manage in Tags tab',
-          });
-        }
-        allTags.push({
-          label: RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
-          tooltip: RULE_TYPE_DESCRIPTION[record.ruleType] ?? record.ruleType,
-        });
-
-        const hasStatusTag = allTags[0]?.label === 'Draft' || allTags[0]?.label === 'Paused';
-        return renderTagOverflow(allTags, hasStatusTag ? 1 : 2);
+        const label = RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType;
+        const desc = RULE_TYPE_DESCRIPTION[record.ruleType] ?? record.ruleType;
+        return (
+          <Tooltip title={desc}>
+            <Tag variant="outlined" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+              {label}
+            </Tag>
+          </Tooltip>
+        );
       },
     },
     {
@@ -616,7 +576,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
                       ·
                     </Text>
                     <Text type="warning" style={{ fontSize: '11px' }}>
-                      {pausedCount} paused by tag group
+                      {pausedCount} paused by collection
                     </Text>
                   </>
                 )}
@@ -684,7 +644,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
             if (!record.isComplete) classes.push('row-draft');
-            else if (disabledTagGroups.has(record.tag || '__no_tag__')) classes.push('row-group-paused');
+            else if (isPathPausedByAncestor(record.path, pausedGroups)) classes.push('row-group-paused');
             else if (!record.isEnabled) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');

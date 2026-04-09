@@ -33,10 +33,10 @@ export interface RuleContextValue {
   isStatusLoaded: boolean;
   /** UI state persisted across popup open/close. */
   uiState: UiState;
-  /** Tag groups that are disabled (rules in these groups are not applied). */
-  disabledTagGroups: Set<string>;
-  /** Toggle a tag group on/off. */
-  toggleTagGroup: (tagGroup: string) => void;
+  /** Paused collection/folder paths — rules under these are not applied. */
+  pausedGroups: Set<string>;
+  /** Toggle a collection or folder pause on/off (by path). */
+  toggleGroupPause: (path: string) => void;
   /** Force-refresh rules from the background. */
   refreshRules: () => void;
   /** Update persisted UI state. */
@@ -82,10 +82,10 @@ const defaultContextValue: RuleContextValue = {
       sortedInfo: {},
     },
   },
-  disabledTagGroups: new Set(),
+  pausedGroups: new Set(),
   localCollections: [],
   localCollectionTrees: [],
-  toggleTagGroup: () => {},
+  toggleGroupPause: () => {},
   refreshRules: () => {},
   updateUiState: () => {},
   createLocalRule: () => Promise.resolve(null),
@@ -114,7 +114,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   const [uiState, setUiState] = useState<UiState>({
     tableState: { searchText: '', sortMode: 'status', filteredInfo: {}, sortedInfo: {} },
   });
-  const [disabledTagGroups, setDisabledTagGroups] = useState<Set<string>>(new Set());
+  const [pausedGroups, setPausedGroups] = useState<Set<string>>(new Set());
   const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);
   const [localCollectionTrees, setLocalCollectionTrees] = useState<V5.CollectionTree[]>([]);
 
@@ -160,11 +160,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     loadRules();
     loadLocalCollections();
 
-    // Load disabled tag groups
-    storage.local.get(['disabledTagGroups'], (result: Record<string, unknown>) => {
-      const groups = result.disabledTagGroups as string[] | undefined;
-      if (Array.isArray(groups)) {
-        setDisabledTagGroups(new Set(groups));
+    // Load paused collection/folder paths
+    storage.local.get(['pausedGroups'], (result: Record<string, unknown>) => {
+      const paths = result.pausedGroups as string[] | undefined;
+      if (Array.isArray(paths)) {
+        setPausedGroups(new Set(paths));
       }
     });
 
@@ -187,11 +187,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       ) => void,
     );
 
-    // Listen for disabled tag group changes
+    // Listen for paused groups changes
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-      if (areaName === 'local' && changes.disabledTagGroups) {
-        const groups = (changes.disabledTagGroups.newValue as string[]) || [];
-        setDisabledTagGroups(new Set(groups));
+      if (areaName === 'local' && changes.pausedGroups) {
+        const paths = (changes.pausedGroups.newValue as string[]) || [];
+        setPausedGroups(new Set(paths));
       }
     };
     storage.onChanged.addListener(handleStorageChange);
@@ -237,34 +237,43 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     setUiState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // ── Tag group management ──────────────────────────────────────
+  // ── Collection/folder pause management ─────────────────────────
 
-  // Prune stale disabled groups when rules change
+  // Prune stale paused paths when collections change
   useEffect(() => {
-    if (disabledTagGroups.size === 0) return;
-    const activeTags = new Set<string>();
-    for (const rule of rules) {
-      activeTags.add(rule.tags[0] ?? '__no_tag__');
+    if (pausedGroups.size === 0) return;
+    const activePaths = new Set<string>();
+    for (const tree of localCollectionTrees) {
+      activePaths.add(tree.path);
+      const addFolderPaths = (nodes: V5.TreeNode[]) => {
+        for (const node of nodes) {
+          if (node.type === 'folder') {
+            activePaths.add(node.path);
+            addFolderPaths(node.children);
+          }
+        }
+      };
+      addFolderPaths(tree.tree);
     }
-    const stale = [...disabledTagGroups].filter((tag) => !activeTags.has(tag));
+    const stale = [...pausedGroups].filter((p) => !activePaths.has(p));
     if (stale.length === 0) return;
-    setDisabledTagGroups((prev) => {
+    setPausedGroups((prev) => {
       const next = new Set(prev);
-      for (const tag of stale) next.delete(tag);
-      storage.local.set({ disabledTagGroups: [...next] });
+      for (const p of stale) next.delete(p);
+      storage.local.set({ pausedGroups: [...next] });
       return next;
     });
-  }, [rules, disabledTagGroups]);
+  }, [localCollectionTrees, pausedGroups]);
 
-  const toggleTagGroup = useCallback((tagGroup: string) => {
-    setDisabledTagGroups((prev) => {
+  const toggleGroupPause = useCallback((path: string) => {
+    setPausedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(tagGroup)) {
-        next.delete(tagGroup);
+      if (next.has(path)) {
+        next.delete(path);
       } else {
-        next.add(tagGroup);
+        next.add(path);
       }
-      storage.local.set({ disabledTagGroups: [...next] });
+      storage.local.set({ pausedGroups: [...next] });
       return next;
     });
   }, []);
@@ -436,10 +445,10 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     isConnected,
     isStatusLoaded,
     uiState,
-    disabledTagGroups,
+    pausedGroups,
     localCollections,
     localCollectionTrees,
-    toggleTagGroup,
+    toggleGroupPause,
     refreshRules,
     updateUiState,
     createLocalRule,

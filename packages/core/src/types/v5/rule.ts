@@ -32,8 +32,6 @@ export interface RuleBase {
   name: string;
   type: RuleType;
   enabled: boolean;
-  /** Tags for grouping (e.g. ["dev-overrides"]). */
-  tags: string[];
   /** Domain patterns with glob support (e.g. "*.openheaders.io"). Supports {{VAR}}. */
   domains: string[];
   /** URL path patterns (optional, for finer matching). */

@@ -37,7 +37,6 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Test Rule',
     type: 'header',
     enabled: true,
-    tags: [],
     domains: ['*.openheaders.io'],
     action: { operation: 'override', headerName: 'Authorization', isResponse: false },
     staticValue: 'Bearer test-token',
@@ -156,7 +155,7 @@ describe('RuleEngine', () => {
       scheduleUpdate('rulesUpdated', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(5);
 
-      scheduleUpdate('tagGroups', { immediate: true });
+      scheduleUpdate('pausedGroups', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(6);
     });
 

@@ -18,6 +18,10 @@ export interface RowActions {
   onCopyRow?: (index: number) => void;
   onDeleteRow?: (index: number) => void;
   onAddRule?: () => void;
+  /** Expand a tree node at this flat index (tree tables only). */
+  onExpandRow?: (index: number) => void;
+  /** Collapse a tree node at this flat index (tree tables only). */
+  onCollapseRow?: (index: number) => void;
 }
 
 export const PAGE_SIZE = 10;

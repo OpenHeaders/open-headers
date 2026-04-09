@@ -5,9 +5,9 @@ export function useRowActionRegistration(
   onRowActionsChange: ((actions: RowActions) => void) | undefined,
   actions: RowActions,
 ): void {
-  const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule } = actions;
+  const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow } = actions;
   useEffect(() => {
     if (!onRowActionsChange) return;
-    onRowActionsChange({ onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule });
-  }, [onRowActionsChange, onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule]);
+    onRowActionsChange({ onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow });
+  }, [onRowActionsChange, onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow]);
 }

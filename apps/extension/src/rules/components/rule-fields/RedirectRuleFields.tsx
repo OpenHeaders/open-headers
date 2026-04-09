@@ -1,5 +1,5 @@
 /**
- * RedirectRuleFields — match pattern + redirect target + inline Tag.
+ * RedirectRuleFields — match pattern + redirect target.
  */
 
 import { Form, Input, Typography } from 'antd';
@@ -10,16 +10,10 @@ const { Text } = Typography;
 const RedirectRuleFields: React.FC = () => {
   return (
     <>
-      {/* Row 1: Match pattern + Tag inline */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-        <Form.Item name="redirectMatchPattern" style={{ marginBottom: 0, flex: 1 }}>
-          <Input placeholder="Match Pattern (e.g. https://old.openheaders.io/*)" />
-        </Form.Item>
-
-        <Form.Item name="tag" style={{ marginBottom: 0, width: 180 }}>
-          <Input placeholder="Tag (optional)" maxLength={20} />
-        </Form.Item>
-      </div>
+      {/* Row 1: Match pattern */}
+      <Form.Item name="redirectMatchPattern" style={{ marginBottom: 16 }}>
+        <Input placeholder="Match Pattern (e.g. https://old.openheaders.io/*)" />
+      </Form.Item>
 
       {/* Row 2: Redirect To */}
       <Form.Item name="redirectTo" style={{ marginBottom: 16 }}>

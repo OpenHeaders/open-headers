@@ -1,7 +1,7 @@
 /**
  * HeaderRuleFields — exact desktop "Add Header Rule" modal layout.
  *
- * Row 1: Header Name | Request/Response toggle | Tag (optional)  — ALL inline
+ * Row 1: Header Name | Request/Response toggle — ALL inline
  * Row 2: Operation select | Value input  — compact Space.Compact
  */
 
@@ -13,7 +13,7 @@ const HeaderRuleFields: React.FC = () => {
 
   return (
     <>
-      {/* Row 1: Header Name + Request/Response + Tag — all inline */}
+      {/* Row 1: Header Name + Request/Response — all inline */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
         <Form.Item name="headerName" style={{ marginBottom: 0, flex: 1 }}>
           <Input placeholder="Header Name" />
@@ -24,10 +24,6 @@ const HeaderRuleFields: React.FC = () => {
             <Radio.Button value={false}>Request</Radio.Button>
             <Radio.Button value={true}>Response</Radio.Button>
           </Radio.Group>
-        </Form.Item>
-
-        <Form.Item name="tag" style={{ marginBottom: 0, width: 180 }}>
-          <Input placeholder="Tag (optional)" maxLength={20} />
         </Form.Item>
       </div>
 

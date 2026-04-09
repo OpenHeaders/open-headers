@@ -124,7 +124,7 @@ const RulesAppInner: React.FC = () => {
     (type: string, context?: { collectionId: string; folderPath?: string }) => {
       if (context?.collectionId) {
         const draftName = generateDraftName(type);
-        const base = { name: draftName, type, enabled: true, tags: [] as string[], domains: [] as string[] };
+        const base = { name: draftName, type, enabled: true, domains: [] as string[] };
         let rule: Omit<V5.Rule, 'uid' | 'path'>;
         switch (type) {
           case 'header':

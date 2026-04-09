@@ -199,7 +199,6 @@ export function useDraftSave({
           type: (draftData.type as V5.RuleType) || 'header',
           name: params.name,
           enabled: draftData.enabled !== false,
-          tags: (draftData.tags as string[]) || [],
           domains: (draftData.domains as string[]) || [],
           action: draftData.action as V5.HeaderAction,
           staticValue: (draftData.staticValue as string) || '',

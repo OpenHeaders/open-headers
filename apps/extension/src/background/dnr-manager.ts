@@ -4,7 +4,7 @@
  * Replaces the former header-manager.ts with a modular architecture:
  * - Per-type builders handle the V5.Rule → DnrRule conversion
  * - Inject rules are routed to inject-manager (chrome.scripting, not DNR)
- * - Pause/tag-group state management lives here
+ * - Pause/collection-folder state management lives here
  *
  * All modules call rule-engine.scheduleUpdate() which eventually calls
  * updateNetworkRules() here. This is the single point of DNR application.
@@ -13,7 +13,7 @@
 declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
+import { isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from './dnr-builders';
@@ -23,18 +23,19 @@ import { updateInjectRules } from './inject-manager';
 // ── Cached state ─────────────────────────────────────────────────
 
 let isPaused = false;
-let disabledTagGroups: Set<string> = new Set();
+/** Paths of paused collections/folders — rules under these are skipped. */
+let pausedGroups: Set<string> = new Set();
 
 export function setRulesPaused(paused: boolean): void {
   isPaused = paused;
 }
 
-export function setDisabledTagGroups(groups: string[]): void {
-  disabledTagGroups = new Set(groups);
+export function setPausedGroups(paths: string[]): void {
+  pausedGroups = new Set(paths);
 }
 
-export function getDisabledTagGroups(): string[] {
-  return [...disabledTagGroups];
+export function getPausedGroups(): string[] {
+  return [...pausedGroups];
 }
 
 export function initPauseState(): void {
@@ -42,10 +43,10 @@ export function initPauseState(): void {
   browserAPI.storage.sync.get(['isRulesExecutionPaused'], (result: Record<string, unknown>) => {
     isPaused = (result.isRulesExecutionPaused as boolean) || false;
   });
-  browserAPI.storage.local.get(['disabledTagGroups'], (result: Record<string, unknown>) => {
-    const groups = result.disabledTagGroups as string[] | undefined;
-    if (Array.isArray(groups)) {
-      disabledTagGroups = new Set(groups);
+  browserAPI.storage.local.get(['pausedGroups'], (result: Record<string, unknown>) => {
+    const paths = result.pausedGroups as string[] | undefined;
+    if (Array.isArray(paths)) {
+      pausedGroups = new Set(paths);
     }
   });
 }
@@ -80,9 +81,8 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
   for (const rule of rules) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
 
-    // Check tag groups
-    const tagGroup = rule.tags[0] || '__no_tag__';
-    if (disabledTagGroups.has(tagGroup)) continue;
+    // Check collection/folder pausing
+    if (isPathPausedByAncestor(rule.path, pausedGroups)) continue;
 
     // Route inject rules to inject-manager
     if (rule.type === 'inject') {

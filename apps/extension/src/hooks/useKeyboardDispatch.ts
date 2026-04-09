@@ -39,7 +39,7 @@ interface UseKeyboardDispatchOptions {
 const TAB_KEYS: Record<string, string> = {
   '1': 'active-rules',
   '2': 'all-rules',
-  '3': 'tag-manager',
+  '3': 'collections',
 };
 
 function isInputFocused(): boolean {
@@ -86,7 +86,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
     focusLastRowOnPageChange,
   } = options;
 
-  const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule } = rowActions;
+  const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow } = rowActions;
 
   const { onToggleRecording, onToggleRulesPause, onToggleOptions } = footerActions;
 
@@ -311,21 +311,28 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       if (focusedRowIndex >= 0) {
         if (key === 'ArrowRight' || key === 'l' || key === 'Enter') {
           e.preventDefault();
-          const rowId = visibleRowIds[focusedRowIndex] ?? null;
-          if (expandedRowKey === rowId && nestedRowCount > 0) {
-            // Row is already expanded with nested content — enter nested navigation
-            setNestedFocusIndex(0);
-          } else if (rowId !== null) {
-            // Expand this row (or collapse-then-expand if a different row was expanded)
-            setExpandedRowKey(rowId);
-            // Blur to prevent Ant Design from moving focus to an element in another tab pane
-            (document.activeElement as HTMLElement)?.blur();
+          if (onExpandRow) {
+            // Tree table mode — expand focused node
+            onExpandRow(focusedRowIndex);
+          } else {
+            const rowId = visibleRowIds[focusedRowIndex] ?? null;
+            if (expandedRowKey === rowId && nestedRowCount > 0) {
+              setNestedFocusIndex(0);
+            } else if (rowId !== null) {
+              setExpandedRowKey(rowId);
+              (document.activeElement as HTMLElement)?.blur();
+            }
           }
           return;
         }
         if (key === 'ArrowLeft' || key === 'h') {
           e.preventDefault();
-          setExpandedRowKey(null);
+          if (onCollapseRow) {
+            // Tree table mode — collapse focused node
+            onCollapseRow(focusedRowIndex);
+          } else {
+            setExpandedRowKey(null);
+          }
           return;
         }
         if (key === ' ' && onToggleRow) {
@@ -397,6 +404,8 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       onCopyRow,
       onDeleteRow,
       onAddRule,
+      onExpandRow,
+      onCollapseRow,
       onToggleRecording,
       onToggleRulesPause,
       onToggleOptions,

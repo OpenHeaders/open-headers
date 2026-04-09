@@ -16,7 +16,7 @@ interface ScheduleOptions {
 }
 
 const DEBOUNCE_MS = 150;
-const FORCED_REASONS = new Set(['pause', 'init', 'rules', 'rulesUpdated', 'tagGroups']);
+const FORCED_REASONS = new Set(['pause', 'init', 'rules', 'rulesUpdated', 'pausedGroups']);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let forcedPending = false;

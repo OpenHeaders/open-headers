@@ -50,7 +50,8 @@ export interface ActiveRule {
   actionValue: string;
   isEnabled: boolean;
   domains: string[];
-  tags: string[];
+  /** Rule's path within the workspace (for collection/folder pause checks). */
+  path: string;
 }
 
 /** Context object passed to handleGeneralMessage */

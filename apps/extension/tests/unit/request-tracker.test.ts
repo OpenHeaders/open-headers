@@ -43,7 +43,6 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Test Rule',
     type: 'header',
     enabled: true,
-    tags: [],
     domains: ['*.openheaders.io'],
     action: { operation: 'override', headerName: 'X-Debug', isResponse: false },
     staticValue: 'test-value',
@@ -190,7 +189,6 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        tags: ['DEV'],
         action: { operation: 'override', headerName: 'X-Tagged', isResponse: true },
         staticValue: 'true',
         domains: ['*.openheaders.io'],
@@ -198,7 +196,6 @@ describe('getActiveRulesForTab', () => {
     ]);
 
     const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/test');
-    expect(result[0].tags).toEqual(['DEV']);
     expect(result[0].ruleType).toBe('header');
     expect(result[0].summary).toContain('X-Tagged');
   });

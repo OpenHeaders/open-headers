@@ -1,10 +1,10 @@
-import { AppstoreOutlined, AppstoreTwoTone, TagsTwoTone, ThunderboltTwoTone } from '@ant-design/icons';
+import { AppstoreOutlined, AppstoreTwoTone, FolderTwoTone, ThunderboltTwoTone } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Button, Tabs, Tooltip } from 'antd';
 import type React from 'react';
 import { getBrowserAPI } from '@/types/browser';
+import CollectionManager from './CollectionManager';
 import RulesTable from './RulesTable';
-import TagManager from './TagManager';
 import ThisPageRules from './ThisPageRules';
 
 const RulesList: React.FC = () => {
@@ -39,18 +39,18 @@ const RulesList: React.FC = () => {
       icon: <AppstoreTwoTone />,
     },
     {
-      key: 'tag-manager',
-      label: 'Tags',
+      key: 'collections',
+      label: 'Collections',
       children: (
-        <TagManager
-          isActive={activeTab === 'tag-manager'}
-          focusedRowIndex={activeTab === 'tag-manager' ? focusedRowIndex : -1}
-          pendingDeleteIndex={activeTab === 'tag-manager' ? pendingDeleteIndex : -1}
-          onPageInfoChange={activeTab === 'tag-manager' ? setPageInfo : undefined}
-          onRowActionsChange={activeTab === 'tag-manager' ? setRowActions : undefined}
+        <CollectionManager
+          isActive={activeTab === 'collections'}
+          focusedRowIndex={activeTab === 'collections' ? focusedRowIndex : -1}
+          pendingDeleteIndex={activeTab === 'collections' ? pendingDeleteIndex : -1}
+          onPageInfoChange={activeTab === 'collections' ? setPageInfo : undefined}
+          onRowActionsChange={activeTab === 'collections' ? setRowActions : undefined}
         />
       ),
-      icon: <TagsTwoTone />,
+      icon: <FolderTwoTone />,
     },
   ];
 

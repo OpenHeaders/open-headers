@@ -8,11 +8,12 @@
 declare const browser: typeof chrome | undefined;
 
 import { RecordingService } from '@assets/recording/background/recording-service';
+import { isPathPausedByAncestor } from '@openheaders/core/utils';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
-import { getDisabledTagGroups, initPauseState, setDisabledTagGroups, setRulesPaused } from './dnr-manager';
+import { getPausedGroups, initPauseState, setPausedGroups, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { handleGeneralMessage } from './modules/message-handler';
@@ -59,9 +60,9 @@ async function updateBadgeForCurrentTab(): Promise<void> {
       if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
       const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
-      const disabledGroups = new Set(getDisabledTagGroups());
+      const paused = new Set(getPausedGroups());
       const activeRules = allMatchingRules.filter(
-        (r) => r.isEnabled !== false && !disabledGroups.has((r.tags as string[])?.[0] || '__no_tag__'),
+        (r) => r.isEnabled !== false && !isPathPausedByAncestor(r.path, paused),
       );
       await updateExtensionBadge(isConnected, activeRules, isPaused, recordingService, attempts);
     });
@@ -159,12 +160,12 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
     debouncedUpdateBadge();
   }
 
-  // Tag groups
-  if (area === 'local' && changes.disabledTagGroups) {
-    const groups = (changes.disabledTagGroups.newValue as string[]) || [];
-    logger.info('Background', 'Disabled tag groups changed:', groups);
-    setDisabledTagGroups(groups);
-    scheduleUpdate('tagGroups', { immediate: true });
+  // Collection/folder pausing
+  if (area === 'local' && changes.pausedGroups) {
+    const paths = (changes.pausedGroups.newValue as string[]) || [];
+    logger.info('Background', 'Paused groups changed:', paths);
+    setPausedGroups(paths);
+    scheduleUpdate('pausedGroups', { immediate: true });
     debouncedUpdateBadge();
   }
 

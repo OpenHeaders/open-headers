@@ -1,5 +1,5 @@
 /**
- * QueryParamRuleFields — param entries + inline Tag.
+ * QueryParamRuleFields — param entries.
  */
 
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -11,13 +11,6 @@ const { Text } = Typography;
 const QueryParamRuleFields: React.FC = () => {
   return (
     <>
-      {/* Tag inline at top */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-        <Form.Item name="tag" style={{ marginBottom: 0, width: 180 }}>
-          <Input placeholder="Tag (optional)" maxLength={20} />
-        </Form.Item>
-      </div>
-
       {/* Param entries */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ marginBottom: 8 }}>

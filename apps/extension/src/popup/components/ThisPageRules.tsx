@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
-import { DNR_PRIORITY } from '@openheaders/core/utils';
+import { DNR_PRIORITY, isPathPausedByAncestor } from '@openheaders/core/utils';
 import {
   App,
   Badge,
@@ -33,7 +33,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
-import { getTagColor, type PageInfo, type RowActions } from '../utils/table-shared';
+import { type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderActionDetails,
   renderTagOverflow,
@@ -135,7 +135,7 @@ interface ActiveRule {
   actionValue?: string;
   isEnabled?: boolean;
   domains?: string[];
-  tags?: string[];
+  path?: string;
   matchType?: string;
   matchedUrls?: MatchedRequest[];
 }
@@ -197,7 +197,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   onRowActionsChange,
 }) => {
   const { message } = App.useApp();
-  const { isConnected, disabledTagGroups } = useRules();
+  const { isConnected, pausedGroups } = useRules();
   const {
     expandedRowKey,
     nestedFocusIndex,
@@ -298,8 +298,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         const q = searchText.toLowerCase();
         const matchesByRule =
           r.name.toLowerCase().includes(q) ||
-          (r.summary || '').toLowerCase().includes(q) ||
-          (r.tags?.[0] || '').toLowerCase().includes(q);
+          (r.summary || '').toLowerCase().includes(q);
         const matchingUrlCount = (r.matchedUrls || []).filter((m) => m.url.toLowerCase().includes(q)).length;
         if (matchingUrlCount > 0 && r.id) urlMatchCountMap.set(r.id, matchingUrlCount);
         return matchesByRule || matchingUrlCount > 0;
@@ -324,8 +323,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     }))
     .sort((a, b) => {
       if (sortMode === 'status') {
-        const rankA = a.isEnabled === false ? 2 : disabledTagGroups.has((a.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
-        const rankB = b.isEnabled === false ? 2 : disabledTagGroups.has((b.tags ?? [])[0] || '__no_tag__') ? 1 : 0;
+        const rankA = a.isEnabled === false ? 2 : isPathPausedByAncestor(a.path ?? '', pausedGroups) ? 1 : 0;
+        const rankB = b.isEnabled === false ? 2 : isPathPausedByAncestor(b.path ?? '', pausedGroups) ? 1 : 0;
         return rankA - rankB || a.name.localeCompare(b.name);
       }
       if (sortMode === 'priority') {
@@ -450,49 +449,45 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         ),
     },
     {
-      title: 'Tags',
-      key: 'tags',
+      title: 'Match',
+      key: 'match',
       width: 110,
       align: 'center',
       sorter: (a, b) => {
-        const tagA = `${a.matchType}${a.tags?.[0] ? `-${a.tags[0]}` : ''}`;
-        const tagB = `${b.matchType}${b.tags?.[0] ? `-${b.tags[0]}` : ''}`;
-        return tagA.localeCompare(tagB);
+        const matchA = a.matchType ?? '';
+        const matchB = b.matchType ?? '';
+        return matchA.localeCompare(matchB);
       },
-      sortOrder: sortedInfo.columnKey === 'tags' ? sortedInfo.order : null,
+      sortOrder: sortedInfo.columnKey === 'match' ? sortedInfo.order : null,
       filters: [
         ...new Set([
           'Page',
           'Resource',
-          ...dataSource.flatMap((item) => item.tags ?? []),
-          ...dataSource
-            .filter((item) => disabledTagGroups.has((item.tags ?? [])[0] || '__no_tag__'))
-            .map(() => 'Paused'),
+          'Paused',
+          ...dataSource.map((item) => RULE_TYPE_LABEL[item.ruleType] ?? item.ruleType),
         ]),
-      ].map((tag) => ({ text: tag, value: tag })),
-      filteredValue: filteredInfo.tags || null,
+      ].map((label) => ({ text: label, value: label })),
+      filteredValue: filteredInfo.match || null,
       filterSearch: true,
       onFilter: (value, record) => {
         const urls = record.matchedUrls || [];
         const hasDirectMatch = urls.some((m) => m.url === currentTab?.url) || record.matchType === 'direct';
         const hasIndirectMatch = urls.some((m) => m.url !== currentTab?.url) || record.matchType === 'indirect';
-        const tags = [
+        const labels = [
           ...(hasDirectMatch ? ['Page'] : []),
           ...(hasIndirectMatch ? ['Resource'] : []),
-          ...(record.tags ?? []),
-          ...(disabledTagGroups.has((record.tags ?? [])[0] || '__no_tag__') ? ['Paused'] : []),
+          ...(isPathPausedByAncestor(record.path ?? '', pausedGroups) ? ['Paused'] : []),
+          RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
         ];
-        return tags.includes(value as string);
+        return labels.includes(value as string);
       },
       render: (_: unknown, record: TableRecord) => {
         const allTags: TagDescriptor[] = [];
-        const tag = (record.tags ?? [])[0];
-        const tagGroup = tag || '__no_tag__';
-        if (disabledTagGroups.has(tagGroup)) {
+        if (isPathPausedByAncestor(record.path ?? '', pausedGroups)) {
           allTags.push({
             label: 'Paused',
             color: 'default',
-            tooltip: `Tag group "${tag || 'Untagged'}" is paused — rule not applied`,
+            tooltip: 'Collection or folder is paused — rule not applied',
           });
         }
         const urls = record.matchedUrls || [];
@@ -503,9 +498,6 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         }
         if (hasIndirectMatch) {
           allTags.push({ label: 'Resource', tooltip: 'Applied to resources loaded by this page' });
-        }
-        if (tag) {
-          allTags.push({ label: tag, color: getTagColor(tag), tooltip: 'Tag group — manage in Tags tab' });
         }
         allTags.push({
           label: RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
@@ -621,7 +613,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     /^(chrome|chrome-extension|edge|moz-extension|about|opera|vivaldi|brave):/.test(currentTab.url);
 
   const activeCount = activeRules.filter(
-    (r) => r.isEnabled !== false && !disabledTagGroups.has((r.tags ?? [])[0] || '__no_tag__'),
+    (r) => r.isEnabled !== false && !isPathPausedByAncestor(r.path ?? '', pausedGroups),
   ).length;
 
   return (
@@ -645,7 +637,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               </Text>
               {(() => {
                 const pausedCount = activeRules.filter((r) =>
-                  disabledTagGroups.has(r.tags?.[0] || '__no_tag__'),
+                  isPathPausedByAncestor(r.path ?? '', pausedGroups),
                 ).length;
                 return pausedCount > 0 ? (
                   <>
@@ -653,7 +645,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                       ·
                     </Text>
                     <Text type="warning" style={{ fontSize: '11px' }}>
-                      {pausedCount} rule{pausedCount !== 1 ? 's' : ''} paused by tag group
+                      {pausedCount} rule{pausedCount !== 1 ? 's' : ''} paused by collection
                     </Text>
                   </>
                 ) : null;
@@ -859,7 +851,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           })}
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
-            if (disabledTagGroups.has(record.tags?.[0] || '__no_tag__')) classes.push('row-group-paused');
+            if (isPathPausedByAncestor(record.path ?? '', pausedGroups)) classes.push('row-group-paused');
             else if (record.isEnabled === false) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');

@@ -25,7 +25,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { declarativeNetRequest } from '@utils/browser-api';
-import { setDisabledTagGroups, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
+import { setPausedGroups, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
 import { formatUrlPattern } from '@/background/modules/url-utils';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;
@@ -43,7 +43,6 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Test Rule',
     type: 'header',
     enabled: true,
-    tags: [],
     domains: ['*.openheaders.io'],
     action: {
       operation: 'override',
@@ -66,7 +65,7 @@ describe('header-manager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setRulesPaused(false);
-    setDisabledTagGroups([]);
+    setPausedGroups([]);
     mockGetDynamicRules.mockResolvedValue([]);
     mockUpdateDynamicRules.mockResolvedValue(undefined);
   });
@@ -193,13 +192,13 @@ describe('header-manager', () => {
     });
   });
 
-  // ── Disabled tag groups ──
+  // ── Paused collections/folders ──
 
-  describe('disabled tag groups', () => {
-    it('skips rules whose tag group is disabled', async () => {
-      setDisabledTagGroups(['api']);
+  describe('paused groups (collection/folder paths)', () => {
+    it('skips rules under a paused collection path', async () => {
+      setPausedGroups(['rules/api-collection']);
       const rule = makeHeaderRule({
-        tags: ['api'],
+        path: 'rules/api-collection/my-rule-a1b2',
         action: { operation: 'override', headerName: 'X-Api', isResponse: false },
         staticValue: 'value',
         domains: ['openheaders.io'],
@@ -212,10 +211,10 @@ describe('header-manager', () => {
       expect(rules).toHaveLength(0);
     });
 
-    it('injects rules from non-disabled tag groups', async () => {
-      setDisabledTagGroups(['api']);
+    it('allows rules from non-paused collections', async () => {
+      setPausedGroups(['rules/api-collection']);
       const rule = makeHeaderRule({
-        tags: ['other'],
+        path: 'rules/other-collection/my-rule-c3d4',
         action: { operation: 'override', headerName: 'X-Other', isResponse: false },
         staticValue: 'value',
         domains: ['openheaders.io'],
@@ -228,11 +227,11 @@ describe('header-manager', () => {
       expect(rules.length).toBeGreaterThan(0);
     });
 
-    it('skips untagged rules when __no_tag__ group is disabled', async () => {
-      setDisabledTagGroups(['__no_tag__']);
+    it('skips rules under a paused sub-folder', async () => {
+      setPausedGroups(['rules/my-collection/staging-folder']);
       const rule = makeHeaderRule({
-        tags: [],
-        action: { operation: 'override', headerName: 'X-Untagged', isResponse: false },
+        path: 'rules/my-collection/staging-folder/my-rule-e5f6',
+        action: { operation: 'override', headerName: 'X-Staged', isResponse: false },
         staticValue: 'value',
         domains: ['openheaders.io'],
       });
@@ -244,10 +243,10 @@ describe('header-manager', () => {
       expect(rules).toHaveLength(0);
     });
 
-    it('allows rules when tag group is re-enabled', async () => {
-      setDisabledTagGroups(['api']);
+    it('allows rules when collection is unpaused', async () => {
+      setPausedGroups(['rules/api-collection']);
       const rule = makeHeaderRule({
-        tags: ['api'],
+        path: 'rules/api-collection/my-rule-a1b2',
         action: { operation: 'override', headerName: 'X-Api', isResponse: false },
         staticValue: 'value',
         domains: ['openheaders.io'],
@@ -257,8 +256,8 @@ describe('header-manager', () => {
       await flushPromises();
       expect(getRulesFromLastCall()).toHaveLength(0);
 
-      // Re-enable the group
-      setDisabledTagGroups([]);
+      // Unpause
+      setPausedGroups([]);
       updateNetworkRules([rule]);
       await flushPromises();
 
@@ -348,7 +347,6 @@ describe('header-manager', () => {
         name: 'Body Rule',
         type: 'body',
         enabled: true,
-        tags: [],
         domains: ['openheaders.io'],
         action: { matchPattern: 'old', matchType: 'contains', replaceWith: 'new', isRequest: true, isResponse: false, contentType: 'json' },
       };

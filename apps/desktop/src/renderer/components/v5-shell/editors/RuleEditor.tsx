@@ -34,7 +34,6 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
   // Local form state (header rule fields)
   const [headerName, setHeaderName] = useState('');
   const [staticValue, setStaticValue] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
   const [isResponse, setIsResponse] = useState(false);
   const [operation, setOperation] = useState<V5.HeaderOperation>('add');
   const [domains, setDomains] = useState<string[]>([]);
@@ -46,8 +45,8 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
   const snapshotRef = useRef('');
 
   const buildFingerprint = useCallback(() => {
-    return JSON.stringify({ headerName, staticValue, tags, isResponse, operation, domains });
-  }, [headerName, staticValue, tags, isResponse, operation, domains]);
+    return JSON.stringify({ headerName, staticValue, isResponse, operation, domains });
+  }, [headerName, staticValue, isResponse, operation, domains]);
 
   // Initialize from draft data
   const draftInitialized = useRef(false);
@@ -57,7 +56,6 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
       const action = draftData.action as Partial<V5.HeaderAction> | undefined;
       setHeaderName(action?.headerName || '');
       setStaticValue((draftData.staticValue as string) || '');
-      setTags((draftData.tags as string[]) || []);
       setIsResponse(action?.isResponse ?? false);
       setOperation((action?.operation as V5.HeaderOperation) || 'add');
       setDomains((draftData.domains as string[]) || []);
@@ -65,7 +63,6 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
       snapshotRef.current = JSON.stringify({
         headerName: '',
         staticValue: '',
-        tags: [],
         isResponse: false,
         operation: 'add',
         domains: [],
@@ -83,14 +80,12 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
         setIsResponse(rule.action.isResponse);
         setOperation(rule.action.operation);
       }
-      setTags(rule.tags || []);
       setDomains(rule.domains || []);
       setEnabled(rule.enabled);
 
       snapshotRef.current = JSON.stringify({
         headerName: rule.type === 'header' ? rule.action.headerName : '',
         staticValue: rule.type === 'header' ? (rule.staticValue || '') : '',
-        tags: rule.tags || [],
         isResponse: rule.type === 'header' ? rule.action.isResponse : false,
         operation: rule.type === 'header' ? rule.action.operation : 'add',
         domains: rule.domains || [],
@@ -128,7 +123,6 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
         name: draftData?.name || 'New Rule',
         enabled,
         domains,
-        tags,
         action: { operation, headerName, isResponse },
         staticValue,
       });
@@ -138,14 +132,13 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
     updateRuleIpc(ruleId, {
       enabled,
       domains,
-      tags,
       action: { operation, headerName, isResponse },
       staticValue,
     } as Partial<V5.HeaderRule>).then(() => {
       snapshotRef.current = buildFingerprint();
       onDirtyChange?.(false);
     }).catch(() => {});
-  }, [isDraft, onSaveDraft, draftData, enabled, domains, tags, operation, headerName, isResponse, staticValue, ruleId, updateRuleIpc, buildFingerprint, onDirtyChange]);
+  }, [isDraft, onSaveDraft, draftData, enabled, domains, operation, headerName, isResponse, staticValue, ruleId, updateRuleIpc, buildFingerprint, onDirtyChange]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;

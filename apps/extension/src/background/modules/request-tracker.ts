@@ -148,7 +148,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
         actionValue: detail.value,
         isEnabled: rule.enabled,
         domains: rule.domains,
-        tags: rule.tags,
+        path: rule.path,
       });
     }
   }

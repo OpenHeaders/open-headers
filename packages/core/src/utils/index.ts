@@ -15,6 +15,7 @@ export {
   buildBreadcrumbTrail,
   findNodeChildren,
 } from './tree';
+export { isPathPausedByAncestor } from './pause';
 export {
   extractUid,
   generateUid,

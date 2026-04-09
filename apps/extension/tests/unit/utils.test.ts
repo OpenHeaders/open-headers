@@ -15,7 +15,6 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Bearer Token',
     type: 'header',
     enabled: true,
-    tags: ['production'],
     domains: ['*.openheaders.io', 'api.partner-service.io:8443'],
     action: { operation: 'override', headerName: 'Authorization', isResponse: false },
     staticValue: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
@@ -92,7 +91,6 @@ describe('generateRulesHash', () => {
       name: 'Block Rule',
       type: 'block',
       enabled: true,
-      tags: [],
       domains: ['*.openheaders.io'],
       action: { statusCode: 403 },
     }];

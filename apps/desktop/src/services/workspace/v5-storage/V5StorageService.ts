@@ -605,7 +605,6 @@ async function readRule(itemDir: string): Promise<V5.Rule | null> {
     path: itemDir,
     name: raw.name as string,
     enabled: raw.enabled !== false,
-    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
     domains: Array.isArray(match.domains) ? (match.domains as string[]) : [],
     urlPatterns: Array.isArray(match.url) ? (match.url as string[]) : undefined,
     methods: Array.isArray(match.method) ? (match.method as V5.HttpMethod[]) : undefined,
@@ -647,8 +646,6 @@ export async function writeRule(itemDir: string, rule: V5.Rule): Promise<void> {
     type: rule.type,
     enabled: rule.enabled,
   };
-
-  if (rule.tags.length > 0) yaml.tags = rule.tags;
 
   yaml.match = {
     ...(rule.domains.length > 0 && { domains: rule.domains }),
