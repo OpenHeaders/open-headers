@@ -254,11 +254,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           const br = rule as V5.BodyRule;
           form.setFieldsValue({
             ...baseValues,
-            bodyMatchType: br.action.matchType,
-            bodyMatchPattern: br.action.matchPattern,
-            bodyReplaceWith: br.action.replaceWith,
-            bodyIsRequest: br.action.isRequest,
-            bodyIsResponse: br.action.isResponse,
+            bodyModType: br.action.bodyType || 'static',
+            bodyStaticContent: br.action.bodyType === 'dynamic' ? '' : br.action.body,
+            bodyDynamicContent: br.action.bodyType === 'dynamic' ? br.action.body : '',
+            bodyResourceType: br.action.resourceType || 'rest',
+            bodyGraphqlKey: br.action.graphqlFilter?.key || '',
+            bodyGraphqlOperator: br.action.graphqlFilter?.operator || 'Equals',
+            bodyGraphqlValue: br.action.graphqlFilter?.value || '',
           });
           break;
         }
@@ -268,7 +270,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             ...baseValues,
             mockStatusCode: mr.action.statusCode || undefined,
             mockContentType: mr.action.contentType,
-            mockResponseBody: mr.action.responseBody,
+            mockStaticBody: mr.action.bodyType === 'dynamic' ? '' : mr.action.responseBody,
+            mockDynamicBody: mr.action.bodyType === 'dynamic' ? mr.action.responseBody : '',
             mockBodyType: mr.action.bodyType || 'static',
           });
           break;
@@ -290,6 +293,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         injectPosition: 'body-end',
         queryParams: [{ param: '', value: '', operation: 'add' }],
         mockBodyType: 'static',
+        bodyModType: 'static',
+        bodyResourceType: 'rest',
+        bodyGraphqlOperator: 'Equals',
       });
     }
   }, [mode, ruleType, ruleUid, rules, form]);
@@ -366,12 +372,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             ...base,
             type: 'body',
             action: {
-              matchPattern: (formValues.bodyMatchPattern as string) ?? '',
-              matchType: (formValues.bodyMatchType as V5.MatchType) ?? 'contains',
-              replaceWith: (formValues.bodyReplaceWith as string) ?? '',
-              isRequest: (formValues.bodyIsRequest as boolean) ?? true,
-              isResponse: (formValues.bodyIsResponse as boolean) ?? false,
-              contentType: 'any' as V5.ContentType,
+              bodyType: ((formValues.bodyModType as string) ?? 'static') as V5.BodyModType,
+              body:
+                formValues.bodyModType === 'dynamic'
+                  ? ((formValues.bodyDynamicContent as string) ?? '')
+                  : ((formValues.bodyStaticContent as string) ?? ''),
+              resourceType: ((formValues.bodyResourceType as string) ?? 'rest') as V5.BodyResourceType,
+              graphqlFilter:
+                formValues.bodyResourceType === 'graphql' && (formValues.bodyGraphqlKey as string)?.trim()
+                  ? {
+                      key: (formValues.bodyGraphqlKey as string).trim(),
+                      operator: ((formValues.bodyGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                      value: (formValues.bodyGraphqlValue as string) || '',
+                    }
+                  : undefined,
             },
           } as Omit<V5.BodyRule, 'uid' | 'path'>;
         case 'mock':
@@ -380,7 +394,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             type: 'mock',
             action: {
               statusCode: (formValues.mockStatusCode as number) || 0,
-              responseBody: (formValues.mockResponseBody as string) ?? '',
+              responseBody:
+                formValues.mockBodyType === 'dynamic'
+                  ? ((formValues.mockDynamicBody as string) ?? '')
+                  : ((formValues.mockStaticBody as string) ?? ''),
               contentType: (formValues.mockContentType as string) ?? 'application/json',
               responseHeaders: {},
               bodyType: ((formValues.mockBodyType as string) ?? 'static') as V5.MockBodyType,

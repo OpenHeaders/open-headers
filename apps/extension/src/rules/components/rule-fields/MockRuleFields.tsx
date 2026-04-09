@@ -117,12 +117,13 @@ const MockRuleFields: React.FC = () => {
   const bodyType = Form.useWatch('mockBodyType');
   const prevBodyTypeRef = useRef(bodyType);
 
-  // Prefill template when switching to dynamic mode with empty body
+  // Prefill dynamic template on first switch
   useEffect(() => {
-    if (bodyType === 'dynamic' && prevBodyTypeRef.current !== 'dynamic') {
-      const currentBody = form.getFieldValue('mockResponseBody') as string;
-      if (!currentBody?.trim()) {
-        form.setFieldValue('mockResponseBody', DYNAMIC_TEMPLATE);
+    if (bodyType === prevBodyTypeRef.current) return;
+    if (bodyType === 'dynamic') {
+      const dynamicContent = form.getFieldValue('mockDynamicBody') as string;
+      if (!dynamicContent?.trim()) {
+        form.setFieldValue('mockDynamicBody', DYNAMIC_TEMPLATE);
       }
     }
     prevBodyTypeRef.current = bodyType;
@@ -191,13 +192,15 @@ const MockRuleFields: React.FC = () => {
           </div>
         )}
 
-        <Form.Item name="mockResponseBody" style={{ marginBottom: 0 }}>
-          {bodyType === 'dynamic' ? (
+        {bodyType === 'dynamic' ? (
+          <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
             <CodeEditor language="javascript" minHeight={240} />
-          ) : (
+          </Form.Item>
+        ) : (
+          <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
             <CodeEditor language="json" placeholder={'{"message": "custom response", "data": []}'} minHeight={160} />
-          )}
-        </Form.Item>
+          </Form.Item>
+        )}
       </div>
     </div>
   );

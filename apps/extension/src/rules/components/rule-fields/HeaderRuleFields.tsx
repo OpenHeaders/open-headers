@@ -5,11 +5,12 @@
  * Row 2: Operation select | Value input  — compact Space.Compact
  */
 
-import { Form, Input, Radio, Select, Space } from 'antd';
+import { Alert, Form, Input, Radio, Select, Space } from 'antd';
 import type React from 'react';
 
 const HeaderRuleFields: React.FC = () => {
   const operation = Form.useWatch('headerOperation');
+  const isResponse = Form.useWatch('isResponse');
 
   return (
     <>
@@ -26,6 +27,15 @@ const HeaderRuleFields: React.FC = () => {
           </Radio.Group>
         </Form.Item>
       </div>
+
+      {isResponse && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12, fontSize: 12 }}
+          message="Response header modifications are not visible in the browser DevTools Network tab, but they are actually applied. The browser shows the original server headers."
+        />
+      )}
 
       {/* Row 2: Operation + Value — compact inline */}
       <Space.Compact block style={{ marginBottom: 16 }}>

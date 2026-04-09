@@ -88,38 +88,29 @@ XMLHttpRequest.prototype.send = function() {
 // ── Body modification script ────────────────────────────────────
 
 export function generateBodyScript(rule: V5.BodyRule): string {
-  const patterns = extractPatterns(rule);
-  const { matchPattern, replaceWith, matchType, isRequest, isResponse } = rule.action;
-  const patternsJSON = JSON.stringify(patterns);
+  const bodyType = rule.action.bodyType || 'static';
+  return bodyType === 'dynamic' ? generateDynamicBodyScript(rule) : generateStaticBodyScript(rule);
+}
 
-  const matchFnBody =
-    matchType === 'regex'
-      ? `return new RegExp('${escapeForJS(matchPattern)}', 'g')`
-      : matchType === 'exact'
-        ? `return { test: function(s) { return s === '${escapeForJS(matchPattern)}'; }, [Symbol.replace]: function(s) { return '${escapeForJS(replaceWith)}'; } }`
-        : `return { test: function(s) { return s.indexOf('${escapeForJS(matchPattern)}') !== -1; }, [Symbol.replace]: function(s) { return s.split('${escapeForJS(matchPattern)}').join('${escapeForJS(replaceWith)}'); } }`;
+/**
+ * Static mode — replace the entire request/response body with a literal value.
+ */
+function generateStaticBodyScript(rule: V5.BodyRule): string {
+  const patterns = extractPatterns(rule);
+  const { body } = rule.action;
+  const patternsJSON = JSON.stringify(patterns);
 
   return `(function(){
 ${URL_MATCHER_CODE}
 var PATTERNS = ${patternsJSON};
-var REPLACE_WITH = '${escapeForJS(replaceWith)}';
-var IS_REQUEST = ${isRequest};
-var IS_RESPONSE = ${isResponse};
+var BODY = '${escapeForJS(body)}';
 
-function getMatchRegex() { ${matchFnBody}; }
-
-${
-  isRequest
-    ? `
 var origFetch = window.fetch;
 window.fetch = function() {
   var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (__ohMatchesUrl(url, PATTERNS) && args[1] && args[1].body && typeof args[1].body === 'string') {
-    var regex = getMatchRegex();
-    if (regex.test(args[1].body)) {
-      args[1] = Object.assign({}, args[1], { body: args[1].body.replace(regex, REPLACE_WITH) });
-    }
+  if (__ohMatchesUrl(url, PATTERNS) && args[1]) {
+    args[1] = Object.assign({}, args[1], { body: BODY });
   }
   return origFetch.apply(this, args);
 };
@@ -130,38 +121,64 @@ XMLHttpRequest.prototype.open = function() {
   this.__ohUrl = arguments[1] || '';
   return origXHROpen.apply(this, arguments);
 };
-XMLHttpRequest.prototype.send = function(body) {
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS) && typeof body === 'string') {
-    var regex = getMatchRegex();
-    if (regex.test(body)) { body = body.replace(regex, REPLACE_WITH); }
+XMLHttpRequest.prototype.send = function() {
+  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
+    return origXHRSend.call(this, BODY);
   }
-  return origXHRSend.call(this, body);
-};`
-    : ''
+  return origXHRSend.apply(this, arguments);
+};
+})();`;
 }
 
-${
-  isResponse
-    ? `
-var origFetchR = window.fetch;
+/**
+ * Dynamic mode — make the real request, then pass to user's modifyRequestBody() function.
+ */
+function generateDynamicBodyScript(rule: V5.BodyRule): string {
+  const patterns = extractPatterns(rule);
+  const { body: userCode } = rule.action;
+  const patternsJSON = JSON.stringify(patterns);
+
+  return `(function(){
+${URL_MATCHER_CODE}
+var PATTERNS = ${patternsJSON};
+
+${userCode}
+
+var origFetch = window.fetch;
 window.fetch = function() {
-  var args = arguments;
-  var self = this;
+  var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  var result = origFetchR.apply(self, args);
-  if (!__ohMatchesUrl(url, PATTERNS)) return result;
-  return result.then(function(response) {
-    var cloned = response.clone();
-    return cloned.text().then(function(text) {
-      var regex = getMatchRegex();
-      if (!regex.test(text)) return response;
-      var modified = text.replace(regex, REPLACE_WITH);
-      return new Response(modified, { status: response.status, statusText: response.statusText, headers: response.headers });
-    });
-  });
-};`
-    : ''
-}
+  if (__ohMatchesUrl(url, PATTERNS) && args[1] && args[1].body) {
+    try {
+      var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
+      var bodyAsJson = null;
+      try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
+      var modified = modifyRequestBody({ method: (args[1].method || 'GET'), url: url, body: bodyStr, bodyAsJson: bodyAsJson });
+      args[1] = Object.assign({}, args[1], { body: typeof modified === 'object' ? JSON.stringify(modified) : String(modified) });
+    } catch(err) { console.error('[Open Headers] modifyRequestBody() error:', err); }
+  }
+  return origFetch.apply(this, args);
+};
+
+var origXHRSend = XMLHttpRequest.prototype.send;
+var origXHROpen = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function() {
+  this.__ohUrl = arguments[1] || '';
+  this.__ohMethod = arguments[0] || 'GET';
+  return origXHROpen.apply(this, arguments);
+};
+XMLHttpRequest.prototype.send = function(body) {
+  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS) && body) {
+    try {
+      var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+      var bodyAsJson = null;
+      try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
+      var modified = modifyRequestBody({ method: this.__ohMethod, url: this.__ohUrl, body: bodyStr, bodyAsJson: bodyAsJson });
+      body = typeof modified === 'object' ? JSON.stringify(modified) : String(modified);
+    } catch(err) { console.error('[Open Headers] modifyRequestBody() error:', err); }
+  }
+  return origXHRSend.call(this, body);
+};
 })();`;
 }
 

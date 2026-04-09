@@ -112,8 +112,8 @@ function resolveBodyRule(rule: BodyRule, resolver: VariableResolver, context?: R
     ...rule,
     action: {
       ...rule.action,
-      matchPattern: resolveString(rule.action.matchPattern, resolver, context),
-      replaceWith: resolveString(rule.action.replaceWith, resolver, context),
+      // Only resolve variables in static body content, not in dynamic JS code
+      body: rule.action.bodyType === 'static' ? resolveString(rule.action.body, resolver, context) : rule.action.body,
     },
   };
 }

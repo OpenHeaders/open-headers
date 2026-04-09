@@ -171,12 +171,9 @@ const RulesAppInner: React.FC = () => {
               ...base,
               type: 'body',
               action: {
-                matchPattern: '',
-                matchType: 'contains',
-                replaceWith: '',
-                isRequest: true,
-                isResponse: false,
-                contentType: 'any',
+                bodyType: 'static',
+                body: '',
+                resourceType: 'rest',
               },
             } as Omit<V5.BodyRule, 'uid' | 'path'>;
             break;

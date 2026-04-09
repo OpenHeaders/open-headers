@@ -60,8 +60,8 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
       return true;
     }
     case 'body': {
-      const br = rule as { action: { matchPattern: string; replaceWith: string } };
-      if (!br.action.matchPattern.trim() || !br.action.replaceWith.trim()) return false;
+      const br = rule as { action: { body: string } };
+      if (!br.action.body?.trim()) return false;
       return true;
     }
     case 'delay': {

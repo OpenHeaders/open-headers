@@ -120,17 +120,24 @@ export interface RedirectRule extends RuleBase {
 
 // ── Body rule ──────────────────────────────────────────────────────
 
-export type MatchType = 'contains' | 'regex' | 'exact';
+export type BodyModType = 'static' | 'dynamic';
 
-export type ContentType = 'any' | 'json' | 'xml' | 'text' | 'form';
+/** 'rest' = REST API. 'graphql' = GraphQL API (adds operation filter). */
+export type BodyResourceType = 'rest' | 'graphql';
 
 export interface BodyAction {
-  matchPattern: string;
-  matchType: MatchType;
-  replaceWith: string;
-  isRequest: boolean;
-  isResponse: boolean;
-  contentType: ContentType;
+  /** 'static' = replace body with literal value. 'dynamic' = JS function that modifies body. */
+  bodyType: BodyModType;
+  /** For static: the replacement body content. For dynamic: the JS function code. */
+  body: string;
+  /** Resource type — REST or GraphQL. */
+  resourceType: BodyResourceType;
+  /** GraphQL payload filter — key, operator, value (only when resourceType is 'graphql'). */
+  graphqlFilter?: {
+    key: string;
+    operator: 'Equals' | 'Contains';
+    value: string;
+  };
 }
 
 export interface BodyRule extends RuleBase {

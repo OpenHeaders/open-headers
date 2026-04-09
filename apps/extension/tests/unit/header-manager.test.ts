@@ -96,7 +96,9 @@ describe('header-manager', () => {
     });
 
     it('skips rule with empty static value', async () => {
-      const rule = makeHeaderRule({ action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: '   ' } });
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: '   ' },
+      });
 
       updateNetworkRules([rule]);
       await flushPromises();
@@ -106,7 +108,9 @@ describe('header-manager', () => {
     });
 
     it('skips rule with no static value (undefined)', async () => {
-      const rule = makeHeaderRule({ action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: undefined } });
+      const rule = makeHeaderRule({
+        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: undefined },
+      });
 
       updateNetworkRules([rule]);
       await flushPromises();
@@ -341,7 +345,7 @@ describe('header-manager', () => {
         type: 'body',
         enabled: true,
         conditions: hostConditions(['openheaders.io']),
-        action: { matchPattern: 'old', matchType: 'contains', replaceWith: 'new', isRequest: true, isResponse: false, contentType: 'json' },
+        action: { bodyType: 'static', body: '{"replaced": true}', resourceType: 'rest' },
       };
 
       updateNetworkRules([bodyRule]);

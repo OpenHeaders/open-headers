@@ -106,14 +106,13 @@ export function getActionDetail(rule: Rule): ActionDetail {
       };
     case 'body': {
       const br = rule as BodyRule;
-      const dir =
-        br.action.isRequest && br.action.isResponse ? 'req+resp' : br.action.isRequest ? 'request' : 'response';
       return {
         ruleType: 'body',
-        direction: br.action.isRequest ? 'request' : 'response',
-        label: dir,
-        value: br.action.matchPattern || '',
-        tooltip: 'Modifies request/response body (fetch/XHR)',
+        direction: 'request' as const,
+        operation: br.action.bodyType,
+        label: br.action.resourceType === 'graphql' ? 'GraphQL' : 'REST',
+        value: br.action.bodyType === 'dynamic' ? 'JS function' : '',
+        tooltip: 'Modifies request body (fetch/XHR)',
       };
     }
     case 'mock':
