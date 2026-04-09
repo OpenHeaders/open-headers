@@ -23,6 +23,7 @@ import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { buildRuleTypeMenuItems } from '../rule-type-menu';
 
 interface CollectionOverviewProps {
   collectionUid: string;
@@ -189,38 +190,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
     [token, isPaused],
   );
 
-  const addRuleMenuItems = [
-    {
-      key: 'header',
-      icon: <SwapOutlined />,
-      label: 'Modify Headers',
-      onClick: () => onCreateRule('header', { collectionId: collectionUid }),
-    },
-    {
-      key: 'block',
-      icon: <StopOutlined />,
-      label: 'Block Requests',
-      onClick: () => onCreateRule('block', { collectionId: collectionUid }),
-    },
-    {
-      key: 'redirect',
-      icon: <SendOutlined />,
-      label: 'Redirect Requests',
-      onClick: () => onCreateRule('redirect', { collectionId: collectionUid }),
-    },
-    {
-      key: 'query-param',
-      icon: <LinkOutlined />,
-      label: 'Modify Query Params',
-      onClick: () => onCreateRule('query-param', { collectionId: collectionUid }),
-    },
-    {
-      key: 'inject',
-      icon: <CodeOutlined />,
-      label: 'Inject Scripts/CSS',
-      onClick: () => onCreateRule('inject', { collectionId: collectionUid }),
-    },
-  ];
+  const addRuleMenuItems = buildRuleTypeMenuItems((type) => onCreateRule(type, { collectionId: collectionUid }));
 
   if (!collection) {
     return (

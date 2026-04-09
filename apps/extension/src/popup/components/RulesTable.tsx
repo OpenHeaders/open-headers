@@ -1,19 +1,11 @@
 import {
-  ApiOutlined,
   CheckOutlined,
-  ClockCircleOutlined,
-  CodeOutlined,
-  DatabaseOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
   FileTextOutlined,
-  LinkOutlined,
   PlusOutlined,
-  SendOutlined,
   SortAscendingOutlined,
-  StopOutlined,
-  SwapOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
@@ -26,6 +18,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
+import { buildRuleTypeMenuItems } from '@/rules/rule-type-menu';
 import { getBrowserAPI } from '@/types/browser';
 import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '../utils/table-shared';
 import {
@@ -443,59 +436,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     },
   ];
 
-  const addRuleMenuItems = [
-    { key: 'header', icon: <SwapOutlined />, label: 'Modify Headers', onClick: () => openRulesPage('/create/header') },
-    { key: 'block', icon: <StopOutlined />, label: 'Block Requests', onClick: () => openRulesPage('/create/block') },
-    {
-      key: 'redirect',
-      icon: <SendOutlined />,
-      label: 'Redirect Requests',
-      onClick: () => openRulesPage('/create/redirect'),
-    },
-    {
-      key: 'query-param',
-      icon: <LinkOutlined />,
-      label: 'Modify Query Params',
-      onClick: () => openRulesPage('/create/query-param'),
-    },
-    {
-      key: 'inject',
-      icon: <CodeOutlined />,
-      label: 'Inject Scripts/CSS',
-      onClick: () => openRulesPage('/create/inject'),
-    },
-    { type: 'divider' as const },
-    {
-      key: 'body',
-      icon: <ApiOutlined />,
-      label: (
-        <Tooltip title="Requires desktop app — needs HTTP proxy" placement="right">
-          <span>Modify Payload</span>
-        </Tooltip>
-      ),
-      disabled: true,
-    },
-    {
-      key: 'delay',
-      icon: <ClockCircleOutlined />,
-      label: (
-        <Tooltip title="Requires desktop app" placement="right">
-          <span>Delay Response</span>
-        </Tooltip>
-      ),
-      disabled: true,
-    },
-    {
-      key: 'mock',
-      icon: <DatabaseOutlined />,
-      label: (
-        <Tooltip title="Requires desktop app" placement="right">
-          <span>Mock Response</span>
-        </Tooltip>
-      ),
-      disabled: true,
-    },
-  ];
+  const addRuleMenuItems = buildRuleTypeMenuItems((type) => openRulesPage(`/create/${type}`));
 
   const hasColumnSort = !!sortedInfo.order;
   const sortMenuItems = [

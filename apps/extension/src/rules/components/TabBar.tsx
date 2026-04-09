@@ -28,6 +28,7 @@ import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import type { ClosedTab, RulesTab } from '../types';
 
 // ── Icon map ─────────────────────────────────────────────────────
@@ -395,18 +396,7 @@ const TabBar: React.FC<TabBarProps> = ({
     [tabs.length, onClose, onCloseOther, onCloseAll, onCloseUnmodified, onCloseToLeft, onCloseToRight],
   );
 
-  const createMenuItems = [
-    { key: 'header', icon: <SwapOutlined />, label: 'Modify Headers', onClick: () => onCreateRule('header') },
-    { key: 'block', icon: <StopOutlined />, label: 'Block Requests', onClick: () => onCreateRule('block') },
-    { key: 'redirect', icon: <SendOutlined />, label: 'Redirect Requests', onClick: () => onCreateRule('redirect') },
-    {
-      key: 'query-param',
-      icon: <LinkOutlined />,
-      label: 'Modify Query Params',
-      onClick: () => onCreateRule('query-param'),
-    },
-    { key: 'inject', icon: <CodeOutlined />, label: 'Inject Scripts/CSS', onClick: () => onCreateRule('inject') },
-  ];
+  const createMenuItems = buildRuleTypeMenuItems(onCreateRule);
 
   return (
     <div

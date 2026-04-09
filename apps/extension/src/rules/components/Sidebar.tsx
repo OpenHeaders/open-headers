@@ -35,6 +35,7 @@ import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
 
@@ -76,38 +77,21 @@ function ruleIconForSidebar(rule: V5.Rule | undefined, node: V5.RuleNode, isActi
       iconColor = detail?.operation === 'css' ? '#eb2f96' : '#fa8c16';
     }
   }
-  const dirArrow =
-    detail?.direction
-      ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-          style: { fontSize: 9, color: 'var(--ant-color-text-secondary, #595959)', marginRight: 1 },
-        })
-      : null;
-  return createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 1 } }, dirArrow, createElement(Icon, { style: { fontSize: 12, color: iconColor } }));
+  const dirArrow = detail?.direction
+    ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
+        style: { fontSize: 9, color: 'var(--ant-color-text-secondary, #595959)', marginRight: 1 },
+      })
+    : null;
+  return createElement(
+    'span',
+    { style: { display: 'inline-flex', alignItems: 'center', gap: 1 } },
+    dirArrow,
+    createElement(Icon, { style: { fontSize: 12, color: iconColor } }),
+  );
 }
 
 function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
-  return [
-    { key: 'header', icon: createElement(SwapOutlined), label: 'Modify Headers', onClick: () => onAddRule('header') },
-    { key: 'block', icon: createElement(StopOutlined), label: 'Block Requests', onClick: () => onAddRule('block') },
-    {
-      key: 'redirect',
-      icon: createElement(SendOutlined),
-      label: 'Redirect Requests',
-      onClick: () => onAddRule('redirect'),
-    },
-    {
-      key: 'query-param',
-      icon: createElement(LinkOutlined),
-      label: 'Modify Query Params',
-      onClick: () => onAddRule('query-param'),
-    },
-    {
-      key: 'inject',
-      icon: createElement(CodeOutlined),
-      label: 'Inject Scripts/CSS',
-      onClick: () => onAddRule('inject'),
-    },
-  ];
+  return buildRuleTypeMenuItemsCE(onAddRule) as ItemType[];
 }
 
 function collectionMenuItems(
@@ -590,6 +574,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     createLocalFolder,
     confirmDelete,
     onOpenCollectionOverview,
+    onOpenFolderOverview,
   ]);
 
   // ── Flat items for keyboard nav ──────────────────────────────
@@ -710,7 +695,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       const found = selectOpenedFile();
       if (found) pendingSelectRef.current = null;
     }
-  }, [alwaysSelectOpened, activeTabId, selectOpenedFile, localCollectionTrees]);
+  }, [alwaysSelectOpened, activeTabId, selectOpenedFile]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -764,17 +749,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [createLocalCollection, onOpenCollectionOverview]);
 
   const createMenuItems = [
-    { key: 'header', icon: <SwapOutlined />, label: 'Modify Headers', onClick: () => onCreateRule('header') },
-    { key: 'block', icon: <StopOutlined />, label: 'Block Requests', onClick: () => onCreateRule('block') },
-    { key: 'redirect', icon: <SendOutlined />, label: 'Redirect Requests', onClick: () => onCreateRule('redirect') },
-    {
-      key: 'query-param',
-      icon: <LinkOutlined />,
-      label: 'Modify Query Params',
-      onClick: () => onCreateRule('query-param'),
-    },
-    { key: 'inject', icon: <CodeOutlined />, label: 'Inject Scripts/CSS', onClick: () => onCreateRule('inject') },
-    { type: 'divider' as const, key: 'div-1' },
+    ...buildRuleTypeMenuItems(onCreateRule),
+    { type: 'divider' as const, key: 'div-collection' },
     { key: 'collection', icon: <FolderOpenOutlined />, label: 'Collection', onClick: () => void createNewCollection() },
   ];
 
@@ -897,13 +873,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation */}
-      <div
-        ref={containerRef}
-        className="rules-sidebar-content"
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        style={{ outline: 'none' }}
-      >
+      <div ref={containerRef} className="rules-sidebar-content" onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
         <SectionHeader
           title="API REQUESTS"
           expanded={sectionsExpanded.requests}

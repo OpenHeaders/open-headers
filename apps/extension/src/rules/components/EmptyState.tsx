@@ -2,23 +2,15 @@
  * EmptyState — shown when no rule is selected in the editor area.
  */
 
-import { CodeOutlined, LinkOutlined, PlusOutlined, SendOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
-import { Button, Space, Typography } from 'antd';
+import { Button, Space, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { ALL_RULE_TYPES } from '../rule-type-menu';
 
 const { Title, Text } = Typography;
 
 interface EmptyStateProps {
   onCreateRule: (type: string) => void;
 }
-
-const ruleTypes = [
-  { key: 'header', icon: <SwapOutlined />, label: 'Modify Headers' },
-  { key: 'block', icon: <StopOutlined />, label: 'Block Requests' },
-  { key: 'redirect', icon: <SendOutlined />, label: 'Redirect Requests' },
-  { key: 'query-param', icon: <LinkOutlined />, label: 'Modify Query Params' },
-  { key: 'inject', icon: <CodeOutlined />, label: 'Inject Scripts/CSS' },
-];
 
 const EmptyState: React.FC<EmptyStateProps> = ({ onCreateRule }) => {
   return (
@@ -39,17 +31,22 @@ const EmptyState: React.FC<EmptyStateProps> = ({ onCreateRule }) => {
         <Text type="secondary">Select a rule from the sidebar or create one below</Text>
       </div>
       <Space direction="vertical" size={8} style={{ width: 280 }}>
-        {ruleTypes.map((rt) => (
-          <Button
+        {ALL_RULE_TYPES.map((rt) => (
+          <Tooltip
             key={rt.key}
-            icon={rt.icon}
-            onClick={() => onCreateRule(rt.key)}
-            block
-            size="large"
-            style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+            title={rt.desktopOnly ? 'Available in desktop app — requires HTTP proxy' : rt.description}
           >
-            {rt.label}
-          </Button>
+            <Button
+              icon={rt.icon}
+              onClick={rt.desktopOnly ? undefined : () => onCreateRule(rt.key)}
+              disabled={rt.desktopOnly}
+              block
+              size="large"
+              style={{ textAlign: 'left', justifyContent: 'flex-start', opacity: rt.desktopOnly ? 0.45 : 1 }}
+            >
+              {rt.label}
+            </Button>
+          </Tooltip>
         ))}
       </Space>
     </div>
