@@ -10,6 +10,8 @@
 
 import {
   AimOutlined,
+  ArrowDownOutlined,
+  ArrowUpOutlined,
   CheckCircleOutlined,
   CodeOutlined,
   DeleteOutlined,
@@ -25,11 +27,10 @@ import {
   SendOutlined,
   StopOutlined,
   SwapOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
+import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
@@ -39,8 +40,49 @@ import type { TreeNode } from './sidebar/types';
 
 // ── Icon helpers ───────────────────────────────────────────────────
 
-function iconEl(Icon: typeof ThunderboltOutlined, color: string, size = 12): React.ReactNode {
+function iconEl(Icon: typeof StopOutlined, color: string, size = 12): React.ReactNode {
   return createElement(Icon, { style: { color, fontSize: size } });
+}
+
+const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
+  header: SwapOutlined,
+  block: StopOutlined,
+  redirect: SendOutlined,
+  'query-param': LinkOutlined,
+  inject: CodeOutlined,
+};
+
+const HEADER_OP_COLOR: Record<string, string> = {
+  override: '#1677ff',
+  add: '#52c41a',
+  remove: '#ff4d4f',
+};
+
+function ruleIconForSidebar(rule: V5.Rule | undefined, node: V5.RuleNode, isActive: boolean): React.ReactNode {
+  const gray = 'var(--ant-color-text-tertiary, #999)';
+  const detail = rule ? getActionDetail(rule) : undefined;
+  const Icon = RULE_TYPE_ICON[node.ruleType] ?? SwapOutlined;
+  let iconColor = gray;
+  if (isActive) {
+    if (node.ruleType === 'header' && detail?.operation) {
+      iconColor = HEADER_OP_COLOR[detail.operation] ?? '#1677ff';
+    } else if (node.ruleType === 'block') {
+      iconColor = '#ff4d4f';
+    } else if (node.ruleType === 'redirect') {
+      iconColor = '#faad14';
+    } else if (node.ruleType === 'query-param') {
+      iconColor = '#722ed1';
+    } else if (node.ruleType === 'inject') {
+      iconColor = detail?.operation === 'css' ? '#eb2f96' : '#fa8c16';
+    }
+  }
+  const dirArrow =
+    detail?.direction
+      ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
+          style: { fontSize: 9, color: gray, marginRight: 1 },
+        })
+      : null;
+  return createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 1 } }, dirArrow, createElement(Icon, { style: { fontSize: 12, color: iconColor } }));
 }
 
 function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
@@ -77,7 +119,7 @@ function collectionMenuItems(
   return [
     {
       key: 'add-item',
-      icon: createElement(ThunderboltOutlined),
+      icon: createElement(PlusOutlined),
       label: 'Add Rule',
       children: ruleTypeSubmenu(onAddRule),
     },
@@ -97,7 +139,7 @@ function folderMenuItems(
   return [
     {
       key: 'add-item',
-      icon: createElement(ThunderboltOutlined),
+      icon: createElement(PlusOutlined),
       label: 'Add Rule',
       children: ruleTypeSubmenu(onAddRule),
     },
@@ -344,7 +386,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 placeholderActions: [
                   {
                     label: 'Add rule',
-                    icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                    icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
                     onClick: () => onAddRule('header'),
                   },
                   {
@@ -362,8 +404,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           const isLocal = node.uid.startsWith('local-');
           const fullRule = rules.find((r) => r.uid === node.uid);
           const complete = fullRule ? isRuleComplete(fullRule) : true;
-          const color =
-            node.enabled && complete ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)';
+          const isActive = node.enabled && complete;
 
           // Badge: "draft" for incomplete rules, "off" for disabled complete rules
           let badge: React.ReactNode;
@@ -388,7 +429,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: false,
             parentId,
-            icon: iconEl(ThunderboltOutlined, color),
+            icon: ruleIconForSidebar(fullRule, node, isActive),
             badge,
             canRename: isLocal,
             canDelete: isLocal,
@@ -516,7 +557,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             placeholderActions: [
               {
                 label: 'Add rule',
-                icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
                 onClick: () => onAddRule('header'),
               },
               {

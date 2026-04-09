@@ -1,4 +1,14 @@
-import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  CheckOutlined,
+  CodeOutlined,
+  CopyTwoTone,
+  LinkOutlined,
+  SendOutlined,
+  StopOutlined,
+  SwapOutlined,
+} from '@ant-design/icons';
 import type { ActionDetail } from '@openheaders/core/utils';
 import { Space, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
@@ -150,54 +160,93 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
 
 export type { ActionDetail } from '@openheaders/core/utils';
 
-/** Render a compact [TAG] value for the Details column. */
+// ── Rule type icon with operation color ─────────────────────────
+
+const HEADER_OP_COLOR: Record<string, string> = {
+  override: '#1677ff', // blue
+  add: '#52c41a', // green
+  remove: '#ff4d4f', // red
+};
+
+function getRuleTypeIcon(ruleType: string, operation?: string): React.ReactNode {
+  const style = { fontSize: 13 };
+  switch (ruleType) {
+    case 'header':
+      return <SwapOutlined style={{ ...style, color: HEADER_OP_COLOR[operation ?? ''] ?? '#1677ff' }} />;
+    case 'block':
+      return <StopOutlined style={{ ...style, color: '#ff4d4f' }} />;
+    case 'redirect':
+      return <SendOutlined style={{ ...style, color: '#faad14' }} />;
+    case 'query-param':
+      return <LinkOutlined style={{ ...style, color: '#722ed1' }} />;
+    case 'inject':
+      return <CodeOutlined style={{ ...style, color: operation === 'css' ? '#eb2f96' : '#fa8c16' }} />;
+    default:
+      return null;
+  }
+}
+
+// ── Render action details ────────────────────────────────────────
+
+/** Render structured action details: direction + icon + label tag + value. */
 export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueLen = 16): React.ReactNode {
   const displayValue = truncateValue(detail.value, maxValueLen);
-  // Strip direction arrow from tag for tooltip (e.g. "OVERRIDE ↑" → "OVERRIDE")
-  const tooltipTag = detail.tag.replace(/ [↑↓]$/, '');
-  // Parse direction: "↑ Outgoing request" → arrow "↑", label "Outgoing request"
-  const dirArrow = detail.direction?.charAt(0);
-  const dirLabel = detail.direction?.substring(2);
-  const tagStyle = {
-    margin: 0,
-    fontSize: '10px',
-    flexShrink: 0,
-    fontWeight: 600,
-    minWidth: 56,
-    textAlign: 'center' as const,
-  };
+
   const tooltipContent = (
     <div style={{ fontSize: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Tag variant="outlined" style={tagStyle}>
-          {tooltipTag}
-        </Tag>
-        <span style={{ opacity: 0.6 }}>{detail.tooltip}</span>
-      </div>
-      {detail.direction && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <Tag variant="outlined" style={tagStyle}>
-            {dirArrow}
-          </Tag>
-          <span style={{ opacity: 0.6 }}>{dirLabel}</span>
+      <div>{detail.tooltip}</div>
+      {detail.label && (
+        <div style={{ marginTop: 2, fontFamily: 'monospace' }}>
+          {detail.label}
+          {detail.value ? `: ${detail.value}` : ''}
         </div>
-      )}
-      {detail.value && (
-        <div style={{ marginTop: 4, fontFamily: 'monospace', wordBreak: 'break-all' }}>{detail.value}</div>
       )}
     </div>
   );
+
   return (
     <Tooltip title={tooltipContent} styles={{ root: { maxWidth: 400 } }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', opacity }}>
-        <Tag
-          variant="outlined"
-          style={{ margin: 0, fontSize: '10px', padding: '0 3px', lineHeight: '18px', flexShrink: 0, fontWeight: 600 }}
-        >
-          {detail.tag}
-        </Tag>
+        {/* Direction arrow (header only) */}
+        {detail.direction && (
+          <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0, color: 'var(--ant-color-text-quaternary)' }}>
+            {detail.direction === 'response' ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
+          </span>
+        )}
+
+        {/* Rule type icon, colored by operation */}
+        <span style={{ flexShrink: 0, lineHeight: 1 }}>{getRuleTypeIcon(detail.ruleType, detail.operation)}</span>
+
+        {/* Label as tag (header name, param count, JS/CSS) */}
+        {detail.label && (
+          <Tag
+            variant="outlined"
+            style={{
+              margin: 0,
+              fontSize: '11px',
+              padding: '0 4px',
+              lineHeight: '18px',
+              flexShrink: 0,
+              maxWidth: 100,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {detail.label}
+          </Tag>
+        )}
+
+        {/* Value as text */}
         {detail.value && (
-          <Text style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+          <Text
+            style={{
+              fontSize: '12px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              minWidth: 0,
+              color: 'var(--ant-color-text-secondary)',
+            }}
+          >
             {displayValue}
           </Text>
         )}

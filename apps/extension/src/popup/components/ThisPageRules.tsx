@@ -129,7 +129,8 @@ interface ActiveRule {
   name: string;
   ruleType: string;
   summary: string;
-  actionTag?: string;
+  actionLabel?: string;
+  actionOperation?: string;
   actionTooltip?: string;
   actionDirection?: string;
   actionValue?: string;
@@ -439,10 +440,12 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       render: (_: unknown, record: TableRecord) =>
         renderActionDetails(
           {
-            tag: record.actionTag || record.ruleType,
-            tooltip: record.actionTooltip || record.summary,
-            direction: record.actionDirection,
+            ruleType: record.ruleType,
+            direction: record.actionDirection as 'request' | 'response' | undefined,
+            operation: record.actionOperation,
+            label: record.actionLabel || '',
             value: record.actionValue || '',
+            tooltip: record.actionTooltip || record.summary,
           },
           1,
           24,

@@ -76,7 +76,9 @@ function treeNodesToRecords(
         name: node.name,
         nodeType: 'rule' as const,
         ruleType: node.ruleType,
-        actionDetail: rule ? getActionDetail(rule) : { tag: node.ruleType.toUpperCase(), tooltip: '', value: '' },
+        actionDetail: rule
+          ? getActionDetail(rule)
+          : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
         domains: rule?.domains ?? [],
         isEnabled: node.enabled,
         isComplete: rule ? isRuleComplete(rule) : true,
