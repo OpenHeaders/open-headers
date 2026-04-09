@@ -218,7 +218,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           const rr = rule as V5.RedirectRule;
           form.setFieldsValue({
             ...baseValues,
-            redirectMatchPattern: rr.action.matchPattern,
             redirectTo: rr.action.redirectTo,
           });
           break;
@@ -286,7 +285,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         isResponse: false,
         staticValue: '',
         headerName: '',
-        redirectMatchPattern: '',
         redirectTo: '',
         injectType: 'script',
         injectCode: '',
@@ -333,8 +331,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             ...base,
             type: 'redirect',
             action: {
-              matchPattern: (formValues.redirectMatchPattern as string) ?? '',
-              redirectTo: formValues.redirectTo as string,
+              matchPattern: '',
+              redirectTo: (formValues.redirectTo as string) ?? '',
             },
           } as Omit<V5.RedirectRule, 'uid' | 'path'>;
         case 'query-param':

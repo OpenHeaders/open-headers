@@ -1,29 +1,45 @@
 /**
- * RedirectRuleFields — match pattern + redirect target.
+ * RedirectRuleFields — redirect target configuration.
+ *
+ * The "If request" matching is handled by the shared ConditionEditor.
+ * This component only handles where to redirect to:
+ *   - Another URL (extension-supported)
+ *   - Local file (desktop-only, shown disabled)
  */
 
-import { Form, Input, Typography } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Form, Input, Radio, Tooltip, Typography } from 'antd';
 import type React from 'react';
 
 const { Text } = Typography;
 
 const RedirectRuleFields: React.FC = () => {
   return (
-    <>
-      {/* Row 1: Match pattern */}
-      <Form.Item name="redirectMatchPattern" style={{ marginBottom: 16 }}>
-        <Input placeholder="Match Pattern (e.g. https://old.openheaders.io/*)" />
-      </Form.Item>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+        <Text strong style={{ fontSize: 13 }}>
+          Redirects to
+        </Text>
+        <Tooltip title="The destination URL. Use $1, $2 etc. for regex capture groups from URL conditions.">
+          <InfoCircleOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }} />
+        </Tooltip>
+      </div>
 
-      {/* Row 2: Redirect To */}
-      <Form.Item name="redirectTo" style={{ marginBottom: 16 }}>
-        <Input placeholder="Redirect To (e.g. https://new.openheaders.io/$1)" />
-      </Form.Item>
+      <div style={{ marginBottom: 10 }}>
+        <Radio.Group value="url" size="small">
+          <Radio.Button value="url">Another URL</Radio.Button>
+          <Tooltip title="Available in desktop app">
+            <Radio.Button value="local" disabled>
+              Local file
+            </Radio.Button>
+          </Tooltip>
+        </Radio.Group>
+      </div>
 
-      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 16 }}>
-        Leave Match Pattern empty to redirect all requests to the domains below.
-      </Text>
-    </>
+      <Form.Item name="redirectTo" style={{ marginBottom: 0 }}>
+        <Input placeholder="e.g. https://openheaders.io/redirected" />
+      </Form.Item>
+    </div>
   );
 };
 
