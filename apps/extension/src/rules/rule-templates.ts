@@ -165,8 +165,8 @@ export const REDIRECT_TEMPLATES: RuleTemplate[] = [
     icon: '🔒',
     name: 'Force HTTPS',
     description: 'Redirect HTTP URLs to HTTPS',
-    conditions: [{ type: 'url-filter', values: ['http://*/*'] }],
-    formValues: { redirectTo: 'https://$1' },
+    conditions: [{ type: 'url-regex', values: ['^http://(.*)$'] }],
+    formValues: { redirectTo: 'https://\\1' },
   },
 ];
 
