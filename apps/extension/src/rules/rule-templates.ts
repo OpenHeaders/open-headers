@@ -335,15 +335,37 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
       mockStatusCode: 0,
       mockBodyType: 'dynamic',
       mockDynamicBody: `function modifyResponse(args) {
-  const { method, url, response, responseType, requestHeaders, requestData, responseJSON } = args;
+  const { method, url, response, responseJSON } = args;
+  if (!responseJSON) return response;
 
-  // Example: inject test data into the response
-  if (responseJSON && Array.isArray(responseJSON.data)) {
-    responseJSON.data.unshift({ id: 0, name: "Injected Test Item" });
-    return JSON.stringify(responseJSON);
+  // Inject fields
+  responseJSON.debugTimestamp = Date.now();
+  responseJSON.debugUrl = url;
+
+  // Replace field values
+  if (responseJSON.user) {
+    responseJSON.user.email = "redacted@openheaders.io";
+    responseJSON.user.role = "admin"; // escalate for testing
   }
 
-  return response;
+  // Remove sensitive fields
+  delete responseJSON.token;
+  delete responseJSON.refreshToken;
+  delete responseJSON.internalId;
+
+  // Transform arrays — add test entries, filter, or cap length
+  if (Array.isArray(responseJSON.data)) {
+    responseJSON.data.unshift({ id: 0, name: "[Injected] Test Item" });
+    responseJSON.data = responseJSON.data.slice(0, 5); // cap at 5 items
+  }
+
+  // Conditionally modify based on request method
+  if (method === "POST") {
+    responseJSON.created = true;
+    responseJSON.message = "Intercepted by Open Headers";
+  }
+
+  return JSON.stringify(responseJSON);
 }`,
     },
   },
