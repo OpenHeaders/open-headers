@@ -11,22 +11,14 @@
  * and breadcrumb renames are never overwritten by a stale form value on save.
  */
 
-import {
-  ClockCircleOutlined,
-  CodeOutlined,
-  DatabaseOutlined,
-  FileTextOutlined,
-  LinkOutlined,
-  SendOutlined,
-  StopOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
+import { FileOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
-import { App, Form, Segmented, Switch, Typography } from 'antd';
+import { App, Form, Switch, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields from './rule-fields/BodyRuleFields';
@@ -38,83 +30,6 @@ import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 
 const { Text } = Typography;
-
-type EditorRuleType = V5.ExtensionRuleType;
-
-const RULE_TYPE_SEGMENTS: Array<{ value: EditorRuleType; label: React.ReactNode }> = [
-  {
-    value: 'header',
-    label: (
-      <span>
-        <SwapOutlined style={{ marginRight: 5, color: '#1677ff' }} />
-        Headers
-      </span>
-    ),
-  },
-  {
-    value: 'block',
-    label: (
-      <span>
-        <StopOutlined style={{ marginRight: 5, color: '#ff4d4f' }} />
-        Block
-      </span>
-    ),
-  },
-  {
-    value: 'redirect',
-    label: (
-      <span>
-        <SendOutlined style={{ marginRight: 5, color: '#722ed1' }} />
-        Redirect
-      </span>
-    ),
-  },
-  {
-    value: 'query-param',
-    label: (
-      <span>
-        <LinkOutlined style={{ marginRight: 5, color: '#13c2c2' }} />
-        Params
-      </span>
-    ),
-  },
-  {
-    value: 'inject',
-    label: (
-      <span>
-        <CodeOutlined style={{ marginRight: 5, color: '#52c41a' }} />
-        Inject
-      </span>
-    ),
-  },
-  {
-    value: 'body',
-    label: (
-      <span>
-        <FileTextOutlined style={{ marginRight: 5, color: '#fa8c16' }} />
-        Body
-      </span>
-    ),
-  },
-  {
-    value: 'delay',
-    label: (
-      <span>
-        <ClockCircleOutlined style={{ marginRight: 5, color: '#eb2f96' }} />
-        Delay
-      </span>
-    ),
-  },
-  {
-    value: 'mock',
-    label: (
-      <span>
-        <DatabaseOutlined style={{ marginRight: 5, color: '#1890ff' }} />
-        API Response
-      </span>
-    ),
-  },
-];
 
 const RULE_TYPE_TITLE: Record<string, string> = {
   header: 'Header Rule',
@@ -155,7 +70,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { rules, createLocalRule, updateLocalRule, localCollections } = useRules();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
-  const selectedType = Form.useWatch('ruleType', form) as EditorRuleType | undefined;
+  const selectedType = Form.useWatch('ruleType', form) as V5.ExtensionRuleType | undefined;
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
 
@@ -183,6 +98,35 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       setDraftEnabled((prev) => !prev);
     }
   }, [mode, ruleUid, isEnabled]);
+
+  // ── Template selector ─────────────────────────────────────────
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('empty');
+
+  const templates = useMemo(() => TEMPLATES_BY_TYPE[selectedType ?? 'header'] ?? [], [selectedType]);
+
+  const applyTemplate = useCallback(
+    (key: string) => {
+      setSelectedTemplate(key);
+      if (key === 'empty') {
+        form.resetFields();
+        form.setFieldsValue({ ruleType: selectedType, conditions: [] });
+        return;
+      }
+      const type = selectedType ?? 'header';
+      const templates = TEMPLATES_BY_TYPE[type] ?? [];
+      const template = templates.find((t) => t.key === key);
+      if (!template) return;
+      form.setFieldsValue({
+        conditions: template.conditions,
+        ...template.formValues,
+      });
+      if (!isDirtyRef.current) {
+        isDirtyRef.current = true;
+        onDirtyChange?.(true);
+      }
+    },
+    [selectedType, form, onDirtyChange],
+  );
 
   // ── Form initialization (content fields only — no name/enabled) ──
 
@@ -476,13 +420,17 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   return (
     <div className="rules-rule-editor">
       <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
-        {/* ── Top bar: title+toggle column | Segmented type ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Hidden: rule type (set at creation, can't change) */}
+        <Form.Item name="ruleType" hidden>
+          <input type="hidden" />
+        </Form.Item>
+
+        {/* ── Top bar: title + toggle + template selector ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
             <Text strong style={{ fontSize: 15, whiteSpace: 'nowrap' }}>
               {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
             </Text>
-            {/* NOT a form field — owned by rule store (edit) or local state (create) */}
             <Switch
               checked={isEnabled}
               onChange={handleToggleEnabled}
@@ -491,16 +439,31 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             />
           </div>
 
-          <Form.Item name="ruleType" style={{ marginBottom: 0 }}>
-            <Segmented
-              size="middle"
-              options={RULE_TYPE_SEGMENTS.map((s) => ({
-                ...s,
-                disabled: isEdit && s.value !== selectedType,
-              }))}
-              style={{ fontWeight: 500 }}
-            />
-          </Form.Item>
+          {/* Template selector */}
+          {templates.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
+              <Tag
+                color={selectedTemplate === 'empty' ? 'blue' : 'default'}
+                style={{ cursor: 'pointer', fontSize: 12, margin: 0, padding: '2px 10px', userSelect: 'none' }}
+                onClick={() => applyTemplate('empty')}
+              >
+                <FileOutlined style={{ marginRight: 4 }} />
+                Empty
+              </Tag>
+              {templates.map((t) => (
+                <Tooltip key={t.key} title={t.description}>
+                  <Tag
+                    color={selectedTemplate === t.key ? 'blue' : 'default'}
+                    style={{ cursor: 'pointer', fontSize: 12, margin: 0, padding: '2px 10px', userSelect: 'none' }}
+                    onClick={() => applyTemplate(t.key)}
+                  >
+                    <span style={{ marginRight: 4 }}>{t.icon}</span>
+                    {t.name}
+                  </Tag>
+                </Tooltip>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Per-type fields ── */}
