@@ -98,35 +98,30 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false });
       }
-      return true;
     } else if (message.type === 'toggleVideoRecording') {
       if (isWebSocketConnected()) {
         safeResponse({ success: sendViaWebSocket({ type: 'toggleVideoRecording', enabled: !!message.enabled }) });
       } else {
         safeResponse({ success: false, error: 'App not connected' });
       }
-      return true;
     } else if (message.type === 'toggleRecordingHotkey') {
       if (isWebSocketConnected()) {
         safeResponse({ success: sendViaWebSocket({ type: 'toggleRecordingHotkey', enabled: !!message.enabled }) });
       } else {
         safeResponse({ success: false, error: 'App not connected' });
       }
-      return true;
     } else if (message.type === 'getVideoRecordingState') {
       if (isWebSocketConnected()) {
         safeResponse({ success: sendViaWebSocket({ type: 'getVideoRecordingState' }) });
       } else {
         safeResponse({ success: true, enabled: false });
       }
-      return true;
     } else if (message.type === 'getRecordingHotkey') {
       if (isWebSocketConnected()) {
         safeResponse({ success: sendViaWebSocket({ type: 'getRecordingHotkey' }) });
       } else {
         safeResponse({ success: true, hotkey: 'CommandOrControl+Shift+E' });
       }
-      return true;
     } else if (message.type === 'toggleRule') {
       const ruleId = message.ruleId as string;
       const enabled = message.enabled as boolean;
@@ -142,7 +137,6 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false, error: 'Not connected to desktop app' });
       }
-      return true;
     } else if (message.type === 'deleteRule') {
       const ruleId = message.ruleId as string;
       if (ruleId.startsWith('local-')) {
@@ -157,7 +151,6 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false, error: 'Not connected to desktop app' });
       }
-      return true;
     } else if (message.type === 'createLocalRule') {
       const ruleData = message.rule as Omit<V5.Rule, 'uid' | 'path'>;
       const parentPath = message.parentPath as string | undefined;
@@ -175,7 +168,6 @@ export function handleGeneralMessage(
       scheduleUpdate('rules', { immediate: true });
       updateBadgeCallback();
       safeResponse({ success: true, rule: created });
-      return true;
     } else if (message.type === 'updateLocalRule') {
       const ruleId = message.ruleId as string;
       const updates = message.updates as Partial<Omit<V5.Rule, 'uid' | 'path'>>;
@@ -185,27 +177,20 @@ export function handleGeneralMessage(
         updateBadgeCallback();
       }
       safeResponse({ success });
-      return true;
     } else if (message.type === 'getLocalRules') {
       safeResponse({ rules: getLocalRules() });
-      return true;
     } else if (message.type === 'getLocalCollections') {
       safeResponse({ collections: getLocalCollections() });
-      return true;
     } else if (message.type === 'getLocalCollectionTrees') {
       safeResponse({ collectionTrees: getLocalCollectionTrees() });
-      return true;
     } else if (message.type === 'getLocalFolders') {
       safeResponse({ folders: getLocalFolders() });
-      return true;
     } else if (message.type === 'createLocalFolder') {
       const folder = createLocalFolder(message.name as string, message.parentPath as string);
       safeResponse({ success: true, folder });
-      return true;
     } else if (message.type === 'renameLocalFolder') {
       const success = renameLocalFolder(message.folderUid as string, message.name as string);
       safeResponse({ success });
-      return true;
     } else if (message.type === 'deleteLocalFolder') {
       const success = deleteLocalFolder(message.folderUid as string);
       if (success) {
@@ -213,16 +198,13 @@ export function handleGeneralMessage(
         updateBadgeCallback();
       }
       safeResponse({ success });
-      return true;
     } else if (message.type === 'createLocalCollection') {
       const name = message.name as string;
       const collection = createLocalCollection(name);
       safeResponse({ success: true, collection });
-      return true;
     } else if (message.type === 'renameLocalCollection') {
       const success = renameLocalCollection(message.collectionUid as string, message.name as string);
       safeResponse({ success });
-      return true;
     } else if (message.type === 'deleteLocalCollection') {
       const success = deleteLocalCollection(message.collectionUid as string);
       if (success) {
@@ -230,14 +212,12 @@ export function handleGeneralMessage(
         updateBadgeCallback();
       }
       safeResponse({ success });
-      return true;
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);
       safeResponse({ activeRules: result.activeRules, uniqueRequestCount: result.uniqueRequestCount });
     } else if (message.type === 'setRulesExecutionPaused') {
       scheduleUpdate('pause', { immediate: true });
       safeResponse({ success: true });
-      return true;
     } else if (message.type === 'toggleAllRules') {
       if (isWebSocketConnected()) {
         safeResponse({
@@ -250,7 +230,6 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false, error: 'Not connected to desktop app' });
       }
-      return true;
     } else if (message.type && (message.type as string).startsWith('proxy-')) {
       return false;
     } else {

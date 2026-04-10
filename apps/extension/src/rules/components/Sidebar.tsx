@@ -30,6 +30,7 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
+import { runtime } from '@utils/browser-api';
 import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -287,7 +288,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleToggleRule = useCallback(
     (ruleUid: string, enabled: boolean) => {
-      chrome.runtime.sendMessage({ type: 'toggleRule', ruleId: ruleUid, enabled }, (response: unknown) => {
+      runtime.sendMessage({ type: 'toggleRule', ruleId: ruleUid, enabled }, (response: unknown) => {
         if (!(response as { success?: boolean } | undefined)?.success) message.error('Failed to toggle rule');
       });
     },

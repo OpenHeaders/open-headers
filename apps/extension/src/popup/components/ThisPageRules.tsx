@@ -33,6 +33,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
+import { runtime } from '@utils/browser-api';
 import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderActionDetails,
@@ -232,7 +233,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           const tab = tabs[0];
           const url = new URL(tab.url!);
           const response = await new Promise<{ activeRules?: ActiveRule[]; uniqueRequestCount?: number }>((resolve) => {
-            browserAPI.runtime.sendMessage({ type: 'getActiveRulesForTab', tabId: tab.id, tabUrl: tab.url }, (resp) => {
+            runtime.sendMessage({ type: 'getActiveRulesForTab', tabId: tab.id, tabUrl: tab.url }, (resp) => {
               resolve((resp as { activeRules?: ActiveRule[]; uniqueRequestCount?: number }) || { activeRules: [] });
             });
           });
@@ -268,13 +269,13 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         void fetchActiveRules();
       }
     };
-    browserAPI.runtime.onMessage.addListener(handleRuntimeMessage);
+    runtime.onMessage.addListener(handleRuntimeMessage as Parameters<typeof runtime.onMessage.addListener>[0]);
 
     return () => {
       browserAPI.tabs.onUpdated.removeListener(handleTabUpdate);
       browserAPI.tabs.onActivated.removeListener(fetchActiveRules);
       browserAPI.storage.onChanged.removeListener(handleStorageChange);
-      browserAPI.runtime.onMessage.removeListener(handleRuntimeMessage);
+      runtime.onMessage.removeListener(handleRuntimeMessage as Parameters<typeof runtime.onMessage.removeListener>[0]);
     };
   }, []);
 
@@ -345,11 +346,10 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     if (!record) return;
     const isEnabled = record.isEnabled !== false;
     setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-    const bApi = typeof browser !== 'undefined' ? browser : chrome;
-    bApi.runtime.sendMessage({ type: 'toggleRule', ruleId: record.id, enabled: !isEnabled }, (response: unknown) => {
+    runtime.sendMessage({ type: 'toggleRule', ruleId: record.id, enabled: !isEnabled }, (response: unknown) => {
       const resp = response as { success?: boolean } | undefined;
       if (resp?.success) {
-        bApi.runtime.sendMessage({ type: 'rulesUpdated' });
+        runtime.sendMessage({ type: 'rulesUpdated' });
       } else {
         setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
       }
@@ -375,8 +375,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       const record = dataSourceRef.current[index];
       if (!record) return;
       setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
-      const bApi = typeof browser !== 'undefined' ? browser : chrome;
-      bApi.runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
+      runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
         const resp = response as { success?: boolean } | undefined;
         if (resp?.success) {
           void message.success('Rule deleted');
@@ -532,13 +531,12 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             disabled={!canToggle}
             onChange={() => {
               setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-              const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-              browserAPI.runtime.sendMessage(
+              runtime.sendMessage(
                 { type: 'toggleRule', ruleId: record.id, enabled: !isEnabled },
                 (response: unknown) => {
                   const resp = response as { success?: boolean } | undefined;
                   if (resp?.success) {
-                    browserAPI.runtime.sendMessage({ type: 'rulesUpdated' });
+                    runtime.sendMessage({ type: 'rulesUpdated' });
                   } else {
                     setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
                     void message.error('Failed to toggle rule');
@@ -573,8 +571,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               description={`Delete "${record.name}"?`}
               onConfirm={() => {
                 setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
-                const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-                browserAPI.runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
+                runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
                   const resp = response as { success?: boolean } | undefined;
                   if (resp?.success) {
                     void message.success('Rule deleted');

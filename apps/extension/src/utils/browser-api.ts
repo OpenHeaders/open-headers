@@ -135,7 +135,9 @@ export const runtime = {
       // Chrome/Edge use callbacks
       try {
         browserAPI.runtime.sendMessage(message, (response: unknown) => {
-          // Chrome sets lastError if there was a problem
+          // Read lastError to suppress "Unchecked runtime.lastError" console noise
+          // (e.g. when broadcasting to popup/workspace that isn't open)
+          void browserAPI.runtime.lastError;
           if (callback) {
             callback(response);
           }
