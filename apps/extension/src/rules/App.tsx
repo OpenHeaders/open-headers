@@ -26,6 +26,7 @@ import FolderOverview from './components/FolderOverview';
 import Inspector from './components/Inspector';
 import RuleEditor from './components/RuleEditor';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
+import TemplateEditor from './components/TemplateEditor';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TabBar from './components/TabBar';
@@ -63,6 +64,7 @@ const RulesAppInner: React.FC = () => {
     createLocalFolder,
     renameLocalCollection,
     renameLocalFolder,
+    templates,
   } = useRules();
 
   // ── Tab state (extracted hook) ────────────────────────────────
@@ -298,6 +300,54 @@ const RulesAppInner: React.FC = () => {
     [tabs, addTab, switchTab],
   );
 
+  const openTemplateEditTab = useCallback(
+    (uid: string) => {
+      const existing = tabs.find((t) => t.mode === 'template-edit' && t.templateUid === uid);
+      if (existing) {
+        switchTab(existing.id);
+        return;
+      }
+      const tpl = templates.find((t) => t.uid === uid);
+      const id = `tpl-edit-${uid}`;
+      const tab: RulesTab = {
+        id,
+        label: tpl?.name ?? 'Template',
+        ruleType: tpl?.ruleType ?? '',
+        dirty: false,
+        mode: 'template-edit',
+        templateUid: uid,
+      };
+      addTab(tab);
+    },
+    [tabs, templates, addTab, switchTab],
+  );
+
+  // Template collection/folder overview reuses the same overview components
+  // but with different tab IDs to avoid collisions with rule collections.
+  const openTemplateCollectionOverview = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `tpl-col-${uid}`;
+      const existing = tabs.find((t) => t.id === id);
+      if (existing) { switchTab(id); return; }
+      const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'collection-overview', entityId: uid };
+      addTab(tab);
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [tabs, addTab, switchTab],
+  );
+
+  const openTemplateFolderOverview = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `tpl-folder-${uid}`;
+      const existing = tabs.find((t) => t.id === id);
+      if (existing) { switchTab(id); return; }
+      const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'folder-overview', entityId: uid };
+      addTab(tab);
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [tabs, addTab, switchTab],
+  );
+
   // ── Dirty tracking ────────────────────────────────────────────
 
   const handleDirtyChange = useCallback(
@@ -402,9 +452,12 @@ const RulesAppInner: React.FC = () => {
       if (tab.mode === 'edit' && tab.ruleUid) {
         const rule = rules.find((r) => r.uid === tab.ruleUid);
         if (rule && rule.name !== tab.label) updateTab(tab.id, { label: rule.name, ruleType: rule.type });
+      } else if (tab.mode === 'template-edit' && tab.templateUid) {
+        const tpl = templates.find((t) => t.uid === tab.templateUid);
+        if (tpl && tpl.name !== tab.label) updateTab(tab.id, { label: tpl.name });
       }
     }
-  }, [rules, tabs, updateTab]);
+  }, [rules, templates, tabs, updateTab]);
 
   // ── Close tabs when their backing entity is deleted ─────────────
   // Single set of all known entity IDs (rules + collections + folders).
@@ -557,6 +610,9 @@ const RulesAppInner: React.FC = () => {
                 onDeleteRule={handleDeleteRule}
                 onOpenCollectionOverview={openCollectionOverview}
                 onOpenFolderOverview={openFolderOverview}
+                onSelectTemplate={openTemplateEditTab}
+                onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
+                onOpenTemplateFolderOverview={openTemplateFolderOverview}
               />
             </Allotment.Pane>
 
@@ -623,6 +679,13 @@ const RulesAppInner: React.FC = () => {
                               onSelectRule={openEditTab}
                               onCreateRule={openCreateTab}
                               onOpenFolderOverview={openFolderOverview}
+                            />
+                          )}
+                          {tab.mode === 'template-edit' && tab.templateUid && (
+                            <TemplateEditor
+                              templateUid={tab.templateUid}
+                              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+                              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
                             />
                           )}
                         </div>
