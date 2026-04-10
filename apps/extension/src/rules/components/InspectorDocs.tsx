@@ -1,0 +1,463 @@
+/**
+ * InspectorDocs — persistent documentation panel in the Inspector sidebar.
+ *
+ * Organized in scrollable sections with anchor IDs.
+ * Any component can scroll to a section via useInspectorNav().openDocs('section-id').
+ */
+
+import { Card, Tag, Typography, theme } from 'antd';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
+import { useInspectorNav } from '../hooks/useInspectorNav';
+
+const { Text, Title } = Typography;
+
+// ── Condition/Action type → doc anchor ID mapping ───────────────
+
+const CONDITION_DOC_ID: Record<string, string> = {
+  'url-filter': 'doc-url-pattern',
+  'url-regex': 'doc-url-regex',
+  'request-domains': 'doc-request-domains',
+  'exclude-request-domains': 'doc-exclude-domains',
+  'initiator-domains': 'doc-initiator-domains',
+  'exclude-initiator-domains': 'doc-initiator-domains',
+  'request-methods': 'doc-methods',
+  'exclude-request-methods': 'doc-methods',
+  'resource-types': 'doc-resource-types',
+  'exclude-resource-types': 'doc-resource-types',
+  'domain-type': 'doc-domain-type',
+  'request-header': 'doc-headers',
+  'exclude-request-header': 'doc-headers',
+  'response-header': 'doc-headers',
+  'exclude-response-header': 'doc-headers',
+};
+
+const ACTION_DOC_ID: Record<string, string> = {
+  override: 'doc-override',
+  add: 'doc-append',
+  remove: 'doc-remove',
+  merge: 'doc-merge',
+};
+
+/** Get the docs anchor ID for a condition type or action operation. */
+export function getDocId(type: string, kind: 'condition' | 'action'): string {
+  if (kind === 'condition') return CONDITION_DOC_ID[type] ?? 'conditions';
+  return ACTION_DOC_ID[type] ?? 'actions';
+}
+
+// ── Styled helpers ──────────────────────────────────────────────
+
+function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <div id={id} style={{ scrollMarginTop: 8 }}>
+      <Title level={5} style={{ fontSize: 13, marginTop: 20, marginBottom: 8 }}>
+        {children}
+      </Title>
+    </div>
+  );
+}
+
+function Example({
+  rule,
+  before,
+  after,
+  wontApply,
+}: {
+  rule: string;
+  before?: string[];
+  after?: string[];
+  /** Lines for "Won't apply" — each line can contain a suggestion prefixed with "→ " */
+  wontApply?: string[];
+}) {
+  const codeStyle: React.CSSProperties = { display: 'block', paddingLeft: 12, opacity: 0.85, whiteSpace: 'pre' };
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        marginTop: 4,
+        marginBottom: 8,
+        padding: '8px 10px',
+        background: 'var(--ant-color-fill-quaternary)',
+        borderRadius: 4,
+        lineHeight: 1.8,
+        fontFamily: 'monospace',
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 2 }}>
+        Rule: <code>{rule}</code>
+      </div>
+      {before && (
+        <div>
+          <span style={{ color: 'var(--ant-color-text-tertiary)', fontWeight: 600 }}>Before:</span>
+          {before.map((line, i) => (
+            <code key={i} style={codeStyle}>
+              {line}
+            </code>
+          ))}
+        </div>
+      )}
+      {after && (
+        <div style={{ marginTop: 2 }}>
+          <span style={{ color: 'var(--ant-color-success)', fontWeight: 600 }}>
+            {before ? 'After:' : 'Applies to:'}
+          </span>
+          {after.map((line, i) => (
+            <code key={i} style={codeStyle}>
+              {line}
+            </code>
+          ))}
+        </div>
+      )}
+      {wontApply &&
+        wontApply.length > 0 &&
+        (() => {
+          const negatives = wontApply.filter((l) => !l.startsWith('→'));
+          const suggestions = wontApply.filter((l) => l.startsWith('→'));
+          return (
+            <>
+              {negatives.length > 0 && (
+                <div style={{ marginTop: 4, borderTop: '1px dashed var(--ant-color-border-secondary)', paddingTop: 4 }}>
+                  <span style={{ color: 'var(--ant-color-error)', fontWeight: 600 }}>Won't apply:</span>
+                  {negatives.map((line, i) => (
+                    <div key={i} style={{ paddingLeft: 12, opacity: 0.7 }}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {suggestions.length > 0 && (
+                <div style={{ marginTop: 4 }}>
+                  <span style={{ fontWeight: 600 }}>Suggestion:</span>
+                  {suggestions.map((line, i) => (
+                    <div key={i} style={{ paddingLeft: 12, opacity: 0.7 }}>
+                      {line.replace(/^→\s*/, '')}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          );
+        })()}
+    </div>
+  );
+}
+
+function DocParagraph({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 12, lineHeight: 1.7, marginBottom: 4, color: 'var(--ant-color-text-secondary)' }}>
+      {children}
+    </div>
+  );
+}
+
+// ── TOC ─────────────────────────────────────────────────────────
+
+const TOC = [
+  { id: 'conditions', label: 'Conditions Reference' },
+  { id: 'actions', label: 'Actions' },
+  { id: 'templates', label: 'Templates' },
+  { id: 'script-rules', label: 'Script-Based Rules' },
+  { id: 'limitations', label: 'Limitations' },
+];
+
+// ── Component ───────────────────────────────────────────────────
+
+const InspectorDocs: React.FC = () => {
+  const { token } = theme.useToken();
+  const { pendingSection, pendingCounter, clearPending } = useInspectorNav();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to section when requested — pendingCounter forces re-scroll even for same section
+  useEffect(() => {
+    if (!pendingSection || !scrollRef.current) return;
+    const el = scrollRef.current.querySelector(`#${pendingSection}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    clearPending();
+  }, [pendingSection, clearPending]);
+
+  const scrollTo = (id: string) => {
+    const el = scrollRef.current?.querySelector(`#${id}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <div ref={scrollRef} style={{ padding: '12px 16px', overflowY: 'auto', height: '100%' }}>
+      {/* Table of Contents */}
+      <div style={{ marginBottom: 16, padding: '8px 10px', background: token.colorFillQuaternary, borderRadius: 6 }}>
+        <Text
+          strong
+          style={{ fontSize: 11, color: token.colorTextTertiary, textTransform: 'uppercase', letterSpacing: 0.5 }}
+        >
+          Contents
+        </Text>
+        {TOC.map((item) => (
+          <div key={item.id} style={{ marginTop: 4 }}>
+            <a onClick={() => scrollTo(item.id)} style={{ fontSize: 12, color: token.colorPrimary, cursor: 'pointer' }}>
+              {item.label}
+            </a>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Conditions Reference ── */}
+      <SectionTitle id="conditions">Conditions Reference</SectionTitle>
+      <DocParagraph>
+        All conditions must match for the rule to fire (AND logic). Each condition maps directly to a Chrome
+        declarativeNetRequest field.
+      </DocParagraph>
+
+      <div id="doc-url-pattern" style={{ scrollMarginTop: 8 }}>
+        <Card title="URL Pattern" extra={<Tag color="blue">urlFilter</Tag>}>
+          Wildcard pattern on the full URL. Use <code>*</code> to match any characters. Protocol must be specified:{' '}
+          <code>*://</code> for any, <code>https://</code> for HTTPS only.
+          <Example
+            rule="*://api.openheaders.io/*"
+            after={['https://api.openheaders.io/v2/users', 'http://api.openheaders.io/health']}
+            wontApply={[
+              'https://other-site.com/api — different domain, only api.openheaders.io matches',
+              'https://cdn.openheaders.io/img.png — cdn is a different subdomain than api',
+              '→ Use Request Domains with openheaders.io to match all subdomains at once',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-url-regex" style={{ scrollMarginTop: 8 }}>
+        <Card title="URL Regex" extra={<Tag color="purple">regexFilter</Tag>}>
+          RE2 regular expression on the full URL including protocol. For complex matching. Cannot be combined with URL
+          Pattern.
+          <Example
+            rule="^https://api\.openheaders\.io/v[0-9]+"
+            after={['https://api.openheaders.io/v2', 'https://api.openheaders.io/v3']}
+            wontApply={[
+              'http://api.openheaders.io/v2 — regex specifies https:// only',
+              'https://api.openheaders.io/latest — does not match /v[0-9]+',
+              '→ Use ^https?:// to match both http and https',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-request-domains" style={{ scrollMarginTop: 8 }}>
+        <Card title="Request Domains" extra={<Tag color="green">requestDomains</Tag>}>
+          Matches the domain and ALL its subdomains automatically.
+          <Example
+            rule="openheaders.io"
+            after={['openheaders.io', 'api.openheaders.io', 'cdn.openheaders.io']}
+            wontApply={[
+              'not-openheaders.io — different domain, not a subdomain',
+              'openheaders.com — different TLD',
+              '→ Add each domain separately or use URL Pattern for cross-domain matching',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-exclude-domains" style={{ scrollMarginTop: 8 }}>
+        <Card title="Exclude Domains" extra={<Tag color="warning">excludedRequestDomains</Tag>}>
+          Skip these domains even if other conditions match. Must be combined with Request Domains or other conditions — it only excludes, it doesn't match on its own.
+          <Example
+            rule="Request Domains: openheaders.io + Exclude: staging.openheaders.io"
+            after={['api.openheaders.io — matched by Request Domains, not excluded', 'cdn.openheaders.io — matched, not excluded']}
+            wontApply={[
+              'staging.openheaders.io — matched by Request Domains but then excluded',
+              '→ Remove the Exclude condition to apply to staging too',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-initiator-domains" style={{ scrollMarginTop: 8 }}>
+        <Card title="Initiator Domains" extra={<Tag>initiatorDomains</Tag>}>
+          Only match requests made FROM pages on this domain.
+          <Example
+            rule="portal.openheaders.io"
+            after={['API call while browsing portal.openheaders.io']}
+            wontApply={[
+              'Same API call while browsing other-site.com',
+              '→ Use Request Domains instead to match by destination, not origin',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-methods" style={{ scrollMarginTop: 8 }}>
+        <Card title="Methods" extra={<Tag>requestMethods</Tag>}>
+          Filter by HTTP method. Select specific methods to ignore others.
+          <Example
+            rule="GET, POST"
+            after={['GET /api/users', 'POST /api/login']}
+            wontApply={[
+              'PUT /api/users/1 — method not selected',
+              'DELETE /api/users/1 — method not selected',
+              '→ Add more methods or remove this condition to match all methods',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-resource-types" style={{ scrollMarginTop: 8 }}>
+        <Card title="Resource Types" extra={<Tag>resourceTypes</Tag>}>
+          Filter by what kind of resource is being loaded.
+          <Example
+            rule="xhr"
+            after={["fetch('/api/data')", 'XMLHttpRequest calls']}
+            wontApply={[
+              'Page navigation (main_frame) — not xhr',
+              '<img> loads, <script> loads, CSS loads',
+              '→ Add "page" to also match page navigations',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-domain-type" style={{ scrollMarginTop: 8 }}>
+        <Card title="Domain Type" extra={<Tag>domainType</Tag>}>
+          First-party (same site) or third-party (cross-site). Useful for blocking trackers.
+          <Example
+            rule="thirdParty"
+            after={['Requests to analytics.google.com (cross-site)', 'Requests to cdn.external.com (cross-site)']}
+            wontApply={[
+              'Requests to same domain the user is browsing',
+              '→ Use "firstParty" to match same-site requests instead',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-headers" style={{ scrollMarginTop: 8 }}>
+        <Card title="Request / Response Headers" extra={<Tag color="orange">Chrome 128+</Tag>}>
+          Match requests that have a specific header with an exact value.
+          <Example
+            rule="Authorization = Bearer test-token"
+            after={['Request with Authorization: Bearer test-token']}
+            wontApply={[
+              "Authorization: Bearer other-token — value doesn't match exactly",
+              'Request without Authorization header — header must be present',
+              'No wildcard or partial matching — Chrome only supports exact header name and exact value',
+            ]}
+          />
+        </Card>
+      </div>
+
+      {/* ── Actions ── */}
+      <SectionTitle id="actions">Actions</SectionTitle>
+
+      <div id="doc-override" style={{ scrollMarginTop: 8 }}>
+        <Card title="Override" extra={<Tag color="blue">DNR set</Tag>}>
+          Sets the header to this value. Replaces if present, adds if missing. Always results in exactly one header with
+          your value.
+          <Example
+            rule="Override X-Auth: Bearer token"
+            before={['X-Auth: old-value']}
+            after={['X-Auth: Bearer token']}
+            wontApply={[
+              'Request to non-matching domain — conditions must match first',
+              '→ Check your Request Domains or URL Pattern conditions',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-append" style={{ scrollMarginTop: 8 }}>
+        <Card title="Append" extra={<Tag color="cyan">DNR append</Tag>}>
+          Adds a NEW header entry with the same name. Original stays — creates duplicate headers. Use for Set-Cookie,
+          Link, Via.
+          <Example
+            rule="Append Set-Cookie: tracking=xyz"
+            before={['Set-Cookie: session=abc']}
+            after={['Set-Cookie: session=abc', 'Set-Cookie: tracking=xyz']}
+            wontApply={[
+              'Headers that don\'t support duplicates (e.g. Authorization) — browser keeps only one',
+              '→ Use Override to replace the value, or Merge to append to the existing value',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-remove" style={{ scrollMarginTop: 8 }}>
+        <Card title="Remove" extra={<Tag color="red">DNR remove</Tag>}>
+          Deletes ALL instances of this header. No value needed.
+          <Example
+            rule="Remove X-Frame-Options"
+            before={['X-Frame-Options: DENY', 'Content-Type: text/html']}
+            after={['Content-Type: text/html']}
+            wontApply={[
+              'Header already absent — nothing happens, no error',
+              '→ Use Override if you want to change the value instead of removing entirely',
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="doc-merge" style={{ scrollMarginTop: 8 }}>
+        <Card title="Merge" extra={<Tag color="purple">Script-based</Tag>}>
+          Reads the existing value at runtime and appends yours with a separator. Defaults to <code>{'; '}</code> for
+          Cookie, <code>{', '}</code> for others.
+          <Example
+            rule="Merge Cookie + new=val (sep: '; ')"
+            before={['Cookie: session=abc']}
+            after={['Cookie: session=abc; new=val']}
+            wontApply={[
+              'Page navigation (typing URL in address bar) — only fetch/XHR',
+              'Static resources (<img>, <script>, <link>) — only JS-initiated requests',
+              '→ For page-level headers, use Override or Append (DNR-based) instead',
+            ]}
+          />
+          <DocParagraph>Separator can be empty for direct concatenation. Not visible in DevTools.</DocParagraph>
+        </Card>
+      </div>
+
+      {/* ── Templates ── */}
+      <SectionTitle id="templates">Templates</SectionTitle>
+      <Card>
+        Templates prefill the form with common configurations. Select a template from the bar at the top of the editor.
+        "Blank" resets the form. You can modify any prefilled values after applying a template.
+      </Card>
+
+      {/* ── Script-Based Rules ── */}
+      <SectionTitle id="script-rules">Script-Based Rules</SectionTitle>
+      <Card title="DNR-based" extra={<Tag color="blue">Fast, declarative</Tag>}>
+        Modify Headers (Override/Append/Remove), Block, Redirect, Query Params. Applied at the network level by Chrome's
+        engine.
+      </Card>
+      <Card title="Script-based" extra={<Tag color="purple">Fetch/XHR</Tag>}>
+        Inject, Delay, Modify Request Body, Modify API Response, Header Merge. Work by monkey-patching{' '}
+        <code>fetch()</code> and <code>XMLHttpRequest</code> in the page's context.
+      </Card>
+
+      {/* ── Limitations ── */}
+      <SectionTitle id="limitations">Limitations</SectionTitle>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>Response headers in DevTools</strong>
+        <DocParagraph>
+          Actions are not visible in the Network tab but are applied correctly. The browser shows original server
+          headers.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>Script-based rules</strong>
+        <DocParagraph>
+          Only intercept <code>fetch()</code> and <code>XMLHttpRequest</code>. Static resources and page navigations are
+          NOT affected.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>Merge operation</strong>
+        <DocParagraph>
+          Cannot read browser-default headers (Accept, User-Agent). Only reads headers explicitly set by page code.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>Header matching conditions</strong>
+        <DocParagraph>Chrome 128+ only. Older browsers ignore these conditions.</DocParagraph>
+      </Card>
+
+      <div style={{ height: 40 }} />
+    </div>
+  );
+};
+
+export default InspectorDocs;

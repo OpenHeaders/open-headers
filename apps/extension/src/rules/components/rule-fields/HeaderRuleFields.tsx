@@ -1,18 +1,20 @@
 /**
- * HeaderRuleFields — multiple request + response header modifications.
+ * HeaderRuleFields — multiple request + response header actions.
  *
  * Maps 1:1 to Chrome's modifyHeaders DNR action. Two tabs:
- *   Request Headers — modifications to outgoing headers
- *   Response Headers — modifications to incoming headers
+ *   Request Headers — actions to outgoing headers
+ *   Response Headers — actions to incoming headers
  *
  * Both tabs are ALWAYS mounted (destroyInactiveTabPane=false) so form.setFieldsValue
  * works regardless of which tab is visible. Auto-navigates to the tab with content.
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Badge, Button, Form, Input, Popover, Select, Tabs, Typography } from 'antd';
+import { Alert, Badge, Button, Form, Input, Select, Tabs, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useInspectorNav } from '../../hooks/useInspectorNav';
+import { getDocId } from '../InspectorDocs';
 
 const { Text } = Typography;
 
@@ -23,17 +25,8 @@ const OPERATIONS = [
   { value: 'merge', label: 'Merge' },
 ];
 
-const OPERATIONS_GUIDE = [
-  { op: 'Override', desc: 'Sets header to this value. Replaces if present, adds if missing.' },
-  { op: 'Append', desc: 'Adds a duplicate header entry. Original value kept. Use for Set-Cookie, Link, Via.' },
-  { op: 'Remove', desc: 'Deletes all instances of this header. No value needed.' },
-  {
-    op: 'Merge',
-    desc: 'Reads existing value at runtime, appends yours with separator. Fetch/XHR only. Result: [existing] + [separator] + [your value]. Separator can be empty.',
-  },
-];
-
 function ModificationList({ name }: { name: string }) {
+  const { openDocs: openDocsInline } = useInspectorNav();
   return (
     <Form.List name={name}>
       {(fields, { add, remove }) => (
@@ -49,6 +42,25 @@ function ModificationList({ name }: { name: string }) {
                 style={{ marginBottom: 0, width: 110, flexShrink: 0 }}
               >
                 <Select size="small" options={OPERATIONS} />
+              </Form.Item>
+              <Form.Item
+                noStyle
+                shouldUpdate={(prev, cur) => prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation}
+              >
+                {({ getFieldValue }) => {
+                  const op = getFieldValue([name, field.name, 'operation']) || 'override';
+                  return (
+                    <InfoCircleOutlined
+                      style={{
+                        fontSize: 10,
+                        color: 'var(--ant-color-text-quaternary)',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      onClick={() => openDocsInline(getDocId(op, 'action'))}
+                    />
+                  );
+                }}
               </Form.Item>
               <Form.Item
                 {...field}
@@ -133,6 +145,7 @@ function ModificationList({ name }: { name: string }) {
 }
 
 const HeaderRuleFields: React.FC = () => {
+  const { openDocs } = useInspectorNav();
   const [activeTab, setActiveTab] = useState('request');
   const reqHeaders = Form.useWatch('requestHeaders') as unknown[] | undefined;
   const resHeaders = Form.useWatch('responseHeaders') as unknown[] | undefined;
@@ -164,31 +177,17 @@ const HeaderRuleFields: React.FC = () => {
           type="info"
           showIcon
           style={{ marginBottom: 12, fontSize: 12 }}
-          message="Response header modifications are not visible in the browser DevTools Network tab, but they are actually applied. The browser shows the original server headers."
+          message="Response header actions are not visible in the browser DevTools Network tab, but they are actually applied. The browser shows the original server headers."
         />
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
-          Modifications
+          Actions
         </Text>
-        <Popover
-          placement="rightTop"
-          trigger="click"
-          content={
-            <div style={{ fontSize: 12, lineHeight: 1.8, maxWidth: 700 }}>
-              {OPERATIONS_GUIDE.map((g) => (
-                <div key={g.op}>
-                  <Text strong style={{ fontSize: 12 }}>
-                    {g.op}
-                  </Text>
-                  <span style={{ color: 'var(--ant-color-text-secondary)', marginLeft: 6 }}> — {g.desc}</span>
-                </div>
-              ))}
-            </div>
-          }
-        >
-          <InfoCircleOutlined style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }} />
-        </Popover>
+        <InfoCircleOutlined
+          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+          onClick={() => openDocs('actions')}
+        />
       </div>
       <Tabs
         size="small"

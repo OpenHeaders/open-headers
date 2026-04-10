@@ -29,6 +29,7 @@ import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TabBar from './components/TabBar';
 import TopBar from './components/TopBar';
+import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabs } from './hooks/useTabs';
 import type { PanelVisibility, RulesTab } from './types';
@@ -101,6 +102,12 @@ const RulesAppInner: React.FC = () => {
 
   const togglePanel = useCallback((panel: keyof PanelVisibility) => {
     setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
+  }, []);
+
+  // Register inspector open callback for useInspectorNav
+  const { onOpenInspector } = useInspectorNav();
+  onOpenInspector.current = useCallback(() => {
+    setPanels((prev) => ({ ...prev, inspector: true }));
   }, []);
 
   // ── Save to Collection modal state ────────────────────────────
@@ -616,7 +623,7 @@ const RulesAppInner: React.FC = () => {
               </Allotment>
             </Allotment.Pane>
 
-            <Allotment.Pane preferredSize={300} minSize={220} maxSize={500} visible={panels.inspector}>
+            <Allotment.Pane preferredSize={500} minSize={280} maxSize={600} visible={panels.inspector}>
               <Inspector onClose={() => togglePanel('inspector')} />
             </Allotment.Pane>
           </Allotment>
@@ -641,7 +648,9 @@ const RulesAppInner: React.FC = () => {
 
 const RulesApp: React.FC = () => (
   <RuleProvider>
-    <RulesAppInner />
+    <InspectorNavProvider>
+      <RulesAppInner />
+    </InspectorNavProvider>
   </RuleProvider>
 );
 

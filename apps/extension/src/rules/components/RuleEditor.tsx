@@ -15,9 +15,10 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
-import { App, Form, Popover, Switch, Typography, theme } from 'antd';
+import { App, Form, Switch, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useInspectorNav } from '../hooks/useInspectorNav';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
@@ -68,6 +69,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
+  const { openDocs } = useInspectorNav();
   const { rules, createLocalRule, updateLocalRule, localCollections } = useRules();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
@@ -505,125 +507,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             <Text strong style={{ fontSize: 13 }}>
               Conditions
             </Text>
-            <Popover
-              placement="rightTop"
-              trigger="click"
-              content={
-                <div style={{ fontSize: 12, lineHeight: 1.7, maxWidth: 700 }}>
-                  <div style={{ marginBottom: 10, color: 'var(--ant-color-text-secondary)' }}>
-                    All conditions must match (AND logic). Each maps directly to a Chrome DNR field.
-                  </div>
-                  <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>URL Pattern</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          Wildcard pattern on the full URL. <code>*</code> matches anything.
-                          <br />
-                          <span style={{ color: 'var(--ant-color-success)' }}>Matches:</span>{' '}
-                          <code>*://api.openheaders.io/*</code> hits <code>https://api.openheaders.io/v2/users</code>
-                          <br />
-                          <span style={{ color: 'var(--ant-color-error)' }}>No match:</span>{' '}
-                          <code>https://other-site.com/api</code>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>URL Regex</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          RE2 regular expression on the full URL. For complex matching.
-                          <br />
-                          <span style={{ color: 'var(--ant-color-success)' }}>Matches:</span>{' '}
-                          <code>{'^https://api\\.openheaders\\.io/v[0-9]+'}</code> hits{' '}
-                          <code>https://api.openheaders.io/v2</code>
-                          <br />
-                          <span style={{ color: 'var(--ant-color-error)' }}>No match:</span>{' '}
-                          <code>https://api.openheaders.io/latest</code>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>Request Domains</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          Domain + all subdomains automatically.
-                          <br />
-                          <span style={{ color: 'var(--ant-color-success)' }}>Matches:</span>{' '}
-                          <code>openheaders.io</code> hits <code>openheaders.io</code>, <code>api.openheaders.io</code>,{' '}
-                          <code>cdn.openheaders.io</code>
-                          <br />
-                          <span style={{ color: 'var(--ant-color-error)' }}>No match:</span>{' '}
-                          <code>not-openheaders.io</code>, <code>openheaders.com</code>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>Exclude Domains</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          Skip these domains even if other conditions match.
-                          <br />
-                          Example: match <code>openheaders.io</code> but exclude <code>staging.openheaders.io</code>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>Initiator Domains</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          Only match requests made FROM pages on this domain.
-                          <br />
-                          Example: <code>portal.openheaders.io</code> — rule only fires when the user is on the portal
-                          page
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>Methods</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          Only match specific HTTP methods. Example: select GET + POST to ignore PUT/DELETE
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>Resource Types</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          Only match specific resource types. Example: select <code>xhr</code> to only affect API calls,
-                          not page loads
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>Domain Type</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          First-party (same site) or third-party (cross-site) requests. Useful for blocking trackers
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: '4px 12px 4px 0', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Text strong>Headers</Text>
-                        </td>
-                        <td style={{ padding: '4px 0' }}>
-                          Match requests/responses that have a specific header with an exact value. Chrome 128+ only.
-                          <br />
-                          Example: Request Header <code>Authorization</code> = <code>Bearer test-token</code>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              }
-            >
-              <InfoCircleOutlined
-                style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-              />
-            </Popover>
+            <InfoCircleOutlined
+              style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+              onClick={() => openDocs('conditions')}
+            />
           </div>
           <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}>
             All conditions must match for this rule to fire (AND logic). Add at least one condition.

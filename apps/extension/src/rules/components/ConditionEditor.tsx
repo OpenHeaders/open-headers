@@ -11,11 +11,13 @@
  *   Header Matching: request-header, exclude-request-header, response-header, exclude-response-header
  */
 
-import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { Button, Input, Select, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import { useInspectorNav } from '../hooks/useInspectorNav';
+import { getDocId } from './InspectorDocs';
 
 // ── Condition type definitions ───────────────────────────────────
 
@@ -154,6 +156,7 @@ interface ConditionEditorProps {
 
 const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange }) => {
   const { token } = theme.useToken();
+  const { openDocs } = useInspectorNav();
 
   const updateCondition = useCallback(
     (index: number, updates: Partial<V5.RuleCondition>) => {
@@ -265,7 +268,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               </Tag>
             )}
 
-            {/* Type selector */}
+            {/* Type selector + docs link */}
             <Select
               size="small"
               value={condition.type}
@@ -273,6 +276,10 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               style={{ width: 160, flexShrink: 0 }}
               popupMatchSelectWidth={200}
               options={TYPE_OPTIONS}
+            />
+            <InfoCircleOutlined
+              style={{ fontSize: 10, color: token.colorTextQuaternary, cursor: 'pointer', flexShrink: 0 }}
+              onClick={() => openDocs(getDocId(condition.type, 'condition'))}
             />
 
             {/* Header name (before value for header types) */}

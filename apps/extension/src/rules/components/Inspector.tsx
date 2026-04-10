@@ -1,13 +1,16 @@
 /**
- * Inspector — right sidebar (Variables panel placeholder).
+ * Inspector — right sidebar with Docs + Variables tabs.
  *
- * Mirrors desktop v5-shell/Inspector.tsx structure but with placeholder content.
- * Ready for future variable inspection support.
+ * Docs: persistent documentation panel with conditions reference,
+ *       header operations guide, templates info, and limitations.
+ * Variables: placeholder for future variable inspection.
  */
 
-import { CloseOutlined, SearchOutlined } from '@ant-design/icons';
-import { Input, Typography, theme } from 'antd';
+import { BookOutlined, CloseOutlined, CodeOutlined } from '@ant-design/icons';
+import { Tabs, Typography, theme } from 'antd';
 import type React from 'react';
+import { useInspectorNav } from '../hooks/useInspectorNav';
+import InspectorDocs from './InspectorDocs';
 
 const { Text } = Typography;
 
@@ -17,13 +20,17 @@ interface InspectorProps {
 
 const Inspector: React.FC<InspectorProps> = ({ onClose }) => {
   const { token } = theme.useToken();
+  const { activeTab, setActiveTab } = useInspectorNav();
 
   return (
-    <div className="rules-inspector" style={{ background: token.colorBgLayout }}>
+    <div
+      className="rules-inspector"
+      style={{ background: token.colorBgLayout, display: 'flex', flexDirection: 'column', height: '100%' }}
+    >
       {/* Header */}
       <div
         style={{
-          padding: '12px 16px',
+          padding: '8px 16px',
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
           display: 'flex',
           justifyContent: 'space-between',
@@ -31,40 +38,57 @@ const Inspector: React.FC<InspectorProps> = ({ onClose }) => {
           flexShrink: 0,
         }}
       >
-        <Text strong style={{ fontSize: 14 }}>
-          Variables
-        </Text>
+        <Tabs
+          size="small"
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          style={{ marginBottom: 0 }}
+          items={[
+            {
+              key: 'docs',
+              label: (
+                <span style={{ fontSize: 12 }}>
+                  <BookOutlined style={{ marginRight: 4 }} />
+                  Docs
+                </span>
+              ),
+            },
+            {
+              key: 'variables',
+              label: (
+                <span style={{ fontSize: 12 }}>
+                  <CodeOutlined style={{ marginRight: 4 }} />
+                  Variables
+                </span>
+              ),
+            },
+          ]}
+        />
         <CloseOutlined style={{ color: token.colorTextTertiary, cursor: 'pointer', fontSize: 12 }} onClick={onClose} />
       </div>
 
-      {/* Search */}
-      <div style={{ padding: '8px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}`, flexShrink: 0 }}>
-        <Input
-          placeholder="Filter variables"
-          allowClear
-          size="small"
-          prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-          disabled
-        />
-      </div>
-
-      {/* Content */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-        }}
-      >
-        <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', lineHeight: 1.6 }}>
-          Variable inspection will be available when connected to the desktop app.
-        </Text>
-        <Text type="secondary" style={{ fontSize: 11, textAlign: 'center', marginTop: 8 }}>
-          Use {'{{variable_name}}'} syntax in rule values to reference variables.
-        </Text>
+      {/* Content — both always mounted to preserve scroll position */}
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div style={{ height: '100%', display: activeTab === 'docs' ? 'block' : 'none' }}>
+          <InspectorDocs />
+        </div>
+        <div
+          style={{
+            height: '100%',
+            display: activeTab === 'variables' ? 'flex' : 'none',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', lineHeight: 1.6 }}>
+            Variable inspection will be available when connected to the desktop app.
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11, textAlign: 'center', marginTop: 8 }}>
+            Use {'{{variable_name}}'} syntax in rule values to reference variables.
+          </Text>
+        </div>
       </div>
     </div>
   );
