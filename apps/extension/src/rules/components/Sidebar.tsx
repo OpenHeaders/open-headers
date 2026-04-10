@@ -38,6 +38,7 @@ import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
+import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
 
@@ -218,7 +219,7 @@ function SectionHeader({
 interface SidebarProps {
   activeTabId?: string | null;
   onSelectRule: (uid: string) => void;
-  onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }) => void;
+  onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   onDeleteRule?: (uid: string) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
@@ -755,6 +756,87 @@ const Sidebar: React.FC<SidebarProps> = ({
     ],
   );
 
+  // ── System (built-in) template nodes ──────────────────────────
+
+  const RULE_TYPE_LABEL: Record<string, string> = {
+    header: 'Header',
+    block: 'Block',
+    redirect: 'Redirect',
+    'query-param': 'Query Param',
+    inject: 'Inject',
+    delay: 'Delay',
+    body: 'Body',
+    mock: 'API Response',
+  };
+
+  const systemTemplateNodes = useMemo((): TreeNode[] => {
+    const items: TreeNode[] = [];
+    const colId = 'sys-tpl-col';
+    const isExpanded = expandedKeys.has(colId);
+
+    items.push({
+      id: colId,
+      kind: 'group',
+      label: 'System Templates',
+      depth: 0,
+      expandable: true,
+      icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+      canRename: false,
+      canDelete: false,
+      canAddChild: false,
+      onOpen: () => toggleExpand(colId),
+    });
+
+    if (isExpanded) {
+      for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
+        if (tpls.length === 0) continue;
+        const filteredTpls = lowerFilter
+          ? tpls.filter((t) => t.name.toLowerCase().includes(lowerFilter))
+          : tpls;
+        if (lowerFilter && filteredTpls.length === 0) continue;
+
+        const folderId = `sys-tpl-${ruleType}`;
+        const folderExpanded = expandedKeys.has(folderId);
+
+        items.push({
+          id: folderId,
+          kind: 'folder',
+          label: RULE_TYPE_LABEL[ruleType] ?? ruleType,
+          depth: 1,
+          expandable: true,
+          parentId: colId,
+          icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+          canRename: false,
+          canDelete: false,
+          canAddChild: false,
+          onOpen: () => toggleExpand(folderId),
+        });
+
+        if (folderExpanded) {
+          for (const tpl of filteredTpls) {
+            items.push({
+              id: `sys-tpl-item-${tpl.key}`,
+              kind: 'leaf',
+              label: tpl.name,
+              depth: 2,
+              expandable: false,
+              parentId: folderId,
+              icon: createElement('span', { style: { fontSize: 12 } }, tpl.icon),
+              canRename: false,
+              canDelete: false,
+              canAddChild: false,
+              onOpen: () => onCreateRule(ruleType, undefined, tpl.key),
+            });
+          }
+        }
+      }
+    }
+
+    return items;
+  }, [expandedKeys, lowerFilter, toggleExpand, onCreateRule]);
+
+  // ── User template collection nodes ────────────────────────────
+
   const templateNodes = useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
@@ -858,8 +940,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   // ── Flat items for keyboard nav ──────────────────────────────
 
   const allFlatItems = useMemo(
-    () => [...(sectionsExpanded.rules ? rulesNodes : []), ...(sectionsExpanded.templates ? templateNodes : [])],
-    [sectionsExpanded.rules, sectionsExpanded.templates, rulesNodes, templateNodes],
+    () => [
+      ...(sectionsExpanded.rules ? rulesNodes : []),
+      ...(sectionsExpanded.templates ? [...systemTemplateNodes, ...templateNodes] : []),
+    ],
+    [sectionsExpanded.rules, sectionsExpanded.templates, rulesNodes, systemTemplateNodes, templateNodes],
   );
 
   const isSelected = useCallback(
@@ -1208,6 +1293,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
         {sectionsExpanded.templates && (
           <div style={{ flex: 1, overflowY: 'auto' }}>
+            {renderNodes(systemTemplateNodes)}
             {renderNodes(templateNodes, () => {
               void createTemplateCollection('My Templates').then((col) => {
                 if (col) {
