@@ -445,7 +445,27 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                 Empty
               </Tag>
               {templates.map((t) => (
-                <Tooltip key={t.key} title={t.description}>
+                <Tooltip
+                  key={t.key}
+                  styles={{ root: { maxWidth: 500 } }}
+                  title={
+                    <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+                      {t.description.split('\n').map((line, i) => {
+                        // Style lines containing code (fetch/console commands)
+                        const hasCode = line.includes('fetch(') || line.includes('console.');
+                        return (
+                          <div key={i}>
+                            {hasCode ? (
+                              <code style={{ opacity: 0.7, fontFamily: 'monospace', fontSize: 11 }}>{line}</code>
+                            ) : (
+                              line
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  }
+                >
                   <Tag
                     color={selectedTemplate === t.key ? 'blue' : 'default'}
                     style={{ cursor: 'pointer', fontSize: 12, margin: 0, padding: '2px 10px', userSelect: 'none' }}

@@ -18,6 +18,7 @@ import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { DnrBuilder, DnrRule } from './dnr-builders';
 import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from './dnr-builders';
+import type { HeaderMergeEntry } from './inject-manager';
 import { updateScriptableRules } from './inject-manager';
 
 // ── Cached state ─────────────────────────────────────────────────
@@ -76,10 +77,16 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
 
   const dnrRules: DnrRule[] = [];
   const scriptableRules: Array<V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule> = [];
+  const headerMerges: HeaderMergeEntry[] = [];
   let ruleId = 1;
 
   /** Rule types handled by content script injection (not DNR). */
   const scriptableTypes = new Set(['inject', 'delay', 'body', 'mock']);
+
+  const defaultSeparator = (headerName: string): string => {
+    const lower = headerName.toLowerCase();
+    return lower === 'cookie' || lower === 'set-cookie' ? '; ' : ', ';
+  };
 
   for (const rule of rules) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
@@ -93,6 +100,32 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
       continue;
     }
 
+    // Extract merge operations from header rules → content script injection
+    if (rule.type === 'header') {
+      const hr = rule as V5.HeaderRule;
+      const reqMerges = (hr.action.requestHeaders ?? [])
+        .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim())
+        .map((m) => ({
+          headerName: m.headerName,
+          value: m.value!,
+          separator: m.mergeSeparator || defaultSeparator(m.headerName),
+        }));
+      const resMerges = (hr.action.responseHeaders ?? [])
+        .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim())
+        .map((m) => ({
+          headerName: m.headerName,
+          value: m.value!,
+          separator: m.mergeSeparator || defaultSeparator(m.headerName),
+        }));
+      if (reqMerges.length > 0 || resMerges.length > 0) {
+        const patterns = rule.conditions
+          .filter((c) => c.type === 'request-domains')
+          .flatMap((c) => c.values)
+          .filter((v) => v.trim());
+        headerMerges.push({ patterns, requestMerges: reqMerges, responseMerges: resMerges });
+      }
+    }
+
     // Look up the DNR builder for this rule type
     const builder = dnrBuilders[rule.type];
     if (!builder) continue;
@@ -103,7 +136,7 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
   }
 
   applyDnrRules(dnrRules);
-  updateScriptableRules(scriptableRules);
+  updateScriptableRules(scriptableRules, headerMerges);
 }
 
 // ── DNR rule application ─────────────────────────────────────────

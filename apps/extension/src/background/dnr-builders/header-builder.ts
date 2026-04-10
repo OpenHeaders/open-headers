@@ -31,10 +31,12 @@ export const headerBuilder: DnrBuilder<V5.HeaderRule> = {
     const resMods: DnrHeaderModification[] = [];
 
     for (const mod of rule.action.requestHeaders ?? []) {
+      if (mod.operation === 'merge') continue; // merge handled by inject-manager
       const built = buildMod(mod, false, rule.name);
       if (built) reqMods.push(built);
     }
     for (const mod of rule.action.responseHeaders ?? []) {
+      if (mod.operation === 'merge') continue; // merge handled by inject-manager
       const built = buildMod(mod, true, rule.name);
       if (built) resMods.push(built);
     }

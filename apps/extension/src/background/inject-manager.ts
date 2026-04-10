@@ -19,7 +19,12 @@ declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
-import { generateBodyScript, generateDelayScript, generateMockScript } from './content-scripts';
+import {
+  generateBodyScript,
+  generateDelayScript,
+  generateHeaderMergeScript,
+  generateMockScript,
+} from './content-scripts';
 import { doesUrlMatchPattern } from './modules/url-utils';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -27,7 +32,16 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 /** All scriptable rule types — inject, delay, body, mock. */
 type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule;
 
+/** A header merge operation extracted from a HeaderRule. */
+export interface HeaderMergeEntry {
+  /** Domain patterns from rule conditions. */
+  patterns: string[];
+  requestMerges: Array<{ headerName: string; value: string; separator: string }>;
+  responseMerges: Array<{ headerName: string; value: string; separator: string }>;
+}
+
 let activeScriptableRules: ScriptableRule[] = [];
+let activeHeaderMerges: HeaderMergeEntry[] = [];
 
 // ── Public API ───────────────────────────────────────────────────
 
@@ -35,14 +49,13 @@ let activeScriptableRules: ScriptableRule[] = [];
  * Update the set of active scriptable rules. Called by dnr-manager
  * whenever rules change.
  */
-export function updateScriptableRules(rules: ScriptableRule[]): void {
+export function updateScriptableRules(rules: ScriptableRule[], headerMerges: HeaderMergeEntry[] = []): void {
   activeScriptableRules = rules;
-  logger.debug('InjectManager', `Updated scriptable rules: ${rules.length} active`);
-}
-
-/** @deprecated Use updateScriptableRules instead. */
-export function updateInjectRules(rules: V5.InjectRule[]): void {
-  updateScriptableRules(rules);
+  activeHeaderMerges = headerMerges;
+  logger.debug(
+    'InjectManager',
+    `Updated scriptable rules: ${rules.length} active, ${headerMerges.length} header merges`,
+  );
 }
 
 /**
@@ -59,7 +72,7 @@ export function setupInjectListener(): void {
     (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
       // Main frame only
       if (details.frameId !== 0) return;
-      if (activeScriptableRules.length === 0) return;
+      if (activeScriptableRules.length === 0 && activeHeaderMerges.length === 0) return;
 
       void injectForUrl(details.tabId, details.url);
     },
@@ -118,6 +131,22 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
       const msg = (error as Error).message;
       if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
         logger.info('InjectManager', `Failed to inject "${rule.name}" into tab ${tabId}: ${msg}`);
+      }
+    }
+  }
+
+  // Inject header merge scripts
+  for (const merge of activeHeaderMerges) {
+    const matches = merge.patterns.length === 0 || merge.patterns.some((d) => doesUrlMatchPattern(url, d));
+    if (!matches) continue;
+
+    try {
+      const script = generateHeaderMergeScript(merge.patterns, merge.requestMerges, merge.responseMerges);
+      await injectGeneratedScript(tabId, script, 'header-merge');
+    } catch (error) {
+      const msg = (error as Error).message;
+      if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
+        logger.info('InjectManager', `Failed to inject header merge into tab ${tabId}: ${msg}`);
       }
     }
   }

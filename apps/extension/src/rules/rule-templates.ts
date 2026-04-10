@@ -107,6 +107,20 @@ export const HEADER_TEMPLATES: RuleTemplate[] = [
       ],
     },
   },
+  {
+    key: 'test-merge',
+    icon: '🧪',
+    name: 'Test Merge (httpbin)',
+    description:
+      'Test the Merge operation by appending to a response header.\n1. Enable this rule\n2. Open httpbin.org in a new tab\n3. Run in console: fetch("https://httpbin.org/get").then(r=>{console.log("Content-Type:",r.headers.get("Content-Type"))})\n4. Content-Type should show "application/json, x-openheaders-merged"',
+    conditions: [{ type: 'request-domains', values: ['httpbin.org'] }],
+    formValues: {
+      requestHeaders: [],
+      responseHeaders: [
+        { operation: 'merge', headerName: 'Content-Type', value: 'x-openheaders-merged', mergeSeparator: ', ' },
+      ],
+    },
+  },
 ];
 
 // ── Block templates ────────────────────────────────────────────

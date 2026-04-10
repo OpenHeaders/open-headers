@@ -356,3 +356,106 @@ XMLHttpRequest.prototype.send = function(body) {
 };
 })();`;
 }
+
+// ── Header merge script ─────────────────────────────────────────
+
+interface MergeMod {
+  headerName: string;
+  value: string;
+  separator: string;
+}
+
+/**
+ * Generate a content script that merges header values at runtime.
+ * Reads the existing header value, appends/prepends the new value with separator.
+ *
+ * This handles what Chrome DNR cannot: modifying an existing header value
+ * without knowing the original value at rule definition time.
+ */
+export function generateHeaderMergeScript(
+  patterns: string[],
+  requestMerges: MergeMod[],
+  responseMerges: MergeMod[],
+): string {
+  const patternsJSON = JSON.stringify(patterns);
+  const reqJSON = JSON.stringify(requestMerges);
+  const resJSON = JSON.stringify(responseMerges);
+
+  return `(function(){
+${URL_MATCHER_CODE}
+var PATTERNS = ${patternsJSON};
+var REQ_MERGES = ${reqJSON};
+var RES_MERGES = ${resJSON};
+
+function mergeValue(existing, newVal, sep) {
+  if (!existing || !existing.trim()) return newVal;
+  return existing + sep + newVal;
+}
+
+${
+  requestMerges.length > 0
+    ? `
+var origFetch = window.fetch;
+window.fetch = function(input, init) {
+  var url = typeof input === 'string' ? input : (input && input.url) || '';
+  if (!__ohMatchesUrl(url, PATTERNS)) return origFetch.apply(this, arguments);
+  init = init || {};
+  var headers = new Headers(init.headers || {});
+  for (var i = 0; i < REQ_MERGES.length; i++) {
+    var m = REQ_MERGES[i];
+    var existing = headers.get(m.headerName) || '';
+    headers.set(m.headerName, mergeValue(existing, m.value, m.separator));
+  }
+  return origFetch.call(this, input, Object.assign({}, init, { headers: headers }));
+};
+
+var origXHROpen = XMLHttpRequest.prototype.open;
+var origXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+var origXHRSend = XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.open = function() {
+  this.__ohUrl = arguments[1] || '';
+  this.__ohHeaders = {};
+  return origXHROpen.apply(this, arguments);
+};
+XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
+  if (this.__ohHeaders) this.__ohHeaders[name.toLowerCase()] = value;
+  return origXHRSetHeader.apply(this, arguments);
+};
+XMLHttpRequest.prototype.send = function() {
+  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
+    for (var i = 0; i < REQ_MERGES.length; i++) {
+      var m = REQ_MERGES[i];
+      var existing = (this.__ohHeaders && this.__ohHeaders[m.headerName.toLowerCase()]) || '';
+      origXHRSetHeader.call(this, m.headerName, mergeValue(existing, m.value, m.separator));
+    }
+  }
+  return origXHRSend.apply(this, arguments);
+};`
+    : ''
+}
+
+${
+  responseMerges.length > 0
+    ? `
+var origFetchR = window.fetch;
+window.fetch = function(input, init) {
+  var url = typeof input === 'string' ? input : (input && input.url) || '';
+  if (!__ohMatchesUrl(url, PATTERNS)) return origFetchR.apply(this, arguments);
+  return origFetchR.apply(this, arguments).then(function(response) {
+    var newHeaders = new Headers(response.headers);
+    for (var i = 0; i < RES_MERGES.length; i++) {
+      var m = RES_MERGES[i];
+      var existing = newHeaders.get(m.headerName) || '';
+      newHeaders.set(m.headerName, mergeValue(existing, m.value, m.separator));
+    }
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders,
+    });
+  });
+};`
+    : ''
+}
+})();`;
+}

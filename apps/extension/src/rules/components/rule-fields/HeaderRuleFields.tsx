@@ -10,33 +10,128 @@
  */
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Badge, Button, Form, Input, Select, Tabs, Typography } from 'antd';
+import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 const { Text } = Typography;
 
 const OPERATIONS = [
-  { value: 'override', label: 'Set' },
+  { value: 'override', label: 'Override' },
   { value: 'add', label: 'Append' },
   { value: 'remove', label: 'Remove' },
+  { value: 'merge', label: 'Merge' },
 ];
 
-function ModificationList({ name }: { name: string }) {
+const OP_TOOLTIPS: Record<string, Record<string, React.ReactNode>> = {
+  override: {
+    request: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Sets the header to this value</li>
+        <li>Replaces if present, adds if missing</li>
+        <li>Visible in DevTools Network tab</li>
+      </ul>
+    ),
+    response: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Sets the header to this value</li>
+        <li>Replaces if present, adds if missing</li>
+        <li>Not visible in DevTools but applied correctly</li>
+      </ul>
+    ),
+  },
+  add: {
+    request: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Adds a new header entry with this name</li>
+        <li>Existing entries are kept (creates duplicate headers)</li>
+        <li>Use for Set-Cookie, Link, Via</li>
+        <li>Visible in DevTools Network tab</li>
+      </ul>
+    ),
+    response: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Adds a new header entry with this name</li>
+        <li>Existing entries are kept (creates duplicate headers)</li>
+        <li>Use for Set-Cookie, Link, Via</li>
+        <li>Not visible in DevTools but applied correctly</li>
+      </ul>
+    ),
+  },
+  remove: {
+    request: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Removes all instances of this header</li>
+        <li>Visible in DevTools Network tab</li>
+      </ul>
+    ),
+    response: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Removes all instances of this header</li>
+        <li>Not visible in DevTools but applied correctly</li>
+      </ul>
+    ),
+  },
+  merge: {
+    request: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Reads the existing header value at runtime</li>
+        <li>Appends your value with a configurable separator</li>
+        <li>Separator can be empty string for direct concatenation</li>
+        <li>Only applies to fetch/XHR requests — not page navigations or static resources</li>
+        <li>Not visible in DevTools but the server receives the merged value</li>
+        <li style={{ opacity: 0.7, fontFamily: 'monospace', fontSize: 11, marginTop: 4 }}>
+          Result: [existing value] + [separator] + [your value]
+        </li>
+      </ul>
+    ),
+    response: (
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <li>Reads the existing header value at runtime</li>
+        <li>Appends your value with a configurable separator</li>
+        <li>Separator can be empty string for direct concatenation</li>
+        <li>Only applies to fetch/XHR responses — not page navigations or static resources</li>
+        <li>Not visible in DevTools but the page receives the merged value</li>
+        <li style={{ opacity: 0.7, fontFamily: 'monospace', fontSize: 11, marginTop: 4 }}>
+          Result: [existing value] + [separator] + [your value]
+        </li>
+      </ul>
+    ),
+  },
+};
+
+function ModificationList({ name, direction }: { name: string; direction: 'request' | 'response' }) {
   return (
     <Form.List name={name}>
       {(fields, { add, remove }) => (
         <>
           {fields.map((field) => (
-            <div key={field.key} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+            <div
+              key={field.key}
+              style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}
+            >
               <Form.Item
                 {...field}
                 name={[field.name, 'operation']}
                 style={{ marginBottom: 0, width: 110, flexShrink: 0 }}
               >
-                <Select size="small" options={OPERATIONS} />
+                <Select
+                  size="small"
+                  options={OPERATIONS.map((op) => ({
+                    ...op,
+                    label: (
+                      <Tooltip title={OP_TOOLTIPS[op.value]?.[direction]} placement="right" styles={{ root: { maxWidth: 700 } }}>
+                        <span>{op.label}</span>
+                      </Tooltip>
+                    ),
+                  }))}
+                />
               </Form.Item>
-              <Form.Item {...field} name={[field.name, 'headerName']} style={{ marginBottom: 0, flex: 1 }}>
+              <Form.Item
+                {...field}
+                name={[field.name, 'headerName']}
+                style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
+              >
                 <Input size="small" placeholder="Header Name" />
               </Form.Item>
               <Form.Item
@@ -50,8 +145,38 @@ function ModificationList({ name }: { name: string }) {
                 {({ getFieldValue }) => {
                   const op = getFieldValue([name, field.name, 'operation']);
                   if (op === 'remove') return null;
+                  if (op === 'merge') {
+                    return (
+                      <>
+                        <Input
+                          size="small"
+                          disabled
+                          value="existing value"
+                          style={{ marginBottom: 0, width: 105, flexShrink: 0, fontStyle: 'italic', opacity: 0.5 }}
+                        />
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'mergeSeparator']}
+                          style={{ marginBottom: 0, width: 50, flexShrink: 0 }}
+                        >
+                          <Input size="small" placeholder="; " style={{ textAlign: 'center', fontFamily: 'monospace' }} />
+                        </Form.Item>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'value']}
+                          style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
+                        >
+                          <Input size="small" placeholder="Value to append" />
+                        </Form.Item>
+                      </>
+                    );
+                  }
                   return (
-                    <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
+                    <Form.Item
+                      {...field}
+                      name={[field.name, 'value']}
+                      style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
+                    >
                       <Input size="small" placeholder="Header Value" />
                     </Form.Item>
                   );
@@ -128,7 +253,7 @@ const HeaderRuleFields: React.FC = () => {
                 Request Headers {reqCount > 0 && <Badge count={reqCount} size="small" style={{ marginLeft: 4 }} />}
               </span>
             ),
-            children: <ModificationList name="requestHeaders" />,
+            children: <ModificationList name="requestHeaders" direction="request" />,
           },
           {
             key: 'response',
@@ -137,7 +262,7 @@ const HeaderRuleFields: React.FC = () => {
                 Response Headers {resCount > 0 && <Badge count={resCount} size="small" style={{ marginLeft: 4 }} />}
               </span>
             ),
-            children: <ModificationList name="responseHeaders" />,
+            children: <ModificationList name="responseHeaders" direction="response" />,
           },
         ]}
       />

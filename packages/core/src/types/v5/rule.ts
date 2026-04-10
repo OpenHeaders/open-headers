@@ -116,7 +116,14 @@ export interface RuleBase {
 
 // ── Header rule ────────────────────────────────────────────────────
 
-export type HeaderOperation = 'add' | 'override' | 'remove';
+/**
+ * Header operations:
+ *   override → Chrome `set`: sets header to this value (replaces if present, adds if missing)
+ *   add      → Chrome `append`: adds a new header entry (duplicate header line, original kept)
+ *   remove   → Chrome `remove`: deletes all instances of this header
+ *   merge    → Script-based: reads existing value at runtime, appends your value with separator
+ */
+export type HeaderOperation = 'override' | 'add' | 'remove' | 'merge';
 
 /** A single header modification — one row in the "Request Headers" or "Response Headers" list. */
 export interface HeaderModification {
@@ -124,11 +131,15 @@ export interface HeaderModification {
   headerName: string;
   /** Header value. Supports {{VAR}} interpolation. Not needed for 'remove'. */
   value?: string;
+  /** Separator for 'merge' operation. Defaults to '; ' for Cookie/Set-Cookie, ', ' for everything else. */
+  mergeSeparator?: string;
 }
 
 /**
- * Header action — maps 1:1 to Chrome's modifyHeaders DNR action.
- * Supports multiple request AND response header modifications in a single rule.
+ * Header action — supports 4 operations per modification:
+ *   override/add/remove use Chrome's declarativeNetRequest API (DNR)
+ *   merge uses content script injection (reads existing value at runtime)
+ * Both mechanisms work transparently — the user doesn't need to know which is used.
  */
 export interface HeaderAction {
   requestHeaders: HeaderModification[];
