@@ -640,6 +640,8 @@ const RulesAppInner: React.FC = () => {
                     <TabBar
                       tabs={tabs}
                       activeTabId={activeTabId}
+                      rules={rules}
+                      templates={templates}
                       onSwitch={switchTab}
                       onClose={handleCloseTab}
                       onCreateRule={openCreateTab}

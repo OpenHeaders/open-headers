@@ -10,10 +10,7 @@
 
 import {
   AimOutlined,
-  ArrowDownOutlined,
-  ArrowUpOutlined,
   CheckCircleOutlined,
-  CodeOutlined,
   DeleteOutlined,
   EditOutlined,
   EllipsisOutlined,
@@ -21,17 +18,14 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
-  LinkOutlined,
   NodeCollapseOutlined,
   PlusOutlined,
   SearchOutlined,
-  SendOutlined,
   StopOutlined,
-  SwapOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
+import { isRuleComplete } from '@openheaders/core/utils';
 import { runtime } from '@utils/browser-api';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -39,6 +33,7 @@ import type React from 'react';
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
+import { buildRuleIcon } from './shared/rule-icon';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 import type { TreeNode } from './sidebar/types';
@@ -49,50 +44,6 @@ function iconEl(Icon: typeof StopOutlined, color: string, size = 12): React.Reac
   return createElement(Icon, { style: { color, fontSize: size } });
 }
 
-const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
-  header: SwapOutlined,
-  block: StopOutlined,
-  redirect: SendOutlined,
-  'query-param': LinkOutlined,
-  inject: CodeOutlined,
-};
-
-const HEADER_OP_COLOR: Record<string, string> = {
-  override: '#1677ff',
-  add: '#52c41a',
-  remove: '#ff4d4f',
-};
-
-function ruleIconForSidebar(rule: V5.Rule | undefined, node: V5.RuleNode, isActive: boolean): React.ReactNode {
-  const gray = 'var(--ant-color-text-tertiary, #999)';
-  const detail = rule ? getActionDetail(rule) : undefined;
-  const Icon = RULE_TYPE_ICON[node.ruleType] ?? SwapOutlined;
-  let iconColor = gray;
-  if (isActive) {
-    if (node.ruleType === 'header' && detail?.operation) {
-      iconColor = HEADER_OP_COLOR[detail.operation] ?? '#1677ff';
-    } else if (node.ruleType === 'block') {
-      iconColor = '#ff4d4f';
-    } else if (node.ruleType === 'redirect') {
-      iconColor = '#faad14';
-    } else if (node.ruleType === 'query-param') {
-      iconColor = '#722ed1';
-    } else if (node.ruleType === 'inject') {
-      iconColor = detail?.operation === 'css' ? '#eb2f96' : '#fa8c16';
-    }
-  }
-  const dirArrow = detail?.direction
-    ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-        style: { fontSize: 9, color: 'var(--ant-color-text-secondary, #595959)', marginRight: 1 },
-      })
-    : null;
-  return createElement(
-    'span',
-    { style: { display: 'inline-flex', alignItems: 'center', gap: 1 } },
-    dirArrow,
-    createElement(Icon, { style: { fontSize: 12, color: iconColor } }),
-  );
-}
 
 function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
   return buildRuleTypeMenuItemsCE(onAddRule) as ItemType[];
@@ -473,7 +424,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: false,
             parentId,
-            icon: ruleIconForSidebar(fullRule, node, isActive),
+            icon: buildRuleIcon({ ruleType: node.ruleType, rule: fullRule, isActive }),
             badge,
             canRename: isLocal,
             canDelete: isLocal,

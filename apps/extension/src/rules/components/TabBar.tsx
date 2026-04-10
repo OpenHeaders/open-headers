@@ -12,39 +12,37 @@
 
 import {
   CloseOutlined,
-  CodeOutlined,
   DownOutlined,
+  FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
-  LinkOutlined,
   PlusOutlined,
   SearchOutlined,
-  SendOutlined,
-  StopOutlined,
-  SwapOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
+import type { V5 } from '@openheaders/core/types';
+import { isRuleComplete } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import type { ClosedTab, RulesTab } from '../types';
+import { buildRuleIcon } from './shared/rule-icon';
+import { renderTwoToneIcon } from './TwoToneIconPicker';
 
-// ── Icon map ─────────────────────────────────────────────────────
+// ── Icon helper ─────────────────────────────────────────────────────
 
-const RULE_TYPE_ICONS: Record<string, React.ReactNode> = {
-  header: <SwapOutlined style={{ fontSize: 12, color: '#1890ff' }} />,
-  block: <StopOutlined style={{ fontSize: 12, color: '#f5222d' }} />,
-  redirect: <SendOutlined style={{ fontSize: 12, color: '#fa8c16' }} />,
-  'query-param': <LinkOutlined style={{ fontSize: 12, color: '#52c41a' }} />,
-  inject: <CodeOutlined style={{ fontSize: 12, color: '#722ed1' }} />,
-};
-
-function tabIcon(tab: RulesTab): React.ReactNode {
+function tabIcon(tab: RulesTab, rules: V5.Rule[], templates: V5.Template[]): React.ReactNode {
   if (tab.mode === 'collection-overview') return <FolderOpenOutlined style={{ fontSize: 12, color: '#999' }} />;
   if (tab.mode === 'folder-overview') return <FolderOutlined style={{ fontSize: 12, color: '#999' }} />;
-  return RULE_TYPE_ICONS[tab.ruleType] ?? <ThunderboltOutlined style={{ fontSize: 12 }} />;
+  if (tab.mode === 'template-edit' && tab.templateUid) {
+    const tpl = templates.find((t) => t.uid === tab.templateUid);
+    return renderTwoToneIcon(tpl?.icon ?? '', { fontSize: 12 }) || <FileTextOutlined style={{ fontSize: 12, color: '#999' }} />;
+  }
+  // Rule tabs — use the same rich icon as the sidebar
+  const rule = tab.ruleUid ? rules.find((r) => r.uid === tab.ruleUid) : undefined;
+  const isActive = rule ? rule.enabled && isRuleComplete(rule) : false;
+  return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive });
 }
 
 const TAB_LABEL_MAX = 20;
@@ -59,6 +57,8 @@ function truncateMiddle(text: string, max: number): string {
 interface TabBarProps {
   tabs: RulesTab[];
   activeTabId: string | null;
+  rules: V5.Rule[];
+  templates: V5.Template[];
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onCreateRule: (type: string) => void;
@@ -79,6 +79,8 @@ interface TabSearchProps {
   onClose: () => void;
   tabs: RulesTab[];
   activeTabId: string | null;
+  rules: V5.Rule[];
+  templates: V5.Template[];
   onSwitch: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopen: (closed: ClosedTab) => void;
@@ -89,6 +91,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   onClose,
   tabs,
   activeTabId,
+  rules,
+  templates,
   onSwitch,
   recentlyClosed,
   onReopen,
@@ -191,7 +195,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                   onClose();
                 }}
               >
-                <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>{tabIcon(tab)}</span>
+                <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>{tabIcon(tab, rules, templates)}</span>
                 <span
                   style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
                 >
@@ -242,7 +246,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                       }}
                     >
                       <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                        {tabIcon(closed.tab)}
+                        {tabIcon(closed.tab, rules, templates)}
                       </span>
                       <span
                         style={{
@@ -277,6 +281,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
 const TabBar: React.FC<TabBarProps> = ({
   tabs,
   activeTabId,
+  rules,
+  templates,
   onSwitch,
   onClose,
   onCreateRule,
@@ -436,7 +442,7 @@ const TabBar: React.FC<TabBarProps> = ({
                     if (e.key === 'Enter') onSwitch(tab.id);
                   }}
                 >
-                  <span className="rules-type-badge">{tabIcon(tab)}</span>
+                  <span className="rules-type-badge">{tabIcon(tab, rules, templates)}</span>
                   <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
                     {truncateMiddle(tab.label, TAB_LABEL_MAX)}
                   </span>
@@ -489,6 +495,8 @@ const TabBar: React.FC<TabBarProps> = ({
           onClose={() => setTabSearchOpen(false)}
           tabs={tabs}
           activeTabId={activeTabId}
+          rules={rules}
+          templates={templates}
           onSwitch={onSwitch}
           recentlyClosed={recentlyClosed}
           onReopen={onReopenTab}
