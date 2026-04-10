@@ -5,8 +5,12 @@ export type {
   FolderNode,
   RequestNode,
   RuleNode,
+  TemplateNode,
   TreeNode,
 } from './collection';
+
+// ── Template ──────────────────────────────────────────────────────
+export type { Template } from './template';
 
 // ── Request ────────────────────────────────────────────────────────
 export type {

@@ -60,7 +60,16 @@ export interface RuleNode {
   enabled: boolean;
 }
 
-export type TreeNode = FolderNode | RequestNode | RuleNode;
+export interface TemplateNode {
+  type: 'template';
+  uid: string;
+  name: string;
+  path: string;
+  ruleType: RuleType;
+  icon: string;
+}
+
+export type TreeNode = FolderNode | RequestNode | RuleNode | TemplateNode;
 
 /** Collection with its full sidebar tree loaded. */
 export interface CollectionTree extends Collection {

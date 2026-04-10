@@ -8,6 +8,23 @@ import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import { clearAllTracking, getActiveRulesForTab } from './request-tracker';
 import {
+  addTemplate,
+  addTemplateToCollection,
+  createTemplateCollection,
+  createTemplateFolder,
+  deleteTemplate,
+  deleteTemplateCollection,
+  deleteTemplateFolder,
+  ensureDefaultTemplateCollection,
+  getTemplateCollectionTrees,
+  getTemplateCollections,
+  getTemplateFolders,
+  getTemplates,
+  renameTemplateCollection,
+  renameTemplateFolder,
+  updateTemplate,
+} from './template-store';
+import {
   addLocalRule,
   addLocalRuleToCollection,
   createLocalCollection,
@@ -230,6 +247,57 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false, error: 'Not connected to desktop app' });
       }
+    // ── Template CRUD ──────────────────────────────────────────────
+    } else if (message.type === 'getTemplates') {
+      safeResponse({ templates: getTemplates() });
+    } else if (message.type === 'getTemplateCollections') {
+      safeResponse({ collections: getTemplateCollections() });
+    } else if (message.type === 'getTemplateCollectionTrees') {
+      safeResponse({ collectionTrees: getTemplateCollectionTrees() });
+    } else if (message.type === 'getTemplateFolders') {
+      safeResponse({ folders: getTemplateFolders() });
+    } else if (message.type === 'createTemplate') {
+      const templateData = message.template as Omit<V5.Template, 'uid' | 'path'>;
+      const parentPath = message.parentPath as string | undefined;
+      const collectionUid = message.collectionUid as string | undefined;
+
+      let created: V5.Template;
+      if (parentPath) {
+        created = addTemplate(templateData, parentPath);
+      } else {
+        const collection = collectionUid
+          ? { uid: collectionUid }
+          : ensureDefaultTemplateCollection();
+        created = addTemplateToCollection(templateData, collection.uid);
+      }
+      safeResponse({ success: true, template: created });
+    } else if (message.type === 'updateTemplate') {
+      const success = updateTemplate(
+        message.templateUid as string,
+        message.updates as Partial<Omit<V5.Template, 'uid' | 'path'>>,
+      );
+      safeResponse({ success });
+    } else if (message.type === 'deleteTemplate') {
+      const success = deleteTemplate(message.templateUid as string);
+      safeResponse({ success });
+    } else if (message.type === 'createTemplateCollection') {
+      const collection = createTemplateCollection(message.name as string);
+      safeResponse({ success: true, collection });
+    } else if (message.type === 'renameTemplateCollection') {
+      const success = renameTemplateCollection(message.collectionUid as string, message.name as string);
+      safeResponse({ success });
+    } else if (message.type === 'deleteTemplateCollection') {
+      const success = deleteTemplateCollection(message.collectionUid as string);
+      safeResponse({ success });
+    } else if (message.type === 'createTemplateFolder') {
+      const folder = createTemplateFolder(message.name as string, message.parentPath as string);
+      safeResponse({ success: true, folder });
+    } else if (message.type === 'renameTemplateFolder') {
+      const success = renameTemplateFolder(message.folderUid as string, message.name as string);
+      safeResponse({ success });
+    } else if (message.type === 'deleteTemplateFolder') {
+      const success = deleteTemplateFolder(message.folderUid as string);
+      safeResponse({ success });
     } else if (message.type && (message.type as string).startsWith('proxy-')) {
       return false;
     } else {

@@ -68,6 +68,38 @@ export interface RuleContextValue {
   renameLocalFolder: (uid: string, name: string) => Promise<boolean>;
   /** Delete a local folder and its contents. */
   deleteLocalFolder: (uid: string) => Promise<boolean>;
+  // ── Templates ─────────────────────────────────────────────────────
+  /** All user-defined templates. */
+  templates: V5.Template[];
+  /** Template collections (flat). */
+  templateCollections: V5.Collection[];
+  /** Template collection trees (with folder → template hierarchy). */
+  templateCollectionTrees: V5.CollectionTree[];
+  /** Create a template. */
+  createTemplate: (
+    template: Omit<V5.Template, 'uid' | 'path'>,
+    collectionUid?: string,
+    parentPath?: string,
+  ) => Promise<V5.Template | null>;
+  /** Update a template by uid. */
+  updateTemplate: (uid: string, updates: Partial<Omit<V5.Template, 'uid' | 'path'>>) => Promise<boolean>;
+  /** Delete a template by uid. */
+  deleteTemplate: (uid: string) => Promise<boolean>;
+  /** Create a template collection. */
+  createTemplateCollection: (name: string) => Promise<V5.Collection | null>;
+  /** Rename a template collection. */
+  renameTemplateCollection: (uid: string, name: string) => Promise<boolean>;
+  /** Delete a template collection and all its contents. */
+  deleteTemplateCollection: (uid: string) => Promise<boolean>;
+  /** Create a folder within a template collection. */
+  createTemplateFolder: (
+    name: string,
+    parentPath: string,
+  ) => Promise<{ uid: string; path: string; name: string } | null>;
+  /** Rename a template folder. */
+  renameTemplateFolder: (uid: string, name: string) => Promise<boolean>;
+  /** Delete a template folder and its contents. */
+  deleteTemplateFolder: (uid: string) => Promise<boolean>;
 }
 
 const defaultContextValue: RuleContextValue = {
@@ -97,6 +129,18 @@ const defaultContextValue: RuleContextValue = {
   createLocalFolder: () => Promise.resolve(null),
   renameLocalFolder: () => Promise.resolve(false),
   deleteLocalFolder: () => Promise.resolve(false),
+  templates: [],
+  templateCollections: [],
+  templateCollectionTrees: [],
+  createTemplate: () => Promise.resolve(null),
+  updateTemplate: () => Promise.resolve(false),
+  deleteTemplate: () => Promise.resolve(false),
+  createTemplateCollection: () => Promise.resolve(null),
+  renameTemplateCollection: () => Promise.resolve(false),
+  deleteTemplateCollection: () => Promise.resolve(false),
+  createTemplateFolder: () => Promise.resolve(null),
+  renameTemplateFolder: () => Promise.resolve(false),
+  deleteTemplateFolder: () => Promise.resolve(false),
 };
 
 export const RuleContext = createContext<RuleContextValue>(defaultContextValue);
@@ -117,6 +161,9 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   const [pausedGroups, setPausedGroups] = useState<Set<string>>(new Set());
   const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);
   const [localCollectionTrees, setLocalCollectionTrees] = useState<V5.CollectionTree[]>([]);
+  const [templates, setTemplates] = useState<V5.Template[]>([]);
+  const [templateCollections, setTemplateCollections] = useState<V5.Collection[]>([]);
+  const [templateCollectionTrees, setTemplateCollectionTrees] = useState<V5.CollectionTree[]>([]);
 
   // ── Load rules from background ────────────────────────────────
 
@@ -149,16 +196,39 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     });
   }, []);
 
+  const loadTemplateData = useCallback(() => {
+    sendMessageWithCallback({ type: 'getTemplates' }, (response, error) => {
+      if (!error && response) {
+        const resp = response as { templates?: V5.Template[] };
+        setTemplates(resp.templates ?? []);
+      }
+    });
+    sendMessageWithCallback({ type: 'getTemplateCollections' }, (response, error) => {
+      if (!error && response) {
+        const resp = response as { collections?: V5.Collection[] };
+        setTemplateCollections(resp.collections ?? []);
+      }
+    });
+    sendMessageWithCallback({ type: 'getTemplateCollectionTrees' }, (response, error) => {
+      if (!error && response) {
+        const resp = response as { collectionTrees?: V5.CollectionTree[] };
+        setTemplateCollectionTrees(resp.collectionTrees ?? []);
+      }
+    });
+  }, []);
+
   const refreshRules = useCallback(() => {
     loadRules();
     loadLocalCollections();
-  }, [loadRules, loadLocalCollections]);
+    loadTemplateData();
+  }, [loadRules, loadLocalCollections, loadTemplateData]);
 
   // ── Lifecycle ─────────────────────────────────────────────────
 
   useEffect(() => {
     loadRules();
     loadLocalCollections();
+    loadTemplateData();
 
     // Load paused collection/folder paths
     storage.local.get(['pausedGroups'], (result: Record<string, unknown>) => {
@@ -168,12 +238,14 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       }
     });
 
-    // Listen for rule updates from background (pushed on any store mutation)
-    const messageListener = (message: { type?: string; rules?: V5.Rule[] }) => {
+    // Listen for rule/template updates from background (pushed on any store mutation)
+    const messageListener = (message: { type?: string; rules?: V5.Rule[]; templates?: V5.Template[] }) => {
       if (message.type === 'rulesUpdated' && Array.isArray(message.rules)) {
         setRules(message.rules);
-        // Collections/folders may have changed too (delete, rename, create)
         loadLocalCollections();
+      } else if (message.type === 'templatesUpdated') {
+        if (Array.isArray(message.templates)) setTemplates(message.templates);
+        loadTemplateData();
       } else if (message.type === 'connectionStatus') {
         setIsConnected((message as { connected?: boolean }).connected ?? false);
       }
@@ -210,7 +282,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       storage.onChanged.removeListener(handleStorageChange);
       clearInterval(intervalId);
     };
-  }, [loadRules, loadLocalCollections]);
+  }, [loadRules, loadLocalCollections, loadTemplateData]);
 
   // ── UI state persistence ──────────────────────────────────────
 
@@ -438,6 +510,168 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     [refreshRules],
   );
 
+  // ── Template CRUD ─────────────────────────────────────────────
+
+  const createTemplateFn = useCallback(
+    (
+      template: Omit<V5.Template, 'uid' | 'path'>,
+      collectionUid?: string,
+      parentPath?: string,
+    ): Promise<V5.Template | null> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'createTemplate', template, collectionUid, parentPath }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean; template?: V5.Template };
+            if (resp.success && resp.template) {
+              refreshRules();
+              resolve(resp.template);
+              return;
+            }
+          }
+          resolve(null);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
+  const updateTemplateFn = useCallback(
+    (uid: string, updates: Partial<Omit<V5.Template, 'uid' | 'path'>>): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'updateTemplate', templateUid: uid, updates }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
+  const deleteTemplateFn = useCallback(
+    (uid: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'deleteTemplate', templateUid: uid }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
+  const createTemplateCollectionFn = useCallback(
+    (name: string): Promise<V5.Collection | null> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'createTemplateCollection', name }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean; collection?: V5.Collection };
+            if (resp.success && resp.collection) {
+              refreshRules();
+              resolve(resp.collection);
+              return;
+            }
+          }
+          resolve(null);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
+  const renameTemplateCollectionFn = useCallback(
+    (uid: string, name: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback(
+          { type: 'renameTemplateCollection', collectionUid: uid, name },
+          (response, error) => {
+            if (!error && response && (response as { success?: boolean }).success) {
+              refreshRules();
+              resolve(true);
+              return;
+            }
+            resolve(false);
+          },
+        );
+      });
+    },
+    [refreshRules],
+  );
+
+  const deleteTemplateCollectionFn = useCallback(
+    (uid: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'deleteTemplateCollection', collectionUid: uid }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
+  const createTemplateFolderFn = useCallback(
+    (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'createTemplateFolder', name, parentPath }, (response, error) => {
+          if (!error && response) {
+            const resp = response as { success?: boolean; folder?: { uid: string; path: string; name: string } };
+            if (resp.success && resp.folder) {
+              refreshRules();
+              resolve(resp.folder);
+              return;
+            }
+          }
+          resolve(null);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
+  const renameTemplateFolderFn = useCallback(
+    (uid: string, name: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'renameTemplateFolder', folderUid: uid, name }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
+  const deleteTemplateFolderFn = useCallback(
+    (uid: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        sendMessageWithCallback({ type: 'deleteTemplateFolder', folderUid: uid }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
+      });
+    },
+    [refreshRules],
+  );
+
   // ── Render ────────────────────────────────────────────────────
 
   const contextValue: RuleContextValue = {
@@ -460,6 +694,18 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     createLocalFolder: createLocalFolderFn,
     renameLocalFolder: renameLocalFolderFn,
     deleteLocalFolder: deleteLocalFolderFn,
+    templates,
+    templateCollections,
+    templateCollectionTrees,
+    createTemplate: createTemplateFn,
+    updateTemplate: updateTemplateFn,
+    deleteTemplate: deleteTemplateFn,
+    createTemplateCollection: createTemplateCollectionFn,
+    renameTemplateCollection: renameTemplateCollectionFn,
+    deleteTemplateCollection: deleteTemplateCollectionFn,
+    createTemplateFolder: createTemplateFolderFn,
+    renameTemplateFolder: renameTemplateFolderFn,
+    deleteTemplateFolder: deleteTemplateFolderFn,
   };
 
   return <RuleContext.Provider value={contextValue}>{children}</RuleContext.Provider>;

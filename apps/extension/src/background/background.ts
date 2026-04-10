@@ -27,6 +27,7 @@ import {
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import { getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
+import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
 import { setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { generateRulesHash } from './modules/utils';
 import {
@@ -105,9 +106,19 @@ async function initializeExtension(): Promise<void> {
     }
   });
 
+  // Broadcast template changes to all open extension pages
+  onTemplateStoreChange(() => {
+    try {
+      runtime.sendMessage({ type: 'templatesUpdated', templates: getTemplates() });
+    } catch {
+      // No listeners — popup/workspace not open
+    }
+  });
+
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 
-  // Hydrate rules from storage (offline start before WebSocket connects)
+  // Hydrate rules + templates from storage (offline start before WebSocket connects)
+  await hydrateTemplatesFromStorage();
   const restoredRules = await hydrateFromStorage();
   if (restoredRules.length > 0) {
     logger.info('Background', `Restored ${restoredRules.length} rules from storage`);
