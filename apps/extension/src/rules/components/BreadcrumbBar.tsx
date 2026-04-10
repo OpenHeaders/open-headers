@@ -5,7 +5,7 @@
  * The last segment supports inline editing for renaming.
  */
 
-import { RightOutlined, SaveOutlined } from '@ant-design/icons';
+import { FileTextOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -14,12 +14,20 @@ interface BreadcrumbBarProps {
   segments: string[];
   isDirty?: boolean;
   onSave?: () => void;
+  onSaveAsTemplate?: () => void;
   onRename?: (newName: string) => void;
   /** Set to a unique value (e.g. tab ID) to auto-enter rename mode. Change the value to re-trigger. */
   autoRenameKey?: string | null;
 }
 
-const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ segments, isDirty, onSave, onRename, autoRenameKey }) => {
+const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
+  segments,
+  isDirty,
+  onSave,
+  onSaveAsTemplate,
+  onRename,
+  autoRenameKey,
+}) => {
   const { token } = theme.useToken();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -130,23 +138,37 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ segments, isDirty, onSave
         })}
       </div>
 
-      {onSave && (
-        <Tooltip title="Save">
-          <Button
-            size="small"
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={onSave}
-            disabled={!isDirty}
-            style={{
-              fontSize: 11,
-              ...(isDirty ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
-            }}
-          >
-            Save
-          </Button>
-        </Tooltip>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {onSaveAsTemplate && (
+          <Tooltip title="Save as Template">
+            <Button
+              size="small"
+              icon={<FileTextOutlined />}
+              onClick={onSaveAsTemplate}
+              style={{ fontSize: 11 }}
+            >
+              Save as Template
+            </Button>
+          </Tooltip>
+        )}
+        {onSave && (
+          <Tooltip title="Save">
+            <Button
+              size="small"
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={onSave}
+              disabled={!isDirty}
+              style={{
+                fontSize: 11,
+                ...(isDirty ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+              }}
+            >
+              Save
+            </Button>
+          </Tooltip>
+        )}
+      </div>
     </div>
   );
 };

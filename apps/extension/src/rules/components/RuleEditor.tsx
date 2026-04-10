@@ -57,6 +57,7 @@ interface RuleEditorProps {
   onSaveDraft?: (tabId: string, draftData: Record<string, unknown>) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
+  registerSaveAsTemplateRef?: (fn: () => void) => void;
 }
 
 const RuleEditor: React.FC<RuleEditorProps> = ({
@@ -70,6 +71,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   onSaveDraft,
   onDirtyChange,
   registerSaveRef,
+  registerSaveAsTemplateRef,
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
@@ -451,6 +453,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   useEffect(() => {
     registerSaveRef?.(handleSubmit);
   }, [registerSaveRef, handleSubmit]);
+
+  const openSaveAsTemplate = useCallback(() => setSaveAsTemplateOpen(true), []);
+  useEffect(() => {
+    registerSaveAsTemplateRef?.(openSaveAsTemplate);
+  }, [registerSaveAsTemplateRef, openSaveAsTemplate]);
 
   const isEdit = mode === 'edit';
 

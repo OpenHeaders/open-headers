@@ -373,6 +373,15 @@ const RulesAppInner: React.FC = () => {
     [saveRefMap],
   );
 
+  const saveAsTemplateRefMap = useRef<Map<string, () => void>>(new Map());
+  const registerSaveAsTemplateRef = useCallback((tabId: string, fn: () => void) => {
+    saveAsTemplateRefMap.current.set(tabId, fn);
+  }, []);
+
+  const handleSaveAsTemplate = useCallback(() => {
+    if (activeTabId) saveAsTemplateRefMap.current.get(activeTabId)?.();
+  }, [activeTabId]);
+
   // ── Draft save flow ───────────────────────────────────────────
 
   const handleSaveDraft = useCallback(
@@ -648,6 +657,9 @@ const RulesAppInner: React.FC = () => {
                         segments={breadcrumbs}
                         isDirty={activeTab.mode === 'create' || activeTab.dirty}
                         onSave={activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSave : undefined}
+                        onSaveAsTemplate={
+                          activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSaveAsTemplate : undefined
+                        }
                         onRename={handleBreadcrumbRename}
                         autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
                       />
@@ -671,6 +683,7 @@ const RulesAppInner: React.FC = () => {
                               onSaveDraft={tab.mode === 'create' ? handleSaveDraft : undefined}
                               onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
                               registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+                              registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
                             />
                           )}
                           {tab.mode === 'collection-overview' && tab.entityId && (
