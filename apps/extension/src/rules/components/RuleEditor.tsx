@@ -125,29 +125,24 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const applyTemplate = useCallback(
     (key: string) => {
       setSelectedTemplate(key);
+      const type = selectedType ?? 'header';
+
+      // Reset form first — clears all Form.List items to zero.
+      // Then setFieldsValue only adds items (never needs to clear), so it works
+      // correctly for empty arrays and properly notifies useWatch for badge counts.
+      form.resetFields();
+
       if (key === 'empty') {
-        form.resetFields();
-        form.setFieldsValue({ ruleType: selectedType, conditions: [] });
+        form.setFieldsValue({ ruleType: type, conditions: [] });
         setHeaderActiveTab('request');
         return;
       }
 
       // Try built-in templates first
-      const type = selectedType ?? 'header';
       const builtins = TEMPLATES_BY_TYPE[type] ?? [];
       const builtin = builtins.find((t) => t.key === key);
-      // Apply template values to the form.
-      // setFields handles empty arrays (Form.List); setFieldsValue triggers useWatch.
-      const applyValues = (allValues: Record<string, unknown>) => {
-        const fields = Object.entries(allValues).map(([name, value]) => ({ name, value }));
-        form.setFields(fields);
-        // Also call setFieldsValue to flush store notifications for useWatch (badge counts etc.)
-        form.setFieldsValue(allValues);
-      };
-
       if (builtin) {
-        const allValues = { ruleType: type, conditions: builtin.conditions, ...builtin.formValues };
-        applyValues(allValues);
+        form.setFieldsValue({ ruleType: type, conditions: builtin.conditions, ...builtin.formValues });
         const fv = builtin.formValues;
         const resLen = Array.isArray(fv.responseHeaders) ? fv.responseHeaders.length : 0;
         const reqLen = Array.isArray(fv.requestHeaders) ? fv.requestHeaders.length : 0;
@@ -156,14 +151,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         // Try user templates (key is the uid)
         const userTpl = userTemplates.find((t) => t.uid === key);
         if (userTpl) {
-          const allValues: Record<string, unknown> = { ruleType: type };
+          const values: Record<string, unknown> = { ruleType: type };
           if (userTpl.includes.conditions && userTpl.conditions) {
-            allValues.conditions = userTpl.conditions;
+            values.conditions = userTpl.conditions;
           }
           if (userTpl.includes.formValues && userTpl.formValues) {
-            Object.assign(allValues, userTpl.formValues);
+            Object.assign(values, userTpl.formValues);
           }
-          applyValues(allValues);
+          form.setFieldsValue(values);
           const fv = userTpl.formValues ?? {};
           const resLen = Array.isArray(fv.responseHeaders) ? (fv.responseHeaders as unknown[]).length : 0;
           const reqLen = Array.isArray(fv.requestHeaders) ? (fv.requestHeaders as unknown[]).length : 0;
