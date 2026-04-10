@@ -33,10 +33,36 @@ const CONDITION_DOC_ID: Record<string, string> = {
 };
 
 const ACTION_DOC_ID: Record<string, string> = {
+  // Header operations
   override: 'doc-override',
   add: 'doc-append',
   remove: 'doc-remove',
   merge: 'doc-merge',
+  // Rule type sections
+  block: 'actions-block',
+  redirect: 'actions-redirect',
+  'query-param': 'actions-query-param',
+  inject: 'actions-inject',
+  delay: 'actions-delay',
+  body: 'actions-body',
+  mock: 'actions-mock',
+  // Query param operations
+  'qp-add': 'doc-qp-add',
+  'qp-remove': 'doc-qp-remove',
+  'qp-remove-all': 'doc-qp-remove-all',
+  // Inject types
+  'inject-script': 'doc-inject-script',
+  'inject-css': 'doc-inject-css',
+  // Body types
+  'body-static': 'doc-body-static',
+  'body-dynamic': 'doc-body-dynamic',
+  'body-graphql': 'doc-body-graphql',
+  // Mock types
+  'mock-static': 'doc-mock-static',
+  'mock-dynamic': 'doc-mock-dynamic',
+  // Redirect
+  'redirect-url': 'doc-redirect-url',
+  'redirect-regex': 'doc-redirect-regex',
 };
 
 /** Get the docs anchor ID for a condition type or action operation. */
@@ -154,7 +180,14 @@ function DocParagraph({ children }: { children: React.ReactNode }) {
 
 const TOC = [
   { id: 'conditions', label: 'Conditions Reference' },
-  { id: 'actions', label: 'Actions' },
+  { id: 'actions', label: 'Header Actions' },
+  { id: 'actions-block', label: 'Block Rules' },
+  { id: 'actions-redirect', label: 'Redirect Rules' },
+  { id: 'actions-query-param', label: 'Query Param Rules' },
+  { id: 'actions-inject', label: 'Inject Rules' },
+  { id: 'actions-delay', label: 'Delay Rules' },
+  { id: 'actions-body', label: 'Body Modification' },
+  { id: 'actions-mock', label: 'API Response Rules' },
   { id: 'templates', label: 'Templates' },
   { id: 'script-rules', label: 'Script-Based Rules' },
   { id: 'limitations', label: 'Limitations' },
@@ -411,6 +444,148 @@ const InspectorDocs: React.FC = () => {
             ]}
           />
           <DocParagraph>Separator can be empty for direct concatenation. Not visible in DevTools.</DocParagraph>
+        </Card>
+      </div>
+
+      {/* ── Block Rules ── */}
+      <SectionTitle id="actions-block">Block Rules</SectionTitle>
+      <DocParagraph>
+        Blocks matching requests entirely. The browser shows a network error to the page. Uses Chrome's{' '}
+        <code>declarativeNetRequest</code> block action.
+      </DocParagraph>
+      <Card size="small">
+        No configuration needed — just add conditions to specify which requests to block. The block applies to all
+        matching requests regardless of resource type.
+      </Card>
+
+      {/* ── Redirect Rules ── */}
+      <SectionTitle id="actions-redirect">Redirect Rules</SectionTitle>
+      <DocParagraph>
+        Redirects matching requests to a different URL. Supports static URLs and regex capture groups for dynamic
+        redirects.
+      </DocParagraph>
+      <div id="doc-redirect-url" style={{ scrollMarginTop: 8 }}>
+        <Card title="Static Redirect" extra={<Tag color="blue">DNR redirect</Tag>}>
+          Enter a full URL to redirect all matching requests to the same destination.
+          <Example rule="https://openheaders.io/new-page" after={['All matching requests → https://openheaders.io/new-page']} />
+        </Card>
+      </div>
+      <div id="doc-redirect-regex" style={{ scrollMarginTop: 8 }}>
+        <Card title="Regex Redirect" extra={<Tag color="purple">regexSubstitution</Tag>}>
+          With a URL Regex condition, use <code>\1</code>, <code>\2</code> etc. to reference capture groups from the
+          matched URL.
+          <Example
+            rule="Condition: ^http://(openheaders\.io/.*)$  →  https://\1"
+            before={['http://openheaders.io/page']}
+            after={['https://openheaders.io/page']}
+          />
+        </Card>
+      </div>
+
+      {/* ── Query Param Rules ── */}
+      <SectionTitle id="actions-query-param">Query Param Rules</SectionTitle>
+      <DocParagraph>
+        Modify URL query parameters. Uses Chrome's <code>queryTransform</code> action.
+      </DocParagraph>
+      <div id="doc-qp-add" style={{ scrollMarginTop: 8 }}>
+        <Card title="Add / Replace" extra={<Tag color="blue">addOrReplaceParams</Tag>}>
+          Adds the parameter if missing, or replaces its value if already present.
+          <Example
+            rule="debug = true"
+            before={['?page=1']}
+            after={['?page=1&debug=true']}
+          />
+        </Card>
+      </div>
+      <div id="doc-qp-remove" style={{ scrollMarginTop: 8 }}>
+        <Card title="Remove" extra={<Tag color="red">removeParams</Tag>}>
+          Removes specific parameters by name. Value is ignored.
+          <Example
+            rule="Remove utm_source"
+            before={['?utm_source=google&page=1']}
+            after={['?page=1']}
+          />
+        </Card>
+      </div>
+      <div id="doc-qp-remove-all" style={{ scrollMarginTop: 8 }}>
+        <Card title="Remove All" extra={<Tag color="red">strip query</Tag>}>
+          Strips the entire query string. Cannot be combined with Add/Replace in the same rule.
+          <Example
+            rule="Remove All"
+            before={['?utm_source=google&page=1&debug=true']}
+            after={['(no query string)']}
+          />
+        </Card>
+      </div>
+
+      {/* ── Inject Rules ── */}
+      <SectionTitle id="actions-inject">Inject Rules</SectionTitle>
+      <DocParagraph>
+        Inject JavaScript or CSS into matching pages. Code runs in the page's context via a content script.
+      </DocParagraph>
+      <div id="doc-inject-script" style={{ scrollMarginTop: 8 }}>
+        <Card title="Script Injection" extra={<Tag color="orange">JavaScript</Tag>}>
+          Inline code or an external URL. Choose insertion point: head (before page scripts), body-start, or body-end
+          (after page loads).
+        </Card>
+      </div>
+      <div id="doc-inject-css" style={{ scrollMarginTop: 8 }}>
+        <Card title="CSS Injection" extra={<Tag color="magenta">Stylesheet</Tag>}>
+          Inject custom CSS rules. Applied as a <code>&lt;style&gt;</code> tag. Useful for dark mode overrides, hiding
+          elements, or custom theming.
+        </Card>
+      </div>
+
+      {/* ── Delay Rules ── */}
+      <SectionTitle id="actions-delay">Delay Rules</SectionTitle>
+      <DocParagraph>
+        Adds artificial latency to matching requests. Script-based — intercepts <code>fetch()</code> and{' '}
+        <code>XMLHttpRequest</code>.
+      </DocParagraph>
+      <Card size="small">
+        In the browser extension, delay is capped at 5,000ms for XHR/fetch to avoid performance degradation. Static
+        resources (images, scripts, stylesheets) are not affected. The desktop app has no restrictions.
+      </Card>
+
+      {/* ── Body Modification ── */}
+      <SectionTitle id="actions-body">Body Modification</SectionTitle>
+      <DocParagraph>
+        Override or transform request bodies. Script-based — intercepts <code>fetch()</code> and{' '}
+        <code>XMLHttpRequest</code>.
+      </DocParagraph>
+      <div id="doc-body-static" style={{ scrollMarginTop: 8 }}>
+        <Card title="Static Body" extra={<Tag color="blue">Replace</Tag>}>
+          Replace the entire request body with a fixed string. Works for REST and GraphQL requests.
+        </Card>
+      </div>
+      <div id="doc-body-dynamic" style={{ scrollMarginTop: 8 }}>
+        <Card title="Dynamic Body" extra={<Tag color="purple">Function</Tag>}>
+          Write a function that receives the original request body and context, then returns the modified body. Receives{' '}
+          <code>{'{method, url, body, bodyAsJson}'}</code>.
+        </Card>
+      </div>
+      <div id="doc-body-graphql" style={{ scrollMarginTop: 8 }}>
+        <Card title="GraphQL Filter" extra={<Tag color="cyan">operationName</Tag>}>
+          Filter by GraphQL operation name in the request payload. Only modifies requests matching the operation.
+          Leave empty to match all GraphQL operations.
+        </Card>
+      </div>
+
+      {/* ── API Response Rules ── */}
+      <SectionTitle id="actions-mock">API Response Rules</SectionTitle>
+      <DocParagraph>
+        Intercept API calls and return custom responses. Script-based — intercepts <code>fetch()</code> and{' '}
+        <code>XMLHttpRequest</code>.
+      </DocParagraph>
+      <div id="doc-mock-static" style={{ scrollMarginTop: 8 }}>
+        <Card title="Static Response" extra={<Tag color="blue">Fixed JSON</Tag>}>
+          Return a fixed response body with a custom status code and content type. The real request is never made.
+        </Card>
+      </div>
+      <div id="doc-mock-dynamic" style={{ scrollMarginTop: 8 }}>
+        <Card title="Dynamic Response" extra={<Tag color="purple">Function</Tag>}>
+          The real request is made first. Your function receives the response and request context, then returns the
+          modified response. Receives <code>{'{status, body, bodyAsJson, url, method}'}</code>.
         </Card>
       </div>
 

@@ -3,24 +3,33 @@
  *
  * Each row: [Operation dropdown] [Param Name] [Value] [Delete]
  * Operations: Add/Replace, Remove, Remove All
- *
- * Remove All can coexist with Add/Replace entries — semantics:
- * strip all params first, then apply the add/replace operations.
  */
 
-import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
+import { useInspectorNav } from '../../hooks/useInspectorNav';
+import { getDocId } from '../InspectorDocs';
 
 const { Text } = Typography;
 
 const QueryParamRuleFields: React.FC = () => {
+  const { openDocs } = useInspectorNav();
   const queryParams = Form.useWatch('queryParams') as Array<{ operation: string }> | undefined;
   const hasRemoveAll = queryParams?.some((p) => p.operation === 'remove-all') ?? false;
   const hasOtherOps = queryParams?.some((p) => p.operation !== 'remove-all') ?? false;
 
   return (
     <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Text strong style={{ fontSize: 13 }}>
+          Actions
+        </Text>
+        <InfoCircleOutlined
+          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+          onClick={() => openDocs(getDocId('query-param', 'action'))}
+        />
+      </div>
       {hasRemoveAll && hasOtherOps && (
         <Alert
           type="warning"
@@ -35,12 +44,7 @@ const QueryParamRuleFields: React.FC = () => {
             {fields.map((field) => (
               <div
                 key={field.key}
-                style={{
-                  display: 'flex',
-                  gap: 6,
-                  alignItems: 'center',
-                  marginBottom: 6,
-                }}
+                style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}
               >
                 <Form.Item
                   {...field}
@@ -55,6 +59,27 @@ const QueryParamRuleFields: React.FC = () => {
                       { value: 'remove-all', label: 'REMOVE ALL' },
                     ]}
                   />
+                </Form.Item>
+                <Form.Item
+                  noStyle
+                  shouldUpdate={(prev, cur) =>
+                    prev.queryParams?.[field.name]?.operation !== cur.queryParams?.[field.name]?.operation
+                  }
+                >
+                  {({ getFieldValue }) => {
+                    const op = getFieldValue(['queryParams', field.name, 'operation']);
+                    return (
+                      <InfoCircleOutlined
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--ant-color-text-quaternary)',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                        onClick={() => openDocs(getDocId(op === 'remove-all' ? 'qp-remove-all' : op === 'remove' ? 'qp-remove' : 'qp-add', 'action'))}
+                      />
+                    );
+                  }}
                 </Form.Item>
 
                 <Form.Item
@@ -74,21 +99,13 @@ const QueryParamRuleFields: React.FC = () => {
                     }
                     return (
                       <>
-                        <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
-                          Param
-                        </Text>
                         <Form.Item {...field} name={[field.name, 'param']} style={{ marginBottom: 0, flex: 1 }}>
                           <Input size="small" placeholder="Param Name" />
                         </Form.Item>
                         {op !== 'remove' && (
-                          <>
-                            <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
-                              Value
-                            </Text>
-                            <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
-                              <Input size="small" placeholder="Param Value" />
-                            </Form.Item>
-                          </>
+                          <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
+                            <Input size="small" placeholder="Param Value" />
+                          </Form.Item>
                         )}
                       </>
                     );

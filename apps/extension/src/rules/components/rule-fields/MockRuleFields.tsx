@@ -8,9 +8,11 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Form, Radio, Select, Tooltip, Typography } from 'antd';
+import { Alert, Form, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { useInspectorNav } from '../../hooks/useInspectorNav';
+import { getDocId } from '../InspectorDocs';
 import CodeEditor from '../CodeEditor';
 
 const { Text } = Typography;
@@ -113,6 +115,7 @@ const DYNAMIC_TEMPLATE = `function modifyResponse(args) {
 }`;
 
 const MockRuleFields: React.FC = () => {
+  const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const bodyType = Form.useWatch('mockBodyType');
   const prevBodyTypeRef = useRef(bodyType);
@@ -131,11 +134,20 @@ const MockRuleFields: React.FC = () => {
 
   return (
     <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Text strong style={{ fontSize: 13 }}>
+          Actions
+        </Text>
+        <InfoCircleOutlined
+          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+          onClick={() => openDocs(getDocId(bodyType === 'dynamic' ? 'mock-dynamic' : 'mock-static', 'action'))}
+        />
+      </div>
       <Alert
         type="info"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message="Intercepts fetch() and XMLHttpRequest calls and returns your custom response. Works for REST and GraphQL API calls."
+        message="Intercepts fetch() and XMLHttpRequest calls and returns your custom response."
       />
 
       <div style={{ marginBottom: 12 }}>
@@ -167,9 +179,10 @@ const MockRuleFields: React.FC = () => {
               <Radio.Button value="static">Static Data</Radio.Button>
               <Radio.Button value="dynamic">
                 Dynamic (JavaScript){' '}
-                <Tooltip title="Write a function that receives the real response and request context, then return the modified response">
-                  <InfoCircleOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }} />
-                </Tooltip>
+                <InfoCircleOutlined
+                  style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); openDocs(getDocId('mock-dynamic', 'action')); }}
+                />
               </Radio.Button>
             </Radio.Group>
           </Form.Item>

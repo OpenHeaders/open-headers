@@ -9,9 +9,11 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Button, Form, Input, Radio, Select, Tooltip, Typography } from 'antd';
+import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { useInspectorNav } from '../../hooks/useInspectorNav';
+import { getDocId } from '../InspectorDocs';
 import CodeEditor from '../CodeEditor';
 
 const { Text } = Typography;
@@ -24,6 +26,7 @@ const DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
 }`;
 
 const BodyRuleFields: React.FC = () => {
+  const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const bodyType = Form.useWatch('bodyModType');
   const resourceType = Form.useWatch('bodyResourceType');
@@ -43,11 +46,20 @@ const BodyRuleFields: React.FC = () => {
 
   return (
     <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Text strong style={{ fontSize: 13 }}>
+          Actions
+        </Text>
+        <InfoCircleOutlined
+          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+          onClick={() => openDocs(getDocId(bodyType === 'dynamic' ? 'body-dynamic' : 'body-static', 'action'))}
+        />
+      </div>
       <Alert
         type="info"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message="Override request body with static or programmatic data. Intercepts fetch() and XMLHttpRequest calls for REST or GraphQL API requests."
+        message="Intercepts fetch() and XMLHttpRequest calls for REST or GraphQL API requests."
       />
 
       {/* Resource Type */}
@@ -70,9 +82,10 @@ const BodyRuleFields: React.FC = () => {
             <Text type="secondary" style={{ fontSize: 12 }}>
               GraphQL Operation (Request Payload Filter)
             </Text>
-            <Tooltip title="Filter by GraphQL operation name in the request payload. Leave empty to match all operations.">
-              <InfoCircleOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }} />
-            </Tooltip>
+            <InfoCircleOutlined
+              style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+              onClick={() => openDocs(getDocId('body-graphql', 'action'))}
+            />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <Form.Item name="bodyGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
@@ -118,9 +131,10 @@ const BodyRuleFields: React.FC = () => {
               <Radio.Button value="static">Static Data</Radio.Button>
               <Radio.Button value="dynamic">
                 Dynamic (JavaScript){' '}
-                <Tooltip title="Write a function that receives the request body and context, then return the modified body">
-                  <InfoCircleOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }} />
-                </Tooltip>
+                <InfoCircleOutlined
+                  style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); openDocs(getDocId('body-dynamic', 'action')); }}
+                />
               </Radio.Button>
             </Radio.Group>
           </Form.Item>

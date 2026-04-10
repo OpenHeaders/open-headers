@@ -1,28 +1,38 @@
 /**
  * RedirectRuleFields — redirect target configuration.
- *
- * The "If request" matching is handled by the shared ConditionEditor.
- * This component only handles where to redirect to:
- *   - Another URL (extension-supported)
- *   - Local file (desktop-only, shown disabled)
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Form, Input, Radio, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { useInspectorNav } from '../../hooks/useInspectorNav';
+import { getDocId } from '../InspectorDocs';
 
 const { Text } = Typography;
 
 const RedirectRuleFields: React.FC = () => {
+  const { openDocs } = useInspectorNav();
+
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
+          Actions
+        </Text>
+        <InfoCircleOutlined
+          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+          onClick={() => openDocs(getDocId('redirect', 'action'))}
+        />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
           Redirects to
         </Text>
-        <Tooltip title="The destination URL. With URL Regex conditions, use \1, \2 etc. to reference capture groups.">
-          <InfoCircleOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }} />
-        </Tooltip>
+        <InfoCircleOutlined
+          style={{ fontSize: 11, color: 'var(--ant-color-text-quaternary)', cursor: 'pointer' }}
+          onClick={() => openDocs(getDocId('redirect-regex', 'action'))}
+        />
       </div>
 
       <div style={{ marginBottom: 10 }}>
@@ -37,7 +47,7 @@ const RedirectRuleFields: React.FC = () => {
       </div>
 
       <Form.Item name="redirectTo" style={{ marginBottom: 0 }}>
-        <Input placeholder="e.g. https://openheaders.io/redirected" />
+        <Input placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
       </Form.Item>
     </div>
   );

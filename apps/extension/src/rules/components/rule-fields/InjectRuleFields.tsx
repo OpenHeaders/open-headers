@@ -8,9 +8,12 @@
  *   CSS + URL  — URL input + read-only <link href="..."> preview
  */
 
+import { InfoCircleOutlined } from '@ant-design/icons';
 import { Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { useInspectorNav } from '../../hooks/useInspectorNav';
+import { getDocId } from '../InspectorDocs';
 import CodeEditor from '../CodeEditor';
 
 const { Text } = Typography;
@@ -25,6 +28,7 @@ const TEMPLATES = {
 };
 
 const InjectRuleFields: React.FC = () => {
+  const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const injectType = Form.useWatch('injectType');
   const codeSource = Form.useWatch('injectSource');
@@ -45,7 +49,16 @@ const InjectRuleFields: React.FC = () => {
   const urlPreview = injectType === 'css' ? TEMPLATES['css-url'] : TEMPLATES['js-url'];
 
   return (
-    <>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Text strong style={{ fontSize: 13 }}>
+          Actions
+        </Text>
+        <InfoCircleOutlined
+          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+          onClick={() => openDocs(getDocId(injectType === 'css' ? 'inject-css' : 'inject-script', 'action'))}
+        />
+      </div>
       {/* Row 1: Language + Code Source + Insert timing — all inline */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -123,7 +136,7 @@ const InjectRuleFields: React.FC = () => {
           </Form.Item>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
