@@ -9,8 +9,8 @@
  * works regardless of which tab is visible. Auto-navigates to the tab with content.
  */
 
-import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
+import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, Badge, Button, Form, Input, Popover, Select, Tabs, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -23,84 +23,17 @@ const OPERATIONS = [
   { value: 'merge', label: 'Merge' },
 ];
 
-const OP_TOOLTIPS: Record<string, Record<string, React.ReactNode>> = {
-  override: {
-    request: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Sets the header to this value</li>
-        <li>Replaces if present, adds if missing</li>
-        <li>Visible in DevTools Network tab</li>
-      </ul>
-    ),
-    response: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Sets the header to this value</li>
-        <li>Replaces if present, adds if missing</li>
-        <li>Not visible in DevTools but applied correctly</li>
-      </ul>
-    ),
+const OPERATIONS_GUIDE = [
+  { op: 'Override', desc: 'Sets header to this value. Replaces if present, adds if missing.' },
+  { op: 'Append', desc: 'Adds a duplicate header entry. Original value kept. Use for Set-Cookie, Link, Via.' },
+  { op: 'Remove', desc: 'Deletes all instances of this header. No value needed.' },
+  {
+    op: 'Merge',
+    desc: 'Reads existing value at runtime, appends yours with separator. Fetch/XHR only. Result: [existing] + [separator] + [your value]. Separator can be empty.',
   },
-  add: {
-    request: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Adds a new header entry with this name</li>
-        <li>Existing entries are kept (creates duplicate headers)</li>
-        <li>Use for Set-Cookie, Link, Via</li>
-        <li>Visible in DevTools Network tab</li>
-      </ul>
-    ),
-    response: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Adds a new header entry with this name</li>
-        <li>Existing entries are kept (creates duplicate headers)</li>
-        <li>Use for Set-Cookie, Link, Via</li>
-        <li>Not visible in DevTools but applied correctly</li>
-      </ul>
-    ),
-  },
-  remove: {
-    request: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Removes all instances of this header</li>
-        <li>Visible in DevTools Network tab</li>
-      </ul>
-    ),
-    response: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Removes all instances of this header</li>
-        <li>Not visible in DevTools but applied correctly</li>
-      </ul>
-    ),
-  },
-  merge: {
-    request: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Reads the existing header value at runtime</li>
-        <li>Appends your value with a configurable separator</li>
-        <li>Separator can be empty string for direct concatenation</li>
-        <li>Only applies to fetch/XHR requests — not page navigations or static resources</li>
-        <li>Not visible in DevTools but the server receives the merged value</li>
-        <li style={{ opacity: 0.7, fontFamily: 'monospace', fontSize: 11, marginTop: 4 }}>
-          Result: [existing value] + [separator] + [your value]
-        </li>
-      </ul>
-    ),
-    response: (
-      <ul style={{ margin: 0, paddingLeft: 16 }}>
-        <li>Reads the existing header value at runtime</li>
-        <li>Appends your value with a configurable separator</li>
-        <li>Separator can be empty string for direct concatenation</li>
-        <li>Only applies to fetch/XHR responses — not page navigations or static resources</li>
-        <li>Not visible in DevTools but the page receives the merged value</li>
-        <li style={{ opacity: 0.7, fontFamily: 'monospace', fontSize: 11, marginTop: 4 }}>
-          Result: [existing value] + [separator] + [your value]
-        </li>
-      </ul>
-    ),
-  },
-};
+];
 
-function ModificationList({ name, direction }: { name: string; direction: 'request' | 'response' }) {
+function ModificationList({ name }: { name: string }) {
   return (
     <Form.List name={name}>
       {(fields, { add, remove }) => (
@@ -115,17 +48,7 @@ function ModificationList({ name, direction }: { name: string; direction: 'reque
                 name={[field.name, 'operation']}
                 style={{ marginBottom: 0, width: 110, flexShrink: 0 }}
               >
-                <Select
-                  size="small"
-                  options={OPERATIONS.map((op) => ({
-                    ...op,
-                    label: (
-                      <Tooltip title={OP_TOOLTIPS[op.value]?.[direction]} placement="right" styles={{ root: { maxWidth: 700 } }}>
-                        <span>{op.label}</span>
-                      </Tooltip>
-                    ),
-                  }))}
-                />
+                <Select size="small" options={OPERATIONS} />
               </Form.Item>
               <Form.Item
                 {...field}
@@ -159,7 +82,11 @@ function ModificationList({ name, direction }: { name: string; direction: 'reque
                           name={[field.name, 'mergeSeparator']}
                           style={{ marginBottom: 0, width: 50, flexShrink: 0 }}
                         >
-                          <Input size="small" placeholder="; " style={{ textAlign: 'center', fontFamily: 'monospace' }} />
+                          <Input
+                            size="small"
+                            placeholder="; "
+                            style={{ textAlign: 'center', fontFamily: 'monospace' }}
+                          />
                         </Form.Item>
                         <Form.Item
                           {...field}
@@ -240,6 +167,29 @@ const HeaderRuleFields: React.FC = () => {
           message="Response header modifications are not visible in the browser DevTools Network tab, but they are actually applied. The browser shows the original server headers."
         />
       )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Text strong style={{ fontSize: 13 }}>
+          Modifications
+        </Text>
+        <Popover
+          placement="rightTop"
+          trigger="click"
+          content={
+            <div style={{ fontSize: 12, lineHeight: 1.8, maxWidth: 700 }}>
+              {OPERATIONS_GUIDE.map((g) => (
+                <div key={g.op}>
+                  <Text strong style={{ fontSize: 12 }}>
+                    {g.op}
+                  </Text>
+                  <span style={{ color: 'var(--ant-color-text-secondary)', marginLeft: 6 }}> — {g.desc}</span>
+                </div>
+              ))}
+            </div>
+          }
+        >
+          <InfoCircleOutlined style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }} />
+        </Popover>
+      </div>
       <Tabs
         size="small"
         activeKey={activeTab}
@@ -253,7 +203,7 @@ const HeaderRuleFields: React.FC = () => {
                 Request Headers {reqCount > 0 && <Badge count={reqCount} size="small" style={{ marginLeft: 4 }} />}
               </span>
             ),
-            children: <ModificationList name="requestHeaders" direction="request" />,
+            children: <ModificationList name="requestHeaders" />,
           },
           {
             key: 'response',
@@ -262,7 +212,7 @@ const HeaderRuleFields: React.FC = () => {
                 Response Headers {resCount > 0 && <Badge count={resCount} size="small" style={{ marginLeft: 4 }} />}
               </span>
             ),
-            children: <ModificationList name="responseHeaders" direction="response" />,
+            children: <ModificationList name="responseHeaders" />,
           },
         ]}
       />
