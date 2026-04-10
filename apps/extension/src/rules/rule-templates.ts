@@ -256,15 +256,31 @@ export const DELAY_TEMPLATES: RuleTemplate[] = [
 
 export const BODY_TEMPLATES: RuleTemplate[] = [
   {
-    key: 'graphql-override',
+    key: 'rest-body-override',
     icon: '📝',
+    name: 'REST Body Override',
+    description: 'Replace the request body with a static JSON payload',
+    conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
+    formValues: {
+      bodyResourceType: 'rest',
+      bodyModType: 'static',
+      bodyStaticContent: '{\n  "name": "Test User",\n  "email": "user@openheaders.io"\n}',
+    },
+  },
+  {
+    key: 'graphql-override',
+    icon: '🔮',
     name: 'GraphQL Override',
-    description: 'Override a GraphQL request body',
+    description: 'Override a GraphQL request body with a custom query and variables',
     conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
     formValues: {
       bodyResourceType: 'graphql',
       bodyModType: 'static',
-      bodyStaticContent: '{"query": "{ viewer { name email } }"}',
+      bodyStaticContent:
+        '{\n  "query": "query GetUser($id: ID!) { user(id: $id) { name email } }",\n  "operationName": "GetUser",\n  "variables": { "id": "1" }\n}',
+      bodyGraphqlKey: 'operationName',
+      bodyGraphqlOperator: 'Equals',
+      bodyGraphqlValue: 'GetUser',
     },
   },
 ];
