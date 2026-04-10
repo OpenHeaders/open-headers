@@ -20,7 +20,7 @@ const RedirectRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 13 }}>
           Redirects to
         </Text>
-        <Tooltip title="The destination URL. Use $1, $2 etc. for regex capture groups from URL conditions.">
+        <Tooltip title="The destination URL. With URL Regex conditions, use \1, \2 etc. to reference capture groups.">
           <InfoCircleOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)' }} />
         </Tooltip>
       </div>
