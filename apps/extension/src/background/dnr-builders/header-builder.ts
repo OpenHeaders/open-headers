@@ -13,7 +13,7 @@ import { normalizeHeaderName } from '@utils/utils';
 import { formatUrlPattern } from '../modules/url-utils';
 import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import type { DnrBuilder, DnrRule } from './types';
-import { ALL_RESOURCE_TYPES, extractDomains, SUB_RESOURCE_TYPES } from './types';
+import { ALL_RESOURCE_TYPES, buildDnrCondition, SUB_RESOURCE_TYPES } from './types';
 
 // ── Builder ──────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ export const headerBuilder: DnrBuilder<V5.HeaderRule> = {
 
 function buildDnrRulesForHeader(rule: V5.HeaderRule, startId: number): DnrRule[] {
   const { action } = rule;
-  const domains = extractDomains(rule);
+  const { domains } = buildDnrCondition(rule.conditions);
 
   const validation = validateHeaderName(action.headerName, action.isResponse);
   if (!validation.valid) {

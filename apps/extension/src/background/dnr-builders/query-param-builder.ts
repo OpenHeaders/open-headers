@@ -9,16 +9,16 @@ import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { formatUrlPattern } from '../modules/url-utils';
 import type { DnrBuilder, DnrRedirect, DnrRule } from './types';
-import { ALL_RESOURCE_TYPES, extractDomains } from './types';
+import { ALL_RESOURCE_TYPES, buildDnrCondition } from './types';
 
 export const queryParamBuilder: DnrBuilder<V5.QueryParamRule> = {
   ruleType: 'query-param',
   build(rule: V5.QueryParamRule, startId: number): DnrRule[] {
-    const domains = extractDomains(rule);
+    const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
     const { action } = rule;
 
-    if (domains.length === 0) {
-      logger.debug('QueryParamBuilder', `Skipping rule "${rule.name}" — no domains`);
+    if (domains.length === 0 && !urlPattern) {
+      logger.debug('QueryParamBuilder', `Skipping rule "${rule.name}" — no matching conditions`);
       return [];
     }
 

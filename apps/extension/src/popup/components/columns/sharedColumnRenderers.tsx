@@ -163,20 +163,26 @@ export type { ActionDetail } from '@openheaders/core/utils';
 // ── Conditions summary ──────────────────────────────────────────
 
 const CONDITION_TYPE_SHORT: Record<string, string> = {
-  host: '',
-  url: 'URL',
-  path: 'Path',
-  method: 'Method',
-  'resource-type': 'Type',
+  'url-filter': 'URL',
+  'url-regex': 'Regex',
+  'request-domains': '',
+  'exclude-request-domains': 'Excl',
+  'initiator-domains': 'From',
+  'exclude-initiator-domains': 'Excl From',
+  'request-methods': 'Method',
+  'exclude-request-methods': 'Excl Method',
+  'resource-types': 'Type',
+  'exclude-resource-types': 'Excl Type',
   'domain-type': 'Domain',
-  initiator: 'From',
   'request-header': 'Req Hdr',
+  'exclude-request-header': 'Excl Req Hdr',
   'response-header': 'Resp Hdr',
+  'exclude-response-header': 'Excl Resp Hdr',
 };
 
 /** Render a compact conditions summary for table columns. */
 export function renderConditionsSummary(
-  conditions: Array<{ type: string; operator: string; values: string[]; exclude?: boolean; headerName?: string }>,
+  conditions: Array<{ type: string; values: string[]; headerName?: string }>,
   showAllDomains = true,
 ): React.ReactNode {
   if (!conditions || conditions.length === 0) {
@@ -188,8 +194,8 @@ export function renderConditionsSummary(
   }
 
   // Simple case: single host condition — show as domain tags (most common)
-  const hostConditions = conditions.filter((c) => c.type === 'host' && !c.exclude);
-  const otherConditions = conditions.filter((c) => c.type !== 'host' || c.exclude);
+  const hostConditions = conditions.filter((c) => c.type === 'request-domains');
+  const otherConditions = conditions.filter((c) => c.type !== 'request-domains');
 
   const elements: React.ReactNode[] = [];
 
@@ -200,18 +206,18 @@ export function renderConditionsSummary(
   }
 
   // Show other conditions as compact tags
-  for (const cond of otherConditions) {
+  for (let i = 0; i < otherConditions.length; i++) {
+    const cond = otherConditions[i];
     const prefix = CONDITION_TYPE_SHORT[cond.type] ?? cond.type;
     const summary = cond.values.length > 0 ? cond.values.slice(0, 2).join(', ') : '';
     const label = prefix ? `${prefix}: ${summary}` : summary;
     elements.push(
       <Tag
-        key={`${cond.type}-${cond.exclude ? 'ex' : ''}`}
+        key={`${cond.type}-${i}`}
         variant="outlined"
-        color={cond.exclude ? 'warning' : 'default'}
+        color={cond.type.startsWith('exclude-') ? 'warning' : 'default'}
         style={{ fontSize: '11px', cursor: 'default', margin: 0 }}
       >
-        {cond.exclude ? 'NOT ' : ''}
         {label.length > 20 ? `${label.substring(0, 18)}…` : label}
       </Tag>,
     );
@@ -230,9 +236,8 @@ export function renderConditionsSummary(
       {conditions.map((c, i) => (
         <div key={i} style={{ marginBottom: i < conditions.length - 1 ? 2 : 0 }}>
           <span style={{ opacity: 0.6 }}>
-            {c.exclude ? 'NOT ' : ''}
             {CONDITION_TYPE_SHORT[c.type] || c.type}
-            {c.headerName ? ` [${c.headerName}]` : ''} {c.operator}:{' '}
+            {c.headerName ? ` [${c.headerName}]` : ''}:{' '}
           </span>
           {c.values.join(', ')}
         </div>

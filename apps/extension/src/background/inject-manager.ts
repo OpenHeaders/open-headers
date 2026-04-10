@@ -73,7 +73,7 @@ export function setupInjectListener(): void {
 /** Extract host domains from a rule's conditions. */
 function getHostDomains(rule: ScriptableRule): string[] {
   return rule.conditions
-    .filter((c) => c.type === 'host' && !c.exclude)
+    .filter((c) => c.type === 'request-domains')
     .flatMap((c) => c.values)
     .filter((v) => v.trim());
 }

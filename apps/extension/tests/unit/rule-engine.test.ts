@@ -20,18 +20,14 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { updateNetworkRules } from '@/background/dnr-manager';
-import {
-  getLastRulesHash,
-  scheduleUpdate,
-  setLastRulesHash,
-} from '@/background/modules/rule-engine';
+import { getLastRulesHash, scheduleUpdate, setLastRulesHash } from '@/background/modules/rule-engine';
 import { getRules } from '@/background/modules/rule-store';
 
 const mockUpdateNetworkRules = updateNetworkRules as ReturnType<typeof vi.fn>;
 const mockGetRules = getRules as ReturnType<typeof vi.fn>;
 
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'host', operator: 'contains', values: domains }] : [];
+  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
 }
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {

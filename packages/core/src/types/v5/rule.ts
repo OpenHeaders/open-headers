@@ -28,37 +28,64 @@ export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
 export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock';
 
 // ── Conditions ────────────────────────────────────────────────────
+//
+// Each condition type maps 1:1 to a Chrome declarativeNetRequest field.
+// No abstraction layer — what the user configures is exactly what Chrome executes.
 
-/** What part of the request to match against. */
+/**
+ * Condition types that map directly to Chrome DNR condition fields.
+ *
+ * ── URL Matching (pick one per rule) ──
+ *   'url-filter'             → urlFilter (Chrome's pattern language: * wildcards, || domain anchors, | start/end)
+ *   'url-regex'              → regexFilter (RE2 regex on full URL, mutually exclusive with url-filter)
+ *
+ * ── Domain Filtering ──
+ *   'request-domains'        → requestDomains (subdomain matching: 'a.com' matches '*.a.com')
+ *   'exclude-request-domains'→ excludedRequestDomains
+ *   'initiator-domains'      → initiatorDomains (page that made the request)
+ *   'exclude-initiator-domains' → excludedInitiatorDomains
+ *
+ * ── Request Filtering ──
+ *   'request-methods'        → requestMethods (multi-select)
+ *   'exclude-request-methods'→ excludedRequestMethods
+ *   'resource-types'         → resourceTypes (multi-select)
+ *   'exclude-resource-types' → excludedResourceTypes
+ *   'domain-type'            → domainType ('firstParty' | 'thirdParty')
+ *
+ * ── Header Matching (Chrome 128+) ──
+ *   'request-header'         → requestHeaders (header name + exact values)
+ *   'exclude-request-header' → excludedRequestHeaders
+ *   'response-header'        → responseHeaders
+ *   'exclude-response-header'→ excludedResponseHeaders
+ */
 export type ConditionType =
-  | 'url' // Full URL (urlFilter / regexFilter in DNR)
-  | 'host' // Request domain (requestDomains in DNR)
-  | 'path' // URL path segment
-  | 'method' // HTTP method (requestMethods in DNR)
-  | 'resource-type' // Resource type (resourceTypes in DNR)
-  | 'domain-type' // First-party vs third-party (domainType in DNR)
-  | 'initiator' // Page origin that initiated the request (initiatorDomains in DNR)
-  | 'request-header' // Match on request header presence/value (Chrome 128+)
-  | 'response-header'; // Match on response header presence/value (Chrome 128+)
+  // URL matching
+  | 'url-filter'
+  | 'url-regex'
+  // Domain filtering
+  | 'request-domains'
+  | 'exclude-request-domains'
+  | 'initiator-domains'
+  | 'exclude-initiator-domains'
+  // Request filtering
+  | 'request-methods'
+  | 'exclude-request-methods'
+  | 'resource-types'
+  | 'exclude-resource-types'
+  | 'domain-type'
+  // Header matching (Chrome 128+)
+  | 'request-header'
+  | 'exclude-request-header'
+  | 'response-header'
+  | 'exclude-response-header';
 
-/** How to compare the condition value against the request. */
-export type ConditionOperator =
-  | 'equals' // Exact match
-  | 'contains' // Substring match
-  | 'matches' // Wildcard/glob (*, ?)
-  | 'regex'; // RE2 regular expression (Chrome's regex engine)
-
-/** A single condition entry — one row in the "If request" section. */
+/** A single condition entry — one row in the conditions panel. */
 export interface RuleCondition {
-  /** What to match against. */
+  /** Maps directly to a Chrome DNR condition field. */
   type: ConditionType;
-  /** How to compare. */
-  operator: ConditionOperator;
-  /** Values to match. Always array — single value = ['x'], multi = ['GET','POST']. Supports {{VAR}}. */
+  /** Values. Array for multi-value fields (domains, methods, types). Supports {{VAR}}. */
   values: string[];
-  /** Negate the match: "does NOT contain/equal/match". Maps to Chrome's excluded* fields. */
-  exclude?: boolean;
-  /** Header name — only for 'request-header' and 'response-header' conditions. */
+  /** Header name — only for header condition types. */
   headerName?: string;
 }
 

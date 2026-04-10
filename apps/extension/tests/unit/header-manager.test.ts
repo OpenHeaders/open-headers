@@ -38,7 +38,7 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** Helper: build conditions from domain strings. */
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'host', operator: 'contains', values: domains }] : [];
+  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
 }
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {

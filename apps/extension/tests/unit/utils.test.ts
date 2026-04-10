@@ -9,7 +9,7 @@ import { debounce, generateRulesHash } from '@/background/modules/utils';
 // ---------------------------------------------------------------------------
 
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'host', operator: 'contains', values: domains }] : [];
+  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
 }
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
@@ -20,7 +20,12 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     type: 'header',
     enabled: true,
     conditions: hostConditions(['*.openheaders.io', 'api.partner-service.io:8443']),
-    action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig' },
+    action: {
+      operation: 'override',
+      headerName: 'Authorization',
+      isResponse: false,
+      value: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
+    },
     ...overrides,
   };
 }
@@ -88,21 +93,33 @@ describe('generateRulesHash', () => {
 
   it('creates different hash when type changes', () => {
     const r1 = [makeHeaderRule({ uid: 'x1y2' })];
-    const r2: V5.Rule[] = [{
-      uid: 'x1y2',
-      path: 'rules/test',
-      name: 'Block Rule',
-      type: 'block',
-      enabled: true,
-      conditions: hostConditions(['*.openheaders.io']),
-      action: { statusCode: 403 },
-    }];
+    const r2: V5.Rule[] = [
+      {
+        uid: 'x1y2',
+        path: 'rules/test',
+        name: 'Block Rule',
+        type: 'block',
+        enabled: true,
+        conditions: hostConditions(['*.openheaders.io']),
+        action: { statusCode: 403 },
+      },
+    ];
     expect(generateRulesHash(r1)).not.toBe(generateRulesHash(r2));
   });
 
   it('ignores fields other than uid, enabled, and type', () => {
-    const r1 = [makeHeaderRule({ name: 'Name A', action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-1' } })];
-    const r2 = [makeHeaderRule({ name: 'Name B', action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-2' } })];
+    const r1 = [
+      makeHeaderRule({
+        name: 'Name A',
+        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-1' },
+      }),
+    ];
+    const r2 = [
+      makeHeaderRule({
+        name: 'Name B',
+        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-2' },
+      }),
+    ];
     // Same uid + enabled + type → same hash regardless of other fields
     expect(generateRulesHash(r1)).toBe(generateRulesHash(r2));
   });

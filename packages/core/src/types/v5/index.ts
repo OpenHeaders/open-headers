@@ -28,7 +28,6 @@ export type {
   BodyModType,
   BodyResourceType,
   BodyRule,
-  ConditionOperator,
   ConditionType,
   DelayAction,
   DelayRule,

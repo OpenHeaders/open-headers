@@ -136,7 +136,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
         path: rule.path,
         ruleType: rule.type,
         actionDetail: getActionDetail(rule),
-        domains: rule.conditions.filter((c) => c.type === 'host' && !c.exclude).flatMap((c) => c.values),
+        domains: rule.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values),
         conditions: rule.conditions,
         isEnabled,
         isComplete: complete,

@@ -24,7 +24,7 @@ import {
 /** Extract host domain values from a rule's conditions (non-exclude). */
 function getHostDomains(rule: V5.Rule): string[] {
   return rule.conditions
-    .filter((c) => c.type === 'host' && !c.exclude)
+    .filter((c) => c.type === 'request-domains')
     .flatMap((c) => c.values)
     .filter((v) => v.trim());
 }
