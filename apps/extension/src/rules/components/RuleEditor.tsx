@@ -30,6 +30,7 @@ import MockRuleFields from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
+import { renderTwoToneIcon } from './TwoToneIconPicker';
 
 const { Text } = Typography;
 
@@ -546,7 +547,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                         color: selectedTemplate === t.uid ? token.colorText : token.colorTextSecondary,
                       }}
                     >
-                      {t.icon ? `${t.icon} ${t.name}` : t.name}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        {renderTwoToneIcon(t.icon, { fontSize: 14 })}
+                        {t.name}
+                      </span>
                     </div>
                   ))}
                 </>

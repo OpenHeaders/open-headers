@@ -7,24 +7,14 @@
 
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { Checkbox, Form, Input, Modal, Typography, theme } from 'antd';
+import { Checkbox, Input, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import SaveToCollectionModal from './SaveToCollectionModal';
+import TwoToneIconPicker, { getDefaultIconForType } from './TwoToneIconPicker';
 
 const { Text } = Typography;
 const { TextArea } = Input;
-
-const DEFAULT_EMOJI: Record<string, string> = {
-  header: '📋',
-  block: '🛡️',
-  redirect: '↪️',
-  'query-param': '🔗',
-  inject: '💉',
-  delay: '⏱️',
-  body: '📝',
-  mock: '✅',
-};
 
 const RULE_TYPE_LABEL: Record<string, string> = {
   header: 'Header',
@@ -74,7 +64,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
     if (open) {
       setStep('metadata');
       setName('');
-      setIcon(DEFAULT_EMOJI[ruleType] ?? '📋');
+      setIcon(getDefaultIconForType(ruleType));
       setDescription('');
       setIncludeConditions(true);
       setIncludeFormValues(true);
@@ -91,7 +81,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
       const templateData: Omit<V5.Template, 'uid' | 'path'> = {
         name: params.name,
         ruleType: ruleType as V5.RuleType,
-        icon: icon || (DEFAULT_EMOJI[ruleType] ?? '📋'),
+        icon: icon || getDefaultIconForType(ruleType),
         description,
         includes: { conditions: includeConditions, formValues: includeFormValues },
         conditions: includeConditions ? conditions : [],
@@ -152,18 +142,12 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
         </Text>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <div style={{ width: 60 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
+        <div>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
             Icon
           </Text>
-          <Input
-            size="small"
-            value={icon}
-            onChange={(e) => setIcon(e.target.value)}
-            placeholder="📋"
-            style={{ textAlign: 'center' }}
-          />
+          <TwoToneIconPicker value={icon} onChange={setIcon} />
         </div>
         <div style={{ flex: 1 }}>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>

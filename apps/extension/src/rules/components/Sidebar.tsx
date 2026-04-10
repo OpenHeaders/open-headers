@@ -40,6 +40,7 @@ import { createElement, useCallback, useEffect, useMemo, useRef, useState } from
 import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
+import { renderTwoToneIcon } from './TwoToneIconPicker';
 import type { TreeNode } from './sidebar/types';
 
 // ── Icon helpers ───────────────────────────────────────────────────
@@ -721,9 +722,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: false,
             parentId,
-            icon: tplNode.icon
-              ? createElement('span', { style: { fontSize: 12 } }, tplNode.icon)
-              : iconEl(FileTextOutlined, 'var(--ant-color-text-tertiary, #999)'),
+            icon: renderTwoToneIcon(tplNode.icon, { fontSize: 12 }) ||
+              iconEl(FileTextOutlined, 'var(--ant-color-text-tertiary, #999)'),
             canRename: true,
             canDelete: true,
             canAddChild: false,

@@ -12,6 +12,7 @@ import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ConditionEditor from './ConditionEditor';
+import TwoToneIconPicker from './TwoToneIconPicker';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -34,17 +35,6 @@ const RULE_TYPE_OPTIONS = [
   { value: 'body', label: 'Body Rule' },
   { value: 'mock', label: 'API Response Rule' },
 ];
-
-const DEFAULT_EMOJI: Record<string, string> = {
-  header: '📋',
-  block: '🛡️',
-  redirect: '↪️',
-  'query-param': '🔗',
-  inject: '💉',
-  delay: '⏱️',
-  body: '📝',
-  mock: '✅',
-};
 
 interface TemplateEditorProps {
   templateUid: string;
@@ -166,13 +156,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
           Edit Template
         </Text>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <Form.Item name="templateIcon" style={{ marginBottom: 0, width: 60 }}>
-            <Input
-              size="small"
-              placeholder={DEFAULT_EMOJI[template.ruleType] ?? '📋'}
-              style={{ textAlign: 'center' }}
-            />
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
+          <Form.Item name="templateIcon" style={{ marginBottom: 0 }}>
+            <TwoToneIconPicker />
           </Form.Item>
           <Form.Item name="templateName" style={{ marginBottom: 0, flex: 1 }}>
             <Input size="small" placeholder="Template name" />
