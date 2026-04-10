@@ -136,10 +136,18 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       const type = selectedType ?? 'header';
       const builtins = TEMPLATES_BY_TYPE[type] ?? [];
       const builtin = builtins.find((t) => t.key === key);
-      if (builtin) {
-        const allValues = { ruleType: type, conditions: builtin.conditions, ...builtin.formValues };
+      // Apply template values to the form.
+      // setFields handles empty arrays (Form.List); setFieldsValue triggers useWatch.
+      const applyValues = (allValues: Record<string, unknown>) => {
         const fields = Object.entries(allValues).map(([name, value]) => ({ name, value }));
         form.setFields(fields);
+        // Also call setFieldsValue to flush store notifications for useWatch (badge counts etc.)
+        form.setFieldsValue(allValues);
+      };
+
+      if (builtin) {
+        const allValues = { ruleType: type, conditions: builtin.conditions, ...builtin.formValues };
+        applyValues(allValues);
         const fv = builtin.formValues;
         const resLen = Array.isArray(fv.responseHeaders) ? fv.responseHeaders.length : 0;
         const reqLen = Array.isArray(fv.requestHeaders) ? fv.requestHeaders.length : 0;
@@ -155,8 +163,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           if (userTpl.includes.formValues && userTpl.formValues) {
             Object.assign(allValues, userTpl.formValues);
           }
-          const fields = Object.entries(allValues).map(([name, value]) => ({ name, value }));
-          form.setFields(fields);
+          applyValues(allValues);
           const fv = userTpl.formValues ?? {};
           const resLen = Array.isArray(fv.responseHeaders) ? (fv.responseHeaders as unknown[]).length : 0;
           const reqLen = Array.isArray(fv.requestHeaders) ? (fv.requestHeaders as unknown[]).length : 0;

@@ -135,7 +135,7 @@ function buildMod(mod: V5.HeaderModification, _isResponse: boolean, ruleName: st
   const headerName = validation.sanitized || normalizeHeaderName(mod.headerName);
 
   if (mod.operation === 'remove') {
-    return { header: headerName, operation: 'remove', value: '' };
+    return { header: headerName, operation: 'remove' };
   }
 
   const rawValue = mod.value ?? '';

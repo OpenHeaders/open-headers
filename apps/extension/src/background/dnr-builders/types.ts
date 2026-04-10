@@ -46,7 +46,8 @@ export interface DnrRule {
 export interface DnrHeaderModification {
   header: string;
   operation: 'set' | 'remove' | 'append';
-  value: string;
+  /** Required for set/append operations. Must be omitted for remove — Chrome DNR rejects remove with a value. */
+  value?: string;
 }
 
 export interface DnrRedirect {
