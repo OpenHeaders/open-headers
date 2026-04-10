@@ -16,8 +16,8 @@ import CodeEditor from '../CodeEditor';
 const { Text } = Typography;
 
 const TEMPLATES = {
-  js: '<script type="text/javascript">\n  console.log("Hello World");\n</script>',
-  css: '<style>\n  body {\n    background-color: #fff;\n  }\n</style>',
+  js: 'console.log("Hello World");',
+  css: 'body {\n  background-color: #fff;\n}',
   'js-url':
     '<script src="{{scriptURL}}" type="text/javascript">\n  // Custom attributes to the script can be added here.\n  // Everything else will be ignored.\n</script>',
   'css-url':

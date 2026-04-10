@@ -48,7 +48,10 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     type: 'header',
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
-    action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test-value' },
+    action: {
+      requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test-value' }],
+      responseHeaders: [],
+    },
     ...overrides,
   };
 }
@@ -81,7 +84,10 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
@@ -102,13 +108,19 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
         enabled: true,
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Disabled', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Disabled', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
         enabled: false,
       }),
@@ -127,12 +139,18 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Other', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Other', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.example.com']),
       }),
     ]);
@@ -146,7 +164,10 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Global', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Global', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*']),
       }),
     ]);
@@ -164,7 +185,7 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'draft-rule',
-        action: { operation: 'override', headerName: '', isResponse: false },
+        action: { requestHeaders: [{ operation: 'override', headerName: '', value: 'test' }], responseHeaders: [] },
         conditions: hostConditions([]),
       }),
     ]);
@@ -177,7 +198,10 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'my-rule-id',
-        action: { operation: 'override', headerName: 'X-Test', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
@@ -191,7 +215,10 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Tagged', isResponse: true, value: 'true' },
+        action: {
+          requestHeaders: [],
+          responseHeaders: [{ operation: 'override', headerName: 'X-Tagged', value: 'true' }],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
@@ -337,12 +364,18 @@ describe('uniqueRequestCount', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Token', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Token', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);
@@ -357,12 +390,18 @@ describe('uniqueRequestCount', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
       makeHeaderRule({
         uid: 'rule-2',
-        action: { operation: 'override', headerName: 'X-Other', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Other', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.cdn.openheaders.io']),
       }),
     ]);
@@ -384,7 +423,10 @@ describe('getActiveRulesForTab with tracked resource URLs', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.cdn.openheaders.io']),
       }),
     ]);
@@ -404,7 +446,10 @@ describe('getActiveRulesForTab with tracked resource URLs', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'test' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['*.openheaders.io']),
       }),
     ]);

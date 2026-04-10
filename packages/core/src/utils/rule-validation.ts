@@ -37,9 +37,10 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
   switch (base.type) {
     case 'header': {
       const hr = rule as HeaderRule | Omit<HeaderRule, 'uid' | 'path'>;
-      if (!hr.action.headerName.trim()) return false;
-      if (hr.action.operation !== 'remove' && !hr.action.value?.trim()) return false;
-      return true;
+      const allMods = [...(hr.action.requestHeaders ?? []), ...(hr.action.responseHeaders ?? [])];
+      if (allMods.length === 0) return false;
+      // Every modification needs a header name, and non-remove operations need a value
+      return allMods.every((m) => m.headerName.trim() && (m.operation === 'remove' || m.value?.trim()));
     }
     case 'block':
       return true; // conditions is sufficient

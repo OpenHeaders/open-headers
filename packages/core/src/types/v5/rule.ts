@@ -118,12 +118,21 @@ export interface RuleBase {
 
 export type HeaderOperation = 'add' | 'override' | 'remove';
 
-export interface HeaderAction {
+/** A single header modification — one row in the "Request Headers" or "Response Headers" list. */
+export interface HeaderModification {
   operation: HeaderOperation;
   headerName: string;
-  isResponse: boolean;
   /** Header value. Supports {{VAR}} interpolation. Not needed for 'remove'. */
   value?: string;
+}
+
+/**
+ * Header action — maps 1:1 to Chrome's modifyHeaders DNR action.
+ * Supports multiple request AND response header modifications in a single rule.
+ */
+export interface HeaderAction {
+  requestHeaders: HeaderModification[];
+  responseHeaders: HeaderModification[];
 }
 
 export interface HeaderRule extends RuleBase {

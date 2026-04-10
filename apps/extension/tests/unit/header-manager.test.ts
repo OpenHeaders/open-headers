@@ -50,10 +50,8 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      operation: 'override',
-      headerName: 'Authorization',
-      isResponse: false,
-      value: 'Bearer test-token',
+      requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
+      responseHeaders: [],
     },
     ...overrides,
   };
@@ -80,7 +78,10 @@ describe('header-manager', () => {
   describe('static header injection', () => {
     it('injects header rule with static value', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'X-Custom', isResponse: false, value: 'static-value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Custom', value: 'static-value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -97,7 +98,10 @@ describe('header-manager', () => {
 
     it('skips rule with empty static value', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: '   ' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: '   ' }],
+          responseHeaders: [],
+        },
       });
 
       updateNetworkRules([rule]);
@@ -109,7 +113,7 @@ describe('header-manager', () => {
 
     it('skips rule with no static value (undefined)', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: undefined },
+        action: { requestHeaders: [{ operation: 'override', headerName: 'Authorization' }], responseHeaders: [] },
       });
 
       updateNetworkRules([rule]);
@@ -125,7 +129,10 @@ describe('header-manager', () => {
   describe('header operations', () => {
     it('uses "set" operation for override', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'X-Test', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -140,7 +147,7 @@ describe('header-manager', () => {
 
     it('uses "append" operation for add', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'add', headerName: 'X-Test', isResponse: false, value: 'value' },
+        action: { requestHeaders: [{ operation: 'add', headerName: 'X-Test', value: 'value' }], responseHeaders: [] },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -155,7 +162,7 @@ describe('header-manager', () => {
 
     it('creates remove rules without needing a value', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'remove', headerName: 'X-Unwanted', isResponse: false, value: undefined },
+        action: { requestHeaders: [{ operation: 'remove', headerName: 'X-Unwanted' }], responseHeaders: [] },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -204,7 +211,10 @@ describe('header-manager', () => {
       setPausedGroups(['rules/api-collection']);
       const rule = makeHeaderRule({
         path: 'rules/api-collection/my-rule-a1b2',
-        action: { operation: 'override', headerName: 'X-Api', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Api', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -219,7 +229,10 @@ describe('header-manager', () => {
       setPausedGroups(['rules/api-collection']);
       const rule = makeHeaderRule({
         path: 'rules/other-collection/my-rule-c3d4',
-        action: { operation: 'override', headerName: 'X-Other', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Other', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -234,7 +247,10 @@ describe('header-manager', () => {
       setPausedGroups(['rules/my-collection/staging-folder']);
       const rule = makeHeaderRule({
         path: 'rules/my-collection/staging-folder/my-rule-e5f6',
-        action: { operation: 'override', headerName: 'X-Staged', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Staged', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -249,7 +265,10 @@ describe('header-manager', () => {
       setPausedGroups(['rules/api-collection']);
       const rule = makeHeaderRule({
         path: 'rules/api-collection/my-rule-a1b2',
-        action: { operation: 'override', headerName: 'X-Api', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Api', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -272,7 +291,10 @@ describe('header-manager', () => {
   describe('response headers', () => {
     it('creates response header rules with higher priority', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'X-Frame-Options', isResponse: true, value: 'DENY' },
+        action: {
+          requestHeaders: [],
+          responseHeaders: [{ operation: 'override', headerName: 'X-Frame-Options', value: 'DENY' }],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -292,7 +314,10 @@ describe('header-manager', () => {
   describe('multiple domains', () => {
     it('creates one rule per domain', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'X-Test', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io', 'api.openheaders.io', 'cdn.openheaders.io']),
       });
 
@@ -305,7 +330,10 @@ describe('header-manager', () => {
 
     it('skips empty domain strings', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'X-Test', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io', '', '  ']),
       });
 
@@ -322,7 +350,10 @@ describe('header-manager', () => {
   describe('no domains', () => {
     it('skips rule with empty domains array', async () => {
       const rule = makeHeaderRule({
-        action: { operation: 'override', headerName: 'X-Test', isResponse: false, value: 'value' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions([]),
       });
 

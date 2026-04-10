@@ -83,11 +83,16 @@ function resolveConditions(
 // ── Per-type resolvers ────────────────────────────────────────────
 
 function resolveHeaderRule(rule: HeaderRule, resolver: VariableResolver, context?: ResolutionContext): HeaderRule {
+  const resolveMods = (mods: HeaderRule['action']['requestHeaders']) =>
+    mods.map((m) => ({
+      ...m,
+      value: m.value ? resolveString(m.value, resolver, context) : undefined,
+    }));
   return {
     ...rule,
     action: {
-      ...rule.action,
-      value: rule.action.value ? resolveString(rule.action.value, resolver, context) : undefined,
+      requestHeaders: resolveMods(rule.action.requestHeaders ?? []),
+      responseHeaders: resolveMods(rule.action.responseHeaders ?? []),
     },
   };
 }

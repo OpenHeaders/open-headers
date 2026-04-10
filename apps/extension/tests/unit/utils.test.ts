@@ -21,10 +21,14 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     enabled: true,
     conditions: hostConditions(['*.openheaders.io', 'api.partner-service.io:8443']),
     action: {
-      operation: 'override',
-      headerName: 'Authorization',
-      isResponse: false,
-      value: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
+      requestHeaders: [
+        {
+          operation: 'override',
+          headerName: 'Authorization',
+          value: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
+        },
+      ],
+      responseHeaders: [],
     },
     ...overrides,
   };
@@ -111,13 +115,19 @@ describe('generateRulesHash', () => {
     const r1 = [
       makeHeaderRule({
         name: 'Name A',
-        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-1' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'value-1' }],
+          responseHeaders: [],
+        },
       }),
     ];
     const r2 = [
       makeHeaderRule({
         name: 'Name B',
-        action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'value-2' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'value-2' }],
+          responseHeaders: [],
+        },
       }),
     ];
     // Same uid + enabled + type → same hash regardless of other fields

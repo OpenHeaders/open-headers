@@ -137,7 +137,10 @@ const RulesAppInner: React.FC = () => {
             rule = {
               ...base,
               type: 'header',
-              action: { operation: 'override' as const, headerName: '', isResponse: false, value: '' },
+              action: {
+                requestHeaders: [{ operation: 'override' as const, headerName: '', value: '' }],
+                responseHeaders: [],
+              },
             } as Omit<V5.HeaderRule, 'uid' | 'path'>;
             break;
           case 'block':
@@ -357,15 +360,19 @@ const RulesAppInner: React.FC = () => {
   // a duplicate "My Rules" collection every time.
 
   const hashProcessedRef = useRef(false);
+  const openCreateTabRef = useRef(openCreateTab);
+  const openEditTabRef = useRef(openEditTab);
+  openCreateTabRef.current = openCreateTab;
+  openEditTabRef.current = openEditTab;
+
   useEffect(() => {
     if (!isStatusLoaded || hashProcessedRef.current) return;
     hashProcessedRef.current = true;
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (!hash) return;
     const parts = hash.split('/');
-    if (parts[0] === 'create' && parts[1]) openCreateTab(parts[1]);
-    else if (parts[0] === 'edit' && parts[1]) openEditTab(parts[1]);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: one-shot hash routing — only re-run when initial data loads, not on callback identity changes
+    if (parts[0] === 'create' && parts[1]) openCreateTabRef.current(parts[1]);
+    else if (parts[0] === 'edit' && parts[1]) openEditTabRef.current(parts[1]);
   }, [isStatusLoaded]);
 
   // ── Sync tab labels with rule changes ─────────────────────────

@@ -34,6 +34,7 @@ export type {
   DnrRuleType,
   ExtensionRuleType,
   HeaderAction,
+  HeaderModification,
   HeaderOperation,
   HeaderRule,
   InjectAction,

@@ -53,15 +53,23 @@ const HEADER_OP_TOOLTIP: Record<string, Record<string, string>> = {
 export function getActionDetail(rule: Rule): ActionDetail {
   switch (rule.type) {
     case 'header': {
-      const { operation, headerName, isResponse, value: headerValue } = (rule as HeaderRule).action;
-      const dir = isResponse ? 'response' : 'request';
+      const hr = rule as HeaderRule;
+      const reqCount = hr.action.requestHeaders?.length ?? 0;
+      const resCount = hr.action.responseHeaders?.length ?? 0;
+      const allMods = [...(hr.action.requestHeaders ?? []), ...(hr.action.responseHeaders ?? [])];
+      const first = allMods[0];
+      const dir = resCount > 0 && reqCount === 0 ? 'response' : reqCount > 0 && resCount === 0 ? 'request' : undefined;
+      const total = allMods.length;
       return {
         ruleType: 'header',
         direction: dir,
-        operation,
-        label: headerName || '',
-        value: operation === 'remove' ? '' : headerValue || '',
-        tooltip: HEADER_OP_TOOLTIP[operation]?.[dir] ?? operation,
+        operation: first?.operation,
+        label: total === 1 ? first?.headerName || '' : `${total} headers`,
+        value: total === 1 && first?.operation !== 'remove' ? first?.value || '' : '',
+        tooltip:
+          total === 1 && first
+            ? (HEADER_OP_TOOLTIP[first.operation]?.[dir ?? 'request'] ?? first.operation)
+            : `${reqCount} request + ${resCount} response header modifications`,
       };
     }
     case 'block':

@@ -148,10 +148,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           const hr = rule as V5.HeaderRule;
           form.setFieldsValue({
             ...baseValues,
-            headerName: hr.action.headerName,
-            headerOperation: hr.action.operation,
-            staticValue: hr.action.value ?? '',
-            isResponse: hr.action.isResponse,
+            requestHeaders: hr.action.requestHeaders ?? [],
+            responseHeaders: hr.action.responseHeaders ?? [],
           });
           break;
         }
@@ -227,10 +225,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       form.setFieldsValue({
         ruleType,
         conditions: [],
-        headerOperation: 'override',
-        isResponse: false,
-        staticValue: '',
-        headerName: '',
+        requestHeaders: [{ operation: 'override', headerName: '', value: '' }],
+        responseHeaders: [],
         redirectTo: '',
         injectType: 'script',
         injectSource: 'code',
@@ -266,10 +262,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             ...base,
             type: 'header',
             action: {
-              operation: formValues.headerOperation as V5.HeaderOperation,
-              headerName: formValues.headerName as string,
-              isResponse: formValues.isResponse as boolean,
-              value: formValues.headerOperation === 'remove' ? undefined : (formValues.staticValue as string),
+              requestHeaders: (formValues.requestHeaders as V5.HeaderModification[]) ?? [],
+              responseHeaders: (formValues.responseHeaders as V5.HeaderModification[]) ?? [],
             },
           } as Omit<V5.HeaderRule, 'uid' | 'path'>;
         case 'block':

@@ -123,18 +123,8 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
   }
 }
 
-function mapRunAt(position: V5.InjectAction['position']): 'document_start' | 'document_end' | 'document_idle' {
-  switch (position) {
-    case 'head':
-      return 'document_start';
-    case 'body-start':
-      return 'document_end';
-    case 'body-end':
-      return 'document_idle';
-  }
-}
-
 async function injectScript(tabId: number, code: string, position: V5.InjectAction['position']): Promise<void> {
+  const early = position === 'head'; // 'head' = as soon as possible
   await browserAPI.scripting.executeScript({
     target: { tabId },
     func: (injectedCode: string) => {
@@ -145,9 +135,9 @@ async function injectScript(tabId: number, code: string, position: V5.InjectActi
     },
     args: [code],
     world: 'MAIN' as chrome.scripting.ExecutionWorld,
-    ...(mapRunAt(position) !== 'document_idle' ? {} : {}),
+    ...(early ? { injectImmediately: true } : {}),
   });
-  logger.debug('InjectManager', `Injected script into tab ${tabId}`);
+  logger.debug('InjectManager', `Injected script into tab ${tabId} (${position})`);
 }
 
 /** Inject a generated script (delay/body/mock) at document_start in MAIN world. */

@@ -32,10 +32,13 @@ export const HEADER_TEMPLATES: RuleTemplate[] = [
     description: 'Remove restrictive CORS headers to allow cross-origin requests during development',
     conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
     formValues: {
-      headerName: 'Access-Control-Allow-Origin',
-      headerOperation: 'override',
-      isResponse: true,
-      staticValue: '*',
+      requestHeaders: [],
+      responseHeaders: [
+        { operation: 'override', headerName: 'Access-Control-Allow-Origin', value: '*' },
+        { operation: 'override', headerName: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+        { operation: 'override', headerName: 'Access-Control-Allow-Headers', value: '*' },
+        { operation: 'override', headerName: 'Access-Control-Allow-Credentials', value: 'true' },
+      ],
     },
   },
   {
@@ -45,10 +48,10 @@ export const HEADER_TEMPLATES: RuleTemplate[] = [
     description: 'Override the User-Agent header for specific domains',
     conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
     formValues: {
-      headerName: 'User-Agent',
-      headerOperation: 'override',
-      isResponse: false,
-      staticValue: 'Mozilla/5.0 (compatible; CustomBot/1.0)',
+      requestHeaders: [
+        { operation: 'override', headerName: 'User-Agent', value: 'Mozilla/5.0 (compatible; CustomBot/1.0)' },
+      ],
+      responseHeaders: [],
     },
   },
   {
@@ -58,10 +61,11 @@ export const HEADER_TEMPLATES: RuleTemplate[] = [
     description: 'Auto-inject Authorization header into API calls',
     conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
     formValues: {
-      headerName: 'Authorization',
-      headerOperation: 'override',
-      isResponse: false,
-      staticValue: 'Bearer YOUR_TOKEN',
+      requestHeaders: [
+        { operation: 'override', headerName: 'Authorization', value: 'Bearer YOUR_TOKEN' },
+        { operation: 'override', headerName: 'X-API-Key', value: 'YOUR_KEY' },
+      ],
+      responseHeaders: [],
     },
   },
   {
@@ -71,10 +75,11 @@ export const HEADER_TEMPLATES: RuleTemplate[] = [
     description: 'Strip Content-Security-Policy headers for development',
     conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
     formValues: {
-      headerName: 'Content-Security-Policy',
-      headerOperation: 'remove',
-      isResponse: true,
-      staticValue: '',
+      requestHeaders: [],
+      responseHeaders: [
+        { operation: 'remove', headerName: 'Content-Security-Policy' },
+        { operation: 'remove', headerName: 'Content-Security-Policy-Report-Only' },
+      ],
     },
   },
   {
@@ -84,10 +89,8 @@ export const HEADER_TEMPLATES: RuleTemplate[] = [
     description: 'Remove Cookie header from outgoing requests',
     conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
     formValues: {
-      headerName: 'Cookie',
-      headerOperation: 'remove',
-      isResponse: false,
-      staticValue: '',
+      requestHeaders: [{ operation: 'remove', headerName: 'Cookie' }],
+      responseHeaders: [{ operation: 'remove', headerName: 'Set-Cookie' }],
     },
   },
   {
@@ -97,10 +100,11 @@ export const HEADER_TEMPLATES: RuleTemplate[] = [
     description: 'Remove X-Frame-Options to allow iframing',
     conditions: [{ type: 'resource-types', values: ['page'] }],
     formValues: {
-      headerName: 'X-Frame-Options',
-      headerOperation: 'remove',
-      isResponse: true,
-      staticValue: '',
+      requestHeaders: [],
+      responseHeaders: [
+        { operation: 'remove', headerName: 'X-Frame-Options' },
+        { operation: 'override', headerName: 'Content-Security-Policy', value: 'frame-ancestors *' },
+      ],
     },
   },
 ];
@@ -194,7 +198,7 @@ export const INJECT_TEMPLATES: RuleTemplate[] = [
       injectType: 'css',
       injectSource: 'code',
       injectCode:
-        '<style>\n  html { filter: invert(1) hue-rotate(180deg); }\n  img, video { filter: invert(1) hue-rotate(180deg); }\n</style>',
+        'html { filter: invert(1) hue-rotate(180deg); }\nimg, video { filter: invert(1) hue-rotate(180deg); }',
     },
   },
   {
@@ -208,7 +212,7 @@ export const INJECT_TEMPLATES: RuleTemplate[] = [
       injectSource: 'code',
       injectPosition: 'head',
       injectCode:
-        '<script type="text/javascript">\n  const origFetch = window.fetch;\n  window.fetch = function(...args) {\n    console.log("[OH]", args[0]);\n    return origFetch.apply(this, args);\n  };\n</script>',
+        'console.log("[Open Headers] Script injected — monitoring fetch requests");\nconst origFetch = window.fetch;\nwindow.fetch = function(...args) {\n  console.log("[OH] fetch:", args[0]);\n  return origFetch.apply(this, args);\n};',
     },
   },
 ];

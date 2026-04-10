@@ -47,7 +47,10 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { operation: 'override', headerName: 'X-Debug', isResponse: false, value: 'true' },
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'true' }],
+          responseHeaders: [],
+        },
       }),
     ).toBe(true);
   });
@@ -57,7 +60,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { operation: 'override', headerName: '', isResponse: false, value: 'true' },
+        action: { requestHeaders: [{ operation: 'override', headerName: '', value: 'true' }], responseHeaders: [] },
       }),
     ).toBe(false);
   });
@@ -67,7 +70,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { operation: 'add', headerName: 'X-Debug', isResponse: false, value: '' },
+        action: { requestHeaders: [{ operation: 'add', headerName: 'X-Debug', value: '' }], responseHeaders: [] },
       }),
     ).toBe(false);
   });
@@ -77,7 +80,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { operation: 'remove', headerName: 'X-Debug', isResponse: false, value: '' },
+        action: { requestHeaders: [{ operation: 'remove', headerName: 'X-Debug' }], responseHeaders: [] },
       }),
     ).toBe(true);
   });
@@ -156,7 +159,10 @@ describe('isRuleComplete', () => {
       type: 'header' as const,
       enabled: true,
       conditions: [hostCondition],
-      action: { operation: 'override' as const, headerName: 'X-Test', isResponse: false, value: 'val' },
+      action: {
+        requestHeaders: [{ operation: 'override' as const, headerName: 'X-Test', value: 'val' }],
+        responseHeaders: [],
+      },
     };
     expect(isRuleComplete(partial)).toBe(true);
   });
@@ -167,7 +173,7 @@ describe('isRuleComplete', () => {
       type: 'header' as const,
       enabled: true,
       conditions: [],
-      action: { operation: 'override' as const, headerName: '', isResponse: false, value: '' },
+      action: { requestHeaders: [{ operation: 'override' as const, headerName: '', value: '' }], responseHeaders: [] },
     };
     expect(isRuleComplete(partial)).toBe(false);
   });

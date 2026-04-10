@@ -38,7 +38,10 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     type: 'header',
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
-    action: { operation: 'override', headerName: 'Authorization', isResponse: false, value: 'Bearer test-token' },
+    action: {
+      requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
+      responseHeaders: [],
+    },
     ...overrides,
   };
 }
