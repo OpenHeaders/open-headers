@@ -19,7 +19,7 @@ import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule, RuleBa
  *   - block: conditions only (no extra fields)
  *   - redirect: redirectTo
  *   - query-param: at least one param entry with a non-empty param name
- *   - inject: code must be non-empty
+ *   - inject: code (inline) or sourceUrl (URL mode) must be non-empty
  *   - body: matchPattern + replaceWith
  *   - delay: delayMs > 0
  *   - mock: statusCode + responseBody
@@ -57,7 +57,11 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
     }
     case 'inject': {
       const ir = rule as InjectRule | Omit<InjectRule, 'uid' | 'path'>;
-      if (!ir.action.code.trim()) return false;
+      if (ir.action.source === 'url') {
+        if (!ir.action.sourceUrl?.trim()) return false;
+      } else {
+        if (!ir.action.code.trim()) return false;
+      }
       return true;
     }
     case 'body': {
