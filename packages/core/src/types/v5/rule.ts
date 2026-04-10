@@ -209,6 +209,8 @@ export interface InjectAction {
   source: InjectSource;
   /** Where to inject: head, body-start, body-end. */
   position: 'head' | 'body-start' | 'body-end';
+  /** Strip Content-Security-Policy headers so injected scripts can execute on strict sites. */
+  bypassCSP?: boolean;
 }
 
 export interface InjectRule extends RuleBase {

@@ -238,6 +238,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             injectCode: ir.action.code,
             injectSourceUrl: ir.action.sourceUrl || '',
             injectPosition: ir.action.position,
+            injectBypassCSP: ir.action.bypassCSP ?? false,
           });
           break;
         }
@@ -286,6 +287,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         injectCode: '',
         injectSourceUrl: '',
         injectPosition: 'body-end',
+        injectBypassCSP: false,
         queryParams: [{ param: '', value: '', operation: 'add' }],
         mockBodyType: 'static',
         bodyModType: 'static',
@@ -368,6 +370,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               code: (formValues.injectCode as string) ?? '',
               sourceUrl: (formValues.injectSourceUrl as string) || undefined,
               position: formValues.injectPosition as V5.InjectAction['position'],
+              bypassCSP: (formValues.injectBypassCSP as boolean) || false,
             },
           } as Omit<V5.InjectRule, 'uid' | 'path'>;
         case 'delay':

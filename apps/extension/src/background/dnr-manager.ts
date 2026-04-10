@@ -18,6 +18,8 @@ import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { DnrBuilder, DnrRule } from './dnr-builders';
 import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from './dnr-builders';
+import { ALL_RESOURCE_TYPES, buildDnrCondition } from './dnr-builders/types';
+import { formatUrlPattern } from './modules/url-utils';
 import type { HeaderMergeEntry } from './inject-manager';
 import { updateScriptableRules } from './inject-manager';
 
@@ -97,6 +99,14 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
     // Route scriptable rules to inject-manager
     if (scriptableTypes.has(rule.type)) {
       scriptableRules.push(rule as V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule);
+
+      // Inject rules with bypassCSP generate companion DNR rules to strip CSP headers
+      if (rule.type === 'inject' && (rule as V5.InjectRule).action.bypassCSP) {
+        const cspRules = buildCSPBypassRules(rule as V5.InjectRule, ruleId);
+        dnrRules.push(...cspRules);
+        ruleId += cspRules.length;
+      }
+
       continue;
     }
 
@@ -157,6 +167,48 @@ function applyDnrRules(newRules: DnrRule[]): void {
     .catch((e: Error) => {
       logger.error('DnrManager', 'Error updating rules:', e.message || 'Unknown error');
     });
+}
+
+/**
+ * Build DNR rules that strip Content-Security-Policy headers for inject rules
+ * with bypassCSP enabled. This allows injected scripts/CSS to execute on sites
+ * with strict CSP that would otherwise block inline scripts.
+ */
+function buildCSPBypassRules(rule: V5.InjectRule, startId: number): DnrRule[] {
+  const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
+
+  if (domains.length === 0 && !urlPattern) return [];
+
+  const cspHeaders: DnrRule['action']['responseHeaders'] = [
+    { header: 'Content-Security-Policy', operation: 'remove' },
+    { header: 'Content-Security-Policy-Report-Only', operation: 'remove' },
+  ];
+
+  const rules: DnrRule[] = [];
+  let ruleId = startId;
+
+  if (urlPattern) {
+    const condition: Record<string, unknown> = { ...base, resourceTypes: ALL_RESOURCE_TYPES };
+    if (useRegex) condition.regexFilter = urlPattern;
+    else condition.urlFilter = urlPattern;
+    rules.push({
+      id: ruleId++,
+      priority: 2000, // High priority — CSP must be stripped before page loads
+      action: { type: 'modifyHeaders', responseHeaders: cspHeaders },
+      condition: condition as DnrRule['condition'],
+    });
+  } else {
+    for (const domain of domains) {
+      rules.push({
+        id: ruleId++,
+        priority: 2000,
+        action: { type: 'modifyHeaders', responseHeaders: cspHeaders },
+        condition: { ...base, urlFilter: formatUrlPattern(domain), resourceTypes: ALL_RESOURCE_TYPES } as DnrRule['condition'],
+      });
+    }
+  }
+
+  return rules;
 }
 
 function clearAllDnrRules(): void {

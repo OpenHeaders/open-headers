@@ -9,7 +9,7 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Form, Input, Select, Typography } from 'antd';
+import { Checkbox, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
@@ -136,6 +136,15 @@ const InjectRuleFields: React.FC = () => {
           </Form.Item>
         </div>
       )}
+
+      {/* CSP Bypass */}
+      <Form.Item name="injectBypassCSP" valuePropName="checked" style={{ marginBottom: 0 }}>
+        <Checkbox>
+          <Text style={{ fontSize: 12 }}>
+            Bypass Content-Security-Policy so injected scripts always execute
+          </Text>
+        </Checkbox>
+      </Form.Item>
     </div>
   );
 };
