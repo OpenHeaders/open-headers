@@ -324,6 +324,29 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
       mockStaticBody: '{\n  "error": "Internal Server Error"\n}',
     },
   },
+  {
+    key: 'mock-dynamic',
+    icon: '⚙️',
+    name: 'Dynamic Response',
+    description:
+      'Intercept the real API response and modify it with JavaScript — add latency simulation, inject test data, or transform the response shape',
+    conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
+    formValues: {
+      mockStatusCode: 0,
+      mockBodyType: 'dynamic',
+      mockDynamicBody: `function modifyResponse(args) {
+  const { method, url, response, responseType, requestHeaders, requestData, responseJSON } = args;
+
+  // Example: inject test data into the response
+  if (responseJSON && Array.isArray(responseJSON.data)) {
+    responseJSON.data.unshift({ id: 0, name: "Injected Test Item" });
+    return JSON.stringify(responseJSON);
+  }
+
+  return response;
+}`,
+    },
+  },
 ];
 
 // ── Lookup by rule type ─────────────────────────────────────────
