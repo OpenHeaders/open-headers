@@ -11,16 +11,17 @@
  * and breadcrumb renames are never overwritten by a stale form value on save.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
-import { App, Form, Switch, Typography, theme } from 'antd';
+import { App, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import ConditionEditor from './ConditionEditor';
+import SaveAsTemplateModal from './SaveAsTemplateModal';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -73,9 +74,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { openDocs } = useInspectorNav();
-  const { rules, createLocalRule, updateLocalRule, localCollections } = useRules();
+  const { rules, createLocalRule, updateLocalRule, localCollections, templates: userTemplates } = useRules();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
+  const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
   const selectedType = Form.useWatch('ruleType', form) as V5.ExtensionRuleType | undefined;
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
@@ -111,7 +113,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // ── Template selector ─────────────────────────────────────────
   const [selectedTemplate, setSelectedTemplate] = useState<string>(initialTemplateKey ?? 'empty');
 
-  const templates = useMemo(() => TEMPLATES_BY_TYPE[selectedType ?? 'header'] ?? [], [selectedType]);
+  const builtinTemplates = useMemo(() => TEMPLATES_BY_TYPE[selectedType ?? 'header'] ?? [], [selectedType]);
+  const filteredUserTemplates = useMemo(
+    () => userTemplates.filter((t) => t.ruleType === (selectedType ?? 'header')),
+    [userTemplates, selectedType],
+  );
 
   const applyTemplate = useCallback(
     (key: string) => {
@@ -122,26 +128,45 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         setHeaderActiveTab('request');
         return;
       }
+
+      // Try built-in templates first
       const type = selectedType ?? 'header';
-      const templates = TEMPLATES_BY_TYPE[type] ?? [];
-      const template = templates.find((t) => t.key === key);
-      if (!template) return;
-      // Use setFields to explicitly set Form.List values including empty arrays.
-      // setFieldsValue ignores empty arrays; setFields with value:[] properly clears Form.Lists.
-      const allValues = { ruleType: type, conditions: template.conditions, ...template.formValues };
-      const fields = Object.entries(allValues).map(([name, value]) => ({ name, value }));
-      form.setFields(fields);
-      // Set header tab based on template content
-      const fv = template.formValues;
-      const resLen = Array.isArray(fv.responseHeaders) ? fv.responseHeaders.length : 0;
-      const reqLen = Array.isArray(fv.requestHeaders) ? fv.requestHeaders.length : 0;
-      setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+      const builtins = TEMPLATES_BY_TYPE[type] ?? [];
+      const builtin = builtins.find((t) => t.key === key);
+      if (builtin) {
+        const allValues = { ruleType: type, conditions: builtin.conditions, ...builtin.formValues };
+        const fields = Object.entries(allValues).map(([name, value]) => ({ name, value }));
+        form.setFields(fields);
+        const fv = builtin.formValues;
+        const resLen = Array.isArray(fv.responseHeaders) ? fv.responseHeaders.length : 0;
+        const reqLen = Array.isArray(fv.requestHeaders) ? fv.requestHeaders.length : 0;
+        setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+      } else {
+        // Try user templates (key is the uid)
+        const userTpl = userTemplates.find((t) => t.uid === key);
+        if (userTpl) {
+          const allValues: Record<string, unknown> = { ruleType: type };
+          if (userTpl.includes.conditions && userTpl.conditions) {
+            allValues.conditions = userTpl.conditions;
+          }
+          if (userTpl.includes.formValues && userTpl.formValues) {
+            Object.assign(allValues, userTpl.formValues);
+          }
+          const fields = Object.entries(allValues).map(([name, value]) => ({ name, value }));
+          form.setFields(fields);
+          const fv = userTpl.formValues ?? {};
+          const resLen = Array.isArray(fv.responseHeaders) ? (fv.responseHeaders as unknown[]).length : 0;
+          const reqLen = Array.isArray(fv.requestHeaders) ? (fv.requestHeaders as unknown[]).length : 0;
+          setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+        }
+      }
+
       if (!isDirtyRef.current) {
         isDirtyRef.current = true;
         onDirtyChange?.(true);
       }
     },
-    [selectedType, form, onDirtyChange],
+    [selectedType, form, onDirtyChange, userTemplates],
   );
 
   // ── Form initialization (content fields only — no name/enabled) ──
@@ -438,7 +463,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         </Form.Item>
 
         {/* ── Templates ── */}
-        {templates.length > 0 && (
+        {(builtinTemplates.length > 0 || filteredUserTemplates.length > 0) && (
           <div style={{ marginBottom: 16 }}>
             <div
               style={{
@@ -448,20 +473,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                 padding: 3,
                 background: token.colorFillQuaternary,
                 borderRadius: 8,
+                alignItems: 'center',
               }}
             >
+              {/* Blank + built-in templates */}
               {[
-                { key: 'empty', icon: '', name: 'Blank' },
-                ...templates.map((t) => ({ key: t.key, icon: t.icon, name: t.name })),
+                { key: 'empty', icon: '', name: 'Blank', source: 'builtin' as const },
+                ...builtinTemplates.map((t) => ({ key: t.key, icon: t.icon, name: t.name, source: 'builtin' as const })),
               ].map((t) => (
                 <div
                   key={t.key}
                   role="button"
                   tabIndex={0}
                   onClick={() => applyTemplate(t.key)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') applyTemplate(t.key);
-                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') applyTemplate(t.key); }}
                   style={{
                     padding: '5px 14px',
                     fontSize: 13,
@@ -479,15 +504,84 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   {t.icon ? `${t.icon} ${t.name}` : t.name}
                 </div>
               ))}
+
+              {/* Separator + user templates */}
+              {filteredUserTemplates.length > 0 && (
+                <>
+                  <div style={{ width: 1, height: 20, background: token.colorBorderSecondary, margin: '0 2px' }} />
+                  {filteredUserTemplates.map((t) => (
+                    <div
+                      key={t.uid}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => applyTemplate(t.uid)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') applyTemplate(t.uid); }}
+                      style={{
+                        padding: '5px 14px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s',
+                        background: selectedTemplate === t.uid ? token.colorBgContainer : 'transparent',
+                        boxShadow: selectedTemplate === t.uid ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        color: selectedTemplate === t.uid ? token.colorText : token.colorTextSecondary,
+                      }}
+                    >
+                      {t.icon ? `${t.icon} ${t.name}` : t.name}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Save as Template button */}
+              <div style={{ width: 1, height: 20, background: token.colorBorderSecondary, margin: '0 2px' }} />
+              <Tooltip title="Save current configuration as a reusable template">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSaveAsTemplateOpen(true)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setSaveAsTemplateOpen(true); }}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: 12,
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    whiteSpace: 'nowrap',
+                    color: token.colorTextTertiary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <PlusOutlined style={{ fontSize: 10 }} /> Save as Template
+                </div>
+              </Tooltip>
             </div>
+
+            {/* Description for selected template */}
             {selectedTemplate !== 'empty' &&
               (() => {
-                const t = templates.find((t) => t.key === selectedTemplate);
-                if (!t) return null;
-                const firstLine = t.description.split('\n')[0];
-                return (
-                  <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ant-color-text-tertiary)' }}>{firstLine}</div>
-                );
+                const bt = builtinTemplates.find((t) => t.key === selectedTemplate);
+                if (bt) {
+                  return (
+                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ant-color-text-tertiary)' }}>
+                      {bt.description.split('\n')[0]}
+                    </div>
+                  );
+                }
+                const ut = filteredUserTemplates.find((t) => t.uid === selectedTemplate);
+                if (ut?.description) {
+                  return (
+                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ant-color-text-tertiary)' }}>
+                      {ut.description.split('\n')[0]}
+                    </div>
+                  );
+                }
+                return null;
               })()}
           </div>
         )}
@@ -535,6 +629,23 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           </Form.Item>
         </div>
       </Form>
+
+      <SaveAsTemplateModal
+        open={saveAsTemplateOpen}
+        ruleType={selectedType ?? 'header'}
+        conditions={form.getFieldValue('conditions') ?? []}
+        formValues={(() => {
+          if (!saveAsTemplateOpen) return {};
+          const all = form.getFieldsValue();
+          const metaKeys = new Set(['ruleType', 'conditions']);
+          const fv: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(all)) {
+            if (!metaKeys.has(k)) fv[k] = v;
+          }
+          return fv;
+        })()}
+        onCancel={() => setSaveAsTemplateOpen(false)}
+      />
     </div>
   );
 };
