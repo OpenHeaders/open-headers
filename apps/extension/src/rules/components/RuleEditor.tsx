@@ -285,8 +285,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     }
   }, [mode, ruleType, ruleUid, rules, form]);
 
-  // Note: initialTemplateKey is handled at the data level — openCreateTab in App.tsx
-  // creates the rule with template values baked in. No form-level template application needed.
+  // Apply initial template after form init (from tab identity, runs once).
+  // Templates store form field values — the form-level apply works for ALL rule types.
+  const templateAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!initialTemplateKey || templateAppliedRef.current || !initializedRef.current) return;
+    templateAppliedRef.current = true;
+    applyTemplate(initialTemplateKey);
+  }, [initialTemplateKey, applyTemplate]);
 
   const handleValuesChange = useCallback(() => {
     if (!isDirtyRef.current) {

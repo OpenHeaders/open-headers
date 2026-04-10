@@ -197,6 +197,21 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
         </Checkbox>
         <Checkbox checked={includeFormValues} onChange={(e) => setIncludeFormValues(e.target.checked)}>
           <Text style={{ fontSize: 12 }}>Include actions</Text>
+          {(() => {
+            // Count non-empty action fields
+            const reqH = formValues.requestHeaders as unknown[] | undefined;
+            const resH = formValues.responseHeaders as unknown[] | undefined;
+            const qp = formValues.queryParams as unknown[] | undefined;
+            const count = (reqH?.length ?? 0) + (resH?.length ?? 0) + (qp?.length ?? 0);
+            // For non-array types, check if any meaningful value exists
+            const hasScalar = !!(formValues.redirectTo || formValues.delayMs || formValues.injectCode || formValues.mockStaticBody || formValues.mockDynamicBody || formValues.bodyStaticContent || formValues.bodyDynamicContent);
+            const total = count || (hasScalar ? 1 : 0);
+            return total > 0 ? (
+              <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>
+                ({total})
+              </Text>
+            ) : null;
+          })()}
         </Checkbox>
       </div>
     </Modal>
