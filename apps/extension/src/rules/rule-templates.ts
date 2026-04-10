@@ -164,9 +164,9 @@ export const REDIRECT_TEMPLATES: RuleTemplate[] = [
     key: 'force-https',
     icon: '🔒',
     name: 'Force HTTPS',
-    description: 'Redirect HTTP URLs to HTTPS',
-    conditions: [{ type: 'url-regex', values: ['^http://(.*)$'] }],
-    formValues: { redirectTo: 'https://\\1' },
+    description: 'Upgrade HTTP to HTTPS for a specific domain',
+    conditions: [{ type: 'url-filter', values: ['http://openheaders.io/*'] }],
+    formValues: { redirectTo: 'https://openheaders.io/' },
   },
 ];
 
