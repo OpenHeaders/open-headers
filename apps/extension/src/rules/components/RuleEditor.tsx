@@ -85,8 +85,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
 
-  // ── Header tab state (lifted from HeaderRuleFields for reliable timing) ──
+  // ── Header state (lifted from HeaderRuleFields for reliable timing) ──
+  // useWatch has inherent first-render timing issues — parent owns the truth.
   const [headerActiveTab, setHeaderActiveTab] = useState('request');
+  const [headerReqCount, setHeaderReqCount] = useState(0);
+  const [headerResCount, setHeaderResCount] = useState(0);
 
   // ── Enabled state: owned by rule store (edit) or local (create) ──
 
@@ -132,9 +135,18 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       // correctly for empty arrays and properly notifies useWatch for badge counts.
       form.resetFields();
 
+      // Set header tab + badge counts from known data (avoids useWatch timing issues)
+      const updateHeaderState = (fv: Record<string, unknown>) => {
+        const reqLen = Array.isArray(fv.requestHeaders) ? (fv.requestHeaders as unknown[]).length : 0;
+        const resLen = Array.isArray(fv.responseHeaders) ? (fv.responseHeaders as unknown[]).length : 0;
+        setHeaderReqCount(reqLen);
+        setHeaderResCount(resLen);
+        setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+      };
+
       if (key === 'empty') {
         form.setFieldsValue({ ruleType: type, conditions: [] });
-        setHeaderActiveTab('request');
+        updateHeaderState({});
         return;
       }
 
@@ -143,10 +155,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       const builtin = builtins.find((t) => t.key === key);
       if (builtin) {
         form.setFieldsValue({ ruleType: type, conditions: builtin.conditions, ...builtin.formValues });
-        const fv = builtin.formValues;
-        const resLen = Array.isArray(fv.responseHeaders) ? fv.responseHeaders.length : 0;
-        const reqLen = Array.isArray(fv.requestHeaders) ? fv.requestHeaders.length : 0;
-        setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+        updateHeaderState(builtin.formValues);
       } else {
         // Try user templates (key is the uid)
         const userTpl = userTemplates.find((t) => t.uid === key);
@@ -159,10 +168,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             Object.assign(values, userTpl.formValues);
           }
           form.setFieldsValue(values);
-          const fv = userTpl.formValues ?? {};
-          const resLen = Array.isArray(fv.responseHeaders) ? (fv.responseHeaders as unknown[]).length : 0;
-          const reqLen = Array.isArray(fv.requestHeaders) ? (fv.requestHeaders as unknown[]).length : 0;
-          setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+          updateHeaderState(userTpl.formValues ?? {});
         }
       }
 
@@ -195,6 +201,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           const reqH = hr.action.requestHeaders ?? [];
           const resH = hr.action.responseHeaders ?? [];
           form.setFieldsValue({ ...baseValues, requestHeaders: reqH, responseHeaders: resH });
+          setHeaderReqCount(reqH.length);
+          setHeaderResCount(resH.length);
           setHeaderActiveTab(resH.length > 0 && reqH.length === 0 ? 'response' : 'request');
           break;
         }
@@ -301,7 +309,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       isDirtyRef.current = true;
       onDirtyChange?.(true);
     }
-  }, [onDirtyChange]);
+    // Sync header badge counts from live form state during editing
+    const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
+    const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
+    setHeaderReqCount(reqH?.length ?? 0);
+    setHeaderResCount(resH?.length ?? 0);
+  }, [onDirtyChange, form]);
 
   // ── Build rule: merges form content with externally-owned name/enabled ──
 
@@ -631,7 +644,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         </div>
 
         {/* ── Per-type fields ── */}
-        {selectedType === 'header' && <HeaderRuleFields activeTab={headerActiveTab} onTabChange={setHeaderActiveTab} />}
+        {selectedType === 'header' && (
+          <HeaderRuleFields
+            activeTab={headerActiveTab}
+            onTabChange={setHeaderActiveTab}
+            reqCount={headerReqCount}
+            resCount={headerResCount}
+          />
+        )}
         {selectedType === 'block' && <BlockRuleFields />}
         {selectedType === 'redirect' && <RedirectRuleFields />}
         {selectedType === 'query-param' && <QueryParamRuleFields />}

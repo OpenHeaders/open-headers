@@ -148,14 +148,14 @@ interface HeaderRuleFieldsProps {
   activeTab: string;
   /** Tab change callback — parent updates state on user click. */
   onTabChange: (tab: string) => void;
+  /** Request header count — parent (RuleEditor) owns this to avoid useWatch timing issues. */
+  reqCount: number;
+  /** Response header count — parent (RuleEditor) owns this to avoid useWatch timing issues. */
+  resCount: number;
 }
 
-const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({ activeTab, onTabChange }) => {
+const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({ activeTab, onTabChange, reqCount, resCount }) => {
   const { openDocs } = useInspectorNav();
-  const reqHeaders = Form.useWatch('requestHeaders') as unknown[] | undefined;
-  const resHeaders = Form.useWatch('responseHeaders') as unknown[] | undefined;
-  const reqCount = reqHeaders?.length ?? 0;
-  const resCount = resHeaders?.length ?? 0;
   const hasResponse = resCount > 0;
 
   return (

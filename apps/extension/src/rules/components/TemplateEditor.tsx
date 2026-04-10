@@ -50,6 +50,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
   const [headerActiveTab, setHeaderActiveTab] = useState('request');
+  const [headerReqCount, setHeaderReqCount] = useState(0);
+  const [headerResCount, setHeaderResCount] = useState(0);
 
   const template = templates.find((t) => t.uid === templateUid);
   const selectedType = Form.useWatch('ruleType', form) as string | undefined;
@@ -72,13 +74,15 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     };
     form.setFieldsValue(values);
 
-    // Set header tab based on content
+    // Set header tab + counts based on content
     if (template.ruleType === 'header' && template.formValues) {
       const resH = template.formValues.responseHeaders as unknown[] | undefined;
       const reqH = template.formValues.requestHeaders as unknown[] | undefined;
-      if ((resH?.length ?? 0) > 0 && (reqH?.length ?? 0) === 0) {
-        setHeaderActiveTab('response');
-      }
+      const reqLen = reqH?.length ?? 0;
+      const resLen = resH?.length ?? 0;
+      setHeaderReqCount(reqLen);
+      setHeaderResCount(resLen);
+      setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
     }
   }, [template, form]);
 
@@ -134,7 +138,11 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
       isDirtyRef.current = true;
       onDirtyChange?.(true);
     }
-  }, [onDirtyChange]);
+    const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
+    const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
+    setHeaderReqCount(reqH?.length ?? 0);
+    setHeaderResCount(resH?.length ?? 0);
+  }, [onDirtyChange, form]);
 
   if (!template) {
     return (
@@ -192,7 +200,14 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         </div>
 
         {/* ── Per-type fields ── */}
-        {selectedType === 'header' && <HeaderRuleFields activeTab={headerActiveTab} onTabChange={setHeaderActiveTab} />}
+        {selectedType === 'header' && (
+          <HeaderRuleFields
+            activeTab={headerActiveTab}
+            onTabChange={setHeaderActiveTab}
+            reqCount={headerReqCount}
+            resCount={headerResCount}
+          />
+        )}
         {selectedType === 'block' && <BlockRuleFields />}
         {selectedType === 'redirect' && <RedirectRuleFields />}
         {selectedType === 'query-param' && <QueryParamRuleFields />}
