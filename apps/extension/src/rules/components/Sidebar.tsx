@@ -18,6 +18,7 @@ import {
   EditOutlined,
   EllipsisOutlined,
   ExpandOutlined,
+  FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
   LinkOutlined,
@@ -135,6 +136,39 @@ function folderMenuItems(
   ];
 }
 
+const DEFAULT_TEMPLATE_COLLECTION = 'Default Templates';
+
+function templateCollectionMenuItems(
+  onAddFolder: () => void,
+  onRename: () => void,
+  onDelete: () => void,
+  isDefault: boolean,
+): ItemType[] {
+  return [
+    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
+    ...(!isDefault
+      ? [
+          { type: 'divider' as const, key: 'div' },
+          { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
+          { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
+        ]
+      : []),
+  ];
+}
+
+function templateFolderMenuItems(
+  onAddFolder: () => void,
+  onRename: () => void,
+  onDelete: () => void,
+): ItemType[] {
+  return [
+    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
+    { type: 'divider' as const, key: 'div' },
+    { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
+    { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
+  ];
+}
+
 // ── Section header ─────────────────────────────────────────────────
 
 function SectionHeader({
@@ -192,6 +226,12 @@ interface SidebarProps {
   onDeleteRule?: (uid: string) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open a template for editing. */
+  onSelectTemplate?: (uid: string) => void;
+  /** Open template collection overview tab. */
+  onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open template folder overview tab. */
+  onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -201,6 +241,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteRule,
   onOpenCollectionOverview,
   onOpenFolderOverview,
+  onSelectTemplate,
+  onOpenTemplateCollectionOverview,
+  onOpenTemplateFolderOverview,
 }) => {
   const { token } = theme.useToken();
   const {
@@ -215,6 +258,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteLocalFolder,
     renameLocalCollection,
     createLocalCollection,
+    templateCollectionTrees,
+    templates,
+    deleteTemplate,
+    updateTemplate,
+    createTemplateCollection,
+    renameTemplateCollection,
+    deleteTemplateCollection,
+    createTemplateFolder,
+    renameTemplateFolder,
+    deleteTemplateFolder,
   } = useRules();
   const { message } = App.useApp();
 
@@ -225,6 +278,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [sectionsExpanded, setSectionsExpanded] = useState<Record<string, boolean>>({
     requests: false,
     rules: true,
+    templates: false,
     environments: false,
   });
   const [openWithSingleClick, setOpenWithSingleClick] = useState(true);
@@ -248,7 +302,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const expandAll = useCallback(() => {
-    setSectionsExpanded({ requests: true, rules: true, environments: true });
+    setSectionsExpanded({ requests: true, rules: true, templates: true, environments: true });
     const allKeys = new Set<string>();
     const collectKeys = (nodes: V5.TreeNode[]) => {
       for (const n of nodes) {
@@ -262,11 +316,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       allKeys.add(`col-${col.uid}`);
       collectKeys(col.tree);
     }
+    for (const col of templateCollectionTrees) {
+      allKeys.add(`tpl-col-${col.uid}`);
+      collectKeys(col.tree);
+    }
     setExpandedKeys(allKeys);
-  }, [localCollectionTrees]);
+  }, [localCollectionTrees, templateCollectionTrees]);
 
   const collapseAll = useCallback(() => {
-    setSectionsExpanded({ requests: false, rules: false, environments: false });
+    setSectionsExpanded({ requests: false, rules: false, templates: false, environments: false });
     setExpandedKeys(new Set());
   }, []);
 
@@ -580,7 +638,207 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // ── Flat items for keyboard nav ──────────────────────────────
 
-  const allFlatItems = useMemo(() => (sectionsExpanded.rules ? rulesNodes : []), [sectionsExpanded.rules, rulesNodes]);
+  // ── Template tree nodes ────────────────────────────────────────
+
+  const walkTemplateTree = useCallback(
+    (v5Nodes: V5.TreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
+      const items: TreeNode[] = [];
+
+      for (const node of v5Nodes) {
+        if (node.type === 'folder') {
+          const fid = `tpl-folder-${node.uid}`;
+          const isExpanded = expandedKeys.has(fid);
+          const onAddFolder = () => {
+            void createTemplateFolder('New Folder', node.path).then((f) => {
+              if (f) {
+                setExpandedKeys((prev) => { const next = new Set(prev); next.add(fid); return next; });
+                onOpenTemplateFolderOverview?.(f.uid, f.name, true);
+              }
+            });
+          };
+
+          items.push({
+            id: fid,
+            kind: 'folder',
+            label: node.name,
+            depth,
+            expandable: true,
+            parentId,
+            icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+            canRename: true,
+            canDelete: true,
+            canAddChild: true,
+            onOpen: () => {
+              toggleExpand(fid);
+              onOpenTemplateFolderOverview?.(node.uid, node.name);
+            },
+            onRename: async (name: string) => { void renameTemplateFolder(node.uid, name); },
+            onDelete: () => confirmDelete(node.name, () => { void deleteTemplateFolder(node.uid); }),
+            addMenuItems: templateFolderMenuItems(
+              onAddFolder,
+              () => setRenamingId(fid),
+              () => confirmDelete(node.name, () => { void deleteTemplateFolder(node.uid); }),
+            ),
+          });
+          if (isExpanded) {
+            const children = walkTemplateTree(node.children, depth + 1, fid, collectionId);
+            if (children.length > 0) {
+              items.push(...children);
+            } else {
+              items.push({
+                id: `${fid}-empty`,
+                kind: 'placeholder',
+                label: '',
+                depth: depth + 1,
+                expandable: false,
+                icon: null,
+                canRename: false,
+                canDelete: false,
+                canAddChild: false,
+                placeholderTitle: 'Folder is empty',
+                placeholderMessage: 'Save a rule as template to populate.',
+              });
+            }
+          }
+        } else if (node.type === 'template') {
+          if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
+          const tid = `tpl-${node.uid}`;
+          const tplNode = node as V5.TemplateNode;
+
+          items.push({
+            id: tid,
+            kind: 'leaf',
+            label: node.name,
+            depth,
+            expandable: false,
+            parentId,
+            icon: tplNode.icon
+              ? createElement('span', { style: { fontSize: 12 } }, tplNode.icon)
+              : iconEl(FileTextOutlined, 'var(--ant-color-text-tertiary, #999)'),
+            canRename: true,
+            canDelete: true,
+            canAddChild: false,
+            onOpen: () => onSelectTemplate?.(node.uid),
+            onRename: async (name: string) => { void updateTemplate(node.uid, { name }); },
+            onDelete: () => confirmDelete(node.name, () => { void deleteTemplate(node.uid); }),
+          });
+        }
+      }
+
+      return items;
+    },
+    [
+      expandedKeys,
+      lowerFilter,
+      toggleExpand,
+      createTemplateFolder,
+      renameTemplateFolder,
+      deleteTemplateFolder,
+      updateTemplate,
+      deleteTemplate,
+      confirmDelete,
+      onSelectTemplate,
+      onOpenTemplateFolderOverview,
+    ],
+  );
+
+  const templateNodes = useMemo((): TreeNode[] => {
+    const items: TreeNode[] = [];
+
+    for (const collection of templateCollectionTrees) {
+      if (lowerFilter && !collection.name.toLowerCase().includes(lowerFilter)) {
+        const hasMatch = collection.tree.some(
+          (n) => n.type === 'template' && n.name.toLowerCase().includes(lowerFilter),
+        );
+        if (!hasMatch) continue;
+      }
+
+      const colId = `tpl-col-${collection.uid}`;
+      const isExpanded = expandedKeys.has(colId);
+      const isDefault = collection.name === DEFAULT_TEMPLATE_COLLECTION;
+      const onAddFolder = () => {
+        void createTemplateFolder('New Folder', collection.path).then((f) => {
+          if (f) {
+            setExpandedKeys((prev) => { const next = new Set(prev); next.add(colId); return next; });
+            onOpenTemplateFolderOverview?.(f.uid, f.name, true);
+          }
+        });
+      };
+
+      items.push({
+        id: colId,
+        kind: 'group',
+        label: collection.name,
+        depth: 0,
+        expandable: true,
+        icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+        canRename: !isDefault,
+        canDelete: !isDefault,
+        canAddChild: true,
+        onOpen: () => {
+          toggleExpand(colId);
+          onOpenTemplateCollectionOverview?.(collection.uid, collection.name);
+        },
+        onRename: !isDefault
+          ? async (name) => { void renameTemplateCollection(collection.uid, name); }
+          : undefined,
+        onDelete: !isDefault
+          ? () => confirmDelete(collection.name, () => { void deleteTemplateCollection(collection.uid); })
+          : undefined,
+        addMenuItems: templateCollectionMenuItems(
+          onAddFolder,
+          () => setRenamingId(colId),
+          () => confirmDelete(collection.name, () => { void deleteTemplateCollection(collection.uid); }),
+          isDefault,
+        ),
+      });
+
+      if (isExpanded) {
+        const children = walkTemplateTree(collection.tree, 1, colId, collection.uid);
+        if (children.length > 0) {
+          items.push(...children);
+        } else {
+          items.push({
+            id: `${colId}-empty`,
+            kind: 'placeholder',
+            label: '',
+            depth: 1,
+            expandable: false,
+            icon: null,
+            canRename: false,
+            canDelete: false,
+            canAddChild: false,
+            placeholderTitle: 'No templates yet',
+            placeholderMessage: 'Save a rule as template from the editor.',
+          });
+        }
+      }
+    }
+
+    return items;
+  }, [
+    templateCollectionTrees,
+    lowerFilter,
+    expandedKeys,
+    toggleExpand,
+    walkTemplateTree,
+    renameTemplateCollection,
+    deleteTemplateCollection,
+    createTemplateFolder,
+    confirmDelete,
+    onOpenTemplateCollectionOverview,
+    onOpenTemplateFolderOverview,
+  ]);
+
+  // ── Flat items for keyboard nav ──────────────────────────────
+
+  const allFlatItems = useMemo(
+    () => [
+      ...(sectionsExpanded.rules ? rulesNodes : []),
+      ...(sectionsExpanded.templates ? templateNodes : []),
+    ],
+    [sectionsExpanded.rules, sectionsExpanded.templates, rulesNodes, templateNodes],
+  );
 
   const isSelected = useCallback(
     (id: string) => {
@@ -903,6 +1161,40 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
         {sectionsExpanded.rules && (
           <div style={{ flex: 1, overflowY: 'auto' }}>{renderNodes(rulesNodes, () => void createNewCollection())}</div>
+        )}
+
+        <SectionHeader
+          title="TEMPLATES"
+          expanded={sectionsExpanded.templates}
+          onToggle={() => toggleSection('templates')}
+          actions={
+            <Tooltip title="New template collection" placement="bottom">
+              <PlusOutlined
+                style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void createTemplateCollection('New Collection').then((col) => {
+                    if (col) {
+                      setSectionsExpanded((prev) => ({ ...prev, templates: true }));
+                      onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
+                    }
+                  });
+                }}
+              />
+            </Tooltip>
+          }
+        />
+        {sectionsExpanded.templates && (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {renderNodes(templateNodes, () => {
+              void createTemplateCollection('My Templates').then((col) => {
+                if (col) {
+                  setSectionsExpanded((prev) => ({ ...prev, templates: true }));
+                  onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
+                }
+              });
+            })}
+          </div>
         )}
 
         <SectionHeader
