@@ -1273,7 +1273,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation */}
-      <div ref={containerRef} className="rules-sidebar-content" onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
+      <div ref={containerRef} className="rules-sidebar-content" tabIndex={0} onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
         <SectionHeader
           title="API REQUESTS"
           expanded={sectionsExpanded.requests}
