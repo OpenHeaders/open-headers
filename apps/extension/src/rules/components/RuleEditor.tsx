@@ -286,13 +286,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   }, [mode, ruleType, ruleUid, rules, form]);
 
   // Apply initial template after form init (from tab identity, runs once).
-  // Templates store form field values — the form-level apply works for ALL rule types.
+  // Must wait for selectedType to resolve — applyTemplate looks up templates by type.
   const templateAppliedRef = useRef(false);
   useEffect(() => {
-    if (!initialTemplateKey || templateAppliedRef.current || !initializedRef.current) return;
+    if (!initialTemplateKey || templateAppliedRef.current || !initializedRef.current || !selectedType) return;
     templateAppliedRef.current = true;
     applyTemplate(initialTemplateKey);
-  }, [initialTemplateKey, applyTemplate]);
+  }, [initialTemplateKey, applyTemplate, selectedType]);
 
   const handleValuesChange = useCallback(() => {
     if (!isDirtyRef.current) {
