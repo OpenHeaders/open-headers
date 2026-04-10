@@ -35,7 +35,7 @@ const CONDITION_TYPE_OPTIONS: Array<{ value: V5.ConditionType; label: string; de
 const OPERATOR_OPTIONS: Array<{ value: V5.ConditionOperator; label: string }> = [
   { value: 'contains', label: 'Contains' },
   { value: 'equals', label: 'Equals' },
-  { value: 'matches', label: 'Matches (wildcard)' },
+  { value: 'matches', label: 'Matches (*)' },
   { value: 'regex', label: 'Regex' },
 ];
 
@@ -59,6 +59,51 @@ const HEADER_TYPES = new Set<V5.ConditionType>(['request-header', 'response-head
 
 /** Condition types where operator doesn't apply (fixed matching). */
 const NO_OPERATOR_TYPES = new Set<V5.ConditionType>(['method', 'resource-type', 'domain-type']);
+
+// ── Placeholder helper ───────────────────────────────────────────
+
+const PLACEHOLDERS: Record<string, Record<string, string>> = {
+  host: {
+    contains: 'openheaders.io',
+    equals: 'api.openheaders.io',
+    matches: '*.openheaders.io',
+    regex: '^.*\\.openheaders\\.io$',
+  },
+  url: {
+    contains: 'openheaders.io/api',
+    equals: 'https://api.openheaders.io/v2/users',
+    matches: 'https://api.openheaders.io/*',
+    regex: '^https://api\\.openheaders\\.io/v[0-9]+/',
+  },
+  path: {
+    contains: '/api/',
+    equals: '/api/v2/users',
+    matches: '/api/v2/*',
+    regex: '^/api/v[0-9]+/',
+  },
+  initiator: {
+    contains: 'openheaders.io',
+    equals: 'portal.openheaders.io',
+    matches: '*.openheaders.io',
+    regex: '^.*\\.openheaders\\.io$',
+  },
+};
+
+function getValuePlaceholder(type: V5.ConditionType, operator: V5.ConditionOperator): string {
+  if (type === 'request-header' || type === 'response-header') {
+    switch (operator) {
+      case 'contains':
+        return 'Header value contains...';
+      case 'equals':
+        return 'Header value equals...';
+      case 'matches':
+        return 'Header value matches...';
+      case 'regex':
+        return 'Header value regex...';
+    }
+  }
+  return PLACEHOLDERS[type]?.[operator] ?? 'value';
+}
 
 // ── Props ────────────────────────────────────────────────────────
 
@@ -130,7 +175,6 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
         border: `1px solid ${token.colorBorder}`,
         borderRadius: 6,
         background: token.colorBgContainer,
-        overflow: 'hidden',
       }}
     >
       {value.length === 0 && (
@@ -154,6 +198,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
             alignItems: 'flex-start',
             gap: 6,
             padding: '8px 10px',
+            flexWrap: 'wrap',
             borderBottom: index < value.length - 1 ? `1px solid ${token.colorBorderSecondary}` : undefined,
           }}
         >
@@ -180,13 +225,24 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
             size="small"
             value={condition.type}
             onChange={(type) => handleTypeChange(index, type)}
-            style={{ width: 130, flexShrink: 0 }}
+            style={{ width: 150, flexShrink: 0 }}
+            popupMatchSelectWidth={180}
             options={CONDITION_TYPE_OPTIONS.map((o) => ({
               value: o.value,
               label: o.label,
             }))}
-            popupMatchSelectWidth={180}
           />
+
+          {/* Header name BEFORE operator (for header conditions) — reads as "Request Header [Authorization] Contains [Bearer]" */}
+          {HEADER_TYPES.has(condition.type) && (
+            <Input
+              size="small"
+              placeholder="Header name equals..."
+              value={condition.headerName ?? ''}
+              onChange={(e) => updateCondition(index, { headerName: e.target.value })}
+              style={{ width: 200, flexShrink: 0 }}
+            />
+          )}
 
           {/* Operator (hidden for multi-select/single-select types) */}
           {!NO_OPERATOR_TYPES.has(condition.type) && (
@@ -196,17 +252,6 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               onChange={(op) => updateCondition(index, { operator: op })}
               style={{ width: 120, flexShrink: 0 }}
               options={OPERATOR_OPTIONS}
-            />
-          )}
-
-          {/* Header name (only for header conditions) */}
-          {HEADER_TYPES.has(condition.type) && (
-            <Input
-              size="small"
-              placeholder="Header name"
-              value={condition.headerName ?? ''}
-              onChange={(e) => updateCondition(index, { headerName: e.target.value })}
-              style={{ width: 120, flexShrink: 0 }}
             />
           )}
 
@@ -237,17 +282,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
           ) : (
             <Input
               size="small"
-              placeholder={
-                condition.type === 'host'
-                  ? '*.openheaders.io, api.openheaders.io'
-                  : condition.type === 'url'
-                    ? 'https://api.openheaders.io/*'
-                    : condition.type === 'path'
-                      ? '/api/v2/*'
-                      : condition.type === 'initiator'
-                        ? 'portal.openheaders.io'
-                        : 'value'
-              }
+              placeholder={getValuePlaceholder(condition.type, condition.operator)}
               value={condition.values.join(', ')}
               onChange={(e) => handleValuesText(index, e.target.value)}
               style={{ flex: 1, minWidth: 140 }}
