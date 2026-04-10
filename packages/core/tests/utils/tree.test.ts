@@ -98,9 +98,7 @@ describe('buildBreadcrumbTrail', () => {
 
   it('builds single-segment trail for top-level folder', () => {
     const trail = buildBreadcrumbTrail(tree, 'rules/my-rules-abc1/auth-f1');
-    expect(trail).toEqual([
-      { name: 'Auth', path: 'rules/my-rules-abc1/auth-f1' },
-    ]);
+    expect(trail).toEqual([{ name: 'Auth', path: 'rules/my-rules-abc1/auth-f1' }]);
   });
 
   it('builds multi-segment trail for nested folder', () => {
@@ -117,8 +115,6 @@ describe('buildBreadcrumbTrail', () => {
 
   it('builds trail for empty folder', () => {
     const trail = buildBreadcrumbTrail(tree, 'rules/my-rules-abc1/cors-f3');
-    expect(trail).toEqual([
-      { name: 'CORS', path: 'rules/my-rules-abc1/cors-f3' },
-    ]);
+    expect(trail).toEqual([{ name: 'CORS', path: 'rules/my-rules-abc1/cors-f3' }]);
   });
 });

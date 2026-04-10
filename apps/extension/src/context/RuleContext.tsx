@@ -589,17 +589,14 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   const renameTemplateCollectionFn = useCallback(
     (uid: string, name: string): Promise<boolean> => {
       return new Promise((resolve) => {
-        sendMessageWithCallback(
-          { type: 'renameTemplateCollection', collectionUid: uid, name },
-          (response, error) => {
-            if (!error && response && (response as { success?: boolean }).success) {
-              refreshRules();
-              resolve(true);
-              return;
-            }
-            resolve(false);
-          },
-        );
+        sendMessageWithCallback({ type: 'renameTemplateCollection', collectionUid: uid, name }, (response, error) => {
+          if (!error && response && (response as { success?: boolean }).success) {
+            refreshRules();
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        });
       });
     },
     [refreshRules],

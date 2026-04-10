@@ -85,7 +85,7 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
 
       snapshotRef.current = JSON.stringify({
         headerName: rule.type === 'header' ? rule.action.headerName : '',
-        staticValue: rule.type === 'header' ? (rule.staticValue || '') : '',
+        staticValue: rule.type === 'header' ? rule.staticValue || '' : '',
         isResponse: rule.type === 'header' ? rule.action.isResponse : false,
         operation: rule.type === 'header' ? rule.action.operation : 'add',
         domains: rule.domains || [],
@@ -134,11 +134,27 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
       domains,
       action: { operation, headerName, isResponse },
       staticValue,
-    } as Partial<V5.HeaderRule>).then(() => {
-      snapshotRef.current = buildFingerprint();
-      onDirtyChange?.(false);
-    }).catch(() => {});
-  }, [isDraft, onSaveDraft, draftData, enabled, domains, operation, headerName, isResponse, staticValue, ruleId, updateRuleIpc, buildFingerprint, onDirtyChange]);
+    } as Partial<V5.HeaderRule>)
+      .then(() => {
+        snapshotRef.current = buildFingerprint();
+        onDirtyChange?.(false);
+      })
+      .catch(() => {});
+  }, [
+    isDraft,
+    onSaveDraft,
+    draftData,
+    enabled,
+    domains,
+    operation,
+    headerName,
+    isResponse,
+    staticValue,
+    ruleId,
+    updateRuleIpc,
+    buildFingerprint,
+    onDirtyChange,
+  ]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;
@@ -153,12 +169,9 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
     }
   }, [newDomain, domains]);
 
-  const removeDomain = useCallback(
-    (domain: string) => {
-      setDomains((prev) => prev.filter((d) => d !== domain));
-    },
-    [],
-  );
+  const removeDomain = useCallback((domain: string) => {
+    setDomains((prev) => prev.filter((d) => d !== domain));
+  }, []);
 
   if (!isDraft && !rule) {
     return (
@@ -176,13 +189,7 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
           {isDraft ? (draftData?.name as string) || 'New Rule' : rule?.name || 'Rule'}
         </Title>
         <div style={{ marginLeft: 'auto' }}>
-          <Switch
-            size="small"
-            checked={enabled}
-            onChange={setEnabled}
-            checkedChildren="ON"
-            unCheckedChildren="OFF"
-          />
+          <Switch size="small" checked={enabled} onChange={setEnabled} checkedChildren="ON" unCheckedChildren="OFF" />
         </div>
       </div>
 
@@ -231,7 +238,11 @@ export function RuleEditor({ ruleId, draftData, onDirtyChange, saveRef, onSaveDr
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
           Apply to
         </Text>
-        <Radio.Group value={isResponse ? 'response' : 'request'} onChange={(e) => setIsResponse(e.target.value === 'response')} size="small">
+        <Radio.Group
+          value={isResponse ? 'response' : 'request'}
+          onChange={(e) => setIsResponse(e.target.value === 'response')}
+          size="small"
+        >
           <Radio.Button value="request">Request</Radio.Button>
           <Radio.Button value="response">Response</Radio.Button>
         </Radio.Group>

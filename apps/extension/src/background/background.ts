@@ -27,8 +27,8 @@ import {
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import { getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
-import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
 import { setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
+import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
 import { generateRulesHash } from './modules/utils';
 import {
   connectWebSocket,
@@ -196,12 +196,16 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
       const tabId = tabList[0].id!;
 
       if (recordingService.isRecording(tabId)) {
-        recordingService.stopRecording(tabId).catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
+        recordingService
+          .stopRecording(tabId)
+          .catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
       } else {
         tabs.query({}, (allTabs: chrome.tabs.Tab[]) => {
           for (const tab of allTabs) {
             if (tab.id && recordingService.isRecording(tab.id)) {
-              recordingService.stopRecording(tab.id).catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
+              recordingService
+                .stopRecording(tab.id)
+                .catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
               return;
             }
           }
@@ -221,7 +225,13 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
 runtime.onMessage.addListener(
   (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
     const msg = message as Record<string, unknown>;
-    const recordingHandled = handleRecordingMessage(msg, sender, sendResponse, recordingService, sendRecordingViaWebSocket);
+    const recordingHandled = handleRecordingMessage(
+      msg,
+      sender,
+      sendResponse,
+      recordingService,
+      sendRecordingViaWebSocket,
+    );
     if (recordingHandled) return recordingHandled;
 
     return handleGeneralMessage(msg, sender, sendResponse, {

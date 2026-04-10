@@ -1,7 +1,7 @@
 import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
-import { useCentralizedWorkspace } from './useCentralizedWorkspace';
 import { showMessage } from '@/renderer/utils';
+import { useCentralizedWorkspace } from './useCentralizedWorkspace';
 
 interface UseEnvironmentsReturn {
   environments: V5.Environment[];

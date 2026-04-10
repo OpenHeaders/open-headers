@@ -12,10 +12,7 @@ import type { WebSocketServiceLike, WorkspaceState } from './types';
  * Push resolved rules to WebSocket service (for browser extensions).
  * The caller is responsible for resolving {{VAR}} templates before calling this.
  */
-export function broadcastToServices(
-  resolvedRules: V5.Rule[],
-  webSocketService: WebSocketServiceLike | null,
-): void {
+export function broadcastToServices(resolvedRules: V5.Rule[], webSocketService: WebSocketServiceLike | null): void {
   if (webSocketService) {
     webSocketService.updateRules(resolvedRules);
   }

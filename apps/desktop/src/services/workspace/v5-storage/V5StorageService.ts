@@ -473,10 +473,7 @@ export async function readAllRuleCollections(root: string): Promise<V5.Collectio
   return readSectionCollections(rulesDir(root), 'rule');
 }
 
-async function readSectionCollections(
-  sectionDir: string,
-  itemType: 'request' | 'rule',
-): Promise<V5.CollectionTree[]> {
+async function readSectionCollections(sectionDir: string, itemType: 'request' | 'rule'): Promise<V5.CollectionTree[]> {
   const collections: V5.CollectionTree[] = [];
   const collFolders = await listSubdirectories(sectionDir);
 

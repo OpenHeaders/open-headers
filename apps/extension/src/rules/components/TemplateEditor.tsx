@@ -103,8 +103,13 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
     // Extract form values (exclude template metadata fields)
     const metaKeys = new Set([
-      'ruleType', 'templateName', 'templateIcon', 'templateDescription',
-      'includeConditions', 'includeFormValues', 'conditions',
+      'ruleType',
+      'templateName',
+      'templateIcon',
+      'templateDescription',
+      'includeConditions',
+      'includeFormValues',
+      'conditions',
     ]);
     const formValues: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(values)) {
@@ -163,7 +168,11 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <Form.Item name="templateIcon" style={{ marginBottom: 0, width: 60 }}>
-            <Input size="small" placeholder={DEFAULT_EMOJI[template.ruleType] ?? '📋'} style={{ textAlign: 'center' }} />
+            <Input
+              size="small"
+              placeholder={DEFAULT_EMOJI[template.ruleType] ?? '📋'}
+              style={{ textAlign: 'center' }}
+            />
           </Form.Item>
           <Form.Item name="templateName" style={{ marginBottom: 0, flex: 1 }}>
             <Input size="small" placeholder="Template name" />
@@ -174,11 +183,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         </div>
 
         <Form.Item name="templateDescription" style={{ marginBottom: 16 }}>
-          <TextArea
-            size="small"
-            placeholder="Description (optional)"
-            autoSize={{ minRows: 1, maxRows: 3 }}
-          />
+          <TextArea size="small" placeholder="Description (optional)" autoSize={{ minRows: 1, maxRows: 3 }} />
         </Form.Item>
 
         {/* ── Include toggles ── */}
@@ -213,7 +218,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         {/* ── Conditions ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <Text strong style={{ fontSize: 13 }}>Conditions</Text>
+            <Text strong style={{ fontSize: 13 }}>
+              Conditions
+            </Text>
             <InfoCircleOutlined style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }} />
           </div>
           <Form.Item name="conditions" style={{ marginBottom: 0 }}>

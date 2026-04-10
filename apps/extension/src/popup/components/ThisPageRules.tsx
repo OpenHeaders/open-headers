@@ -10,6 +10,7 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import { isPathPausedByAncestor } from '@openheaders/core/utils';
+import { runtime } from '@utils/browser-api';
 import {
   App,
   Badge,
@@ -33,7 +34,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { getBrowserAPI } from '@/types/browser';
-import { runtime } from '@utils/browser-api';
 import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderActionDetails,
@@ -299,9 +299,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const filteredRules = searchText
     ? activeRules.filter((r) => {
         const q = searchText.toLowerCase();
-        const matchesByRule =
-          r.name.toLowerCase().includes(q) ||
-          (r.summary || '').toLowerCase().includes(q);
+        const matchesByRule = r.name.toLowerCase().includes(q) || (r.summary || '').toLowerCase().includes(q);
         const matchingUrlCount = (r.matchedUrls || []).filter((m) => m.url.toLowerCase().includes(q)).length;
         if (matchingUrlCount > 0 && r.id) urlMatchCountMap.set(r.id, matchingUrlCount);
         return matchesByRule || matchingUrlCount > 0;
@@ -705,9 +703,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                               Active → Paused → Disabled · priority within each
                             </Text>
                           </div>
-                          {sortMode === 'status' && !sortedInfo.order && (
-                            <CheckOutlined style={{ color: '#1677ff' }} />
-                          )}
+                          {sortMode === 'status' && !sortedInfo.order && <CheckOutlined style={{ color: '#1677ff' }} />}
                         </div>
                       ),
                       onClick: () => handleSortModeChange('status'),
@@ -753,9 +749,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                               Matches the workspace sidebar tree order
                             </Text>
                           </div>
-                          {sortMode === 'manual' && !sortedInfo.order && (
-                            <CheckOutlined style={{ color: '#1677ff' }} />
-                          )}
+                          {sortMode === 'manual' && !sortedInfo.order && <CheckOutlined style={{ color: '#1677ff' }} />}
                         </div>
                       ),
                       onClick: () => handleSortModeChange('manual'),

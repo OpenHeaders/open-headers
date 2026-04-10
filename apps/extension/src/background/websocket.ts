@@ -3,9 +3,9 @@
  * and receives V5 resolved rules.
  */
 
-import type { V5 } from '@openheaders/core/types';
 import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
 import { WS_SERVER_URL as CORE_WS_SERVER_URL } from '@openheaders/core/protocol';
+import type { V5 } from '@openheaders/core/types';
 import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { sendMessageWithCallback } from '@utils/messaging';
@@ -73,10 +73,7 @@ function sendBrowserInfo(): void {
 // ── Connection status ─────────────────────────────────────────────
 
 function broadcastConnectionStatus(): void {
-  sendMessageWithCallback(
-    { type: 'connectionStatus', connected: isConnected },
-    (_response, _error) => {},
-  );
+  sendMessageWithCallback({ type: 'connectionStatus', connected: isConnected }, (_response, _error) => {});
 }
 
 // ── Message handling ──────────────────────────────────────────────
@@ -95,10 +92,7 @@ function handleRulesUpdate(rules: V5.Rule[]): void {
   }
 
   // Notify popup
-  sendMessageWithCallback(
-    { type: 'rulesUpdated', rules, timestamp: Date.now() },
-    (_response, _error) => {},
-  );
+  sendMessageWithCallback({ type: 'rulesUpdated', rules, timestamp: Date.now() }, (_response, _error) => {});
 }
 
 function handleOtherMessages(parsed: Record<string, unknown>): void {

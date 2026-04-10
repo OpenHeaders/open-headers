@@ -167,7 +167,12 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
 
   // ── Walk V5 tree nodes ──────────────────────────────────────
 
-  function walkTreeNodes(nodes: V5.TreeNode[], depth: number, parentId: string, section: V5.WorkspaceSection): TreeNode[] {
+  function walkTreeNodes(
+    nodes: V5.TreeNode[],
+    depth: number,
+    parentId: string,
+    section: V5.WorkspaceSection,
+  ): TreeNode[] {
     const items: TreeNode[] = [];
     for (const node of nodes) {
       if (node.type === 'folder') {
@@ -185,8 +190,13 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
           canDelete: true,
           canAddChild: true,
           onOpen: () => onToggleExpand(fid),
-          onRename: async (name: string) => { void renameFolder(section, node.uid, name); },
-          onDelete: () => confirmDelete(node.name, () => { void removeFolder(section, node.uid); }),
+          onRename: async (name: string) => {
+            void renameFolder(section, node.uid, name);
+          },
+          onDelete: () =>
+            confirmDelete(node.name, () => {
+              void removeFolder(section, node.uid);
+            }),
         });
         if (isExpanded) {
           items.push(...walkTreeNodes(node.children, depth + 1, fid, section));
@@ -213,8 +223,13 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
               icon: node.method || 'GET',
               entityId: node.uid,
             }),
-          onRename: async (name: string) => { void updateRequest(node.uid, { name }); },
-          onDelete: () => confirmDelete(node.name, () => { void removeRequest(node.uid); }),
+          onRename: async (name: string) => {
+            void updateRequest(node.uid, { name });
+          },
+          onDelete: () =>
+            confirmDelete(node.name, () => {
+              void removeRequest(node.uid);
+            }),
         });
       } else if (node.type === 'rule') {
         if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
@@ -301,7 +316,10 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
             placeholderActions: [
               {
                 label: section === 'requests' ? 'Add request' : 'Add rule',
-                icon: iconEl(section === 'requests' ? ApiOutlined : ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                icon: iconEl(
+                  section === 'requests' ? ApiOutlined : ThunderboltOutlined,
+                  'var(--ant-color-text-tertiary, #999)',
+                ),
                 onClick: onAddItem,
               },
             ],
@@ -347,16 +365,25 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
         ? {
             icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
             tooltip: 'Disable',
-            onClick: () => { void toggleRule(rule.uid, false); },
+            onClick: () => {
+              void toggleRule(rule.uid, false);
+            },
           }
         : {
             icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
             tooltip: 'Enable',
-            onClick: () => { void toggleRule(rule.uid, true); },
+            onClick: () => {
+              void toggleRule(rule.uid, true);
+            },
           },
       onOpen: () => onOpenTab({ id: rid, type: 'rule', label: rule.name, icon: 'rule', entityId: rule.uid }),
-      onRename: async (name: string) => { void updateRule(rule.uid, { name }); },
-      onDelete: () => confirmDelete(rule.name, () => { void removeRule(rule.uid); }),
+      onRename: async (name: string) => {
+        void updateRule(rule.uid, { name });
+      },
+      onDelete: () =>
+        confirmDelete(rule.name, () => {
+          void removeRule(rule.uid);
+        }),
     };
   }
 
@@ -402,7 +429,9 @@ export function useTreeData(props: UseTreeDataProps): UseTreeDataReturn {
             },
         onOpen: () =>
           onOpenTab({ id: eid, type: 'environment', label: env.name, icon: 'environment', entityId: env.name }),
-        onRename: async (name: string) => { void updateEnvironment(env.name, { name }); },
+        onRename: async (name: string) => {
+          void updateEnvironment(env.name, { name });
+        },
         onDelete: () => confirmDelete(env.name, () => deleteEnvironment(env.name)),
       });
     }

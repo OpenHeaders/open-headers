@@ -49,7 +49,12 @@ interface SaveToCollectionModalProps {
   workspaceName: string;
   onSave: (params: { name: string; collectionId: string; folderId?: string }) => void;
   onCreateCollection: (name: string, section: V5.WorkspaceSection) => Promise<V5.Collection | null>;
-  onCreateFolder: (collectionUid: string, section: V5.WorkspaceSection, name: string, parentPath?: string) => Promise<V5.FolderNode | null>;
+  onCreateFolder: (
+    collectionUid: string,
+    section: V5.WorkspaceSection,
+    name: string,
+    parentPath?: string,
+  ) => Promise<V5.FolderNode | null>;
   onCancel: () => void;
 }
 
@@ -139,19 +144,19 @@ export function SaveToCollectionModal({
     const folderNode = selectedFolderPath
       ? currentNodes.length >= 0 // we have a valid folder path
         ? (() => {
-          // Find the folder node to get its uid
-          const findFolder = (nodes: V5.TreeNode[], path: string): V5.FolderNode | null => {
-            for (const n of nodes) {
-              if (n.type === 'folder' && n.path === path) return n;
-              if (n.type === 'folder') {
-                const found = findFolder(n.children, path);
-                if (found) return found;
+            // Find the folder node to get its uid
+            const findFolder = (nodes: V5.TreeNode[], path: string): V5.FolderNode | null => {
+              for (const n of nodes) {
+                if (n.type === 'folder' && n.path === path) return n;
+                if (n.type === 'folder') {
+                  const found = findFolder(n.children, path);
+                  if (found) return found;
+                }
               }
-            }
-            return null;
-          };
-          return selectedTree ? findFolder(selectedTree.tree, selectedFolderPath) : null;
-        })()
+              return null;
+            };
+            return selectedTree ? findFolder(selectedTree.tree, selectedFolderPath) : null;
+          })()
         : null
       : null;
     onSave({ name: name.trim(), collectionId: selectedCollectionId, folderId: folderNode?.uid });
@@ -341,14 +346,22 @@ export function SaveToCollectionModal({
                 }
               }}
             />
-            <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }} onClick={() => void handleCreateCollection()}>
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, fontSize: 11 }}
+              onClick={() => void handleCreateCollection()}
+            >
               Create
             </Button>
             <Button
               type="link"
               size="small"
               style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }}
-              onClick={() => { setCreatingCollection(false); setNewCollectionName(''); }}
+              onClick={() => {
+                setCreatingCollection(false);
+                setNewCollectionName('');
+              }}
             >
               Cancel
             </Button>
@@ -448,14 +461,22 @@ export function SaveToCollectionModal({
                     }
                   }}
                 />
-                <Button type="link" size="small" style={{ padding: 0, fontSize: 11 }} onClick={() => void handleCreateFolder()}>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, fontSize: 11 }}
+                  onClick={() => void handleCreateFolder()}
+                >
                   Create
                 </Button>
                 <Button
                   type="link"
                   size="small"
                   style={{ padding: 0, fontSize: 11, color: token.colorTextSecondary }}
-                  onClick={() => { setCreatingFolder(false); setNewFolderName(''); }}
+                  onClick={() => {
+                    setCreatingFolder(false);
+                    setNewFolderName('');
+                  }}
                 >
                   Cancel
                 </Button>
@@ -477,8 +498,13 @@ export function SaveToCollectionModal({
                       fontSize: 12,
                       borderBottom: `1px solid ${token.colorBorderSecondary}`,
                     }}
-                    onClick={() => { setSelectedFolderPath(node.path); setCreatingFolder(false); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedFolderPath(node.path); }}
+                    onClick={() => {
+                      setSelectedFolderPath(node.path);
+                      setCreatingFolder(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setSelectedFolderPath(node.path);
+                    }}
                     role="button"
                     tabIndex={0}
                   >
@@ -492,7 +518,14 @@ export function SaveToCollectionModal({
                 return (
                   <div
                     key={node.uid}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, color: token.colorTextSecondary }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      color: token.colorTextSecondary,
+                    }}
                   >
                     <span
                       style={{
@@ -513,9 +546,18 @@ export function SaveToCollectionModal({
                 return (
                   <div
                     key={node.uid}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, color: token.colorTextSecondary }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      color: token.colorTextSecondary,
+                    }}
                   >
-                    <ThunderboltOutlined style={{ fontSize: 11, color: node.enabled ? token.colorPrimary : token.colorTextTertiary }} />
+                    <ThunderboltOutlined
+                      style={{ fontSize: 11, color: node.enabled ? token.colorPrimary : token.colorTextTertiary }}
+                    />
                     <span>{node.name}</span>
                   </div>
                 );

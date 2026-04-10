@@ -19,6 +19,7 @@ const log = createLogger('WorkspaceSettingsService');
 
 import { DATA_FORMAT_VERSION } from '@/config/version';
 import type { Workspace, WorkspaceSyncStatus } from '@/types/workspace';
+
 // Inline interfaces (originally from deleted sync/types)
 interface SyncStatusOwnerLike {
   updateSyncStatus(workspaceId: string, status: Partial<WorkspaceSyncStatus>): void;

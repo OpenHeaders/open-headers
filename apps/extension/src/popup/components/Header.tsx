@@ -286,7 +286,17 @@ const Header: React.FC<HeaderProps> = ({ onShowShortcuts, onShowTour }) => {
                 size="small"
                 icon={<DownloadOutlined />}
                 onClick={() => window.open('https://openheaders.io', '_blank')}
-                style={{ fontSize: '11px', padding: 0, height: 0, lineHeight: '14px', position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}
+                style={{
+                  fontSize: '11px',
+                  padding: 0,
+                  height: 0,
+                  lineHeight: '14px',
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  whiteSpace: 'nowrap',
+                }}
               >
                 Get App
               </Button>

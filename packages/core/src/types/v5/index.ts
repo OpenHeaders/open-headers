@@ -8,10 +8,6 @@ export type {
   TemplateNode,
   TreeNode,
 } from './collection';
-
-// ── Template ──────────────────────────────────────────────────────
-export type { Template } from './template';
-
 // ── Request ────────────────────────────────────────────────────────
 export type {
   AuthConfig,
@@ -23,7 +19,6 @@ export type {
   RequestBody,
   RequestHeader,
 } from './request';
-
 // ── Rule ───────────────────────────────────────────────────────────
 export type {
   BlockAction,
@@ -62,6 +57,8 @@ export type {
 } from './rule';
 // ── Storage ────────────────────────────────────────────────────────
 export { V5_GITIGNORE } from './storage';
+// ── Template ──────────────────────────────────────────────────────
+export type { Template } from './template';
 // ── Variable ───────────────────────────────────────────────────────
 export type {
   Environment,

@@ -4,6 +4,8 @@ import {
   type WorkspaceServiceState,
 } from '@/renderer/services/CentralizedWorkspaceService';
 
+// Re-export environment hook
+export { useEnvironments } from './useCentralizedEnvironments';
 // Re-export hooks from workspace module
 export {
   useCollections,
@@ -12,9 +14,6 @@ export {
   useWorkspaces,
   useWorkspaceVariables,
 } from './workspace';
-
-// Re-export environment hook
-export { useEnvironments } from './useCentralizedEnvironments';
 
 /**
  * Main hook for accessing all workspace functionality

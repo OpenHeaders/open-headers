@@ -31,8 +31,8 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { runtime } from '@utils/browser-api';
 import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
+import { runtime } from '@utils/browser-api';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
@@ -156,11 +156,7 @@ function templateCollectionMenuItems(
   ];
 }
 
-function templateFolderMenuItems(
-  onAddFolder: () => void,
-  onRename: () => void,
-  onDelete: () => void,
-): ItemType[] {
+function templateFolderMenuItems(onAddFolder: () => void, onRename: () => void, onDelete: () => void): ItemType[] {
   return [
     { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
     { type: 'divider' as const, key: 'div' },
@@ -651,7 +647,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           const onAddFolder = () => {
             void createTemplateFolder('New Folder', node.path).then((f) => {
               if (f) {
-                setExpandedKeys((prev) => { const next = new Set(prev); next.add(fid); return next; });
+                setExpandedKeys((prev) => {
+                  const next = new Set(prev);
+                  next.add(fid);
+                  return next;
+                });
                 onOpenTemplateFolderOverview?.(f.uid, f.name, true);
               }
             });
@@ -672,12 +672,20 @@ const Sidebar: React.FC<SidebarProps> = ({
               toggleExpand(fid);
               onOpenTemplateFolderOverview?.(node.uid, node.name);
             },
-            onRename: async (name: string) => { void renameTemplateFolder(node.uid, name); },
-            onDelete: () => confirmDelete(node.name, () => { void deleteTemplateFolder(node.uid); }),
+            onRename: async (name: string) => {
+              void renameTemplateFolder(node.uid, name);
+            },
+            onDelete: () =>
+              confirmDelete(node.name, () => {
+                void deleteTemplateFolder(node.uid);
+              }),
             addMenuItems: templateFolderMenuItems(
               onAddFolder,
               () => setRenamingId(fid),
-              () => confirmDelete(node.name, () => { void deleteTemplateFolder(node.uid); }),
+              () =>
+                confirmDelete(node.name, () => {
+                  void deleteTemplateFolder(node.uid);
+                }),
             ),
           });
           if (isExpanded) {
@@ -719,8 +727,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             canDelete: true,
             canAddChild: false,
             onOpen: () => onSelectTemplate?.(node.uid),
-            onRename: async (name: string) => { void updateTemplate(node.uid, { name }); },
-            onDelete: () => confirmDelete(node.name, () => { void deleteTemplate(node.uid); }),
+            onRename: async (name: string) => {
+              void updateTemplate(node.uid, { name });
+            },
+            onDelete: () =>
+              confirmDelete(node.name, () => {
+                void deleteTemplate(node.uid);
+              }),
           });
         }
       }
@@ -759,7 +772,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       const onAddFolder = () => {
         void createTemplateFolder('New Folder', collection.path).then((f) => {
           if (f) {
-            setExpandedKeys((prev) => { const next = new Set(prev); next.add(colId); return next; });
+            setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(colId);
+              return next;
+            });
             onOpenTemplateFolderOverview?.(f.uid, f.name, true);
           }
         });
@@ -780,15 +797,23 @@ const Sidebar: React.FC<SidebarProps> = ({
           onOpenTemplateCollectionOverview?.(collection.uid, collection.name);
         },
         onRename: !isDefault
-          ? async (name) => { void renameTemplateCollection(collection.uid, name); }
+          ? async (name) => {
+              void renameTemplateCollection(collection.uid, name);
+            }
           : undefined,
         onDelete: !isDefault
-          ? () => confirmDelete(collection.name, () => { void deleteTemplateCollection(collection.uid); })
+          ? () =>
+              confirmDelete(collection.name, () => {
+                void deleteTemplateCollection(collection.uid);
+              })
           : undefined,
         addMenuItems: templateCollectionMenuItems(
           onAddFolder,
           () => setRenamingId(colId),
-          () => confirmDelete(collection.name, () => { void deleteTemplateCollection(collection.uid); }),
+          () =>
+            confirmDelete(collection.name, () => {
+              void deleteTemplateCollection(collection.uid);
+            }),
           isDefault,
         ),
       });
@@ -833,10 +858,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   // ── Flat items for keyboard nav ──────────────────────────────
 
   const allFlatItems = useMemo(
-    () => [
-      ...(sectionsExpanded.rules ? rulesNodes : []),
-      ...(sectionsExpanded.templates ? templateNodes : []),
-    ],
+    () => [...(sectionsExpanded.rules ? rulesNodes : []), ...(sectionsExpanded.templates ? templateNodes : [])],
     [sectionsExpanded.rules, sectionsExpanded.templates, rulesNodes, templateNodes],
   );
 

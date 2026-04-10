@@ -257,10 +257,14 @@ const InspectorDocs: React.FC = () => {
 
       <div id="doc-exclude-domains" style={{ scrollMarginTop: 8 }}>
         <Card title="Exclude Domains" extra={<Tag color="warning">excludedRequestDomains</Tag>}>
-          Skip these domains even if other conditions match. Must be combined with Request Domains or other conditions — it only excludes, it doesn't match on its own.
+          Skip these domains even if other conditions match. Must be combined with Request Domains or other conditions —
+          it only excludes, it doesn't match on its own.
           <Example
             rule="Request Domains: openheaders.io + Exclude: staging.openheaders.io"
-            after={['api.openheaders.io — matched by Request Domains, not excluded', 'cdn.openheaders.io — matched, not excluded']}
+            after={[
+              'api.openheaders.io — matched by Request Domains, not excluded',
+              'cdn.openheaders.io — matched, not excluded',
+            ]}
             wontApply={[
               'staging.openheaders.io — matched by Request Domains but then excluded',
               '→ Remove the Exclude condition to apply to staging too',
@@ -370,7 +374,7 @@ const InspectorDocs: React.FC = () => {
             before={['Set-Cookie: session=abc']}
             after={['Set-Cookie: session=abc', 'Set-Cookie: tracking=xyz']}
             wontApply={[
-              'Headers that don\'t support duplicates (e.g. Authorization) — browser keeps only one',
+              "Headers that don't support duplicates (e.g. Authorization) — browser keeps only one",
               '→ Use Override to replace the value, or Merge to append to the existing value',
             ]}
           />

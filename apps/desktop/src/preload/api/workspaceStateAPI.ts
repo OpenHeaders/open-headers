@@ -66,8 +66,7 @@ export function createWorkspaceStateAPI() {
       section: V5.WorkspaceSection,
       uid: string,
       updates: Partial<V5.Collection>,
-    ): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:update-collection', section, uid, updates),
+    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:update-collection', section, uid, updates),
 
     removeCollection: (section: V5.WorkspaceSection, uid: string): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:remove-collection', section, uid),
@@ -104,14 +103,12 @@ export function createWorkspaceStateAPI() {
       varName: string,
       value: string,
       type: 'default' | 'secret',
-    ): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:set-variable', envName, varName, value, type),
+    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:set-variable', envName, varName, value, type),
 
     updateEnvironment: (
       oldName: string,
       updates: { name?: string; variables?: V5.Variable[] },
-    ): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:update-environment', oldName, updates),
+    ): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:update-environment', oldName, updates),
 
     // Request CRUD
     getRequest: (uid: string): Promise<OperationResult & { request?: V5.Request }> =>
@@ -126,8 +123,7 @@ export function createWorkspaceStateAPI() {
     updateRequest: (uid: string, updates: Partial<V5.Request>): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:update-request', uid, updates),
 
-    removeRequest: (uid: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:remove-request', uid),
+    removeRequest: (uid: string): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:remove-request', uid),
 
     // Rule CRUD
     addRule: (
@@ -139,8 +135,7 @@ export function createWorkspaceStateAPI() {
     updateRule: (uid: string, updates: Partial<V5.Rule>): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:update-rule', uid, updates),
 
-    removeRule: (uid: string): Promise<OperationResult> =>
-      ipcRenderer.invoke('workspace-state:remove-rule', uid),
+    removeRule: (uid: string): Promise<OperationResult> => ipcRenderer.invoke('workspace-state:remove-rule', uid),
 
     toggleRule: (uid: string, enabled: boolean): Promise<OperationResult> =>
       ipcRenderer.invoke('workspace-state:toggle-rule', uid, enabled),

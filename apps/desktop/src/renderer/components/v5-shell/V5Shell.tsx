@@ -60,7 +60,15 @@ export function V5Shell() {
   const { rules, addRule, updateRule } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, createEnvironment, updateEnvironment } =
     useEnvironments();
-  const { collections, requestCollections, ruleCollections, addCollection, updateCollection: updateCollectionInV5, getSectionForCollection, addFolder } = useCollections();
+  const {
+    collections,
+    requestCollections,
+    ruleCollections,
+    addCollection,
+    updateCollection: updateCollectionInV5,
+    getSectionForCollection,
+    addFolder,
+  } = useCollections();
   const { switchState } = useWorkspaceSwitch();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspaceName = activeWorkspace?.name ?? 'Workspace';
@@ -263,18 +271,20 @@ export function V5Shell() {
   });
 
   // Draft creation + save-to-collection modal
-  const { createDraftRequest, createDraftRule, createDraftEnvironment, handleSaveDraft, saveModalProps } = useDraftSave({
-    requests,
-    rules,
-    environments,
-    tabs,
-    createEnvironment,
-    addRequest,
-    addRule,
-    closeTab,
-    openTab,
-    ensureSidebarExpanded: sidebarExpansion.ensureExpanded,
-  });
+  const { createDraftRequest, createDraftRule, createDraftEnvironment, handleSaveDraft, saveModalProps } = useDraftSave(
+    {
+      requests,
+      rules,
+      environments,
+      tabs,
+      createEnvironment,
+      addRequest,
+      addRule,
+      closeTab,
+      openTab,
+      ensureSidebarExpanded: sidebarExpansion.ensureExpanded,
+    },
+  );
 
   const togglePanel = useCallback(
     (panel: keyof PanelVisibility) => {
@@ -470,12 +480,9 @@ export function V5Shell() {
     return null;
   }, [activeTabId, tabs, collections]);
 
-  const handlePinEnvironment = useCallback(
-    (_collectionId: string, _envName: string | null) => {
-      // TODO: pinned environment per collection — deferred
-    },
-    [],
-  );
+  const handlePinEnvironment = useCallback((_collectionId: string, _envName: string | null) => {
+    // TODO: pinned environment per collection — deferred
+  }, []);
 
   // Active resolved tab and breadcrumbs — derived from resolved tabs
   const activeResolvedTab = resolvedTabs.find((t) => t.id === activeTabId);
@@ -511,7 +518,15 @@ export function V5Shell() {
       }
       setPendingRenameTabId(null);
     },
-    [activeResolvedTab, updateTab, updateCollectionInV5, getSectionForCollection, updateEnvironment, updateRequest, updateRule],
+    [
+      activeResolvedTab,
+      updateTab,
+      updateCollectionInV5,
+      getSectionForCollection,
+      updateEnvironment,
+      updateRequest,
+      updateRule,
+    ],
   );
 
   return (

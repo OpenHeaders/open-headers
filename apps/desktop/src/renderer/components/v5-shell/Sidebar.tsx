@@ -19,16 +19,11 @@ import {
   SearchOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
+import type { V5 } from '@openheaders/core/types';
 import { Allotment } from 'allotment';
 import { Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { V5 } from '@openheaders/core/types';
-import {
-  useCollections,
-  useEnvironments,
-  useHeaderRules,
-  useRequests,
-} from '@/renderer/hooks/useCentralizedWorkspace';
+import { useCollections, useEnvironments, useHeaderRules, useRequests } from '@/renderer/hooks/useCentralizedWorkspace';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
 import { useTreeData } from './sidebar/useTreeData';
@@ -165,7 +160,8 @@ export function Sidebar({
   const { rules, ruleCollections, updateRule, removeRule, toggleRule } = useHeaderRules();
   const { environments, activeEnvironment, switchEnvironment, deleteEnvironment, updateEnvironment } =
     useEnvironments();
-  const { collections, addCollection, updateCollection, removeCollection, renameFolder, removeFolder } = useCollections();
+  const { collections, addCollection, updateCollection, removeCollection, renameFolder, removeFolder } =
+    useCollections();
 
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -362,23 +358,20 @@ export function Sidebar({
   // ── Select opened file ───────────────────────────────────────
 
   /** Walk collection trees to find the collection (and folder chain) containing a node uid. */
-  const findAncestorKeys = useCallback(
-    (uid: string, allCollections: V5.CollectionTree[]): string[] => {
-      const keys: string[] = [];
-      for (const coll of allCollections) {
-        const path = findPathToNode(coll.tree, uid);
-        if (path) {
-          keys.push(`col-${coll.uid}`);
-          for (const ancestor of path) {
-            if (ancestor.type === 'folder') keys.push(`folder-${ancestor.uid}`);
-          }
-          return keys;
+  const findAncestorKeys = useCallback((uid: string, allCollections: V5.CollectionTree[]): string[] => {
+    const keys: string[] = [];
+    for (const coll of allCollections) {
+      const path = findPathToNode(coll.tree, uid);
+      if (path) {
+        keys.push(`col-${coll.uid}`);
+        for (const ancestor of path) {
+          if (ancestor.type === 'folder') keys.push(`folder-${ancestor.uid}`);
         }
+        return keys;
       }
-      return keys;
-    },
-    [],
-  );
+    }
+    return keys;
+  }, []);
 
   const selectOpenedFile = useCallback(() => {
     if (!activeTabId) return;
@@ -406,7 +399,15 @@ export function Sidebar({
     setTimeout(() => {
       containerRef.current?.querySelector(`[data-item-id="${activeTabId}"]`)?.scrollIntoView({ block: 'nearest' });
     }, 50);
-  }, [activeTabId, expandedSectionsSet, requestCollections, ruleCollections, findAncestorKeys, ensureExpanded, onExpandedSectionsChange]);
+  }, [
+    activeTabId,
+    expandedSectionsSet,
+    requestCollections,
+    ruleCollections,
+    findAncestorKeys,
+    ensureExpanded,
+    onExpandedSectionsChange,
+  ]);
 
   selectOpenedFileRef.current = selectOpenedFile;
 

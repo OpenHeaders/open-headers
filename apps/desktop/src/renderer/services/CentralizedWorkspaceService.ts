@@ -148,20 +148,13 @@ class CentralizedWorkspaceService {
 
   // ── Collection CRUD (IPC forwards) ────────────────────────
 
-  async addCollection(
-    section: V5.WorkspaceSection,
-    data: Omit<V5.Collection, 'uid' | 'path'>,
-  ): Promise<V5.Collection> {
+  async addCollection(section: V5.WorkspaceSection, data: Omit<V5.Collection, 'uid' | 'path'>): Promise<V5.Collection> {
     const result = await window.electronAPI.workspaceState.addCollection(section, data);
     if (!result.success) throw new Error(result.error ?? 'Failed to add collection');
     return result.collection!;
   }
 
-  async updateCollection(
-    section: V5.WorkspaceSection,
-    uid: string,
-    updates: Partial<V5.Collection>,
-  ): Promise<void> {
+  async updateCollection(section: V5.WorkspaceSection, uid: string, updates: Partial<V5.Collection>): Promise<void> {
     const result = await window.electronAPI.workspaceState.updateCollection(section, uid, updates);
     if (!result.success) throw new Error(result.error ?? 'Failed to update collection');
   }
@@ -213,10 +206,7 @@ class CentralizedWorkspaceService {
     return result.request ?? null;
   }
 
-  async addRequest(
-    collectionUid: string,
-    request: Omit<V5.Request, 'uid' | 'path'>,
-  ): Promise<V5.Request> {
+  async addRequest(collectionUid: string, request: Omit<V5.Request, 'uid' | 'path'>): Promise<V5.Request> {
     const result = await window.electronAPI.workspaceState.addRequest(collectionUid, request);
     if (!result.success) throw new Error(result.error ?? 'Failed to add request');
     return result.request!;
@@ -234,10 +224,7 @@ class CentralizedWorkspaceService {
 
   // ── Rule CRUD (IPC forwards) ──────────────────────────
 
-  async addRule(
-    collectionUid: string,
-    rule: Omit<V5.Rule, 'uid' | 'path'>,
-  ): Promise<V5.Rule> {
+  async addRule(collectionUid: string, rule: Omit<V5.Rule, 'uid' | 'path'>): Promise<V5.Rule> {
     const result = await window.electronAPI.workspaceState.addRule(collectionUid, rule);
     if (!result.success) throw new Error(result.error ?? 'Failed to add rule');
     return result.rule!;
@@ -306,12 +293,7 @@ class CentralizedWorkspaceService {
     if (!result.success) throw new Error(result.error ?? 'Failed to switch environment');
   }
 
-  async setVariable(
-    envName: string,
-    varName: string,
-    value: string,
-    type: 'default' | 'secret',
-  ): Promise<void> {
+  async setVariable(envName: string, varName: string, value: string, type: 'default' | 'secret'): Promise<void> {
     const result = await window.electronAPI.workspaceState.setVariable(envName, varName, value, type);
     if (!result.success) throw new Error(result.error ?? 'Failed to set variable');
   }

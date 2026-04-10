@@ -10,8 +10,12 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { useMemo } from 'react';
-import { useCollections, useEnvironments, useWorkspaceVariables } from './useCentralizedWorkspace';
-import { useCentralizedWorkspace } from './useCentralizedWorkspace';
+import {
+  useCentralizedWorkspace,
+  useCollections,
+  useEnvironments,
+  useWorkspaceVariables,
+} from './useCentralizedWorkspace';
 
 // ── Public types ─────────────────────────────────────────────────
 

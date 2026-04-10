@@ -5,8 +5,8 @@
  * The renderer calls ipcRenderer.invoke() and receives results.
  */
 
-import type { V5 } from '@openheaders/core/types';
 import { errorMessage } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { ipcMain } from 'electron';
 import workspaceStateService from '@/services/workspace/WorkspaceStateService';
 import type { Workspace, WorkspaceType } from '@/types/workspace';
@@ -218,18 +218,15 @@ export function registerWorkspaceStateHandlers(): void {
     },
   );
 
-  ipcMain.handle(
-    'workspace-state:update-request',
-    async (_event, uid: string, updates: Partial<V5.Request>) => {
-      try {
-        await workspaceStateService.updateRequest(uid, updates);
-        return { success: true };
-      } catch (error) {
-        log.error('Update request failed:', error);
-        return { success: false, error: errorMessage(error) };
-      }
-    },
-  );
+  ipcMain.handle('workspace-state:update-request', async (_event, uid: string, updates: Partial<V5.Request>) => {
+    try {
+      await workspaceStateService.updateRequest(uid, updates);
+      return { success: true };
+    } catch (error) {
+      log.error('Update request failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
 
   ipcMain.handle('workspace-state:remove-request', async (_event, uid: string) => {
     try {
@@ -256,18 +253,15 @@ export function registerWorkspaceStateHandlers(): void {
     },
   );
 
-  ipcMain.handle(
-    'workspace-state:update-rule',
-    async (_event, uid: string, updates: Partial<V5.Rule>) => {
-      try {
-        await workspaceStateService.updateRule(uid, updates);
-        return { success: true };
-      } catch (error) {
-        log.error('Update rule failed:', error);
-        return { success: false, error: errorMessage(error) };
-      }
-    },
-  );
+  ipcMain.handle('workspace-state:update-rule', async (_event, uid: string, updates: Partial<V5.Rule>) => {
+    try {
+      await workspaceStateService.updateRule(uid, updates);
+      return { success: true };
+    } catch (error) {
+      log.error('Update rule failed:', error);
+      return { success: false, error: errorMessage(error) };
+    }
+  });
 
   ipcMain.handle('workspace-state:remove-rule', async (_event, uid: string) => {
     try {

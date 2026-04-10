@@ -9,10 +9,18 @@ interface UseCollectionsReturn {
   ruleCollections: V5.CollectionTree[];
   /** Determine which workspace section a collection belongs to. */
   getSectionForCollection: (uid: string) => V5.WorkspaceSection;
-  addCollection: (section: V5.WorkspaceSection, data: Omit<V5.Collection, 'uid' | 'path'>) => Promise<V5.Collection | null>;
+  addCollection: (
+    section: V5.WorkspaceSection,
+    data: Omit<V5.Collection, 'uid' | 'path'>,
+  ) => Promise<V5.Collection | null>;
   updateCollection: (section: V5.WorkspaceSection, uid: string, updates: Partial<V5.Collection>) => Promise<boolean>;
   removeCollection: (section: V5.WorkspaceSection, uid: string) => Promise<boolean>;
-  addFolder: (collectionUid: string, section: V5.WorkspaceSection, name: string, parentPath?: string) => Promise<V5.FolderNode | null>;
+  addFolder: (
+    collectionUid: string,
+    section: V5.WorkspaceSection,
+    name: string,
+    parentPath?: string,
+  ) => Promise<V5.FolderNode | null>;
   renameFolder: (section: V5.WorkspaceSection, uid: string, newName: string) => Promise<boolean>;
   removeFolder: (section: V5.WorkspaceSection, uid: string) => Promise<boolean>;
 }
@@ -26,10 +34,7 @@ export function useCollections(): UseCollectionsReturn {
     ...ruleCollections.map(({ tree: _tree, ...c }) => c),
   ];
 
-  const requestCollectionUids = useMemo(
-    () => new Set(requestCollections.map((c) => c.uid)),
-    [requestCollections],
-  );
+  const requestCollectionUids = useMemo(() => new Set(requestCollections.map((c) => c.uid)), [requestCollections]);
 
   const getSectionForCollection = useCallback(
     (uid: string): V5.WorkspaceSection => {
@@ -39,10 +44,7 @@ export function useCollections(): UseCollectionsReturn {
   );
 
   const addCollection = useCallback(
-    async (
-      section: V5.WorkspaceSection,
-      data: Omit<V5.Collection, 'uid' | 'path'>,
-    ): Promise<V5.Collection | null> => {
+    async (section: V5.WorkspaceSection, data: Omit<V5.Collection, 'uid' | 'path'>): Promise<V5.Collection | null> => {
       try {
         return await service.addCollection(section, data);
       } catch (error: unknown) {

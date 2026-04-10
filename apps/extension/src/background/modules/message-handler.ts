@@ -8,23 +8,6 @@ import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import { clearAllTracking, getActiveRulesForTab } from './request-tracker';
 import {
-  addTemplate,
-  addTemplateToCollection,
-  createTemplateCollection,
-  createTemplateFolder,
-  deleteTemplate,
-  deleteTemplateCollection,
-  deleteTemplateFolder,
-  ensureDefaultTemplateCollection,
-  getTemplateCollectionTrees,
-  getTemplateCollections,
-  getTemplateFolders,
-  getTemplates,
-  renameTemplateCollection,
-  renameTemplateFolder,
-  updateTemplate,
-} from './template-store';
-import {
   addLocalRule,
   addLocalRuleToCollection,
   createLocalCollection,
@@ -33,8 +16,8 @@ import {
   deleteLocalFolder,
   deleteLocalRule,
   ensureDefaultCollection,
-  getLocalCollectionTrees,
   getLocalCollections,
+  getLocalCollectionTrees,
   getLocalFolders,
   getLocalRules,
   getRules,
@@ -43,6 +26,23 @@ import {
   toggleLocalRule,
   updateLocalRule,
 } from './rule-store';
+import {
+  addTemplate,
+  addTemplateToCollection,
+  createTemplateCollection,
+  createTemplateFolder,
+  deleteTemplate,
+  deleteTemplateCollection,
+  deleteTemplateFolder,
+  ensureDefaultTemplateCollection,
+  getTemplateCollections,
+  getTemplateCollectionTrees,
+  getTemplateFolders,
+  getTemplates,
+  renameTemplateCollection,
+  renameTemplateFolder,
+  updateTemplate,
+} from './template-store';
 
 const browserAPI = { runtime: browserRuntime };
 
@@ -64,13 +64,8 @@ export function handleGeneralMessage(
 ): boolean | undefined {
   const safeResponse = createSafeResponse(sendResponse);
 
-  const {
-    isWebSocketConnected,
-    sendViaWebSocket,
-    scheduleUpdate,
-    revalidateTrackedRequests,
-    updateBadgeCallback,
-  } = ctx;
+  const { isWebSocketConnected, sendViaWebSocket, scheduleUpdate, revalidateTrackedRequests, updateBadgeCallback } =
+    ctx;
 
   try {
     if (message.type === 'popupOpen') {
@@ -177,9 +172,7 @@ export function handleGeneralMessage(
       if (parentPath) {
         created = addLocalRule(ruleData, parentPath);
       } else {
-        const collection = collectionUid
-          ? { uid: collectionUid }
-          : ensureDefaultCollection();
+        const collection = collectionUid ? { uid: collectionUid } : ensureDefaultCollection();
         created = addLocalRuleToCollection(ruleData, collection.uid);
       }
       scheduleUpdate('rules', { immediate: true });
@@ -247,7 +240,7 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false, error: 'Not connected to desktop app' });
       }
-    // ── Template CRUD ──────────────────────────────────────────────
+      // ── Template CRUD ──────────────────────────────────────────────
     } else if (message.type === 'getTemplates') {
       safeResponse({ templates: getTemplates() });
     } else if (message.type === 'getTemplateCollections') {
@@ -265,9 +258,7 @@ export function handleGeneralMessage(
       if (parentPath) {
         created = addTemplate(templateData, parentPath);
       } else {
-        const collection = collectionUid
-          ? { uid: collectionUid }
-          : ensureDefaultTemplateCollection();
+        const collection = collectionUid ? { uid: collectionUid } : ensureDefaultTemplateCollection();
         created = addTemplateToCollection(templateData, collection.uid);
       }
       safeResponse({ success: true, template: created });

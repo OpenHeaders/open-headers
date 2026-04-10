@@ -16,7 +16,6 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
-import { TEMPLATES_BY_TYPE } from './rule-templates';
 import ActivityBar from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
@@ -26,14 +25,15 @@ import FolderOverview from './components/FolderOverview';
 import Inspector from './components/Inspector';
 import RuleEditor from './components/RuleEditor';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
-import TemplateEditor from './components/TemplateEditor';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TabBar from './components/TabBar';
+import TemplateEditor from './components/TemplateEditor';
 import TopBar from './components/TopBar';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabs } from './hooks/useTabs';
+import { TEMPLATES_BY_TYPE } from './rule-templates';
 import type { PanelVisibility, RulesTab } from './types';
 
 const RULE_TYPE_LABELS: Record<string, string> = {
@@ -154,7 +154,9 @@ const RulesAppInner: React.FC = () => {
               ...base,
               type: 'header',
               action: {
-                requestHeaders: (fv.requestHeaders as V5.HeaderModification[]) ?? [{ operation: 'override' as const, headerName: '', value: '' }],
+                requestHeaders: (fv.requestHeaders as V5.HeaderModification[]) ?? [
+                  { operation: 'override' as const, headerName: '', value: '' },
+                ],
                 responseHeaders: (fv.responseHeaders as V5.HeaderModification[]) ?? [],
               },
             } as Omit<V5.HeaderRule, 'uid' | 'path'>;
@@ -328,7 +330,10 @@ const RulesAppInner: React.FC = () => {
     (uid: string, name: string, autoRename = false) => {
       const id = `tpl-col-${uid}`;
       const existing = tabs.find((t) => t.id === id);
-      if (existing) { switchTab(id); return; }
+      if (existing) {
+        switchTab(id);
+        return;
+      }
       const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'collection-overview', entityId: uid };
       addTab(tab);
       if (autoRename) setPendingRenameTabId(id);
@@ -340,7 +345,10 @@ const RulesAppInner: React.FC = () => {
     (uid: string, name: string, autoRename = false) => {
       const id = `tpl-folder-${uid}`;
       const existing = tabs.find((t) => t.id === id);
-      if (existing) { switchTab(id); return; }
+      if (existing) {
+        switchTab(id);
+        return;
+      }
       const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'folder-overview', entityId: uid };
       addTab(tab);
       if (autoRename) setPendingRenameTabId(id);

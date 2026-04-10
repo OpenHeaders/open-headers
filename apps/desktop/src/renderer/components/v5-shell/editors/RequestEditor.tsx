@@ -112,39 +112,63 @@ export function RequestEditor({
     if (requestNode && initializedId.current !== requestNode.uid) {
       initializedId.current = requestNode.uid;
       setLoadingRequest(true);
-      getRequest(requestNode.uid).then((fullRequest) => {
-        if (fullRequest) {
-          setMethod(fullRequest.method);
-          setUrl(fullRequest.url);
-          setHeaders(
-            fullRequest.headers.length > 0
-              ? fullRequest.headers.map((h) => ({ uid: genUid(), key: h.key, value: h.value, enabled: h.enabled !== false }))
-              : [{ uid: genUid(), key: '', value: '', enabled: true }],
-          );
-          setParams(
-            fullRequest.params.length > 0
-              ? fullRequest.params.map((p) => ({ uid: genUid(), key: p.key, value: p.value, enabled: p.enabled !== false }))
-              : [{ uid: genUid(), key: '', value: '', enabled: true }],
-          );
-        } else {
-          setMethod(requestNode.method || 'GET');
-          setUrl('');
-          setHeaders([{ uid: genUid(), key: '', value: '', enabled: true }]);
-          setParams([{ uid: genUid(), key: '', value: '', enabled: true }]);
-        }
-        setLoadingRequest(false);
-        // Set snapshot after state settles
-        setTimeout(() => {
-          snapshotRef.current = JSON.stringify({
-            method: fullRequest?.method || requestNode.method || 'GET',
-            url: fullRequest?.url || '',
-            headers: fullRequest?.headers.map((h) => ({ uid: '', key: h.key, value: h.value, enabled: h.enabled !== false })) || [],
-            params: fullRequest?.params.map((p) => ({ uid: '', key: p.key, value: p.value, enabled: p.enabled !== false })) || [],
-          });
-        }, 0);
-      }).catch(() => {
-        setLoadingRequest(false);
-      });
+      getRequest(requestNode.uid)
+        .then((fullRequest) => {
+          if (fullRequest) {
+            setMethod(fullRequest.method);
+            setUrl(fullRequest.url);
+            setHeaders(
+              fullRequest.headers.length > 0
+                ? fullRequest.headers.map((h) => ({
+                    uid: genUid(),
+                    key: h.key,
+                    value: h.value,
+                    enabled: h.enabled !== false,
+                  }))
+                : [{ uid: genUid(), key: '', value: '', enabled: true }],
+            );
+            setParams(
+              fullRequest.params.length > 0
+                ? fullRequest.params.map((p) => ({
+                    uid: genUid(),
+                    key: p.key,
+                    value: p.value,
+                    enabled: p.enabled !== false,
+                  }))
+                : [{ uid: genUid(), key: '', value: '', enabled: true }],
+            );
+          } else {
+            setMethod(requestNode.method || 'GET');
+            setUrl('');
+            setHeaders([{ uid: genUid(), key: '', value: '', enabled: true }]);
+            setParams([{ uid: genUid(), key: '', value: '', enabled: true }]);
+          }
+          setLoadingRequest(false);
+          // Set snapshot after state settles
+          setTimeout(() => {
+            snapshotRef.current = JSON.stringify({
+              method: fullRequest?.method || requestNode.method || 'GET',
+              url: fullRequest?.url || '',
+              headers:
+                fullRequest?.headers.map((h) => ({
+                  uid: '',
+                  key: h.key,
+                  value: h.value,
+                  enabled: h.enabled !== false,
+                })) || [],
+              params:
+                fullRequest?.params.map((p) => ({
+                  uid: '',
+                  key: p.key,
+                  value: p.value,
+                  enabled: p.enabled !== false,
+                })) || [],
+            });
+          }, 0);
+        })
+        .catch(() => {
+          setLoadingRequest(false);
+        });
     }
   }, [requestNode, getRequest]);
 
@@ -197,11 +221,25 @@ export function RequestEditor({
       url,
       headers: activeHeaders.map((h) => ({ key: h.key, value: h.value, enabled: h.enabled })),
       params: activeParams.map((p) => ({ key: p.key, value: p.value, enabled: p.enabled })),
-    }).then(() => {
-      snapshotRef.current = buildFingerprint();
-      onDirtyChange?.(false);
-    }).catch(() => {});
-  }, [isDraft, onSaveDraft, draftData, method, url, headers, params, requestId, updateRequestIpc, buildFingerprint, onDirtyChange]);
+    })
+      .then(() => {
+        snapshotRef.current = buildFingerprint();
+        onDirtyChange?.(false);
+      })
+      .catch(() => {});
+  }, [
+    isDraft,
+    onSaveDraft,
+    draftData,
+    method,
+    url,
+    headers,
+    params,
+    requestId,
+    updateRequestIpc,
+    buildFingerprint,
+    onDirtyChange,
+  ]);
 
   useEffect(() => {
     if (saveRef) saveRef.current = handleSave;

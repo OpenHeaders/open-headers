@@ -234,11 +234,7 @@ export function createLocalFolder(name: string, parentPath: string): LocalFolder
 export function renameLocalFolder(uid: string, name: string): boolean {
   const index = localFolders.findIndex((f) => f.uid === uid);
   if (index === -1) return false;
-  localFolders = [
-    ...localFolders.slice(0, index),
-    { ...localFolders[index], name },
-    ...localFolders.slice(index + 1),
-  ];
+  localFolders = [...localFolders.slice(0, index), { ...localFolders[index], name }, ...localFolders.slice(index + 1)];
   persistLocalFolders();
   return true;
 }
@@ -296,11 +292,7 @@ export function updateLocalRule(uid: string, updates: Partial<Omit<V5.Rule, 'uid
 
   const existing = localRules[index];
   const updated = { ...existing, ...updates } as V5.Rule;
-  localRules = [
-    ...localRules.slice(0, index),
-    updated,
-    ...localRules.slice(index + 1),
-  ];
+  localRules = [...localRules.slice(0, index), updated, ...localRules.slice(index + 1)];
   persistLocalRules();
   return true;
 }
@@ -316,11 +308,7 @@ export function deleteLocalRule(uid: string): boolean {
 export function toggleLocalRule(uid: string, enabled: boolean): boolean {
   const index = localRules.findIndex((r) => r.uid === uid);
   if (index === -1) return false;
-  localRules = [
-    ...localRules.slice(0, index),
-    { ...localRules[index], enabled },
-    ...localRules.slice(index + 1),
-  ];
+  localRules = [...localRules.slice(0, index), { ...localRules[index], enabled }, ...localRules.slice(index + 1)];
   persistLocalRules();
   return true;
 }

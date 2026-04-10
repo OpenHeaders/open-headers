@@ -224,7 +224,17 @@ export function useDraftSave({
       setSaveModalDraftTabId(null);
       setSaveModalDraftData(null);
     },
-    [saveModalDraftTabId, saveModalDraftData, tabs, createEnvironment, addRequest, addRule, closeTab, openTab, ensureSidebarExpanded],
+    [
+      saveModalDraftTabId,
+      saveModalDraftData,
+      tabs,
+      createEnvironment,
+      addRequest,
+      addRule,
+      closeTab,
+      openTab,
+      ensureSidebarExpanded,
+    ],
   );
 
   const saveModalProps: SaveModalProps = {

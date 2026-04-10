@@ -11,8 +11,8 @@
  * Data is read/written via V5StorageService (YAML workspace format).
  */
 
-import type { V5 } from '@openheaders/core/types';
 import { errorMessage } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import { resolveRules, VariableResolver } from '@openheaders/core/variables';
 import electron from 'electron';
 import {
@@ -39,19 +39,19 @@ import mainLogger from '@/utils/mainLogger';
 import {
   broadcastToServices,
   addCollection as crudAddCollection,
-  removeCollection as crudRemoveCollection,
-  updateCollection as crudUpdateCollection,
   copyWorkspaceData as crudCopyWorkspaceData,
   createWorkspace as crudCreateWorkspace,
   deleteWorkspace as crudDeleteWorkspace,
+  removeCollection as crudRemoveCollection,
+  updateCollection as crudUpdateCollection,
   updateWorkspace as crudUpdateWorkspace,
   type DirtyFlags,
   type EnvironmentResolverLike,
   loadWorkspacesConfig,
   saveWorkspacesConfig as persistWorkspacesConfig,
+  type StateContext,
   sendPatchToRenderers,
   sendProgressToRenderers,
-  type StateContext,
   type WebSocketServiceLike,
   type WorkspaceState,
   type WorkspaceSyncSchedulerLike,
@@ -157,10 +157,7 @@ class WorkspaceStateService {
 
   // ── Lifecycle ─────────────────────────────────────────────────
 
-  configure(deps: {
-    webSocketService: WebSocketServiceLike;
-    syncScheduler?: WorkspaceSyncSchedulerLike;
-  }): void {
+  configure(deps: { webSocketService: WebSocketServiceLike; syncScheduler?: WorkspaceSyncSchedulerLike }): void {
     this.webSocketService = deps.webSocketService;
     this.envResolver = deps.webSocketService.environmentHandler;
     this.syncScheduler = deps.syncScheduler ?? null;
@@ -432,7 +429,12 @@ class WorkspaceStateService {
     sendPatchToRenderers(this.state, ['environments', 'activeEnvironmentName']);
   }
 
-  async setVariable(envName: string, varName: string, value: string, type: 'default' | 'secret' = 'default'): Promise<void> {
+  async setVariable(
+    envName: string,
+    varName: string,
+    value: string,
+    type: 'default' | 'secret' = 'default',
+  ): Promise<void> {
     const env = this.state.environments.find((e) => e.name === envName);
     if (!env) return;
 
@@ -601,7 +603,12 @@ class WorkspaceStateService {
 
   // ── Folder CRUD ───────────────────────────────────────────────
 
-  async addFolder(collectionUid: string, section: V5.WorkspaceSection, name: string, parentPath?: string): Promise<V5.FolderNode> {
+  async addFolder(
+    collectionUid: string,
+    section: V5.WorkspaceSection,
+    name: string,
+    parentPath?: string,
+  ): Promise<V5.FolderNode> {
     const collections = section === 'requests' ? this.state.requestCollections : this.state.ruleCollections;
     const collection = collections.find((c) => c.uid === collectionUid);
     if (!collection) throw new Error(`Collection ${collectionUid} not found`);

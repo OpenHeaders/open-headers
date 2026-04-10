@@ -1,6 +1,6 @@
 import ErrorBoundary from '@components/ErrorBoundary';
-import { RuleProvider } from '@context/RuleContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
+import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { runtime } from '@utils/browser-api';
 import { Layout } from 'antd';

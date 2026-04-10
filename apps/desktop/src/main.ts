@@ -1,11 +1,7 @@
 // Electron main process — phased startup for fast window display
 
 import { errorMessage } from '@openheaders/core';
-import type {
-  BrowserWindow as BrowserWindowType,
-  IpcMainInvokeEvent,
-  MenuItemConstructorOptions,
-} from 'electron';
+import type { BrowserWindow as BrowserWindowType, IpcMainInvokeEvent, MenuItemConstructorOptions } from 'electron';
 import electron from 'electron';
 import storageHandlersEarly from './main/modules/ipc/handlers/storageHandlers';
 import settingsCache from './services/core/SettingsCache';
@@ -339,7 +335,6 @@ function setupIPC(
   ipcMain.handle('deleteRecording', recordingHandlers.handleDeleteRecording);
   ipcMain.handle('downloadRecording', recordingHandlers.handleDownloadRecording);
   ipcMain.handle('updateRecordingMetadata', recordingHandlers.handleUpdateRecordingMetadata);
-
 
   // Git
   ipcMain.handle('testGitConnection', gitHandlers.handleTestGitConnection);

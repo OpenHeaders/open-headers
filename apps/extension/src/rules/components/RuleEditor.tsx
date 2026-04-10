@@ -21,7 +21,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import ConditionEditor from './ConditionEditor';
-import SaveAsTemplateModal from './SaveAsTemplateModal';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -30,6 +29,7 @@ import InjectRuleFields from './rule-fields/InjectRuleFields';
 import MockRuleFields from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
+import SaveAsTemplateModal from './SaveAsTemplateModal';
 
 const { Text } = Typography;
 
@@ -479,14 +479,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               {/* Blank + built-in templates */}
               {[
                 { key: 'empty', icon: '', name: 'Blank', source: 'builtin' as const },
-                ...builtinTemplates.map((t) => ({ key: t.key, icon: t.icon, name: t.name, source: 'builtin' as const })),
+                ...builtinTemplates.map((t) => ({
+                  key: t.key,
+                  icon: t.icon,
+                  name: t.name,
+                  source: 'builtin' as const,
+                })),
               ].map((t) => (
                 <div
                   key={t.key}
                   role="button"
                   tabIndex={0}
                   onClick={() => applyTemplate(t.key)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') applyTemplate(t.key); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') applyTemplate(t.key);
+                  }}
                   style={{
                     padding: '5px 14px',
                     fontSize: 13,
@@ -515,7 +522,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       role="button"
                       tabIndex={0}
                       onClick={() => applyTemplate(t.uid)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') applyTemplate(t.uid); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') applyTemplate(t.uid);
+                      }}
                       style={{
                         padding: '5px 14px',
                         fontSize: 13,
@@ -543,7 +552,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   role="button"
                   tabIndex={0}
                   onClick={() => setSaveAsTemplateOpen(true)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') setSaveAsTemplateOpen(true); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setSaveAsTemplateOpen(true);
+                  }}
                   style={{
                     padding: '5px 10px',
                     fontSize: 12,

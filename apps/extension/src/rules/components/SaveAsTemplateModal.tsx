@@ -106,7 +106,18 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
       }
       onCancel();
     },
-    [ruleType, icon, description, includeConditions, includeFormValues, conditions, formValues, createTemplate, onSaved, onCancel],
+    [
+      ruleType,
+      icon,
+      description,
+      includeConditions,
+      includeFormValues,
+      conditions,
+      formValues,
+      createTemplate,
+      onSaved,
+      onCancel,
+    ],
   );
 
   if (step === 'collection') {
@@ -143,7 +154,9 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <div style={{ width: 60 }}>
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Icon</Text>
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+            Icon
+          </Text>
           <Input
             size="small"
             value={icon}
@@ -153,7 +166,9 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
           />
         </div>
         <div style={{ flex: 1 }}>
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Name *</Text>
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+            Name *
+          </Text>
           <Input
             size="small"
             value={name}
@@ -166,7 +181,9 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Description</Text>
+        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+          Description
+        </Text>
         <TextArea
           size="small"
           value={description}
@@ -189,7 +206,9 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
         <Checkbox checked={includeConditions} onChange={(e) => setIncludeConditions(e.target.checked)}>
           <Text style={{ fontSize: 12 }}>Include conditions</Text>
           {conditions.length > 0 && (
-            <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>({conditions.length})</Text>
+            <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>
+              ({conditions.length})
+            </Text>
           )}
         </Checkbox>
         <Checkbox checked={includeFormValues} onChange={(e) => setIncludeFormValues(e.target.checked)}>

@@ -11,7 +11,11 @@ interface UseWorkspacesReturn {
   activeWorkspaceId: string;
   syncStatus: Record<string, WorkspaceSyncStatus>;
   loading: boolean;
-  createWorkspace: (name: string, type: WorkspaceType, options?: { description?: string; gitUrl?: string }) => Promise<Workspace | null>;
+  createWorkspace: (
+    name: string,
+    type: WorkspaceType,
+    options?: { description?: string; gitUrl?: string },
+  ) => Promise<Workspace | null>;
   switchWorkspace: (workspaceId: string) => Promise<boolean>;
   deleteWorkspace: (workspaceId: string) => Promise<boolean>;
   updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => Promise<boolean>;
@@ -25,7 +29,11 @@ export function useWorkspaces(): UseWorkspacesReturn {
   const { workspaces, activeWorkspaceId, syncStatus, loading, service } = useCentralizedWorkspace();
 
   const createWorkspace = useCallback(
-    async (name: string, type: WorkspaceType, options?: { description?: string; gitUrl?: string }): Promise<Workspace | null> => {
+    async (
+      name: string,
+      type: WorkspaceType,
+      options?: { description?: string; gitUrl?: string },
+    ): Promise<Workspace | null> => {
       try {
         const result = await service.createWorkspace(name, type, options);
         showMessage('success', `Workspace '${name}' created and activated`);

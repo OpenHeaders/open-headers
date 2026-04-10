@@ -1,8 +1,8 @@
 // ws-service.ts - WebSocket service core: server lifecycle, message routing, public API
 
 import http from 'node:http';
-import type { V5 } from '@openheaders/core/types';
 import type { AppNavigationIntent } from '@openheaders/core';
+import type { V5 } from '@openheaders/core/types';
 import electron from 'electron';
 import WS, { WebSocketServer } from 'ws';
 import settingsCache from '@/services/core/SettingsCache';
@@ -489,7 +489,10 @@ class WebSocketService {
     this.ruleHandler.updateRules(rules);
   }
 
-  setRuleMutationCallbacks(callbacks: { toggleRule(uid: string, enabled: boolean): Promise<void>; removeRule(uid: string): Promise<void> }): void {
+  setRuleMutationCallbacks(callbacks: {
+    toggleRule(uid: string, enabled: boolean): Promise<void>;
+    removeRule(uid: string): Promise<void>;
+  }): void {
     this.ruleHandler.setMutationCallbacks(callbacks);
   }
 
