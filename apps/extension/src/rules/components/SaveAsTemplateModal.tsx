@@ -212,7 +212,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
           )}
         </Checkbox>
         <Checkbox checked={includeFormValues} onChange={(e) => setIncludeFormValues(e.target.checked)}>
-          <Text style={{ fontSize: 12 }}>Include form values</Text>
+          <Text style={{ fontSize: 12 }}>Include actions</Text>
         </Checkbox>
       </div>
     </Modal>

@@ -950,10 +950,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isSelected = useCallback(
     (id: string) => {
       if (!alwaysSelectOpened || !activeTabId) return false;
-      // Direct match: col-{uid}, folder-{uid} tabs match their sidebar node IDs
+      // Direct match: col-{uid}, folder-{uid}, tpl-col-{uid}, tpl-folder-{uid} tabs
       if (activeTabId === id) return true;
       // Rule tabs: edit-{uid} matches rule-{uid} sidebar node
       if (id.startsWith('rule-') && activeTabId === `edit-${id.replace('rule-', '')}`) return true;
+      // Template tabs: tpl-edit-{uid} matches tpl-{uid} sidebar node
+      if (id.startsWith('tpl-') && activeTabId === `tpl-edit-${id.replace('tpl-', '')}`) return true;
       return false;
     },
     [activeTabId, alwaysSelectOpened],
@@ -992,16 +994,50 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     // Determine which sidebar node ID corresponds to this tab
     let nodeId: string | null = null;
+    let section: 'rules' | 'templates' = 'rules';
+
     if (activeTabId.startsWith('edit-')) {
       nodeId = `rule-${activeTabId.replace('edit-', '')}`;
+    } else if (activeTabId.startsWith('tpl-edit-')) {
+      nodeId = `tpl-${activeTabId.replace('tpl-edit-', '')}`;
+      section = 'templates';
+    } else if (activeTabId.startsWith('tpl-col-') || activeTabId.startsWith('tpl-folder-')) {
+      nodeId = activeTabId;
+      section = 'templates';
     } else if (activeTabId.startsWith('col-') || activeTabId.startsWith('folder-')) {
-      nodeId = activeTabId; // collection/folder overview tabs match sidebar IDs directly
+      nodeId = activeTabId;
     }
     if (!nodeId) return false;
 
+    // Helper: find node in a tree and return ancestor keys to expand
+    const findAncestors = (
+      trees: V5.CollectionTree[],
+      targetUid: string,
+      targetType: string,
+      colKeyPrefix: string,
+      folderKeyPrefix: string,
+    ): { ancestors: string[]; section: 'rules' | 'templates' } | null => {
+      for (const col of trees) {
+        const colKey = `${colKeyPrefix}${col.uid}`;
+        const walk = (nodes: V5.TreeNode[], trail: string[]): string[] | null => {
+          for (const n of nodes) {
+            if (n.type === targetType && n.uid === targetUid) return trail;
+            if (n.type === 'folder') {
+              const found = walk(n.children, [...trail, `${folderKeyPrefix}${n.uid}`]);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        const result = walk(col.tree, [colKey]);
+        if (result) return { ancestors: result, section };
+      }
+      return null;
+    };
+
     // For collection nodes, just ensure the section is open
-    if (nodeId.startsWith('col-')) {
-      setSectionsExpanded((prev) => ({ ...prev, rules: true }));
+    if (nodeId.startsWith('col-') || nodeId.startsWith('tpl-col-')) {
+      setSectionsExpanded((prev) => ({ ...prev, [section]: true }));
       setFocusedId(nodeId);
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -1009,39 +1045,37 @@ const Sidebar: React.FC<SidebarProps> = ({
       return true;
     }
 
-    // For rule/folder nodes, find ancestors and expand them
-    const targetUid = nodeId.startsWith('rule-') ? nodeId.replace('rule-', '') : nodeId.replace('folder-', '');
-    const targetType = nodeId.startsWith('rule-') ? 'rule' : 'folder';
+    // For leaf/folder nodes, find ancestors and expand them
+    let found: { ancestors: string[]; section: 'rules' | 'templates' } | null = null;
 
-    for (const col of localCollectionTrees) {
-      const colKey = `col-${col.uid}`;
-      const findInTree = (nodes: V5.TreeNode[], ancestors: string[]): string[] | null => {
-        for (const n of nodes) {
-          if (n.type === targetType && n.uid === targetUid) return ancestors;
-          if (n.type === 'folder') {
-            const found = findInTree(n.children, [...ancestors, `folder-${n.uid}`]);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
-      const ancestors = findInTree(col.tree, [colKey]);
-      if (ancestors) {
-        setExpandedKeys((prev) => {
-          const next = new Set(prev);
-          for (const k of ancestors) next.add(k);
-          return next;
-        });
-        setSectionsExpanded((prev) => ({ ...prev, rules: true }));
-        setFocusedId(nodeId);
-        setTimeout(() => {
-          containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
-        }, 50);
-        return true;
-      }
+    if (section === 'rules') {
+      const targetUid = nodeId.startsWith('rule-') ? nodeId.replace('rule-', '') : nodeId.replace('folder-', '');
+      const targetType = nodeId.startsWith('rule-') ? 'rule' : 'folder';
+      found = findAncestors(localCollectionTrees, targetUid, targetType, 'col-', 'folder-');
+    } else {
+      const targetUid = nodeId.replace('tpl-', '');
+      // Try template items first, then folders
+      found =
+        findAncestors(templateCollectionTrees, targetUid, 'template', 'tpl-col-', 'tpl-folder-') ||
+        findAncestors(templateCollectionTrees, targetUid, 'folder', 'tpl-col-', 'tpl-folder-');
     }
+
+    if (found) {
+      setExpandedKeys((prev) => {
+        const next = new Set(prev);
+        for (const k of found.ancestors) next.add(k);
+        return next;
+      });
+      setSectionsExpanded((prev) => ({ ...prev, [found.section]: true }));
+      setFocusedId(nodeId);
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
+    }
+
     return false;
-  }, [activeTabId, localCollectionTrees]);
+  }, [activeTabId, localCollectionTrees, templateCollectionTrees]);
 
   // Auto-select on active tab change, with retry when tree data arrives async
   const prevActiveTabRef = useRef(activeTabId);

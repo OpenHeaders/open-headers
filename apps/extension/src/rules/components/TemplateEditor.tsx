@@ -201,7 +201,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
             <Checkbox>Include conditions</Checkbox>
           </Form.Item>
           <Form.Item name="includeFormValues" valuePropName="checked" style={{ marginBottom: 0 }}>
-            <Checkbox>Include form values</Checkbox>
+            <Checkbox>Include actions</Checkbox>
           </Form.Item>
         </div>
 
