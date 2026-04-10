@@ -18,7 +18,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
-import { buildRuleTypeMenuItems } from '@/rules/rule-type-menu';
+import { buildRuleTypeMenuItemsWithTemplates } from '@/rules/rule-type-menu';
 import { getBrowserAPI } from '@/types/browser';
 import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '../utils/table-shared';
 import {
@@ -436,7 +436,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
     },
   ];
 
-  const addRuleMenuItems = buildRuleTypeMenuItems((type) => openRulesPage(`/create/${type}`));
+  const addRuleMenuItems = buildRuleTypeMenuItemsWithTemplates(
+    (type) => openRulesPage(`/create/${type}`),
+    (type, templateKey) => openRulesPage(`/create/${type}/${templateKey}`),
+  );
 
   const hasColumnSort = !!sortedInfo.order;
   const sortMenuItems = [

@@ -17,6 +17,8 @@ export interface RulesTab {
   mode: TabMode;
   /** For create tabs: the rule type to create. */
   createType?: string;
+  /** For create tabs: optional template key to pre-apply on mount. */
+  templateKey?: string;
   /** For edit tabs: the rule uid being edited. */
   ruleUid?: string;
   /** Auto-generated draft name for create tabs (e.g. "New Header Rule (2)"). */

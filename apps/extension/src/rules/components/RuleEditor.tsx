@@ -50,6 +50,8 @@ interface RuleEditorProps {
   tabId: string;
   /** Display name for drafts (from tab label, managed by breadcrumb). */
   draftName?: string;
+  /** Template to pre-apply on mount (from tab identity, not URL state). */
+  initialTemplateKey?: string;
   onSaved: (uid: string) => void;
   onSaveDraft?: (tabId: string, draftData: Record<string, unknown>) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -62,6 +64,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   ruleUid,
   tabId,
   draftName,
+  initialTemplateKey,
   onSaved,
   onSaveDraft,
   onDirtyChange,
@@ -76,6 +79,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const selectedType = Form.useWatch('ruleType', form) as V5.ExtensionRuleType | undefined;
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
+
+  // ── Header tab state (lifted from HeaderRuleFields for reliable timing) ──
+  const [headerActiveTab, setHeaderActiveTab] = useState('request');
 
   // ── Enabled state: owned by rule store (edit) or local (create) ──
 
@@ -103,7 +109,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   }, [mode, ruleUid, isEnabled]);
 
   // ── Template selector ─────────────────────────────────────────
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('empty');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>(initialTemplateKey ?? 'empty');
 
   const templates = useMemo(() => TEMPLATES_BY_TYPE[selectedType ?? 'header'] ?? [], [selectedType]);
 
@@ -113,16 +119,23 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       if (key === 'empty') {
         form.resetFields();
         form.setFieldsValue({ ruleType: selectedType, conditions: [] });
+        setHeaderActiveTab('request');
         return;
       }
       const type = selectedType ?? 'header';
       const templates = TEMPLATES_BY_TYPE[type] ?? [];
       const template = templates.find((t) => t.key === key);
       if (!template) return;
-      form.setFieldsValue({
-        conditions: template.conditions,
-        ...template.formValues,
-      });
+      // Use setFields to explicitly set Form.List values including empty arrays.
+      // setFieldsValue ignores empty arrays; setFields with value:[] properly clears Form.Lists.
+      const allValues = { ruleType: type, conditions: template.conditions, ...template.formValues };
+      const fields = Object.entries(allValues).map(([name, value]) => ({ name, value }));
+      form.setFields(fields);
+      // Set header tab based on template content
+      const fv = template.formValues;
+      const resLen = Array.isArray(fv.responseHeaders) ? fv.responseHeaders.length : 0;
+      const reqLen = Array.isArray(fv.requestHeaders) ? fv.requestHeaders.length : 0;
+      setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
       if (!isDirtyRef.current) {
         isDirtyRef.current = true;
         onDirtyChange?.(true);
@@ -149,11 +162,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       switch (rule.type) {
         case 'header': {
           const hr = rule as V5.HeaderRule;
-          form.setFieldsValue({
-            ...baseValues,
-            requestHeaders: hr.action.requestHeaders ?? [],
-            responseHeaders: hr.action.responseHeaders ?? [],
-          });
+          const reqH = hr.action.requestHeaders ?? [];
+          const resH = hr.action.responseHeaders ?? [];
+          form.setFieldsValue({ ...baseValues, requestHeaders: reqH, responseHeaders: resH });
+          setHeaderActiveTab(resH.length > 0 && reqH.length === 0 ? 'response' : 'request');
           break;
         }
         case 'block':
@@ -244,6 +256,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       });
     }
   }, [mode, ruleType, ruleUid, rules, form]);
+
+  // Note: initialTemplateKey is handled at the data level — openCreateTab in App.tsx
+  // creates the rule with template values baked in. No form-level template application needed.
 
   const handleValuesChange = useCallback(() => {
     if (!isDirtyRef.current) {
@@ -492,7 +507,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         </div>
 
         {/* ── Per-type fields ── */}
-        {selectedType === 'header' && <HeaderRuleFields />}
+        {selectedType === 'header' && <HeaderRuleFields activeTab={headerActiveTab} onTabChange={setHeaderActiveTab} />}
         {selectedType === 'block' && <BlockRuleFields />}
         {selectedType === 'redirect' && <RedirectRuleFields />}
         {selectedType === 'query-param' && <QueryParamRuleFields />}

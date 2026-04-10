@@ -16,6 +16,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
+import { TEMPLATES_BY_TYPE } from './rule-templates';
 import ActivityBar from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
@@ -134,22 +135,29 @@ const RulesAppInner: React.FC = () => {
   // ── Tab operations ────────────────────────────────────────────
 
   const openCreateTab = useCallback(
-    (type: string, context?: { collectionId: string; folderPath?: string }) => {
+    (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => {
       if (context?.collectionId) {
         const draftName = generateDraftName(type);
-        const base = { name: draftName, type, enabled: true, conditions: [] as V5.RuleCondition[] };
+
+        // If a template is specified, use its conditions and form values to build the rule
+        const template = templateKey ? (TEMPLATES_BY_TYPE[type] ?? []).find((t) => t.key === templateKey) : undefined;
+        const baseConditions = template?.conditions ?? ([] as V5.RuleCondition[]);
+        const base = { name: draftName, type, enabled: true, conditions: baseConditions };
+
         let rule: Omit<V5.Rule, 'uid' | 'path'>;
         switch (type) {
-          case 'header':
+          case 'header': {
+            const fv = template?.formValues ?? {};
             rule = {
               ...base,
               type: 'header',
               action: {
-                requestHeaders: [{ operation: 'override' as const, headerName: '', value: '' }],
-                responseHeaders: [],
+                requestHeaders: (fv.requestHeaders as V5.HeaderModification[]) ?? [{ operation: 'override' as const, headerName: '', value: '' }],
+                responseHeaders: (fv.responseHeaders as V5.HeaderModification[]) ?? [],
               },
             } as Omit<V5.HeaderRule, 'uid' | 'path'>;
             break;
+          }
           case 'block':
             rule = { ...base, type: 'block', action: { statusCode: 403 } } as Omit<V5.BlockRule, 'uid' | 'path'>;
             break;
@@ -213,6 +221,7 @@ const RulesAppInner: React.FC = () => {
               dirty: false,
               mode: 'edit',
               ruleUid: created.uid,
+              templateKey,
             };
             addTab(tab);
             setPendingRenameTabId(editId);
@@ -230,7 +239,7 @@ const RulesAppInner: React.FC = () => {
           if (!col) return;
           collectionId = col.uid;
         }
-        openCreateTab(type, { collectionId });
+        openCreateTab(type, { collectionId }, templateKey);
       };
       void resolveAndCreate();
     },
@@ -378,8 +387,12 @@ const RulesAppInner: React.FC = () => {
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (!hash) return;
     const parts = hash.split('/');
-    if (parts[0] === 'create' && parts[1]) openCreateTabRef.current(parts[1]);
-    else if (parts[0] === 'edit' && parts[1]) openEditTabRef.current(parts[1]);
+    if (parts[0] === 'create' && parts[1]) {
+      // #/create/{type} or #/create/{type}/{templateKey}
+      openCreateTabRef.current(parts[1], undefined, parts[2]);
+    } else if (parts[0] === 'edit' && parts[1]) {
+      openEditTabRef.current(parts[1]);
+    }
   }, [isStatusLoaded]);
 
   // ── Sync tab labels with rule changes ─────────────────────────
@@ -589,6 +602,7 @@ const RulesAppInner: React.FC = () => {
                               ruleUid={tab.ruleUid}
                               tabId={tab.id}
                               draftName={tab.draftName}
+                              initialTemplateKey={tab.templateKey}
                               onSaved={(uid) => handleSaved(tab.id, uid)}
                               onSaveDraft={tab.mode === 'create' ? handleSaveDraft : undefined}
                               onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}

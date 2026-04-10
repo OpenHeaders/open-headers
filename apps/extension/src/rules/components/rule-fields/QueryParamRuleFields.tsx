@@ -110,7 +110,7 @@ const QueryParamRuleFields: React.FC = () => {
               icon={<PlusOutlined />}
               size="small"
             >
-              Add Modification
+              Add Action
             </Button>
           </>
         )}

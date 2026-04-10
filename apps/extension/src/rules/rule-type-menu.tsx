@@ -18,6 +18,7 @@ import {
 } from '@ant-design/icons';
 import type React from 'react';
 import { createElement } from 'react';
+import { TEMPLATES_BY_TYPE } from './rule-templates';
 
 export interface RuleTypeMenuItem {
   key: string;
@@ -88,7 +89,7 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
 ];
 
 /**
- * Build Ant Design menu items for rule creation menus.
+ * Build Ant Design menu items for rule creation menus (no templates).
  */
 export function buildRuleTypeMenuItems(onClick: (type: string) => void) {
   return ALL_RULE_TYPES.map((t) => ({
@@ -97,6 +98,56 @@ export function buildRuleTypeMenuItems(onClick: (type: string) => void) {
     label: t.label,
     onClick: () => onClick(t.key),
   }));
+}
+
+/**
+ * Build cascading menu: each rule type expands into Blank + its templates.
+ *
+ *   Modify Headers  →  Blank
+ *                      🔓 CORS Bypass
+ *                      🕵️ Custom User-Agent
+ *                      ...
+ *   Block Requests  →  Blank
+ *                      🛡️ Block Trackers
+ *                      ...
+ */
+export function buildRuleTypeMenuItemsWithTemplates(
+  onClickType: (type: string) => void,
+  onClickTemplate: (type: string, templateKey: string) => void,
+) {
+  return ALL_RULE_TYPES.map((t) => {
+    const templates = TEMPLATES_BY_TYPE[t.key] ?? [];
+
+    if (templates.length === 0) {
+      // No templates — direct click
+      return {
+        key: t.key,
+        icon: t.icon,
+        label: t.label,
+        onClick: () => onClickType(t.key),
+      };
+    }
+
+    // Has templates — cascading submenu
+    return {
+      key: t.key,
+      icon: t.icon,
+      label: t.label,
+      children: [
+        {
+          key: `${t.key}-blank`,
+          label: 'Blank Rule',
+          onClick: () => onClickType(t.key),
+        },
+        { type: 'divider' as const, key: `${t.key}-div` },
+        ...templates.map((tpl) => ({
+          key: `${t.key}-${tpl.key}`,
+          label: `${tpl.icon} ${tpl.name}`,
+          onClick: () => onClickTemplate(t.key, tpl.key),
+        })),
+      ],
+    };
+  });
 }
 
 /**

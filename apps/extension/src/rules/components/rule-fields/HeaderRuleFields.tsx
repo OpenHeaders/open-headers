@@ -12,7 +12,6 @@
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, Badge, Button, Form, Input, Select, Tabs, Typography } from 'antd';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 
@@ -136,7 +135,7 @@ function ModificationList({ name }: { name: string }) {
             icon={<PlusOutlined />}
             onClick={() => add({ operation: 'override', headerName: '', value: '' })}
           >
-            Add Modification
+            Add Action
           </Button>
         </>
       )}
@@ -144,31 +143,20 @@ function ModificationList({ name }: { name: string }) {
   );
 }
 
-const HeaderRuleFields: React.FC = () => {
+interface HeaderRuleFieldsProps {
+  /** Controlled active tab — parent (RuleEditor) owns this state. */
+  activeTab: string;
+  /** Tab change callback — parent updates state on user click. */
+  onTabChange: (tab: string) => void;
+}
+
+const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({ activeTab, onTabChange }) => {
   const { openDocs } = useInspectorNav();
-  const [activeTab, setActiveTab] = useState('request');
   const reqHeaders = Form.useWatch('requestHeaders') as unknown[] | undefined;
   const resHeaders = Form.useWatch('responseHeaders') as unknown[] | undefined;
   const reqCount = reqHeaders?.length ?? 0;
   const resCount = resHeaders?.length ?? 0;
   const hasResponse = resCount > 0;
-
-  // Auto-navigate to the tab with content when data changes (e.g. template applied)
-  const prevReqCount = useRef(reqCount);
-  const prevResCount = useRef(resCount);
-  useEffect(() => {
-    const reqGrew = reqCount > prevReqCount.current;
-    const resGrew = resCount > prevResCount.current;
-    prevReqCount.current = reqCount;
-    prevResCount.current = resCount;
-
-    // Switch to the tab that just got content
-    if (resGrew && !reqGrew && resCount > 0) {
-      setActiveTab('response');
-    } else if (reqGrew && !resGrew && reqCount > 0) {
-      setActiveTab('request');
-    }
-  }, [reqCount, resCount]);
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -192,7 +180,7 @@ const HeaderRuleFields: React.FC = () => {
       <Tabs
         size="small"
         activeKey={activeTab}
-        onChange={setActiveTab}
+        onChange={onTabChange}
         destroyInactiveTabPane={false}
         items={[
           {
