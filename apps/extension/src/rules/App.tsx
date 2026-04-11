@@ -16,6 +16,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
+import { useResponsiveLayout } from './hooks/useResponsiveLayout';
 import ActivityBar from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
@@ -98,14 +99,52 @@ const RulesAppInner: React.FC = () => {
     handleCloseToRight,
   } = useTabLifecycle({ tabs, closeTab: rawCloseTab, switchTab, saveRefMap });
 
+  // ── Responsive layout ─────────────────────────────────────────
+  const layout = useResponsiveLayout();
+
   // ── Panels ────────────────────────────────────────────────────
   const [panels, setPanels] = useState<PanelVisibility>({ sidebar: true, bottomPanel: false, inspector: false });
   const [bottomPanelTab, setBottomPanelTab] = useState('traffic');
   const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
 
+  // Auto-collapse sidebar on narrow viewports (first-open only)
+  const sidebarAutoCollapsedRef = useRef(false);
+  useEffect(() => {
+    if (!layout.ready || sidebarAutoCollapsedRef.current) return;
+    sidebarAutoCollapsedRef.current = true;
+    if (layout.shouldCollapseSidebar) {
+      setPanels((prev) => ({ ...prev, sidebar: false }));
+    }
+  }, [layout.ready, layout.shouldCollapseSidebar]);
+
+  // Focus management ref
+  const sidebarToggleRef = useRef<HTMLDivElement>(null);
+
   const togglePanel = useCallback((panel: keyof PanelVisibility) => {
-    setPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
+    setPanels((prev) => {
+      const next = { ...prev, [panel]: !prev[panel] };
+
+      // Focus management: sidebar collapse → focus activity bar toggle
+      if (panel === 'sidebar' && !next.sidebar) {
+        requestAnimationFrame(() => sidebarToggleRef.current?.focus());
+      }
+
+      // Clear docs-focused wide mode when inspector closes
+      if (panel === 'inspector' && !next.inspector) {
+        setInspectorWide(false);
+      }
+
+      return next;
+    });
   }, []);
+
+  // Inspector "docs-focused" mode: when opened via #/docs/ hash, use wider size.
+  // Initialized synchronously from hash so preferredSize is correct on first render —
+  // allotment only reads preferredSize on initial pane mount (no cached size on fresh page load).
+  const [inspectorWide, setInspectorWide] = useState(() => {
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    return hash.startsWith('docs/');
+  });
 
   // Register inspector open callback for useInspectorNav
   const { onOpenInspector, openDocs } = useInspectorNav();
@@ -462,7 +501,8 @@ const RulesAppInner: React.FC = () => {
     } else if (parts[0] === 'edit' && parts[1]) {
       openEditTabRef.current(parts[1]);
     } else if (parts[0] === 'docs' && parts[1]) {
-      // #/docs/{sectionId} — open inspector sidebar at the specified doc section
+      // #/docs/{sectionId} — open inspector in wide mode for focused reading
+      setInspectorWide(true);
       openDocsRef.current(parts[1]);
     }
   }, [isStatusLoaded]);
@@ -609,21 +649,139 @@ const RulesAppInner: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [handleSave]);
 
+  // Compute coordinated sidebar size when inspector opens
+  const coordinatedSidebarPreferred = panels.inspector
+    ? (layout.getCoordinatedSidebarSize(true) ?? layout.sizes.sidebar.preferred)
+    : layout.sizes.sidebar.preferred;
+
+  // Sync panels state when allotment snaps a pane closed or user drags it back open
+  const handleHorizontalResize = useCallback(
+    (panelSizes: number[]) => {
+      layout.onPanelResize(panelSizes);
+      setPanels((prev) => {
+        const sidebarOpen = panelSizes[0] != null ? panelSizes[0] > 0 : prev.sidebar;
+        const inspectorOpen = panelSizes[2] != null ? panelSizes[2] > 0 : prev.inspector;
+        if (sidebarOpen === prev.sidebar && inspectorOpen === prev.inspector) return prev;
+        // Clear docs-focused wide mode when inspector closes
+        if (!inspectorOpen && prev.inspector) setInspectorWide(false);
+        return { ...prev, sidebar: sidebarOpen, inspector: inspectorOpen };
+      });
+    },
+    [layout],
+  );
+
+  const handleVerticalResize = useCallback(
+    (panelSizes: number[]) => {
+      layout.onVerticalResize(panelSizes);
+      setPanels((prev) => {
+        const bottomOpen = panelSizes[1] != null ? panelSizes[1] > 0 : prev.bottomPanel;
+        if (bottomOpen === prev.bottomPanel) return prev;
+        return { ...prev, bottomPanel: bottomOpen };
+      });
+    },
+    [layout],
+  );
+
+  // Editor area content (shared between both layouts)
+  const editorArea = (
+    <div className="rules-editor-area" style={{ background: token.colorBgContainer }}>
+      <TabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        rules={rules}
+        templates={templates}
+        onSwitch={switchTab}
+        onClose={handleCloseTab}
+        onCreateRule={openCreateTab}
+        onReorder={reorderTab}
+        onCloseOther={handleCloseOther}
+        onCloseAll={handleCloseAll}
+        onCloseUnmodified={handleCloseUnmodified}
+        onCloseToLeft={handleCloseToLeft}
+        onCloseToRight={handleCloseToRight}
+        recentlyClosed={recentlyClosed}
+        onReopenTab={reopenTab}
+      />
+      {activeTab && (
+        <BreadcrumbBar
+          segments={breadcrumbs}
+          isDirty={activeTab.mode === 'create' || activeTab.dirty}
+          onSave={activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSave : undefined}
+          onSaveAsTemplate={
+            activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSaveAsTemplate : undefined
+          }
+          onRename={handleBreadcrumbRename}
+          autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
+        />
+      )}
+      <div className="rules-editor-content">
+        {!activeTab && <EmptyState onCreateRule={openCreateTab} />}
+        {tabs.map((tab) => (
+          <div key={tab.id} style={{ display: tab.id === activeTabId ? 'block' : 'none', height: '100%' }}>
+            {(tab.mode === 'create' || tab.mode === 'edit') && (
+              <RuleEditor
+                mode={tab.mode}
+                ruleType={tab.createType}
+                ruleUid={tab.ruleUid}
+                tabId={tab.id}
+                draftName={tab.draftName}
+                initialTemplateKey={tab.templateKey}
+                onSaved={(uid) => handleSaved(tab.id, uid)}
+                onSaveDraft={tab.mode === 'create' ? handleSaveDraft : undefined}
+                onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+                registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+                registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
+              />
+            )}
+            {tab.mode === 'collection-overview' && tab.entityId && (
+              <CollectionOverview
+                collectionUid={tab.entityId}
+                onSelectRule={openEditTab}
+                onCreateRule={openCreateTab}
+                onOpenFolderOverview={openFolderOverview}
+              />
+            )}
+            {tab.mode === 'folder-overview' && tab.entityId && (
+              <FolderOverview
+                folderUid={tab.entityId}
+                onSelectRule={openEditTab}
+                onCreateRule={openCreateTab}
+                onOpenFolderOverview={openFolderOverview}
+              />
+            )}
+            {tab.mode === 'template-edit' && tab.templateUid && (
+              <TemplateEditor
+                templateUid={tab.templateUid}
+                onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+                registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="rules-shell" data-theme={isDarkMode ? 'dark' : 'light'} style={{ background: token.colorBgLayout }}>
       <TopBar />
 
       <div className="rules-main">
-        <ActivityBar sidebarVisible={panels.sidebar} onToggleSidebar={() => togglePanel('sidebar')} />
+        <ActivityBar
+          sidebarVisible={panels.sidebar}
+          onToggleSidebar={() => togglePanel('sidebar')}
+          ref={sidebarToggleRef}
+        />
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Allotment proportionalLayout={false}>
+          <Allotment proportionalLayout={false} onChange={handleHorizontalResize}>
             <Allotment.Pane
-              preferredSize={250}
-              minSize={180}
-              maxSize={400}
+              preferredSize={coordinatedSidebarPreferred}
+              minSize={layout.sizes.sidebar.min}
+              maxSize={layout.sizes.sidebar.max}
               visible={panels.sidebar}
               priority={LayoutPriority.Low}
+              snap
             >
               <Sidebar
                 activeTabId={activeTabId}
@@ -638,97 +796,33 @@ const RulesAppInner: React.FC = () => {
               />
             </Allotment.Pane>
 
-            <Allotment.Pane priority={LayoutPriority.High}>
-              <Allotment vertical proportionalLayout={false}>
-                <Allotment.Pane>
-                  <div className="rules-editor-area" style={{ background: token.colorBgContainer }}>
-                    <TabBar
-                      tabs={tabs}
-                      activeTabId={activeTabId}
-                      rules={rules}
-                      templates={templates}
-                      onSwitch={switchTab}
-                      onClose={handleCloseTab}
-                      onCreateRule={openCreateTab}
-                      onReorder={reorderTab}
-                      onCloseOther={handleCloseOther}
-                      onCloseAll={handleCloseAll}
-                      onCloseUnmodified={handleCloseUnmodified}
-                      onCloseToLeft={handleCloseToLeft}
-                      onCloseToRight={handleCloseToRight}
-                      recentlyClosed={recentlyClosed}
-                      onReopenTab={reopenTab}
-                    />
-                    {activeTab && (
-                      <BreadcrumbBar
-                        segments={breadcrumbs}
-                        isDirty={activeTab.mode === 'create' || activeTab.dirty}
-                        onSave={activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSave : undefined}
-                        onSaveAsTemplate={
-                          activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSaveAsTemplate : undefined
-                        }
-                        onRename={handleBreadcrumbRename}
-                        autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
-                      />
-                    )}
-                    <div className="rules-editor-content">
-                      {!activeTab && <EmptyState onCreateRule={openCreateTab} />}
-                      {tabs.map((tab) => (
-                        <div
-                          key={tab.id}
-                          style={{ display: tab.id === activeTabId ? 'block' : 'none', height: '100%' }}
-                        >
-                          {(tab.mode === 'create' || tab.mode === 'edit') && (
-                            <RuleEditor
-                              mode={tab.mode}
-                              ruleType={tab.createType}
-                              ruleUid={tab.ruleUid}
-                              tabId={tab.id}
-                              draftName={tab.draftName}
-                              initialTemplateKey={tab.templateKey}
-                              onSaved={(uid) => handleSaved(tab.id, uid)}
-                              onSaveDraft={tab.mode === 'create' ? handleSaveDraft : undefined}
-                              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-                              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-                              registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
-                            />
-                          )}
-                          {tab.mode === 'collection-overview' && tab.entityId && (
-                            <CollectionOverview
-                              collectionUid={tab.entityId}
-                              onSelectRule={openEditTab}
-                              onCreateRule={openCreateTab}
-                              onOpenFolderOverview={openFolderOverview}
-                            />
-                          )}
-                          {tab.mode === 'folder-overview' && tab.entityId && (
-                            <FolderOverview
-                              folderUid={tab.entityId}
-                              onSelectRule={openEditTab}
-                              onCreateRule={openCreateTab}
-                              onOpenFolderOverview={openFolderOverview}
-                            />
-                          )}
-                          {tab.mode === 'template-edit' && tab.templateUid && (
-                            <TemplateEditor
-                              templateUid={tab.templateUid}
-                              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-                              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </Allotment.Pane>
+            <Allotment.Pane priority={LayoutPriority.High} minSize={layout.sizes.editorMin}>
+              <Allotment vertical proportionalLayout={false} onChange={handleVerticalResize}>
+                <Allotment.Pane>{editorArea}</Allotment.Pane>
 
-                <Allotment.Pane preferredSize={200} minSize={100} maxSize={500} visible={panels.bottomPanel}>
+                <Allotment.Pane
+                  preferredSize={layout.sizes.bottom.preferred}
+                  minSize={layout.sizes.bottom.min}
+                  maxSize={layout.sizes.bottom.max}
+                  visible={panels.bottomPanel}
+                  snap
+                >
                   <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
                 </Allotment.Pane>
               </Allotment>
             </Allotment.Pane>
 
-            <Allotment.Pane preferredSize={500} minSize={280} maxSize={600} visible={panels.inspector}>
+            <Allotment.Pane
+              preferredSize={
+                inspectorWide
+                  ? Math.max(layout.sizes.inspector.preferred, Math.round((window.innerWidth - 64) * 0.4))
+                  : layout.sizes.inspector.preferred
+              }
+              minSize={layout.sizes.inspector.min}
+              maxSize={inspectorWide ? Math.round((window.innerWidth - 64) * 0.5) : layout.sizes.inspector.max}
+              visible={panels.inspector}
+              snap
+            >
               <Inspector onClose={() => togglePanel('inspector')} />
             </Allotment.Pane>
           </Allotment>

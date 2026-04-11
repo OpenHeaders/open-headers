@@ -661,40 +661,45 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           />
         </div>
 
-        {/* ── Per-type fields ── */}
-        {selectedType === 'header' && (
-          <HeaderRuleFields
-            activeTab={headerActiveTab}
-            onTabChange={setHeaderActiveTab}
-            reqCount={headerReqCount}
-            resCount={headerResCount}
-          />
-        )}
-        {selectedType === 'block' && <BlockRuleFields />}
-        {selectedType === 'redirect' && <RedirectRuleFields />}
-        {selectedType === 'query-param' && <QueryParamRuleFields />}
-        {selectedType === 'inject' && <InjectRuleFields />}
-        {selectedType === 'delay' && <DelayRuleFields />}
-        {selectedType === 'body' && <BodyRuleFields />}
-        {selectedType === 'mock' && <MockRuleFields />}
+        {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
+        <div className="rules-rule-editor-columns">
+          {/* ── Per-type fields ── */}
+          <div>
+            {selectedType === 'header' && (
+              <HeaderRuleFields
+                activeTab={headerActiveTab}
+                onTabChange={setHeaderActiveTab}
+                reqCount={headerReqCount}
+                resCount={headerResCount}
+              />
+            )}
+            {selectedType === 'block' && <BlockRuleFields />}
+            {selectedType === 'redirect' && <RedirectRuleFields />}
+            {selectedType === 'query-param' && <QueryParamRuleFields />}
+            {selectedType === 'inject' && <InjectRuleFields />}
+            {selectedType === 'delay' && <DelayRuleFields />}
+            {selectedType === 'body' && <BodyRuleFields />}
+            {selectedType === 'mock' && <MockRuleFields />}
+          </div>
 
-        {/* ── Conditions section ── */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <Text strong style={{ fontSize: 13 }}>
-              Conditions
-            </Text>
-            <InfoCircleOutlined
-              style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-              onClick={() => openDocs('conditions')}
-            />
+          {/* ── Conditions section ── */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <Text strong style={{ fontSize: 13 }}>
+                Conditions
+              </Text>
+              <InfoCircleOutlined
+                style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                onClick={() => openDocs('conditions')}
+              />
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}>
+              All conditions must match for this rule to fire (AND logic). Add at least one condition.
+            </div>
+            <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+              <ConditionEditor />
+            </Form.Item>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}>
-            All conditions must match for this rule to fire (AND logic). Add at least one condition.
-          </div>
-          <Form.Item name="conditions" style={{ marginBottom: 0 }}>
-            <ConditionEditor />
-          </Form.Item>
         </div>
       </Form>
 

@@ -505,6 +505,8 @@ html, body, #root {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  container-type: inline-size;
+  container-name: editor;
 }
 
 .rules-welcome {
@@ -520,7 +522,8 @@ html, body, #root {
 
 .rules-rule-editor {
   padding: 24px 32px 48px;
-  max-width: 820px;
+  max-width: clamp(600px, 70%, 1100px);
+  margin: 0 auto;
 
   .ant-form-item-label > label {
     font-size: 12px;
@@ -533,6 +536,21 @@ html, body, #root {
   // Muted non-selected segments in edit mode
   .ant-segmented-item-disabled {
     opacity: 0.35;
+  }
+}
+
+// Two-column layout when editor pane is wide enough
+@container editor (min-width: 1000px) {
+  .rules-rule-editor {
+    max-width: 100%;
+    padding: 24px 48px 48px;
+  }
+
+  .rules-rule-editor-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
   }
 }
 
@@ -654,4 +672,10 @@ html, body, #root {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+// ── Wider allotment sash hit targets ──────────────────────────────
+
+:root {
+  --sash-size: 16px;
 }

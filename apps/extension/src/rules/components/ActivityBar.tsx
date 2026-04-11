@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import { Tooltip, theme } from 'antd';
 import type React from 'react';
+import { forwardRef } from 'react';
 
 interface ActivityBarProps {
   sidebarVisible: boolean;
@@ -45,16 +46,18 @@ const PANELS: Array<{
   { key: 'files', icon: <FolderOutlined />, label: 'Local Files', enabled: false, tooltip: 'Available in desktop app' },
 ];
 
-const ActivityBar: React.FC<ActivityBarProps> = ({ sidebarVisible, onToggleSidebar }) => {
+const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(({ sidebarVisible, onToggleSidebar }, ref) => {
   const { token } = theme.useToken();
 
   return (
     <div
+      ref={ref}
       className="rules-activity-bar"
       style={{
         background: token.colorBgLayout,
         borderRight: `1px solid ${token.colorBorderSecondary}`,
       }}
+      tabIndex={-1}
     >
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
         {PANELS.map((panel) => {
@@ -100,6 +103,8 @@ const ActivityBar: React.FC<ActivityBarProps> = ({ sidebarVisible, onToggleSideb
       </Tooltip>
     </div>
   );
-};
+});
+
+ActivityBar.displayName = 'ActivityBar';
 
 export default ActivityBar;
