@@ -6,6 +6,7 @@ export interface FooterActions {
   onToggleRecording?: () => void;
   onToggleRulesPause?: () => void;
   onToggleOptions?: () => void;
+  onOpenWorkspace?: () => void;
 }
 
 interface UseKeyboardDispatchOptions {
@@ -88,7 +89,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
 
   const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow } = rowActions;
 
-  const { onToggleRecording, onToggleRulesPause, onToggleOptions } = footerActions;
+  const { onToggleRecording, onToggleRulesPause, onToggleOptions, onOpenWorkspace } = footerActions;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -383,6 +384,11 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         onToggleCompactMode();
         return;
       }
+      if (key === 'w' && onOpenWorkspace) {
+        e.preventDefault();
+        onOpenWorkspace();
+        return;
+      }
     },
     [
       focusedRowIndex,
@@ -409,6 +415,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       onToggleRecording,
       onToggleRulesPause,
       onToggleOptions,
+      onOpenWorkspace,
       onCycleTheme,
       onToggleCompactMode,
       setFocusedRowIndex,

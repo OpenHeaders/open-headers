@@ -1,7 +1,7 @@
 /**
  * TopBar — mirrors the desktop V5Shell TopBar.
  *
- * Layout: [Logo] [Title] [Rules badge] | [Search... (disabled)] | [Settings (disabled)]
+ * Layout: [Logo] [Title] [Rules badge] | [⌘K Search...] | [Settings (disabled)]
  *
  * Back/forward navigation not applicable in extension context.
  */
@@ -10,8 +10,13 @@ import { SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { getBrowserAPI } from '@/types/browser';
+import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
-const TopBar: React.FC = () => {
+interface TopBarProps {
+  onCommandPalette?: () => void;
+}
+
+const TopBar: React.FC<TopBarProps> = ({ onCommandPalette }) => {
   const { token } = theme.useToken();
 
   return (
@@ -45,22 +50,32 @@ const TopBar: React.FC = () => {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, maxWidth: 420, justifyContent: 'center' }}>
-        <Tooltip title="Command palette not available in extension">
-          <Button
-            className="rules-topbar-search"
-            type="text"
-            disabled
-            style={{
-              background: token.colorBgContainer,
-              border: `1px solid ${token.colorBorderSecondary}`,
-            }}
-          >
-            <Space size={4}>
-              <SearchOutlined style={{ color: token.colorTextTertiary }} />
-              <span style={{ color: token.colorTextTertiary }}>Search rules...</span>
-            </Space>
-          </Button>
-        </Tooltip>
+        <Button
+          className="rules-topbar-search"
+          type="text"
+          onClick={onCommandPalette}
+          style={{
+            background: token.colorBgContainer,
+            border: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <Space size={4}>
+            <SearchOutlined style={{ color: token.colorTextTertiary }} />
+            <span style={{ color: token.colorTextTertiary }}>Search or run a command...</span>
+            <kbd
+              style={{
+                fontSize: 10,
+                padding: '1px 5px',
+                borderRadius: 3,
+                background: token.colorBgElevated,
+                color: token.colorTextTertiary,
+                fontFamily: 'system-ui, sans-serif',
+              }}
+            >
+              {shortcutLabel('command-palette')}
+            </kbd>
+          </Space>
+        </Button>
       </div>
 
       <div className="rules-topbar-right">

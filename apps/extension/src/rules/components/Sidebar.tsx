@@ -14,11 +14,11 @@ import {
   DeleteOutlined,
   EditOutlined,
   EllipsisOutlined,
-  ExpandOutlined,
+  BorderLeftOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
-  NodeCollapseOutlined,
+  MenuUnfoldOutlined,
   PlusOutlined,
   SearchOutlined,
   StopOutlined,
@@ -1155,6 +1155,28 @@ const Sidebar: React.FC<SidebarProps> = ({
           prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />}
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' || e.key === 'Enter') {
+              e.preventDefault();
+              // Move focus from filter input into the tree
+              const first = allFlatItems[0];
+              if (first) {
+                setFocusedId(first.id);
+                containerRef.current?.focus();
+                setTimeout(() => {
+                  containerRef.current?.querySelector(`[data-item-id="${first.id}"]`)?.scrollIntoView({ block: 'nearest' });
+                }, 0);
+              }
+            } else if (e.key === 'Escape') {
+              if (filterText) {
+                // Has text → clear it, stay focused
+                setFilterText('');
+              } else {
+                // Already empty → exit to tree
+                containerRef.current?.focus();
+              }
+            }
+          }}
           allowClear
           style={{ flex: 1, fontSize: 11 }}
           variant="borderless"
@@ -1177,12 +1199,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         </Tooltip>
         <Tooltip title="Expand All" placement="bottom">
           <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={expandAll}>
-            <ExpandOutlined />
+            <MenuUnfoldOutlined />
           </div>
         </Tooltip>
         <Tooltip title="Collapse All" placement="bottom">
           <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={collapseAll}>
-            <NodeCollapseOutlined />
+            <BorderLeftOutlined />
           </div>
         </Tooltip>
         <Dropdown

@@ -222,8 +222,25 @@ const RulesTable: React.FC<RulesTableProps> = ({
     [isConnected, message],
   );
 
+  const [addRuleMenuOpen, setAddRuleMenuOpen] = useState(false);
+
   const handleAddRule = useCallback(() => {
-    openRulesPage('/create/header');
+    setAddRuleMenuOpen((prev) => {
+      if (!prev) {
+        const tryFocus = (attempts: number) => {
+          const firstItem = document.querySelector(
+            '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)',
+          ) as HTMLElement | null;
+          if (firstItem) {
+            firstItem.focus();
+          } else if (attempts > 0) {
+            requestAnimationFrame(() => tryFocus(attempts - 1));
+          }
+        };
+        requestAnimationFrame(() => tryFocus(5));
+      }
+      return !prev;
+    });
   }, []);
 
   useRowActionRegistration(onRowActionsChange, {
@@ -547,7 +564,13 @@ const RulesTable: React.FC<RulesTableProps> = ({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36 }}>
-              <Dropdown menu={{ items: addRuleMenuItems }} placement="bottomRight" trigger={['click']}>
+              <Dropdown
+                menu={{ items: addRuleMenuItems }}
+                placement="bottomRight"
+                trigger={['click']}
+                open={addRuleMenuOpen}
+                onOpenChange={setAddRuleMenuOpen}
+              >
                 <Button type="primary" size="middle" className="add-rule-button">
                   <Space>
                     <PlusOutlined />

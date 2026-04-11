@@ -227,17 +227,24 @@ const Footer: React.FC = () => {
     });
   }, []);
 
+  const handleOpenWorkspace = useCallback(() => {
+    const url = getBrowserAPI().runtime.getURL('workspace.html');
+    getBrowserAPI().tabs.create({ url });
+  }, []);
+
   useEffect(() => {
     setFooterActions({
       onToggleRecording: handleToggleRecordingForKeyboard,
       onToggleRulesPause: handleTogglePauseForKeyboard,
       onToggleOptions: handleToggleOptionsForKeyboard,
+      onOpenWorkspace: handleOpenWorkspace,
     });
   }, [
     setFooterActions,
     handleToggleRecordingForKeyboard,
     handleTogglePauseForKeyboard,
     handleToggleOptionsForKeyboard,
+    handleOpenWorkspace,
   ]);
 
   // When options dropdown is open, handle keyboard actions on focused menu items

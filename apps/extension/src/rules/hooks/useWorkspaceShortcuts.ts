@@ -48,7 +48,6 @@ export const SHORTCUTS: ShortcutDef[] = [
   // Navigation
   { id: 'command-palette', label: 'Command palette', mac: '⌘K', win: 'Ctrl+K', category: 'navigation' },
   { id: 'focus-filter', label: 'Focus sidebar filter', mac: '/', win: '/', category: 'navigation' },
-  { id: 'find', label: 'Find', mac: '⌘F', win: 'Ctrl+F', category: 'navigation' },
 
   // Actions
   { id: 'save', label: 'Save', mac: '⌘S', win: 'Ctrl+S', category: 'actions' },
@@ -136,10 +135,6 @@ export function useWorkspaceShortcuts(handlers: WorkspaceShortcutHandlers): void
             e.preventDefault();
             handlers.onCommandPalette();
             return;
-          case 'f':
-            e.preventDefault();
-            handlers.onFocusFilter();
-            return;
           case '[':
             e.preventDefault();
             handlers.onPrevTab();
@@ -152,13 +147,14 @@ export function useWorkspaceShortcuts(handlers: WorkspaceShortcutHandlers): void
       }
 
       // ── Alt shortcuts ────────────────────────────────────────
+      // Use e.code (physical key) instead of e.key — on macOS, Alt+N produces
+      // the dead-key character "ñ" so e.key would be "Dead" or "ñ", not "n".
 
       if (e.altKey && !mod && !e.shiftKey) {
-        switch (key) {
-          case 'n':
-            e.preventDefault();
-            handlers.onNewRule();
-            return;
+        if (e.code === 'KeyN') {
+          e.preventDefault();
+          handlers.onNewRule();
+          return;
         }
       }
 

@@ -37,7 +37,11 @@ function tabIcon(tab: RulesTab, rules: V5.Rule[], templates: V5.Template[]): Rea
   if (tab.mode === 'folder-overview') return <FolderOutlined style={{ fontSize: 12, color: '#999' }} />;
   if (tab.mode === 'template-edit' && tab.templateUid) {
     const tpl = templates.find((t) => t.uid === tab.templateUid);
-    return renderTwoToneIcon(tpl?.icon ?? '', { fontSize: 12 }) || <FileTextOutlined style={{ fontSize: 12, color: '#999' }} />;
+    return (
+      renderTwoToneIcon(tpl?.icon ?? '', { fontSize: 12 }) || (
+        <FileTextOutlined style={{ fontSize: 12, color: '#999' }} />
+      )
+    );
   }
   // Rule tabs — use the same rich icon as the sidebar
   const rule = tab.ruleUid ? rules.find((r) => r.uid === tab.ruleUid) : undefined;
@@ -70,6 +74,9 @@ interface TabBarProps {
   onCloseToRight: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopenTab: (closed: ClosedTab) => void;
+  /** Controlled open state for the + create menu (e.g. triggered by ⌥N). */
+  createMenuOpen?: boolean;
+  onCreateMenuOpenChange?: (open: boolean) => void;
 }
 
 // ── Tab Search Dropdown ──────────────────────────────────────────
@@ -195,7 +202,9 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                   onClose();
                 }}
               >
-                <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>{tabIcon(tab, rules, templates)}</span>
+                <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
+                  {tabIcon(tab, rules, templates)}
+                </span>
                 <span
                   style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
                 >
@@ -294,6 +303,8 @@ const TabBar: React.FC<TabBarProps> = ({
   onCloseToRight,
   recentlyClosed,
   onReopenTab,
+  createMenuOpen,
+  onCreateMenuOpenChange,
 }) => {
   const { token } = theme.useToken();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -467,7 +478,13 @@ const TabBar: React.FC<TabBarProps> = ({
         })}
 
         {/* + button: inside scroll area, right after last tab */}
-        <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
+        <Dropdown
+          menu={{ items: createMenuItems }}
+          trigger={['click']}
+          placement="bottomRight"
+          open={createMenuOpen}
+          onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
+        >
           <div className="rules-tab-action" style={{ color: token.colorTextSecondary, flexShrink: 0 }}>
             <PlusOutlined style={{ fontSize: 12 }} />
           </div>

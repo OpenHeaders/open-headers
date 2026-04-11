@@ -7,6 +7,7 @@
  * Tab state extracted to useTabs hook. Dirty confirmation in useTabLifecycle hook.
  */
 
+import { FolderOutlined } from '@ant-design/icons';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
@@ -17,12 +18,12 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
-import { useResponsiveLayout } from './hooks/useResponsiveLayout';
-import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import ActivityBar from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
 import CollectionOverview from './components/CollectionOverview';
+import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from './components/CommandPalette';
+import CommandPalette from './components/CommandPalette';
 import EmptyState from './components/EmptyState';
 import FolderOverview from './components/FolderOverview';
 import Inspector from './components/Inspector';
@@ -30,12 +31,16 @@ import RuleEditor from './components/RuleEditor';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
+import { buildRuleIcon } from './components/shared/rule-icon';
 import TabBar from './components/TabBar';
 import TemplateEditor from './components/TemplateEditor';
 import TopBar from './components/TopBar';
+import { renderTwoToneIcon } from './components/TwoToneIconPicker';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
+import { useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabs } from './hooks/useTabs';
+import { shortcutLabel, useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import type { PanelVisibility, RulesTab } from './types';
 
@@ -68,6 +73,7 @@ const RulesAppInner: React.FC = () => {
     renameLocalCollection,
     renameLocalFolder,
     templates,
+    templateCollectionTrees,
   } = useRules();
 
   // ── Tab state (extracted hook) ────────────────────────────────
@@ -108,6 +114,8 @@ const RulesAppInner: React.FC = () => {
   const [panels, setPanels] = useState<PanelVisibility>({ sidebar: true, bottomPanel: false, inspector: false });
   const [bottomPanelTab, setBottomPanelTab] = useState('traffic');
   const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   // Auto-collapse sidebar on narrow viewports (first-open only)
   const sidebarAutoCollapsedRef = useRef(false);
@@ -670,6 +678,174 @@ const RulesAppInner: React.FC = () => {
     }
   }, [panels.inspector, togglePanel, openDocs]);
 
+  // ── Command palette data ──────────────────────────────────────
+
+  /** Navigable groups: rule collections, system templates, user template collections. */
+  const cmdGroups = useMemo((): CommandPaletteGroup[] => {
+    const result: CommandPaletteGroup[] = [];
+
+    // Rule collections — drill in to see rules inside
+    for (const col of localCollectionTrees) {
+      const ruleItems: CommandPaletteItem[] = [];
+      const walk = (nodes: V5.TreeNode[]) => {
+        for (const node of nodes) {
+          if (node.type === 'rule') {
+            const rule = rules.find((r) => r.uid === node.uid);
+            ruleItems.push({
+              id: `rule-${node.uid}`,
+              icon: buildRuleIcon({ ruleType: node.ruleType, rule, isActive: node.enabled }),
+              label: node.name,
+              scope: RULE_TYPE_LABELS[node.ruleType] ?? 'Rule',
+              onSelect: () => openEditTab(node.uid),
+            });
+          } else if (node.type === 'folder') {
+            walk(node.children);
+          }
+        }
+      };
+      walk(col.tree);
+      result.push({
+        id: `col-${col.uid}`,
+        icon: <FolderOutlined style={{ fontSize: 12 }} />,
+        label: col.name,
+        children: [{ id: `rules-in-${col.uid}`, title: 'Rules', items: ruleItems }],
+      });
+    }
+
+    // System templates — grouped by rule type, selecting creates a rule from template
+    const systemSections: CommandPaletteSection[] = [];
+    for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
+      if (tpls.length === 0) continue;
+      systemSections.push({
+        id: `sys-tpl-${ruleType}`,
+        title: RULE_TYPE_LABELS[ruleType] ?? ruleType,
+        items: tpls.map((tpl) => ({
+          id: `sys-tpl-${tpl.key}`,
+          icon: <span style={{ fontSize: 12 }}>{tpl.icon}</span>,
+          label: tpl.name,
+          scope: tpl.description,
+          onSelect: () => openCreateTab(ruleType, undefined, tpl.key),
+        })),
+      });
+    }
+    result.push({
+      id: 'sys-templates',
+      icon: <FolderOutlined style={{ fontSize: 12 }} />,
+      label: 'System Templates',
+      children: systemSections,
+    });
+
+    // User template collections — drill in to see templates inside
+    for (const col of templateCollectionTrees) {
+      const tplItems: CommandPaletteItem[] = [];
+      const walkTpl = (nodes: V5.TreeNode[]) => {
+        for (const node of nodes) {
+          if (node.type === 'template') {
+            tplItems.push({
+              id: `tpl-${node.uid}`,
+              icon:
+                renderTwoToneIcon(node.icon, { fontSize: 12 }) ||
+                buildRuleIcon({ ruleType: node.ruleType, isActive: false }),
+              label: node.name,
+              scope: RULE_TYPE_LABELS[node.ruleType] ?? 'Template',
+              onSelect: () => openTemplateEditTab(node.uid),
+            });
+          } else if (node.type === 'folder') {
+            walkTpl(node.children);
+          }
+        }
+      };
+      walkTpl(col.tree);
+      if (tplItems.length > 0) {
+        result.push({
+          id: `tpl-col-${col.uid}`,
+          icon: <FolderOutlined style={{ fontSize: 12 }} />,
+          label: col.name,
+          children: [{ id: `tpls-in-${col.uid}`, title: 'Templates', items: tplItems }],
+        });
+      }
+    }
+
+    return result;
+  }, [localCollectionTrees, templateCollectionTrees, rules, openEditTab, openCreateTab, openTemplateEditTab]);
+
+  /** Flat sections: create commands, panel commands. */
+  const cmdSections = useMemo((): CommandPaletteSection[] => {
+    const result: CommandPaletteSection[] = [];
+
+    // Create new rule commands
+    const ruleTypes = ['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'mock'] as const;
+    result.push({
+      id: 'create',
+      title: 'Create',
+      items: [
+        {
+          id: 'cmd-create-rule',
+          label: 'Create Rule...',
+          shortcut: shortcutLabel('new-rule'),
+          onSelect: () => {
+            setCreateMenuOpen((prev) => {
+              if (!prev) {
+                const tryFocus = (attempts: number) => {
+                  const firstItem = document.querySelector(
+                    '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)',
+                  ) as HTMLElement | null;
+                  if (firstItem) {
+                    firstItem.focus();
+                  } else if (attempts > 0) {
+                    requestAnimationFrame(() => tryFocus(attempts - 1));
+                  }
+                };
+                requestAnimationFrame(() => tryFocus(5));
+              }
+              return !prev;
+            });
+          },
+        },
+        ...ruleTypes.map((type) => ({
+          id: `cmd-new-${type}`,
+          icon: buildRuleIcon({ ruleType: type, isActive: true }),
+          label: `New ${RULE_TYPE_LABELS[type]}`,
+          onSelect: () => openCreateTab(type),
+        })),
+      ],
+    });
+
+    // Panel / layout commands
+    result.push({
+      id: 'commands',
+      title: 'Commands',
+      items: [
+        {
+          id: 'cmd-toggle-sidebar',
+          label: 'Toggle Sidebar',
+          shortcut: shortcutLabel('toggle-sidebar'),
+          onSelect: () => togglePanel('sidebar'),
+        },
+        {
+          id: 'cmd-toggle-bottom',
+          label: 'Toggle Bottom Panel',
+          shortcut: shortcutLabel('toggle-bottom'),
+          onSelect: () => togglePanel('bottomPanel'),
+        },
+        {
+          id: 'cmd-toggle-inspector',
+          label: 'Toggle Inspector',
+          shortcut: shortcutLabel('toggle-inspector'),
+          onSelect: () => togglePanel('inspector'),
+        },
+        {
+          id: 'cmd-shortcuts',
+          label: 'Keyboard Shortcuts',
+          shortcut: '?',
+          onSelect: handleShowShortcuts,
+        },
+      ],
+    });
+
+    return result;
+  }, [openCreateTab, togglePanel, handleShowShortcuts]);
+
   // ── Global keyboard shortcuts ─────────────────────────────────
 
   useWorkspaceShortcuts({
@@ -680,15 +856,29 @@ const RulesAppInner: React.FC = () => {
     onPrevTab: handlePrevTab,
     onNextTab: handleNextTab,
     onSave: handleSave,
-    onNewRule: () => openCreateTab('header'),
+    onNewRule: () => {
+      setCreateMenuOpen((prev) => {
+        if (!prev) {
+          const tryFocus = (attempts: number) => {
+            const firstItem = document.querySelector(
+              '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)',
+            ) as HTMLElement | null;
+            if (firstItem) {
+              firstItem.focus();
+            } else if (attempts > 0) {
+              requestAnimationFrame(() => tryFocus(attempts - 1));
+            }
+          };
+          requestAnimationFrame(() => tryFocus(5));
+        }
+        return !prev;
+      });
+    },
     onFocusFilter: () => {
       if (!panels.sidebar) togglePanel('sidebar');
       sidebarFilterRef.current?.focus();
     },
-    onCommandPalette: () => {
-      if (!panels.sidebar) togglePanel('sidebar');
-      sidebarFilterRef.current?.focus(); // TODO: replace with command palette when built
-    },
+    onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,
     hasActiveTab: () => activeTabId != null,
   });
@@ -745,15 +935,15 @@ const RulesAppInner: React.FC = () => {
         onCloseToRight={handleCloseToRight}
         recentlyClosed={recentlyClosed}
         onReopenTab={reopenTab}
+        createMenuOpen={createMenuOpen}
+        onCreateMenuOpenChange={setCreateMenuOpen}
       />
       {activeTab && (
         <BreadcrumbBar
           segments={breadcrumbs}
           isDirty={activeTab.mode === 'create' || activeTab.dirty}
           onSave={activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSave : undefined}
-          onSaveAsTemplate={
-            activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSaveAsTemplate : undefined
-          }
+          onSaveAsTemplate={activeTab.mode === 'create' || activeTab.mode === 'edit' ? handleSaveAsTemplate : undefined}
           onRename={handleBreadcrumbRename}
           autoRenameKey={pendingRenameTabId === activeTabId ? pendingRenameTabId : null}
         />
@@ -808,7 +998,7 @@ const RulesAppInner: React.FC = () => {
 
   return (
     <div className="rules-shell" data-theme={isDarkMode ? 'dark' : 'light'} style={{ background: token.colorBgLayout }}>
-      <TopBar />
+      <TopBar onCommandPalette={() => setCommandPaletteOpen(true)} />
 
       <div className="rules-main">
         <ActivityBar
@@ -885,6 +1075,13 @@ const RulesAppInner: React.FC = () => {
         onCreateCollection={createLocalCollection}
         onCreateFolder={createLocalFolder}
         onCancel={() => setSaveModalOpen(false)}
+      />
+
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        groups={cmdGroups}
+        sections={cmdSections}
       />
     </div>
   );

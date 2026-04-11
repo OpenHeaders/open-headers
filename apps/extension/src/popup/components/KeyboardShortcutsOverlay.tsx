@@ -38,6 +38,7 @@ const LEFT_COLUMN: ShortcutGroup[] = [
     title: 'Actions',
     shortcuts: [
       { keys: ['a'], description: 'Add new rule' },
+      { keys: ['w'], description: 'Open workspace' },
       { keys: ['r'], description: 'Toggle recording' },
       { keys: ['p'], description: 'Pause / resume rules' },
       { keys: ['o'], description: 'Options menu' },

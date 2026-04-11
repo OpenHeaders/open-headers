@@ -9,6 +9,7 @@ import { FileTextOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 interface BreadcrumbBarProps {
   segments: string[];
@@ -141,18 +142,13 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {onSaveAsTemplate && (
           <Tooltip title="Save as Template">
-            <Button
-              size="small"
-              icon={<FileTextOutlined />}
-              onClick={onSaveAsTemplate}
-              style={{ fontSize: 11 }}
-            >
+            <Button size="small" icon={<FileTextOutlined />} onClick={onSaveAsTemplate} style={{ fontSize: 11 }}>
               Save as Template
             </Button>
           </Tooltip>
         )}
         {onSave && (
-          <Tooltip title="Save">
+          <Tooltip title={`Save (${shortcutLabel('save')})`}>
             <Button
               size="small"
               type="primary"
