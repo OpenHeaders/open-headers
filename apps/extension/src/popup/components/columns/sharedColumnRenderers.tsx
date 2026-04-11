@@ -291,7 +291,25 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
   const opLabel = detail.operation ? detail.operation.charAt(0).toUpperCase() + detail.operation.slice(1) : '';
   const typeLabel = [detail.direction === 'response' ? '↓' : detail.direction === 'request' ? '↑' : '', opLabel]
     .filter(Boolean)
-    .join(' ') || detail.ruleType;
+    .join(' ') || detail.ruleType.charAt(0).toUpperCase() + detail.ruleType.slice(1);
+
+  // Rule-type-specific tag names for label and value rows
+  const labelKey: Record<string, string> = {
+    header: 'Name',
+    redirect: 'URL',
+    'query-param': 'Count',
+    inject: 'Type',
+    delay: 'Duration',
+    body: 'Format',
+    mock: 'Status',
+  };
+  const valueKey: Record<string, string> = {
+    header: 'Value',
+    redirect: 'URL',
+    inject: 'Position',
+    body: 'Body',
+    mock: 'Content-Type',
+  };
 
   const rows: Array<{ key: string; value: string | string[] }> = [
     { key: typeLabel, value: detail.tooltip },
@@ -299,8 +317,8 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
   if (detail.items) {
     rows.push({ key: detail.ruleType === 'header' ? 'Headers' : 'Params', value: detail.items });
   } else {
-    if (detail.label) rows.push({ key: detail.ruleType === 'header' ? 'Name' : 'Label', value: detail.label });
-    if (detail.value) rows.push({ key: 'Value', value: detail.value });
+    if (detail.label) rows.push({ key: labelKey[detail.ruleType] ?? 'Label', value: detail.label });
+    if (detail.value) rows.push({ key: valueKey[detail.ruleType] ?? 'Value', value: detail.value });
   }
 
   const tooltipContent = renderTooltipGrid(rows);
