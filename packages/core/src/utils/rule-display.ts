@@ -144,11 +144,12 @@ export function getActionDetail(rule: Rule): ActionDetail {
     }
     case 'mock': {
       const mr = rule as MockRule;
+      const mockFormat = mr.action.resourceType === 'graphql' ? 'GraphQL' : 'REST';
       return {
         ruleType: 'mock',
         direction: 'response' as const,
         operation: mr.action.bodyType,
-        label: `${mr.action.statusCode}`,
+        label: `${mr.action.statusCode} ${mockFormat}`,
         value: mr.action.contentType || '',
         tooltip: 'Overrides API response (fetch/XHR)',
       };
