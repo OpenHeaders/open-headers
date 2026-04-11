@@ -84,10 +84,26 @@ export function buildRuleIcon({ ruleType, rule, isActive, size = 12, direction }
     arrowContent,
   );
 
+  // Fixed-width container for the icon too — different icons (Send, Stop, Code, etc.)
+  // have different intrinsic widths; this ensures the content after always starts at the same x.
+  const iconSlot = createElement(
+    'span',
+    {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: size + 2,
+        flexShrink: 0,
+      },
+    },
+    createElement(Icon, { style: { fontSize: size, color: iconColor } }),
+  );
+
   return createElement(
     'span',
     { style: { display: 'inline-flex', alignItems: 'center', gap: 0 } },
     arrowSlot,
-    createElement(Icon, { style: { fontSize: size, color: iconColor } }),
+    iconSlot,
   );
 }
