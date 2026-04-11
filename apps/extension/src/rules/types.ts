@@ -32,6 +32,8 @@ export interface RulesTab {
   templateUid?: string;
   /** For rule-flow tabs: the scope. */
   flowScope?: RuleFlowScope;
+  /** For rule-flow tabs with "this-page" scope: the tab URL to filter against. */
+  flowTabUrl?: string;
 }
 
 export interface PanelVisibility {

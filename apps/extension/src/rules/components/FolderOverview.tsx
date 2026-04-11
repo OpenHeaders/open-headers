@@ -6,8 +6,8 @@
  */
 
 import {
-  ApartmentOutlined,
   FolderOutlined,
+  PartitionOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   PlusOutlined,
@@ -256,7 +256,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         {onOpenRuleFlow && folder && (
           <Button
             size="small"
-            icon={<ApartmentOutlined />}
+            icon={<PartitionOutlined />}
             onClick={() => onOpenRuleFlow('folder', folderUid, folder.name)}
           >
             Rule Flow

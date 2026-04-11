@@ -6,6 +6,7 @@ import {
   ExclamationCircleOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
+  PartitionOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
@@ -537,7 +538,19 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           seenTypes.add(rt);
         }
         // Show in a stable order: page first, then sub-resources
-        const typeOrder = ['main_frame', 'sub_frame', 'xmlhttprequest', 'script', 'stylesheet', 'image', 'font', 'media', 'websocket', 'ping', 'other'];
+        const typeOrder = [
+          'main_frame',
+          'sub_frame',
+          'xmlhttprequest',
+          'script',
+          'stylesheet',
+          'image',
+          'font',
+          'media',
+          'websocket',
+          'ping',
+          'other',
+        ];
         for (const rt of typeOrder) {
           if (seenTypes.has(rt)) {
             allTags.push({
@@ -911,6 +924,24 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           </div>
         </div>
       </div>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+        <Button
+          type="dashed"
+          size="small"
+          icon={<PartitionOutlined />}
+          onClick={() => {
+            if (currentTab?.url) {
+              const url = getBrowserAPI().runtime.getURL(
+                `workspace.html#/flow/this-page/${encodeURIComponent(currentTab.url)}`,
+              );
+              getBrowserAPI().tabs.create({ url });
+            }
+          }}
+          style={{ fontSize: 11 }}
+        >
+          View Rule Flow
+        </Button>
+      </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingBottom: '8px' }}>
         <Table
           dataSource={dataSource}
@@ -949,11 +980,19 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                       fontSize: 12,
                     }}
                   >
-                    <Tag variant="outlined" style={{ margin: 0, fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <Tag
+                      variant="outlined"
+                      style={{ margin: 0, fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}
+                    >
                       {uniqueRequestCount}
                     </Tag>
-                    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>Click badge on each row to see matched requests</span>
-                    <Tag variant="outlined" style={{ margin: 0, fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>
+                      Click badge on each row to see matched requests
+                    </span>
+                    <Tag
+                      variant="outlined"
+                      style={{ margin: 0, fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}
+                    >
                       i
                     </Tag>
                     <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>Click icon below to see documentation</span>

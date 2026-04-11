@@ -21,32 +21,40 @@ import PriorityGroup, { PRIORITY_TIERS } from './rule-flow/PriorityGroup';
 interface RuleFlowProps {
   scope: RuleFlowScope;
   entityId?: string;
+  /** Pre-set tab URL for "This Page" scope (passed from popup via hash). */
+  initialTabUrl?: string;
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }) => void;
 }
 
-const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSelectRule, onCreateRule }) => {
+const RuleFlow: React.FC<RuleFlowProps> = ({
+  scope: initialScope,
+  entityId,
+  initialTabUrl,
+  onSelectRule,
+  onCreateRule,
+}) => {
   const { token } = theme.useToken();
   const { rules, localCollectionTrees } = useRules();
   const [scope, setScope] = useState<RuleFlowScope>(initialScope);
-  const [tabUrl, setTabUrl] = useState<string>('');
+  const [tabUrl, setTabUrl] = useState<string>(initialTabUrl ?? '');
   const [showDrafts, setShowDrafts] = useState(false);
-  const [showDisabled, setShowDisabled] = useState(initialScope === 'collection' || initialScope === 'folder');
+  const [showEnabled, setShowEnabled] = useState(true);
   const [compact, setCompact] = useState(true);
 
-  // Fetch the active tab URL for "This Page" filtering.
+  // Fetch the active tab URL for "This Page" filtering if not provided via prop.
   // Only useful when the active tab is a real page (not workspace.html itself).
   useEffect(() => {
+    if (initialTabUrl) return; // Already provided
     if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const url = tabs[0]?.url ?? '';
-        // Skip extension pages — "This Page" is meaningless for chrome-extension:// URLs
         if (url && !url.startsWith('chrome-extension://') && !url.startsWith('chrome://')) {
           setTabUrl(url);
         }
       });
     }
-  }, []);
+  }, [initialTabUrl]);
 
   // Build available scope options based on context
   const availableScopes = useMemo((): Array<{ label: string; value: RuleFlowScope }> => {
@@ -167,10 +175,10 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
   const filteredRules = useMemo(() => {
     return scopedRules.filter((r) => {
       if (!showDrafts && !isRuleComplete(r)) return false;
-      if (!showDisabled && !r.enabled) return false;
+      if (showEnabled && !r.enabled) return false;
       return true;
     });
-  }, [scopedRules, showDrafts, showDisabled]);
+  }, [scopedRules, showDrafts, showEnabled]);
 
   // Group rules by priority tier
   const rulesByTier = useMemo(() => {
@@ -235,12 +243,8 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
             <Checkbox checked={compact} onChange={(e) => setCompact(e.target.checked)} style={{ fontSize: 11 }}>
               <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Compact</span>
             </Checkbox>
-            <Checkbox
-              checked={showDisabled}
-              onChange={(e) => setShowDisabled(e.target.checked)}
-              style={{ fontSize: 11 }}
-            >
-              <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Disabled</span>
+            <Checkbox checked={showEnabled} onChange={(e) => setShowEnabled(e.target.checked)} style={{ fontSize: 11 }}>
+              <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Enabled</span>
             </Checkbox>
             <Checkbox checked={showDrafts} onChange={(e) => setShowDrafts(e.target.checked)} style={{ fontSize: 11 }}>
               <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Drafts</span>

@@ -26,9 +26,9 @@ import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } f
 import CommandPalette from './components/CommandPalette';
 import EmptyState from './components/EmptyState';
 import FolderOverview from './components/FolderOverview';
-import RuleFlow from './components/RuleFlow';
 import Inspector from './components/Inspector';
 import RuleEditor from './components/RuleEditor';
+import RuleFlow from './components/RuleFlow';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
@@ -407,14 +407,18 @@ const RulesAppInner: React.FC = () => {
   );
 
   const openRuleFlow = useCallback(
-    (scope: RuleFlowScope, entityId?: string, label?: string) => {
+    (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => {
       const id = entityId ? `flow-${entityId}` : `flow-${scope}`;
       const existing = tabs.find((t) => t.id === id);
       if (existing) {
         switchTab(id);
         return;
       }
-      const flowLabel = label ? `${label} — Flow` : scope === 'all-active' ? 'All Active Rules — Flow' : 'This Page — Flow';
+      const flowLabel = label
+        ? `Flow — ${label}`
+        : scope === 'all-active'
+          ? 'Flow — All Active Rules'
+          : 'Flow — This Page';
       const tab: RulesTab = {
         id,
         label: flowLabel,
@@ -423,6 +427,7 @@ const RulesAppInner: React.FC = () => {
         mode: 'rule-flow',
         entityId,
         flowScope: scope,
+        flowTabUrl: tabUrl,
       };
       addTab(tab);
     },
@@ -519,9 +524,11 @@ const RulesAppInner: React.FC = () => {
   const openCreateTabRef = useRef(openCreateTab);
   const openEditTabRef = useRef(openEditTab);
   const openDocsRef = useRef(openDocs);
+  const openRuleFlowRef = useRef(openRuleFlow);
   openCreateTabRef.current = openCreateTab;
   openEditTabRef.current = openEditTab;
   openDocsRef.current = openDocs;
+  openRuleFlowRef.current = openRuleFlow;
 
   useEffect(() => {
     if (!isStatusLoaded || hashProcessedRef.current) return;
@@ -538,6 +545,11 @@ const RulesAppInner: React.FC = () => {
       // #/docs/{sectionId} — open inspector in wide mode for focused reading
       setInspectorWide(true);
       openDocsRef.current(parts[1]);
+    } else if (parts[0] === 'flow') {
+      // #/flow/this-page/{encodedUrl} — open rule flow for current page
+      const flowScope = parts[1] as RuleFlowScope;
+      const flowUrl = parts[2] ? decodeURIComponent(parts[2]) : undefined;
+      openRuleFlowRef.current(flowScope, undefined, undefined, flowUrl);
     }
   }, [isStatusLoaded]);
 
@@ -1045,6 +1057,7 @@ const RulesAppInner: React.FC = () => {
               <RuleFlow
                 scope={tab.flowScope ?? 'all-active'}
                 entityId={tab.entityId}
+                initialTabUrl={tab.flowTabUrl}
                 onSelectRule={openEditTab}
                 onCreateRule={openCreateTab}
               />
