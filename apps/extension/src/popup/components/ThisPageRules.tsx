@@ -1,4 +1,5 @@
 import {
+  ApartmentOutlined,
   CheckOutlined,
   CopyTwoTone,
   DeleteOutlined,
@@ -6,7 +7,6 @@ import {
   ExclamationCircleOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
-  PartitionOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
@@ -858,89 +858,89 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'flex-end',
+                justifyContent: 'space-between',
                 gap: 6,
                 marginTop: 2,
               }}
             >
-              <Text type="secondary" style={{ fontSize: '11px' }}>
-                {(() => {
-                  if (!searchText) {
-                    return `${uniqueRequestCount} request${uniqueRequestCount !== 1 ? 's' : ''}`;
-                  }
-                  const q = searchText.toLowerCase();
-                  const filteredRequests = new Set<string>();
-                  for (const r of sortedFilteredRules) {
-                    for (const m of r.matchedUrls || []) {
-                      if (m.url.toLowerCase().includes(q)) filteredRequests.add(`${m.url}\0${m.timestamp}`);
-                    }
-                  }
-                  const parts: string[] = [];
-                  parts.push(
-                    `${sortedFilteredRules.length} of ${activeRules.length} rule${activeRules.length !== 1 ? 's' : ''}`,
-                  );
-                  if (filteredRequests.size > 0) {
-                    parts.push(
-                      `${filteredRequests.size} of ${uniqueRequestCount} request${uniqueRequestCount !== 1 ? 's' : ''}`,
+              <Button
+                type="link"
+                size="small"
+                icon={<ApartmentOutlined />}
+                onClick={() => {
+                  if (currentTab?.url) {
+                    const url = getBrowserAPI().runtime.getURL(
+                      `workspace.html#/flow/this-page/${encodeURIComponent(currentTab.url)}`,
                     );
+                    getBrowserAPI().tabs.create({ url });
                   }
-                  return `${parts.join(', ')} matched`;
-                })()}
-              </Text>
-              {copiedRowId === '__stats__' ? (
-                <CheckOutlined style={{ fontSize: '11px', color: '#52c41a', cursor: 'default' }} />
-              ) : (
-                <Tooltip title="Copy requests as TSV">
-                  <CopyTwoTone
-                    className="value-copy-icon"
-                    style={{ fontSize: '11px', cursor: 'pointer' }}
-                    onClick={() => {
-                      const seen = new Set<string>();
-                      const rows: string[] = [];
-                      const q = searchText.toLowerCase();
-                      const fmt = (ts: number) => {
-                        const d = new Date(ts);
-                        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`;
-                      };
-                      for (const r of sortedFilteredRules) {
-                        for (const m of r.matchedUrls || []) {
-                          if (q && !m.url.toLowerCase().includes(q)) continue;
-                          const key = `${m.url}\0${m.timestamp}`;
-                          if (seen.has(key)) continue;
-                          seen.add(key);
-                          const rt = m.resourceType || (m.url === currentTab?.url ? 'main_frame' : 'other');
-                          rows.push(`${fmt(m.timestamp)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`);
-                        }
+                }}
+                style={{ fontSize: 11, padding: 0, height: 'auto' }}
+              >
+                Rule Flow
+              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Text type="secondary" style={{ fontSize: '11px' }}>
+                  {(() => {
+                    if (!searchText) {
+                      return `${uniqueRequestCount} request${uniqueRequestCount !== 1 ? 's' : ''}`;
+                    }
+                    const q = searchText.toLowerCase();
+                    const filteredRequests = new Set<string>();
+                    for (const r of sortedFilteredRules) {
+                      for (const m of r.matchedUrls || []) {
+                        if (m.url.toLowerCase().includes(q)) filteredRequests.add(`${m.url}\0${m.timestamp}`);
                       }
-                      rows.sort((a, b) => b.localeCompare(a));
-                      void navigator.clipboard.writeText(`Time\tRequest URL\tType\tPattern\n${rows.join('\n')}`);
-                      setCopiedRowId('__stats__');
-                      setTimeout(() => setCopiedRowId(null), 1000);
-                    }}
-                  />
-                </Tooltip>
-              )}
+                    }
+                    const parts: string[] = [];
+                    parts.push(
+                      `${sortedFilteredRules.length} of ${activeRules.length} rule${activeRules.length !== 1 ? 's' : ''}`,
+                    );
+                    if (filteredRequests.size > 0) {
+                      parts.push(
+                        `${filteredRequests.size} of ${uniqueRequestCount} request${uniqueRequestCount !== 1 ? 's' : ''}`,
+                      );
+                    }
+                    return `${parts.join(', ')} matched`;
+                  })()}
+                </Text>
+                {copiedRowId === '__stats__' ? (
+                  <CheckOutlined style={{ fontSize: '11px', color: '#52c41a', cursor: 'default' }} />
+                ) : (
+                  <Tooltip title="Copy requests as TSV">
+                    <CopyTwoTone
+                      className="value-copy-icon"
+                      style={{ fontSize: '11px', cursor: 'pointer' }}
+                      onClick={() => {
+                        const seen = new Set<string>();
+                        const rows: string[] = [];
+                        const q = searchText.toLowerCase();
+                        const fmt = (ts: number) => {
+                          const d = new Date(ts);
+                          return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+                        };
+                        for (const r of sortedFilteredRules) {
+                          for (const m of r.matchedUrls || []) {
+                            if (q && !m.url.toLowerCase().includes(q)) continue;
+                            const key = `${m.url}\0${m.timestamp}`;
+                            if (seen.has(key)) continue;
+                            seen.add(key);
+                            const rt = m.resourceType || (m.url === currentTab?.url ? 'main_frame' : 'other');
+                            rows.push(`${fmt(m.timestamp)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`);
+                          }
+                        }
+                        rows.sort((a, b) => b.localeCompare(a));
+                        void navigator.clipboard.writeText(`Time\tRequest URL\tType\tPattern\n${rows.join('\n')}`);
+                        setCopiedRowId('__stats__');
+                        setTimeout(() => setCopiedRowId(null), 1000);
+                      }}
+                    />
+                  </Tooltip>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
-        <Button
-          type="dashed"
-          size="small"
-          icon={<PartitionOutlined />}
-          onClick={() => {
-            if (currentTab?.url) {
-              const url = getBrowserAPI().runtime.getURL(
-                `workspace.html#/flow/this-page/${encodeURIComponent(currentTab.url)}`,
-              );
-              getBrowserAPI().tabs.create({ url });
-            }
-          }}
-          style={{ fontSize: 11 }}
-        >
-          View Rule Flow
-        </Button>
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingBottom: '8px' }}>
         <Table

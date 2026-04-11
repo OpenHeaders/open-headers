@@ -11,12 +11,12 @@
  */
 
 import {
+  ApartmentOutlined,
   CloseOutlined,
   DownOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
-  PartitionOutlined,
   PlusOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
@@ -34,7 +34,7 @@ import { renderTwoToneIcon } from './TwoToneIconPicker';
 // ── Icon helper ─────────────────────────────────────────────────────
 
 function tabIcon(tab: RulesTab, rules: V5.Rule[], templates: V5.Template[]): React.ReactNode {
-  if (tab.mode === 'rule-flow') return <PartitionOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
+  if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'collection-overview') return <FolderOpenOutlined style={{ fontSize: 12, color: '#999' }} />;
   if (tab.mode === 'folder-overview') return <FolderOutlined style={{ fontSize: 12, color: '#999' }} />;
   if (tab.mode === 'template-edit' && tab.templateUid) {
