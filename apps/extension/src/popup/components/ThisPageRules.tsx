@@ -92,7 +92,7 @@ interface MatchedRequestRecord extends MatchedRequest {
 const RESOURCE_TYPE_LABEL: Record<string, string> = {
   main_frame: 'Page',
   sub_frame: 'Frame',
-  xmlhttprequest: 'XHR',
+  xmlhttprequest: 'Fetch/XHR',
   script: 'Script',
   stylesheet: 'CSS',
   image: 'Image',
@@ -106,7 +106,7 @@ const RESOURCE_TYPE_LABEL: Record<string, string> = {
 const RESOURCE_TYPE_TOOLTIP: Record<string, string> = {
   main_frame: 'Matches the page URL directly',
   sub_frame: 'Applied to an iframe loaded by this page',
-  xmlhttprequest: 'Applied to XHR/fetch requests',
+  xmlhttprequest: 'Applied to fetch() and XMLHttpRequest calls',
   script: 'Applied to script resources',
   stylesheet: 'Applied to stylesheets',
   image: 'Applied to images',
