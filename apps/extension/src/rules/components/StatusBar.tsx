@@ -7,11 +7,15 @@
  * Mirrors the desktop V5Shell StatusBar exactly.
  */
 
+import { BulbFilled, BulbOutlined } from '@ant-design/icons';
+import { useTheme } from '@context';
 import { useRules } from '@hooks/useRules';
-import { Tooltip, theme } from 'antd';
+import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import type { PanelVisibility } from '../types';
+
+type ThemeMode = 'light' | 'dark' | 'auto';
 
 declare const __APP_VERSION__: string;
 
@@ -107,9 +111,16 @@ interface StatusBarProps {
   onTogglePanel: (panel: keyof PanelVisibility) => void;
 }
 
+const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
+  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light', color: '#faad14' },
+  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark', color: '#722ed1' },
+  auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, text: 'Auto', color: '#1890ff' },
+};
+
 const StatusBar: React.FC<StatusBarProps> = ({ panels, onTogglePanel }) => {
   const { token } = theme.useToken();
   const { isConnected, isStatusLoaded, rules } = useRules();
+  const { themeMode, setThemeMode } = useTheme();
 
   const enabledCount = rules.filter((r) => r.enabled).length;
 
@@ -145,6 +156,40 @@ const StatusBar: React.FC<StatusBarProps> = ({ panels, onTogglePanel }) => {
         <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
           v{__APP_VERSION__}
         </span>
+        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+        <Dropdown
+          menu={{
+            items: (['light', 'dark', 'auto'] as ThemeMode[]).map((mode) => ({
+              key: mode,
+              label: (
+                <Space size={4}>
+                  {THEME_DISPLAY[mode].icon}
+                  <span>{THEME_DISPLAY[mode].text}</span>
+                  {themeMode === mode && <span style={{ marginLeft: 4 }}>&#x2713;</span>}
+                </Space>
+              ),
+              onClick: () => setThemeMode(mode),
+            })) as MenuProps['items'],
+          }}
+          placement="topRight"
+          trigger={['click']}
+        >
+          <div
+            className="rules-statusbar-item"
+            role="button"
+            tabIndex={0}
+            style={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              color: THEME_DISPLAY[themeMode as ThemeMode]?.color,
+            }}
+          >
+            {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
+            <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
+          </div>
+        </Dropdown>
         <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
         <div className="rules-panel-toggles">
           <PanelToggle

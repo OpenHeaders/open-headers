@@ -49,6 +49,21 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     });
   }, []);
 
+  // Sync theme changes from other contexts (popup ↔ workspace)
+  useEffect(() => {
+    const listener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName !== 'local') return;
+      if (changes.themeMode?.newValue) {
+        setThemeMode(changes.themeMode.newValue as ThemeMode);
+      }
+      if (changes.compactMode?.newValue !== undefined) {
+        setIsCompactMode(changes.compactMode.newValue as boolean);
+      }
+    };
+    storage.onChanged.addListener(listener);
+    return () => storage.onChanged.removeListener(listener);
+  }, []);
+
   // Detect system theme preference
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
