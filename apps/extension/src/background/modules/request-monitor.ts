@@ -4,7 +4,7 @@
 
 import { tabs } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
-import type { PendingRequest } from '@/types/browser';
+import type { PendingRequest, TrackedResourceType } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import { addTrackedUrl, checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
@@ -67,7 +67,7 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
 
       if (matchesRule) {
         // Track this tab as having active rules
-        addTrackedUrl(details.tabId, normalizedUrl);
+        addTrackedUrl(details.tabId, normalizedUrl, details.type as TrackedResourceType);
 
         // Update badge if this is the active tab
         tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
@@ -176,7 +176,7 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
 
           const tracked = tabsWithActiveRules.get(details.tabId)!;
           if (!tracked.has(pending.url)) {
-            tracked.set(pending.url, Date.now());
+            tracked.set(pending.url, { timestamp: Date.now(), resourceType: details.type as TrackedResourceType });
           }
         }
       },
@@ -200,7 +200,7 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
         // Check if the redirect URL matches any rules
         const matchesRule = checkIfUrlMatchesAnyRule(normalizedRedirectUrl);
         if (matchesRule) {
-          addTrackedUrl(details.tabId, normalizedRedirectUrl);
+          addTrackedUrl(details.tabId, normalizedRedirectUrl, details.type as TrackedResourceType);
 
           // Update badge if active tab
           tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {

@@ -9,7 +9,7 @@ import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { tabs } from '@utils/browser-api';
 import { sendMessageWithCallback } from '@utils/messaging';
-import type { ActiveRule, MatchedRequest } from '@/types/browser';
+import type { ActiveRule, MatchedRequest, TrackedResource, TrackedResourceType } from '@/types/browser';
 import { getRules } from './rule-store';
 import {
   clearPatternCache,
@@ -35,10 +35,10 @@ const REVALIDATION_QUEUE = new Set<number>();
 let isRevalidating = false;
 
 /**
- * Map<tabId, Map<normalizedUrl, timestamp>> — tracks which resource URLs
- * were seen on which tabs. Used for indirect matching.
+ * Map<tabId, Map<normalizedUrl, TrackedResource>> — tracks which resource URLs
+ * were seen on which tabs, with resource type metadata. Used for indirect matching.
  */
-export const tabsWithActiveRules: Map<number, Map<string, number>> = new Map();
+export const tabsWithActiveRules: Map<number, Map<string, TrackedResource>> = new Map();
 
 // ── Pattern precompilation ────────────────────────────────────────
 
@@ -93,10 +93,10 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     return { activeRules: [], uniqueRequestCount: 0 };
   }
 
-  const trackedResources: Map<string, number> = new Map();
+  const trackedResources: Map<string, TrackedResource> = new Map();
   if (tabId && tabsWithActiveRules.has(tabId)) {
-    for (const [url, ts] of tabsWithActiveRules.get(tabId)!) {
-      trackedResources.set(url, ts);
+    for (const [url, res] of tabsWithActiveRules.get(tabId)!) {
+      trackedResources.set(url, res);
     }
   }
 
@@ -116,24 +116,24 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
 
     if (domains.length === 0) {
       matchType = 'direct';
-      matchedUrls.push({ url: tabUrl, pattern: '*', timestamp: now });
-      for (const [resourceUrl, ts] of trackedResources) {
-        matchedUrls.push({ url: resourceUrl, pattern: '*', timestamp: ts });
+      matchedUrls.push({ url: tabUrl, pattern: '*', timestamp: now, resourceType: 'main_frame' });
+      for (const [resourceUrl, res] of trackedResources) {
+        matchedUrls.push({ url: resourceUrl, pattern: '*', timestamp: res.timestamp, resourceType: res.resourceType });
       }
     } else {
       for (const domain of domains) {
         if (doesUrlMatchPattern(tabUrl, domain)) {
           matchType = 'direct';
-          matchedUrls.push({ url: tabUrl, pattern: domain, timestamp: now });
+          matchedUrls.push({ url: tabUrl, pattern: domain, timestamp: now, resourceType: 'main_frame' });
           break;
         }
       }
 
       if (trackedResources.size > 0) {
-        for (const [resourceUrl, ts] of trackedResources) {
+        for (const [resourceUrl, res] of trackedResources) {
           for (const domain of domains) {
             if (doesUrlMatchPattern(resourceUrl, domain)) {
-              matchedUrls.push({ url: resourceUrl, pattern: domain, timestamp: ts });
+              matchedUrls.push({ url: resourceUrl, pattern: domain, timestamp: res.timestamp, resourceType: res.resourceType });
               if (!matchType) matchType = 'indirect';
               break;
             }
@@ -197,9 +197,9 @@ export async function revalidateTrackedRequests(): Promise<void> {
     }
 
     for (const [tabId, trackedUrls] of tabsWithActiveRules.entries()) {
-      const validUrls = new Map<string, number>();
+      const validUrls = new Map<string, TrackedResource>();
 
-      for (const [url, ts] of trackedUrls) {
+      for (const [url, res] of trackedUrls) {
         let stillMatches = false;
         for (const rule of rules) {
           const domains = getHostDomains(rule);
@@ -212,7 +212,7 @@ export async function revalidateTrackedRequests(): Promise<void> {
           if (stillMatches) break;
         }
         if (stillMatches) {
-          validUrls.set(url, ts);
+          validUrls.set(url, res);
         }
       }
 
@@ -242,7 +242,7 @@ export async function restoreTrackingState(updateBadgeCallback: () => void): Pro
           if (!tabsWithActiveRules.has(tab.id)) {
             tabsWithActiveRules.set(tab.id, new Map());
           }
-          tabsWithActiveRules.get(tab.id)!.set(normalizeUrlForTracking(tab.url), Date.now());
+          tabsWithActiveRules.get(tab.id)!.set(normalizeUrlForTracking(tab.url), { timestamp: Date.now(), resourceType: 'main_frame' });
         }
       }
     }
@@ -250,13 +250,13 @@ export async function restoreTrackingState(updateBadgeCallback: () => void): Pro
   });
 }
 
-export function addTrackedUrl(tabId: number, url: string): void {
+export function addTrackedUrl(tabId: number, url: string, resourceType: TrackedResourceType = 'other'): void {
   if (!tabsWithActiveRules.has(tabId)) {
     tabsWithActiveRules.set(tabId, new Map());
   }
   const trackedUrls = tabsWithActiveRules.get(tabId)!;
   if (trackedUrls.has(url)) return;
-  trackedUrls.set(url, Date.now());
+  trackedUrls.set(url, { timestamp: Date.now(), resourceType });
   sendMessageWithCallback({ type: 'trackedUrlsUpdated', tabId }, () => {});
 }
 

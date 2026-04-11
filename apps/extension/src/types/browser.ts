@@ -29,11 +29,32 @@ export interface PendingRequest {
   method: string;
 }
 
+/** Chrome resource type strings used for tracking. */
+export type TrackedResourceType =
+  | 'main_frame'
+  | 'sub_frame'
+  | 'xmlhttprequest'
+  | 'script'
+  | 'stylesheet'
+  | 'image'
+  | 'font'
+  | 'media'
+  | 'websocket'
+  | 'ping'
+  | 'other';
+
+/** Tracked resource stored per-tab — URL + metadata. */
+export interface TrackedResource {
+  timestamp: number;
+  resourceType: TrackedResourceType;
+}
+
 /** Active rule entry returned by getActiveRulesForTab */
 export interface MatchedRequest {
   url: string;
   pattern: string;
   timestamp: number;
+  resourceType: TrackedResourceType;
 }
 
 export interface ActiveRule {

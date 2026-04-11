@@ -296,16 +296,17 @@ describe('addTrackedUrl', () => {
     tabsWithActiveRules.clear();
   });
 
-  it('adds a URL with a timestamp', () => {
+  it('adds a URL with a timestamp and resource type', () => {
     const before = Date.now();
-    addTrackedUrl(1, 'https://api.openheaders.io/v2');
+    addTrackedUrl(1, 'https://api.openheaders.io/v2', 'xmlhttprequest');
     const after = Date.now();
 
     const tracked = tabsWithActiveRules.get(1)!;
     expect(tracked.has('https://api.openheaders.io/v2')).toBe(true);
-    const ts = tracked.get('https://api.openheaders.io/v2')!;
-    expect(ts).toBeGreaterThanOrEqual(before);
-    expect(ts).toBeLessThanOrEqual(after);
+    const res = tracked.get('https://api.openheaders.io/v2')!;
+    expect(res.timestamp).toBeGreaterThanOrEqual(before);
+    expect(res.timestamp).toBeLessThanOrEqual(after);
+    expect(res.resourceType).toBe('xmlhttprequest');
   });
 
   it('notifies popup when a new URL is tracked', () => {

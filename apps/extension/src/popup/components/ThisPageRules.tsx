@@ -59,6 +59,9 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   redirect: 'Redirect',
   'query-param': 'Query Param',
   inject: 'Inject',
+  body: 'Body',
+  delay: 'Delay',
+  mock: 'Mock',
 };
 
 const RULE_TYPE_DESCRIPTION: Record<string, string> = {
@@ -67,18 +70,51 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   redirect: 'Redirect requests',
   'query-param': 'Modify query parameters',
   inject: 'Inject scripts or CSS',
+  body: 'Modify request/response body',
+  delay: 'Delay response',
+  mock: 'Mock response',
 };
 
 interface MatchedRequest {
   url: string;
   pattern: string;
   timestamp: number;
+  resourceType?: string;
 }
 
 interface MatchedRequestRecord extends MatchedRequest {
   key: string;
   type: 'direct' | 'resource';
 }
+
+/** Human-readable labels for resource types shown in the Match column. */
+const RESOURCE_TYPE_LABEL: Record<string, string> = {
+  main_frame: 'Page',
+  sub_frame: 'Frame',
+  xmlhttprequest: 'XHR',
+  script: 'Script',
+  stylesheet: 'CSS',
+  image: 'Image',
+  font: 'Font',
+  media: 'Media',
+  websocket: 'WebSocket',
+  ping: 'Ping',
+  other: 'Other',
+};
+
+const RESOURCE_TYPE_TOOLTIP: Record<string, string> = {
+  main_frame: 'Matches the page URL directly',
+  sub_frame: 'Applied to an iframe loaded by this page',
+  xmlhttprequest: 'Applied to XHR/fetch requests',
+  script: 'Applied to script resources',
+  stylesheet: 'Applied to stylesheets',
+  image: 'Applied to images',
+  font: 'Applied to font files',
+  media: 'Applied to audio/video resources',
+  websocket: 'Applied to WebSocket connections',
+  ping: 'Applied to ping/beacon requests',
+  other: 'Applied to other resources',
+};
 
 function formatTimestampShort(timestamp: number): React.ReactNode {
   const d = new Date(timestamp);
@@ -466,9 +502,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       sortOrder: sortedInfo.columnKey === 'match' ? sortedInfo.order : null,
       filters: [
         ...new Set([
-          'Page',
-          'Resource',
           'Paused',
+          ...Object.values(RESOURCE_TYPE_LABEL),
           ...dataSource.map((item) => RULE_TYPE_LABEL[item.ruleType] ?? item.ruleType),
         ]),
       ].map((label) => ({ text: label, value: label })),
@@ -476,11 +511,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       filterSearch: true,
       onFilter: (value, record) => {
         const urls = record.matchedUrls || [];
-        const hasDirectMatch = urls.some((m) => m.url === currentTab?.url) || record.matchType === 'direct';
-        const hasIndirectMatch = urls.some((m) => m.url !== currentTab?.url) || record.matchType === 'indirect';
+        const resourceLabels = [...new Set(urls.map((m) => RESOURCE_TYPE_LABEL[m.resourceType || 'other'] ?? 'Other'))];
         const labels = [
-          ...(hasDirectMatch ? ['Page'] : []),
-          ...(hasIndirectMatch ? ['Resource'] : []),
+          ...resourceLabels,
           ...(isPathPausedByAncestor(record.path ?? '', pausedGroups) ? ['Paused'] : []),
           RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
         ];
@@ -495,21 +528,33 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             tooltip: 'Collection or folder is paused — rule not applied',
           });
         }
+        // Derive unique resource type tags from matched URLs
         const urls = record.matchedUrls || [];
-        const hasDirectMatch = urls.some((m) => m.url === currentTab?.url) || record.matchType === 'direct';
-        const hasIndirectMatch = urls.some((m) => m.url !== currentTab?.url) || record.matchType === 'indirect';
-        if (hasDirectMatch) {
-          allTags.push({ label: 'Page', tooltip: 'Matches this page directly' });
+        const seenTypes = new Set<string>();
+        for (const m of urls) {
+          const rt = m.resourceType || (m.url === currentTab?.url ? 'main_frame' : 'other');
+          seenTypes.add(rt);
         }
-        if (hasIndirectMatch) {
-          allTags.push({ label: 'Resource', tooltip: 'Applied to resources loaded by this page' });
+        // Show in a stable order: page first, then sub-resources
+        const typeOrder = ['main_frame', 'sub_frame', 'xmlhttprequest', 'script', 'stylesheet', 'image', 'font', 'media', 'websocket', 'ping', 'other'];
+        for (const rt of typeOrder) {
+          if (seenTypes.has(rt)) {
+            allTags.push({
+              label: RESOURCE_TYPE_LABEL[rt] ?? rt,
+              tooltip: RESOURCE_TYPE_TOOLTIP[rt] ?? rt,
+            });
+          }
+        }
+        // Fallback if no resource types (shouldn't happen, but safe)
+        if (seenTypes.size === 0) {
+          allTags.push({ label: record.matchType === 'direct' ? 'Page' : 'Resource' });
         }
         allTags.push({
           label: RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
           tooltip: RULE_TYPE_DESCRIPTION[record.ruleType] ?? record.ruleType,
         });
-        const hasStatusTag =
-          allTags[0]?.label === 'Paused' || allTags[0]?.label === 'Page' || allTags[0]?.label === 'Resource';
+        const resourceLabelValues = new Set(Object.values(RESOURCE_TYPE_LABEL));
+        const hasStatusTag = allTags[0]?.label === 'Paused' || resourceLabelValues.has(allTags[0]?.label);
         return renderTagOverflow(allTags, hasStatusTag ? 1 : 2);
       },
     },
