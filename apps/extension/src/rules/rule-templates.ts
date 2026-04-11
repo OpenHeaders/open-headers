@@ -292,9 +292,10 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
     key: 'mock-200',
     icon: '✅',
     name: 'Mock 200 JSON',
-    description: 'Return a successful JSON response',
+    description: 'Return a successful JSON response for a REST API endpoint',
     conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
     formValues: {
+      mockResourceType: 'rest',
       mockStatusCode: 200,
       mockBodyType: 'static',
       mockStaticBody: '{\n  "status": "ok",\n  "data": []\n}',
@@ -307,6 +308,7 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
     description: 'Return a 404 Not Found response',
     conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
     formValues: {
+      mockResourceType: 'rest',
       mockStatusCode: 404,
       mockBodyType: 'static',
       mockStaticBody: '{\n  "error": "Not Found"\n}',
@@ -319,9 +321,27 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
     description: 'Return a 500 Internal Server Error — test error handling',
     conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
     formValues: {
+      mockResourceType: 'rest',
       mockStatusCode: 500,
       mockBodyType: 'static',
       mockStaticBody: '{\n  "error": "Internal Server Error"\n}',
+    },
+  },
+  {
+    key: 'mock-graphql',
+    icon: '🔮',
+    name: 'Mock GraphQL Response',
+    description: 'Return a custom response for a specific GraphQL operation',
+    conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
+    formValues: {
+      mockResourceType: 'graphql',
+      mockStatusCode: 200,
+      mockBodyType: 'static',
+      mockStaticBody:
+        '{\n  "data": {\n    "user": {\n      "id": "1",\n      "name": "Test User",\n      "email": "user@openheaders.io"\n    }\n  }\n}',
+      mockGraphqlKey: 'operationName',
+      mockGraphqlOperator: 'Equals',
+      mockGraphqlValue: 'GetUser',
     },
   },
   {
@@ -332,6 +352,7 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
       'Intercept the real API response and modify it with JavaScript — add latency simulation, inject test data, or transform the response shape',
     conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
     formValues: {
+      mockResourceType: 'rest',
       mockStatusCode: 0,
       mockBodyType: 'dynamic',
       mockDynamicBody: `function modifyResponse(args) {
