@@ -894,8 +894,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                           const key = `${m.url}\0${m.timestamp}`;
                           if (seen.has(key)) continue;
                           seen.add(key);
-                          const type = m.url === currentTab?.url ? 'Page' : 'Resource';
-                          rows.push(`${fmt(m.timestamp)}\t${m.url}\t${type}\t${m.pattern}`);
+                          const rt = m.resourceType || (m.url === currentTab?.url ? 'main_frame' : 'other');
+                          rows.push(`${fmt(m.timestamp)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`);
                         }
                       }
                       rows.sort((a, b) => b.localeCompare(a));
@@ -1115,16 +1115,25 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 },
                 {
                   title: 'Type',
-                  dataIndex: 'type',
                   key: 'type',
                   width: 80,
                   align: 'center',
-                  sorter: (a, b) => a.type.localeCompare(b.type),
-                  render: (type: string) => (
-                    <Tag variant="outlined" style={{ margin: 0, fontSize: '11px' }}>
-                      {type === 'direct' ? 'Page' : 'Resource'}
-                    </Tag>
-                  ),
+                  sorter: (a, b) =>
+                    (RESOURCE_TYPE_LABEL[a.resourceType || 'other'] ?? 'Other').localeCompare(
+                      RESOURCE_TYPE_LABEL[b.resourceType || 'other'] ?? 'Other',
+                    ),
+                  render: (_: unknown, matchRecord: MatchedRequestRecord) => {
+                    const rt = matchRecord.resourceType || (matchRecord.type === 'direct' ? 'main_frame' : 'other');
+                    const label = RESOURCE_TYPE_LABEL[rt] ?? rt;
+                    const tooltip = RESOURCE_TYPE_TOOLTIP[rt] ?? rt;
+                    return (
+                      <Tooltip title={tooltip}>
+                        <Tag variant="outlined" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                          {label}
+                        </Tag>
+                      </Tooltip>
+                    );
+                  },
                 },
                 {
                   title: 'Pattern',
@@ -1155,10 +1164,10 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
               const copyAllRequests = () => {
                 const header = 'Time\tRequest URL\tType\tPattern';
-                const rows = matchedData.map(
-                  (m) =>
-                    `${formatTimestamp(m.timestamp)}\t${m.url}\t${m.type === 'direct' ? 'Page' : 'Resource'}\t${m.pattern}`,
-                );
+                const rows = matchedData.map((m) => {
+                  const rt = m.resourceType || (m.type === 'direct' ? 'main_frame' : 'other');
+                  return `${formatTimestamp(m.timestamp)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`;
+                });
                 void navigator.clipboard.writeText(`${header}\n${rows.join('\n')}`);
                 setCopiedRowId('__all_requests__');
                 setTimeout(() => setCopiedRowId(null), 1000);
