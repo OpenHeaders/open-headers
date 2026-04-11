@@ -347,9 +347,9 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
   {
     key: 'mock-dynamic',
     icon: '⚙️',
-    name: 'Dynamic Response',
+    name: 'Dynamic REST Response',
     description:
-      'Intercept the real API response and modify it with JavaScript — add latency simulation, inject test data, or transform the response shape',
+      'Intercept the real REST API response and modify it with JavaScript — inject test data, remove fields, or transform the response shape',
     conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
     formValues: {
       mockResourceType: 'rest',
