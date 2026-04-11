@@ -15,7 +15,7 @@ import {
   ArrowUpOutlined,
   ClockCircleOutlined,
   CodeOutlined,
-  FileTextOutlined,
+  FileOutlined,
   LinkOutlined,
   SendOutlined,
   StopOutlined,
@@ -33,8 +33,8 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
   'query-param': LinkOutlined,
   inject: CodeOutlined,
   delay: ClockCircleOutlined,
-  body: FileTextOutlined,
-  mock: FileTextOutlined,
+  body: FileOutlined,
+  mock: FileOutlined,
 };
 
 const GRAY = 'var(--ant-color-text-tertiary, #999)';
@@ -58,17 +58,18 @@ export function buildRuleIcon({ ruleType, rule, isActive, size = 12 }: RuleIconO
   const Icon = RULE_TYPE_ICON[ruleType] ?? SwapOutlined;
   const iconColor = isActive ? BLUE : GRAY;
 
-  const dirArrow =
-    detail?.direction
-      ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-          style: { fontSize: Math.round(size * 0.75), color: isActive ? BLUE : GRAY, marginRight: 1 },
-        })
-      : null;
+  const arrowSize = Math.round(size * 0.75);
+  const dirPrefix = detail?.direction
+    ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
+        style: { fontSize: arrowSize, color: isActive ? BLUE : GRAY, marginRight: 1 },
+      })
+    : // Empty spacer so icons without arrows align with those that have them
+      createElement('span', { style: { display: 'inline-block', width: arrowSize + 1 } });
 
   return createElement(
     'span',
     { style: { display: 'inline-flex', alignItems: 'center', gap: 1 } },
-    dirArrow,
+    dirPrefix,
     createElement(Icon, { style: { fontSize: size, color: iconColor } }),
   );
 }
