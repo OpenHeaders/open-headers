@@ -316,7 +316,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
       title: 'Details',
       key: 'details',
       width: 180,
-      render: (_: unknown, record: TableRecord) => renderActionDetails(record.actionDetail),
+      render: (_: unknown, record: TableRecord) =>
+        renderActionDetails(record.actionDetail, 1, 16, record.isEnabled && record.isComplete),
     },
     {
       title: 'Conditions',

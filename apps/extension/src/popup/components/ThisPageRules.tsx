@@ -448,6 +448,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           },
           1,
           24,
+          record.isEnabled !== false,
         ),
     },
     {

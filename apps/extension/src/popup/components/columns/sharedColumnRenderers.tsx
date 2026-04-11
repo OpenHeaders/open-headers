@@ -265,7 +265,7 @@ function renderDomainTagsAsArray(domains: string[]): React.ReactNode[] {
 // ── Render action details ────────────────────────────────────────
 
 /** Render structured action details: shared icon (with direction + placeholder) + label tag + value. */
-export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueLen = 16): React.ReactNode {
+export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueLen = 16, isActive = true): React.ReactNode {
   const displayValue = truncateValue(detail.value, maxValueLen);
 
   const opLabel = detail.operation ? detail.operation.charAt(0).toUpperCase() + detail.operation.slice(1) : '';
@@ -310,7 +310,7 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
         <span style={{ flexShrink: 0, lineHeight: 1 }}>
           {buildRuleIcon({
             ruleType: detail.ruleType,
-            isActive: true,
+            isActive,
             size: 13,
             direction: detail.direction as 'request' | 'response' | undefined,
           })}

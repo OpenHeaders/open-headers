@@ -382,7 +382,8 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       width: 150,
       render: (_: unknown, record: CollectionTreeRecord) => {
         if (record.nodeType === 'rule' && record.actionDetail) {
-          return renderActionDetails(record.actionDetail, isEffectivelyPaused(record) ? 0.5 : 1);
+          const active = (record.isEnabled ?? false) && (record.isComplete ?? false) && !isEffectivelyPaused(record);
+          return renderActionDetails(record.actionDetail, isEffectivelyPaused(record) ? 0.5 : 1, 16, active);
         }
         if (record.nodeType !== 'rule') {
           if (isEffectivelyPaused(record)) {
