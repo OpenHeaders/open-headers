@@ -257,6 +257,14 @@ export interface MockAction {
   contentType: string;
   /** Response body mode. Defaults to 'static'. */
   bodyType: MockBodyType;
+  /** Resource type — REST or GraphQL. Defaults to 'rest'. */
+  resourceType?: BodyResourceType;
+  /** GraphQL payload filter — only intercept requests matching this operation (when resourceType is 'graphql'). */
+  graphqlFilter?: {
+    key: string;
+    operator: 'Equals' | 'Contains';
+    value: string;
+  };
 }
 
 export interface MockRule extends RuleBase {

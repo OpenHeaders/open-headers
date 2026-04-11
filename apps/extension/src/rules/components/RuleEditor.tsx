@@ -270,6 +270,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             mockStaticBody: mr.action.bodyType === 'dynamic' ? '' : mr.action.responseBody,
             mockDynamicBody: mr.action.bodyType === 'dynamic' ? mr.action.responseBody : '',
             mockBodyType: mr.action.bodyType || 'static',
+            mockResourceType: mr.action.resourceType || 'rest',
+            mockGraphqlKey: mr.action.graphqlFilter?.key || '',
+            mockGraphqlOperator: mr.action.graphqlFilter?.operator || 'Equals',
+            mockGraphqlValue: mr.action.graphqlFilter?.value || '',
           });
           break;
         }
@@ -290,6 +294,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         injectBypassCSP: false,
         queryParams: [{ param: '', value: '', operation: 'add' }],
         mockBodyType: 'static',
+        mockResourceType: 'rest',
+        mockGraphqlOperator: 'Equals',
         bodyModType: 'static',
         bodyResourceType: 'rest',
         bodyGraphqlOperator: 'Equals',
@@ -413,6 +419,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               contentType: (formValues.mockContentType as string) ?? 'application/json',
               responseHeaders: {},
               bodyType: ((formValues.mockBodyType as string) ?? 'static') as V5.MockBodyType,
+              resourceType: ((formValues.mockResourceType as string) ?? 'rest') as V5.BodyResourceType,
+              graphqlFilter:
+                formValues.mockResourceType === 'graphql' && (formValues.mockGraphqlKey as string)?.trim()
+                  ? {
+                      key: (formValues.mockGraphqlKey as string).trim(),
+                      operator: ((formValues.mockGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                      value: (formValues.mockGraphqlValue as string) || '',
+                    }
+                  : undefined,
             },
           } as Omit<V5.MockRule, 'uid' | 'path'>;
         default:

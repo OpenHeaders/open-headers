@@ -8,7 +8,7 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Form, Radio, Select, Typography } from 'antd';
+import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
@@ -118,6 +118,7 @@ const MockRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const bodyType = Form.useWatch('mockBodyType');
+  const resourceType = Form.useWatch('mockResourceType');
   const prevBodyTypeRef = useRef(bodyType);
 
   // Prefill dynamic template on first switch
@@ -149,6 +150,64 @@ const MockRuleFields: React.FC = () => {
         style={{ marginBottom: 12, fontSize: 12 }}
         message="Intercepts fetch() and XMLHttpRequest calls and returns your custom response."
       />
+
+      {/* Resource Type */}
+      <div style={{ marginBottom: 12 }}>
+        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+          Select Resource Type
+        </Text>
+        <Form.Item name="mockResourceType" style={{ marginBottom: 0 }}>
+          <Radio.Group>
+            <Radio value="rest">REST API</Radio>
+            <Radio value="graphql">GraphQL API</Radio>
+          </Radio.Group>
+        </Form.Item>
+      </div>
+
+      {/* GraphQL Operation filter */}
+      {resourceType === 'graphql' && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              GraphQL Operation (Request Payload Filter)
+            </Text>
+            <InfoCircleOutlined
+              style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+              onClick={() => openDocs(getDocId('body-graphql', 'action'))}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Form.Item name="mockGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
+              <Input size="small" placeholder="Key e.g. operationName" />
+            </Form.Item>
+            <Form.Item name="mockGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
+              <Select
+                size="small"
+                options={[
+                  { value: 'Equals', label: 'Equals' },
+                  { value: 'Contains', label: 'Contains' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="mockGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
+              <Input size="small" placeholder="value e.g. getUsers" />
+            </Form.Item>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => {
+                form.setFieldsValue({
+                  mockGraphqlKey: undefined,
+                  mockGraphqlOperator: 'Equals',
+                  mockGraphqlValue: undefined,
+                });
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom: 12 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
