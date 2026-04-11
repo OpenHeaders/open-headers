@@ -302,7 +302,7 @@ const ALL_ICON_KEYS = Object.keys(ICON_MAP);
 
 /** Default icon per rule type */
 const DEFAULT_ICON: Record<string, string> = {
-  header: 'InteractionTwoTone',
+  header: 'RightCircleTwoTone',
   block: 'StopTwoTone',
   redirect: 'RocketTwoTone',
   'query-param': 'TagTwoTone',
