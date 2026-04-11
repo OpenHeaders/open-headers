@@ -60,9 +60,9 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   redirect: 'Redirect',
   'query-param': 'Query Param',
   inject: 'Inject',
-  body: 'Body',
+  body: 'API Request',
   delay: 'Delay',
-  mock: 'Mock',
+  mock: 'API Response',
 };
 
 const RULE_TYPE_DESCRIPTION: Record<string, string> = {
@@ -71,9 +71,9 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   redirect: 'Redirect requests',
   'query-param': 'Modify query parameters',
   inject: 'Inject scripts or CSS',
-  body: 'Modify request/response body',
+  body: 'Modify API request body (fetch/XHR)',
   delay: 'Delay response',
-  mock: 'Mock response',
+  mock: 'Override API response (fetch/XHR)',
 };
 
 interface MatchedRequest {
