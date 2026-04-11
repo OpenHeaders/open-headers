@@ -10,12 +10,12 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor,
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
+import { sendMessageWithCallback } from '@utils/messaging';
 import { Checkbox, Empty, Segmented, Space, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RuleFlowScope } from '../types';
 import { Connector, Terminus } from './rule-flow/Connector';
-import { ruleMatchesUrl } from './rule-flow/match-url';
 import PriorityGroup, { PRIORITY_TIERS } from './rule-flow/PriorityGroup';
 
 interface RuleFlowProps {
@@ -38,14 +38,14 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
   const { rules, localCollectionTrees } = useRules();
   const [scope, setScope] = useState<RuleFlowScope>(initialScope);
   const [tabUrl, setTabUrl] = useState<string>(initialTabUrl ?? '');
+  const [thisPageRuleIds, setThisPageRuleIds] = useState<Set<string> | null>(null);
   const [showDrafts, setShowDrafts] = useState(false);
   const [showEnabled, setShowEnabled] = useState(true);
   const [compact, setCompact] = useState(true);
 
-  // Fetch the active tab URL for "This Page" filtering if not provided via prop.
-  // Only useful when the active tab is a real page (not workspace.html itself).
+  // Resolve the tab URL — either provided via prop or fetched from the active tab.
   useEffect(() => {
-    if (initialTabUrl) return; // Already provided
+    if (initialTabUrl) return;
     if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const url = tabs[0]?.url ?? '';
@@ -55,6 +55,28 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
       });
     }
   }, [initialTabUrl]);
+
+  // Ask the background for which rules match the tab URL.
+  // This uses the same matching engine as the popup and badge — no client-side reimplementation.
+  // Re-query when rules change. Build a fingerprint from rule uids+enabled state
+  // so the effect re-runs when any rule is added/removed/toggled.
+  const rulesFingerprint = useMemo(() => rules.map((r) => `${r.uid}:${r.enabled}`).join(), [rules]);
+  useEffect(() => {
+    // rulesFingerprint is read to trigger re-query when rules change
+    void rulesFingerprint;
+    if (!tabUrl) {
+      setThisPageRuleIds(null);
+      return;
+    }
+    sendMessageWithCallback({ type: 'getActiveRulesForTab', tabId: undefined, tabUrl }, (response) => {
+      const data = response as { activeRules?: Array<{ id: string }> } | null;
+      if (data?.activeRules) {
+        setThisPageRuleIds(new Set(data.activeRules.map((r) => r.id)));
+      } else {
+        setThisPageRuleIds(new Set());
+      }
+    });
+  }, [tabUrl, rulesFingerprint]);
 
   // Build available scope options based on context
   const availableScopes = useMemo((): Array<{ label: string; value: RuleFlowScope }> => {
@@ -113,8 +135,9 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
 
     switch (scope) {
       case 'this-page':
-        // All enabled rules that match the current tab URL
-        filtered = rules.filter((r) => r.enabled && tabUrl && ruleMatchesUrl(r, tabUrl));
+        // Use rule UIDs from the background's matching engine
+        if (!thisPageRuleIds) return [];
+        filtered = rules.filter((r) => thisPageRuleIds.has(r.uid));
         break;
 
       case 'collection': {
@@ -169,7 +192,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     }
 
     return filtered;
-  }, [scope, rules, entityId, localCollectionTrees, tabUrl]);
+  }, [scope, rules, entityId, localCollectionTrees, thisPageRuleIds]);
 
   // Apply sub-filters (drafts + disabled)
   const filteredRules = useMemo(() => {
