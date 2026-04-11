@@ -179,6 +179,7 @@ function DocParagraph({ children }: { children: React.ReactNode }) {
 // ── TOC ─────────────────────────────────────────────────────────
 
 const TOC = [
+  { id: 'doc-request-tracking', label: 'Request Tracking' },
   { id: 'conditions', label: 'Conditions Reference' },
   { id: 'actions', label: 'Header Actions' },
   { id: 'actions-block', label: 'Block Rules' },
@@ -233,6 +234,47 @@ const InspectorDocs: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* ── Request Tracking ── */}
+      <SectionTitle id="doc-request-tracking">Request Tracking</SectionTitle>
+      <DocParagraph>
+        The <strong>This Page</strong> tab in the popup shows which rules are active for the current page and what
+        requests they matched.
+      </DocParagraph>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>How it works</strong>
+        <DocParagraph>
+          The extension monitors HTTP requests via the <code>webRequest</code> API. When a request URL matches a
+          rule's conditions (domains, URL pattern, or URL regex), it is recorded with its resource type. This covers
+          both the request and response phases of each connection.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>Matched requests</strong>
+        <DocParagraph>
+          Each rule row shows a numbered badge indicating how many requests it matched. Click the badge to expand and
+          see the full list of matched requests with timestamps, URLs, resource types, and the pattern that matched.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>Resource types</strong>
+        <DocParagraph>
+          Each matched request shows its type: <Tag style={{ fontSize: 10 }}>Page</Tag>{' '}
+          <Tag style={{ fontSize: 10 }}>XHR</Tag> <Tag style={{ fontSize: 10 }}>Script</Tag>{' '}
+          <Tag style={{ fontSize: 10 }}>CSS</Tag> <Tag style={{ fontSize: 10 }}>Image</Tag>{' '}
+          <Tag style={{ fontSize: 10 }}>Font</Tag> <Tag style={{ fontSize: 10 }}>Frame</Tag>{' '}
+          <Tag style={{ fontSize: 10 }}>Media</Tag> <Tag style={{ fontSize: 10 }}>WebSocket</Tag>{' '}
+          and others. These correspond to Chrome's <code>ResourceType</code> values.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>Direct vs indirect matches</strong>
+        <DocParagraph>
+          A <strong>direct</strong> match means the page URL itself matches the rule's conditions. An{' '}
+          <strong>indirect</strong> match means a sub-resource loaded by the page (script, stylesheet, XHR, etc.)
+          matches. Rules can have both.
+        </DocParagraph>
+      </Card>
 
       {/* ── Conditions Reference ── */}
       <SectionTitle id="conditions">Conditions Reference</SectionTitle>

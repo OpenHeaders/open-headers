@@ -5,6 +5,7 @@ import {
   EditOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
+  InfoCircleOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
@@ -935,6 +936,36 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             return classes.join(' ');
           }}
           expandable={{
+            columnTitle: (
+              <Tooltip
+                styles={{ root: { maxWidth: 500 } }}
+                title={
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'auto 1fr',
+                      gap: '4px 6px',
+                      alignItems: 'center',
+                      fontSize: 12,
+                    }}
+                  >
+                    <Tag variant="outlined" style={{ margin: 0, fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {uniqueRequestCount}
+                    </Tag>
+                    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>Click badge on each row to see matched requests</span>
+                    <Tag variant="outlined" style={{ margin: 0, fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      i
+                    </Tag>
+                    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>Click icon below to see documentation</span>
+                  </div>
+                }
+              >
+                <InfoCircleOutlined
+                  style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                  onClick={() => openRulesPage('/docs/doc-request-tracking')}
+                />
+              </Tooltip>
+            ),
             columnWidth: 40,
             expandRowByClick: false,
             expandedRowKeys: isActive && expandedRowKey !== null ? [expandedRowKey] : [],

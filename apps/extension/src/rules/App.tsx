@@ -108,7 +108,7 @@ const RulesAppInner: React.FC = () => {
   }, []);
 
   // Register inspector open callback for useInspectorNav
-  const { onOpenInspector } = useInspectorNav();
+  const { onOpenInspector, openDocs } = useInspectorNav();
   onOpenInspector.current = useCallback(() => {
     setPanels((prev) => ({ ...prev, inspector: true }));
   }, []);
@@ -445,8 +445,10 @@ const RulesAppInner: React.FC = () => {
   const hashProcessedRef = useRef(false);
   const openCreateTabRef = useRef(openCreateTab);
   const openEditTabRef = useRef(openEditTab);
+  const openDocsRef = useRef(openDocs);
   openCreateTabRef.current = openCreateTab;
   openEditTabRef.current = openEditTab;
+  openDocsRef.current = openDocs;
 
   useEffect(() => {
     if (!isStatusLoaded || hashProcessedRef.current) return;
@@ -459,6 +461,9 @@ const RulesAppInner: React.FC = () => {
       openCreateTabRef.current(parts[1], undefined, parts[2]);
     } else if (parts[0] === 'edit' && parts[1]) {
       openEditTabRef.current(parts[1]);
+    } else if (parts[0] === 'docs' && parts[1]) {
+      // #/docs/{sectionId} — open inspector sidebar at the specified doc section
+      openDocsRef.current(parts[1]);
     }
   }, [isStatusLoaded]);
 
