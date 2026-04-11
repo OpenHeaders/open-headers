@@ -1091,7 +1091,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                         <Tooltip
                           title={
                             <div style={{ fontSize: 12, fontFamily: 'monospace' }}>
-                              <div style={{ marginBottom: 6 }}>
+                              <div
+                                style={{
+                                  marginBottom: 6,
+                                  maxHeight: 80,
+                                  overflowY: 'auto',
+                                  wordBreak: 'break-all',
+                                }}
+                              >
                                 {renderHighlightedUrl(matchRecord.url, matchRecord.pattern)}
                               </div>
                               <div
@@ -1108,7 +1115,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                               </div>
                             </div>
                           }
-                          styles={{ root: { maxWidth: 500 } }}
+                          styles={{ root: { maxWidth: 400 } }}
                         >
                           <Text
                             style={{
