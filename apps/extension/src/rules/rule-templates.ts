@@ -390,6 +390,50 @@ export const MOCK_TEMPLATES: RuleTemplate[] = [
 }`,
     },
   },
+  {
+    key: 'mock-dynamic-graphql',
+    icon: '⚙️',
+    name: 'Dynamic GraphQL Response',
+    description:
+      'Intercept a specific GraphQL operation response and modify it with JavaScript — reshape data, inject mock fields, or simulate errors',
+    conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
+    formValues: {
+      mockResourceType: 'graphql',
+      mockStatusCode: 0,
+      mockBodyType: 'dynamic',
+      mockGraphqlKey: 'operationName',
+      mockGraphqlOperator: 'Equals',
+      mockGraphqlValue: 'GetUser',
+      mockDynamicBody: `function modifyResponse(args) {
+  const { method, url, response, responseJSON, requestData } = args;
+  if (!responseJSON?.data) return response;
+
+  // Inject mock fields into the GraphQL response
+  if (responseJSON.data.user) {
+    responseJSON.data.user.isTestAccount = true;
+    responseJSON.data.user.featureFlags = ["dark_mode", "beta_dashboard"];
+  }
+
+  // Simulate partial errors alongside valid data
+  responseJSON.errors = [
+    {
+      message: "[Injected] Simulated field-level error",
+      path: ["user", "avatar"],
+      extensions: { code: "MOCK_ERROR" }
+    }
+  ];
+
+  // Add debug extensions
+  responseJSON.extensions = {
+    ...(responseJSON.extensions || {}),
+    interceptedBy: "Open Headers",
+    timestamp: Date.now()
+  };
+
+  return JSON.stringify(responseJSON);
+}`,
+    },
+  },
 ];
 
 // ── Lookup by rule type ─────────────────────────────────────────
