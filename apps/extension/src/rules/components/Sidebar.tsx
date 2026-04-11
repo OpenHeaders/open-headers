@@ -716,7 +716,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     'query-param': 'Query Param',
     inject: 'Inject',
     delay: 'Delay',
-    body: 'Body',
+    body: 'API Request Body',
     mock: 'API Response',
   };
 

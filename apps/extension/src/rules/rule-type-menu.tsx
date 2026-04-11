@@ -68,8 +68,8 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
   {
     key: 'body',
     icon: <FileTextOutlined />,
-    label: 'Modify Request Body',
-    description: 'Modify request/response body content (fetch/XHR only)',
+    label: 'Modify API Request Body',
+    description: 'Override or transform API request body (fetch/XHR only)',
     desktopOnly: false,
   },
   {

@@ -186,7 +186,7 @@ const TOC = [
   { id: 'actions-query-param', label: 'Query Param Rules' },
   { id: 'actions-inject', label: 'Inject Rules' },
   { id: 'actions-delay', label: 'Delay Rules' },
-  { id: 'actions-body', label: 'Body Modification' },
+  { id: 'actions-body', label: 'API Request Body' },
   { id: 'actions-mock', label: 'API Response Rules' },
   { id: 'templates', label: 'Templates' },
   { id: 'script-rules', label: 'Script-Based Rules' },

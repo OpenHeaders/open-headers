@@ -43,7 +43,7 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   'query-param': 'Query Param Rule',
   inject: 'Inject Rule',
   delay: 'Delay Rule',
-  body: 'Body Rule',
+  body: 'API Request Body Rule',
   mock: 'API Response Rule',
 };
 

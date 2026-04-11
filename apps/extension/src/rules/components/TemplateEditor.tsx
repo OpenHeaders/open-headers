@@ -32,7 +32,7 @@ const RULE_TYPE_OPTIONS = [
   { value: 'query-param', label: 'Query Param Rule' },
   { value: 'inject', label: 'Inject Rule' },
   { value: 'delay', label: 'Delay Rule' },
-  { value: 'body', label: 'Body Rule' },
+  { value: 'body', label: 'API Request Body Rule' },
   { value: 'mock', label: 'API Response Rule' },
 ];
 

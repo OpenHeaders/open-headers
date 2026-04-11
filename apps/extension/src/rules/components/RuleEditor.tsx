@@ -40,7 +40,7 @@ const RULE_TYPE_TITLE: Record<string, string> = {
   redirect: 'Redirect Rule',
   'query-param': 'Query Param Rule',
   inject: 'Inject Rule',
-  body: 'Body Rule',
+  body: 'API Request Body Rule',
   delay: 'Delay Rule',
   mock: 'API Response Rule',
 };
