@@ -49,6 +49,7 @@ export interface ActiveRule {
   actionTooltip: string;
   actionDirection?: string;
   actionValue: string;
+  actionItems?: string[];
   isEnabled: boolean;
   domains: string[];
   /** Rule's path within the workspace (for collection/folder pause checks). */

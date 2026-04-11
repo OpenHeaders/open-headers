@@ -135,6 +135,7 @@ interface ActiveRule {
   actionTooltip?: string;
   actionDirection?: string;
   actionValue?: string;
+  actionItems?: string[];
   isEnabled?: boolean;
   domains?: string[];
   path?: string;
@@ -445,6 +446,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             label: record.actionLabel || '',
             value: record.actionValue || '',
             tooltip: record.actionTooltip || record.summary,
+            items: record.actionItems,
           },
           1,
           24,

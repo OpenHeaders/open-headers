@@ -1,7 +1,7 @@
 import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
 import type { ActionDetail } from '@openheaders/core/utils';
 import { Space, Tag, Tooltip, Typography } from 'antd';
-import type React from 'react';
+import React from 'react';
 import { buildRuleIcon } from '../../../rules/components/shared/rule-icon';
 
 const { Text } = Typography;
@@ -11,6 +11,52 @@ export interface TagDescriptor {
   color?: string;
   tooltip?: string;
   variant?: 'outlined' | 'filled';
+}
+
+// ── Tooltip grid ────────────────────────────────────────────────
+// CSS grid with `auto 1fr` columns: the key column auto-sizes to the widest
+// tag across all rows, so value descriptions always start at the same x.
+
+interface TooltipRow {
+  key: string;
+  /** Single string renders inline; string[] renders as a numbered list. */
+  value: string | string[];
+  color?: string;
+}
+
+function renderTooltipGrid(rows: TooltipRow[]): React.ReactNode {
+  const tagStyle = { margin: 0, fontSize: '10px', fontWeight: 600, whiteSpace: 'nowrap' as const, textAlign: 'center' as const };
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr',
+        gap: '4px 6px',
+        alignItems: 'start',
+        fontSize: 12,
+      }}
+    >
+      {rows.map((row, i) => (
+        <React.Fragment key={i}>
+          <Tag variant="outlined" color={row.color} style={tagStyle}>
+            {row.key}
+          </Tag>
+          {Array.isArray(row.value) ? (
+            <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
+              {row.value.map((v, j) => (
+                <div key={j}>
+                  <span style={{ opacity: 0.4 }}>{j + 1}. </span>
+                  <span style={{ opacity: 0.7 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span style={{ opacity: 0.7, wordBreak: 'break-all' }}>{row.value}</span>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
 }
 
 export function renderDomainTags(domains: string[], showAllDomains = true): React.ReactNode {
@@ -114,30 +160,11 @@ export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number):
       )}
       {overflowCount > 0 && (
         <Tooltip
-          title={
-            <div style={{ fontSize: 12 }}>
-              {allTags.map((t, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    marginBottom: i < allTags.length - 1 ? 4 : 0,
-                  }}
-                >
-                  <Tag
-                    color={t.color}
-                    variant={t.variant ?? 'outlined'}
-                    style={{ margin: 0, fontSize: '11px', flexShrink: 0 }}
-                  >
-                    {t.label}
-                  </Tag>
-                  {t.tooltip && <span style={{ opacity: 0.6, fontSize: '11px' }}>{t.tooltip}</span>}
-                </div>
-              ))}
-            </div>
-          }
+          title={renderTooltipGrid(
+            allTags
+              .filter((t) => t.label || t.tooltip)
+              .map((t) => ({ key: t.label, value: t.tooltip ?? '', color: t.color })),
+          )}
           styles={{ root: { maxWidth: 400 } }}
         >
           <Tag variant="outlined" style={{ ...tagStyle, cursor: 'help' }}>
@@ -222,18 +249,11 @@ export function renderConditionsSummary(
     ) : null;
   }
 
-  const tooltip = (
-    <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
-      {conditions.map((c, i) => (
-        <div key={i} style={{ marginBottom: i < conditions.length - 1 ? 2 : 0 }}>
-          <span style={{ opacity: 0.6 }}>
-            {CONDITION_TYPE_SHORT[c.type] || c.type}
-            {c.headerName ? ` [${c.headerName}]` : ''}:{' '}
-          </span>
-          {c.values.join(', ')}
-        </div>
-      ))}
-    </div>
+  const tooltip = renderTooltipGrid(
+    conditions.map((c) => ({
+      key: (CONDITION_TYPE_SHORT[c.type] || c.type) + (c.headerName ? ` [${c.headerName}]` : ''),
+      value: c.values.length > 1 ? c.values : c.values.join(', '),
+    })),
   );
 
   return (
@@ -269,39 +289,21 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
   const displayValue = truncateValue(detail.value, maxValueLen);
 
   const opLabel = detail.operation ? detail.operation.charAt(0).toUpperCase() + detail.operation.slice(1) : '';
-  const tooltipContent = (
-    <div style={{ fontSize: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {detail.direction && (
-          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
-            {detail.direction === 'response' ? '↓' : '↑'}
-          </Tag>
-        )}
-        {opLabel && (
-          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
-            {opLabel}
-          </Tag>
-        )}
-        <span style={{ opacity: 0.7 }}>{detail.tooltip}</span>
-      </div>
-      {detail.label && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
-            Header Name
-          </Tag>
-          <span style={{ opacity: 0.7, wordBreak: 'break-all' }}>{detail.label}</span>
-        </div>
-      )}
-      {detail.value && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <Tag variant="outlined" style={{ margin: 0, fontSize: '10px', fontWeight: 600 }}>
-            Header Value
-          </Tag>
-          <span style={{ opacity: 0.7, wordBreak: 'break-all' }}>{detail.value}</span>
-        </div>
-      )}
-    </div>
-  );
+  const typeLabel = [detail.direction === 'response' ? '↓' : detail.direction === 'request' ? '↑' : '', opLabel]
+    .filter(Boolean)
+    .join(' ') || detail.ruleType;
+
+  const rows: Array<{ key: string; value: string | string[] }> = [
+    { key: typeLabel, value: detail.tooltip },
+  ];
+  if (detail.items) {
+    rows.push({ key: detail.ruleType === 'header' ? 'Headers' : 'Params', value: detail.items });
+  } else {
+    if (detail.label) rows.push({ key: detail.ruleType === 'header' ? 'Name' : 'Label', value: detail.label });
+    if (detail.value) rows.push({ key: 'Value', value: detail.value });
+  }
+
+  const tooltipContent = renderTooltipGrid(rows);
 
   return (
     <Tooltip title={tooltipContent} styles={{ root: { maxWidth: 400 } }}>

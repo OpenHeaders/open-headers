@@ -32,6 +32,8 @@ export interface ActionDetail {
   value: string;
   /** Human-readable tooltip. */
   tooltip: string;
+  /** Individual items for multi-item rules (header mods, query params). */
+  items?: string[];
 }
 
 const HEADER_OP_TOOLTIP: Record<string, Record<string, string>> = {
@@ -70,6 +72,13 @@ export function getActionDetail(rule: Rule): ActionDetail {
           total === 1 && first
             ? (HEADER_OP_TOOLTIP[first.operation]?.[dir ?? 'request'] ?? first.operation)
             : `${reqCount} request + ${resCount} response header modifications`,
+        items:
+          total > 1
+            ? allMods.map((m) => {
+                const op = m.operation.charAt(0).toUpperCase() + m.operation.slice(1);
+                return m.operation === 'remove' ? `${op} ${m.headerName}` : `${op} ${m.headerName}: ${m.value ?? ''}`;
+              })
+            : undefined,
       };
     }
     case 'block':
@@ -87,12 +96,22 @@ export function getActionDetail(rule: Rule): ActionDetail {
         tooltip: 'Redirects to a different URL',
       };
     case 'query-param': {
-      const count = (rule as QueryParamRule).action.params.length;
+      const qp = rule as QueryParamRule;
+      const count = qp.action.params.length;
       return {
         ruleType: 'query-param',
         label: `${count} param${count !== 1 ? 's' : ''}`,
         value: '',
         tooltip: 'Modifies URL query parameters',
+        items:
+          count > 1
+            ? qp.action.params.map((p) => {
+                const op = p.operation.charAt(0).toUpperCase() + p.operation.slice(1);
+                return p.operation === 'remove' || p.operation === 'remove-all'
+                  ? `${op} ${p.param}`
+                  : `${op} ${p.param}=${p.value ?? ''}`;
+              })
+            : undefined,
       };
     }
     case 'inject': {

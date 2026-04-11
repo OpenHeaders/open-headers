@@ -157,6 +157,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
         actionTooltip: detail.tooltip,
         actionDirection: detail.direction,
         actionValue: detail.value,
+        actionItems: detail.items,
         isEnabled: rule.enabled,
         domains,
         path: rule.path,
