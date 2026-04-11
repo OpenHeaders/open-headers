@@ -1,17 +1,8 @@
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  CheckOutlined,
-  CodeOutlined,
-  CopyTwoTone,
-  LinkOutlined,
-  SendOutlined,
-  StopOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
+import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
 import type { ActionDetail } from '@openheaders/core/utils';
 import { Space, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { buildRuleIcon } from '../../../rules/components/shared/rule-icon';
 
 const { Text } = Typography;
 
@@ -271,35 +262,9 @@ function renderDomainTagsAsArray(domains: string[]): React.ReactNode[] {
   return elements;
 }
 
-// ── Rule type icon with operation color ─────────────────────────
-
-const HEADER_OP_COLOR: Record<string, string> = {
-  override: '#1677ff', // blue
-  add: '#52c41a', // green
-  remove: '#ff4d4f', // red
-};
-
-function getRuleTypeIcon(ruleType: string, operation?: string): React.ReactNode {
-  const style = { fontSize: 13 };
-  switch (ruleType) {
-    case 'header':
-      return <SwapOutlined style={{ ...style, color: HEADER_OP_COLOR[operation ?? ''] ?? '#1677ff' }} />;
-    case 'block':
-      return <StopOutlined style={{ ...style, color: '#ff4d4f' }} />;
-    case 'redirect':
-      return <SendOutlined style={{ ...style, color: '#faad14' }} />;
-    case 'query-param':
-      return <LinkOutlined style={{ ...style, color: '#722ed1' }} />;
-    case 'inject':
-      return <CodeOutlined style={{ ...style, color: operation === 'css' ? '#eb2f96' : '#fa8c16' }} />;
-    default:
-      return null;
-  }
-}
-
 // ── Render action details ────────────────────────────────────────
 
-/** Render structured action details: direction + icon + label tag + value. */
+/** Render structured action details: shared icon (with direction + placeholder) + label tag + value. */
 export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueLen = 16): React.ReactNode {
   const displayValue = truncateValue(detail.value, maxValueLen);
 
@@ -341,15 +306,15 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
   return (
     <Tooltip title={tooltipContent} styles={{ root: { maxWidth: 400 } }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', opacity }}>
-        {/* Direction arrow (header only) */}
-        {detail.direction && (
-          <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0, color: 'var(--ant-color-text-secondary)' }}>
-            {detail.direction === 'response' ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
-          </span>
-        )}
-
-        {/* Rule type icon, colored by operation */}
-        <span style={{ flexShrink: 0, lineHeight: 1 }}>{getRuleTypeIcon(detail.ruleType, detail.operation)}</span>
+        {/* Shared rule icon — same as sidebar/tabs (includes direction arrow + placeholder) */}
+        <span style={{ flexShrink: 0, lineHeight: 1 }}>
+          {buildRuleIcon({
+            ruleType: detail.ruleType,
+            isActive: true,
+            size: 13,
+            direction: detail.direction as 'request' | 'response' | undefined,
+          })}
+        </span>
 
         {/* Label as tag (header name, param count, JS/CSS) */}
         {detail.label && (

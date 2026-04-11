@@ -48,19 +48,22 @@ interface RuleIconOptions {
   isActive: boolean;
   /** Icon size in px. Default 12. */
   size?: number;
+  /** Explicit direction override — use when rule object is not available (e.g. popup). */
+  direction?: 'request' | 'response';
 }
 
 /**
- * Build a rich icon element for a rule — same rendering in sidebar and tabs.
+ * Build a rich icon element for a rule — same rendering in sidebar, tabs, and popup.
  */
-export function buildRuleIcon({ ruleType, rule, isActive, size = 12 }: RuleIconOptions): React.ReactNode {
+export function buildRuleIcon({ ruleType, rule, isActive, size = 12, direction }: RuleIconOptions): React.ReactNode {
   const detail = rule ? getActionDetail(rule) : undefined;
+  const dir = direction ?? detail?.direction;
   const Icon = RULE_TYPE_ICON[ruleType] ?? SwapOutlined;
   const iconColor = isActive ? BLUE : GRAY;
 
   const arrowSize = Math.round(size * 0.75);
-  const dirPrefix = detail?.direction
-    ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
+  const dirPrefix = dir
+    ? createElement(dir === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
         style: { fontSize: arrowSize, color: isActive ? BLUE : GRAY, marginRight: 1 },
       })
     : // Empty spacer so icons without arrows align with those that have them
