@@ -864,7 +864,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               }}
             >
               <Button
-                type="link"
+                type="dashed"
                 size="small"
                 icon={<ApartmentOutlined />}
                 onClick={() => {
@@ -875,7 +875,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                     getBrowserAPI().tabs.create({ url });
                   }
                 }}
-                style={{ fontSize: 11, padding: 0, height: 'auto' }}
+                style={{ fontSize: 11 }}
               >
                 Rule Flow
               </Button>
