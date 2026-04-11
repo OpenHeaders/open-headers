@@ -142,14 +142,17 @@ export function getActionDetail(rule: Rule): ActionDetail {
         tooltip: 'Modifies request body (fetch/XHR)',
       };
     }
-    case 'mock':
+    case 'mock': {
+      const mr = rule as MockRule;
       return {
         ruleType: 'mock',
         direction: 'response' as const,
-        label: `${(rule as MockRule).action.statusCode}`,
-        value: (rule as MockRule).action.contentType || '',
+        operation: mr.action.bodyType,
+        label: `${mr.action.statusCode}`,
+        value: mr.action.contentType || '',
         tooltip: 'Overrides API response (fetch/XHR)',
       };
+    }
     default: {
       const _exhaustive: never = rule;
       return { ruleType: (rule as Rule).type, label: '', value: '', tooltip: (rule as Rule).type };
