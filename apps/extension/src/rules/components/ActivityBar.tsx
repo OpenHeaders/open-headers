@@ -15,6 +15,7 @@ import {
 import { Tooltip, theme } from 'antd';
 import type React from 'react';
 import { forwardRef } from 'react';
+import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 interface ActivityBarProps {
   sidebarVisible: boolean;
@@ -62,7 +63,9 @@ const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(({ sidebarVisib
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
         {PANELS.map((panel) => {
           const isActive = panel.key === 'items' && sidebarVisible;
-          const tooltipTitle = panel.enabled ? panel.label : panel.tooltip;
+          const tooltipTitle = panel.enabled
+            ? `${panel.label} (${shortcutLabel('toggle-sidebar')})`
+            : panel.tooltip;
 
           return (
             <Tooltip key={panel.key} title={tooltipTitle} placement="right">

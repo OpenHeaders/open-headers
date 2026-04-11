@@ -27,6 +27,7 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import { runtime } from '@utils/browser-api';
+import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
@@ -181,6 +182,8 @@ interface SidebarProps {
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   /** Open template folder overview tab. */
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Ref to the filter input for keyboard shortcut focus. */
+  filterRef?: React.Ref<InputRef>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -193,6 +196,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectTemplate,
   onOpenTemplateCollectionOverview,
   onOpenTemplateFolderOverview,
+  filterRef,
 }) => {
   const { token } = theme.useToken();
   const {
@@ -1145,6 +1149,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="rules-sidebar" style={{ background: token.colorBgLayout }}>
       <div className="rules-sidebar-toolbar" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
         <Input
+          ref={filterRef}
           size="small"
           placeholder="Filter"
           prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />}

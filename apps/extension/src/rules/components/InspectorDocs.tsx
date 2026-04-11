@@ -9,6 +9,7 @@ import { Card, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
+import { SHORTCUTS } from '../hooks/useWorkspaceShortcuts';
 
 const { Text, Title } = Typography;
 
@@ -192,6 +193,7 @@ const TOC = [
   { id: 'templates', label: 'Templates' },
   { id: 'script-rules', label: 'Script-Based Rules' },
   { id: 'limitations', label: 'Limitations' },
+  { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts' },
 ];
 
 // ── Component ───────────────────────────────────────────────────
@@ -703,6 +705,44 @@ const InspectorDocs: React.FC = () => {
         <strong>Header matching conditions</strong>
         <DocParagraph>Chrome 128+ only. Older browsers ignore these conditions.</DocParagraph>
       </Card>
+
+      {/* ── Keyboard Shortcuts ── */}
+      <SectionTitle id="keyboard-shortcuts">Keyboard Shortcuts</SectionTitle>
+      <DocParagraph>
+        Press <code>?</code> anytime to jump here. Shortcuts use{' '}
+        <strong>{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ Cmd' : 'Ctrl'}</strong> as the modifier key.
+      </DocParagraph>
+      {(['panels', 'tabs', 'navigation', 'actions'] as const).map((category) => {
+        const items = SHORTCUTS.filter((s) => s.category === category);
+        if (items.length === 0) return null;
+        return (
+          <Card
+            key={category}
+            size="small"
+            style={{ marginBottom: 8 }}
+            title={category.charAt(0).toUpperCase() + category.slice(1)}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {items.map((s) => (
+                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12 }}>{s.label}</span>
+                  <code
+                    style={{
+                      fontSize: 11,
+                      padding: '1px 6px',
+                      background: token.colorFillQuaternary,
+                      borderRadius: 3,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {/Mac|iPhone|iPad/.test(navigator.userAgent) ? s.mac : s.win}
+                  </code>
+                </div>
+              ))}
+            </div>
+          </Card>
+        );
+      })}
 
       <div style={{ height: 40 }} />
     </div>

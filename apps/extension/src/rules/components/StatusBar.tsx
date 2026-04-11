@@ -10,6 +10,7 @@
 import { useRules } from '@hooks/useRules';
 import { Tooltip, theme } from 'antd';
 import type React from 'react';
+import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import type { PanelVisibility } from '../types';
 
 declare const __APP_VERSION__: string;
@@ -147,19 +148,19 @@ const StatusBar: React.FC<StatusBarProps> = ({ panels, onTogglePanel }) => {
         <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
         <div className="rules-panel-toggles">
           <PanelToggle
-            title="Left sidebar"
+            title={`Left sidebar (${shortcutLabel('toggle-sidebar')})`}
             active={panels.sidebar}
             position="left"
             onClick={() => onTogglePanel('sidebar')}
           />
           <PanelToggle
-            title="Bottom panel"
+            title={`Bottom panel (${shortcutLabel('toggle-bottom')})`}
             active={panels.bottomPanel}
             position="bottom"
             onClick={() => onTogglePanel('bottomPanel')}
           />
           <PanelToggle
-            title="Right sidebar"
+            title={`Right sidebar (${shortcutLabel('toggle-inspector')})`}
             active={panels.inspector}
             position="right"
             onClick={() => onTogglePanel('inspector')}

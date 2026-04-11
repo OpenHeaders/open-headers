@@ -12,11 +12,13 @@ import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { Allotment, LayoutPriority } from 'allotment';
+import type { InputRef } from 'antd';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
 import { useResponsiveLayout } from './hooks/useResponsiveLayout';
+import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import ActivityBar from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
@@ -636,18 +638,60 @@ const RulesAppInner: React.FC = () => {
     if (activeTabId) saveRefMap.current.get(activeTabId)?.();
   }, [activeTabId, saveRefMap]);
 
-  // ── Cmd+S ─────────────────────────────────────────────────────
+  // ── Tab navigation for shortcuts ─────────────────────────────
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleSave]);
+  const handlePrevTab = useCallback(() => {
+    if (tabs.length < 2 || !activeTabId) return;
+    const idx = tabs.findIndex((t) => t.id === activeTabId);
+    const prev = idx > 0 ? tabs[idx - 1] : tabs[tabs.length - 1];
+    switchTab(prev.id);
+  }, [tabs, activeTabId, switchTab]);
+
+  const handleNextTab = useCallback(() => {
+    if (tabs.length < 2 || !activeTabId) return;
+    const idx = tabs.findIndex((t) => t.id === activeTabId);
+    const next = idx < tabs.length - 1 ? tabs[idx + 1] : tabs[0];
+    switchTab(next.id);
+  }, [tabs, activeTabId, switchTab]);
+
+  const handleCloseActiveTab = useCallback(() => {
+    if (activeTabId) handleCloseTab(activeTabId);
+  }, [activeTabId, handleCloseTab]);
+
+  // Sidebar filter focus ref
+  const sidebarFilterRef = useRef<InputRef>(null);
+
+  // Keyboard shortcuts help — toggle inspector with shortcuts section
+  const handleShowShortcuts = useCallback(() => {
+    if (panels.inspector) {
+      togglePanel('inspector');
+    } else {
+      openDocs('keyboard-shortcuts');
+    }
+  }, [panels.inspector, togglePanel, openDocs]);
+
+  // ── Global keyboard shortcuts ─────────────────────────────────
+
+  useWorkspaceShortcuts({
+    onToggleSidebar: () => togglePanel('sidebar'),
+    onToggleBottomPanel: () => togglePanel('bottomPanel'),
+    onToggleInspector: () => togglePanel('inspector'),
+    onCloseTab: handleCloseActiveTab,
+    onPrevTab: handlePrevTab,
+    onNextTab: handleNextTab,
+    onSave: handleSave,
+    onNewRule: () => openCreateTab('header'),
+    onFocusFilter: () => {
+      if (!panels.sidebar) togglePanel('sidebar');
+      sidebarFilterRef.current?.focus();
+    },
+    onCommandPalette: () => {
+      if (!panels.sidebar) togglePanel('sidebar');
+      sidebarFilterRef.current?.focus(); // TODO: replace with command palette when built
+    },
+    onShowShortcuts: handleShowShortcuts,
+    hasActiveTab: () => activeTabId != null,
+  });
 
   // Compute coordinated sidebar size when inspector opens
   const coordinatedSidebarPreferred = panels.inspector
@@ -793,6 +837,7 @@ const RulesAppInner: React.FC = () => {
                 onSelectTemplate={openTemplateEditTab}
                 onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
                 onOpenTemplateFolderOverview={openTemplateFolderOverview}
+                filterRef={sidebarFilterRef}
               />
             </Allotment.Pane>
 
