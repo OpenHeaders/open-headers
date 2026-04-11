@@ -305,9 +305,9 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
 
   return (
     <Tooltip title={tooltipContent} styles={{ root: { maxWidth: 400 } }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', opacity }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', opacity, height: '100%' }}>
         {/* Shared rule icon — same as sidebar/tabs (includes direction arrow + placeholder) */}
-        <span style={{ flexShrink: 0, lineHeight: 1 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
           {buildRuleIcon({
             ruleType: detail.ruleType,
             isActive,
@@ -343,6 +343,7 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               minWidth: 0,
+              lineHeight: '18px',
               color: 'var(--ant-color-text-secondary)',
             }}
           >
