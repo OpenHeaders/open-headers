@@ -5,7 +5,13 @@
  * contents table (direct children), and quick action buttons.
  */
 
-import { FolderOutlined, PauseCircleOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  ApartmentOutlined,
+  FolderOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
@@ -21,6 +27,7 @@ interface FolderOverviewProps {
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
+  onOpenRuleFlow?: (scope: 'collection' | 'folder', entityId: string, label: string) => void;
 }
 
 interface ContentRow {
@@ -70,6 +77,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
   onSelectRule,
   onCreateRule,
   onOpenFolderOverview,
+  onOpenRuleFlow,
 }) => {
   const { token } = theme.useToken();
   const { rules, localCollectionTrees, pausedGroups, toggleGroupPause } = useRules();
@@ -245,6 +253,15 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
             {isPaused ? 'Resume' : 'Pause'}
           </Button>
         </Tooltip>
+        {onOpenRuleFlow && folder && (
+          <Button
+            size="small"
+            icon={<ApartmentOutlined />}
+            onClick={() => onOpenRuleFlow('folder', folderUid, folder.name)}
+          >
+            Rule Flow
+          </Button>
+        )}
       </div>
 
       {/* Contents */}

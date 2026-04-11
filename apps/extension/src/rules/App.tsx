@@ -26,6 +26,7 @@ import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } f
 import CommandPalette from './components/CommandPalette';
 import EmptyState from './components/EmptyState';
 import FolderOverview from './components/FolderOverview';
+import RuleFlow from './components/RuleFlow';
 import Inspector from './components/Inspector';
 import RuleEditor from './components/RuleEditor';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
@@ -42,7 +43,7 @@ import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabs } from './hooks/useTabs';
 import { shortcutLabel, useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
-import type { PanelVisibility, RulesTab } from './types';
+import type { PanelVisibility, RuleFlowScope, RulesTab } from './types';
 
 const RULE_TYPE_LABELS: Record<string, string> = {
   header: 'Header Rule',
@@ -405,6 +406,29 @@ const RulesAppInner: React.FC = () => {
     [tabs, addTab, switchTab],
   );
 
+  const openRuleFlow = useCallback(
+    (scope: RuleFlowScope, entityId?: string, label?: string) => {
+      const id = entityId ? `flow-${entityId}` : `flow-${scope}`;
+      const existing = tabs.find((t) => t.id === id);
+      if (existing) {
+        switchTab(id);
+        return;
+      }
+      const flowLabel = label ? `${label} — Flow` : scope === 'all-active' ? 'All Active Rules — Flow' : 'This Page — Flow';
+      const tab: RulesTab = {
+        id,
+        label: flowLabel,
+        ruleType: '',
+        dirty: false,
+        mode: 'rule-flow',
+        entityId,
+        flowScope: scope,
+      };
+      addTab(tab);
+    },
+    [tabs, addTab, switchTab],
+  );
+
   // ── Dirty tracking ────────────────────────────────────────────
 
   const handleDirtyChange = useCallback(
@@ -613,6 +637,31 @@ const RulesAppInner: React.FC = () => {
             return false;
           };
           if (findRule(col.tree)) return ['Rules', col.name, ...trail, activeTab.label];
+        }
+      }
+      return ['Rules', activeTab.label];
+    }
+
+    if (activeTab.mode === 'rule-flow') {
+      if (activeTab.flowScope === 'collection' && activeTab.entityId) {
+        const col = localCollectionTrees.find((c) => c.uid === activeTab.entityId);
+        if (col) return ['Rules', col.name, 'Flow'];
+      }
+      if (activeTab.flowScope === 'folder' && activeTab.entityId) {
+        for (const col of localCollectionTrees) {
+          const trail: string[] = [];
+          const findFolder = (nodes: V5.TreeNode[]): boolean => {
+            for (const n of nodes) {
+              if (n.type === 'folder' && n.uid === activeTab.entityId) return true;
+              if (n.type === 'folder') {
+                trail.push(n.name);
+                if (findFolder(n.children)) return true;
+                trail.pop();
+              }
+            }
+            return false;
+          };
+          if (findFolder(col.tree)) return ['Rules', col.name, ...trail, 'Flow'];
         }
       }
       return ['Rules', activeTab.label];
@@ -973,6 +1022,7 @@ const RulesAppInner: React.FC = () => {
                 onSelectRule={openEditTab}
                 onCreateRule={openCreateTab}
                 onOpenFolderOverview={openFolderOverview}
+                onOpenRuleFlow={openRuleFlow}
               />
             )}
             {tab.mode === 'folder-overview' && tab.entityId && (
@@ -981,6 +1031,7 @@ const RulesAppInner: React.FC = () => {
                 onSelectRule={openEditTab}
                 onCreateRule={openCreateTab}
                 onOpenFolderOverview={openFolderOverview}
+                onOpenRuleFlow={openRuleFlow}
               />
             )}
             {tab.mode === 'template-edit' && tab.templateUid && (
@@ -988,6 +1039,14 @@ const RulesAppInner: React.FC = () => {
                 templateUid={tab.templateUid}
                 onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
                 registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+              />
+            )}
+            {tab.mode === 'rule-flow' && (
+              <RuleFlow
+                scope={tab.flowScope ?? 'all-active'}
+                entityId={tab.entityId}
+                onSelectRule={openEditTab}
+                onCreateRule={openCreateTab}
               />
             )}
           </div>

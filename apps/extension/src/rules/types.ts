@@ -2,7 +2,10 @@
  * Types for the workspace.html full-page editor.
  */
 
-export type TabMode = 'create' | 'edit' | 'collection-overview' | 'folder-overview' | 'template-edit';
+export type TabMode = 'create' | 'edit' | 'collection-overview' | 'folder-overview' | 'template-edit' | 'rule-flow';
+
+/** Scope for the rule flow visualization. */
+export type RuleFlowScope = 'this-page' | 'collection' | 'folder' | 'all-active';
 
 export interface RulesTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */
@@ -27,6 +30,8 @@ export interface RulesTab {
   entityId?: string;
   /** For template-edit tabs: the template uid. */
   templateUid?: string;
+  /** For rule-flow tabs: the scope. */
+  flowScope?: RuleFlowScope;
 }
 
 export interface PanelVisibility {
