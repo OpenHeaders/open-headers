@@ -13,6 +13,7 @@
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
+  ClockCircleOutlined,
   CodeOutlined,
   FileTextOutlined,
   LinkOutlined,
@@ -31,7 +32,7 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
   redirect: SendOutlined,
   'query-param': LinkOutlined,
   inject: CodeOutlined,
-  delay: ThunderboltOutlined,
+  delay: ClockCircleOutlined,
   body: FileTextOutlined,
   mock: ThunderboltOutlined,
 };

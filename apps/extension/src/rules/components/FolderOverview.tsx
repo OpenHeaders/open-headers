@@ -5,17 +5,7 @@
  * contents table (direct children), and quick action buttons.
  */
 
-import {
-  CodeOutlined,
-  FolderOutlined,
-  LinkOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  PlusOutlined,
-  SendOutlined,
-  StopOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
+import { FolderOutlined, PauseCircleOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
@@ -24,6 +14,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
+import { buildRuleIcon } from './shared/rule-icon';
 
 interface FolderOverviewProps {
   folderUid: string;
@@ -31,14 +22,6 @@ interface FolderOverviewProps {
   onCreateRule: (type: string, context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
 }
-
-const RULE_TYPE_ICONS: Record<string, React.ReactNode> = {
-  header: <SwapOutlined style={{ color: '#1890ff' }} />,
-  block: <StopOutlined style={{ color: '#f5222d' }} />,
-  redirect: <SendOutlined style={{ color: '#fa8c16' }} />,
-  'query-param': <LinkOutlined style={{ color: '#52c41a' }} />,
-  inject: <CodeOutlined style={{ color: '#722ed1' }} />,
-};
 
 interface ContentRow {
   key: string;
@@ -174,7 +157,11 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
             {row.kind === 'folder' ? (
               <FolderOutlined style={{ color: token.colorTextTertiary }} />
             ) : (
-              (RULE_TYPE_ICONS[row.ruleType ?? ''] ?? <SwapOutlined style={{ color: token.colorTextTertiary }} />)
+              buildRuleIcon({
+                ruleType: row.ruleType ?? 'header',
+                rule: rules.find((r) => r.uid === row.uid),
+                isActive: (row.enabled ?? false) && (row.complete ?? false),
+              })
             )}
             <span>{row.name}</span>
           </Space>
