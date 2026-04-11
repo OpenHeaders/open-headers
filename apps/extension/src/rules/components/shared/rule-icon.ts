@@ -61,18 +61,33 @@ export function buildRuleIcon({ ruleType, rule, isActive, size = 12, direction }
   const Icon = RULE_TYPE_ICON[ruleType] ?? SwapOutlined;
   const iconColor = isActive ? BLUE : GRAY;
 
+  // Fixed-width container for the arrow area — ensures vertical alignment
+  // whether an arrow is present or not.
   const arrowSize = Math.round(size * 0.75);
-  const dirPrefix = dir
+  const arrowWidth = arrowSize + 2;
+  const arrowContent = dir
     ? createElement(dir === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-        style: { fontSize: arrowSize, color: isActive ? BLUE : GRAY, marginRight: 1 },
+        style: { fontSize: arrowSize, color: isActive ? BLUE : GRAY },
       })
-    : // Empty spacer so icons without arrows align with those that have them
-      createElement('span', { style: { display: 'inline-block', width: arrowSize + 1 } });
+    : null;
+  const arrowSlot = createElement(
+    'span',
+    {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: arrowWidth,
+        flexShrink: 0,
+      },
+    },
+    arrowContent,
+  );
 
   return createElement(
     'span',
-    { style: { display: 'inline-flex', alignItems: 'center', gap: 1 } },
-    dirPrefix,
+    { style: { display: 'inline-flex', alignItems: 'center', gap: 0 } },
+    arrowSlot,
     createElement(Icon, { style: { fontSize: size, color: iconColor } }),
   );
 }
