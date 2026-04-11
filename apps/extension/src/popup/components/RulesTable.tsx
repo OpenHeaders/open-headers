@@ -151,7 +151,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     (item) =>
       item.name.toLowerCase().includes(searchText.toLowerCase()) ||
       item.domains.some((domain) => domain.toLowerCase().includes(searchText.toLowerCase())) ||
-      item.actionDetail.value.toLowerCase().includes(searchText.toLowerCase()) ||
+      (item.actionDetail.value || '').toLowerCase().includes(searchText.toLowerCase()) ||
       item.ruleType.toLowerCase().includes(searchText.toLowerCase()),
   );
 

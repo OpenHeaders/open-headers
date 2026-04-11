@@ -101,7 +101,7 @@ export function getActionDetail(rule: Rule): ActionDetail {
         ruleType: 'inject',
         operation: ir.action.injectType,
         label: ir.action.injectType === 'css' ? 'CSS' : 'JS',
-        value: ir.action.position,
+        value: ir.action.position ?? '',
         tooltip: ir.action.injectType === 'css' ? 'Injects stylesheet into page' : 'Injects JavaScript into page',
       };
     }
