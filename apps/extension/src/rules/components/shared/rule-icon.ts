@@ -15,7 +15,8 @@ import {
   ArrowUpOutlined,
   ClockCircleOutlined,
   CodeOutlined,
-  FileTextOutlined,
+  FileDoneOutlined,
+  FileSearchOutlined,
   LinkOutlined,
   SendOutlined,
   StopOutlined,
@@ -33,8 +34,8 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
   'query-param': LinkOutlined,
   inject: CodeOutlined,
   delay: ClockCircleOutlined,
-  body: FileTextOutlined,
-  mock: ThunderboltOutlined,
+  body: FileSearchOutlined,
+  mock: FileDoneOutlined,
 };
 
 const GRAY = 'var(--ant-color-text-tertiary, #999)';
