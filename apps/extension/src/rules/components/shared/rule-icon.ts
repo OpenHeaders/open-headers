@@ -1,11 +1,13 @@
 /**
  * Shared rule icon rendering — used by both Sidebar and TabBar.
  *
- * Produces the same icon for a given rule state:
- *   - Type-specific icon (Swap for header, Stop for block, etc.)
- *   - Color based on active/inactive state
- *   - Operation-specific color for headers (override=blue, add=green, remove=red)
- *   - Direction arrow for header rules (↑ request, ↓ response)
+ * Uniform color scheme:
+ *   - Gray: draft / incomplete / inactive / paused
+ *   - Blue (#1677ff): active (enabled + complete)
+ *
+ * Direction arrows:
+ *   - ↑ request (header request, body)
+ *   - ↓ response (header response, mock/API response)
  */
 
 import {
@@ -34,27 +36,12 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
   mock: ThunderboltOutlined,
 };
 
-const HEADER_OP_COLOR: Record<string, string> = {
-  override: '#1677ff',
-  add: '#52c41a',
-  remove: '#ff4d4f',
-};
-
-const ACTIVE_COLOR: Record<string, string> = {
-  header: '#1677ff',
-  block: '#ff4d4f',
-  redirect: '#faad14',
-  'query-param': '#722ed1',
-  delay: '#fa8c16',
-  body: '#1677ff',
-  mock: '#fa8c16',
-};
-
 const GRAY = 'var(--ant-color-text-tertiary, #999)';
+const BLUE = '#1677ff';
 
 interface RuleIconOptions {
   ruleType: string;
-  /** Full rule object — used for action details (direction, operation). */
+  /** Full rule object — used for action details (direction). */
   rule?: V5.Rule;
   /** Whether the rule is active (enabled + complete). */
   isActive: boolean;
@@ -68,22 +55,12 @@ interface RuleIconOptions {
 export function buildRuleIcon({ ruleType, rule, isActive, size = 12 }: RuleIconOptions): React.ReactNode {
   const detail = rule ? getActionDetail(rule) : undefined;
   const Icon = RULE_TYPE_ICON[ruleType] ?? SwapOutlined;
-
-  let iconColor = GRAY;
-  if (isActive) {
-    if (ruleType === 'header' && detail?.operation) {
-      iconColor = HEADER_OP_COLOR[detail.operation] ?? '#1677ff';
-    } else if (ruleType === 'inject') {
-      iconColor = detail?.operation === 'css' ? '#eb2f96' : '#fa8c16';
-    } else {
-      iconColor = ACTIVE_COLOR[ruleType] ?? '#1677ff';
-    }
-  }
+  const iconColor = isActive ? BLUE : GRAY;
 
   const dirArrow =
     detail?.direction
       ? createElement(detail.direction === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-          style: { fontSize: Math.round(size * 0.75), color: 'var(--ant-color-text-secondary, #595959)', marginRight: 1 },
+          style: { fontSize: Math.round(size * 0.75), color: isActive ? BLUE : GRAY, marginRight: 1 },
         })
       : null;
 

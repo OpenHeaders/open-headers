@@ -126,6 +126,7 @@ export function getActionDetail(rule: Rule): ActionDetail {
     case 'mock':
       return {
         ruleType: 'mock',
+        direction: 'response' as const,
         label: `${(rule as MockRule).action.statusCode}`,
         value: (rule as MockRule).action.contentType || '',
         tooltip: 'Overrides API response (fetch/XHR)',
