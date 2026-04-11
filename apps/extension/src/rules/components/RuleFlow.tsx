@@ -32,19 +32,29 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
   const [tabUrl, setTabUrl] = useState<string>('');
   const [showDrafts, setShowDrafts] = useState(false);
   const [showDisabled, setShowDisabled] = useState(initialScope === 'collection' || initialScope === 'folder');
+  const [compact, setCompact] = useState(true);
 
-  // Fetch the active tab URL for "This Page" filtering
+  // Fetch the active tab URL for "This Page" filtering.
+  // Only useful when the active tab is a real page (not workspace.html itself).
   useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.url) setTabUrl(tabs[0].url);
+        const url = tabs[0]?.url ?? '';
+        // Skip extension pages — "This Page" is meaningless for chrome-extension:// URLs
+        if (url && !url.startsWith('chrome-extension://') && !url.startsWith('chrome://')) {
+          setTabUrl(url);
+        }
       });
     }
   }, []);
 
   // Build available scope options based on context
   const availableScopes = useMemo((): Array<{ label: string; value: RuleFlowScope }> => {
-    const opts: Array<{ label: string; value: RuleFlowScope }> = [{ label: 'This Page', value: 'this-page' }];
+    const opts: Array<{ label: string; value: RuleFlowScope }> = [];
+    // Only show "This Page" if we have a real tab URL (not when opened from workspace.html)
+    if (tabUrl) {
+      opts.push({ label: 'This Page', value: 'this-page' });
+    }
     if (entityId) {
       const isCollection = localCollectionTrees.some((c) => c.uid === entityId);
       if (isCollection) {
@@ -55,7 +65,14 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
     }
     opts.push({ label: 'All Active', value: 'all-active' });
     return opts;
-  }, [entityId, localCollectionTrees]);
+  }, [entityId, localCollectionTrees, tabUrl]);
+
+  // Fall back to first available scope if current scope isn't available
+  useEffect(() => {
+    if (availableScopes.length > 0 && !availableScopes.some((o) => o.value === scope)) {
+      setScope(availableScopes[0].value);
+    }
+  }, [availableScopes, scope]);
 
   // Find the collection context for "Add Rule" functionality
   const collectionContext = useMemo(() => {
@@ -204,7 +221,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
   const showAll = scope !== 'this-page'; // "This Page" hides empty tiers
 
   return (
-    <div className="rule-flow" style={{ height: '100%', overflowY: 'auto' }}>
+    <div className="rule-flow" data-compact={compact} style={{ height: '100%', overflowY: 'auto' }}>
       {/* Scope selector + stats */}
       <div className="rule-flow-toolbar" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
         <Space size={12} wrap>
@@ -215,6 +232,9 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
             options={availableScopes}
           />
           <Space size={8}>
+            <Checkbox checked={compact} onChange={(e) => setCompact(e.target.checked)} style={{ fontSize: 11 }}>
+              <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Compact</span>
+            </Checkbox>
             <Checkbox
               checked={showDisabled}
               onChange={(e) => setShowDisabled(e.target.checked)}
@@ -270,8 +290,8 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
           />
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <Terminus type="start" />
-            <Connector label="evaluate conditions" />
+            <Terminus type="start" compact={compact} />
+            <Connector label="evaluate conditions" compact={compact} />
 
             {(showAll ? PRIORITY_TIERS : nonEmptyTiers).map((tier, i) => {
               const tierRules = rulesByTier.get(tier.key) ?? [];
@@ -285,16 +305,17 @@ const RuleFlow: React.FC<RuleFlowProps> = ({ scope: initialScope, entityId, onSe
                     onCreateRule={onCreateRule}
                     collectionId={collectionContext?.collectionId}
                     folderPath={collectionContext?.folderPath}
+                    compact={compact}
                   />
                   {i < (showAll ? PRIORITY_TIERS.length : nonEmptyTiers.length) - 1 && (
-                    <Connector label={i === 0 ? 'then' : undefined} />
+                    <Connector label={i === 0 ? 'then' : undefined} compact={compact} />
                   )}
                 </div>
               );
             })}
 
-            <Connector />
-            <Terminus type="end" />
+            <Connector compact={compact} />
+            <Terminus type="end" compact={compact} />
           </DndContext>
         )}
       </div>

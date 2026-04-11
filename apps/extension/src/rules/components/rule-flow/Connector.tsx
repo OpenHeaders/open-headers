@@ -7,15 +7,16 @@ import { CaretDownOutlined, PlayCircleFilled, StopFilled } from '@ant-design/ico
 import { theme } from 'antd';
 import type React from 'react';
 
-export const Connector: React.FC<{ label?: string }> = ({ label }) => {
+export const Connector: React.FC<{ label?: string; compact?: boolean }> = ({ label, compact }) => {
   const { token } = theme.useToken();
   const lineColor = token.colorBorderSecondary;
   const labelColor = token.colorTextQuaternary;
+  const h = compact ? 4 : 12;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', userSelect: 'none' }}>
-      <div style={{ width: 1.5, height: 12, background: lineColor }} />
-      {label && (
+      <div style={{ width: 1.5, height: h, background: lineColor }} />
+      {label && !compact && (
         <span
           style={{
             fontFamily: 'monospace',
@@ -32,13 +33,13 @@ export const Connector: React.FC<{ label?: string }> = ({ label }) => {
           {label}
         </span>
       )}
-      <div style={{ width: 1.5, height: 12, background: lineColor }} />
-      <CaretDownOutlined style={{ fontSize: 8, color: lineColor, marginTop: -4 }} />
+      <div style={{ width: 1.5, height: h, background: lineColor }} />
+      {!compact && <CaretDownOutlined style={{ fontSize: 8, color: lineColor, marginTop: -4 }} />}
     </div>
   );
 };
 
-export const Terminus: React.FC<{ type: 'start' | 'end' }> = ({ type }) => {
+export const Terminus: React.FC<{ type: 'start' | 'end'; compact?: boolean }> = ({ type, compact }) => {
   const { token } = theme.useToken();
   const isStart = type === 'start';
 
@@ -47,11 +48,11 @@ export const Terminus: React.FC<{ type: 'start' | 'end' }> = ({ type }) => {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
-        padding: '5px 16px',
+        gap: compact ? 4 : 6,
+        padding: compact ? '2px 10px' : '5px 16px',
         borderRadius: 14,
         fontFamily: 'monospace',
-        fontSize: 10,
+        fontSize: compact ? 8 : 10,
         fontWeight: 600,
         letterSpacing: 1,
         textTransform: 'uppercase',
@@ -61,7 +62,11 @@ export const Terminus: React.FC<{ type: 'start' | 'end' }> = ({ type }) => {
         color: isStart ? token.colorSuccess : token.colorError,
       }}
     >
-      {isStart ? <PlayCircleFilled style={{ fontSize: 10 }} /> : <StopFilled style={{ fontSize: 9 }} />}
+      {isStart ? (
+        <PlayCircleFilled style={{ fontSize: compact ? 8 : 10 }} />
+      ) : (
+        <StopFilled style={{ fontSize: compact ? 7 : 9 }} />
+      )}
       {isStart ? 'Request Intercepted' : 'Done'}
     </div>
   );

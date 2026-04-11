@@ -39,9 +39,10 @@ interface FlowRuleCardProps {
   rule: V5.Rule;
   onSelectRule: (uid: string) => void;
   tierColor: string;
+  compact?: boolean;
 }
 
-const FlowRuleCard: React.FC<FlowRuleCardProps> = ({ rule, onSelectRule, tierColor }) => {
+const FlowRuleCard: React.FC<FlowRuleCardProps> = ({ rule, onSelectRule, tierColor, compact }) => {
   const { token } = theme.useToken();
   const { updateLocalRule, deleteLocalRule } = useRules();
   const complete = isRuleComplete(rule);
@@ -103,31 +104,46 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({ rule, onSelectRule, tierCol
           </Space>
         </div>
 
-        {/* Conditions */}
-        <div className="flow-rule-card-conditions">
-          {rule.conditions.length === 0 ? (
-            <span style={{ fontSize: 10, color: token.colorTextQuaternary, fontStyle: 'italic' }}>All requests</span>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' }}>
-              {rule.conditions.map((c, i) => {
-                const label = CONDITION_TYPE_LABELS[c.type] ?? c.type;
-                const val = c.values.length > 0 ? c.values[0] : '';
-                const short = val.length > 24 ? `${val.slice(0, 22)}...` : val;
-                return (
-                  <Tooltip key={`${c.type}-${i}`} title={`${label}: ${c.values.join(', ')}`}>
-                    <span className="flow-condition-chip" style={{ borderColor: `${tierColor}30` }}>
-                      <span style={{ color: tierColor, fontWeight: 600 }}>{label}</span>
-                      {short && <span style={{ color: token.colorTextSecondary }}>{short}</span>}
-                    </span>
-                  </Tooltip>
-                );
-              })}
+        {/* Compact: inline condition count + action summary */}
+        {compact ? (
+          <span style={{ fontSize: 10, color: token.colorTextTertiary }}>
+            {rule.conditions.length > 0
+              ? `${rule.conditions.length} condition${rule.conditions.length !== 1 ? 's' : ''}`
+              : 'All requests'}
+            {' · '}
+            {detail.label || detail.tooltip}
+          </span>
+        ) : (
+          <>
+            {/* Conditions */}
+            <div className="flow-rule-card-conditions">
+              {rule.conditions.length === 0 ? (
+                <span style={{ fontSize: 10, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
+                  All requests
+                </span>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' }}>
+                  {rule.conditions.map((c, i) => {
+                    const label = CONDITION_TYPE_LABELS[c.type] ?? c.type;
+                    const val = c.values.length > 0 ? c.values[0] : '';
+                    const short = val.length > 24 ? `${val.slice(0, 22)}...` : val;
+                    return (
+                      <Tooltip key={`${c.type}-${i}`} title={`${label}: ${c.values.join(', ')}`}>
+                        <span className="flow-condition-chip" style={{ borderColor: `${tierColor}30` }}>
+                          <span style={{ color: tierColor, fontWeight: 600 }}>{label}</span>
+                          {short && <span style={{ color: token.colorTextSecondary }}>{short}</span>}
+                        </span>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Action summary */}
-        <div style={{ fontSize: 10, color: token.colorTextTertiary, marginTop: 2 }}>{detail.tooltip}</div>
+            {/* Action summary */}
+            <div style={{ fontSize: 10, color: token.colorTextTertiary, marginTop: 2 }}>{detail.tooltip}</div>
+          </>
+        )}
       </div>
 
       {/* Actions */}

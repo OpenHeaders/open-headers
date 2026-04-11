@@ -60,6 +60,7 @@ interface PriorityGroupProps {
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }) => void;
   collectionId?: string;
   folderPath?: string;
+  compact?: boolean;
 }
 
 const PriorityGroup: React.FC<PriorityGroupProps> = ({
@@ -69,6 +70,7 @@ const PriorityGroup: React.FC<PriorityGroupProps> = ({
   onCreateRule,
   collectionId,
   folderPath,
+  compact,
 }) => {
   const { token } = theme.useToken();
 
@@ -90,7 +92,7 @@ const PriorityGroup: React.FC<PriorityGroupProps> = ({
           <span className="flow-priority-label" style={{ color: tier.color }}>
             {tier.label}
           </span>
-          <span style={{ fontSize: 10, color: token.colorTextQuaternary }}>{tier.description}</span>
+          {!compact && <span style={{ fontSize: 10, color: token.colorTextQuaternary }}>{tier.description}</span>}
         </div>
         <span style={{ fontSize: 10, color: token.colorTextQuaternary }}>
           {rules.length} rule{rules.length !== 1 ? 's' : ''}
@@ -109,14 +111,20 @@ const PriorityGroup: React.FC<PriorityGroupProps> = ({
             </div>
           ) : (
             rules.map((rule) => (
-              <FlowRuleCard key={rule.uid} rule={rule} onSelectRule={onSelectRule} tierColor={tier.color} />
+              <FlowRuleCard
+                key={rule.uid}
+                rule={rule}
+                onSelectRule={onSelectRule}
+                tierColor={tier.color}
+                compact={compact}
+              />
             ))
           )}
         </div>
       </SortableContext>
 
       {/* Add rule button */}
-      {collectionId && addMenuItems.length > 0 && (
+      {!compact && collectionId && addMenuItems.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
           <Dropdown menu={{ items: addMenuItems }} trigger={['click']} placement="bottom">
             <Button

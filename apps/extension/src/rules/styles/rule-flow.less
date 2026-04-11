@@ -158,3 +158,50 @@
   gap: 4px;
   flex-shrink: 0;
 }
+
+/* ── Compact mode ──────────────────────────────────────────────── */
+
+.rule-flow[data-compact='true'] {
+  .rule-flow-pipeline {
+    padding: 10px 16px 20px;
+  }
+
+  .flow-priority-group {
+    max-width: 520px;
+  }
+
+  .flow-priority-header {
+    padding: 2px 8px;
+    margin-bottom: 2px;
+  }
+
+  .flow-priority-rules {
+    gap: 2px;
+  }
+
+  .flow-priority-empty {
+    padding: 4px;
+    font-size: 10px;
+  }
+
+  .flow-rule-card {
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  .flow-rule-card-name {
+    font-size: 11px;
+  }
+
+  .flow-rule-card-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .flow-rule-card-header {
+    flex-shrink: 0;
+  }
+}
