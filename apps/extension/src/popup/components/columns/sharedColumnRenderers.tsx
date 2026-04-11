@@ -138,39 +138,54 @@ export function renderValueWithCopy({
   );
 }
 
-export function renderTagOverflow(allTags: TagDescriptor[], maxVisible: number): React.ReactNode {
+export function renderTagOverflow(
+  allTags: TagDescriptor[],
+  maxVisible: number,
+  maxTagWidth?: number,
+  suppressOverflowTooltip = false,
+): React.ReactNode {
   const tagStyle = { margin: 0, fontSize: '11px' };
+  const truncStyle = maxTagWidth
+    ? { ...tagStyle, maxWidth: maxTagWidth, overflow: 'hidden' as const, textOverflow: 'ellipsis' as const, whiteSpace: 'nowrap' as const }
+    : tagStyle;
   const visible = allTags.slice(0, maxVisible);
   const overflowCount = allTags.length - maxVisible;
 
+  const overflowTag = overflowCount > 0 ? (
+    <Tag variant="outlined" style={{ ...tagStyle, flexShrink: 0 }}>
+      +{overflowCount}
+    </Tag>
+  ) : null;
+
   return (
-    <Space size={2}>
+    <Space size={2} style={{ flexWrap: 'nowrap' }}>
       {visible.map((t, i) =>
         t.tooltip ? (
           <Tooltip key={i} title={t.tooltip}>
-            <Tag color={t.color} variant={t.variant ?? 'outlined'} style={{ ...tagStyle, cursor: 'help' }}>
+            <Tag color={t.color} variant={t.variant ?? 'outlined'} style={{ ...truncStyle, cursor: 'help' }}>
               {t.label}
             </Tag>
           </Tooltip>
         ) : (
-          <Tag key={i} color={t.color} variant={t.variant ?? 'outlined'} style={tagStyle}>
+          <Tag key={i} color={t.color} variant={t.variant ?? 'outlined'} style={truncStyle}>
             {t.label}
           </Tag>
         ),
       )}
-      {overflowCount > 0 && (
-        <Tooltip
-          title={renderTooltipGrid(
-            allTags
-              .filter((t) => t.label || t.tooltip)
-              .map((t) => ({ key: t.label, value: t.tooltip ?? '', color: t.color })),
-          )}
-          styles={{ root: { maxWidth: 400 } }}
-        >
-          <Tag variant="outlined" style={{ ...tagStyle, cursor: 'help' }}>
-            +{overflowCount}
-          </Tag>
-        </Tooltip>
+      {overflowTag && (suppressOverflowTooltip
+        ? overflowTag
+        : (
+          <Tooltip
+            title={renderTooltipGrid(
+              allTags
+                .filter((t) => t.label || t.tooltip)
+                .map((t) => ({ key: t.label, value: t.tooltip ?? '', color: t.color })),
+            )}
+            styles={{ root: { maxWidth: 400 } }}
+          >
+            {overflowTag}
+          </Tooltip>
+        )
       )}
     </Space>
   );
@@ -180,23 +195,90 @@ export type { ActionDetail } from '@openheaders/core/utils';
 
 // ── Conditions summary ──────────────────────────────────────────
 
+/** Short labels for inline tags (cell display). */
 const CONDITION_TYPE_SHORT: Record<string, string> = {
   'url-filter': 'URL',
   'url-regex': 'Regex',
-  'request-domains': '',
-  'exclude-request-domains': 'Excl',
+  'request-domains': 'Domain',
+  'exclude-request-domains': 'Excl Domain',
   'initiator-domains': 'From',
   'exclude-initiator-domains': 'Excl From',
   'request-methods': 'Method',
   'exclude-request-methods': 'Excl Method',
-  'resource-types': 'Type',
-  'exclude-resource-types': 'Excl Type',
-  'domain-type': 'Domain',
+  'resource-types': 'Resource',
+  'exclude-resource-types': 'Excl Resource',
+  'domain-type': 'Domain Type',
   'request-header': 'Req Hdr',
   'exclude-request-header': 'Excl Req Hdr',
   'response-header': 'Resp Hdr',
   'exclude-response-header': 'Excl Resp Hdr',
 };
+
+/** Full labels for tooltip tags. */
+const CONDITION_TYPE_LABEL: Record<string, string> = {
+  'url-filter': 'URL Pattern',
+  'url-regex': 'URL Regex',
+  'request-domains': 'Domains',
+  'exclude-request-domains': 'Excl Domains',
+  'initiator-domains': 'Initiator',
+  'exclude-initiator-domains': 'Excl Initiator',
+  'request-methods': 'Methods',
+  'exclude-request-methods': 'Excl Methods',
+  'resource-types': 'Resources',
+  'exclude-resource-types': 'Excl Resources',
+  'domain-type': 'Domain Type',
+  'request-header': 'Req Header',
+  'exclude-request-header': 'Excl Req Header',
+  'response-header': 'Resp Header',
+  'exclude-response-header': 'Excl Resp Header',
+};
+
+/**
+ * Priority order for conditions — higher priority conditions show first in the cell.
+ * request-domains is most common and most useful at a glance.
+ */
+const CONDITION_PRIORITY: Record<string, number> = {
+  'request-domains': 0,
+  'url-filter': 1,
+  'url-regex': 2,
+  'initiator-domains': 3,
+  'resource-types': 4,
+  'request-methods': 5,
+  'domain-type': 6,
+  'exclude-request-domains': 7,
+  'exclude-initiator-domains': 8,
+  'exclude-resource-types': 9,
+  'exclude-request-methods': 10,
+  'request-header': 11,
+  'exclude-request-header': 12,
+  'response-header': 13,
+  'exclude-response-header': 14,
+};
+
+/** Strip protocol and trailing wildcard from URL patterns for compact display. */
+function cleanUrlPattern(pattern: string): string {
+  return pattern.replace(/^\*:\/\//, '').replace(/\/\*$/, '');
+}
+
+/** Build a compact inline label for a condition. */
+function conditionToLabel(cond: { type: string; values: string[] }): string {
+  if (cond.values.length === 0) return CONDITION_TYPE_SHORT[cond.type] ?? cond.type;
+
+  const firstVal = cond.values[0];
+
+  // Domains and URL patterns: show the meaningful part directly (no prefix)
+  if (cond.type === 'request-domains' || cond.type === 'exclude-request-domains') {
+    return firstVal;
+  }
+  if (cond.type === 'url-filter' || cond.type === 'url-regex') {
+    return cleanUrlPattern(firstVal);
+  }
+
+  // Other conditions: prefix + short value
+  const prefix = CONDITION_TYPE_SHORT[cond.type] ?? cond.type;
+  const short = firstVal.length > 10 ? `${firstVal.substring(0, 8)}…` : firstVal;
+  return `${prefix}: ${short}`;
+}
 
 /** Render a compact conditions summary for table columns. */
 export function renderConditionsSummary(
@@ -211,37 +293,18 @@ export function renderConditionsSummary(
     ) : null;
   }
 
-  // Simple case: single host condition — show as domain tags (most common)
-  const hostConditions = conditions.filter((c) => c.type === 'request-domains');
-  const otherConditions = conditions.filter((c) => c.type !== 'request-domains');
+  // Sort conditions by priority for display
+  const sorted = [...conditions].sort(
+    (a, b) => (CONDITION_PRIORITY[a.type] ?? 99) - (CONDITION_PRIORITY[b.type] ?? 99),
+  );
 
-  const elements: React.ReactNode[] = [];
+  // Build tag descriptors — one per condition, no per-tag tooltips (single shared tooltip)
+  const allTags: TagDescriptor[] = sorted.map((cond) => ({
+    label: conditionToLabel(cond),
+    color: cond.type.startsWith('exclude-') ? 'warning' : undefined,
+  }));
 
-  // Show host domains first (most common)
-  if (hostConditions.length > 0) {
-    const allDomains = hostConditions.flatMap((c) => c.values);
-    elements.push(...renderDomainTagsAsArray(allDomains));
-  }
-
-  // Show other conditions as compact tags
-  for (let i = 0; i < otherConditions.length; i++) {
-    const cond = otherConditions[i];
-    const prefix = CONDITION_TYPE_SHORT[cond.type] ?? cond.type;
-    const summary = cond.values.length > 0 ? cond.values.slice(0, 2).join(', ') : '';
-    const label = prefix ? `${prefix}: ${summary}` : summary;
-    elements.push(
-      <Tag
-        key={`${cond.type}-${i}`}
-        variant="outlined"
-        color={cond.type.startsWith('exclude-') ? 'warning' : 'default'}
-        style={{ fontSize: '11px', cursor: 'default', margin: 0 }}
-      >
-        {label.length > 20 ? `${label.substring(0, 18)}…` : label}
-      </Tag>,
-    );
-  }
-
-  if (elements.length === 0) {
+  if (allTags.length === 0) {
     return showAllDomains ? (
       <Tag variant="outlined" color="default">
         All domains
@@ -249,37 +312,33 @@ export function renderConditionsSummary(
     ) : null;
   }
 
+  // Merge conditions of the same type so the tooltip shows one tag per type
+  const merged = new Map<string, string[]>();
+  const mergedOrder: string[] = [];
+  for (const c of sorted) {
+    const key = (CONDITION_TYPE_LABEL[c.type] ?? c.type) + (c.headerName ? ` [${c.headerName}]` : '');
+    if (!merged.has(key)) {
+      merged.set(key, []);
+      mergedOrder.push(key);
+    }
+    merged.get(key)!.push(...c.values);
+  }
+
+  // Single tooltip: condition type tag → numbered list of values (if multiple)
   const tooltip = renderTooltipGrid(
-    conditions.map((c) => ({
-      key: (CONDITION_TYPE_SHORT[c.type] || c.type) + (c.headerName ? ` [${c.headerName}]` : ''),
-      value: c.values.length > 1 ? c.values : c.values.join(', '),
-    })),
+    mergedOrder.map((key) => {
+      const values = merged.get(key)!;
+      return { key, value: values };
+    }),
   );
 
   return (
     <Tooltip title={tooltip} styles={{ root: { maxWidth: 500 } }}>
-      <Space size={2}>{elements}</Space>
+      <div style={{ overflow: 'hidden', display: 'flex' }}>
+        {renderTagOverflow(allTags, 1, 72, true)}
+      </div>
     </Tooltip>
   );
-}
-
-/** Internal helper: convert domain strings to Tag elements. */
-function renderDomainTagsAsArray(domains: string[]): React.ReactNode[] {
-  if (domains.length === 0) return [];
-  const first = domains[0].length > 14 ? `${domains[0].substring(0, 14)}…` : domains[0];
-  const elements: React.ReactNode[] = [
-    <Tag key="d0" variant="outlined" style={{ fontSize: '12px', cursor: 'default', margin: 0 }}>
-      {first}
-    </Tag>,
-  ];
-  if (domains.length > 1) {
-    elements.push(
-      <Tag key="d-overflow" variant="outlined" style={{ fontSize: '12px', cursor: 'default', margin: 0 }}>
-        +{domains.length - 1}
-      </Tag>,
-    );
-  }
-  return elements;
 }
 
 // ── Render action details ────────────────────────────────────────
