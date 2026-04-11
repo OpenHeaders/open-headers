@@ -877,7 +877,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 }}
                 style={{ fontSize: 11 }}
               >
-                Rule Flow
+                View Execution Flow
               </Button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Text type="secondary" style={{ fontSize: '11px' }}>

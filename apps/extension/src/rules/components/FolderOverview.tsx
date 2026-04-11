@@ -259,7 +259,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
             icon={<ApartmentOutlined />}
             onClick={() => onOpenRuleFlow('folder', folderUid, folder.name)}
           >
-            Rule Flow
+            View Execution Flow
           </Button>
         )}
       </div>

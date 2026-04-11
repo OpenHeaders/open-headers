@@ -236,7 +236,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
             icon={<ApartmentOutlined />}
             onClick={() => onOpenRuleFlow('collection', collectionUid, collection.name)}
           >
-            Rule Flow
+            View Execution Flow
           </Button>
         )}
       </div>
