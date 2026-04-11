@@ -21,12 +21,45 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-/** Extract host domain values from a rule's conditions (non-exclude). */
-function getHostDomains(rule: V5.Rule): string[] {
-  return rule.conditions
-    .filter((c) => c.type === 'request-domains')
-    .flatMap((c) => c.values)
-    .filter((v) => v.trim());
+interface MatchPattern {
+  pattern: string;
+  type: 'domain' | 'url-filter' | 'url-regex';
+}
+
+/**
+ * Extract all URL-matchable patterns from a rule's conditions.
+ * Covers request-domains, url-filter, and url-regex condition types.
+ */
+function getMatchPatterns(rule: V5.Rule): MatchPattern[] {
+  const patterns: MatchPattern[] = [];
+  for (const c of rule.conditions) {
+    if (c.type === 'request-domains') {
+      for (const v of c.values) {
+        if (v.trim()) patterns.push({ pattern: v.trim(), type: 'domain' });
+      }
+    } else if (c.type === 'url-filter') {
+      for (const v of c.values) {
+        if (v.trim()) patterns.push({ pattern: v.trim(), type: 'url-filter' });
+      }
+    } else if (c.type === 'url-regex') {
+      for (const v of c.values) {
+        if (v.trim()) patterns.push({ pattern: v.trim(), type: 'url-regex' });
+      }
+    }
+  }
+  return patterns;
+}
+
+/** Test if a URL matches a MatchPattern (handles both glob and regex types). */
+function doesUrlMatchEntry(url: string, entry: MatchPattern): boolean {
+  if (entry.type === 'url-regex') {
+    try {
+      return new RegExp(entry.pattern, 'i').test(url);
+    } catch {
+      return false;
+    }
+  }
+  return doesUrlMatchPattern(url, entry.pattern);
 }
 
 // ── Tracked state ─────────────────────────────────────────────────
@@ -48,30 +81,34 @@ export const tabsWithActiveRules: Map<number, Map<string, TrackedResource>> = ne
  */
 export function precompileRulePatterns(): void {
   clearPatternCache();
-  const allDomains: string[] = [];
+  const compilablePatterns: string[] = [];
   for (const rule of getRules()) {
-    const domains = getHostDomains(rule);
-    if (domains.length > 0) {
-      allDomains.push(...domains);
+    for (const entry of getMatchPatterns(rule)) {
+      // url-regex patterns use native RegExp, not the urlFilter compiler
+      if (entry.type !== 'url-regex') {
+        compilablePatterns.push(entry.pattern);
+      }
     }
   }
-  if (allDomains.length > 0) {
-    precompileAllPatterns(allDomains);
+  if (compilablePatterns.length > 0) {
+    precompileAllPatterns(compilablePatterns);
   }
 }
 
 // ── Matching ──────────────────────────────────────────────────────
 
 /**
- * Check if a URL matches any rule's domain patterns.
+ * Check if a URL matches any rule's conditions (domains, url-filter, url-regex).
  */
 export function checkIfUrlMatchesAnyRule(url: string): boolean {
   const normalizedUrl = normalizeUrlForTracking(url);
   for (const rule of getRules()) {
     if (!isRuleComplete(rule)) continue;
-    const domains = getHostDomains(rule);
-    for (const domain of domains) {
-      if (doesUrlMatchPattern(normalizedUrl, domain)) {
+    const patterns = getMatchPatterns(rule);
+    // Rules with no URL conditions match everything
+    if (patterns.length === 0) return true;
+    for (const entry of patterns) {
+      if (doesUrlMatchEntry(normalizedUrl, entry)) {
         return true;
       }
     }
@@ -110,30 +147,33 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     if (!extensionTypes.has(rule.type)) continue;
     if (!isRuleComplete(rule)) continue;
 
-    const domains = getHostDomains(rule);
+    const patterns = getMatchPatterns(rule);
     let matchType: 'direct' | 'indirect' | null = null;
     const matchedUrls: MatchedRequest[] = [];
 
-    if (domains.length === 0) {
+    if (patterns.length === 0) {
+      // No URL conditions — rule matches everything
       matchType = 'direct';
       matchedUrls.push({ url: tabUrl, pattern: '*', timestamp: now, resourceType: 'main_frame' });
       for (const [resourceUrl, res] of trackedResources) {
         matchedUrls.push({ url: resourceUrl, pattern: '*', timestamp: res.timestamp, resourceType: res.resourceType });
       }
     } else {
-      for (const domain of domains) {
-        if (doesUrlMatchPattern(tabUrl, domain)) {
+      const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
+      for (const entry of patterns) {
+        if (doesUrlMatchEntry(normalizedTabUrl, entry)) {
           matchType = 'direct';
-          matchedUrls.push({ url: tabUrl, pattern: domain, timestamp: now, resourceType: 'main_frame' });
+          matchedUrls.push({ url: tabUrl, pattern: entry.pattern, timestamp: now, resourceType: 'main_frame' });
           break;
         }
       }
 
       if (trackedResources.size > 0) {
         for (const [resourceUrl, res] of trackedResources) {
-          for (const domain of domains) {
-            if (doesUrlMatchPattern(resourceUrl, domain)) {
-              matchedUrls.push({ url: resourceUrl, pattern: domain, timestamp: res.timestamp, resourceType: res.resourceType });
+          const normalizedResUrl = normalizeUrlForTracking(resourceUrl);
+          for (const entry of patterns) {
+            if (doesUrlMatchEntry(normalizedResUrl, entry)) {
+              matchedUrls.push({ url: resourceUrl, pattern: entry.pattern, timestamp: res.timestamp, resourceType: res.resourceType });
               if (!matchType) matchType = 'indirect';
               break;
             }
@@ -144,6 +184,10 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
 
     if (matchType) {
       const detail = getActionDetail(rule);
+      const domains = rule.conditions
+        .filter((c) => c.type === 'request-domains')
+        .flatMap((c) => c.values)
+        .filter((v) => v.trim());
       activeRules.push({
         id: rule.uid,
         key: rule.uid,
@@ -201,10 +245,15 @@ export async function revalidateTrackedRequests(): Promise<void> {
 
       for (const [url, res] of trackedUrls) {
         let stillMatches = false;
+        const normalizedUrl = normalizeUrlForTracking(url);
         for (const rule of rules) {
-          const domains = getHostDomains(rule);
-          for (const domain of domains) {
-            if (doesUrlMatchPattern(url, domain)) {
+          const patterns = getMatchPatterns(rule);
+          if (patterns.length === 0) {
+            stillMatches = true;
+            break;
+          }
+          for (const entry of patterns) {
+            if (doesUrlMatchEntry(normalizedUrl, entry)) {
               stillMatches = true;
               break;
             }
