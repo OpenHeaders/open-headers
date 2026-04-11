@@ -546,9 +546,9 @@ const RulesAppInner: React.FC = () => {
       setInspectorWide(true);
       openDocsRef.current(parts[1]);
     } else if (parts[0] === 'flow') {
-      // #/flow/this-page/{encodedUrl} — open rule flow for current page
+      // #/flow/this-page/https://example.com/path — URL is everything after scope
       const flowScope = parts[1] as RuleFlowScope;
-      const flowUrl = parts[2] ? decodeURIComponent(parts[2]) : undefined;
+      const flowUrl = parts.length > 2 ? parts.slice(2).join('/') : undefined;
       openRuleFlowRef.current(flowScope, undefined, undefined, flowUrl);
     }
   }, [isStatusLoaded]);

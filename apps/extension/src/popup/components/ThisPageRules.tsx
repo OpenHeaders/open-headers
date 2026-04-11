@@ -870,7 +870,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 onClick={() => {
                   if (currentTab?.url) {
                     const url = getBrowserAPI().runtime.getURL(
-                      `workspace.html#/flow/this-page/${encodeURIComponent(currentTab.url)}`,
+                      `workspace.html#/flow/this-page/${currentTab.url}`,
                     );
                     getBrowserAPI().tabs.create({ url });
                   }
