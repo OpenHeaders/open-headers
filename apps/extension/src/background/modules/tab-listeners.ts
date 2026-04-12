@@ -6,15 +6,87 @@ import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
 import type { IRecordingService } from '@/types/recording';
 import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
+import {
+  clearTab as tabTelemetryClearTab,
+  resetForNavigation as tabTelemetryResetForNavigation,
+  startTracking as tabTelemetryStartTracking,
+  stopTracking as tabTelemetryStopTracking,
+} from './tab-telemetry';
 import { onTabLoaded as testRunnerOnTabLoaded, onTabRemoved as testRunnerOnTabRemoved } from './test-runner';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
+
+/**
+ * Active-tab telemetry tracking.
+ *
+ * The tab-telemetry module's "only track tabs someone is watching" gate is
+ * fundamentally incompatible with MV3 extension popups: Chrome closes the
+ * popup on blur, so any popup-driven tracking window opens *after* the fires
+ * have already happened. To make fire counts observable at all, the background
+ * itself holds a tracking reason on whichever tab is currently active in each
+ * window — for free, with no consumer required.
+ *
+ * `activeTabByWindow` is the background's bookkeeping so it can release the
+ * previous tab's reason on `tabs.onActivated`. Test sessions stack their own
+ * reason via `startTracking(tabId, 'test:<id>')`, so this coexists cleanly.
+ */
+const ACTIVE_TAB_REASON = 'active-tab';
+const activeTabByWindow: Map<number, number> = new Map();
+
+function setActiveTabForWindow(tabId: number, windowId: number): void {
+  const prev = activeTabByWindow.get(windowId);
+  if (prev === tabId) return;
+  if (prev != null) tabTelemetryStopTracking(prev, ACTIVE_TAB_REASON);
+  activeTabByWindow.set(windowId, tabId);
+  tabTelemetryStartTracking(tabId, ACTIVE_TAB_REASON);
+  logger.debug('TabListeners', `Active-tab telemetry: window ${windowId} -> tab ${tabId}`);
+}
+
+function releaseIfActive(tabId: number): void {
+  for (const [windowId, activeTabId] of activeTabByWindow) {
+    if (activeTabId === tabId) {
+      activeTabByWindow.delete(windowId);
+      break;
+    }
+  }
+}
+
+/**
+ * Last main-frame URL observed per tab — used to distinguish "real" SPA
+ * navigations (pushState that changes the URL) from framework router-init
+ * churn (multiple pushStates firing within milliseconds of page load, all
+ * landing on effectively the same URL). Only the former should reset the
+ * fire counter; the latter would erase legitimate fires that happened in
+ * the narrow window between onCommitted and the init burst.
+ *
+ * Cleared on tab close. Updated on onCommitted (authoritative main-frame
+ * URL) and on every main-frame onHistoryStateUpdated after comparison.
+ */
+const lastMainFrameUrlByTab: Map<number, string> = new Map();
+
+/**
+ * Startup scan: mark the currently-active tab in every window as tracked.
+ * Called once from `initializeExtension()`. Safe to re-invoke — stacking
+ * the same (tabId, reason) is a no-op.
+ */
+export function initializeActiveTabTracking(): void {
+  tabs.query({ active: true }, (tabList: chrome.tabs.Tab[]) => {
+    for (const tab of tabList) {
+      if (typeof tab.id === 'number' && typeof tab.windowId === 'number') {
+        setActiveTabForWindow(tab.id, tab.windowId);
+      }
+    }
+  });
+}
 
 /**
  * Set up all tab-related listeners
  */
 export function setupTabListeners(updateBadgeCallback: () => void, recordingService: IRecordingService): void {
   // Listen for tab updates and activations
-  tabs.onActivated?.addListener(() => {
+  tabs.onActivated?.addListener((activeInfo: { tabId: number; windowId: number }) => {
+    // Hand telemetry tracking to the newly-active tab in this window.
+    setActiveTabForWindow(activeInfo.tabId, activeInfo.windowId);
+
     // Update badge when user switches tabs
     setTimeout(() => {
       updateBadgeCallback();
@@ -115,6 +187,9 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
   // Clean up tracking when tabs are closed
   tabs.onRemoved?.addListener((tabId: number) => {
     tabsWithActiveRules.delete(tabId);
+    lastMainFrameUrlByTab.delete(tabId);
+    releaseIfActive(tabId);
+    tabTelemetryClearTab(tabId);
     if (recordingService) {
       recordingService.cleanupTab(tabId);
     }
@@ -233,6 +308,13 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
           logger.info('TabListeners', 'Navigation committed:', details.tabId, details.url);
         }
 
+        // Reset fire counters for this tab on main-frame navigation so
+        // counts don't bleed across page loads. Also seed the last-URL
+        // map so the pushState handler can tell router init churn apart
+        // from real SPA navigation.
+        tabTelemetryResetForNavigation(details.tabId);
+        lastMainFrameUrlByTab.set(details.tabId, details.url);
+
         await recordingService.handleNavigation(details.tabId, details.url);
       },
     );
@@ -258,6 +340,27 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
           // Skip non-trackable URLs
           if (!isTrackableUrl(details.url)) {
             return;
+          }
+
+          // SPA navigation (pushState/replaceState) — reset fire counters
+          // so the popup's "fired N× on this page" reflects the user's
+          // current perceived route. But ONLY if the URL actually changed:
+          // frameworks like github.com's router fire multiple pushStates
+          // within milliseconds of page load to canonicalize the URL, all
+          // landing on the same effective location. Those shouldn't wipe
+          // fires that may have happened in the narrow post-injection
+          // window.
+          //
+          // We deliberately do NOT re-run the script injection path on
+          // SPA nav: the document is the same DOM realm, the MAIN-world
+          // monkey-patch installed on the initial onCommitted is still
+          // live, and a second executeScript would wrap it a second time
+          // (leaking a chained origFetch reference and producing double
+          // fires). Inject-once-per-document is the correct model.
+          const previousUrl = lastMainFrameUrlByTab.get(details.tabId);
+          if (previousUrl !== details.url) {
+            lastMainFrameUrlByTab.set(details.tabId, details.url);
+            tabTelemetryResetForNavigation(details.tabId);
           }
 
           // Re-evaluate if this URL should be tracked

@@ -257,6 +257,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const [loading, setLoading] = useState(true);
   const [copiedRowId, setCopiedRowId] = useState<string | number | null>(null);
   const [uniqueRequestCount, setUniqueRequestCount] = useState(0);
+  /**
+   * Per-rule fire/match counts for the active tab, pushed from the background
+   * tab-telemetry service. Scriptable rules (delay/body/mock/inject) get
+   * ground-truth fire counts via the always-on fire-bridge content script.
+   * DNR rules (header/block/redirect/query-param) get probable-fire counts
+   * derived from webRequest matching in request-monitor.
+   */
+  const [fireCounts, setFireCounts] = useState<Record<string, number>>({});
   const expandCountRef = useRef(0);
   const [searchText, setSearchText] = useState('');
   const [sortMode, setSortMode] = useState<'status' | 'priority' | 'manual'>('status');
@@ -317,6 +325,36 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       runtime.onMessage.removeListener(handleRuntimeMessage as Parameters<typeof runtime.onMessage.removeListener>[0]);
     };
   }, []);
+
+  /**
+   * Live tab-telemetry: polls `getTabTelemetry` every 500ms while this
+   * component is mounted. The background auto-tracks the active tab in
+   * every window (see tab-listeners.initializeActiveTabTracking), so the
+   * popup is a pure reader — no tracking activation needed. This matters
+   * because Chrome popups close on blur, making any popup-scoped tracking
+   * window useless: fires happen during page load, *before* the popup opens.
+   */
+  useEffect(() => {
+    if (!currentTab?.id) return;
+    const tabId = currentTab.id;
+
+    let cancelled = false;
+    const poll = () => {
+      if (cancelled) return;
+      runtime.sendMessage({ type: 'getTabTelemetry', tabId }, (resp) => {
+        if (cancelled) return;
+        const r = resp as { counters?: Record<string, number> } | undefined;
+        setFireCounts(r?.counters ?? {});
+      });
+    };
+    poll();
+    const interval = setInterval(poll, 500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentTab?.id]);
 
   // Scroll virtual nested table to focused row (also resets on expand)
   // biome-ignore lint/correctness/useExhaustiveDependencies: expandedRowKey intentionally resets scroll on re-expand
@@ -462,12 +500,38 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       onFilter: (value, record) => record.name === value,
       render: (text: string, record: TableRecord) => {
         const displayName = truncateValue(text, 20);
+        const count = record.id ? (fireCounts[record.id] ?? 0) : 0;
+        // Scriptable rules report ground-truth fires via the fire-bridge;
+        // DNR rules report probable-fires derived from webRequest matching.
+        const scriptable = ['delay', 'body', 'mock', 'inject'].includes(record.ruleType);
+        const verb = scriptable ? 'fired' : 'matched';
+        const countTooltip =
+          count > 0
+            ? `${verb} ${count}× on this page`
+            : `Not ${verb} yet — reload or interact with the page to trigger requests`;
         return (
-          <Tooltip title={text.length > 20 ? text : undefined}>
-            <Text strong style={{ fontSize: '13px' }}>
-              {displayName}
-            </Text>
-          </Tooltip>
+          <Space size={4} align="center">
+            <Tooltip title={text.length > 20 ? text : undefined}>
+              <Text strong style={{ fontSize: '13px' }}>
+                {displayName}
+              </Text>
+            </Tooltip>
+            <Tooltip title={countTooltip}>
+              <Tag
+                variant="outlined"
+                color={count > 0 ? (scriptable ? 'green' : 'blue') : 'default'}
+                style={{
+                  margin: 0,
+                  fontSize: 10,
+                  padding: '0 5px',
+                  lineHeight: '16px',
+                  opacity: count > 0 ? 1 : 0.45,
+                }}
+              >
+                {count}×
+              </Tag>
+            </Tooltip>
+          </Space>
         );
       },
     },
@@ -869,9 +933,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 icon={<ApartmentOutlined />}
                 onClick={() => {
                   if (currentTab?.url) {
-                    const url = getBrowserAPI().runtime.getURL(
-                      `workspace.html#/flow/this-page/${currentTab.url}`,
-                    );
+                    const url = getBrowserAPI().runtime.getURL(`workspace.html#/flow/this-page/${currentTab.url}`);
                     getBrowserAPI().tabs.create({ url });
                   }
                 }}

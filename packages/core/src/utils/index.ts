@@ -11,6 +11,15 @@ export {
 export { isPathPausedByAncestor } from './pause';
 export type { ActionDetail } from './rule-display';
 export { DNR_PRIORITY, getActionDetail } from './rule-display';
+export type { MatchPattern, MatchPatternKind } from './rule-matcher';
+export {
+  compilePatternToRegexSource,
+  compileRuleForInjection,
+  doesUrlMatchEntry,
+  doesUrlMatchRule,
+  formatUrlPattern,
+  getRuleMatchPatterns,
+} from './rule-matcher';
 export { isRuleComplete } from './rule-validation';
 export {
   buildBreadcrumbTrail,

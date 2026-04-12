@@ -6,8 +6,12 @@ import { tabs } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
 import type { PendingRequest, TrackedResourceType } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
-import { addTrackedUrl, checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
+import { addTrackedUrl, checkIfUrlMatchesAnyRule, matchRulesToRequest, tabsWithActiveRules } from './request-tracker';
+import { isTracked as isTabTracked, recordDnrMatch } from './tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
+
+/** Rule types that are handled by DNR — counted as "probable fires" via webRequest matching. */
+const DNR_RULE_TYPES = new Set(['header', 'block', 'redirect', 'query-param']);
 
 /**
  * Set up request monitoring to track which domains tabs are making requests to
@@ -42,6 +46,21 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
 
       // Check if this request URL matches any of our rules
       const matchesRule = checkIfUrlMatchesAnyRule(normalizedUrl);
+
+      // Tab-telemetry probable-fire ingestion: for every request observed on
+      // a tracked tab, attribute it to the specific DNR rules whose URL
+      // conditions match. Scriptable rules (inject/delay/body/mock) report
+      // their own fires via the CustomEvent bridge and are deliberately
+      // skipped here to avoid double-counting. Untracked tabs short-circuit.
+      if (matchesRule && isTabTracked(details.tabId)) {
+        const matchingRules = matchRulesToRequest(normalizedUrl);
+        const t = Date.now();
+        for (const r of matchingRules) {
+          if (DNR_RULE_TYPES.has(r.type)) {
+            recordDnrMatch(details.tabId, r.uid, normalizedUrl, t);
+          }
+        }
+      }
 
       // Track this request with whether headers were applied
       pendingRequests.set(details.requestId, {

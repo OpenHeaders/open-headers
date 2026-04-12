@@ -6,8 +6,8 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { formatUrlPattern } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { formatUrlPattern } from '../modules/url-utils';
 import type { DnrBuilder, DnrCondition, DnrRule } from './types';
 import { buildDnrCondition } from './types';
 

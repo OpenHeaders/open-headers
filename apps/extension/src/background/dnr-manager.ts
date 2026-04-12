@@ -28,7 +28,12 @@
 declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
-import { isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
+import {
+  compileRuleForInjection,
+  formatUrlPattern,
+  isPathPausedByAncestor,
+  isRuleComplete,
+} from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { DnrBuilder, DnrRule } from './dnr-builders';
@@ -36,9 +41,8 @@ import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from 
 import { ALL_RESOURCE_TYPES, buildDnrCondition } from './dnr-builders/types';
 import type { HeaderMergeEntry } from './inject-manager';
 import { updateScriptableRules } from './inject-manager';
-import { getActiveSessionSnapshots, getActiveTestTabIds } from './modules/test-runner';
-import { formatUrlPattern } from './modules/url-utils';
 import { getRules } from './modules/rule-store';
+import { getActiveSessionSnapshots, getActiveTestTabIds } from './modules/test-runner';
 
 // ── Cached state ─────────────────────────────────────────────────
 
@@ -244,11 +248,17 @@ function buildDnrRulesForScope(rules: V5.Rule[], startId: number): BuildOutput {
           separator: m.mergeSeparator || defaultSeparator(m.headerName),
         }));
       if (reqMerges.length > 0 || resMerges.length > 0) {
-        const patterns = rule.conditions
-          .filter((c) => c.type === 'request-domains')
-          .flatMap((c) => c.values)
-          .filter((v) => v.trim());
-        headerMerges.push({ ruleUid: rule.uid, patterns, requestMerges: reqMerges, responseMerges: resMerges });
+        // Compile the rule's URL conditions (request-domains, url-filter,
+        // url-regex) into regex sources once, in the background. The
+        // injected function just `new RegExp(src, 'i').test(url)`s them.
+        // Empty array = rule has no URL conditions → won't match anything.
+        const regexSources = compileRuleForInjection(rule);
+        headerMerges.push({
+          ruleUid: rule.uid,
+          regexSources,
+          requestMerges: reqMerges,
+          responseMerges: resMerges,
+        });
       }
     }
 

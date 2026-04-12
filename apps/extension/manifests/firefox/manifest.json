@@ -41,6 +41,14 @@
     "scripts": ["js/background/index.js"],
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["js/content/fire-bridge/index.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
   "web_accessible_resources": [
     {
       "resources": [

@@ -100,7 +100,9 @@ describe('getActiveRulesForTab', () => {
     expect(result[0].matchType).toBe('direct');
     expect(result[0].matchedUrls).toHaveLength(1);
     expect(result[0].matchedUrls[0].url).toBe('https://api.openheaders.io/v2');
-    expect(result[0].matchedUrls[0].pattern).toBe('*.openheaders.io');
+    // request-domains are normalized to canonical urlFilter form via
+    // core's formatUrlPattern so the extension and desktop share semantics.
+    expect(result[0].matchedUrls[0].pattern).toBe('*://*.openheaders.io/*');
     expect(result[0].matchedUrls[0].timestamp).toBeGreaterThan(0);
   });
 

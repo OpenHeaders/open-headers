@@ -6,16 +6,7 @@ import type { V5 } from '@openheaders/core/types';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
-import { clearAllTracking, getActiveRulesForTab } from './request-tracker';
-import {
-  deleteStoredSession,
-  getStoredSession,
-  listStoredSessions,
-  recordScriptableFire,
-  startSession,
-  type TestFireEvent,
-  type TestScope,
-} from './test-runner';
+import { getActiveRulesForTab } from './request-tracker';
 import {
   addLocalRule,
   addLocalRuleToCollection,
@@ -35,6 +26,7 @@ import {
   toggleLocalRule,
   updateLocalRule,
 } from './rule-store';
+import { type FireKind, getTabSnapshot, recordScriptFire } from './tab-telemetry';
 import {
   addTemplate,
   addTemplateToCollection,
@@ -52,6 +44,7 @@ import {
   renameTemplateFolder,
   updateTemplate,
 } from './template-store';
+import { deleteStoredSession, getStoredSession, listStoredSessions, startSession, type TestScope } from './test-runner';
 
 const browserAPI = { runtime: browserRuntime };
 
@@ -246,14 +239,27 @@ export function handleGeneralMessage(
         .then((result) => safeResponse({ success: true, result }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
-    } else if (message.type === 'testScriptableFired') {
+    } else if (message.type === 'getTabTelemetry') {
+      // Read-path for the popup's live fire counts. Returns fire counters
+      // per rule uid for the given tab. Empty snapshot for untracked tabs.
+      const tabId = message.tabId as number;
+      const snap = getTabSnapshot(tabId);
+      safeResponse({ counters: snap.counters });
+    } else if (message.type === 'tabFire') {
+      // Fire event forwarded from the always-on ISOLATED fire-bridge content
+      // script. Routes into tab-telemetry, which drops on the floor for any
+      // tab that is not currently being tracked by a consumer.
       const tabId = _sender.tab?.id;
       if (typeof tabId === 'number') {
-        recordScriptableFire(
+        logger.info(
+          'TabFire',
+          `tab ${tabId} ${message.kind as string} ${message.ruleUid as string} ${message.url as string}`,
+        );
+        recordScriptFire(
           tabId,
           message.ruleUid as string,
           message.url as string,
-          message.kind as TestFireEvent['kind'],
+          message.kind as FireKind,
           message.t as number,
         );
       }

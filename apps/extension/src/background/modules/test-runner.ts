@@ -1,46 +1,52 @@
 /**
- * Test Runner — runs a test session against a URL and collects rule-fire telemetry.
+ * Test Runner — orchestrates a test session against a URL.
  *
- * A "test session" opens the target URL in a dedicated tab and captures every
- * rule fire on that tab for a bounded time window, then returns a structured
- * result the UI can overlay on RuleFlow.
+ * A test session opens the target URL in a dedicated tab, registers the tab
+ * with tab-telemetry under a session-scoped tracking reason, waits for the
+ * capture window to close, then reads the scope-filtered telemetry snapshot
+ * and persists it as a TestSessionResult.
  *
- * Isolation (Option B — matches Chrome's intended MV3 pattern):
+ * Isolation (unchanged from Option B — matches Chrome's MV3 pattern):
  *
  *   - Dynamic rules are rewritten with `excludedTabIds: [...testTabIds]` while
- *     any session is active. Normal rules keep firing on every non-test tab;
- *     they simply skip the test tabs.
+ *     any session is active, so normal rules keep firing on every non-test
+ *     tab but skip the test tabs.
  *   - Each active session installs its own **session ruleset** built from its
- *     scope snapshot, with `tabIds: [testTabId]` on every condition. These
- *     session rules live only in the current browser session and are applied
- *     via `chrome.declarativeNetRequest.updateSessionRules` — Chrome's own
- *     mechanism for ephemeral test rules.
- *   - The inject-manager filters scriptable rules per-tab, so delay/body/mock/
- *     inject in a test tab only run for rules in that session's scope, and
- *     scriptable rules under test are blocked from leaking into non-test tabs.
+ *     scope snapshot, with `tabIds: [testTabId]` on every condition, applied
+ *     via `chrome.declarativeNetRequest.updateSessionRules`.
+ *   - inject-manager filters scriptable rules per-tab via
+ *     `getTestScopeForTab`, so scriptable rules under test only run on their
+ *     session's tab and don't leak into unrelated tabs.
  *
- * Telemetry sources feeding a session:
+ * Telemetry (new): there is no polling, no per-session content script bridge,
+ * no `getMatchedRules` call. Fires flow into the tab-telemetry service via
+ * the two always-on ingestion paths:
  *
- *   1. **DNR ground truth** — `declarativeNetRequest.getMatchedRules({tabId})`
- *      reports which session-rule ids fired on the test tab. Numeric ids are
- *      mapped back to V5.Rule.uid via the session-rule id map maintained in
- *      dnr-manager.
+ *   1. Scriptable fires via the static ISOLATED `fire-bridge` content script
+ *      (forwarded as `tabFire` runtime messages, routed by message-handler).
+ *   2. DNR probable-fires derived from webRequest matching in request-monitor.
  *
- *   2. **Scriptable pings** — delay/body/mock/inject scripts dispatch an
- *      `oh:test:fired` CustomEvent when `window.__OH_TEST__` is set. The
- *      test bridge content script (registered via
- *      `chrome.scripting.registerContentScripts` at session start, scoped to
- *      the test URL origin + `runAt: 'document_start'`) sets the flag and
- *      forwards events here.
+ * The session registers `tabTelemetry.startTracking(tabId, 'test:<id>')`
+ * when the test tab is created, reads the scoped snapshot at finish, and
+ * calls `stopTracking` to release the telemetry state. Other consumers (the
+ * popup's This Page tab) can track the same or different tabs independently.
+ *
+ * The previous architecture polled `chrome.declarativeNetRequest.getMatchedRules`
+ * every 500ms per session. That API is hard-quota'd at 20 calls/10 min in
+ * production (regardless of the `declarativeNetRequestFeedback` permission),
+ * which caused the poll loop to silently fail after the quota was hit. The
+ * new architecture makes no `getMatchedRules` calls at all.
  */
 
-import { declarativeNetRequest as dnrApi, runtime, scripting, storage, tabs } from '@utils/browser-api';
-import { logger } from '@utils/logger';
 import type { V5 } from '@openheaders/core/types';
-import { applyAllRules, getSessionRuleIdToUid } from '../dnr-manager';
+import { runtime, storage, tabs } from '@utils/browser-api';
+import { logger } from '@utils/logger';
+import { applyAllRules } from '../dnr-manager';
 import { getRules } from './rule-store';
+import { type FireKind, getTabSnapshotForScope, startTracking, stopTracking } from './tab-telemetry';
+import { registerSession, setSessionTabId, unregisterSession } from './test-session-state';
 
-// ── Types ─────────────────────────────────────────────────────────
+// ── Public types ──────────────────────────────────────────────────
 
 export type TestScope = 'single' | 'folder' | 'collection';
 
@@ -51,8 +57,8 @@ export type TestRuleStatus = 'executed' | 'no-fire' | 'skipped';
 export interface TestFireEvent {
   ruleUid: string;
   url: string;
-  /** 'dnr' for DNR-matched rules, or 'delay' | 'body' | 'mock' | 'inject' for scriptable. */
-  kind: 'dnr' | 'delay' | 'body' | 'mock' | 'inject';
+  /** Source of the fire. */
+  kind: FireKind;
   t: number;
 }
 
@@ -60,7 +66,7 @@ export interface TestFireEvent {
 export interface TestSessionResult {
   id: string;
   scope: TestScope;
-  /** The rule uids that were *eligible* for the test (the scope snapshot). */
+  /** The rule uids that were eligible for the test (the scope snapshot). */
   ruleUids: string[];
   url: string;
   startedAt: number;
@@ -70,6 +76,8 @@ export interface TestSessionResult {
   /** Per-rule aggregated status. */
   ruleStatuses: Record<string, TestRuleStatus>;
 }
+
+// ── Internals ─────────────────────────────────────────────────────
 
 interface ActiveSession {
   id: string;
@@ -83,29 +91,16 @@ interface ActiveSession {
   startedAt: number;
   /** Timer that fires when the capture window elapses after page load. */
   captureTimer: ReturnType<typeof setTimeout> | null;
-  /** Polling interval for DNR getMatchedRules(). */
-  pollTimer: ReturnType<typeof setInterval> | null;
-  fires: TestFireEvent[];
-  /** DNR fire dedup: `${ruleId}:${timeStamp}`. */
-  seenDnrFires: Set<string>;
-  /** Resolver for the start() promise — called with the final result. */
-  resolve: (result: TestSessionResult) => void;
   /** Set once the tab has reached the load event. */
   loaded: boolean;
-  /** Content script id for the ISOLATED-world event listener bridge. */
-  bridgeScriptId: string;
-  /** Content script id for the MAIN-world window.__OH_TEST__ flag setter. */
-  bridgeMainScriptId: string;
+  /** Resolver for the start() promise — called with the final result. */
+  resolve: (result: TestSessionResult) => void;
 }
-
-// ── State ─────────────────────────────────────────────────────────
 
 const activeSessions: Map<string, ActiveSession> = new Map();
 
 /** Hard wall-clock ceiling regardless of wait setting — avoids hung tests. */
 const HARD_CEILING_MS = 15_000;
-/** Interval for polling getMatchedRules while a session is active. */
-const POLL_INTERVAL_MS = 500;
 /** chrome.storage.local key where persisted session results live. */
 const STORAGE_KEY = 'v5TestSessions';
 /** Maximum number of historical sessions kept — oldest trimmed on overflow. */
@@ -115,60 +110,23 @@ function newSessionId(): string {
   return `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ── Public session-state API (read by dnr-manager + inject-manager) ──
-
-/**
- * Public snapshot of an active session — the subset dnr-manager and
- * inject-manager need to build scoped rules and filter injections.
- */
-export interface ActiveSessionSnapshot {
-  id: string;
-  tabId: number;
-  scopeRules: V5.Rule[];
-  ruleUids: Set<string>;
+function trackingReason(sessionId: string): string {
+  return `test:${sessionId}`;
 }
 
-/** All currently-active sessions that have a tab assigned. */
-export function getActiveSessionSnapshots(): ActiveSessionSnapshot[] {
-  const out: ActiveSessionSnapshot[] = [];
-  for (const s of activeSessions.values()) {
-    if (s.tabId != null) {
-      out.push({ id: s.id, tabId: s.tabId, scopeRules: s.scopeRules, ruleUids: s.ruleUids });
-    }
-  }
-  return out;
-}
+// ── Session-state re-exports (kept for existing importers) ──────────
+// dnr-manager and inject-manager previously imported these from test-runner.
+// They now live in test-session-state.ts; re-export here so the existing
+// import sites don't have to move atomically.
 
-/** Tab ids of every active test session — used by dnr-manager to set excludedTabIds. */
-export function getActiveTestTabIds(): number[] {
-  return getActiveSessionSnapshots().map((s) => s.tabId);
-}
-
-/**
- * If `tabId` is a test tab, return the Set of rule uids allowed to run on it.
- * If it isn't, return null. Used by inject-manager to filter scriptable rules.
- */
-export function getTestScopeForTab(tabId: number): Set<string> | null {
-  for (const s of activeSessions.values()) {
-    if (s.tabId === tabId) return s.ruleUids;
-  }
-  return null;
-}
-
-/**
- * Is this rule uid currently under test in any session? Used by inject-manager
- * to suppress the rule on non-test tabs so the test doesn't leak.
- */
-export function isRuleUnderTest(ruleUid: string): boolean {
-  for (const s of activeSessions.values()) {
-    if (s.ruleUids.has(ruleUid)) return true;
-  }
-  return false;
-}
-
-export function hasActiveSessions(): boolean {
-  return activeSessions.size > 0;
-}
+export type { ActiveSessionSnapshot } from './test-session-state';
+export {
+  getActiveSessionSnapshots,
+  getActiveTestTabIds,
+  getTestScopeForTab,
+  hasActiveSessions,
+  isRuleUnderTest,
+} from './test-session-state';
 
 // ── Persistence ───────────────────────────────────────────────────
 
@@ -218,15 +176,14 @@ async function persistSession(result: TestSessionResult): Promise<void> {
 }
 
 /**
- * Serialize read-modify-write operations on `v5TestSessions`. Without this, two
- * sessions finishing simultaneously could read the same prior state and
+ * Serialize read-modify-write operations on `v5TestSessions`. Without this,
+ * two sessions finishing simultaneously could read the same prior state and
  * overwrite each other — losing one record. Since all writers go through this
  * queue the worst case is just a brief serialization, not data loss.
  */
 let storageLockChain: Promise<void> = Promise.resolve();
 function withStorageLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = storageLockChain.then(fn);
-  // Swallow errors on the chain so one failed write doesn't poison the queue.
   storageLockChain = run.then(
     () => undefined,
     () => undefined,
@@ -248,16 +205,16 @@ export interface StartSessionOptions {
  * Start a test session. Returns a promise that resolves with the final result
  * when the capture window closes.
  *
- * Setup sequence — order matters for correctness:
+ * Setup sequence:
  *
- *   1. Create the tab with `about:blank` (no navigation to target yet).
- *   2. Register the ISOLATED-world test bridge content script, scoped to the
- *      target URL's origin. This MUST happen before the navigation commits
- *      so the bridge runs at document_start and sets window.__OH_TEST__ before
- *      any page script executes.
- *   3. Call `applyAllRules()` — now the tabId is known, so dynamic rules gain
- *      `excludedTabIds:[testTabId]` and session rules with `tabIds:[testTabId]`
- *      are installed. These must be active before the target URL is fetched.
+ *   1. Create the tab with about:blank (no navigation to target yet).
+ *   2. Register the tab with tab-telemetry under the session tracking reason.
+ *      This must happen before any request fires, so telemetry ingestion
+ *      starts counting as soon as the page begins to load.
+ *   3. Call `applyAllRules()` — now the tabId is known to test-session-state,
+ *      so dynamic rules gain `excludedTabIds:[testTabId]` and session rules
+ *      with `tabIds:[testTabId]` are installed. These must be active before
+ *      the target URL is fetched.
  *   4. Navigate the tab to the target URL via `tabs.update`.
  *
  * If any step fails, the session is torn down and the promise resolves with
@@ -280,37 +237,33 @@ export function startSession(opts: StartSessionOptions): Promise<TestSessionResu
       tabId: null,
       startedAt: Date.now(),
       captureTimer: null,
-      pollTimer: null,
-      fires: [],
-      seenDnrFires: new Set(),
-      resolve,
       loaded: false,
-      bridgeScriptId: `oh-test-bridge-iso-${id}`,
-      bridgeMainScriptId: `oh-test-bridge-main-${id}`,
+      resolve,
     };
     activeSessions.set(id, session);
+    registerSession({ id, scopeRules, ruleUids: wanted, tabId: null });
 
-    tabs.create({ url: 'about:blank', active: false }, async (tab: chrome.tabs.Tab) => {
+    tabs.create({ url: 'about:blank', active: false }, (tab: chrome.tabs.Tab) => {
       if (!tab || typeof tab.id !== 'number') {
         logger.info('TestRunner', `Failed to open test tab for session ${id}`);
         activeSessions.delete(id);
+        unregisterSession(id);
         session.resolve(buildEmptyResult(session));
         return;
       }
       session.tabId = tab.id;
+      setSessionTabId(id, tab.id);
       logger.info('TestRunner', `Session ${id} started — tab ${tab.id}, url ${opts.url}`);
 
-      // Step 2: register the bridge BEFORE navigation. Awaited so we know it's
-      // active by the time the tab navigates. A failure here only degrades
-      // scriptable telemetry; DNR telemetry still works.
-      await registerBridge(session);
+      // Step 2: start telemetry tracking before DNR state is rebuilt and
+      // before navigation. This way any fire that happens after navigation
+      // commits — including document_start script fires — flows into
+      // tab-telemetry for this tab.
+      startTracking(tab.id, trackingReason(id));
 
       // Step 3: rebuild DNR state now that the tabId is known. Dynamic rules
       // gain excludedTabIds:[testTabId], session rules get tabIds:[testTabId].
       applyAllRules();
-
-      // Begin polling for DNR matched rules on this tab.
-      startPolling(session);
 
       // Hard ceiling in case load never fires.
       setTimeout(() => {
@@ -320,14 +273,11 @@ export function startSession(opts: StartSessionOptions): Promise<TestSessionResu
         }
       }, HARD_CEILING_MS);
 
-      // Step 4: now navigate to the real URL. The bridge is registered, DNR
-      // scoping is active, and the poll loop is running.
+      // Step 4: navigate to the real URL. Telemetry is tracking, DNR scoping
+      // is active, and the hard-ceiling safety net is armed.
       tabs.update(tab.id, { url: opts.url }, () => {
         if (runtime.lastError) {
-          logger.info(
-            'TestRunner',
-            `Failed to navigate test tab to ${opts.url}: ${runtime.lastError.message}`,
-          );
+          logger.info('TestRunner', `Failed to navigate test tab to ${opts.url}: ${runtime.lastError.message}`);
         }
       });
     });
@@ -362,113 +312,7 @@ export function onTabLoaded(tabId: number): void {
   }
 }
 
-/**
- * Called from the message handler when a scriptable rule fires in a test tab.
- * Forwarded by the test-bridge-content script.
- */
-export function recordScriptableFire(
-  tabId: number,
-  ruleUid: string,
-  url: string,
-  kind: TestFireEvent['kind'],
-  t: number,
-): void {
-  for (const session of activeSessions.values()) {
-    if (session.tabId === tabId && session.ruleUids.has(ruleUid)) {
-      session.fires.push({ ruleUid, url, kind, t });
-    }
-  }
-}
-
-// ── Internals ─────────────────────────────────────────────────────
-
-async function registerBridge(session: ActiveSession): Promise<void> {
-  if (!scripting?.registerContentScripts) {
-    logger.debug('TestRunner', 'scripting.registerContentScripts unavailable — bridge disabled');
-    return;
-  }
-  let origin: string;
-  try {
-    origin = `${new URL(session.url).origin}/*`;
-  } catch {
-    logger.info('TestRunner', `Invalid test URL ${session.url}, bridge not registered`);
-    return;
-  }
-  try {
-    // Two scripts registered together:
-    //   - MAIN world: sets window.__OH_TEST__ at document_start so the generated
-    //     delay/body/mock/header-merge scripts can detect test mode at request
-    //     time. MAIN world avoids CSP restrictions that would block an inline
-    //     <script> tag injected from ISOLATED on strict-CSP sites.
-    //   - ISOLATED world: listens for `oh:test:fired` CustomEvents on window
-    //     and forwards them to the background via chrome.runtime.sendMessage.
-    await scripting.registerContentScripts([
-      {
-        id: session.bridgeMainScriptId,
-        js: ['js/content/test-bridge-main/index.js'],
-        matches: [origin],
-        runAt: 'document_start',
-        world: 'MAIN',
-        persistAcrossSessions: false,
-        allFrames: false,
-      },
-      {
-        id: session.bridgeScriptId,
-        js: ['js/content/test-bridge/index.js'],
-        matches: [origin],
-        runAt: 'document_start',
-        world: 'ISOLATED',
-        persistAcrossSessions: false,
-        allFrames: false,
-      },
-    ]);
-    logger.debug('TestRunner', `Bridge registered for ${origin} (session ${session.id})`);
-  } catch (error) {
-    logger.info('TestRunner', `Failed to register bridge: ${(error as Error).message}`);
-  }
-}
-
-async function unregisterBridge(session: ActiveSession): Promise<void> {
-  if (!scripting?.unregisterContentScripts) return;
-  try {
-    await scripting.unregisterContentScripts({
-      ids: [session.bridgeMainScriptId, session.bridgeScriptId],
-    });
-  } catch {
-    // Ignore — may have been cleared by browser shutdown or never registered.
-  }
-}
-
-function startPolling(session: ActiveSession): void {
-  if (!dnrApi?.getMatchedRules) {
-    logger.debug('TestRunner', 'getMatchedRules unavailable — DNR telemetry disabled for this session');
-    return;
-  }
-  session.pollTimer = setInterval(() => void pollOnce(session), POLL_INTERVAL_MS);
-}
-
-async function pollOnce(session: ActiveSession): Promise<void> {
-  if (session.tabId == null || !dnrApi?.getMatchedRules) return;
-  try {
-    const result = await dnrApi.getMatchedRules({ tabId: session.tabId });
-    const sessionMap = getSessionRuleIdToUid(session.id);
-    for (const match of result.rulesMatchedInfo ?? []) {
-      const uid = sessionMap.get(match.rule.ruleId);
-      if (!uid) continue;
-      const key = `${match.rule.ruleId}:${match.timeStamp}`;
-      if (session.seenDnrFires.has(key)) continue;
-      session.seenDnrFires.add(key);
-      session.fires.push({
-        ruleUid: uid,
-        url: '',
-        kind: 'dnr',
-        t: match.timeStamp,
-      });
-    }
-  } catch (error) {
-    logger.debug('TestRunner', `pollOnce error: ${(error as Error).message}`);
-  }
-}
+// ── Finish + result building ──────────────────────────────────────
 
 function finishSession(id: string): void {
   const session = activeSessions.get(id);
@@ -476,44 +320,43 @@ function finishSession(id: string): void {
   activeSessions.delete(id);
 
   if (session.captureTimer) clearTimeout(session.captureTimer);
-  if (session.pollTimer) clearInterval(session.pollTimer);
 
-  const finalize = () => {
-    // Re-apply the DNR state now that this session is gone — clears its
-    // session rules and removes this tabId from dynamic rules' excludedTabIds.
-    applyAllRules();
-    void unregisterBridge(session);
-
-    const result = buildResult(session);
-    logger.info(
-      'TestRunner',
-      `Session ${session.id} finished — ${session.fires.length} fires across ${
-        new Set(session.fires.map((f) => f.ruleUid)).size
-      }/${session.ruleUids.size} rules`,
-    );
-
-    if (session.tabId != null) {
-      tabs.remove(session.tabId, () => {
-        // Tab may already be closed (user-initiated finish) — read lastError
-        // to suppress Chrome's "Unchecked runtime.lastError" console noise.
-        void runtime.lastError;
-      });
-    }
-
-    void persistSession(result);
-    session.resolve(result);
-  };
-
-  // One final DNR poll to catch fires between the last interval and close.
-  if (dnrApi?.getMatchedRules && session.tabId != null) {
-    void pollOnce(session).finally(finalize);
-  } else {
-    finalize();
+  // Stop tab-telemetry tracking for this session's reason. If the popup is
+  // also tracking this tab under a different reason (rare — test tabs are
+  // background tabs), the fire state survives. Otherwise it's freed.
+  if (session.tabId != null) {
+    stopTracking(session.tabId, trackingReason(id));
   }
+  unregisterSession(id);
+
+  // Re-apply the DNR state now that this session is gone — clears its
+  // session rules and removes this tabId from dynamic rules' excludedTabIds.
+  applyAllRules();
+
+  const result = buildResult(session);
+  logger.info(
+    'TestRunner',
+    `Session ${session.id} finished — ${result.fires.length} fires across ${
+      new Set(result.fires.map((f) => f.ruleUid)).size
+    }/${session.ruleUids.size} rules`,
+  );
+
+  if (session.tabId != null) {
+    tabs.remove(session.tabId, () => {
+      // Tab may already be closed (user-initiated finish) — read lastError
+      // to suppress Chrome's "Unchecked runtime.lastError" console noise.
+      void runtime.lastError;
+    });
+  }
+
+  void persistSession(result);
+  session.resolve(result);
 }
 
 function buildResult(session: ActiveSession): TestSessionResult {
-  const firedUids = new Set(session.fires.map((f) => f.ruleUid));
+  const fires: TestFireEvent[] =
+    session.tabId != null ? getTabSnapshotForScope(session.tabId, session.ruleUids).fires : [];
+  const firedUids = new Set(fires.map((f) => f.ruleUid));
   const ruleStatuses: Record<string, TestRuleStatus> = {};
   for (const uid of session.ruleUids) {
     ruleStatuses[uid] = firedUids.has(uid) ? 'executed' : 'no-fire';
@@ -526,7 +369,7 @@ function buildResult(session: ActiveSession): TestSessionResult {
     startedAt: session.startedAt,
     endedAt: Date.now(),
     waitSeconds: session.waitSeconds,
-    fires: session.fires,
+    fires,
     ruleStatuses,
   };
 }

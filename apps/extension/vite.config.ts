@@ -114,61 +114,28 @@ function buildContentScriptPlugin() {
 }
 
 /**
- * Build the ISOLATED-world test bridge content script as a self-contained IIFE.
- * Registered by the test-runner via chrome.scripting.registerContentScripts
- * for the duration of a test session. Listens for `oh:test:fired` events and
- * forwards them to the background.
+ * Build the always-on ISOLATED-world fire bridge content script as a
+ * self-contained IIFE. Registered via manifest.json content_scripts for
+ * `<all_urls>` at document_start, so it runs on every page the extension
+ * has host access to. Listens for `oh:fire` CustomEvents dispatched from
+ * MAIN-world generated scripts and forwards them to the background as
+ * `tabFire` messages. The background filters by per-tab tracking state.
  */
-function buildTestBridgePlugin() {
+function buildFireBridgePlugin() {
   return {
-    name: 'build-test-bridge',
+    name: 'build-fire-bridge',
     async writeBundle() {
       await viteBuild({
         configFile: false,
         build: {
-          outDir: `dist/${browser}/js/content/test-bridge`,
+          outDir: `dist/${browser}/js/content/fire-bridge`,
           emptyOutDir: false,
           minify: isDev ? false : 'terser',
           sourcemap: browser === 'firefox' ? 'inline' : false,
           lib: {
-            entry: path.resolve(__dirname, 'src/background/test-bridge-content.ts'),
+            entry: path.resolve(__dirname, 'src/background/fire-bridge-content.ts'),
             formats: ['iife'],
-            name: 'OhTestBridge',
-            fileName: () => 'index.js',
-          },
-          rollupOptions: {},
-        },
-        define: {
-          globalThis: 'globalThis',
-        },
-      });
-    },
-  };
-}
-
-/**
- * Build the MAIN-world test bridge content script. Runs in the page's actual
- * JS context at document_start and sets `window.__OH_TEST__ = true`, which
- * the generated delay/body/mock/header-merge scripts check at request time.
- * Kept separate from the ISOLATED bridge because worlds must be segregated in
- * content-script registrations. Avoids the CSP restrictions that would block
- * an inline script tag injected from ISOLATED.
- */
-function buildTestBridgeMainPlugin() {
-  return {
-    name: 'build-test-bridge-main',
-    async writeBundle() {
-      await viteBuild({
-        configFile: false,
-        build: {
-          outDir: `dist/${browser}/js/content/test-bridge-main`,
-          emptyOutDir: false,
-          minify: isDev ? false : 'terser',
-          sourcemap: browser === 'firefox' ? 'inline' : false,
-          lib: {
-            entry: path.resolve(__dirname, 'src/background/test-bridge-main.ts'),
-            formats: ['iife'],
-            name: 'OhTestBridgeMain',
+            name: 'OhFireBridge',
             fileName: () => 'index.js',
           },
           rollupOptions: {},
@@ -187,8 +154,7 @@ export default defineConfig({
     chromeSafePlugin(),
     copyAssetsPlugin(),
     buildContentScriptPlugin(),
-    buildTestBridgePlugin(),
-    buildTestBridgeMainPlugin(),
+    buildFireBridgePlugin(),
   ],
 
   resolve: {

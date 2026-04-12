@@ -27,9 +27,8 @@ import {
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import { getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
-import { setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
+import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
-import { generateRulesHash } from './modules/utils';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -95,6 +94,7 @@ async function initializeExtension(): Promise<void> {
   setupRequestMonitoring(debouncedUpdateBadge);
   setupTabListeners(debouncedUpdateBadge, recordingService);
   setupPeriodicCleanup();
+  initializeActiveTabTracking();
   setupInjectListener();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
@@ -120,17 +120,22 @@ async function initializeExtension(): Promise<void> {
   // Hydrate rules + templates from storage (offline start before WebSocket connects)
   await hydrateTemplatesFromStorage();
   const restoredRules = await hydrateFromStorage();
+  let didInitialApply = false;
   if (restoredRules.length > 0) {
     logger.info('Background', `Restored ${restoredRules.length} rules from storage`);
     precompileRulePatterns();
     scheduleUpdate('init', { immediate: true });
+    didInitialApply = true;
   }
 
   await connectWebSocket();
 
-  // Fallback: if WebSocket didn't provide rules, apply whatever we have
+  // Fallback: when storage had no rules AND the WebSocket didn't connect,
+  // flush any stale DNR state from a previous run so we don't leak rules
+  // across sessions. Skipped if the hydrate path already applied an
+  // initial snapshot — otherwise we'd double-log the same "init" update.
   setTimeout(() => {
-    if (!isWebSocketConnected()) {
+    if (!didInitialApply && !isWebSocketConnected()) {
       scheduleUpdate('init', { immediate: true });
     }
   }, 1000);

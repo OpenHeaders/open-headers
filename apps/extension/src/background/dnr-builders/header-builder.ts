@@ -8,10 +8,10 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { formatUrlPattern } from '@openheaders/core/utils';
 import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
 import { normalizeHeaderName } from '@utils/utils';
-import { formatUrlPattern } from '../modules/url-utils';
 import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import type { DnrBuilder, DnrCondition, DnrHeaderModification, DnrRule } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, SUB_RESOURCE_TYPES } from './types';

@@ -1,8 +1,8 @@
+import { formatUrlPattern } from '@openheaders/core/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   clearPatternCache,
   doesUrlMatchPattern,
-  formatUrlPattern,
   isTrackableUrl,
   normalizeUrlForTracking,
   precompileAllPatterns,
@@ -192,8 +192,8 @@ describe('doesUrlMatchPattern', () => {
   });
 
   it('bare domain does not match same domain on non-default port', () => {
-    // "medicenter" should NOT match "http://medicenter:8080/api"
-    expect(doesUrlMatchPattern('http://medicenter:8080/api', 'medicenter')).toBe(false);
+    // "intranet" should NOT match "http://intranet:8080/api"
+    expect(doesUrlMatchPattern('http://intranet:8080/api', 'intranet')).toBe(false);
   });
 
   it('matches IPv4 address pattern', () => {

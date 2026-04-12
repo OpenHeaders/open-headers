@@ -6,7 +6,13 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
+import {
+  doesUrlMatchEntry as coreDoesUrlMatchEntry,
+  getActionDetail,
+  getRuleMatchPatterns,
+  isRuleComplete,
+  type MatchPattern,
+} from '@openheaders/core/utils';
 import { tabs } from '@utils/browser-api';
 import { sendMessageWithCallback } from '@utils/messaging';
 import type { ActiveRule, MatchedRequest, TrackedResource, TrackedResourceType } from '@/types/browser';
@@ -21,46 +27,19 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-interface MatchPattern {
-  pattern: string;
-  type: 'domain' | 'url-filter' | 'url-regex';
-}
-
 /**
- * Extract all URL-matchable patterns from a rule's conditions.
- * Covers request-domains, url-filter, and url-regex condition types.
+ * Test if a URL matches a MatchPattern. Thin wrapper around core's
+ * matcher that routes 'url-filter' patterns through the extension's
+ * compiled-regex cache (`doesUrlMatchPattern`) for hot-path perf. The
+ * match semantics are identical to core — the cache is pure memoization.
  */
-function getMatchPatterns(rule: V5.Rule): MatchPattern[] {
-  const patterns: MatchPattern[] = [];
-  for (const c of rule.conditions) {
-    if (c.type === 'request-domains') {
-      for (const v of c.values) {
-        if (v.trim()) patterns.push({ pattern: v.trim(), type: 'domain' });
-      }
-    } else if (c.type === 'url-filter') {
-      for (const v of c.values) {
-        if (v.trim()) patterns.push({ pattern: v.trim(), type: 'url-filter' });
-      }
-    } else if (c.type === 'url-regex') {
-      for (const v of c.values) {
-        if (v.trim()) patterns.push({ pattern: v.trim(), type: 'url-regex' });
-      }
-    }
+function doesUrlMatchEntry(url: string, entry: MatchPattern): boolean {
+  if (entry.kind === 'url-filter') {
+    return doesUrlMatchPattern(url, entry.pattern);
   }
-  return patterns;
+  return coreDoesUrlMatchEntry(url, entry);
 }
 
-/** Test if a URL matches a MatchPattern (handles both glob and regex types). */
-function doesUrlMatchEntry(url: string, entry: MatchPattern): boolean {
-  if (entry.type === 'url-regex') {
-    try {
-      return new RegExp(entry.pattern, 'i').test(url);
-    } catch {
-      return false;
-    }
-  }
-  return doesUrlMatchPattern(url, entry.pattern);
-}
 
 // ── Tracked state ─────────────────────────────────────────────────
 
@@ -83,9 +62,10 @@ export function precompileRulePatterns(): void {
   clearPatternCache();
   const compilablePatterns: string[] = [];
   for (const rule of getRules()) {
-    for (const entry of getMatchPatterns(rule)) {
-      // url-regex patterns use native RegExp, not the urlFilter compiler
-      if (entry.type !== 'url-regex') {
+    for (const entry of getRuleMatchPatterns(rule)) {
+      // url-regex patterns are used as-authored; only url-filter goes
+      // through the cached urlFilter compiler.
+      if (entry.kind === 'url-filter') {
         compilablePatterns.push(entry.pattern);
       }
     }
@@ -98,22 +78,45 @@ export function precompileRulePatterns(): void {
 // ── Matching ──────────────────────────────────────────────────────
 
 /**
- * Check if a URL matches any rule's conditions (domains, url-filter, url-regex).
+ * Check if a URL matches any rule's URL conditions (request-domains,
+ * url-filter, url-regex). A complete rule without any URL conditions
+ * is never considered a match — rules that don't declare where they
+ * apply don't fire anywhere.
  */
 export function checkIfUrlMatchesAnyRule(url: string): boolean {
   const normalizedUrl = normalizeUrlForTracking(url);
   for (const rule of getRules()) {
     if (!isRuleComplete(rule)) continue;
-    const patterns = getMatchPatterns(rule);
-    // Rules with no URL conditions match everything
-    if (patterns.length === 0) return true;
-    for (const entry of patterns) {
+    for (const entry of getRuleMatchPatterns(rule)) {
       if (doesUrlMatchEntry(normalizedUrl, entry)) {
         return true;
       }
     }
   }
   return false;
+}
+
+/**
+ * Return every enabled, complete rule whose URL conditions match this URL.
+ * Used by the tab-telemetry ingestion path in request-monitor to attribute
+ * each observed request to the specific rule uids that would have matched,
+ * for DNR probable-fire counts. The result is shallow `{uid, type}` — no
+ * action detail — so callers can filter by rule type without loading the
+ * full rule object.
+ */
+export function matchRulesToRequest(url: string): Array<{ uid: string; type: V5.Rule['type'] }> {
+  const normalizedUrl = normalizeUrlForTracking(url);
+  const out: Array<{ uid: string; type: V5.Rule['type'] }> = [];
+  for (const rule of getRules()) {
+    if (!rule.enabled || !isRuleComplete(rule)) continue;
+    for (const entry of getRuleMatchPatterns(rule)) {
+      if (doesUrlMatchEntry(normalizedUrl, entry)) {
+        out.push({ uid: rule.uid, type: rule.type });
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 export interface ActiveRulesResult {
@@ -147,36 +150,32 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     if (!extensionTypes.has(rule.type)) continue;
     if (!isRuleComplete(rule)) continue;
 
-    const patterns = getMatchPatterns(rule);
+    const patterns = getRuleMatchPatterns(rule);
     let matchType: 'direct' | 'indirect' | null = null;
     const matchedUrls: MatchedRequest[] = [];
+    const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
 
-    if (patterns.length === 0) {
-      // No URL conditions — rule matches everything
-      matchType = 'direct';
-      matchedUrls.push({ url: tabUrl, pattern: '*', timestamp: now, resourceType: 'main_frame' });
+    for (const entry of patterns) {
+      if (doesUrlMatchEntry(normalizedTabUrl, entry)) {
+        matchType = 'direct';
+        matchedUrls.push({ url: tabUrl, pattern: entry.pattern, timestamp: now, resourceType: 'main_frame' });
+        break;
+      }
+    }
+
+    if (trackedResources.size > 0) {
       for (const [resourceUrl, res] of trackedResources) {
-        matchedUrls.push({ url: resourceUrl, pattern: '*', timestamp: res.timestamp, resourceType: res.resourceType });
-      }
-    } else {
-      const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
-      for (const entry of patterns) {
-        if (doesUrlMatchEntry(normalizedTabUrl, entry)) {
-          matchType = 'direct';
-          matchedUrls.push({ url: tabUrl, pattern: entry.pattern, timestamp: now, resourceType: 'main_frame' });
-          break;
-        }
-      }
-
-      if (trackedResources.size > 0) {
-        for (const [resourceUrl, res] of trackedResources) {
-          const normalizedResUrl = normalizeUrlForTracking(resourceUrl);
-          for (const entry of patterns) {
-            if (doesUrlMatchEntry(normalizedResUrl, entry)) {
-              matchedUrls.push({ url: resourceUrl, pattern: entry.pattern, timestamp: res.timestamp, resourceType: res.resourceType });
-              if (!matchType) matchType = 'indirect';
-              break;
-            }
+        const normalizedResUrl = normalizeUrlForTracking(resourceUrl);
+        for (const entry of patterns) {
+          if (doesUrlMatchEntry(normalizedResUrl, entry)) {
+            matchedUrls.push({
+              url: resourceUrl,
+              pattern: entry.pattern,
+              timestamp: res.timestamp,
+              resourceType: res.resourceType,
+            });
+            if (!matchType) matchType = 'indirect';
+            break;
           }
         }
       }
@@ -247,12 +246,7 @@ export async function revalidateTrackedRequests(): Promise<void> {
         let stillMatches = false;
         const normalizedUrl = normalizeUrlForTracking(url);
         for (const rule of rules) {
-          const patterns = getMatchPatterns(rule);
-          if (patterns.length === 0) {
-            stillMatches = true;
-            break;
-          }
-          for (const entry of patterns) {
+          for (const entry of getRuleMatchPatterns(rule)) {
             if (doesUrlMatchEntry(normalizedUrl, entry)) {
               stillMatches = true;
               break;
@@ -291,7 +285,9 @@ export async function restoreTrackingState(updateBadgeCallback: () => void): Pro
           if (!tabsWithActiveRules.has(tab.id)) {
             tabsWithActiveRules.set(tab.id, new Map());
           }
-          tabsWithActiveRules.get(tab.id)!.set(normalizeUrlForTracking(tab.url), { timestamp: Date.now(), resourceType: 'main_frame' });
+          tabsWithActiveRules
+            .get(tab.id)!
+            .set(normalizeUrlForTracking(tab.url), { timestamp: Date.now(), resourceType: 'main_frame' });
         }
       }
     }

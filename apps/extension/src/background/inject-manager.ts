@@ -18,15 +18,16 @@
 declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
+import { doesUrlMatchRule } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import {
-  generateBodyScript,
-  generateDelayScript,
-  generateHeaderMergeScript,
-  generateMockScript,
+  buildBodyInjection,
+  buildDelayInjection,
+  buildHeaderMergeInjection,
+  buildMockInjection,
+  type Injection,
 } from './content-scripts';
 import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
-import { doesUrlMatchPattern } from './modules/url-utils';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
@@ -37,8 +38,12 @@ type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule;
 export interface HeaderMergeEntry {
   /** The V5 header rule this merge came from — used for test-session scope filtering and telemetry. */
   ruleUid: string;
-  /** Domain patterns from rule conditions. */
-  patterns: string[];
+  /**
+   * Regex sources pre-compiled from the rule's URL conditions via
+   * `compileRuleForInjection`. Empty array means the rule has no URL
+   * conditions and should not match any URL.
+   */
+  regexSources: string[];
   requestMerges: Array<{ headerName: string; value: string; separator: string }>;
   responseMerges: Array<{ headerName: string; value: string; separator: string }>;
 }
@@ -55,10 +60,15 @@ let activeHeaderMerges: HeaderMergeEntry[] = [];
 export function updateScriptableRules(rules: ScriptableRule[], headerMerges: HeaderMergeEntry[] = []): void {
   activeScriptableRules = rules;
   activeHeaderMerges = headerMerges;
-  logger.debug(
-    'InjectManager',
-    `Updated scriptable rules: ${rules.length} active, ${headerMerges.length} header merges`,
-  );
+  headerMergeRegexCache = new WeakMap();
+  if (rules.length > 0 || headerMerges.length > 0) {
+    logger.info(
+      'InjectManager',
+      `Updated scriptable rules: ${rules.length} active (${rules.map((r) => `${r.type}:${r.name}`).join(', ')}), ${headerMerges.length} header merges`,
+    );
+  } else {
+    logger.debug('InjectManager', 'Updated scriptable rules: 0 active');
+  }
 }
 
 /**
@@ -86,17 +96,28 @@ export function setupInjectListener(): void {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-/** Extract host domains from a rule's conditions. */
-function getHostDomains(rule: ScriptableRule): string[] {
-  return rule.conditions
-    .filter((c) => c.type === 'request-domains')
-    .flatMap((c) => c.values)
-    .filter((v) => v.trim());
+/**
+ * Cached compiled regexes per header-merge entry — rebuilt whenever
+ * `updateScriptableRules` swaps the entries. Keeps the hot path free of
+ * repeated `new RegExp` calls during navigation.
+ */
+let headerMergeRegexCache: WeakMap<HeaderMergeEntry, RegExp[]> = new WeakMap();
+
+function regexesFor(entry: HeaderMergeEntry): RegExp[] {
+  let cached = headerMergeRegexCache.get(entry);
+  if (!cached) {
+    cached = entry.regexSources.map((s) => new RegExp(s, 'i'));
+    headerMergeRegexCache.set(entry, cached);
+  }
+  return cached;
 }
 
-function urlMatchesRule(url: string, rule: ScriptableRule): boolean {
-  const domains = getHostDomains(rule);
-  return domains.length === 0 || domains.some((d) => doesUrlMatchPattern(url, d));
+function headerMergeMatches(entry: HeaderMergeEntry, url: string): boolean {
+  const regexes = regexesFor(entry);
+  for (let i = 0; i < regexes.length; i++) {
+    if (regexes[i]!.test(url)) return true;
+  }
+  return false;
 }
 
 // ── Injection logic ──────────────────────────────────────────────
@@ -108,7 +129,9 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
   const testScope = getTestScopeForTab(tabId);
 
   for (const rule of activeScriptableRules) {
-    if (!urlMatchesRule(url, rule)) continue;
+    // A rule with no URL-matching conditions never matches any URL —
+    // incomplete rules are already filtered upstream by isRuleComplete.
+    if (!doesUrlMatchRule(url, rule)) continue;
     if (testScope) {
       if (!testScope.has(rule.uid)) continue;
     } else if (isRuleUnderTest(rule.uid)) {
@@ -131,13 +154,13 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
           }
           break;
         case 'delay':
-          await injectGeneratedScript(tabId, generateDelayScript(rule), rule.name);
+          await applyInjection(tabId, buildDelayInjection(rule), rule.name);
           break;
         case 'body':
-          await injectGeneratedScript(tabId, generateBodyScript(rule), rule.name);
+          await applyInjection(tabId, buildBodyInjection(rule), rule.name);
           break;
         case 'mock':
-          await injectGeneratedScript(tabId, generateMockScript(rule), rule.name);
+          await applyInjection(tabId, buildMockInjection(rule), rule.name);
           break;
       }
     } catch (error) {
@@ -150,8 +173,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
 
   // Inject header merge scripts — subject to the same test-session scope filter.
   for (const merge of activeHeaderMerges) {
-    const matches = merge.patterns.length === 0 || merge.patterns.some((d) => doesUrlMatchPattern(url, d));
-    if (!matches) continue;
+    if (!headerMergeMatches(merge, url)) continue;
     if (testScope) {
       if (!testScope.has(merge.ruleUid)) continue;
     } else if (isRuleUnderTest(merge.ruleUid)) {
@@ -159,8 +181,13 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
 
     try {
-      const script = generateHeaderMergeScript(merge.ruleUid, merge.patterns, merge.requestMerges, merge.responseMerges);
-      await injectGeneratedScript(tabId, script, 'header-merge');
+      const injection = buildHeaderMergeInjection(
+        merge.ruleUid,
+        merge.regexSources,
+        merge.requestMerges,
+        merge.responseMerges,
+      );
+      await applyInjection(tabId, injection, 'header-merge');
     } catch (error) {
       const msg = (error as Error).message;
       if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
@@ -168,6 +195,47 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
       }
     }
   }
+}
+
+/**
+ * Dispatch an Injection to the correct underlying injection mechanism.
+ *
+ * - `func` injections go through `executeScript({func, args, world:'MAIN'})`
+ *   directly — the func body runs in MAIN world with extension privilege and
+ *   never creates an inline <script> tag, so it bypasses the page's CSP.
+ * - `inline-script` injections use the legacy `<script>` tag approach, which
+ *   is subject to the page's CSP and may be blocked on strict-CSP sites. This
+ *   path is only used for dynamic body/mock rules that embed user JavaScript.
+ */
+async function applyInjection(tabId: number, injection: Injection, ruleName: string): Promise<void> {
+  if (injection.kind === 'func') {
+    await browserAPI.scripting.executeScript({
+      target: { tabId },
+      // Cast: Injection.func is typed as (cfg: never) => void to seal the
+      // contravariant parameter. executeScript serializes via toString() and
+      // runs it in the page — TS type of the param is meaningless at runtime.
+      func: injection.func as unknown as (cfg: unknown) => void,
+      args: injection.args,
+      world: 'MAIN' as chrome.scripting.ExecutionWorld,
+      injectImmediately: true,
+    });
+    logger.info('InjectManager', `Injected ${ruleName} func into tab ${tabId}`);
+    return;
+  }
+  // Legacy inline-<script> path for dynamic rules with user JS.
+  await browserAPI.scripting.executeScript({
+    target: { tabId },
+    func: (injectedCode: string) => {
+      const script = document.createElement('script');
+      script.textContent = injectedCode;
+      (document.head || document.documentElement).appendChild(script);
+      script.remove();
+    },
+    args: [injection.code],
+    world: 'MAIN' as chrome.scripting.ExecutionWorld,
+    injectImmediately: true,
+  });
+  logger.debug('InjectManager', `Injected ${ruleName} (inline) into tab ${tabId}`);
 }
 
 async function injectScript(tabId: number, code: string, position: V5.InjectAction['position']): Promise<void> {
@@ -185,23 +253,6 @@ async function injectScript(tabId: number, code: string, position: V5.InjectActi
     ...(early ? { injectImmediately: true } : {}),
   });
   logger.debug('InjectManager', `Injected script into tab ${tabId} (${position})`);
-}
-
-/** Inject a generated script (delay/body/mock) at document_start in MAIN world. */
-async function injectGeneratedScript(tabId: number, code: string, ruleName: string): Promise<void> {
-  await browserAPI.scripting.executeScript({
-    target: { tabId },
-    func: (injectedCode: string) => {
-      const script = document.createElement('script');
-      script.textContent = injectedCode;
-      (document.head || document.documentElement).appendChild(script);
-      script.remove();
-    },
-    args: [code],
-    world: 'MAIN' as chrome.scripting.ExecutionWorld,
-    injectImmediately: true,
-  });
-  logger.debug('InjectManager', `Injected ${ruleName} into tab ${tabId}`);
 }
 
 async function injectCSS(tabId: number, rule: V5.InjectRule): Promise<void> {

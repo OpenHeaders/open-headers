@@ -1,180 +1,512 @@
 /**
  * Content script generators for rules that can't use declarativeNetRequest.
  *
- * These rules work by monkey-patching fetch() and XMLHttpRequest in the
- * page's JS context. This only intercepts requests made by page JavaScript
- * (fetch, XHR), NOT static resource loads (<img>, <script src>, etc.).
+ * Two injection strategies coexist:
  *
- * Each generator returns a self-contained IIFE string that gets injected
- * via chrome.scripting.executeScript with world: 'MAIN'.
+ *   1. **Real-function injection** (static delay/body/mock/header-merge) —
+ *      returns a `{func, args}` pair that inject-manager passes directly to
+ *      `chrome.scripting.executeScript({world:'MAIN'})`. The func body runs in
+ *      the page's MAIN world with extension privilege, **without** creating an
+ *      inline <script> tag, so it is not subject to the page's CSP. This is
+ *      the CSP-safe path that works on strict-CSP sites like GitHub.
+ *
+ *   2. **Inline-script injection** (dynamic body/mock, inject rules) — returns
+ *      a string of JavaScript that inject-manager wraps in a page-side <script>
+ *      tag. Needed because these rules embed user-authored JS (modifyRequestBody,
+ *      modifyResponse, arbitrary inject code) which can't be embedded inside a
+ *      closed TypeScript function. On strict-CSP sites the <script> tag is
+ *      blocked — this is a pre-existing limitation, not a regression.
+ *
+ * URL matching inside every injected function is driven by regex sources
+ * pre-compiled by `@openheaders/core/utils::compileRuleForInjection`. The
+ * in-page code does:
+ *
+ *     const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
+ *     function matches(url) { return regexes.some((r) => r.test(url)); }
+ *
+ * There is no hand-rolled glob matcher in the page. Chrome urlFilter
+ * semantics (including future `|`/`||` anchor support) live in ONE place:
+ * core's rule-matcher module.
+ *
+ * On match, each function fires a `window.postMessage({__ohFire:true,...})`.
+ * The always-on ISOLATED fire-bridge content script (registered via
+ * manifest.json) catches the message and forwards it to the background
+ * tab-telemetry service. postMessage is the canonical MAIN↔ISOLATED channel
+ * in MV3 — it performs structured cloning, unlike CustomEvent.detail which
+ * is an opaque cross-realm object.
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { compileRuleForInjection } from '@openheaders/core/utils';
 
-// ── Test-mode bridge (embedded in every generated script) ───────
-//
-// When the page is running under a test session, the test-runner sets
-// window.__OH_TEST__ = true at document_start (before these scripts run).
-// __ohTestFire() dispatches a CustomEvent on every successful rule fire,
-// which a programmatically-registered ISOLATED-world content script listens
-// for and forwards to the background test-runner.
-//
-// Outside test sessions, __OH_TEST__ is undefined and __ohTestFire is a no-op.
+// ── Injection result types ──────────────────────────────────────────
+
+/**
+ * CSP-safe real-function injection for static rule variants. The func is
+ * typed with `never` in the parameter slot because it's serialized via
+ * `Function.prototype.toString` and executed in the page's MAIN world by
+ * `chrome.scripting.executeScript` — it is never called directly from the
+ * background. The `never` contravariance sink means you cannot accidentally
+ * invoke it with the wrong config shape from TypeScript code.
+ */
+export interface FuncInjection {
+  kind: 'func';
+  func: (cfg: never) => void;
+  args: [unknown];
+}
+
+/** Inline-script injection for dynamic rules that embed user JS. */
+export interface InlineScriptInjection {
+  kind: 'inline-script';
+  code: string;
+}
+
+export type Injection = FuncInjection | InlineScriptInjection;
+
+// ── Per-rule config shapes passed into injected funcs ───────────────
+
+interface DelayConfig {
+  ruleUid: string;
+  regexSources: string[];
+  delayMs: number;
+}
+
+interface StaticBodyConfig {
+  ruleUid: string;
+  regexSources: string[];
+  body: string;
+}
+
+interface StaticMockConfig {
+  ruleUid: string;
+  regexSources: string[];
+  statusCode: number;
+  body: string;
+  headers: Record<string, string>;
+}
+
+interface HeaderMergeConfig {
+  ruleUid: string;
+  regexSources: string[];
+  requestMerges: Array<{ headerName: string; value: string; separator: string }>;
+  responseMerges: Array<{ headerName: string; value: string; separator: string }>;
+}
+
+// ── Inline helper code (embedded in every dynamic string-template script) ──
 
 const TEST_BRIDGE_CODE = [
-  'function __ohTestFire(ruleUid, url, kind) {',
-  '  if (!window.__OH_TEST__) return;',
+  'function __ohFire(ruleUid, url, kind) {',
   '  try {',
-  '    window.dispatchEvent(new CustomEvent("oh:test:fired", {',
-  '      detail: { ruleUid: ruleUid, url: url, kind: kind, t: Date.now() }',
-  '    }));',
+  // window.postMessage is the canonical MAIN→ISOLATED channel in MV3 — it
+  // performs structured cloning of the payload, unlike CustomEvent.detail
+  // which is an opaque cross-realm object and often comes through as null.
+  '    window.postMessage({ __ohFire: true, ruleUid: ruleUid, url: url, kind: kind, t: Date.now() }, "*");',
   '  } catch (e) {}',
   '}',
 ].join('\n');
 
-// ── Shared URL matching (embedded in every generated script) ────
-
 const URL_MATCHER_CODE = [
-  'function __ohMatchesUrl(url, patterns) {',
-  '  for (var i = 0; i < patterns.length; i++) {',
-  '    var p = patterns[i];',
-  '    if (p === "*") return true;',
-  '    if (p.indexOf("*") === -1) {',
-  '      if (url.indexOf(p) !== -1) return true;',
-  '    } else {',
-  '      var re = new RegExp("^" + p.replace(/[.+?^${}()|[\\]\\\\]/g, "\\\\$&").replace(/\\*/g, ".*") + "$");',
-  '      if (re.test(url)) return true;',
-  '      if (url.indexOf(p.replace(/\\*/g, "")) !== -1) return true;',
-  '    }',
+  'function __ohMatchesUrl(url, regexSources) {',
+  '  for (var i = 0; i < regexSources.length; i++) {',
+  '    try { if (new RegExp(regexSources[i], "i").test(url)) return true; } catch (e) {}',
   '  }',
   '  return false;',
   '}',
 ].join('\n');
 
-/** Extract host domain values from conditions for embedding in scripts. */
-function extractPatterns(rule: V5.Rule): string[] {
-  return rule.conditions
-    .filter((c) => c.type === 'request-domains')
-    .flatMap((c) => c.values)
-    .filter((v) => v.trim());
-}
+// ── Static Delay (real function) ────────────────────────────────────
 
-function escapeForJS(str: string): string {
-  return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-}
-
-// ── Delay script ────────────────────────────────────────────────
-
-export function generateDelayScript(rule: V5.DelayRule): string {
-  const patterns = extractPatterns(rule);
-  const delayMs = Math.max(0, Math.min(rule.action.delayMs, 5000)); // cap at 5s for fetch/XHR in extension
-  const patternsJSON = JSON.stringify(patterns);
-  const ruleUidLit = JSON.stringify(rule.uid);
-
-  return `(function(){
-${TEST_BRIDGE_CODE}
-${URL_MATCHER_CODE}
-var RULE_UID = ${ruleUidLit};
-var DELAY_MS = ${delayMs};
-var PATTERNS = ${patternsJSON};
-
-var origFetch = window.fetch;
-window.fetch = function() {
-  var args = arguments;
-  var self = this;
-  var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (__ohMatchesUrl(url, PATTERNS)) {
-    __ohTestFire(RULE_UID, url, 'delay');
-    return new Promise(function(resolve) {
-      setTimeout(function() { resolve(origFetch.apply(self, args)); }, DELAY_MS);
-    });
-  }
-  return origFetch.apply(self, args);
-};
-
-var origXHROpen = XMLHttpRequest.prototype.open;
-var origXHRSend = XMLHttpRequest.prototype.send;
-XMLHttpRequest.prototype.open = function() {
-  this.__ohUrl = arguments[1] || '';
-  return origXHROpen.apply(this, arguments);
-};
-XMLHttpRequest.prototype.send = function() {
-  var self = this;
-  var args = arguments;
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
-    __ohTestFire(RULE_UID, this.__ohUrl, 'delay');
-    setTimeout(function() { origXHRSend.apply(self, args); }, DELAY_MS);
-  } else {
-    origXHRSend.apply(self, args);
-  }
-};
-})();`;
-}
-
-// ── Body modification script ────────────────────────────────────
-
-export function generateBodyScript(rule: V5.BodyRule): string {
-  const bodyType = rule.action.bodyType || 'static';
-  return bodyType === 'dynamic' ? generateDynamicBodyScript(rule) : generateStaticBodyScript(rule);
+export function buildDelayInjection(rule: V5.DelayRule): FuncInjection {
+  const config: DelayConfig = {
+    ruleUid: rule.uid,
+    regexSources: compileRuleForInjection(rule),
+    delayMs: Math.max(0, Math.min(rule.action.delayMs, 5000)),
+  };
+  return {
+    kind: 'func',
+    func: delayInjectionFunc as unknown as (cfg: never) => void,
+    args: [config],
+  };
 }
 
 /**
- * Static mode — replace the entire request/response body with a literal value.
+ * Monkey-patches fetch/XHR to delay requests matching the configured regexes.
+ * MUST be self-contained — no closures, no outer refs. Serialized via
+ * Function.prototype.toString and re-parsed in the page's MAIN world.
  */
-function generateStaticBodyScript(rule: V5.BodyRule): string {
-  const patterns = extractPatterns(rule);
-  const { body } = rule.action;
-  const patternsJSON = JSON.stringify(patterns);
-  const ruleUidLit = JSON.stringify(rule.uid);
-
-  return `(function(){
-${TEST_BRIDGE_CODE}
-${URL_MATCHER_CODE}
-var RULE_UID = ${ruleUidLit};
-var PATTERNS = ${patternsJSON};
-var BODY = '${escapeForJS(body)}';
-
-var origFetch = window.fetch;
-window.fetch = function() {
-  var args = Array.prototype.slice.call(arguments);
-  var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (__ohMatchesUrl(url, PATTERNS) && args[1]) {
-    __ohTestFire(RULE_UID, url, 'body');
-    args[1] = Object.assign({}, args[1], { body: BODY });
+function delayInjectionFunc(cfg: DelayConfig): void {
+  const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
+  function matches(url: string): boolean {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i]!.test(url)) return true;
+    }
+    return false;
   }
-  return origFetch.apply(this, args);
-};
 
-var origXHRSend = XMLHttpRequest.prototype.send;
-var origXHROpen = XMLHttpRequest.prototype.open;
-XMLHttpRequest.prototype.open = function() {
-  this.__ohUrl = arguments[1] || '';
-  return origXHROpen.apply(this, arguments);
-};
-XMLHttpRequest.prototype.send = function() {
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
-    __ohTestFire(RULE_UID, this.__ohUrl, 'body');
-    return origXHRSend.call(this, BODY);
+  function fire(url: string): void {
+    try {
+      window.postMessage(
+        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'delay', t: Date.now() },
+        '*',
+      );
+    } catch {
+      /* swallow */
+    }
   }
-  return origXHRSend.apply(this, arguments);
-};
-})();`;
+
+  const origFetch = window.fetch;
+  window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
+    const input = args[0];
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
+    if (matches(url)) {
+      fire(url);
+      return new Promise((resolve) => {
+        setTimeout(() => resolve(origFetch.apply(this, args)), cfg.delayMs);
+      });
+    }
+    return origFetch.apply(this, args);
+  };
+
+  const origXHROpen = XMLHttpRequest.prototype.open;
+  const origXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (
+    this: XMLHttpRequest & { __ohUrl?: string },
+    method: string,
+    url: string | URL,
+    async: boolean = true,
+    username?: string | null,
+    password?: string | null,
+  ): void {
+    this.__ohUrl = typeof url === 'string' ? url : url.href;
+    origXHROpen.call(this, method, url, async, username, password);
+  } as typeof XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.send = function (
+    this: XMLHttpRequest & { __ohUrl?: string },
+    ...args: Parameters<XMLHttpRequest['send']>
+  ): void {
+    const url = this.__ohUrl ?? '';
+    if (url && matches(url)) {
+      fire(url);
+      setTimeout(() => origXHRSend.apply(this, args), cfg.delayMs);
+    } else {
+      origXHRSend.apply(this, args);
+    }
+  };
 }
+
+// ── Static Body (real function) ─────────────────────────────────────
+
+export function buildBodyInjection(rule: V5.BodyRule): Injection {
+  const bodyType = rule.action.bodyType || 'static';
+  if (bodyType === 'dynamic') {
+    return { kind: 'inline-script', code: generateDynamicBodyScript(rule) };
+  }
+  const config: StaticBodyConfig = {
+    ruleUid: rule.uid,
+    regexSources: compileRuleForInjection(rule),
+    body: rule.action.body,
+  };
+  return {
+    kind: 'func',
+    func: staticBodyInjectionFunc as unknown as (cfg: never) => void,
+    args: [config],
+  };
+}
+
+function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
+  const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
+  function matches(url: string): boolean {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i]!.test(url)) return true;
+    }
+    return false;
+  }
+
+  function fire(url: string): void {
+    try {
+      window.postMessage(
+        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'body', t: Date.now() },
+        '*',
+      );
+    } catch {
+      /* swallow */
+    }
+  }
+
+  const origFetch = window.fetch;
+  window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
+    const input = args[0];
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
+    if (matches(url) && args[1]) {
+      fire(url);
+      args[1] = Object.assign({}, args[1], { body: cfg.body });
+    }
+    return origFetch.apply(this, args);
+  };
+
+  const origXHRSend = XMLHttpRequest.prototype.send;
+  const origXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (
+    this: XMLHttpRequest & { __ohUrl?: string },
+    method: string,
+    url: string | URL,
+    async: boolean = true,
+    username?: string | null,
+    password?: string | null,
+  ): void {
+    this.__ohUrl = typeof url === 'string' ? url : url.href;
+    origXHROpen.call(this, method, url, async, username, password);
+  } as typeof XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.send = function (
+    this: XMLHttpRequest & { __ohUrl?: string },
+    ...args: Parameters<XMLHttpRequest['send']>
+  ): void {
+    const url = this.__ohUrl ?? '';
+    if (url && matches(url)) {
+      fire(url);
+      origXHRSend.call(this, cfg.body);
+      return;
+    }
+    origXHRSend.apply(this, args);
+  };
+}
+
+// ── Static Mock (real function) ─────────────────────────────────────
+
+export function buildMockInjection(rule: V5.MockRule): Injection {
+  const bodyType = rule.action.bodyType || 'static';
+  if (bodyType === 'dynamic') {
+    return { kind: 'inline-script', code: generateDynamicMockScript(rule) };
+  }
+  const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
+  const config: StaticMockConfig = {
+    ruleUid: rule.uid,
+    regexSources: compileRuleForInjection(rule),
+    statusCode: statusCode || 200,
+    body: responseBody,
+    headers: { 'Content-Type': contentType || 'application/json', ...responseHeaders },
+  };
+  return {
+    kind: 'func',
+    func: staticMockInjectionFunc as unknown as (cfg: never) => void,
+    args: [config],
+  };
+}
+
+function staticMockInjectionFunc(cfg: StaticMockConfig): void {
+  const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
+  function matches(url: string): boolean {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i]!.test(url)) return true;
+    }
+    return false;
+  }
+
+  function fire(url: string): void {
+    try {
+      window.postMessage(
+        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'mock', t: Date.now() },
+        '*',
+      );
+    } catch {
+      /* swallow */
+    }
+  }
+
+  const origFetch = window.fetch;
+  window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
+    const input = args[0];
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
+    if (matches(url)) {
+      fire(url);
+      return Promise.resolve(new Response(cfg.body, { status: cfg.statusCode, headers: cfg.headers }));
+    }
+    return origFetch.apply(this, args);
+  };
+
+  const origXHROpen = XMLHttpRequest.prototype.open;
+  const origXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (
+    this: XMLHttpRequest & { __ohUrl?: string },
+    method: string,
+    url: string | URL,
+    async: boolean = true,
+    username?: string | null,
+    password?: string | null,
+  ): void {
+    this.__ohUrl = typeof url === 'string' ? url : url.href;
+    origXHROpen.call(this, method, url, async, username, password);
+  } as typeof XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.send = function (
+    this: XMLHttpRequest & { __ohUrl?: string },
+    ...args: Parameters<XMLHttpRequest['send']>
+  ): void {
+    const url = this.__ohUrl ?? '';
+    if (url && matches(url)) {
+      fire(url);
+      Object.defineProperty(this, 'status', { get: () => cfg.statusCode });
+      Object.defineProperty(this, 'statusText', { get: () => 'OK' });
+      Object.defineProperty(this, 'responseText', { get: () => cfg.body });
+      Object.defineProperty(this, 'response', { get: () => cfg.body });
+      Object.defineProperty(this, 'readyState', { writable: true, value: 4 });
+      setTimeout(() => {
+        (this as XMLHttpRequest & { readyState: number }).readyState = 4;
+        if (this.onreadystatechange) this.onreadystatechange.call(this, new Event('readystatechange'));
+        if (this.onload) this.onload.call(this, new ProgressEvent('load'));
+      }, 10);
+      return;
+    }
+    origXHRSend.apply(this, args);
+  };
+}
+
+// ── Static Header Merge (real function) ─────────────────────────────
+
+export function buildHeaderMergeInjection(
+  ruleUid: string,
+  regexSources: string[],
+  requestMerges: HeaderMergeConfig['requestMerges'],
+  responseMerges: HeaderMergeConfig['responseMerges'],
+): FuncInjection {
+  const config: HeaderMergeConfig = {
+    ruleUid,
+    regexSources,
+    requestMerges,
+    responseMerges,
+  };
+  return {
+    kind: 'func',
+    func: headerMergeInjectionFunc as unknown as (cfg: never) => void,
+    args: [config],
+  };
+}
+
+function headerMergeInjectionFunc(cfg: HeaderMergeConfig): void {
+  const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
+  function matches(url: string): boolean {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i]!.test(url)) return true;
+    }
+    return false;
+  }
+
+  function fire(url: string): void {
+    try {
+      window.postMessage(
+        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'header-merge', t: Date.now() },
+        '*',
+      );
+    } catch {
+      /* swallow */
+    }
+  }
+
+  function mergeValue(existing: string, newVal: string, sep: string): string {
+    if (!existing?.trim()) return newVal;
+    return existing + sep + newVal;
+  }
+
+  if (cfg.requestMerges.length > 0) {
+    const origFetch = window.fetch;
+    window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
+      const input = args[0];
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
+      if (!matches(url)) return origFetch.apply(this, args);
+      fire(url);
+      const init = args[1] || {};
+      const headers = new Headers(init.headers || {});
+      for (let i = 0; i < cfg.requestMerges.length; i++) {
+        const m = cfg.requestMerges[i]!;
+        const existing = headers.get(m.headerName) || '';
+        headers.set(m.headerName, mergeValue(existing, m.value, m.separator));
+      }
+      return origFetch.call(this, input as RequestInfo, Object.assign({}, init, { headers }));
+    };
+
+    const origXHROpen = XMLHttpRequest.prototype.open;
+    const origXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+    const origXHRSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (
+      this: XMLHttpRequest & { __ohUrl?: string; __ohHeaders?: Record<string, string> },
+      method: string,
+      url: string | URL,
+      async: boolean = true,
+      username?: string | null,
+      password?: string | null,
+    ): void {
+      this.__ohUrl = typeof url === 'string' ? url : url.href;
+      this.__ohHeaders = {};
+      origXHROpen.call(this, method, url, async, username, password);
+    } as typeof XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.setRequestHeader = function (
+      this: XMLHttpRequest & { __ohHeaders?: Record<string, string> },
+      name: string,
+      value: string,
+    ): void {
+      if (this.__ohHeaders) this.__ohHeaders[name.toLowerCase()] = value;
+      origXHRSetHeader.call(this, name, value);
+    };
+    XMLHttpRequest.prototype.send = function (
+      this: XMLHttpRequest & { __ohUrl?: string; __ohHeaders?: Record<string, string> },
+      ...args: Parameters<XMLHttpRequest['send']>
+    ): void {
+      const url = this.__ohUrl ?? '';
+      if (url && matches(url)) {
+        fire(url);
+        for (let i = 0; i < cfg.requestMerges.length; i++) {
+          const m = cfg.requestMerges[i]!;
+          const existing = this.__ohHeaders?.[m.headerName.toLowerCase()] || '';
+          origXHRSetHeader.call(this, m.headerName, mergeValue(existing, m.value, m.separator));
+        }
+      }
+      origXHRSend.apply(this, args);
+    };
+  }
+
+  if (cfg.responseMerges.length > 0) {
+    const origFetchR = window.fetch;
+    window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
+      const input = args[0];
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
+      if (!matches(url)) return origFetchR.apply(this, args);
+      fire(url);
+      return origFetchR.apply(this, args).then((response) => {
+        const newHeaders = new Headers(response.headers);
+        for (let i = 0; i < cfg.responseMerges.length; i++) {
+          const m = cfg.responseMerges[i]!;
+          const existing = newHeaders.get(m.headerName) || '';
+          newHeaders.set(m.headerName, mergeValue(existing, m.value, m.separator));
+        }
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: newHeaders,
+        });
+      });
+    };
+  }
+}
+
+// ── Dynamic Body (inline script — user JS embedded) ─────────────────
 
 /**
  * Dynamic mode — make the real request, then pass to user's modifyRequestBody() function.
+ * Stays as a string-template inline-script injection because it embeds arbitrary
+ * user JavaScript. On strict-CSP sites this will be blocked — pre-existing limitation.
  */
 function generateDynamicBodyScript(rule: V5.BodyRule): string {
-  const patterns = extractPatterns(rule);
+  const regexSources = compileRuleForInjection(rule);
   const { body: userCode } = rule.action;
-  const patternsJSON = JSON.stringify(patterns);
+  const regexSourcesJSON = JSON.stringify(regexSources);
   const ruleUidLit = JSON.stringify(rule.uid);
 
   return `(function(){
 ${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
-var PATTERNS = ${patternsJSON};
+var REGEX_SOURCES = ${regexSourcesJSON};
 
 ${userCode}
 
@@ -182,8 +514,8 @@ var origFetch = window.fetch;
 window.fetch = function() {
   var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (__ohMatchesUrl(url, PATTERNS) && args[1] && args[1].body) {
-    __ohTestFire(RULE_UID, url, 'body');
+  if (__ohMatchesUrl(url, REGEX_SOURCES) && args[1] && args[1].body) {
+    __ohFire(RULE_UID, url, 'body');
     try {
       var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
       var bodyAsJson = null;
@@ -203,8 +535,8 @@ XMLHttpRequest.prototype.open = function() {
   return origXHROpen.apply(this, arguments);
 };
 XMLHttpRequest.prototype.send = function(body) {
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS) && body) {
-    __ohTestFire(RULE_UID, this.__ohUrl, 'body');
+  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, REGEX_SOURCES) && body) {
+    __ohFire(RULE_UID, this.__ohUrl, 'body');
     try {
       var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
       var bodyAsJson = null;
@@ -218,88 +550,24 @@ XMLHttpRequest.prototype.send = function(body) {
 })();`;
 }
 
-// ── Mock / Modify API Response script ────────────────────────────
-
-export function generateMockScript(rule: V5.MockRule): string {
-  const bodyType = rule.action.bodyType || 'static';
-  return bodyType === 'dynamic' ? generateDynamicMockScript(rule) : generateStaticMockScript(rule);
-}
-
-/**
- * Static mode — intercept fetch/XHR, return a fixed response without hitting the server.
- */
-function generateStaticMockScript(rule: V5.MockRule): string {
-  const patterns = extractPatterns(rule);
-  const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
-  const patternsJSON = JSON.stringify(patterns);
-  const headersJSON = JSON.stringify({ 'Content-Type': contentType || 'application/json', ...responseHeaders });
-  const ruleUidLit = JSON.stringify(rule.uid);
-
-  return `(function(){
-${TEST_BRIDGE_CODE}
-${URL_MATCHER_CODE}
-var RULE_UID = ${ruleUidLit};
-var PATTERNS = ${patternsJSON};
-var STATUS = ${statusCode || 200};
-var BODY = '${escapeForJS(responseBody)}';
-var HEADERS = ${headersJSON};
-
-var origFetch = window.fetch;
-window.fetch = function() {
-  var args = arguments;
-  var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (__ohMatchesUrl(url, PATTERNS)) {
-    __ohTestFire(RULE_UID, url, 'mock');
-    return Promise.resolve(new Response(BODY, { status: STATUS, headers: HEADERS }));
-  }
-  return origFetch.apply(this, args);
-};
-
-var origXHROpen = XMLHttpRequest.prototype.open;
-var origXHRSend = XMLHttpRequest.prototype.send;
-XMLHttpRequest.prototype.open = function() {
-  this.__ohUrl = arguments[1] || '';
-  this.__ohMethod = arguments[0] || 'GET';
-  return origXHROpen.apply(this, arguments);
-};
-XMLHttpRequest.prototype.send = function() {
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
-    __ohTestFire(RULE_UID, this.__ohUrl, 'mock');
-    var self = this;
-    Object.defineProperty(self, 'status', { get: function() { return STATUS; } });
-    Object.defineProperty(self, 'statusText', { get: function() { return 'OK'; } });
-    Object.defineProperty(self, 'responseText', { get: function() { return BODY; } });
-    Object.defineProperty(self, 'response', { get: function() { return BODY; } });
-    Object.defineProperty(self, 'readyState', { writable: true, value: 4 });
-    setTimeout(function() {
-      self.readyState = 4;
-      if (self.onreadystatechange) self.onreadystatechange();
-      if (self.onload) self.onload();
-    }, 10);
-    return;
-  }
-  return origXHRSend.apply(this, arguments);
-};
-})();`;
-}
+// ── Dynamic Mock (inline script — user JS embedded) ─────────────────
 
 /**
  * Dynamic mode — make the REAL request, then pass the response to the user's
- * modifyResponse() function. The function can inspect request context (method,
- * url, headers, body) and the original response, then return the modified response.
+ * modifyResponse() function. Embeds arbitrary user JS — inline-script path only.
  */
 function generateDynamicMockScript(rule: V5.MockRule): string {
-  const patterns = extractPatterns(rule);
+  const regexSources = compileRuleForInjection(rule);
   const { statusCode, responseBody } = rule.action;
-  const patternsJSON = JSON.stringify(patterns);
-  const overrideStatus = statusCode || 0; // 0 = keep original
+  const regexSourcesJSON = JSON.stringify(regexSources);
+  const overrideStatus = statusCode || 0;
   const ruleUidLit = JSON.stringify(rule.uid);
 
   return `(function(){
 ${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
-var PATTERNS = ${patternsJSON};
+var REGEX_SOURCES = ${regexSourcesJSON};
 var OVERRIDE_STATUS = ${overrideStatus};
 
 ${responseBody}
@@ -309,8 +577,8 @@ window.fetch = function() {
   var args = arguments;
   var self = this;
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (!__ohMatchesUrl(url, PATTERNS)) return origFetch.apply(self, args);
-  __ohTestFire(RULE_UID, url, 'mock');
+  if (!__ohMatchesUrl(url, REGEX_SOURCES)) return origFetch.apply(self, args);
+  __ohFire(RULE_UID, url, 'mock');
 
   var requestMethod = (args[1] && args[1].method) || 'GET';
   var requestHeaders = (args[1] && args[1].headers) || {};
@@ -353,10 +621,10 @@ XMLHttpRequest.prototype.open = function() {
 };
 XMLHttpRequest.prototype.send = function(body) {
   var self = this;
-  if (!this.__ohUrl || !__ohMatchesUrl(this.__ohUrl, PATTERNS)) {
+  if (!this.__ohUrl || !__ohMatchesUrl(this.__ohUrl, REGEX_SOURCES)) {
     return origXHRSend.apply(this, arguments);
   }
-  __ohTestFire(RULE_UID, this.__ohUrl, 'mock');
+  __ohFire(RULE_UID, this.__ohUrl, 'mock');
 
   var xhrUrl = this.__ohUrl;
   var xhrMethod = this.__ohMethod;
@@ -400,115 +668,5 @@ XMLHttpRequest.prototype.send = function(body) {
   this.addEventListener('load', realOnLoad, { once: true });
   return origXHRSend.call(this, body);
 };
-})();`;
-}
-
-// ── Header merge script ─────────────────────────────────────────
-
-interface MergeMod {
-  headerName: string;
-  value: string;
-  separator: string;
-}
-
-/**
- * Generate a content script that merges header values at runtime.
- * Reads the existing header value, appends/prepends the new value with separator.
- *
- * This handles what Chrome DNR cannot: modifying an existing header value
- * without knowing the original value at rule definition time.
- */
-export function generateHeaderMergeScript(
-  ruleUid: string,
-  patterns: string[],
-  requestMerges: MergeMod[],
-  responseMerges: MergeMod[],
-): string {
-  const patternsJSON = JSON.stringify(patterns);
-  const reqJSON = JSON.stringify(requestMerges);
-  const resJSON = JSON.stringify(responseMerges);
-  const ruleUidLit = JSON.stringify(ruleUid);
-
-  return `(function(){
-${TEST_BRIDGE_CODE}
-${URL_MATCHER_CODE}
-var RULE_UID = ${ruleUidLit};
-var PATTERNS = ${patternsJSON};
-var REQ_MERGES = ${reqJSON};
-var RES_MERGES = ${resJSON};
-
-function mergeValue(existing, newVal, sep) {
-  if (!existing || !existing.trim()) return newVal;
-  return existing + sep + newVal;
-}
-
-${
-  requestMerges.length > 0
-    ? `
-var origFetch = window.fetch;
-window.fetch = function(input, init) {
-  var url = typeof input === 'string' ? input : (input && input.url) || '';
-  if (!__ohMatchesUrl(url, PATTERNS)) return origFetch.apply(this, arguments);
-  __ohTestFire(RULE_UID, url, 'header-merge');
-  init = init || {};
-  var headers = new Headers(init.headers || {});
-  for (var i = 0; i < REQ_MERGES.length; i++) {
-    var m = REQ_MERGES[i];
-    var existing = headers.get(m.headerName) || '';
-    headers.set(m.headerName, mergeValue(existing, m.value, m.separator));
-  }
-  return origFetch.call(this, input, Object.assign({}, init, { headers: headers }));
-};
-
-var origXHROpen = XMLHttpRequest.prototype.open;
-var origXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
-var origXHRSend = XMLHttpRequest.prototype.send;
-XMLHttpRequest.prototype.open = function() {
-  this.__ohUrl = arguments[1] || '';
-  this.__ohHeaders = {};
-  return origXHROpen.apply(this, arguments);
-};
-XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
-  if (this.__ohHeaders) this.__ohHeaders[name.toLowerCase()] = value;
-  return origXHRSetHeader.apply(this, arguments);
-};
-XMLHttpRequest.prototype.send = function() {
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
-    __ohTestFire(RULE_UID, this.__ohUrl, 'header-merge');
-    for (var i = 0; i < REQ_MERGES.length; i++) {
-      var m = REQ_MERGES[i];
-      var existing = (this.__ohHeaders && this.__ohHeaders[m.headerName.toLowerCase()]) || '';
-      origXHRSetHeader.call(this, m.headerName, mergeValue(existing, m.value, m.separator));
-    }
-  }
-  return origXHRSend.apply(this, arguments);
-};`
-    : ''
-}
-
-${
-  responseMerges.length > 0
-    ? `
-var origFetchR = window.fetch;
-window.fetch = function(input, init) {
-  var url = typeof input === 'string' ? input : (input && input.url) || '';
-  if (!__ohMatchesUrl(url, PATTERNS)) return origFetchR.apply(this, arguments);
-  __ohTestFire(RULE_UID, url, 'header-merge');
-  return origFetchR.apply(this, arguments).then(function(response) {
-    var newHeaders = new Headers(response.headers);
-    for (var i = 0; i < RES_MERGES.length; i++) {
-      var m = RES_MERGES[i];
-      var existing = newHeaders.get(m.headerName) || '';
-      newHeaders.set(m.headerName, mergeValue(existing, m.value, m.separator));
-    }
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: newHeaders,
-    });
-  });
-};`
-    : ''
-}
 })();`;
 }

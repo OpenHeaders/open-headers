@@ -1,7 +1,7 @@
 import type { V5 } from '@openheaders/core/types';
+import { formatUrlPattern } from '@openheaders/core/utils';
 import { normalizeHeaderName } from '@utils/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatUrlPattern } from '@/background/modules/url-utils';
 import { debounce, generateRulesHash } from '@/background/modules/utils';
 
 // ---------------------------------------------------------------------------

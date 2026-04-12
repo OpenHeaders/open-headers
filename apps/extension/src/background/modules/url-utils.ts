@@ -1,15 +1,21 @@
 /**
- * URL Utilities — single owner of all URL pattern logic.
+ * URL Utilities — extension-side URL helpers.
  *
- * Two responsibilities:
- * 1. formatUrlPattern() — converts a domain pattern into the canonical MV3
- *    declarativeNetRequest urlFilter string. Used by header-manager.ts.
- * 2. doesUrlMatchPattern() — replicates urlFilter matching semantics in-memory
- *    via compiled RegExp. Used by request-tracker.ts (badge, Active tab).
+ * Pattern compilation and rule-matching semantics live in
+ * `@openheaders/core/utils` (rule-matcher) so the desktop app and the
+ * extension share one implementation. This module owns only the bits
+ * that are platform-specific or performance-sensitive:
  *
- * Both functions share the same normalization path so they always agree
- * on whether a URL matches a pattern.
+ *   - A compiled-regex cache keyed by raw pattern string, cleared by
+ *     the extension's rule store on change. Hot-path avoidance of
+ *     repeated `compilePatternToRegexSource` calls.
+ *   - URL normalization for consistent tracking keys
+ *     (`normalizeUrlForTracking`).
+ *   - Trackable-scheme filtering for the request monitor
+ *     (`isTrackableUrl`).
  */
+
+import { compilePatternToRegexSource } from '@openheaders/core/utils';
 
 // ── Pre-compiled pattern cache ─────────────────────────────────────
 // Key: raw pattern string → Value: compiled RegExp (or null for '*')
@@ -43,92 +49,17 @@ export function precompileAllPatterns(domains: string[]): void {
 }
 
 /**
- * Convert a user-entered domain pattern into a MV3 declarativeNetRequest
- * urlFilter string. This is the single normalization function — both
- * declarativeNetRequest rules and the in-memory regex matcher use it.
- *
- * Supported inputs:
- *   "example.com"                → "*://example.com/*"
- *   "*.example.com"              → "*://*.example.com/*"
- *   "example.com/api"            → "*://example.com/api"
- *   "example.com/api/*"          → "*://example.com/api/*"
- *   "localhost:3000"             → "*://localhost:3000/*"
- *   "192.168.1.1:8080"          → "*://192.168.1.1:8080/*"
- *   "https://example.com/*"     → "https://example.com/*"
- *   "*"                         → "*"
- */
-export function formatUrlPattern(domain: string): string {
-  let urlFilter = domain.trim();
-
-  if (urlFilter === '*') return '*';
-
-  // If pattern already has a protocol, just ensure it has a path
-  if (urlFilter.includes('://')) {
-    const protocolEnd = urlFilter.indexOf('://') + 3;
-    const afterProtocol = urlFilter.substring(protocolEnd);
-    if (!afterProtocol.includes('/')) {
-      urlFilter = `${urlFilter}/*`;
-    }
-    return urlFilter;
-  }
-
-  // Add wildcard protocol
-  urlFilter = `*://${urlFilter}`;
-
-  // Ensure pattern has a path — bare hostnames get /*
-  const protocolEnd = urlFilter.indexOf('://') + 3;
-  const afterProtocol = urlFilter.substring(protocolEnd);
-  if (!afterProtocol.includes('/')) {
-    urlFilter = `${urlFilter}/*`;
-  }
-
-  return urlFilter;
-}
-
-/**
- * Internal: compile a pattern into a RegExp that replicates MV3 urlFilter
- * matching semantics.
- *
- * Key difference from exact regex: urlFilter does NOT anchor at the end.
- * "*://example.com/api" matches "https://example.com/api/v2/users"
- * because Chrome treats urlFilter as a prefix/substring match.
+ * Compile a pattern via core and cache the resulting RegExp against its
+ * raw input key. Core returns `null` for the match-all '*' sentinel,
+ * which we preserve in the cache to allow fast-path in `doesUrlMatchPattern`.
  */
 function compileAndCachePattern(pattern: string): void {
-  const trimmed = pattern.trim().toLowerCase();
-
-  // Wildcard matches everything
-  if (trimmed === '*') {
-    compiledPatternCache.set(pattern, null); // null = match-all sentinel
+  const source = compilePatternToRegexSource(pattern);
+  if (source === null) {
+    compiledPatternCache.set(pattern, null);
     return;
   }
-
-  // Normalize through the same function used for declarativeNetRequest
-  let urlFilter = formatUrlPattern(trimmed);
-
-  // Handle IDN in patterns
-  try {
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — detecting non-ASCII for IDN normalization
-    if (/[^\x00-\x7F]/.test(urlFilter)) {
-      const patternUrl = new URL(urlFilter.replace('*://', 'http://'));
-      urlFilter = formatUrlPattern(patternUrl.hostname.toLowerCase());
-    }
-  } catch (_e) {
-    // Pattern is not a valid URL, continue with original
-  }
-
-  // Normalize default ports
-  urlFilter = urlFilter.replace(/:80\//, '/').replace(/:443\//, '/');
-
-  // Convert urlFilter to regex:
-  // 1. Escape special regex chars (except *)
-  // 2. Replace * with .*
-  // 3. Anchor at start only (^) — no end anchor ($)
-  //    This replicates urlFilter semantics where the pattern
-  //    matches if the URL starts with the expanded pattern.
-  const regexPattern = urlFilter.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-
-  const regex = new RegExp(`^${regexPattern}`, 'i');
-  compiledPatternCache.set(pattern, regex);
+  compiledPatternCache.set(pattern, new RegExp(source, 'i'));
 }
 
 /**
