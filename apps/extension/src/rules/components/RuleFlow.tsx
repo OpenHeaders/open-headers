@@ -317,11 +317,6 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
           />
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            {/* Full-height sweep pulse — a single dot travels from Start through all nodes to End */}
-            <div className="flow-sweep" aria-hidden="true">
-              <span className="flow-sweep-dot" />
-            </div>
-
             <Terminus type="start" compact={compact} />
             <Connector label="evaluate conditions" compact={compact} />
 

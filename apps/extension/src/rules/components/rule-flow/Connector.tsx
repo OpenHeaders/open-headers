@@ -3,7 +3,7 @@
  * Terminus — start/end pill for the pipeline.
  */
 
-import { CaretDownOutlined, PlayCircleFilled, StopFilled } from '@ant-design/icons';
+import { PlayCircleFilled, StopFilled } from '@ant-design/icons';
 import { theme } from 'antd';
 import type React from 'react';
 
@@ -14,13 +14,15 @@ interface ConnectorProps {
 
 export const Connector: React.FC<ConnectorProps> = ({ label, compact }) => {
   const { token } = theme.useToken();
-  const lineColor = token.colorBorderSecondary;
   const labelColor = token.colorTextQuaternary;
-  const h = compact ? 4 : 12;
+  const h = compact ? 10 : 20;
 
   return (
     <div className="flow-connector" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: 1.5, height: h, background: lineColor }} />
+      <div
+        className="flow-dashed-line"
+        style={{ height: h, '--flow-line-color': token.colorBorder } as React.CSSProperties}
+      />
       {label && !compact && (
         <span
           style={{
@@ -38,8 +40,10 @@ export const Connector: React.FC<ConnectorProps> = ({ label, compact }) => {
           {label}
         </span>
       )}
-      <div style={{ width: 1.5, height: h, background: lineColor }} />
-      {!compact && <CaretDownOutlined style={{ fontSize: 8, color: lineColor, marginTop: -4 }} />}
+      <div
+        className="flow-dashed-line"
+        style={{ height: h, '--flow-line-color': token.colorBorder } as React.CSSProperties}
+      />
     </div>
   );
 };

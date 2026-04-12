@@ -159,79 +159,32 @@
   flex-shrink: 0;
 }
 
-/* ── Sweep pulse ─────────────────────────────────────────────── */
+/* ── Dashed flowing connector ─────────────────────────────────── */
 
-// Pipeline needs positioning context for the absolute-positioned sweep
-.rule-flow-pipeline {
-  position: relative;
+.flow-dashed-line {
+  width: 2px;
+  background-image: linear-gradient(
+    to bottom,
+    var(--flow-line-color, rgba(0, 0, 0, 0.25)) 50%,
+    transparent 50%
+  );
+  background-size: 2px 6px;
+  background-repeat: repeat-y;
+  animation: flow-dash 0.6s linear infinite;
 }
 
-// Full-height vertical trail running through the pipeline center.
-// Positioned absolutely so it passes through all nodes visually.
-.flow-sweep {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 0;
-  pointer-events: none;
-  z-index: 5;
-  transform: translateX(-50%);
-}
-
-.flow-sweep-dot {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 8px;
-  height: 8px;
-  margin-left: -4px;
-  border-radius: 50%;
-  background: #1677ff;
-  box-shadow:
-    0 0 10px 2px rgba(22, 119, 255, 0.8),
-    0 0 20px 4px rgba(22, 119, 255, 0.4);
-  mix-blend-mode: screen;
-  animation: flow-sweep-travel 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-@keyframes flow-sweep-travel {
-  0% {
-    top: 0;
-    opacity: 0;
-    transform: scale(0.6);
+@keyframes flow-dash {
+  from {
+    background-position: 0 0;
   }
-  8% {
-    opacity: 1;
-    transform: scale(1);
+  to {
+    background-position: 0 6px;
   }
-  85% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  95% {
-    top: 100%;
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    top: 100%;
-    opacity: 0;
-    transform: scale(0.6);
-  }
-}
-
-// In compact mode, use a slightly smaller dot
-.rule-flow[data-compact='true'] .flow-sweep-dot {
-  width: 6px;
-  height: 6px;
-  margin-left: -3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flow-sweep-dot {
+  .flow-dashed-line {
     animation: none;
-    opacity: 0;
   }
 }
 
