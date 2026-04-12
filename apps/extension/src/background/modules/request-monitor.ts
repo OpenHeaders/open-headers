@@ -1,5 +1,19 @@
 /**
- * Request Monitor - Sets up webRequest monitoring for tracking requests
+ * Request Monitor — sets up webRequest monitoring to drive telemetry and
+ * the badge. Two responsibilities:
+ *
+ *   1. Pattern-match observed requests against enabled V5 rules for badge /
+ *      active-tab display (via request-tracker).
+ *   2. Feed tab-telemetry's `recordObservedFire` so popup counters reflect
+ *      every observed match. Every enabled rule whose URL conditions match
+ *      the request is recorded; shadow arbitration runs over the full
+ *      matching set before ingestion so records carry a `shadowedBy`
+ *      attribution when a higher-priority terminal rule (currently: block)
+ *      would have cancelled the request first.
+ *
+ * Main-frame requests are additionally tracked in tab-telemetry's redirect
+ * chain so delay/redirect chains can attribute their fires to the
+ * eventually-committed destination page instead of wiping them on commit.
  */
 
 import { tabs } from '@utils/browser-api.js';
@@ -7,11 +21,15 @@ import { logger } from '@utils/logger';
 import type { PendingRequest, TrackedResourceType } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import { addTrackedUrl, checkIfUrlMatchesAnyRule, matchRulesToRequest, tabsWithActiveRules } from './request-tracker';
-import { isTracked as isTabTracked, recordDnrMatch } from './tab-telemetry';
+import { arbitrate } from './shadow-arbitration';
+import {
+  isTracked as isTabTracked,
+  onMainFrameError,
+  onMainFrameRedirect,
+  onMainFrameRequest,
+  recordObservedFire,
+} from './tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
-
-/** Rule types that are handled by DNR — counted as "probable fires" via webRequest matching. */
-const DNR_RULE_TYPES = new Set(['header', 'block', 'redirect', 'query-param']);
 
 /**
  * Set up request monitoring to track which domains tabs are making requests to
@@ -47,17 +65,31 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
       // Check if this request URL matches any of our rules
       const matchesRule = checkIfUrlMatchesAnyRule(normalizedUrl);
 
-      // Tab-telemetry probable-fire ingestion: for every request observed on
-      // a tracked tab, attribute it to the specific DNR rules whose URL
-      // conditions match. Scriptable rules (inject/delay/body/mock) report
-      // their own fires via the CustomEvent bridge and are deliberately
-      // skipped here to avoid double-counting. Untracked tabs short-circuit.
-      if (matchesRule && isTabTracked(details.tabId)) {
-        const matchingRules = matchRulesToRequest(normalizedUrl);
-        const t = Date.now();
-        for (const r of matchingRules) {
-          if (DNR_RULE_TYPES.has(r.type)) {
-            recordDnrMatch(details.tabId, r.uid, normalizedUrl, t);
+      // Tab-telemetry ingestion for tracked tabs. Two separate concerns:
+      //
+      //   1. Main-frame chain tracking: start a chain for every main-frame
+      //      request regardless of match, so if a redirect pushes it through
+      //      a matching rule later we can still attribute the fire to the
+      //      eventually-committed destination page.
+      //   2. Observed-fire recording: for every matching rule, record the
+      //      fire with this request's requestId. tab-telemetry dedupes by
+      //      (ruleUid, requestId) so redirects don't double-count. No rule
+      //      type whitelist — every enabled rule whose URL conditions match
+      //      contributes a probable fire.
+      if (isTabTracked(details.tabId)) {
+        if (details.type === 'main_frame') {
+          onMainFrameRequest(details.tabId, details.requestId, normalizedUrl);
+        }
+        if (matchesRule) {
+          const arbitrated = arbitrate(matchRulesToRequest(normalizedUrl));
+          const t = Date.now();
+          for (const r of arbitrated) {
+            recordObservedFire(details.tabId, r.uid, normalizedUrl, details.requestId, t, {
+              resourceType: details.type as TrackedResourceType,
+              pattern: r.pattern,
+              deferred: r.deferred,
+              shadowedBy: r.shadowedBy,
+            });
           }
         }
       }
@@ -114,6 +146,12 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
   if (webRequestAPI.onErrorOccurred) {
     webRequestAPI.onErrorOccurred.addListener(
       (details: chrome.webRequest.OnErrorOccurredDetails) => {
+        // Release the main-frame chain slot so it doesn't leak into
+        // tab-telemetry's state.
+        if (details.type === 'main_frame') {
+          onMainFrameError(details.tabId, details.requestId);
+        }
+
         const pending = pendingRequests.get(details.requestId);
 
         if (pending) {
@@ -203,25 +241,42 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
     );
   }
 
-  // Monitor redirects to update tracking
+  // Monitor redirects to update tracking + extend the main-frame chain
   if (webRequestAPI.onBeforeRedirect) {
     webRequestAPI.onBeforeRedirect.addListener(
       ((details: chrome.webRequest.OnBeforeRedirectDetails) => {
         if (details.tabId === -1) return;
 
-        // Skip non-trackable URLs
-        if (!isTrackableUrl(details.redirectUrl)) {
-          return;
-        }
+        if (!isTrackableUrl(details.redirectUrl)) return;
 
         const normalizedRedirectUrl = normalizeUrlForTracking(details.redirectUrl);
 
-        // Check if the redirect URL matches any rules
+        // Extend the main-frame chain so when the final URL commits we can
+        // recognize it as the same navigation and promote pending fires.
+        if (details.type === 'main_frame' && isTabTracked(details.tabId)) {
+          onMainFrameRedirect(details.tabId, details.requestId, normalizedRedirectUrl);
+        }
+
         const matchesRule = checkIfUrlMatchesAnyRule(normalizedRedirectUrl);
+
+        // Record any rule matches on the redirected URL so telemetry
+        // captures fires that happen past the initial redirect hop.
+        if (matchesRule && isTabTracked(details.tabId)) {
+          const arbitrated = arbitrate(matchRulesToRequest(normalizedRedirectUrl));
+          const t = Date.now();
+          for (const r of arbitrated) {
+            recordObservedFire(details.tabId, r.uid, normalizedRedirectUrl, details.requestId, t, {
+              resourceType: details.type as TrackedResourceType,
+              pattern: r.pattern,
+              deferred: r.deferred,
+              shadowedBy: r.shadowedBy,
+            });
+          }
+        }
+
         if (matchesRule) {
           addTrackedUrl(details.tabId, normalizedRedirectUrl, details.type as TrackedResourceType);
 
-          // Update badge if active tab
           tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
             if (tabsList[0] && tabsList[0].id === details.tabId) {
               updateBadgeCallback();
@@ -229,7 +284,6 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
           });
         }
 
-        // Update pending request with new URL and header status
         const pending = pendingRequests.get(details.requestId);
         if (pending) {
           pending.url = normalizedRedirectUrl;

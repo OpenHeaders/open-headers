@@ -49,19 +49,16 @@ export interface TrackedResource {
   resourceType: TrackedResourceType;
 }
 
-/** Active rule entry returned by getActiveRulesForTab */
-export interface MatchedRequest {
-  url: string;
-  pattern: string;
-  timestamp: number;
-  resourceType: TrackedResourceType;
-}
-
+/**
+ * Applicable rule returned by `getActiveRulesForTab`. "Applicable" means the
+ * rule's URL conditions would match either the current tab URL or a
+ * previously-tracked sub-resource URL. Per-request firings live in
+ * tab-telemetry (keyed by rule uid) and are joined in the popup — not
+ * attached here.
+ */
 export interface ActiveRule {
   id: string;
   key: string;
-  matchType: 'direct' | 'indirect';
-  matchedUrls: MatchedRequest[];
   name: string;
   ruleType: string;
   summary: string;

@@ -3,6 +3,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
@@ -26,7 +27,7 @@ import {
   toggleLocalRule,
   updateLocalRule,
 } from './rule-store';
-import { type FireKind, getTabSnapshot, recordScriptFire } from './tab-telemetry';
+import { getTabSnapshot, recordScriptableFire } from './tab-telemetry';
 import {
   addTemplate,
   addTemplateToCollection,
@@ -47,6 +48,22 @@ import {
 import { deleteStoredSession, getStoredSession, listStoredSessions, startSession, type TestScope } from './test-runner';
 
 const browserAPI = { runtime: browserRuntime };
+
+/**
+ * Find the first URL-condition pattern on `ruleUid` that matches `url`.
+ * Used to enrich scriptable fire events with the specific pattern that
+ * matched, so the popup's expand panel can highlight it. Returns undefined
+ * if the rule is gone or no pattern matches — the caller should fall back
+ * to a wildcard display value.
+ */
+function findMatchingPattern(ruleUid: string, url: string): string | undefined {
+  const rule = getRules().find((r) => r.uid === ruleUid);
+  if (!rule) return undefined;
+  for (const entry of getRuleMatchPatterns(rule)) {
+    if (doesUrlMatchEntry(url, entry)) return entry.pattern;
+  }
+  return undefined;
+}
 
 function createSafeResponse(sendResponse: SendResponse): SendResponse {
   return (data: unknown) => {
@@ -226,7 +243,7 @@ export function handleGeneralMessage(
       safeResponse({ success });
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);
-      safeResponse({ activeRules: result.activeRules, uniqueRequestCount: result.uniqueRequestCount });
+      safeResponse({ activeRules: result.activeRules });
     } else if (message.type === 'startTestSession') {
       // Launch a test session and resolve with the final result once the
       // capture window closes. Kept async so the popup can stay open and
@@ -240,28 +257,30 @@ export function handleGeneralMessage(
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'getTabTelemetry') {
-      // Read-path for the popup's live fire counts. Returns fire counters
-      // per rule uid for the given tab. Empty snapshot for untracked tabs.
+      // Read-path for the popup's live fire data. Returns the full telemetry
+      // snapshot for the given tab — counters, chronological fires, per-rule
+      // unique URL records, and a cross-rule unique request count. The popup
+      // composes this with `getActiveRulesForTab` (applicable rules) to
+      // render the This Page tab. Empty snapshot for untracked tabs.
       const tabId = message.tabId as number;
       const snap = getTabSnapshot(tabId);
-      safeResponse({ counters: snap.counters });
+      safeResponse(snap);
     } else if (message.type === 'tabFire') {
       // Fire event forwarded from the always-on ISOLATED fire-bridge content
-      // script. Routes into tab-telemetry, which drops on the floor for any
-      // tab that is not currently being tracked by a consumer.
+      // script. Always a scriptable fire — the in-page injection reported
+      // the match itself. Routes into tab-telemetry with enriched metadata
+      // (pattern + resource type) so the popup's expand panel can highlight
+      // which condition matched. The in-page wrapper only fires for
+      // fetch/XHR calls, so resource type is hardcoded to 'xmlhttprequest'.
+      // tab-telemetry drops fires for any tab that is not currently tracked.
       const tabId = _sender.tab?.id;
       if (typeof tabId === 'number') {
-        logger.info(
-          'TabFire',
-          `tab ${tabId} ${message.kind as string} ${message.ruleUid as string} ${message.url as string}`,
-        );
-        recordScriptFire(
-          tabId,
-          message.ruleUid as string,
-          message.url as string,
-          message.kind as FireKind,
-          message.t as number,
-        );
+        const ruleUid = message.ruleUid as string;
+        const url = message.url as string;
+        const t = message.t as number;
+        logger.info('TabFire', `tab ${tabId} scriptable ${ruleUid} ${url}`);
+        const pattern = findMatchingPattern(ruleUid, url) ?? '*';
+        recordScriptableFire(tabId, ruleUid, url, t, { pattern, resourceType: 'xmlhttprequest' });
       }
       safeResponse({ success: true });
     } else if (message.type === 'listTestSessions') {

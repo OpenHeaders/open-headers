@@ -15,7 +15,7 @@ import {
 } from '@openheaders/core/utils';
 import { tabs } from '@utils/browser-api';
 import { sendMessageWithCallback } from '@utils/messaging';
-import type { ActiveRule, MatchedRequest, TrackedResource, TrackedResourceType } from '@/types/browser';
+import type { ActiveRule, TrackedResource, TrackedResourceType } from '@/types/browser';
 import { getRules } from './rule-store';
 import {
   clearPatternCache,
@@ -39,7 +39,6 @@ function doesUrlMatchEntry(url: string, entry: MatchPattern): boolean {
   }
   return coreDoesUrlMatchEntry(url, entry);
 }
-
 
 // ── Tracked state ─────────────────────────────────────────────────
 
@@ -97,21 +96,80 @@ export function checkIfUrlMatchesAnyRule(url: string): boolean {
 }
 
 /**
+ * A single rule that matched a request — the minimum info request-monitor
+ * needs to drive tab-telemetry ingestion AND shadow arbitration.
+ */
+export interface MatchingRule {
+  uid: string;
+  name: string;
+  type: V5.Rule['type'];
+  pattern: string;
+  /**
+   * True when the rule has a scriptable channel that *might* emit a fire
+   * via the in-page fire-bridge. Gates the 500ms fallback buffer in
+   * tab-telemetry. See `computeDeferred` below for the per-type rules —
+   * notably, header rules are only deferred when they have `merge`
+   * operations, because plain override/set/remove operations run through
+   * pure DNR and never emit a scriptable fire.
+   */
+  deferred: boolean;
+}
+
+/**
+ * Decide whether a specific rule instance can emit a scriptable fire. This
+ * is per-rule, not per-type, because `header` rules are split: merge-type
+ * operations flow through the MAIN-world fire-bridge, but plain
+ * override/set/remove operations stay pure DNR. Passing the wrong flag
+ * would strand plain header rules in the fallback buffer and surface them
+ * as `matched-fallback` evidence, which is factually wrong.
+ */
+function computeDeferred(rule: V5.Rule): boolean {
+  switch (rule.type) {
+    case 'delay':
+    case 'body':
+    case 'mock':
+    case 'inject':
+      return true;
+    case 'header':
+      return hasHeaderMergeAction(rule);
+    default:
+      return false;
+  }
+}
+
+function hasHeaderMergeAction(rule: V5.HeaderRule): boolean {
+  const req = rule.action.requestHeaders ?? [];
+  const res = rule.action.responseHeaders ?? [];
+  for (const h of req) if (h.operation === 'merge') return true;
+  for (const h of res) if (h.operation === 'merge') return true;
+  return false;
+}
+
+/**
  * Return every enabled, complete rule whose URL conditions match this URL.
  * Used by the tab-telemetry ingestion path in request-monitor to attribute
- * each observed request to the specific rule uids that would have matched,
- * for DNR probable-fire counts. The result is shallow `{uid, type}` — no
- * action detail — so callers can filter by rule type without loading the
- * full rule object.
+ * each observed request to the specific rule uids that would have matched.
+ * The `pattern` field is the literal pattern string from the first matching
+ * condition — callers pass it through to tab-telemetry so the expand panel
+ * can highlight which condition matched. `name` is included so shadow
+ * arbitration can surface the shadowing rule's name in tooltips. `deferred`
+ * is computed per-rule so header rules without merge operations don't end
+ * up stranded in the scriptable fallback buffer.
  */
-export function matchRulesToRequest(url: string): Array<{ uid: string; type: V5.Rule['type'] }> {
+export function matchRulesToRequest(url: string): MatchingRule[] {
   const normalizedUrl = normalizeUrlForTracking(url);
-  const out: Array<{ uid: string; type: V5.Rule['type'] }> = [];
+  const out: MatchingRule[] = [];
   for (const rule of getRules()) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
     for (const entry of getRuleMatchPatterns(rule)) {
       if (doesUrlMatchEntry(normalizedUrl, entry)) {
-        out.push({ uid: rule.uid, type: rule.type });
+        out.push({
+          uid: rule.uid,
+          name: rule.name,
+          type: rule.type,
+          pattern: entry.pattern,
+          deferred: computeDeferred(rule),
+        });
         break;
       }
     }
@@ -121,16 +179,21 @@ export function matchRulesToRequest(url: string): Array<{ uid: string; type: V5.
 
 export interface ActiveRulesResult {
   activeRules: ActiveRule[];
-  uniqueRequestCount: number;
 }
 
 /**
- * Get all matching rules for a specific tab (direct and indirect matches).
+ * Get all rules applicable to a specific tab — rules whose URL conditions
+ * match either the tab URL itself or a previously-tracked sub-resource URL.
  * Returns both enabled and disabled rules so the popup can show toggles.
+ *
+ * Per-request firing data (counts, unique URLs, evidence tier) is NOT
+ * returned here — the popup reads it separately from tab-telemetry via
+ * `getTabTelemetry`. This module is only responsible for deciding which
+ * rules are applicable to a given page.
  */
 export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string): ActiveRulesResult {
   if (!tabUrl || !isTrackableUrl(tabUrl)) {
-    return { activeRules: [], uniqueRequestCount: 0 };
+    return { activeRules: [] };
   }
 
   const trackedResources: Map<string, TrackedResource> = new Map();
@@ -141,47 +204,40 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   }
 
   const activeRules: ActiveRule[] = [];
-  const now = Date.now();
   const rules = getRules();
 
   const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'mock']);
+
+  const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
 
   for (const rule of rules) {
     if (!extensionTypes.has(rule.type)) continue;
     if (!isRuleComplete(rule)) continue;
 
     const patterns = getRuleMatchPatterns(rule);
-    let matchType: 'direct' | 'indirect' | null = null;
-    const matchedUrls: MatchedRequest[] = [];
-    const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
+    let isApplicable = false;
 
     for (const entry of patterns) {
       if (doesUrlMatchEntry(normalizedTabUrl, entry)) {
-        matchType = 'direct';
-        matchedUrls.push({ url: tabUrl, pattern: entry.pattern, timestamp: now, resourceType: 'main_frame' });
+        isApplicable = true;
         break;
       }
     }
 
-    if (trackedResources.size > 0) {
-      for (const [resourceUrl, res] of trackedResources) {
+    if (!isApplicable && trackedResources.size > 0) {
+      for (const resourceUrl of trackedResources.keys()) {
         const normalizedResUrl = normalizeUrlForTracking(resourceUrl);
         for (const entry of patterns) {
           if (doesUrlMatchEntry(normalizedResUrl, entry)) {
-            matchedUrls.push({
-              url: resourceUrl,
-              pattern: entry.pattern,
-              timestamp: res.timestamp,
-              resourceType: res.resourceType,
-            });
-            if (!matchType) matchType = 'indirect';
+            isApplicable = true;
             break;
           }
         }
+        if (isApplicable) break;
       }
     }
 
-    if (matchType) {
+    if (isApplicable) {
       const detail = getActionDetail(rule);
       const domains = rule.conditions
         .filter((c) => c.type === 'request-domains')
@@ -190,8 +246,6 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
       activeRules.push({
         id: rule.uid,
         key: rule.uid,
-        matchType,
-        matchedUrls,
         name: rule.name,
         ruleType: rule.type,
         summary: detail.label ? `${detail.label}: ${detail.value}` : detail.value || detail.tooltip,
@@ -208,14 +262,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     }
   }
 
-  const uniqueRequests = new Set<string>();
-  for (const rule of activeRules) {
-    for (const m of rule.matchedUrls) {
-      uniqueRequests.add(`${m.url}\0${m.timestamp}`);
-    }
-  }
-
-  return { activeRules, uniqueRequestCount: uniqueRequests.size };
+  return { activeRules };
 }
 
 // ── Revalidation ──────────────────────────────────────────────────

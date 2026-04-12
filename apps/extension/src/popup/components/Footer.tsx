@@ -1,6 +1,7 @@
 import {
   AppstoreOutlined,
   EditOutlined,
+  ExperimentOutlined,
   FileTextOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
@@ -44,6 +45,7 @@ const Footer: React.FC = () => {
   const [optionsTooltipOpen, setOptionsTooltipOpen] = useState(false);
   const [optionsDropdownOpen, setOptionsDropdownOpen] = useState(false);
   const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useState(false);
+  const [shadowDetection, setShadowDetection] = useState(false);
   const { message } = App.useApp();
   const appLauncher = getAppLauncher();
 
@@ -73,21 +75,25 @@ const Footer: React.FC = () => {
 
   useEffect(() => {
     const browserAPI = getBrowserAPI();
-    browserAPI.storage.sync.get(['useRecordingWidget', 'isRulesExecutionPaused'], (result: Record<string, unknown>) => {
-      if (browserAPI.runtime.lastError) {
-        console.error(
-          new Date().toISOString(),
-          'ERROR',
-          '[Footer]',
-          'Error loading preferences:',
-          browserAPI.runtime.lastError,
-        );
-        return;
-      }
-      if (result.useRecordingWidget !== undefined) setUseWidget(result.useRecordingWidget as boolean);
-      if (result.isRulesExecutionPaused !== undefined)
-        setIsRulesExecutionPaused(result.isRulesExecutionPaused as boolean);
-    });
+    browserAPI.storage.sync.get(
+      ['useRecordingWidget', 'isRulesExecutionPaused', 'ohShadowDetection'],
+      (result: Record<string, unknown>) => {
+        if (browserAPI.runtime.lastError) {
+          console.error(
+            new Date().toISOString(),
+            'ERROR',
+            '[Footer]',
+            'Error loading preferences:',
+            browserAPI.runtime.lastError,
+          );
+          return;
+        }
+        if (result.useRecordingWidget !== undefined) setUseWidget(result.useRecordingWidget as boolean);
+        if (result.isRulesExecutionPaused !== undefined)
+          setIsRulesExecutionPaused(result.isRulesExecutionPaused as boolean);
+        if (result.ohShadowDetection !== undefined) setShadowDetection(Boolean(result.ohShadowDetection));
+      },
+    );
     void checkVideoRecordingState();
     void checkRecordingHotkey();
 
@@ -128,6 +134,22 @@ const Footer: React.FC = () => {
           'Error saving widget preference:',
           browserAPI.runtime.lastError,
         );
+    });
+  };
+
+  const handleShadowDetectionToggle = (checked: boolean) => {
+    setShadowDetection(checked);
+    const browserAPI = getBrowserAPI();
+    browserAPI.storage.sync.set({ ohShadowDetection: checked }, () => {
+      if (browserAPI.runtime.lastError) {
+        console.error(
+          new Date().toISOString(),
+          'ERROR',
+          '[Footer]',
+          'Error saving shadow detection preference:',
+          browserAPI.runtime.lastError,
+        );
+      }
     });
   };
 
@@ -423,6 +445,40 @@ const Footer: React.FC = () => {
               onChange={handleVideoRecordingToggle}
             />
           </Tooltip>
+        </div>
+      ),
+    },
+    { key: 'divider2', type: 'divider' as const },
+    {
+      key: 'experimental-label',
+      label: (
+        <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
+          EXPERIMENTAL
+        </Text>
+      ),
+      disabled: true,
+    },
+    {
+      key: 'shadow-detection',
+      label: (
+        // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation prevents menu close
+        // biome-ignore lint/a11y/useKeyWithClickEvents: not a true interactive element
+        <div
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: '270px' }}
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        >
+          <Tooltip
+            title="Highlight rules whose matched requests are terminated by a higher-priority block rule. Experimental — the arbitrator is approximate and may over- or under-report. Help us improve it by reporting false positives."
+            placement="top"
+            styles={{ root: { maxWidth: 360 } }}
+          >
+            <Space>
+              <ExperimentOutlined />
+              <span>Shadow detection</span>
+              <InfoCircleOutlined style={{ fontSize: '12px', color: token.colorTextSecondary }} />
+            </Space>
+          </Tooltip>
+          <Switch size="small" checked={shadowDetection} onChange={handleShadowDetectionToggle} />
         </div>
       ),
     },

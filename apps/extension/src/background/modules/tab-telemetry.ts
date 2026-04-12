@@ -1,94 +1,231 @@
 /**
- * Tab Telemetry — the single source of truth for "which V5 rules fired on tab X".
+ * Tab Telemetry — single source of truth for per-tab rule-match data.
  *
- * Push-only architecture. Two ingestion paths, both asynchronous to the caller:
+ * Owns every piece of state the popup's "This Page" view renders: per-rule
+ * event counters, per-rule unique-URL maps, and a bounded chronological fire
+ * log. Consumers (popup, test-runner) read one snapshot; there is no parallel
+ * `matchedUrls` store in request-tracker anymore.
  *
- *   1. **Scriptable fires** (ground truth): generated delay/body/mock/header-merge
- *      scripts dispatch `oh:fire` CustomEvents. An always-on ISOLATED content
- *      script forwards them via chrome.runtime.sendMessage, which routes into
- *      `recordScriptFire`.
+ * ── Data model ─────────────────────────────────────────────────────
  *
- *   2. **DNR probable-fires** (approximation): the request-monitor webRequest
- *      listener runs observed requests through the same matcher used by
- *      `getActiveRulesForTab` and calls `recordDnrMatch` for each matching
- *      (rule, request) pair on tracked tabs. This does NOT use
- *      `chrome.declarativeNetRequest.getMatchedRules`, which is hard-quota'd
- *      at 20 calls/10min in production and unusable for continuous telemetry.
- *      The tradeoff is that a rule shadowed by a higher-priority rule counts
- *      here even though DNR never actually ran it. We label DNR counts as
- *      "matched" rather than "fired" in the UI to be honest about this.
+ * Each tracked tab holds:
  *
- * A tab is "tracked" iff at least one consumer has registered a tracking
- * reason for it. Reasons stack — when the last reason is removed, the tab's
- * fire state is dropped. When no tab is tracked, record* calls are no-ops,
- * so the background cost is ~zero.
+ *   - `counters`          — events per rule. Every non-dropped fire increments.
+ *                           Used by the popup tag.
+ *   - `uniquesByRule`     — Map<ruleUid, Map<normalizedUrl, RequestRecord>>.
+ *                           LRU-capped at MAX_UNIQUE_URLS_PER_RULE per rule.
+ *                           Powers the expand badge and nested-table rows.
+ *                           On re-observation, the record is re-inserted at
+ *                           the tail and evidence may be upgraded.
+ *   - `fires`             — chronological ring buffer (MAX_FIRES_PER_TAB).
+ *                           Kept for test-runner's session result payload.
+ *   - `mainFrameChains`   — per-requestId main-frame navigation chains used
+ *                           to attribute pre-commit fires to the right page.
+ *   - `pendingFires`      — observed main-frame fires awaiting commit.
+ *   - `pendingFallback`   — observed sub-resource fires for rule types that
+ *                           *might* also emit a scriptable fire. Buffered for
+ *                           FALLBACK_WINDOW_MS, then either drained by a
+ *                           matching scriptable fire (scriptable wins) or
+ *                           promoted as evidence='matched-fallback'.
+ *   - `recentScriptable`  — per-key suppression window so a late observed
+ *                           fire doesn't double-count after scriptable wins.
+ *   - `seen`              — (ruleUid, requestId) dedup for observed fires,
+ *                           so redirect re-observation doesn't inflate counts.
  *
- * Fires for untracked tabs are dropped on the floor. This is intentional:
- * telemetry should only exist while someone is reading it.
+ * ── Evidence tiers ─────────────────────────────────────────────────
  *
- * Storage is in-memory and ephemeral. MV3 service worker eviction loses the
- * state — consumers that need durability (e.g. test sessions) must persist
- * their own snapshot at session end.
+ *   - `confirmed`       — fire-bridge reported from the in-page MAIN world.
+ *                         Ground truth for the scriptable action having run.
+ *   - `matched`         — webRequest observed a URL that satisfies the rule's
+ *                         conditions. For pure DNR rules this is the best
+ *                         evidence available (Chrome does not tell extensions
+ *                         which rule wins arbitration in production).
+ *   - `matched-fallback` — same as `matched`, but for a rule type that *could*
+ *                         have emitted a scriptable fire and didn't within
+ *                         FALLBACK_WINDOW_MS. Signals that the scriptable
+ *                         reporter was unavailable (e.g. strict-CSP site
+ *                         blocked the MAIN-world injection).
+ *
+ * ── Page-context attribution ───────────────────────────────────────
+ *
+ * `onPageCommit` is the atomic page swap. It promotes pending main-frame
+ * fires whose requestId leads to the committed URL and drops everything else.
+ * See the comment on `onPageCommit` for the delay-chain handling.
  */
+
+import type { TrackedResourceType } from '@/types/browser';
+
+// ── Tunables ────────────────────────────────────────────────────────
+
+/** Ring buffer cap for the chronological fire log. Counters keep growing past this. */
+const MAX_FIRES_PER_TAB = 1000;
+
+/**
+ * Soft cap on unique URLs tracked per rule per tab. LRU eviction — on overflow,
+ * the oldest entry by last-touch order is dropped. A long-lived SPA hitting a
+ * REST API with path parameters can easily accumulate thousands of unique
+ * URLs for one rule; 10k covers any reasonable debugging session without
+ * pathological memory growth. Tune here if needed.
+ */
+const MAX_UNIQUE_URLS_PER_RULE = 10_000;
+
+/**
+ * Buffer window for observed fires of "deferred" rule types (types that might
+ * also emit a scriptable fire). Within this window:
+ *   - a matching scriptable fire drains the buffer (scriptable wins, no count)
+ *   - a late observed fire is suppressed if a scriptable already won
+ *   - if neither happens, the observed fire is promoted as 'matched-fallback'
+ * 500ms is the smallest value that comfortably covers the MAIN→ISOLATED
+ * postMessage + runtime.sendMessage hops on slow pages.
+ */
+const FALLBACK_WINDOW_MS = 500;
+
+// ── Public types ────────────────────────────────────────────────────
+
+/** Tier of evidence for a rule firing on a request. */
+export type Evidence = 'confirmed' | 'matched' | 'matched-fallback';
+
+/** One observation of a rule firing on a specific URL. */
+export interface RequestRecord {
+  ruleUid: string;
+  url: string;
+  pattern: string;
+  resourceType: TrackedResourceType;
+  /** Wall-clock timestamp in ms. */
+  t: number;
+  evidence: Evidence;
+  /**
+   * Set when shadow arbitration (see shadow-arbitration.ts) determined that
+   * a higher-priority rule terminated this request before the current rule
+   * could run. Populated at ingestion time from `ObservedFireMeta`; never
+   * set on scriptable fires (they're ground truth about what actually ran).
+   */
+  shadowedBy?: { uid: string; name: string };
+}
+
+/** Metadata the caller supplies when reporting an observed (webRequest) fire. */
+export interface ObservedFireMeta {
+  resourceType: TrackedResourceType;
+  pattern: string;
+  /**
+   * True if the rule's type can *also* emit a scriptable fire (delay, body,
+   * mock, inject, header with header-merge). Gates the 500ms buffer. Pure DNR
+   * types (block, redirect, query-param, plain header) pass false and are
+   * recorded immediately.
+   */
+  deferred: boolean;
+  /**
+   * Shadow arbitration result for this rule on this request. Propagated
+   * into `RequestRecord.shadowedBy` verbatim. Omit to signal "our arbitrator
+   * has no confident claim about this rule's fate" — the UI treats that as
+   * unshadowed, the same as when the experimental flag is off.
+   */
+  shadowedBy?: { uid: string; name: string };
+}
+
+/** Metadata the caller supplies when reporting a scriptable (fire-bridge) fire. */
+export interface ScriptableFireMeta {
+  pattern: string;
+  resourceType: TrackedResourceType;
+}
+
+/** Per-tab telemetry snapshot returned to consumers. */
+export interface TabTelemetrySnapshot {
+  /** Per-rule event counters — every non-dropped fire increments. */
+  counters: Record<string, number>;
+  /** Chronological fire log (newest last). Bounded. */
+  fires: RequestRecord[];
+  /** Per-rule unique-URL records, LRU order (oldest first). */
+  byRule: Record<string, RequestRecord[]>;
+  /** Unique normalized URLs across all rules. */
+  uniqueRequestCount: number;
+}
 
 export type TrackingReason = string;
 
-/** Rule fire source kinds. Mirrors TestFireEvent['kind'] from the old test-runner. */
-export type FireKind = 'dnr' | 'delay' | 'body' | 'mock' | 'inject' | 'header-merge';
+// ── Internal state ──────────────────────────────────────────────────
 
-export interface FireRecord {
-  ruleUid: string;
-  url: string;
-  kind: FireKind;
-  /** Wall-clock timestamp in ms. */
-  t: number;
+interface PendingFire {
+  requestId: string;
+  record: RequestRecord;
 }
 
-interface TabFireState {
-  /** Consumers currently tracking this tab. Empty set = clear the whole entry. */
+interface MainFrameChain {
+  requestId: string;
+  urls: Set<string>;
+}
+
+interface PendingFallback {
+  record: RequestRecord;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+interface TabState {
   reasons: Set<TrackingReason>;
-  /** Chronological fire log, capped at MAX_FIRES_PER_TAB (ring buffer semantics). */
-  fires: FireRecord[];
-  /** Uncapped per-rule counters — survive even after ring-buffer drop. */
+  currentPageUrl: string | null;
+  fires: RequestRecord[];
   counters: Map<string, number>;
-  /** Dedup key set for DNR matches: `${ruleUid}:${url}:${t}` — avoids double-count on redirects. */
-  dnrSeen: Set<string>;
+  uniquesByRule: Map<string, Map<string, RequestRecord>>;
+  pendingFires: PendingFire[];
+  mainFrameChains: Map<string, MainFrameChain>;
+  pendingFallback: Map<string, PendingFallback>;
+  /** Map<`${uid}:${normalizedUrl}`, expiryMs>. Suppresses late observed fires. */
+  recentScriptable: Map<string, number>;
+  /** `${uid}:${requestId}` — observed-fire dedup across redirect chains. */
+  seen: Set<string>;
 }
 
-/** Ring buffer cap for per-tab fire log. Counters keep going past this. */
-const MAX_FIRES_PER_TAB = 1000;
+const tabs: Map<number, TabState> = new Map();
 
-const tabs: Map<number, TabFireState> = new Map();
+function emptyState(): TabState {
+  return {
+    reasons: new Set(),
+    currentPageUrl: null,
+    fires: [],
+    counters: new Map(),
+    uniquesByRule: new Map(),
+    pendingFires: [],
+    mainFrameChains: new Map(),
+    pendingFallback: new Map(),
+    recentScriptable: new Map(),
+    seen: new Set(),
+  };
+}
+
+function normalizeForAttribution(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return url;
+    // Strip the fragment — Chrome drops it from DNR matching and we don't
+    // want `/page#a` vs `/page#b` treated as different URLs.
+    u.hash = '';
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function fallbackKey(ruleUid: string, normalizedUrl: string): string {
+  return `${ruleUid}:${normalizedUrl}`;
+}
 
 // ── Tracking lifecycle ──────────────────────────────────────────────
 
-/**
- * Register a reason for tracking `tabId`. First reason creates the fire
- * state. Idempotent — calling with an existing reason is a no-op.
- */
 export function startTracking(tabId: number, reason: TrackingReason): void {
   let state = tabs.get(tabId);
   if (!state) {
-    state = {
-      reasons: new Set(),
-      fires: [],
-      counters: new Map(),
-      dnrSeen: new Set(),
-    };
+    state = emptyState();
     tabs.set(tabId, state);
   }
   state.reasons.add(reason);
 }
 
-/**
- * Remove a reason for tracking `tabId`. If the last reason is removed, the
- * tab's entire fire state is discarded. Idempotent.
- */
 export function stopTracking(tabId: number, reason: TrackingReason): void {
   const state = tabs.get(tabId);
   if (!state) return;
   state.reasons.delete(reason);
   if (state.reasons.size === 0) {
+    disposeTab(state);
     tabs.delete(tabId);
   }
 }
@@ -99,105 +236,369 @@ export function isTracked(tabId: number): boolean {
 
 /** Fully remove all state for a tab — used on tab close. */
 export function clearTab(tabId: number): void {
+  const state = tabs.get(tabId);
+  if (!state) return;
+  disposeTab(state);
   tabs.delete(tabId);
 }
 
-/**
- * Clear fires + counters on main-frame navigation, but keep tracking reasons.
- * Called from the tab-listeners navigation handler. Without this, fire counts
- * would bleed across page loads within the same tab.
- */
-export function resetForNavigation(tabId: number): void {
-  const state = tabs.get(tabId);
-  if (!state) return;
-  state.fires = [];
-  state.counters.clear();
-  state.dnrSeen.clear();
+function disposeTab(state: TabState): void {
+  for (const entry of state.pendingFallback.values()) {
+    clearTimeout(entry.timer);
+  }
+  state.pendingFallback.clear();
 }
 
 // ── Fire ingestion ──────────────────────────────────────────────────
 
-function appendFire(state: TabFireState, record: FireRecord): void {
+function touchUnique(state: TabState, record: RequestRecord): void {
+  let byUrl = state.uniquesByRule.get(record.ruleUid);
+  if (!byUrl) {
+    byUrl = new Map();
+    state.uniquesByRule.set(record.ruleUid, byUrl);
+  }
+  const key = normalizeForAttribution(record.url);
+  if (byUrl.has(key)) {
+    // Re-insert to move to the tail of the LRU ordering. Upgrade evidence
+    // to the highest tier we've seen for this (rule, url) pair.
+    const existing = byUrl.get(key)!;
+    const upgraded: RequestRecord = { ...record, evidence: upgradeEvidence(existing.evidence, record.evidence) };
+    byUrl.delete(key);
+    byUrl.set(key, upgraded);
+    return;
+  }
+  byUrl.set(key, record);
+  if (byUrl.size > MAX_UNIQUE_URLS_PER_RULE) {
+    const oldest = byUrl.keys().next().value;
+    if (oldest !== undefined) byUrl.delete(oldest);
+  }
+}
+
+function upgradeEvidence(a: Evidence, b: Evidence): Evidence {
+  // Ordering: confirmed > matched > matched-fallback.
+  const rank: Record<Evidence, number> = { confirmed: 2, matched: 1, 'matched-fallback': 0 };
+  return rank[a] >= rank[b] ? a : b;
+}
+
+function appendFire(state: TabState, record: RequestRecord): void {
   state.fires.push(record);
   if (state.fires.length > MAX_FIRES_PER_TAB) {
     state.fires.shift();
   }
   state.counters.set(record.ruleUid, (state.counters.get(record.ruleUid) ?? 0) + 1);
+  touchUnique(state, record);
+}
+
+function isScriptableSuppressed(state: TabState, key: string, now: number): boolean {
+  const expiry = state.recentScriptable.get(key);
+  if (expiry === undefined) return false;
+  if (expiry <= now) {
+    state.recentScriptable.delete(key);
+    return false;
+  }
+  return true;
 }
 
 /**
- * Record a scriptable fire from a generated delay/body/mock/header-merge script.
- * No-op for untracked tabs. Called from the message handler when a `tabFire`
- * message arrives from the ISOLATED-world fire bridge.
+ * Record an observed (webRequest) fire. Gate behavior:
+ *
+ *   - Main-frame requests are buffered in `pendingFires` until
+ *     `onPageCommit` lands with a matching requestId chain.
+ *   - Sub-resource requests for non-deferred rule types are appended
+ *     immediately with evidence='matched'.
+ *   - Sub-resource requests for deferred rule types (rule types that might
+ *     also emit a scriptable fire) are buffered for FALLBACK_WINDOW_MS. A
+ *     matching scriptable fire drains the buffer (scriptable wins, no count).
+ *     If the timer fires first, the record is promoted with
+ *     evidence='matched-fallback'.
+ *
+ * Deduped by `(ruleUid, requestId)` so redirect re-observation doesn't
+ * double-count. No-op for untracked tabs.
  */
-export function recordScriptFire(tabId: number, ruleUid: string, url: string, kind: FireKind, t: number): void {
+export function recordObservedFire(
+  tabId: number,
+  ruleUid: string,
+  url: string,
+  requestId: string,
+  t: number,
+  meta: ObservedFireMeta,
+): void {
   const state = tabs.get(tabId);
   if (!state) return;
-  appendFire(state, { ruleUid, url, kind, t });
+
+  const dedupKey = `${ruleUid}:${requestId}`;
+  if (state.seen.has(dedupKey)) return;
+  state.seen.add(dedupKey);
+
+  const record: RequestRecord = {
+    ruleUid,
+    url,
+    pattern: meta.pattern,
+    resourceType: meta.resourceType,
+    t,
+    evidence: 'matched',
+    ...(meta.shadowedBy ? { shadowedBy: meta.shadowedBy } : {}),
+  };
+
+  // Main-frame requests flow through the chain buffer. The 500ms fallback
+  // doesn't apply here — main-frame navigations are already gated by commit
+  // attribution, which is a much stronger signal than a wall-clock timer.
+  if (meta.resourceType === 'main_frame') {
+    state.pendingFires.push({ requestId, record });
+    return;
+  }
+
+  const normalized = normalizeForAttribution(url);
+  const key = fallbackKey(ruleUid, normalized);
+
+  // A scriptable fire already won for this (rule, url) — drop the observed.
+  if (isScriptableSuppressed(state, key, t)) return;
+
+  if (!meta.deferred) {
+    // Pure-DNR rule type — no scriptable channel exists for it. Record now.
+    appendFire(state, record);
+    return;
+  }
+
+  // Deferred path — buffer the observed fire for up to FALLBACK_WINDOW_MS.
+  // If a prior pending exists for the same key (unusual — same rule+URL
+  // observed twice in <500ms without a scriptable drain), replace it so the
+  // most recent record wins on promotion.
+  const prior = state.pendingFallback.get(key);
+  if (prior) clearTimeout(prior.timer);
+
+  const timer = setTimeout(() => {
+    const current = tabs.get(tabId);
+    if (!current) return;
+    const entry = current.pendingFallback.get(key);
+    if (!entry) return;
+    current.pendingFallback.delete(key);
+    appendFire(current, { ...entry.record, evidence: 'matched-fallback' });
+  }, FALLBACK_WINDOW_MS);
+
+  state.pendingFallback.set(key, { record, timer });
 }
 
 /**
- * Record a DNR probable-fire derived from webRequest matching. Deduped by
- * (ruleUid, url, t) to avoid double-counting redirects or other repeated
- * observations of the same underlying request. No-op for untracked tabs.
+ * Record a scriptable fire reported by the in-page fire-bridge. Always
+ * attributed to the current tab's page. If a matching observed fire is
+ * currently buffered in `pendingFallback`, the scriptable drains it so the
+ * same action isn't counted twice. A short suppression window is set so a
+ * late observed fire for the same (rule, url) within the window is also
+ * dropped. No-op for untracked tabs.
  */
-export function recordDnrMatch(tabId: number, ruleUid: string, url: string, t: number): void {
+export function recordScriptableFire(
+  tabId: number,
+  ruleUid: string,
+  url: string,
+  t: number,
+  meta: ScriptableFireMeta,
+): void {
   const state = tabs.get(tabId);
   if (!state) return;
-  const dedupKey = `${ruleUid}:${url}:${t}`;
-  if (state.dnrSeen.has(dedupKey)) return;
-  state.dnrSeen.add(dedupKey);
-  appendFire(state, { ruleUid, url, kind: 'dnr', t });
+
+  const normalized = normalizeForAttribution(url);
+  const key = fallbackKey(ruleUid, normalized);
+
+  // Drain any pending observed fallback for this key — scriptable is ground
+  // truth for the action, so the observed shadow doesn't count.
+  const pending = state.pendingFallback.get(key);
+  if (pending) {
+    clearTimeout(pending.timer);
+    state.pendingFallback.delete(key);
+  }
+
+  // Suppress any late observed fire for this key within the window.
+  state.recentScriptable.set(key, t + FALLBACK_WINDOW_MS);
+
+  const record: RequestRecord = {
+    ruleUid,
+    url,
+    pattern: meta.pattern,
+    resourceType: meta.resourceType,
+    t,
+    evidence: 'confirmed',
+  };
+  appendFire(state, record);
+}
+
+// ── Main-frame chain tracking ───────────────────────────────────────
+
+export function onMainFrameRequest(tabId: number, requestId: string, url: string): void {
+  const state = tabs.get(tabId);
+  if (!state) return;
+  state.mainFrameChains.set(requestId, { requestId, urls: new Set([normalizeForAttribution(url)]) });
+}
+
+export function onMainFrameRedirect(tabId: number, requestId: string, newUrl: string): void {
+  const state = tabs.get(tabId);
+  if (!state) return;
+  const chain = state.mainFrameChains.get(requestId);
+  if (!chain) return;
+  chain.urls.add(normalizeForAttribution(newUrl));
+}
+
+/**
+ * Extension page URL detection. Covers every MV3 browser we ship to:
+ *   - Chrome / Opera / Brave: `chrome-extension://`
+ *   - Edge: `extension://`
+ *   - Firefox: `moz-extension://`
+ *   - Safari: `safari-web-extension://`
+ */
+function isExtensionUrl(url: string): boolean {
+  return (
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('extension://') ||
+    url.startsWith('moz-extension://') ||
+    url.startsWith('safari-web-extension://')
+  );
+}
+
+/**
+ * Called from tab-listeners on webNavigation.onCommitted (main frame only).
+ *
+ * Atomic page swap:
+ *   - Identifies in-flight requestIds whose chain contains the committed URL
+ *     and promotes their `pendingFires` records into the current page's
+ *     state with evidence='matched'.
+ *   - Drops every other pending fire and resets the rest of page state
+ *     (uniquesByRule, counters, fires ring, scriptable suppression).
+ *
+ * **Extension URL commits are a special case.** Intermediate commits to
+ * chrome-extension:// pages (the delay.html page during the delay chain)
+ * are transient — the final user-visible destination is whatever the
+ * extension page navigates to next. Extension-URL commits reset the page
+ * as normal but do NOT promote pending fires — they're abandoned along
+ * with the previous page.
+ */
+export function onPageCommit(tabId: number, committedUrl: string): void {
+  const state = tabs.get(tabId);
+  if (!state) return;
+
+  const normalized = normalizeForAttribution(committedUrl);
+  const shouldPromote = !isExtensionUrl(normalized);
+
+  const matchingRequestIds = new Set<string>();
+  if (shouldPromote) {
+    for (const [requestId, chain] of state.mainFrameChains) {
+      if (chain.urls.has(normalized)) matchingRequestIds.add(requestId);
+    }
+  }
+
+  const promoted: PendingFire[] = shouldPromote
+    ? state.pendingFires.filter((f) => matchingRequestIds.has(f.requestId))
+    : [];
+
+  // Reset for the new page. Counters start fresh; the promoted fires
+  // seed the new page. Cancel any in-flight fallback timers — the old
+  // page's buffered observations are abandoned.
+  for (const entry of state.pendingFallback.values()) {
+    clearTimeout(entry.timer);
+  }
+  state.currentPageUrl = normalized;
+  state.fires = [];
+  state.counters.clear();
+  state.uniquesByRule.clear();
+  state.pendingFires = [];
+  state.mainFrameChains.clear();
+  state.pendingFallback.clear();
+  state.recentScriptable.clear();
+  state.seen.clear();
+
+  for (const p of promoted) {
+    appendFire(state, p.record);
+    state.seen.add(`${p.record.ruleUid}:${p.requestId}`);
+  }
+}
+
+/**
+ * Called when a main-frame navigation fails (onErrorOccurred) so we don't
+ * leak stale chain entries. Doesn't touch committed fires — the user's tab
+ * is still showing whatever was there before.
+ */
+export function onMainFrameError(tabId: number, requestId: string): void {
+  const state = tabs.get(tabId);
+  if (!state) return;
+  state.mainFrameChains.delete(requestId);
+  state.pendingFires = state.pendingFires.filter((f) => f.requestId !== requestId);
 }
 
 // ── Reads ───────────────────────────────────────────────────────────
 
-export interface TabTelemetrySnapshot {
-  /** Chronological fire log, capped at MAX_FIRES_PER_TAB. Most recent last. */
-  fires: FireRecord[];
-  /** Per-rule total counts — uncapped, accurate past the ring buffer. */
-  counters: Record<string, number>;
+/**
+ * Build an empty snapshot. Returned as a fresh object (not a shared frozen
+ * singleton) so callers that shallow-mutate the response — e.g. pushing
+ * into `fires` during unit tests — don't have to know whether they hit
+ * the tracked or untracked path.
+ */
+function emptySnapshot(): TabTelemetrySnapshot {
+  return { counters: {}, fires: [], byRule: {}, uniqueRequestCount: 0 };
 }
 
-/** Empty snapshot — returned for untracked tabs so consumers can render zero-state. */
-const EMPTY_SNAPSHOT: TabTelemetrySnapshot = Object.freeze({
-  fires: [] as FireRecord[],
-  counters: {} as Record<string, number>,
-});
-
+/**
+ * Full telemetry snapshot for a tab. Arrays and objects are shallow copies,
+ * safe for the caller to mutate without affecting internal state.
+ */
 export function getTabSnapshot(tabId: number): TabTelemetrySnapshot {
   const state = tabs.get(tabId);
-  if (!state) return EMPTY_SNAPSHOT;
+  if (!state) return emptySnapshot();
+
   const counters: Record<string, number> = {};
-  for (const [uid, count] of state.counters) {
-    counters[uid] = count;
+  for (const [uid, count] of state.counters) counters[uid] = count;
+
+  const byRule: Record<string, RequestRecord[]> = {};
+  const uniqueUrls = new Set<string>();
+  for (const [uid, urlMap] of state.uniquesByRule) {
+    const records: RequestRecord[] = [];
+    for (const [normalized, record] of urlMap) {
+      records.push(record);
+      uniqueUrls.add(normalized);
+    }
+    byRule[uid] = records;
   }
+
   return {
-    fires: [...state.fires],
     counters,
+    fires: [...state.fires],
+    byRule,
+    uniqueRequestCount: uniqueUrls.size,
   };
 }
 
 /**
- * Filtered snapshot — returns only fires and counters for the given rule uids.
- * Used by the test-runner when building TestSessionResult for a session's scope.
+ * Filtered snapshot — fires and counters limited to the given rule uids.
+ * Used by test-runner to build the result payload for a session.
  */
 export function getTabSnapshotForScope(tabId: number, scopeUids: Set<string>): TabTelemetrySnapshot {
   const state = tabs.get(tabId);
-  if (!state) return EMPTY_SNAPSHOT;
+  if (!state) return emptySnapshot();
+
   const fires = state.fires.filter((f) => scopeUids.has(f.ruleUid));
   const counters: Record<string, number> = {};
+  const byRule: Record<string, RequestRecord[]> = {};
+  const uniqueUrls = new Set<string>();
   for (const uid of scopeUids) {
     const count = state.counters.get(uid);
     if (count !== undefined) counters[uid] = count;
+    const urlMap = state.uniquesByRule.get(uid);
+    if (urlMap) {
+      const records: RequestRecord[] = [];
+      for (const [normalized, record] of urlMap) {
+        records.push(record);
+        uniqueUrls.add(normalized);
+      }
+      byRule[uid] = records;
+    }
   }
-  return { fires, counters };
+
+  return { counters, fires, byRule, uniqueRequestCount: uniqueUrls.size };
 }
 
 // ── Test helpers ────────────────────────────────────────────────────
 
-/** Reset all state — test-only. Not exported from the module index. */
+/** Reset all state — test-only. */
 export function __resetForTests(): void {
+  for (const state of tabs.values()) disposeTab(state);
   tabs.clear();
 }
 
@@ -207,5 +608,14 @@ export const __internals = {
   },
   get MAX_FIRES_PER_TAB(): number {
     return MAX_FIRES_PER_TAB;
+  },
+  get MAX_UNIQUE_URLS_PER_RULE(): number {
+    return MAX_UNIQUE_URLS_PER_RULE;
+  },
+  get FALLBACK_WINDOW_MS(): number {
+    return FALLBACK_WINDOW_MS;
+  },
+  getState(tabId: number): TabState | undefined {
+    return tabs.get(tabId);
   },
 };

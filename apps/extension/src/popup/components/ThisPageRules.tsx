@@ -77,16 +77,46 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   mock: 'Override API response (fetch/XHR)',
 };
 
-interface MatchedRequest {
+/**
+ * One observation of a rule firing on a request — mirrors the
+ * `RequestRecord` type exposed by the background's tab-telemetry module.
+ * The popup receives these inside a snapshot and joins them to the
+ * applicable-rules list at render time.
+ */
+interface RequestRecord {
+  ruleUid: string;
   url: string;
   pattern: string;
-  timestamp: number;
-  resourceType?: string;
+  resourceType: string;
+  t: number;
+  evidence: 'confirmed' | 'matched' | 'matched-fallback';
+  /**
+   * Populated by the background's shadow arbitrator when a higher-priority
+   * rule (currently: any matching `block` rule) would terminate the request
+   * before this rule could run. Phase 2 ships the popup render path behind
+   * an experimental setting so a wrong claim doesn't erode trust by default.
+   */
+  shadowedBy?: { uid: string; name: string };
 }
 
-interface MatchedRequestRecord extends MatchedRequest {
+interface TelemetrySnapshot {
+  counters: Record<string, number>;
+  fires: RequestRecord[];
+  byRule: Record<string, RequestRecord[]>;
+  uniqueRequestCount: number;
+}
+
+const EMPTY_SNAPSHOT: TelemetrySnapshot = {
+  counters: {},
+  fires: [],
+  byRule: {},
+  uniqueRequestCount: 0,
+};
+
+interface MatchedRequestRow extends RequestRecord {
   key: string;
-  type: 'direct' | 'resource';
+  /** True when the matched URL is the current tab URL (main-frame). */
+  isTabUrl: boolean;
 }
 
 /** Human-readable labels for resource types shown in the Match column. */
@@ -177,8 +207,6 @@ interface ActiveRule {
   isEnabled?: boolean;
   domains?: string[];
   path?: string;
-  matchType?: string;
-  matchedUrls?: MatchedRequest[];
 }
 
 interface CurrentTabInfo {
@@ -191,6 +219,20 @@ interface CurrentTabInfo {
 interface TableRecord extends ActiveRule {
   key: string | number;
   statusRank: number;
+  /** Total fire events for this rule on the current page (from counters). */
+  fireCount: number;
+  /** Unique-URL records for this rule, newest first. */
+  records: RequestRecord[];
+  /** Highest evidence tier present across `records`, or 'none' if empty. */
+  dominantEvidence: RequestRecord['evidence'] | 'none';
+  /**
+   * First shadower seen across this rule's records, or undefined if none are
+   * shadowed. Only rendered when the experimental shadow-detection setting
+   * is enabled; always computed so tooltips can reference it when flagged on.
+   */
+  dominantShadow?: { uid: string; name: string };
+  /** Number of shadowed records (out of `records.length`). */
+  shadowedCount: number;
 }
 
 /**
@@ -256,15 +298,22 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const [activeRules, setActiveRules] = useState<ActiveRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedRowId, setCopiedRowId] = useState<string | number | null>(null);
-  const [uniqueRequestCount, setUniqueRequestCount] = useState(0);
   /**
-   * Per-rule fire/match counts for the active tab, pushed from the background
-   * tab-telemetry service. Scriptable rules (delay/body/mock/inject) get
-   * ground-truth fire counts via the always-on fire-bridge content script.
-   * DNR rules (header/block/redirect/query-param) get probable-fire counts
-   * derived from webRequest matching in request-monitor.
+   * Full telemetry snapshot for the active tab, polled every 500ms from the
+   * background tab-telemetry service. Single source of truth for per-rule
+   * fire counts, unique URL records, and the page-wide unique request total.
+   * The popup joins this with the applicable-rules list at render time.
    */
-  const [fireCounts, setFireCounts] = useState<Record<string, number>>({});
+  const [snapshot, setSnapshot] = useState<TelemetrySnapshot>(EMPTY_SNAPSHOT);
+  /**
+   * Experimental shadow-detection setting — when true, rules whose records
+   * have a `shadowedBy` attribution render with an amber warning tag and
+   * the nested table's Evidence column calls out the shadower by name. The
+   * data is always computed in the background; this flag just lights up
+   * the UI for users who opt in. Off by default until we gather enough
+   * real-world signal to default on.
+   */
+  const [shadowDetection, setShadowDetection] = useState(false);
   const expandCountRef = useRef(0);
   const [searchText, setSearchText] = useState('');
   const [sortMode, setSortMode] = useState<'status' | 'priority' | 'manual'>('status');
@@ -279,14 +328,13 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         if (tabs[0]) {
           const tab = tabs[0];
           const url = new URL(tab.url!);
-          const response = await new Promise<{ activeRules?: ActiveRule[]; uniqueRequestCount?: number }>((resolve) => {
+          const response = await new Promise<{ activeRules?: ActiveRule[] }>((resolve) => {
             runtime.sendMessage({ type: 'getActiveRulesForTab', tabId: tab.id, tabUrl: tab.url }, (resp) => {
-              resolve((resp as { activeRules?: ActiveRule[]; uniqueRequestCount?: number }) || { activeRules: [] });
+              resolve((resp as { activeRules?: ActiveRule[] }) || { activeRules: [] });
             });
           });
           setCurrentTab({ id: tab.id!, url: tab.url!, domain: url.hostname, title: tab.title || '' });
           setActiveRules(response.activeRules || []);
-          setUniqueRequestCount(response.uniqueRequestCount || 0);
         }
       } catch (error) {
         console.error(new Date().toISOString(), 'ERROR', '[ThisPageRules]', 'Error getting active rules:', error);
@@ -343,8 +391,13 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       if (cancelled) return;
       runtime.sendMessage({ type: 'getTabTelemetry', tabId }, (resp) => {
         if (cancelled) return;
-        const r = resp as { counters?: Record<string, number> } | undefined;
-        setFireCounts(r?.counters ?? {});
+        const snap = resp as Partial<TelemetrySnapshot> | undefined;
+        setSnapshot({
+          counters: snap?.counters ?? {},
+          fires: snap?.fires ?? [],
+          byRule: snap?.byRule ?? {},
+          uniqueRequestCount: snap?.uniqueRequestCount ?? 0,
+        });
       });
     };
     poll();
@@ -355,6 +408,24 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       clearInterval(interval);
     };
   }, [currentTab?.id]);
+
+  const uniqueRequestCount = snapshot.uniqueRequestCount;
+
+  // Read the experimental shadow-detection setting and watch for changes.
+  // Lives in storage.sync alongside the other user prefs (paused state,
+  // recording widget) so it roams with the user's Chrome profile.
+  useEffect(() => {
+    const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+    browserAPI.storage.sync.get(['ohShadowDetection'], (result: Record<string, unknown>) => {
+      setShadowDetection(Boolean(result.ohShadowDetection));
+    });
+    const handler = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+      if (areaName !== 'sync') return;
+      if (changes.ohShadowDetection) setShadowDetection(Boolean(changes.ohShadowDetection.newValue));
+    };
+    browserAPI.storage.onChanged.addListener(handler);
+    return () => browserAPI.storage.onChanged.removeListener(handler);
+  }, []);
 
   // Scroll virtual nested table to focused row (also resets on expand)
   // biome-ignore lint/correctness/useExhaustiveDependencies: expandedRowKey intentionally resets scroll on re-expand
@@ -371,13 +442,40 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
   const dataSourceRef = useRef<TableRecord[]>([]);
 
+  // Look up per-rule telemetry from the snapshot. Records are stored LRU
+  // (oldest first) by the backend; we reverse per-rule here so the popup
+  // and the nested table both render newest-first without repeating the
+  // reversal at every render site.
+  const recordsByRuleId = new Map<string, RequestRecord[]>();
+  for (const [uid, recs] of Object.entries(snapshot.byRule)) {
+    recordsByRuleId.set(uid, [...recs].reverse());
+  }
+  const recordsFor = (id: string | undefined): RequestRecord[] => (id ? (recordsByRuleId.get(id) ?? []) : []);
+  const fireCountFor = (id: string | undefined): number => (id ? (snapshot.counters[id] ?? 0) : 0);
+
+  // Highest evidence tier present in a record list, or 'none' when empty.
+  const dominantEvidenceOf = (records: RequestRecord[]): RequestRecord['evidence'] | 'none' => {
+    let best: RequestRecord['evidence'] | 'none' = 'none';
+    const rank: Record<RequestRecord['evidence'] | 'none', number> = {
+      confirmed: 3,
+      matched: 2,
+      'matched-fallback': 1,
+      none: 0,
+    };
+    for (const r of records) {
+      if (rank[r.evidence] > rank[best]) best = r.evidence;
+    }
+    return best;
+  };
+
   // Track how each rule matches the search: by rule properties, by URL, or both
   const urlMatchCountMap = new Map<string, number>();
   const filteredRules = searchText
     ? activeRules.filter((r) => {
         const q = searchText.toLowerCase();
         const matchesByRule = r.name.toLowerCase().includes(q) || (r.summary || '').toLowerCase().includes(q);
-        const matchingUrlCount = (r.matchedUrls || []).filter((m) => m.url.toLowerCase().includes(q)).length;
+        const records = recordsFor(r.id);
+        const matchingUrlCount = records.filter((m) => m.url.toLowerCase().includes(q)).length;
         if (matchingUrlCount > 0 && r.id) urlMatchCountMap.set(r.id, matchingUrlCount);
         return matchesByRule || matchingUrlCount > 0;
       })
@@ -399,10 +497,24 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       const isEnabled = rule.isEnabled !== false;
       const groupPaused = isPathPausedByAncestor(rule.path ?? '', pausedGroups);
       const statusRank = isEnabled && !groupPaused ? 0 : isEnabled && groupPaused ? 1 : 2;
+      const records = recordsFor(rule.id);
+      let dominantShadow: { uid: string; name: string } | undefined;
+      let shadowedCount = 0;
+      for (const r of records) {
+        if (r.shadowedBy) {
+          shadowedCount += 1;
+          if (!dominantShadow) dominantShadow = r.shadowedBy;
+        }
+      }
       return {
         ...rule,
         key: (rule.id || index) as string | number,
         statusRank,
+        fireCount: fireCountFor(rule.id),
+        records,
+        dominantEvidence: dominantEvidenceOf(records),
+        dominantShadow,
+        shadowedCount,
       };
     })
     .sort((a, b) => compareBySortMode(a, b, sortMode));
@@ -500,15 +612,49 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       onFilter: (value, record) => record.name === value,
       render: (text: string, record: TableRecord) => {
         const displayName = truncateValue(text, 20);
-        const count = record.id ? (fireCounts[record.id] ?? 0) : 0;
-        // Scriptable rules report ground-truth fires via the fire-bridge;
-        // DNR rules report probable-fires derived from webRequest matching.
-        const scriptable = ['delay', 'body', 'mock', 'inject'].includes(record.ruleType);
-        const verb = scriptable ? 'fired' : 'matched';
-        const countTooltip =
-          count > 0
-            ? `${verb} ${count}× on this page`
-            : `Not ${verb} yet — reload or interact with the page to trigger requests`;
+        const count = record.fireCount;
+        const isEnabled = record.isEnabled !== false;
+        const groupPaused = isPathPausedByAncestor(record.path ?? '', pausedGroups);
+        const outOfPlay = !isEnabled || groupPaused;
+        const shadowed = shadowDetection && record.shadowedCount > 0;
+
+        // Tag states:
+        //   disabled/paused       → gray "–"       rule is not in play
+        //   count === 0           → gray "0"       no activity yet
+        //   shadow flag on + hit  → amber "⚠ N"   higher-priority rule wins
+        //   otherwise             → blue filled N  rule has fired on this page
+        //
+        // The evidence tier (confirmed vs matched vs matched-fallback) is
+        // intentionally not encoded as a separate glyph here — most users
+        // don't want to reason about Chrome's DNR vs in-page injection.
+        // The distinction lives in the tooltip and in the Evidence column
+        // of the expand panel.
+        const countTooltip = (() => {
+          if (outOfPlay) {
+            return !isEnabled ? 'Rule is disabled' : 'Rule is paused by its collection or folder';
+          }
+          if (count === 0) {
+            return 'Not matched yet — reload or interact with the page to trigger requests';
+          }
+          if (shadowed && record.dominantShadow) {
+            const allShadowed = record.shadowedCount === record.records.length;
+            const prefix = allShadowed
+              ? `All ${record.shadowedCount} matched request${record.shadowedCount !== 1 ? 's' : ''}`
+              : `${record.shadowedCount} of ${record.records.length} matched requests`;
+            return `${prefix} are terminated by "${record.dominantShadow.name}" (higher-priority block rule) — so this rule has no visible effect on them. Experimental: shadow detection may over- or under-report. Disable in settings to hide.`;
+          }
+          switch (record.dominantEvidence) {
+            case 'confirmed':
+              return `Script confirmed ${count} fire${count !== 1 ? 's' : ''} on this page (ground truth from in-page injection).`;
+            case 'matched-fallback':
+              return `Matched ${count} request${count !== 1 ? 's' : ''} via URL, but the in-page script reporter didn't confirm. Common causes: a strict Content-Security-Policy blocking the injection, or the resource type (stylesheet, image, manifest link) bypassing fetch/XHR interception.`;
+            default:
+              return `Matched ${count} request${count !== 1 ? 's' : ''} on this page. Chrome's declarativeNetRequest doesn't report which rule wins when several match — we observe URL matches, not arbitration outcomes.`;
+          }
+        })();
+        const tagLabel = outOfPlay ? '–' : shadowed ? `⚠ ${count}` : String(count);
+        const tagColor = outOfPlay ? 'default' : shadowed ? 'warning' : count > 0 ? 'blue' : 'default';
+        const tagVariant = !outOfPlay && count > 0 ? 'filled' : 'outlined';
         return (
           <Space size={4} align="center">
             <Tooltip title={text.length > 20 ? text : undefined}>
@@ -518,17 +664,19 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             </Tooltip>
             <Tooltip title={countTooltip}>
               <Tag
-                variant="outlined"
-                color={count > 0 ? (scriptable ? 'green' : 'blue') : 'default'}
+                variant={tagVariant}
+                color={tagColor}
                 style={{
                   margin: 0,
                   fontSize: 10,
-                  padding: '0 5px',
+                  padding: '0 6px',
                   lineHeight: '16px',
-                  opacity: count > 0 ? 1 : 0.45,
+                  minWidth: 20,
+                  textAlign: 'center',
+                  opacity: outOfPlay || count === 0 ? 0.5 : 1,
                 }}
               >
-                {count}×
+                {tagLabel}
               </Tag>
             </Tooltip>
           </Space>
@@ -561,9 +709,12 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       width: 110,
       align: 'center',
       sorter: (a, b) => {
-        const matchA = a.matchType ?? '';
-        const matchB = b.matchType ?? '';
-        return matchA.localeCompare(matchB);
+        // Sort by rule type label — the Match column's dominant tag. Two rules
+        // of the same type with different resource-type histories end up
+        // adjacent, which matches how users scan for "all my header rules".
+        const labelA = RULE_TYPE_LABEL[a.ruleType] ?? a.ruleType;
+        const labelB = RULE_TYPE_LABEL[b.ruleType] ?? b.ruleType;
+        return labelA.localeCompare(labelB);
       },
       sortOrder: sortedInfo.columnKey === 'match' ? sortedInfo.order : null,
       filters: [
@@ -576,8 +727,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       filteredValue: filteredInfo.match || null,
       filterSearch: true,
       onFilter: (value, record) => {
-        const urls = record.matchedUrls || [];
-        const resourceLabels = [...new Set(urls.map((m) => RESOURCE_TYPE_LABEL[m.resourceType || 'other'] ?? 'Other'))];
+        const resourceLabels = [
+          ...new Set(record.records.map((m) => RESOURCE_TYPE_LABEL[m.resourceType || 'other'] ?? 'Other')),
+        ];
         const labels = [
           ...resourceLabels,
           ...(isPathPausedByAncestor(record.path ?? '', pausedGroups) ? ['Paused'] : []),
@@ -594,14 +746,11 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             tooltip: 'Collection or folder is paused — rule not applied',
           });
         }
-        // Derive unique resource type tags from matched URLs
-        const urls = record.matchedUrls || [];
+        // Derive unique resource type tags from telemetry records.
         const seenTypes = new Set<string>();
-        for (const m of urls) {
-          const rt = m.resourceType || (m.url === currentTab?.url ? 'main_frame' : 'other');
-          seenTypes.add(rt);
+        for (const m of record.records) {
+          seenTypes.add(m.resourceType || 'other');
         }
-        // Show in a stable order: page first, then sub-resources
         const typeOrder = [
           'main_frame',
           'sub_frame',
@@ -622,10 +771,6 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               tooltip: RESOURCE_TYPE_TOOLTIP[rt] ?? rt,
             });
           }
-        }
-        // Fallback if no resource types (shouldn't happen, but safe)
-        if (seenTypes.size === 0) {
-          allTags.push({ label: record.matchType === 'direct' ? 'Page' : 'Resource' });
         }
         allTags.push({
           label: RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
@@ -950,8 +1095,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                     const q = searchText.toLowerCase();
                     const filteredRequests = new Set<string>();
                     for (const r of sortedFilteredRules) {
-                      for (const m of r.matchedUrls || []) {
-                        if (m.url.toLowerCase().includes(q)) filteredRequests.add(`${m.url}\0${m.timestamp}`);
+                      for (const m of recordsFor(r.id)) {
+                        if (m.url.toLowerCase().includes(q)) filteredRequests.add(`${m.url}\0${m.t}`);
                       }
                     }
                     const parts: string[] = [];
@@ -982,13 +1127,13 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                           return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`;
                         };
                         for (const r of sortedFilteredRules) {
-                          for (const m of r.matchedUrls || []) {
+                          for (const m of recordsFor(r.id)) {
                             if (q && !m.url.toLowerCase().includes(q)) continue;
-                            const key = `${m.url}\0${m.timestamp}`;
+                            const key = `${m.url}\0${m.t}`;
                             if (seen.has(key)) continue;
                             seen.add(key);
-                            const rt = m.resourceType || (m.url === currentTab?.url ? 'main_frame' : 'other');
-                            rows.push(`${fmt(m.timestamp)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`);
+                            const rt = m.resourceType || 'other';
+                            rows.push(`${fmt(m.t)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`);
                           }
                         }
                         rows.sort((a, b) => b.localeCompare(a));
@@ -1071,7 +1216,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             expandRowByClick: false,
             expandedRowKeys: isActive && expandedRowKey !== null ? [expandedRowKey] : [],
             expandIcon: ({ record, onExpand }) => {
-              const totalRequests = (record.matchedUrls || []).length;
+              const totalRequests = record.records.length;
               const searchUrlMatches = searchText && record.id ? urlMatchCountMap.get(record.id) || 0 : 0;
               const badgeCount = searchText ? searchUrlMatches : totalRequests;
               const bgColor = searchUrlMatches > 0 ? '#1677ff' : '#8c8c8c';
@@ -1123,7 +1268,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             expandedRowRender: (record: TableRecord) => {
               // Only render content for the active expanded row — destroys stale virtual tables
               if (record.key !== expandedRowKey) return null;
-              const allMatches = record.matchedUrls || [];
+              // `record.records` is already newest-first (reversed in dataSource build).
+              const allMatches = record.records;
               // If this rule has URL matches for the search, filter to those URLs.
               // If the rule matched only by properties (name/value/domain/tag), show all URLs.
               const hasUrlMatches = searchText && record.id ? urlMatchCountMap.has(record.id) : false;
@@ -1144,22 +1290,20 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 );
               }
 
-              // Reverse for newest-first (Map insertion order = chronological)
-              const reversed = [...matches].reverse();
-              const matchedData: MatchedRequestRecord[] = reversed.map((m, i) => ({
+              const matchedData: MatchedRequestRow[] = matches.map((m, i) => ({
                 ...m,
                 key: `${record.id}-match-${i}`,
-                type: m.url === currentTab?.url ? ('direct' as const) : ('resource' as const),
+                isTabUrl: m.url === currentTab?.url,
               }));
 
-              const matchedColumns: ColumnsType<MatchedRequestRecord> = [
+              const matchedColumns: ColumnsType<MatchedRequestRow> = [
                 {
                   title: 'Time',
-                  dataIndex: 'timestamp',
+                  dataIndex: 't',
                   key: 'timestamp',
                   width: 100,
                   align: 'center',
-                  sorter: (a, b) => a.timestamp - b.timestamp,
+                  sorter: (a, b) => a.t - b.t,
                   defaultSortOrder: 'descend',
                   render: (ts: number) => (
                     <Tooltip title={formatTimestampFull(ts)}>
@@ -1175,7 +1319,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                   key: 'url',
                   width: 380,
                   sorter: (a, b) => a.url.localeCompare(b.url),
-                  render: (url: string, matchRecord: MatchedRequestRecord) => {
+                  render: (url: string, matchRecord: MatchedRequestRow) => {
                     const display =
                       url.length > 50 ? `${url.substring(0, 30)}...${url.substring(url.length - 15)}` : url;
                     return (
@@ -1261,8 +1405,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                     (RESOURCE_TYPE_LABEL[a.resourceType || 'other'] ?? 'Other').localeCompare(
                       RESOURCE_TYPE_LABEL[b.resourceType || 'other'] ?? 'Other',
                     ),
-                  render: (_: unknown, matchRecord: MatchedRequestRecord) => {
-                    const rt = matchRecord.resourceType || (matchRecord.type === 'direct' ? 'main_frame' : 'other');
+                  render: (_: unknown, matchRecord: MatchedRequestRow) => {
+                    const rt = matchRecord.resourceType || (matchRecord.isTabUrl ? 'main_frame' : 'other');
                     const label = RESOURCE_TYPE_LABEL[rt] ?? rt;
                     const tooltip = RESOURCE_TYPE_TOOLTIP[rt] ?? rt;
                     return (
@@ -1272,6 +1416,55 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                         </Tag>
                       </Tooltip>
                     );
+                  },
+                },
+                {
+                  title: 'Evidence',
+                  key: 'evidence',
+                  width: 110,
+                  align: 'center',
+                  sorter: (a, b) => a.evidence.localeCompare(b.evidence),
+                  render: (_: unknown, matchRecord: MatchedRequestRow) => {
+                    // Shadowed rows take precedence visually — that's the
+                    // reason the user cares about the row at all when the
+                    // experimental setting is on.
+                    if (shadowDetection && matchRecord.shadowedBy) {
+                      return (
+                        <Tooltip
+                          title={`This request was terminated by "${matchRecord.shadowedBy.name}" (block rule, higher priority). This rule never ran on it.`}
+                        >
+                          <Tag color="warning" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                            ⚠ shadowed
+                          </Tag>
+                        </Tooltip>
+                      );
+                    }
+                    switch (matchRecord.evidence) {
+                      case 'confirmed':
+                        return (
+                          <Tooltip title="Script confirmed this fire from the in-page injection — ground truth that the rule ran.">
+                            <Tag color="success" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                              ✓ confirmed
+                            </Tag>
+                          </Tooltip>
+                        );
+                      case 'matched-fallback':
+                        return (
+                          <Tooltip title="Matched via URL, but the in-page script reporter didn't confirm. Common causes: a strict Content-Security-Policy blocking the MAIN-world injection, or a resource type (stylesheet, image, manifest link) that bypasses fetch/XHR interception.">
+                            <Tag color="gold" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                              ~ fallback
+                            </Tag>
+                          </Tooltip>
+                        );
+                      default:
+                        return (
+                          <Tooltip title="URL matched this rule's conditions. Chrome's declarativeNetRequest doesn't report which rule wins arbitration — we observe URL matches, not execution.">
+                            <Tag color="blue" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                              ~ matched
+                            </Tag>
+                          </Tooltip>
+                        );
+                    }
                   },
                 },
                 {
@@ -1304,8 +1497,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               const copyAllRequests = () => {
                 const header = 'Time\tRequest URL\tType\tPattern';
                 const rows = matchedData.map((m) => {
-                  const rt = m.resourceType || (m.type === 'direct' ? 'main_frame' : 'other');
-                  return `${formatTimestamp(m.timestamp)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`;
+                  const rt = m.resourceType || (m.isTabUrl ? 'main_frame' : 'other');
+                  return `${formatTimestamp(m.t)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`;
                 });
                 void navigator.clipboard.writeText(`${header}\n${rows.join('\n')}`);
                 setCopiedRowId('__all_requests__');
@@ -1336,7 +1529,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                       </Tooltip>
                     )}
                   </div>
-                  <Table<MatchedRequestRecord>
+                  <Table<MatchedRequestRow>
                     key={`${record.key}-${expandCountRef.current}`}
                     ref={nestedTableRef}
                     columns={matchedColumns}

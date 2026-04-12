@@ -21,7 +21,7 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail } from '@openheaders/core/utils';
 import { runtime } from '@utils/browser-api';
-import { App, Button, Card, Empty, Space, Spin, Tag, theme, Typography } from 'antd';
+import { App, Button, Card, Empty, Space, Spin, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PRIORITY_TIERS, type PriorityTier } from './rule-flow/PriorityGroup';
@@ -35,7 +35,8 @@ type TestRuleStatus = 'executed' | 'no-fire' | 'skipped';
 interface TestFireEvent {
   ruleUid: string;
   url: string;
-  kind: string;
+  /** Evidence tier: 'confirmed' | 'matched' | 'matched-fallback' */
+  evidence: string;
   t: number;
 }
 
@@ -174,12 +175,7 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
               <Tag>{noFireCount} no fire</Tag>
               <Tag color="default">{session.fires.length} total fires</Tag>
               <Tag color="blue">{session.waitSeconds}s capture</Tag>
-              <Button
-                size="small"
-                icon={<ReloadOutlined />}
-                onClick={loadSession}
-                style={{ marginLeft: 8 }}
-              >
+              <Button size="small" icon={<ReloadOutlined />} onClick={loadSession} style={{ marginLeft: 8 }}>
                 Reload
               </Button>
               <Button size="small" danger icon={<DeleteOutlined />} onClick={handleDelete}>
@@ -255,7 +251,7 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
                       wordBreak: 'break-all',
                     }}
                   >
-                    <Tag color="blue">{fire.kind}</Tag>
+                    <Tag color={fire.evidence === 'confirmed' ? 'green' : 'blue'}>{fire.evidence}</Tag>
                     {fire.url || <em>(DNR match)</em>}
                   </div>
                 ))}

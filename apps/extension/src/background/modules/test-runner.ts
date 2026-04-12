@@ -43,7 +43,7 @@ import { runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { applyAllRules } from '../dnr-manager';
 import { getRules } from './rule-store';
-import { type FireKind, getTabSnapshotForScope, startTracking, stopTracking } from './tab-telemetry';
+import { type Evidence, getTabSnapshotForScope, startTracking, stopTracking } from './tab-telemetry';
 import { registerSession, setSessionTabId, unregisterSession } from './test-session-state';
 
 // ── Public types ──────────────────────────────────────────────────
@@ -57,8 +57,8 @@ export type TestRuleStatus = 'executed' | 'no-fire' | 'skipped';
 export interface TestFireEvent {
   ruleUid: string;
   url: string;
-  /** Source of the fire. */
-  kind: FireKind;
+  /** Evidence tier — 'confirmed' (scriptable), 'matched' (DNR), 'matched-fallback' (DNR fallback for a scriptable-type rule). */
+  evidence: Evidence;
   t: number;
 }
 
@@ -354,8 +354,15 @@ function finishSession(id: string): void {
 }
 
 function buildResult(session: ActiveSession): TestSessionResult {
-  const fires: TestFireEvent[] =
-    session.tabId != null ? getTabSnapshotForScope(session.tabId, session.ruleUids).fires : [];
+  const snapshotFires = session.tabId != null ? getTabSnapshotForScope(session.tabId, session.ruleUids).fires : [];
+  // RequestRecord has extra fields (pattern, resourceType) that TestFireEvent
+  // doesn't care about; project to the stable session-result shape.
+  const fires: TestFireEvent[] = snapshotFires.map((r) => ({
+    ruleUid: r.ruleUid,
+    url: r.url,
+    evidence: r.evidence,
+    t: r.t,
+  }));
   const firedUids = new Set(fires.map((f) => f.ruleUid));
   const ruleStatuses: Record<string, TestRuleStatus> = {};
   for (const uid of session.ruleUids) {
