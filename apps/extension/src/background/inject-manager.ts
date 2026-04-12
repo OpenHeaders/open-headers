@@ -25,6 +25,7 @@ import {
   generateHeaderMergeScript,
   generateMockScript,
 } from './content-scripts';
+import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 import { doesUrlMatchPattern } from './modules/url-utils';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -34,6 +35,8 @@ type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule;
 
 /** A header merge operation extracted from a HeaderRule. */
 export interface HeaderMergeEntry {
+  /** The V5 header rule this merge came from — used for test-session scope filtering and telemetry. */
+  ruleUid: string;
   /** Domain patterns from rule conditions. */
   patterns: string[];
   requestMerges: Array<{ headerName: string; value: string; separator: string }>;
@@ -99,8 +102,18 @@ function urlMatchesRule(url: string, rule: ScriptableRule): boolean {
 // ── Injection logic ──────────────────────────────────────────────
 
 async function injectForUrl(tabId: number, url: string): Promise<void> {
+  // Test isolation: if this is a test tab, only inject rules in that session's
+  // scope. If it is NOT a test tab, skip any rule currently under test in some
+  // other session so the test doesn't leak into unrelated tabs.
+  const testScope = getTestScopeForTab(tabId);
+
   for (const rule of activeScriptableRules) {
     if (!urlMatchesRule(url, rule)) continue;
+    if (testScope) {
+      if (!testScope.has(rule.uid)) continue;
+    } else if (isRuleUnderTest(rule.uid)) {
+      continue;
+    }
 
     try {
       switch (rule.type) {
@@ -135,13 +148,18 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
   }
 
-  // Inject header merge scripts
+  // Inject header merge scripts — subject to the same test-session scope filter.
   for (const merge of activeHeaderMerges) {
     const matches = merge.patterns.length === 0 || merge.patterns.some((d) => doesUrlMatchPattern(url, d));
     if (!matches) continue;
+    if (testScope) {
+      if (!testScope.has(merge.ruleUid)) continue;
+    } else if (isRuleUnderTest(merge.ruleUid)) {
+      continue;
+    }
 
     try {
-      const script = generateHeaderMergeScript(merge.patterns, merge.requestMerges, merge.responseMerges);
+      const script = generateHeaderMergeScript(merge.ruleUid, merge.patterns, merge.requestMerges, merge.responseMerges);
       await injectGeneratedScript(tabId, script, 'header-merge');
     } catch (error) {
       const msg = (error as Error).message;

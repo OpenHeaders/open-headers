@@ -234,6 +234,13 @@ export const tabs = {
       )(tabId, message, callback!);
     }
   },
+  remove: (tabId: number, callback?: () => void): void | Promise<void> => {
+    if (isFirefox) {
+      return (browserAPI.tabs.remove(tabId) as unknown as Promise<void>).then(callback || (() => {}));
+    } else {
+      return browserAPI.tabs.remove(tabId, callback!);
+    }
+  },
   onActivated: browserAPI.tabs.onActivated,
   onUpdated: browserAPI.tabs.onUpdated,
   onRemoved: browserAPI.tabs.onRemoved,
@@ -297,6 +304,100 @@ export const declarativeNetRequest = browserAPI.declarativeNetRequest
           });
         }
       },
+      /**
+       * Updates session-scoped DNR rules — ephemeral rules that live only for
+       * the current browser session. Used by the test-runner to apply
+       * tab-scoped test rules alongside the user's normal dynamic rules.
+       */
+      updateSessionRules: (options: chrome.declarativeNetRequest.UpdateRuleOptions): Promise<void> => {
+        const dnr = browserAPI.declarativeNetRequest as typeof chrome.declarativeNetRequest & {
+          updateSessionRules?: (
+            opts: chrome.declarativeNetRequest.UpdateRuleOptions,
+            cb?: () => void,
+          ) => Promise<void> | void;
+        };
+        if (typeof dnr.updateSessionRules !== 'function') {
+          return Promise.resolve();
+        }
+        if (isFirefox) {
+          return dnr.updateSessionRules(options) as Promise<void>;
+        }
+        return new Promise<void>((resolve, reject) => {
+          try {
+            dnr.updateSessionRules!(options, () => {
+              if (browserAPI.runtime.lastError) {
+                reject(browserAPI.runtime.lastError);
+              } else {
+                resolve();
+              }
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      },
+      getSessionRules: (): Promise<chrome.declarativeNetRequest.Rule[]> => {
+        const dnr = browserAPI.declarativeNetRequest as typeof chrome.declarativeNetRequest & {
+          getSessionRules?: (
+            cb?: (rules: chrome.declarativeNetRequest.Rule[]) => void,
+          ) => Promise<chrome.declarativeNetRequest.Rule[]> | void;
+        };
+        if (typeof dnr.getSessionRules !== 'function') {
+          return Promise.resolve([]);
+        }
+        if (isFirefox) {
+          return dnr.getSessionRules() as Promise<chrome.declarativeNetRequest.Rule[]>;
+        }
+        return new Promise<chrome.declarativeNetRequest.Rule[]>((resolve, reject) => {
+          try {
+            dnr.getSessionRules!((rules) => {
+              if (browserAPI.runtime.lastError) {
+                reject(browserAPI.runtime.lastError);
+              } else {
+                resolve(rules);
+              }
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      },
+      /**
+       * Returns rules matched by the declarativeNetRequest API for a given tab.
+       * Requires the `declarativeNetRequestFeedback` permission. Used by the
+       * test-runner to verify which rules actually fired during a test session.
+       * Not all browsers implement this — returns an empty result shape when
+       * the underlying API is missing so callers can degrade gracefully.
+       */
+      getMatchedRules: (
+        filter: chrome.declarativeNetRequest.MatchedRulesFilter,
+      ): Promise<chrome.declarativeNetRequest.RulesMatchedDetails> => {
+        const dnr = browserAPI.declarativeNetRequest as typeof chrome.declarativeNetRequest & {
+          getMatchedRules?: (
+            f: chrome.declarativeNetRequest.MatchedRulesFilter,
+            cb?: (d: chrome.declarativeNetRequest.RulesMatchedDetails) => void,
+          ) => Promise<chrome.declarativeNetRequest.RulesMatchedDetails> | void;
+        };
+        if (typeof dnr.getMatchedRules !== 'function') {
+          return Promise.resolve({ rulesMatchedInfo: [] });
+        }
+        if (isFirefox) {
+          return dnr.getMatchedRules(filter) as Promise<chrome.declarativeNetRequest.RulesMatchedDetails>;
+        }
+        return new Promise<chrome.declarativeNetRequest.RulesMatchedDetails>((resolve, reject) => {
+          try {
+            dnr.getMatchedRules!(filter, (details) => {
+              if (browserAPI.runtime.lastError) {
+                reject(browserAPI.runtime.lastError);
+              } else {
+                resolve(details);
+              }
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      },
     }
   : null;
 
@@ -311,6 +412,84 @@ export const downloads = browserAPI.downloads
         } else {
           return browserAPI.downloads.download(options, callback!);
         }
+      },
+    }
+  : null;
+
+/**
+ * Cross-browser scripting API.
+ *
+ * Only surfaces the methods the test-runner needs for session bridge management.
+ * The inject-manager still uses `browserAPI.scripting` directly for executeScript/
+ * insertCSS since those hot paths predate this adapter.
+ */
+export const scripting = browserAPI.scripting
+  ? {
+      registerContentScripts: (
+        scripts: Array<{
+          id: string;
+          js?: string[];
+          css?: string[];
+          matches: string[];
+          runAt?: 'document_start' | 'document_end' | 'document_idle';
+          world?: 'ISOLATED' | 'MAIN';
+          persistAcrossSessions?: boolean;
+          allFrames?: boolean;
+        }>,
+      ): Promise<void> => {
+        const api = browserAPI.scripting as typeof chrome.scripting & {
+          registerContentScripts?: (
+            scripts: chrome.scripting.RegisteredContentScript[],
+            cb?: () => void,
+          ) => Promise<void> | void;
+        };
+        if (typeof api.registerContentScripts !== 'function') return Promise.resolve();
+        if (isFirefox) {
+          return api.registerContentScripts(
+            scripts as unknown as chrome.scripting.RegisteredContentScript[],
+          ) as Promise<void>;
+        }
+        return new Promise<void>((resolve, reject) => {
+          try {
+            api.registerContentScripts!(
+              scripts as unknown as chrome.scripting.RegisteredContentScript[],
+              () => {
+                if (browserAPI.runtime.lastError) {
+                  reject(browserAPI.runtime.lastError);
+                } else {
+                  resolve();
+                }
+              },
+            );
+          } catch (e) {
+            reject(e);
+          }
+        });
+      },
+      unregisterContentScripts: (filter: { ids: string[] }): Promise<void> => {
+        const api = browserAPI.scripting as typeof chrome.scripting & {
+          unregisterContentScripts?: (
+            filter: chrome.scripting.ContentScriptFilter,
+            cb?: () => void,
+          ) => Promise<void> | void;
+        };
+        if (typeof api.unregisterContentScripts !== 'function') return Promise.resolve();
+        if (isFirefox) {
+          return api.unregisterContentScripts(filter) as Promise<void>;
+        }
+        return new Promise<void>((resolve, reject) => {
+          try {
+            api.unregisterContentScripts!(filter, () => {
+              if (browserAPI.runtime.lastError) {
+                reject(browserAPI.runtime.lastError);
+              } else {
+                resolve();
+              }
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
       },
     }
   : null;

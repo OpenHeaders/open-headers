@@ -2,7 +2,14 @@
  * Types for the workspace.html full-page editor.
  */
 
-export type TabMode = 'create' | 'edit' | 'collection-overview' | 'folder-overview' | 'template-edit' | 'rule-flow';
+export type TabMode =
+  | 'create'
+  | 'edit'
+  | 'collection-overview'
+  | 'folder-overview'
+  | 'template-edit'
+  | 'rule-flow'
+  | 'test-results';
 
 /** Scope for the rule flow visualization. */
 export type RuleFlowScope = 'this-page' | 'collection' | 'folder' | 'all-active';
@@ -34,6 +41,8 @@ export interface RulesTab {
   flowScope?: RuleFlowScope;
   /** For rule-flow tabs with "this-page" scope: the tab URL to filter against. */
   flowTabUrl?: string;
+  /** For test-results tabs: the session id to load from storage. */
+  testSessionId?: string;
 }
 
 export interface PanelVisibility {

@@ -1,13 +1,28 @@
 /**
- * DNR Manager — coordinator for all declarativeNetRequest rule updates.
+ * DNR Manager — single source of truth for every declarativeNetRequest update.
  *
- * Replaces the former header-manager.ts with a modular architecture:
- * - Per-type builders handle the V5.Rule → DnrRule conversion
- * - Inject rules are routed to inject-manager (chrome.scripting, not DNR)
- * - Pause/collection-folder state management lives here
+ * Two distinct DNR layers coexist:
  *
- * All modules call rule-engine.scheduleUpdate() which eventually calls
- * updateNetworkRules() here. This is the single point of DNR application.
+ *   1. **Dynamic rules** — the user's normal ruleset, persisted by Chrome
+ *      across sessions. These are applied via `updateDynamicRules`. While any
+ *      test session is active, every dynamic rule condition is augmented with
+ *      `excludedTabIds: [...activeTestTabIds]` so the test tab(s) are invisible
+ *      to the normal ruleset.
+ *
+ *   2. **Session rules** — ephemeral DNR rules built from each active test
+ *      session's scope. Each rule condition is augmented with
+ *      `tabIds: [testTabId]` so they fire ONLY on that session's test tab.
+ *      Applied via `updateSessionRules` (Chrome's own mechanism for ephemeral
+ *      test rules). Rebuilt whenever sessions start or end.
+ *
+ * This mirrors what Chrome's MV3 DNR API is designed for: dynamic rules for
+ * the base config, session rules with `tabIds` for per-tab overrides, and
+ * `excludedTabIds` to keep the two layers from colliding.
+ *
+ * The central entry point is `applyAllRules()`. The rule-engine calls this
+ * after debouncing. The test-runner also calls it when a session starts or
+ * ends — everything routes through the same place so DNR state is always
+ * coherent.
  */
 
 declare const browser: typeof chrome | undefined;
@@ -19,15 +34,39 @@ import { logger } from '@utils/logger';
 import type { DnrBuilder, DnrRule } from './dnr-builders';
 import { blockBuilder, headerBuilder, queryParamBuilder, redirectBuilder } from './dnr-builders';
 import { ALL_RESOURCE_TYPES, buildDnrCondition } from './dnr-builders/types';
-import { formatUrlPattern } from './modules/url-utils';
 import type { HeaderMergeEntry } from './inject-manager';
 import { updateScriptableRules } from './inject-manager';
+import { getActiveSessionSnapshots, getActiveTestTabIds } from './modules/test-runner';
+import { formatUrlPattern } from './modules/url-utils';
+import { getRules } from './modules/rule-store';
 
 // ── Cached state ─────────────────────────────────────────────────
 
 let isPaused = false;
 /** Paths of paused collections/folders — rules under these are skipped. */
 let pausedGroups: Set<string> = new Set();
+
+/**
+ * Mapping from currently-applied DYNAMIC rule id → V5.Rule.uid.
+ * Rebuilt on every applyAllRules() call. Used for non-test-session lookups
+ * (e.g. the existing getActiveRulesForTab display path).
+ */
+const dynamicDnrIdToUid: Map<number, string> = new Map();
+
+/**
+ * Per-session mapping from SESSION rule id → V5.Rule.uid. Keyed by sessionId
+ * so the test-runner can look up fires for its own session without colliding
+ * with other parallel sessions.
+ */
+const sessionDnrIdToUid: Map<string, Map<number, string>> = new Map();
+
+export function getDnrIdToRuleUid(): ReadonlyMap<number, string> {
+  return dynamicDnrIdToUid;
+}
+
+export function getSessionRuleIdToUid(sessionId: string): ReadonlyMap<number, string> {
+  return sessionDnrIdToUid.get(sessionId) ?? new Map();
+}
 
 export function setRulesPaused(paused: boolean): void {
   isPaused = paused;
@@ -63,27 +102,107 @@ const dnrBuilders: Record<string, DnrBuilder<V5.Rule>> = {
   'query-param': queryParamBuilder as DnrBuilder<V5.Rule>,
 };
 
-// ── Main update function ─────────────────────────────────────────
+/** Rule types handled by content script injection (not DNR). */
+const SCRIPTABLE_TYPES = new Set(['inject', 'delay', 'body', 'mock']);
+
+// ── Entry points ─────────────────────────────────────────────────
 
 /**
- * Build and apply all declarativeNetRequest rules + inject rules.
- * Called by rule-engine after debounce/dedup.
+ * Entry point called by the rule-engine with the rules to apply as the
+ * dynamic layer. The session layer is always rebuilt from the current set of
+ * active test sessions.
  */
 export function updateNetworkRules(rules: V5.Rule[]): void {
+  rebuildAll(rules);
+}
+
+/**
+ * The central DNR application function — rebuilds both dynamic and session
+ * layers, reading the latest rules from the rule store.
+ *
+ * Called by the test-runner when a session starts or ends so `excludedTabIds`
+ * and session rules stay in sync with the set of active sessions without
+ * waiting for the next rule-engine flush.
+ */
+export function applyAllRules(): void {
+  rebuildAll(getRules());
+}
+
+function rebuildAll(rules: V5.Rule[]): void {
+  dynamicDnrIdToUid.clear();
+
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
-    clearAllDnrRules();
+    clearAllDynamicRules();
+    clearAllSessionRules();
     updateScriptableRules([]);
     return;
   }
 
-  const dnrRules: DnrRule[] = [];
+  const testTabIds = getActiveTestTabIds();
+  const sessions = getActiveSessionSnapshots();
+
+  // ── Layer 1: dynamic rules (normal, global) ──
+  const { dnrRules: dynamicRules, scriptableRules, headerMerges } = buildDnrRulesForScope(rules, 1);
+  for (const built of dynamicRules) {
+    const uid = built.__ohUid;
+    if (uid) dynamicDnrIdToUid.set(built.id, uid);
+    delete built.__ohUid;
+    if (testTabIds.length > 0) {
+      built.condition = { ...built.condition, excludedTabIds: testTabIds };
+    }
+  }
+  applyDynamicRules(dynamicRules);
+  updateScriptableRules(scriptableRules, headerMerges);
+
+  // ── Layer 2: session rules (per-tab scoped) ──
+  // Each active session builds its own DNR rules from its scope snapshot,
+  // then every condition is stamped with tabIds:[testTabId].
+  const sessionDnrRules: DnrRule[] = [];
+  sessionDnrIdToUid.clear();
+  // Session rule ids must not collide with each other OR with dynamic rule ids
+  // (some Chrome versions share the id space across dynamic + session). Start
+  // the session id counter well above the dynamic range.
+  let sessionRuleId = 1_000_000;
+  for (const session of sessions) {
+    const perSessionMap = new Map<number, string>();
+    sessionDnrIdToUid.set(session.id, perSessionMap);
+    const { dnrRules: built } = buildDnrRulesForScope(session.scopeRules, sessionRuleId);
+    for (const r of built) {
+      const uid = r.__ohUid;
+      if (uid) perSessionMap.set(r.id, uid);
+      delete r.__ohUid;
+      r.condition = { ...r.condition, tabIds: [session.tabId] };
+    }
+    sessionDnrRules.push(...built);
+    sessionRuleId += built.length;
+  }
+  applySessionRules(sessionDnrRules);
+}
+
+// ── Shared builder path ──────────────────────────────────────────
+
+interface BuildOutput {
+  dnrRules: Array<DnrRule & { __ohUid?: string }>;
+  scriptableRules: Array<V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule>;
+  headerMerges: HeaderMergeEntry[];
+}
+
+/**
+ * Build the DNR rules, scriptable rules, and header-merge entries for a given
+ * set of V5 rules starting from `startId`. Used for both the dynamic layer
+ * (all enabled non-scriptable rules) and session layers (a single session's
+ * scope snapshot).
+ *
+ * Each emitted DnrRule carries a transient `__ohUid` field tagging its source
+ * V5 rule. Callers are expected to read this into their id→uid map, then
+ * delete it before handing the rule to Chrome.
+ */
+function buildDnrRulesForScope(rules: V5.Rule[], startId: number): BuildOutput {
+  const dnrRules: Array<DnrRule & { __ohUid?: string }> = [];
   const scriptableRules: Array<V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule> = [];
   const headerMerges: HeaderMergeEntry[] = [];
-  let ruleId = 1;
-
-  /** Rule types handled by content script injection (not DNR). */
-  const scriptableTypes = new Set(['inject', 'delay', 'body', 'mock']);
+  let ruleId = startId;
 
   const defaultSeparator = (headerName: string): string => {
     const lower = headerName.toLowerCase();
@@ -92,25 +211,22 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
 
   for (const rule of rules) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
-
-    // Check collection/folder pausing
     if (isPathPausedByAncestor(rule.path, pausedGroups)) continue;
 
-    // Route scriptable rules to inject-manager
-    if (scriptableTypes.has(rule.type)) {
+    if (SCRIPTABLE_TYPES.has(rule.type)) {
       scriptableRules.push(rule as V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule);
 
-      // Inject rules with bypassCSP generate companion DNR rules to strip CSP headers
       if (rule.type === 'inject' && (rule as V5.InjectRule).action.bypassCSP) {
         const cspRules = buildCSPBypassRules(rule as V5.InjectRule, ruleId);
-        dnrRules.push(...cspRules);
+        for (const csp of cspRules) {
+          (csp as DnrRule & { __ohUid?: string }).__ohUid = rule.uid;
+        }
+        dnrRules.push(...(cspRules as Array<DnrRule & { __ohUid?: string }>));
         ruleId += cspRules.length;
       }
-
       continue;
     }
 
-    // Extract merge operations from header rules → content script injection
     if (rule.type === 'header') {
       const hr = rule as V5.HeaderRule;
       const reqMerges = (hr.action.requestHeaders ?? [])
@@ -132,26 +248,27 @@ export function updateNetworkRules(rules: V5.Rule[]): void {
           .filter((c) => c.type === 'request-domains')
           .flatMap((c) => c.values)
           .filter((v) => v.trim());
-        headerMerges.push({ patterns, requestMerges: reqMerges, responseMerges: resMerges });
+        headerMerges.push({ ruleUid: rule.uid, patterns, requestMerges: reqMerges, responseMerges: resMerges });
       }
     }
 
-    // Look up the DNR builder for this rule type
     const builder = dnrBuilders[rule.type];
     if (!builder) continue;
 
     const newRules = builder.build(rule, ruleId);
-    dnrRules.push(...newRules);
+    for (const built of newRules) {
+      (built as DnrRule & { __ohUid?: string }).__ohUid = rule.uid;
+    }
+    dnrRules.push(...(newRules as Array<DnrRule & { __ohUid?: string }>));
     ruleId += newRules.length;
   }
 
-  applyDnrRules(dnrRules);
-  updateScriptableRules(scriptableRules, headerMerges);
+  return { dnrRules, scriptableRules, headerMerges };
 }
 
 // ── DNR rule application ─────────────────────────────────────────
 
-function applyDnrRules(newRules: DnrRule[]): void {
+function applyDynamicRules(newRules: DnrRule[]): void {
   declarativeNetRequest!
     .getDynamicRules()
     .then((existingRules) => {
@@ -162,10 +279,35 @@ function applyDnrRules(newRules: DnrRule[]): void {
       });
     })
     .then(() => {
-      logger.info('DnrManager', `Applied ${newRules.length} DNR rules`);
+      logger.info('DnrManager', `Applied ${newRules.length} dynamic DNR rules`);
     })
     .catch((e: Error) => {
-      logger.error('DnrManager', 'Error updating rules:', e.message || 'Unknown error');
+      logger.error('DnrManager', 'Error updating dynamic rules:', e.message || 'Unknown error');
+    });
+}
+
+function applySessionRules(newRules: DnrRule[]): void {
+  const dnr = declarativeNetRequest;
+  if (!dnr?.updateSessionRules || !dnr.getSessionRules) {
+    if (newRules.length > 0) {
+      logger.info('DnrManager', 'updateSessionRules unavailable — test session rules will not be applied');
+    }
+    return;
+  }
+  dnr
+    .getSessionRules()
+    .then((existing) => {
+      const removeRuleIds = existing.map((r) => r.id);
+      return dnr.updateSessionRules!({
+        removeRuleIds,
+        addRules: newRules as chrome.declarativeNetRequest.Rule[],
+      });
+    })
+    .then(() => {
+      logger.info('DnrManager', `Applied ${newRules.length} session DNR rules`);
+    })
+    .catch((e: Error) => {
+      logger.error('DnrManager', 'Error updating session rules:', e.message || 'Unknown error');
     });
 }
 
@@ -211,7 +353,7 @@ function buildCSPBypassRules(rule: V5.InjectRule, startId: number): DnrRule[] {
   return rules;
 }
 
-function clearAllDnrRules(): void {
+function clearAllDynamicRules(): void {
   declarativeNetRequest!
     .getDynamicRules()
     .then((existingRules) => {
@@ -219,6 +361,20 @@ function clearAllDnrRules(): void {
       return declarativeNetRequest!.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
     })
     .then(() => {
-      logger.debug('DnrManager', 'All rules cleared (paused)');
+      logger.debug('DnrManager', 'All dynamic rules cleared');
+    });
+}
+
+function clearAllSessionRules(): void {
+  const dnr = declarativeNetRequest;
+  if (!dnr?.updateSessionRules || !dnr.getSessionRules) return;
+  dnr
+    .getSessionRules()
+    .then((existing) => {
+      const removeIds = existing.map((r) => r.id);
+      return dnr.updateSessionRules!({ removeRuleIds: removeIds, addRules: [] });
+    })
+    .then(() => {
+      logger.debug('DnrManager', 'All session rules cleared');
     });
 }

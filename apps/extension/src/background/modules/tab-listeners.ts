@@ -6,6 +6,7 @@ import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
 import type { IRecordingService } from '@/types/recording';
 import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
+import { onTabLoaded as testRunnerOnTabLoaded, onTabRemoved as testRunnerOnTabRemoved } from './test-runner';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
 
 /**
@@ -104,6 +105,11 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
         updateBadgeCallback();
       }, 100);
     }
+
+    // Notify the test-runner when a test tab reaches load — starts the capture window.
+    if (changeInfo.status === 'complete') {
+      testRunnerOnTabLoaded(tabId);
+    }
   });
 
   // Clean up tracking when tabs are closed
@@ -112,6 +118,9 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
     if (recordingService) {
       recordingService.cleanupTab(tabId);
     }
+    // If a test session was watching this tab, finish it so DNR session rules
+    // clear and the pending promise resolves instead of waiting for ceiling.
+    testRunnerOnTabRemoved(tabId);
     logger.info('TabListeners', `Cleaned up tracking for closed tab ${tabId}`);
   });
 

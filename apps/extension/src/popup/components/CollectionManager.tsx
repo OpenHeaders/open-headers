@@ -1,6 +1,7 @@
 import {
   ApartmentOutlined,
   CheckOutlined,
+  ExperimentOutlined,
   FolderOpenOutlined,
   FolderOutlined,
   FolderTwoTone,
@@ -19,6 +20,7 @@ import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { getBrowserAPI } from '@/types/browser';
 import type { PageInfo, RowActions } from '../utils/table-shared';
 import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
+import TestSessionModal, { type TestScope } from './TestSessionModal';
 
 const { Text } = Typography;
 
@@ -297,6 +299,71 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
     getBrowserAPI().tabs.create({ url });
   }, []);
 
+  // ── Test session launcher ──
+  // Walks the collection/folder subtree and collects all rule uids under it,
+  // then opens the TestSessionModal scoped to that snapshot.
+  const [testState, setTestState] = useState<{
+    open: boolean;
+    scope: TestScope;
+    scopeLabel: string;
+    ruleUids: string[];
+  }>({ open: false, scope: 'collection', scopeLabel: '', ruleUids: [] });
+
+  const collectRuleUidsUnder = useCallback(
+    (record: CollectionTreeRecord): string[] => {
+      // Walk the live V5 trees to find this node and collect every rule under it,
+      // not the CollectionTreeRecord (which may be filtered by the search box).
+      const uids: string[] = [];
+      const walk = (nodes: V5.TreeNode[]) => {
+        for (const n of nodes) {
+          if (n.type === 'rule') uids.push(n.uid);
+          else if (n.type === 'folder') walk(n.children);
+        }
+      };
+      for (const tree of localCollectionTrees) {
+        if (tree.uid === record.uid) {
+          walk(tree.tree);
+          return uids;
+        }
+        // Recursively search for a folder with this uid
+        const findFolder = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+          for (const n of nodes) {
+            if (n.type === 'folder') {
+              if (n.uid === record.uid) return n;
+              const found = findFolder(n.children);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        const folder = findFolder(tree.tree);
+        if (folder) {
+          walk(folder.children);
+          return uids;
+        }
+      }
+      return uids;
+    },
+    [localCollectionTrees],
+  );
+
+  const handleTest = useCallback(
+    (record: CollectionTreeRecord) => {
+      const ruleUids = collectRuleUidsUnder(record);
+      if (ruleUids.length === 0) {
+        message.info('This group has no rules to test');
+        return;
+      }
+      setTestState({
+        open: true,
+        scope: record.nodeType === 'collection' ? 'collection' : 'folder',
+        scopeLabel: record.name,
+        ruleUids,
+      });
+    },
+    [collectRuleUidsUnder, message],
+  );
+
   // Keyboard row actions — index into the flat visible list
   const handleToggleRow = useCallback(
     (index: number) => {
@@ -469,6 +536,15 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                 style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
               />
             </Tooltip>
+            <Tooltip title={`Test — run these rules against a URL and see what fires`}>
+              <Button
+                type="text"
+                size="small"
+                icon={<ExperimentOutlined />}
+                onClick={() => handleTest(record)}
+                style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
+              />
+            </Tooltip>
           </span>
         );
       },
@@ -636,6 +712,14 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           className="header-rules-table"
         />
       </div>
+      <TestSessionModal
+        open={testState.open}
+        onClose={() => setTestState((s) => ({ ...s, open: false }))}
+        scope={testState.scope}
+        scopeLabel={testState.scopeLabel}
+        ruleUids={testState.ruleUids}
+        allRules={rules}
+      />
     </div>
   );
 };

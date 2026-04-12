@@ -35,6 +35,7 @@ import StatusBar from './components/StatusBar';
 import { buildRuleIcon } from './components/shared/rule-icon';
 import TabBar from './components/TabBar';
 import TemplateEditor from './components/TemplateEditor';
+import TestResultsView from './components/TestResultsView';
 import TopBar from './components/TopBar';
 import { renderTwoToneIcon } from './components/TwoToneIconPicker';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
@@ -406,6 +407,27 @@ const RulesAppInner: React.FC = () => {
     [tabs, addTab, switchTab],
   );
 
+  const openTestResults = useCallback(
+    (sessionId: string) => {
+      const id = `test-${sessionId}`;
+      const existing = tabs.find((t) => t.id === id);
+      if (existing) {
+        switchTab(id);
+        return;
+      }
+      const tab: RulesTab = {
+        id,
+        label: 'Test results',
+        ruleType: '',
+        dirty: false,
+        mode: 'test-results',
+        testSessionId: sessionId,
+      };
+      addTab(tab);
+    },
+    [tabs, addTab, switchTab],
+  );
+
   const openRuleFlow = useCallback(
     (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => {
       const id = entityId ? `flow-${entityId}` : `flow-${scope}`;
@@ -525,10 +547,12 @@ const RulesAppInner: React.FC = () => {
   const openEditTabRef = useRef(openEditTab);
   const openDocsRef = useRef(openDocs);
   const openRuleFlowRef = useRef(openRuleFlow);
+  const openTestResultsRef = useRef(openTestResults);
   openCreateTabRef.current = openCreateTab;
   openEditTabRef.current = openEditTab;
   openDocsRef.current = openDocs;
   openRuleFlowRef.current = openRuleFlow;
+  openTestResultsRef.current = openTestResults;
 
   useEffect(() => {
     if (!isStatusLoaded || hashProcessedRef.current) return;
@@ -550,6 +574,9 @@ const RulesAppInner: React.FC = () => {
       const flowScope = parts[1] as RuleFlowScope;
       const flowUrl = parts.length > 2 ? parts.slice(2).join('/') : undefined;
       openRuleFlowRef.current(flowScope, undefined, undefined, flowUrl);
+    } else if (parts[0] === 'test' && parts[1]) {
+      // #/test/{sessionId} — open persisted test session result
+      openTestResultsRef.current(parts[1]);
     }
   }, [isStatusLoaded]);
 
@@ -1061,6 +1088,9 @@ const RulesAppInner: React.FC = () => {
                 onSelectRule={openEditTab}
                 onCreateRule={openCreateTab}
               />
+            )}
+            {tab.mode === 'test-results' && tab.testSessionId && (
+              <TestResultsView sessionId={tab.testSessionId} onSelectRule={openEditTab} />
             )}
           </div>
         ))}

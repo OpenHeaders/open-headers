@@ -113,8 +113,41 @@ function buildContentScriptPlugin() {
   };
 }
 
+/**
+ * Build the test-mode bridge content script as a self-contained IIFE.
+ * The test-runner registers this script via chrome.scripting.registerContentScripts
+ * for the duration of a test session. It sets window.__OH_TEST__ and forwards
+ * rule-fire CustomEvents to the background.
+ */
+function buildTestBridgePlugin() {
+  return {
+    name: 'build-test-bridge',
+    async writeBundle() {
+      await viteBuild({
+        configFile: false,
+        build: {
+          outDir: `dist/${browser}/js/content/test-bridge`,
+          emptyOutDir: false,
+          minify: isDev ? false : 'terser',
+          sourcemap: browser === 'firefox' ? 'inline' : false,
+          lib: {
+            entry: path.resolve(__dirname, 'src/background/test-bridge-content.ts'),
+            formats: ['iife'],
+            name: 'OhTestBridge',
+            fileName: () => 'index.js',
+          },
+          rollupOptions: {},
+        },
+        define: {
+          globalThis: 'globalThis',
+        },
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), chromeSafePlugin(), copyAssetsPlugin(), buildContentScriptPlugin()],
+  plugins: [react(), chromeSafePlugin(), copyAssetsPlugin(), buildContentScriptPlugin(), buildTestBridgePlugin()],
 
   resolve: {
     alias: {

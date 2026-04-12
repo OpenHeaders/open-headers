@@ -28,6 +28,10 @@ export interface DnrCondition {
   excludedRequestHeaders?: Array<{ header: string; values?: string[] }>;
   responseHeaders?: Array<{ header: string; values?: string[]; excludedValues?: string[] }>;
   excludedResponseHeaders?: Array<{ header: string; values?: string[] }>;
+  /** Restrict the rule to specific tabs. Used by the test-runner for session rules. */
+  tabIds?: number[];
+  /** Exclude specific tabs. Used by the test-runner to hide dynamic rules from test tabs. */
+  excludedTabIds?: number[];
 }
 
 /** A fully built chrome.declarativeNetRequest rule ready for application. */

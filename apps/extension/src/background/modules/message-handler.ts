@@ -8,6 +8,15 @@ import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import { clearAllTracking, getActiveRulesForTab } from './request-tracker';
 import {
+  deleteStoredSession,
+  getStoredSession,
+  listStoredSessions,
+  recordScriptableFire,
+  startSession,
+  type TestFireEvent,
+  type TestScope,
+} from './test-runner';
+import {
   addLocalRule,
   addLocalRuleToCollection,
   createLocalCollection,
@@ -225,6 +234,45 @@ export function handleGeneralMessage(
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);
       safeResponse({ activeRules: result.activeRules, uniqueRequestCount: result.uniqueRequestCount });
+    } else if (message.type === 'startTestSession') {
+      // Launch a test session and resolve with the final result once the
+      // capture window closes. Kept async so the popup can stay open and
+      // await the response, or close and rely on stored results.
+      const scope = message.scope as TestScope;
+      const ruleUids = (message.ruleUids as string[]) ?? [];
+      const url = message.url as string;
+      const waitSeconds = (message.waitSeconds as number) ?? 5;
+      startSession({ scope, ruleUids, url, waitSeconds })
+        .then((result) => safeResponse({ success: true, result }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'testScriptableFired') {
+      const tabId = _sender.tab?.id;
+      if (typeof tabId === 'number') {
+        recordScriptableFire(
+          tabId,
+          message.ruleUid as string,
+          message.url as string,
+          message.kind as TestFireEvent['kind'],
+          message.t as number,
+        );
+      }
+      safeResponse({ success: true });
+    } else if (message.type === 'listTestSessions') {
+      listStoredSessions()
+        .then((sessions) => safeResponse({ success: true, sessions }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'getTestSession') {
+      getStoredSession(message.sessionId as string)
+        .then((session) => safeResponse({ success: true, session }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'deleteTestSession') {
+      deleteStoredSession(message.sessionId as string)
+        .then(() => safeResponse({ success: true }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
     } else if (message.type === 'setRulesExecutionPaused') {
       scheduleUpdate('pause', { immediate: true });
       safeResponse({ success: true });

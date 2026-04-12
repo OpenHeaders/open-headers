@@ -17,6 +17,7 @@
     "alarms",
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
+    "declarativeNetRequestFeedback",
     "tabs",
     "webRequest",
     "webNavigation",

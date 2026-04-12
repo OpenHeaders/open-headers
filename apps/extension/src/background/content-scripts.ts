@@ -11,6 +11,27 @@
 
 import type { V5 } from '@openheaders/core/types';
 
+// ── Test-mode bridge (embedded in every generated script) ───────
+//
+// When the page is running under a test session, the test-runner sets
+// window.__OH_TEST__ = true at document_start (before these scripts run).
+// __ohTestFire() dispatches a CustomEvent on every successful rule fire,
+// which a programmatically-registered ISOLATED-world content script listens
+// for and forwards to the background test-runner.
+//
+// Outside test sessions, __OH_TEST__ is undefined and __ohTestFire is a no-op.
+
+const TEST_BRIDGE_CODE = [
+  'function __ohTestFire(ruleUid, url, kind) {',
+  '  if (!window.__OH_TEST__) return;',
+  '  try {',
+  '    window.dispatchEvent(new CustomEvent("oh:test:fired", {',
+  '      detail: { ruleUid: ruleUid, url: url, kind: kind, t: Date.now() }',
+  '    }));',
+  '  } catch (e) {}',
+  '}',
+].join('\n');
+
 // ── Shared URL matching (embedded in every generated script) ────
 
 const URL_MATCHER_CODE = [
@@ -48,9 +69,12 @@ export function generateDelayScript(rule: V5.DelayRule): string {
   const patterns = extractPatterns(rule);
   const delayMs = Math.max(0, Math.min(rule.action.delayMs, 5000)); // cap at 5s for fetch/XHR in extension
   const patternsJSON = JSON.stringify(patterns);
+  const ruleUidLit = JSON.stringify(rule.uid);
 
   return `(function(){
+${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+var RULE_UID = ${ruleUidLit};
 var DELAY_MS = ${delayMs};
 var PATTERNS = ${patternsJSON};
 
@@ -60,6 +84,7 @@ window.fetch = function() {
   var self = this;
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
   if (__ohMatchesUrl(url, PATTERNS)) {
+    __ohTestFire(RULE_UID, url, 'delay');
     return new Promise(function(resolve) {
       setTimeout(function() { resolve(origFetch.apply(self, args)); }, DELAY_MS);
     });
@@ -77,6 +102,7 @@ XMLHttpRequest.prototype.send = function() {
   var self = this;
   var args = arguments;
   if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
+    __ohTestFire(RULE_UID, this.__ohUrl, 'delay');
     setTimeout(function() { origXHRSend.apply(self, args); }, DELAY_MS);
   } else {
     origXHRSend.apply(self, args);
@@ -99,9 +125,12 @@ function generateStaticBodyScript(rule: V5.BodyRule): string {
   const patterns = extractPatterns(rule);
   const { body } = rule.action;
   const patternsJSON = JSON.stringify(patterns);
+  const ruleUidLit = JSON.stringify(rule.uid);
 
   return `(function(){
+${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+var RULE_UID = ${ruleUidLit};
 var PATTERNS = ${patternsJSON};
 var BODY = '${escapeForJS(body)}';
 
@@ -110,6 +139,7 @@ window.fetch = function() {
   var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
   if (__ohMatchesUrl(url, PATTERNS) && args[1]) {
+    __ohTestFire(RULE_UID, url, 'body');
     args[1] = Object.assign({}, args[1], { body: BODY });
   }
   return origFetch.apply(this, args);
@@ -123,6 +153,7 @@ XMLHttpRequest.prototype.open = function() {
 };
 XMLHttpRequest.prototype.send = function() {
   if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
+    __ohTestFire(RULE_UID, this.__ohUrl, 'body');
     return origXHRSend.call(this, BODY);
   }
   return origXHRSend.apply(this, arguments);
@@ -137,9 +168,12 @@ function generateDynamicBodyScript(rule: V5.BodyRule): string {
   const patterns = extractPatterns(rule);
   const { body: userCode } = rule.action;
   const patternsJSON = JSON.stringify(patterns);
+  const ruleUidLit = JSON.stringify(rule.uid);
 
   return `(function(){
+${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+var RULE_UID = ${ruleUidLit};
 var PATTERNS = ${patternsJSON};
 
 ${userCode}
@@ -149,6 +183,7 @@ window.fetch = function() {
   var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
   if (__ohMatchesUrl(url, PATTERNS) && args[1] && args[1].body) {
+    __ohTestFire(RULE_UID, url, 'body');
     try {
       var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
       var bodyAsJson = null;
@@ -169,6 +204,7 @@ XMLHttpRequest.prototype.open = function() {
 };
 XMLHttpRequest.prototype.send = function(body) {
   if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS) && body) {
+    __ohTestFire(RULE_UID, this.__ohUrl, 'body');
     try {
       var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
       var bodyAsJson = null;
@@ -197,9 +233,12 @@ function generateStaticMockScript(rule: V5.MockRule): string {
   const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
   const patternsJSON = JSON.stringify(patterns);
   const headersJSON = JSON.stringify({ 'Content-Type': contentType || 'application/json', ...responseHeaders });
+  const ruleUidLit = JSON.stringify(rule.uid);
 
   return `(function(){
+${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+var RULE_UID = ${ruleUidLit};
 var PATTERNS = ${patternsJSON};
 var STATUS = ${statusCode || 200};
 var BODY = '${escapeForJS(responseBody)}';
@@ -210,6 +249,7 @@ window.fetch = function() {
   var args = arguments;
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
   if (__ohMatchesUrl(url, PATTERNS)) {
+    __ohTestFire(RULE_UID, url, 'mock');
     return Promise.resolve(new Response(BODY, { status: STATUS, headers: HEADERS }));
   }
   return origFetch.apply(this, args);
@@ -224,6 +264,7 @@ XMLHttpRequest.prototype.open = function() {
 };
 XMLHttpRequest.prototype.send = function() {
   if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
+    __ohTestFire(RULE_UID, this.__ohUrl, 'mock');
     var self = this;
     Object.defineProperty(self, 'status', { get: function() { return STATUS; } });
     Object.defineProperty(self, 'statusText', { get: function() { return 'OK'; } });
@@ -252,9 +293,12 @@ function generateDynamicMockScript(rule: V5.MockRule): string {
   const { statusCode, responseBody } = rule.action;
   const patternsJSON = JSON.stringify(patterns);
   const overrideStatus = statusCode || 0; // 0 = keep original
+  const ruleUidLit = JSON.stringify(rule.uid);
 
   return `(function(){
+${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+var RULE_UID = ${ruleUidLit};
 var PATTERNS = ${patternsJSON};
 var OVERRIDE_STATUS = ${overrideStatus};
 
@@ -266,6 +310,7 @@ window.fetch = function() {
   var self = this;
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
   if (!__ohMatchesUrl(url, PATTERNS)) return origFetch.apply(self, args);
+  __ohTestFire(RULE_UID, url, 'mock');
 
   var requestMethod = (args[1] && args[1].method) || 'GET';
   var requestHeaders = (args[1] && args[1].headers) || {};
@@ -311,6 +356,7 @@ XMLHttpRequest.prototype.send = function(body) {
   if (!this.__ohUrl || !__ohMatchesUrl(this.__ohUrl, PATTERNS)) {
     return origXHRSend.apply(this, arguments);
   }
+  __ohTestFire(RULE_UID, this.__ohUrl, 'mock');
 
   var xhrUrl = this.__ohUrl;
   var xhrMethod = this.__ohMethod;
@@ -373,6 +419,7 @@ interface MergeMod {
  * without knowing the original value at rule definition time.
  */
 export function generateHeaderMergeScript(
+  ruleUid: string,
   patterns: string[],
   requestMerges: MergeMod[],
   responseMerges: MergeMod[],
@@ -380,9 +427,12 @@ export function generateHeaderMergeScript(
   const patternsJSON = JSON.stringify(patterns);
   const reqJSON = JSON.stringify(requestMerges);
   const resJSON = JSON.stringify(responseMerges);
+  const ruleUidLit = JSON.stringify(ruleUid);
 
   return `(function(){
+${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+var RULE_UID = ${ruleUidLit};
 var PATTERNS = ${patternsJSON};
 var REQ_MERGES = ${reqJSON};
 var RES_MERGES = ${resJSON};
@@ -399,6 +449,7 @@ var origFetch = window.fetch;
 window.fetch = function(input, init) {
   var url = typeof input === 'string' ? input : (input && input.url) || '';
   if (!__ohMatchesUrl(url, PATTERNS)) return origFetch.apply(this, arguments);
+  __ohTestFire(RULE_UID, url, 'header-merge');
   init = init || {};
   var headers = new Headers(init.headers || {});
   for (var i = 0; i < REQ_MERGES.length; i++) {
@@ -423,6 +474,7 @@ XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
 };
 XMLHttpRequest.prototype.send = function() {
   if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, PATTERNS)) {
+    __ohTestFire(RULE_UID, this.__ohUrl, 'header-merge');
     for (var i = 0; i < REQ_MERGES.length; i++) {
       var m = REQ_MERGES[i];
       var existing = (this.__ohHeaders && this.__ohHeaders[m.headerName.toLowerCase()]) || '';
@@ -441,6 +493,7 @@ var origFetchR = window.fetch;
 window.fetch = function(input, init) {
   var url = typeof input === 'string' ? input : (input && input.url) || '';
   if (!__ohMatchesUrl(url, PATTERNS)) return origFetchR.apply(this, arguments);
+  __ohTestFire(RULE_UID, url, 'header-merge');
   return origFetchR.apply(this, arguments).then(function(response) {
     var newHeaders = new Headers(response.headers);
     for (var i = 0; i < RES_MERGES.length; i++) {
