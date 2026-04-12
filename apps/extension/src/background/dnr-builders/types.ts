@@ -1,7 +1,7 @@
 /**
  * Shared types and constants for declarativeNetRequest rule builders.
  *
- * Each rule type has its own builder module that implements DnrBuilder.
+ * Each rule type has its own compiler module that implements RuleCompiler.
  * The dnr-manager coordinator dispatches to the appropriate builder
  * and collects the resulting DnrRule[] for atomic application.
  */
@@ -66,15 +66,89 @@ export interface DnrRedirect {
   };
 }
 
-// ── Builder interface ────────────────────────────────────────────
+// ── Compilation plan ─────────────────────────────────────────────
+//
+// Every rule compiles into a plan that tells us what DNR rules to install
+// for it. The plan has two output lists:
+//
+//   - dynamicRules: installed via updateDynamicRules, most rules
+//   - sessionRules: installed via updateSessionRules, for rules that need
+//     per-tab scoping via tabIds/excludedTabIds (Chrome only supports
+//     those fields on session-scoped rules)
+//
+// In-page script injections are NOT part of the plan. inject-manager
+// consumes V5 rules from the rule store directly and handles its own
+// per-navigation injection lifecycle — the two concerns have different
+// cadences (DNR: lives for the rule's lifetime; scriptable: runs per
+// page load) and stay cleanly decoupled.
+//
+// A single V5 rule can contribute rules to both layers. Delay rules emit
+// sessionRules (because they need excludedTabIds for loop-prevention
+// bypass). Inject rules with bypassCSP emit dynamicRules (to strip CSP
+// headers). Header rules with set/append/remove ops emit dynamicRules.
+// The same rule may ALSO run a scriptable injection — inject-manager
+// decides that from the rule itself, independently of this plan.
+//
+// Each DnrRule is tagged with its source V5 uid by dnr-manager after
+// compilation so id→uid lookups stay correct for telemetry.
+
+// ── Scriptable injection shapes ──────────────────────────────────
+//
+// A scriptable injection is whatever inject-manager can apply via the
+// chrome.scripting API. Two shapes:
+//
+//   1. `func` — a real TypeScript function serialized via Function.toString,
+//      executed in the page's MAIN world by chrome.scripting.executeScript.
+//      CSP-safe because it does NOT create an inline <script> tag.
+//   2. `inline-script` — a string of JavaScript wrapped in a <script> tag
+//      injected into the page's DOM. Subject to the page's CSP — used for
+//      rules that embed arbitrary user JS (dynamic body/mock) which can't
+//      be embedded inside a closed TypeScript function.
+//
+// The func signature uses `never` as the parameter type because it's
+// serialized and executed in the page; calling it directly from the
+// background would be a type error, which is what we want.
+
+export interface FuncInjection {
+  kind: 'func';
+  func: (cfg: never) => void;
+  args: [unknown];
+}
+
+export interface InlineScriptInjection {
+  kind: 'inline-script';
+  code: string;
+}
+
+export type Injection = FuncInjection | InlineScriptInjection;
 
 /**
- * A per-type builder that converts a V5 rule into declarativeNetRequest rules.
- * Returns [] if the rule is invalid or should be skipped.
+ * The output of compiling a single V5 rule. All fields are arrays so
+ * compilers can emit zero, one, or many of each. Missing arrays default
+ * to empty — compilers may return a partial object.
  */
-export interface DnrBuilder<T extends V5.Rule> {
+export interface CompilationPlan {
+  /** DNR rules installed in the dynamic layer (most common). */
+  dynamicRules?: DnrRule[];
+  /** DNR rules installed in the session layer (needed for per-tab scope). */
+  sessionRules?: DnrRule[];
+}
+
+/**
+ * Context passed to every compiler. `allocateId` returns a unique DnrRule id
+ * each call — compilers don't manage id allocation themselves.
+ */
+export interface CompilerContext {
+  allocateId(): number;
+}
+
+/**
+ * A per-type compiler that turns a V5 rule into a CompilationPlan.
+ * Returns a plan with empty arrays if the rule is invalid or should be skipped.
+ */
+export interface RuleCompiler<T extends V5.Rule> {
   ruleType: V5.RuleType;
-  build(rule: T, startId: number): DnrRule[];
+  compile(rule: T, ctx: CompilerContext): CompilationPlan;
 }
 
 // ── Condition builder ────────────────────────────────────────────
@@ -197,12 +271,63 @@ export function buildDnrCondition(conditions: V5.RuleCondition[]): {
     }
   }
 
-  // Default resource types if none specified
-  if (!base.resourceTypes && !base.excludedResourceTypes) {
-    base.resourceTypes = ALL_RESOURCE_TYPES;
-  }
+  // Note: we intentionally do NOT default `resourceTypes` here. The resolver
+  // (`resolveResourceTypes`) is the single source of truth for which resource
+  // types end up on the emitted rule, and it handles defaulting from each
+  // builder's capability set. Defaulting here would conflate "user said
+  // nothing" with "user explicitly listed everything" and would also let the
+  // default leak past builders that strip-and-replace.
 
   return { base, domains, useRegex, urlPattern };
+}
+
+// ── Resource-type resolution ─────────────────────────────────────
+//
+// Chrome DNR rejects any rule where the same resource type appears in both
+// `resourceTypes` and `excludedResourceTypes` ("includes and excludes the
+// same resource"). It also defaults `resourceTypes` to `['main_frame']` when
+// neither field is set, which is almost never what we want.
+//
+// Every builder solves the same problem: take its capability set (the
+// resource types its action can meaningfully apply to) and reconcile that
+// with whatever `resource-types` / `exclude-resource-types` conditions the
+// user authored, then emit a SINGLE canonical `resourceTypes` array on the
+// final rule with no `excludedResourceTypes` field at all.
+//
+// `resolveResourceTypes` does that fold; `stripResourceTypeFields` removes
+// both raw fields from `base` so they can never leak through a `...base`
+// spread into the emitted condition.
+
+/**
+ * Fold a builder's capability set with the user's resource-type conditions.
+ *
+ * @param capability  resource types the emitted rule can meaningfully act on
+ * @param userInclude user's `resource-types` condition (undefined or empty = no include filter)
+ * @param userExclude user's `exclude-resource-types` condition (undefined or empty = no exclude filter)
+ * @returns the resolved list, or `null` if the intersection is empty (caller should skip)
+ */
+export function resolveResourceTypes(
+  capability: chrome.declarativeNetRequest.ResourceType[],
+  userInclude: chrome.declarativeNetRequest.ResourceType[] | undefined,
+  userExclude: chrome.declarativeNetRequest.ResourceType[] | undefined,
+): chrome.declarativeNetRequest.ResourceType[] | null {
+  const include = userInclude && userInclude.length > 0 ? new Set(userInclude) : null;
+  const exclude = new Set(userExclude ?? []);
+  const out = capability.filter((t) => !exclude.has(t) && (!include || include.has(t)));
+  return out.length === 0 ? null : out;
+}
+
+/**
+ * Strip the raw resource-type fields from a base condition. Builders call
+ * this before spreading `base` into the emitted condition so the resolved
+ * `resourceTypes` from `resolveResourceTypes` is the only resource-type
+ * field on the wire.
+ */
+export function stripResourceTypeFields(
+  condition: DnrCondition,
+): Omit<DnrCondition, 'resourceTypes' | 'excludedResourceTypes'> {
+  const { resourceTypes: _rt, excludedResourceTypes: _ert, ...rest } = condition;
+  return rest;
 }
 
 // ── Shared resource type constants ───────────────────────────────

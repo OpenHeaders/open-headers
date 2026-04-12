@@ -13,7 +13,15 @@ import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs }
 import { logger } from '@utils/logger';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
-import { getPausedGroups, initPauseState, setPausedGroups, setRulesPaused } from './dnr-manager';
+import {
+  forgetDelayBypassForTab,
+  getPausedGroups,
+  initPauseState,
+  markTabForDelayBypass,
+  resolveDelayBypass,
+  setPausedGroups,
+  setRulesPaused,
+} from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { handleGeneralMessage } from './modules/message-handler';
@@ -96,6 +104,7 @@ async function initializeExtension(): Promise<void> {
   setupPeriodicCleanup();
   initializeActiveTabTracking();
   setupInjectListener();
+  setupDelayBypassCleanup();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
   onStoreChange(() => {
@@ -230,6 +239,44 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
 runtime.onMessage.addListener(
   (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
     const msg = message as Record<string, unknown>;
+
+    // Delay-page bypass: the delay page finished its countdown and is about
+    // to navigate to the real target. Mark the tab so the delay DNR rule is
+    // suppressed for it, then respond only AFTER Chrome has committed the
+    // updated DNR rules so the follow-up navigation cannot race the rule
+    // update and re-enter the delay loop. The target URL is stashed so the
+    // bypass only clears when THAT specific navigation commits — not on an
+    // unrelated Back-button or sibling navigation in the same tab.
+    if (msg.type === 'oh-delay-bypass') {
+      const tabId = sender.tab?.id;
+      const target = typeof msg.target === 'string' ? msg.target : null;
+      if (typeof tabId === 'number' && tabId >= 0 && target) {
+        markTabForDelayBypass(tabId, target)
+          .then(() => {
+            try {
+              sendResponse({ ok: true });
+            } catch {
+              /* channel closed — nothing to do */
+            }
+          })
+          .catch((e: Error) => {
+            logger.error('Background', 'Delay bypass failed:', e.message);
+            try {
+              sendResponse({ ok: false });
+            } catch {
+              /* channel closed */
+            }
+          });
+        return true; // keep the message channel open for the async response
+      }
+      try {
+        sendResponse({ ok: false });
+      } catch {
+        /* channel closed */
+      }
+      return false;
+    }
+
     const recordingHandled = handleRecordingMessage(
       msg,
       sender,
@@ -265,6 +312,43 @@ runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
   );
   void initializeExtension();
 });
+
+/**
+ * Clear a tab's delay-bypass entry once the specific navigation we stashed
+ * for it actually lands. Matching on (tabId, committedUrl) means an unrelated
+ * Back-button or sibling navigation in the same tab leaves the bypass alone
+ * until the real target commits (or errors out, or the tab is closed, or the
+ * 30-second TTL expires).
+ */
+function setupDelayBypassCleanup(): void {
+  const api = typeof browser !== 'undefined' ? browser : chrome;
+
+  if (api.webNavigation?.onCommitted) {
+    api.webNavigation.onCommitted.addListener(
+      (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
+        if (details.frameId !== 0) return;
+        // Ignore commits of delay.html itself — we only care about the
+        // follow-up navigation to the real target.
+        if (details.url.startsWith(api.runtime.getURL('delay.html'))) return;
+        resolveDelayBypass(details.tabId, details.url);
+      },
+    );
+  }
+
+  // Navigation failed (DNS error, aborted, network offline, etc.) — clear
+  // the bypass so the tab isn't stuck exempt until TTL.
+  if (api.webNavigation?.onErrorOccurred) {
+    api.webNavigation.onErrorOccurred.addListener((details: { tabId: number; frameId: number; url: string }) => {
+      if (details.frameId !== 0) return;
+      resolveDelayBypass(details.tabId, details.url);
+    });
+  }
+
+  // Tab closed — drop any stashed entry.
+  if (api.tabs?.onRemoved) {
+    api.tabs.onRemoved.addListener((tabId: number) => forgetDelayBypassForTab(tabId));
+  }
+}
 
 logger.info('Background', 'Background script started');
 void initializeExtension();

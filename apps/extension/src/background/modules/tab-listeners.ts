@@ -8,7 +8,7 @@ import type { IRecordingService } from '@/types/recording';
 import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
 import {
   clearTab as tabTelemetryClearTab,
-  resetForNavigation as tabTelemetryResetForNavigation,
+  onPageCommit as tabTelemetryOnPageCommit,
   startTracking as tabTelemetryStartTracking,
   stopTracking as tabTelemetryStopTracking,
 } from './tab-telemetry';
@@ -226,7 +226,9 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
         if (!tabsWithActiveRules.has(tab.id!)) {
           tabsWithActiveRules.set(tab.id!, new Map());
         }
-        tabsWithActiveRules.get(tab.id!)!.set(normalizeUrlForTracking(tab.url!), { timestamp: Date.now(), resourceType: 'main_frame' });
+        tabsWithActiveRules
+          .get(tab.id!)!
+          .set(normalizeUrlForTracking(tab.url!), { timestamp: Date.now(), resourceType: 'main_frame' });
         logger.info('TabListeners', `New tab ${tab.id} created with URL that matches rules`);
 
         if (tab.active) {
@@ -308,11 +310,13 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
           logger.info('TabListeners', 'Navigation committed:', details.tabId, details.url);
         }
 
-        // Reset fire counters for this tab on main-frame navigation so
-        // counts don't bleed across page loads. Also seed the last-URL
-        // map so the pushState handler can tell router init churn apart
-        // from real SPA navigation.
-        tabTelemetryResetForNavigation(details.tabId);
+        // Page-context swap in tab-telemetry. onPageCommit promotes any
+        // pending fires whose requestId led to this URL (e.g. delay chain
+        // example.com → delay.html → example.com records a fire against
+        // the initial example.com request, and the final commit of
+        // example.com promotes it into the new page's bucket instead of
+        // wiping it). Unrelated pending fires are dropped.
+        tabTelemetryOnPageCommit(details.tabId, details.url);
         lastMainFrameUrlByTab.set(details.tabId, details.url);
 
         await recordingService.handleNavigation(details.tabId, details.url);
@@ -360,7 +364,12 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
           const previousUrl = lastMainFrameUrlByTab.get(details.tabId);
           if (previousUrl !== details.url) {
             lastMainFrameUrlByTab.set(details.tabId, details.url);
-            tabTelemetryResetForNavigation(details.tabId);
+            // SPA pushState/replaceState: no webRequest redirect chain to
+            // promote from (the URL didn't go through the network) — just
+            // swap the page context. Pending fires (if any) will be
+            // dropped, which is correct for a pushState that replaces
+            // the whole document.
+            tabTelemetryOnPageCommit(details.tabId, details.url);
           }
 
           // Re-evaluate if this URL should be tracked
@@ -369,7 +378,9 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
             if (!tabsWithActiveRules.has(details.tabId)) {
               tabsWithActiveRules.set(details.tabId, new Map());
             }
-            tabsWithActiveRules.get(details.tabId)!.set(normalizeUrlForTracking(details.url), { timestamp: Date.now(), resourceType: 'main_frame' });
+            tabsWithActiveRules
+              .get(details.tabId)!
+              .set(normalizeUrlForTracking(details.url), { timestamp: Date.now(), resourceType: 'main_frame' });
           }
 
           // Update badge

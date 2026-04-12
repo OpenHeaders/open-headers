@@ -18,7 +18,7 @@
 declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
-import { doesUrlMatchRule } from '@openheaders/core/utils';
+import { compileRuleForInjection, doesUrlMatchRule } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import {
   buildBodyInjection,
@@ -31,17 +31,15 @@ import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-/** All scriptable rule types — inject, delay, body, mock. */
-type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule;
+/** Rules inject-manager can act on. Header rules are here for their `merge` operations. */
+type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule | V5.HeaderRule;
 
 /** A header merge operation extracted from a HeaderRule. */
-export interface HeaderMergeEntry {
-  /** The V5 header rule this merge came from — used for test-session scope filtering and telemetry. */
+interface HeaderMergeEntry {
   ruleUid: string;
   /**
-   * Regex sources pre-compiled from the rule's URL conditions via
-   * `compileRuleForInjection`. Empty array means the rule has no URL
-   * conditions and should not match any URL.
+   * Regex sources pre-compiled from the rule's URL conditions. Empty array
+   * means the rule has no URL conditions and should not match any URL.
    */
   regexSources: string[];
   requestMerges: Array<{ headerName: string; value: string; separator: string }>;
@@ -51,20 +49,70 @@ export interface HeaderMergeEntry {
 let activeScriptableRules: ScriptableRule[] = [];
 let activeHeaderMerges: HeaderMergeEntry[] = [];
 
+function defaultSeparator(headerName: string): string {
+  const lower = headerName.toLowerCase();
+  return lower === 'cookie' || lower === 'set-cookie' ? '; ' : ', ';
+}
+
+/**
+ * Extract the merge operations from a V5.HeaderRule. Returns null if the
+ * rule has no merges — caller should skip installing an injection in that
+ * case. This lives here (not in the header compiler) because header merge
+ * injection is strictly a scriptable concern — inject-manager reads it
+ * from the rule store, never from a compiled plan.
+ */
+function extractHeaderMergeEntry(rule: V5.HeaderRule): HeaderMergeEntry | null {
+  const requestMerges = (rule.action.requestHeaders ?? [])
+    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim())
+    .map((m) => ({
+      headerName: m.headerName,
+      value: m.value!,
+      separator: m.mergeSeparator || defaultSeparator(m.headerName),
+    }));
+  const responseMerges = (rule.action.responseHeaders ?? [])
+    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim())
+    .map((m) => ({
+      headerName: m.headerName,
+      value: m.value!,
+      separator: m.mergeSeparator || defaultSeparator(m.headerName),
+    }));
+  if (requestMerges.length === 0 && responseMerges.length === 0) return null;
+  return { ruleUid: rule.uid, regexSources: compileRuleForInjection(rule), requestMerges, responseMerges };
+}
+
 // ── Public API ───────────────────────────────────────────────────
 
 /**
- * Update the set of active scriptable rules. Called by dnr-manager
- * whenever rules change.
+ * Update the set of active scriptable rules. Called by dnr-manager whenever
+ * rules change. Accepts every V5 rule with any in-page side effect (inject,
+ * delay, body, mock, header); header-merge entries are derived from header
+ * rules internally so dnr-manager doesn't have to know about them.
  */
-export function updateScriptableRules(rules: ScriptableRule[], headerMerges: HeaderMergeEntry[] = []): void {
-  activeScriptableRules = rules;
+export function updateScriptableRules(rules: V5.Rule[]): void {
+  const scriptable: ScriptableRule[] = [];
+  const headerMerges: HeaderMergeEntry[] = [];
+  for (const rule of rules) {
+    switch (rule.type) {
+      case 'inject':
+      case 'delay':
+      case 'body':
+      case 'mock':
+        scriptable.push(rule);
+        break;
+      case 'header': {
+        const merge = extractHeaderMergeEntry(rule);
+        if (merge) headerMerges.push(merge);
+        break;
+      }
+    }
+  }
+  activeScriptableRules = scriptable;
   activeHeaderMerges = headerMerges;
   headerMergeRegexCache = new WeakMap();
-  if (rules.length > 0 || headerMerges.length > 0) {
+  if (scriptable.length > 0 || headerMerges.length > 0) {
     logger.info(
       'InjectManager',
-      `Updated scriptable rules: ${rules.length} active (${rules.map((r) => `${r.type}:${r.name}`).join(', ')}), ${headerMerges.length} header merges`,
+      `Updated scriptable rules: ${scriptable.length} active (${scriptable.map((r) => `${r.type}:${r.name}`).join(', ')}), ${headerMerges.length} header merges`,
     );
   } else {
     logger.debug('InjectManager', 'Updated scriptable rules: 0 active');
@@ -129,6 +177,11 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
   const testScope = getTestScopeForTab(tabId);
 
   for (const rule of activeScriptableRules) {
+    // Header rules are tracked in this list only so dnr-manager can pass a
+    // single set of scriptable-capable rules over; their merge injections
+    // are driven separately from `activeHeaderMerges` below.
+    if (rule.type === 'header') continue;
+
     // A rule with no URL-matching conditions never matches any URL —
     // incomplete rules are already filtered upstream by isRuleComplete.
     if (!doesUrlMatchRule(url, rule)) continue;

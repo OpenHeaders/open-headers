@@ -28,17 +28,17 @@ const DelayRuleFields: React.FC = () => {
         type="warning"
         showIcon
         style={{ marginBottom: 12, fontSize: 12 }}
-        message="In browser extension, delay is capped at 5,000ms for XHR/Fetch. Static resources are not affected. The desktop app has no restrictions."
+        message="Document and iframe navigations are delayed up to 30,000ms via a local waiting page. JS-initiated XHR/Fetch is capped at 5,000ms to avoid HTTP connection pool starvation. Sub-resources (CSS, JS, images) are not delayed."
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
           Delay
         </Text>
         <Form.Item name="delayMs" style={{ marginBottom: 0 }}>
-          <InputNumber min={0} max={5000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
+          <InputNumber min={0} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
         </Form.Item>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          Max 5,000 ms
+          Max 30,000 ms
         </Text>
       </div>
     </div>

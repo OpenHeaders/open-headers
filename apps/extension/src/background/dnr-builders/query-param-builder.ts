@@ -1,5 +1,5 @@
 /**
- * Query Param DNR Builder — converts V5.QueryParamRule into declarativeNetRequest rules.
+ * Query Param compiler — converts V5.QueryParamRule into a CompilationPlan.
  *
  * Uses DNR redirect action with transform.queryTransform to add, override,
  * or remove URL query parameters. One DNR rule per domain.
@@ -8,26 +8,25 @@
 import type { V5 } from '@openheaders/core/types';
 import { formatUrlPattern } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import type { DnrBuilder, DnrRedirect, DnrRule } from './types';
-import { ALL_RESOURCE_TYPES, buildDnrCondition } from './types';
+import type { CompilationPlan, CompilerContext, DnrCondition, DnrRedirect, DnrRule, RuleCompiler } from './types';
+import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
-export const queryParamBuilder: DnrBuilder<V5.QueryParamRule> = {
+export const queryParamCompiler: RuleCompiler<V5.QueryParamRule> = {
   ruleType: 'query-param',
-  build(rule: V5.QueryParamRule, startId: number): DnrRule[] {
+  compile(rule: V5.QueryParamRule, ctx: CompilerContext): CompilationPlan {
     const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
     const { action } = rule;
 
     if (domains.length === 0 && !urlPattern) {
-      logger.debug('QueryParamBuilder', `Skipping rule "${rule.name}" — no matching conditions`);
-      return [];
+      logger.debug('QueryParamCompiler', `Skipping rule "${rule.name}" — no matching conditions`);
+      return {};
     }
 
     if (action.params.length === 0) {
-      logger.debug('QueryParamBuilder', `Skipping rule "${rule.name}" — no params`);
-      return [];
+      logger.debug('QueryParamCompiler', `Skipping rule "${rule.name}" — no params`);
+      return {};
     }
 
-    // Build the queryTransform from param entries
     const addOrReplaceParams: Array<{ key: string; value: string; replaceOnly?: boolean }> = [];
     const removeParams: string[] = [];
     let removeAll = false;
@@ -53,49 +52,44 @@ export const queryParamBuilder: DnrBuilder<V5.QueryParamRule> = {
     }
 
     if (addOrReplaceParams.length === 0 && removeParams.length === 0 && !removeAll) {
-      logger.debug('QueryParamBuilder', `Skipping rule "${rule.name}" — no valid param operations`);
-      return [];
+      logger.debug('QueryParamCompiler', `Skipping rule "${rule.name}" — no valid param operations`);
+      return {};
     }
 
+    const resourceTypes = resolveResourceTypes(ALL_RESOURCE_TYPES, base.resourceTypes, base.excludedResourceTypes);
+    if (!resourceTypes) {
+      logger.debug('QueryParamCompiler', `Skipping rule "${rule.name}" — resource-type filter excludes everything`);
+      return {};
+    }
+    const cleanBase = stripResourceTypeFields(base);
+
+    const redirect: DnrRule['action']['redirect'] = removeAll
+      ? { transform: { query: '' } }
+      : (() => {
+          const queryTransform: NonNullable<DnrRedirect['transform']>['queryTransform'] = {};
+          if (addOrReplaceParams.length > 0) queryTransform.addOrReplaceParams = addOrReplaceParams;
+          if (removeParams.length > 0) queryTransform.removeParams = removeParams;
+          return { transform: { queryTransform } };
+        })();
+
     const rules: DnrRule[] = [];
-    let ruleId = startId;
 
-    for (const domain of domains) {
-      if (removeAll) {
-        // Remove all — strips entire query string. Other operations ignored.
+    if (urlPattern) {
+      const condition: DnrCondition = { ...cleanBase, resourceTypes };
+      if (useRegex) condition.regexFilter = urlPattern;
+      else condition.urlFilter = urlPattern;
+      rules.push({ id: ctx.allocateId(), priority: 150, action: { type: 'redirect', redirect }, condition });
+    } else {
+      for (const domain of domains) {
         rules.push({
-          id: ruleId++,
+          id: ctx.allocateId(),
           priority: 150,
-          action: {
-            type: 'redirect',
-            redirect: { transform: { query: '' } },
-          },
-          condition: {
-            urlFilter: formatUrlPattern(domain),
-            resourceTypes: ALL_RESOURCE_TYPES,
-          },
-        });
-      } else {
-        // Add/replace/remove specific params
-        const queryTransform: NonNullable<DnrRedirect['transform']>['queryTransform'] = {};
-        if (addOrReplaceParams.length > 0) queryTransform.addOrReplaceParams = addOrReplaceParams;
-        if (removeParams.length > 0) queryTransform.removeParams = removeParams;
-
-        rules.push({
-          id: ruleId++,
-          priority: 150,
-          action: {
-            type: 'redirect',
-            redirect: { transform: { queryTransform } },
-          },
-          condition: {
-            urlFilter: formatUrlPattern(domain),
-            resourceTypes: ALL_RESOURCE_TYPES,
-          },
+          action: { type: 'redirect', redirect },
+          condition: { ...cleanBase, urlFilter: formatUrlPattern(domain), resourceTypes },
         });
       }
     }
 
-    return rules;
+    return { dynamicRules: rules };
   },
 };

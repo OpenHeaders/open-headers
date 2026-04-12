@@ -149,13 +149,7 @@ function buildFireBridgePlugin() {
 }
 
 export default defineConfig({
-  plugins: [
-    react(),
-    chromeSafePlugin(),
-    copyAssetsPlugin(),
-    buildContentScriptPlugin(),
-    buildFireBridgePlugin(),
-  ],
+  plugins: [react(), chromeSafePlugin(), copyAssetsPlugin(), buildContentScriptPlugin(), buildFireBridgePlugin()],
 
   resolve: {
     alias: {
@@ -204,6 +198,7 @@ export default defineConfig({
       input: {
         popup: path.resolve(__dirname, 'popup.html'),
         workspace: path.resolve(__dirname, 'workspace.html'),
+        delay: path.resolve(__dirname, 'delay.html'),
         background: path.resolve(__dirname, 'src/background/index.ts'),
       },
       output: {

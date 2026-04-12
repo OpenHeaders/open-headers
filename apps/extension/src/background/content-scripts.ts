@@ -38,30 +38,10 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
+import type { FuncInjection, Injection } from './dnr-builders/types';
 
-// ── Injection result types ──────────────────────────────────────────
-
-/**
- * CSP-safe real-function injection for static rule variants. The func is
- * typed with `never` in the parameter slot because it's serialized via
- * `Function.prototype.toString` and executed in the page's MAIN world by
- * `chrome.scripting.executeScript` — it is never called directly from the
- * background. The `never` contravariance sink means you cannot accidentally
- * invoke it with the wrong config shape from TypeScript code.
- */
-export interface FuncInjection {
-  kind: 'func';
-  func: (cfg: never) => void;
-  args: [unknown];
-}
-
-/** Inline-script injection for dynamic rules that embed user JS. */
-export interface InlineScriptInjection {
-  kind: 'inline-script';
-  code: string;
-}
-
-export type Injection = FuncInjection | InlineScriptInjection;
+// Re-export the injection types so existing importers keep working.
+export type { FuncInjection, Injection, InlineScriptInjection } from './dnr-builders/types';
 
 // ── Per-rule config shapes passed into injected funcs ───────────────
 
@@ -145,10 +125,7 @@ function delayInjectionFunc(cfg: DelayConfig): void {
 
   function fire(url: string): void {
     try {
-      window.postMessage(
-        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'delay', t: Date.now() },
-        '*',
-      );
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'delay', t: Date.now() }, '*');
     } catch {
       /* swallow */
     }
@@ -224,10 +201,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
 
   function fire(url: string): void {
     try {
-      window.postMessage(
-        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'body', t: Date.now() },
-        '*',
-      );
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'body', t: Date.now() }, '*');
     } catch {
       /* swallow */
     }
@@ -304,10 +278,7 @@ function staticMockInjectionFunc(cfg: StaticMockConfig): void {
 
   function fire(url: string): void {
     try {
-      window.postMessage(
-        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'mock', t: Date.now() },
-        '*',
-      );
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'mock', t: Date.now() }, '*');
     } catch {
       /* swallow */
     }
@@ -392,10 +363,7 @@ function headerMergeInjectionFunc(cfg: HeaderMergeConfig): void {
 
   function fire(url: string): void {
     try {
-      window.postMessage(
-        { __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'header-merge', t: Date.now() },
-        '*',
-      );
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'header-merge', t: Date.now() }, '*');
     } catch {
       /* swallow */
     }
