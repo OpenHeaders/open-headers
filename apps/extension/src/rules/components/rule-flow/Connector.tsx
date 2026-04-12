@@ -15,35 +15,36 @@ interface ConnectorProps {
 export const Connector: React.FC<ConnectorProps> = ({ label, compact }) => {
   const { token } = theme.useToken();
   const labelColor = token.colorTextQuaternary;
-  const h = compact ? 10 : 20;
+  const hasLabel = !!label && !compact;
+  const h = compact ? 20 : 40;
+
+  const lineStyle = { height: hasLabel ? h / 2 : h, '--flow-line-color': token.colorBorder } as React.CSSProperties;
 
   return (
     <div className="flow-connector" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div
-        className="flow-dashed-line"
-        style={{ height: h, '--flow-line-color': token.colorBorder } as React.CSSProperties}
-      />
-      {label && !compact && (
-        <span
-          style={{
-            fontFamily: 'monospace',
-            fontSize: 9,
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-            color: labelColor,
-            padding: '1px 8px',
-            border: `1px solid ${token.colorBorder}`,
-            borderRadius: 3,
-            background: token.colorBgContainer,
-          }}
-        >
-          {label}
-        </span>
+      {hasLabel ? (
+        <>
+          <div className="flow-dashed-line" style={lineStyle} />
+          <span
+            style={{
+              fontFamily: 'monospace',
+              fontSize: 9,
+              letterSpacing: 0.8,
+              textTransform: 'uppercase',
+              color: labelColor,
+              padding: '1px 8px',
+              border: `1px solid ${token.colorBorder}`,
+              borderRadius: 3,
+              background: token.colorBgContainer,
+            }}
+          >
+            {label}
+          </span>
+          <div className="flow-dashed-line" style={lineStyle} />
+        </>
+      ) : (
+        <div className="flow-dashed-line" style={lineStyle} />
       )}
-      <div
-        className="flow-dashed-line"
-        style={{ height: h, '--flow-line-color': token.colorBorder } as React.CSSProperties}
-      />
     </div>
   );
 };
