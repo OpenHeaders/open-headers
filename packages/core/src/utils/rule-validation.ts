@@ -9,6 +9,7 @@
  */
 
 import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule, RuleBase } from '../types/v5/rule';
+import { getHeaderOperationCapability } from './headers';
 
 /**
  * Check whether a rule has all required fields to function.
@@ -37,10 +38,19 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
   switch (base.type) {
     case 'header': {
       const hr = rule as HeaderRule | Omit<HeaderRule, 'uid' | 'path'>;
-      const allMods = [...(hr.action.requestHeaders ?? []), ...(hr.action.responseHeaders ?? [])];
+      const reqMods = (hr.action.requestHeaders ?? []).map((m) => ({ mod: m, direction: 'request' as const }));
+      const resMods = (hr.action.responseHeaders ?? []).map((m) => ({ mod: m, direction: 'response' as const }));
+      const allMods = [...reqMods, ...resMods];
       if (allMods.length === 0) return false;
-      // Every modification needs a header name, and non-remove operations need a value
-      return allMods.every((m) => m.headerName.trim() && (m.operation === 'remove' || m.value?.trim()));
+      // Every modification needs a name, a value (unless 'remove'), AND must be a
+      // combination Chrome's DNR will accept — invalid combos (e.g. `append` on a
+      // custom X- header) fail the capability check and make the whole rule a draft.
+      // Drafts aren't compiled, so they can never leave stale DNR state behind.
+      return allMods.every(({ mod, direction }) => {
+        if (!mod.headerName.trim()) return false;
+        if (mod.operation !== 'remove' && !mod.value?.trim()) return false;
+        return getHeaderOperationCapability(direction, mod.operation, mod.headerName).allowed;
+      });
     }
     case 'block':
       return true; // conditions is sufficient

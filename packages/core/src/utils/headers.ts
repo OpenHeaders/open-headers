@@ -3,7 +3,14 @@
  *
  * Used by both the desktop app and browser extension for validating
  * headers before they're applied via declarativeNetRequest or proxy.
+ *
+ * Also the single source of truth for "which operations can modify which
+ * headers in which direction" — consumed by the DNR compiler (skip invalid
+ * mods), the `isRuleComplete` gate (invalid rules become drafts and never
+ * execute), and the UI (autocomplete + inline warnings on the header row).
  */
+
+import type { HeaderOperation } from '../types/v5/rule';
 
 // ── Validation result types ─────────────────────────────────────────
 
@@ -18,6 +25,17 @@ export interface HeaderValueValidation {
   valid: boolean;
   message?: string;
   warning?: string;
+}
+
+export type HeaderDirection = 'request' | 'response';
+
+export interface HeaderOperationCapability {
+  /** Whether this (direction × operation × header) combo is valid. */
+  allowed: boolean;
+  /** Human-readable reason when !allowed. Empty when allowed. */
+  reason: string;
+  /** When !allowed, the best alternative operation the user should use instead. */
+  suggestion?: HeaderOperation;
 }
 
 // Headers that cannot be modified by extensions
@@ -194,4 +212,190 @@ export function normalizeHeaderName(headerName: string): string {
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('-');
+}
+
+// ── Chrome DNR append allowlists ─────────────────────────────────────
+//
+// Chrome's declarativeNetRequest.updateDynamicRules rejects any rule that
+// uses `operation: "append"` on a header outside its built-in allowlist.
+// The allowlist is fixed by Chrome (see Chromium's
+// extensions/browser/api/declarative_net_request/flat/indexed_rule.cc):
+// only standard HTTP headers whose wire grammar explicitly permits
+// multiple-value entries can be appended.
+//
+// Custom headers (X-OH-Stack, X-My-Thing, …) are NOT on the allowlist.
+// Attempting to append them causes Chrome to reject the ENTIRE
+// updateDynamicRules batch (atomic operation), leaving the previous DNR
+// snapshot installed and making the broken rule invisible. The
+// capability check below rejects such combinations at author time so
+// they never reach Chrome.
+
+export const DNR_APPENDABLE_REQUEST_HEADERS: ReadonlySet<string> = new Set([
+  'accept',
+  'accept-charset',
+  'accept-encoding',
+  'accept-language',
+  'access-control-request-headers',
+  'cache-control',
+  'connection',
+  'content-language',
+  'cookie',
+  'forwarded',
+  'if-match',
+  'if-none-match',
+  'keep-alive',
+  'range',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'via',
+  'want-digest',
+  'x-forwarded-for',
+]);
+
+export const DNR_APPENDABLE_RESPONSE_HEADERS: ReadonlySet<string> = new Set([
+  'access-control-allow-headers',
+  'access-control-allow-methods',
+  'access-control-expose-headers',
+  'cache-control',
+  'content-language',
+  'link',
+  'server',
+  'set-cookie',
+  'vary',
+  'via',
+  'www-authenticate',
+  'x-content-type-options',
+  'x-frame-options',
+]);
+
+// ── Curated header autocomplete lists ────────────────────────────────
+//
+// Not an allowlist — these drive the header-name AutoComplete dropdown
+// in the rule editor. Curated (not exhaustive) so the dropdown stays
+// useful instead of overwhelming. Users can still type any header name.
+
+export const COMMON_REQUEST_HEADERS: readonly string[] = [
+  'Accept',
+  'Accept-Language',
+  'Authorization',
+  'Cache-Control',
+  'Content-Type',
+  'Cookie',
+  'If-Match',
+  'If-Modified-Since',
+  'If-None-Match',
+  'Pragma',
+  'Range',
+  'Referer',
+  'User-Agent',
+  'X-API-Key',
+  'X-Auth-Token',
+  'X-CSRF-Token',
+  'X-Forwarded-For',
+  'X-Real-IP',
+  'X-Request-ID',
+  'X-Requested-With',
+];
+
+export const COMMON_RESPONSE_HEADERS: readonly string[] = [
+  'Access-Control-Allow-Credentials',
+  'Access-Control-Allow-Headers',
+  'Access-Control-Allow-Methods',
+  'Access-Control-Allow-Origin',
+  'Access-Control-Expose-Headers',
+  'Access-Control-Max-Age',
+  'Age',
+  'Cache-Control',
+  'Content-Disposition',
+  'Content-Language',
+  'Content-Security-Policy',
+  'Content-Security-Policy-Report-Only',
+  'Content-Type',
+  'Cross-Origin-Embedder-Policy',
+  'Cross-Origin-Opener-Policy',
+  'Cross-Origin-Resource-Policy',
+  'ETag',
+  'Expires',
+  'Last-Modified',
+  'Link',
+  'Location',
+  'Permissions-Policy',
+  'Pragma',
+  'Referrer-Policy',
+  'Retry-After',
+  'Server',
+  'Set-Cookie',
+  'Timing-Allow-Origin',
+  'WWW-Authenticate',
+  'X-Content-Type-Options',
+  'X-DNS-Prefetch-Control',
+  'X-Frame-Options',
+  'X-XSS-Protection',
+];
+
+/**
+ * Capability check for a (direction × operation × header) combination.
+ *
+ * Called from `isRuleComplete` (so invalid rules automatically become
+ * drafts), the DNR header compiler (defensive skip), and the rule editor
+ * UI (inline validation with a suggested alternative). Returns
+ * `{ allowed: true, reason: '' }` for an empty header name so the UI can
+ * leave the "required" path to the existing isRuleComplete check.
+ */
+export function getHeaderOperationCapability(
+  direction: HeaderDirection,
+  operation: HeaderOperation,
+  headerName: string,
+): HeaderOperationCapability {
+  const trimmed = headerName.trim();
+  if (!trimmed) return { allowed: true, reason: '' };
+
+  const nameValidation = validateHeaderName(trimmed, direction === 'response');
+  if (!nameValidation.valid) {
+    return {
+      allowed: false,
+      reason: nameValidation.message,
+      suggestion: operation === 'add' ? 'override' : undefined,
+    };
+  }
+
+  if (operation === 'merge' || operation === 'override' || operation === 'remove') {
+    return { allowed: true, reason: '' };
+  }
+
+  if (operation === 'add') {
+    const allowlist = direction === 'request' ? DNR_APPENDABLE_REQUEST_HEADERS : DNR_APPENDABLE_RESPONSE_HEADERS;
+    if (allowlist.has(trimmed.toLowerCase())) return { allowed: true, reason: '' };
+    return {
+      allowed: false,
+      reason: `Append is only supported on standard multi-value ${direction} headers. "${trimmed}" is not in Chrome's appendable allowlist — use Override instead, or switch to Merge for a script-based append.`,
+      suggestion: 'override',
+    };
+  }
+
+  return { allowed: true, reason: '' };
+}
+
+/**
+ * Suggested header names for the editor's AutoComplete, filtered by
+ * (direction × operation). For `add` we return ONLY the Chrome appendable
+ * allowlist (so the dropdown can't lead the user into an invalid choice).
+ * For every other operation we return the curated common list minus
+ * forbidden headers.
+ */
+export function getHeaderSuggestions(direction: HeaderDirection, operation: HeaderOperation): string[] {
+  const forbidden = direction === 'request' ? FORBIDDEN_REQUEST_HEADERS : FORBIDDEN_RESPONSE_HEADERS;
+
+  if (operation === 'add') {
+    const allowlist = direction === 'request' ? DNR_APPENDABLE_REQUEST_HEADERS : DNR_APPENDABLE_RESPONSE_HEADERS;
+    return [...allowlist]
+      .filter((h) => !forbidden.has(h))
+      .map(normalizeHeaderName)
+      .sort();
+  }
+
+  const common = direction === 'request' ? COMMON_REQUEST_HEADERS : COMMON_RESPONSE_HEADERS;
+  return common.filter((h) => !forbidden.has(h.toLowerCase()));
 }

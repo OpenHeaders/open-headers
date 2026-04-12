@@ -145,9 +145,15 @@ describe('header-manager', () => {
       expect(dnrRule.action.requestHeaders[0].operation).toBe('set');
     });
 
-    it('uses "append" operation for add', async () => {
+    it('uses "append" operation for add on allowlisted headers', async () => {
+      // Chrome DNR only accepts `append` on its built-in allowlist of standard
+      // multi-value headers (Cookie, X-Forwarded-For, etc.). Custom X- headers
+      // are rejected, which makes the rule a draft — covered separately below.
       const rule = makeHeaderRule({
-        action: { requestHeaders: [{ operation: 'add', headerName: 'X-Test', value: 'value' }], responseHeaders: [] },
+        action: {
+          requestHeaders: [{ operation: 'add', headerName: 'X-Forwarded-For', value: '10.0.0.1' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -158,6 +164,25 @@ describe('header-manager', () => {
       expect(rules.length).toBeGreaterThan(0);
       const dnrRule = rules[0] as { action: { requestHeaders: { operation: string }[] } };
       expect(dnrRule.action.requestHeaders[0].operation).toBe('append');
+    });
+
+    it('drops rules with "add" on non-appendable custom headers (becomes a draft)', async () => {
+      // Authoring append on a non-allowlisted header must NOT produce any DNR
+      // rule — isRuleComplete rejects it, so the compiler skips the rule
+      // entirely and the rest of the ruleset still applies cleanly.
+      const rule = makeHeaderRule({
+        action: {
+          requestHeaders: [{ operation: 'add', headerName: 'X-OH-Stack', value: 'a' }],
+          responseHeaders: [],
+        },
+        conditions: hostConditions(['openheaders.io']),
+      });
+
+      updateNetworkRules([rule]);
+      await flushPromises();
+
+      const rules = getRulesFromLastCall();
+      expect(rules.length).toBe(0);
     });
 
     it('creates remove rules without needing a value', async () => {

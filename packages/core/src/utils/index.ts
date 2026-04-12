@@ -1,8 +1,16 @@
 export type {
+  HeaderDirection,
   HeaderNameValidation,
+  HeaderOperationCapability,
   HeaderValueValidation,
 } from './headers';
 export {
+  COMMON_REQUEST_HEADERS,
+  COMMON_RESPONSE_HEADERS,
+  DNR_APPENDABLE_REQUEST_HEADERS,
+  DNR_APPENDABLE_RESPONSE_HEADERS,
+  getHeaderOperationCapability,
+  getHeaderSuggestions,
   normalizeHeaderName,
   sanitizeHeaderValue,
   validateHeaderName,

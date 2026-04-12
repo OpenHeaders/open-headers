@@ -17,7 +17,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { formatUrlPattern } from '@openheaders/core/utils';
+import { formatUrlPattern, getHeaderOperationCapability } from '@openheaders/core/utils';
 import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
 import { normalizeHeaderName } from '@utils/utils';
@@ -176,14 +176,29 @@ export const headerCompiler: RuleCompiler<V5.HeaderRule> = {
   },
 };
 
-function buildMod(mod: V5.HeaderModification, _isResponse: boolean, ruleName: string): DnrHeaderModification | null {
-  const validation = validateHeaderName(mod.headerName, _isResponse);
+function buildMod(mod: V5.HeaderModification, isResponse: boolean, ruleName: string): DnrHeaderModification | null {
+  const validation = validateHeaderName(mod.headerName, isResponse);
   if (!validation.valid) {
     logger.debug('HeaderCompiler', `Skipping header "${mod.headerName}" in "${ruleName}" — ${validation.message}`);
     return null;
   }
 
   const headerName = validation.sanitized || normalizeHeaderName(mod.headerName);
+
+  // Defensive capability check. `isRuleComplete` already gates rules with
+  // invalid combinations (append on a non-allowlisted header, etc.) and the
+  // dnr-manager skips them entirely — this second check exists so that a
+  // direct programmatic rule-store write (bypassing the editor) can't put
+  // Chrome into a rejected-batch state.
+  const direction = isResponse ? 'response' : 'request';
+  const capability = getHeaderOperationCapability(direction, mod.operation, headerName);
+  if (!capability.allowed) {
+    logger.debug(
+      'HeaderCompiler',
+      `Skipping "${mod.operation}" on "${headerName}" in "${ruleName}" — ${capability.reason}`,
+    );
+    return null;
+  }
 
   if (mod.operation === 'remove') {
     return { header: headerName, operation: 'remove' };
