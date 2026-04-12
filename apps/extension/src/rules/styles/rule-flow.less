@@ -30,6 +30,21 @@
   align-items: center;
   gap: 0;
   overflow-y: auto;
+
+  // Dot-grid canvas background (React Flow style)
+  background-image: radial-gradient(circle, var(--flow-dot-color, rgba(0, 0, 0, 0.12)) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-position: 0 0;
+}
+
+// Light theme dots (default)
+.rules-shell[data-theme='light'] .rule-flow-pipeline {
+  --flow-dot-color: rgba(0, 0, 0, 0.15);
+}
+
+// Dark theme dots
+.rules-shell[data-theme='dark'] .rule-flow-pipeline {
+  --flow-dot-color: rgba(255, 255, 255, 0.13);
 }
 
 /* ── Priority Group ──────────────────────────────────────────────── */
