@@ -31,20 +31,23 @@
   gap: 0;
   overflow-y: auto;
 
-  // Grid-line canvas background (matches openheaders.io main page style)
+  // Grid-line canvas background over a gray base so white rule cards stand out
+  background-color: var(--flow-canvas-bg, #f5f5f7);
   background-image:
-    linear-gradient(var(--flow-grid-color, rgba(37, 99, 235, 0.03)) 1px, transparent 1px),
-    linear-gradient(90deg, var(--flow-grid-color, rgba(37, 99, 235, 0.03)) 1px, transparent 1px);
+    linear-gradient(var(--flow-grid-color, rgba(37, 99, 235, 0.08)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--flow-grid-color, rgba(37, 99, 235, 0.08)) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
-// Light theme grid — subtle blue on light background
+// Light theme — light gray canvas with subtle blue grid lines
 .rules-shell[data-theme='light'] .rule-flow-pipeline {
+  --flow-canvas-bg: #f5f5f7;
   --flow-grid-color: rgba(37, 99, 235, 0.08);
 }
 
-// Dark theme grid — slightly brighter blue on dark background
+// Dark theme — darker canvas than the card background
 .rules-shell[data-theme='dark'] .rule-flow-pipeline {
+  --flow-canvas-bg: #0d0f13;
   --flow-grid-color: rgba(47, 129, 247, 0.1);
 }
 
