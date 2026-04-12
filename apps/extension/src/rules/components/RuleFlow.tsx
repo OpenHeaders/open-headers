@@ -316,46 +316,41 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
             style={{ marginTop: 48 }}
           />
         ) : (
-          (() => {
-            const visibleTiers = showAll ? PRIORITY_TIERS : nonEmptyTiers;
-            // Pulse sequence: start terminus → top connector → [between-tier connectors] → bottom connector → end terminus
-            // Total = 1 (start) + 1 (top) + (visibleTiers.length - 1) (between) + 1 (bottom) + 1 (end)
-            const pulseTotal = visibleTiers.length + 3;
-            return (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <Terminus type="start" compact={compact} pulseIndex={0} pulseTotal={pulseTotal} />
-                <Connector label="evaluate conditions" compact={compact} pulseIndex={1} pulseTotal={pulseTotal} />
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            {/* Full-height sweep pulse — a single dot travels from Start through all nodes to End */}
+            <div className="flow-sweep" aria-hidden="true">
+              <span className="flow-sweep-dot" />
+            </div>
 
-                {visibleTiers.map((tier, i) => {
-                  const tierRules = rulesByTier.get(tier.key) ?? [];
-                  return (
-                    <div key={tier.key}>
-                      <PriorityGroup
-                        tier={tier}
-                        rules={tierRules}
-                        onSelectRule={onSelectRule}
-                        onCreateRule={onCreateRule}
-                        collectionId={collectionContext?.collectionId}
-                        folderPath={collectionContext?.folderPath}
-                        compact={compact}
-                      />
-                      {i < visibleTiers.length - 1 && (
-                        <Connector
-                          label={i === 0 ? 'then' : undefined}
-                          compact={compact}
-                          pulseIndex={2 + i}
-                          pulseTotal={pulseTotal}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+            <Terminus type="start" compact={compact} />
+            <Connector label="evaluate conditions" compact={compact} />
 
-                <Connector compact={compact} pulseIndex={pulseTotal - 2} pulseTotal={pulseTotal} />
-                <Terminus type="end" compact={compact} pulseIndex={pulseTotal - 1} pulseTotal={pulseTotal} />
-              </DndContext>
-            );
-          })()
+            {(showAll ? PRIORITY_TIERS : nonEmptyTiers).map((tier, i) => {
+              const tierRules = rulesByTier.get(tier.key) ?? [];
+              return (
+                <div
+                  key={tier.key}
+                  style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                >
+                  <PriorityGroup
+                    tier={tier}
+                    rules={tierRules}
+                    onSelectRule={onSelectRule}
+                    onCreateRule={onCreateRule}
+                    collectionId={collectionContext?.collectionId}
+                    folderPath={collectionContext?.folderPath}
+                    compact={compact}
+                  />
+                  {i < (showAll ? PRIORITY_TIERS.length : nonEmptyTiers.length) - 1 && (
+                    <Connector label={i === 0 ? 'then' : undefined} compact={compact} />
+                  )}
+                </div>
+              );
+            })}
+
+            <Connector compact={compact} />
+            <Terminus type="end" compact={compact} />
+          </DndContext>
         )}
       </div>
     </div>

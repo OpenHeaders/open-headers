@@ -159,81 +159,78 @@
   flex-shrink: 0;
 }
 
-/* ── Pulse animation ──────────────────────────────────────────── */
+/* ── Sweep pulse ─────────────────────────────────────────────── */
 
-@keyframes flow-pulse-travel {
-  0% {
-    top: -4px;
-    opacity: 0;
-  }
-  5% {
-    opacity: 1;
-  }
-  40% {
-    top: 100%;
-    opacity: 1;
-  }
-  45% {
-    opacity: 0;
-  }
-  100% {
-    top: 100%;
-    opacity: 0;
-  }
-}
-
-@keyframes flow-terminus-pulse {
-  0%,
-  4% {
-    box-shadow: 0 0 0 0 var(--flow-terminus-color, #1677ff);
-    transform: scale(1);
-  }
-  8% {
-    box-shadow: 0 0 0 6px transparent;
-    transform: scale(1.04);
-  }
-  12% {
-    box-shadow: 0 0 0 0 transparent;
-    transform: scale(1);
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-    transform: scale(1);
-  }
-}
-
-.flow-connector-line {
+// Pipeline needs positioning context for the absolute-positioned sweep
+.rule-flow-pipeline {
   position: relative;
 }
 
-.flow-pulse {
+// Full-height vertical trail running through the pipeline center.
+// Positioned absolutely so it passes through all nodes visually.
+.flow-sweep {
   position: absolute;
   left: 50%;
-  top: -4px;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  pointer-events: none;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+
+.flow-sweep-dot {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: #1677ff;
+  box-shadow:
+    0 0 10px 2px rgba(22, 119, 255, 0.8),
+    0 0 20px 4px rgba(22, 119, 255, 0.4);
+  mix-blend-mode: screen;
+  animation: flow-sweep-travel 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes flow-sweep-travel {
+  0% {
+    top: 0;
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  8% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  95% {
+    top: 100%;
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+// In compact mode, use a slightly smaller dot
+.rule-flow[data-compact='true'] .flow-sweep-dot {
   width: 6px;
   height: 6px;
   margin-left: -3px;
-  border-radius: 50%;
-  background: #1677ff;
-  box-shadow: 0 0 8px 1px rgba(22, 119, 255, 0.7);
-  opacity: 0;
-  pointer-events: none;
-  animation: flow-pulse-travel var(--flow-pulse-duration, 3s) linear infinite;
-  animation-delay: var(--flow-pulse-delay, 0s);
 }
 
-.flow-terminus {
-  animation: flow-terminus-pulse var(--flow-pulse-duration, 3s) ease-out infinite;
-  animation-delay: var(--flow-pulse-delay, 0s);
-}
-
-/* Respect reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {
-  .flow-pulse,
-  .flow-terminus {
+  .flow-sweep-dot {
     animation: none;
-  }
-  .flow-pulse {
     opacity: 0;
   }
 }
