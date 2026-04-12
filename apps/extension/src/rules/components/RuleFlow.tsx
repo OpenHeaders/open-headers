@@ -316,34 +316,46 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
             style={{ marginTop: 48 }}
           />
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <Terminus type="start" compact={compact} />
-            <Connector label="evaluate conditions" compact={compact} />
+          (() => {
+            const visibleTiers = showAll ? PRIORITY_TIERS : nonEmptyTiers;
+            // Pulse sequence: start terminus → top connector → [between-tier connectors] → bottom connector → end terminus
+            // Total = 1 (start) + 1 (top) + (visibleTiers.length - 1) (between) + 1 (bottom) + 1 (end)
+            const pulseTotal = visibleTiers.length + 3;
+            return (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <Terminus type="start" compact={compact} pulseIndex={0} pulseTotal={pulseTotal} />
+                <Connector label="evaluate conditions" compact={compact} pulseIndex={1} pulseTotal={pulseTotal} />
 
-            {(showAll ? PRIORITY_TIERS : nonEmptyTiers).map((tier, i) => {
-              const tierRules = rulesByTier.get(tier.key) ?? [];
-              if (!showAll && tierRules.length === 0) return null;
-              return (
-                <div key={tier.key}>
-                  <PriorityGroup
-                    tier={tier}
-                    rules={tierRules}
-                    onSelectRule={onSelectRule}
-                    onCreateRule={onCreateRule}
-                    collectionId={collectionContext?.collectionId}
-                    folderPath={collectionContext?.folderPath}
-                    compact={compact}
-                  />
-                  {i < (showAll ? PRIORITY_TIERS.length : nonEmptyTiers.length) - 1 && (
-                    <Connector label={i === 0 ? 'then' : undefined} compact={compact} />
-                  )}
-                </div>
-              );
-            })}
+                {visibleTiers.map((tier, i) => {
+                  const tierRules = rulesByTier.get(tier.key) ?? [];
+                  return (
+                    <div key={tier.key}>
+                      <PriorityGroup
+                        tier={tier}
+                        rules={tierRules}
+                        onSelectRule={onSelectRule}
+                        onCreateRule={onCreateRule}
+                        collectionId={collectionContext?.collectionId}
+                        folderPath={collectionContext?.folderPath}
+                        compact={compact}
+                      />
+                      {i < visibleTiers.length - 1 && (
+                        <Connector
+                          label={i === 0 ? 'then' : undefined}
+                          compact={compact}
+                          pulseIndex={2 + i}
+                          pulseTotal={pulseTotal}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
 
-            <Connector compact={compact} />
-            <Terminus type="end" compact={compact} />
-          </DndContext>
+                <Connector compact={compact} pulseIndex={pulseTotal - 2} pulseTotal={pulseTotal} />
+                <Terminus type="end" compact={compact} pulseIndex={pulseTotal - 1} pulseTotal={pulseTotal} />
+              </DndContext>
+            );
+          })()
         )}
       </div>
     </div>

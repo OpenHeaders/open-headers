@@ -159,6 +159,85 @@
   flex-shrink: 0;
 }
 
+/* ── Pulse animation ──────────────────────────────────────────── */
+
+@keyframes flow-pulse-travel {
+  0% {
+    top: -4px;
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  40% {
+    top: 100%;
+    opacity: 1;
+  }
+  45% {
+    opacity: 0;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes flow-terminus-pulse {
+  0%,
+  4% {
+    box-shadow: 0 0 0 0 var(--flow-terminus-color, #1677ff);
+    transform: scale(1);
+  }
+  8% {
+    box-shadow: 0 0 0 6px transparent;
+    transform: scale(1.04);
+  }
+  12% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
+.flow-connector-line {
+  position: relative;
+}
+
+.flow-pulse {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: #1677ff;
+  box-shadow: 0 0 8px 1px rgba(22, 119, 255, 0.7);
+  opacity: 0;
+  pointer-events: none;
+  animation: flow-pulse-travel var(--flow-pulse-duration, 3s) linear infinite;
+  animation-delay: var(--flow-pulse-delay, 0s);
+}
+
+.flow-terminus {
+  animation: flow-terminus-pulse var(--flow-pulse-duration, 3s) ease-out infinite;
+  animation-delay: var(--flow-pulse-delay, 0s);
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .flow-pulse,
+  .flow-terminus {
+    animation: none;
+  }
+  .flow-pulse {
+    opacity: 0;
+  }
+}
+
 /* ── Compact mode ──────────────────────────────────────────────── */
 
 .rule-flow[data-compact='true'] {
