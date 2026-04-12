@@ -42,6 +42,13 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
   const [showDrafts, setShowDrafts] = useState(false);
   const [showEnabled, setShowEnabled] = useState(true);
   const [compact, setCompact] = useState(true);
+  // Hide tiers that have no rules. Default follows compact mode — compact = hide empty.
+  const [hideEmptyTiers, setHideEmptyTiers] = useState(true);
+
+  // When compact mode toggles, reset hideEmptyTiers to match (user can still override after).
+  useEffect(() => {
+    setHideEmptyTiers(compact);
+  }, [compact]);
 
   // Resolve the tab URL — either provided via prop or fetched from the active tab.
   useEffect(() => {
@@ -249,7 +256,8 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
   );
 
   const nonEmptyTiers = PRIORITY_TIERS.filter((t) => (rulesByTier.get(t.key) ?? []).length > 0);
-  const showAll = scope !== 'this-page'; // "This Page" hides empty tiers
+  // Hide empty tiers if user filter is on, or always hide them for "This Page" scope (noise reduction)
+  const visibleTiers = hideEmptyTiers || scope === 'this-page' ? nonEmptyTiers : PRIORITY_TIERS;
 
   return (
     <div className="rule-flow" data-compact={compact} style={{ height: '100%', overflowY: 'auto' }}>
@@ -271,6 +279,13 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
             </Checkbox>
             <Checkbox checked={showDrafts} onChange={(e) => setShowDrafts(e.target.checked)} style={{ fontSize: 11 }}>
               <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Drafts</span>
+            </Checkbox>
+            <Checkbox
+              checked={hideEmptyTiers}
+              onChange={(e) => setHideEmptyTiers(e.target.checked)}
+              style={{ fontSize: 11 }}
+            >
+              <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Hide Empty</span>
             </Checkbox>
           </Space>
         </Space>
@@ -320,7 +335,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
             <Terminus type="start" compact={compact} />
             <Connector label="evaluate conditions" compact={compact} />
 
-            {(showAll ? PRIORITY_TIERS : nonEmptyTiers).map((tier, i) => {
+            {visibleTiers.map((tier, i) => {
               const tierRules = rulesByTier.get(tier.key) ?? [];
               return (
                 <div
@@ -336,9 +351,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
                     folderPath={collectionContext?.folderPath}
                     compact={compact}
                   />
-                  {i < (showAll ? PRIORITY_TIERS.length : nonEmptyTiers.length) - 1 && (
-                    <Connector label={i === 0 ? 'then' : undefined} compact={compact} />
-                  )}
+                  {i < visibleTiers.length - 1 && <Connector label={i === 0 ? 'then' : undefined} compact={compact} />}
                 </div>
               );
             })}
