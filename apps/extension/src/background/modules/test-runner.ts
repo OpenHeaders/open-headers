@@ -92,8 +92,10 @@ interface ActiveSession {
   resolve: (result: TestSessionResult) => void;
   /** Set once the tab has reached the load event. */
   loaded: boolean;
-  /** Content script id used to register/unregister the test bridge. */
+  /** Content script id for the ISOLATED-world event listener bridge. */
   bridgeScriptId: string;
+  /** Content script id for the MAIN-world window.__OH_TEST__ flag setter. */
+  bridgeMainScriptId: string;
 }
 
 // ── State ─────────────────────────────────────────────────────────
@@ -283,7 +285,8 @@ export function startSession(opts: StartSessionOptions): Promise<TestSessionResu
       seenDnrFires: new Set(),
       resolve,
       loaded: false,
-      bridgeScriptId: `oh-test-bridge-${id}`,
+      bridgeScriptId: `oh-test-bridge-iso-${id}`,
+      bridgeMainScriptId: `oh-test-bridge-main-${id}`,
     };
     activeSessions.set(id, session);
 
@@ -392,7 +395,23 @@ async function registerBridge(session: ActiveSession): Promise<void> {
     return;
   }
   try {
+    // Two scripts registered together:
+    //   - MAIN world: sets window.__OH_TEST__ at document_start so the generated
+    //     delay/body/mock/header-merge scripts can detect test mode at request
+    //     time. MAIN world avoids CSP restrictions that would block an inline
+    //     <script> tag injected from ISOLATED on strict-CSP sites.
+    //   - ISOLATED world: listens for `oh:test:fired` CustomEvents on window
+    //     and forwards them to the background via chrome.runtime.sendMessage.
     await scripting.registerContentScripts([
+      {
+        id: session.bridgeMainScriptId,
+        js: ['js/content/test-bridge-main/index.js'],
+        matches: [origin],
+        runAt: 'document_start',
+        world: 'MAIN',
+        persistAcrossSessions: false,
+        allFrames: false,
+      },
       {
         id: session.bridgeScriptId,
         js: ['js/content/test-bridge/index.js'],
@@ -412,7 +431,9 @@ async function registerBridge(session: ActiveSession): Promise<void> {
 async function unregisterBridge(session: ActiveSession): Promise<void> {
   if (!scripting?.unregisterContentScripts) return;
   try {
-    await scripting.unregisterContentScripts({ ids: [session.bridgeScriptId] });
+    await scripting.unregisterContentScripts({
+      ids: [session.bridgeMainScriptId, session.bridgeScriptId],
+    });
   } catch {
     // Ignore — may have been cleared by browser shutdown or never registered.
   }

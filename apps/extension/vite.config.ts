@@ -114,10 +114,10 @@ function buildContentScriptPlugin() {
 }
 
 /**
- * Build the test-mode bridge content script as a self-contained IIFE.
- * The test-runner registers this script via chrome.scripting.registerContentScripts
- * for the duration of a test session. It sets window.__OH_TEST__ and forwards
- * rule-fire CustomEvents to the background.
+ * Build the ISOLATED-world test bridge content script as a self-contained IIFE.
+ * Registered by the test-runner via chrome.scripting.registerContentScripts
+ * for the duration of a test session. Listens for `oh:test:fired` events and
+ * forwards them to the background.
  */
 function buildTestBridgePlugin() {
   return {
@@ -146,8 +146,50 @@ function buildTestBridgePlugin() {
   };
 }
 
+/**
+ * Build the MAIN-world test bridge content script. Runs in the page's actual
+ * JS context at document_start and sets `window.__OH_TEST__ = true`, which
+ * the generated delay/body/mock/header-merge scripts check at request time.
+ * Kept separate from the ISOLATED bridge because worlds must be segregated in
+ * content-script registrations. Avoids the CSP restrictions that would block
+ * an inline script tag injected from ISOLATED.
+ */
+function buildTestBridgeMainPlugin() {
+  return {
+    name: 'build-test-bridge-main',
+    async writeBundle() {
+      await viteBuild({
+        configFile: false,
+        build: {
+          outDir: `dist/${browser}/js/content/test-bridge-main`,
+          emptyOutDir: false,
+          minify: isDev ? false : 'terser',
+          sourcemap: browser === 'firefox' ? 'inline' : false,
+          lib: {
+            entry: path.resolve(__dirname, 'src/background/test-bridge-main.ts'),
+            formats: ['iife'],
+            name: 'OhTestBridgeMain',
+            fileName: () => 'index.js',
+          },
+          rollupOptions: {},
+        },
+        define: {
+          globalThis: 'globalThis',
+        },
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), chromeSafePlugin(), copyAssetsPlugin(), buildContentScriptPlugin(), buildTestBridgePlugin()],
+  plugins: [
+    react(),
+    chromeSafePlugin(),
+    copyAssetsPlugin(),
+    buildContentScriptPlugin(),
+    buildTestBridgePlugin(),
+    buildTestBridgeMainPlugin(),
+  ],
 
   resolve: {
     alias: {

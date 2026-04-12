@@ -1,26 +1,18 @@
 /**
- * Test bridge — ISOLATED-world content script programmatically registered
- * by the test-runner for the duration of a test session.
+ * Test bridge (ISOLATED world) — listens for `oh:test:fired` CustomEvents on
+ * window and forwards each one to the background test-runner via
+ * `chrome.runtime.sendMessage`.
  *
- * Two jobs:
+ * Setting `window.__OH_TEST__` is handled by the companion MAIN-world bridge
+ * (`test-bridge-main.ts`), which runs in the page's actual JS context and is
+ * not subject to Content-Security-Policy restrictions that would otherwise
+ * block inline script injection from ISOLATED.
  *
- *  1. At document_start, set window.__OH_TEST__ = true in the MAIN world so
- *     the generated delay/body/mock/inject scripts (which check that flag)
- *     start dispatching oh:test:fired CustomEvents.
- *
- *  2. Listen for oh:test:fired on window and forward each event to the
- *     background test-runner via chrome.runtime.sendMessage.
- *
- * Runs only on the test tab — registered via chrome.scripting.registerContentScripts
- * with an origin matching the test URL, and unregistered when the session ends.
+ * Registered by the test-runner via `chrome.scripting.registerContentScripts`
+ * scoped to the target URL's origin, then unregistered when the session ends.
  */
 
 (() => {
-  const script = document.createElement('script');
-  script.textContent = 'window.__OH_TEST__ = true;';
-  (document.head || document.documentElement).appendChild(script);
-  script.remove();
-
   window.addEventListener('oh:test:fired', (ev: Event) => {
     const detail = (ev as CustomEvent).detail as {
       ruleUid: string;
