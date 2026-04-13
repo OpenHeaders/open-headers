@@ -1,0 +1,464 @@
+/**
+ * EditorGroupRenderer — recursive renderer for the IDE-style
+ * editor group tree.
+ *
+ * Drop-zone model (IDE semantics):
+ * while a tab is being dragged we track the live cursor position via a
+ * single window pointermove listener, hit-test it against every leaf's
+ * bounding rect, and compute one of five zones per leaf: center, left,
+ * right, top, bottom. An edge zone is selected only when the cursor is
+ * within 25% of that edge and that edge is the closest one. Otherwise
+ * the whole leaf is the "center" target.
+ *
+ * The visual highlight ALWAYS covers half the panel (edge) or the whole
+ * panel (center), matching the IDE preview — the 25% hit region and
+ * the 50% highlight geometry are deliberately different.
+ *
+ * Drop dispatch runs inside this component via useDndMonitor:
+ *   - over = editor-tab droppable → same-leaf reorder OR cross-leaf
+ *     insert at that tab's index.
+ *   - over = none (or not a tab) but hoverState is set → leaf center
+ *     move, or splitLeafWithDrop for edge zones.
+ * ShellLayout no longer routes editor-tab drops — it only renders the
+ * drag preview overlay.
+ */
+
+import { useDndMonitor } from '@dnd-kit/core';
+import type { V5 } from '@openheaders/core/types';
+import { Allotment } from 'allotment';
+import { theme } from 'antd';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type DragIntent, DragIntentContext } from '../drag-intent';
+import { type EditorLeaf, type EditorNode, findLeaf } from '../editor-groups';
+import type { UseEditorGroupsApi } from '../hooks/useEditorGroups';
+import type { ClosedTab, RulesTab } from '../types';
+import TabBar from './TabBar';
+
+// ── Drop zone math ───────────────────────────────────────────────
+
+export type LeafDropZone = 'center' | 'left' | 'right' | 'top' | 'bottom';
+
+interface LeafHover {
+  leafId: string;
+  zone: LeafDropZone;
+}
+
+const EDGE_THRESHOLD = 0.25;
+// Top edge is deliberately tighter than left/right/bottom — the tab
+// strip sits right above it and the user's muscle memory is to aim
+// near the top when targeting a "split up", so 1/8 is easier to hit
+// intentionally and harder to hit accidentally.
+const TOP_EDGE_THRESHOLD = 0.125;
+
+/**
+ * Hit test for a leaf under a drag.
+ *
+ *   - Tab-bar strip → always null. The sortable (reorder / cross-leaf
+ *     insert) owns that region completely.
+ *   - Content area edges:
+ *       left  / right / bottom 25% → "left" / "right" / "bottom"
+ *       top 12.5%                 → "top"
+ *     Whichever edge the cursor is closest to (within its threshold)
+ *     wins; otherwise → "center".
+ *   - Elsewhere inside the leaf (breadcrumb, gaps) → "center".
+ */
+function computeZoneForLeaf(leafEl: HTMLElement, clientX: number, clientY: number): LeafDropZone | null {
+  const leafRect = leafEl.getBoundingClientRect();
+  if (clientX < leafRect.left || clientX > leafRect.right || clientY < leafRect.top || clientY > leafRect.bottom) {
+    return null;
+  }
+
+  const tabBar = leafEl.querySelector<HTMLElement>('.rules-tabs-bar');
+  if (tabBar) {
+    const r = tabBar.getBoundingClientRect();
+    if (clientY >= r.top && clientY <= r.bottom) return null;
+  }
+
+  const content = leafEl.querySelector<HTMLElement>('.rules-editor-content');
+  if (content) {
+    const c = content.getBoundingClientRect();
+    if (clientX >= c.left && clientX <= c.right && clientY >= c.top && clientY <= c.bottom) {
+      const relX = (clientX - c.left) / c.width;
+      const relY = (clientY - c.top) / c.height;
+      const candidates: Array<{ zone: LeafDropZone; distance: number; threshold: number }> = [
+        { zone: 'left', distance: relX, threshold: EDGE_THRESHOLD },
+        { zone: 'right', distance: 1 - relX, threshold: EDGE_THRESHOLD },
+        { zone: 'top', distance: relY, threshold: TOP_EDGE_THRESHOLD },
+        { zone: 'bottom', distance: 1 - relY, threshold: EDGE_THRESHOLD },
+      ];
+      const hit = candidates
+        .filter((c2) => c2.distance < c2.threshold)
+        .sort((a, b) => a.distance - b.distance)[0];
+      if (hit) return hit.zone;
+    }
+  }
+
+  return 'center';
+}
+
+function previewStyleFor(zone: LeafDropZone): React.CSSProperties {
+  switch (zone) {
+    case 'center':
+      return { inset: 0 };
+    case 'left':
+      return { left: 0, top: 0, width: '50%', height: '100%' };
+    case 'right':
+      return { right: 0, top: 0, width: '50%', height: '100%' };
+    case 'top':
+      return { left: 0, top: 0, width: '100%', height: '50%' };
+    case 'bottom':
+      return { left: 0, bottom: 0, width: '100%', height: '50%' };
+  }
+}
+
+// ── Preview overlay ──────────────────────────────────────────────
+
+interface LeafDropPreviewProps {
+  active: boolean;
+  zone: LeafDropZone;
+}
+
+const LeafDropPreview: React.FC<LeafDropPreviewProps> = ({ active, zone }) => {
+  const { token } = theme.useToken();
+  if (!active) return null;
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        pointerEvents: 'none',
+        zIndex: 40,
+        background: `${token.colorPrimary}22`,
+        border: `2px solid ${token.colorPrimary}`,
+        borderRadius: 4,
+        transition: 'all 0.08s ease',
+        ...previewStyleFor(zone),
+      }}
+    />
+  );
+};
+
+// ── Props ────────────────────────────────────────────────────────
+
+export interface RenderLeafContext {
+  tab: RulesTab;
+  leafId: string;
+  isFocusedLeaf: boolean;
+}
+
+export interface RenderLeafHeaderContext {
+  leaf: EditorLeaf;
+  isFocusedLeaf: boolean;
+  activeTab: RulesTab | undefined;
+}
+
+export interface EditorGroupRendererProps {
+  groups: UseEditorGroupsApi;
+  rules: V5.Rule[];
+  templates: V5.Template[];
+  renderTabBody: (ctx: RenderLeafContext) => React.ReactNode;
+  renderLeafHeader: (ctx: RenderLeafHeaderContext) => React.ReactNode;
+  renderEmpty: () => React.ReactNode;
+  onCreateRule: (type: string) => void;
+  createMenuOpen?: boolean;
+  onCreateMenuOpenChange?: (open: boolean) => void;
+  onTabDoubleClick?: (tabId: string) => void;
+  onCloseTab: (tabId: string) => void;
+  onCloseOther: (tabId: string) => void;
+  onCloseAll: () => void;
+  onCloseUnmodified: () => void;
+  onCloseToLeft: (tabId: string) => void;
+  onCloseToRight: (tabId: string) => void;
+  recentlyClosed: ClosedTab[];
+}
+
+// ── Component ────────────────────────────────────────────────────
+
+export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
+  groups,
+  rules,
+  templates,
+  renderTabBody,
+  renderLeafHeader,
+  renderEmpty,
+  onCreateRule,
+  createMenuOpen,
+  onCreateMenuOpenChange,
+  onTabDoubleClick,
+  onCloseTab,
+  onCloseOther,
+  onCloseAll,
+  onCloseUnmodified,
+  onCloseToLeft,
+  onCloseToRight,
+  recentlyClosed,
+}) => {
+  const { token } = theme.useToken();
+  const canUnsplitAll = groups.root.kind === 'split';
+
+  // Per-leaf DOM refs for cursor hit-testing. Populated via the ref
+  // callback attached to each leaf's root element.
+  const leafRefs = useRef(new Map<string, HTMLElement>());
+  const registerLeafRef = useCallback((leafId: string) => {
+    return (el: HTMLElement | null) => {
+      if (el) leafRefs.current.set(leafId, el);
+      else leafRefs.current.delete(leafId);
+    };
+  }, []);
+
+  // Drag state — only populated while an editor-tab drag is active. We
+  // keep a ref mirror for inside-of-listener reads without stale closures.
+  const [dragActive, setDragActive] = useState<{ fromLeafId: string; tabId: string } | null>(null);
+  const dragRef = useRef<{ fromLeafId: string; tabId: string } | null>(null);
+  const [hover, setHover] = useState<LeafHover | null>(null);
+  const hoverRef = useRef<LeafHover | null>(null);
+  hoverRef.current = hover;
+  const [insertion, setInsertion] = useState<{ leafId: string; index: number } | null>(null);
+  const rootRef = useRef(groups.root);
+  rootRef.current = groups.root;
+
+  // Cursor tracking — one pointermove listener while dragging.
+  useEffect(() => {
+    if (!dragActive) {
+      setHover(null);
+      return;
+    }
+    const onMove = (e: PointerEvent) => {
+      let match: LeafHover | null = null;
+      for (const [leafId, el] of leafRefs.current) {
+        const zone = computeZoneForLeaf(el, e.clientX, e.clientY);
+        if (zone) {
+          match = { leafId, zone };
+          break;
+        }
+      }
+      setHover((prev) => {
+        if (prev && match && prev.leafId === match.leafId && prev.zone === match.zone) return prev;
+        return match;
+      });
+    };
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, [dragActive]);
+
+  // ── DnD monitor — owns editor-tab drop dispatch ────────────────
+  useDndMonitor({
+    onDragStart: (event) => {
+      const data = event.active.data.current as { kind?: unknown; leafId?: unknown; tabId?: unknown } | undefined;
+      if (data?.kind !== 'editor-tab') return;
+      if (typeof data.leafId !== 'string' || typeof data.tabId !== 'string') return;
+      const next = { fromLeafId: data.leafId, tabId: data.tabId };
+      dragRef.current = next;
+      setDragActive(next);
+      setInsertion(null);
+    },
+    onDragOver: (event) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const overData = event.over?.data.current as
+        | { kind?: unknown; leafId?: unknown; tabId?: unknown }
+        | undefined;
+      if (overData?.kind !== 'editor-tab') {
+        setInsertion((prev) => (prev === null ? prev : null));
+        return;
+      }
+      if (typeof overData.leafId !== 'string' || typeof overData.tabId !== 'string') return;
+      if (overData.leafId === drag.fromLeafId) {
+        // Same-leaf reorder is handled natively by SortableContext —
+        // no cross-leaf insertion marker needed.
+        setInsertion((prev) => (prev === null ? prev : null));
+        return;
+      }
+      const toLeaf = findLeaf(rootRef.current, overData.leafId);
+      const idx = toLeaf?.tabs.findIndex((t) => t.id === overData.tabId) ?? -1;
+      if (idx < 0) return;
+      setInsertion((prev) => {
+        if (prev && prev.leafId === overData.leafId && prev.index === idx) return prev;
+        return { leafId: overData.leafId as string, index: idx };
+      });
+    },
+    onDragCancel: () => {
+      dragRef.current = null;
+      setDragActive(null);
+      setHover(null);
+      setInsertion(null);
+    },
+    onDragEnd: (event) => {
+      const drag = dragRef.current;
+      dragRef.current = null;
+      const hoverAtDrop = hoverRef.current;
+      setDragActive(null);
+      setHover(null);
+      setInsertion(null);
+      if (!drag) return;
+
+      // Priority 1: dropped on another editor tab (sortable droppable).
+      const over = event.over;
+      const overData = over?.data.current as { kind?: unknown; leafId?: unknown; tabId?: unknown } | undefined;
+      if (overData?.kind === 'editor-tab' && typeof overData.leafId === 'string' && typeof overData.tabId === 'string') {
+        const toLeafId = overData.leafId;
+        const toTabId = overData.tabId;
+        if (drag.fromLeafId === toLeafId) {
+          if (drag.tabId !== toTabId) groups.reorderTab(drag.tabId, toTabId);
+          return;
+        }
+        const toLeaf = findLeaf(groups.root, toLeafId);
+        const idx = toLeaf?.tabs.findIndex((t) => t.id === toTabId) ?? -1;
+        groups.moveTabToLeaf(drag.fromLeafId, toLeafId, drag.tabId, idx === -1 ? undefined : idx);
+        return;
+      }
+
+      // Priority 2: cursor is inside some leaf — center or edge split.
+      if (!hoverAtDrop) return;
+      if (hoverAtDrop.zone === 'center') {
+        if (hoverAtDrop.leafId === drag.fromLeafId) return;
+        groups.moveTabToLeaf(drag.fromLeafId, hoverAtDrop.leafId, drag.tabId);
+        return;
+      }
+      groups.splitLeafWithDrop(hoverAtDrop.leafId, hoverAtDrop.zone, drag.fromLeafId, drag.tabId);
+    },
+  });
+
+  const handleLeafPointerDown = useCallback(
+    (leafId: string) => {
+      groups.focusLeaf(leafId);
+    },
+    [groups],
+  );
+
+  // Precompute which leaves still have a parent split (for Unsplit enablement).
+  const parentedLeafIds = useMemo(() => collectLeavesWithParent(groups.root), [groups.root]);
+
+  // Published drag-intent state. Three signals cover every visual
+  // aspect of an editor-tab drag:
+  //   - draggingTabId: who is being dragged (source placeholder owner).
+  //   - overDropZone: cursor is over a leaf-drop zone → hide source
+  //     placeholder, show drop-preview overlay.
+  //   - insertion: cursor is over a tab in a DIFFERENT leaf → hide
+  //     source placeholder AND render a cross-leaf insertion marker in
+  //     the destination TabBar at that index.
+  const draggingTab = useMemo<RulesTab | null>(() => {
+    if (!dragActive) return null;
+    return groups.allTabs.find((t) => t.id === dragActive.tabId) ?? null;
+  }, [dragActive, groups.allTabs]);
+
+  const dragIntent = useMemo<DragIntent>(
+    () => ({
+      draggingTabId: dragActive?.tabId ?? null,
+      draggingTab,
+      overDropZone: dragActive !== null && hover !== null,
+      insertion,
+    }),
+    [dragActive, draggingTab, hover, insertion],
+  );
+
+  const renderLeaf = (leaf: EditorLeaf): React.ReactNode => {
+    const isFocused = groups.focusedLeafId === leaf.id;
+    const activeTab = leaf.tabs.find((t) => t.id === leaf.activeTabId);
+    const canUnsplit = parentedLeafIds.has(leaf.id);
+    const hoverHere = hover?.leafId === leaf.id;
+
+    return (
+      <div
+        ref={registerLeafRef(leaf.id)}
+        className={`rules-editor-leaf${isFocused ? ' focused' : ''}`}
+        data-leaf-id={leaf.id}
+        style={{
+          background: token.colorBgContainer,
+          outline: isFocused ? `1px solid ${token.colorBorderSecondary}` : 'none',
+          outlineOffset: -1,
+          position: 'relative',
+        }}
+        onPointerDownCapture={() => handleLeafPointerDown(leaf.id)}
+      >
+        <TabBar
+          leafId={leaf.id}
+          isFocusedLeaf={isFocused}
+          tabs={leaf.tabs}
+          activeTabId={leaf.activeTabId}
+          rules={rules}
+          templates={templates}
+          onSwitch={groups.switchTab}
+          onClose={onCloseTab}
+          onTabDoubleClick={onTabDoubleClick}
+          onCreateRule={onCreateRule}
+          onCloseOther={onCloseOther}
+          onCloseAll={onCloseAll}
+          onCloseUnmodified={onCloseUnmodified}
+          onCloseToLeft={onCloseToLeft}
+          onCloseToRight={onCloseToRight}
+          recentlyClosed={recentlyClosed}
+          onReopenTab={groups.reopenTab}
+          onSplitAndMoveRight={(tabId) => groups.splitAndMoveRight(leaf.id, tabId)}
+          onSplitAndMoveLeft={(tabId) => groups.splitAndMoveLeft(leaf.id, tabId)}
+          onSplitAndMoveDown={(tabId) => groups.splitAndMoveDown(leaf.id, tabId)}
+          onSplitAndMoveUp={(tabId) => groups.splitAndMoveUp(leaf.id, tabId)}
+          onMoveToOppositeGroup={(tabId) => groups.moveToOppositeGroup(leaf.id, tabId)}
+          onChangeSplitterOrientation={() => groups.changeSplitterOrientation(leaf.id)}
+          onUnsplit={() => groups.unsplit(leaf.id)}
+          onUnsplitAll={groups.unsplitAll}
+          canUnsplit={canUnsplit}
+          canUnsplitAll={canUnsplitAll}
+          createMenuOpen={isFocused ? createMenuOpen : false}
+          onCreateMenuOpenChange={isFocused ? onCreateMenuOpenChange : undefined}
+        />
+        {/* Everything below the tab bar — breadcrumb + content — lives
+            inside a single positioned wrapper so the drop-preview
+            overlay (absolutely positioned into this wrapper) can span
+            the breadcrumb while intentionally leaving the tab strip
+            untouched. */}
+        <div
+          className="rules-editor-leaf-body"
+          style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+        >
+          {renderLeafHeader({ leaf, isFocusedLeaf: isFocused, activeTab })}
+          <div className="rules-editor-content" style={{ position: 'relative' }}>
+            {leaf.tabs.length === 0 && renderEmpty()}
+            {leaf.tabs.map((tab) => (
+              <div key={tab.id} style={{ display: tab.id === leaf.activeTabId ? 'block' : 'none', height: '100%' }}>
+                {renderTabBody({ tab, leafId: leaf.id, isFocusedLeaf: isFocused })}
+              </div>
+            ))}
+          </div>
+          <LeafDropPreview active={hoverHere} zone={hover?.zone ?? 'center'} />
+        </div>
+      </div>
+    );
+  };
+
+  const renderNode = (node: EditorNode): React.ReactNode => {
+    if (node.kind === 'leaf') return renderLeaf(node);
+    const vertical = node.orientation === 'vertical';
+    return (
+      <Allotment vertical={vertical} proportionalLayout>
+        <Allotment.Pane minSize={180}>{renderNode(node.a)}</Allotment.Pane>
+        <Allotment.Pane minSize={180}>{renderNode(node.b)}</Allotment.Pane>
+      </Allotment>
+    );
+  };
+
+  return (
+    <DragIntentContext.Provider value={dragIntent}>
+      <div className="rules-editor-tree">{renderNode(groups.root)}</div>
+    </DragIntentContext.Provider>
+  );
+};
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+function collectLeavesWithParent(root: EditorNode): Set<string> {
+  const out = new Set<string>();
+  const walk = (node: EditorNode, parented: boolean) => {
+    if (node.kind === 'leaf') {
+      if (parented) out.add(node.id);
+      return;
+    }
+    walk(node.a, true);
+    walk(node.b, true);
+  };
+  walk(root, false);
+  return out;
+}
+
+export default EditorGroupRenderer;

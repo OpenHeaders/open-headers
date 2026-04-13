@@ -117,12 +117,7 @@ export function parseTestTargetUrl(input: string): TestTargetUrlResult {
   // the host (`parsed.search === '' && parsed.hash === ''` guards
   // that). Result: the only case that changes is `http://host/` →
   // `http://host` for inputs that had no path component at all.
-  if (
-    parsed.pathname === '/' &&
-    parsed.search === '' &&
-    parsed.hash === '' &&
-    !candidate.endsWith('/')
-  ) {
+  if (parsed.pathname === '/' && parsed.search === '' && parsed.hash === '' && !candidate.endsWith('/')) {
     return { ok: true, url: canonical.replace(/\/$/, '') };
   }
 

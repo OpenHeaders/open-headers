@@ -156,4 +156,12 @@ export interface ToolLayoutState {
    * focus is outside any dock (editor, command palette, etc).
    */
   focusedDock: DockSlot | null;
+  /**
+   * Zen-mode snapshot. When non-null the shell is in zen mode — all docks
+   * captured here have been collapsed and the snapshot holds the pre-zen
+   * active tool window per dock, so a later `toggleZenMode()` can restore
+   * exactly the docks that were open at the moment of entry. Null when
+   * zen mode is inactive. Ephemeral — never persisted across reloads.
+   */
+  zenSnapshot: Record<DockSlot, ToolWindowId | null> | null;
 }

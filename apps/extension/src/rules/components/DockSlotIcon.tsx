@@ -78,14 +78,7 @@ const DockSlotIcon: React.FC<DockSlotIconProps> = ({ slot, size = 20 }) => {
       )}
       {region === 'bottom' && (
         <>
-          <line
-            x1={FRAME_L}
-            y1={BOTTOM_STRIP_TOP}
-            x2={FRAME_R}
-            y2={BOTTOM_STRIP_TOP}
-            stroke={stroke}
-            strokeWidth={1}
-          />
+          <line x1={FRAME_L} y1={BOTTOM_STRIP_TOP} x2={FRAME_R} y2={BOTTOM_STRIP_TOP} stroke={stroke} strokeWidth={1} />
           <line
             x1={BOTTOM_STRIP_MID}
             y1={BOTTOM_STRIP_TOP}

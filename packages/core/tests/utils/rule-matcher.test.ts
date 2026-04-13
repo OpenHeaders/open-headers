@@ -164,10 +164,16 @@ describe('doesUrlMatchEntry', () => {
 
   it('matches url-regex entries via native RegExp', () => {
     expect(
-      doesUrlMatchEntry('https://openheaders.io/api/v2', { pattern: '^https://openheaders\\.io/api/.*$', kind: 'url-regex' }),
+      doesUrlMatchEntry('https://openheaders.io/api/v2', {
+        pattern: '^https://openheaders\\.io/api/.*$',
+        kind: 'url-regex',
+      }),
     ).toBe(true);
     expect(
-      doesUrlMatchEntry('https://openheaders.io/web', { pattern: '^https://openheaders\\.io/api/.*$', kind: 'url-regex' }),
+      doesUrlMatchEntry('https://openheaders.io/web', {
+        pattern: '^https://openheaders\\.io/api/.*$',
+        kind: 'url-regex',
+      }),
     ).toBe(false);
   });
 

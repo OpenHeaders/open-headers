@@ -53,6 +53,7 @@ export const DEFAULT_TOOL_LAYOUT: ToolLayoutState = {
   sidebarLayout: 'proportional',
   focusedRegion: null,
   focusedDock: null,
+  zenSnapshot: null,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -156,6 +157,8 @@ export function normalizeToolLayout(raw: Partial<ToolLayoutState> | null | undef
         : DEFAULT_TOOL_LAYOUT.sidebarLayout,
     focusedRegion: null,
     focusedDock: null,
+    // Zen mode is always ephemeral — any persisted snapshot is discarded.
+    zenSnapshot: null,
   };
 }
 
@@ -189,6 +192,14 @@ export interface ToolLayoutApi {
 
   // Region-level toggles (used by keyboard shortcuts)
   toggleRegion: (region: ToolRegion) => void;
+
+  /**
+   * Zen mode: collapse every open dock in one shot (remembering what was
+   * active), or restore the remembered set if everything is already
+   * collapsed. Bound to editor-tab double-click so the user can blow away
+   * all sidepanels without mousing to each activity bar.
+   */
+  toggleZenMode: () => void;
 
   // Layout-mode toggles
   setBottomFullWidth: (value: boolean) => void;
@@ -233,6 +244,7 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
         ...prev,
         docks: cloneDocks(prev.docks),
         hidden: [...prev.hidden],
+        zenSnapshot: prev.zenSnapshot ? { ...prev.zenSnapshot } : null,
       };
       mutate(next);
       return next;
@@ -391,6 +403,52 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
     [patch],
   );
 
+  /**
+   * Zen mode is a first-class reducer transition, not a side-channel ref.
+   * Entering zen captures `active` for every open dock into `zenSnapshot`
+   * and nulls those out; already-collapsed docks are never touched.
+   * Exiting reopens exactly the docks in the snapshot, then clears it.
+   * If the user has manually reopened a snapshotted dock while in zen,
+   * that dock is dropped from the restore set so we never overwrite a
+   * newer user choice.
+   */
+  const toggleZenMode = useCallback(() => {
+    patch((next) => {
+      if (next.zenSnapshot) {
+        for (const s of ALL_DOCK_SLOTS) {
+          const id = next.zenSnapshot[s];
+          if (!id) continue;
+          if (next.docks[s].active !== null) continue;
+          if (!next.docks[s].windows.includes(id)) continue;
+          next.docks[s].active = id;
+        }
+        next.zenSnapshot = null;
+        return;
+      }
+
+      const snap: Record<DockSlot, ToolWindowId | null> = {
+        'left-top': null,
+        'left-bottom': null,
+        'right-top': null,
+        'right-bottom': null,
+        'bottom-left': null,
+        'bottom-right': null,
+      };
+      let anyCaptured = false;
+      for (const s of ALL_DOCK_SLOTS) {
+        const active = next.docks[s].active;
+        if (active !== null) {
+          snap[s] = active;
+          next.docks[s].active = null;
+          anyCaptured = true;
+        }
+      }
+      if (!anyCaptured) return;
+      next.zenSnapshot = snap;
+      next.focusedDock = null;
+    });
+  }, [patch]);
+
   // ── Layout-mode toggles ─────────────────────────────────────────────
 
   const setBottomFullWidth = useCallback(
@@ -464,6 +522,7 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
       moveWindow,
       closeDock,
       toggleRegion,
+      toggleZenMode,
       setBottomFullWidth,
       setShowLabels,
       toggleShowLabels,
@@ -484,6 +543,7 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
       moveWindow,
       closeDock,
       toggleRegion,
+      toggleZenMode,
       setBottomFullWidth,
       setShowLabels,
       toggleShowLabels,

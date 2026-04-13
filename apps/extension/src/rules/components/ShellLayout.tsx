@@ -25,6 +25,7 @@
 
 import {
   closestCenter,
+  type CollisionDetection,
   DndContext,
   type DragEndEvent,
   type DragOverEvent,
@@ -59,7 +60,61 @@ export interface ShellLayoutProps {
   /** Called when a dock pane is resized so the host can persist ratios. */
   onHorizontalResize: (sizes: number[]) => void;
   onVerticalResize: (sizes: number[]) => void;
+  /** Render the floating drag preview for an editor tab (owned by the host). */
+  renderEditorTabDragPreview?: (tabId: string) => React.ReactNode;
 }
+
+type ToolWindowDragData = { kind: 'tool-window'; toolWindowId: ToolWindowId; fromSlot: DockSlot };
+type EditorTabDragData = { kind: 'editor-tab'; leafId: string; tabId: string };
+type DragData = ToolWindowDragData | EditorTabDragData;
+
+function asDragData(current: unknown): DragData | null {
+  if (!current || typeof current !== 'object') return null;
+  const record = current as { kind?: unknown };
+  if (record.kind === 'tool-window' || record.kind === 'editor-tab') return current as DragData;
+  return null;
+}
+
+/**
+ * Custom collision detection for editor-tab drags. Goal: dnd-kit's
+ * sortable reorder animation should only fire when the pointer is in a
+ * leaf's tab strip — NOT when it's in the content area.
+ *
+ * Strategy: pick the `.rules-tabs-bar` the pointer is currently over.
+ * If none, return no collisions (no reorder animation). If one, scope
+ * closestCenter to that bar's tabs so dnd-kit's normal centered-rect
+ * swap math runs untouched.
+ */
+const editorTabCollisionDetection: CollisionDetection = (args) => {
+  const activeKind = (args.active.data.current as { kind?: unknown } | undefined)?.kind;
+  if (activeKind !== 'editor-tab') return closestCenter(args);
+  const ptr = args.pointerCoordinates;
+  if (!ptr) return [];
+
+  let hoveredTabBar: HTMLElement | null = null;
+  for (const container of args.droppableContainers) {
+    const data = container.data.current as { kind?: unknown } | undefined;
+    if (data?.kind !== 'editor-tab') continue;
+    const node = container.node.current;
+    if (!node) continue;
+    const tabBar = node.closest('.rules-tabs-bar');
+    if (!(tabBar instanceof HTMLElement)) continue;
+    const r = tabBar.getBoundingClientRect();
+    if (ptr.x >= r.left && ptr.x <= r.right && ptr.y >= r.top && ptr.y <= r.bottom) {
+      hoveredTabBar = tabBar;
+      break;
+    }
+  }
+  if (!hoveredTabBar) return [];
+
+  const scoped = args.droppableContainers.filter((container) => {
+    const data = container.data.current as { kind?: unknown } | undefined;
+    if (data?.kind !== 'editor-tab') return false;
+    const node = container.node.current;
+    return node != null && hoveredTabBar.contains(node);
+  });
+  return closestCenter({ ...args, droppableContainers: scoped });
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -263,8 +318,10 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   renderEditor,
   onHorizontalResize,
   onVerticalResize,
+  renderEditorTabDragPreview,
 }) => {
   const [draggingId, setDraggingId] = useState<ToolWindowId | null>(null);
+  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [preview, setPreview] = useState<DockWindowsMap | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -298,8 +355,13 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
-      const data = event.active.data.current as { toolWindowId?: ToolWindowId } | undefined;
-      if (!data?.toolWindowId) return;
+      const data = asDragData(event.active.data.current);
+      if (!data) return;
+      if (data.kind === 'editor-tab') {
+        setDraggingTabId(data.tabId);
+        return;
+      }
+      // tool-window
       setDraggingId(data.toolWindowId);
       const snapshot: DockWindowsMap = {
         'left-top': [],
@@ -317,6 +379,10 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
 
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
+      const data = asDragData(event.active.data.current);
+      // Editor-tab reorder is handled live by SortableContext (transform
+      // animations) and committed in onDragEnd — no preview state needed.
+      if (!data || data.kind === 'editor-tab') return;
       const { active, over } = event;
       if (!over) return;
       setPreview((prev) => {
@@ -348,7 +414,16 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      const activeTw = (event.active.data.current as { toolWindowId?: ToolWindowId })?.toolWindowId;
+      const data = asDragData(event.active.data.current);
+
+      // Editor-tab drops are dispatched inside EditorGroupRenderer via
+      // useDndMonitor; shell only clears its own preview state here.
+      if (data?.kind === 'editor-tab') {
+        setDraggingTabId(null);
+        return;
+      }
+
+      const activeTw = data?.kind === 'tool-window' ? data.toolWindowId : null;
       const finalPreview = preview;
       setDraggingId(null);
       setPreview(null);
@@ -368,6 +443,7 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
 
   const handleDragCancel = useCallback(() => {
     setDraggingId(null);
+    setDraggingTabId(null);
     setPreview(null);
   }, []);
 
@@ -609,11 +685,13 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   // ── DnD context + drop overlay ────────────────────────────────────
 
   const draggingDef = draggingId ? TOOL_WINDOW_MAP[draggingId] : null;
+  const editorTabPreview = draggingTabId ? (renderEditorTabDragPreview?.(draggingTabId) ?? null) : null;
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={editorTabCollisionDetection}
+      autoScroll={false}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -624,11 +702,13 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
         <DropZoneOverlay visible={draggingId !== null} rects={dropZoneRects} highlightedSlot={highlightedSlot} />
       </div>
       <DragOverlay>
-        {draggingDef && (
+        {draggingDef ? (
           <div className="rules-drag-preview">
             <span className="rules-drag-preview-icon">{draggingDef.icon}</span>
             <span className="rules-drag-preview-label">{draggingDef.label}</span>
           </div>
+        ) : (
+          editorTabPreview
         )}
       </DragOverlay>
     </DndContext>

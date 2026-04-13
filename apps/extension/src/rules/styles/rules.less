@@ -486,6 +486,30 @@ html, body, #root {
   min-width: 0;
 }
 
+// ── Editor tree (recursive split groups) ──────────────────────────
+
+.rules-editor-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rules-editor-leaf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+// The outlined "focused" leaf hint is rendered inline via the antd
+// token-aware color in EditorGroupRenderer — keeping the rule here
+// purely as a documentation anchor for future tweaks.
+
 // ── Tab Bar ────────────────────────────────────────────────────────
 
 .rules-tabs-bar {
@@ -572,13 +596,22 @@ html, body, #root {
   }
 }
 
-// ── Drag-to-reorder ────────────────────────────────────────────────
+// ── Drag-to-reorder (dnd-kit) ──────────────────────────────────────
+// Editor tabs subscribe to the shell's shared DndContext via
+// SortableContext + useSortable. While dragging, the source tab keeps
+// its box (outline + background are applied inline in TabBar.tsx) but
+// its children must be hidden — icons carry hardcoded fills so the
+// `color: transparent` trick alone isn't enough.
 
-.rules-tab[draggable] {
-  cursor: grab;
-}
-.rules-tab:active[draggable] {
+.rules-tab.dragging {
   cursor: grabbing;
+
+  > .rules-type-badge,
+  > .rules-tab-label,
+  > .rules-tab-unsaved,
+  > .rules-tab-close {
+    visibility: hidden;
+  }
 }
 
 // ── Tab Search Dropdown ────────────────────────────────────────────

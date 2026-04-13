@@ -1,9 +1,12 @@
 /**
  * TabBar — IDE-style tab strip for workspace.html.
  *
- * Features ported from desktop V5Shell TabBar:
+ * Features:
  *   - Right-click context menu (Close, Close Other, Close All, etc.)
- *   - Drag-to-reorder with left/right drop indicator
+ *   - dnd-kit drag-to-reorder that subscribes to the shell's top-level
+ *     DndContext. Sortables publish `{ kind: 'editor-tab', tabId }` so
+ *     ShellLayout's unified drag handlers can route them without any
+ *     ambiguity against tool-window drags.
  *   - Tab search dropdown (chevron, right-aligned) with recently closed
  *   - Shift+Cmd+A shortcut for tab search
  *   - Horizontal wheel scroll
@@ -21,20 +24,36 @@ import {
   PlusOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
+import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
+import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useDragIntent } from '../drag-intent';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import type { ClosedTab, RulesTab } from '../types';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 
+// ── Editor tab drag data contract ───────────────────────────────
+// Exported so ShellLayout's shared DndContext can type-narrow drag
+// events and decide whether they belong to editor tabs or tool windows.
+// `leafId` identifies the source editor group so cross-leaf moves and
+// split-drop operations can resolve the origin without extra lookup.
+
+export interface EditorTabDragData {
+  kind: 'editor-tab';
+  leafId: string;
+  tabId: string;
+}
+
 // ── Icon helper ─────────────────────────────────────────────────────
 
-function tabIcon(tab: RulesTab, rules: V5.Rule[], templates: V5.Template[]): React.ReactNode {
+export function tabIcon(tab: RulesTab, rules: V5.Rule[], templates: V5.Template[]): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'collection-overview') return <FolderOpenOutlined style={{ fontSize: 12, color: '#999' }} />;
@@ -75,7 +94,7 @@ function truncateLabelWithPrefix(text: string, prefix: string, max: number): str
   return `${prefix}${suffix.slice(0, budget)}\u2026`;
 }
 
-function renderTabLabel(tab: RulesTab): string {
+export function renderTabLabel(tab: RulesTab): string {
   if (tab.mode === 'run-report') return truncateLabelWithPrefix(tab.label, 'Test Run · ', TAB_LABEL_MAX);
   return truncateMiddle(tab.label, TAB_LABEL_MAX);
 }
@@ -83,14 +102,20 @@ function renderTabLabel(tab: RulesTab): string {
 // ── Props ────────────────────────────────────────────────────────
 
 interface TabBarProps {
+  /** Which editor group this tab strip belongs to. */
+  leafId: string;
+  /** True when this leaf currently owns editor focus. Drives blue vs
+   *  grey active-tab highlighting. */
+  isFocusedLeaf: boolean;
   tabs: RulesTab[];
   activeTabId: string | null;
   rules: V5.Rule[];
   templates: V5.Template[];
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
+  /** Double-click on any tab — App wires this to zen-mode toggle. */
+  onTabDoubleClick?: (tabId: string) => void;
   onCreateRule: (type: string) => void;
-  onReorder: (fromId: string, toId: string, side: 'left' | 'right') => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
   onCloseUnmodified: () => void;
@@ -98,10 +123,257 @@ interface TabBarProps {
   onCloseToRight: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopenTab: (closed: ClosedTab) => void;
+  /** Split operations (surfaced on the tab context menu). Every split
+   *  MOVES the tab into the new group — our tabs are editor instances
+   *  so duplicating them across groups would be meaningless. */
+  onSplitAndMoveRight?: (tabId: string) => void;
+  onSplitAndMoveLeft?: (tabId: string) => void;
+  onSplitAndMoveDown?: (tabId: string) => void;
+  onSplitAndMoveUp?: (tabId: string) => void;
+  onMoveToOppositeGroup?: (tabId: string) => void;
+  onChangeSplitterOrientation?: () => void;
+  onUnsplit?: () => void;
+  onUnsplitAll?: () => void;
+  /** True when this leaf has a parent split — enables Unsplit/orientation items. */
+  canUnsplit?: boolean;
+  /** True when any split exists in the whole tree — enables "Unsplit All". */
+  canUnsplitAll?: boolean;
   /** Controlled open state for the + create menu (e.g. triggered by ⌥N). */
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
 }
+
+// ── Tab visual (pill) ────────────────────────────────────────────
+//
+// Pure presentational content for a tab: icon, label, unsaved dot,
+// optional close affordance. Used by both the interactive
+// `SortableTab` wrapper and the read-only cross-leaf insertion marker
+// so they share a single source of truth for tab layout/sizing.
+//
+// `hidden` renders the content with `visibility: hidden` so its width
+// and height still contribute to layout but nothing paints — that's
+// how SortableTab's in-place placeholder and the cross-leaf insertion
+// marker both look like a pure blue dashed rectangle while keeping
+// the same footprint as a real tab.
+
+interface TabPillContentProps {
+  tab: RulesTab;
+  rules: V5.Rule[];
+  templates: V5.Template[];
+  onClose?: (id: string) => void;
+  closeIconColor: string;
+  hidden?: boolean;
+}
+
+const TabPillContent: React.FC<TabPillContentProps> = ({
+  tab,
+  rules,
+  templates,
+  onClose,
+  closeIconColor,
+  hidden,
+}) => {
+  const inner = (
+    <>
+      <span className="rules-type-badge">{tabIcon(tab, rules, templates)}</span>
+      <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
+        {renderTabLabel(tab)}
+      </span>
+      {(tab.dirty || tab.mode === 'create') && (
+        <span className="rules-tab-unsaved" style={{ background: tab.mode === 'create' ? '#999' : '#ff7875' }} />
+      )}
+      {onClose && (
+        <CloseOutlined
+          className="rules-tab-close"
+          style={{ fontSize: 10, color: closeIconColor }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose(tab.id);
+          }}
+        />
+      )}
+    </>
+  );
+  if (!hidden) return inner;
+  return (
+    <span style={{ display: 'contents', visibility: 'hidden' }} aria-hidden="true">
+      {inner}
+    </span>
+  );
+};
+
+// ── Shared empty-placeholder style ───────────────────────────────
+//
+// Both the in-place source placeholder (inside SortableTab while
+// isDragging) and the cross-leaf insertion marker share this exact
+// visual so the user sees ONE consistent "where the tab will land"
+// affordance across panels: a blue-tinted rectangle with a dashed
+// primary outline, no content painted.
+
+function emptyPlaceholderStyle(token: ReturnType<typeof theme.useToken>['token']): React.CSSProperties {
+  return {
+    background: token.colorPrimaryBg,
+    outline: `1px dashed ${token.colorPrimary}`,
+    outlineOffset: -2,
+    borderBottomColor: 'transparent',
+  };
+}
+
+// ── Cross-leaf insertion marker ───────────────────────────────────
+//
+// A read-only pill rendered into the target leaf's tab list while a
+// tab from another leaf is being dragged over it. Uses the shared
+// empty-placeholder style so it's visually identical to the source
+// placeholder, and renders TabPillContent in hidden mode so its
+// width matches the dragged tab's natural size.
+
+interface CrossLeafInsertionMarkerProps {
+  tab: RulesTab;
+  rules: V5.Rule[];
+  templates: V5.Template[];
+  token: ReturnType<typeof theme.useToken>['token'];
+}
+
+const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({ tab, rules, templates, token }) => (
+  <div
+    aria-hidden="true"
+    className="rules-tab"
+    style={{ ...emptyPlaceholderStyle(token), pointerEvents: 'none', flexShrink: 0 }}
+  >
+    <TabPillContent
+      tab={tab}
+      rules={rules}
+      templates={templates}
+      closeIconColor={token.colorTextTertiary}
+      hidden
+    />
+  </div>
+);
+
+// ── Sortable tab ─────────────────────────────────────────────────
+
+interface SortableTabProps {
+  leafId: string;
+  isFocusedLeaf: boolean;
+  tab: RulesTab;
+  isActive: boolean;
+  rules: V5.Rule[];
+  templates: V5.Template[];
+  contextMenu: { items: ItemType[] };
+  onSwitch: (id: string) => void;
+  onClose: (id: string) => void;
+  onDoubleClick?: (id: string) => void;
+}
+
+const SortableTab: React.FC<SortableTabProps> = ({
+  leafId,
+  isFocusedLeaf,
+  tab,
+  isActive,
+  rules,
+  templates,
+  contextMenu,
+  onSwitch,
+  onClose,
+  onDoubleClick,
+}) => {
+  const { token } = theme.useToken();
+  const dragIntent = useDragIntent();
+  const data: EditorTabDragData = { kind: 'editor-tab', leafId, tabId: tab.id };
+  // Sortable ids must be unique across ALL SortableContexts that share a
+  // parent DndContext. Prefixing with the leaf id lets the shell host
+  // multiple tab strips side-by-side without collisions.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `${leafId}::${tab.id}`,
+    data,
+  });
+
+  // Hide the dragged tab's source placeholder whenever the drop intent
+  // has moved somewhere OTHER than this tab bar:
+  //   - over a leaf-drop zone (center/edge split preview)
+  //   - over a tab in a DIFFERENT leaf (cross-leaf insert)
+  // In both cases the destination leaf already shows its own preview
+  // (overlay or insertion marker), and keeping the source placeholder
+  // visible would make the tab appear in two places at once.
+  //
+  // Visibility: hidden keeps the slot in layout so dnd-kit's rect
+  // tracking stays in sync — the placeholder snaps back the instant
+  // the cursor returns to this tab bar, no sortable resync needed.
+  const isOverForeignLeaf = dragIntent.insertion !== null && dragIntent.insertion.leafId !== leafId;
+  const hidePlaceholder =
+    isDragging && dragIntent.draggingTabId === tab.id && (dragIntent.overDropZone || isOverForeignLeaf);
+
+  const sortableStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(hidePlaceholder ? { visibility: 'hidden' as const } : null),
+  };
+
+  // Active tab is blue only when THIS leaf currently owns focus. A leaf
+  // that holds the user's last selection but lives in a non-focused
+  // split group still shows that tab as "active" — just in a dimmed
+  // grey accent — so the user can see what each group was showing.
+  const visualStyle: React.CSSProperties = isDragging
+    ? emptyPlaceholderStyle(token)
+    : isActive && isFocusedLeaf
+      ? {
+          color: token.colorText,
+          borderBottomColor: token.colorPrimary,
+          background: token.colorBgContainer,
+        }
+      : isActive
+        ? {
+            color: token.colorTextSecondary,
+            borderBottomColor: token.colorBorder,
+            background: token.colorFillQuaternary,
+          }
+        : {
+            color: token.colorTextSecondary,
+            borderBottomColor: 'transparent',
+            background: 'transparent',
+          };
+
+  const content = (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`rules-tab${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}`}
+      data-tab-id={tab.id}
+      style={{ ...sortableStyle, ...visualStyle }}
+      role="tab"
+      tabIndex={0}
+      aria-selected={isActive}
+      onClick={() => onSwitch(tab.id)}
+      onDoubleClick={onDoubleClick ? () => onDoubleClick(tab.id) : undefined}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onSwitch(tab.id);
+      }}
+    >
+      <TabPillContent
+        tab={tab}
+        rules={rules}
+        templates={templates}
+        onClose={onClose}
+        closeIconColor={token.colorTextTertiary}
+        hidden={isDragging}
+      />
+    </div>
+  );
+
+  // While dragging, skip Tooltip/Dropdown wrappers so they don't
+  // interfere with dnd-kit's overlay portal.
+  if (isDragging) return content;
+
+  return (
+    <Dropdown menu={contextMenu} trigger={['contextMenu']}>
+      <Tooltip title={tab.label} placement="bottom" mouseEnterDelay={0.5}>
+        {content}
+      </Tooltip>
+    </Dropdown>
+  );
+};
 
 // ── Tab Search Dropdown ──────────────────────────────────────────
 
@@ -312,14 +584,16 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
 // ── Main TabBar ─────────────────────────────────────────────────
 
 const TabBar: React.FC<TabBarProps> = ({
+  leafId,
+  isFocusedLeaf,
   tabs,
   activeTabId,
   rules,
   templates,
   onSwitch,
   onClose,
+  onTabDoubleClick,
   onCreateRule,
-  onReorder,
   onCloseOther,
   onCloseAll,
   onCloseUnmodified,
@@ -327,18 +601,22 @@ const TabBar: React.FC<TabBarProps> = ({
   onCloseToRight,
   recentlyClosed,
   onReopenTab,
+  onSplitAndMoveRight,
+  onSplitAndMoveLeft,
+  onSplitAndMoveDown,
+  onSplitAndMoveUp,
+  onMoveToOppositeGroup,
+  onChangeSplitterOrientation,
+  onUnsplit,
+  onUnsplitAll,
+  canUnsplit,
+  canUnsplitAll,
   createMenuOpen,
   onCreateMenuOpenChange,
 }) => {
   const { token } = theme.useToken();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabSearchOpen, setTabSearchOpen] = useState(false);
-
-  // ── Drag state ──────────────────────────────────────────────────
-  const dragSourceRef = useRef<string | null>(null);
-  const dragSideRef = useRef<'left' | 'right'>('right');
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [dragSide, setDragSide] = useState<'left' | 'right'>('right');
 
   // ── Auto-scroll active tab into view ───────────────────────────
   // When the last tab is active, scroll to the end so the "+" button is also visible.
@@ -372,72 +650,118 @@ const TabBar: React.FC<TabBarProps> = ({
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // ── Drag handlers ──────────────────────────────────────────────
-  const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
-    dragSourceRef.current = tabId;
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent, tabId: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const midX = rect.left + rect.width / 2;
-    const side = e.clientX < midX ? 'left' : 'right';
-    dragSideRef.current = side;
-    setDragOverId(tabId);
-    setDragSide(side);
-  }, []);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent, tabId: string) => {
-      e.preventDefault();
-      if (dragSourceRef.current && dragSourceRef.current !== tabId) {
-        onReorder(dragSourceRef.current, tabId, dragSideRef.current);
-      }
-      dragSourceRef.current = null;
-      setDragOverId(null);
-    },
-    [onReorder],
-  );
-
-  const handleDragEnd = useCallback(() => {
-    dragSourceRef.current = null;
-    setDragOverId(null);
-  }, []);
-
   // ── Context menu builder ───────────────────────────────────────
   const buildContextMenu = useCallback(
-    (tab: RulesTab, tabIndex: number) => ({
-      items: [
-        { key: 'close', label: 'Close', onClick: () => onClose(tab.id) },
-        {
-          key: 'close-other',
-          label: 'Close Other Tabs',
-          disabled: tabs.length <= 1,
-          onClick: () => onCloseOther(tab.id),
-        },
-        { key: 'close-all', label: 'Close All Tabs', onClick: () => onCloseAll() },
-        { key: 'close-unmodified', label: 'Close Unmodified Tabs', onClick: () => onCloseUnmodified() },
-        { type: 'divider' as const },
-        {
-          key: 'close-left',
-          label: 'Close Tabs to the Left',
-          disabled: tabIndex === 0,
-          onClick: () => onCloseToLeft(tab.id),
-        },
-        {
-          key: 'close-right',
-          label: 'Close Tabs to the Right',
-          disabled: tabIndex === tabs.length - 1,
-          onClick: () => onCloseToRight(tab.id),
-        },
-      ],
-    }),
-    [tabs.length, onClose, onCloseOther, onCloseAll, onCloseUnmodified, onCloseToLeft, onCloseToRight],
+    (tab: RulesTab, tabIndex: number): { items: ItemType[] } => {
+      const splitDisabled = tabs.length < 2;
+      return {
+        items: [
+          { key: 'close', label: 'Close', onClick: () => onClose(tab.id) },
+          {
+            key: 'close-other',
+            label: 'Close Other Tabs',
+            disabled: tabs.length <= 1,
+            onClick: () => onCloseOther(tab.id),
+          },
+          { key: 'close-all', label: 'Close All Tabs', onClick: () => onCloseAll() },
+          { key: 'close-unmodified', label: 'Close Unmodified Tabs', onClick: () => onCloseUnmodified() },
+          { type: 'divider' as const },
+          {
+            key: 'close-left',
+            label: 'Close Tabs to the Left',
+            disabled: tabIndex === 0,
+            onClick: () => onCloseToLeft(tab.id),
+          },
+          {
+            key: 'close-right',
+            label: 'Close Tabs to the Right',
+            disabled: tabIndex === tabs.length - 1,
+            onClick: () => onCloseToRight(tab.id),
+          },
+          { type: 'divider' as const },
+          {
+            key: 'split-move-right',
+            label: 'Split and Move Right',
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMoveRight?.(tab.id),
+          },
+          {
+            key: 'split-move-left',
+            label: 'Split and Move Left',
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMoveLeft?.(tab.id),
+          },
+          {
+            key: 'split-move-down',
+            label: 'Split and Move Down',
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMoveDown?.(tab.id),
+          },
+          {
+            key: 'split-move-up',
+            label: 'Split and Move Up',
+            disabled: splitDisabled,
+            onClick: () => onSplitAndMoveUp?.(tab.id),
+          },
+          {
+            key: 'move-opposite',
+            label: 'Move To Opposite Group',
+            disabled: splitDisabled && !canUnsplit,
+            onClick: () => onMoveToOppositeGroup?.(tab.id),
+          },
+          {
+            key: 'flip-orientation',
+            label: 'Change Splitter Orientation',
+            disabled: !canUnsplit,
+            onClick: () => onChangeSplitterOrientation?.(),
+          },
+          {
+            key: 'unsplit',
+            label: 'Unsplit',
+            disabled: !canUnsplit,
+            onClick: () => onUnsplit?.(),
+          },
+          {
+            key: 'unsplit-all',
+            label: 'Unsplit All',
+            disabled: !canUnsplitAll,
+            onClick: () => onUnsplitAll?.(),
+          },
+        ],
+      };
+    },
+    [
+      tabs.length,
+      onClose,
+      onCloseOther,
+      onCloseAll,
+      onCloseUnmodified,
+      onCloseToLeft,
+      onCloseToRight,
+      onSplitAndMoveRight,
+      onSplitAndMoveLeft,
+      onSplitAndMoveDown,
+      onSplitAndMoveUp,
+      onMoveToOppositeGroup,
+      onChangeSplitterOrientation,
+      onUnsplit,
+      onUnsplitAll,
+      canUnsplit,
+      canUnsplitAll,
+    ],
   );
 
   const createMenuItems = buildRuleTypeMenuItems(onCreateRule);
+  const sortableIds = tabs.map((t) => `${leafId}::${t.id}`);
+
+  // Cross-leaf insertion marker — rendered in this bar only when the
+  // published drag intent targets this leaf. Published from
+  // EditorGroupRenderer via DragIntentContext; consumed here directly
+  // so TabBar doesn't need a new prop.
+  const dragIntentForBar = useDragIntent();
+  const insertionIndex =
+    dragIntentForBar.insertion?.leafId === leafId ? dragIntentForBar.insertion.index : null;
+  const insertionTab = insertionIndex !== null ? dragIntentForBar.draggingTab : null;
 
   return (
     <div
@@ -446,60 +770,30 @@ const TabBar: React.FC<TabBarProps> = ({
     >
       {/* Scrollable tabs */}
       <div className="rules-tabs-scroll" ref={scrollRef} onWheel={handleWheel}>
-        {tabs.map((tab, index) => {
-          const isActive = tab.id === activeTabId;
-          const isDragTarget = dragOverId === tab.id && dragSourceRef.current !== tab.id;
-
-          return (
-            <Tooltip key={tab.id} title={tab.label} placement="bottom" mouseEnterDelay={0.5}>
-              <Dropdown menu={buildContextMenu(tab, index)} trigger={['contextMenu']}>
-                <div
-                  className={`rules-tab${isActive ? ' active' : ''}`}
-                  data-tab-id={tab.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, tab.id)}
-                  onDragOver={(e) => handleDragOver(e, tab.id)}
-                  onDrop={(e) => handleDrop(e, tab.id)}
-                  onDragEnd={handleDragEnd}
-                  onDragLeave={() => setDragOverId(null)}
-                  style={{
-                    color: isActive ? token.colorText : token.colorTextSecondary,
-                    borderBottomColor: isActive ? token.colorPrimary : 'transparent',
-                    background: isActive ? token.colorBgContainer : 'transparent',
-                    borderLeft: isDragTarget && dragSide === 'left' ? `2px solid ${token.colorPrimary}` : undefined,
-                    borderRight: isDragTarget && dragSide === 'right' ? `2px solid ${token.colorPrimary}` : undefined,
-                  }}
-                  onClick={() => onSwitch(tab.id)}
-                  role="tab"
-                  tabIndex={0}
-                  aria-selected={isActive}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onSwitch(tab.id);
-                  }}
-                >
-                  <span className="rules-type-badge">{tabIcon(tab, rules, templates)}</span>
-                  <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
-                    {renderTabLabel(tab)}
-                  </span>
-                  {(tab.dirty || tab.mode === 'create') && (
-                    <span
-                      className="rules-tab-unsaved"
-                      style={{ background: tab.mode === 'create' ? '#999' : '#ff7875' }}
-                    />
-                  )}
-                  <CloseOutlined
-                    className="rules-tab-close"
-                    style={{ fontSize: 10, color: token.colorTextTertiary }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClose(tab.id);
-                    }}
-                  />
-                </div>
-              </Dropdown>
-            </Tooltip>
-          );
-        })}
+        <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
+          {tabs.map((tab, index) => (
+            <Fragment key={tab.id}>
+              {insertionIndex === index && insertionTab && (
+                <CrossLeafInsertionMarker tab={insertionTab} rules={rules} templates={templates} token={token} />
+              )}
+              <SortableTab
+                leafId={leafId}
+                isFocusedLeaf={isFocusedLeaf}
+                tab={tab}
+                isActive={tab.id === activeTabId}
+                rules={rules}
+                templates={templates}
+                contextMenu={buildContextMenu(tab, index)}
+                onSwitch={onSwitch}
+                onClose={onClose}
+                onDoubleClick={onTabDoubleClick}
+              />
+            </Fragment>
+          ))}
+          {insertionIndex === tabs.length && insertionTab && (
+            <CrossLeafInsertionMarker tab={insertionTab} rules={rules} templates={templates} token={token} />
+          )}
+        </SortableContext>
 
         {/* + button: inside scroll area, right after last tab */}
         <Dropdown

@@ -11,13 +11,27 @@ import { useCallback } from 'react';
 import type { RulesTab } from '../types';
 
 interface UseTabLifecycleOptions {
-  tabs: RulesTab[];
+  /** All tabs across every editor group. Used for "find by id" lookups. */
+  allTabs: RulesTab[];
+  /** Returns the tabs in the same leaf as the anchor tab — batch close
+   *  operations scope to the anchor's editor group (IDE semantics). */
+  getLeafTabs: (anchorTabId: string) => RulesTab[];
+  /** Returns the tabs of the currently-focused leaf. Used by Close All
+   *  and Close Unmodified when no anchor is supplied. */
+  getFocusedLeafTabs: () => RulesTab[];
   closeTab: (tabId: string, force?: boolean) => void;
   switchTab: (tabId: string) => void;
   saveRefMap: React.MutableRefObject<Map<string, () => void>>;
 }
 
-export function useTabLifecycle({ tabs, closeTab, switchTab, saveRefMap }: UseTabLifecycleOptions) {
+export function useTabLifecycle({
+  allTabs,
+  getLeafTabs,
+  getFocusedLeafTabs,
+  closeTab,
+  switchTab,
+  saveRefMap,
+}: UseTabLifecycleOptions) {
   // ── Confirmation modal ──────────────────────────────────────────
 
   const confirmUnsaved = useCallback((tab: { id: string; label: string }): Promise<'discard' | 'save' | 'cancel'> => {
@@ -101,7 +115,7 @@ export function useTabLifecycle({ tabs, closeTab, switchTab, saveRefMap }: UseTa
 
   const handleCloseTab = useCallback(
     async (tabId: string) => {
-      const tab = tabs.find((t) => t.id === tabId);
+      const tab = allTabs.find((t) => t.id === tabId);
       if (!tab) return;
 
       // Draft tabs are always treated as unsaved
@@ -134,7 +148,7 @@ export function useTabLifecycle({ tabs, closeTab, switchTab, saveRefMap }: UseTa
       if (result === 'cancel') return;
       closeTab(tabId, true); // discard
     },
-    [tabs, closeTab, switchTab, saveRefMap, confirmUnsaved],
+    [allTabs, closeTab, switchTab, saveRefMap, confirmUnsaved],
   );
 
   // ── Batch close with sequential confirmation ────────────────────
@@ -146,7 +160,7 @@ export function useTabLifecycle({ tabs, closeTab, switchTab, saveRefMap }: UseTa
       const dirty: string[] = [];
 
       for (const id of tabIds) {
-        const tab = tabs.find((t) => t.id === id);
+        const tab = allTabs.find((t) => t.id === id);
         if (!tab) continue;
         if (tab.dirty || tab.mode === 'create') dirty.push(id);
         else clean.push(id);
@@ -157,7 +171,7 @@ export function useTabLifecycle({ tabs, closeTab, switchTab, saveRefMap }: UseTa
 
       // Confirm dirty tabs one by one
       for (const id of dirty) {
-        const tab = tabs.find((t) => t.id === id);
+        const tab = allTabs.find((t) => t.id === id);
         if (!tab) continue;
 
         const result = await confirmUnsaved(tab);
@@ -173,51 +187,51 @@ export function useTabLifecycle({ tabs, closeTab, switchTab, saveRefMap }: UseTa
         closeTab(id, true);
       }
     },
-    [tabs, closeTab, switchTab, saveRefMap, confirmUnsaved],
+    [allTabs, closeTab, switchTab, saveRefMap, confirmUnsaved],
   );
 
-  // ── Derived batch handlers ──────────────────────────────────────
+  // ── Derived batch handlers (leaf-scoped — IDE semantics) ───
 
   const handleCloseOther = useCallback(
     (tabId: string) => {
-      const ids = tabs.filter((t) => t.id !== tabId).map((t) => t.id);
+      const leafTabs = getLeafTabs(tabId);
+      const ids = leafTabs.filter((t) => t.id !== tabId).map((t) => t.id);
       void handleBatchClose(ids);
     },
-    [tabs, handleBatchClose],
+    [getLeafTabs, handleBatchClose],
   );
 
   const handleCloseAll = useCallback(() => {
-    const ids = tabs.map((t) => t.id);
-    void handleBatchClose(ids);
-  }, [tabs, handleBatchClose]);
+    const leafTabs = getFocusedLeafTabs();
+    void handleBatchClose(leafTabs.map((t) => t.id));
+  }, [getFocusedLeafTabs, handleBatchClose]);
 
   const handleCloseUnmodified = useCallback(() => {
-    // Close clean, non-draft tabs directly — no confirmation needed
-    for (const tab of tabs) {
-      if (!tab.dirty && tab.mode !== 'create') {
-        closeTab(tab.id, true);
-      }
+    for (const tab of getFocusedLeafTabs()) {
+      if (!tab.dirty && tab.mode !== 'create') closeTab(tab.id, true);
     }
-  }, [tabs, closeTab]);
+  }, [getFocusedLeafTabs, closeTab]);
 
   const handleCloseToLeft = useCallback(
     (tabId: string) => {
-      const idx = tabs.findIndex((t) => t.id === tabId);
+      const leafTabs = getLeafTabs(tabId);
+      const idx = leafTabs.findIndex((t) => t.id === tabId);
       if (idx <= 0) return;
-      const ids = tabs.slice(0, idx).map((t) => t.id);
+      const ids = leafTabs.slice(0, idx).map((t) => t.id);
       void handleBatchClose(ids);
     },
-    [tabs, handleBatchClose],
+    [getLeafTabs, handleBatchClose],
   );
 
   const handleCloseToRight = useCallback(
     (tabId: string) => {
-      const idx = tabs.findIndex((t) => t.id === tabId);
-      if (idx === -1 || idx === tabs.length - 1) return;
-      const ids = tabs.slice(idx + 1).map((t) => t.id);
+      const leafTabs = getLeafTabs(tabId);
+      const idx = leafTabs.findIndex((t) => t.id === tabId);
+      if (idx === -1 || idx === leafTabs.length - 1) return;
+      const ids = leafTabs.slice(idx + 1).map((t) => t.id);
       void handleBatchClose(ids);
     },
-    [tabs, handleBatchClose],
+    [getLeafTabs, handleBatchClose],
   );
 
   return {

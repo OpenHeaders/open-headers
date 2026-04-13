@@ -64,7 +64,7 @@ const SortableDockTab: React.FC<SortableDockTabProps> = ({
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `tw:${id}`,
-    data: { toolWindowId: id, fromSlot: slot },
+    data: { kind: 'tool-window' as const, toolWindowId: id, fromSlot: slot },
   });
 
   const isFocused = active && focused && !isDragging;

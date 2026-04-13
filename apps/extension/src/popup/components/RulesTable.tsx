@@ -575,7 +575,14 @@ const RulesTable: React.FC<RulesTableProps> = ({
                   // Match the .add-rule-button height (36px hard-coded in
                   // popup.less) so both buttons sit on the same baseline.
                   // Square aspect since this is icon-only.
-                  style={{ height: 36, width: 36, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{
+                    height: 36,
+                    width: 36,
+                    padding: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 />
               </Tooltip>
               <Dropdown
