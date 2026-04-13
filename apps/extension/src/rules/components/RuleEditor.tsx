@@ -18,7 +18,6 @@ import {
   FolderOpenTwoTone,
   FolderOutlined,
   InfoCircleOutlined,
-  PlusOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
@@ -695,12 +694,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   </span>
                 </Button>
               </Dropdown>
-            </Tooltip>
-
-            <Tooltip title="Save current configuration as a reusable template">
-              <Button size="small" icon={<PlusOutlined />} onClick={() => setSaveAsTemplateOpen(true)}>
-                Save as Template
-              </Button>
             </Tooltip>
           </div>
 
