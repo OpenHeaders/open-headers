@@ -68,14 +68,14 @@ interface ParentLink {
   side: 'a' | 'b';
 }
 
-function parentPath(root: EditorNode, targetId: string, path: ParentLink[] = []): ParentLink[] | null {
-  if (root.kind === 'leaf') return root.id === targetId ? path : null;
-  if (root.a.kind === 'leaf' && root.a.id === targetId) return [{ parent: root, side: 'a' }, ...path];
-  if (root.b.kind === 'leaf' && root.b.id === targetId) return [{ parent: root, side: 'b' }, ...path];
-  const left = parentPath(root.a, targetId, path);
-  if (left) return [{ parent: root, side: 'a' }, ...left];
-  const right = parentPath(root.b, targetId, path);
-  if (right) return [{ parent: root, side: 'b' }, ...right];
+function parentPath(root: EditorNode, targetId: string): ParentLink[] | null {
+  if (root.kind === 'leaf') return root.id === targetId ? [] : null;
+  if (root.a.kind === 'leaf' && root.a.id === targetId) return [{ parent: root, side: 'a' }];
+  if (root.b.kind === 'leaf' && root.b.id === targetId) return [{ parent: root, side: 'b' }];
+  const left = parentPath(root.a, targetId);
+  if (left) return [...left, { parent: root, side: 'a' }];
+  const right = parentPath(root.b, targetId);
+  if (right) return [...right, { parent: root, side: 'b' }];
   return null;
 }
 
@@ -84,6 +84,16 @@ export function findParentSplit(root: EditorNode, leafId: string): EditorSplit |
   const path = parentPath(root, leafId);
   if (!path || path.length === 0) return null;
   return path[0].parent;
+}
+
+/** Closest enclosing split AND which side the leaf sits on, or null if it's the root leaf. */
+export function findParentSplitLink(
+  root: EditorNode,
+  leafId: string,
+): { parent: EditorSplit; side: 'a' | 'b' } | null {
+  const path = parentPath(root, leafId);
+  if (!path || path.length === 0) return null;
+  return path[0];
 }
 
 // ── Immutable transforms ─────────────────────────────────────────

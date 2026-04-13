@@ -36,6 +36,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useDragIntent } from '../drag-intent';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import type { ClosedTab, RulesTab } from '../types';
+import LayoutMenuIcon from './LayoutMenuIcon';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 
@@ -131,6 +132,12 @@ interface TabBarProps {
   onSplitAndMoveDown?: (tabId: string) => void;
   onSplitAndMoveUp?: (tabId: string) => void;
   onMoveToOppositeGroup?: (tabId: string) => void;
+  /** Direction the tab would move when going to the opposite group. Drives the
+   *  prefix icon on the "Move To Opposite Group" menu item. */
+  oppositeDirection?: 'left' | 'right' | 'up' | 'down' | null;
+  /** Current orientation of this leaf's parent split. Drives the prefix icon
+   *  on the "Change Splitter Orientation" menu item. */
+  parentOrientation?: 'horizontal' | 'vertical' | null;
   onChangeSplitterOrientation?: () => void;
   onUnsplit?: () => void;
   onUnsplitAll?: () => void;
@@ -310,23 +317,23 @@ const SortableTab: React.FC<SortableTabProps> = ({
     ...(hidePlaceholder ? { visibility: 'hidden' as const } : null),
   };
 
-  // Active tab is blue only when THIS leaf currently owns focus. A leaf
-  // that holds the user's last selection but lives in a non-focused
-  // split group still shows that tab as "active" — just in a dimmed
-  // grey accent — so the user can see what each group was showing.
+  // Every leaf's active tab sits on the container background so it's
+  // clearly distinguishable from inactive siblings. The focused leaf
+  // additionally paints its active tab in the blue accent (text + bottom
+  // border) so you can always tell which group currently owns focus.
   const visualStyle: React.CSSProperties = isDragging
     ? emptyPlaceholderStyle(token)
     : isActive && isFocusedLeaf
       ? {
-          color: token.colorText,
+          color: token.colorPrimary,
           borderBottomColor: token.colorPrimary,
           background: token.colorBgContainer,
         }
       : isActive
         ? {
-            color: token.colorTextSecondary,
+            color: token.colorText,
             borderBottomColor: token.colorBorder,
-            background: token.colorFillQuaternary,
+            background: token.colorBgContainer,
           }
         : {
             color: token.colorTextSecondary,
@@ -362,13 +369,20 @@ const SortableTab: React.FC<SortableTabProps> = ({
     </div>
   );
 
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+
   // While dragging, skip Tooltip/Dropdown wrappers so they don't
   // interfere with dnd-kit's overlay portal.
   if (isDragging) return content;
 
   return (
-    <Dropdown menu={contextMenu} trigger={['contextMenu']}>
-      <Tooltip title={tab.label} placement="bottom" mouseEnterDelay={0.5}>
+    <Dropdown menu={contextMenu} trigger={['contextMenu']} onOpenChange={setContextMenuOpen}>
+      <Tooltip
+        title={tab.label}
+        placement="bottom"
+        mouseEnterDelay={0.5}
+        open={contextMenuOpen ? false : undefined}
+      >
         {content}
       </Tooltip>
     </Dropdown>
@@ -606,6 +620,8 @@ const TabBar: React.FC<TabBarProps> = ({
   onSplitAndMoveDown,
   onSplitAndMoveUp,
   onMoveToOppositeGroup,
+  oppositeDirection,
+  parentOrientation,
   onChangeSplitterOrientation,
   onUnsplit,
   onUnsplitAll,
@@ -651,6 +667,20 @@ const TabBar: React.FC<TabBarProps> = ({
   }, []);
 
   // ── Context menu builder ───────────────────────────────────────
+  const menuIconWrap = (node: React.ReactNode) => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 22,
+        height: 18,
+      }}
+    >
+      {node}
+    </span>
+  );
+
   const buildContextMenu = useCallback(
     (tab: RulesTab, tabIndex: number): { items: ItemType[] } => {
       const splitDisabled = tabs.length < 2;
@@ -660,6 +690,7 @@ const TabBar: React.FC<TabBarProps> = ({
           {
             key: 'close-other',
             label: 'Close Other Tabs',
+            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-other" />),
             disabled: tabs.length <= 1,
             onClick: () => onCloseOther(tab.id),
           },
@@ -669,64 +700,109 @@ const TabBar: React.FC<TabBarProps> = ({
           {
             key: 'close-left',
             label: 'Close Tabs to the Left',
+            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-left" />),
             disabled: tabIndex === 0,
             onClick: () => onCloseToLeft(tab.id),
           },
           {
             key: 'close-right',
             label: 'Close Tabs to the Right',
+            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-right" />),
             disabled: tabIndex === tabs.length - 1,
             onClick: () => onCloseToRight(tab.id),
           },
           { type: 'divider' as const },
           {
-            key: 'split-move-right',
-            label: 'Split and Move Right',
+            key: 'split-and-move',
+            label: 'Split and Move',
             disabled: splitDisabled,
-            onClick: () => onSplitAndMoveRight?.(tab.id),
+            children: [
+              {
+                key: 'split-move-right',
+                label: 'Right',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-right" />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveRight?.(tab.id),
+              },
+              {
+                key: 'split-move-left',
+                label: 'Left',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-left" />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveLeft?.(tab.id),
+              },
+              {
+                key: 'split-move-down',
+                label: 'Down',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-down" />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveDown?.(tab.id),
+              },
+              {
+                key: 'split-move-up',
+                label: 'Up',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-up" />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveUp?.(tab.id),
+              },
+            ],
           },
-          {
-            key: 'split-move-left',
-            label: 'Split and Move Left',
-            disabled: splitDisabled,
-            onClick: () => onSplitAndMoveLeft?.(tab.id),
-          },
-          {
-            key: 'split-move-down',
-            label: 'Split and Move Down',
-            disabled: splitDisabled,
-            onClick: () => onSplitAndMoveDown?.(tab.id),
-          },
-          {
-            key: 'split-move-up',
-            label: 'Split and Move Up',
-            disabled: splitDisabled,
-            onClick: () => onSplitAndMoveUp?.(tab.id),
-          },
-          {
-            key: 'move-opposite',
-            label: 'Move To Opposite Group',
-            disabled: splitDisabled && !canUnsplit,
-            onClick: () => onMoveToOppositeGroup?.(tab.id),
-          },
+          ...(oppositeDirection
+            ? [
+                {
+                  key: 'move-opposite',
+                  label: 'Move To Opposite Group',
+                  icon: menuIconWrap(
+                    <LayoutMenuIcon
+                      kind={
+                        oppositeDirection === 'right'
+                          ? 'split-right'
+                          : oppositeDirection === 'left'
+                            ? 'split-left'
+                            : oppositeDirection === 'down'
+                              ? 'split-down'
+                              : 'split-up'
+                      }
+                    />,
+                  ),
+                  onClick: () => onMoveToOppositeGroup?.(tab.id),
+                } satisfies ItemType,
+              ]
+            : []),
           {
             key: 'flip-orientation',
             label: 'Change Splitter Orientation',
+            icon: parentOrientation
+              ? menuIconWrap(
+                  <LayoutMenuIcon kind={parentOrientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'} />,
+                )
+              : undefined,
             disabled: !canUnsplit,
             onClick: () => onChangeSplitterOrientation?.(),
           },
           {
             key: 'unsplit',
             label: 'Unsplit',
+            icon: parentOrientation
+              ? menuIconWrap(
+                  <LayoutMenuIcon
+                    kind={parentOrientation === 'horizontal' ? 'unsplit-horizontal' : 'unsplit-vertical'}
+                  />,
+                )
+              : undefined,
             disabled: !canUnsplit,
             onClick: () => onUnsplit?.(),
           },
-          {
-            key: 'unsplit-all',
-            label: 'Unsplit All',
-            disabled: !canUnsplitAll,
-            onClick: () => onUnsplitAll?.(),
-          },
+          ...(canUnsplitAll
+            ? [
+                {
+                  key: 'unsplit-all',
+                  label: 'Unsplit All',
+                  icon: menuIconWrap(<LayoutMenuIcon kind="unsplit-all" />),
+                  onClick: () => onUnsplitAll?.(),
+                } satisfies ItemType,
+              ]
+            : []),
         ],
       };
     },
@@ -743,6 +819,8 @@ const TabBar: React.FC<TabBarProps> = ({
       onSplitAndMoveDown,
       onSplitAndMoveUp,
       onMoveToOppositeGroup,
+      oppositeDirection,
+      parentOrientation,
       onChangeSplitterOrientation,
       onUnsplit,
       onUnsplitAll,

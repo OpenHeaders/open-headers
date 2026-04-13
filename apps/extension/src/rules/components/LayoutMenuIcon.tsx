@@ -1,7 +1,24 @@
 import { theme } from 'antd';
 import type React from 'react';
 
-export type LayoutMenuIconKind = 'bottom-full' | 'bottom-nested' | 'show-labels' | 'hide-labels' | 'restore-hidden';
+export type LayoutMenuIconKind =
+  | 'bottom-full'
+  | 'bottom-nested'
+  | 'show-labels'
+  | 'hide-labels'
+  | 'restore-hidden'
+  | 'split-right'
+  | 'split-left'
+  | 'split-down'
+  | 'split-up'
+  | 'split-horizontal'
+  | 'split-vertical'
+  | 'unsplit-horizontal'
+  | 'unsplit-vertical'
+  | 'unsplit-all'
+  | 'close-tabs-left'
+  | 'close-tabs-right'
+  | 'close-tabs-other';
 
 interface LayoutMenuIconProps {
   kind: LayoutMenuIconKind;
@@ -78,6 +95,164 @@ const LayoutMenuIcon: React.FC<LayoutMenuIconProps> = ({ kind, size = 16 }) => {
           fillOpacity={0.15}
         />
         <line x1={3.5} y1={0.5} x2={3.5} y2={12.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'split-right') {
+    content = (
+      <>
+        <rect
+          x={8}
+          y={0.5}
+          width={7.5}
+          height={12}
+          rx={1.5}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1}
+          fillOpacity={0.35}
+        />
+        <line x1={8} y1={0.5} x2={8} y2={12.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'split-left') {
+    content = (
+      <>
+        <rect
+          x={0.5}
+          y={0.5}
+          width={7.5}
+          height={12}
+          rx={1.5}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1}
+          fillOpacity={0.35}
+        />
+        <line x1={8} y1={0.5} x2={8} y2={12.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'split-down') {
+    content = (
+      <>
+        <rect
+          x={0.5}
+          y={6.5}
+          width={15}
+          height={6}
+          rx={1.5}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1}
+          fillOpacity={0.35}
+        />
+        <line x1={0.5} y1={6.5} x2={15.5} y2={6.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'split-up') {
+    content = (
+      <>
+        <rect
+          x={0.5}
+          y={0.5}
+          width={15}
+          height={6}
+          rx={1.5}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1}
+          fillOpacity={0.35}
+        />
+        <line x1={0.5} y1={6.5} x2={15.5} y2={6.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'split-horizontal') {
+    content = (
+      <rect x={7} y={0.5} width={2} height={12} fill={fill} stroke={stroke} strokeWidth={1} fillOpacity={0.35} />
+    );
+  } else if (kind === 'split-vertical') {
+    content = (
+      <rect x={0.5} y={5.5} width={15} height={2} fill={fill} stroke={stroke} strokeWidth={1} fillOpacity={0.35} />
+    );
+  } else if (kind === 'unsplit-horizontal') {
+    content = (
+      <>
+        <rect
+          x={0.5}
+          y={0.5}
+          width={15}
+          height={12}
+          rx={1.5}
+          fill={fill}
+          stroke="none"
+          fillOpacity={0.15}
+        />
+        <line x1={8} y1={1.5} x2={8} y2={11.5} stroke={stroke} strokeWidth={1} strokeDasharray="1.2 1.2" />
+      </>
+    );
+  } else if (kind === 'unsplit-vertical') {
+    content = (
+      <>
+        <rect
+          x={0.5}
+          y={0.5}
+          width={15}
+          height={12}
+          rx={1.5}
+          fill={fill}
+          stroke="none"
+          fillOpacity={0.15}
+        />
+        <line x1={1.5} y1={6.5} x2={14.5} y2={6.5} stroke={stroke} strokeWidth={1} strokeDasharray="1.2 1.2" />
+      </>
+    );
+  } else if (kind === 'unsplit-all') {
+    content = (
+      <>
+        <rect
+          x={0.5}
+          y={0.5}
+          width={15}
+          height={12}
+          rx={1.5}
+          fill={fill}
+          stroke="none"
+          fillOpacity={0.15}
+        />
+        <line
+          x1={8}
+          y1={1.5}
+          x2={8}
+          y2={11.5}
+          stroke={stroke}
+          strokeWidth={1}
+          strokeDasharray="1.2 1.2"
+          strokeDashoffset={1.2}
+        />
+        <line x1={1.5} y1={6.5} x2={14.5} y2={6.5} stroke={stroke} strokeWidth={1} strokeDasharray="1.2 1.2" />
+      </>
+    );
+  } else if (kind === 'close-tabs-left' || kind === 'close-tabs-right' || kind === 'close-tabs-other') {
+    const keptIndex = kind === 'close-tabs-right' ? 0 : kind === 'close-tabs-left' ? 2 : 1;
+    const cellX = [0.5, 5.5, 10.5];
+    content = (
+      <>
+        {[0, 1, 2].map((i) =>
+          i === keptIndex ? null : (
+            <rect
+              key={`cell-${i}`}
+              x={cellX[i]}
+              y={0.5}
+              width={5}
+              height={4}
+              fill={fill}
+              stroke="none"
+              fillOpacity={0.35}
+            />
+          ),
+        )}
+        <line x1={0.5} y1={4.5} x2={15.5} y2={4.5} stroke={stroke} strokeWidth={1} />
+        <line x1={5.5} y1={0.5} x2={5.5} y2={4.5} stroke={stroke} strokeWidth={1} />
+        <line x1={10.5} y1={0.5} x2={10.5} y2={4.5} stroke={stroke} strokeWidth={1} />
       </>
     );
   } else {

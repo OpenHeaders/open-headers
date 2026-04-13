@@ -30,7 +30,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type DragIntent, DragIntentContext } from '../drag-intent';
-import { type EditorLeaf, type EditorNode, findLeaf } from '../editor-groups';
+import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../editor-groups';
 import type { UseEditorGroupsApi } from '../hooks/useEditorGroups';
 import type { ClosedTab, RulesTab } from '../types';
 import TabBar from './TabBar';
@@ -195,7 +195,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   recentlyClosed,
 }) => {
   const { token } = theme.useToken();
-  const canUnsplitAll = groups.root.kind === 'split';
+  const canUnsplitAll = allLeaves(groups.root).length >= 3;
 
   // Per-leaf DOM refs for cursor hit-testing. Populated via the ref
   // callback attached to each leaf's root element.
@@ -395,6 +395,13 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           onSplitAndMoveDown={(tabId) => groups.splitAndMoveDown(leaf.id, tabId)}
           onSplitAndMoveUp={(tabId) => groups.splitAndMoveUp(leaf.id, tabId)}
           onMoveToOppositeGroup={(tabId) => groups.moveToOppositeGroup(leaf.id, tabId)}
+          oppositeDirection={(() => {
+            const link = findParentSplitLink(groups.root, leaf.id);
+            if (!link) return null;
+            if (link.parent.orientation === 'horizontal') return link.side === 'a' ? 'right' : 'left';
+            return link.side === 'a' ? 'down' : 'up';
+          })()}
+          parentOrientation={findParentSplitLink(groups.root, leaf.id)?.parent.orientation ?? null}
           onChangeSplitterOrientation={() => groups.changeSplitterOrientation(leaf.id)}
           onUnsplit={() => groups.unsplit(leaf.id)}
           onUnsplitAll={groups.unsplitAll}
@@ -430,8 +437,12 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   const renderNode = (node: EditorNode): React.ReactNode => {
     if (node.kind === 'leaf') return renderLeaf(node);
     const vertical = node.orientation === 'vertical';
+    // Allotment captures orientation at mount and does not react to later
+    // changes of its `vertical` prop — the DOM class flips but the internal
+    // split-view keeps the old orientation, producing corrupted layouts.
+    // Keying on orientation forces a clean remount on flip.
     return (
-      <Allotment vertical={vertical} proportionalLayout>
+      <Allotment key={`${node.id}-${node.orientation}`} vertical={vertical} proportionalLayout>
         <Allotment.Pane minSize={180}>{renderNode(node.a)}</Allotment.Pane>
         <Allotment.Pane minSize={180}>{renderNode(node.b)}</Allotment.Pane>
       </Allotment>
