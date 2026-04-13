@@ -49,6 +49,7 @@ import {
   deleteAllTestRunsForOwner,
   deleteTestRunById,
   getTestRunById,
+  listAllTestRuns,
   listTestRunsForOwner,
   pruneOrphanOwners,
   type TestRunOwner,
@@ -332,6 +333,13 @@ export function handleGeneralMessage(
         id: message.ownerId as string,
       };
       listTestRunsForOwner(owner)
+        .then((runs) => safeResponse({ success: true, runs }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'listAllTestRuns') {
+      // Workspace-wide Test Runs panel (left ActivityBar launcher). Returns
+      // every persisted run across every owner bucket, newest-first.
+      listAllTestRuns()
         .then((runs) => safeResponse({ success: true, runs }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;

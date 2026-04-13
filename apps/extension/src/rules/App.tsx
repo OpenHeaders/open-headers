@@ -1,13 +1,31 @@
 /**
  * Rules App — full-page rule management in its own browser tab.
  *
- * Mirrors the desktop V5 shell layout exactly:
- *   TopBar | ActivityBar | Sidebar | TabBar + BreadcrumbBar + Editor | BottomPanel | Inspector | StatusBar
+ * Shell layout (IDE tool-window model):
+ *   TopBar
+ *   ├── LeftActivityBar (top group → left pane, bottom group → bottom pane)
+ *   ├── Left Allotment pane (Items / future left-top panels)
+ *   ├── Editor + BottomPanel (vertical Allotment inside the middle pane)
+ *   ├── Right Allotment pane (Docs / Variables / future right panels)
+ *   └── RightActivityBar (permanent strip symmetric to the left one)
+ *   StatusBar
  *
- * Tab state extracted to useTabs hook. Dirty confirmation in useTabLifecycle hook.
+ * All layout state (which panels are open, which region has focus, whether
+ * activity bars show labels) lives in useWorkspaceLayout. Size ratios still
+ * live in useResponsiveLayout. Tab state is in useTabs; dirty confirmation
+ * in useTabLifecycle.
  */
 
-import { FolderOutlined } from '@ant-design/icons';
+import {
+  AppstoreOutlined,
+  BookOutlined,
+  ClockCircleOutlined,
+  CodeOutlined,
+  ExperimentOutlined,
+  FolderOutlined,
+  FundViewOutlined,
+  VideoCameraOutlined,
+} from '@ant-design/icons';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
@@ -19,7 +37,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
-import ActivityBar from './components/ActivityBar';
+import ActivityBar, { type ActivityBarItem } from './components/ActivityBar';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
 import CollectionOverview from './components/CollectionOverview';
@@ -27,7 +45,8 @@ import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } f
 import CommandPalette from './components/CommandPalette';
 import EmptyState from './components/EmptyState';
 import FolderOverview from './components/FolderOverview';
-import Inspector from './components/Inspector';
+import DocsPanel from './components/panels/DocsPanel';
+import VariablesPanel from './components/panels/VariablesPanel';
 import RuleEditor from './components/RuleEditor';
 import RuleFlow from './components/RuleFlow';
 import RunReportView from './components/RunReportView';
@@ -40,12 +59,14 @@ import TemplateEditor from './components/TemplateEditor';
 import TopBar from './components/TopBar';
 import { renderTwoToneIcon } from './components/TwoToneIconPicker';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
-import { useResponsiveLayout } from './hooks/useResponsiveLayout';
+import { useFocusRegion } from './hooks/useFocusRegion';
+import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabs } from './hooks/useTabs';
+import { LEFT_BOTTOM_LAUNCHERS, useWorkspaceLayout } from './hooks/useWorkspaceLayout';
 import { shortcutLabel, useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
-import type { PanelVisibility, RuleFlowScope, RulesTab } from './types';
+import type { LeftPanelKey, RightPanelKey, RuleFlowScope, RulesTab } from './types';
 
 const RULE_TYPE_LABELS: Record<string, string> = {
   header: 'Header Rule',
@@ -58,9 +79,41 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   mock: 'API Response Rule',
 };
 
-// ── Inner component (needs RuleContext) ────────────────────────────
+// ── Shell loader ────────────────────────────────────────────────────
+//
+// Mounts `useResponsiveLayout` first, then gates rendering of the full
+// workspace until the persisted layout record has loaded from storage.
+// This guarantees `useWorkspaceLayout` is initialized with the user's
+// saved panel configuration on the very first render — no hydration
+// effect that could race against early clicks. Once we fall through the
+// gate, `layout.persistedWorkspace` is either the loaded record or null
+// (fresh profile), and we pass it straight into `RulesAppWorkspace`.
 
 const RulesAppInner: React.FC = () => {
+  const { isDarkMode } = useTheme();
+  const { token } = theme.useToken();
+  const layout = useResponsiveLayout();
+
+  if (!layout.ready) {
+    return (
+      <div
+        className="rules-shell rules-shell-loading"
+        data-theme={isDarkMode ? 'dark' : 'light'}
+        style={{ background: token.colorBgLayout }}
+      />
+    );
+  }
+
+  return <RulesAppWorkspace layout={layout} />;
+};
+
+// ── Workspace component (needs RuleContext + loaded layout) ─────────
+
+interface RulesAppWorkspaceProps {
+  layout: ResponsiveLayout;
+}
+
+const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
   const {
@@ -110,46 +163,210 @@ const RulesAppInner: React.FC = () => {
     handleCloseToRight,
   } = useTabLifecycle({ tabs, closeTab: rawCloseTab, switchTab, saveRefMap });
 
-  // ── Responsive layout ─────────────────────────────────────────
-  const layout = useResponsiveLayout();
+  // ── Workspace layout state machine ────────────────────────────
+  // Owns: leftPanel, rightPanel, bottomOpen, bottomTab, focusedRegion,
+  // activityBarLabels. Mutations funnelled through this one API.
+  // Initial values come from useResponsiveLayout's persisted bundle so
+  // a refresh restores the exact panel configuration the user left with.
+  const ws = useWorkspaceLayout({
+    initial: layout.persistedWorkspace
+      ? {
+          leftPanel: layout.persistedWorkspace.leftPanel,
+          rightPanel: layout.persistedWorkspace.rightPanel,
+          bottomOpen: layout.persistedWorkspace.bottomOpen,
+          activityBarLabels: layout.persistedWorkspace.activityBarLabels,
+        }
+      : undefined,
+    initialBottomTab: layout.persistedWorkspace?.bottomTab,
+    onPersist: layout.persistWorkspaceLayout,
+  });
 
-  // ── Panels ────────────────────────────────────────────────────
-  const [panels, setPanels] = useState<PanelVisibility>({ sidebar: true, bottomPanel: false, inspector: false });
-  const [bottomPanelTab, setBottomPanelTab] = useState('traffic');
+  // Legacy adapter for components that still speak the old PanelVisibility
+  // vocabulary (StatusBar, cmd palette labels, shortcut handlers). We keep
+  // it tiny — three booleans derived from the state machine plus a toggle
+  // that maps the old keys back to the new setters. This avoids a churn
+  // through half a dozen unrelated files.
+  const panels = useMemo(
+    () => ({
+      sidebar: ws.layout.leftPanel !== null,
+      bottomPanel: ws.layout.bottomOpen,
+      inspector: ws.layout.rightPanel !== null,
+    }),
+    [ws.layout.leftPanel, ws.layout.bottomOpen, ws.layout.rightPanel],
+  );
+
+  // Remember the last top-group left panel so Cmd+B toggling restores it.
+  const lastLeftTopRef = useRef<LeftPanelKey>(ws.layout.leftPanel ?? 'items');
+  useEffect(() => {
+    if (ws.layout.leftPanel !== null) lastLeftTopRef.current = ws.layout.leftPanel;
+  }, [ws.layout.leftPanel]);
+
+  // Same idea for the right panel: restore the previously-open panel when
+  // the user reopens via Cmd+\ after closing with the same shortcut.
+  const lastRightRef = useRef<RightPanelKey>(ws.layout.rightPanel ?? 'docs');
+  useEffect(() => {
+    if (ws.layout.rightPanel !== null) lastRightRef.current = ws.layout.rightPanel;
+  }, [ws.layout.rightPanel]);
+
   const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
-  // Auto-collapse sidebar on narrow viewports (first-open only)
+  // Auto-collapse sidebar on narrow viewports (first-open only). No
+  // longer gated on `layout.ready` because the loader gate upstream
+  // guarantees layout is already loaded before this component mounts.
   const sidebarAutoCollapsedRef = useRef(false);
   useEffect(() => {
-    if (!layout.ready || sidebarAutoCollapsedRef.current) return;
+    if (sidebarAutoCollapsedRef.current) return;
     sidebarAutoCollapsedRef.current = true;
     if (layout.shouldCollapseSidebar) {
-      setPanels((prev) => ({ ...prev, sidebar: false }));
+      ws.setLeftPanel(null);
     }
-  }, [layout.ready, layout.shouldCollapseSidebar]);
+  }, [layout.shouldCollapseSidebar, ws.setLeftPanel]);
 
-  // Focus management ref
-  const sidebarToggleRef = useRef<HTMLDivElement>(null);
+  // Focus management ref — retained so Cmd+B collapse can return focus to
+  // the activity bar instead of stranding it inside the collapsing pane.
+  const leftActivityBarRef = useRef<HTMLDivElement>(null);
 
-  const togglePanel = useCallback((panel: keyof PanelVisibility) => {
-    setPanels((prev) => {
-      const next = { ...prev, [panel]: !prev[panel] };
+  // Shell root ref for the focus-region tracker. The tracker owns the
+  // full DOM↔region mapping — it observes focus changes AND exposes
+  // `focusRegion(key)` for imperative moves. Nothing else in the shell
+  // queries selectors or calls .focus() directly.
+  const shellRef = useRef<HTMLDivElement>(null);
+  const focus = useFocusRegion({ shellRef, setFocusedRegion: ws.setFocusedRegion });
 
-      // Focus management: sidebar collapse → focus activity bar toggle
-      if (panel === 'sidebar' && !next.sidebar) {
-        requestAnimationFrame(() => sidebarToggleRef.current?.focus());
+  // ── Region cycling — shared semantics for clicks and Alt+N ────
+  //
+  // IDE-style three-state cycle:
+  //   1. Region closed       → open it + focus into it
+  //   2. Region open unfocused → just focus into it
+  //   3. Region open focused  → close it + return focus to editor
+  //
+  // The left-top group additionally supports SWITCHING between keys
+  // while the region is focused — clicking Recordings while Items is
+  // open should swap the panel, not close it. `cycleLeftTop` handles
+  // that; `cycleRegion` handles the generic case for Alt+N and for
+  // right/bottom clicks (where there's currently only one key per
+  // region in its natural group).
+  //
+  // cycleBottomLauncher mirrors cycleLeftTop for the bottom group.
+
+  const cycleRegion = useCallback(
+    (region: 'left' | 'right' | 'bottom' | 'editor') => {
+      if (region === 'editor') {
+        focus.focusRegion('editor');
+        return;
+      }
+      const isFocused = ws.layout.focusedRegion === region;
+      const isOpen =
+        region === 'left'
+          ? ws.layout.leftPanel !== null
+          : region === 'right'
+            ? ws.layout.rightPanel !== null
+            : ws.layout.bottomOpen;
+
+      if (isOpen && isFocused) {
+        if (region === 'left') ws.setLeftPanel(null);
+        else if (region === 'right') ws.setRightPanel(null);
+        else ws.setBottomOpen(false);
+        focus.focusRegion('editor');
+        return;
       }
 
-      // Clear docs-focused wide mode when inspector closes
-      if (panel === 'inspector' && !next.inspector) {
-        setInspectorWide(false);
+      if (!isOpen) {
+        if (region === 'left') ws.setLeftPanel(lastLeftTopRef.current);
+        else if (region === 'right') ws.setRightPanel(lastRightRef.current);
+        else ws.setBottomOpen(true);
       }
+      focus.focusRegion(region);
+    },
+    [ws, focus],
+  );
 
-      return next;
-    });
-  }, []);
+  const cycleLeftTop = useCallback(
+    (key: LeftPanelKey) => {
+      const isSameKey = ws.layout.leftPanel === key;
+      const isFocused = ws.layout.focusedRegion === 'left';
+
+      // Same key + focused → close. Same key + unfocused → just focus.
+      // Different key → switch. Closed → open on that key.
+      if (isSameKey && isFocused) {
+        ws.setLeftPanel(null);
+        focus.focusRegion('editor');
+        return;
+      }
+      if (!isSameKey) {
+        ws.setLeftPanel(key);
+      }
+      focus.focusRegion('left');
+    },
+    [ws, focus],
+  );
+
+  const cycleRightPanel = useCallback(
+    (key: RightPanelKey) => {
+      const isSameKey = ws.layout.rightPanel === key;
+      const isFocused = ws.layout.focusedRegion === 'right';
+
+      if (isSameKey && isFocused) {
+        ws.setRightPanel(null);
+        focus.focusRegion('editor');
+        return;
+      }
+      if (!isSameKey) {
+        ws.setRightPanel(key);
+      }
+      focus.focusRegion('right');
+    },
+    [ws, focus],
+  );
+
+  const cycleBottomLauncher = useCallback(
+    (key: LeftPanelKey) => {
+      // Read the launcher's target tab from the shared map so adding a
+      // new left-bottom key only requires touching LEFT_BOTTOM_LAUNCHERS.
+      const target = LEFT_BOTTOM_LAUNCHERS[key];
+      if (!target) return;
+      const isSameKey = ws.layout.bottomOpen && ws.bottomTab === target;
+      const isFocused = ws.layout.focusedRegion === 'bottom';
+
+      if (isSameKey && isFocused) {
+        ws.setBottomOpen(false);
+        focus.focusRegion('editor');
+        return;
+      }
+      if (!isSameKey) {
+        ws.openBottomTab(target);
+      }
+      focus.focusRegion('bottom');
+    },
+    [ws, focus],
+  );
+
+  // Legacy togglePanel adapter — maps old string keys to state-machine
+  // calls. New code should call ws.* directly.
+  const togglePanel = useCallback(
+    (panel: 'sidebar' | 'bottomPanel' | 'inspector') => {
+      if (panel === 'sidebar') {
+        if (ws.layout.leftPanel !== null) {
+          ws.setLeftPanel(null);
+          requestAnimationFrame(() => leftActivityBarRef.current?.focus());
+        } else {
+          ws.setLeftPanel(lastLeftTopRef.current);
+        }
+      } else if (panel === 'bottomPanel') {
+        ws.setBottomOpen(!ws.layout.bottomOpen);
+      } else {
+        if (ws.layout.rightPanel !== null) {
+          ws.setRightPanel(null);
+          setInspectorWide(false);
+        } else {
+          ws.setRightPanel(lastRightRef.current);
+        }
+      }
+    },
+    [ws],
+  );
 
   // Inspector "docs-focused" mode: when opened via #/docs/ hash, use wider size.
   // Initialized synchronously from hash so preferredSize is correct on first render —
@@ -159,11 +376,13 @@ const RulesAppInner: React.FC = () => {
     return hash.startsWith('docs/');
   });
 
-  // Register inspector open callback for useInspectorNav
+  // Register right-pane-open callback for useInspectorNav. The hook's
+  // openDocs() fires this when any deep-linked component (RuleEditor
+  // condition help, shortcuts modal, etc.) wants to surface the docs.
   const { onOpenInspector, openDocs } = useInspectorNav();
   onOpenInspector.current = useCallback(() => {
-    setPanels((prev) => ({ ...prev, inspector: true }));
-  }, []);
+    ws.setRightPanel('docs');
+  }, [ws.setRightPanel]);
 
   // ── Save to Collection modal state ────────────────────────────
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -599,7 +818,8 @@ const RulesAppInner: React.FC = () => {
     } else if (parts[0] === 'edit' && parts[1]) {
       openEditTabRef.current(parts[1]);
     } else if (parts[0] === 'docs' && parts[1]) {
-      // #/docs/{sectionId} — open inspector in wide mode for focused reading
+      // #/docs/{sectionId} — open right pane in wide mode for focused reading.
+      // setRightPanel('docs') runs via useInspectorNav → onOpenInspector.
       setInspectorWide(true);
       openDocsRef.current(parts[1]);
     } else if (parts[0] === 'flow') {
@@ -863,14 +1083,16 @@ const RulesAppInner: React.FC = () => {
   // Sidebar filter focus ref
   const sidebarFilterRef = useRef<InputRef>(null);
 
-  // Keyboard shortcuts help — toggle inspector with shortcuts section
+  // Keyboard shortcuts help — toggle the right pane pointing at the docs
+  // "Keyboard shortcuts" section. If the right pane is already showing
+  // docs, close it; otherwise open it to that section.
   const handleShowShortcuts = useCallback(() => {
-    if (panels.inspector) {
-      togglePanel('inspector');
+    if (ws.layout.rightPanel === 'docs') {
+      ws.setRightPanel(null);
     } else {
       openDocs('keyboard-shortcuts');
     }
-  }, [panels.inspector, togglePanel, openDocs]);
+  }, [ws, openDocs]);
 
   // ── Command palette data ──────────────────────────────────────
 
@@ -1074,40 +1296,68 @@ const RulesAppInner: React.FC = () => {
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,
+    // Alt/Option + 1..4 delegates straight to the shared cycleRegion
+    // helper. Same semantics as clicking the corresponding activity-bar
+    // icon, so muscle memory stays consistent between keyboard and mouse.
+    onFocusRegion: (region) => cycleRegion(region),
     hasActiveTab: () => activeTabId != null,
   });
 
-  // Compute coordinated sidebar size when inspector opens
-  const coordinatedSidebarPreferred = panels.inspector
-    ? (layout.getCoordinatedSidebarSize(true) ?? layout.sizes.sidebar.preferred)
-    : layout.sizes.sidebar.preferred;
+  // Compute coordinated sidebar size when the right pane opens
+  const coordinatedSidebarPreferred =
+    ws.layout.rightPanel !== null
+      ? (layout.getCoordinatedSidebarSize(true) ?? layout.sizes.sidebar.preferred)
+      : layout.sizes.sidebar.preferred;
 
-  // Sync panels state when allotment snaps a pane closed or user drags it back open
+  // Sync state machine with Allotment resizes.
+  //
+  // IMPORTANT: Allotment's onChange fires for BOTH user drags and
+  // programmatic visibility toggles. We cannot distinguish them by
+  // comparing `nowOpen` vs `wasOpen` — the comparison is inherently
+  // racy against React commits, because Allotment's onChange can fire
+  // before the new ws closure has been captured by this callback.
+  //
+  // We previously had an auto-reopen branch here ("pane grew from 0 to
+  // N? must be a user drag, restore last panel key") which collided
+  // with programmatic opens: after setRightPanel('docs'), Allotment
+  // would fire onChange with size > 0 against a stale closure seeing
+  // wasOpen=false, and restore lastRightRef — which might be 'variables'
+  // — silently clobbering 'docs'.
+  //
+  // Policy: only sync state on drag-CLOSE (size === 0). Opening a pane
+  // is the exclusive job of the activity-bar click handlers and
+  // cycleRegion — no other codepath is allowed to set panel keys. This
+  // breaks the race completely because the drag-close path is always
+  // user-initiated and never a consequence of a previous state change.
+  //
+  // The Allotment panes are indexed by DOM order: [0] left,
+  // [1] center+bottom, [2] right. Vertical allotment: [0] editor,
+  // [1] bottom.
   const handleHorizontalResize = useCallback(
     (panelSizes: number[]) => {
       layout.onPanelResize(panelSizes);
-      setPanels((prev) => {
-        const sidebarOpen = panelSizes[0] != null ? panelSizes[0] > 0 : prev.sidebar;
-        const inspectorOpen = panelSizes[2] != null ? panelSizes[2] > 0 : prev.inspector;
-        if (sidebarOpen === prev.sidebar && inspectorOpen === prev.inspector) return prev;
-        // Clear docs-focused wide mode when inspector closes
-        if (!inspectorOpen && prev.inspector) setInspectorWide(false);
-        return { ...prev, sidebar: sidebarOpen, inspector: inspectorOpen };
-      });
+      const leftSize = panelSizes[0];
+      const rightSize = panelSizes[2];
+      if (leftSize === 0 && ws.layout.leftPanel !== null) {
+        ws.setLeftPanel(null);
+      }
+      if (rightSize === 0 && ws.layout.rightPanel !== null) {
+        ws.setRightPanel(null);
+        setInspectorWide(false);
+      }
     },
-    [layout],
+    [layout, ws],
   );
 
   const handleVerticalResize = useCallback(
     (panelSizes: number[]) => {
       layout.onVerticalResize(panelSizes);
-      setPanels((prev) => {
-        const bottomOpen = panelSizes[1] != null ? panelSizes[1] > 0 : prev.bottomPanel;
-        if (bottomOpen === prev.bottomPanel) return prev;
-        return { ...prev, bottomPanel: bottomOpen };
-      });
+      const bottomSize = panelSizes[1];
+      if (bottomSize === 0 && ws.layout.bottomOpen) {
+        ws.setBottomOpen(false);
+      }
     },
-    [layout],
+    [layout, ws],
   );
 
   // ── Test run owner context ────────────────────────────────────
@@ -1122,9 +1372,8 @@ const RulesAppInner: React.FC = () => {
   }, [activeTab]);
 
   const openTestRunsPanel = useCallback(() => {
-    setBottomPanelTab('test-runs');
-    setPanels((prev) => (prev.bottomPanel ? prev : { ...prev, bottomPanel: true }));
-  }, []);
+    ws.openBottomTab('test-runs');
+  }, [ws.openBottomTab]);
 
   // Whenever the active main-panel tab is a run-report tab, auto-open
   // the bottom panel and focus its Test Runs tab. Covers both entry
@@ -1252,15 +1501,120 @@ const RulesAppInner: React.FC = () => {
     </div>
   );
 
+  // ── Activity bar item arrays ─────────────────────────────────
+  // Focus is computed per item — left-top icons get the blue accent
+  // only when the LEFT region has focus, left-bottom icons only when
+  // the BOTTOM region has focus, right icons only when the RIGHT
+  // region has focus. This matches the IDE behaviour where the
+  // bar shows which tool window actually owns the keyboard.
+
+  const focusedLeft = ws.layout.focusedRegion === 'left';
+  const focusedBottom = ws.layout.focusedRegion === 'bottom';
+  const focusedRight = ws.layout.focusedRegion === 'right';
+
+  const leftTopItems: ActivityBarItem[] = [
+    {
+      key: 'items',
+      icon: <AppstoreOutlined />,
+      label: 'Items',
+      enabled: true,
+      tooltip: `Items (${shortcutLabel('toggle-sidebar')})`,
+      active: ws.isIconActive('items'),
+      focused: focusedLeft,
+      onActivate: () => cycleLeftTop('items'),
+    },
+    {
+      key: 'recordings',
+      icon: <VideoCameraOutlined />,
+      label: 'Recordings',
+      enabled: false,
+      tooltip: 'Available in desktop app',
+      active: false,
+      focused: false,
+    },
+    {
+      key: 'history',
+      icon: <ClockCircleOutlined />,
+      label: 'History',
+      enabled: false,
+      tooltip: 'Available in desktop app',
+      active: false,
+      focused: false,
+    },
+    {
+      key: 'files',
+      icon: <FolderOutlined />,
+      label: 'Local Files',
+      enabled: false,
+      tooltip: 'Available in desktop app',
+      active: false,
+      focused: false,
+    },
+  ];
+
+  const leftBottomItems: ActivityBarItem[] = [
+    {
+      key: 'page-traffic',
+      icon: <FundViewOutlined />,
+      label: 'Page Traffic',
+      enabled: true,
+      tooltip: 'Page Traffic',
+      active: ws.isIconActive('page-traffic'),
+      focused: focusedBottom,
+      onActivate: () => cycleBottomLauncher('page-traffic'),
+    },
+    {
+      key: 'test-runs',
+      icon: <ExperimentOutlined />,
+      label: 'Test Runs',
+      enabled: true,
+      tooltip: `Test Runs (${shortcutLabel('toggle-bottom')})`,
+      active: ws.isIconActive('test-runs'),
+      focused: focusedBottom,
+      onActivate: () => cycleBottomLauncher('test-runs'),
+    },
+  ];
+
+  const rightTopItems: ActivityBarItem[] = [
+    {
+      key: 'docs',
+      icon: <BookOutlined />,
+      label: 'Docs',
+      enabled: true,
+      tooltip: `Docs (${shortcutLabel('toggle-inspector')})`,
+      active: ws.isIconActive('docs'),
+      focused: focusedRight,
+      onActivate: () => cycleRightPanel('docs'),
+    },
+    {
+      key: 'variables',
+      icon: <CodeOutlined />,
+      label: 'Variables',
+      enabled: true,
+      tooltip: 'Variables',
+      active: ws.isIconActive('variables'),
+      focused: focusedRight,
+      onActivate: () => cycleRightPanel('variables'),
+    },
+  ];
+
   return (
-    <div className="rules-shell" data-theme={isDarkMode ? 'dark' : 'light'} style={{ background: token.colorBgLayout }}>
+    <div
+      ref={shellRef}
+      className="rules-shell"
+      data-theme={isDarkMode ? 'dark' : 'light'}
+      style={{ background: token.colorBgLayout }}
+    >
       <TopBar onCommandPalette={() => setCommandPaletteOpen(true)} />
 
       <div className="rules-main">
         <ActivityBar
-          sidebarVisible={panels.sidebar}
-          onToggleSidebar={() => togglePanel('sidebar')}
-          ref={sidebarToggleRef}
+          ref={leftActivityBarRef}
+          side="left"
+          topItems={leftTopItems}
+          bottomItems={leftBottomItems}
+          labelsVisible={ws.layout.activityBarLabels}
+          onToggleLabels={ws.toggleActivityBarLabels}
         />
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1269,42 +1623,69 @@ const RulesAppInner: React.FC = () => {
               preferredSize={coordinatedSidebarPreferred}
               minSize={layout.sizes.sidebar.min}
               maxSize={layout.sizes.sidebar.max}
-              visible={panels.sidebar}
+              visible={ws.layout.leftPanel !== null}
               priority={LayoutPriority.Low}
               snap
             >
-              <Sidebar
-                activeTabId={activeTabId}
-                onSelectRule={openEditTab}
-                onCreateRule={openCreateTab}
-                onDeleteRule={handleDeleteRule}
-                onOpenCollectionOverview={openCollectionOverview}
-                onOpenFolderOverview={openFolderOverview}
-                onSelectTemplate={openTemplateEditTab}
-                onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
-                onOpenTemplateFolderOverview={openTemplateFolderOverview}
-                filterRef={sidebarFilterRef}
-              />
+              {/* Left pane content router. Items is the only top-group key
+                  today; additional keys render here as we add panels. */}
+              {ws.layout.leftPanel === 'items' && (
+                <div
+                  className="rules-region rules-region-left"
+                  data-region="left"
+                  tabIndex={-1}
+                  style={{ height: '100%' }}
+                >
+                  <Sidebar
+                    activeTabId={activeTabId}
+                    onSelectRule={openEditTab}
+                    onCreateRule={openCreateTab}
+                    onDeleteRule={handleDeleteRule}
+                    onOpenCollectionOverview={openCollectionOverview}
+                    onOpenFolderOverview={openFolderOverview}
+                    onSelectTemplate={openTemplateEditTab}
+                    onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
+                    onOpenTemplateFolderOverview={openTemplateFolderOverview}
+                    filterRef={sidebarFilterRef}
+                  />
+                </div>
+              )}
             </Allotment.Pane>
 
             <Allotment.Pane priority={LayoutPriority.High} minSize={layout.sizes.editorMin}>
               <Allotment vertical proportionalLayout={false} onChange={handleVerticalResize}>
-                <Allotment.Pane>{editorArea}</Allotment.Pane>
+                <Allotment.Pane>
+                  <div
+                    className="rules-region rules-region-editor"
+                    data-region="editor"
+                    tabIndex={-1}
+                    style={{ height: '100%' }}
+                  >
+                    {editorArea}
+                  </div>
+                </Allotment.Pane>
 
                 <Allotment.Pane
                   preferredSize={layout.sizes.bottom.preferred}
                   minSize={layout.sizes.bottom.min}
                   maxSize={layout.sizes.bottom.max}
-                  visible={panels.bottomPanel}
+                  visible={ws.layout.bottomOpen}
                   snap
                 >
-                  <BottomPanel
-                    activeTab={bottomPanelTab}
-                    onTabChange={setBottomPanelTab}
-                    contextOwner={contextOwner}
-                    onOpenTestRun={openRunReport}
-                    activeRunId={activeTab?.mode === 'run-report' ? (activeTab.testRunId ?? null) : null}
-                  />
+                  <div
+                    className="rules-region rules-region-bottom"
+                    data-region="bottom"
+                    tabIndex={-1}
+                    style={{ height: '100%' }}
+                  >
+                    <BottomPanel
+                      activeTab={ws.bottomTab}
+                      onTabChange={ws.setBottomTab}
+                      contextOwner={contextOwner}
+                      onOpenTestRun={openRunReport}
+                      activeRunId={activeTab?.mode === 'run-report' ? (activeTab.testRunId ?? null) : null}
+                    />
+                  </div>
                 </Allotment.Pane>
               </Allotment>
             </Allotment.Pane>
@@ -1317,13 +1698,31 @@ const RulesAppInner: React.FC = () => {
               }
               minSize={layout.sizes.inspector.min}
               maxSize={inspectorWide ? Math.round((window.innerWidth - 64) * 0.5) : layout.sizes.inspector.max}
-              visible={panels.inspector}
+              visible={ws.layout.rightPanel !== null}
               snap
             >
-              <Inspector onClose={() => togglePanel('inspector')} />
+              {/* Right pane router — one panel at a time. */}
+              <div
+                className="rules-region rules-region-right"
+                data-region="right"
+                tabIndex={-1}
+                style={{ height: '100%' }}
+              >
+                {ws.layout.rightPanel === 'docs' && <DocsPanel onClose={() => ws.setRightPanel(null)} />}
+                {ws.layout.rightPanel === 'variables' && (
+                  <VariablesPanel onClose={() => ws.setRightPanel(null)} />
+                )}
+              </div>
             </Allotment.Pane>
           </Allotment>
         </div>
+
+        <ActivityBar
+          side="right"
+          topItems={rightTopItems}
+          labelsVisible={ws.layout.activityBarLabels}
+          onToggleLabels={ws.toggleActivityBarLabels}
+        />
       </div>
 
       <StatusBar panels={panels} onTogglePanel={togglePanel} />

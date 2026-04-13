@@ -53,6 +53,14 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'save', label: 'Save', mac: '⌘S', win: 'Ctrl+S', category: 'actions' },
   { id: 'new-rule', label: 'New rule', mac: '⌥N', win: 'Alt+N', category: 'actions' },
   { id: 'show-shortcuts', label: 'Keyboard shortcuts', mac: '?', win: '?', category: 'actions' },
+
+  // Focus regions — Option/Alt + 1..4. Cmd/Ctrl+1..9 are intercepted by
+  // the browser tab chrome, so we fall back to Option/Alt which ships
+  // on every platform and doesn't collide with anything browser-native.
+  { id: 'focus-left', label: 'Focus left panel', mac: '⌥1', win: 'Alt+1', category: 'navigation' },
+  { id: 'focus-editor', label: 'Focus editor', mac: '⌥2', win: 'Alt+2', category: 'navigation' },
+  { id: 'focus-right', label: 'Focus right panel', mac: '⌥3', win: 'Alt+3', category: 'navigation' },
+  { id: 'focus-bottom', label: 'Focus bottom panel', mac: '⌥4', win: 'Alt+4', category: 'navigation' },
 ];
 
 /** Get the platform-appropriate display string for a shortcut */
@@ -81,6 +89,13 @@ export interface WorkspaceShortcutHandlers {
   onFocusFilter: () => void;
   onCommandPalette: () => void;
   onShowShortcuts: () => void;
+  /**
+   * Move keyboard focus into the given shell region. Alt+1..4 dispatches
+   * here. The host looks up a well-known focusable element in each region
+   * (activity bar icon, tabbed editor, right-panel close button, bottom
+   * panel tab row) and calls .focus() on it.
+   */
+  onFocusRegion: (region: 'left' | 'editor' | 'right' | 'bottom') => void;
   /** Return true if there's a tab to close (prevents Cmd+W from closing browser tab) */
   hasActiveTab: () => boolean;
 }
@@ -154,6 +169,28 @@ export function useWorkspaceShortcuts(handlers: WorkspaceShortcutHandlers): void
         if (e.code === 'KeyN') {
           e.preventDefault();
           handlers.onNewRule();
+          return;
+        }
+        // Alt/Option + 1..4 — focus shell regions. Uses e.code so the
+        // Mac dead-key remapping of Option+digit doesn't affect detection.
+        if (e.code === 'Digit1' || e.code === 'Numpad1') {
+          e.preventDefault();
+          handlers.onFocusRegion('left');
+          return;
+        }
+        if (e.code === 'Digit2' || e.code === 'Numpad2') {
+          e.preventDefault();
+          handlers.onFocusRegion('editor');
+          return;
+        }
+        if (e.code === 'Digit3' || e.code === 'Numpad3') {
+          e.preventDefault();
+          handlers.onFocusRegion('right');
+          return;
+        }
+        if (e.code === 'Digit4' || e.code === 'Numpad4') {
+          e.preventDefault();
+          handlers.onFocusRegion('bottom');
           return;
         }
       }

@@ -1,22 +1,27 @@
 /**
- * BottomPanel — bottom dock with context-aware tabs.
+ * BottomPanel — bottom dock with two data modes for the Test Runs tab.
  *
- * Three "always-on" tabs (Traffic / Console / Terminal) are placeholders for
- * desktop-only features. The fourth tab — Test Runs — is **contextual**:
- * it only shows when the active main-panel tab has a test-run owner
- * (collection, folder, rule, or the workspace). This mirrors IDE-style
- * tool windows that appear and disappear depending on what the editor pane
- * is showing.
+ * Three "always-on" tabs (Traffic / Console / Terminal) are placeholders
+ * for desktop-only features. The fourth tab — Test Runs — operates in one
+ * of two modes:
  *
- * When visible, Test Runs lists every persisted run for the current owner
- * (newest first), with a stale badge for runs whose owning rules have
- * changed since the run executed. Clicking a row opens the report in the
- * main editor area; the trash icon deletes the row in place. If the active
- * main-panel tab is itself a Run Report, the corresponding row is
- * highlighted so the user can see which run they're looking at.
+ *   1. **Contextual mode** — the active main-panel tab has a test-run
+ *      owner stamp (rule / folder / collection / workspace). The tab
+ *      shows that owner's bucket, exactly as before. This is the path
+ *      exercised when the user clicks a row inside an entity overview
+ *      or opens a run-report tab directly.
+ *
+ *   2. **Global mode** — no contextual owner, but the user has opened
+ *      Test Runs from the left ActivityBar launcher. The tab shows
+ *      every persisted run across every owner, newest-first, with an
+ *      extra "Owner" column so rows from different buckets are
+ *      distinguishable. Backed by `listAllTestRuns` on the store.
+ *
+ * The tab is always visible now (previously it was hidden when no owner
+ * existed). Mode selection is implicit: contextOwner === null → global.
  */
 
-import { DeleteOutlined, ExperimentOutlined, WarningOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ExperimentOutlined, FundViewOutlined, WarningOutlined } from '@ant-design/icons';
 import { runtime } from '@utils/browser-api';
 import { App, Button, Empty, Space, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -56,9 +61,12 @@ interface BottomTab {
 }
 
 const STATIC_TABS: BottomTab[] = [
-  { key: 'traffic', label: 'Traffic' },
-  { key: 'console', label: 'Console' },
-  { key: 'terminal', label: 'Terminal' },
+  // Page Traffic — desktop-only placeholder for the live request feed.
+  // The left-bottom activity-bar "Page Traffic" launcher routes here.
+  { key: 'traffic', label: 'Page Traffic' },
+  // Test Runs — always present. Contextual mode filters to the active
+  // entity's bucket; global mode lists every persisted run.
+  { key: 'test-runs', label: 'Test Runs' },
 ];
 
 // ── Component ───────────────────────────────────────────────────────
@@ -96,21 +104,13 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   const { token } = theme.useToken();
   const { message } = App.useApp();
 
-  // The Test Runs tab only renders when there's an owner context. If
-  // the user navigated away from an owner-having tab while looking at
-  // Test Runs, fall back to Traffic so we don't strand them on a
-  // hidden tab. Done in an effect rather than render-time so the parent's
-  // bottomPanelTab state stays consistent.
-  useEffect(() => {
-    if (!contextOwner && activeTab === 'test-runs') {
-      onTabChange('traffic');
-    }
-  }, [contextOwner, activeTab, onTabChange]);
+  // Test Runs tab is always visible now; no need to force-swap when the
+  // owner disappears — we transparently swap from contextual to global
+  // mode and refresh.
 
-  const tabs = useMemo<BottomTab[]>(() => {
-    if (!contextOwner) return STATIC_TABS;
-    return [...STATIC_TABS, { key: 'test-runs', label: 'Test Runs' }];
-  }, [contextOwner]);
+  const tabs = useMemo<BottomTab[]>(() => STATIC_TABS, []);
+
+  const isGlobalMode = contextOwner === null;
 
   // ── Test Runs loader ──────────────────────────────────────────────
 
@@ -118,34 +118,25 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   const [loading, setLoading] = useState(false);
 
   const loadRuns = useCallback(() => {
-    if (!contextOwner) {
-      setRuns([]);
-      return;
-    }
     setLoading(true);
-    runtime.sendMessage(
-      {
-        type: 'listTestRunsForOwner',
-        ownerType: contextOwner.type,
-        ownerId: contextOwner.id,
-      },
-      (response: unknown) => {
-        const data = response as { success?: boolean; runs?: ListedRun[] } | null;
-        setRuns(data?.success && data.runs ? data.runs : []);
-        setLoading(false);
-      },
-    );
+    const msg = contextOwner
+      ? { type: 'listTestRunsForOwner', ownerType: contextOwner.type, ownerId: contextOwner.id }
+      : { type: 'listAllTestRuns' };
+    runtime.sendMessage(msg, (response: unknown) => {
+      const data = response as { success?: boolean; runs?: ListedRun[] } | null;
+      setRuns(data?.success && data.runs ? data.runs : []);
+      setLoading(false);
+    });
   }, [contextOwner]);
 
   useEffect(() => {
     if (activeTab === 'test-runs') loadRuns();
   }, [activeTab, loadRuns]);
 
-  // Refresh whenever the background announces a new finish or a delete
-  // for the owner we're currently looking at. Cheap to subscribe; the
-  // background suppresses these broadcasts when no listeners exist.
+  // Refresh on background-side mutations. In contextual mode we only
+  // care about the matching owner; in global mode every finish/delete
+  // is relevant.
   useEffect(() => {
-    if (!contextOwner) return;
     type RefreshMsg = {
       type?: string;
       ownerType?: TestRunOwnerType;
@@ -155,7 +146,9 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
       const m = msg as RefreshMsg;
       if (!m?.type) return;
       if (m.type === 'testRunFinished') {
-        if (m.ownerType === contextOwner.type && m.ownerId === contextOwner.id) {
+        if (!contextOwner) {
+          loadRuns();
+        } else if (m.ownerType === contextOwner.type && m.ownerId === contextOwner.id) {
           loadRuns();
         }
       } else if (m.type === 'testRunDeleted' || m.type === 'testRunsClearedForOwner') {
@@ -193,6 +186,26 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
           <Text style={{ fontSize: 11 }}>{new Date(row.endedAt).toLocaleString()}</Text>
         ),
       },
+      // Owner column only in global mode — in contextual mode the user
+      // already knows which entity they are looking at, so repeating it
+      // on every row is just noise.
+      ...(isGlobalMode
+        ? [
+            {
+              title: 'Owner',
+              key: 'owner',
+              width: 200,
+              render: (_: unknown, row: ListedRun) => (
+                <Space size={4}>
+                  <Tag style={{ margin: 0, fontSize: 10, textTransform: 'capitalize' }}>{row.ownerType}</Tag>
+                  <Text style={{ fontSize: 11 }} ellipsis>
+                    {row.ownerNameAtRun}
+                  </Text>
+                </Space>
+              ),
+            },
+          ]
+        : []),
       {
         title: 'URL',
         key: 'url',
@@ -267,7 +280,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
         ),
       },
     ],
-    [handleDelete],
+    [handleDelete, isGlobalMode],
   );
 
   // ── Render ────────────────────────────────────────────────────────
@@ -298,6 +311,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
               if (e.key === 'Enter') onTabChange(tab.key);
             }}
           >
+            {tab.key === 'traffic' && <FundViewOutlined style={{ marginRight: 4, fontSize: 11 }} />}
             {tab.key === 'test-runs' && <ExperimentOutlined style={{ marginRight: 4, fontSize: 11 }} />}
             {tab.label}
             {tab.key === 'test-runs' && runs.length > 0 && (
@@ -318,19 +332,21 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
         className={`rules-bottom-content${activeTab === 'test-runs' ? ' is-table' : ''}`}
         style={{ color: token.colorTextTertiary }}
       >
-        {activeTab === 'traffic' && <Text type="secondary">Traffic monitoring available in desktop app.</Text>}
-        {activeTab === 'console' && <Text type="secondary">Console available in desktop app.</Text>}
-        {activeTab === 'terminal' && <Text type="secondary">Terminal available in desktop app.</Text>}
-        {activeTab === 'test-runs' && contextOwner && (
+        {activeTab === 'traffic' && (
+          <Text type="secondary">Page traffic monitoring available in desktop app.</Text>
+        )}
+        {activeTab === 'test-runs' && (
           <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             {runs.length === 0 && !loading ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {contextOwner.type === 'workspace'
-                      ? "No workspace-wide runs yet. Use the popup's Test button on the All Rules tab to capture one."
-                      : `No runs yet for this ${contextOwner.type}. Run a test from the toolbar above to capture one.`}
+                    {isGlobalMode
+                      ? 'No test runs have been captured yet. Run a test from any collection, folder, rule, or extension popup to populate this panel.'
+                      : contextOwner?.type === 'workspace'
+                        ? "No workspace-wide runs yet. Use the popup's Test button on the All Rules tab to capture one."
+                        : `No runs yet for this ${contextOwner?.type ?? 'item'}. Run a test from the toolbar above to capture one.`}
                   </Text>
                 }
                 style={{ marginTop: 24 }}

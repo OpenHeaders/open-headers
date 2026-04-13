@@ -292,6 +292,41 @@ export async function listTestRunsForOwner(owner: TestRunOwner): Promise<LoadedT
 }
 
 /**
+ * List every persisted run across every owner bucket, newest-first.
+ * Powers the workspace-wide Test Runs panel (left ActivityBar launcher).
+ *
+ * Stale detection is done per-owner: we memoize `computeOwnerHash` per
+ * ownerKey so a bucket with many runs only hashes its owner once. Runs
+ * whose owner no longer exists are still returned — they just come back
+ * with `isStale: true`, which the UI surfaces as a warning badge.
+ */
+export async function listAllTestRuns(): Promise<LoadedTestRun[]> {
+  const store = await readStore();
+  const hashCache = new Map<string, string | null>();
+  const out: LoadedTestRun[] = [];
+  for (const [key, bucket] of Object.entries(store)) {
+    if (!bucket || bucket.length === 0) continue;
+    const sep = key.indexOf(':');
+    if (sep < 0) continue;
+    const type = key.slice(0, sep) as TestRunOwnerType;
+    const id = key.slice(sep + 1);
+    let currentHash = hashCache.get(key);
+    if (currentHash === undefined) {
+      currentHash = computeOwnerHash({ type, id });
+      hashCache.set(key, currentHash);
+    }
+    for (const s of bucket) {
+      out.push({
+        ...s,
+        isStale: currentHash === null || currentHash !== s.ownerHashAtRun,
+      });
+    }
+  }
+  out.sort((a, b) => b.endedAt - a.endedAt);
+  return out;
+}
+
+/**
  * Find a single run by id without knowing the owner. Used by the run
  * report view which only has the run id from the route. Walks all
  * buckets — fine because the total run count is bounded by the

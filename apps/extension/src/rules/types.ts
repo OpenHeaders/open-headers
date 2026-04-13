@@ -53,10 +53,53 @@ export interface RulesTab {
   testOwnerId?: string;
 }
 
+/**
+ * Legacy three-booleans view of panel visibility. Retained because
+ * StatusBar.tsx still speaks this vocabulary; App.tsx derives it from
+ * the new WorkspaceLayout state machine via a small adapter. New code
+ * should read `WorkspaceLayout` directly.
+ */
 export interface PanelVisibility {
   sidebar: boolean;
   bottomPanel: boolean;
   inspector: boolean;
+}
+
+/**
+ * Left-side panel keys. Top group panels open in the left Allotment pane;
+ * bottom group panels open in the bottom Allotment pane. Only one key from
+ * the top group and one key from the bottom group may be "active" at a
+ * time (IDE tool-window model).
+ */
+export type LeftPanelKey = 'items' | 'page-traffic' | 'test-runs';
+
+/** Right-side panel keys — all shown in the right Allotment pane. */
+export type RightPanelKey = 'docs' | 'variables';
+
+/**
+ * Which screen region the user is currently interacting with. Drives the
+ * IDE-style focus accent on activity-bar icons and panels. Null means
+ * no region has been focused yet this session.
+ */
+export type FocusRegion = 'left' | 'right' | 'bottom' | 'editor' | null;
+
+/**
+ * Authoritative layout state for workspace.html. Replaces the old
+ * PanelVisibility booleans. `leftPanel` and `rightPanel` are null when
+ * collapsed; `bottomOpen` decouples bottom-panel visibility from which
+ * left-bottom key drove it so the user can drag-collapse without losing
+ * the Test Runs selection.
+ */
+export interface WorkspaceLayout {
+  leftPanel: LeftPanelKey | null;
+  rightPanel: RightPanelKey | null;
+  bottomOpen: boolean;
+  focusedRegion: FocusRegion;
+  /**
+   * When false, activity-bar icons render without their text labels (narrow
+   * ~36px strip). Toggled via the right-click context menu on either bar.
+   */
+  activityBarLabels: boolean;
 }
 
 /** Snapshot of a tab when it was closed, for "recently closed" recovery. */

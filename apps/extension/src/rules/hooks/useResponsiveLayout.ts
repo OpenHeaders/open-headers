@@ -11,6 +11,8 @@
 
 import { storage } from '@utils/browser-api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { LeftPanelKey, RightPanelKey, WorkspaceLayout } from '../types';
+import type { BottomPaneState } from './useWorkspaceLayout';
 
 // ── Storage key ────────────────────────────────────────────────────
 
@@ -40,6 +42,25 @@ interface PersistedLayout {
   inspectorRatio: number;
   /** Bottom panel height as ratio of viewport height (0–1) */
   bottomRatio: number;
+  /**
+   * IDE-style layout state. Optional so old persisted records (with
+   * only the three ratios) keep loading cleanly — the hook falls back to
+   * DEFAULT_LAYOUT for missing fields during migration.
+   */
+  leftPanel?: LeftPanelKey | null;
+  rightPanel?: RightPanelKey | null;
+  bottomOpen?: boolean;
+  bottomTab?: string;
+  activityBarLabels?: boolean;
+}
+
+/** Bundle returned to the host describing the persisted workspace state. */
+export interface PersistedWorkspaceState {
+  leftPanel: LeftPanelKey | null;
+  rightPanel: RightPanelKey | null;
+  bottomOpen: boolean;
+  bottomTab: string | undefined;
+  activityBarLabels: boolean;
 }
 
 export interface ResponsiveLayoutSizes {
@@ -61,6 +82,18 @@ export interface ResponsiveLayout {
   getCoordinatedSidebarSize: (inspectorVisible: boolean) => number | null;
   /** Whether persisted layout has been loaded (avoid flash of default sizes) */
   ready: boolean;
+  /**
+   * Previously-persisted workspace state (panel keys, bottom tab, label
+   * visibility) loaded alongside the size ratios. Null until `ready` flips
+   * to true. Host feeds this into useWorkspaceLayout as its `initial`.
+   */
+  persistedWorkspace: PersistedWorkspaceState | null;
+  /**
+   * Called by the host whenever the workspace layout state machine
+   * changes. Debounced (500ms) along with the size ratios so rapid panel
+   * toggles coalesce into one chrome.storage write.
+   */
+  persistWorkspaceLayout: (layout: WorkspaceLayout, bottom: BottomPaneState) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -131,10 +164,11 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
 
 export function useResponsiveLayout(): ResponsiveLayout {
   const [persisted, setPersisted] = useState<PersistedLayout | null>(null);
+  const [persistedWorkspace, setPersistedWorkspace] = useState<PersistedWorkspaceState | null>(null);
   const [ready, setReady] = useState(false);
   const [shouldCollapse, setShouldCollapse] = useState(() => getViewportWidth() < BP_SIDEBAR_COLLAPSE);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestRatiosRef = useRef<PersistedLayout | null>(null);
+  const latestPersistedRef = useRef<PersistedLayout | null>(null);
 
   // ── Load persisted layout on mount ─────────────────────────────
 
@@ -145,7 +179,17 @@ export function useResponsiveLayout(): ResponsiveLayout {
         const saved = result[STORAGE_KEY] as PersistedLayout | undefined;
         if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
           setPersisted(saved);
-          latestRatiosRef.current = saved;
+          latestPersistedRef.current = saved;
+          // Map persisted workspace fields into the hook's return — the
+          // host feeds them into useWorkspaceLayout's initial value so the
+          // previously-open panel layout survives refresh.
+          setPersistedWorkspace({
+            leftPanel: saved.leftPanel ?? 'items',
+            rightPanel: saved.rightPanel ?? null,
+            bottomOpen: saved.bottomOpen ?? false,
+            bottomTab: saved.bottomTab,
+            activityBarLabels: saved.activityBarLabels ?? true,
+          });
         }
         setReady(true);
       });
@@ -176,12 +220,36 @@ export function useResponsiveLayout(): ResponsiveLayout {
   }, []);
 
   const schedulePersist = useCallback(
-    (ratios: PersistedLayout) => {
-      latestRatiosRef.current = ratios;
+    (record: PersistedLayout) => {
+      latestPersistedRef.current = record;
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-      persistTimerRef.current = setTimeout(() => flushPersist(ratios), 500);
+      persistTimerRef.current = setTimeout(() => flushPersist(record), 500);
     },
     [flushPersist],
+  );
+
+  // ── Workspace layout persistence ───────────────────────────────
+  // Merges the state-machine fields into the same storage record as the
+  // size ratios so both migrate together. The debounce is shared — a
+  // burst of toggles coalesces into a single write.
+
+  const persistWorkspaceLayout = useCallback(
+    (layout: WorkspaceLayout, bottom: BottomPaneState) => {
+      const prev = latestPersistedRef.current ?? {
+        sidebarRatio: 0.17,
+        inspectorRatio: 0.2,
+        bottomRatio: 0.25,
+      };
+      schedulePersist({
+        ...prev,
+        leftPanel: layout.leftPanel,
+        rightPanel: layout.rightPanel,
+        bottomOpen: layout.bottomOpen,
+        bottomTab: bottom.tab,
+        activityBarLabels: layout.activityBarLabels,
+      });
+    },
+    [schedulePersist],
   );
 
   // ── onPanelResize: horizontal allotment (sidebar | editor+bottom | inspector) ──
@@ -190,9 +258,9 @@ export function useResponsiveLayout(): ResponsiveLayout {
     (panelSizes: number[]) => {
       const vw = getViewportWidth();
       if (vw <= 0) return;
-      const prev = latestRatiosRef.current ?? { sidebarRatio: 0.17, inspectorRatio: 0.2, bottomRatio: 0.25 };
-      const sidebarRatio = panelSizes[0] != null ? panelSizes[0] / vw : prev.sidebarRatio;
-      const inspectorRatio = panelSizes[2] != null ? panelSizes[2] / vw : prev.inspectorRatio;
+      const prev = latestPersistedRef.current ?? { sidebarRatio: 0.17, inspectorRatio: 0.2, bottomRatio: 0.25 };
+      const sidebarRatio = panelSizes[0] != null && panelSizes[0] > 0 ? panelSizes[0] / vw : prev.sidebarRatio;
+      const inspectorRatio = panelSizes[2] != null && panelSizes[2] > 0 ? panelSizes[2] / vw : prev.inspectorRatio;
       schedulePersist({ ...prev, sidebarRatio, inspectorRatio });
     },
     [schedulePersist],
@@ -204,8 +272,8 @@ export function useResponsiveLayout(): ResponsiveLayout {
     (panelSizes: number[]) => {
       const vh = getViewportHeight();
       if (vh <= 0) return;
-      const prev = latestRatiosRef.current ?? { sidebarRatio: 0.17, inspectorRatio: 0.2, bottomRatio: 0.25 };
-      const bottomRatio = panelSizes[1] != null ? panelSizes[1] / vh : prev.bottomRatio;
+      const prev = latestPersistedRef.current ?? { sidebarRatio: 0.17, inspectorRatio: 0.2, bottomRatio: 0.25 };
+      const bottomRatio = panelSizes[1] != null && panelSizes[1] > 0 ? panelSizes[1] / vh : prev.bottomRatio;
       schedulePersist({ ...prev, bottomRatio });
     },
     [schedulePersist],
@@ -233,5 +301,7 @@ export function useResponsiveLayout(): ResponsiveLayout {
     onVerticalResize,
     getCoordinatedSidebarSize,
     ready,
+    persistedWorkspace,
+    persistWorkspaceLayout,
   };
 }

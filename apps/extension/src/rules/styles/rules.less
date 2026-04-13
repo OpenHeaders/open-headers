@@ -71,6 +71,16 @@ html, body, #root {
 }
 
 // ── Activity Bar ───────────────────────────────────────────────────
+//
+// Vertical icon strip mounted on either edge of the shell. Internal
+// structure uses three groups:
+//
+//   .rules-activity-group--top        pinned to the top
+//   .rules-activity-group--bottom     pushed above the trailing slot
+//   .rules-activity-group--trailing   stuck to the bottom (e.g. Settings)
+//
+// The top group expands (flex: 1) so the bottom/trailing groups are
+// locked against the bottom edge.
 
 .rules-activity-bar {
   width: 64px;
@@ -78,7 +88,59 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   padding-top: 4px;
+  // Breathing room between the last activity icon and the status bar.
+  padding-bottom: 12px;
+  // The bar is a flex item of `.rules-main` (row). Cross-axis stretch
+  // already sizes it to the parent's height — explicit `height: 100%`
+  // is redundant and, combined with padding under content-box, can
+  // push the bar 12px past its parent and into the status bar.
+  //
+  // We DO want the bar to shrink in constrained viewports rather than
+  // overflow: min-height: 0 unlocks shrinking, overflow-y: auto makes
+  // the icons scroll gracefully when the 6-icon stack exceeds available
+  // height. In normal viewports there's no scrollbar.
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
   flex-shrink: 0;
+  outline: none;
+  transition: width 0.12s ease;
+
+  // Icons-only compact mode — right-click menu on the bar toggles the
+  // label visibility preference which drives this modifier.
+  &.rules-activity-bar--compact {
+    width: 36px;
+  }
+}
+
+.rules-activity-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 2px;
+}
+
+.rules-activity-group--top {
+  flex: 1;
+}
+
+.rules-activity-group--bottom {
+  // Divider above the bottom group so it reads as a distinct region.
+  border-top: 1px solid rgba(128, 128, 128, 0.18);
+  padding-top: 4px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.rules-activity-group--trailing {
+  margin-top: 2px;
+  margin-bottom: 4px;
+  width: 100%;
 }
 
 .rules-activity-icon {
@@ -92,11 +154,32 @@ html, body, #root {
   gap: 1px;
   font-size: 15px;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color 0.15s, background 0.12s;
   border: 1px solid transparent;
+
+  // In compact mode every icon shrinks with the bar.
+  .rules-activity-bar--compact & {
+    width: 32px;
+    padding: 6px 0;
+  }
 
   &:hover:not(.disabled) {
     background: rgba(128, 128, 128, 0.1);
+  }
+
+  // Active — panel is open for this icon, but the region doesn't have
+  // keyboard focus. Renders as the IDE "selected but unfocused"
+  // grey tint.
+  &.active:not(.focused):not(.disabled) {
+    background: rgba(128, 128, 128, 0.18);
+  }
+
+  // Focused — panel is open AND the region owns keyboard focus. The
+  // parent injects the blue primary accent via inline style; this class
+  // is still useful for CSS selectors downstream.
+  &.focused {
+    // inline style sets background / border — this keeps the class
+    // available as a styling hook.
   }
 
   &.disabled {
@@ -700,13 +783,30 @@ html, body, #root {
   }
 }
 
-// ── Inspector (right sidebar) ──────────────────────────────────────
+// ── Right-pane panels (Docs / Variables) ──────────────────────────
+//
+// Each right panel is a top-level view — no internal tab UI. Selection
+// lives on the RightActivityBar to the right of the allotment pane.
 
-.rules-inspector {
+.rules-right-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+// ── Regions (focus-aware containers) ──────────────────────────────
+//
+// Each shell region — left, editor, bottom, right — wraps its content
+// in a .rules-region div carrying a data-region attribute. The focus
+// tracker hook reads the attribute to determine which region owns
+// keyboard focus. Styling hooks live on this class so we can layer on
+// a subtle focus outline if desired later without changing component
+// code.
+
+.rules-region {
+  position: relative;
+  outline: none;
 }
 
 // ── Command Palette ───────────────────────────────────────────────
