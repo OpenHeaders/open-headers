@@ -686,8 +686,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               </Dropdown>
             </Tooltip>
 
-            <div style={{ flex: 1 }} />
-
             <Tooltip title="Save current configuration as a reusable template">
               <Button size="small" icon={<PlusOutlined />} onClick={() => setSaveAsTemplateOpen(true)}>
                 Save as Template
