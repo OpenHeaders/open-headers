@@ -11,7 +11,15 @@
  * and breadcrumb renames are never overwritten by a stale form value on save.
  */
 
-import { DownOutlined, FolderOpenOutlined, FolderOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  DownOutlined,
+  FileOutlined,
+  FolderOpenOutlined,
+  FolderOpenTwoTone,
+  FolderOutlined,
+  InfoCircleOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
@@ -641,6 +649,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             <Button
               size="small"
               type={activeSource === 'blank' ? 'primary' : 'default'}
+              icon={<FileOutlined />}
               onClick={() => applyTemplate('empty')}
             >
               Blank
@@ -649,6 +658,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             <Dropdown menu={{ items: systemMenuItems }} trigger={['click']} disabled={systemMenuItems.length === 0}>
               <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <FolderOpenOutlined style={{ fontSize: 13 }} />
                   <span>System Templates</span>
                   {activeSystemTemplate && (
                     <span
@@ -673,6 +683,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               <Dropdown menu={{ items: userMenuItems }} trigger={['click']} disabled={userMenuItems.length === 0}>
                 <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <FolderOpenTwoTone style={{ fontSize: 13 }} />
                     <span>User Templates</span>
                     {activeUserTemplate && (
                       <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
