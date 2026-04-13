@@ -11,15 +11,16 @@
  * and breadcrumb renames are never overwritten by a stale form value on save.
  */
 
-import { InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownOutlined, FolderOpenOutlined, FolderOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
-import { App, Form, Switch, Tooltip, Typography, theme } from 'antd';
+import type { MenuProps } from 'antd';
+import { App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
-import { TEMPLATES_BY_TYPE } from '../rule-templates';
+import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYPE } from '../rule-templates';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields from './rule-fields/BodyRuleFields';
@@ -77,7 +78,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { openDocs } = useInspectorNav();
-  const { rules, createLocalRule, updateLocalRule, localCollections, templates: userTemplates } = useRules();
+  const {
+    rules,
+    createLocalRule,
+    updateLocalRule,
+    localCollections,
+    templates: userTemplates,
+    templateCollectionTrees,
+  } = useRules();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
@@ -120,6 +128,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState<string>(initialTemplateKey ?? 'empty');
 
   const builtinTemplates = useMemo(() => TEMPLATES_BY_TYPE[selectedType ?? 'header'] ?? [], [selectedType]);
+  const systemTemplateTree = useMemo(
+    () => SYSTEM_TEMPLATE_TREE_BY_TYPE[selectedType ?? 'header'] ?? [],
+    [selectedType],
+  );
   const filteredUserTemplates = useMemo(
     () => userTemplates.filter((t) => t.ruleType === (selectedType ?? 'header')),
     [userTemplates, selectedType],
@@ -501,6 +513,113 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const isEdit = mode === 'edit';
 
+  // ── Template selector menus ───────────────────────────────────
+  // System Templates + User Templates render as hierarchical dropdowns:
+  //   Collection/Root → Folder → Template leaf. For system templates the
+  //   tree comes from SYSTEM_TEMPLATE_TREE_BY_TYPE; for user templates it
+  //   comes from templateCollectionTrees filtered by the current rule type.
+
+  const buildSystemMenuItems = useCallback(
+    (nodes: SystemTemplateNode[]): NonNullable<MenuProps['items']> => {
+      return nodes.map((node) => {
+        if (node.kind === 'folder') {
+          return {
+            key: `sys-folder:${node.name}`,
+            label: node.name,
+            icon: <FolderOutlined />,
+            children: buildSystemMenuItems(node.children),
+          };
+        }
+        const tpl = node.template;
+        return {
+          key: `sys:${tpl.key}`,
+          label: (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span>{tpl.icon}</span>
+              <span>{tpl.name}</span>
+            </span>
+          ),
+          onClick: () => applyTemplate(tpl.key),
+        };
+      });
+    },
+    [applyTemplate],
+  );
+
+  const systemMenuItems = useMemo(
+    () => buildSystemMenuItems(systemTemplateTree),
+    [systemTemplateTree, buildSystemMenuItems],
+  );
+
+  const buildUserMenuItems = useCallback(
+    (nodes: V5.TreeNode[], ruleType: string): NonNullable<MenuProps['items']> => {
+      const items: NonNullable<MenuProps['items']> = [];
+      for (const node of nodes) {
+        if (node.type === 'folder') {
+          const childItems = buildUserMenuItems(node.children, ruleType);
+          if (childItems.length > 0) {
+            items.push({
+              key: `usr-folder:${node.uid}`,
+              label: node.name,
+              icon: <FolderOutlined />,
+              children: childItems,
+            });
+          }
+        } else if (node.type === 'template' && node.ruleType === ruleType) {
+          items.push({
+            key: `usr:${node.uid}`,
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {renderTwoToneIcon(node.icon, { fontSize: 14 })}
+                <span>{node.name}</span>
+              </span>
+            ),
+            onClick: () => applyTemplate(node.uid),
+          });
+        }
+      }
+      return items;
+    },
+    [applyTemplate],
+  );
+
+  const userMenuItems = useMemo(() => {
+    const type = selectedType ?? 'header';
+    const items: NonNullable<MenuProps['items']> = [];
+    for (const col of templateCollectionTrees) {
+      const childItems = buildUserMenuItems(col.tree, type);
+      if (childItems.length === 0) continue;
+      items.push({
+        key: `usr-col:${col.uid}`,
+        label: col.name,
+        icon: <FolderOpenOutlined />,
+        children: childItems,
+      });
+    }
+    return items;
+  }, [templateCollectionTrees, selectedType, buildUserMenuItems]);
+
+  // Which source the current selection belongs to — drives active button state.
+  const activeSystemTemplate = useMemo(
+    () => (selectedTemplate === 'empty' ? undefined : builtinTemplates.find((t) => t.key === selectedTemplate)),
+    [selectedTemplate, builtinTemplates],
+  );
+  const activeUserTemplate = useMemo(
+    () => (selectedTemplate === 'empty' ? undefined : filteredUserTemplates.find((t) => t.uid === selectedTemplate)),
+    [selectedTemplate, filteredUserTemplates],
+  );
+  const activeSource: 'blank' | 'system' | 'user' = activeSystemTemplate
+    ? 'system'
+    : activeUserTemplate
+      ? 'user'
+      : 'blank';
+
+  const selectedDescription = useMemo(() => {
+    if (activeSystemTemplate) return activeSystemTemplate.description.split('\n')[0];
+    if (activeUserTemplate?.description) return activeUserTemplate.description.split('\n')[0];
+    return null;
+  }, [activeSystemTemplate, activeUserTemplate]);
+
   return (
     <div className="rules-rule-editor">
       <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
@@ -510,142 +629,76 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         </Form.Item>
 
         {/* ── Templates ── */}
-        {(builtinTemplates.length > 0 || filteredUserTemplates.length > 0) && (
-          <div style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                flexWrap: 'wrap',
-                gap: 4,
-                padding: 3,
-                background: token.colorFillQuaternary,
-                borderRadius: 8,
-                alignItems: 'center',
-              }}
+        <div style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 8,
+              alignItems: 'center',
+            }}
+          >
+            <Button
+              size="small"
+              type={activeSource === 'blank' ? 'primary' : 'default'}
+              onClick={() => applyTemplate('empty')}
             >
-              {/* Blank + built-in templates */}
-              {[
-                { key: 'empty', icon: '', name: 'Blank', source: 'builtin' as const },
-                ...builtinTemplates.map((t) => ({
-                  key: t.key,
-                  icon: t.icon,
-                  name: t.name,
-                  source: 'builtin' as const,
-                })),
-              ].map((t) => (
-                <div
-                  key={t.key}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => applyTemplate(t.key)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') applyTemplate(t.key);
-                  }}
-                  style={{
-                    padding: '5px 14px',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s',
-                    background: selectedTemplate === t.key ? token.colorBgContainer : 'transparent',
-                    boxShadow: selectedTemplate === t.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                    color: selectedTemplate === t.key ? token.colorText : token.colorTextSecondary,
-                  }}
-                >
-                  {t.icon ? `${t.icon} ${t.name}` : t.name}
-                </div>
-              ))}
+              Blank
+            </Button>
 
-              {/* Separator + user templates */}
-              {filteredUserTemplates.length > 0 && (
-                <>
-                  <div style={{ width: 1, height: 20, background: token.colorBorderSecondary, margin: '0 2px' }} />
-                  {filteredUserTemplates.map((t) => (
-                    <div
-                      key={t.uid}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => applyTemplate(t.uid)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') applyTemplate(t.uid);
-                      }}
+            <Dropdown menu={{ items: systemMenuItems }} trigger={['click']} disabled={systemMenuItems.length === 0}>
+              <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span>System Templates</span>
+                  {activeSystemTemplate && (
+                    <span
                       style={{
-                        padding: '5px 14px',
-                        fontSize: 13,
-                        fontWeight: 500,
-                        borderRadius: 6,
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.15s',
-                        background: selectedTemplate === t.uid ? token.colorBgContainer : 'transparent',
-                        boxShadow: selectedTemplate === t.uid ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                        color: selectedTemplate === t.uid ? token.colorText : token.colorTextSecondary,
+                        fontWeight: 400,
+                        opacity: 0.85,
                       }}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        {renderTwoToneIcon(t.icon, { fontSize: 14 })}
-                        {t.name}
+                      : {activeSystemTemplate.icon} {activeSystemTemplate.name}
+                    </span>
+                  )}
+                  <DownOutlined style={{ fontSize: 9 }} />
+                </span>
+              </Button>
+            </Dropdown>
+
+            <Tooltip
+              title={
+                userMenuItems.length === 0 ? 'No user templates yet for this rule type — save one first' : undefined
+              }
+            >
+              <Dropdown menu={{ items: userMenuItems }} trigger={['click']} disabled={userMenuItems.length === 0}>
+                <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span>User Templates</span>
+                    {activeUserTemplate && (
+                      <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
+                        :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
+                        {activeUserTemplate.name}
                       </span>
-                    </div>
-                  ))}
-                </>
-              )}
+                    )}
+                    <DownOutlined style={{ fontSize: 9 }} />
+                  </span>
+                </Button>
+              </Dropdown>
+            </Tooltip>
 
-              {/* Save as Template button */}
-              <div style={{ width: 1, height: 20, background: token.colorBorderSecondary, margin: '0 2px' }} />
-              <Tooltip title="Save current configuration as a reusable template">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSaveAsTemplateOpen(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') setSaveAsTemplateOpen(true);
-                  }}
-                  style={{
-                    padding: '5px 10px',
-                    fontSize: 12,
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    whiteSpace: 'nowrap',
-                    color: token.colorTextTertiary,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                >
-                  <PlusOutlined style={{ fontSize: 10 }} /> Save as Template
-                </div>
-              </Tooltip>
-            </div>
+            <div style={{ flex: 1 }} />
 
-            {/* Description for selected template */}
-            {selectedTemplate !== 'empty' &&
-              (() => {
-                const bt = builtinTemplates.find((t) => t.key === selectedTemplate);
-                if (bt) {
-                  return (
-                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ant-color-text-tertiary)' }}>
-                      {bt.description.split('\n')[0]}
-                    </div>
-                  );
-                }
-                const ut = filteredUserTemplates.find((t) => t.uid === selectedTemplate);
-                if (ut?.description) {
-                  return (
-                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ant-color-text-tertiary)' }}>
-                      {ut.description.split('\n')[0]}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
+            <Tooltip title="Save current configuration as a reusable template">
+              <Button size="small" icon={<PlusOutlined />} onClick={() => setSaveAsTemplateOpen(true)}>
+                Save as Template
+              </Button>
+            </Tooltip>
           </div>
-        )}
+
+          {selectedDescription && (
+            <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>{selectedDescription}</div>
+          )}
+        </div>
 
         {/* ── Title + Enabled ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
