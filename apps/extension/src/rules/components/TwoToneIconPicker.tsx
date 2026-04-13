@@ -21,8 +21,8 @@ import {
   CalculatorTwoTone,
   CalendarTwoTone,
   CameraTwoTone,
-  CarTwoTone,
   CarryOutTwoTone,
+  CarTwoTone,
   CheckCircleTwoTone,
   CheckSquareTwoTone,
   ClockCircleTwoTone,
@@ -71,8 +71,8 @@ import {
   FolderOpenTwoTone,
   FolderTwoTone,
   FrownTwoTone,
-  FunnelPlotTwoTone,
   FundTwoTone,
+  FunnelPlotTwoTone,
   GiftTwoTone,
   GoldTwoTone,
   HddTwoTone,
@@ -124,8 +124,8 @@ import {
   ScheduleTwoTone,
   SecurityScanTwoTone,
   SettingTwoTone,
-  ShopTwoTone,
   ShoppingTwoTone,
+  ShopTwoTone,
   SkinTwoTone,
   SlidersTwoTone,
   SmileTwoTone,
@@ -135,8 +135,8 @@ import {
   StopTwoTone,
   SwitcherTwoTone,
   TabletTwoTone,
-  TagTwoTone,
   TagsTwoTone,
+  TagTwoTone,
   ThunderboltTwoTone,
   ToolTwoTone,
   TrophyTwoTone,
@@ -417,13 +417,7 @@ const TwoToneIconPicker: React.FC<TwoToneIconPickerProps> = ({ value, onChange }
   const SelectedIcon = value ? ICON_MAP[value] : null;
 
   return (
-    <Popover
-      content={grid}
-      trigger="click"
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottomLeft"
-    >
+    <Popover content={grid} trigger="click" open={open} onOpenChange={setOpen} placement="bottomLeft">
       <div
         role="button"
         tabIndex={0}
@@ -443,7 +437,11 @@ const TwoToneIconPicker: React.FC<TwoToneIconPickerProps> = ({ value, onChange }
           background: token.colorBgContainer,
         }}
       >
-        {SelectedIcon ? createElement(SelectedIcon, { style: { fontSize: 16 } }) : <FileTextTwoTone style={{ fontSize: 16 }} />}
+        {SelectedIcon ? (
+          createElement(SelectedIcon, { style: { fontSize: 16 } })
+        ) : (
+          <FileTextTwoTone style={{ fontSize: 16 }} />
+        )}
       </div>
     </Popover>
   );

@@ -45,7 +45,42 @@ import {
   renameTemplateFolder,
   updateTemplate,
 } from './template-store';
-import { deleteStoredSession, getStoredSession, listStoredSessions, startSession, type TestScope } from './test-runner';
+import {
+  deleteAllTestRunsForOwner,
+  deleteTestRunById,
+  getTestRunById,
+  listTestRunsForOwner,
+  pruneOrphanOwners,
+  type TestRunOwner,
+  type TestRunOwnerType,
+} from './test-run-store';
+import { startRun } from './test-runner';
+
+/**
+ * Compute the set of currently live rule/folder/collection ids and ask
+ * the test-run store to drop any bucket whose owner is gone. Called
+ * after any tree mutation that could orphan a run bucket — adding one
+ * sweep is simpler than threading deletion calls into every CRUD path.
+ * Fire-and-forget; storage failures are non-fatal.
+ */
+function pruneOrphanTestRunOwners(): void {
+  const liveRules = new Set<string>();
+  const liveEntities = new Set<string>();
+  for (const r of getRules()) liveRules.add(r.uid);
+  for (const c of getLocalCollectionTrees()) {
+    liveEntities.add(c.uid);
+    const walk = (nodes: V5.TreeNode[]): void => {
+      for (const n of nodes) {
+        if (n.type === 'folder') {
+          liveEntities.add(n.uid);
+          walk(n.children);
+        }
+      }
+    };
+    walk(c.tree);
+  }
+  void pruneOrphanOwners(liveRules, liveEntities);
+}
 
 const browserAPI = { runtime: browserRuntime };
 
@@ -175,6 +210,7 @@ export function handleGeneralMessage(
         if (success) {
           scheduleUpdate('rules', { immediate: true });
           updateBadgeCallback();
+          pruneOrphanTestRunOwners();
         }
         safeResponse({ success });
       } else if (isWebSocketConnected()) {
@@ -225,6 +261,7 @@ export function handleGeneralMessage(
       if (success) {
         scheduleUpdate('rules', { immediate: true });
         updateBadgeCallback();
+        pruneOrphanTestRunOwners();
       }
       safeResponse({ success });
     } else if (message.type === 'createLocalCollection') {
@@ -239,23 +276,26 @@ export function handleGeneralMessage(
       if (success) {
         scheduleUpdate('rules', { immediate: true });
         updateBadgeCallback();
+        pruneOrphanTestRunOwners();
       }
       safeResponse({ success });
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);
       safeResponse({ activeRules: result.activeRules });
-    } else if (message.type === 'startTestSession') {
-      // Launch a test session and resolve with the final result once the
+    } else if (message.type === 'startTestRun') {
+      // Launch a test run and resolve with the final result once the
       // capture window closes. Popup callers fire-and-forget — the in-page
       // widget on the test tab is the primary feedback surface, so the
       // response only matters for callers that explicitly await it (e.g.
       // automated tests).
-      const scope = message.scope as TestScope;
+      const ownerType = message.ownerType as TestRunOwnerType;
+      const ownerId = message.ownerId as string;
+      const owner: TestRunOwner = { type: ownerType, id: ownerId };
       const scopeLabel = (message.scopeLabel as string | undefined) ?? '';
       const ruleUids = (message.ruleUids as string[]) ?? [];
       const url = message.url as string;
       const waitSeconds = (message.waitSeconds as number) ?? 5;
-      startSession({ scope, scopeLabel, ruleUids, url, waitSeconds })
+      startRun({ owner, scopeLabel, ruleUids, url, waitSeconds })
         .then((result) => safeResponse({ success: true, result }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
@@ -286,19 +326,51 @@ export function handleGeneralMessage(
         recordScriptableFire(tabId, ruleUid, url, t, { pattern, resourceType: 'xmlhttprequest' });
       }
       safeResponse({ success: true });
-    } else if (message.type === 'listTestSessions') {
-      listStoredSessions()
-        .then((sessions) => safeResponse({ success: true, sessions }))
+    } else if (message.type === 'listTestRunsForOwner') {
+      const owner: TestRunOwner = {
+        type: message.ownerType as TestRunOwnerType,
+        id: message.ownerId as string,
+      };
+      listTestRunsForOwner(owner)
+        .then((runs) => safeResponse({ success: true, runs }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
-    } else if (message.type === 'getTestSession') {
-      getStoredSession(message.sessionId as string)
-        .then((session) => safeResponse({ success: true, session }))
+    } else if (message.type === 'getTestRun') {
+      getTestRunById(message.runId as string)
+        .then((run) => safeResponse({ success: true, run }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
-    } else if (message.type === 'deleteTestSession') {
-      deleteStoredSession(message.sessionId as string)
-        .then(() => safeResponse({ success: true }))
+    } else if (message.type === 'deleteTestRun') {
+      deleteTestRunById(message.runId as string)
+        .then(() => {
+          // Notify any open listeners so the bottom panel list refreshes.
+          try {
+            browserRuntime.sendMessage({ type: 'testRunDeleted', runId: message.runId });
+          } catch {
+            // No listeners — fine.
+          }
+          safeResponse({ success: true });
+        })
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'deleteAllTestRunsForOwner') {
+      const owner: TestRunOwner = {
+        type: message.ownerType as TestRunOwnerType,
+        id: message.ownerId as string,
+      };
+      deleteAllTestRunsForOwner(owner)
+        .then(() => {
+          try {
+            browserRuntime.sendMessage({
+              type: 'testRunsClearedForOwner',
+              ownerType: owner.type,
+              ownerId: owner.id,
+            });
+          } catch {
+            // No listeners — fine.
+          }
+          safeResponse({ success: true });
+        })
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'setRulesExecutionPaused') {

@@ -10,11 +10,11 @@
 
 import {
   AimOutlined,
+  BorderLeftOutlined,
   CheckCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   EllipsisOutlined,
-  BorderLeftOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
@@ -32,19 +32,18 @@ import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
+import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
 import { buildRuleIcon } from './shared/rule-icon';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
-import { renderTwoToneIcon } from './TwoToneIconPicker';
 import type { TreeNode } from './sidebar/types';
+import { renderTwoToneIcon } from './TwoToneIconPicker';
 
 // ── Icon helpers ───────────────────────────────────────────────────
 
 function iconEl(Icon: typeof StopOutlined, color: string, size = 12): React.ReactNode {
   return createElement(Icon, { style: { color, fontSize: size } });
 }
-
 
 function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
   return buildRuleTypeMenuItemsCE(onAddRule) as ItemType[];
@@ -677,7 +676,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: false,
             parentId,
-            icon: renderTwoToneIcon(tplNode.icon, { fontSize: 12 }) ||
+            icon:
+              renderTwoToneIcon(tplNode.icon, { fontSize: 12 }) ||
               iconEl(FileTextOutlined, 'var(--ant-color-text-tertiary, #999)'),
             canRename: true,
             canDelete: true,
@@ -745,9 +745,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (isExpanded) {
       for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
         if (tpls.length === 0) continue;
-        const filteredTpls = lowerFilter
-          ? tpls.filter((t) => t.name.toLowerCase().includes(lowerFilter))
-          : tpls;
+        const filteredTpls = lowerFilter ? tpls.filter((t) => t.name.toLowerCase().includes(lowerFilter)) : tpls;
         if (lowerFilter && filteredTpls.length === 0) continue;
 
         const folderId = `sys-tpl-${ruleType}`;
@@ -1164,7 +1162,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 setFocusedId(first.id);
                 containerRef.current?.focus();
                 setTimeout(() => {
-                  containerRef.current?.querySelector(`[data-item-id="${first.id}"]`)?.scrollIntoView({ block: 'nearest' });
+                  containerRef.current
+                    ?.querySelector(`[data-item-id="${first.id}"]`)
+                    ?.scrollIntoView({ block: 'nearest' });
                 }, 0);
               }
             } else if (e.key === 'Escape') {
@@ -1251,7 +1251,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation */}
-      <div ref={containerRef} className="rules-sidebar-content" tabIndex={0} onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
+      <div
+        ref={containerRef}
+        className="rules-sidebar-content"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        style={{ outline: 'none' }}
+      >
         <SectionHeader
           title="API REQUESTS"
           expanded={sectionsExpanded.requests}

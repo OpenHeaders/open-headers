@@ -3,6 +3,7 @@ import {
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
+  ExperimentOutlined,
   FileTextOutlined,
   PlusOutlined,
   SortAscendingOutlined,
@@ -11,7 +12,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
-import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
+import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
@@ -28,6 +29,7 @@ import {
   truncateValue,
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
+import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 /** Open the full-page rules editor in a new tab. */
 function openRulesPage(hash: string): void {
@@ -37,28 +39,6 @@ function openRulesPage(hash: string): void {
 
 const { Search } = Input;
 const { Text } = Typography;
-
-const RULE_TYPE_LABEL: Record<string, string> = {
-  header: 'Header',
-  block: 'Block',
-  redirect: 'Redirect',
-  'query-param': 'Query Param',
-  inject: 'Inject',
-  body: 'API Request',
-  delay: 'Delay',
-  mock: 'API Response',
-};
-
-const RULE_TYPE_DESCRIPTION: Record<string, string> = {
-  header: 'Modify HTTP headers',
-  block: 'Block requests',
-  redirect: 'Redirect requests',
-  'query-param': 'Modify query parameters',
-  inject: 'Inject scripts or CSS',
-  body: 'Modify API request body (fetch/XHR)',
-  delay: 'Delay response',
-  mock: 'Override API response (fetch/XHR)',
-};
 
 /** 0 = active, 1 = paused, 2 = disabled, 3 = draft */
 type StatusRank = 0 | 1 | 2 | 3;
@@ -112,6 +92,43 @@ const RulesTable: React.FC<RulesTableProps> = ({
       setSortedInfo((uiState.tableState.sortedInfo as SorterResult<TableRecord>) || {});
     }
   }, [uiState?.tableState]);
+
+  // Per-rule test launcher state. The same TestRunModal that drives
+  // collection/folder testing — opened with ownerType='rule' and the
+  // single rule's uid as the owner, so the resulting session lands in
+  // that rule's bucket.
+  const [testState, setTestState] = useState<{
+    open: boolean;
+    ownerType: TestRunOwnerType;
+    ownerId: string;
+    scopeLabel: string;
+    ruleUids: string[];
+  }>({ open: false, ownerType: 'rule', ownerId: '', scopeLabel: '', ruleUids: [] });
+
+  const handleTestRule = useCallback((record: TableRecord) => {
+    setTestState({
+      open: true,
+      ownerType: 'rule',
+      ownerId: record.id,
+      scopeLabel: record.name,
+      ruleUids: [record.id],
+    });
+  }, []);
+
+  const handleTestAll = useCallback(() => {
+    const allUids = rules.map((r) => r.uid);
+    if (allUids.length === 0) {
+      message.info('No rules to test');
+      return;
+    }
+    setTestState({
+      open: true,
+      ownerType: 'workspace',
+      ownerId: 'all',
+      scopeLabel: 'All rules',
+      ruleUids: allUids,
+    });
+  }, [rules, message]);
 
   // Build table records from all V5 rules, sorted by status group then name
   const dataSource: TableRecord[] = rules
@@ -332,7 +349,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     {
       title: 'Details',
       key: 'details',
-      width: 180,
+      width: 270,
       render: (_: unknown, record: TableRecord) =>
         renderActionDetails(record.actionDetail, 1, 16, record.isEnabled && record.isComplete),
     },
@@ -351,32 +368,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
       onFilter: (value, record) => record.domains.includes(value as string),
       sortOrder: sortedInfo.columnKey === 'conditions' ? sortedInfo.order : null,
       render: (_: unknown, record: TableRecord) => renderConditionsSummary(record.conditions, false),
-    },
-    {
-      title: 'Type',
-      key: 'ruleType',
-      width: 90,
-      align: 'center',
-      sorter: (a, b) => a.ruleType.localeCompare(b.ruleType),
-      filters: [...new Set(dataSource.map((item) => RULE_TYPE_LABEL[item.ruleType] ?? item.ruleType))].map((label) => ({
-        text: label,
-        value: label,
-      })),
-      filteredValue: filteredInfo.ruleType || null,
-      filterSearch: true,
-      onFilter: (value, record) => (RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType) === value,
-      sortOrder: sortedInfo.columnKey === 'ruleType' ? sortedInfo.order : null,
-      render: (_: unknown, record: TableRecord) => {
-        const label = RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType;
-        const desc = RULE_TYPE_DESCRIPTION[record.ruleType] ?? record.ruleType;
-        return (
-          <Tooltip title={desc}>
-            <Tag variant="outlined" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
-              {label}
-            </Tag>
-          </Tooltip>
-        );
-      },
     },
     {
       title: '',
@@ -411,21 +402,27 @@ const RulesTable: React.FC<RulesTableProps> = ({
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 88,
       align: 'center',
       fixed: 'right',
       render: (_: unknown, record: TableRecord) => {
         const isLocal = record.id.startsWith('local-');
         const canAct = isLocal || isConnected;
         return (
-          <Tooltip title={!canAct ? 'App not connected' : 'Edit or delete rule'}>
-            <Space size={2}>
+          <Space size={2}>
+            <Tooltip title="Test this rule against a URL">
+              <Button type="text" icon={<ExperimentOutlined />} size="small" onClick={() => handleTestRule(record)} />
+            </Tooltip>
+            <Tooltip title={!canAct ? 'App not connected' : 'Edit rule'}>
               <Button
                 type="text"
                 icon={<EditOutlined />}
                 size="small"
+                disabled={!canAct}
                 onClick={() => openRulesPage(`/edit/${record.id}`)}
               />
+            </Tooltip>
+            <Tooltip title={!canAct ? 'App not connected' : 'Delete rule'}>
               <Popconfirm
                 title="Delete rule"
                 description={`Delete "${record.name}"?`}
@@ -447,8 +444,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
               >
                 <Button type="text" danger icon={<DeleteOutlined />} size="small" disabled={!canAct} />
               </Popconfirm>
-            </Space>
-          </Tooltip>
+            </Tooltip>
+          </Space>
         );
       },
     },
@@ -564,6 +561,23 @@ const RulesTable: React.FC<RulesTableProps> = ({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36 }}>
+              <Tooltip
+                title="Test all workspace rules against a URL"
+                placement="bottom"
+                overlayStyle={{ maxWidth: 'none' }}
+                overlayInnerStyle={{ whiteSpace: 'nowrap' }}
+              >
+                <Button
+                  size="middle"
+                  icon={<ExperimentOutlined />}
+                  onClick={handleTestAll}
+                  disabled={rules.length === 0}
+                  // Match the .add-rule-button height (36px hard-coded in
+                  // popup.less) so both buttons sit on the same baseline.
+                  // Square aspect since this is icon-only.
+                  style={{ height: 36, width: 36, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                />
+              </Tooltip>
               <Dropdown
                 menu={{ items: addRuleMenuItems }}
                 placement="bottomRight"
@@ -663,6 +677,15 @@ const RulesTable: React.FC<RulesTableProps> = ({
           itemName={filteredData[pendingDeleteIndex]?.name ?? ''}
         />
       </div>
+      <TestRunModal
+        open={testState.open}
+        onClose={() => setTestState((s) => ({ ...s, open: false }))}
+        ownerType={testState.ownerType}
+        ownerId={testState.ownerId}
+        scopeLabel={testState.scopeLabel}
+        ruleUids={testState.ruleUids}
+        allRules={rules}
+      />
     </div>
   );
 };

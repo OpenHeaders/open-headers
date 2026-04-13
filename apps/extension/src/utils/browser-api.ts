@@ -451,16 +451,13 @@ export const scripting = browserAPI.scripting
         }
         return new Promise<void>((resolve, reject) => {
           try {
-            api.registerContentScripts!(
-              scripts as unknown as chrome.scripting.RegisteredContentScript[],
-              () => {
-                if (browserAPI.runtime.lastError) {
-                  reject(browserAPI.runtime.lastError);
-                } else {
-                  resolve();
-                }
-              },
-            );
+            api.registerContentScripts!(scripts as unknown as chrome.scripting.RegisteredContentScript[], () => {
+              if (browserAPI.runtime.lastError) {
+                reject(browserAPI.runtime.lastError);
+              } else {
+                resolve();
+              }
+            });
           } catch (e) {
             reject(e);
           }

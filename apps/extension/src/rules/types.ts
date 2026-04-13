@@ -9,7 +9,7 @@ export type TabMode =
   | 'folder-overview'
   | 'template-edit'
   | 'rule-flow'
-  | 'test-results';
+  | 'run-report';
 
 /** Scope for the rule flow visualization. */
 export type RuleFlowScope = 'this-page' | 'collection' | 'folder' | 'all-active';
@@ -41,8 +41,16 @@ export interface RulesTab {
   flowScope?: RuleFlowScope;
   /** For rule-flow tabs with "this-page" scope: the tab URL to filter against. */
   flowTabUrl?: string;
-  /** For test-results tabs: the session id to load from storage. */
-  testSessionId?: string;
+  /** For run-report tabs: the run id to load from storage. */
+  testRunId?: string;
+  /**
+   * Test run owner — present on run-report tabs and on the entity
+   * tabs that own them (collection-overview / folder-overview / edit).
+   * The bottom panel reads this from the active tab to decide whether
+   * to render the contextual Test Runs tab and which bucket to load.
+   */
+  testOwnerType?: 'rule' | 'folder' | 'collection' | 'workspace';
+  testOwnerId?: string;
 }
 
 export interface PanelVisibility {

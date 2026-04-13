@@ -20,7 +20,7 @@ import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { getBrowserAPI } from '@/types/browser';
 import type { PageInfo, RowActions } from '../utils/table-shared';
 import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
-import TestSessionModal, { type TestScope } from './TestSessionModal';
+import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 const { Text } = Typography;
 
@@ -301,13 +301,14 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
 
   // ── Test session launcher ──
   // Walks the collection/folder subtree and collects all rule uids under it,
-  // then opens the TestSessionModal scoped to that snapshot.
+  // then opens the TestRunModal scoped to that snapshot.
   const [testState, setTestState] = useState<{
     open: boolean;
-    scope: TestScope;
+    ownerType: TestRunOwnerType;
+    ownerId: string;
     scopeLabel: string;
     ruleUids: string[];
-  }>({ open: false, scope: 'collection', scopeLabel: '', ruleUids: [] });
+  }>({ open: false, ownerType: 'collection', ownerId: '', scopeLabel: '', ruleUids: [] });
 
   const collectRuleUidsUnder = useCallback(
     (record: CollectionTreeRecord): string[] => {
@@ -349,6 +350,20 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
 
   const handleTest = useCallback(
     (record: CollectionTreeRecord) => {
+      // Per-rule rows test only that rule; folder/collection rows walk
+      // the subtree and test every rule under them. Owner stamping
+      // routes the resulting session into the right bucket so the
+      // workspace bottom panel surfaces it under the matching entity.
+      if (record.nodeType === 'rule') {
+        setTestState({
+          open: true,
+          ownerType: 'rule',
+          ownerId: record.uid,
+          scopeLabel: record.name,
+          ruleUids: [record.uid],
+        });
+        return;
+      }
       const ruleUids = collectRuleUidsUnder(record);
       if (ruleUids.length === 0) {
         message.info('This group has no rules to test');
@@ -356,7 +371,8 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       }
       setTestState({
         open: true,
-        scope: record.nodeType === 'collection' ? 'collection' : 'folder',
+        ownerType: record.nodeType === 'collection' ? 'collection' : 'folder',
+        ownerId: record.uid,
         scopeLabel: record.name,
         ruleUids,
       });
@@ -493,13 +509,25 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           return (
             // biome-ignore lint/a11y/useKeyWithClickEvents: stops row expand on switch click
             // biome-ignore lint/a11y/noStaticElementInteractions: stops row expand on switch click
-            <span onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <span
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
               <Switch
                 size="small"
                 checked={record.isEnabled}
                 disabled={!canToggle}
                 onChange={() => handleToggle(record)}
               />
+              <Tooltip title="Test this rule against a URL">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ExperimentOutlined />}
+                  onClick={() => handleTest(record)}
+                  style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
+                />
+              </Tooltip>
             </span>
           );
         }
@@ -536,7 +564,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                 style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
               />
             </Tooltip>
-            <Tooltip title={`Test — run these rules against a URL and see what fires`}>
+            <Tooltip title={`Test this ${record.nodeType === 'collection' ? 'collection' : 'folder'} against a URL`}>
               <Button
                 type="text"
                 size="small"
@@ -712,10 +740,11 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           className="header-rules-table"
         />
       </div>
-      <TestSessionModal
+      <TestRunModal
         open={testState.open}
         onClose={() => setTestState((s) => ({ ...s, open: false }))}
-        scope={testState.scope}
+        ownerType={testState.ownerType}
+        ownerId={testState.ownerId}
         scopeLabel={testState.scopeLabel}
         ruleUids={testState.ruleUids}
         allRules={rules}

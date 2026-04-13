@@ -246,9 +246,9 @@ const InspectorDocs: React.FC = () => {
       <Card size="small" style={{ marginBottom: 8 }}>
         <strong>How it works</strong>
         <DocParagraph>
-          The extension monitors HTTP requests via the <code>webRequest</code> API. When a request URL matches a
-          rule's conditions (domains, URL pattern, or URL regex), it is recorded with its resource type. This covers
-          both the request and response phases of each connection.
+          The extension monitors HTTP requests via the <code>webRequest</code> API. When a request URL matches a rule's
+          conditions (domains, URL pattern, or URL regex), it is recorded with its resource type. This covers both the
+          request and response phases of each connection.
         </DocParagraph>
       </Card>
       <Card size="small" style={{ marginBottom: 8 }}>
@@ -264,19 +264,93 @@ const InspectorDocs: React.FC = () => {
           Each matched request shows its Chrome <code>ResourceType</code>. The label maps to the underlying type:
         </DocParagraph>
       </Card>
-      {([
-        { tag: 'Page', code: 'main_frame', color: 'blue', desc: 'Top-level document navigation — the URL shown in the address bar.', examples: ['https://openheaders.io/', 'https://openheaders.io/docs/getting-started'] },
-        { tag: 'Frame', code: 'sub_frame', color: 'cyan', desc: 'An iframe or nested frame embedded within the page.', examples: ['<iframe src="https://ads.openheaders.io/banner">', '<iframe src="https://player.vimeo.com/video/123">'] },
-        { tag: 'Fetch/XHR', code: 'xmlhttprequest', color: 'green', desc: 'API calls via fetch() or XMLHttpRequest. Chrome reports both as the same type — there is no way to distinguish them.', examples: ['fetch("/api/v1/users")', 'new XMLHttpRequest(); xhr.open("GET", "/api/data")'] },
-        { tag: 'Script', code: 'script', color: 'orange', desc: 'JavaScript files loaded by the page.', examples: ['<script src="/js/app.bundle.js">', 'import("/modules/analytics.js")'] },
-        { tag: 'CSS', code: 'stylesheet', color: 'purple', desc: 'Stylesheets loaded by the page.', examples: ['<link rel="stylesheet" href="/css/main.css">', '@import url("https://fonts.googleapis.com/css2?...")'] },
-        { tag: 'Image', code: 'image', color: 'magenta', desc: 'Images loaded by the page or its styles.', examples: ['<img src="/logo.png">', 'background-image: url("/hero.webp")'] },
-        { tag: 'Font', code: 'font', color: 'volcano', desc: 'Web fonts loaded via @font-face rules.', examples: ['@font-face { src: url("/fonts/Inter.woff2") }', 'fonts.gstatic.com/s/roboto/v30/...woff2'] },
-        { tag: 'Media', code: 'media', color: 'gold', desc: 'Audio or video resources.', examples: ['<video src="/trailer.mp4">', '<audio src="/podcast-ep1.mp3">'] },
-        { tag: 'WebSocket', code: 'websocket', color: 'lime', desc: 'WebSocket handshake — the initial HTTP upgrade request. Only the handshake is tracked, not individual messages.', examples: ['new WebSocket("wss://ws.openheaders.io/live")', 'new WebSocket("ws://localhost:59210")'] },
-        { tag: 'Ping', code: 'ping', color: 'geekblue', desc: 'Beacon and ping requests typically used for analytics/tracking.', examples: ['navigator.sendBeacon("/analytics", data)', '<a ping="/track/click" href="...">'] },
-        { tag: 'Other', code: 'other', color: 'default', desc: 'Anything that doesn\'t fit the above categories.', examples: ['<link rel="icon" href="/favicon.ico">', '<link rel="manifest" href="/site.webmanifest">'] },
-      ] as const).map(({ tag, code, color, desc, examples }) => (
+      {(
+        [
+          {
+            tag: 'Page',
+            code: 'main_frame',
+            color: 'blue',
+            desc: 'Top-level document navigation — the URL shown in the address bar.',
+            examples: ['https://openheaders.io/', 'https://openheaders.io/docs/getting-started'],
+          },
+          {
+            tag: 'Frame',
+            code: 'sub_frame',
+            color: 'cyan',
+            desc: 'An iframe or nested frame embedded within the page.',
+            examples: [
+              '<iframe src="https://ads.openheaders.io/banner">',
+              '<iframe src="https://player.vimeo.com/video/123">',
+            ],
+          },
+          {
+            tag: 'Fetch/XHR',
+            code: 'xmlhttprequest',
+            color: 'green',
+            desc: 'API calls via fetch() or XMLHttpRequest. Chrome reports both as the same type — there is no way to distinguish them.',
+            examples: ['fetch("/api/v1/users")', 'new XMLHttpRequest(); xhr.open("GET", "/api/data")'],
+          },
+          {
+            tag: 'Script',
+            code: 'script',
+            color: 'orange',
+            desc: 'JavaScript files loaded by the page.',
+            examples: ['<script src="/js/app.bundle.js">', 'import("/modules/analytics.js")'],
+          },
+          {
+            tag: 'CSS',
+            code: 'stylesheet',
+            color: 'purple',
+            desc: 'Stylesheets loaded by the page.',
+            examples: [
+              '<link rel="stylesheet" href="/css/main.css">',
+              '@import url("https://fonts.googleapis.com/css2?...")',
+            ],
+          },
+          {
+            tag: 'Image',
+            code: 'image',
+            color: 'magenta',
+            desc: 'Images loaded by the page or its styles.',
+            examples: ['<img src="/logo.png">', 'background-image: url("/hero.webp")'],
+          },
+          {
+            tag: 'Font',
+            code: 'font',
+            color: 'volcano',
+            desc: 'Web fonts loaded via @font-face rules.',
+            examples: ['@font-face { src: url("/fonts/Inter.woff2") }', 'fonts.gstatic.com/s/roboto/v30/...woff2'],
+          },
+          {
+            tag: 'Media',
+            code: 'media',
+            color: 'gold',
+            desc: 'Audio or video resources.',
+            examples: ['<video src="/trailer.mp4">', '<audio src="/podcast-ep1.mp3">'],
+          },
+          {
+            tag: 'WebSocket',
+            code: 'websocket',
+            color: 'lime',
+            desc: 'WebSocket handshake — the initial HTTP upgrade request. Only the handshake is tracked, not individual messages.',
+            examples: ['new WebSocket("wss://ws.openheaders.io/live")', 'new WebSocket("ws://localhost:59210")'],
+          },
+          {
+            tag: 'Ping',
+            code: 'ping',
+            color: 'geekblue',
+            desc: 'Beacon and ping requests typically used for analytics/tracking.',
+            examples: ['navigator.sendBeacon("/analytics", data)', '<a ping="/track/click" href="...">'],
+          },
+          {
+            tag: 'Other',
+            code: 'other',
+            color: 'default',
+            desc: "Anything that doesn't fit the above categories.",
+            examples: ['<link rel="icon" href="/favicon.ico">', '<link rel="manifest" href="/site.webmanifest">'],
+          },
+        ] as const
+      ).map(({ tag, code, color, desc, examples }) => (
         <Card key={code} size="small" style={{ marginBottom: 6 }} title={tag} extra={<Tag color={color}>{code}</Tag>}>
           <DocParagraph>{desc}</DocParagraph>
           <div
@@ -292,7 +366,9 @@ const InspectorDocs: React.FC = () => {
           >
             <span style={{ color: 'var(--ant-color-success)', fontWeight: 600 }}>Examples:</span>
             {examples.map((ex, i) => (
-              <code key={i} style={{ display: 'block', paddingLeft: 12, opacity: 0.85, whiteSpace: 'pre' }}>{ex}</code>
+              <code key={i} style={{ display: 'block', paddingLeft: 12, opacity: 0.85, whiteSpace: 'pre' }}>
+                {ex}
+              </code>
             ))}
           </div>
         </Card>
@@ -539,7 +615,10 @@ const InspectorDocs: React.FC = () => {
       <div id="doc-redirect-url" style={{ scrollMarginTop: 8 }}>
         <Card title="Static Redirect" extra={<Tag color="blue">DNR redirect</Tag>}>
           Enter a full URL to redirect all matching requests to the same destination.
-          <Example rule="https://openheaders.io/new-page" after={['All matching requests → https://openheaders.io/new-page']} />
+          <Example
+            rule="https://openheaders.io/new-page"
+            after={['All matching requests → https://openheaders.io/new-page']}
+          />
         </Card>
       </div>
       <div id="doc-redirect-regex" style={{ scrollMarginTop: 8 }}>
@@ -562,31 +641,19 @@ const InspectorDocs: React.FC = () => {
       <div id="doc-qp-add" style={{ scrollMarginTop: 8 }}>
         <Card title="Add / Replace" extra={<Tag color="blue">addOrReplaceParams</Tag>}>
           Adds the parameter if missing, or replaces its value if already present.
-          <Example
-            rule="debug = true"
-            before={['?page=1']}
-            after={['?page=1&debug=true']}
-          />
+          <Example rule="debug = true" before={['?page=1']} after={['?page=1&debug=true']} />
         </Card>
       </div>
       <div id="doc-qp-remove" style={{ scrollMarginTop: 8 }}>
         <Card title="Remove" extra={<Tag color="red">removeParams</Tag>}>
           Removes specific parameters by name. Value is ignored.
-          <Example
-            rule="Remove utm_source"
-            before={['?utm_source=google&page=1']}
-            after={['?page=1']}
-          />
+          <Example rule="Remove utm_source" before={['?utm_source=google&page=1']} after={['?page=1']} />
         </Card>
       </div>
       <div id="doc-qp-remove-all" style={{ scrollMarginTop: 8 }}>
         <Card title="Remove All" extra={<Tag color="red">strip query</Tag>}>
           Strips the entire query string. Cannot be combined with Add/Replace in the same rule.
-          <Example
-            rule="Remove All"
-            before={['?utm_source=google&page=1&debug=true']}
-            after={['(no query string)']}
-          />
+          <Example rule="Remove All" before={['?utm_source=google&page=1&debug=true']} after={['(no query string)']} />
         </Card>
       </div>
 
@@ -638,8 +705,8 @@ const InspectorDocs: React.FC = () => {
       </div>
       <div id="doc-body-graphql" style={{ scrollMarginTop: 8 }}>
         <Card title="GraphQL Filter" extra={<Tag color="cyan">operationName</Tag>}>
-          Filter by GraphQL operation name in the request payload. Only modifies requests matching the operation.
-          Leave empty to match all GraphQL operations.
+          Filter by GraphQL operation name in the request payload. Only modifies requests matching the operation. Leave
+          empty to match all GraphQL operations.
         </Card>
       </div>
 

@@ -13,8 +13,8 @@ import { Checkbox, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import { getDocId } from '../InspectorDocs';
 import CodeEditor from '../CodeEditor';
+import { getDocId } from '../InspectorDocs';
 
 const { Text } = Typography;
 
@@ -140,9 +140,7 @@ const InjectRuleFields: React.FC = () => {
       {/* CSP Bypass */}
       <Form.Item name="injectBypassCSP" valuePropName="checked" style={{ marginBottom: 0 }}>
         <Checkbox>
-          <Text style={{ fontSize: 12 }}>
-            Bypass Content-Security-Policy so injected scripts always execute
-          </Text>
+          <Text style={{ fontSize: 12 }}>Bypass Content-Security-Policy so injected scripts always execute</Text>
         </Checkbox>
       </Form.Item>
     </div>

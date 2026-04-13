@@ -7,6 +7,7 @@
 
 import {
   ApartmentOutlined,
+  ExperimentOutlined,
   FolderOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -28,6 +29,8 @@ interface CollectionOverviewProps {
   onCreateRule: (type: string, context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenRuleFlow?: (scope: 'collection' | 'folder', entityId: string, label: string) => void;
+  /** Open the bottom panel and focus the Test Runs tab scoped to this collection. */
+  onOpenTestRuns?: () => void;
 }
 
 interface ContentRow {
@@ -56,6 +59,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
   onCreateRule,
   onOpenFolderOverview,
   onOpenRuleFlow,
+  onOpenTestRuns,
 }) => {
   const { token } = theme.useToken();
   const { rules, localCollectionTrees, pausedGroups, toggleGroupPause } = useRules();
@@ -238,6 +242,13 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
           >
             View Execution Flow
           </Button>
+        )}
+        {onOpenTestRuns && (
+          <Tooltip title="Show past test runs captured for this collection in the bottom panel">
+            <Button size="small" icon={<ExperimentOutlined />} onClick={onOpenTestRuns}>
+              Test Runs
+            </Button>
+          </Tooltip>
         )}
       </div>
 

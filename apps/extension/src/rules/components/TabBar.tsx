@@ -14,6 +14,7 @@ import {
   ApartmentOutlined,
   CloseOutlined,
   DownOutlined,
+  ExperimentOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
@@ -35,6 +36,7 @@ import { renderTwoToneIcon } from './TwoToneIconPicker';
 
 function tabIcon(tab: RulesTab, rules: V5.Rule[], templates: V5.Template[]): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
+  if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'collection-overview') return <FolderOpenOutlined style={{ fontSize: 12, color: '#999' }} />;
   if (tab.mode === 'folder-overview') return <FolderOutlined style={{ fontSize: 12, color: '#999' }} />;
   if (tab.mode === 'template-edit' && tab.templateUid) {
@@ -56,6 +58,26 @@ function truncateMiddle(text: string, max: number): string {
   if (text.length <= max) return text;
   const half = Math.floor((max - 1) / 2);
   return `${text.slice(0, half)}\u2026${text.slice(text.length - half)}`;
+}
+
+/**
+ * Truncate a tab label, preserving a fixed prefix. Used by run-report
+ * tabs whose label is `Test Run · <owner name>` — the prefix carries
+ * the kind of tab it is, so we end-truncate the owner name suffix
+ * instead of running middle-truncation across the whole label and
+ * eating the prefix. Returns the original text if it fits.
+ */
+function truncateLabelWithPrefix(text: string, prefix: string, max: number): string {
+  if (text.length <= max) return text;
+  if (!text.startsWith(prefix)) return truncateMiddle(text, max);
+  const suffix = text.slice(prefix.length);
+  const budget = Math.max(1, max - prefix.length - 1); // 1 char for ellipsis
+  return `${prefix}${suffix.slice(0, budget)}\u2026`;
+}
+
+function renderTabLabel(tab: RulesTab): string {
+  if (tab.mode === 'run-report') return truncateLabelWithPrefix(tab.label, 'Test Run · ', TAB_LABEL_MAX);
+  return truncateMiddle(tab.label, TAB_LABEL_MAX);
 }
 
 // ── Props ────────────────────────────────────────────────────────
@@ -457,7 +479,7 @@ const TabBar: React.FC<TabBarProps> = ({
                 >
                   <span className="rules-type-badge">{tabIcon(tab, rules, templates)}</span>
                   <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
-                    {truncateMiddle(tab.label, TAB_LABEL_MAX)}
+                    {renderTabLabel(tab)}
                   </span>
                   {(tab.dirty || tab.mode === 'create') && (
                     <span

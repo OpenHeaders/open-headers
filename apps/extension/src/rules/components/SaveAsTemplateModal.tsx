@@ -204,7 +204,15 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
             const qp = formValues.queryParams as unknown[] | undefined;
             const count = (reqH?.length ?? 0) + (resH?.length ?? 0) + (qp?.length ?? 0);
             // For non-array types, check if any meaningful value exists
-            const hasScalar = !!(formValues.redirectTo || formValues.delayMs || formValues.injectCode || formValues.mockStaticBody || formValues.mockDynamicBody || formValues.bodyStaticContent || formValues.bodyDynamicContent);
+            const hasScalar = !!(
+              formValues.redirectTo ||
+              formValues.delayMs ||
+              formValues.injectCode ||
+              formValues.mockStaticBody ||
+              formValues.mockDynamicBody ||
+              formValues.bodyStaticContent ||
+              formValues.bodyDynamicContent
+            );
             const total = count || (hasScalar ? 1 : 0);
             return total > 0 ? (
               <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>

@@ -42,10 +42,7 @@ const QueryParamRuleFields: React.FC = () => {
         {(fields, { add, remove }) => (
           <>
             {fields.map((field) => (
-              <div
-                key={field.key}
-                style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}
-              >
+              <div key={field.key} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                 <Form.Item
                   {...field}
                   name={[field.name, 'operation']}
@@ -76,7 +73,14 @@ const QueryParamRuleFields: React.FC = () => {
                           cursor: 'pointer',
                           flexShrink: 0,
                         }}
-                        onClick={() => openDocs(getDocId(op === 'remove-all' ? 'qp-remove-all' : op === 'remove' ? 'qp-remove' : 'qp-add', 'action'))}
+                        onClick={() =>
+                          openDocs(
+                            getDocId(
+                              op === 'remove-all' ? 'qp-remove-all' : op === 'remove' ? 'qp-remove' : 'qp-add',
+                              'action',
+                            ),
+                          )
+                        }
                       />
                     );
                   }}

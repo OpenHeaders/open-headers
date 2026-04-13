@@ -1,13 +1,13 @@
 /**
- * Test Widget — in-page floating panel that visualises a running test
- * session on the test tab itself.
+ * Test Run Widget — in-page floating panel that visualises a running
+ * test run on the test tab itself.
  *
  * ## Architecture
  *
  * The widget is a self-contained function injected via
  * `chrome.scripting.executeScript({ func, args, world: 'ISOLATED' })`. It
  * mounts a Shadow-DOM host on the page so site CSS cannot bleed in, and
- * subscribes to its session via a long-lived `chrome.runtime.Port`.
+ * subscribes to its run via a long-lived `chrome.runtime.Port`.
  *
  * The port is the **only** background ↔ widget channel and was chosen over
  * `chrome.tabs.sendMessage` push because of the bind-time race: scope-rule
@@ -18,12 +18,12 @@
  *   - The widget connects on mount via `chrome.runtime.connect({ name })`.
  *   - The background's `runtime.onConnect` handler (registered by
  *     `setupTestRunnerPorts` in test-runner) receives the connection,
- *     looks up the session, and immediately posts a `snapshot` containing
+ *     looks up the active run, and immediately posts a `snapshot` containing
  *     the current `liveFireCount`. This message lands BEFORE any subsequent
  *     delta because port messages are strictly FIFO.
  *   - For every later in-scope fire, the test-runner posts an `update` to
- *     all live ports for that session.
- *   - At session end, the runner posts `finished` and `disconnect()`s.
+ *     all live ports for that run.
+ *   - At run end, the runner posts `finished` and `disconnect()`s.
  *
  * No state lives in `cfg` other than the initial render parameters
  * (label, count, wait, report URL, startedAt). The fires count is
@@ -41,27 +41,27 @@ declare const browser: typeof chrome | undefined;
 
 const browserAPI = (typeof browser !== 'undefined' ? browser : chrome) as typeof chrome;
 
-/** Port name prefix the widget uses to connect — `oh-test-session:<sessionId>`. */
-export const TEST_SESSION_PORT_PREFIX = 'oh-test-session:';
+/** Port name prefix the widget uses to connect — `oh-test-run:<runId>`. */
+export const TEST_RUN_PORT_PREFIX = 'oh-test-run:';
 
-/** Build the port name for a given session. Inverse of `parseTestSessionPortName`. */
-export function testSessionPortName(sessionId: string): string {
-  return `${TEST_SESSION_PORT_PREFIX}${sessionId}`;
+/** Build the port name for a given run. Inverse of `parseTestRunPortName`. */
+export function testRunPortName(runId: string): string {
+  return `${TEST_RUN_PORT_PREFIX}${runId}`;
 }
 
-/** Extract the session id from a port name. Returns null for non-matching names. */
-export function parseTestSessionPortName(name: string): string | null {
-  if (!name.startsWith(TEST_SESSION_PORT_PREFIX)) return null;
-  return name.slice(TEST_SESSION_PORT_PREFIX.length) || null;
+/** Extract the run id from a port name. Returns null for non-matching names. */
+export function parseTestRunPortName(name: string): string | null {
+  if (!name.startsWith(TEST_RUN_PORT_PREFIX)) return null;
+  return name.slice(TEST_RUN_PORT_PREFIX.length) || null;
 }
 
 /** Snapshot posted to a freshly-connected widget. */
 export interface PortSnapshotMessage {
   type: 'snapshot';
   fires: number;
-  /** Session phase at the moment of snapshot — usually 'capturing'. */
+  /** Run phase at the moment of snapshot — usually 'capturing'. */
   phase: 'capturing' | 'done';
-  /** When the session ended (only set if phase === 'done'). */
+  /** When the run ended (only set if phase === 'done'). */
   finished?: PortFinishedPayload;
 }
 
@@ -87,14 +87,14 @@ export type PortMessage = PortSnapshotMessage | PortUpdateMessage | PortFinished
 
 /** Payload sent into the widget at injection time as the executeScript arg. */
 export interface TestWidgetConfig {
-  sessionId: string;
+  runId: string;
   scopeLabel: string;
   ruleCount: number;
   waitSeconds: number;
-  /** Absolute URL of the workspace test-report page for this session. */
+  /** Absolute URL of the workspace run report page for this run. */
   reportUrl: string;
   /**
-   * Wall-clock ms when the session started — the widget computes its
+   * Wall-clock ms when the run started — the widget computes its
    * count-down against this so a re-injection mid-capture (e.g. user clicked
    * a link, page hard-navigated) shows the *real* remaining time, not a
    * fresh `waitSeconds` from zero.
@@ -106,7 +106,7 @@ export interface TestWidgetConfig {
 
 /**
  * Mount the widget on the given tab. Safe to call multiple times for the
- * same session — the widget self-dedupes via its host element id. Errors
+ * same run — the widget self-dedupes via its host element id. Errors
  * (closed tab, restricted page, CSP weirdness) are swallowed and logged
  * because the widget is a UX nicety, not a correctness requirement.
  */
@@ -126,7 +126,7 @@ export async function injectTestWidget(tabId: number, config: TestWidgetConfig):
       // the page realm if Chrome's defaults change.
       world: 'ISOLATED' as chrome.scripting.ExecutionWorld,
     });
-    logger.debug('TestWidget', `Injected widget into tab ${tabId} (session ${config.sessionId})`);
+    logger.debug('TestWidget', `Injected widget into tab ${tabId} (run ${config.runId})`);
   } catch (err) {
     const msg = (err as Error).message;
     if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
@@ -146,7 +146,7 @@ export async function injectTestWidget(tabId: number, config: TestWidgetConfig):
 // The function is exported for unit testing.
 
 interface InPageConfig {
-  sessionId: string;
+  runId: string;
   scopeLabel: string;
   ruleCount: number;
   waitSeconds: number;
@@ -156,9 +156,9 @@ interface InPageConfig {
 }
 
 export function testWidgetFunc(cfg: InPageConfig): void {
-  const HOST_ID = 'oh-test-session-widget-host';
+  const HOST_ID = 'oh-test-run-widget-host';
 
-  // Self-dedupe: a previous instance for this session may still be on the
+  // Self-dedupe: a previous instance for this run may still be on the
   // page (e.g. background re-injected after a hard navigation during the
   // capture window). Run its cleanup hook so its message listener and
   // count-down interval are torn down before we mount a fresh instance.
@@ -339,7 +339,7 @@ export function testWidgetFunc(cfg: InPageConfig): void {
     }
   }, 250);
 
-  // Connect to the background's port for this session. The background's
+  // Connect to the background's port for this run. The background's
   // `runtime.onConnect` handler (in test-runner) responds with a `snapshot`
   // immediately, then streams `update` and `finished` messages over the
   // same FIFO channel. Snapshot-then-deltas eliminates the bind-time race
@@ -386,7 +386,7 @@ export function testWidgetFunc(cfg: InPageConfig): void {
 
   if (port) {
     port.onMessage.addListener(handlePortMessage);
-    // If the background drops the port (extension reload, session ended
+    // If the background drops the port (extension reload, run ended
     // and runner closed the port), do nothing — the widget keeps showing
     // its last known state. The user can still dismiss it.
     port.onDisconnect.addListener(() => {
@@ -408,7 +408,7 @@ export function testWidgetFunc(cfg: InPageConfig): void {
   }
 
   // Stash the cleanup on the host so a future re-injection from this
-  // session (or a different one) can tear us down deterministically.
+  // run (or a different one) can tear us down deterministically.
   (host as HTMLElement & { __ohTestCleanup?: () => void }).__ohTestCleanup = cleanup;
 
   primaryBtn.addEventListener('click', () => {

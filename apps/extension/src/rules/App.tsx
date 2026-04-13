@@ -12,6 +12,7 @@ import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
+import { runtime } from '@utils/browser-api';
 import { Allotment, LayoutPriority } from 'allotment';
 import type { InputRef } from 'antd';
 import { theme } from 'antd';
@@ -29,13 +30,13 @@ import FolderOverview from './components/FolderOverview';
 import Inspector from './components/Inspector';
 import RuleEditor from './components/RuleEditor';
 import RuleFlow from './components/RuleFlow';
+import RunReportView from './components/RunReportView';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import { buildRuleIcon } from './components/shared/rule-icon';
 import TabBar from './components/TabBar';
 import TemplateEditor from './components/TemplateEditor';
-import TestResultsView from './components/TestResultsView';
 import TopBar from './components/TopBar';
 import { renderTwoToneIcon } from './components/TwoToneIconPicker';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
@@ -317,6 +318,8 @@ const RulesAppInner: React.FC = () => {
         dirty: false,
         mode: 'edit',
         ruleUid: uid,
+        testOwnerType: 'rule',
+        testOwnerId: uid,
       };
       addTab(tab);
     },
@@ -331,7 +334,16 @@ const RulesAppInner: React.FC = () => {
         switchTab(id);
         return;
       }
-      const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'collection-overview', entityId: uid };
+      const tab: RulesTab = {
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'collection-overview',
+        entityId: uid,
+        testOwnerType: 'collection',
+        testOwnerId: uid,
+      };
       addTab(tab);
       if (autoRename) setPendingRenameTabId(id);
     },
@@ -346,7 +358,16 @@ const RulesAppInner: React.FC = () => {
         switchTab(id);
         return;
       }
-      const tab: RulesTab = { id, label: name, ruleType: '', dirty: false, mode: 'folder-overview', entityId: uid };
+      const tab: RulesTab = {
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'folder-overview',
+        entityId: uid,
+        testOwnerType: 'folder',
+        testOwnerId: uid,
+      };
       addTab(tab);
       if (autoRename) setPendingRenameTabId(id);
     },
@@ -407,21 +428,33 @@ const RulesAppInner: React.FC = () => {
     [tabs, addTab, switchTab],
   );
 
-  const openTestResults = useCallback(
-    (sessionId: string) => {
-      const id = `test-${sessionId}`;
+  const openRunReport = useCallback(
+    (
+      runId: string,
+      owner?: { type: 'rule' | 'folder' | 'collection' | 'workspace'; id: string },
+      ownerName?: string,
+    ) => {
+      const id = `run-${runId}`;
       const existing = tabs.find((t) => t.id === id);
       if (existing) {
         switchTab(id);
         return;
       }
+      // Tab label format `Test Run · <owner name>` — TabBar truncates
+      // the suffix while keeping the prefix intact so the user always
+      // sees that this is a run report. Falls back to plain "Test Run"
+      // when the owner name isn't known (shouldn't happen via the
+      // normal entry paths, but keeps the type loose).
+      const label = ownerName ? `Test Run · ${ownerName}` : 'Test Run';
       const tab: RulesTab = {
         id,
-        label: 'Test results',
+        label,
         ruleType: '',
         dirty: false,
-        mode: 'test-results',
-        testSessionId: sessionId,
+        mode: 'run-report',
+        testRunId: runId,
+        testOwnerType: owner?.type,
+        testOwnerId: owner?.id,
       };
       addTab(tab);
     },
@@ -547,12 +580,12 @@ const RulesAppInner: React.FC = () => {
   const openEditTabRef = useRef(openEditTab);
   const openDocsRef = useRef(openDocs);
   const openRuleFlowRef = useRef(openRuleFlow);
-  const openTestResultsRef = useRef(openTestResults);
+  const openRunReportRef = useRef(openRunReport);
   openCreateTabRef.current = openCreateTab;
   openEditTabRef.current = openEditTab;
   openDocsRef.current = openDocs;
   openRuleFlowRef.current = openRuleFlow;
-  openTestResultsRef.current = openTestResults;
+  openRunReportRef.current = openRunReport;
 
   useEffect(() => {
     if (!isStatusLoaded || hashProcessedRef.current) return;
@@ -575,8 +608,23 @@ const RulesAppInner: React.FC = () => {
       const flowUrl = parts.length > 2 ? parts.slice(2).join('/') : undefined;
       openRuleFlowRef.current(flowScope, undefined, undefined, flowUrl);
     } else if (parts[0] === 'test' && parts[1]) {
-      // #/test/{sessionId} — open persisted test session result
-      openTestResultsRef.current(parts[1]);
+      // #/test/{runId} — open persisted test run report.
+      // The widget URL only carries the run id, so we look up the run
+      // here to recover its owner. Without the owner stamp the bottom
+      // panel can't surface the contextual Test Runs tab, and the user
+      // lands on a report tab with no owner trail.
+      const runId = parts[1];
+      runtime.sendMessage({ type: 'getTestRun', runId }, (response: unknown) => {
+        const data = response as {
+          success?: boolean;
+          run?: { ownerType?: string; ownerId?: string; ownerNameAtRun?: string } | null;
+        } | null;
+        const run = data?.run ?? null;
+        const ownerType = run?.ownerType as 'rule' | 'folder' | 'collection' | 'workspace' | undefined;
+        const ownerId = run?.ownerId;
+        const owner = ownerType && ownerId ? { type: ownerType, id: ownerId } : undefined;
+        openRunReportRef.current(runId, owner, run?.ownerNameAtRun);
+      });
     }
   }, [isStatusLoaded]);
 
@@ -679,6 +727,64 @@ const RulesAppInner: React.FC = () => {
         }
       }
       return ['Rules', activeTab.label];
+    }
+
+    if (activeTab.mode === 'run-report') {
+      // Walk to whatever owner this test result belongs to so the user
+      // sees "Rules > Collection > Folder? > Rule? > Test Result". The
+      // owner stamp comes from the bottom-panel click that opened it.
+      const ownerType = activeTab.testOwnerType;
+      const ownerId = activeTab.testOwnerId;
+      if (ownerType && ownerId) {
+        if (ownerType === 'workspace') {
+          return ['Rules', 'All Rules', 'Run Report'];
+        }
+        if (ownerType === 'collection') {
+          const col = localCollectionTrees.find((c) => c.uid === ownerId);
+          if (col) return ['Rules', col.name, 'Run Report'];
+        }
+        if (ownerType === 'folder') {
+          for (const col of localCollectionTrees) {
+            const trail: string[] = [];
+            const findFolder = (nodes: V5.TreeNode[]): boolean => {
+              for (const n of nodes) {
+                if (n.type === 'folder' && n.uid === ownerId) {
+                  trail.push(n.name);
+                  return true;
+                }
+                if (n.type === 'folder') {
+                  trail.push(n.name);
+                  if (findFolder(n.children)) return true;
+                  trail.pop();
+                }
+              }
+              return false;
+            };
+            if (findFolder(col.tree)) return ['Rules', col.name, ...trail, 'Run Report'];
+          }
+        }
+        if (ownerType === 'rule') {
+          const rule = rules.find((r) => r.uid === ownerId);
+          if (rule) {
+            for (const col of localCollectionTrees) {
+              const trail: string[] = [];
+              const findRule = (nodes: V5.TreeNode[]): boolean => {
+                for (const n of nodes) {
+                  if (n.type === 'rule' && n.uid === rule.uid) return true;
+                  if (n.type === 'folder') {
+                    trail.push(n.name);
+                    if (findRule(n.children)) return true;
+                    trail.pop();
+                  }
+                }
+                return false;
+              };
+              if (findRule(col.tree)) return ['Rules', col.name, ...trail, rule.name, 'Run Report'];
+            }
+          }
+        }
+      }
+      return ['Rules', 'Run Report'];
     }
 
     if (activeTab.mode === 'rule-flow') {
@@ -1004,6 +1110,48 @@ const RulesAppInner: React.FC = () => {
     [layout],
   );
 
+  // ── Test run owner context ────────────────────────────────────
+  // The bottom panel's Test Runs tab only renders when the active
+  // main-panel tab has an owner. We compute that here from the active
+  // tab's stamped fields and pass both the owner and an "open it"
+  // helper down to the overview pages and the bottom panel itself.
+
+  const contextOwner = useMemo(() => {
+    if (!activeTab?.testOwnerType || !activeTab.testOwnerId) return null;
+    return { type: activeTab.testOwnerType, id: activeTab.testOwnerId };
+  }, [activeTab]);
+
+  const openTestRunsPanel = useCallback(() => {
+    setBottomPanelTab('test-runs');
+    setPanels((prev) => (prev.bottomPanel ? prev : { ...prev, bottomPanel: true }));
+  }, []);
+
+  // Whenever the active main-panel tab is a run-report tab, auto-open
+  // the bottom panel and focus its Test Runs tab. Covers both entry
+  // paths — clicking a row in the bottom panel and landing here from the
+  // in-page widget's "View results" link — so the user always sees the
+  // owning bucket alongside the report. activeTab.id is in the deps so
+  // switching from one run-report tab to another also re-triggers the
+  // panel focus, even though only mode is read inside.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: id triggers re-run on tab switch
+  useEffect(() => {
+    if (activeTab?.mode === 'run-report') {
+      openTestRunsPanel();
+    }
+  }, [activeTab?.mode, activeTab?.id, openTestRunsPanel]);
+
+  // After the user deletes a run from inside the report tab, close that
+  // tab and refocus the bottom panel's Test Runs list so they land
+  // somewhere coherent (the original UX bug was a "run not found" empty
+  // state).
+  const handleRunReportDeleted = useCallback(
+    (tabId: string) => {
+      rawCloseTab(tabId, true);
+      openTestRunsPanel();
+    },
+    [rawCloseTab, openTestRunsPanel],
+  );
+
   // Editor area content (shared between both layouts)
   const editorArea = (
     <div className="rules-editor-area" style={{ background: token.colorBgContainer }}>
@@ -1062,6 +1210,7 @@ const RulesAppInner: React.FC = () => {
                 onCreateRule={openCreateTab}
                 onOpenFolderOverview={openFolderOverview}
                 onOpenRuleFlow={openRuleFlow}
+                onOpenTestRuns={openTestRunsPanel}
               />
             )}
             {tab.mode === 'folder-overview' && tab.entityId && (
@@ -1071,6 +1220,7 @@ const RulesAppInner: React.FC = () => {
                 onCreateRule={openCreateTab}
                 onOpenFolderOverview={openFolderOverview}
                 onOpenRuleFlow={openRuleFlow}
+                onOpenTestRuns={openTestRunsPanel}
               />
             )}
             {tab.mode === 'template-edit' && tab.templateUid && (
@@ -1089,8 +1239,12 @@ const RulesAppInner: React.FC = () => {
                 onCreateRule={openCreateTab}
               />
             )}
-            {tab.mode === 'test-results' && tab.testSessionId && (
-              <TestResultsView sessionId={tab.testSessionId} onSelectRule={openEditTab} />
+            {tab.mode === 'run-report' && tab.testRunId && (
+              <RunReportView
+                runId={tab.testRunId}
+                onSelectRule={openEditTab}
+                onAfterDelete={() => handleRunReportDeleted(tab.id)}
+              />
             )}
           </div>
         ))}
@@ -1144,7 +1298,13 @@ const RulesAppInner: React.FC = () => {
                   visible={panels.bottomPanel}
                   snap
                 >
-                  <BottomPanel activeTab={bottomPanelTab} onTabChange={setBottomPanelTab} />
+                  <BottomPanel
+                    activeTab={bottomPanelTab}
+                    onTabChange={setBottomPanelTab}
+                    contextOwner={contextOwner}
+                    onOpenTestRun={openRunReport}
+                    activeRunId={activeTab?.mode === 'run-report' ? (activeTab.testRunId ?? null) : null}
+                  />
                 </Allotment.Pane>
               </Allotment>
             </Allotment.Pane>

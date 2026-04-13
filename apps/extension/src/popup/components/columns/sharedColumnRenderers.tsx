@@ -25,7 +25,13 @@ interface TooltipRow {
 }
 
 function renderTooltipGrid(rows: TooltipRow[]): React.ReactNode {
-  const tagStyle = { margin: 0, fontSize: '10px', fontWeight: 600, whiteSpace: 'nowrap' as const, textAlign: 'center' as const };
+  const tagStyle = {
+    margin: 0,
+    fontSize: '10px',
+    fontWeight: 600,
+    whiteSpace: 'nowrap' as const,
+    textAlign: 'center' as const,
+  };
   return (
     <div
       style={{
@@ -146,16 +152,23 @@ export function renderTagOverflow(
 ): React.ReactNode {
   const tagStyle = { margin: 0, fontSize: '11px' };
   const truncStyle = maxTagWidth
-    ? { ...tagStyle, maxWidth: maxTagWidth, overflow: 'hidden' as const, textOverflow: 'ellipsis' as const, whiteSpace: 'nowrap' as const }
+    ? {
+        ...tagStyle,
+        maxWidth: maxTagWidth,
+        overflow: 'hidden' as const,
+        textOverflow: 'ellipsis' as const,
+        whiteSpace: 'nowrap' as const,
+      }
     : tagStyle;
   const visible = allTags.slice(0, maxVisible);
   const overflowCount = allTags.length - maxVisible;
 
-  const overflowTag = overflowCount > 0 ? (
-    <Tag variant="outlined" style={{ ...tagStyle, flexShrink: 0 }}>
-      +{overflowCount}
-    </Tag>
-  ) : null;
+  const overflowTag =
+    overflowCount > 0 ? (
+      <Tag variant="outlined" style={{ ...tagStyle, flexShrink: 0 }}>
+        +{overflowCount}
+      </Tag>
+    ) : null;
 
   return (
     <Space size={2} style={{ flexWrap: 'nowrap' }}>
@@ -172,9 +185,10 @@ export function renderTagOverflow(
           </Tag>
         ),
       )}
-      {overflowTag && (suppressOverflowTooltip
-        ? overflowTag
-        : (
+      {overflowTag &&
+        (suppressOverflowTooltip ? (
+          overflowTag
+        ) : (
           <Tooltip
             title={renderTooltipGrid(
               allTags
@@ -185,8 +199,7 @@ export function renderTagOverflow(
           >
             {overflowTag}
           </Tooltip>
-        )
-      )}
+        ))}
     </Space>
   );
 }
@@ -334,9 +347,7 @@ export function renderConditionsSummary(
 
   return (
     <Tooltip title={tooltip} styles={{ root: { maxWidth: 500 } }}>
-      <div style={{ overflow: 'hidden', display: 'flex' }}>
-        {renderTagOverflow(allTags, 1, 72, true)}
-      </div>
+      <div style={{ overflow: 'hidden', display: 'flex' }}>{renderTagOverflow(allTags, 1, 72, true)}</div>
     </Tooltip>
   );
 }
@@ -344,13 +355,19 @@ export function renderConditionsSummary(
 // ── Render action details ────────────────────────────────────────
 
 /** Render structured action details: shared icon (with direction + placeholder) + label tag + value. */
-export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueLen = 16, isActive = true): React.ReactNode {
+export function renderActionDetails(
+  detail: ActionDetail,
+  opacity = 1,
+  maxValueLen = 16,
+  isActive = true,
+): React.ReactNode {
   const displayValue = truncateValue(detail.value, maxValueLen);
 
   const opLabel = detail.operation ? detail.operation.charAt(0).toUpperCase() + detail.operation.slice(1) : '';
-  const typeLabel = [detail.direction === 'response' ? '↓' : detail.direction === 'request' ? '↑' : '', opLabel]
-    .filter(Boolean)
-    .join(' ') || detail.ruleType.charAt(0).toUpperCase() + detail.ruleType.slice(1);
+  const typeLabel =
+    [detail.direction === 'response' ? '↓' : detail.direction === 'request' ? '↑' : '', opLabel]
+      .filter(Boolean)
+      .join(' ') || detail.ruleType.charAt(0).toUpperCase() + detail.ruleType.slice(1);
 
   // Rule-type-specific tag names for label and value rows
   const labelKey: Record<string, string> = {
@@ -370,9 +387,7 @@ export function renderActionDetails(detail: ActionDetail, opacity = 1, maxValueL
     mock: 'Content-Type',
   };
 
-  const rows: Array<{ key: string; value: string | string[] }> = [
-    { key: typeLabel, value: detail.tooltip },
-  ];
+  const rows: Array<{ key: string; value: string | string[] }> = [{ key: typeLabel, value: detail.tooltip }];
   if (detail.items) {
     rows.push({ key: detail.ruleType === 'header' ? 'Headers' : 'Params', value: detail.items });
   } else {

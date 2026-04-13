@@ -1,9 +1,9 @@
 /**
- * TestResultsView — workspace tab that renders a completed test session as
+ * RunReportView — workspace tab that renders a completed test run as
  * a flow pipeline.
  *
  * Layout mirrors `RuleFlow` (same start/end terminus, same priority-tier
- * groups, same `FlowRuleCard` for each rule) so the user reads test results
+ * groups, same `FlowRuleCard` for each rule) so the user reads run reports
  * in the same visual language they edit rules in. Every card carries a
  * `RuleStatusOverlay` that colors its border / background and adds a
  * status tag:
@@ -16,7 +16,7 @@
  *                              everything, so this means a `block` rule
  *                              cancelled the request first.
  *   - **no-fire**  (grey)    — in scope but no request matched it.
- *   - **skipped** (dim grey) — disabled / incomplete / paused at session
+ *   - **skipped** (dim grey) — disabled / incomplete / paused at run
  *                              start, so the test never tried to run it.
  *
  * Clicking a card opens a side-panel detail view (selection state lives in
@@ -31,12 +31,12 @@ import {
   ExclamationCircleTwoTone,
   ExperimentOutlined,
   MinusCircleTwoTone,
-  ReloadOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { runtime } from '@utils/browser-api';
-import { App, Button, Empty, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Checkbox, Empty, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Connector, Terminus } from './rule-flow/Connector';
@@ -45,9 +45,10 @@ import PriorityGroup, { PRIORITY_TIERS } from './rule-flow/PriorityGroup';
 
 const { Text, Title } = Typography;
 
-// ── Types (must match background test-runner) ────────────────────
+// ── Types (must match background test-run-store) ────────────
 
 type TestRuleStatus = 'executed' | 'no-fire' | 'skipped';
+type TestRunOwnerType = 'rule' | 'folder' | 'collection';
 
 type ShadowKind =
   | 'block-terminal'
@@ -72,9 +73,12 @@ interface TestFireEvent {
   shadowedBy?: ShadowAttribution;
 }
 
-interface TestSessionResult {
+/** Loaded from test-run-store — same shape as StoredTestRun + isStale. */
+interface TestRun {
   id: string;
-  scope: 'single' | 'folder' | 'collection';
+  ownerType: TestRunOwnerType;
+  ownerId: string;
+  ownerNameAtRun: string;
   ruleUids: string[];
   url: string;
   startedAt: number;
@@ -83,6 +87,8 @@ interface TestSessionResult {
   fires: TestFireEvent[];
   ruleStatuses: Record<string, TestRuleStatus>;
   noFireReasons?: Record<string, ShadowAttribution>;
+  ownerHashAtRun: string;
+  isStale: boolean;
 }
 
 /**
@@ -131,61 +137,67 @@ const SHADOW_REASON_COPY: Record<ShadowKind, { short: string; long: (name: strin
 
 // ── Component ────────────────────────────────────────────────────
 
-interface TestResultsViewProps {
-  sessionId: string;
+interface RunReportViewProps {
+  runId: string;
   onSelectRule?: (uid: string) => void;
+  /**
+   * Called after the user successfully deletes the run. The host
+   * (App.tsx) closes this tab and re-focuses the bottom-panel Test
+   * Runs list for the same owner — without this hop the user lands on
+   * a "run not found" empty state, which is the original UX bug.
+   */
+  onAfterDelete?: () => void;
 }
 
-const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRule }) => {
+const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAfterDelete }) => {
   const { token } = theme.useToken();
   const { rules } = useRules();
   const { message } = App.useApp();
-  const [session, setSession] = useState<TestSessionResult | null>(null);
+  const [run, setRun] = useState<TestRun | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRuleUid, setSelectedRuleUid] = useState<string | null>(null);
+  // Compact layout matches RuleFlow's default — denser cards, tighter
+  // connectors, smaller terminus glyphs. Toggle lives in the toolbar.
+  const [compact, setCompact] = useState(true);
 
-  const loadSession = useCallback(() => {
+  useEffect(() => {
     setLoading(true);
     setError(null);
-    runtime.sendMessage({ type: 'getTestSession', sessionId }, (response: unknown) => {
-      const data = response as { success?: boolean; session?: TestSessionResult | null; error?: string } | null;
-      if (data?.success && data.session) {
-        setSession(data.session);
+    runtime.sendMessage({ type: 'getTestRun', runId }, (response: unknown) => {
+      const data = response as { success?: boolean; run?: TestRun | null; error?: string } | null;
+      if (data?.success && data.run) {
+        setRun(data.run);
       } else if (data?.success) {
-        setError('Session not found — it may have been trimmed or deleted.');
+        setError('Run not found — it may have been deleted.');
       } else {
-        setError(data?.error ?? 'Failed to load test session');
+        setError(data?.error ?? 'Failed to load test run');
       }
       setLoading(false);
     });
-  }, [sessionId]);
-
-  useEffect(() => {
-    loadSession();
-  }, [loadSession]);
+  }, [runId]);
 
   const handleDelete = useCallback(() => {
-    runtime.sendMessage({ type: 'deleteTestSession', sessionId }, (response: unknown) => {
+    runtime.sendMessage({ type: 'deleteTestRun', runId }, (response: unknown) => {
       const data = response as { success?: boolean } | null;
       if (data?.success) {
-        message.success('Test session deleted');
-        setSession(null);
+        message.success('Test run deleted');
+        onAfterDelete?.();
       } else {
-        message.error('Failed to delete test session');
+        message.error('Failed to delete test run');
       }
     });
-  }, [sessionId, message]);
+  }, [runId, message, onAfterDelete]);
 
   // Resolve scoped rules from the live rule store. Rules can change between
   // when the test ran and when the user opens the report — we render
   // whatever the rule still looks like now, falling back gracefully if a
   // rule was deleted (it just disappears from the flow).
   const scopedRules = useMemo(() => {
-    if (!session) return [];
-    const wanted = new Set(session.ruleUids);
+    if (!run) return [];
+    const wanted = new Set(run.ruleUids);
     return rules.filter((r) => wanted.has(r.uid));
-  }, [session, rules]);
+  }, [run, rules]);
 
   // Per-rule status overlays driving FlowRuleCard's color/tag treatment.
   // Overlay selection:
@@ -199,11 +211,11 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
   //   - status === 'no-fire' otherwise                       → 'no-fire'
   const overlays = useMemo(() => {
     const map = new Map<string, RuleStatusOverlay>();
-    if (!session) return map;
-    const noFireReasons = session.noFireReasons ?? {};
-    for (const uid of session.ruleUids) {
-      const status = session.ruleStatuses[uid] ?? 'no-fire';
-      const ruleFires = session.fires.filter((f) => f.ruleUid === uid);
+    if (!run) return map;
+    const noFireReasons = run.noFireReasons ?? {};
+    for (const uid of run.ruleUids) {
+      const status = run.ruleStatuses[uid] ?? 'no-fire';
+      const ruleFires = run.fires.filter((f) => f.ruleUid === uid);
       const fireCount = ruleFires.length;
 
       if (status === 'skipped') {
@@ -240,7 +252,7 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
       }
     }
     return map;
-  }, [session]);
+  }, [run]);
 
   // Group scoped rules by tier — same ordering as RuleFlow.
   const rulesByTier = useMemo(() => {
@@ -274,8 +286,8 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
   );
 
   const selectedFires = useMemo(
-    () => (selectedRuleUid && session ? session.fires.filter((f) => f.ruleUid === selectedRuleUid) : []),
-    [selectedRuleUid, session],
+    () => (selectedRuleUid && run ? run.fires.filter((f) => f.ruleUid === selectedRuleUid) : []),
+    [selectedRuleUid, run],
   );
 
   const selectedOverlay = selectedRuleUid ? overlays.get(selectedRuleUid) : null;
@@ -292,20 +304,21 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <Spin tip="Loading test session…" />
+        <Spin tip="Loading test run…" />
       </div>
     );
   }
 
-  if (error || !session) {
+  if (error || !run) {
     return (
       <div style={{ padding: 48 }}>
         <Empty
           description={
             <Space direction="vertical" size={8} style={{ maxWidth: 420 }}>
-              <Text>{error ?? 'No session loaded'}</Text>
+              <Text>{error ?? 'No run loaded'}</Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Sessions are kept in extension storage and trimmed to the 50 most recent.
+                Test runs live under the entity they were run against — open the Test Runs tab in the bottom panel from
+                a collection, folder, or rule to see its history.
               </Text>
             </Space>
           }
@@ -317,7 +330,7 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
   const visibleTiers = PRIORITY_TIERS.filter((t) => (rulesByTier.get(t.key) ?? []).length > 0);
 
   return (
-    <div className="rule-flow" data-compact="true" style={{ height: '100%', display: 'flex', minHeight: 0 }}>
+    <div className="rule-flow" data-compact={compact} style={{ height: '100%', display: 'flex', minHeight: 0 }}>
       {/* Main pipeline column */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
         {/* Header / toolbar — mirrors RuleFlow's toolbar styling */}
@@ -326,28 +339,36 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
             <Space size={6} align="center">
               <ExperimentOutlined style={{ fontSize: 16, color: token.colorPrimary }} />
               <Title level={5} style={{ margin: 0 }}>
-                Test Results
+                Run Report
               </Title>
             </Space>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              {session.url}
+              {run.url}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              · {new Date(session.endedAt).toLocaleString()}
+              · {new Date(run.endedAt).toLocaleString()}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              · {session.waitSeconds}s capture
+              · {run.waitSeconds}s capture
             </Text>
           </Space>
           <Space size={8}>
+            <Checkbox checked={compact} onChange={(e) => setCompact(e.target.checked)} style={{ fontSize: 11 }}>
+              <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Compact</span>
+            </Checkbox>
+            {run.isStale && (
+              <Tooltip title="The owning rule, folder, or collection has changed since this test ran. The report still reflects the rules as they were at run time.">
+                <Tag color="warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 }}>
+                  <WarningOutlined />
+                  Stale
+                </Tag>
+              </Tooltip>
+            )}
             <Tally label="executed" count={tally.executed} color="success" icon="executed" />
             <Tally label="shadowed" count={tally.shadowed} color="warning" icon="shadowed" />
             <Tally label="no fire" count={tally.noFire} color="default" icon="no-fire" />
             {tally.skipped > 0 && <Tally label="skipped" count={tally.skipped} color="default" icon="skipped" />}
-            <Tally label="fires" count={session.fires.length} color="blue" />
-            <Button size="small" icon={<ReloadOutlined />} onClick={loadSession}>
-              Reload
-            </Button>
+            <Tally label="fires" count={run.fires.length} color="blue" />
             <Button size="small" danger icon={<DeleteOutlined />} onClick={handleDelete}>
               Delete
             </Button>
@@ -357,11 +378,11 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
         {/* Pipeline canvas — same dot-grid background as RuleFlow */}
         <div className="rule-flow-pipeline" style={{ flex: 1 }}>
           {visibleTiers.length === 0 ? (
-            <Empty description="No rules in this session" style={{ marginTop: 48 }} />
+            <Empty description="No rules in this run" style={{ marginTop: 48 }} />
           ) : (
             <>
-              <Terminus type="start" compact />
-              <Connector label="evaluate conditions" compact />
+              <Terminus type="start" compact={compact} />
+              <Connector label="evaluate conditions" compact={compact} />
 
               {visibleTiers.map((tier, i) => {
                 const tierRules = rulesByTier.get(tier.key) ?? [];
@@ -378,19 +399,21 @@ const TestResultsView: React.FC<TestResultsViewProps> = ({ sessionId, onSelectRu
                         // No-op in read-only mode — PriorityGroup hides the
                         // Add Rule button when readOnly is set.
                       }}
-                      compact
+                      compact={compact}
                       readOnly
                       statusOverlays={overlays}
                       selectedRuleUid={selectedRuleUid}
                       onCardClick={(uid) => setSelectedRuleUid(uid)}
                     />
-                    {i < visibleTiers.length - 1 && <Connector label={i === 0 ? 'then' : undefined} compact />}
+                    {i < visibleTiers.length - 1 && (
+                      <Connector label={i === 0 ? 'then' : undefined} compact={compact} />
+                    )}
                   </div>
                 );
               })}
 
-              <Connector compact />
-              <Terminus type="end" compact />
+              <Connector compact={compact} />
+              <Terminus type="end" compact={compact} />
             </>
           )}
         </div>
@@ -600,4 +623,4 @@ const EvidenceTag: React.FC<{ evidence: string }> = ({ evidence }) => {
   );
 };
 
-export default TestResultsView;
+export default RunReportView;

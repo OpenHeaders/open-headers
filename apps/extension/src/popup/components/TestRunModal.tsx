@@ -1,9 +1,10 @@
 /**
- * TestSessionModal — URL + wait-seconds prompt that launches a test session
- * against a scope (single rule, folder, or collection). The modal is a pure
- * launcher: it sends `startTestSession` and closes immediately. All running
- * UI lives in the in-page widget that the background mounts on the test tab,
- * so the popup is free to close (which Chrome does on blur anyway).
+ * TestRunModal — URL + wait-seconds prompt that launches a test run
+ * against a scope (single rule, folder, collection, or the whole
+ * workspace). The modal is a pure launcher: it sends `startTestRun` and
+ * closes immediately. All running UI lives in the in-page widget that
+ * the background mounts on the test tab, so the popup is free to close
+ * (which Chrome does on blur anyway).
  */
 
 import { PlayCircleOutlined } from '@ant-design/icons';
@@ -16,15 +17,17 @@ import { useCallback, useEffect, useState } from 'react';
 
 const { Text } = Typography;
 
-export type TestScope = 'single' | 'folder' | 'collection';
+export type TestRunOwnerType = 'rule' | 'folder' | 'collection' | 'workspace';
 
-interface TestSessionModalProps {
+interface TestRunModalProps {
   open: boolean;
   onClose: () => void;
   /** What we're testing — label shown in the modal header and the in-page widget. */
   scopeLabel: string;
-  /** Scope kind for backend routing. */
-  scope: TestScope;
+  /** Owner type — keys storage so results live under the right entity. */
+  ownerType: TestRunOwnerType;
+  /** Owner id — uid of the rule, folder, or collection the test belongs to. */
+  ownerId: string;
   /** Rule uids under test (snapshot taken when modal opened). */
   ruleUids: string[];
   /** Optional default URL — e.g., the last URL used, or the tab url. */
@@ -62,11 +65,12 @@ const WAIT_PRESETS = [
   { value: '300', label: '5 min — maximum' },
 ];
 
-const TestSessionModal: React.FC<TestSessionModalProps> = ({
+const TestRunModal: React.FC<TestRunModalProps> = ({
   open,
   onClose,
   scopeLabel,
-  scope,
+  ownerType,
+  ownerId,
   ruleUids,
   defaultUrl,
 }) => {
@@ -116,11 +120,12 @@ const TestSessionModal: React.FC<TestSessionModalProps> = ({
 
     // Fire-and-forget: the response callback won't fire if Chrome closes the
     // popup before the capture window ends, but the background still runs the
-    // session and persists the result. The in-page widget on the test tab is
+    // test and persists the result. The in-page widget on the test tab is
     // the primary feedback surface.
     runtime.sendMessage({
-      type: 'startTestSession',
-      scope,
+      type: 'startTestRun',
+      ownerType,
+      ownerId,
       scopeLabel,
       ruleUids,
       // Send the scheme-qualified URL so the background's `tabs.update`
@@ -135,7 +140,7 @@ const TestSessionModal: React.FC<TestSessionModalProps> = ({
       duration: 3,
     });
     onClose();
-  }, [url, scope, scopeLabel, ruleUids, waitInput, onClose, message]);
+  }, [url, ownerType, ownerId, scopeLabel, ruleUids, waitInput, onClose, message]);
 
   return (
     <Modal open={open} onCancel={onClose} title={`Test ${scopeLabel}`} footer={null} width={440}>
@@ -206,4 +211,4 @@ const TestSessionModal: React.FC<TestSessionModalProps> = ({
   );
 };
 
-export default TestSessionModal;
+export default TestRunModal;

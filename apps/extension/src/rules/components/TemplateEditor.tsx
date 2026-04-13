@@ -12,7 +12,6 @@ import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ConditionEditor from './ConditionEditor';
-import TwoToneIconPicker from './TwoToneIconPicker';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -21,6 +20,7 @@ import InjectRuleFields from './rule-fields/InjectRuleFields';
 import MockRuleFields from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
+import TwoToneIconPicker from './TwoToneIconPicker';
 
 const { Text } = Typography;
 const { TextArea } = Input;

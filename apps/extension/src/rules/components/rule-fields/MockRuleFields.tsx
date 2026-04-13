@@ -12,8 +12,8 @@ import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import { getDocId } from '../InspectorDocs';
 import CodeEditor from '../CodeEditor';
+import { getDocId } from '../InspectorDocs';
 
 const { Text } = Typography;
 
@@ -240,7 +240,10 @@ const MockRuleFields: React.FC = () => {
                 Dynamic (JavaScript){' '}
                 <InfoCircleOutlined
                   style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={(e) => { e.stopPropagation(); openDocs(getDocId('mock-dynamic', 'action')); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDocs(getDocId('mock-dynamic', 'action'));
+                  }}
                 />
               </Radio.Button>
             </Radio.Group>

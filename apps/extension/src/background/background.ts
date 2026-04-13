@@ -8,6 +8,7 @@
 declare const browser: typeof chrome | undefined;
 
 import { RecordingService } from '@assets/recording/background/recording-service';
+import type { V5 } from '@openheaders/core/types';
 import { isPathPausedByAncestor } from '@openheaders/core/utils';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -34,9 +35,10 @@ import {
   revalidateTrackedRequests,
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
-import { getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
+import { getLocalCollectionTrees, getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
+import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import {
   connectWebSocket,
@@ -49,6 +51,31 @@ import {
 
 void logger.initialize();
 initPauseState();
+
+/**
+ * Compute the live rule + entity (folder/collection) id sets and ask the
+ * test-run store to drop any owner bucket whose target is gone. Called
+ * after every rule-store change so deletions driven by the WebSocket also
+ * cascade-clean orphan test-run buckets.
+ */
+function pruneOrphanTestRunOwnersFromStore(): void {
+  const liveRules = new Set<string>();
+  const liveEntities = new Set<string>();
+  for (const r of getRules()) liveRules.add(r.uid);
+  for (const c of getLocalCollectionTrees()) {
+    liveEntities.add(c.uid);
+    const walk = (nodes: V5.TreeNode[]): void => {
+      for (const n of nodes) {
+        if (n.type === 'folder') {
+          liveEntities.add(n.uid);
+          walk(n.children);
+        }
+      }
+    };
+    walk(c.tree);
+  }
+  void pruneOrphanOwners(liveRules, liveEntities);
+}
 
 const recordingService: IRecordingService = new RecordingService();
 
@@ -109,12 +136,16 @@ async function initializeExtension(): Promise<void> {
   setupTestRunnerPorts();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
+  // and prune any orphaned test-run owner buckets. The prune covers the
+  // WebSocket-driven path where the desktop deletes rules/folders without
+  // going through message-handler's local CRUD handlers.
   onStoreChange(() => {
     try {
       runtime.sendMessage({ type: 'rulesUpdated', rules: getRules() });
     } catch {
       // No listeners — popup/workspace not open
     }
+    pruneOrphanTestRunOwnersFromStore();
   });
 
   // Broadcast template changes to all open extension pages

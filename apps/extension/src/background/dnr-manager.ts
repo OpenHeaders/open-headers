@@ -40,7 +40,7 @@ import {
 } from './dnr-builders';
 import { updateScriptableRules } from './inject-manager';
 import { getRules } from './modules/rule-store';
-import { getActiveSessionSnapshots, getActiveTestTabIds } from './modules/test-runner';
+import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
 
 // ── Paused state ─────────────────────────────────────────────────
 
@@ -54,18 +54,19 @@ let pausedGroups: Set<string> = new Set();
 const dynamicDnrIdToUid: Map<number, string> = new Map();
 
 /**
- * Per-session mapping from SESSION rule id → V5.Rule.uid. Keyed by sessionId
- * so the test-runner can look up fires for its own session without colliding
- * with other parallel sessions.
+ * Per-run mapping from DNR session rule id → V5.Rule.uid. Keyed by test
+ * run id so the test-runner can look up fires for its own run without
+ * colliding with other parallel runs. ("Session" in the field name refers
+ * to Chrome's `updateSessionRules` DNR category, not to our test runs.)
  */
-const sessionDnrIdToUid: Map<string, Map<number, string>> = new Map();
+const runSessionRuleIdToUid: Map<string, Map<number, string>> = new Map();
 
 export function getDnrIdToRuleUid(): ReadonlyMap<number, string> {
   return dynamicDnrIdToUid;
 }
 
-export function getSessionRuleIdToUid(sessionId: string): ReadonlyMap<number, string> {
-  return sessionDnrIdToUid.get(sessionId) ?? new Map();
+export function getSessionRuleIdToUid(runId: string): ReadonlyMap<number, string> {
+  return runSessionRuleIdToUid.get(runId) ?? new Map();
 }
 
 export function setRulesPaused(paused: boolean): void {
@@ -280,7 +281,7 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
 
 function rebuildAll(rules: V5.Rule[]): Promise<void> {
   dynamicDnrIdToUid.clear();
-  sessionDnrIdToUid.clear();
+  runSessionRuleIdToUid.clear();
 
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
@@ -291,7 +292,7 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
   }
 
   const testTabIds = getActiveTestTabIds();
-  const sessions = getActiveSessionSnapshots();
+  const runs = getActiveRunSnapshots();
 
   // ── Layer 1: dynamic rules (global, not per-tab) ──
   // Compile all enabled rules. Dynamic DNR rules go out globally; session
@@ -309,9 +310,9 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
   // ── Layer 2: session rules ──
   // Three subcategories:
   //
-  //   (a) Test-session rules: scope-snapshot rules from each active test
-  //       session, stamped with tabIds: [testTabId] so they only fire on
-  //       that session's tab.
+  //   (a) Test-run rules: scope-snapshot rules from each active test
+  //       run, stamped with tabIds: [testTabId] so they only fire on
+  //       that run's tab.
   //   (b) Delay redirect rules: emitted by compileRuleSet as `session`
   //       rules. Stamped with excludedTabIds for test tabs (so they don't
   //       collide with test isolation) AND for any tabs currently in the
@@ -322,36 +323,36 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
 
   const sessionToApply: DnrRule[] = [];
 
-  // (a) Test sessions first — start the session rule id counter well
-  // above the dynamic range to avoid id collisions in Chrome versions
-  // that share the id space across both layers.
+  // (a) Test runs first — start the session rule id counter well above
+  // the dynamic range to avoid id collisions in Chrome versions that
+  // share the id space across both layers.
   let sessionIdCounter = 1_000_000;
-  // Snapshot the bypass set once so all sessions see a consistent view.
+  // Snapshot the bypass set once so all runs see a consistent view.
   const bypassTabSet = new Set(getActiveBypassTabIds());
-  for (const session of sessions) {
-    const perSessionMap = new Map<number, string>();
-    sessionDnrIdToUid.set(session.id, perSessionMap);
+  for (const run of runs) {
+    const perRunMap = new Map<number, string>();
+    runSessionRuleIdToUid.set(run.id, perRunMap);
 
-    // Delay-loop guard: when this session's test tab is in the delay-bypass
+    // Delay-loop guard: when this run's test tab is in the delay-bypass
     // window (the delay page is about to navigate back to the real target),
     // the delay rule under test would re-fire and loop. Drop delay rules
     // from the scope for the duration of the bypass window — every other
-    // rule type in the session continues to apply normally. Once the
-    // bypass entry clears (resolveDelayBypass on commit), the next
-    // applyAllRules brings the delay rule back, but the test tab has
-    // already navigated past it.
-    const scopeForCompile = bypassTabSet.has(session.tabId)
-      ? session.scopeRules.filter((r) => r.type !== 'delay')
-      : session.scopeRules;
+    // rule type in the run continues to apply normally. Once the bypass
+    // entry clears (resolveDelayBypass on commit), the next applyAllRules
+    // brings the delay rule back, but the test tab has already navigated
+    // past it.
+    const scopeForCompile = bypassTabSet.has(run.tabId)
+      ? run.scopeRules.filter((r) => r.type !== 'delay')
+      : run.scopeRules;
 
-    const { dynamic: sessionDynamic, session: sessionSession } = compileRuleSet(scopeForCompile, sessionIdCounter);
+    const { dynamic: runDynamic, session: runSession } = compileRuleSet(scopeForCompile, sessionIdCounter);
     // Both the "dynamic" and "session" outputs from a test scope end up
-    // in the session layer with tabIds stamped — within a test session,
+    // in the session layer with tabIds stamped — within a test run,
     // everything is per-tab.
-    const all = [...sessionDynamic, ...sessionSession];
+    const all = [...runDynamic, ...runSession];
     for (const { rule, uid } of all) {
-      perSessionMap.set(rule.id, uid);
-      rule.condition = { ...rule.condition, tabIds: [session.tabId] };
+      perRunMap.set(rule.id, uid);
+      rule.condition = { ...rule.condition, tabIds: [run.tabId] };
       sessionToApply.push(rule);
       sessionIdCounter = Math.max(sessionIdCounter, rule.id + 1);
     }
