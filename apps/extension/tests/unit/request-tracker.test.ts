@@ -318,6 +318,8 @@ describe('matchRulesToRequest', () => {
       pattern: '*://*.openheaders.io/*',
       // Plain override header rule — no merge action, so not deferred.
       deferred: false,
+      // Arbitration metadata — normalized X-Debug / override → request-side set.
+      headerOps: [{ side: 'request', operation: 'set', name: 'x-debug' }],
     });
   });
 

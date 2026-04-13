@@ -213,7 +213,7 @@ describe('tab-telemetry — observed fires (non-deferred rule types)', () => {
 describe('tab-telemetry — shadowedBy propagation', () => {
   it('carries shadowedBy from ObservedFireMeta into the stored RequestRecord', () => {
     startTracking(1, 'active-popup');
-    const shadowedBy = { uid: 'block-1', name: 'Block ads' };
+    const shadowedBy = { uid: 'block-1', name: 'Block ads', kind: 'block-terminal' as const };
     recordObservedFire(1, 'rule-header', 'https://api.openheaders.io/x', 'req-1', 100, { ...DNR_META, shadowedBy });
 
     const snap = getTabSnapshot(1);

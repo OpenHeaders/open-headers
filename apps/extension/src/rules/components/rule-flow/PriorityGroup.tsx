@@ -11,7 +11,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
-import FlowRuleCard from './FlowRuleCard';
+import FlowRuleCard, { type RuleStatusOverlay } from './FlowRuleCard';
 
 /** Chrome DNR execution priority tiers — ordered by engine processing order. */
 export interface PriorityTier {
@@ -89,6 +89,18 @@ interface PriorityGroupProps {
   collectionId?: string;
   folderPath?: string;
   compact?: boolean;
+  /**
+   * Per-rule status overlay for the test-results flow. When set, every card
+   * in this group renders with its outcome color, and the "Add Rule" button
+   * is hidden because adding rules from a finished test result is nonsense.
+   */
+  statusOverlays?: Map<string, RuleStatusOverlay>;
+  /** Currently-selected rule uid in test-results mode (highlights the card). */
+  selectedRuleUid?: string | null;
+  /** Whole-card click handler for read-only mode (opens the side-panel detail). */
+  onCardClick?: (uid: string) => void;
+  /** Hide editing affordances on the cards (toggle, delete, drag handle). */
+  readOnly?: boolean;
 }
 
 const PriorityGroup: React.FC<PriorityGroupProps> = ({
@@ -99,6 +111,10 @@ const PriorityGroup: React.FC<PriorityGroupProps> = ({
   collectionId,
   folderPath,
   compact,
+  statusOverlays,
+  selectedRuleUid,
+  onCardClick,
+  readOnly,
 }) => {
   const { token } = theme.useToken();
 
@@ -143,16 +159,20 @@ const PriorityGroup: React.FC<PriorityGroupProps> = ({
                 key={rule.uid}
                 rule={rule}
                 onSelectRule={onSelectRule}
+                onCardClick={onCardClick}
                 tierColor={tier.color}
                 compact={compact}
+                statusOverlay={statusOverlays?.get(rule.uid)}
+                testSelected={selectedRuleUid === rule.uid}
+                readOnly={readOnly}
               />
             ))
           )}
         </div>
       </SortableContext>
 
-      {/* Add rule button */}
-      {!compact && collectionId && addMenuItems.length > 0 && (
+      {/* Add rule button — hidden in test-results (read-only) mode. */}
+      {!readOnly && !compact && collectionId && addMenuItems.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
           <Dropdown menu={{ items: addMenuItems }} trigger={['click']} placement="bottom">
             <Button

@@ -28,6 +28,7 @@ import {
   onMainFrameRedirect,
   onMainFrameRequest,
   recordObservedFire,
+  recordObservedUrl,
 } from './tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
 
@@ -77,6 +78,9 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
       //      type whitelist — every enabled rule whose URL conditions match
       //      contributes a probable fire.
       if (isTabTracked(details.tabId)) {
+        // Log every observed URL regardless of match so session-finish
+        // arbitration can re-check no-fire rules against the full set.
+        recordObservedUrl(details.tabId, normalizedUrl);
         if (details.type === 'main_frame') {
           onMainFrameRequest(details.tabId, details.requestId, normalizedUrl);
         }
@@ -250,6 +254,12 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
         if (!isTrackableUrl(details.redirectUrl)) return;
 
         const normalizedRedirectUrl = normalizeUrlForTracking(details.redirectUrl);
+
+        // Log every observed URL (including redirect targets) so
+        // session-finish arbitration has the full URL set.
+        if (isTabTracked(details.tabId)) {
+          recordObservedUrl(details.tabId, normalizedRedirectUrl);
+        }
 
         // Extend the main-frame chain so when the final URL commits we can
         // recognize it as the same navigation and promote pending fires.

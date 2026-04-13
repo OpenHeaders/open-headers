@@ -528,6 +528,7 @@ export const windows = browserAPI.windows
   : null;
 
 type WebNavigationListener = (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => void;
+type WebNavigationErrorListener = (details: chrome.webNavigation.WebNavigationFramedErrorCallbackDetails) => void;
 // Cross-browser webNavigation API
 export const webNavigation = browserAPI.webNavigation
   ? {
@@ -545,6 +546,14 @@ export const webNavigation = browserAPI.webNavigation
               browserAPI.webNavigation.onHistoryStateUpdated.addListener(listener),
             removeListener: (listener: WebNavigationListener): void =>
               browserAPI.webNavigation.onHistoryStateUpdated.removeListener(listener),
+          }
+        : null,
+      onErrorOccurred: browserAPI.webNavigation.onErrorOccurred
+        ? {
+            addListener: (listener: WebNavigationErrorListener): void =>
+              browserAPI.webNavigation.onErrorOccurred.addListener(listener),
+            removeListener: (listener: WebNavigationErrorListener): void =>
+              browserAPI.webNavigation.onErrorOccurred.removeListener(listener),
           }
         : null,
       onTabReplaced: browserAPI.webNavigation.onTabReplaced

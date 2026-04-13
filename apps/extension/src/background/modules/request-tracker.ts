@@ -96,6 +96,27 @@ export function checkIfUrlMatchesAnyRule(url: string): boolean {
 }
 
 /**
+ * A single header operation as seen by arbitration. Normalized away from
+ * the V5 wire shape (`override`/`add` collapsed into set/append) because
+ * the arbitrator only cares about the *effective semantics* on Chrome's
+ * side, not the UX labels. The name is lowercased — HTTP header names are
+ * case-insensitive and Chrome collapses them internally.
+ */
+export interface MatchingRuleHeaderOp {
+  side: 'request' | 'response';
+  /**
+   * Effective operation:
+   *   - 'set'     — override an existing value (Chrome 'set'; V5 'override')
+   *   - 'append'  — add a new header entry alongside any existing (V5 'add')
+   *   - 'remove'  — delete all instances of the header
+   *   - 'merge'   — scriptable read-modify-write, not a DNR operation
+   */
+  operation: 'set' | 'append' | 'remove' | 'merge';
+  /** Lowercased header name. */
+  name: string;
+}
+
+/**
  * A single rule that matched a request — the minimum info request-monitor
  * needs to drive tab-telemetry ingestion AND shadow arbitration.
  */
@@ -113,6 +134,12 @@ export interface MatchingRule {
    * pure DNR and never emit a scriptable fire.
    */
   deferred: boolean;
+  /**
+   * Populated only for `header` rules. Used by shadow arbitration to
+   * detect header-stacking ambiguity and mock-intercept on response-side
+   * modifications. Normalized away from the V5 wire shape.
+   */
+  headerOps?: MatchingRuleHeaderOp[];
 }
 
 /**
@@ -146,6 +173,32 @@ function hasHeaderMergeAction(rule: V5.HeaderRule): boolean {
 }
 
 /**
+ * Normalize a header rule's action into the arbitration-facing shape.
+ * V5's `override` is Chrome's `set`; V5's `add` is Chrome's `append`;
+ * `remove` and `merge` pass through. Names are lowercased because HTTP
+ * header matching is case-insensitive. Empty output means "header rule
+ * with no modifications" — callers should treat that the same as a
+ * non-header rule for arbitration purposes.
+ */
+function extractHeaderOps(rule: V5.HeaderRule): MatchingRuleHeaderOp[] {
+  const out: MatchingRuleHeaderOp[] = [];
+  const convert = (op: V5.HeaderOperation): MatchingRuleHeaderOp['operation'] => {
+    if (op === 'override') return 'set';
+    if (op === 'add') return 'append';
+    return op; // 'remove' | 'merge'
+  };
+  for (const h of rule.action.requestHeaders ?? []) {
+    if (!h.headerName) continue;
+    out.push({ side: 'request', operation: convert(h.operation), name: h.headerName.toLowerCase() });
+  }
+  for (const h of rule.action.responseHeaders ?? []) {
+    if (!h.headerName) continue;
+    out.push({ side: 'response', operation: convert(h.operation), name: h.headerName.toLowerCase() });
+  }
+  return out;
+}
+
+/**
  * Return every enabled, complete rule whose URL conditions match this URL.
  * Used by the tab-telemetry ingestion path in request-monitor to attribute
  * each observed request to the specific rule uids that would have matched.
@@ -163,13 +216,18 @@ export function matchRulesToRequest(url: string): MatchingRule[] {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
     for (const entry of getRuleMatchPatterns(rule)) {
       if (doesUrlMatchEntry(normalizedUrl, entry)) {
-        out.push({
+        const matching: MatchingRule = {
           uid: rule.uid,
           name: rule.name,
           type: rule.type,
           pattern: entry.pattern,
           deferred: computeDeferred(rule),
-        });
+        };
+        if (rule.type === 'header') {
+          const ops = extractHeaderOps(rule);
+          if (ops.length > 0) matching.headerOps = ops;
+        }
+        out.push(matching);
         break;
       }
     }

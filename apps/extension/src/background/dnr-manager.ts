@@ -326,10 +326,25 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
   // above the dynamic range to avoid id collisions in Chrome versions
   // that share the id space across both layers.
   let sessionIdCounter = 1_000_000;
+  // Snapshot the bypass set once so all sessions see a consistent view.
+  const bypassTabSet = new Set(getActiveBypassTabIds());
   for (const session of sessions) {
     const perSessionMap = new Map<number, string>();
     sessionDnrIdToUid.set(session.id, perSessionMap);
-    const { dynamic: sessionDynamic, session: sessionSession } = compileRuleSet(session.scopeRules, sessionIdCounter);
+
+    // Delay-loop guard: when this session's test tab is in the delay-bypass
+    // window (the delay page is about to navigate back to the real target),
+    // the delay rule under test would re-fire and loop. Drop delay rules
+    // from the scope for the duration of the bypass window — every other
+    // rule type in the session continues to apply normally. Once the
+    // bypass entry clears (resolveDelayBypass on commit), the next
+    // applyAllRules brings the delay rule back, but the test tab has
+    // already navigated past it.
+    const scopeForCompile = bypassTabSet.has(session.tabId)
+      ? session.scopeRules.filter((r) => r.type !== 'delay')
+      : session.scopeRules;
+
+    const { dynamic: sessionDynamic, session: sessionSession } = compileRuleSet(scopeForCompile, sessionIdCounter);
     // Both the "dynamic" and "session" outputs from a test scope end up
     // in the session layer with tabIds stamped — within a test session,
     // everything is per-tab.

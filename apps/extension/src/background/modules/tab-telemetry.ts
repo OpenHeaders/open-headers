@@ -54,6 +54,7 @@
  */
 
 import type { TrackedResourceType } from '@/types/browser';
+import type { ShadowAttribution } from './shadow-arbitration';
 
 // ── Tunables ────────────────────────────────────────────────────────
 
@@ -96,11 +97,13 @@ export interface RequestRecord {
   evidence: Evidence;
   /**
    * Set when shadow arbitration (see shadow-arbitration.ts) determined that
-   * a higher-priority rule terminated this request before the current rule
-   * could run. Populated at ingestion time from `ObservedFireMeta`; never
-   * set on scriptable fires (they're ground truth about what actually ran).
+   * another rule in the matching set made this rule's effect invisible or
+   * ambiguous. `kind` classifies the reason — block-terminal, retarget,
+   * mock-intercept, delay-page, or header-stacking. Populated at ingestion
+   * time from `ObservedFireMeta`; never set on scriptable fires (they're
+   * ground truth about what actually ran).
    */
-  shadowedBy?: { uid: string; name: string };
+  shadowedBy?: ShadowAttribution;
 }
 
 /** Metadata the caller supplies when reporting an observed (webRequest) fire. */
@@ -120,7 +123,7 @@ export interface ObservedFireMeta {
    * has no confident claim about this rule's fate" — the UI treats that as
    * unshadowed, the same as when the experimental flag is off.
    */
-  shadowedBy?: { uid: string; name: string };
+  shadowedBy?: ShadowAttribution;
 }
 
 /** Metadata the caller supplies when reporting a scriptable (fire-bridge) fire. */
@@ -161,6 +164,7 @@ interface PendingFallback {
 }
 
 interface TabState {
+  tabId: number;
   reasons: Set<TrackingReason>;
   currentPageUrl: string | null;
   fires: RequestRecord[];
@@ -173,12 +177,33 @@ interface TabState {
   recentScriptable: Map<string, number>;
   /** `${uid}:${requestId}` — observed-fire dedup across redirect chains. */
   seen: Set<string>;
+  /**
+   * Every normalized URL observed on this tab since tracking started —
+   * main-frame navigations, redirects, sub-resources, XHRs, everything
+   * request-monitor sees. Used at test-session-finish time to re-run
+   * arbitration against the full observed-URL set, so no-fire rules can
+   * be promoted to shadowed when a sibling rule (delay / redirect / block)
+   * would have shadowed them on any URL the tab actually hit. This is
+   * the static "arbitrate-against-everything-observed" pass that catches
+   * shadows lost to the pre-commit pending-fires drop.
+   */
+  observedUrls: Set<string>;
 }
 
 const tabs: Map<number, TabState> = new Map();
 
-function emptyState(): TabState {
+/**
+ * Per-tab fire subscribers. Notified for every record that lands in the
+ * counters (post-fallback drain, post-promotion). Used by the test-runner
+ * to push live fire counts into its in-page widget without polling. Listeners
+ * MUST NOT call back into telemetry (no re-entrancy guard).
+ */
+type FireListener = (record: RequestRecord) => void;
+const fireListeners: Map<number, Set<FireListener>> = new Map();
+
+function emptyState(tabId: number): TabState {
   return {
+    tabId,
     reasons: new Set(),
     currentPageUrl: null,
     fires: [],
@@ -189,6 +214,40 @@ function emptyState(): TabState {
     pendingFallback: new Map(),
     recentScriptable: new Map(),
     seen: new Set(),
+    observedUrls: new Set(),
+  };
+}
+
+function emitFire(tabId: number, record: RequestRecord): void {
+  const set = fireListeners.get(tabId);
+  if (!set || set.size === 0) return;
+  for (const fn of set) {
+    try {
+      fn(record);
+    } catch {
+      // Subscriber failures must never corrupt telemetry state.
+    }
+  }
+}
+
+/**
+ * Subscribe to every fire that lands in this tab's counters. Returns an
+ * unsubscribe function. Listeners are independent of tracking reasons —
+ * they fire as long as the tab has any tracking reason active. Used by
+ * the test-runner to drive its in-page widget without polling.
+ */
+export function subscribeFires(tabId: number, listener: FireListener): () => void {
+  let set = fireListeners.get(tabId);
+  if (!set) {
+    set = new Set();
+    fireListeners.set(tabId, set);
+  }
+  set.add(listener);
+  return () => {
+    const current = fireListeners.get(tabId);
+    if (!current) return;
+    current.delete(listener);
+    if (current.size === 0) fireListeners.delete(tabId);
   };
 }
 
@@ -214,7 +273,7 @@ function fallbackKey(ruleUid: string, normalizedUrl: string): string {
 export function startTracking(tabId: number, reason: TrackingReason): void {
   let state = tabs.get(tabId);
   if (!state) {
-    state = emptyState();
+    state = emptyState(tabId);
     tabs.set(tabId, state);
   }
   state.reasons.add(reason);
@@ -240,6 +299,7 @@ export function clearTab(tabId: number): void {
   if (!state) return;
   disposeTab(state);
   tabs.delete(tabId);
+  fireListeners.delete(tabId);
 }
 
 function disposeTab(state: TabState): void {
@@ -287,6 +347,7 @@ function appendFire(state: TabState, record: RequestRecord): void {
   }
   state.counters.set(record.ruleUid, (state.counters.get(record.ruleUid) ?? 0) + 1);
   touchUnique(state, record);
+  emitFire(state.tabId, record);
 }
 
 function isScriptableSuppressed(state: TabState, key: string, now: number): boolean {
@@ -422,6 +483,37 @@ export function recordScriptableFire(
   appendFire(state, record);
 }
 
+// ── Observed URL log ────────────────────────────────────────────────
+
+/**
+ * Record a URL that Chrome observed on this tab, regardless of whether
+ * any rule matched. Called from request-monitor for every trackable
+ * request (onBeforeRequest + onBeforeRedirect), so the session-end
+ * arbitration pass can re-check every URL against the full rule scope.
+ *
+ * No-op for untracked tabs. Normalization is the caller's responsibility
+ * so this stays a trivial set.add.
+ */
+export function recordObservedUrl(tabId: number, normalizedUrl: string): void {
+  const state = tabs.get(tabId);
+  if (!state) return;
+  state.observedUrls.add(normalizedUrl);
+}
+
+/**
+ * Read every URL the tab has seen since tracking started. Used by
+ * test-runner at session finish to run static arbitration against
+ * each observed URL and promote no-fire rules to shadowed where a
+ * sibling rule would have shadowed them on ANY hit URL (even ones
+ * whose fire records were dropped at commit time by the pending-fires
+ * pipeline — e.g. the delay → delay.html case).
+ */
+export function getObservedUrls(tabId: number): string[] {
+  const state = tabs.get(tabId);
+  if (!state) return [];
+  return [...state.observedUrls];
+}
+
 // ── Main-frame chain tracking ───────────────────────────────────────
 
 export function onMainFrameRequest(tabId: number, requestId: string, url: string): void {
@@ -512,15 +604,32 @@ export function onPageCommit(tabId: number, committedUrl: string): void {
 }
 
 /**
- * Called when a main-frame navigation fails (onErrorOccurred) so we don't
- * leak stale chain entries. Doesn't touch committed fires — the user's tab
- * is still showing whatever was there before.
+ * Called when a main-frame navigation fails (onErrorOccurred). The
+ * request was observed by webRequest, and any rule that matched it had
+ * its action applied by Chrome before the failure — the most common
+ * case is `ERR_BLOCKED_BY_CLIENT`, where a DNR block rule cancelled
+ * the request, but the same path covers DNS failures, TLS errors, and
+ * any other terminal network error.
+ *
+ * The pending main-frame fires for this requestId are real — the matcher
+ * ran, the rule's action was applied — so we PROMOTE them into the
+ * tab's live fire log instead of dropping them. Otherwise a test session
+ * with a block rule on the target URL would surface the block as
+ * `no-fire` because no commit ever lands and `onPageCommit` never runs.
+ *
+ * The mainFrameChain entry is then released so the chain map doesn't
+ * leak across the tab's lifetime.
  */
 export function onMainFrameError(tabId: number, requestId: string): void {
   const state = tabs.get(tabId);
   if (!state) return;
-  state.mainFrameChains.delete(requestId);
+  const promoted = state.pendingFires.filter((f) => f.requestId === requestId);
   state.pendingFires = state.pendingFires.filter((f) => f.requestId !== requestId);
+  state.mainFrameChains.delete(requestId);
+  for (const p of promoted) {
+    appendFire(state, p.record);
+    state.seen.add(`${p.record.ruleUid}:${p.requestId}`);
+  }
 }
 
 // ── Reads ───────────────────────────────────────────────────────────
@@ -600,6 +709,7 @@ export function getTabSnapshotForScope(tabId: number, scopeUids: Set<string>): T
 export function __resetForTests(): void {
   for (const state of tabs.values()) disposeTab(state);
   tabs.clear();
+  fireListeners.clear();
 }
 
 export const __internals = {

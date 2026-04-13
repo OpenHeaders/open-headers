@@ -1,43 +1,27 @@
 /**
  * TestSessionModal — URL + wait-seconds prompt that launches a test session
- * against a scope (single rule, folder, or collection) and tracks it through
- * to completion.
- *
- * Flow:
- *   1. User opens the modal with a scope + rule uids snapshot.
- *   2. Inputs a URL and picks wait duration (3/5/10s).
- *   3. Clicks Test — sends `startTestSession` to the background.
- *   4. Modal shows "running" state with a count of fires so far.
- *   5. On resolution, shows "View results" which opens the workspace tab
- *      at `workspace.html#/test/<sessionId>`.
- *
- * If the user closes the popup mid-test, the background keeps running and
- * persists the result under `v5TestSessions` so the workspace can fetch it
- * later via `listTestSessions`.
+ * against a scope (single rule, folder, or collection). The modal is a pure
+ * launcher: it sends `startTestSession` and closes immediately. All running
+ * UI lives in the in-page widget that the background mounts on the test tab,
+ * so the popup is free to close (which Chrome does on blur anyway).
  */
 
-import { CheckCircleTwoTone, PlayCircleOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
+import { parseTestTargetUrl } from '@openheaders/core/utils';
 import { runtime } from '@utils/browser-api';
-import { Button, Input, Modal, Select, Space, Tag, Typography } from 'antd';
+import { App, AutoComplete, Button, Input, Modal, Space, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { getBrowserAPI } from '@/types/browser';
 
 const { Text } = Typography;
 
 export type TestScope = 'single' | 'folder' | 'collection';
 
-interface TestResultSummary {
-  id: string;
-  ruleStatuses: Record<string, 'executed' | 'no-fire' | 'skipped'>;
-  fires: Array<{ ruleUid: string }>;
-}
-
 interface TestSessionModalProps {
   open: boolean;
   onClose: () => void;
-  /** What we're testing — label shown in the modal header. */
+  /** What we're testing — label shown in the modal header and the in-page widget. */
   scopeLabel: string;
   /** Scope kind for backend routing. */
   scope: TestScope;
@@ -45,16 +29,37 @@ interface TestSessionModalProps {
   ruleUids: string[];
   /** Optional default URL — e.g., the last URL used, or the tab url. */
   defaultUrl?: string;
-  /** All V5 rules — used to show rule names in the running counter. */
+  /** All V5 rules — kept in props for symmetry with other launchers. */
   allRules: V5.Rule[];
 }
 
-type Phase = 'idle' | 'running' | 'done' | 'error';
+/**
+ * Capture-window bounds. The lower bound is 1s because anything shorter
+ * is below the round-trip latency of a typical request and would give
+ * misleading "no fire" results. The upper bound is 5 minutes — beyond
+ * that the test loses most of its point (you may as well just use the
+ * extension live), and the background hard-ceiling watchdog sits a
+ * fixed slack above this so a 5-minute capture won't get truncated.
+ */
+const MIN_WAIT_SECONDS = 1;
+const MAX_WAIT_SECONDS = 300;
+const DEFAULT_WAIT_SECONDS = 5;
 
-const WAIT_OPTIONS = [
-  { value: 3, label: '3s — quick' },
-  { value: 5, label: '5s — default' },
-  { value: 10, label: '10s — thorough' },
+/**
+ * Preset capture-window options shown in the AutoComplete dropdown.
+ * Free typing is also allowed (1–300s); these are just shortcuts for
+ * the common cases. Labels are human-friendly — durations under a
+ * minute use seconds, durations of a minute or more use minutes — so
+ * the user doesn't have to do the arithmetic to know what 300s means.
+ */
+const WAIT_PRESETS = [
+  { value: '3', label: '3s — quick smoke test' },
+  { value: '5', label: '5s — default' },
+  { value: '10', label: '10s — thorough' },
+  { value: '30', label: '30s — slow page or many sub-resources' },
+  { value: '60', label: '1 min — long-running XHR / SPA boot' },
+  { value: '120', label: '2 min' },
+  { value: '300', label: '5 min — maximum' },
 ];
 
 const TestSessionModal: React.FC<TestSessionModalProps> = ({
@@ -64,174 +69,138 @@ const TestSessionModal: React.FC<TestSessionModalProps> = ({
   scope,
   ruleUids,
   defaultUrl,
-  allRules,
 }) => {
+  const { message } = App.useApp();
   const [url, setUrl] = useState(defaultUrl ?? '');
-  const [waitSeconds, setWaitSeconds] = useState(5);
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [result, setResult] = useState<TestResultSummary | null>(null);
+  // Raw input value backing the AutoComplete. Stored as a string so the
+  // user can type freely (including transient empty / partial states)
+  // without us coercing on every keystroke. Parsed + clamped at launch
+  // time. Re-seeded with the default whenever the modal opens.
+  const [waitInput, setWaitInput] = useState(String(DEFAULT_WAIT_SECONDS));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setUrl(defaultUrl ?? '');
-      setPhase('idle');
-      setResult(null);
+      setWaitInput(String(DEFAULT_WAIT_SECONDS));
       setError(null);
     }
   }, [open, defaultUrl]);
 
   const launch = useCallback(() => {
-    if (!url.trim()) {
-      setError('Please enter a URL');
+    // Single source of truth for URL trim / scheme-prepend / parse /
+    // protocol-check, shared with the background test-runner so a
+    // caller bypassing the popup can't sneak an invalid URL through.
+    const urlResult = parseTestTargetUrl(url);
+    if (!urlResult.ok) {
+      setError(urlResult.error);
       return;
     }
-    try {
-      new URL(url);
-    } catch {
-      setError('That URL doesn\u2019t look valid');
+    const targetUrl = urlResult.url;
+
+    // Parse + validate the capture window. We accept any integer in
+    // [MIN_WAIT_SECONDS, MAX_WAIT_SECONDS]; anything else is rejected
+    // with an explicit error rather than silently clamped — silent
+    // clamping at launch time would surprise the user.
+    const waitNumber = Number(waitInput.trim());
+    if (!Number.isFinite(waitNumber) || !Number.isInteger(waitNumber)) {
+      setError(`Capture window must be a whole number of seconds (${MIN_WAIT_SECONDS}–${MAX_WAIT_SECONDS})`);
       return;
     }
+    if (waitNumber < MIN_WAIT_SECONDS || waitNumber > MAX_WAIT_SECONDS) {
+      setError(`Capture window must be between ${MIN_WAIT_SECONDS}s and ${MAX_WAIT_SECONDS}s`);
+      return;
+    }
+
     setError(null);
-    setPhase('running');
 
-    runtime.sendMessage(
-      {
-        type: 'startTestSession',
-        scope,
-        ruleUids,
-        url,
-        waitSeconds,
-      },
-      (response: unknown) => {
-        const data = response as { success?: boolean; result?: TestResultSummary; error?: string } | null;
-        if (data?.success && data.result) {
-          setResult(data.result);
-          setPhase('done');
-        } else {
-          setError(data?.error ?? 'Test failed');
-          setPhase('error');
-        }
-      },
-    );
-  }, [url, scope, ruleUids, waitSeconds]);
+    // Fire-and-forget: the response callback won't fire if Chrome closes the
+    // popup before the capture window ends, but the background still runs the
+    // session and persists the result. The in-page widget on the test tab is
+    // the primary feedback surface.
+    runtime.sendMessage({
+      type: 'startTestSession',
+      scope,
+      scopeLabel,
+      ruleUids,
+      // Send the scheme-qualified URL so the background's `tabs.update`
+      // gets a value Chrome will navigate to verbatim. Bare hosts like
+      // `127.0.0.1:3000` would otherwise be interpreted as a file path.
+      url: targetUrl,
+      waitSeconds: waitNumber,
+    });
 
-  const openResults = useCallback(() => {
-    if (!result) return;
-    const api = getBrowserAPI();
-    const resultUrl = api.runtime.getURL(`workspace.html#/test/${result.id}`);
-    api.tabs.create({ url: resultUrl });
+    message.success({
+      content: 'Test running — see the floating panel on the new tab',
+      duration: 3,
+    });
     onClose();
-  }, [result, onClose]);
-
-  const firedCount = result ? Object.values(result.ruleStatuses).filter((s) => s === 'executed').length : 0;
-  const noFireCount = result ? Object.values(result.ruleStatuses).filter((s) => s === 'no-fire').length : 0;
-
-  const title =
-    phase === 'running'
-      ? `Testing ${scopeLabel}…`
-      : phase === 'done'
-        ? 'Test complete'
-        : `Test ${scopeLabel}`;
+  }, [url, scope, scopeLabel, ruleUids, waitInput, onClose, message]);
 
   return (
-    <Modal
-      open={open}
-      onCancel={phase === 'running' ? undefined : onClose}
-      title={title}
-      footer={null}
-      closable={phase !== 'running'}
-      maskClosable={phase !== 'running'}
-      width={440}
-    >
+    <Modal open={open} onCancel={onClose} title={`Test ${scopeLabel}`} footer={null} width={440}>
       <Space direction="vertical" size={12} style={{ width: '100%' }}>
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Opens a new tab, captures every rule fire for the wait window, then closes.
+            Opens the URL in a new tab, isolates the test scope, and shows a floating panel with live fire counts and a
+            link to the full report.
             <br />
-            {ruleUids.length} rule{ruleUids.length !== 1 ? 's' : ''} in scope
-            {allRules.length > 0 && ruleUids.length > 0 && (
-              <>
-                {' · '}
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  snapshot taken now
-                </Text>
-              </>
-            )}
+            {ruleUids.length} rule{ruleUids.length !== 1 ? 's' : ''} in scope · snapshot taken now
           </Text>
         </div>
 
-        {phase === 'idle' || phase === 'error' ? (
-          <>
-            <div>
-              <Text style={{ fontSize: 12 }}>URL to test</Text>
-              <Input
-                placeholder="https://openheaders.io"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onPressEnter={launch}
-                autoFocus
-                size="middle"
-              />
-            </div>
-            <div>
-              <Text style={{ fontSize: 12 }}>Capture window</Text>
-              <Select
-                value={waitSeconds}
-                onChange={setWaitSeconds}
-                options={WAIT_OPTIONS}
-                style={{ width: '100%' }}
-                size="middle"
-              />
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                How long to capture network activity after the page loads.
-              </Text>
-            </div>
-            {error && (
-              <Text type="danger" style={{ fontSize: 12 }}>
-                {error}
-              </Text>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={onClose}>Cancel</Button>
-              <Button type="primary" icon={<PlayCircleOutlined />} onClick={launch}>
-                Run test
-              </Button>
-            </div>
-          </>
-        ) : phase === 'running' ? (
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <Text type="secondary" style={{ fontSize: 13 }}>
-              Opened {url}
-            </Text>
-            <div style={{ marginTop: 8 }}>
-              <Text style={{ fontSize: 12 }}>Capturing for {waitSeconds}s — please keep the popup open…</Text>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <CheckCircleTwoTone twoToneColor="#52c41a" style={{ fontSize: 18 }} />
-              <Text strong>Completed</Text>
-            </div>
-            <Space direction="vertical" size={6} style={{ width: '100%' }}>
-              <Space>
-                <Tag color="success">{firedCount} executed</Tag>
-                <Tag>{noFireCount} no fire</Tag>
-                <Tag color="default">{result?.fires.length ?? 0} fires</Tag>
-              </Space>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Open the workspace for the full drill-down: matched URLs, header diffs, shadowed rules, replay.
-              </Text>
-            </Space>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Button onClick={onClose}>Close</Button>
-              <Button type="primary" onClick={openResults}>
-                View results
-              </Button>
-            </div>
-          </div>
+        <div>
+          <Text style={{ fontSize: 12 }}>URL to test</Text>
+          <Input
+            placeholder="https://openheaders.io"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onPressEnter={launch}
+            autoFocus
+            size="middle"
+          />
+        </div>
+
+        <div>
+          <Text style={{ fontSize: 12 }}>Capture window</Text>
+          <AutoComplete
+            value={waitInput}
+            onChange={(value) => setWaitInput(value)}
+            options={WAIT_PRESETS}
+            style={{ width: '100%' }}
+            // Show all presets regardless of typed value — the user is
+            // browsing options, not narrowing them. Default filterOption
+            // would hide presets as soon as the value didn't substring-
+            // match, which is wrong for a numeric picker.
+            filterOption={false}
+            backfill={false}
+          >
+            <Input
+              size="middle"
+              suffix="seconds"
+              inputMode="numeric"
+              placeholder={`${MIN_WAIT_SECONDS}–${MAX_WAIT_SECONDS}`}
+              onPressEnter={launch}
+            />
+          </AutoComplete>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            How long to capture network activity after the page loads. Any value from {MIN_WAIT_SECONDS}s to{' '}
+            {MAX_WAIT_SECONDS}s.
+          </Text>
+        </div>
+
+        {error && (
+          <Text type="danger" style={{ fontSize: 12 }}>
+            {error}
+          </Text>
         )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="primary" icon={<PlayCircleOutlined />} onClick={launch}>
+            Run test
+          </Button>
+        </div>
       </Space>
     </Modal>
   );

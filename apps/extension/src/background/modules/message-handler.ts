@@ -246,13 +246,16 @@ export function handleGeneralMessage(
       safeResponse({ activeRules: result.activeRules });
     } else if (message.type === 'startTestSession') {
       // Launch a test session and resolve with the final result once the
-      // capture window closes. Kept async so the popup can stay open and
-      // await the response, or close and rely on stored results.
+      // capture window closes. Popup callers fire-and-forget — the in-page
+      // widget on the test tab is the primary feedback surface, so the
+      // response only matters for callers that explicitly await it (e.g.
+      // automated tests).
       const scope = message.scope as TestScope;
+      const scopeLabel = (message.scopeLabel as string | undefined) ?? '';
       const ruleUids = (message.ruleUids as string[]) ?? [];
       const url = message.url as string;
       const waitSeconds = (message.waitSeconds as number) ?? 5;
-      startSession({ scope, ruleUids, url, waitSeconds })
+      startSession({ scope, scopeLabel, ruleUids, url, waitSeconds })
         .then((result) => safeResponse({ success: true, result }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;

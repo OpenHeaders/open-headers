@@ -12,7 +12,12 @@ import {
   startTracking as tabTelemetryStartTracking,
   stopTracking as tabTelemetryStopTracking,
 } from './tab-telemetry';
-import { onTabLoaded as testRunnerOnTabLoaded, onTabRemoved as testRunnerOnTabRemoved } from './test-runner';
+import {
+  onTabCommit as testRunnerOnTabCommit,
+  onTabError as testRunnerOnTabError,
+  onTabLoaded as testRunnerOnTabLoaded,
+  onTabRemoved as testRunnerOnTabRemoved,
+} from './test-runner';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
 
 /**
@@ -319,6 +324,11 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
         tabTelemetryOnPageCommit(details.tabId, details.url);
         lastMainFrameUrlByTab.set(details.tabId, details.url);
 
+        // If this is a test-session tab landing on its real target (not
+        // about:blank, not delay.html), the test-runner mounts its in-page
+        // widget here. No-op for non-test tabs and for internal commits.
+        testRunnerOnTabCommit(details.tabId, details.url);
+
         await recordingService.handleNavigation(details.tabId, details.url);
       },
     );
@@ -390,6 +400,21 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
             }
           });
         }
+      },
+    );
+
+    // Main-frame navigation failures — typically `ERR_BLOCKED_BY_CLIENT`
+    // (a DNR block rule cancelled the request), but also DNS / TLS / any
+    // terminal navigation error. The widget can NEVER mount on Chrome's
+    // error page (chrome-error://chromewebdata/ is a privileged surface
+    // that rejects content scripts), so the test session has no in-page
+    // UI path forward. Notify the test-runner so it can finish the
+    // session promptly and fall back to navigating the test tab to the
+    // workspace results page.
+    webNavigation.onErrorOccurred?.addListener(
+      (details: chrome.webNavigation.WebNavigationFramedErrorCallbackDetails) => {
+        if (details.frameId !== 0) return; // sub-frame errors are not session-fatal
+        testRunnerOnTabError(details.tabId);
       },
     );
 

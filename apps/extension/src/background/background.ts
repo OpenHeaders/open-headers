@@ -37,6 +37,7 @@ import { scheduleUpdate } from './modules/rule-engine';
 import { getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
+import { setupTestRunnerPorts } from './modules/test-runner';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -105,6 +106,7 @@ async function initializeExtension(): Promise<void> {
   initializeActiveTabTracking();
   setupInjectListener();
   setupDelayBypassCleanup();
+  setupTestRunnerPorts();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
   onStoreChange(() => {
