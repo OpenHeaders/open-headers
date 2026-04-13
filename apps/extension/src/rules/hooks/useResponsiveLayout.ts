@@ -11,7 +11,7 @@
 
 import { storage } from '@utils/browser-api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LeftPanelKey, RightPanelKey, WorkspaceLayout } from '../types';
+import type { LeftPanelKey, RightPanelKey, ToolLayoutState, WorkspaceLayout } from '../types';
 import type { BottomPaneState } from './useWorkspaceLayout';
 
 // ── Storage key ────────────────────────────────────────────────────
@@ -43,15 +43,22 @@ interface PersistedLayout {
   /** Bottom panel height as ratio of viewport height (0–1) */
   bottomRatio: number;
   /**
-   * IDE-style layout state. Optional so old persisted records (with
-   * only the three ratios) keep loading cleanly — the hook falls back to
-   * DEFAULT_LAYOUT for missing fields during migration.
+   * Legacy IDE-style layout state — written by the old
+   * useWorkspaceLayout hook. Kept optional so old records keep loading.
+   * Ignored on load now that the tool-window layout state lives in
+   * `toolLayout`.
    */
   leftPanel?: LeftPanelKey | null;
   rightPanel?: RightPanelKey | null;
   bottomOpen?: boolean;
   bottomTab?: string;
   activityBarLabels?: boolean;
+  /**
+   * IDE-style tool-window layout. Owns dock assignments, hidden
+   * list, bottomFullWidth toggle, and label visibility. Normalized on
+   * load so stale records never leave a tool window orphaned.
+   */
+  toolLayout?: Partial<ToolLayoutState>;
 }
 
 /** Bundle returned to the host describing the persisted workspace state. */
@@ -94,6 +101,10 @@ export interface ResponsiveLayout {
    * toggles coalesce into one chrome.storage write.
    */
   persistWorkspaceLayout: (layout: WorkspaceLayout, bottom: BottomPaneState) => void;
+  /** Previously-persisted tool-window layout, or null on fresh profiles. */
+  persistedToolLayout: Partial<ToolLayoutState> | null;
+  /** Persist the tool-window layout — debounced through the same write. */
+  persistToolLayout: (state: ToolLayoutState) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -165,6 +176,7 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
 export function useResponsiveLayout(): ResponsiveLayout {
   const [persisted, setPersisted] = useState<PersistedLayout | null>(null);
   const [persistedWorkspace, setPersistedWorkspace] = useState<PersistedWorkspaceState | null>(null);
+  const [persistedToolLayout, setPersistedToolLayout] = useState<Partial<ToolLayoutState> | null>(null);
   const [ready, setReady] = useState(false);
   const [shouldCollapse, setShouldCollapse] = useState(() => getViewportWidth() < BP_SIDEBAR_COLLAPSE);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -190,6 +202,7 @@ export function useResponsiveLayout(): ResponsiveLayout {
             bottomTab: saved.bottomTab,
             activityBarLabels: saved.activityBarLabels ?? true,
           });
+          setPersistedToolLayout(saved.toolLayout ?? null);
         }
         setReady(true);
       });
@@ -222,6 +235,22 @@ export function useResponsiveLayout(): ResponsiveLayout {
   const schedulePersist = useCallback(
     (record: PersistedLayout) => {
       latestPersistedRef.current = record;
+      // Mirror the ratio record into React state so `sizes` useMemo
+      // recomputes. Without this, Allotment subtrees force-remounted via
+      // key (classic ↔ wide-bottom toggle) read stale preferredSize
+      // values from the initial persisted load and snap back to the
+      // original height, losing the user's drag.
+      setPersisted((prev) => {
+        if (
+          prev &&
+          prev.sidebarRatio === record.sidebarRatio &&
+          prev.inspectorRatio === record.inspectorRatio &&
+          prev.bottomRatio === record.bottomRatio
+        ) {
+          return prev;
+        }
+        return record;
+      });
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
       persistTimerRef.current = setTimeout(() => flushPersist(record), 500);
     },
@@ -232,6 +261,26 @@ export function useResponsiveLayout(): ResponsiveLayout {
   // Merges the state-machine fields into the same storage record as the
   // size ratios so both migrate together. The debounce is shared — a
   // burst of toggles coalesces into a single write.
+
+  const persistToolLayout = useCallback(
+    (next: ToolLayoutState) => {
+      const prev = latestPersistedRef.current ?? {
+        sidebarRatio: 0.17,
+        inspectorRatio: 0.2,
+        bottomRatio: 0.25,
+      };
+      schedulePersist({
+        ...prev,
+        toolLayout: {
+          docks: next.docks,
+          hidden: next.hidden,
+          bottomFullWidth: next.bottomFullWidth,
+          showLabels: next.showLabels,
+        },
+      });
+    },
+    [schedulePersist],
+  );
 
   const persistWorkspaceLayout = useCallback(
     (layout: WorkspaceLayout, bottom: BottomPaneState) => {
@@ -303,5 +352,7 @@ export function useResponsiveLayout(): ResponsiveLayout {
     ready,
     persistedWorkspace,
     persistWorkspaceLayout,
+    persistedToolLayout,
+    persistToolLayout,
   };
 }

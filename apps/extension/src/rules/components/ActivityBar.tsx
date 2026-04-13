@@ -164,7 +164,9 @@ const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(
             <div className="rules-activity-group rules-activity-group--bottom">{bottomItems.map(renderItem)}</div>
           )}
 
-          {trailingItem && <div className="rules-activity-group rules-activity-group--trailing">{renderItem(trailingItem)}</div>}
+          {trailingItem && (
+            <div className="rules-activity-group rules-activity-group--trailing">{renderItem(trailingItem)}</div>
+          )}
         </div>
       </Dropdown>
     );

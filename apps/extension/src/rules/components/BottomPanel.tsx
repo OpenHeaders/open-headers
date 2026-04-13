@@ -21,7 +21,7 @@
  * existed). Mode selection is implicit: contextOwner === null → global.
  */
 
-import { DeleteOutlined, ExperimentOutlined, FundViewOutlined, WarningOutlined } from '@ant-design/icons';
+import { DeleteOutlined, WarningOutlined } from '@ant-design/icons';
 import { runtime } from '@utils/browser-api';
 import { App, Button, Empty, Space, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -284,57 +284,20 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   );
 
   // ── Render ────────────────────────────────────────────────────────
+  // The shell's dock tab strip now owns tab switching, so this component
+  // is a pure content surface for the single selected tab. `tabs`,
+  // `onTabChange`, and the legacy tab strip markup have been retired —
+  // activeTab alone routes rendering.
+  void tabs;
+  void onTabChange;
 
   return (
     <div className="rules-bottom-panel" style={{ background: token.colorBgLayout }}>
       <div
-        className="rules-bottom-tabs"
-        style={{
-          background: token.colorBgLayout,
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          borderTop: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        {tabs.map((tab) => (
-          <span
-            key={tab.key}
-            className={`rules-bottom-tab ${activeTab === tab.key ? 'active' : ''}`}
-            style={
-              activeTab === tab.key
-                ? { color: token.colorText, borderBottomColor: token.colorPrimary }
-                : { color: token.colorTextSecondary }
-            }
-            onClick={() => onTabChange(tab.key)}
-            role="tab"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onTabChange(tab.key);
-            }}
-          >
-            {tab.key === 'traffic' && <FundViewOutlined style={{ marginRight: 4, fontSize: 11 }} />}
-            {tab.key === 'test-runs' && <ExperimentOutlined style={{ marginRight: 4, fontSize: 11 }} />}
-            {tab.label}
-            {tab.key === 'test-runs' && runs.length > 0 && (
-              <Tag style={{ marginLeft: 6, fontSize: 9, padding: '0 4px', lineHeight: '14px' }}>{runs.length}</Tag>
-            )}
-          </span>
-        ))}
-
-        {activeTab === 'traffic' && (
-          <span className="rules-live-indicator" style={{ color: token.colorTextSecondary }}>
-            <span className="rules-dot rules-dot-blink" style={{ background: token.colorTextTertiary }} />
-            Offline
-          </span>
-        )}
-      </div>
-
-      <div
         className={`rules-bottom-content${activeTab === 'test-runs' ? ' is-table' : ''}`}
         style={{ color: token.colorTextTertiary }}
       >
-        {activeTab === 'traffic' && (
-          <Text type="secondary">Page traffic monitoring available in desktop app.</Text>
-        )}
+        {activeTab === 'traffic' && <Text type="secondary">Page traffic monitoring available in desktop app.</Text>}
         {activeTab === 'test-runs' && (
           <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             {runs.length === 0 && !loading ? (

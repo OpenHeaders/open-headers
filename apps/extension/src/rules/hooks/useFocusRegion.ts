@@ -4,11 +4,7 @@
  * Single source of truth for the DOM↔region mapping. It:
  *
  *   1. OBSERVES focus changes — listens at the shell root for `focusin`
- *      (keyboard) and `pointerdown` (mouse / touch). Pointerdown is
- *      essential because much of the right pane (DocsPanel text,
- *      BottomPanel test-run rows) is non-focusable — clicking it would
- *      never fire focusin, so a keyboard-only tracker would leave
- *      `focusedRegion` stuck.
+ *      (keyboard) and `click` in capture phase (mouse / touch).
  *
  *   2. IMPOSES focus — exposes `focusRegion(key)` which walks a per-region
  *      selector list and moves DOM focus into the first match, falling
@@ -35,12 +31,17 @@
  */
 
 import { type RefObject, useCallback, useEffect, useMemo } from 'react';
-import type { FocusRegion } from '../types';
+import { ALL_DOCK_SLOTS } from '../tool-windows';
+import type { DockSlot, FocusRegion } from '../types';
 
 const KNOWN_REGIONS: readonly FocusRegion[] = ['left', 'editor', 'bottom', 'right'] as const;
 
 function isKnownRegion(value: string | null): value is Exclude<FocusRegion, null> {
   return value !== null && (KNOWN_REGIONS as readonly string[]).includes(value);
+}
+
+function isDockSlot(value: string | null): value is DockSlot {
+  return value !== null && (ALL_DOCK_SLOTS as readonly string[]).includes(value);
 }
 
 /**
@@ -64,6 +65,12 @@ export interface UseFocusRegionOptions {
   shellRef: RefObject<HTMLElement | null>;
   /** Called with the newly focused region, or null if focus left the shell. */
   setFocusedRegion: (region: FocusRegion) => void;
+  /**
+   * Called with the dock slot that currently owns focus, or null if focus
+   * left every dock (editor, topbar, portal). Per-dock focus lights up a
+   * single tool-window tab instead of every tab in the same region.
+   */
+  setFocusedDock?: (slot: DockSlot | null) => void;
 }
 
 export interface FocusRegionApi {
@@ -76,7 +83,7 @@ export interface FocusRegionApi {
   focusRegion: (region: FocusRegion) => void;
 }
 
-export function useFocusRegion({ shellRef, setFocusedRegion }: UseFocusRegionOptions): FocusRegionApi {
+export function useFocusRegion({ shellRef, setFocusedRegion, setFocusedDock }: UseFocusRegionOptions): FocusRegionApi {
   useEffect(() => {
     const root = shellRef.current;
     if (!root) return;
@@ -92,20 +99,38 @@ export function useFocusRegion({ shellRef, setFocusedRegion }: UseFocusRegionOpt
       return isKnownRegion(key) ? key : null;
     };
 
-    const handleFocusIn = (event: FocusEvent) => {
-      const region = regionFromTarget(event.target);
-      if (region) setFocusedRegion(region);
+    // Dock-from-target — walks up to the nearest [data-dock-slot] inside
+    // the shell. Returns null when the target is in the editor, topbar,
+    // an activity-bar group without a dock body, or a portal.
+    const dockFromTarget = (target: EventTarget | null): DockSlot | null => {
+      if (!(target instanceof HTMLElement)) return null;
+      if (!root.contains(target)) return null;
+      const el = target.closest<HTMLElement>('[data-dock-slot]');
+      if (!el) return null;
+      const key = el.getAttribute('data-dock-slot');
+      return isDockSlot(key) ? key : null;
     };
 
-    // Pointerdown captures mouse / touch clicks on non-focusable content
-    // (DocsPanel paragraphs, BottomPanel placeholder text, etc). Without
-    // this the blue accent would never move off the editor region when
-    // the user clicks into Docs, because no child element actually takes
-    // DOM focus. Run in capture phase so Ant Design click handlers that
-    // stop propagation don't swallow the region update.
-    const handlePointerDown = (event: PointerEvent) => {
-      const region = regionFromTarget(event.target);
-      if (region) setFocusedRegion(region);
+    const commitFromTarget = (target: EventTarget | null) => {
+      const region = regionFromTarget(target);
+      if (!region) return;
+      setFocusedRegion(region);
+      if (setFocusedDock) {
+        const slot = dockFromTarget(target);
+        if (slot) setFocusedDock(slot);
+        else if (region === 'editor') setFocusedDock(null);
+      }
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      commitFromTarget(event.target);
+    };
+
+    // Capture-phase click so stopPropagation in children doesn't swallow
+    // the region update. Click (not pointerdown) so right-clicks and drag
+    // gestures don't move focus.
+    const handleClick = (event: MouseEvent) => {
+      commitFromTarget(event.target);
     };
 
     const handleFocusOut = (event: FocusEvent) => {
@@ -117,22 +142,24 @@ export function useFocusRegion({ shellRef, setFocusedRegion }: UseFocusRegionOpt
       const next = event.relatedTarget as HTMLElement | null;
       if (!next) {
         setFocusedRegion(null);
+        setFocusedDock?.(null);
         return;
       }
       if (!root.contains(next)) {
         setFocusedRegion(null);
+        setFocusedDock?.(null);
       }
     };
 
     root.addEventListener('focusin', handleFocusIn);
     root.addEventListener('focusout', handleFocusOut);
-    root.addEventListener('pointerdown', handlePointerDown, true);
+    root.addEventListener('click', handleClick, true);
     return () => {
       root.removeEventListener('focusin', handleFocusIn);
       root.removeEventListener('focusout', handleFocusOut);
-      root.removeEventListener('pointerdown', handlePointerDown, true);
+      root.removeEventListener('click', handleClick, true);
     };
-  }, [shellRef, setFocusedRegion]);
+  }, [shellRef, setFocusedRegion, setFocusedDock]);
 
   // ── Imperative API ──────────────────────────────────────────────
 

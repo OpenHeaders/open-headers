@@ -107,3 +107,53 @@ export interface ClosedTab {
   tab: RulesTab;
   closedAt: number;
 }
+
+// ── IDE-style tool-window model ──────────────────────────────────
+//
+// Replaces the older three-pane fixed layout with six docks that can each
+// host any number of tool windows. The user drags tool windows between
+// docks; hides them via a context menu; and toggles whether the bottom
+// region spans the full viewport width or only the middle column.
+
+/** The six dock slots a tool window can live in. */
+export type DockSlot = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom' | 'bottom-left' | 'bottom-right';
+
+/** Identifiers for every tool window known to the extension shell. */
+export type ToolWindowId = 'items' | 'docs' | 'variables' | 'page-traffic' | 'test-runs';
+
+/** Visual region that backs a dock — three high-level regions feed into layout math. */
+export type ToolRegion = 'left' | 'right' | 'bottom';
+
+/** Runtime state for one dock: which tool windows live there and which is showing. */
+export interface DockState {
+  windows: ToolWindowId[];
+  /** Active tool window; null = dock is collapsed. */
+  active: ToolWindowId | null;
+}
+
+/** Layout variant for the activity bar.
+ *  - proportional: top section splits 50/50, bottom pinned to bar bottom.
+ *  - compact: top sub-slots content-height, bottom still pinned to bar bottom.
+ *  - stacked: all three sections clustered at the top with dividers between. */
+export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked';
+
+/** Full tool-window layout state. Replaces WorkspaceLayout's booleans. */
+export interface ToolLayoutState {
+  docks: Record<DockSlot, DockState>;
+  hidden: ToolWindowId[];
+  /** When true, bottom region spans the full viewport width (IDE "wide bottom"). */
+  bottomFullWidth: boolean;
+  /** Whether activity-bar and tab labels are rendered. False → icons only. */
+  showLabels: boolean;
+  /** Proportional: top section split 50/50 with always-visible dividers.
+   *  Compact: content stacks at top; empty sections collapse. */
+  sidebarLayout: SidebarLayoutVariant;
+  focusedRegion: FocusRegion;
+  /**
+   * Exact dock slot that currently owns keyboard focus. Drives the blue
+   * "focused" accent on tool-window tabs — only the tab for this dock's
+   * active window lights up, not every tab in the same region. Null when
+   * focus is outside any dock (editor, command palette, etc).
+   */
+  focusedDock: DockSlot | null;
+}
