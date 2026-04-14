@@ -29,24 +29,11 @@ const TopBar: React.FC<TopBarProps> = ({ onCommandPalette }) => {
     >
       <div className="rules-topbar-left">
         <img
-          src={getBrowserAPI().runtime.getURL('images/icon48.png')}
+          src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
           alt="Open Headers"
           className="rules-topbar-logo"
         />
         <span className="rules-topbar-title">Open Headers</span>
-        <span
-          className="rules-topbar-chip"
-          style={{
-            background: token.colorPrimaryBg,
-            color: token.colorPrimary,
-            fontSize: 11,
-            fontWeight: 600,
-            padding: '1px 8px',
-            borderRadius: 4,
-          }}
-        >
-          Rules
-        </span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, maxWidth: 420, justifyContent: 'center' }}>

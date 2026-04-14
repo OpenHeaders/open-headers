@@ -16,7 +16,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBrowserAPI } from '@/types/browser';
 
-const logoUrl = getBrowserAPI().runtime.getURL('images/icon48.png');
+const logoUrl = getBrowserAPI().runtime.getURL('images/logo-pixel.svg');
 
 const { Text } = Typography;
 

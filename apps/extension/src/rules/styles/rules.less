@@ -3,6 +3,14 @@
  * Mirrors the desktop V5 shell visual patterns (v5-shell.less).
  */
 
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/PressStart2P-Regular.woff2') format('woff2');
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -46,14 +54,16 @@ html, body, #root {
 }
 
 .rules-topbar-logo {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
 }
 
 .rules-topbar-title {
-  font-weight: 600;
-  font-size: 13px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .rules-topbar-chip {

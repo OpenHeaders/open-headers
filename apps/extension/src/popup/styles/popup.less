@@ -1,5 +1,13 @@
 @import 'antd/dist/reset.css';
 
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/PressStart2P-Regular.woff2') format('woff2');
+}
+
 /* Global styles */
 html {
   background-color: transparent;
@@ -64,9 +72,13 @@ body {
   margin: 0;
 }
 
-.header .ant-typography h4 {
+.popup-header-title.ant-typography {
   margin: 0;
-  font-weight: 600;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .content {

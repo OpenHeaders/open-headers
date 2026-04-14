@@ -40,6 +40,10 @@ function copyAssetsPlugin() {
     { from: 'src/assets/images/icon48.png', to: 'images/icon48.png' },
     { from: 'src/assets/images/icon128.png', to: 'images/icon128.png' },
     { from: 'src/assets/images/companion-app.png', to: 'images/companion-app.png' },
+    { from: 'src/assets/images/logo-pixel.svg', to: 'images/logo-pixel.svg' },
+    // Fonts
+    { from: 'src/assets/fonts/PressStart2P-Regular.woff2', to: 'fonts/PressStart2P-Regular.woff2' },
+    { from: 'src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
     // Recording
     { from: 'src/assets/recording/inject/recorder-rrweb.js', to: 'js/recording/inject/recorder.js' },
     { from: 'src/assets/recording/inject/recording-widget.js', to: 'js/recording/inject/recording-widget.js' },
