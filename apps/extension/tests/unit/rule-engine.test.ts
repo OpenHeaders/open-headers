@@ -157,7 +157,7 @@ describe('RuleEngine', () => {
       scheduleUpdate('rulesUpdated', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(5);
 
-      scheduleUpdate('pausedGroups', { immediate: true });
+      scheduleUpdate('pauseMarkers', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(6);
     });
 

@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
+import { isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -42,6 +42,8 @@ interface ContentRow {
   enabled?: boolean;
   complete?: boolean;
   childCount?: number;
+  /** Effective pause state for this specific row, after marker resolution. */
+  effectivelyPaused: boolean;
 }
 
 function countRulesDeep(nodes: V5.TreeNode[]): number {
@@ -84,7 +86,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
   onOpenTestRuns,
 }) => {
   const { token } = theme.useToken();
-  const { rules, localCollectionTrees, pausedGroups, toggleGroupPause } = useRules();
+  const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
 
   const found = useMemo(() => findFolder(localCollectionTrees, folderUid), [localCollectionTrees, folderUid]);
 
@@ -121,13 +123,14 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
     return { total, folders, active, disabled, draft };
   }, [folder, rules]);
 
-  const isPaused = folderPath ? pausedGroups.has(folderPath) : false;
+  const isPaused = folderPath ? resolvePauseState(folderPath, pauseMarkers) : false;
 
   // ── Contents table ─────────────────────────────────────────────
 
   const rows = useMemo((): ContentRow[] => {
     if (!folder) return [];
     return folder.children.map((node): ContentRow => {
+      const rowPaused = resolvePauseState(node.path, pauseMarkers);
       if (node.type === 'folder') {
         return {
           key: node.uid,
@@ -135,6 +138,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
           name: node.name,
           kind: 'folder',
           childCount: countRulesDeep(node.children),
+          effectivelyPaused: rowPaused,
         };
       }
       const fullRule = rules.find((r) => r.uid === node.uid);
@@ -146,9 +150,10 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         ruleType: node.type === 'rule' ? node.ruleType : undefined,
         enabled: node.type === 'rule' ? node.enabled : undefined,
         complete: fullRule ? isRuleComplete(fullRule) : true,
+        effectivelyPaused: rowPaused,
       };
     });
-  }, [folder, rules]);
+  }, [folder, rules, pauseMarkers]);
 
   const handleRowClick = useCallback(
     (row: ContentRow) => {
@@ -167,12 +172,19 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         render: (_: unknown, row: ContentRow) => (
           <Space size={6}>
             {row.kind === 'folder' ? (
-              <FolderOutlined style={{ color: token.colorTextTertiary }} />
+              <FolderOutlined
+                style={{
+                  color: row.effectivelyPaused
+                    ? 'var(--ant-color-warning, #faad14)'
+                    : token.colorTextTertiary,
+                }}
+              />
             ) : (
               buildRuleIcon({
                 ruleType: row.ruleType ?? 'header',
                 rule: rules.find((r) => r.uid === row.uid),
-                isActive: (row.enabled ?? false) && (row.complete ?? false),
+                isActive: (row.enabled ?? false) && (row.complete ?? false) && !row.effectivelyPaused,
+                paused: row.effectivelyPaused,
               })
             )}
             <span>{row.name}</span>
@@ -202,12 +214,12 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
           if (row.kind === 'folder') return null;
           if (!row.complete) return <Tag color="default">Draft</Tag>;
           if (!row.enabled) return <Tag color="default">Disabled</Tag>;
-          if (isPaused) return <Tag color="warning">Paused</Tag>;
+          if (row.effectivelyPaused) return <Tag color="warning">Paused</Tag>;
           return <Tag color="success">Active</Tag>;
         },
       },
     ],
-    [token, isPaused],
+    [token, rules],
   );
 
   const addRuleMenuItems = buildRuleTypeMenuItems((type) =>
@@ -252,7 +264,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
           <Button
             size="small"
             icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
-            onClick={() => toggleGroupPause(folderPath)}
+            onClick={() => togglePause(folderPath)}
           >
             {isPaused ? 'Resume' : 'Pause'}
           </Button>

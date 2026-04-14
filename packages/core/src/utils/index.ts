@@ -16,7 +16,8 @@ export {
   validateHeaderName,
   validateHeaderValue,
 } from './headers';
-export { isPathPausedByAncestor } from './pause';
+export type { PauseMarker, PauseMarkers } from './pause';
+export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './pause';
 export type { ActionDetail } from './rule-display';
 export { DNR_PRIORITY, getActionDetail } from './rule-display';
 export type { MatchPattern, MatchPatternKind } from './rule-matcher';

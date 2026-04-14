@@ -11,6 +11,7 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
+import type { PauseMarkers } from '@openheaders/core/utils';
 import { type ActionDetail, getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -40,8 +41,10 @@ interface CollectionTreeRecord {
   isComplete?: boolean;
   ruleCount?: number;
   enabledCount?: number;
-  isPaused?: boolean;
-  isAncestorPaused?: boolean;
+  /** True if this node is effectively paused after marker resolution. */
+  effectivelyPaused: boolean;
+  /** True if this node has its own marker (regardless of value). */
+  hasOwnMarker: boolean;
   children?: CollectionTreeRecord[];
 }
 
@@ -63,13 +66,31 @@ function countRules(nodes: V5.TreeNode[]): { total: number; enabled: number } {
   return { total, enabled };
 }
 
+/**
+ * Resolve the effective pause state for one node given its own marker and
+ * the inherited state from its ancestors. Mirrors the closest-specifier
+ * walk in `resolvePauseState` but is cheaper here because we already
+ * carry `inherited` down the tree as we recurse.
+ */
+function resolveNodeState(
+  path: string,
+  pauseMarkers: PauseMarkers,
+  inherited: boolean,
+): { effective: boolean; hasOwn: boolean } {
+  const marker = pauseMarkers.get(path);
+  if (marker === 'paused') return { effective: true, hasOwn: true };
+  if (marker === 'unpaused') return { effective: false, hasOwn: true };
+  return { effective: inherited, hasOwn: false };
+}
+
 function treeNodesToRecords(
   nodes: V5.TreeNode[],
   rules: V5.Rule[],
-  pausedGroups: ReadonlySet<string>,
-  ancestorPaused: boolean,
+  pauseMarkers: PauseMarkers,
+  inherited: boolean,
 ): CollectionTreeRecord[] {
   return nodes.map((node) => {
+    const { effective, hasOwn } = resolveNodeState(node.path, pauseMarkers, inherited);
     if (node.type === 'rule') {
       const rule = rules.find((r) => r.uid === node.uid);
       return {
@@ -84,14 +105,13 @@ function treeNodesToRecords(
         conditions: rule?.conditions ?? [],
         isEnabled: node.enabled,
         isComplete: rule ? isRuleComplete(rule) : true,
-        isAncestorPaused: ancestorPaused,
+        effectivelyPaused: effective,
+        hasOwnMarker: hasOwn,
       };
     }
     if (node.type === 'folder') {
       const { total, enabled } = countRules(node.children);
-      const selfPaused = pausedGroups.has(node.path);
-      const childrenPaused = ancestorPaused || selfPaused;
-      const children = treeNodesToRecords(node.children, rules, pausedGroups, childrenPaused);
+      const children = treeNodesToRecords(node.children, rules, pauseMarkers, effective);
       return {
         key: node.uid,
         uid: node.uid,
@@ -100,8 +120,8 @@ function treeNodesToRecords(
         nodeType: 'folder' as const,
         ruleCount: total,
         enabledCount: enabled,
-        isPaused: selfPaused,
-        isAncestorPaused: ancestorPaused,
+        effectivelyPaused: effective,
+        hasOwnMarker: hasOwn,
         children: children.length > 0 ? children : undefined,
       };
     }
@@ -111,7 +131,8 @@ function treeNodesToRecords(
       path: node.path,
       name: node.name,
       nodeType: 'rule' as const,
-      isAncestorPaused: ancestorPaused,
+      effectivelyPaused: effective,
+      hasOwnMarker: hasOwn,
     };
   });
 }
@@ -119,12 +140,12 @@ function treeNodesToRecords(
 function collectionTreesToRecords(
   trees: V5.CollectionTree[],
   rules: V5.Rule[],
-  pausedGroups: ReadonlySet<string>,
+  pauseMarkers: PauseMarkers,
 ): CollectionTreeRecord[] {
   return trees.map((tree) => {
+    const { effective, hasOwn } = resolveNodeState(tree.path, pauseMarkers, false);
     const { total, enabled } = countRules(tree.tree);
-    const selfPaused = pausedGroups.has(tree.path);
-    const children = treeNodesToRecords(tree.tree, rules, pausedGroups, selfPaused);
+    const children = treeNodesToRecords(tree.tree, rules, pauseMarkers, effective);
     return {
       key: tree.uid,
       uid: tree.uid,
@@ -133,8 +154,8 @@ function collectionTreesToRecords(
       nodeType: 'collection' as const,
       ruleCount: total,
       enabledCount: enabled,
-      isPaused: selfPaused,
-      isAncestorPaused: false,
+      effectivelyPaused: effective,
+      hasOwnMarker: hasOwn,
       children: children.length > 0 ? children : undefined,
     };
   });
@@ -196,10 +217,6 @@ function flattenVisible(records: CollectionTreeRecord[], expandedSet: ReadonlySe
   return result;
 }
 
-function isEffectivelyPaused(record: CollectionTreeRecord): boolean {
-  return !!(record.isPaused || record.isAncestorPaused);
-}
-
 // ── Component ───────────────────────────────────────────────────
 
 interface CollectionManagerProps {
@@ -216,7 +233,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   onPageInfoChange,
   onRowActionsChange,
 }) => {
-  const { rules, isConnected, localCollectionTrees, pausedGroups, toggleGroupPause } = useRules();
+  const { rules, isConnected, localCollectionTrees, pauseMarkers, togglePause } = useRules();
   const { message } = App.useApp();
   const { setFocusedRowIndex } = useKeyboardNav();
   const [searchText, setSearchText] = useState('');
@@ -226,8 +243,8 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
 
   // Build tree records
   const treeRecords = useMemo(
-    () => collectionTreesToRecords(localCollectionTrees, rules, pausedGroups),
-    [localCollectionTrees, rules, pausedGroups],
+    () => collectionTreesToRecords(localCollectionTrees, rules, pauseMarkers),
+    [localCollectionTrees, rules, pauseMarkers],
   );
 
   // Auto-expand all on first load
@@ -248,8 +265,8 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const sortedRecords = useMemo(() => {
     if (sortMode !== 'status') return filteredRecords;
     return [...filteredRecords].sort((a, b) => {
-      const rankA = a.isPaused ? 1 : 0;
-      const rankB = b.isPaused ? 1 : 0;
+      const rankA = a.effectivelyPaused ? 1 : 0;
+      const rankB = b.effectivelyPaused ? 1 : 0;
       return rankA - rankB || a.name.localeCompare(b.name);
     });
   }, [filteredRecords, sortMode]);
@@ -288,10 +305,10 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           );
         });
       } else {
-        toggleGroupPause(record.path);
+        togglePause(record.path);
       }
     },
-    [isConnected, message, toggleGroupPause],
+    [isConnected, message, togglePause],
   );
 
   const handleVisualize = useCallback((record: CollectionTreeRecord) => {
@@ -433,7 +450,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       key: 'name',
       width: 200,
       render: (name: string, record: CollectionTreeRecord) => {
-        const paused = isEffectivelyPaused(record);
+        const paused = record.effectivelyPaused;
         if (record.nodeType === 'rule') {
           return (
             <Tooltip title={name.length > 20 ? name : undefined}>
@@ -465,11 +482,11 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       width: 150,
       render: (_: unknown, record: CollectionTreeRecord) => {
         if (record.nodeType === 'rule' && record.actionDetail) {
-          const active = (record.isEnabled ?? false) && (record.isComplete ?? false) && !isEffectivelyPaused(record);
-          return renderActionDetails(record.actionDetail, isEffectivelyPaused(record) ? 0.5 : 1, 16, active);
+          const active = (record.isEnabled ?? false) && (record.isComplete ?? false) && !record.effectivelyPaused;
+          return renderActionDetails(record.actionDetail, record.effectivelyPaused ? 0.5 : 1, 16, active);
         }
         if (record.nodeType !== 'rule') {
-          if (isEffectivelyPaused(record)) {
+          if (record.effectivelyPaused) {
             return (
               <Text type="warning" style={{ fontSize: '12px' }}>
                 Paused · {record.enabledCount} of {record.ruleCount} enabled
@@ -540,16 +557,13 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           >
             <Tooltip
               title={
-                isEffectivelyPaused(record) && !record.isPaused
-                  ? 'Parent is paused'
-                  : record.isPaused
-                    ? `Resume — all ${record.ruleCount} rules become active again`
-                    : `Pause — suspend all ${record.ruleCount} rules without changing individual settings`
+                record.effectivelyPaused
+                  ? `Resume — pin ${record.ruleCount} rules active (overrides parent if needed)`
+                  : `Pause — suspend ${record.ruleCount} rules without changing individual settings`
               }
             >
               <Switch
-                checked={!isEffectivelyPaused(record)}
-                disabled={record.isAncestorPaused && !record.isPaused}
+                checked={!record.effectivelyPaused}
                 onChange={() => handleToggle(record)}
                 checkedChildren="Active"
                 unCheckedChildren="Paused"
@@ -706,7 +720,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           })}
           rowClassName={(record: CollectionTreeRecord) => {
             const classes: string[] = [];
-            const paused = isEffectivelyPaused(record);
+            const paused = record.effectivelyPaused;
             if (paused) classes.push('row-group-paused');
             if (record.nodeType === 'rule' && !record.isComplete && !paused) classes.push('row-draft');
             if (record.nodeType === 'rule' && !record.isEnabled && record.isComplete && !paused)

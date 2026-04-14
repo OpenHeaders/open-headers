@@ -54,23 +54,38 @@ export interface EditorTabDragData {
 
 // ── Icon helper ─────────────────────────────────────────────────────
 
-export function tabIcon(tab: RulesTab, rules: V5.Rule[], templates: V5.Template[]): React.ReactNode {
+const TAB_ICON_GRAY = '#999';
+const TAB_ICON_YELLOW = 'var(--ant-color-warning, #faad14)';
+
+export function tabIcon(
+  tab: RulesTab,
+  rules: V5.Rule[],
+  templates: V5.Template[],
+  pausedUids: ReadonlySet<string>,
+): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
-  if (tab.mode === 'collection-overview') return <FolderOpenOutlined style={{ fontSize: 12, color: '#999' }} />;
-  if (tab.mode === 'folder-overview') return <FolderOutlined style={{ fontSize: 12, color: '#999' }} />;
+  if (tab.mode === 'collection-overview') {
+    const paused = tab.entityId ? pausedUids.has(tab.entityId) : false;
+    return <FolderOpenOutlined style={{ fontSize: 12, color: paused ? TAB_ICON_YELLOW : TAB_ICON_GRAY }} />;
+  }
+  if (tab.mode === 'folder-overview') {
+    const paused = tab.entityId ? pausedUids.has(tab.entityId) : false;
+    return <FolderOutlined style={{ fontSize: 12, color: paused ? TAB_ICON_YELLOW : TAB_ICON_GRAY }} />;
+  }
   if (tab.mode === 'template-edit' && tab.templateUid) {
     const tpl = templates.find((t) => t.uid === tab.templateUid);
     return (
       renderTwoToneIcon(tpl?.icon ?? '', { fontSize: 12 }) || (
-        <FileTextOutlined style={{ fontSize: 12, color: '#999' }} />
+        <FileTextOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />
       )
     );
   }
   // Rule tabs — use the same rich icon as the sidebar
   const rule = tab.ruleUid ? rules.find((r) => r.uid === tab.ruleUid) : undefined;
-  const isActive = rule ? rule.enabled && isRuleComplete(rule) : false;
-  return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive });
+  const paused = tab.ruleUid ? pausedUids.has(tab.ruleUid) : false;
+  const isActive = rule ? rule.enabled && isRuleComplete(rule) && !paused : false;
+  return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive, paused });
 }
 
 const TAB_LABEL_MAX = 20;
@@ -112,6 +127,9 @@ interface TabBarProps {
   activeTabId: string | null;
   rules: V5.Rule[];
   templates: V5.Template[];
+  /** Effective paused uids — drives the yellow tab icon for paused
+   *  rules, collection-overviews, and folder-overviews. */
+  pausedUids: ReadonlySet<string>;
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
   /** Double-click on any tab — App wires this to zen-mode toggle. */
@@ -167,6 +185,7 @@ interface TabPillContentProps {
   tab: RulesTab;
   rules: V5.Rule[];
   templates: V5.Template[];
+  pausedUids: ReadonlySet<string>;
   onClose?: (id: string) => void;
   closeIconColor: string;
   hidden?: boolean;
@@ -176,13 +195,14 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   tab,
   rules,
   templates,
+  pausedUids,
   onClose,
   closeIconColor,
   hidden,
 }) => {
   const inner = (
     <>
-      <span className="rules-type-badge">{tabIcon(tab, rules, templates)}</span>
+      <span className="rules-type-badge">{tabIcon(tab, rules, templates, pausedUids)}</span>
       <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab)}
       </span>
@@ -239,10 +259,17 @@ interface CrossLeafInsertionMarkerProps {
   tab: RulesTab;
   rules: V5.Rule[];
   templates: V5.Template[];
+  pausedUids: ReadonlySet<string>;
   token: ReturnType<typeof theme.useToken>['token'];
 }
 
-const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({ tab, rules, templates, token }) => (
+const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
+  tab,
+  rules,
+  templates,
+  pausedUids,
+  token,
+}) => (
   <div
     aria-hidden="true"
     className="rules-tab"
@@ -252,6 +279,7 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({ tab
       tab={tab}
       rules={rules}
       templates={templates}
+      pausedUids={pausedUids}
       closeIconColor={token.colorTextTertiary}
       hidden
     />
@@ -267,6 +295,7 @@ interface SortableTabProps {
   isActive: boolean;
   rules: V5.Rule[];
   templates: V5.Template[];
+  pausedUids: ReadonlySet<string>;
   contextMenu: { items: ItemType[] };
   onSwitch: (id: string) => void;
   onClose: (id: string) => void;
@@ -280,6 +309,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
   isActive,
   rules,
   templates,
+  pausedUids,
   contextMenu,
   onSwitch,
   onClose,
@@ -362,6 +392,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
         tab={tab}
         rules={rules}
         templates={templates}
+        pausedUids={pausedUids}
         onClose={onClose}
         closeIconColor={token.colorTextTertiary}
         hidden={isDragging}
@@ -398,6 +429,7 @@ interface TabSearchProps {
   activeTabId: string | null;
   rules: V5.Rule[];
   templates: V5.Template[];
+  pausedUids: ReadonlySet<string>;
   onSwitch: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopen: (closed: ClosedTab) => void;
@@ -410,6 +442,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   activeTabId,
   rules,
   templates,
+  pausedUids,
   onSwitch,
   recentlyClosed,
   onReopen,
@@ -513,7 +546,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 }}
               >
                 <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                  {tabIcon(tab, rules, templates)}
+                  {tabIcon(tab, rules, templates, pausedUids)}
                 </span>
                 <span
                   style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
@@ -565,7 +598,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                       }}
                     >
                       <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                        {tabIcon(closed.tab, rules, templates)}
+                        {tabIcon(closed.tab, rules, templates, pausedUids)}
                       </span>
                       <span
                         style={{
@@ -604,6 +637,7 @@ const TabBar: React.FC<TabBarProps> = ({
   activeTabId,
   rules,
   templates,
+  pausedUids,
   onSwitch,
   onClose,
   onTabDoubleClick,
@@ -852,7 +886,13 @@ const TabBar: React.FC<TabBarProps> = ({
           {tabs.map((tab, index) => (
             <Fragment key={tab.id}>
               {insertionIndex === index && insertionTab && (
-                <CrossLeafInsertionMarker tab={insertionTab} rules={rules} templates={templates} token={token} />
+                <CrossLeafInsertionMarker
+                  tab={insertionTab}
+                  rules={rules}
+                  templates={templates}
+                  pausedUids={pausedUids}
+                  token={token}
+                />
               )}
               <SortableTab
                 leafId={leafId}
@@ -861,6 +901,7 @@ const TabBar: React.FC<TabBarProps> = ({
                 isActive={tab.id === activeTabId}
                 rules={rules}
                 templates={templates}
+                pausedUids={pausedUids}
                 contextMenu={buildContextMenu(tab, index)}
                 onSwitch={onSwitch}
                 onClose={onClose}
@@ -869,7 +910,13 @@ const TabBar: React.FC<TabBarProps> = ({
             </Fragment>
           ))}
           {insertionIndex === tabs.length && insertionTab && (
-            <CrossLeafInsertionMarker tab={insertionTab} rules={rules} templates={templates} token={token} />
+            <CrossLeafInsertionMarker
+              tab={insertionTab}
+              rules={rules}
+              templates={templates}
+              pausedUids={pausedUids}
+              token={token}
+            />
           )}
         </SortableContext>
 
@@ -910,6 +957,7 @@ const TabBar: React.FC<TabBarProps> = ({
           activeTabId={activeTabId}
           rules={rules}
           templates={templates}
+          pausedUids={pausedUids}
           onSwitch={onSwitch}
           recentlyClosed={recentlyClosed}
           onReopen={onReopenTab}

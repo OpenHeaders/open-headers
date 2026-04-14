@@ -87,6 +87,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
     updateLocalRule,
     localCollections,
     localCollectionTrees,
+    pausedUids,
     createLocalRule,
     createLocalCollection,
     createLocalFolder,
@@ -379,6 +380,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
     templates,
     localCollectionTrees,
     templateCollectionTrees,
+    pausedUids,
     openEditTab,
     openCreateTab,
     openTemplateEditTab,
@@ -631,6 +633,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
             groups={groups}
             rules={rules}
             templates={templates}
+            pausedUids={pausedUids}
             renderTabBody={renderTabBody}
             renderLeafHeader={renderLeafHeader}
             renderEmpty={renderEmpty}
@@ -654,7 +657,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
           if (!tab) return null;
           return (
             <div className="rules-drag-preview">
-              <span className="rules-drag-preview-icon">{tabIcon(tab, rules, templates)}</span>
+              <span className="rules-drag-preview-icon">{tabIcon(tab, rules, templates, pausedUids)}</span>
               <span className="rules-drag-preview-label">{renderTabLabel(tab)}</span>
             </div>
           );

@@ -26,7 +26,8 @@
 declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
-import { isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
+import type { PauseMarker } from '@openheaders/core/utils';
+import { isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
@@ -45,7 +46,7 @@ import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runne
 // ── Paused state ─────────────────────────────────────────────────
 
 let isPaused = false;
-let pausedGroups: Set<string> = new Set();
+let pauseMarkers: Map<string, PauseMarker> = new Map();
 
 /**
  * Dynamic-layer rule id → source V5.Rule.uid. Rebuilt on every applyAllRules()
@@ -73,12 +74,12 @@ export function setRulesPaused(paused: boolean): void {
   isPaused = paused;
 }
 
-export function setPausedGroups(paths: string[]): void {
-  pausedGroups = new Set(paths);
+export function setPauseMarkers(record: Record<string, PauseMarker>): void {
+  pauseMarkers = new Map(Object.entries(record));
 }
 
-export function getPausedGroups(): string[] {
-  return [...pausedGroups];
+export function getPauseMarkers(): ReadonlyMap<string, PauseMarker> {
+  return pauseMarkers;
 }
 
 export function initPauseState(): void {
@@ -86,10 +87,10 @@ export function initPauseState(): void {
   browserAPI.storage.sync.get(['isRulesExecutionPaused'], (result: Record<string, unknown>) => {
     isPaused = (result.isRulesExecutionPaused as boolean) || false;
   });
-  browserAPI.storage.local.get(['pausedGroups'], (result: Record<string, unknown>) => {
-    const paths = result.pausedGroups as string[] | undefined;
-    if (Array.isArray(paths)) {
-      pausedGroups = new Set(paths);
+  browserAPI.storage.local.get(['pauseMarkers'], (result: Record<string, unknown>) => {
+    const record = result.pauseMarkers as Record<string, PauseMarker> | undefined;
+    if (record && typeof record === 'object') {
+      pauseMarkers = new Map(Object.entries(record));
     }
   });
 }
@@ -261,7 +262,7 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
 
   for (const rule of rules) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
-    if (isPathPausedByAncestor(rule.path, pausedGroups)) continue;
+    if (resolvePauseState(rule.path, pauseMarkers)) continue;
 
     // inject-manager wants every rule that has any in-page side effect,
     // regardless of whether it ALSO produces DNR rules. Passed by value.

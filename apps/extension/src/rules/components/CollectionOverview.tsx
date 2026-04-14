@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
+import { isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -42,6 +42,8 @@ interface ContentRow {
   enabled?: boolean;
   complete?: boolean;
   childCount?: number;
+  /** Effective pause state for this specific row, after marker resolution. */
+  effectivelyPaused: boolean;
 }
 
 function countRulesDeep(nodes: V5.TreeNode[]): number {
@@ -62,7 +64,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
   onOpenTestRuns,
 }) => {
   const { token } = theme.useToken();
-  const { rules, localCollectionTrees, pausedGroups, toggleGroupPause } = useRules();
+  const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
 
   const collection = useMemo(
     () => localCollectionTrees.find((c) => c.uid === collectionUid),
@@ -96,17 +98,18 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
     };
     walk(collection.tree);
 
-    const isPaused = pausedGroups.has(collection.path);
+    const isPaused = resolvePauseState(collection.path, pauseMarkers);
     return { total, folders, active, disabled, draft, paused: isPaused ? active : 0 };
-  }, [collection, rules, pausedGroups]);
+  }, [collection, rules, pauseMarkers]);
 
-  const isPaused = collection ? pausedGroups.has(collection.path) : false;
+  const isPaused = collection ? resolvePauseState(collection.path, pauseMarkers) : false;
 
   // ── Contents table ─────────────────────────────────────────────
 
   const rows = useMemo((): ContentRow[] => {
     if (!collection) return [];
     return collection.tree.map((node): ContentRow => {
+      const rowPaused = resolvePauseState(node.path, pauseMarkers);
       if (node.type === 'folder') {
         return {
           key: node.uid,
@@ -114,6 +117,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
           name: node.name,
           kind: 'folder',
           childCount: countRulesDeep(node.children),
+          effectivelyPaused: rowPaused,
         };
       }
       const fullRule = rules.find((r) => r.uid === node.uid);
@@ -125,9 +129,10 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
         ruleType: node.type === 'rule' ? node.ruleType : undefined,
         enabled: node.type === 'rule' ? node.enabled : undefined,
         complete: fullRule ? isRuleComplete(fullRule) : true,
+        effectivelyPaused: rowPaused,
       };
     });
-  }, [collection, rules]);
+  }, [collection, rules, pauseMarkers]);
 
   const handleRowClick = useCallback(
     (row: ContentRow) => {
@@ -146,12 +151,19 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
         render: (_: unknown, row: ContentRow) => (
           <Space size={6}>
             {row.kind === 'folder' ? (
-              <FolderOutlined style={{ color: token.colorTextTertiary }} />
+              <FolderOutlined
+                style={{
+                  color: row.effectivelyPaused
+                    ? 'var(--ant-color-warning, #faad14)'
+                    : token.colorTextTertiary,
+                }}
+              />
             ) : (
               buildRuleIcon({
                 ruleType: row.ruleType ?? 'header',
                 rule: rules.find((r) => r.uid === row.uid),
-                isActive: (row.enabled ?? false) && (row.complete ?? false),
+                isActive: (row.enabled ?? false) && (row.complete ?? false) && !row.effectivelyPaused,
+                paused: row.effectivelyPaused,
               })
             )}
             <span>{row.name}</span>
@@ -181,12 +193,12 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
           if (row.kind === 'folder') return null;
           if (!row.complete) return <Tag color="default">Draft</Tag>;
           if (!row.enabled) return <Tag color="default">Disabled</Tag>;
-          if (isPaused) return <Tag color="warning">Paused</Tag>;
+          if (row.effectivelyPaused) return <Tag color="warning">Paused</Tag>;
           return <Tag color="success">Active</Tag>;
         },
       },
     ],
-    [token, isPaused],
+    [token, rules],
   );
 
   const addRuleMenuItems = buildRuleTypeMenuItems((type) => onCreateRule(type, { collectionId: collectionUid }));
@@ -229,7 +241,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
           <Button
             size="small"
             icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
-            onClick={() => toggleGroupPause(collection.path)}
+            onClick={() => togglePause(collection.path)}
           >
             {isPaused ? 'Resume' : 'Pause'}
           </Button>

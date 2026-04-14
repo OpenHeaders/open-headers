@@ -12,6 +12,7 @@ import {
   AimOutlined,
   BorderLeftOutlined,
   CheckCircleOutlined,
+  ClearOutlined,
   DeleteOutlined,
   EditOutlined,
   EllipsisOutlined,
@@ -19,13 +20,16 @@ import {
   FolderOpenOutlined,
   FolderOutlined,
   MenuUnfoldOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
   PlusOutlined,
+  RollbackOutlined,
   SearchOutlined,
   StopOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
+import { hasNestedPauseMarkers, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { runtime } from '@utils/browser-api';
 import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
@@ -49,32 +53,46 @@ function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
   return buildRuleTypeMenuItemsCE(onAddRule) as ItemType[];
 }
 
-function collectionMenuItems(
-  onAddRule: (type: string) => void,
-  onAddFolder: () => void,
-  onRename: () => void,
-  onDelete: () => void,
-): ItemType[] {
-  return [
-    {
-      key: 'add-item',
-      icon: createElement(PlusOutlined),
-      label: 'Add Rule',
-      children: ruleTypeSubmenu(onAddRule),
-    },
-    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
-    { type: 'divider' as const, key: 'div' },
-    { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
-    { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
-  ];
+/**
+ * Pause menu for a container (collection or folder). Three actions:
+ *   1. Toggle (always shown). Smart toggle that flips effective state by
+ *      setting the opposite explicit marker. Even when the node already
+ *      inherits the desired state, setting the marker pins it so a parent
+ *      flip can't silently change it back — the same closest-specifier
+ *      override model `.gitignore` and uBlock use.
+ *   2. Reset Override (only when this exact path has its own marker).
+ *      Removes the explicit pin so the node falls back to inheriting.
+ *   3. Clear Nested Overrides (only when descendants carry markers).
+ *      Wipes every marker strictly under this node — power-user cleanup.
+ */
+interface ContainerMenuOptions {
+  onAddRule: (type: string) => void;
+  onAddFolder: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  effectivelyPaused: boolean;
+  hasOwnMarker: boolean;
+  hasNestedMarkers: boolean;
+  onTogglePause: () => void;
+  onClearOverride: () => void;
+  onClearNested: () => void;
+  kind: 'collection' | 'folder';
 }
 
-function folderMenuItems(
-  onAddRule: (type: string) => void,
-  onAddFolder: () => void,
-  onRename: () => void,
-  onDelete: () => void,
-): ItemType[] {
+function containerMenuItems({
+  onAddRule,
+  onAddFolder,
+  onRename,
+  onDelete,
+  effectivelyPaused,
+  hasOwnMarker,
+  hasNestedMarkers,
+  onTogglePause,
+  onClearOverride,
+  onClearNested,
+  kind,
+}: ContainerMenuOptions): ItemType[] {
+  const noun = kind === 'collection' ? 'Collection' : 'Folder';
   return [
     {
       key: 'add-item',
@@ -83,6 +101,33 @@ function folderMenuItems(
       children: ruleTypeSubmenu(onAddRule),
     },
     { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
+    { type: 'divider' as const, key: 'div-pause' },
+    {
+      key: 'toggle-pause',
+      icon: createElement(effectivelyPaused ? PlayCircleOutlined : PauseCircleOutlined),
+      label: `${effectivelyPaused ? 'Unpause' : 'Pause'} ${noun}`,
+      onClick: onTogglePause,
+    },
+    ...(hasOwnMarker
+      ? [
+          {
+            key: 'clear-override',
+            icon: createElement(RollbackOutlined),
+            label: `Reset ${noun} Pause Override`,
+            onClick: onClearOverride,
+          },
+        ]
+      : []),
+    ...(hasNestedMarkers
+      ? [
+          {
+            key: 'clear-nested',
+            icon: createElement(ClearOutlined),
+            label: `Clear Nested Pause Overrides`,
+            onClick: onClearNested,
+          },
+        ]
+      : []),
     { type: 'divider' as const, key: 'div' },
     { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
     { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
@@ -202,6 +247,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     rules,
     localCollectionTrees,
     isConnected,
+    pauseMarkers,
+    pausedUids,
+    togglePause,
+    clearPauseOverride,
+    clearNestedPauseOverrides,
     updateLocalRule,
     deleteLocalRule,
     deleteLocalCollection,
@@ -318,6 +368,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         if (node.type === 'folder') {
           const fid = `folder-${node.uid}`;
           const isExpanded = expandedKeys.has(fid);
+          const folderPaused = pausedUids.has(node.uid);
+          const folderHasOwnMarker = pauseMarkers.has(node.path);
+          const folderHasNestedMarkers = hasNestedPauseMarkers(node.path, pauseMarkers);
           const onAddRule = (type: string) => onCreateRule(type, { collectionId, folderPath: node.path });
           const onAddFolder = () => {
             void createLocalFolder('New Folder', node.path).then((f) => {
@@ -339,7 +392,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: true,
             parentId,
-            icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+            icon: iconEl(
+              FolderOutlined,
+              folderPaused ? 'var(--ant-color-warning, #faad14)' : 'var(--ant-color-text-tertiary, #999)',
+            ),
             canRename: true,
             canDelete: true,
             canAddChild: true,
@@ -354,15 +410,22 @@ const Sidebar: React.FC<SidebarProps> = ({
               confirmDelete(node.name, () => {
                 void deleteLocalFolder(node.uid);
               }),
-            addMenuItems: folderMenuItems(
+            addMenuItems: containerMenuItems({
               onAddRule,
               onAddFolder,
-              () => setRenamingId(fid),
-              () =>
+              onRename: () => setRenamingId(fid),
+              onDelete: () =>
                 confirmDelete(node.name, () => {
                   void deleteLocalFolder(node.uid);
                 }),
-            ),
+              effectivelyPaused: folderPaused,
+              hasOwnMarker: folderHasOwnMarker,
+              hasNestedMarkers: folderHasNestedMarkers,
+              onTogglePause: () => togglePause(node.path),
+              onClearOverride: () => clearPauseOverride(node.path),
+              onClearNested: () => clearNestedPauseOverrides(node.path),
+              kind: 'folder',
+            }),
           });
           if (isExpanded) {
             const children = walkV5Tree(node.children, depth + 1, fid, collectionId);
@@ -402,11 +465,20 @@ const Sidebar: React.FC<SidebarProps> = ({
           const isLocal = node.uid.startsWith('local-');
           const fullRule = rules.find((r) => r.uid === node.uid);
           const complete = fullRule ? isRuleComplete(fullRule) : true;
-          const isActive = node.enabled && complete;
+          const rulePaused = pausedUids.has(node.uid);
+          const isActive = node.enabled && complete && !rulePaused;
 
-          // Badge: "draft" for incomplete rules, "off" for disabled complete rules
+          // Badge: paused (yellow) takes precedence over draft/off (gray).
+          // Paused communicates "ancestor is paused" — the most actionable
+          // status — so we surface it ahead of incomplete or disabled.
           let badge: React.ReactNode;
-          if (!complete) {
+          if (rulePaused) {
+            badge = createElement(
+              'span',
+              { style: { fontSize: 9, color: 'var(--ant-color-warning, #faad14)', marginLeft: 'auto' } },
+              'paused',
+            );
+          } else if (!complete) {
             badge = createElement(
               'span',
               { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } },
@@ -427,7 +499,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: false,
             parentId,
-            icon: buildRuleIcon({ ruleType: node.ruleType, rule: fullRule, isActive }),
+            icon: buildRuleIcon({ ruleType: node.ruleType, rule: fullRule, isActive, paused: rulePaused }),
             badge,
             canRename: isLocal,
             canDelete: isLocal,
@@ -466,6 +538,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       expandedKeys,
       lowerFilter,
       rules,
+      pauseMarkers,
+      pausedUids,
+      togglePause,
+      clearPauseOverride,
+      clearNestedPauseOverrides,
       toggleExpand,
       onCreateRule,
       onSelectRule,
@@ -506,13 +583,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         });
       };
 
+      const colPaused = pausedUids.has(collection.uid);
+      const colHasOwnMarker = pauseMarkers.has(collection.path);
+      const colHasNestedMarkers = hasNestedPauseMarkers(collection.path, pauseMarkers);
       items.push({
         id: colId,
         kind: 'group',
         label: collection.name,
         depth: 0,
         expandable: true,
-        icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+        icon: iconEl(
+          FolderOpenOutlined,
+          colPaused ? 'var(--ant-color-warning, #faad14)' : 'var(--ant-color-text-tertiary, #999)',
+        ),
         canRename: true,
         canDelete: true,
         canAddChild: true,
@@ -527,15 +610,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           confirmDelete(collection.name, () => {
             void deleteLocalCollection(collection.uid);
           }),
-        addMenuItems: collectionMenuItems(
+        addMenuItems: containerMenuItems({
           onAddRule,
           onAddFolder,
-          () => setRenamingId(colId),
-          () =>
+          onRename: () => setRenamingId(colId),
+          onDelete: () =>
             confirmDelete(collection.name, () => {
               void deleteLocalCollection(collection.uid);
             }),
-        ),
+          effectivelyPaused: colPaused,
+          hasOwnMarker: colHasOwnMarker,
+          hasNestedMarkers: colHasNestedMarkers,
+          onTogglePause: () => togglePause(collection.path),
+          onClearOverride: () => clearPauseOverride(collection.path),
+          onClearNested: () => clearNestedPauseOverrides(collection.path),
+          kind: 'collection',
+        }),
       });
 
       if (isExpanded) {
@@ -577,6 +667,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     localCollectionTrees,
     lowerFilter,
     expandedKeys,
+    pauseMarkers,
+    pausedUids,
+    togglePause,
+    clearPauseOverride,
+    clearNestedPauseOverrides,
     toggleExpand,
     onCreateRule,
     walkV5Tree,

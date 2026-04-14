@@ -2,7 +2,8 @@
  * Shared rule icon rendering — used by both Sidebar and TabBar.
  *
  * Uniform color scheme:
- *   - Gray: draft / incomplete / inactive / paused
+ *   - Yellow (warning): paused (overrides active state)
+ *   - Gray: draft / incomplete / disabled
  *   - Blue (#1677ff): active (enabled + complete)
  *
  * Direction arrows:
@@ -39,6 +40,7 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
 
 const GRAY = 'var(--ant-color-text-tertiary, #999)';
 const BLUE = '#1677ff';
+const YELLOW = 'var(--ant-color-warning, #faad14)';
 
 interface RuleIconOptions {
   ruleType: string;
@@ -46,6 +48,12 @@ interface RuleIconOptions {
   rule?: V5.Rule;
   /** Whether the rule is active (enabled + complete). */
   isActive: boolean;
+  /**
+   * Whether the rule is paused via an ancestor collection/folder. Takes
+   * precedence over `isActive` — paused icons render in the warning
+   * (yellow) color regardless of enabled/complete state.
+   */
+  paused?: boolean;
   /** Icon size in px. Default 12. */
   size?: number;
   /** Explicit direction override — use when rule object is not available (e.g. popup). */
@@ -55,11 +63,18 @@ interface RuleIconOptions {
 /**
  * Build a rich icon element for a rule — same rendering in sidebar, tabs, and popup.
  */
-export function buildRuleIcon({ ruleType, rule, isActive, size = 12, direction }: RuleIconOptions): React.ReactNode {
+export function buildRuleIcon({
+  ruleType,
+  rule,
+  isActive,
+  paused = false,
+  size = 12,
+  direction,
+}: RuleIconOptions): React.ReactNode {
   const detail = rule ? getActionDetail(rule) : undefined;
   const dir = direction ?? detail?.direction;
   const Icon = RULE_TYPE_ICON[ruleType] ?? SwapOutlined;
-  const iconColor = isActive ? BLUE : GRAY;
+  const iconColor = paused ? YELLOW : isActive ? BLUE : GRAY;
 
   // Fixed-width container for the arrow area — ensures vertical alignment
   // whether an arrow is present or not.
@@ -67,7 +82,7 @@ export function buildRuleIcon({ ruleType, rule, isActive, size = 12, direction }
   const arrowWidth = arrowSize + 2;
   const arrowContent = dir
     ? createElement(dir === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-        style: { fontSize: arrowSize, color: isActive ? BLUE : GRAY },
+        style: { fontSize: arrowSize, color: iconColor },
       })
     : null;
   const arrowSlot = createElement(

@@ -55,10 +55,10 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { isPathPausedByAncestor, isRuleComplete, parseTestTargetUrl } from '@openheaders/core/utils';
+import { isRuleComplete, parseTestTargetUrl, resolvePauseState } from '@openheaders/core/utils';
 import { runtime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { applyAllRules, applyAllRulesAsync, getPausedGroups } from '../dnr-manager';
+import { applyAllRules, applyAllRulesAsync, getPauseMarkers } from '../dnr-manager';
 import { matchRulesToRequest } from './request-tracker';
 import { getRules } from './rule-store';
 import { arbitrate, type ShadowAttribution } from './shadow-arbitration';
@@ -290,10 +290,10 @@ export function startRun(opts: StartRunOptions): Promise<TestRun> {
     // Step 1: identify rules in scope that simply cannot fire — they're
     // marked 'skipped' in the result so the user understands the difference
     // between "DNR ran the rule but no request matched" and "we never tried".
-    const pausedGroups = new Set(getPausedGroups());
+    const pauseMarkers = getPauseMarkers();
     const skippedUids = new Set<string>();
     for (const rule of scopeRules) {
-      if (!rule.enabled || !isRuleComplete(rule) || isPathPausedByAncestor(rule.path, pausedGroups)) {
+      if (!rule.enabled || !isRuleComplete(rule) || resolvePauseState(rule.path, pauseMarkers)) {
         skippedUids.add(rule.uid);
       }
     }

@@ -9,18 +9,19 @@ declare const browser: typeof chrome | undefined;
 
 import { RecordingService } from '@assets/recording/background/recording-service';
 import type { V5 } from '@openheaders/core/types';
-import { isPathPausedByAncestor } from '@openheaders/core/utils';
+import type { PauseMarker } from '@openheaders/core/utils';
+import { resolvePauseState } from '@openheaders/core/utils';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
 import {
   forgetDelayBypassForTab,
-  getPausedGroups,
+  getPauseMarkers,
   initPauseState,
   markTabForDelayBypass,
   resolveDelayBypass,
-  setPausedGroups,
+  setPauseMarkers,
   setRulesPaused,
 } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
@@ -96,9 +97,9 @@ async function updateBadgeForCurrentTab(): Promise<void> {
       if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
       const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
-      const paused = new Set(getPausedGroups());
+      const markers = getPauseMarkers();
       const activeRules = allMatchingRules.filter(
-        (r) => r.isEnabled !== false && !isPathPausedByAncestor(r.path, paused),
+        (r) => r.isEnabled !== false && !resolvePauseState(r.path, markers),
       );
       await updateExtensionBadge(isConnected, activeRules, isPaused, recordingService, attempts);
     });
@@ -218,12 +219,12 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
     debouncedUpdateBadge();
   }
 
-  // Collection/folder pausing
-  if (area === 'local' && changes.pausedGroups) {
-    const paths = (changes.pausedGroups.newValue as string[]) || [];
-    logger.info('Background', 'Paused groups changed:', paths);
-    setPausedGroups(paths);
-    scheduleUpdate('pausedGroups', { immediate: true });
+  // Collection/folder pause markers
+  if (area === 'local' && changes.pauseMarkers) {
+    const record = (changes.pauseMarkers.newValue as Record<string, PauseMarker>) || {};
+    logger.info('Background', 'Pause markers changed:', record);
+    setPauseMarkers(record);
+    scheduleUpdate('pauseMarkers', { immediate: true });
     debouncedUpdateBadge();
   }
 

@@ -26,7 +26,7 @@ vi.mock('@utils/logger', () => ({
 
 import { formatUrlPattern } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
-import { setPausedGroups, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
+import { setPauseMarkers, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;
 const mockUpdateDynamicRules = declarativeNetRequest!.updateDynamicRules as ReturnType<typeof vi.fn>;
@@ -68,7 +68,7 @@ describe('header-manager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setRulesPaused(false);
-    setPausedGroups([]);
+    setPauseMarkers({});
     mockGetDynamicRules.mockResolvedValue([]);
     mockUpdateDynamicRules.mockResolvedValue(undefined);
   });
@@ -231,9 +231,9 @@ describe('header-manager', () => {
 
   // ── Paused collections/folders ──
 
-  describe('paused groups (collection/folder paths)', () => {
+  describe('pause markers (collection/folder paths)', () => {
     it('skips rules under a paused collection path', async () => {
-      setPausedGroups(['rules/api-collection']);
+      setPauseMarkers({ 'rules/api-collection': 'paused' });
       const rule = makeHeaderRule({
         path: 'rules/api-collection/my-rule-a1b2',
         action: {
@@ -251,7 +251,7 @@ describe('header-manager', () => {
     });
 
     it('allows rules from non-paused collections', async () => {
-      setPausedGroups(['rules/api-collection']);
+      setPauseMarkers({ 'rules/api-collection': 'paused' });
       const rule = makeHeaderRule({
         path: 'rules/other-collection/my-rule-c3d4',
         action: {
@@ -269,7 +269,7 @@ describe('header-manager', () => {
     });
 
     it('skips rules under a paused sub-folder', async () => {
-      setPausedGroups(['rules/my-collection/staging-folder']);
+      setPauseMarkers({ 'rules/my-collection/staging-folder': 'paused' });
       const rule = makeHeaderRule({
         path: 'rules/my-collection/staging-folder/my-rule-e5f6',
         action: {
@@ -287,7 +287,7 @@ describe('header-manager', () => {
     });
 
     it('allows rules when collection is unpaused', async () => {
-      setPausedGroups(['rules/api-collection']);
+      setPauseMarkers({ 'rules/api-collection': 'paused' });
       const rule = makeHeaderRule({
         path: 'rules/api-collection/my-rule-a1b2',
         action: {
@@ -302,12 +302,47 @@ describe('header-manager', () => {
       expect(getRulesFromLastCall()).toHaveLength(0);
 
       // Unpause
-      setPausedGroups([]);
+      setPauseMarkers({});
       updateNetworkRules([rule]);
       await flushPromises();
 
       const rules = getRulesFromLastCall();
       expect(rules.length).toBeGreaterThan(0);
+    });
+
+    it('honors an unpaused override on a folder beneath a paused collection', async () => {
+      // Closest-specifier wins: collection paused, but the staging folder
+      // carries an explicit 'unpaused' override so its rules still fire.
+      setPauseMarkers({
+        'rules/api-collection': 'paused',
+        'rules/api-collection/staging-folder': 'unpaused',
+      });
+      const overriddenRule = makeHeaderRule({
+        path: 'rules/api-collection/staging-folder/my-rule-x1y2',
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Override', value: 'value' }],
+          responseHeaders: [],
+        },
+        conditions: hostConditions(['openheaders.io']),
+      });
+      const stillPausedRule = makeHeaderRule({
+        path: 'rules/api-collection/other-folder/my-rule-z3w4',
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-Other', value: 'value' }],
+          responseHeaders: [],
+        },
+        conditions: hostConditions(['openheaders.io']),
+      });
+
+      updateNetworkRules([overriddenRule, stillPausedRule]);
+      await flushPromises();
+
+      const rules = getRulesFromLastCall();
+      expect(rules.length).toBeGreaterThan(0);
+      // The stringified rule list should mention X-Override but not X-Other.
+      const serialized = JSON.stringify(rules);
+      expect(serialized).toContain('X-Override');
+      expect(serialized).not.toContain('X-Other');
     });
   });
 

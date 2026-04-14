@@ -132,9 +132,10 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
   readOnly,
 }) => {
   const { token } = theme.useToken();
-  const { updateLocalRule, deleteLocalRule } = useRules();
+  const { updateLocalRule, deleteLocalRule, pausedUids } = useRules();
   const complete = isRuleComplete(rule);
-  const isActive = rule.enabled && complete;
+  const paused = pausedUids.has(rule.uid);
+  const isActive = rule.enabled && complete && !paused;
   const isLocal = rule.uid.startsWith('local-');
   const detail = useMemo(() => getActionDetail(rule), [rule]);
 
@@ -190,7 +191,9 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
       )}
 
       {/* Icon */}
-      <div className="flow-rule-card-icon">{buildRuleIcon({ ruleType: rule.type, rule, isActive, size: 14 })}</div>
+      <div className="flow-rule-card-icon">
+        {buildRuleIcon({ ruleType: rule.type, rule, isActive, paused, size: 14 })}
+      </div>
 
       {/* Content */}
       <div className="flow-rule-card-content">
@@ -202,6 +205,11 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
             {!complete && (
               <Tag color="default" style={{ fontSize: 10, margin: 0, lineHeight: '16px' }}>
                 Draft
+              </Tag>
+            )}
+            {complete && paused && (
+              <Tag color="warning" style={{ fontSize: 10, margin: 0, lineHeight: '16px' }}>
+                Paused
               </Tag>
             )}
             {!isLocal && (

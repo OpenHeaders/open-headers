@@ -21,6 +21,8 @@ interface UseCommandPaletteDataOptions {
   templates: V5.Template[];
   localCollectionTrees: V5.CollectionTree[];
   templateCollectionTrees: V5.CollectionTree[];
+  /** Effective paused uids — drives the yellow icon on rule items in the palette. */
+  pausedUids: ReadonlySet<string>;
   openEditTab: (uid: string) => void;
   openCreateTab: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   openTemplateEditTab: (uid: string) => void;
@@ -40,6 +42,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     templates,
     localCollectionTrees,
     templateCollectionTrees,
+    pausedUids,
     openEditTab,
     openCreateTab,
     openTemplateEditTab,
@@ -57,9 +60,15 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         for (const node of nodes) {
           if (node.type === 'rule') {
             const rule = rules.find((r) => r.uid === node.uid);
+            const paused = pausedUids.has(node.uid);
             ruleItems.push({
               id: `rule-${node.uid}`,
-              icon: buildRuleIcon({ ruleType: node.ruleType, rule, isActive: node.enabled }),
+              icon: buildRuleIcon({
+                ruleType: node.ruleType,
+                rule,
+                isActive: node.enabled && !paused,
+                paused,
+              }),
               label: node.name,
               scope: getRuleTypeLabel(node.ruleType),
               onSelect: () => openEditTab(node.uid),
@@ -131,7 +140,15 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     }
 
     return result;
-  }, [localCollectionTrees, templateCollectionTrees, rules, openEditTab, openCreateTab, openTemplateEditTab]);
+  }, [
+    localCollectionTrees,
+    templateCollectionTrees,
+    rules,
+    pausedUids,
+    openEditTab,
+    openCreateTab,
+    openTemplateEditTab,
+  ]);
 
   const sections = useMemo((): CommandPaletteSection[] => {
     const result: CommandPaletteSection[] = [];

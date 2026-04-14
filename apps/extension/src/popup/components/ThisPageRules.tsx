@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
-import { isPathPausedByAncestor } from '@openheaders/core/utils';
+import { resolvePauseState } from '@openheaders/core/utils';
 import { runtime } from '@utils/browser-api';
 import {
   App,
@@ -281,7 +281,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   onRowActionsChange,
 }) => {
   const { message } = App.useApp();
-  const { isConnected, pausedGroups } = useRules();
+  const { isConnected, pauseMarkers } = useRules();
   const {
     expandedRowKey,
     nestedFocusIndex,
@@ -495,7 +495,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const dataSource: TableRecord[] = sortedFilteredRules
     .map((rule, index) => {
       const isEnabled = rule.isEnabled !== false;
-      const groupPaused = isPathPausedByAncestor(rule.path ?? '', pausedGroups);
+      const groupPaused = resolvePauseState(rule.path ?? '', pauseMarkers);
       const statusRank = isEnabled && !groupPaused ? 0 : isEnabled && groupPaused ? 1 : 2;
       const records = recordsFor(rule.id);
       let dominantShadow: { uid: string; name: string } | undefined;
@@ -614,7 +614,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         const displayName = truncateValue(text, 20);
         const count = record.fireCount;
         const isEnabled = record.isEnabled !== false;
-        const groupPaused = isPathPausedByAncestor(record.path ?? '', pausedGroups);
+        const groupPaused = resolvePauseState(record.path ?? '', pauseMarkers);
         const outOfPlay = !isEnabled || groupPaused;
         const shadowed = shadowDetection && record.shadowedCount > 0;
 
@@ -732,14 +732,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         ];
         const labels = [
           ...resourceLabels,
-          ...(isPathPausedByAncestor(record.path ?? '', pausedGroups) ? ['Paused'] : []),
+          ...(resolvePauseState(record.path ?? '', pauseMarkers) ? ['Paused'] : []),
           RULE_TYPE_LABEL[record.ruleType] ?? record.ruleType,
         ];
         return labels.includes(value as string);
       },
       render: (_: unknown, record: TableRecord) => {
         const allTags: TagDescriptor[] = [];
-        if (isPathPausedByAncestor(record.path ?? '', pausedGroups)) {
+        if (resolvePauseState(record.path ?? '', pauseMarkers)) {
           allTags.push({
             label: 'Paused',
             color: 'default',
@@ -884,7 +884,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     /^(chrome|chrome-extension|edge|moz-extension|about|opera|vivaldi|brave):/.test(currentTab.url);
 
   const activeCount = activeRules.filter(
-    (r) => r.isEnabled !== false && !isPathPausedByAncestor(r.path ?? '', pausedGroups),
+    (r) => r.isEnabled !== false && !resolvePauseState(r.path ?? '', pauseMarkers),
   ).length;
 
   return (
@@ -908,7 +908,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               </Text>
               {(() => {
                 const pausedCount = activeRules.filter((r) =>
-                  isPathPausedByAncestor(r.path ?? '', pausedGroups),
+                  resolvePauseState(r.path ?? '', pauseMarkers),
                 ).length;
                 return pausedCount > 0 ? (
                   <>
@@ -1167,7 +1167,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           })}
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
-            if (isPathPausedByAncestor(record.path ?? '', pausedGroups)) classes.push('row-group-paused');
+            if (resolvePauseState(record.path ?? '', pauseMarkers)) classes.push('row-group-paused');
             else if (record.isEnabled === false) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');

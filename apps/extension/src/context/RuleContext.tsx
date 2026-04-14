@@ -7,10 +7,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import type { PauseMarker } from '@openheaders/core/utils';
+import { computePausedUids, resolvePauseState } from '@openheaders/core/utils';
 import { runtime, storage } from '@utils/browser-api';
 import { sendMessageWithCallback } from '@utils/messaging';
 import type React from 'react';
-import { createContext, useCallback, useEffect, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 
 // ── Context shape ─────────────────────────────────────────────────
 
@@ -33,10 +35,29 @@ export interface RuleContextValue {
   isStatusLoaded: boolean;
   /** UI state persisted across popup open/close. */
   uiState: UiState;
-  /** Paused collection/folder paths — rules under these are not applied. */
-  pausedGroups: Set<string>;
-  /** Toggle a collection or folder pause on/off (by path). */
-  toggleGroupPause: (path: string) => void;
+  /**
+   * Pause state map — every collection/folder path that has an explicit
+   * marker. 'paused' pauses the subtree; 'unpaused' is an override that
+   * forces the subtree active even if an ancestor is paused. A path with
+   * no marker inherits from its closest marked ancestor.
+   */
+  pauseMarkers: ReadonlyMap<string, PauseMarker>;
+  /**
+   * Uids of every node (collection / folder / rule) that is effectively
+   * paused after marker resolution. Lets UI code answer "is this node
+   * paused?" with a single Set lookup.
+   */
+  pausedUids: Set<string>;
+  /**
+   * Smart toggle: flips the effective pause state of `path` by setting
+   * the opposite marker. Idempotent for the same effective outcome —
+   * pressing twice returns to the original state.
+   */
+  togglePause: (path: string) => void;
+  /** Remove the explicit marker on `path` so it inherits from its parent. */
+  clearPauseOverride: (path: string) => void;
+  /** Remove every marker strictly below `path` — power-user cleanup. */
+  clearNestedPauseOverrides: (path: string) => void;
   /** Force-refresh rules from the background. */
   refreshRules: () => void;
   /** Update persisted UI state. */
@@ -114,10 +135,13 @@ const defaultContextValue: RuleContextValue = {
       sortedInfo: {},
     },
   },
-  pausedGroups: new Set(),
+  pauseMarkers: new Map(),
+  pausedUids: new Set(),
   localCollections: [],
   localCollectionTrees: [],
-  toggleGroupPause: () => {},
+  togglePause: () => {},
+  clearPauseOverride: () => {},
+  clearNestedPauseOverrides: () => {},
   refreshRules: () => {},
   updateUiState: () => {},
   createLocalRule: () => Promise.resolve(null),
@@ -158,7 +182,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   const [uiState, setUiState] = useState<UiState>({
     tableState: { searchText: '', sortMode: 'status', filteredInfo: {}, sortedInfo: {} },
   });
-  const [pausedGroups, setPausedGroups] = useState<Set<string>>(new Set());
+  const [pauseMarkers, setPauseMarkers] = useState<Map<string, PauseMarker>>(() => new Map());
   const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);
   const [localCollectionTrees, setLocalCollectionTrees] = useState<V5.CollectionTree[]>([]);
   const [templates, setTemplates] = useState<V5.Template[]>([]);
@@ -230,11 +254,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     loadLocalCollections();
     loadTemplateData();
 
-    // Load paused collection/folder paths
-    storage.local.get(['pausedGroups'], (result: Record<string, unknown>) => {
-      const paths = result.pausedGroups as string[] | undefined;
-      if (Array.isArray(paths)) {
-        setPausedGroups(new Set(paths));
+    // Load pause markers
+    storage.local.get(['pauseMarkers'], (result: Record<string, unknown>) => {
+      const record = result.pauseMarkers as Record<string, PauseMarker> | undefined;
+      if (record && typeof record === 'object') {
+        setPauseMarkers(new Map(Object.entries(record)));
       }
     });
 
@@ -259,11 +283,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       ) => void,
     );
 
-    // Listen for paused groups changes
+    // Listen for pause marker changes
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-      if (areaName === 'local' && changes.pausedGroups) {
-        const paths = (changes.pausedGroups.newValue as string[]) || [];
-        setPausedGroups(new Set(paths));
+      if (areaName === 'local' && changes.pauseMarkers) {
+        const record = (changes.pauseMarkers.newValue as Record<string, PauseMarker>) || {};
+        setPauseMarkers(new Map(Object.entries(record)));
       }
     };
     storage.onChanged.addListener(handleStorageChange);
@@ -309,11 +333,28 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     setUiState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // ── Collection/folder pause management ─────────────────────────
+  // ── Pause marker management ───────────────────────────────────
+  //
+  // Single mutator: every action funnels through `mutatePauseMarkers`,
+  // which produces the next Map, persists it to storage, and updates
+  // local state in one shot. Keeps the storage write co-located with
+  // the state transition so the two never drift.
 
-  // Prune stale paused paths when collections change
+  const mutatePauseMarkers = useCallback(
+    (mutator: (prev: ReadonlyMap<string, PauseMarker>) => Map<string, PauseMarker>) => {
+      setPauseMarkers((prev) => {
+        const next = mutator(prev);
+        storage.local.set({ pauseMarkers: Object.fromEntries(next) });
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Prune stale marker paths when collections change. A marker is stale
+  // when its path no longer corresponds to any known collection or folder.
   useEffect(() => {
-    if (pausedGroups.size === 0) return;
+    if (pauseMarkers.size === 0) return;
     const activePaths = new Set<string>();
     for (const tree of localCollectionTrees) {
       activePaths.add(tree.path);
@@ -327,28 +368,60 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       };
       addFolderPaths(tree.tree);
     }
-    const stale = [...pausedGroups].filter((p) => !activePaths.has(p));
+    const stale: string[] = [];
+    for (const key of pauseMarkers.keys()) {
+      if (!activePaths.has(key)) stale.push(key);
+    }
     if (stale.length === 0) return;
-    setPausedGroups((prev) => {
-      const next = new Set(prev);
-      for (const p of stale) next.delete(p);
-      storage.local.set({ pausedGroups: [...next] });
+    mutatePauseMarkers((prev) => {
+      const next = new Map(prev);
+      for (const k of stale) next.delete(k);
       return next;
     });
-  }, [localCollectionTrees, pausedGroups]);
+  }, [localCollectionTrees, pauseMarkers, mutatePauseMarkers]);
 
-  const toggleGroupPause = useCallback((path: string) => {
-    setPausedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) {
+  const togglePause = useCallback(
+    (path: string) => {
+      mutatePauseMarkers((prev) => {
+        const next = new Map(prev);
+        const currentlyPaused = resolvePauseState(path, prev);
+        // Smart toggle: if any explicit marker matches the *opposite* of
+        // the current effective state would already be a no-op, so we set
+        // the marker that flips the state. Setting the marker even when
+        // it matches the inherited default is intentional — it pins the
+        // state so a parent toggle can't silently flip it back.
+        next.set(path, currentlyPaused ? 'unpaused' : 'paused');
+        return next;
+      });
+    },
+    [mutatePauseMarkers],
+  );
+
+  const clearPauseOverride = useCallback(
+    (path: string) => {
+      mutatePauseMarkers((prev) => {
+        if (!prev.has(path)) return new Map(prev);
+        const next = new Map(prev);
         next.delete(path);
-      } else {
-        next.add(path);
-      }
-      storage.local.set({ pausedGroups: [...next] });
-      return next;
-    });
-  }, []);
+        return next;
+      });
+    },
+    [mutatePauseMarkers],
+  );
+
+  const clearNestedPauseOverrides = useCallback(
+    (path: string) => {
+      mutatePauseMarkers((prev) => {
+        const prefix = `${path}/`;
+        const next = new Map<string, PauseMarker>();
+        for (const [key, value] of prev) {
+          if (!key.startsWith(prefix)) next.set(key, value);
+        }
+        return next;
+      });
+    },
+    [mutatePauseMarkers],
+  );
 
   // ── Local rule CRUD ───────────────────────────────────────────
 
@@ -671,15 +744,23 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   // ── Render ────────────────────────────────────────────────────
 
+  const pausedUids = useMemo(
+    () => computePausedUids(localCollectionTrees, pauseMarkers),
+    [localCollectionTrees, pauseMarkers],
+  );
+
   const contextValue: RuleContextValue = {
     rules,
     isConnected,
     isStatusLoaded,
     uiState,
-    pausedGroups,
+    pauseMarkers,
+    pausedUids,
     localCollections,
     localCollectionTrees,
-    toggleGroupPause,
+    togglePause,
+    clearPauseOverride,
+    clearNestedPauseOverrides,
     refreshRules,
     updateUiState,
     createLocalRule,

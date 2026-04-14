@@ -11,7 +11,7 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { getActionDetail, isPathPausedByAncestor, isRuleComplete } from '@openheaders/core/utils';
+import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
@@ -72,7 +72,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
 }) => {
   const { message } = App.useApp();
 
-  const { rules, isConnected, uiState, updateUiState, pausedGroups } = useRules();
+  const { rules, isConnected, uiState, updateUiState, pauseMarkers } = useRules();
   const { setFocusedRowIndex } = useKeyboardNav();
 
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
@@ -135,7 +135,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     .map((rule) => {
       const isEnabled = rule.enabled;
       const complete = isRuleComplete(rule);
-      const groupPaused = isPathPausedByAncestor(rule.path, pausedGroups);
+      const groupPaused = resolvePauseState(rule.path, pauseMarkers);
 
       let statusRank: StatusRank;
       if (isEnabled && complete && !groupPaused)
@@ -176,11 +176,11 @@ const RulesTable: React.FC<RulesTableProps> = ({
   dataSourceRef.current = filteredData;
 
   const activeCount = dataSource.filter(
-    (item) => item.isEnabled && item.isComplete && !isPathPausedByAncestor(item.path, pausedGroups),
+    (item) => item.isEnabled && item.isComplete && !resolvePauseState(item.path, pauseMarkers),
   ).length;
   const draftCount = dataSource.filter((item) => !item.isComplete).length;
   const pausedCount = dataSource.filter(
-    (item) => item.isEnabled && item.isComplete && isPathPausedByAncestor(item.path, pausedGroups),
+    (item) => item.isEnabled && item.isComplete && resolvePauseState(item.path, pauseMarkers),
   ).length;
   const totalCount = dataSource.length;
 
@@ -650,7 +650,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
             if (!record.isComplete) classes.push('row-draft');
-            else if (isPathPausedByAncestor(record.path, pausedGroups)) classes.push('row-group-paused');
+            else if (resolvePauseState(record.path, pauseMarkers)) classes.push('row-group-paused');
             else if (!record.isEnabled) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');
             if (index === pendingDeleteIndex) classes.push('keyboard-pending-delete-row');
