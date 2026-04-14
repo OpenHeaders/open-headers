@@ -263,7 +263,7 @@ const Header: React.FC<HeaderProps> = ({ onShowShortcuts, onShowTour }) => {
         <img
           src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
           alt="Open Headers"
-          style={{ width: 28, height: 28, borderRadius: 6 }}
+          style={{ width: 26, height: 26 }}
         />
         <Title level={4} className="popup-header-title" style={{ margin: 0 }}>
           Open Headers

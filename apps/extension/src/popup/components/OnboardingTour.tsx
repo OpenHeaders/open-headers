@@ -148,7 +148,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
       {
         title: (
           <Space size={8}>
-            <img src={logoUrl} alt="Open Headers" style={{ width: 18, height: 18 }} />
+            <img src={logoUrl} alt="Open Headers" style={{ width: 20, height: 20 }} />
             <span>Welcome to Open Headers</span>
           </Space>
         ),
