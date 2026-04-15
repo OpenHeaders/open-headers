@@ -153,10 +153,29 @@ export function updateTabInLeaf(
   tabId: string,
   updates: Partial<RulesTab>,
 ): EditorNode {
-  return mapLeaf(root, leafId, (leaf) => ({
-    ...leaf,
-    tabs: leaf.tabs.map((t) => (t.id === tabId ? { ...t, ...updates } : t)),
-  }));
+  return mapLeaf(root, leafId, (leaf) => {
+    const idx = leaf.tabs.findIndex((t) => t.id === tabId);
+    if (idx < 0) return leaf;
+    const tab = leaf.tabs[idx];
+    // Bail out when every field in `updates` already matches the current
+    // tab — returning the same `leaf` reference lets `mapLeaf` bubble the
+    // no-op all the way up to `root` via its identity-check, which in
+    // turn lets `useEditorGroups.transform` detect a no-op and skip
+    // setState. Without this check, a harmless sync effect that fires
+    // `updateTab(id, { label: current.label })` would still allocate a
+    // fresh tree on every tick.
+    let hasChange = false;
+    for (const key of Object.keys(updates) as Array<keyof RulesTab>) {
+      if (tab[key] !== updates[key]) {
+        hasChange = true;
+        break;
+      }
+    }
+    if (!hasChange) return leaf;
+    const nextTabs = leaf.tabs.slice();
+    nextTabs[idx] = { ...tab, ...updates };
+    return { ...leaf, tabs: nextTabs };
+  });
 }
 
 /** Replace a tab wholesale inside a leaf (used for draft → saved transitions). */
@@ -185,6 +204,11 @@ export function reorderTabInLeaf(root: EditorNode, leafId: string, fromId: strin
 export function activateTabInLeaf(root: EditorNode, leafId: string, tabId: string): EditorNode {
   return mapLeaf(root, leafId, (leaf) => {
     if (!leaf.tabs.some((t) => t.id === tabId)) return leaf;
+    // Already active — return the same leaf reference so the no-op
+    // propagates up through `mapLeaf` into `transform`, preventing a
+    // setState on idempotent switches (same anti-pattern that bit us
+    // in `useToolLayout.patch`).
+    if (leaf.activeTabId === tabId) return leaf;
     return { ...leaf, activeTabId: tabId };
   });
 }

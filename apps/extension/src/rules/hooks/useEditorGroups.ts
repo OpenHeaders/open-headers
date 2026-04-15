@@ -231,6 +231,21 @@ export function useEditorGroups(): UseEditorGroupsApi {
   const transform = useCallback((fn: (prev: EditorGroupsState) => EditorGroupsState) => {
     setState((prev) => {
       const next = fn(prev);
+      // No-op detection. The reducer may either return `prev` directly
+      // (explicit bail-out) or return a fresh state wrapper where every
+      // field is reference-equal to prev (e.g. `switchTab` on an already-
+      // active tab calls `activateTabInLeaf`, which now returns the same
+      // root reference via structural sharing, but the reducer still
+      // wraps it in `{ ...prev, root: nextRoot, focusedLeafId: leaf.id }`).
+      // In either case, skip the setState so consumers don't get a new
+      // identity for their memoized views. Same anti-pattern that caused
+      // React #185 in `useToolLayout.patch`.
+      if (
+        next === prev ||
+        (next.root === prev.root && next.focusedLeafId === prev.focusedLeafId && next.nextId === prev.nextId)
+      ) {
+        return prev;
+      }
       // Guarantee focused leaf always exists in the new tree.
       if (!findLeaf(next.root, next.focusedLeafId)) {
         const fallback = firstLeaf(next.root);
