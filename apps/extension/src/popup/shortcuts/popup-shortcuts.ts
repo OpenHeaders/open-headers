@@ -143,7 +143,7 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
   {
     id: 'toggle-pause-focused',
     settingKey: 'keyboard.popup.togglePauseFocused',
-    description: 'Pause / resume focused row',
+    description: 'Pause / resume collection or folder',
     group: 'row',
   },
   {

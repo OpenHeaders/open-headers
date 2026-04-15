@@ -408,14 +408,17 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   );
 
   // Row-scoped pause — keyed off the `toggle-pause-focused` shortcut
-  // (default `p`). Unlike `handleToggle` / Space, this is always a
-  // pause operation, regardless of node type — rule, folder, and
-  // collection rows all flip their pause marker. Global "pause every
-  // rule everywhere" lives on the separate `shift+p` shortcut.
+  // (default `p`). Only folder and collection rows have a pause state;
+  // individual rule rows have an `enabled` flag instead and are
+  // toggled via Space (`handleToggle`). Pressing `p` on a rule row is
+  // an explicit no-op so the key never accidentally flips an
+  // unrelated state. Global "pause every rule everywhere" lives on
+  // the separate `shift+p` shortcut.
   const handlePauseRow = useCallback(
     (index: number) => {
       const record = flatRowsRef.current[index];
       if (!record) return;
+      if (record.nodeType === 'rule') return;
       togglePause(record.path);
     },
     [togglePause],

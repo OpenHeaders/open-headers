@@ -211,8 +211,9 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
   {
     key: 'keyboard.popup.togglePauseFocused',
     default: 'p',
-    label: 'Popup — Toggle Pause (focused row)',
-    description: 'Pause or resume the focused collection, folder, or rule in the Collections tab.',
+    label: 'Popup — Toggle Pause (focused collection/folder)',
+    description:
+      'Pause or resume the focused collection or folder in the Collections tab. Has no effect on individual rule rows — rules use the enabled toggle (Space) instead.',
     tags: ['popup', 'pause', 'collection', 'folder'],
   },
   {
