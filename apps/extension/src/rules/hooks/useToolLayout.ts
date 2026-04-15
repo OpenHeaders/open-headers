@@ -67,6 +67,36 @@ function findDock(docks: Record<DockSlot, DockState>, id: ToolWindowId): DockSlo
   return null;
 }
 
+/**
+ * Structural equality over tool-layout state. Used by `patch` to detect
+ * mutator no-ops so a re-selection of an already-active tool window
+ * (e.g. the auto-open-test-runs effect in App.tsx) does NOT allocate a
+ * fresh state object — which would otherwise cascade into a new
+ * `ToolLayoutApi` memo, new `openTestRunsPanel` callback identity, and
+ * re-fire the effect that called activateWindow in the first place,
+ * producing React error #185.
+ */
+function toolLayoutEquals(a: ToolLayoutState, b: ToolLayoutState): boolean {
+  if (a === b) return true;
+  for (const slot of ALL_DOCK_SLOTS) {
+    const da = a.docks[slot];
+    const db = b.docks[slot];
+    if (da === db) continue;
+    if (da.active !== db.active) return false;
+    if (da.windows.length !== db.windows.length) return false;
+    for (let i = 0; i < da.windows.length; i++) {
+      if (da.windows[i] !== db.windows[i]) return false;
+    }
+  }
+  if (a.hidden.length !== b.hidden.length) return false;
+  for (let i = 0; i < a.hidden.length; i++) {
+    if (a.hidden[i] !== b.hidden[i]) return false;
+  }
+  // Zen snapshots are coarse — compare by reference. Taking / restoring
+  // a snapshot always allocates a fresh object so this is sufficient.
+  return a.zenSnapshot === b.zenSnapshot;
+}
+
 function removeFromDock(dock: DockState, id: ToolWindowId): void {
   dock.windows = dock.windows.filter((w) => w !== id);
   if (dock.active === id) dock.active = null;
@@ -225,7 +255,11 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
         zenSnapshot: prev.zenSnapshot ? { ...prev.zenSnapshot } : null,
       };
       mutate(next);
-      return next;
+      // Return the previous reference when the mutator was a no-op so
+      // React skips the re-render. Callers (activateWindow, moveWindow,
+      // …) can dispatch the same patch repeatedly without producing an
+      // infinite render loop through memoized consumers of `tl`.
+      return toolLayoutEquals(prev, next) ? prev : next;
     });
   }, []);
 
