@@ -36,7 +36,7 @@ import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
-import InjectRuleFields from './rule-fields/InjectRuleFields';
+import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
@@ -99,7 +99,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
-  const selectedType = Form.useWatch('ruleType', form) as V5.ExtensionRuleType | undefined;
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
 
@@ -118,6 +117,17 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     () => (mode === 'edit' && ruleUid ? rules.find((r) => r.uid === ruleUid) : undefined),
     [mode, ruleUid, rules],
   );
+
+  /**
+   * Rule type is immutable for a given tab — in create mode it comes from
+   * the `ruleType` prop, in edit mode from the live rule. There is no code
+   * path that changes `ruleType` inside the form, so this never needs a
+   * form subscription and the first render is already correct.
+   */
+  const selectedType =
+    mode === 'edit'
+      ? (liveRule?.type as V5.ExtensionRuleType | undefined)
+      : (ruleType as V5.ExtensionRuleType | undefined);
 
   /** Single source of truth for enabled state. */
   const isEnabled = mode === 'edit' ? (liveRule?.enabled ?? true) : draftEnabled;
@@ -358,6 +368,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       if (changedValues.mockBodyType === 'dynamic') {
         const dyn = form.getFieldValue('mockDynamicBody') as string | undefined;
         if (!dyn?.trim()) form.setFieldValue('mockDynamicBody', MOCK_DYNAMIC_TEMPLATE);
+      }
+      if ('injectType' in changedValues) {
+        maybePrefillInjectCode(form, changedValues.injectType);
       }
     },
     [onDirtyChange, form],

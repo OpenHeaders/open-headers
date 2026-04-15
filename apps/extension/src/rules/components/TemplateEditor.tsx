@@ -16,7 +16,7 @@ import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
-import InjectRuleFields from './rule-fields/InjectRuleFields';
+import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
@@ -54,7 +54,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const [headerResCount, setHeaderResCount] = useState(0);
 
   const template = templates.find((t) => t.uid === templateUid);
-  const selectedType = Form.useWatch('ruleType', form) as string | undefined;
+  // Template rule type is fixed at creation — the Select is rendered
+  // disabled below, and there's no code path that changes it. Derive
+  // straight from the template record so the first render is correct.
+  const selectedType = template?.ruleType;
 
   // ── Form initialization ──────────────────────────────────────
 
@@ -153,6 +156,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
       if (changedValues.mockBodyType === 'dynamic') {
         const dyn = form.getFieldValue('mockDynamicBody') as string | undefined;
         if (!dyn?.trim()) form.setFieldValue('mockDynamicBody', MOCK_DYNAMIC_TEMPLATE);
+      }
+      if ('injectType' in changedValues) {
+        maybePrefillInjectCode(form, changedValues.injectType);
       }
     },
     [onDirtyChange, form],

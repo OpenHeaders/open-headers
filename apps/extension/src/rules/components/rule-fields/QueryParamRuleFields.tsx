@@ -15,9 +15,6 @@ const { Text } = Typography;
 
 const QueryParamRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
-  const queryParams = Form.useWatch('queryParams') as Array<{ operation: string }> | undefined;
-  const hasRemoveAll = queryParams?.some((p) => p.operation === 'remove-all') ?? false;
-  const hasOtherOps = queryParams?.some((p) => p.operation !== 'remove-all') ?? false;
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -30,14 +27,22 @@ const QueryParamRuleFields: React.FC = () => {
           onClick={() => openDocs(getDocId('query-param', 'action'))}
         />
       </div>
-      {hasRemoveAll && hasOtherOps && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 8, fontSize: 12 }}
-          message="REMOVE ALL will strip the entire query string. Other operations in this rule will be ignored. Use a separate rule to add params after removal."
-        />
-      )}
+      <Form.Item noStyle shouldUpdate={(prev, cur) => prev.queryParams !== cur.queryParams}>
+        {({ getFieldValue }) => {
+          const rows = (getFieldValue('queryParams') as Array<{ operation: string }> | undefined) ?? [];
+          const hasRemoveAll = rows.some((p) => p.operation === 'remove-all');
+          const hasOtherOps = rows.some((p) => p.operation !== 'remove-all');
+          if (!(hasRemoveAll && hasOtherOps)) return null;
+          return (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 8, fontSize: 12 }}
+              message="REMOVE ALL will strip the entire query string. Other operations in this rule will be ignored. Use a separate rule to add params after removal."
+            />
+          );
+        }}
+      </Form.Item>
       <Form.List name="queryParams" initialValue={[{ param: '', value: '', operation: 'add' }]}>
         {(fields, { add, remove }) => (
           <>
