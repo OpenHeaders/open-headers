@@ -14,7 +14,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import { getAppLauncher } from '@utils/app-launcher';
 import { BridgeError, call } from '@utils/bridge';
-import { scheduleFrame } from '@utils/frame-scheduler';
+import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import { App, Button, Dropdown, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -125,20 +125,7 @@ const Footer: React.FC = () => {
 
   const handleToggleOptionsForKeyboard = useCallback(() => {
     setOptionsDropdownOpen((prev) => {
-      if (!prev) {
-        // Opening — focus first interactive menu item after render
-        const tryFocus = (attempts: number) => {
-          const firstItem = document.querySelector(
-            '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)',
-          ) as HTMLElement | null;
-          if (firstItem) {
-            firstItem.focus();
-          } else if (attempts > 0) {
-            scheduleFrame(() => tryFocus(attempts - 1));
-          }
-        };
-        scheduleFrame(() => tryFocus(5));
-      }
+      if (!prev) focusFirstDropdownItem();
       return !prev;
     });
   }, []);

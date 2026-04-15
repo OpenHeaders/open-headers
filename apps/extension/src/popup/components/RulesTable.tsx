@@ -13,7 +13,7 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
-import { scheduleFrame } from '@utils/frame-scheduler';
+import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
@@ -236,19 +236,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
 
   const handleAddRule = useCallback(() => {
     setAddRuleMenuOpen((prev) => {
-      if (!prev) {
-        const tryFocus = (attempts: number) => {
-          const firstItem = document.querySelector(
-            '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)',
-          ) as HTMLElement | null;
-          if (firstItem) {
-            firstItem.focus();
-          } else if (attempts > 0) {
-            scheduleFrame(() => tryFocus(attempts - 1));
-          }
-        };
-        scheduleFrame(() => tryFocus(5));
-      }
+      if (!prev) focusFirstDropdownItem();
       return !prev;
     });
   }, []);
