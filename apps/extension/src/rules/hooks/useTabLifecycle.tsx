@@ -14,7 +14,7 @@ interface UseTabLifecycleOptions {
   /** All tabs across every editor group. Used for "find by id" lookups. */
   allTabs: RulesTab[];
   /** Returns the tabs in the same leaf as the anchor tab — batch close
-   *  operations scope to the anchor's editor group (IDE semantics). */
+   *  operations scope to the anchor's editor group. */
   getLeafTabs: (anchorTabId: string) => RulesTab[];
   /** Returns the tabs of the currently-focused leaf. Used by Close All
    *  and Close Unmodified when no anchor is supplied. */
@@ -190,7 +190,7 @@ export function useTabLifecycle({
     [allTabs, closeTab, switchTab, saveRefMap, confirmUnsaved],
   );
 
-  // ── Derived batch handlers (leaf-scoped — IDE semantics) ───
+  // ── Derived batch handlers (leaf-scoped) ──────────────────────
 
   const handleCloseOther = useCallback(
     (tabId: string) => {

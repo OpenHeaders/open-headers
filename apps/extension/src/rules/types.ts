@@ -9,7 +9,12 @@ export type TabMode =
   | 'folder-overview'
   | 'template-edit'
   | 'rule-flow'
-  | 'run-report';
+  | 'run-report'
+  | 'settings'
+  | 'landing';
+
+/** Variant of the startup landing tab — drives which view `LandingScreen` renders. */
+export type LandingView = 'home' | 'rules' | 'collections';
 
 /** Scope for the rule flow visualization. */
 export type RuleFlowScope = 'this-page' | 'collection' | 'folder' | 'all-active';
@@ -51,6 +56,12 @@ export interface RulesTab {
    */
   testOwnerType?: 'rule' | 'folder' | 'collection' | 'workspace';
   testOwnerId?: string;
+  /** For settings tabs: optional deep-link target key to scroll to on mount. */
+  settingsInitialKey?: string;
+  /** For settings tabs: optional deep-link target category to scroll to on mount. */
+  settingsInitialCategory?: string;
+  /** For landing tabs: which top-level view is rendered (home, rules, collections). */
+  landingView?: LandingView;
 }
 
 /**
@@ -69,7 +80,7 @@ export interface PanelVisibility {
  * Left-side panel keys. Top group panels open in the left Allotment pane;
  * bottom group panels open in the bottom Allotment pane. Only one key from
  * the top group and one key from the bottom group may be "active" at a
- * time (IDE tool-window model).
+ * time (dockable tool-window model).
  */
 export type LeftPanelKey = 'items' | 'page-traffic' | 'test-runs';
 
@@ -78,7 +89,7 @@ export type RightPanelKey = 'docs' | 'variables';
 
 /**
  * Which screen region the user is currently interacting with. Drives the
- * IDE-style focus accent on activity-bar icons and panels. Null means
+ * focus accent on activity-bar icons and panels. Null means
  * no region has been focused yet this session.
  */
 export type FocusRegion = 'left' | 'right' | 'bottom' | 'editor' | null;
@@ -108,7 +119,7 @@ export interface ClosedTab {
   closedAt: number;
 }
 
-// ── IDE-style tool-window model ──────────────────────────────────
+// ── Dockable tool-window model ────────────────────────────────────────
 //
 // Replaces the older three-pane fixed layout with six docks that can each
 // host any number of tool windows. The user drags tool windows between
@@ -137,17 +148,17 @@ export interface DockState {
  *  - stacked: all three sections clustered at the top with dividers between. */
 export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked';
 
-/** Full tool-window layout state. Replaces WorkspaceLayout's booleans. */
+/**
+ * Full tool-window layout state. Replaces WorkspaceLayout's booleans.
+ *
+ * `bottomFullWidth`, `showToolWindowLabels`, and `sidebarLayout` used to
+ * live here — they now live in the settings store under the
+ * `workspaceLayout.*` keys so the footer menu and the Settings page
+ * agree on one source of truth.
+ */
 export interface ToolLayoutState {
   docks: Record<DockSlot, DockState>;
   hidden: ToolWindowId[];
-  /** When true, bottom region spans the full viewport width (IDE "wide bottom"). */
-  bottomFullWidth: boolean;
-  /** Whether activity-bar and tab labels are rendered. False → icons only. */
-  showLabels: boolean;
-  /** Proportional: top section split 50/50 with always-visible dividers.
-   *  Compact: content stacks at top; empty sections collapse. */
-  sidebarLayout: SidebarLayoutVariant;
   focusedRegion: FocusRegion;
   /**
    * Exact dock slot that currently owns keyboard focus. Drives the blue

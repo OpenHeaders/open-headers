@@ -23,6 +23,7 @@ import {
   FolderOutlined,
   PlusOutlined,
   SearchOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -65,6 +66,7 @@ export function tabIcon(
 ): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
+  if (tab.mode === 'settings') return <SettingOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'collection-overview') {
     const paused = tab.entityId ? pausedUids.has(tab.entityId) : false;
     return <FolderOpenOutlined style={{ fontSize: 12, color: paused ? TAB_ICON_YELLOW : TAB_ICON_GRAY }} />;

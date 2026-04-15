@@ -15,6 +15,7 @@ import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { Button, Popconfirm, Space, Switch, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import { useSettingValue } from '../../settings/hooks';
 import { buildRuleIcon } from '../shared/rule-icon';
 
 const CONDITION_TYPE_LABELS: Record<string, string> = {
@@ -133,6 +134,7 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { updateLocalRule, deleteLocalRule, pausedUids } = useRules();
+  const confirmOnDelete = useSettingValue('general.confirmOnDelete');
   const complete = isRuleComplete(rule);
   const paused = pausedUids.has(rule.uid);
   const isActive = rule.enabled && complete && !paused;
@@ -285,17 +287,30 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
             }}
           />
         </Tooltip>
-        {!readOnly && isLocal && (
-          <Popconfirm
-            title="Delete this rule?"
-            onConfirm={handleDelete}
-            okText="Delete"
-            cancelText="Cancel"
-            placement="left"
-          >
-            <Button type="text" size="small" danger icon={<DeleteOutlined style={{ fontSize: 12 }} />} />
-          </Popconfirm>
-        )}
+        {!readOnly &&
+          isLocal &&
+          (confirmOnDelete ? (
+            <Popconfirm
+              title="Delete this rule?"
+              onConfirm={handleDelete}
+              okText="Delete"
+              cancelText="Cancel"
+              placement="left"
+            >
+              <Button type="text" size="small" danger icon={<DeleteOutlined style={{ fontSize: 12 }} />} />
+            </Popconfirm>
+          ) : (
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined style={{ fontSize: 12 }} />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
+            />
+          ))}
       </div>
     </div>
   );

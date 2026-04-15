@@ -13,7 +13,7 @@
 import type { V5 } from '@openheaders/core/types';
 import { useCallback, useState } from 'react';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
-import type { ClosedTab, RuleFlowScope, RulesTab } from '../types';
+import type { ClosedTab, LandingView, RuleFlowScope, RulesTab } from '../types';
 
 interface UseTabOpenersOptions {
   rules: V5.Rule[];
@@ -64,6 +64,8 @@ export interface UseTabOpenersApi {
     ownerName?: string,
   ) => void;
   openRuleFlow: (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => void;
+  openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
+  openLandingTab: (view: LandingView) => void;
 }
 
 export function useTabOpeners({
@@ -364,6 +366,46 @@ export function useTabOpeners({
     [allTabs, addTab, switchTab],
   );
 
+  const openLandingTab = useCallback(
+    (view: LandingView) => {
+      const id = `landing-${view}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      const label = view === 'home' ? 'Home' : view === 'rules' ? 'Rules' : 'Collections';
+      addTab({
+        id,
+        label,
+        ruleType: '',
+        dirty: false,
+        mode: 'landing',
+        landingView: view,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openSettingsTab = useCallback(
+    (options?: { settingKey?: string; categoryId?: string }) => {
+      const id = 'settings';
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: 'Settings',
+        ruleType: '',
+        dirty: false,
+        mode: 'settings',
+        settingsInitialKey: options?.settingKey,
+        settingsInitialCategory: options?.categoryId,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
   return {
     pendingRenameTabId,
     setPendingRenameTabId,
@@ -377,5 +419,7 @@ export function useTabOpeners({
     openTemplateFolderOverview,
     openRunReport,
     openRuleFlow,
+    openSettingsTab,
+    openLandingTab,
   };
 }

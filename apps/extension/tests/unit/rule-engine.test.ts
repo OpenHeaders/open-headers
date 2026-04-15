@@ -19,6 +19,13 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
+vi.mock('@/rules/settings/store', () => ({
+  get: vi.fn((key: string) => {
+    if (key === 'rulesEngine.updateDebounceMs') return 150;
+    return undefined;
+  }),
+}));
+
 import { updateNetworkRules } from '@/background/dnr-manager';
 import { getLastRulesHash, scheduleUpdate, setLastRulesHash } from '@/background/modules/rule-engine';
 import { getRules } from '@/background/modules/rule-store';

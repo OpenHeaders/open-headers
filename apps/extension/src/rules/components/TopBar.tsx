@@ -1,23 +1,24 @@
 /**
  * TopBar — mirrors the desktop V5Shell TopBar.
  *
- * Layout: [Logo] [Title] [Rules badge] | [⌘K Search...] | [Settings (disabled)]
- *
- * Back/forward navigation not applicable in extension context.
+ * Layout: [Logo] [Title] [Rules badge] | [⌘K Search...] | [Settings]
  */
 
 import { SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { getBrowserAPI } from '@/types/browser';
-import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 interface TopBarProps {
   onCommandPalette?: () => void;
+  onOpenSettings?: () => void;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ onCommandPalette }) => {
+const TopBar: React.FC<TopBarProps> = ({ onCommandPalette, onOpenSettings }) => {
   const { token } = theme.useToken();
+  const commandPaletteLabel = useShortcutLabel('command-palette');
+  const openSettingsLabel = useShortcutLabel('open-settings');
 
   return (
     <div
@@ -59,15 +60,15 @@ const TopBar: React.FC<TopBarProps> = ({ onCommandPalette }) => {
                 fontFamily: 'system-ui, sans-serif',
               }}
             >
-              {shortcutLabel('command-palette')}
+              {commandPaletteLabel}
             </kbd>
           </Space>
         </Button>
       </div>
 
       <div className="rules-topbar-right">
-        <Tooltip title="Settings available in desktop app">
-          <Button size="small" type="text" icon={<SettingOutlined />} disabled />
+        <Tooltip title={`Settings (${openSettingsLabel})`}>
+          <Button size="small" type="text" icon={<SettingOutlined />} onClick={onOpenSettings} />
         </Tooltip>
       </div>
     </div>

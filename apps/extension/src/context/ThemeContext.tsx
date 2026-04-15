@@ -1,7 +1,26 @@
-import { storage } from '@utils/browser-api';
+/**
+ * ThemeContext — thin ConfigProvider wrapper over the settings store.
+ *
+ * Reads `appearance.theme`, `appearance.density`, and
+ * `appearance.accentColor` from the settings store and translates
+ * them into Ant Design's ConfigProvider token overrides. Mutations go
+ * straight to the settings store via `setSettingValue`.
+ *
+ * The `useTheme()` API predates the settings system and is kept stable
+ * so popup/workspace callers don't need to rewrite — they still see
+ * `themeMode`, `isDarkMode`, `isCompactMode`, `toggleCompactMode`, etc.
+ * Internally, every field is derived from the store.
+ *
+ * Requires `SettingsProvider` to be mounted above this component.
+ */
+
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  setSettingValue,
+  useSettingValue,
+} from '@/rules/settings';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
@@ -30,90 +49,46 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [themeMode, setThemeMode] = useState<ThemeMode>('auto');
+  const themeMode = useSettingValue('appearance.theme');
+  const density = useSettingValue('appearance.density');
+  const accentColor = useSettingValue('appearance.accentColor');
+  const isCompactMode = density === 'compact';
+
+  // System color-scheme preference drives `auto` theme resolution.
   const [systemPrefersDark, setSystemPrefersDark] = useState(false);
-  const [isCompactMode, setIsCompactMode] = useState(false);
-
-  // Determine if dark mode should be active
-  const isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemPrefersDark);
-
-  // Load theme preference from storage
-  useEffect(() => {
-    storage.local.get(['themeMode', 'compactMode'], (result: Record<string, unknown>) => {
-      if (result.themeMode) {
-        setThemeMode(result.themeMode as ThemeMode);
-      }
-      if (result.compactMode !== undefined) {
-        setIsCompactMode(result.compactMode as boolean);
-      }
-    });
-  }, []);
-
-  // Sync theme changes from other contexts (popup ↔ workspace)
-  useEffect(() => {
-    const listener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-      if (areaName !== 'local') return;
-      if (changes.themeMode?.newValue) {
-        setThemeMode(changes.themeMode.newValue as ThemeMode);
-      }
-      if (changes.compactMode?.newValue !== undefined) {
-        setIsCompactMode(changes.compactMode.newValue as boolean);
-      }
-    };
-    storage.onChanged.addListener(listener);
-    return () => storage.onChanged.removeListener(listener);
-  }, []);
-
-  // Detect system theme preference
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setSystemPrefersDark(mediaQuery.matches);
-
-    const handleChange = (e: MediaQueryListEvent) => {
-      setSystemPrefersDark(e.matches);
-    };
-
+    const handleChange = (e: MediaQueryListEvent): void => setSystemPrefersDark(e.matches);
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Toggle between light and dark (manual override)
-  const toggleTheme = () => {
-    const newMode: ThemeMode = isDarkMode ? 'light' : 'dark';
-    setThemeMode(newMode);
-    storage.local.set({ themeMode: newMode });
+  const isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemPrefersDark);
+
+  // ── Store mutators ───────────────────────────────────────────────
+  const handleSetThemeMode = (mode: ThemeMode): void => {
+    setSettingValue('appearance.theme', mode);
   };
 
-  // Set theme mode (light, dark, auto)
-  const handleSetThemeMode = (mode: ThemeMode) => {
-    setThemeMode(mode);
-    storage.local.set({ themeMode: mode });
+  const toggleTheme = (): void => {
+    handleSetThemeMode(isDarkMode ? 'light' : 'dark');
   };
 
-  // Toggle compact mode
-  const toggleCompactMode = () => {
-    const newCompactMode = !isCompactMode;
-    setIsCompactMode(newCompactMode);
-    storage.local.set({ compactMode: newCompactMode });
+  const toggleCompactMode = (): void => {
+    setSettingValue('appearance.density', isCompactMode ? 'comfortable' : 'compact');
   };
 
-  // Configure Ant Design theme algorithms
-  const getThemeAlgorithms = () => {
-    const algorithms: Array<typeof theme.darkAlgorithm> = [];
-
-    algorithms.push(isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm);
-
-    if (isCompactMode) {
-      algorithms.push(theme.compactAlgorithm);
-    }
-
-    return algorithms.length === 1 ? algorithms[0] : algorithms;
-  };
+  // ── Ant theme config ─────────────────────────────────────────────
+  const algorithms: Array<typeof theme.darkAlgorithm> = [
+    isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
+  ];
+  if (isCompactMode) algorithms.push(theme.compactAlgorithm);
 
   const antTheme = {
-    algorithm: getThemeAlgorithms(),
+    algorithm: algorithms.length === 1 ? algorithms[0] : algorithms,
     token: {
-      colorPrimary: '#1677ff',
+      colorPrimary: accentColor,
       borderRadius: 6,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     },

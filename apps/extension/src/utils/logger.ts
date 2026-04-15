@@ -9,10 +9,11 @@
  * - info:  Operational events and state changes
  * - debug: Detailed internals for troubleshooting (keep-alive pings, skip messages, etc.)
  *
- * Stored in chrome.storage.sync as `logLevel`. Default: 'info'.
+ * The current level is held in-memory only. Persistence is owned by
+ * the settings store: `data.logLevel` in `rules/settings/schema/data.ts`.
+ * The bootstrap helper `wireLoggerToSettings()` (utils/settings-bootstrap)
+ * reads that setting at init and subscribes for future changes.
  */
-
-import { getBrowserAPI } from '@/types/browser';
 
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
@@ -31,7 +32,6 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
 };
 
 let currentLevel: LogLevel = 'info';
-let initialized = false;
 
 function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] <= LOG_LEVELS[currentLevel];
@@ -39,6 +39,10 @@ function shouldLog(level: LogLevel): boolean {
 
 function formatPrefix(level: LogLevel, module: string): string {
   return `${new Date().toISOString()} ${LEVEL_LABELS[level]} [${module}]`;
+}
+
+export function isValidLogLevel(value: unknown): value is LogLevel {
+  return typeof value === 'string' && value in LOG_LEVELS;
 }
 
 export const logger = {
@@ -64,30 +68,5 @@ export const logger = {
 
   setLevel(level: LogLevel): void {
     currentLevel = level;
-    try {
-      const browserAPI = getBrowserAPI();
-      browserAPI.storage.sync.set({ logLevel: level });
-    } catch {
-      // Storage not available (e.g., in tests)
-    }
-  },
-
-  /** Load saved log level from storage. Call once at startup. */
-  async initialize(): Promise<void> {
-    if (initialized) return;
-    initialized = true;
-    try {
-      const browserAPI = getBrowserAPI();
-      browserAPI.storage.sync.get(['logLevel'], (result: Record<string, unknown>) => {
-        if (result.logLevel && typeof result.logLevel === 'string') {
-          const level = result.logLevel as LogLevel;
-          if (level in LOG_LEVELS) {
-            currentLevel = level;
-          }
-        }
-      });
-    } catch {
-      // Storage not available
-    }
   },
 };

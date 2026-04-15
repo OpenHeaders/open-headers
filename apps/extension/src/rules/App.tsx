@@ -17,7 +17,6 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
 import { computeBreadcrumbs } from './breadcrumbs';
-import { findLeaf } from './editor-groups';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
 import CollectionOverview from './components/CollectionOverview';
@@ -25,6 +24,7 @@ import CommandPalette from './components/CommandPalette';
 import EditorGroupRenderer from './components/EditorGroupRenderer';
 import EmptyState from './components/EmptyState';
 import FolderOverview from './components/FolderOverview';
+import LandingScreen from './components/LandingScreen';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
 import RuleEditor from './components/RuleEditor';
@@ -37,10 +37,12 @@ import StatusBar from './components/StatusBar';
 import { renderTabLabel, tabIcon } from './components/TabBar';
 import TemplateEditor from './components/TemplateEditor';
 import TopBar from './components/TopBar';
+import { findLeaf } from './editor-groups';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
 import { useInitialHashRoute } from './hooks/useInitialHashRoute';
+import { useInitialLanding } from './hooks/useInitialLanding';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useSaveToCollectionFlow } from './hooks/useSaveToCollectionFlow';
@@ -49,6 +51,9 @@ import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
 import { useToolLayout } from './hooks/useToolLayout';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
+import { SettingsModal, SettingsTab } from './settings';
+import { ConnectionProvider } from './settings/ConnectionContext';
+import { get as getSetting } from './settings/store';
 import type { DockSlot, RulesTab, ToolWindowId } from './types';
 
 // ── Shell loader ────────────────────────────────────────────────────
@@ -83,6 +88,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
   const {
     rules,
     isStatusLoaded,
+    isConnected,
     deleteLocalRule,
     updateLocalRule,
     localCollections,
@@ -146,6 +152,11 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMaximized, setSettingsMaximized] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<{ settingKey?: string; categoryId?: string }>({});
+
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   // Auto-collapse sidebar on narrow viewports (first-open only).
   const sidebarAutoCollapsedRef = useRef(false);
@@ -225,7 +236,23 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
     openTemplateFolderOverview,
     openRunReport,
     openRuleFlow,
+    openSettingsTab,
+    openLandingTab,
   } = openers;
+
+  const openSettings = useCallback(
+    (target?: { settingKey?: string; categoryId?: string }) => {
+      const mode = getSetting('general.settingsOpenMode');
+      setSettingsTarget(target ?? {});
+      if (mode === 'tab') {
+        openSettingsTab(target);
+        return;
+      }
+      setSettingsMaximized(mode === 'modal-maximized');
+      setSettingsOpen(true);
+    },
+    [openSettingsTab],
+  );
 
   // ── Save-to-collection flow ────────────────────────────────────
   const saveFlow = useSaveToCollectionFlow({ allTabs, createLocalRule, replaceTab });
@@ -275,6 +302,14 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
     openDocs,
     openRuleFlow,
     openRunReport,
+    openSettings,
+  });
+
+  // ── Initial landing (openTo = home/rules/collections) ─────────
+  useInitialLanding({
+    isStatusLoaded,
+    allTabs,
+    openLandingTab,
   });
 
   // ── Sync tab labels with rule/template changes; close on delete ─
@@ -387,6 +422,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
     onOpenCreateMenu: openCreateMenu,
     onTogglePanel: togglePanel,
     onShowShortcuts: handleShowShortcuts,
+    onOpenSettings: openSettings,
   });
 
   // ── Global keyboard shortcuts ─────────────────────────────────
@@ -405,6 +441,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,
+    onOpenSettings: openSettings,
     onFocusRegion: (region) => cycleRegion(region),
     hasActiveTab: () => activeTabId != null,
   });
@@ -513,6 +550,22 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
           />
         );
       }
+      if (tab.mode === 'settings') {
+        return (
+          <SettingsTab initialSettingKey={tab.settingsInitialKey} initialCategoryId={tab.settingsInitialCategory} />
+        );
+      }
+      if (tab.mode === 'landing') {
+        return (
+          <LandingScreen
+            view={tab.landingView ?? 'home'}
+            onCreateRule={openCreateTab}
+            onSelectRule={openEditTab}
+            onOpenCollectionOverview={openCollectionOverview}
+            onOpenSettings={() => openSettings()}
+          />
+        );
+      }
       return null;
     },
     [
@@ -523,9 +576,11 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
       registerSaveAsTemplateRef,
       openEditTab,
       openCreateTab,
+      openCollectionOverview,
       openFolderOverview,
       openRuleFlow,
       openTestRunsPanel,
+      openSettings,
       handleRunReportDeleted,
     ],
   );
@@ -622,7 +677,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
       data-theme={isDarkMode ? 'dark' : 'light'}
       style={{ background: token.colorBgLayout }}
     >
-      <TopBar onCommandPalette={() => setCommandPaletteOpen(true)} />
+      <TopBar onCommandPalette={() => setCommandPaletteOpen(true)} onOpenSettings={openSettings} />
 
       <ShellLayout
         tl={tl}
@@ -683,6 +738,17 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
         groups={cmdGroups}
         sections={cmdSections}
       />
+
+      <ConnectionProvider value={{ isConnected }}>
+        <SettingsModal
+          open={settingsOpen}
+          onClose={closeSettings}
+          initialSettingKey={settingsTarget.settingKey}
+          initialCategoryId={settingsTarget.categoryId}
+          initialMaximized={settingsMaximized}
+          onPromoteToTab={() => openSettingsTab(settingsTarget)}
+        />
+      </ConnectionProvider>
     </div>
   );
 };

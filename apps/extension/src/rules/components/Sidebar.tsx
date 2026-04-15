@@ -38,6 +38,7 @@ import type React from 'react';
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
+import { useSettingValue } from '../settings/hooks';
 import { buildRuleIcon } from './shared/rule-icon';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
@@ -330,21 +331,29 @@ const Sidebar: React.FC<SidebarProps> = ({
     setExpandedKeys(new Set());
   }, []);
 
-  const confirmDelete = useCallback((name: string, onConfirm: () => void) => {
-    Modal.confirm({
-      title: <span style={{ fontSize: 13, fontWeight: 600 }}>Delete item?</span>,
-      width: 380,
-      content: (
-        <p style={{ fontSize: 12, margin: '4px 0 0' }}>
-          Are you sure you want to delete <strong>{name}</strong>? This action cannot be undone.
-        </p>
-      ),
-      okText: 'Delete',
-      okButtonProps: { danger: true, size: 'small' },
-      cancelButtonProps: { size: 'small' },
-      onOk: onConfirm,
-    });
-  }, []);
+  const confirmOnDelete = useSettingValue('general.confirmOnDelete');
+  const confirmDelete = useCallback(
+    (name: string, onConfirm: () => void) => {
+      if (!confirmOnDelete) {
+        onConfirm();
+        return;
+      }
+      Modal.confirm({
+        title: <span style={{ fontSize: 13, fontWeight: 600 }}>Delete item?</span>,
+        width: 380,
+        content: (
+          <p style={{ fontSize: 12, margin: '4px 0 0' }}>
+            Are you sure you want to delete <strong>{name}</strong>? This action cannot be undone.
+          </p>
+        ),
+        okText: 'Delete',
+        okButtonProps: { danger: true, size: 'small' },
+        cancelButtonProps: { size: 'small' },
+        onOk: onConfirm,
+      });
+    },
+    [confirmOnDelete],
+  );
 
   const handleToggleRule = useCallback(
     (ruleUid: string, enabled: boolean) => {

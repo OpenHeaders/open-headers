@@ -41,8 +41,9 @@ function copyAssetsPlugin() {
     { from: 'src/assets/images/icon128.png', to: 'images/icon128.png' },
     { from: 'src/assets/images/companion-app.png', to: 'images/companion-app.png' },
     { from: 'src/assets/images/logo-pixel.svg', to: 'images/logo-pixel.svg' },
-    // Fonts
-    { from: 'src/assets/fonts/PressStart2P-Regular.woff2', to: 'fonts/PressStart2P-Regular.woff2' },
+    // Fonts — the .woff2 is emitted by Vite through the CSS pipeline
+    // (see the relative url() in popup.less / rules.less). Only the
+    // license file needs an explicit copy.
     { from: 'src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
     // Recording
     { from: 'src/assets/recording/inject/recorder-rrweb.js', to: 'js/recording/inject/recorder.js' },
@@ -214,16 +215,24 @@ export default defineConfig({
           }
           return 'assets/[name][extname]';
         },
-        // Keep background service worker code separate from popup/UI chunks.
-        // Shared modules used by both are duplicated into each context to
-        // prevent the service worker from pulling in DOM-dependent code.
+        // Keep every node_module in a single `vendor` chunk — splitting
+        // antd/react/codemirror into separate chunks creates circular
+        // dependencies (antd → react → antd etc.) without any byte
+        // savings.
+        //
+        // Exceptions: packages that every entry accesses through a
+        // dynamic `() => import(...)` boundary MUST stay outside the
+        // vendor bucket so rollup can keep them as separate lazy chunks.
+        // Prettier (+ its plugins) and the CodeMirror language packs are
+        // both loaded on demand via `rules/languages/registry.ts` and
+        // `rules/languages/formatter.ts`; pulling them into vendor would
+        // merge them back into the workspace's first-paint payload and
+        // defeat the lazy load.
         manualChunks(id) {
-          // Popup-only: React, Ant Design, UI components
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-          // Let background and content script code stay in their own entries
-          return undefined;
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/prettier/')) return undefined;
+          if (id.includes('@codemirror/lang-')) return undefined;
+          return 'vendor';
         },
       },
     },

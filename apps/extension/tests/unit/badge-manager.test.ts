@@ -1,4 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Mock the settings store before importing badge-manager so the
+// `showBadgeWhenDisconnected` read in the disconnected branch resolves
+// to the default instead of throwing. Individual tests override the
+// mock via vi.mocked(get).mockImplementationOnce(...) when they want a
+// specific setting value.
+vi.mock('@/rules/settings/store', () => ({
+  get: vi.fn((key: string) => {
+    switch (key) {
+      case 'desktop.connection.showBadgeWhenDisconnected':
+        return true;
+      case 'desktop.connection.autoConnect':
+        return true;
+      default:
+        return undefined;
+    }
+  }),
+}));
+
 import { resetBadgeState, updateExtensionBadge } from '@/background/modules/badge-manager';
 import type { IRecordingService } from '@/types/recording';
 
@@ -62,12 +81,12 @@ describe('updateExtensionBadge', () => {
       expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#8c8c8c' }, expect.any(Function));
     });
 
-    it('shows active badge when disconnected but has active rules and not paused', async () => {
+    it('shows disconnected badge over active count once past threshold', async () => {
       const action = getActionMock();
       await updateExtensionBadge(false, makeActiveRules(3), false, null, 3);
 
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '3' }, expect.any(Function));
-      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#E8E8E8' }, expect.any(Function));
+      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
+      expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#c23b22' }, expect.any(Function));
     });
 
     it('shows paused badge when paused and connected', async () => {
@@ -143,21 +162,28 @@ describe('updateExtensionBadge', () => {
     });
   });
 
-  // ── Disconnected badge threshold ──
+  // ── Disconnected badge ──
+  // `desktop.connection.showBadgeWhenDisconnected` (opt-in, default off)
+  // drives a dedicated red "!" badge after DISCONNECTED_BADGE_THRESHOLD
+  // reconnect attempts. The store mock above forces the setting on so
+  // the behavior branch is exercised; tests verify the threshold, the
+  // fall-through when the setting is off, and the fall-through to the
+  // disconnected branch
+  // when the tab has cached rules but the app is down.
 
-  describe('disconnected state does not show special badge', () => {
-    it('clears badge when disconnected with no active rules', async () => {
+  describe('disconnected badge', () => {
+    it('stays empty when disconnected with no active rules before threshold', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(false, [], false, null, 10);
+      await updateExtensionBadge(false, [], false, null, 0);
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '' });
     });
 
-    it('shows active count when disconnected but has cached rules', async () => {
+    it('shows disconnected indicator past the reconnect threshold', async () => {
       const action = getActionMock();
       await updateExtensionBadge(false, makeActiveRules(3), false, null, 10);
 
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '3' }, expect.any(Function));
+      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
     });
   });
 

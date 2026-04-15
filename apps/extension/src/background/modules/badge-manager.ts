@@ -3,14 +3,16 @@
  */
 
 import { logger } from '@utils/logger';
+import { get as getSetting } from '@/rules/settings/store';
 import type { BadgeState } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
 
 const browserAPI = getBrowserAPI();
 
-// Number of reconnect attempts before showing disconnected badge
-// With exponential backoff (1s, 2s, 4s), 3 attempts = ~7 seconds grace period
+// Number of reconnect attempts before showing the disconnected badge.
+// With exponential backoff (1s, 2s, 4s) this is ~7 seconds grace period —
+// enough to absorb a transient dropout without flashing the badge red.
 const DISCONNECTED_BADGE_THRESHOLD = 3;
 
 let lastBadgeState: string | null = null;
@@ -54,16 +56,23 @@ export async function updateExtensionBadge(
   // Determine badge state and count
   let badgeState: BadgeState = 'none';
   const activeRulesCount = activeRules ? activeRules.length : 0;
+  const showDisconnected =
+    !connected &&
+    reconnectAttempts >= DISCONNECTED_BADGE_THRESHOLD &&
+    getSetting('desktop.connection.showBadgeWhenDisconnected') &&
+    getSetting('desktop.connection.autoConnect');
 
-  // Priority: paused > active > none (disconnected state no longer shown)
+  // Priority: paused > disconnected > active > none
   if (isPaused) {
     badgeState = 'paused';
+  } else if (showDisconnected) {
+    badgeState = 'disconnected';
   } else if (activeRulesCount > 0) {
     badgeState = 'active';
   }
 
   // Create a unique state key that includes the count
-  const currentStateKey = `${badgeState}-${activeRulesCount}-${isPaused}`;
+  const currentStateKey = `${badgeState}-${activeRulesCount}-${isPaused}-${connected}`;
 
   // Only update if state or count changed
   if (currentStateKey === lastBadgeState) {
@@ -89,6 +98,22 @@ export async function updateExtensionBadge(
     if (actionAPI.setTitle) {
       actionAPI.setTitle({
         title: 'Open Headers - Paused\nRules execution is paused',
+      });
+    }
+  } else if (badgeState === 'disconnected') {
+    actionAPI.setBadgeText({ text: '!' }, () => {
+      if (browserAPI.runtime.lastError) {
+        logger.debug('BadgeManager', 'Badge text error:', browserAPI.runtime.lastError);
+      }
+    });
+    actionAPI.setBadgeBackgroundColor({ color: '#c23b22' }, () => {
+      if (browserAPI.runtime.lastError) {
+        logger.debug('BadgeManager', 'Badge color error:', browserAPI.runtime.lastError);
+      }
+    });
+    if (actionAPI.setTitle) {
+      actionAPI.setTitle({
+        title: 'Open Headers - Disconnected\nCannot reach the desktop app',
       });
     }
   } else if (badgeState === 'active') {

@@ -8,7 +8,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('/fonts/PressStart2P-Regular.woff2') format('woff2');
+  src: url('../../assets/fonts/PressStart2P-Regular.woff2') format('woff2');
 }
 
 html, body, #root {
@@ -243,8 +243,7 @@ html, body, #root {
   }
 
   // Active — panel is open for this icon, but the region doesn't have
-  // keyboard focus. Renders as the IDE "selected but unfocused"
-  // grey tint.
+  // keyboard focus. Renders as a "selected but unfocused" grey tint.
   &.active:not(.focused):not(.disabled) {
     background: rgba(128, 128, 128, 0.18);
   }
@@ -1275,4 +1274,24 @@ html, body, #root {
 
 :root {
   --sash-size: 16px;
+}
+
+// ── Code editor format overlay ────────────────────────────────────
+//
+// Fades the Format action in only when the editor is hovered or
+// focused so it stays out of the way during reading and pops when
+// the user is about to act. Focus-within covers keyboard users.
+
+.rules-code-editor {
+  .rules-code-editor-format {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+    pointer-events: none;
+  }
+
+  &:hover .rules-code-editor-format,
+  &:focus-within .rules-code-editor-format {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }

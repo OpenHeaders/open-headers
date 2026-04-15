@@ -4,30 +4,76 @@
  */
 
 import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
-import { WS_SERVER_URL as CORE_WS_SERVER_URL } from '@openheaders/core/protocol';
 import type { V5 } from '@openheaders/core/types';
 import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { sendMessageWithCallback } from '@utils/messaging';
+import { get as getSetting, subscribeKey } from '@/rules/settings/store';
+import { handleRecordingInboundMessage, requestInitialRecordingSync } from './modules/recording-sync';
 import { scheduleUpdate } from './modules/rule-engine';
 import { setRulesFromApp } from './modules/rule-store';
 import { generateRulesHash } from './modules/utils';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
-// ── Configuration ─────────────────────────────────────────────────
+// ── Configuration (live from settings store) ─────────────────────
 
-const WS_SERVER_URL = CORE_WS_SERVER_URL;
-const RECONNECT_DELAY_MS = 1000;
-const MAX_RECONNECT_DELAY = 6000;
+function getWsServerUrl(): string {
+  return getSetting('desktop.connection.url');
+}
+
+function getReconnectDelayMs(): number {
+  return getSetting('desktop.connection.reconnectDelayMs');
+}
+
+function getMaxReconnectDelayMs(): number {
+  return getSetting('desktop.connection.maxReconnectDelayMs');
+}
 
 // ── State ─────────────────────────────────────────────────────────
 
 let socket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let pingTimer: ReturnType<typeof setInterval> | null = null;
 let isConnecting = false;
 let isConnected = false;
 let reconnectAttempts = 0;
 let lastRulesHash = '';
+
+// ── Keep-alive ────────────────────────────────────────────────────
+//
+// Strict corporate proxies and idle-timeouts will silently kill a WS
+// connection that sees no traffic. A periodic application-level ping
+// (driven by `desktop.connection.pingIntervalMs`) keeps the pipe warm
+// and gives us a fast-fail detection if the socket has been torn down
+// underneath us — `socket.send` will throw and we fall through to
+// `handleConnectionFailure`, which triggers the usual reconnect loop.
+
+function clearPingTimer(): void {
+  if (pingTimer) {
+    clearInterval(pingTimer);
+    pingTimer = null;
+  }
+}
+
+function startPingTimer(): void {
+  clearPingTimer();
+  const interval = getSetting('desktop.connection.pingIntervalMs');
+  if (interval <= 0) return;
+  pingTimer = setInterval(() => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    try {
+      socket.send(JSON.stringify({ type: 'ping', t: Date.now() }));
+    } catch (err) {
+      logger.debug('WebSocket', 'ping failed, treating as disconnect:', (err as Error).message);
+      try {
+        socket.close();
+      } catch {
+        /* ignore */
+      }
+      handleConnectionFailure();
+    }
+  }, interval);
+}
 
 // ── Browser info ──────────────────────────────────────────────────
 
@@ -96,27 +142,9 @@ function handleRulesUpdate(rules: V5.Rule[]): void {
 }
 
 function handleOtherMessages(parsed: Record<string, unknown>): void {
-  if (parsed.type === 'videoRecordingStateChanged') {
-    sendMessageWithCallback(
-      { type: 'videoRecordingStateChanged', enabled: parsed.enabled as boolean },
-      (_response, _error) => {},
-    );
-  } else if (parsed.type === 'recordingHotkeyResponse' || parsed.type === 'recordingHotkeyChanged') {
-    if (parsed.type === 'recordingHotkeyChanged') {
-      storage.local.set({
-        recordingHotkey: parsed.hotkey,
-        recordingHotkeyEnabled: parsed.enabled !== undefined ? parsed.enabled : true,
-      });
-    }
-    sendMessageWithCallback(
-      {
-        type: 'recordingHotkeyResponse',
-        hotkey: parsed.hotkey as string,
-        enabled: parsed.enabled !== undefined ? (parsed.enabled as boolean) : true,
-      },
-      (_response, _error) => {},
-    );
-  } else if (parsed.type === 'recordingHotkeyPressed') {
+  if (handleRecordingInboundMessage(parsed)) return;
+
+  if (parsed.type === 'recordingHotkeyPressed') {
     storage.local.set({
       hotkeyCommand: { type: 'TOGGLE_RECORDING', timestamp: Date.now() },
     });
@@ -145,12 +173,13 @@ function handleConnectionFailure(): void {
   socket = null;
   isConnecting = false;
   isConnected = false;
+  clearPingTimer();
   broadcastConnectionStatus();
 
   if (reconnectTimer) clearTimeout(reconnectTimer);
 
   reconnectAttempts++;
-  const delay = Math.min(RECONNECT_DELAY_MS * 2 ** (reconnectAttempts - 1), MAX_RECONNECT_DELAY);
+  const delay = Math.min(getReconnectDelayMs() * 2 ** (reconnectAttempts - 1), getMaxReconnectDelayMs());
 
   logger.debug('WebSocket', `Scheduling reconnection attempt ${reconnectAttempts} in ${delay}ms`);
   reconnectTimer = setTimeout(() => {
@@ -204,6 +233,8 @@ function connectStandardWebSocket(url: string): void {
         reconnectAttempts = 0;
         broadcastConnectionStatus();
         sendBrowserInfo();
+        startPingTimer();
+        requestInitialRecordingSync();
       };
 
       socket.onmessage = createMessageHandler();
@@ -227,24 +258,62 @@ export function connectWebSocket(): Promise<boolean> {
   if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(true);
   if (isConnecting) return Promise.resolve(false);
 
+  const url = getWsServerUrl();
+  if (!url) {
+    // Settings rejected the URL (e.g. requireTls violation). Don't
+    // schedule a reconnect until the setting changes.
+    return Promise.resolve(false);
+  }
+
   isConnecting = true;
 
   return new Promise<boolean>((resolve) => {
     if (isSafari) {
-      safariPreCheck(WS_SERVER_URL).then((canConnect) => {
+      safariPreCheck(url).then((canConnect) => {
         if (canConnect) {
-          connectStandardWebSocket(adaptWebSocketUrl(WS_SERVER_URL));
+          connectStandardWebSocket(adaptWebSocketUrl(url));
         } else {
           handleConnectionFailure();
         }
         resolve(canConnect);
       });
     } else {
-      connectStandardWebSocket(WS_SERVER_URL);
+      connectStandardWebSocket(url);
       resolve(true);
     }
   });
 }
+
+/**
+ * Force-close the current connection and start a fresh one. Used when
+ * `desktop.connection.url` or TLS requirement changes at runtime.
+ */
+export function reconnectWebSocket(): void {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (socket) {
+    try {
+      socket.close();
+    } catch {
+      // ignore
+    }
+    socket = null;
+  }
+  isConnected = false;
+  isConnecting = false;
+  reconnectAttempts = 0;
+  void connectWebSocket();
+}
+
+// Any change to the desktop URL forces a reconnect against the new endpoint.
+subscribeKey('desktop.connection.url', () => reconnectWebSocket());
+// Ping interval changes take effect on the next tick without a reconnect —
+// restart the timer with the new cadence.
+subscribeKey('desktop.connection.pingIntervalMs', () => {
+  if (isConnected) startPingTimer();
+});
 
 export function isWebSocketConnected(): boolean {
   return isConnected && socket !== null && socket.readyState === WebSocket.OPEN;

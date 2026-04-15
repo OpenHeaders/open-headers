@@ -12,7 +12,7 @@
  *   - focusedRegion: which region owns focus (drives blue accent)
  *   - activityBarLabels: whether icons render labels
  *
- * IDE tool-window semantics — left activity bar splits into two groups:
+ * Dockable tool-window semantics — left activity bar splits into two groups:
  *   - Top group (items, recordings…) drives the left Allotment pane.
  *   - Bottom group (test-runs…) is a set of launchers to specific bottomTab
  *     values; clicking swaps bottomTab AND forces bottomOpen=true. A second

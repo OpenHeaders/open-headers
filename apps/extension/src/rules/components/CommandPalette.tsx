@@ -11,7 +11,7 @@ import type { InputRef } from 'antd';
 import { Input, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 // ── Public types ──────────────────────────────────────────────────
 
@@ -59,6 +59,7 @@ function matchItem(item: CommandPaletteItem, q: string): boolean {
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups = [], sections = [] }) => {
   const { token } = theme.useToken();
+  const commandPaletteLabel = useShortcutLabel('command-palette');
   const inputRef = useRef<InputRef>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -341,7 +342,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
           {drillGroupId ? <span>← back</span> : <span>→ open</span>}
           <span>↵ select</span>
           <span>esc close</span>
-          <span style={{ marginLeft: 'auto' }}>{shortcutLabel('command-palette')}</span>
+          <span style={{ marginLeft: 'auto' }}>{commandPaletteLabel}</span>
         </div>
       </div>
     </>

@@ -168,6 +168,55 @@ export function arbitrate(matching: MatchingRule[]): ArbitratedRule[] {
   return decorated;
 }
 
+/**
+ * Strategy-aware wrapper around arbitrate(). `rulesEngine.evaluationStrategy`
+ * translates directly into how observed-fire recording treats a matching set:
+ *
+ *   - `closest-match` (default): full shadow arbitration. Each rule either
+ *     fires unshadowed or carries a `shadowedBy` attribution explaining
+ *     which higher-specificity rule overrode its effect.
+ *   - `all-matching`: report every matching rule as unshadowed. Useful when
+ *     the user wants the debug panel to list everything Chrome might have
+ *     touched, regardless of visible outcome.
+ *   - `first-match`: only the first (highest DNR priority) matching rule is
+ *     retained. Mirrors the semantics of classic proxies / MITM tools where
+ *     a URL hits exactly one rule.
+ *
+ * This wrapper intentionally lives in the shadow-arbitration module so the
+ * strategy and the arbitration pass share a single source of truth.
+ */
+export function arbitrateWithStrategy(
+  matching: MatchingRule[],
+  strategy: 'first-match' | 'closest-match' | 'all-matching',
+): ArbitratedRule[] {
+  if (matching.length === 0) return [];
+
+  if (strategy === 'all-matching') {
+    return matching.map((r) => ({
+      ...r,
+      priority: RULE_PRIORITY[r.type],
+      actionClass: RULE_ACTION_CLASS[r.type],
+    }));
+  }
+
+  const decorated = arbitrate(matching);
+
+  if (strategy === 'first-match') {
+    // Pick the single rule with the highest conceptual priority; on ties,
+    // keep match order. Drop any shadowedBy attribution — there is only
+    // one rule in the result, so the concept doesn't apply.
+    let winner = decorated[0];
+    for (let i = 1; i < decorated.length; i++) {
+      if (decorated[i].priority > winner.priority) winner = decorated[i];
+    }
+    const { shadowedBy: _unused, ...rest } = winner;
+    void _unused;
+    return [rest];
+  }
+
+  return decorated;
+}
+
 // ── Phase 1: block-terminal ───────────────────────────────────────
 
 /**

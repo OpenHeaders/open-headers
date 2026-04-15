@@ -1,5 +1,5 @@
 /**
- * useFocusRegion — IDE-style region focus API for the shell.
+ * useFocusRegion — region focus API for the shell.
  *
  * Single source of truth for the DOM↔region mapping. It:
  *

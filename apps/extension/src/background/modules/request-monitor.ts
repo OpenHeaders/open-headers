@@ -18,10 +18,11 @@
 
 import { tabs } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
+import { get as getSetting } from '@/rules/settings/store';
 import type { PendingRequest, TrackedResourceType } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import { addTrackedUrl, checkIfUrlMatchesAnyRule, matchRulesToRequest, tabsWithActiveRules } from './request-tracker';
-import { arbitrate } from './shadow-arbitration';
+import { arbitrateWithStrategy } from './shadow-arbitration';
 import {
   isTracked as isTabTracked,
   onMainFrameError,
@@ -85,7 +86,10 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
           onMainFrameRequest(details.tabId, details.requestId, normalizedUrl);
         }
         if (matchesRule) {
-          const arbitrated = arbitrate(matchRulesToRequest(normalizedUrl));
+          const arbitrated = arbitrateWithStrategy(
+            matchRulesToRequest(normalizedUrl),
+            getSetting('rulesEngine.evaluationStrategy'),
+          );
           const t = Date.now();
           for (const r of arbitrated) {
             recordObservedFire(details.tabId, r.uid, normalizedUrl, details.requestId, t, {
@@ -114,12 +118,11 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
         });
       }
 
-      // Skip if this is not a main frame or sub frame request
-      // This helps avoid tracking every single subresource
-      if (!['main_frame', 'sub_frame', 'xmlhttprequest', 'other'].includes(details.type)) {
-        return;
-      }
-
+      // Collection is universal — every resource type is recorded into
+      // both tab-telemetry and `tabsWithActiveRules`. Display filtering
+      // is done at render time in the popup via
+      // `rulesEngine.visibleResourceTypes`, which lets users toggle
+      // which types show without losing the underlying data.
       if (matchesRule) {
         // Track this tab as having active rules
         addTrackedUrl(details.tabId, normalizedUrl, details.type as TrackedResourceType);
@@ -272,7 +275,10 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
         // Record any rule matches on the redirected URL so telemetry
         // captures fires that happen past the initial redirect hop.
         if (matchesRule && isTabTracked(details.tabId)) {
-          const arbitrated = arbitrate(matchRulesToRequest(normalizedRedirectUrl));
+          const arbitrated = arbitrateWithStrategy(
+            matchRulesToRequest(normalizedRedirectUrl),
+            getSetting('rulesEngine.evaluationStrategy'),
+          );
           const t = Date.now();
           for (const r of arbitrated) {
             recordObservedFire(details.tabId, r.uid, normalizedRedirectUrl, details.requestId, t, {

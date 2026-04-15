@@ -30,6 +30,8 @@ import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { sendMessageWithCallback } from '@utils/messaging';
+import { get as getSetting } from '@/rules/settings/store';
 import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
 import {
   blockCompiler,
@@ -84,9 +86,9 @@ export function getPauseMarkers(): ReadonlyMap<string, PauseMarker> {
 
 export function initPauseState(): void {
   const browserAPI = (typeof browser !== 'undefined' ? browser : chrome) as typeof chrome;
-  browserAPI.storage.sync.get(['isRulesExecutionPaused'], (result: Record<string, unknown>) => {
-    isPaused = (result.isRulesExecutionPaused as boolean) || false;
-  });
+  // The global pause flag lives in the settings store (`rulesEngine.paused`)
+  // and is pushed here from background.ts after bootstrapSettings() resolves.
+  // This function only hydrates per-collection/folder pause markers.
   browserAPI.storage.local.get(['pauseMarkers'], (result: Record<string, unknown>) => {
     const record = result.pauseMarkers as Record<string, PauseMarker> | undefined;
     if (record && typeof record === 'object') {
@@ -300,11 +302,51 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
   // DNR rules will be tagged with excludedTabIds below to keep delay-bypass
   // loop prevention correct.
   const { dynamic: globalDynamic, session: globalSessionUntagged, scriptables } = compileRuleSet(rules, 1);
+
+  // ── Capacity enforcement ───────────────────────────────────────
+  //
+  // `rulesEngine.maxActiveRules` is the hard cap on the dynamic layer —
+  // Chrome's own dynamic-rule ceiling is 30000 (MAX_DYNAMIC), but users
+  // hit performance cliffs well before that. Past the cap we log and
+  // truncate in match-order: rules at the top of the list win a slot,
+  // the overflow gets dropped. Truncation is logged so the user can
+  // reason about why a rule that's enabled isn't live.
+  const cap = getSetting('rulesEngine.maxActiveRules');
+  let dropped = 0;
+  let effectiveDynamic = globalDynamic;
+  if (globalDynamic.length > cap) {
+    dropped = globalDynamic.length - cap;
+    effectiveDynamic = globalDynamic.slice(0, cap);
+    logger.warn('DnrManager', `Active rule cap (${cap}) exceeded — dropping ${dropped} overflow DNR rules`);
+  }
+
+  // ── Large rule-set warning ────────────────────────────────────
+  if (getSetting('rulesEngine.warnOnLargeRuleSets')) {
+    const threshold = getSetting('rulesEngine.largeRuleSetThreshold');
+    if (effectiveDynamic.length >= threshold) {
+      logger.warn(
+        'DnrManager',
+        `Active rule count (${effectiveDynamic.length}) >= ${threshold} — approaching DNR capacity`,
+      );
+      // Let the popup / workspace display a non-blocking warning.
+      sendMessageWithCallback(
+        {
+          type: 'largeRuleSetWarning',
+          activeCount: effectiveDynamic.length,
+          threshold,
+          dropped,
+        },
+        () => {},
+      );
+    }
+  }
+
   const dynamicToApply: DnrRule[] = [];
-  for (const { rule, uid } of globalDynamic) {
+  for (const { rule, uid } of effectiveDynamic) {
     dynamicDnrIdToUid.set(rule.id, uid);
     dynamicToApply.push(rule);
   }
+
   const dynamicPromise = applyDynamicRules(dynamicToApply);
   updateScriptableRules(scriptables);
 

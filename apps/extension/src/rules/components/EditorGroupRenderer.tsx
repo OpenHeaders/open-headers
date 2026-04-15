@@ -1,8 +1,8 @@
 /**
- * EditorGroupRenderer — recursive renderer for the IDE-style
- * editor group tree.
+ * EditorGroupRenderer — recursive renderer for the split editor
+ * group tree.
  *
- * Drop-zone model (IDE semantics):
+ * Drop-zone model:
  * while a tab is being dragged we track the live cursor position via a
  * single window pointermove listener, hit-test it against every leaf's
  * bounding rect, and compute one of five zones per leaf: center, left,
@@ -11,8 +11,9 @@
  * the whole leaf is the "center" target.
  *
  * The visual highlight ALWAYS covers half the panel (edge) or the whole
- * panel (center), matching the IDE preview — the 25% hit region and
- * the 50% highlight geometry are deliberately different.
+ * panel (center), matching a typical split-editor drag preview —
+ * the 25% hit region and the 50% highlight geometry are deliberately
+ * different.
  *
  * Drop dispatch runs inside this component via useDndMonitor:
  *   - over = editor-tab droppable → same-leaf reorder OR cross-leaf

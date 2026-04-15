@@ -21,14 +21,12 @@ const AppInner: React.FC = () => {
   const { isDarkMode } = useTheme();
   const { containerRef, isShortcutsOverlayVisible, setIsShortcutsOverlayVisible } = useKeyboardNav();
   const [tourOpen, setTourOpen] = useState<boolean | null>(null);
-  // When tour closes via OnboardingTour, reset local trigger state
   const handleTourClose = useCallback(() => setTourOpen(null), []);
-  const handleShowTour = useCallback(() => setTourOpen(true), []);
 
   return (
     <div ref={containerRef} tabIndex={-1} style={{ outline: 'none', height: '100%' }}>
       <Layout className="app-container" data-theme={isDarkMode ? 'dark' : 'light'}>
-        <Header onShowShortcuts={() => setIsShortcutsOverlayVisible(true)} onShowTour={handleShowTour} />
+        <Header />
         <Content className="content">
           <div className="entries-list">
             <RulesList />

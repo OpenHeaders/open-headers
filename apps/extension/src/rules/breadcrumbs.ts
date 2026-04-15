@@ -16,6 +16,8 @@ export function computeBreadcrumbs(
 ): string[] {
   if (!tab) return [];
 
+  if (tab.mode === 'settings') return ['Settings'];
+
   if (tab.mode === 'collection-overview') return ['Rules', tab.label];
 
   if (tab.mode === 'folder-overview' && tab.entityId) {

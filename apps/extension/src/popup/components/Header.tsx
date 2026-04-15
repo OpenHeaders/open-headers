@@ -1,265 +1,49 @@
-import {
-  BugOutlined,
-  BulbFilled,
-  BulbOutlined,
-  CloseCircleOutlined,
-  CompressOutlined,
-  DownloadOutlined,
-  InfoCircleOutlined,
-  KeyOutlined,
-  MenuOutlined,
-  QuestionCircleOutlined,
-  RocketOutlined,
-  StarOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
-import { useTheme } from '@context';
+import { DownloadOutlined, NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import { type LogLevel, logger } from '@utils/logger';
-import { Badge, Button, Dropdown, type MenuProps, Select, Space, Switch, Tooltip, Typography } from 'antd';
+import { App, Badge, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useSetting } from '@/rules/settings/hooks';
 import { getBrowserAPI } from '@/types/browser';
 
 const { Title, Text } = Typography;
 
-interface HeaderProps {
-  onShowShortcuts: () => void;
-  onShowTour: () => void;
-}
-
-type ThemeMode = 'light' | 'dark' | 'auto';
-
-interface ThemeDisplayConfig {
-  icon: React.ReactNode;
-  text: string;
-  color: string;
-}
-
-const LOG_LEVEL_OPTIONS: Array<{ value: LogLevel; label: React.ReactNode }> = [
-  {
-    value: 'error',
-    label: (
-      <Space size={4}>
-        <CloseCircleOutlined style={{ fontSize: 12, color: '#ff4d4f' }} />
-        <span>Error</span>
-      </Space>
-    ),
-  },
-  {
-    value: 'warn',
-    label: (
-      <Space size={4}>
-        <WarningOutlined style={{ fontSize: 12, color: '#faad14' }} />
-        <span>Warning</span>
-      </Space>
-    ),
-  },
-  {
-    value: 'info',
-    label: (
-      <Space size={4}>
-        <InfoCircleOutlined style={{ fontSize: 12, color: '#1890ff' }} />
-        <span>Info</span>
-      </Space>
-    ),
-  },
-  {
-    value: 'debug',
-    label: (
-      <Space size={4}>
-        <BugOutlined style={{ fontSize: 12, color: '#52c41a' }} />
-        <span>Debug</span>
-      </Space>
-    ),
-  },
-];
-
-const Header: React.FC<HeaderProps> = ({ onShowShortcuts, onShowTour }) => {
+const Header: React.FC = () => {
+  const { token } = theme.useToken();
   const { isConnected, isStatusLoaded } = useRules();
-  const { themeMode, setThemeMode, isCompactMode, toggleCompactMode } = useTheme();
-  const [logLevel, setLogLevel] = useState<LogLevel>(logger.getLevel());
+  const { message } = App.useApp();
+  const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
 
-  useEffect(() => {
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.sync.get(['logLevel'], (result: Record<string, unknown>) => {
-      if (result.logLevel && typeof result.logLevel === 'string') {
-        setLogLevel(result.logLevel as LogLevel);
-      }
-    });
-  }, []);
-
-  const handleLogLevelChange = (level: LogLevel) => {
-    setLogLevel(level);
-    logger.setLevel(level);
+  const handleGlobalRulesToggle = async (checked: boolean): Promise<void> => {
+    setIsRulesExecutionPaused(!checked);
+    message.success(checked ? 'Rules execution resumed' : 'Rules execution paused');
   };
 
-  const themeDisplay: Record<ThemeMode, ThemeDisplayConfig> = {
-    light: {
-      icon: <BulbOutlined />,
-      text: 'Light',
-      color: '#faad14',
-    },
-    dark: {
-      icon: <BulbFilled />,
-      text: 'Dark',
-      color: '#722ed1',
-    },
-    auto: {
-      icon: <span style={{ fontSize: '14px' }}>&#x25D0;</span>,
-      text: 'Auto',
-      color: '#1890ff',
-    },
+  const handleOpenSettings = (): void => {
+    const url = getBrowserAPI().runtime.getURL('workspace.html#/settings');
+    getBrowserAPI().tabs.create({ url });
   };
 
-  const currentTheme = themeDisplay[themeMode as ThemeMode];
-
-  const themeMenuItems: MenuProps['items'] = [
-    {
-      key: 'light',
-      label: (
-        <Space>
-          {themeDisplay.light.icon}
-          <span>{themeDisplay.light.text}</span>
-          {themeMode === 'light' && <span style={{ marginLeft: 'auto' }}>&#x2713;</span>}
-        </Space>
-      ),
-      onClick: () => setThemeMode('light'),
-    },
-    {
-      key: 'dark',
-      label: (
-        <Space>
-          {themeDisplay.dark.icon}
-          <span>{themeDisplay.dark.text}</span>
-          {themeMode === 'dark' && <span style={{ marginLeft: 'auto' }}>&#x2713;</span>}
-        </Space>
-      ),
-      onClick: () => setThemeMode('dark'),
-    },
-    {
-      type: 'divider' as const,
-    },
-    {
-      key: 'auto',
-      label: (
-        <Space>
-          {themeDisplay.auto.icon}
-          <span>{themeDisplay.auto.text}</span>
-          {themeMode === 'auto' && <span style={{ marginLeft: 'auto' }}>&#x2713;</span>}
-        </Space>
-      ),
-      onClick: () => setThemeMode('auto'),
-    },
-    {
-      type: 'divider' as const,
-    },
-    {
-      key: 'compact',
-      label: (
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Space>
-            <CompressOutlined />
-            <span>Compact Mode</span>
-          </Space>
-          <Switch
-            size="small"
-            checked={isCompactMode}
-            onClick={(_checked: boolean, e: React.MouseEvent | React.KeyboardEvent) => {
-              if ('stopPropagation' in e) e.stopPropagation();
-              toggleCompactMode();
-            }}
-          />
-        </Space>
-      ),
-      onClick: (e) => {
-        if (!(e.domEvent.target as HTMLElement).closest('.ant-switch')) {
-          toggleCompactMode();
-        }
-      },
-    },
-  ];
-
-  const menuItems: MenuProps['items'] = [
-    {
-      key: 'shortcuts',
-      icon: <KeyOutlined />,
-      label: (
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <span>Keyboard Shortcuts</span>
-          <span className="kbd-key" style={{ fontSize: '10px', minWidth: 18 }}>
-            ?
-          </span>
-        </Space>
-      ),
-      onClick: onShowShortcuts,
-    },
-    {
-      key: 'tour',
-      icon: <RocketOutlined />,
-      label: 'Show Tour',
-      onClick: onShowTour,
-    },
-    { type: 'divider' as const },
-    {
-      key: 'github',
-      icon: <StarOutlined />,
-      label: 'Give a Star on GitHub',
-      onClick: () => {
-        void chrome.tabs.create({ url: 'https://github.com/OpenHeaders/open-headers-app' });
-      },
-    },
-    { type: 'divider' as const },
-    {
-      key: 'logLevel',
-      label: (
-        // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation prevents menu close
-        // biome-ignore lint/a11y/useKeyWithClickEvents: not a true interactive element
-        <div
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: '200px' }}
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        >
-          <Tooltip
-            styles={{ root: { maxWidth: 280 } }}
-            title={
-              <>
-                <div style={{ marginBottom: 4, opacity: 0.75 }}>Each level includes all levels above it:</div>
-                <div>
-                  <strong>Error:</strong> <span style={{ opacity: 0.75 }}>Operation failures</span>
-                </div>
-                <div>
-                  <strong>Warning:</strong> <span style={{ opacity: 0.75 }}>Anomalies and fallbacks</span>
-                </div>
-                <div>
-                  <strong>Info:</strong> <span style={{ opacity: 0.75 }}>State changes (default)</span>
-                </div>
-                <div>
-                  <strong>Debug:</strong> <span style={{ opacity: 0.75 }}>Verbose internals</span>
-                </div>
-              </>
-            }
-          >
-            <Space>
-              <span>Log Level</span>
-              <QuestionCircleOutlined style={{ fontSize: 11, cursor: 'help' }} />
-            </Space>
-          </Tooltip>
-          <Select
-            size="small"
-            value={logLevel}
-            onChange={handleLogLevelChange}
-            options={LOG_LEVEL_OPTIONS}
-            style={{ width: 110 }}
-            popupMatchSelectWidth={false}
-          />
-        </div>
-      ),
-    },
-  ];
+  const disconnectedTooltip = (
+    <div style={{ fontSize: 12, lineHeight: 1.6, maxWidth: 240 }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>Desktop app not detected</div>
+      <div style={{ opacity: 0.8, marginBottom: 8 }}>
+        Install the desktop app to unlock workspaces, variables, team sync, and workflow recordings.
+      </div>
+      <Button
+        type="primary"
+        size="small"
+        icon={<DownloadOutlined />}
+        onClick={() => window.open('https://openheaders.io', '_blank')}
+        style={{ fontSize: 11, height: 24 }}
+      >
+        Get the desktop app
+      </Button>
+    </div>
+  );
 
   return (
     <div className="header">
-      <Space align="center">
+      <Space align="center" size={8}>
         <img
           src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
           alt="Open Headers"
@@ -268,74 +52,72 @@ const Header: React.FC<HeaderProps> = ({ onShowShortcuts, onShowTour }) => {
         <Title level={4} className="popup-header-title" style={{ margin: 0 }}>
           Open Headers
         </Title>
+        {isStatusLoaded &&
+          (isConnected ? (
+            <Badge status="success" />
+          ) : (
+            <Tooltip title={disconnectedTooltip} placement="bottom" styles={{ root: { maxWidth: 280 } }}>
+              <span style={{ cursor: 'help', display: 'inline-flex' }}>
+                <Badge status="error" />
+              </span>
+            </Tooltip>
+          ))}
       </Space>
       <Space align="center" size={12}>
-        <div className="connection-status" style={{ position: 'relative' }}>
-          <Badge
-            status={!isStatusLoaded ? 'default' : isConnected ? 'success' : 'error'}
-            text={
-              <Text style={{ fontSize: '12px' }}>
-                {!isStatusLoaded ? '' : isConnected ? 'Connected' : 'Disconnected'}
-              </Text>
-            }
+        <div
+          className="header-rules-toggle"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '0 8px',
+            borderLeft: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <NodeExpandOutlined
+            style={{
+              fontSize: '14px',
+              color: isRulesExecutionPaused ? token.colorWarning : token.colorTextSecondary,
+            }}
           />
-          {isStatusLoaded && !isConnected && (
-            <Tooltip title="Download the desktop app for workspaces, variables, team sync, and more">
-              <Button
-                type="link"
-                size="small"
-                icon={<DownloadOutlined />}
-                onClick={() => window.open('https://openheaders.io', '_blank')}
-                style={{
-                  fontSize: '11px',
-                  padding: 0,
-                  height: 0,
-                  lineHeight: '14px',
-                  position: 'absolute',
-                  top: 'calc(100% + 6px)',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Get App
-              </Button>
-            </Tooltip>
-          )}
+          <Text
+            style={{
+              fontSize: '12px',
+              color: isRulesExecutionPaused ? token.colorWarning : token.colorTextSecondary,
+            }}
+          >
+            Rules
+          </Text>
+          <Tooltip
+            title={
+              isRulesExecutionPaused
+                ? 'Resume rules execution'
+                : 'Pause all rules (preserves individual rule settings)'
+            }
+          >
+            <Switch
+              size="default"
+              checked={!isRulesExecutionPaused}
+              onChange={handleGlobalRulesToggle}
+              checkedChildren="Active"
+              unCheckedChildren="Paused"
+            />
+          </Tooltip>
         </div>
-        <Dropdown menu={{ items: themeMenuItems }} placement="bottomRight" trigger={['click']}>
+        <Tooltip title="Open settings">
           <Button
             type="text"
             size="small"
+            icon={<SettingOutlined />}
+            onClick={handleOpenSettings}
             style={{
-              padding: '4px 12px',
-              height: 'auto',
-              color: currentTheme.color,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            {currentTheme.icon}
-            <span style={{ fontSize: '12px' }}>{currentTheme.text}</span>
-          </Button>
-        </Dropdown>
-        <Dropdown menu={{ items: menuItems }} placement="bottomRight" trigger={['click']}>
-          <Button
-            type="text"
-            size="small"
-            icon={<MenuOutlined />}
-            style={{
-              padding: '4px 12px',
+              padding: '4px 8px',
               height: 'auto',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
             }}
-          >
-            <span style={{ fontSize: '12px' }}>Menu</span>
-          </Button>
-        </Dropdown>
+          />
+        </Tooltip>
       </Space>
     </div>
   );

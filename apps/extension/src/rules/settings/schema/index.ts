@@ -1,0 +1,22 @@
+/**
+ * Schema barrel — importing this file executes every category's
+ * registration side effects. The SettingsProvider imports this once
+ * at app mount; tests can import it to seed the registry.
+ *
+ * Adding a new category:
+ *   1. Create schema/<category>.ts with registerSetting calls
+ *   2. Add a registerCategory entry in ../categories.tsx
+ *   3. Import the new file here
+ */
+
+import '../categories';
+import './general';
+import './appearance';
+import './workspace-layout';
+import './editor';
+import './rules-engine';
+import './recording';
+import './desktop-connection';
+import './keyboard';
+import './data';
+import './about';

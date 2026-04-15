@@ -1,18 +1,17 @@
 /**
- * ShellLayout — IDE-style tool-window shell for workspace.html.
+ * ShellLayout — tool-window shell for workspace.html.
  *
  * Renders the six tool-window docks across three visual regions (left
  * column, right column, bottom bar) plus a central editor area. Two
  * layout modes switch at runtime:
  *
- *   - Classic (bottomFullWidth = false): the bottom region lives inside
- *     the middle column, between the editor and the status bar. The
- *     left/right columns extend all the way down.
+ *   - Classic (bottomPanelFullWidth = false): the bottom region lives
+ *     inside the middle column, between the editor and the status bar.
+ *     The left/right columns extend all the way down.
  *
- *   - Wide bottom (bottomFullWidth = true): the bottom region spans the
- *     full viewport width, underneath both side columns. This matches
- *     the IDE's default "wide bottom" mode and is toggled from the
- *     status bar LayoutOutlined menu.
+ *   - Wide bottom (bottomPanelFullWidth = true): the bottom region spans
+ *     the full viewport width, underneath both side columns. Toggled
+ *     from the status bar LayoutOutlined menu or the Settings page.
  *
  * Drag-and-drop is wired through dnd-kit: DockTabStrip tabs are draggable,
  * DropZoneOverlay renders six drop targets during a drag, and onDragEnd
@@ -24,8 +23,8 @@
  */
 
 import {
-  closestCenter,
   type CollisionDetection,
+  closestCenter,
   DndContext,
   type DragEndEvent,
   type DragOverEvent,
@@ -43,6 +42,7 @@ import type React from 'react';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ResponsiveLayout } from '../hooks/useResponsiveLayout';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
+import { useSetting, useSettingValue } from '../settings/hooks';
 import { ALL_DOCK_SLOTS, dockRegion, TOOL_WINDOW_MAP } from '../tool-windows';
 import type { DockSlot, ToolRegion, ToolWindowId } from '../types';
 import DockTabStrip from './DockTabStrip';
@@ -258,11 +258,15 @@ const VerticalActivityBar: React.FC<VerticalBarProps> = ({ side, tl, getWindows,
   const upperSecondWindows = getWindows(upperSecondSlot);
   const lowerWindows = getWindows(lowerSlot);
 
+  const [showLabels, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
+  const sidebarLayout = useSettingValue('workspaceLayout.sidebarLayout');
+  const toggleLabels = useCallback(() => setShowLabels(!showLabels), [showLabels, setShowLabels]);
+
   const barMenu: ItemType[] = [
     {
       key: 'labels',
-      label: tl.state.showLabels ? 'Hide Tool Window Names' : 'Show Tool Window Names',
-      onClick: tl.toggleShowLabels,
+      label: showLabels ? 'Hide Tool Window Names' : 'Show Tool Window Names',
+      onClick: toggleLabels,
     },
   ];
 
@@ -273,20 +277,20 @@ const VerticalActivityBar: React.FC<VerticalBarProps> = ({ side, tl, getWindows,
       activeId={dock.active}
       orientation="vertical"
       focused={tl.state.focusedDock === slot}
-      showLabels={tl.state.showLabels}
+      showLabels={showLabels}
       dragging={dragging}
       onActivate={tl.toggleWindow}
       onHide={tl.hideWindow}
       onMove={tl.moveWindow}
       onCloseDock={() => tl.closeDock(slot)}
-      onToggleLabels={tl.toggleShowLabels}
+      onToggleLabels={toggleLabels}
     />
   );
 
   return (
     <Dropdown menu={{ items: barMenu }} trigger={['contextMenu']}>
       <div
-        className={`rules-activity-bar rules-activity-bar--${side} ${tl.state.showLabels ? '' : 'rules-activity-bar--compact'} rules-activity-bar--layout-${tl.state.sidebarLayout}`}
+        className={`rules-activity-bar rules-activity-bar--${side} ${showLabels ? '' : 'rules-activity-bar--compact'} rules-activity-bar--layout-${sidebarLayout}`}
         style={{
           background: token.colorBgLayout,
           [side === 'left' ? 'borderRight' : 'borderLeft']: `1px solid ${token.colorBorderSecondary}`,
@@ -450,7 +454,7 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   const leftOpen = tl.isRegionOpen('left');
   const rightOpen = tl.isRegionOpen('right');
   const bottomOpen = tl.isRegionOpen('bottom');
-  const bottomFullWidth = tl.state.bottomFullWidth;
+  const bottomFullWidth = useSettingValue('workspaceLayout.bottomPanelFullWidth');
 
   const shellRef = useRef<HTMLDivElement>(null);
   const [shellSize, setShellSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });

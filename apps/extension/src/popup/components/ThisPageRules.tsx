@@ -6,6 +6,7 @@ import {
   EditOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
+  FilterOutlined,
   InfoCircleOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
@@ -28,6 +29,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
@@ -35,6 +37,8 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
+import { useSetting, useSettingValue } from '@/rules/settings/hooks';
+import type { TrackedResourceType } from '@/rules/settings/schema/rules-engine';
 import { getBrowserAPI } from '@/types/browser';
 import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
@@ -147,6 +151,26 @@ const RESOURCE_TYPE_TOOLTIP: Record<string, string> = {
   ping: 'Applied to ping/beacon requests',
   other: 'Applied to other resources',
 };
+
+/**
+ * Render order for the inline resource-type filter row at the top of
+ * the This Page view. Kept in sync with the `rulesEngine.visibleResourceTypes`
+ * schema's enum order so the Settings multi-select and the popup row
+ * always show types in the same sequence.
+ */
+const ALL_RESOURCE_TYPES: readonly TrackedResourceType[] = [
+  'main_frame',
+  'sub_frame',
+  'xmlhttprequest',
+  'script',
+  'stylesheet',
+  'image',
+  'font',
+  'media',
+  'websocket',
+  'ping',
+  'other',
+];
 
 function formatTimestampShort(timestamp: number): React.ReactNode {
   const d = new Date(timestamp);
@@ -281,6 +305,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   onRowActionsChange,
 }) => {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const { isConnected, pauseMarkers } = useRules();
   const {
     expandedRowKey,
@@ -313,7 +338,31 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
    * the UI for users who opt in. Off by default until we gather enough
    * real-world signal to default on.
    */
-  const [shadowDetection, setShadowDetection] = useState(false);
+  const shadowDetection = useSettingValue('rulesEngine.showShadowWarnings');
+
+  /**
+   * Which resource types the user currently wants to see in this view.
+   * Backed by the same `rulesEngine.visibleResourceTypes` setting as the
+   * Settings page multi-select — the inline chip row below writes to it
+   * and stays in perfect sync with the Settings UI. Collection in the
+   * background is universal; this is pure display filtering.
+   */
+  const [visibleResourceTypes, setVisibleResourceTypes] = useSetting('rulesEngine.visibleResourceTypes');
+  const visibleTypeSet = new Set<string>(visibleResourceTypes);
+  const toggleResourceType = useCallback(
+    (type: TrackedResourceType) => {
+      const next = visibleTypeSet.has(type)
+        ? (visibleResourceTypes.filter((t) => t !== type) as readonly TrackedResourceType[])
+        : ([...visibleResourceTypes, type] as readonly TrackedResourceType[]);
+      // Guard: never let the user empty the filter entirely — an empty
+      // set would render nothing and there's no discoverable way back
+      // short of opening the Settings page. One type must remain on.
+      if (next.length === 0) return;
+      setVisibleResourceTypes(next);
+    },
+    [visibleResourceTypes, visibleTypeSet, setVisibleResourceTypes],
+  );
+
   const expandCountRef = useRef(0);
   const [searchText, setSearchText] = useState('');
   const [sortMode, setSortMode] = useState<'status' | 'priority' | 'manual'>('status');
@@ -411,22 +460,6 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
   const uniqueRequestCount = snapshot.uniqueRequestCount;
 
-  // Read the experimental shadow-detection setting and watch for changes.
-  // Lives in storage.sync alongside the other user prefs (paused state,
-  // recording widget) so it roams with the user's Chrome profile.
-  useEffect(() => {
-    const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-    browserAPI.storage.sync.get(['ohShadowDetection'], (result: Record<string, unknown>) => {
-      setShadowDetection(Boolean(result.ohShadowDetection));
-    });
-    const handler = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
-      if (areaName !== 'sync') return;
-      if (changes.ohShadowDetection) setShadowDetection(Boolean(changes.ohShadowDetection.newValue));
-    };
-    browserAPI.storage.onChanged.addListener(handler);
-    return () => browserAPI.storage.onChanged.removeListener(handler);
-  }, []);
-
   // Scroll virtual nested table to focused row (also resets on expand)
   // biome-ignore lint/correctness/useExhaustiveDependencies: expandedRowKey intentionally resets scroll on re-expand
   useEffect(() => {
@@ -446,12 +479,22 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   // (oldest first) by the backend; we reverse per-rule here so the popup
   // and the nested table both render newest-first without repeating the
   // reversal at every render site.
+  //
+  // Render-time filter: drop records whose resource type isn't in the
+  // `visibleResourceTypes` allowlist. The background records everything
+  // so flipping a type back on reveals the hidden fires instantly, with
+  // no page reload. Fires that arrive while a type is hidden are still
+  // collected — they become visible the moment the type is re-enabled.
+  // The `fireCountFor` count is derived from the filtered list so the
+  // popup badge count matches what's actually rendered instead of the
+  // raw backend counter.
   const recordsByRuleId = new Map<string, RequestRecord[]>();
   for (const [uid, recs] of Object.entries(snapshot.byRule)) {
-    recordsByRuleId.set(uid, [...recs].reverse());
+    const filtered = recs.filter((r) => visibleTypeSet.has(r.resourceType || 'other'));
+    recordsByRuleId.set(uid, filtered.reverse());
   }
   const recordsFor = (id: string | undefined): RequestRecord[] => (id ? (recordsByRuleId.get(id) ?? []) : []);
-  const fireCountFor = (id: string | undefined): number => (id ? (snapshot.counters[id] ?? 0) : 0);
+  const fireCountFor = (id: string | undefined): number => (id ? (recordsByRuleId.get(id)?.length ?? 0) : 0);
 
   // Highest evidence tier present in a record list, or 'none' when empty.
   const dominantEvidenceOf = (records: RequestRecord[]): RequestRecord['evidence'] | 'none' => {
@@ -907,9 +950,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 {activeCount} of {activeRules.length} active
               </Text>
               {(() => {
-                const pausedCount = activeRules.filter((r) =>
-                  resolvePauseState(r.path ?? '', pauseMarkers),
-                ).length;
+                const pausedCount = activeRules.filter((r) => resolvePauseState(r.path ?? '', pauseMarkers)).length;
                 return pausedCount > 0 ? (
                   <>
                     <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -1059,6 +1100,107 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               >
                 <Tooltip title="Sort order">
                   <Button type="text" size="small" icon={<SortAscendingOutlined />} />
+                </Tooltip>
+              </Dropdown>
+              <Dropdown
+                placement="bottomRight"
+                trigger={['click']}
+                dropdownRender={() => (
+                  <div
+                    className="ant-dropdown-menu"
+                    style={{
+                      padding: '4px 0',
+                      minWidth: 240,
+                      boxShadow: token.boxShadowSecondary,
+                      borderRadius: token.borderRadiusLG,
+                      background: token.colorBgElevated,
+                    }}
+                  >
+                    <div style={{ padding: '5px 12px' }}>
+                      <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
+                        VISIBLE RESOURCE TYPES
+                      </Text>
+                    </div>
+                    <div
+                      style={{
+                        maxHeight: 160,
+                        overflowY: 'auto',
+                        borderTop: `1px solid ${token.colorBorderSecondary}`,
+                        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                      }}
+                    >
+                      {ALL_RESOURCE_TYPES.map((type) => {
+                        const checked = visibleTypeSet.has(type);
+                        return (
+                          <button
+                            type="button"
+                            key={type}
+                            onClick={() => toggleResourceType(type)}
+                            className="ant-dropdown-menu-item"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              width: '100%',
+                              padding: '5px 12px',
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              color: token.colorText,
+                            }}
+                          >
+                            <Tooltip
+                              title={RESOURCE_TYPE_TOOLTIP[type] ?? type}
+                              placement="left"
+                              styles={{ root: { maxWidth: 280 } }}
+                            >
+                              <span style={{ fontSize: 12 }}>{RESOURCE_TYPE_LABEL[type] ?? type}</span>
+                            </Tooltip>
+                            {checked && <CheckOutlined style={{ color: '#1677ff', fontSize: 12 }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setVisibleResourceTypes(ALL_RESOURCE_TYPES)}
+                      className="ant-dropdown-menu-item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%',
+                        padding: '5px 12px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        color: token.colorText,
+                      }}
+                    >
+                      <span style={{ fontSize: 12 }}>Show all</span>
+                      {visibleResourceTypes.length === ALL_RESOURCE_TYPES.length && (
+                        <CheckOutlined style={{ color: '#1677ff', fontSize: 12 }} />
+                      )}
+                    </button>
+                  </div>
+                )}
+              >
+                <Tooltip
+                  title={
+                    visibleResourceTypes.length < ALL_RESOURCE_TYPES.length
+                      ? `Filter resource types (${visibleResourceTypes.length} of ${ALL_RESOURCE_TYPES.length} shown)`
+                      : 'Filter resource types'
+                  }
+                >
+                  <Badge
+                    dot={visibleResourceTypes.length < ALL_RESOURCE_TYPES.length}
+                    color="blue"
+                    offset={[-2, 2]}
+                  >
+                    <Button type="text" size="small" icon={<FilterOutlined />} />
+                  </Badge>
                 </Tooltip>
               </Dropdown>
             </div>

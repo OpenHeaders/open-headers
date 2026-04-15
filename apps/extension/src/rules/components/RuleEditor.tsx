@@ -27,7 +27,10 @@ import { App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
+import { formatCode } from '../languages/formatter';
+import type { LanguageId } from '../languages/registry';
 import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYPE } from '../rule-templates';
+import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields from './rule-fields/BodyRuleFields';
@@ -457,6 +460,41 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   );
 
   const handleSubmit = useCallback(async () => {
+    // Format-on-save. For every known code field on the current rule
+    // type, resolve its language from a sibling form value and push
+    // the formatted string back into the form before we read values.
+    // Failures are non-fatal — the user just gets a toast; the raw
+    // buffer is preserved so they can fix the parse error and save.
+    if (getSetting('editor.formatOnSave')) {
+      const pre = form.getFieldsValue();
+      const targets: Array<{ field: string; language: LanguageId }> = [];
+      if (ruleType === 'inject') {
+        targets.push({ field: 'injectCode', language: pre.injectType === 'css' ? 'css' : 'javascript' });
+      } else if (ruleType === 'mock') {
+        if (pre.mockBodyType === 'dynamic') {
+          targets.push({ field: 'mockDynamicBody', language: 'javascript' });
+        } else {
+          targets.push({ field: 'mockStaticBody', language: 'json' });
+        }
+      } else if (ruleType === 'body') {
+        if (pre.bodyModType === 'dynamic') {
+          targets.push({ field: 'bodyDynamicContent', language: 'javascript' });
+        } else {
+          targets.push({ field: 'bodyStaticContent', language: 'json' });
+        }
+      }
+      for (const { field, language } of targets) {
+        const current = pre[field];
+        if (typeof current !== 'string' || current.length === 0) continue;
+        const result = await formatCode(current, language);
+        if (result.ok) {
+          if (result.code !== current) form.setFieldValue(field, result.code);
+        } else {
+          message.warning(`Format on save skipped: ${result.error.message}`);
+        }
+      }
+    }
+
     const values = form.getFieldsValue();
     setSaving(true);
     try {
@@ -499,6 +537,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     buildRule,
     mode,
     ruleUid,
+    ruleType,
     tabId,
     updateLocalRule,
     createLocalRule,

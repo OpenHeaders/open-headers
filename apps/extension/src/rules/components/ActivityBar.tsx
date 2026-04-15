@@ -9,8 +9,8 @@
  *     group.
  *   - Each icon can be in one of four visual states:
  *       closed          → neutral
- *       open + unfocused → grey selected background (IDE "selected")
- *       open + focused  → blue accent (IDE "focused")
+ *       open + unfocused → grey selected background (IDE-style "selected")
+ *       open + focused  → blue accent (IDE-style "focused")
  *       disabled        → low opacity, no interaction
  *   - Right-clicking anywhere on the bar opens a context menu to toggle
  *     the label-visibility preference (icons-only mode ~ 36px wide).

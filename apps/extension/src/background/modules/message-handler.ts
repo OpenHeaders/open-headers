@@ -381,9 +381,6 @@ export function handleGeneralMessage(
         })
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
-    } else if (message.type === 'setRulesExecutionPaused') {
-      scheduleUpdate('pause', { immediate: true });
-      safeResponse({ success: true });
     } else if (message.type === 'toggleAllRules') {
       if (isWebSocketConnected()) {
         safeResponse({

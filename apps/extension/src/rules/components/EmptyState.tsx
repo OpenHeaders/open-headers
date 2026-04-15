@@ -5,6 +5,7 @@
 import { Button, Space, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { ALL_RULE_TYPES } from '../rule-type-menu';
+import { useSettingValue } from '../settings/hooks';
 
 const { Title, Text } = Typography;
 
@@ -13,6 +14,7 @@ interface EmptyStateProps {
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({ onCreateRule }) => {
+  const showHints = useSettingValue('general.showEmptyStateHints');
   return (
     <div
       style={{
@@ -28,7 +30,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ onCreateRule }) => {
         <Title level={4} style={{ marginBottom: 8 }}>
           Create a new rule
         </Title>
-        <Text type="secondary">Select a rule from the sidebar or create one below</Text>
+        {showHints && <Text type="secondary">Select a rule from the sidebar or create one below</Text>}
       </div>
       <Space direction="vertical" size={8} style={{ width: 280 }}>
         {ALL_RULE_TYPES.map((rt) => (

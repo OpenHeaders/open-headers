@@ -43,7 +43,7 @@ interface PersistedLayout {
   /** Bottom panel height as ratio of viewport height (0–1) */
   bottomRatio: number;
   /**
-   * Legacy IDE-style layout state — written by the old
+   * Legacy three-pane layout state — written by the old
    * useWorkspaceLayout hook. Kept optional so old records keep loading.
    * Ignored on load now that the tool-window layout state lives in
    * `toolLayout`.
@@ -54,9 +54,10 @@ interface PersistedLayout {
   bottomTab?: string;
   activityBarLabels?: boolean;
   /**
-   * IDE-style tool-window layout. Owns dock assignments, hidden
-   * list, bottomFullWidth toggle, and label visibility. Normalized on
-   * load so stale records never leave a tool window orphaned.
+   * Dockable tool-window layout. Owns dock assignments and the
+   * hidden list. Normalized on load so stale records never leave a
+   * tool window orphaned. Layout behaviors (bottom full-width, label
+   * visibility, sidebar layout) now live in the settings store.
    */
   toolLayout?: Partial<ToolLayoutState>;
 }
@@ -274,8 +275,6 @@ export function useResponsiveLayout(): ResponsiveLayout {
         toolLayout: {
           docks: next.docks,
           hidden: next.hidden,
-          bottomFullWidth: next.bottomFullWidth,
-          showLabels: next.showLabels,
         },
       });
     },

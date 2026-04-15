@@ -5,11 +5,11 @@
  * Any component can scroll to a section via useInspectorNav().openDocs('section-id').
  */
 
-import { Card, Tag, Typography, theme } from 'antd';
+import { Button, Card, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
-import { SHORTCUTS } from '../hooks/useWorkspaceShortcuts';
+import { SHORTCUTS, useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 const { Text, Title } = Typography;
 
@@ -198,12 +198,32 @@ const TOC = [
 
 // ── Component ───────────────────────────────────────────────────
 
+const ShortcutRow: React.FC<{ id: string; label: string; codeBg: string }> = ({ id, label, codeBg }) => {
+  const chord = useShortcutLabel(id);
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ fontSize: 12 }}>{label}</span>
+      <code
+        style={{
+          fontSize: 11,
+          padding: '1px 6px',
+          background: codeBg,
+          borderRadius: 3,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {chord}
+      </code>
+    </div>
+  );
+};
+
 const InspectorDocs: React.FC = () => {
   const { token } = theme.useToken();
   const { pendingSection, pendingCounter, clearPending } = useInspectorNav();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to section when requested — pendingCounter forces re-scroll even for same section
+  // biome-ignore lint/correctness/useExhaustiveDependencies: pendingCounter forces re-scroll for repeat requests
   useEffect(() => {
     if (!pendingSection || !scrollRef.current) return;
     const el = scrollRef.current.querySelector(`#${pendingSection}`);
@@ -211,7 +231,7 @@ const InspectorDocs: React.FC = () => {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     clearPending();
-  }, [pendingSection, clearPending]);
+  }, [pendingSection, pendingCounter, clearPending]);
 
   const scrollTo = (id: string) => {
     const el = scrollRef.current?.querySelector(`#${id}`);
@@ -230,9 +250,14 @@ const InspectorDocs: React.FC = () => {
         </Text>
         {TOC.map((item) => (
           <div key={item.id} style={{ marginTop: 4 }}>
-            <a onClick={() => scrollTo(item.id)} style={{ fontSize: 12, color: token.colorPrimary, cursor: 'pointer' }}>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => scrollTo(item.id)}
+              style={{ fontSize: 12, padding: 0, height: 'auto' }}
+            >
               {item.label}
-            </a>
+            </Button>
           </div>
         ))}
       </div>
@@ -791,20 +816,7 @@ const InspectorDocs: React.FC = () => {
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {items.map((s) => (
-                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12 }}>{s.label}</span>
-                  <code
-                    style={{
-                      fontSize: 11,
-                      padding: '1px 6px',
-                      background: token.colorFillQuaternary,
-                      borderRadius: 3,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {/Mac|iPhone|iPad/.test(navigator.userAgent) ? s.mac : s.win}
-                  </code>
-                </div>
+                <ShortcutRow key={s.id} id={s.id} label={s.label} codeBg={token.colorFillQuaternary} />
               ))}
             </div>
           </Card>

@@ -1,11 +1,9 @@
 import {
   AppstoreOutlined,
   EditOutlined,
-  ExperimentOutlined,
   FileTextOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
-  NodeExpandOutlined,
   PlaySquareOutlined,
   SettingOutlined,
   StarOutlined,
@@ -15,11 +13,11 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import { getAppLauncher } from '@utils/app-launcher';
-import { runtime } from '@utils/browser-api';
 import { sendMessage } from '@utils/messaging';
 import { App, Button, Dropdown, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useSetting } from '@/rules/settings/hooks';
 import { getBrowserAPI } from '@/types/browser';
 import RecordingButton from './RecordingButton';
 
@@ -38,119 +36,22 @@ const Footer: React.FC = () => {
   const { setFooterActions, setIsShortcutsOverlayVisible } = useKeyboardNav();
   const version = __APP_VERSION__;
   const { token } = theme.useToken();
-  const [useWidget, setUseWidget] = useState(true);
-  const [enableVideoRecording, setEnableVideoRecording] = useState(false);
-  const [recordingHotkey, setRecordingHotkey] = useState('Cmd+Shift+E');
-  const [recordingHotkeyEnabled, setRecordingHotkeyEnabled] = useState(true);
+  const [useWidget, setUseWidget] = useSetting('recording.showWidget');
+  const [enableVideoRecording, setEnableVideoRecording] = useSetting('recording.videoEnabled');
+  const [rawRecordingHotkey] = useSetting('recording.hotkey');
+  const [recordingHotkeyEnabled, setRecordingHotkeyEnabled] = useSetting('recording.hotkeyEnabled');
   const [optionsTooltipOpen, setOptionsTooltipOpen] = useState(false);
   const [optionsDropdownOpen, setOptionsDropdownOpen] = useState(false);
-  const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useState(false);
-  const [shadowDetection, setShadowDetection] = useState(false);
+  const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
   const { message } = App.useApp();
   const appLauncher = getAppLauncher();
 
-  const { rules, isConnected } = useRules();
-  const totalRules = rules.length;
+  const { isConnected } = useRules();
 
-  const checkVideoRecordingState = useCallback(async () => {
-    try {
-      const response = await sendMessage({ type: 'getVideoRecordingState' });
-      if (response && response.enabled !== undefined) setEnableVideoRecording(response.enabled);
-    } catch (error) {
-      console.log(new Date().toISOString(), 'INFO ', '[Footer]', 'Could not get video recording state:', error);
-    }
-  }, []);
+  const recordingHotkey = rawRecordingHotkey ? formatHotkeyForDisplay(rawRecordingHotkey) : 'Not set';
 
-  const checkRecordingHotkey = useCallback(async () => {
-    try {
-      const response = await sendMessage({ type: 'getRecordingHotkey' });
-      if (response) {
-        if (response.hotkey) setRecordingHotkey(formatHotkeyForDisplay(response.hotkey));
-        if (response.enabled !== undefined) setRecordingHotkeyEnabled(response.enabled);
-      }
-    } catch (error) {
-      console.log(new Date().toISOString(), 'INFO ', '[Footer]', 'Could not get recording hotkey:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.sync.get(
-      ['useRecordingWidget', 'isRulesExecutionPaused', 'ohShadowDetection'],
-      (result: Record<string, unknown>) => {
-        if (browserAPI.runtime.lastError) {
-          console.error(
-            new Date().toISOString(),
-            'ERROR',
-            '[Footer]',
-            'Error loading preferences:',
-            browserAPI.runtime.lastError,
-          );
-          return;
-        }
-        if (result.useRecordingWidget !== undefined) setUseWidget(result.useRecordingWidget as boolean);
-        if (result.isRulesExecutionPaused !== undefined)
-          setIsRulesExecutionPaused(result.isRulesExecutionPaused as boolean);
-        if (result.ohShadowDetection !== undefined) setShadowDetection(Boolean(result.ohShadowDetection));
-      },
-    );
-    void checkVideoRecordingState();
-    void checkRecordingHotkey();
-
-    const handleVideoRecordingStateChange = (msg: { type?: string; enabled?: boolean; hotkey?: string }) => {
-      if (msg.type === 'videoRecordingStateChanged' && msg.enabled !== undefined) setEnableVideoRecording(msg.enabled);
-      if (msg.type === 'recordingHotkeyResponse' || msg.type === 'recordingHotkeyChanged') {
-        if (msg.hotkey !== undefined) setRecordingHotkey(formatHotkeyForDisplay(msg.hotkey));
-        if (msg.enabled !== undefined) setRecordingHotkeyEnabled(msg.enabled);
-      }
-    };
-    runtime.onMessage.addListener(
-      handleVideoRecordingStateChange as (
-        message: unknown,
-        sender: chrome.runtime.MessageSender,
-        sendResponse: (response?: unknown) => void,
-      ) => void,
-    );
-    return () => {
-      runtime.onMessage.removeListener(
-        handleVideoRecordingStateChange as (
-          message: unknown,
-          sender: chrome.runtime.MessageSender,
-          sendResponse: (response?: unknown) => void,
-        ) => void,
-      );
-    };
-  }, [checkVideoRecordingState, checkRecordingHotkey]);
-
-  const handleWidgetToggle = (checked: boolean) => {
+  const handleWidgetToggle = (checked: boolean): void => {
     setUseWidget(checked);
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.sync.set({ useRecordingWidget: checked }, () => {
-      if (browserAPI.runtime.lastError)
-        console.error(
-          new Date().toISOString(),
-          'ERROR',
-          '[Footer]',
-          'Error saving widget preference:',
-          browserAPI.runtime.lastError,
-        );
-    });
-  };
-
-  const handleShadowDetectionToggle = (checked: boolean) => {
-    setShadowDetection(checked);
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.sync.set({ ohShadowDetection: checked }, () => {
-      if (browserAPI.runtime.lastError) {
-        console.error(
-          new Date().toISOString(),
-          'ERROR',
-          '[Footer]',
-          'Error saving shadow detection preference:',
-          browserAPI.runtime.lastError,
-        );
-      }
-    });
   };
 
   const handleOpenWebsite = async () => {
@@ -167,15 +68,12 @@ const Footer: React.FC = () => {
     message.info('Switch to OpenHeaders app to view workflows');
   };
 
-  const handleVideoRecordingToggle = async (checked: boolean) => {
+  const handleVideoRecordingToggle = (checked: boolean): void => {
     if (!isConnected) {
       message.warning('Please connect to the desktop app to change video recording settings');
       return;
     }
-    const response = await sendMessage({ type: 'toggleVideoRecording', enabled: checked });
-    if (!response?.success) {
-      message.error('Failed to toggle video recording');
-    }
+    setEnableVideoRecording(checked);
   };
 
   const handleEditHotkey = async () => {
@@ -187,35 +85,17 @@ const Footer: React.FC = () => {
     message.info('Switch to OpenHeaders app to edit recording hotkey');
   };
 
-  const handleHotkeyToggle = async (checked: boolean) => {
+  const handleHotkeyToggle = (checked: boolean): void => {
     if (!isConnected) {
       message.warning('Please connect to the desktop app to change hotkey settings');
       return;
     }
-    const response = await sendMessage({ type: 'toggleRecordingHotkey', enabled: checked });
-    if (!response?.success) {
-      message.error('Failed to toggle recording hotkey');
-    }
+    setRecordingHotkeyEnabled(checked);
   };
 
   const handleGlobalRulesToggle = async (checked: boolean) => {
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.sync.set({ isRulesExecutionPaused: !checked }, () => {
-      if (browserAPI.runtime.lastError) {
-        console.error(
-          new Date().toISOString(),
-          'ERROR',
-          '[Footer]',
-          'Error saving pause state:',
-          browserAPI.runtime.lastError,
-        );
-        message.error('Failed to update rules state');
-        return;
-      }
-      setIsRulesExecutionPaused(!checked);
-      sendMessage({ type: 'setRulesExecutionPaused', paused: !checked });
-      message.success(checked ? 'Rules execution resumed' : 'Rules execution paused');
-    });
+    setIsRulesExecutionPaused(!checked);
+    message.success(checked ? 'Rules execution resumed' : 'Rules execution paused');
   };
 
   // Register keyboard-accessible actions with parent
@@ -448,40 +328,6 @@ const Footer: React.FC = () => {
         </div>
       ),
     },
-    { key: 'divider2', type: 'divider' as const },
-    {
-      key: 'experimental-label',
-      label: (
-        <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-          EXPERIMENTAL
-        </Text>
-      ),
-      disabled: true,
-    },
-    {
-      key: 'shadow-detection',
-      label: (
-        // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation prevents menu close
-        // biome-ignore lint/a11y/useKeyWithClickEvents: not a true interactive element
-        <div
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: '270px' }}
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        >
-          <Tooltip
-            title="Highlight rules whose matched requests are terminated by a higher-priority block rule. Experimental — the arbitrator is approximate and may over- or under-report. Help us improve it by reporting false positives."
-            placement="top"
-            styles={{ root: { maxWidth: 360 } }}
-          >
-            <Space>
-              <ExperimentOutlined />
-              <span>Shadow detection</span>
-              <InfoCircleOutlined style={{ fontSize: '12px', color: token.colorTextSecondary }} />
-            </Space>
-          </Tooltip>
-          <Switch size="small" checked={shadowDetection} onChange={handleShadowDetectionToggle} />
-        </div>
-      ),
-    },
   ];
 
   return (
@@ -524,49 +370,6 @@ const Footer: React.FC = () => {
             </Button>
           </Tooltip>
         </Dropdown>
-
-        {totalRules > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '0 8px',
-              borderLeft: `1px solid ${token.colorBorderSecondary}`,
-              marginLeft: '8px',
-            }}
-          >
-            <NodeExpandOutlined
-              style={{
-                fontSize: '14px',
-                color: isRulesExecutionPaused ? token.colorWarning : token.colorTextSecondary,
-              }}
-            />
-            <Text
-              style={{
-                fontSize: '12px',
-                color: isRulesExecutionPaused ? token.colorWarning : token.colorTextSecondary,
-              }}
-            >
-              Rules
-            </Text>
-            <Tooltip
-              title={
-                isRulesExecutionPaused
-                  ? 'Resume rules execution'
-                  : 'Pause all rules (preserves individual rule settings)'
-              }
-            >
-              <Switch
-                size="default"
-                checked={!isRulesExecutionPaused}
-                onChange={handleGlobalRulesToggle}
-                checkedChildren="Active"
-                unCheckedChildren="Paused"
-              />
-            </Tooltip>
-          </div>
-        )}
 
         <Tooltip title="Keyboard shortcuts">
           <span

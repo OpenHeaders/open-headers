@@ -8,6 +8,7 @@
 
 import { logger } from '@utils/logger';
 import { updateNetworkRules } from '@/background/dnr-manager';
+import { get as getSetting } from '@/rules/settings/store';
 import { getRules } from './rule-store';
 import { generateRulesHash } from './utils';
 
@@ -15,8 +16,7 @@ interface ScheduleOptions {
   immediate?: boolean;
 }
 
-const DEBOUNCE_MS = 150;
-const FORCED_REASONS = new Set(['pause', 'init', 'rules', 'rulesUpdated', 'pauseMarkers']);
+const FORCED_REASONS = new Set(['pause', 'init', 'rules', 'rulesUpdated', 'pauseMarkers', 'prefs']);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let forcedPending = false;
@@ -46,7 +46,7 @@ export function scheduleUpdate(reason: string, options: ScheduleOptions = {}): v
     const forced = forcedPending;
     forcedPending = false;
     flushUpdate(reason, forced);
-  }, DEBOUNCE_MS);
+  }, getSetting('rulesEngine.updateDebounceMs'));
 }
 
 function flushUpdate(reason: string, forced?: boolean): void {

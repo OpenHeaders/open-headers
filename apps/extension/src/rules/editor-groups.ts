@@ -1,6 +1,6 @@
 /**
- * editor-groups — recursive tree data model for the IDE-style
- * style split editor. Leaves own a flat list of tabs plus an active
+ * editor-groups — recursive tree data model for the split editor.
+ * Leaves own a flat list of tabs plus an active
  * selection; internal nodes are splits with an orientation.
  *
  * All functions here are PURE — they take a tree + inputs and return a

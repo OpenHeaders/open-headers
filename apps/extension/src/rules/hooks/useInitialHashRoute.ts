@@ -8,6 +8,9 @@
  *   #/docs/{sectionId}         → surface the Docs tool window
  *   #/flow/{scope}/{...url}    → open a rule-flow tab
  *   #/test/{runId}             → open a persisted test run report
+ *   #/settings                 → open the settings modal
+ *   #/settings/{key}           → open the settings modal focused on a key
+ *   #/settings/category/{id}   → open the settings modal focused on a category
  *
  * Deferred until `isStatusLoaded` flips to true so the extension's local
  * collections are populated — otherwise openCreateTab falls back to
@@ -29,6 +32,7 @@ interface UseInitialHashRouteOptions {
     owner?: { type: 'rule' | 'folder' | 'collection' | 'workspace'; id: string },
     ownerName?: string,
   ) => void;
+  openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
 }
 
 export function useInitialHashRoute({
@@ -38,6 +42,7 @@ export function useInitialHashRoute({
   openDocs,
   openRuleFlow,
   openRunReport,
+  openSettings,
 }: UseInitialHashRouteOptions): void {
   const hashProcessedRef = useRef(false);
   const openCreateTabRef = useRef(openCreateTab);
@@ -45,11 +50,13 @@ export function useInitialHashRoute({
   const openDocsRef = useRef(openDocs);
   const openRuleFlowRef = useRef(openRuleFlow);
   const openRunReportRef = useRef(openRunReport);
+  const openSettingsRef = useRef(openSettings);
   openCreateTabRef.current = openCreateTab;
   openEditTabRef.current = openEditTab;
   openDocsRef.current = openDocs;
   openRuleFlowRef.current = openRuleFlow;
   openRunReportRef.current = openRunReport;
+  openSettingsRef.current = openSettings;
 
   useEffect(() => {
     if (!isStatusLoaded || hashProcessedRef.current) return;
@@ -67,6 +74,14 @@ export function useInitialHashRoute({
       const flowScope = parts[1] as RuleFlowScope;
       const flowUrl = parts.length > 2 ? parts.slice(2).join('/') : undefined;
       openRuleFlowRef.current(flowScope, undefined, undefined, flowUrl);
+    } else if (parts[0] === 'settings') {
+      if (parts[1] === 'category' && parts[2]) {
+        openSettingsRef.current({ categoryId: parts[2] });
+      } else if (parts[1]) {
+        openSettingsRef.current({ settingKey: parts[1] });
+      } else {
+        openSettingsRef.current();
+      }
     } else if (parts[0] === 'test' && parts[1]) {
       // Recover the owner stamp from the persisted run so the bottom
       // panel's contextual Test Runs tab can resolve its bucket.

@@ -6,14 +6,15 @@
  * workspace component.
  */
 
-import { FolderOutlined } from '@ant-design/icons';
+import { FolderOutlined, SettingOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/CommandPalette';
 import { buildRuleIcon } from '../components/shared/rule-icon';
 import { renderTwoToneIcon } from '../components/TwoToneIconPicker';
-import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
+import { allCategories, allDefs } from '../settings';
 import { getRuleTypeLabel } from './useTabOpeners';
 
 interface UseCommandPaletteDataOptions {
@@ -29,6 +30,7 @@ interface UseCommandPaletteDataOptions {
   onOpenCreateMenu: () => void;
   onTogglePanel: (panel: 'sidebar' | 'bottomPanel' | 'inspector') => void;
   onShowShortcuts: () => void;
+  onOpenSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
 }
 
 export interface CommandPaletteData {
@@ -49,6 +51,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     onOpenCreateMenu,
     onTogglePanel,
     onShowShortcuts,
+    onOpenSettings,
   } = opts;
 
   const groups = useMemo((): CommandPaletteGroup[] => {
@@ -139,6 +142,35 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       }
     }
 
+    // Settings group — one drill target with one section per category,
+    // each section holding the settings that belong to it. Label items
+    // as "Category: Setting Label" so a non-drilled search still finds
+    // them by either field.
+    const settingsSections: CommandPaletteSection[] = [];
+    for (const cat of allCategories()) {
+      const items: CommandPaletteItem[] = [];
+      for (const def of allDefs()) {
+        if (def.category !== cat.id) continue;
+        items.push({
+          id: `setting-${def.key}`,
+          icon: <SettingOutlined style={{ fontSize: 12 }} />,
+          label: `${cat.label}: ${def.label}`,
+          scope: def.description,
+          onSelect: () => onOpenSettings({ settingKey: def.key }),
+        });
+      }
+      if (items.length === 0) continue;
+      settingsSections.push({ id: `settings-cat-${cat.id}`, title: cat.label, items });
+    }
+    if (settingsSections.length > 0) {
+      result.push({
+        id: 'settings',
+        icon: <SettingOutlined style={{ fontSize: 12 }} />,
+        label: 'Settings',
+        children: settingsSections,
+      });
+    }
+
     return result;
   }, [
     localCollectionTrees,
@@ -148,7 +180,14 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEditTab,
     openCreateTab,
     openTemplateEditTab,
+    onOpenSettings,
   ]);
+
+  const newRuleLabel = useShortcutLabel('new-rule');
+  const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
+  const toggleBottomLabel = useShortcutLabel('toggle-bottom');
+  const toggleInspectorLabel = useShortcutLabel('toggle-inspector');
+  const openSettingsLabel = useShortcutLabel('open-settings');
 
   const sections = useMemo((): CommandPaletteSection[] => {
     const result: CommandPaletteSection[] = [];
@@ -160,7 +199,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         {
           id: 'cmd-create-rule',
           label: 'Create Rule...',
-          shortcut: shortcutLabel('new-rule'),
+          shortcut: newRuleLabel,
           onSelect: onOpenCreateMenu,
         },
         ...ruleTypes.map((type) => ({
@@ -179,19 +218,19 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         {
           id: 'cmd-toggle-sidebar',
           label: 'Toggle Sidebar',
-          shortcut: shortcutLabel('toggle-sidebar'),
+          shortcut: toggleSidebarLabel,
           onSelect: () => onTogglePanel('sidebar'),
         },
         {
           id: 'cmd-toggle-bottom',
           label: 'Toggle Bottom Panel',
-          shortcut: shortcutLabel('toggle-bottom'),
+          shortcut: toggleBottomLabel,
           onSelect: () => onTogglePanel('bottomPanel'),
         },
         {
           id: 'cmd-toggle-inspector',
           label: 'Toggle Inspector',
-          shortcut: shortcutLabel('toggle-inspector'),
+          shortcut: toggleInspectorLabel,
           onSelect: () => onTogglePanel('inspector'),
         },
         {
@@ -200,11 +239,28 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
           shortcut: '?',
           onSelect: onShowShortcuts,
         },
+        {
+          id: 'cmd-open-settings',
+          label: 'Open Settings',
+          shortcut: openSettingsLabel,
+          onSelect: onOpenSettings,
+        },
       ],
     });
 
     return result;
-  }, [openCreateTab, onOpenCreateMenu, onTogglePanel, onShowShortcuts]);
+  }, [
+    openCreateTab,
+    onOpenCreateMenu,
+    onTogglePanel,
+    onShowShortcuts,
+    onOpenSettings,
+    newRuleLabel,
+    toggleSidebarLabel,
+    toggleBottomLabel,
+    toggleInspectorLabel,
+    openSettingsLabel,
+  ]);
 
   return { groups, sections };
 }

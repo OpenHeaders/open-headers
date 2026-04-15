@@ -13,6 +13,8 @@ import type { PauseMarker } from '@openheaders/core/utils';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { bootstrapSettings } from '@utils/settings-bootstrap';
+import { get as getSetting, subscribeKey } from '@/rules/settings/store';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
 import {
@@ -28,6 +30,7 @@ import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { handleGeneralMessage } from './modules/message-handler';
 import { handleRecordingMessage } from './modules/recording-handler';
+import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
 import {
   getActiveRulesForTab,
@@ -50,7 +53,23 @@ import {
   sendViaWebSocket,
 } from './websocket';
 
-void logger.initialize();
+// Settings must be loaded before anything touches the rule engine — the
+// first compile reads persisted `rulesEngine.paused`, `maxActiveRules`,
+// `evaluationStrategy`, etc., and would otherwise race the async load.
+const settingsReady = bootstrapSettings().then(() => {
+  setRulesPaused(getSetting('rulesEngine.paused'));
+  subscribeKey('rulesEngine.paused', () => {
+    setRulesPaused(getSetting('rulesEngine.paused'));
+    scheduleUpdate('pause', { immediate: true });
+    debouncedUpdateBadge();
+  });
+  initRecordingSync();
+  // Engine knobs that affect the DNR compile force a full rebuild so
+  // changes go live immediately.
+  const rebuildOnPrefChange = (): void => scheduleUpdate('prefs', { immediate: true });
+  subscribeKey('rulesEngine.maxActiveRules', rebuildOnPrefChange);
+  subscribeKey('rulesEngine.evaluationStrategy', rebuildOnPrefChange);
+});
 initPauseState();
 
 /**
@@ -85,24 +104,18 @@ const recordingService: IRecordingService = new RecordingService();
 async function updateBadgeForCurrentTab(): Promise<void> {
   const isConnected = isWebSocketConnected();
   const attempts = getReconnectAttempts();
+  const isPaused = getSetting('rulesEngine.paused');
 
-  const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-  browserAPI.storage.sync.get(['isRulesExecutionPaused'], async (result: { [key: string]: unknown }) => {
-    const isPaused = (result.isRulesExecutionPaused as boolean) || false;
+  tabs.query({ active: true, currentWindow: true }, async (tabList: chrome.tabs.Tab[]) => {
+    const currentTab = tabList[0];
+    const currentUrl = currentTab?.url || '';
 
-    tabs.query({ active: true, currentWindow: true }, async (tabList: chrome.tabs.Tab[]) => {
-      const currentTab = tabList[0];
-      const currentUrl = currentTab?.url || '';
+    if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
-      if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
-
-      const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
-      const markers = getPauseMarkers();
-      const activeRules = allMatchingRules.filter(
-        (r) => r.isEnabled !== false && !resolvePauseState(r.path, markers),
-      );
-      await updateExtensionBadge(isConnected, activeRules, isPaused, recordingService, attempts);
-    });
+    const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
+    const markers = getPauseMarkers();
+    const activeRules = allMatchingRules.filter((r) => r.isEnabled !== false && !resolvePauseState(r.path, markers));
+    await updateExtensionBadge(isConnected, activeRules, isPaused, recordingService, attempts);
   });
 }
 
@@ -121,8 +134,11 @@ const debouncedUpdateBadge = (() => {
 
 let extensionInitialized = false;
 async function initializeExtension(): Promise<void> {
+  // All init paths must wait for the settings store so the first DNR
+  // compile / websocket connect sees persisted values instead of defaults.
+  await settingsReady;
   if (extensionInitialized) {
-    await connectWebSocket();
+    if (getSetting('desktop.connection.autoConnect')) await connectWebSocket();
     return;
   }
   extensionInitialized = true;
@@ -171,7 +187,11 @@ async function initializeExtension(): Promise<void> {
     didInitialApply = true;
   }
 
-  await connectWebSocket();
+  if (getSetting('desktop.connection.autoConnect')) {
+    await connectWebSocket();
+  } else {
+    logger.info('Background', 'desktop.connection.autoConnect is off — skipping initial connect');
+  }
 
   // Fallback: when storage had no rules AND the WebSocket didn't connect,
   // flush any stale DNR state from a previous run so we don't leak rules
@@ -192,6 +212,7 @@ alarms!.create('updateBadge', { delayInMinutes: 0.01, periodInMinutes: 0.033 });
 alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
   if (alarm.name === 'keepAlive') {
     logger.debug('Background', 'Keep alive ping');
+    if (!getSetting('desktop.connection.autoConnect')) return;
     if (!isWebSocketConnected() && !isWebSocketConnecting()) {
       const attempts = getReconnectAttempts();
       const log = attempts <= 1 ? logger.info : logger.debug;
@@ -210,15 +231,6 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
 // ── Storage listeners ─────────────────────────────────────────────
 
 storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
-  // Pause state
-  if (area === 'sync' && changes.isRulesExecutionPaused) {
-    const paused = (changes.isRulesExecutionPaused.newValue as boolean) || false;
-    logger.info('Background', 'Pause state changed to:', paused);
-    setRulesPaused(paused);
-    scheduleUpdate('pause', { immediate: true });
-    debouncedUpdateBadge();
-  }
-
   // Collection/folder pause markers
   if (area === 'local' && changes.pauseMarkers) {
     const record = (changes.pauseMarkers.newValue as Record<string, PauseMarker>) || {};
@@ -226,12 +238,6 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
     setPauseMarkers(record);
     scheduleUpdate('pauseMarkers', { immediate: true });
     debouncedUpdateBadge();
-  }
-
-  // Log level
-  if (area === 'sync' && changes.logLevel) {
-    const newLevel = changes.logLevel.newValue as string;
-    if (newLevel) logger.setLevel(newLevel as 'error' | 'warn' | 'info' | 'debug');
   }
 
   // Hotkey commands

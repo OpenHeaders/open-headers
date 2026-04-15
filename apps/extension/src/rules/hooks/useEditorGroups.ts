@@ -1,6 +1,6 @@
 /**
- * useEditorGroups — authoritative state for the IDE-style split
- * editor. Owns a recursive tree of editor leaves (each with its own tab
+ * useEditorGroups — authoritative state for the split editor. Owns a
+ * recursive tree of editor leaves (each with its own tab
  * strip and active selection) plus a single globally-focused leaf id.
  *
  * This hook is API-compatible with the flat-tab call sites in App.tsx —
@@ -11,7 +11,8 @@
  * context menu.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { storage } from '@utils/browser-api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   activateTabInLeaf,
   allLeaves,
@@ -35,11 +36,31 @@ import {
   unsplitLeaf,
   updateTabInLeaf,
 } from '../editor-groups';
+import { get as getSetting } from '../settings/store';
 import type { ClosedTab, RulesTab } from '../types';
 
 const MAX_RECENTLY_CLOSED = 20;
 const SKIP_RECENTLY_CLOSED: Set<string> = new Set(['create', 'collection-overview', 'folder-overview']);
 const ROOT_LEAF_ID = 'leaf-root';
+
+// ── Session persistence ─────────────────────────────────────────────
+//
+// A flat snapshot of the open tabs plus the globally-focused tab id is
+// written to storage.local on every state change (debounced) so that
+// `general.openTo === 'last'` and `general.restoreTabsOnStartup` can
+// bring the editor back up with the same set of tabs. The split tree
+// is intentionally NOT persisted — rehydrating a multi-leaf layout
+// across different viewport sizes is a usability trap, and flattening
+// into the root leaf is both deterministic and matches what every
+// other editor (VS Code reload, JetBrains restart) does when the
+// previous layout can't be trusted.
+const SESSION_STORAGE_KEY = 'workspaceTabSession';
+const SESSION_DEBOUNCE_MS = 500;
+
+interface PersistedTabSession {
+  tabs: RulesTab[];
+  activeTabId: string | null;
+}
 
 interface EditorGroupsState {
   root: EditorNode;
@@ -148,6 +169,64 @@ export function useEditorGroups(): UseEditorGroupsApi {
 
   const dirtyMap = useRef<Map<string, boolean>>(new Map());
   const saveRefMap = useRef<Map<string, () => void>>(new Map());
+  const sessionRestoredRef = useRef(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Restore persisted tab session on first mount ────────────────
+  //
+  // Gated on general.openTo === 'last' AND general.restoreTabsOnStartup.
+  // Every other openTo value lands on an empty editor — the caller
+  // (App.tsx) is responsible for any "open X by default" behavior.
+  useEffect(() => {
+    if (sessionRestoredRef.current) return;
+    sessionRestoredRef.current = true;
+    let shouldRestore = false;
+    try {
+      shouldRestore = getSetting('general.openTo') === 'last' && getSetting('general.restoreTabsOnStartup');
+    } catch {
+      shouldRestore = false;
+    }
+    if (!shouldRestore) return;
+    storage.local.get([SESSION_STORAGE_KEY], (result: Record<string, unknown>) => {
+      const saved = result[SESSION_STORAGE_KEY] as PersistedTabSession | undefined;
+      if (!saved || !Array.isArray(saved.tabs) || saved.tabs.length === 0) return;
+      setState((prev) => {
+        // If a hash-route handler already opened tabs before the async
+        // storage read resolved, leave them alone — restoration should
+        // never overwrite live state it didn't own.
+        if (treeAllTabs(prev.root).length > 0) return prev;
+        // Rehydrate into the root leaf with every persisted tab. Dirty
+        // flags are dropped — reloaded tabs are considered clean.
+        const clean = saved.tabs.map((t) => ({ ...t, dirty: false }));
+        const rootLeaf = makeLeaf(ROOT_LEAF_ID);
+        const filled = clean.reduce<EditorNode>((acc, tab) => insertTabIntoLeaf(acc, ROOT_LEAF_ID, tab), rootLeaf);
+        const activeId =
+          saved.activeTabId && clean.some((t) => t.id === saved.activeTabId)
+            ? saved.activeTabId
+            : (clean[0]?.id ?? null);
+        const withActive = activeId ? activateTabInLeaf(filled, ROOT_LEAF_ID, activeId) : filled;
+        return { ...prev, root: withActive, focusedLeafId: ROOT_LEAF_ID };
+      });
+    });
+  }, []);
+
+  // ── Persist tab session on every state change (debounced) ───────
+  useEffect(() => {
+    // Skip until the restore pass has run — otherwise the first render
+    // would overwrite the persisted session with an empty state.
+    if (!sessionRestoredRef.current) return;
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      const snapshot: PersistedTabSession = {
+        tabs: treeAllTabs(state.root),
+        activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
+      };
+      storage.local.set({ [SESSION_STORAGE_KEY]: snapshot });
+    }, SESSION_DEBOUNCE_MS);
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
+  }, [state]);
 
   /** Atomically mutate the tree via a transform, optionally changing focus. */
   const transform = useCallback((fn: (prev: EditorGroupsState) => EditorGroupsState) => {

@@ -15,6 +15,28 @@ vi.mock('@utils/messaging', () => ({
   sendMessageWithCallback: vi.fn(),
 }));
 
+// Mock the settings store so dnr-manager's `getSetting` reads resolve to
+// stable defaults instead of throwing "no definition registered". The
+// unit under test is the rule compiler, not the settings layer.
+vi.mock('@/rules/settings/store', () => ({
+  get: vi.fn((key: string) => {
+    switch (key) {
+      case 'rulesEngine.maxActiveRules':
+        return 5000;
+      case 'rulesEngine.warnOnLargeRuleSets':
+        return false;
+      case 'rulesEngine.largeRuleSetThreshold':
+        return 4000;
+      case 'network.userAgentOverride':
+        return '';
+      case 'network.blockThirdPartyCookies':
+        return false;
+      default:
+        return undefined;
+    }
+  }),
+}));
+
 vi.mock('@utils/logger', () => ({
   logger: {
     info: vi.fn(),

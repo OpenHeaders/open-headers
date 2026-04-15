@@ -1,5 +1,5 @@
 /**
- * useToolLayout — authoritative state machine for the IDE-style
+ * useToolLayout — authoritative state machine for the dockable
  * tool-window shell on workspace.html.
  *
  * Replaces the older `useWorkspaceLayout` hook which encoded the shell as
@@ -15,15 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ALL_DOCK_SLOTS, dockRegion, TOOL_WINDOW_MAP, TOOL_WINDOWS } from '../tool-windows';
-import type {
-  DockSlot,
-  DockState,
-  FocusRegion,
-  SidebarLayoutVariant,
-  ToolLayoutState,
-  ToolRegion,
-  ToolWindowId,
-} from '../types';
+import type { DockSlot, DockState, FocusRegion, ToolLayoutState, ToolRegion, ToolWindowId } from '../types';
 
 // ── Defaults ──────────────────────────────────────────────────────────
 
@@ -48,9 +40,6 @@ function makeDefaultDocks(): Record<DockSlot, DockState> {
 export const DEFAULT_TOOL_LAYOUT: ToolLayoutState = {
   docks: makeDefaultDocks(),
   hidden: [],
-  bottomFullWidth: false,
-  showLabels: true,
-  sidebarLayout: 'proportional',
   focusedRegion: null,
   focusedDock: null,
   zenSnapshot: null,
@@ -149,12 +138,6 @@ export function normalizeToolLayout(raw: Partial<ToolLayoutState> | null | undef
   return {
     docks,
     hidden,
-    bottomFullWidth: raw?.bottomFullWidth ?? DEFAULT_TOOL_LAYOUT.bottomFullWidth,
-    showLabels: raw?.showLabels ?? DEFAULT_TOOL_LAYOUT.showLabels,
-    sidebarLayout:
-      raw?.sidebarLayout === 'compact' || raw?.sidebarLayout === 'proportional' || raw?.sidebarLayout === 'stacked'
-        ? raw.sidebarLayout
-        : DEFAULT_TOOL_LAYOUT.sidebarLayout,
     focusedRegion: null,
     focusedDock: null,
     // Zen mode is always ephemeral — any persisted snapshot is discarded.
@@ -201,12 +184,6 @@ export interface ToolLayoutApi {
    */
   toggleZenMode: () => void;
 
-  // Layout-mode toggles
-  setBottomFullWidth: (value: boolean) => void;
-  setShowLabels: (value: boolean) => void;
-  toggleShowLabels: () => void;
-  setSidebarLayout: (value: SidebarLayoutVariant) => void;
-  toggleSidebarLayout: () => void;
   setFocusedRegion: (region: FocusRegion) => void;
   setFocusedDock: (slot: DockSlot | null) => void;
 }
@@ -449,45 +426,6 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
     });
   }, [patch]);
 
-  // ── Layout-mode toggles ─────────────────────────────────────────────
-
-  const setBottomFullWidth = useCallback(
-    (value: boolean) =>
-      patch((next) => {
-        next.bottomFullWidth = value;
-      }),
-    [patch],
-  );
-  const setShowLabels = useCallback(
-    (value: boolean) =>
-      patch((next) => {
-        next.showLabels = value;
-      }),
-    [patch],
-  );
-  const toggleShowLabels = useCallback(
-    () =>
-      patch((next) => {
-        next.showLabels = !next.showLabels;
-      }),
-    [patch],
-  );
-  const setSidebarLayout = useCallback(
-    (value: SidebarLayoutVariant) =>
-      patch((next) => {
-        next.sidebarLayout = value;
-      }),
-    [patch],
-  );
-  const toggleSidebarLayout = useCallback(
-    () =>
-      patch((next) => {
-        const order: SidebarLayoutVariant[] = ['proportional', 'compact', 'stacked'];
-        const i = order.indexOf(next.sidebarLayout);
-        next.sidebarLayout = order[(i + 1) % order.length];
-      }),
-    [patch],
-  );
   const setFocusedRegion = useCallback(
     (region: FocusRegion) =>
       patch((next) => {
@@ -523,11 +461,6 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
       closeDock,
       toggleRegion,
       toggleZenMode,
-      setBottomFullWidth,
-      setShowLabels,
-      toggleShowLabels,
-      setSidebarLayout,
-      toggleSidebarLayout,
       setFocusedRegion,
       setFocusedDock,
     }),
@@ -544,11 +477,6 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
       closeDock,
       toggleRegion,
       toggleZenMode,
-      setBottomFullWidth,
-      setShowLabels,
-      toggleShowLabels,
-      setSidebarLayout,
-      toggleSidebarLayout,
       setFocusedRegion,
       setFocusedDock,
     ],

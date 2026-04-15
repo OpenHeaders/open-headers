@@ -1,24 +1,24 @@
 /**
- * StatusBar — bottom bar with status info, theme dropdown, and a single
+ * StatusBar — bottom bar with status info, theme dropdown, and a
  * LayoutOutlined menu that controls the tool-window shell.
  *
- * The legacy three panel-toggle icons (sidebar / bottom / inspector) are
- * gone — their role is now handled by activity-bar icons that map 1:1 to
- * tool windows. The LayoutOutlined dropdown consolidates the remaining
- * shell-level preferences:
- *
- *   - Bottom panel spans full width
- *   - Show tool window names
- *   - Restore hidden tool windows
+ * Every right-side affordance (version, theme switcher, panel toggles,
+ * layout menu) is gated by a `workspaceLayout.footerShow*` setting so
+ * the user can prune the footer from the Settings page. The layout
+ * menu itself writes to the same `workspaceLayout.*` settings that
+ * the Settings page exposes, so both surfaces stay in sync.
  */
 
 import { BulbFilled, BulbOutlined, LayoutOutlined } from '@ant-design/icons';
-import { useTheme } from '@context';
+import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
 import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useCallback } from 'react';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
-import { shortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useSetting, useSettingValue } from '../settings/hooks';
+import type { SidebarLayoutVariantSetting } from '../settings/schema/workspace-layout';
 import { DOCK_LABELS, TOOL_WINDOW_MAP } from '../tool-windows';
 import LayoutMenuIcon from './LayoutMenuIcon';
 import SidebarLayoutIcon from './SidebarLayoutIcon';
@@ -126,6 +126,21 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
   const { token } = theme.useToken();
   const { isConnected, isStatusLoaded, rules } = useRules();
   const { themeMode, setThemeMode } = useTheme();
+  const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
+  const toggleBottomLabel = useShortcutLabel('toggle-bottom');
+  const toggleInspectorLabel = useShortcutLabel('toggle-inspector');
+
+  // Footer visibility + shell-behavior settings. The layout menu writes
+  // directly to the shell-behavior settings, so ShellLayout and the
+  // Settings page see the same values immediately.
+  const showVersion = useSettingValue('workspaceLayout.footerShowVersion');
+  const showThemeSwitcher = useSettingValue('workspaceLayout.footerShowThemeSwitcher');
+  const showPanelToggles = useSettingValue('workspaceLayout.footerShowPanelToggles');
+  const showLayoutMenu = useSettingValue('workspaceLayout.footerShowLayoutMenu');
+  const [bottomFullWidth, setBottomFullWidth] = useSetting('workspaceLayout.bottomPanelFullWidth');
+  const [showLabels, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
+  const [sidebarLayout, setSidebarLayout] = useSetting('workspaceLayout.sidebarLayout');
+  const toggleLabels = useCallback(() => setShowLabels(!showLabels), [showLabels, setShowLabels]);
 
   const enabledCount = rules.filter((r) => r.enabled).length;
 
@@ -153,31 +168,31 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
   const layoutMenu: MenuProps['items'] = [
     {
       key: 'bottom-full',
-      icon: menuIconWrap(<LayoutMenuIcon kind={tl.state.bottomFullWidth ? 'bottom-full' : 'bottom-nested'} />),
-      label: menuLabel(tl.state.bottomFullWidth, 'Bottom panel full width'),
-      onClick: () => tl.setBottomFullWidth(!tl.state.bottomFullWidth),
+      icon: menuIconWrap(<LayoutMenuIcon kind={bottomFullWidth ? 'bottom-full' : 'bottom-nested'} />),
+      label: menuLabel(bottomFullWidth, 'Bottom panel full width'),
+      onClick: () => setBottomFullWidth(!bottomFullWidth),
     },
     {
       key: 'show-labels',
-      icon: menuIconWrap(<LayoutMenuIcon kind={tl.state.showLabels ? 'show-labels' : 'hide-labels'} />),
-      label: menuLabel(tl.state.showLabels, 'Show Tool Window Names'),
-      onClick: () => tl.toggleShowLabels(),
+      icon: menuIconWrap(<LayoutMenuIcon kind={showLabels ? 'show-labels' : 'hide-labels'} />),
+      label: menuLabel(showLabels, 'Show Tool Window Names'),
+      onClick: toggleLabels,
     },
     {
       key: 'sidebar-layout',
-      icon: menuIconWrap(<SidebarLayoutIcon variant={tl.state.sidebarLayout} />),
+      icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
       label: 'Sidebar Layout',
       children: (
         [
           { key: 'proportional', label: 'Proportional (even halves)' },
           { key: 'compact', label: 'Compact (bottom pinned)' },
           { key: 'stacked', label: 'Stacked (all at top)' },
-        ] as { key: 'proportional' | 'compact' | 'stacked'; label: string }[]
+        ] as { key: SidebarLayoutVariantSetting; label: string }[]
       ).map((opt) => ({
         key: `sidebar-${opt.key}`,
         icon: menuIconWrap(<SidebarLayoutIcon variant={opt.key} />),
-        label: menuLabel(tl.state.sidebarLayout === opt.key, opt.label),
-        onClick: () => tl.setSidebarLayout(opt.key),
+        label: menuLabel(sidebarLayout === opt.key, opt.label),
+        onClick: () => setSidebarLayout(opt.key),
       })),
     },
     { type: 'divider' },
@@ -237,76 +252,90 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
       </div>
 
       <div className="rules-statusbar-right">
-        <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
-          v{__APP_VERSION__}
-        </span>
-        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
-        <Dropdown
-          menu={{
-            items: (['light', 'dark', 'auto'] as ThemeMode[]).map((mode) => ({
-              key: mode,
-              label: (
-                <Space size={4}>
-                  {THEME_DISPLAY[mode].icon}
-                  <span>{THEME_DISPLAY[mode].text}</span>
-                  {themeMode === mode && <span style={{ marginLeft: 4 }}>&#x2713;</span>}
-                </Space>
-              ),
-              onClick: () => setThemeMode(mode),
-            })) as MenuProps['items'],
-          }}
-          placement="topRight"
-          trigger={['click']}
-        >
-          <div
-            className="rules-statusbar-item"
-            role="button"
-            tabIndex={0}
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              color: THEME_DISPLAY[themeMode as ThemeMode]?.color,
-            }}
-          >
-            {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
-            <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
-          </div>
-        </Dropdown>
-        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
-        <div className="rules-panel-toggles">
-          <RegionToggle
-            title={`Left sidebar (${shortcutLabel('toggle-sidebar')})`}
-            active={tl.isRegionOpen('left')}
-            position="left"
-            onClick={() => tl.toggleRegion('left')}
-          />
-          <RegionToggle
-            title={`Bottom panel (${shortcutLabel('toggle-bottom')})`}
-            active={tl.isRegionOpen('bottom')}
-            position="bottom"
-            onClick={() => tl.toggleRegion('bottom')}
-          />
-          <RegionToggle
-            title={`Right sidebar (${shortcutLabel('toggle-inspector')})`}
-            active={tl.isRegionOpen('right')}
-            position="right"
-            onClick={() => tl.toggleRegion('right')}
-          />
-        </div>
-        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
-        <Dropdown menu={{ items: layoutMenu }} placement="topRight" trigger={['click']}>
-          <div
-            className="rules-statusbar-item rules-layout-toggle"
-            role="button"
-            tabIndex={0}
-            aria-label="Layout options"
-            style={{ cursor: 'pointer', padding: '0 4px' }}
-          >
-            <LayoutOutlined style={{ fontSize: 13 }} />
-          </div>
-        </Dropdown>
+        {showVersion && (
+          <>
+            <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
+              v{__APP_VERSION__}
+            </span>
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+          </>
+        )}
+        {showThemeSwitcher && (
+          <>
+            <Dropdown
+              menu={{
+                items: (['light', 'dark', 'auto'] as ThemeMode[]).map((mode) => ({
+                  key: mode,
+                  label: (
+                    <Space size={4}>
+                      {THEME_DISPLAY[mode].icon}
+                      <span>{THEME_DISPLAY[mode].text}</span>
+                      {themeMode === mode && <span style={{ marginLeft: 4 }}>&#x2713;</span>}
+                    </Space>
+                  ),
+                  onClick: () => setThemeMode(mode),
+                })) as MenuProps['items'],
+              }}
+              placement="topRight"
+              trigger={['click']}
+            >
+              <div
+                className="rules-statusbar-item"
+                role="button"
+                tabIndex={0}
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  color: THEME_DISPLAY[themeMode as ThemeMode]?.color,
+                }}
+              >
+                {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
+                <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
+              </div>
+            </Dropdown>
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+          </>
+        )}
+        {showPanelToggles && (
+          <>
+            <div className="rules-panel-toggles">
+              <RegionToggle
+                title={`Left sidebar (${toggleSidebarLabel})`}
+                active={tl.isRegionOpen('left')}
+                position="left"
+                onClick={() => tl.toggleRegion('left')}
+              />
+              <RegionToggle
+                title={`Bottom panel (${toggleBottomLabel})`}
+                active={tl.isRegionOpen('bottom')}
+                position="bottom"
+                onClick={() => tl.toggleRegion('bottom')}
+              />
+              <RegionToggle
+                title={`Right sidebar (${toggleInspectorLabel})`}
+                active={tl.isRegionOpen('right')}
+                position="right"
+                onClick={() => tl.toggleRegion('right')}
+              />
+            </div>
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+          </>
+        )}
+        {showLayoutMenu && (
+          <Dropdown menu={{ items: layoutMenu }} placement="topRight" trigger={['click']}>
+            <div
+              className="rules-statusbar-item rules-layout-toggle"
+              role="button"
+              tabIndex={0}
+              aria-label="Layout options"
+              style={{ cursor: 'pointer', padding: '0 4px' }}
+            >
+              <LayoutOutlined style={{ fontSize: 13 }} />
+            </div>
+          </Dropdown>
+        )}
       </div>
     </div>
   );
