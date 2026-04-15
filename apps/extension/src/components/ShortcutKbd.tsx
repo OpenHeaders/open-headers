@@ -22,11 +22,12 @@ interface ShortcutKbdProps {
 }
 
 /**
- * Single kbd-style badge, intentionally styled light-on-dark because
- * antd's Tooltip surface is dark `rgba(0, 0, 0, 0.85)` on every theme
- * (design choice — tooltips are meant to stand out). Hardcoded white
- * tones so the badge reads legibly against that surface without
- * leaking the host app's light/dark mode into the kbd.
+ * Single kbd-style badge. Rendered as an opaque light key cap with a
+ * dark glyph on top — the same treatment real keyboards use, which
+ * reads clearly on antd's dark tooltip surface regardless of the host
+ * theme. Earlier attempts used a semi-transparent white fill with
+ * white glyph text, but the low contrast between the faint fill and
+ * the white glyph made the label unreadable.
  */
 export const ShortcutKbd: React.FC<ShortcutKbdProps> = ({ label }) => {
   if (!label) return null;
@@ -41,16 +42,18 @@ export const ShortcutKbd: React.FC<ShortcutKbdProps> = ({ label }) => {
         padding: '0 5px',
         marginRight: 6,
         borderRadius: 3,
-        border: '1px solid rgba(255, 255, 255, 0.45)',
-        background: 'rgba(255, 255, 255, 0.14)',
-        color: '#ffffff',
+        border: '1px solid rgba(255, 255, 255, 0.35)',
+        background: '#f5f5f5',
+        color: '#1f1f1f',
         fontFamily:
           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         fontSize: 11,
+        fontWeight: 600,
         lineHeight: '16px',
         letterSpacing: 0,
         whiteSpace: 'nowrap',
         verticalAlign: 'middle',
+        boxShadow: '0 1px 0 rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.08)',
       }}
     >
       {label}
