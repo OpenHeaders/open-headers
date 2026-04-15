@@ -101,28 +101,18 @@ export async function getRecordingState(): Promise<RecordingStateResult> {
     const tab = await resolveActiveTab();
     if (typeof tab.id !== 'number') return { isRecording: false };
 
-    try {
-      const response = await call('GET_TAB_RECORDING_STATE', { tabId: tab.id });
-      if ('isRecording' in response && response.isRecording) {
-        return response as unknown as RecordingStateResult;
-      }
-    } catch (e) {
-      logger.info('Recording', 'Background state check failed:', (e as Error).message);
+    // Background is the single source of truth for recording state. The
+    // legacy content-script fallback used to live here for "SW restarted
+    // mid-recording" recovery, but the content script never had a
+    // receive() handler for GET_RECORDING_STATE, so the fallback always
+    // returned `{ success: false }` — it was dead code. The primary
+    // path via `GET_TAB_RECORDING_STATE` already handles SW-restart
+    // scenarios by re-reading the background's persisted state.
+    const response = await call('GET_TAB_RECORDING_STATE', { tabId: tab.id });
+    if ('isRecording' in response && response.isRecording) {
+      return response as unknown as RecordingStateResult;
     }
-
-    // Fallback: ask the in-page content script directly. Used when the
-    // background has no state but the widget is still mounted (e.g. after
-    // a SW restart mid-recording).
-    try {
-      const browserAPI = getBrowserAPI();
-      const response = (await browserAPI.tabs.sendMessage(tab.id, {
-        type: 'GET_RECORDING_STATE',
-      })) as RecordingStateResult | undefined;
-      return response ?? { isRecording: false };
-    } catch (e) {
-      logger.info('Recording', 'Content-script state check failed:', (e as Error).message);
-      return { isRecording: false };
-    }
+    return { isRecording: false };
   } catch (error) {
     logger.info('Recording', 'getRecordingState error:', (error as Error).message);
     return { isRecording: false };

@@ -1,4 +1,4 @@
-import { BridgeError, broadcast, call, presence, subscribe } from '@utils/bridge';
+import { BridgeError, broadcast, call, presence, receive, subscribe, tabCall } from '@utils/bridge';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 function setLastError(err: { message?: string } | null): void {
@@ -92,7 +92,7 @@ describe('bridge', () => {
 
     it('swallows Firefox-style Promise rejection', async () => {
       vi.mocked(chrome.runtime.sendMessage).mockImplementation(
-        () => Promise.reject(new Error('No receiver')) as unknown as void,
+        () => Promise.reject(new Error('No receiver')) as unknown as undefined,
       );
 
       expect(() => broadcast('connectionStatus', { connected: false })).not.toThrow();
@@ -108,7 +108,7 @@ describe('bridge', () => {
       message: unknown,
       sender: chrome.runtime.MessageSender,
       sendResponse: (response?: unknown) => void,
-    ) => boolean | void;
+    ) => boolean | undefined;
 
     it('filters messages by type and unwraps the payload', () => {
       let registeredListener: OnMessageListener | null = null;
@@ -142,6 +142,181 @@ describe('bridge', () => {
 
       unsubscribe();
       expect(chrome.runtime.onMessage.removeListener).toHaveBeenCalled();
+    });
+  });
+
+  describe('tabCall', () => {
+    it('sends the typed message to the given tab and resolves with the response', async () => {
+      let sentTabId: number | undefined;
+      let sentMessage: unknown;
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation(((
+        tabId: number,
+        message: unknown,
+        callback: (response: unknown) => void,
+      ) => {
+        sentTabId = tabId;
+        sentMessage = message;
+        callback({ success: true });
+      }) as typeof chrome.tabs.sendMessage);
+
+      const response = await tabCall(42, 'recordingStateChanged', {
+        state: 'recording',
+        isRecording: true,
+        isPreNav: false,
+        recordingId: 'rec-7',
+        startTime: 1000,
+      });
+
+      expect(sentTabId).toBe(42);
+      expect(sentMessage).toEqual({
+        type: 'recordingStateChanged',
+        state: 'recording',
+        isRecording: true,
+        isPreNav: false,
+        recordingId: 'rec-7',
+        startTime: 1000,
+      });
+      expect(response).toEqual({ success: true });
+    });
+
+    it('supports zero-payload messages with no payload argument', async () => {
+      let sentMessage: unknown;
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation(((
+        _tabId: number,
+        message: unknown,
+        callback: (response: unknown) => void,
+      ) => {
+        sentMessage = message;
+        callback({ success: true });
+      }) as typeof chrome.tabs.sendMessage);
+
+      await tabCall(5, 'stopRecording');
+
+      expect(sentMessage).toEqual({ type: 'stopRecording' });
+    });
+
+    it('rejects with BridgeError when lastError fires (no content script)', async () => {
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation(((
+        _tabId: number,
+        _message: unknown,
+        callback: (response: unknown) => void,
+      ) => {
+        setLastError({ message: 'Could not establish connection. Receiving end does not exist.' });
+        callback(undefined);
+        setLastError(null);
+      }) as typeof chrome.tabs.sendMessage);
+
+      const error = await tabCall(1, 'stopRecording').catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(BridgeError);
+      expect((error as BridgeError).type).toBe('stopRecording');
+      expect((error as BridgeError).message).toContain('Receiving end does not exist');
+    });
+  });
+
+  describe('receive', () => {
+    type OnMessageListener = (
+      message: unknown,
+      sender: chrome.runtime.MessageSender,
+      sendResponse: (response?: unknown) => void,
+    ) => boolean | undefined;
+
+    function captureListener(): () => OnMessageListener | null {
+      let captured: OnMessageListener | null = null;
+      vi.mocked(chrome.runtime.onMessage.addListener).mockImplementation(((listener: OnMessageListener) => {
+        captured = listener;
+      }) as typeof chrome.runtime.onMessage.addListener);
+      return () => captured;
+    }
+
+    it('responds synchronously and filters on message type', () => {
+      const getListener = captureListener();
+      const handler = vi.fn().mockReturnValue({ success: true });
+
+      const unsubscribe = receive('stopRecording', handler);
+
+      const listener = getListener() as OnMessageListener | null;
+      if (!listener) throw new Error('receive did not register a listener');
+      const sender = {} as chrome.runtime.MessageSender;
+      const sendResponse = vi.fn();
+
+      // Matching message
+      const result = listener({ type: 'stopRecording' }, sender, sendResponse);
+      expect(handler).toHaveBeenCalledWith({ type: 'stopRecording' });
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      // Sync handlers must return false so chrome closes the response channel.
+      expect(result).toBe(false);
+
+      // Non-matching type — the listener must not invoke the handler.
+      handler.mockClear();
+      sendResponse.mockClear();
+      listener({ type: 'recordingStateChanged' }, sender, sendResponse);
+      expect(handler).not.toHaveBeenCalled();
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      // Non-object messages are ignored.
+      listener(null, sender, sendResponse);
+      listener('string', sender, sendResponse);
+      expect(handler).not.toHaveBeenCalled();
+
+      unsubscribe();
+      expect(chrome.runtime.onMessage.removeListener).toHaveBeenCalled();
+    });
+
+    it('returns true and awaits the promise for async handlers', async () => {
+      const getListener = captureListener();
+      let resolveHandler: (value: { success: boolean }) => void = () => undefined;
+      const handler = vi.fn(
+        () =>
+          new Promise<{ success: boolean }>((resolve) => {
+            resolveHandler = resolve;
+          }),
+      );
+
+      receive('recordingStateChanged', handler);
+
+      const listener = getListener() as OnMessageListener | null;
+      if (!listener) throw new Error('receive did not register a listener');
+      const sendResponse = vi.fn();
+
+      const result = listener(
+        {
+          type: 'recordingStateChanged',
+          state: 'recording',
+          isRecording: true,
+          isPreNav: false,
+        },
+        {} as chrome.runtime.MessageSender,
+        sendResponse,
+      );
+
+      // Async handlers MUST return true — required by the chrome onMessage
+      // contract to keep the response channel open.
+      expect(result).toBe(true);
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      resolveHandler({ success: true });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    it('responds with undefined when the handler throws', () => {
+      const getListener = captureListener();
+      const handler = vi.fn(() => {
+        throw new Error('boom');
+      });
+
+      receive('stopRecording', handler);
+
+      const listener = getListener() as OnMessageListener | null;
+      if (!listener) throw new Error('receive did not register a listener');
+      const sendResponse = vi.fn();
+
+      listener({ type: 'stopRecording' }, {} as chrome.runtime.MessageSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(undefined);
     });
   });
 

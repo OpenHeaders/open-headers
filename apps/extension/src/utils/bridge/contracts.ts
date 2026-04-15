@@ -360,6 +360,31 @@ export interface BridgeRpcContract {
 }
 
 /**
+ * Tab-directed contract: map of message-type → { req, res } for messages
+ * sent from the background or popup DIRECTLY to a content script via
+ * `tabs.sendMessage`. Handled by a `receive(type, handler)` subscription
+ * inside the content script. Chrome routes these based on destination
+ * (tab id), not the background's runtime.onMessage router — so tab types
+ * live in a separate namespace to keep the RPC contract narrow.
+ */
+export interface BridgeTabContract {
+  recordingStateChanged: {
+    req: {
+      state: string;
+      isRecording: boolean;
+      isPreNav: boolean;
+      recordingId?: string;
+      startTime?: number;
+    };
+    res: { success: boolean };
+  };
+  stopRecording: {
+    req: Record<string, never>;
+    res: { success: boolean };
+  };
+}
+
+/**
  * Broadcast contract: map of message-type → payload shape (without `type`).
  *
  * Consumers subscribe via `bridge.subscribe(type, handler)`. The SW broadcasts
@@ -381,20 +406,28 @@ export type BridgeRpcType = keyof BridgeRpcContract;
 export type BridgeRpcRequest<K extends BridgeRpcType> = BridgeRpcContract[K]['req'];
 export type BridgeRpcResponse<K extends BridgeRpcType> = BridgeRpcContract[K]['res'];
 
+export type BridgeTabType = keyof BridgeTabContract;
+export type BridgeTabRequest<K extends BridgeTabType> = BridgeTabContract[K]['req'];
+export type BridgeTabResponse<K extends BridgeTabType> = BridgeTabContract[K]['res'];
+
 export type BridgeBroadcastType = keyof BridgeBroadcastContract;
 export type BridgeBroadcastPayload<K extends BridgeBroadcastType> = BridgeBroadcastContract[K];
 
+/** Union of every typed message name the bridge can carry. */
+export type BridgeMessageType = BridgeRpcType | BridgeTabType;
+
 /**
- * Error thrown by `bridge.call` when the underlying `chrome.runtime.sendMessage`
- * surfaces a `lastError` (e.g. the SW crashed, no handler registered, context
- * invalidated). Carries the original message type so callers can react
- * differently by RPC without string-matching.
+ * Error thrown by `bridge.call` / `bridge.tabCall` when the underlying
+ * chrome messaging API surfaces a `lastError` (e.g. SW crashed, no
+ * handler registered, context invalidated, receiving end does not
+ * exist). Carries the original message type so callers can react
+ * differently by message without string-matching.
  */
 export class BridgeError extends Error {
-  readonly type: BridgeRpcType;
+  readonly type: BridgeMessageType;
 
-  constructor(type: BridgeRpcType, reason: string) {
-    super(`bridge.call(${type}) failed: ${reason}`);
+  constructor(type: BridgeMessageType, reason: string) {
+    super(`bridge(${type}) failed: ${reason}`);
     this.name = 'BridgeError';
     this.type = type;
   }

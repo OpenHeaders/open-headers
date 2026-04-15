@@ -12,10 +12,12 @@
  *
  * Public API:
  *
- *   call(type, payload)     → Promise<res>        typed RPC to the SW
- *   broadcast(type, body)   → void                SW-side fire-and-forget push
- *   subscribe(type, fn)     → () => void          typed listener for broadcasts
- *   presence(name)          → () => void          presence port for popup open/close
+ *   call(type, payload)            → Promise<res>  typed RPC to the SW
+ *   tabCall(tabId, type, payload)  → Promise<res>  typed message to a content script
+ *   receive(type, handler)         → () => void    content-script listener for tabCall
+ *   broadcast(type, body)          → void          SW-side fire-and-forget push
+ *   subscribe(type, fn)            → () => void    typed listener for broadcasts
+ *   presence(name)                 → () => void    presence port for popup open/close
  *
  * See ./contracts.ts for the message-type registry.
  */
@@ -30,6 +32,9 @@ import {
   type BridgeRpcRequest,
   type BridgeRpcResponse,
   type BridgeRpcType,
+  type BridgeTabRequest,
+  type BridgeTabResponse,
+  type BridgeTabType,
 } from './contracts';
 
 /**
@@ -68,6 +73,91 @@ export function call<K extends BridgeRpcType>(
       resolve(response as BridgeRpcResponse<K>);
     });
   });
+}
+
+/**
+ * Send a typed message DIRECTLY to a content script in a specific tab
+ * and resolve with its typed response. Rejects with `BridgeError` when
+ * Chrome surfaces a `lastError` — that covers "receiving end does not
+ * exist" (no content script injected / listener not registered), "tab
+ * was closed", "context invalidated", and any other underlying failure.
+ *
+ * Unlike `call`, there is no single global handler on the other side —
+ * the receiving content script must have called `receive(type, handler)`
+ * to opt in for this message type. Chrome routes the message to every
+ * content script in the tab; the first one whose listener calls
+ * `sendResponse` wins and the rest are ignored.
+ *
+ * Callers who expect the "no content script" case (e.g. restricted URLs,
+ * navigation races) should catch `BridgeError` and treat it as advisory
+ * rather than propagating the error.
+ */
+export function tabCall<K extends BridgeTabType>(
+  tabId: number,
+  type: K,
+  ...args: BridgeTabRequest<K> extends Record<string, never> ? [] : [payload: BridgeTabRequest<K>]
+): Promise<BridgeTabResponse<K>> {
+  const payload = args[0] ?? ({} as BridgeTabRequest<K>);
+  const message = { type, ...payload };
+  return new Promise((resolve, reject) => {
+    const api = getBrowserAPI();
+    api.tabs.sendMessage(tabId, message, (response: unknown) => {
+      if (api.runtime.lastError) {
+        reject(new BridgeError(type, api.runtime.lastError.message ?? 'unknown error'));
+        return;
+      }
+      resolve(response as BridgeTabResponse<K>);
+    });
+  });
+}
+
+/**
+ * Content-script-side listener for typed `tabCall` messages. Runs
+ * `handler` when the incoming message's `type` matches `subscribedType`,
+ * and relays the return value (sync or async) back to the caller as the
+ * response. Returns an unsubscribe function.
+ *
+ * Only registers a listener for the one type it cares about — multiple
+ * `receive` calls in the same content script each install their own
+ * filter, which is O(listeners) per message but negligible at the scale
+ * we use it (under ten types per tab).
+ */
+export function receive<K extends BridgeTabType>(
+  subscribedType: K,
+  handler: (payload: BridgeTabRequest<K>) => BridgeTabResponse<K> | Promise<BridgeTabResponse<K>>,
+): () => void {
+  const listener = (
+    message: unknown,
+    _sender: chrome.runtime.MessageSender,
+    sendResponse: (response?: unknown) => void,
+  ): boolean => {
+    if (!message || typeof message !== 'object') return false;
+    const envelope = message as { type?: unknown };
+    if (envelope.type !== subscribedType) return false;
+    let result: BridgeTabResponse<K> | Promise<BridgeTabResponse<K>>;
+    try {
+      result = handler(envelope as unknown as BridgeTabRequest<K>);
+    } catch (err) {
+      logger.info('Bridge', `receive(${subscribedType}) handler threw:`, (err as Error).message);
+      sendResponse(undefined);
+      return false;
+    }
+    if (result instanceof Promise) {
+      result
+        .then((value) => sendResponse(value))
+        .catch((err: Error) => {
+          logger.info('Bridge', `receive(${subscribedType}) handler rejected:`, err.message);
+          sendResponse(undefined);
+        });
+      // Return true to keep the message channel open for the async
+      // sendResponse — required by chrome.runtime.onMessage contract.
+      return true;
+    }
+    sendResponse(result);
+    return false;
+  };
+  runtime.onMessage.addListener(listener);
+  return () => runtime.onMessage.removeListener(listener);
 }
 
 /**
@@ -162,6 +252,7 @@ export function presence(name: string): () => void {
   };
 }
 
+export type { BridgeMessageType } from './contracts';
 export { BridgeError } from './contracts';
 export type {
   BridgeBroadcastPayload,
@@ -169,5 +260,8 @@ export type {
   BridgeRpcRequest,
   BridgeRpcResponse,
   BridgeRpcType,
+  BridgeTabRequest,
+  BridgeTabResponse,
+  BridgeTabType,
   BroadcastEnvelope,
 };

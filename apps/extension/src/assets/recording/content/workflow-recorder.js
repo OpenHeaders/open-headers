@@ -8,13 +8,12 @@
  *   never initiates state transitions, only relays user actions.
  */
 
-import { call } from '@utils/bridge';
-import { MESSAGE_TYPES } from '../shared/constants.js';
+import { call, receive } from '@utils/bridge';
 
 // Browser API reference — used only for non-messaging APIs
-// (runtime.getURL, runtime.onMessage, runtime.id). Message-sending
-// goes through the shared bridge so every cross-context call in the
-// extension has the same typed contract and error surface.
+// (runtime.getURL, runtime.id). All cross-context messages go through
+// the shared bridge: `call` for content → background RPCs, `receive`
+// for typed listeners against tab-targeted messages from background.
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 function isDeadContextError(error) {
@@ -36,46 +35,29 @@ class WorkflowRecorder {
     this.isPreNav = false;
     this.startTime = null;
     this.recorderStarted = false;
+    /** @type {Array<() => void>} */
+    this.bridgeDisposers = [];
 
     this.setupExtensionMessageListener();
     void this.notifyBackgroundReady();
   }
 
   /**
-   * Listen for messages from the background script (via chrome.runtime.onMessage).
-   * This is per extension context and is automatically cleaned up on re-injection.
+   * Subscribe to the tab-directed messages the background sends via
+   * `bridge.tabCall`. Each call wires a single typed listener and returns
+   * a disposer so re-injection and pagehide can tear them down cleanly.
    */
   setupExtensionMessageListener() {
-    browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      console.log(new Date().toISOString(), 'INFO ', '[WorkflowRecorder]', 'Received message:', message.type);
-
-      switch (message.type) {
-        case MESSAGE_TYPES.START_RECORDING:
-          void this.handleStartRecording(message.data || message);
-          sendResponse({ success: true });
-          break;
-
-        case MESSAGE_TYPES.STOP_RECORDING:
-          this.handleStopRecording();
-          sendResponse({ success: true });
-          break;
-
-        case MESSAGE_TYPES.UPDATE_RECORDING_WIDGET:
-          this.handleUpdateWidget(message.data || message);
-          sendResponse({ success: true });
-          break;
-
-        case 'RECORDING_STATE_CHANGED':
-          this.handleStateChange(message.data || message.payload);
-          sendResponse({ success: true });
-          break;
-
-        default:
-          sendResponse({ success: false });
-      }
-
-      return true;
-    });
+    this.bridgeDisposers.push(
+      receive('stopRecording', () => {
+        this.handleStopRecording();
+        return { success: true };
+      }),
+      receive('recordingStateChanged', (payload) => {
+        this.handleStateChange(payload);
+        return { success: true };
+      }),
+    );
   }
 
   async notifyBackgroundReady() {
@@ -355,6 +337,17 @@ class WorkflowRecorder {
     } catch (error) {
       // Silently ignore cleanup errors (page might be unloading)
     }
+
+    // Detach tab-directed bridge listeners so a re-injection doesn't
+    // leave orphans handling messages on the defunct instance.
+    for (const dispose of this.bridgeDisposers) {
+      try {
+        dispose();
+      } catch {
+        // listener already removed — nothing to do
+      }
+    }
+    this.bridgeDisposers = [];
 
     this.isRecording = false;
     this.recordId = null;

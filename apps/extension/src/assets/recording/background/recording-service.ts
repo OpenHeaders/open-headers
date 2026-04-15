@@ -8,10 +8,10 @@
  * - Uses atomic tryTransition to prevent TOCTOU races
  */
 
-import { MESSAGE_TYPES } from '@assets/recording/shared/constants';
 import { RecordingState } from '@assets/recording/shared/recording-state';
 import { RecordingStateMachine, RecordingStates } from '@assets/recording/shared/state-machine';
 import type { RecordingEvent, WorkflowRecordingPayload } from '@openheaders/core';
+import { BridgeError, tabCall } from '@utils/bridge';
 import { downloads, tabs } from '@utils/browser-api';
 import { DisplayDetector } from '@utils/display-detector';
 import { logger } from '@utils/logger';
@@ -70,26 +70,19 @@ export class RecordingService implements IRecordingService {
     if (state === RecordingStates.PRE_NAVIGATION) return;
 
     try {
-      await browserAPI.tabs.sendMessage(tabId, {
-        type: 'RECORDING_STATE_CHANGED',
-        data: {
-          state: state,
-          isRecording: state === RecordingStates.RECORDING || state === RecordingStates.PRE_NAVIGATION,
-          isPreNav: state === RecordingStates.PRE_NAVIGATION,
-          recordingId: recording?.recordId,
-          startTime: recording?.actualStartTime || recording?.startTime,
-        },
+      await tabCall(tabId, 'recordingStateChanged', {
+        state,
+        isRecording: state === RecordingStates.RECORDING || state === RecordingStates.PRE_NAVIGATION,
+        isPreNav: state === RecordingStates.PRE_NAVIGATION,
+        recordingId: recording?.recordId,
+        startTime: recording?.actualStartTime || recording?.startTime,
       });
     } catch (error) {
-      const err = error as Error;
-      // Silently ignore expected errors (tab closed, context invalidated, etc.)
-      if (
-        !err.message?.includes('tab') &&
-        !err.message?.includes('context') &&
-        !err.message?.includes('receiving end does not exist') &&
-        !err.message?.includes('Could not establish connection')
-      ) {
-        logger.info('RecordingService', `Could not notify tab ${tabId}:`, err.message);
+      // BridgeError is the expected case when the content script isn't
+      // registered (tab closed, restricted URL, navigation race). Log
+      // only unexpected failures.
+      if (!(error instanceof BridgeError)) {
+        logger.info('RecordingService', `Could not notify tab ${tabId}:`, (error as Error).message);
       }
     }
   }
@@ -360,29 +353,10 @@ export class RecordingService implements IRecordingService {
 
   private async sendStopToContentScript(tabId: number): Promise<void> {
     try {
-      await new Promise<void>((resolve) => {
-        tabs.sendMessage(
-          tabId,
-          {
-            type: MESSAGE_TYPES.STOP_RECORDING,
-          },
-          () => {
-            if (browserAPI.runtime.lastError) {
-              if (
-                !browserAPI.runtime.lastError.message?.includes('tab was closed') &&
-                !browserAPI.runtime.lastError.message?.includes('context invalidated')
-              ) {
-                logger.info('RecordingService', 'Could not send stop message:', browserAPI.runtime.lastError.message);
-              }
-            }
-            resolve();
-          },
-        );
-      });
+      await tabCall(tabId, 'stopRecording');
     } catch (error) {
-      const err = error as Error;
-      if (!err.message?.includes('tab') && !err.message?.includes('context')) {
-        logger.info('RecordingService', 'Could not send stop message:', error);
+      if (!(error instanceof BridgeError)) {
+        logger.info('RecordingService', 'Could not send stop message:', (error as Error).message);
       }
     }
   }
