@@ -63,6 +63,23 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   const isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemPrefersDark);
 
+  // Mirror the resolved theme onto the document element and into
+  // localStorage so the next page load can render the correct theme on
+  // its first paint via `src/assets/theme-init.js`. localStorage is the
+  // only synchronous storage available in the pre-mount script — the
+  // settings store itself lives in chrome.storage, which is async.
+  useEffect(() => {
+    const resolved = isDarkMode ? 'dark' : 'light';
+    const root = document.documentElement;
+    root.setAttribute('data-theme', resolved);
+    root.style.colorScheme = resolved;
+    try {
+      localStorage.setItem('oh:theme', themeMode);
+    } catch {
+      // private mode / storage disabled — accept the FOUC on next load.
+    }
+  }, [isDarkMode, themeMode]);
+
   // ── Store mutators ───────────────────────────────────────────────
   const handleSetThemeMode = (mode: ThemeMode): void => {
     setSettingValue('appearance.theme', mode);
