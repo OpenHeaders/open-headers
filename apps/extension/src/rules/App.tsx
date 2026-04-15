@@ -14,7 +14,7 @@ import { useRules } from '@hooks/useRules';
 import type { InputRef } from 'antd';
 import { theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
 import { computeBreadcrumbs } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
@@ -46,15 +46,16 @@ import { useInitialLanding } from './hooks/useInitialLanding';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useSaveToCollectionFlow } from './hooks/useSaveToCollectionFlow';
-import { getFocusedRegion } from './stores/focus-region-store';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
 import { useToolLayout } from './hooks/useToolLayout';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
+import { createShellEventBus, ShellEventBusContext } from './events/shell-event-bus';
 import { SettingsModal, SettingsTab } from './settings';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
+import { getFocusedRegion } from './stores/focus-region-store';
 import type { DockSlot, RulesTab, ToolWindowId } from './types';
 
 // ── Shell loader ────────────────────────────────────────────────────
@@ -83,7 +84,29 @@ interface RulesAppWorkspaceProps {
   layout: ResponsiveLayout;
 }
 
+/**
+ * Thin wrapper that owns the shell-event bus and publishes it via context
+ * so `RulesAppWorkspaceContent` (which calls useFocusRegion and
+ * useWorkspaceShortcuts) can subscribe without the hooks reaching into the
+ * DOM themselves. The attach side effect lives inside the content component
+ * because that's where `shellRef` is populated on first paint.
+ */
 const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
+  const busHandleRef = useRef<ReturnType<typeof createShellEventBus> | null>(null);
+  if (!busHandleRef.current) busHandleRef.current = createShellEventBus();
+  return (
+    <ShellEventBusContext.Provider value={busHandleRef.current.bus}>
+      <RulesAppWorkspaceContent layout={layout} attachBus={busHandleRef.current.attach} />
+    </ShellEventBusContext.Provider>
+  );
+};
+
+interface RulesAppWorkspaceContentProps {
+  layout: ResponsiveLayout;
+  attachBus: (root: HTMLElement | null) => () => void;
+}
+
+const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ layout, attachBus }) => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
   const {
@@ -170,8 +193,12 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
     }
   }, [layout.shouldCollapseSidebar, tl]);
 
-  // Shell root ref for the focus-region tracker.
+  // Shell root ref — attached to the bus here so the focus-region
+  // tracker, shortcut loop, and future consumers see exactly one set of
+  // listeners on the shell root and window.
   const shellRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => attachBus(shellRef.current), [attachBus]);
+
   const focus = useFocusRegion({
     shellRef,
     setFocusedRegion: tl.setFocusedRegion,

@@ -17,7 +17,8 @@
  *     code-derived key (KeyN → "n", Digit1 → "1") as a fallback.
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
+import { useShellKeyDown } from '../events/shell-event-bus';
 import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import type { SettingKey } from '../settings/types';
@@ -440,8 +441,5 @@ export function useWorkspaceShortcuts(handlers: WorkspaceShortcutHandlers): void
     [handlers],
   );
 
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  useShellKeyDown(handleKeyDown);
 }

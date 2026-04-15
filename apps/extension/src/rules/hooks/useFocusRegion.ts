@@ -30,7 +30,8 @@
  * nothing about DOM focus at all.
  */
 
-import { type RefObject, useCallback, useEffect, useMemo } from 'react';
+import { type RefObject, useCallback, useMemo } from 'react';
+import { useShellClickCapture, useShellFocusIn, useShellFocusOut } from '../events/shell-event-bus';
 import { ALL_DOCK_SLOTS } from '../tool-windows';
 import type { DockSlot, FocusRegion } from '../types';
 
@@ -84,34 +85,39 @@ export interface FocusRegionApi {
 }
 
 export function useFocusRegion({ shellRef, setFocusedRegion, setFocusedDock }: UseFocusRegionOptions): FocusRegionApi {
-  useEffect(() => {
-    const root = shellRef.current;
-    if (!root) return;
-
-    // Shared region-from-target helper. Returns null when the target is
-    // outside the shell (portal content) or has no region ancestor.
-    const regionFromTarget = (target: EventTarget | null): Exclude<FocusRegion, null> | null => {
-      if (!(target instanceof HTMLElement)) return null;
+  // Shared region-from-target helper. Returns null when the target is
+  // outside the shell (portal content) or has no region ancestor.
+  const regionFromTarget = useCallback(
+    (target: EventTarget | null): Exclude<FocusRegion, null> | null => {
+      const root = shellRef.current;
+      if (!root || !(target instanceof HTMLElement)) return null;
       if (!root.contains(target)) return null;
       const regionEl = target.closest<HTMLElement>('[data-region]');
       if (!regionEl) return null;
       const key = regionEl.getAttribute('data-region');
       return isKnownRegion(key) ? key : null;
-    };
+    },
+    [shellRef],
+  );
 
-    // Dock-from-target — walks up to the nearest [data-dock-slot] inside
-    // the shell. Returns null when the target is in the editor, topbar,
-    // an activity-bar group without a dock body, or a portal.
-    const dockFromTarget = (target: EventTarget | null): DockSlot | null => {
-      if (!(target instanceof HTMLElement)) return null;
+  // Dock-from-target — walks up to the nearest [data-dock-slot] inside
+  // the shell. Returns null when the target is in the editor, topbar,
+  // an activity-bar group without a dock body, or a portal.
+  const dockFromTarget = useCallback(
+    (target: EventTarget | null): DockSlot | null => {
+      const root = shellRef.current;
+      if (!root || !(target instanceof HTMLElement)) return null;
       if (!root.contains(target)) return null;
       const el = target.closest<HTMLElement>('[data-dock-slot]');
       if (!el) return null;
       const key = el.getAttribute('data-dock-slot');
       return isDockSlot(key) ? key : null;
-    };
+    },
+    [shellRef],
+  );
 
-    const commitFromTarget = (target: EventTarget | null) => {
+  const commitFromTarget = useCallback(
+    (target: EventTarget | null) => {
       const region = regionFromTarget(target);
       if (!region) return;
       setFocusedRegion(region);
@@ -120,49 +126,49 @@ export function useFocusRegion({ shellRef, setFocusedRegion, setFocusedDock }: U
         if (slot) setFocusedDock(slot);
         else if (region === 'editor') setFocusedDock(null);
       }
-    };
+    },
+    [regionFromTarget, dockFromTarget, setFocusedRegion, setFocusedDock],
+  );
 
-    const handleFocusIn = (event: FocusEvent) => {
-      commitFromTarget(event.target);
-    };
+  // Capture-phase click (via the shell event bus) so stopPropagation in
+  // children doesn't swallow the region update. Click (not pointerdown)
+  // so right-clicks and drag gestures don't move focus. Safe to call
+  // synchronously because setFocusedRegion/setFocusedDock write to an
+  // external store — no React reconciler work runs inside this listener,
+  // so the commit can't race with antd's controlled <Radio.Group> click
+  // handling.
+  useShellClickCapture(
+    useCallback((event: MouseEvent) => commitFromTarget(event.target), [commitFromTarget]),
+  );
 
-    // Capture-phase click so stopPropagation in children doesn't swallow
-    // the region update. Click (not pointerdown) so right-clicks and drag
-    // gestures don't move focus. Safe to call synchronously because
-    // setFocusedRegion/setFocusedDock write to an external store — no
-    // React reconciler work runs inside this listener, so the commit
-    // can't race with antd's controlled <Radio.Group> click handling.
-    const handleClick = (event: MouseEvent) => {
-      commitFromTarget(event.target);
-    };
+  useShellFocusIn(
+    useCallback((event: FocusEvent) => commitFromTarget(event.target), [commitFromTarget]),
+  );
 
-    const handleFocusOut = (event: FocusEvent) => {
-      // If focus is leaving the shell entirely (e.g., user clicks another
-      // browser tab's devtools pane), clear the accent so stale highlights
-      // don't linger on return. We only clear when relatedTarget is null
-      // AND outside the shell — Ant portals set relatedTarget to the
-      // triggering element, which stays inside the shell.
-      const next = event.relatedTarget as HTMLElement | null;
-      if (!next) {
-        setFocusedRegion(null);
-        setFocusedDock?.(null);
-        return;
-      }
-      if (!root.contains(next)) {
-        setFocusedRegion(null);
-        setFocusedDock?.(null);
-      }
-    };
-
-    root.addEventListener('focusin', handleFocusIn);
-    root.addEventListener('focusout', handleFocusOut);
-    root.addEventListener('click', handleClick, true);
-    return () => {
-      root.removeEventListener('focusin', handleFocusIn);
-      root.removeEventListener('focusout', handleFocusOut);
-      root.removeEventListener('click', handleClick, true);
-    };
-  }, [shellRef, setFocusedRegion, setFocusedDock]);
+  useShellFocusOut(
+    useCallback(
+      (event: FocusEvent) => {
+        // If focus is leaving the shell entirely (e.g., user clicks
+        // another browser tab's devtools pane), clear the accent so stale
+        // highlights don't linger on return. We only clear when
+        // relatedTarget is null AND outside the shell — Ant portals set
+        // relatedTarget to the triggering element, which stays inside
+        // the shell.
+        const root = shellRef.current;
+        const next = event.relatedTarget as HTMLElement | null;
+        if (!next) {
+          setFocusedRegion(null);
+          setFocusedDock?.(null);
+          return;
+        }
+        if (root && !root.contains(next)) {
+          setFocusedRegion(null);
+          setFocusedDock?.(null);
+        }
+      },
+      [shellRef, setFocusedRegion, setFocusedDock],
+    ),
+  );
 
   // ── Imperative API ──────────────────────────────────────────────
 
