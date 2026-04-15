@@ -17,8 +17,10 @@ import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tooltip, Typ
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { getBrowserAPI } from '@/types/browser';
+import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import type { PageInfo, RowActions } from '../utils/table-shared';
 import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
@@ -236,6 +238,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const { rules, isConnected, localCollectionTrees, pauseMarkers, togglePause } = useRules();
   const { message } = App.useApp();
   const { setFocusedRowIndex } = useKeyboardNav();
+  const togglePauseFocusedLabel = usePopupShortcutLabel('toggle-pause-focused');
   const [searchText, setSearchText] = useState('');
   const [sortMode, setSortMode] = useState<'status' | 'manual'>('status');
   const [expandedKeys, setExpandedKeys] = useState<readonly React.Key[]>([]);
@@ -575,9 +578,11 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           >
             <Tooltip
               title={
-                record.effectivelyPaused
-                  ? `Resume — pin ${record.ruleCount} rules active (overrides parent if needed)`
-                  : `Pause — suspend ${record.ruleCount} rules without changing individual settings`
+                <ShortcutHintTitle label={togglePauseFocusedLabel}>
+                  {record.effectivelyPaused
+                    ? `Resume — pin ${record.ruleCount} rules active (overrides parent if needed)`
+                    : `Pause — suspend ${record.ruleCount} rules without changing individual settings`}
+                </ShortcutHintTitle>
               }
             >
               <Switch
