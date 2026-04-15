@@ -29,7 +29,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Allotment } from 'allotment';
 import { theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type DragIntent, DragIntentContext } from '../drag-intent';
 import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../editor-groups';
 import type { UseEditorGroupsApi } from '../hooks/useEditorGroups';
@@ -110,6 +110,53 @@ function previewStyleFor(zone: LeafDropZone): React.CSSProperties {
       return { left: 0, bottom: 0, width: '100%', height: '50%' };
   }
 }
+
+// ── Per-tab panel with scroll-memory ─────────────────────────────
+//
+// Each tab gets its own scroll container. Inactive panels are
+// `display: none` so they take no layout or paint cost — important
+// because some child components (antd Tabs, Allotment, CodeMirror)
+// run layout effects with ResizeObservers that would otherwise fire
+// for every hidden leaf, cascading into a setState-in-layout-effect
+// loop when multiple tabs are open at once.
+//
+// The tradeoff is that the browser resets scrollTop when a scroll
+// container transitions display: none → block, so we mirror the last
+// observed scrollTop into a per-panel ref and restore it on every
+// activation in a layout effect (before paint).
+
+interface TabPanelProps {
+  isActive: boolean;
+  children: React.ReactNode;
+}
+
+const TabPanel: React.FC<TabPanelProps> = ({ isActive, children }) => {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const scrollTopRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (!isActive) return;
+    const el = panelRef.current;
+    if (el) el.scrollTop = scrollTopRef.current;
+  }, [isActive]);
+
+  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    scrollTopRef.current = event.currentTarget.scrollTop;
+  }, []);
+
+  return (
+    <div
+      ref={panelRef}
+      className="rules-editor-tab-panel"
+      style={isActive ? undefined : { display: 'none' }}
+      onScroll={handleScroll}
+      aria-hidden={isActive ? undefined : true}
+      inert={!isActive}
+    >
+      {children}
+    </div>
+  );
+};
 
 // ── Preview overlay ──────────────────────────────────────────────
 
@@ -426,19 +473,11 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           {renderLeafHeader({ leaf, isFocusedLeaf: isFocused, activeTab })}
           <div className="rules-editor-content">
             {leaf.tabs.length === 0 && renderEmpty()}
-            {leaf.tabs.map((tab) => {
-              const isActive = tab.id === leaf.activeTabId;
-              return (
-                <div
-                  key={tab.id}
-                  className={`rules-editor-tab-panel${isActive ? ' active' : ''}`}
-                  aria-hidden={isActive ? undefined : true}
-                  inert={!isActive}
-                >
-                  {renderTabBody({ tab, leafId: leaf.id, isFocusedLeaf: isFocused })}
-                </div>
-              );
-            })}
+            {leaf.tabs.map((tab) => (
+              <TabPanel key={tab.id} isActive={tab.id === leaf.activeTabId}>
+                {renderTabBody({ tab, leafId: leaf.id, isFocusedLeaf: isFocused })}
+              </TabPanel>
+            ))}
           </div>
           <LeafDropPreview active={hoverHere} zone={hover?.zone ?? 'center'} />
         </div>

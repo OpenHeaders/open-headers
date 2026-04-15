@@ -694,24 +694,23 @@ html, body, #root {
 .rules-editor-content {
   flex: 1;
   min-height: 0;
-  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 // Per-tab panel — each open tab gets its own scroll container and its
-// own container-query context. Inactive panels stay in layout
-// (position: absolute + visibility: hidden) so their scrollTop and any
-// embedded editor state (CodeMirror, form focus) survive tab switches.
+// own container-query context. Inactive panels use `display: none` so
+// they take no layout / paint cost and don't run resize observers. The
+// TabPanel component in EditorGroupRenderer restores scrollTop on
+// activation from a per-instance ref, so switching tabs preserves
+// scroll position even though the browser resets scrollTop when a
+// scroll container goes from display: none → block.
 .rules-editor-tab-panel {
-  position: absolute;
-  inset: 0;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   container-type: inline-size;
   container-name: editor;
-
-  &:not(.active) {
-    visibility: hidden;
-    pointer-events: none;
-  }
 }
 
 .rules-welcome {
