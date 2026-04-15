@@ -11,11 +11,11 @@
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
-import { scheduleFrame } from '@utils/frame-scheduler';
+import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
 import { theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
 import { computeBreadcrumbs } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
@@ -29,14 +29,20 @@ import LandingScreen from './components/LandingScreen';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
 import RuleEditor from './components/RuleEditor';
-import RuleFlow from './components/RuleFlow';
-import RunReportView from './components/RunReportView';
+
+// Rare tab-body components are lazy-loaded so they don't bloat the
+// workspace entry chunk. Each opens into its own Vite chunk the first
+// time the user lands on one of these modes; the Suspense boundary
+// around `renderTabBody` swallows the one-frame flash during load.
+const RuleFlow = lazy(() => import('./components/RuleFlow'));
+const RunReportView = lazy(() => import('./components/RunReportView'));
+const TemplateEditor = lazy(() => import('./components/TemplateEditor'));
+
 import SaveToCollectionModal from './components/SaveToCollectionModal';
 import ShellLayout from './components/ShellLayout';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import { renderTabLabel, tabIcon } from './components/TabBar';
-import TemplateEditor from './components/TemplateEditor';
 import TopBar from './components/TopBar';
 import { findLeaf } from './editor-groups';
 import { createShellEventBus, ShellEventBusContext } from './events/shell-event-bus';
@@ -400,7 +406,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   }, [tabs, activeTabId, switchTab]);
 
   const handleCloseActiveTab = useCallback(() => {
-    if (activeTabId) handleCloseTab(activeTabId);
+    if (activeTabId) void handleCloseTab(activeTabId);
   }, [activeTabId, handleCloseTab]);
 
   // Sidebar filter focus ref
@@ -421,19 +427,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   // item" helper so both paths behave identically.
   const openCreateMenu = useCallback(() => {
     setCreateMenuOpen((prev) => {
-      if (!prev) {
-        const tryFocus = (attempts: number) => {
-          const firstItem = document.querySelector(
-            '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)',
-          ) as HTMLElement | null;
-          if (firstItem) {
-            firstItem.focus();
-          } else if (attempts > 0) {
-            scheduleFrame(() => tryFocus(attempts - 1));
-          }
-        };
-        scheduleFrame(() => tryFocus(5));
-      }
+      if (!prev) focusFirstDropdownItem();
       return !prev;
     });
   }, []);
@@ -454,6 +448,14 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     onOpenSettings: openSettings,
   });
 
+  // TabBar publishes its tab-search toggle function here on mount so
+  // the workspace shortcut registry can invoke it via `onTabSearch`
+  // instead of duplicating a hardcoded `Shift+Cmd+A` window listener.
+  const tabSearchToggleRef = useRef<(() => void) | null>(null);
+  const registerTabSearchToggle = useCallback((toggle: () => void) => {
+    tabSearchToggleRef.current = toggle;
+  }, []);
+
   // ── Global keyboard shortcuts ─────────────────────────────────
   useWorkspaceShortcuts({
     onToggleSidebar: () => togglePanel('sidebar'),
@@ -462,6 +464,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     onCloseTab: handleCloseActiveTab,
     onPrevTab: handlePrevTab,
     onNextTab: handleNextTab,
+    onTabSearch: () => tabSearchToggleRef.current?.(),
     onSave: handleSave,
     onNewRule: openCreateMenu,
     onFocusFilter: () => {
@@ -507,6 +510,13 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   );
 
   // ── Per-tab body renderer ─────────────────────────────────────
+  //
+  // `RuleFlow`, `RunReportView`, and `TemplateEditor` are React.lazy —
+  // each becomes its own chunk fetched on first use. Wrap every lazy
+  // result in its own Suspense boundary so one suspending tab can't
+  // block the whole editor body (each tab panel is independently
+  // display:none / block via the keep-mounted pattern in
+  // EditorGroupRenderer, so an inner Suspense is the correct scope).
   const renderTabBody = useCallback(
     ({ tab }: { tab: RulesTab }): React.ReactNode => {
       if (tab.mode === 'create' || tab.mode === 'edit') {
@@ -552,31 +562,37 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       }
       if (tab.mode === 'template-edit' && tab.templateUid) {
         return (
-          <TemplateEditor
-            templateUid={tab.templateUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
+          <Suspense fallback={null}>
+            <TemplateEditor
+              templateUid={tab.templateUid}
+              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            />
+          </Suspense>
         );
       }
       if (tab.mode === 'rule-flow') {
         return (
-          <RuleFlow
-            scope={tab.flowScope ?? 'all-active'}
-            entityId={tab.entityId}
-            initialTabUrl={tab.flowTabUrl}
-            onSelectRule={openEditTab}
-            onCreateRule={openCreateTab}
-          />
+          <Suspense fallback={null}>
+            <RuleFlow
+              scope={tab.flowScope ?? 'all-active'}
+              entityId={tab.entityId}
+              initialTabUrl={tab.flowTabUrl}
+              onSelectRule={openEditTab}
+              onCreateRule={openCreateTab}
+            />
+          </Suspense>
         );
       }
       if (tab.mode === 'run-report' && tab.testRunId) {
         return (
-          <RunReportView
-            runId={tab.testRunId}
-            onSelectRule={openEditTab}
-            onAfterDelete={() => handleRunReportDeleted(tab.id)}
-          />
+          <Suspense fallback={null}>
+            <RunReportView
+              runId={tab.testRunId}
+              onSelectRule={openEditTab}
+              onAfterDelete={() => handleRunReportDeleted(tab.id)}
+            />
+          </Suspense>
         );
       }
       if (tab.mode === 'settings') {
@@ -724,6 +740,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
             onCreateRule={openCreateTab}
             createMenuOpen={createMenuOpen}
             onCreateMenuOpenChange={setCreateMenuOpen}
+            registerTabSearchToggle={registerTabSearchToggle}
             onTabDoubleClick={tl.toggleZenMode}
             onCloseTab={handleCloseTab}
             onCloseOther={handleCloseOther}
