@@ -1,18 +1,28 @@
 /**
- * Cross-browser compatibility layer
- * Provides unified API for working with browser extensions APIs
+ * Cross-browser compatibility layer (background-side).
+ *
+ * Provides unified wrappers for every extension API the background
+ * service worker touches: tabs, alarms, declarativeNetRequest, etc.
+ *
+ * Content scripts must NOT import from this module — top-level reads
+ * below touch background-only Chrome namespaces (`chrome.tabs.onActivated`,
+ * `chrome.alarms`, `chrome.declarativeNetRequest`) that are `undefined`
+ * in a content-script realm and would crash the import graph. Content
+ * scripts should import `runtime` and `isFirefox` from
+ * `./browser-runtime.ts` directly — that module is lazy and content-safe.
  */
 
 // Detect browser environment
 declare const browser: typeof chrome | undefined;
 
-import { logger } from './logger';
+import { isFirefox, runtime } from './browser-runtime';
+
+export { isFirefox, runtime };
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-// Browser detection flags — use userAgent, not `typeof browser`, because
-// Chrome MV3 now defines a `browser` alias for `chrome`.
-export const isFirefox: boolean = /Firefox/.test(navigator.userAgent);
+// Non-Firefox browser detection — kept here because only background
+// code currently branches on these flags.
 export const isEdge: boolean = !isFirefox && navigator.userAgent.indexOf('Edg') !== -1;
 export const isChrome: boolean = !isFirefox && !isEdge && navigator.userAgent.indexOf('Chrome') !== -1;
 export const isSafari: boolean =
@@ -107,84 +117,6 @@ export const storage = {
 };
 
 type MessageCallback = (response: unknown) => void;
-type MessageListener = (
-  message: unknown,
-  sender: chrome.runtime.MessageSender,
-  sendResponse: (response?: unknown) => void,
-  // biome-ignore lint/suspicious/noConfusingVoidType: matches Chrome extension API — void for sync listeners, true for async
-) => boolean | void;
-
-// Cross-browser runtime API with improved error handling
-export const runtime = {
-  getURL: (path: string): string => browserAPI.runtime.getURL(path),
-  sendMessage: (message: unknown, callback?: MessageCallback): void => {
-    if (isFirefox) {
-      // Firefox uses promises
-      const promise = browserAPI.runtime.sendMessage(message);
-
-      if (callback) {
-        promise
-          .then((response: unknown) => callback(response))
-          .catch((error: Error) => {
-            logger.info('BrowserAPI', 'Firefox message error:', error.message);
-            // Call callback with no response to maintain compatibility
-            callback(undefined);
-          });
-      }
-    } else {
-      // Chrome/Edge use callbacks
-      try {
-        browserAPI.runtime.sendMessage(message, (response: unknown) => {
-          // Read lastError to suppress "Unchecked runtime.lastError" console noise
-          // (e.g. when broadcasting to popup/workspace that isn't open)
-          void browserAPI.runtime.lastError;
-          if (callback) {
-            callback(response);
-          }
-        });
-      } catch (error) {
-        logger.info('BrowserAPI', 'Chrome message error:', (error as Error).message);
-        if (callback) {
-          // Call callback with no response
-          setTimeout(() => callback(undefined), 0);
-        }
-      }
-    }
-  },
-  onMessage: {
-    addListener: (listener: MessageListener): void => browserAPI.runtime.onMessage.addListener(listener),
-    removeListener: (listener: MessageListener): void => browserAPI.runtime.onMessage.removeListener(listener),
-  },
-  get lastError() {
-    return browserAPI.runtime.lastError;
-  },
-  getManifest: (): chrome.runtime.Manifest => browserAPI.runtime.getManifest(),
-  onInstalled: {
-    addListener: (listener: (details: chrome.runtime.InstalledDetails) => void): void =>
-      browserAPI.runtime.onInstalled.addListener(listener),
-    removeListener: (listener: (details: chrome.runtime.InstalledDetails) => void): void =>
-      browserAPI.runtime.onInstalled.removeListener(listener),
-  },
-  onStartup: {
-    addListener: (listener: () => void): void => browserAPI.runtime.onStartup.addListener(listener),
-    removeListener: (listener: () => void): void => browserAPI.runtime.onStartup.removeListener(listener),
-  },
-  onConnect: browserAPI.runtime.onConnect
-    ? {
-        addListener: (listener: (port: chrome.runtime.Port) => void): void =>
-          browserAPI.runtime.onConnect.addListener(listener),
-        removeListener: (listener: (port: chrome.runtime.Port) => void): void =>
-          browserAPI.runtime.onConnect.removeListener(listener),
-      }
-    : null,
-  onSuspend: browserAPI.runtime.onSuspend
-    ? {
-        addListener: (listener: () => void): void => browserAPI.runtime.onSuspend.addListener(listener),
-        removeListener: (listener: () => void): void => browserAPI.runtime.onSuspend.removeListener(listener),
-      }
-    : null,
-  connect: (connectInfo?: chrome.runtime.ConnectInfo): chrome.runtime.Port => browserAPI.runtime.connect(connectInfo),
-};
 
 type TabCallback = (tab: chrome.tabs.Tab) => void;
 type TabsQueryCallback = (tabs: chrome.tabs.Tab[]) => void;

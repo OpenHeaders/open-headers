@@ -23,7 +23,12 @@
  */
 
 import { getBrowserAPI } from '@/types/browser';
-import { runtime } from '../browser-api';
+// Import `runtime` from the content-safe module — NOT `../browser-api`.
+// The fire-bridge + workflow-recorder content scripts pull this module
+// in transitively, and `browser-api.ts` has background-only top-level
+// reads (tabs event hooks, dnr, alarms) that crash in a content-script
+// realm where those Chrome namespaces are undefined.
+import { runtime } from '../browser-runtime';
 import { logger } from '../logger';
 import {
   type BridgeBroadcastPayload,
