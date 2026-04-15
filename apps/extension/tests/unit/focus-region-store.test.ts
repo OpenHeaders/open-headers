@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  getFocusedDock,
-  getFocusedRegion,
-  setFocusedDock,
-  setFocusedRegion,
-} from '@/rules/stores/focus-region-store';
+import { getFocusedDock, getFocusedRegion, setFocusedDock, setFocusedRegion } from '@/rules/stores/focus-region-store';
 
 afterEach(() => {
   setFocusedRegion(null);

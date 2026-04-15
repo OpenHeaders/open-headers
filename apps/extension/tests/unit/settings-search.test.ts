@@ -2,13 +2,13 @@ import * as v from 'valibot';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { __resetRegistryForTests, registerCategory, registerSetting } from '@/rules/settings/registry';
 import { searchSettings } from '@/rules/settings/search';
+import type { DictStorage, SettingScope } from '@/rules/settings/storage/adapter';
 import {
   __resetStoreForTests,
   configureSettingsStorage,
   initSettingsStore,
   set as storeSet,
 } from '@/rules/settings/store';
-import type { DictStorage, SettingScope } from '@/rules/settings/storage/adapter';
 
 declare module '@/rules/settings/types' {
   interface SettingsMap {

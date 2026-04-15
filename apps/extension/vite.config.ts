@@ -45,10 +45,6 @@ function copyAssetsPlugin() {
     // (see the relative url() in popup.less / rules.less). Only the
     // license file needs an explicit copy.
     { from: 'src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
-    // Pre-mount theme initializer — classic script loaded from popup.html
-    // and workspace.html <head> before the React bundle, so it can paint
-    // the correct theme on the first frame.
-    { from: 'src/assets/theme-init.js', to: 'js/theme-init.js' },
     // Recording
     { from: 'src/assets/recording/inject/recorder-rrweb.js', to: 'js/recording/inject/recorder.js' },
     { from: 'src/assets/recording/inject/recording-widget.js', to: 'js/recording/inject/recording-widget.js' },
@@ -101,6 +97,11 @@ function buildContentScriptPlugin() {
     async writeBundle() {
       await viteBuild({
         configFile: false,
+        // Standalone sub-build must not re-copy the main app's publicDir
+        // into its own nested outDir — doing so would shove every asset
+        // (including the pre-mount theme initializer) inside the content
+        // script's JS output directory for no reason.
+        publicDir: false,
         // Match the main build's path aliases so this standalone bundle
         // can import shared modules (e.g. @utils/bridge) by name instead
         // of reaching through brittle relative paths.
@@ -150,6 +151,10 @@ function buildFireBridgePlugin() {
     async writeBundle() {
       await viteBuild({
         configFile: false,
+        // Standalone sub-build must not re-copy the main app's publicDir
+        // into its own nested outDir — see the workflow-recorder plugin
+        // for the same rationale.
+        publicDir: false,
         // Match the main build's aliases so this standalone bundle can
         // import shared modules (e.g. @utils/bridge) by name.
         resolve: {

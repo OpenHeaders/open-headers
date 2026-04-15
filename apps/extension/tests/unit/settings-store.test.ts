@@ -5,9 +5,9 @@ import type { DictStorage, SettingScope } from '@/rules/settings/storage/adapter
 import {
   __resetStoreForTests,
   configureSettingsStorage,
-  get as storeGet,
   initSettingsStore,
   isModified,
+  get as storeGet,
   reset as storeReset,
   set as storeSet,
   subscribeKey,
