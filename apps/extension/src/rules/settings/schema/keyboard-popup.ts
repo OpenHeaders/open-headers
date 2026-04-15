@@ -46,6 +46,7 @@ declare module '../types' {
     'keyboard.popup.addRule': string;
     'keyboard.popup.toggleRecording': string;
     'keyboard.popup.toggleRulesPause': string;
+    'keyboard.popup.togglePauseFocused': string;
     'keyboard.popup.cycleTheme': string;
     'keyboard.popup.toggleCompactMode': string;
     'keyboard.popup.openWorkspace': string;
@@ -74,6 +75,7 @@ interface PopupKeySpec {
     | 'keyboard.popup.addRule'
     | 'keyboard.popup.toggleRecording'
     | 'keyboard.popup.toggleRulesPause'
+    | 'keyboard.popup.togglePauseFocused'
     | 'keyboard.popup.cycleTheme'
     | 'keyboard.popup.toggleCompactMode'
     | 'keyboard.popup.openWorkspace'
@@ -199,10 +201,19 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
   },
   {
     key: 'keyboard.popup.toggleRulesPause',
+    // Global pause is the "bigger hammer" so it sits on a modified
+    // chord to stay out of the way of per-collection pause.
+    default: 'shift+p',
+    label: 'Popup — Toggle Rules Pause (global)',
+    description: 'Pause or resume every rule across every collection.',
+    tags: ['popup', 'pause', 'global'],
+  },
+  {
+    key: 'keyboard.popup.togglePauseFocused',
     default: 'p',
-    label: 'Popup — Toggle Rules Pause',
-    description: 'Pause or resume all rules.',
-    tags: ['popup', 'pause'],
+    label: 'Popup — Toggle Pause (focused row)',
+    description: 'Pause or resume the focused collection, folder, or rule in the Collections tab.',
+    tags: ['popup', 'pause', 'collection', 'folder'],
   },
   {
     key: 'keyboard.popup.cycleTheme',

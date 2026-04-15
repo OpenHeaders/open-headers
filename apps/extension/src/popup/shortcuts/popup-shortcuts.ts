@@ -45,6 +45,7 @@ export type PopupShortcutId =
   | 'add-rule'
   | 'toggle-recording'
   | 'toggle-rules-pause'
+  | 'toggle-pause-focused'
   | 'cycle-theme'
   | 'toggle-compact-mode'
   | 'open-workspace'
@@ -136,8 +137,14 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
   {
     id: 'toggle-rules-pause',
     settingKey: 'keyboard.popup.toggleRulesPause',
-    description: 'Pause / resume rules',
+    description: 'Pause / resume all rules',
     group: 'actions',
+  },
+  {
+    id: 'toggle-pause-focused',
+    settingKey: 'keyboard.popup.togglePauseFocused',
+    description: 'Pause / resume focused row',
+    group: 'row',
   },
   {
     id: 'toggle-options-menu',

@@ -22,6 +22,14 @@ export interface RowActions {
   onExpandRow?: (index: number) => void;
   /** Collapse a tree node at this flat index (tree tables only). */
   onCollapseRow?: (index: number) => void;
+  /**
+   * Pause or resume the focused row. Distinct from `onToggleRow`: in
+   * CollectionManager `Space` flips rule `enabled` vs collection pause
+   * depending on node type, whereas `onPauseRow` is always pause-only
+   * and applies to rules, folders, and collections alike. Only the
+   * Collections tab wires this in today.
+   */
+  onPauseRow?: (index: number) => void;
 }
 
 export const PAGE_SIZE = 10;

@@ -118,6 +118,19 @@ describe('popup shortcuts registry', () => {
     expect(matchesPopupShortcut(plain, 'toggle-shortcuts-help')).toBe(false);
   });
 
+  it('global vs row-scoped pause are separate bindings', () => {
+    const shiftP = new KeyboardEvent('keydown', { key: 'P', code: 'KeyP', shiftKey: true });
+    const plainP = new KeyboardEvent('keydown', { key: 'p', code: 'KeyP' });
+
+    // Global pause fires only on shift+p.
+    expect(matchesPopupShortcut(shiftP, 'toggle-rules-pause')).toBe(true);
+    expect(matchesPopupShortcut(plainP, 'toggle-rules-pause')).toBe(false);
+
+    // Row-scoped pause fires only on plain p.
+    expect(matchesPopupShortcut(plainP, 'toggle-pause-focused')).toBe(true);
+    expect(matchesPopupShortcut(shiftP, 'toggle-pause-focused')).toBe(false);
+  });
+
   it('open-settings default chord matches mod+, across platforms', () => {
     const commaEvent = new KeyboardEvent('keydown', { key: ',', code: 'Comma', metaKey: true });
     const ctrlCommaEvent = new KeyboardEvent('keydown', { key: ',', code: 'Comma', ctrlKey: true });

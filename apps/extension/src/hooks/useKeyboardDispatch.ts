@@ -83,7 +83,8 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
     focusLastRowOnPageChange,
   } = options;
 
-  const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow } = rowActions;
+  const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow, onPauseRow } =
+    rowActions;
 
   const { onToggleRecording, onToggleRulesPause, onToggleOptions, onOpenWorkspace, onOpenSettings } = footerActions;
 
@@ -372,6 +373,14 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         if (onDeleteRow && matchesPopupShortcut(e, 'delete-row')) {
           e.preventDefault();
           setPendingDeleteIndex(focusedRowIndex);
+          return;
+        }
+        // Row-scoped pause — distinct from the global shift+p.
+        // Checked here (before global actions) so it wins when a row is
+        // focused, and falls through to global pause if no row handler.
+        if (onPauseRow && matchesPopupShortcut(e, 'toggle-pause-focused')) {
+          e.preventDefault();
+          onPauseRow(focusedRowIndex);
           return;
         }
       }
