@@ -75,6 +75,11 @@ function findDock(docks: Record<DockSlot, DockState>, id: ToolWindowId): DockSlo
  * `ToolLayoutApi` memo, new `openTestRunsPanel` callback identity, and
  * re-fire the effect that called activateWindow in the first place,
  * producing React error #185.
+ *
+ * `docks` and `hidden` are cloned by `patch` (they're mutated in place
+ * by most mutators) so we have to compare them content-wise. Every
+ * other field — currently just `zenSnapshot` — is carried through by
+ * reference, so a plain `===` check is correct and sufficient.
  */
 function toolLayoutEquals(a: ToolLayoutState, b: ToolLayoutState): boolean {
   if (a === b) return true;
@@ -92,24 +97,7 @@ function toolLayoutEquals(a: ToolLayoutState, b: ToolLayoutState): boolean {
   for (let i = 0; i < a.hidden.length; i++) {
     if (a.hidden[i] !== b.hidden[i]) return false;
   }
-  // Zen snapshots must be compared by content, not reference — `patch`
-  // shallow-clones `zenSnapshot` on every mutation, so even a no-op
-  // mutator while zen is active yields a fresh object. A reference
-  // compare here would report "changed" on every patch, undoing the
-  // whole point of this function.
-  return zenSnapshotEquals(a.zenSnapshot, b.zenSnapshot);
-}
-
-function zenSnapshotEquals(
-  a: Record<DockSlot, ToolWindowId | null> | null,
-  b: Record<DockSlot, ToolWindowId | null> | null,
-): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return false;
-  for (const slot of ALL_DOCK_SLOTS) {
-    if (a[slot] !== b[slot]) return false;
-  }
-  return true;
+  return a.zenSnapshot === b.zenSnapshot;
 }
 
 function removeFromDock(dock: DockState, id: ToolWindowId): void {
@@ -263,11 +251,16 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
    *  it in place. Returning nothing commits the mutated clone. */
   const patch = useCallback((mutate: Mutator) => {
     setState((prev) => {
+      // `docks` and `hidden` are mutated in place by most mutators, so
+      // they need per-slot / per-array clones to avoid touching prev.
+      // `zenSnapshot` is never mutated in place — `toggleZenMode` only
+      // replaces it wholesale (`next.zenSnapshot = snap | null`) — so
+      // carrying the previous reference through is safe AND keeps
+      // structural equality below a cheap reference compare.
       const next: ToolLayoutState = {
         ...prev,
         docks: cloneDocks(prev.docks),
         hidden: [...prev.hidden],
-        zenSnapshot: prev.zenSnapshot ? { ...prev.zenSnapshot } : null,
       };
       mutate(next);
       // Return the previous reference when the mutator was a no-op so
