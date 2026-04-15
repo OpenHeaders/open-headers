@@ -7,6 +7,7 @@
 import { SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { getBrowserAPI } from '@/types/browser';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
@@ -67,7 +68,7 @@ const TopBar: React.FC<TopBarProps> = ({ onCommandPalette, onOpenSettings }) => 
       </div>
 
       <div className="rules-topbar-right">
-        <Tooltip title={`Settings (${openSettingsLabel})`}>
+        <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Settings</ShortcutHintTitle>}>
           <Button size="small" type="text" icon={<SettingOutlined />} onClick={onOpenSettings} />
         </Tooltip>
       </div>

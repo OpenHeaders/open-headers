@@ -316,3 +316,56 @@ function getChordSnapshot(): PopupShortcutChords {
 export function usePopupShortcutChords(): PopupShortcutChords {
   return useSyncExternalStore(subscribeChords, getChordSnapshot, getChordSnapshot);
 }
+
+// ── Display formatting ─────────────────────────────────────────────
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+
+const MOD_DISPLAY_MAC: Record<string, string> = {
+  mod: '\u2318',
+  shift: '\u21E7',
+  alt: '\u2325',
+  ctrl: '\u2303',
+};
+
+const MOD_DISPLAY_WIN: Record<string, string> = {
+  mod: 'Ctrl',
+  shift: 'Shift',
+  alt: 'Alt',
+  ctrl: 'Ctrl',
+};
+
+const KEY_DISPLAY: Record<string, string> = {
+  ' ': 'Space',
+  arrowup: '\u2191',
+  arrowdown: '\u2193',
+  arrowleft: '\u2190',
+  arrowright: '\u2192',
+  escape: 'Esc',
+  enter: '\u21B5',
+};
+
+function formatChord(chord: string): string {
+  if (!chord) return '';
+  const parts = chord.split('+');
+  const key = parts[parts.length - 1] ?? '';
+  const mods = parts.slice(0, -1).map((m) => (IS_MAC ? MOD_DISPLAY_MAC[m] : MOD_DISPLAY_WIN[m]) ?? m);
+  const label = KEY_DISPLAY[key] ?? (key.length === 1 ? key : key.charAt(0).toUpperCase() + key.slice(1));
+  if (mods.length === 0) return label;
+  return IS_MAC ? `${mods.join('')}${label}` : `${mods.join('+')}+${label}`;
+}
+
+/**
+ * Non-reactive platform-appropriate display label for a popup shortcut.
+ * Safe to call inside event handlers or memoized derivations. For JSX
+ * that should react to live rebinding, prefer `usePopupShortcutLabel`.
+ */
+export function popupShortcutLabel(id: PopupShortcutId): string {
+  return formatChord(popupShortcutChord(id));
+}
+
+/** Live display label — repaints when the user rebinds the chord. */
+export function usePopupShortcutLabel(id: PopupShortcutId): string {
+  const chords = usePopupShortcutChords();
+  return formatChord(chords[id] ?? '');
+}

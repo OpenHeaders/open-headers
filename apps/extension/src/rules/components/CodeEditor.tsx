@@ -28,6 +28,7 @@ import { EditorView, highlightWhitespace } from '@codemirror/view';
 import { useTheme } from '@context/ThemeContext';
 import CodeMirror, { type BasicSetupOptions, type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Alert, Button, Tooltip, theme } from 'antd';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildChordsFromEvent, useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
@@ -219,13 +220,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     minHeight,
   ]);
 
-  const formatTooltip = readOnly
+  const formatTooltip: React.ReactNode = readOnly
     ? 'Read-only'
     : !formattable
       ? `No formatter for ${getLanguage(language).label}`
-      : formatShortcutLabel
-        ? `Format (${formatShortcutLabel})`
-        : 'Format';
+      : <ShortcutHintTitle label={formatShortcutLabel}>Format</ShortcutHintTitle>;
 
   return (
     <div

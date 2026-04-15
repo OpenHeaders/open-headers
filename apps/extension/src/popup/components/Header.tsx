@@ -2,6 +2,8 @@ import { DownloadOutlined, NodeExpandOutlined, SettingOutlined } from '@ant-desi
 import { useRules } from '@hooks/useRules';
 import { App, Badge, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import { useSetting } from '@/rules/settings/hooks';
 import { getBrowserAPI } from '@/types/browser';
 
@@ -12,6 +14,8 @@ const Header: React.FC = () => {
   const { isConnected, isStatusLoaded } = useRules();
   const { message } = App.useApp();
   const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
+  const openSettingsLabel = usePopupShortcutLabel('open-settings');
+  const togglePauseLabel = usePopupShortcutLabel('toggle-rules-pause');
 
   const handleGlobalRulesToggle = async (checked: boolean): Promise<void> => {
     setIsRulesExecutionPaused(!checked);
@@ -90,9 +94,11 @@ const Header: React.FC = () => {
           </Text>
           <Tooltip
             title={
-              isRulesExecutionPaused
-                ? 'Resume rules execution'
-                : 'Pause all rules (preserves individual rule settings)'
+              <ShortcutHintTitle label={togglePauseLabel}>
+                {isRulesExecutionPaused
+                  ? 'Resume rules execution'
+                  : 'Pause all rules (preserves individual rule settings)'}
+              </ShortcutHintTitle>
             }
           >
             <Switch
@@ -104,7 +110,7 @@ const Header: React.FC = () => {
             />
           </Tooltip>
         </div>
-        <Tooltip title="Open settings">
+        <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Open settings</ShortcutHintTitle>}>
           <Button
             type="text"
             size="small"

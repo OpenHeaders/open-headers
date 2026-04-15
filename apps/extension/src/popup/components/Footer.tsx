@@ -17,8 +17,10 @@ import { sendMessage } from '@utils/messaging';
 import { App, Button, Dropdown, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSetting } from '@/rules/settings/hooks';
 import { getBrowserAPI } from '@/types/browser';
+import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import RecordingButton from './RecordingButton';
 
 const { Text } = Typography;
@@ -49,6 +51,13 @@ const Footer: React.FC = () => {
   const { isConnected } = useRules();
 
   const recordingHotkey = rawRecordingHotkey ? formatHotkeyForDisplay(rawRecordingHotkey) : 'Not set';
+
+  // Live chord hints for footer tooltips — repaint whenever the user
+  // rebinds any of these in Settings → Keyboard.
+  const optionsLabel = usePopupShortcutLabel('toggle-options-menu');
+  const helpLabel = usePopupShortcutLabel('toggle-shortcuts-help');
+  const workspaceLabel = usePopupShortcutLabel('open-workspace');
+  const recordingLabel = usePopupShortcutLabel('toggle-recording');
 
   const handleWidgetToggle = (checked: boolean): void => {
     setUseWidget(checked);
@@ -367,7 +376,11 @@ const Footer: React.FC = () => {
             if (open) setOptionsTooltipOpen(false);
           }}
         >
-          <Tooltip title="Recording options" open={optionsTooltipOpen} onOpenChange={setOptionsTooltipOpen}>
+          <Tooltip
+            title={<ShortcutHintTitle label={optionsLabel}>Recording options</ShortcutHintTitle>}
+            open={optionsTooltipOpen}
+            onOpenChange={setOptionsTooltipOpen}
+          >
             <Button
               icon={<SettingOutlined />}
               size="middle"
@@ -378,7 +391,7 @@ const Footer: React.FC = () => {
           </Tooltip>
         </Dropdown>
 
-        <Tooltip title="Keyboard shortcuts">
+        <Tooltip title={<ShortcutHintTitle label={helpLabel}>Keyboard shortcuts</ShortcutHintTitle>}>
           <span
             className="kbd-key"
             role="button"

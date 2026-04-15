@@ -9,6 +9,7 @@ import { FileTextOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 interface BreadcrumbBarProps {
@@ -149,7 +150,7 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
           </Tooltip>
         )}
         {onSave && (
-          <Tooltip title={`Save (${saveLabel})`}>
+          <Tooltip title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}>
             <Button
               size="small"
               type="primary"

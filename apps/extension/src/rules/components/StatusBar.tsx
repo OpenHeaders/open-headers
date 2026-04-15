@@ -13,6 +13,7 @@ import { BulbFilled, BulbOutlined, LayoutOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
 import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import type React from 'react';
 import { useCallback } from 'react';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
@@ -31,11 +32,13 @@ declare const __APP_VERSION__: string;
 
 function RegionToggle({
   title,
+  ariaTitle,
   active,
   position,
   onClick,
 }: {
-  title: string;
+  title: React.ReactNode;
+  ariaTitle: string;
   active: boolean;
   position: 'left' | 'bottom' | 'right';
   onClick: () => void;
@@ -56,7 +59,7 @@ function RegionToggle({
         tabIndex={0}
       >
         <svg viewBox="0 0 16 13" width={16} height={13} role="img">
-          <title>{title}</title>
+          <title>{ariaTitle}</title>
           <rect x="0.5" y="0.5" width="15" height="12" rx="1.5" fill="none" stroke={strokeColor} strokeWidth={1} />
           {position === 'left' && (
             <>
@@ -302,19 +305,22 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
           <>
             <div className="rules-panel-toggles">
               <RegionToggle
-                title={`Left sidebar (${toggleSidebarLabel})`}
+                title={<ShortcutHintTitle label={toggleSidebarLabel}>Left sidebar</ShortcutHintTitle>}
+                ariaTitle="Left sidebar"
                 active={tl.isRegionOpen('left')}
                 position="left"
                 onClick={() => tl.toggleRegion('left')}
               />
               <RegionToggle
-                title={`Bottom panel (${toggleBottomLabel})`}
+                title={<ShortcutHintTitle label={toggleBottomLabel}>Bottom panel</ShortcutHintTitle>}
+                ariaTitle="Bottom panel"
                 active={tl.isRegionOpen('bottom')}
                 position="bottom"
                 onClick={() => tl.toggleRegion('bottom')}
               />
               <RegionToggle
-                title={`Right sidebar (${toggleInspectorLabel})`}
+                title={<ShortcutHintTitle label={toggleInspectorLabel}>Right sidebar</ShortcutHintTitle>}
+                ariaTitle="Right sidebar"
                 active={tl.isRegionOpen('right')}
                 position="right"
                 onClick={() => tl.toggleRegion('right')}
