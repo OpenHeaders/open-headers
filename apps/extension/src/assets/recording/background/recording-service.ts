@@ -72,7 +72,6 @@ export class RecordingService implements IRecordingService {
     try {
       await browserAPI.tabs.sendMessage(tabId, {
         type: 'RECORDING_STATE_CHANGED',
-        action: 'recordingStateChanged',
         data: {
           state: state,
           isRecording: state === RecordingStates.RECORDING || state === RecordingStates.PRE_NAVIGATION,
@@ -366,7 +365,6 @@ export class RecordingService implements IRecordingService {
           tabId,
           {
             type: MESSAGE_TYPES.STOP_RECORDING,
-            action: 'stopRecording',
           },
           () => {
             if (browserAPI.runtime.lastError) {

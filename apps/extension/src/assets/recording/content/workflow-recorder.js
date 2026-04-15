@@ -8,11 +8,23 @@
  *   never initiates state transitions, only relays user actions.
  */
 
+import { call } from '@utils/bridge';
 import { MESSAGE_TYPES } from '../shared/constants.js';
-import { adaptInjectedEvent, NewMessageTypes } from '../shared/message-adapter.js';
 
-// Browser API reference
+// Browser API reference — used only for non-messaging APIs
+// (runtime.getURL, runtime.onMessage, runtime.id). Message-sending
+// goes through the shared bridge so every cross-context call in the
+// extension has the same typed contract and error surface.
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
+function isDeadContextError(error) {
+  const msg = error?.message ?? '';
+  return (
+    msg.includes('context invalidated') ||
+    msg.includes('extension context invalidated') ||
+    msg.includes('message port closed')
+  );
+}
 
 class WorkflowRecorder {
   constructor() {
@@ -35,31 +47,25 @@ class WorkflowRecorder {
    */
   setupExtensionMessageListener() {
     browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      console.log(new Date().toISOString(), 'INFO ', '[WorkflowRecorder]', 'Received message:', message.type || message.action);
+      console.log(new Date().toISOString(), 'INFO ', '[WorkflowRecorder]', 'Received message:', message.type);
 
-      const messageType = message.type || message.action;
-
-      switch (messageType) {
-        case 'startRecording':
+      switch (message.type) {
         case MESSAGE_TYPES.START_RECORDING:
           void this.handleStartRecording(message.data || message);
           sendResponse({ success: true });
           break;
 
-        case 'stopRecording':
         case MESSAGE_TYPES.STOP_RECORDING:
           this.handleStopRecording();
           sendResponse({ success: true });
           break;
 
-        case 'updateWidget':
         case MESSAGE_TYPES.UPDATE_RECORDING_WIDGET:
           this.handleUpdateWidget(message.data || message);
           sendResponse({ success: true });
           break;
 
         case 'RECORDING_STATE_CHANGED':
-        case 'recordingStateChanged':
           this.handleStateChange(message.data || message.payload);
           sendResponse({ success: true });
           break;
@@ -74,12 +80,8 @@ class WorkflowRecorder {
 
   async notifyBackgroundReady() {
     try {
-      const response = await browserAPI.runtime.sendMessage({
-        type: NewMessageTypes.CONTENT_SCRIPT_READY,
-        action: 'contentScriptReady',
-        payload: {
-          url: window.location.href
-        }
+      const response = await call('CONTENT_SCRIPT_READY', {
+        payload: { url: window.location.href }
       });
 
       if (response?.shouldStartRecording) {
@@ -105,11 +107,8 @@ class WorkflowRecorder {
       if (!this.isRecording) return;
 
       console.log(new Date().toISOString(), 'INFO ', '[WorkflowRecorder]', 'Widget stop button clicked');
-      browserAPI.runtime.sendMessage({
-        type: 'STOP_RECORDING_FROM_WIDGET'
-      }).catch(error => {
-        if (!error.message?.includes('context invalidated') &&
-            !error.message?.includes('message port closed')) {
+      call('STOP_RECORDING_FROM_WIDGET').catch(error => {
+        if (!isDeadContextError(error)) {
           console.error(new Date().toISOString(), 'ERROR', '[WorkflowRecorder]', 'Failed to send stop message:', error);
         }
       });
@@ -131,12 +130,19 @@ class WorkflowRecorder {
     } else if (type === 'pong') {
       this.recorderReady = true;
     } else if (this.isRecording && browserAPI.runtime?.id) {
-      const adaptedMessage = adaptInjectedEvent({ type, data, timestamp });
-
-      browserAPI.runtime.sendMessage(adaptedMessage).catch(error => {
-        if (!error.message?.includes('context invalidated') &&
-            !error.message?.includes('message port closed') &&
-            !error.message?.includes('extension context invalidated')) {
+      // Bridge the recorder's raw event into the RECORDING_DATA RPC
+      // envelope. Was previously `adaptInjectedEvent` in message-adapter.ts
+      // — trivial enough to inline now that every other adapter helper
+      // is gone.
+      call('RECORDING_DATA', {
+        payload: {
+          type,
+          data,
+          timestamp: timestamp ?? Date.now(),
+          url: window.location.href,
+        },
+      }).catch(error => {
+        if (!isDeadContextError(error)) {
           console.error(new Date().toISOString(), 'ERROR', '[WorkflowRecorder]', 'Failed to forward event:', error);
         }
       });

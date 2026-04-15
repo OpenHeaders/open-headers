@@ -410,12 +410,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
 
   return (
     <Dropdown menu={contextMenu} trigger={['contextMenu']} onOpenChange={setContextMenuOpen}>
-      <Tooltip
-        title={tab.label}
-        placement="bottom"
-        mouseEnterDelay={0.5}
-        open={contextMenuOpen ? false : undefined}
-      >
+      <Tooltip title={tab.label} placement="bottom" mouseEnterDelay={0.5} open={contextMenuOpen ? false : undefined}>
         {content}
       </Tooltip>
     </Dropdown>
@@ -703,18 +698,21 @@ const TabBar: React.FC<TabBarProps> = ({
   }, []);
 
   // ── Context menu builder ───────────────────────────────────────
-  const menuIconWrap = (node: React.ReactNode) => (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 22,
-        height: 18,
-      }}
-    >
-      {node}
-    </span>
+  const menuIconWrap = useCallback(
+    (node: React.ReactNode) => (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 22,
+          height: 18,
+        }}
+      >
+        {node}
+      </span>
+    ),
+    [],
   );
 
   const buildContextMenu = useCallback(
@@ -844,6 +842,7 @@ const TabBar: React.FC<TabBarProps> = ({
     },
     [
       tabs.length,
+      menuIconWrap,
       onClose,
       onCloseOther,
       onCloseAll,
@@ -873,8 +872,7 @@ const TabBar: React.FC<TabBarProps> = ({
   // EditorGroupRenderer via DragIntentContext; consumed here directly
   // so TabBar doesn't need a new prop.
   const dragIntentForBar = useDragIntent();
-  const insertionIndex =
-    dragIntentForBar.insertion?.leafId === leafId ? dragIntentForBar.insertion.index : null;
+  const insertionIndex = dragIntentForBar.insertion?.leafId === leafId ? dragIntentForBar.insertion.index : null;
   const insertionTab = insertionIndex !== null ? dragIntentForBar.draggingTab : null;
 
   return (

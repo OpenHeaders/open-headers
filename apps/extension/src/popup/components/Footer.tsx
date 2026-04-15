@@ -13,7 +13,7 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import { getAppLauncher } from '@utils/app-launcher';
-import { sendMessage } from '@utils/messaging';
+import { BridgeError, call } from '@utils/bridge';
 import { App, Button, Dropdown, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -56,16 +56,20 @@ const Footer: React.FC = () => {
   // rebinds any of these in Settings → Keyboard.
   const optionsLabel = usePopupShortcutLabel('toggle-options-menu');
   const helpLabel = usePopupShortcutLabel('toggle-shortcuts-help');
-  const workspaceLabel = usePopupShortcutLabel('open-workspace');
-  const recordingLabel = usePopupShortcutLabel('toggle-recording');
+  const _workspaceLabel = usePopupShortcutLabel('open-workspace');
+  const _recordingLabel = usePopupShortcutLabel('toggle-recording');
 
   const handleWidgetToggle = (checked: boolean): void => {
     setUseWidget(checked);
   };
 
   const handleOpenWebsite = async () => {
-    const response = await sendMessage({ type: 'openTab', url: 'https://openheaders.io' });
-    if (!response.error) window.close();
+    try {
+      const response = await call('openTab', { url: 'https://openheaders.io' });
+      if (response.success) window.close();
+    } catch (error) {
+      if (!(error instanceof BridgeError)) throw error;
+    }
   };
 
   const handleOpenRecordViewer = async () => {

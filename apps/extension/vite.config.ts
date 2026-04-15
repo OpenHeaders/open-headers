@@ -97,6 +97,20 @@ function buildContentScriptPlugin() {
     async writeBundle() {
       await viteBuild({
         configFile: false,
+        // Match the main build's path aliases so this standalone bundle
+        // can import shared modules (e.g. @utils/bridge) by name instead
+        // of reaching through brittle relative paths.
+        resolve: {
+          alias: {
+            '@': path.resolve(__dirname, 'src'),
+            '@components': path.resolve(__dirname, 'src/components'),
+            '@assets': path.resolve(__dirname, 'src/assets'),
+            '@styles': path.resolve(__dirname, 'src/assets/styles'),
+            '@utils': path.resolve(__dirname, 'src/utils'),
+            '@context': path.resolve(__dirname, 'src/context'),
+            '@hooks': path.resolve(__dirname, 'src/hooks'),
+          },
+        },
         build: {
           outDir: `dist/${browser}/js/content/workflow-recorder`,
           emptyOutDir: false,
@@ -132,6 +146,19 @@ function buildFireBridgePlugin() {
     async writeBundle() {
       await viteBuild({
         configFile: false,
+        // Match the main build's aliases so this standalone bundle can
+        // import shared modules (e.g. @utils/bridge) by name.
+        resolve: {
+          alias: {
+            '@': path.resolve(__dirname, 'src'),
+            '@components': path.resolve(__dirname, 'src/components'),
+            '@assets': path.resolve(__dirname, 'src/assets'),
+            '@styles': path.resolve(__dirname, 'src/assets/styles'),
+            '@utils': path.resolve(__dirname, 'src/utils'),
+            '@context': path.resolve(__dirname, 'src/context'),
+            '@hooks': path.resolve(__dirname, 'src/hooks'),
+          },
+        },
         build: {
           outDir: `dist/${browser}/js/content/fire-bridge`,
           emptyOutDir: false,

@@ -13,6 +13,7 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarkers } from '@openheaders/core/utils';
 import { type ActionDetail, getActionDetail, isRuleComplete } from '@openheaders/core/utils';
+import { call } from '@utils/bridge';
 import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -299,14 +300,11 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
         const isLocal = record.uid.startsWith('local-');
         const canToggle = isLocal || isConnected;
         if (!canToggle) return;
-        import('../../utils/browser-api').then(({ runtime }) => {
-          runtime.sendMessage(
-            { type: 'toggleRule', ruleId: record.uid, enabled: !record.isEnabled },
-            (response: unknown) => {
-              if (!(response as { success?: boolean })?.success) message.error('Failed to toggle rule');
-            },
-          );
-        });
+        call('toggleRule', { ruleId: record.uid, enabled: !record.isEnabled })
+          .then((resp) => {
+            if (!resp?.success) message.error('Failed to toggle rule');
+          })
+          .catch(() => message.error('Failed to toggle rule'));
       } else {
         togglePause(record.path);
       }

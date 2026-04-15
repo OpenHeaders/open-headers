@@ -10,7 +10,7 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor,
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
-import { sendMessageWithCallback } from '@utils/messaging';
+import { call } from '@utils/bridge';
 import { Checkbox, Empty, Segmented, Space, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -75,14 +75,11 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
       setThisPageRuleIds(null);
       return;
     }
-    sendMessageWithCallback({ type: 'getActiveRulesForTab', tabId: undefined, tabUrl }, (response) => {
-      const data = response as { activeRules?: Array<{ id: string }> } | null;
-      if (data?.activeRules) {
-        setThisPageRuleIds(new Set(data.activeRules.map((r) => r.id)));
-      } else {
-        setThisPageRuleIds(new Set());
-      }
-    });
+    call('getActiveRulesForTab', { tabId: undefined, tabUrl })
+      .then((data) => {
+        setThisPageRuleIds(new Set((data.activeRules ?? []).map((r) => r.id)));
+      })
+      .catch(() => setThisPageRuleIds(new Set()));
   }, [tabUrl, rulesFingerprint]);
 
   // Build available scope options based on context

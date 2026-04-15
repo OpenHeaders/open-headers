@@ -95,11 +95,7 @@ const KeyValueField: React.FC<KeyValueFieldProps> = ({ def }) => {
             />
           </Space.Compact>
         ))}
-        <Button
-          icon={<PlusOutlined />}
-          onClick={() => commit([...rows, { key: '', value: '' }])}
-          block
-        >
+        <Button icon={<PlusOutlined />} onClick={() => commit([...rows, { key: '', value: '' }])} block>
           Add entry
         </Button>
       </Space>

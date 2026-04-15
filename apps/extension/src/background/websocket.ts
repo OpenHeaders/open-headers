@@ -5,9 +5,9 @@
 
 import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
 import type { V5 } from '@openheaders/core/types';
+import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { sendMessageWithCallback } from '@utils/messaging';
 import { get as getSetting, subscribeKey } from '@/rules/settings/store';
 import { handleRecordingInboundMessage, requestInitialRecordingSync } from './modules/recording-sync';
 import { scheduleUpdate } from './modules/rule-engine';
@@ -119,7 +119,7 @@ function sendBrowserInfo(): void {
 // ── Connection status ─────────────────────────────────────────────
 
 function broadcastConnectionStatus(): void {
-  sendMessageWithCallback({ type: 'connectionStatus', connected: isConnected }, (_response, _error) => {});
+  broadcast('connectionStatus', { connected: isConnected });
 }
 
 // ── Message handling ──────────────────────────────────────────────
@@ -138,7 +138,7 @@ function handleRulesUpdate(rules: V5.Rule[]): void {
   }
 
   // Notify popup
-  sendMessageWithCallback({ type: 'rulesUpdated', rules, timestamp: Date.now() }, (_response, _error) => {});
+  broadcast('rulesUpdated', { rules, timestamp: Date.now() });
 }
 
 function handleOtherMessages(parsed: Record<string, unknown>): void {

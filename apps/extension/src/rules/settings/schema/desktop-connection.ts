@@ -95,4 +95,3 @@ registerSetting({
   tags: ['badge', 'status', 'icon', 'indicator'],
   scope: 'user',
 });
-

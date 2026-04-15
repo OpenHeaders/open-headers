@@ -48,13 +48,9 @@ const CodeField: React.FC<CodeFieldProps> = ({ def }) => {
       requiresConnection={def.requiresConnection}
       block
     >
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: onBlur captures descendant blur to persist draft */}
       <div onBlur={commit}>
-        <CodeEditor
-          value={draft}
-          onChange={setDraft}
-          language={resolveLanguage(def.language)}
-          minHeight={160}
-        />
+        <CodeEditor value={draft} onChange={setDraft} language={resolveLanguage(def.language)} minHeight={160} />
       </div>
     </FieldRow>
   );

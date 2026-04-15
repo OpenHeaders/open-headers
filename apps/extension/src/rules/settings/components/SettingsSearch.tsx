@@ -50,12 +50,7 @@ const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange })
         {FILTERS.map((f) => {
           const active = query.toLowerCase().includes(f.token);
           return (
-            <Button
-              key={f.token}
-              size="small"
-              type={active ? 'primary' : 'text'}
-              onClick={() => toggleFilter(f.token)}
-            >
+            <Button key={f.token} size="small" type={active ? 'primary' : 'text'} onClick={() => toggleFilter(f.token)}>
               {f.label}
             </Button>
           );

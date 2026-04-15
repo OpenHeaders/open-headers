@@ -22,7 +22,8 @@
  */
 
 import { DeleteOutlined, WarningOutlined } from '@ant-design/icons';
-import { runtime } from '@utils/browser-api';
+import { call, subscribe } from '@utils/bridge';
+import type { ListedTestRun } from '@utils/bridge/contracts';
 import { App, Button, Empty, Space, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -39,19 +40,7 @@ export interface TestRunOwner {
   id: string;
 }
 
-interface ListedRun {
-  id: string;
-  ownerType: TestRunOwnerType;
-  ownerId: string;
-  ownerNameAtRun: string;
-  url: string;
-  startedAt: number;
-  endedAt: number;
-  waitSeconds: number;
-  fires: { ruleUid: string }[];
-  ruleStatuses: Record<string, 'executed' | 'no-fire' | 'skipped'>;
-  isStale: boolean;
-}
+type ListedRun = ListedTestRun;
 
 // ── Tab definitions ─────────────────────────────────────────────────
 
@@ -119,14 +108,18 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
 
   const loadRuns = useCallback(() => {
     setLoading(true);
-    const msg = contextOwner
-      ? { type: 'listTestRunsForOwner', ownerType: contextOwner.type, ownerId: contextOwner.id }
-      : { type: 'listAllTestRuns' };
-    runtime.sendMessage(msg, (response: unknown) => {
-      const data = response as { success?: boolean; runs?: ListedRun[] } | null;
-      setRuns(data?.success && data.runs ? data.runs : []);
-      setLoading(false);
-    });
+    const request = contextOwner
+      ? call('listTestRunsForOwner', { ownerType: contextOwner.type, ownerId: contextOwner.id })
+      : call('listAllTestRuns');
+    request
+      .then((data) => {
+        setRuns(data?.success && data.runs ? data.runs : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setRuns([]);
+        setLoading(false);
+      });
   }, [contextOwner]);
 
   useEffect(() => {
@@ -137,39 +130,34 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   // care about the matching owner; in global mode every finish/delete
   // is relevant.
   useEffect(() => {
-    type RefreshMsg = {
-      type?: string;
-      ownerType?: TestRunOwnerType;
-      ownerId?: string;
-    };
-    const listener = (msg: unknown): void => {
-      const m = msg as RefreshMsg;
-      if (!m?.type) return;
-      if (m.type === 'testRunFinished') {
-        if (!contextOwner) {
-          loadRuns();
-        } else if (m.ownerType === contextOwner.type && m.ownerId === contextOwner.id) {
-          loadRuns();
-        }
-      } else if (m.type === 'testRunDeleted' || m.type === 'testRunsClearedForOwner') {
+    const unsubFinished = subscribe('testRunFinished', (payload) => {
+      if (!contextOwner) {
+        loadRuns();
+      } else if (payload.ownerType === contextOwner.type && payload.ownerId === contextOwner.id) {
         loadRuns();
       }
+    });
+    const unsubDeleted = subscribe('testRunDeleted', () => loadRuns());
+    const unsubCleared = subscribe('testRunsClearedForOwner', () => loadRuns());
+    return () => {
+      unsubFinished();
+      unsubDeleted();
+      unsubCleared();
     };
-    chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
   }, [contextOwner, loadRuns]);
 
   const handleDelete = useCallback(
     (runId: string) => {
-      runtime.sendMessage({ type: 'deleteTestRun', runId }, (response: unknown) => {
-        const data = response as { success?: boolean } | null;
-        if (data?.success) {
-          message.success('Deleted');
-          loadRuns();
-        } else {
-          message.error('Failed to delete');
-        }
-      });
+      call('deleteTestRun', { runId })
+        .then((data) => {
+          if (data?.success) {
+            message.success('Deleted');
+            loadRuns();
+          } else {
+            message.error('Failed to delete');
+          }
+        })
+        .catch(() => message.error('Failed to delete'));
     },
     [message, loadRuns],
   );

@@ -28,9 +28,9 @@ declare const browser: typeof chrome | undefined;
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
+import { broadcast } from '@utils/bridge';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { sendMessageWithCallback } from '@utils/messaging';
 import { get as getSetting } from '@/rules/settings/store';
 import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
 import {
@@ -329,15 +329,11 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
         `Active rule count (${effectiveDynamic.length}) >= ${threshold} — approaching DNR capacity`,
       );
       // Let the popup / workspace display a non-blocking warning.
-      sendMessageWithCallback(
-        {
-          type: 'largeRuleSetWarning',
-          activeCount: effectiveDynamic.length,
-          threshold,
-          dropped,
-        },
-        () => {},
-      );
+      broadcast('largeRuleSetWarning', {
+        activeCount: effectiveDynamic.length,
+        threshold,
+        dropped,
+      });
     }
   }
 

@@ -4,9 +4,8 @@
  */
 
 import type { AppNavigationIntent } from '@openheaders/core';
+import { BridgeError, call } from './bridge';
 import { logger } from './logger';
-
-declare const browser: typeof chrome | undefined;
 
 export type LaunchData = AppNavigationIntent;
 
@@ -17,11 +16,9 @@ interface LaunchResult {
 
 export class AppLauncher {
   private protocolName: string;
-  private runtime: typeof chrome.runtime;
 
   constructor() {
     this.protocolName = 'openheaders';
-    this.runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
   }
 
   /**
@@ -41,26 +38,13 @@ export class AppLauncher {
 
   private async tryWebSocket(data: LaunchData): Promise<boolean> {
     try {
-      // Send message to background script to use its WebSocket connection
-      return new Promise<boolean>((resolve) => {
-        this.runtime.sendMessage(
-          {
-            type: 'focusApp',
-            navigation: data,
-          },
-          (response: { success?: boolean } | undefined) => {
-            // Check for errors
-            const lastError = this.runtime.lastError;
-            if (lastError) {
-              logger.info('AppLauncher', 'Could not send focusApp via background:', lastError.message);
-              resolve(false);
-            } else {
-              resolve(response?.success || false);
-            }
-          },
-        );
-      });
+      const response = await call('focusApp', { navigation: data });
+      return response.success;
     } catch (e) {
+      if (e instanceof BridgeError) {
+        logger.info('AppLauncher', 'Could not send focusApp via background:', e.message);
+        return false;
+      }
       logger.info('AppLauncher', 'Failed to communicate with background script:', e);
       return false;
     }

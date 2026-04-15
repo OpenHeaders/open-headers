@@ -9,8 +9,8 @@
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { computePausedUids, resolvePauseState } from '@openheaders/core/utils';
-import { runtime, storage } from '@utils/browser-api';
-import { sendMessageWithCallback } from '@utils/messaging';
+import { call, subscribe } from '@utils/bridge';
+import { storage } from '@utils/browser-api';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -192,53 +192,37 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   // ── Load rules from background ────────────────────────────────
 
   const loadRules = useCallback(() => {
-    sendMessageWithCallback({ type: 'popupOpen' }, (response, error) => {
-      if (!error && response) {
-        const resp = response as { rules?: V5.Rule[]; connected?: boolean };
+    call('popupOpen')
+      .then((resp) => {
         setRules(resp.rules ?? []);
         setIsConnected(resp.connected ?? false);
         setIsStatusLoaded(true);
-      } else {
+      })
+      .catch(() => {
         setIsConnected(false);
         setIsStatusLoaded(true);
-      }
-    });
+      });
   }, []);
 
   const loadLocalCollections = useCallback(() => {
-    sendMessageWithCallback({ type: 'getLocalCollections' }, (response, error) => {
-      if (!error && response) {
-        const resp = response as { collections?: V5.Collection[] };
-        setLocalCollections(resp.collections ?? []);
-      }
-    });
-    sendMessageWithCallback({ type: 'getLocalCollectionTrees' }, (response, error) => {
-      if (!error && response) {
-        const resp = response as { collectionTrees?: V5.CollectionTree[] };
-        setLocalCollectionTrees(resp.collectionTrees ?? []);
-      }
-    });
+    call('getLocalCollections')
+      .then((resp) => setLocalCollections(resp.collections ?? []))
+      .catch(() => undefined);
+    call('getLocalCollectionTrees')
+      .then((resp) => setLocalCollectionTrees(resp.collectionTrees ?? []))
+      .catch(() => undefined);
   }, []);
 
   const loadTemplateData = useCallback(() => {
-    sendMessageWithCallback({ type: 'getTemplates' }, (response, error) => {
-      if (!error && response) {
-        const resp = response as { templates?: V5.Template[] };
-        setTemplates(resp.templates ?? []);
-      }
-    });
-    sendMessageWithCallback({ type: 'getTemplateCollections' }, (response, error) => {
-      if (!error && response) {
-        const resp = response as { collections?: V5.Collection[] };
-        setTemplateCollections(resp.collections ?? []);
-      }
-    });
-    sendMessageWithCallback({ type: 'getTemplateCollectionTrees' }, (response, error) => {
-      if (!error && response) {
-        const resp = response as { collectionTrees?: V5.CollectionTree[] };
-        setTemplateCollectionTrees(resp.collectionTrees ?? []);
-      }
-    });
+    call('getTemplates')
+      .then((resp) => setTemplates(resp.templates ?? []))
+      .catch(() => undefined);
+    call('getTemplateCollections')
+      .then((resp) => setTemplateCollections(resp.collections ?? []))
+      .catch(() => undefined);
+    call('getTemplateCollectionTrees')
+      .then((resp) => setTemplateCollectionTrees(resp.collectionTrees ?? []))
+      .catch(() => undefined);
   }, []);
 
   const refreshRules = useCallback(() => {
@@ -263,25 +247,17 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     });
 
     // Listen for rule/template updates from background (pushed on any store mutation)
-    const messageListener = (message: { type?: string; rules?: V5.Rule[]; templates?: V5.Template[] }) => {
-      if (message.type === 'rulesUpdated' && Array.isArray(message.rules)) {
-        setRules(message.rules);
-        loadLocalCollections();
-      } else if (message.type === 'templatesUpdated') {
-        if (Array.isArray(message.templates)) setTemplates(message.templates);
-        loadTemplateData();
-      } else if (message.type === 'connectionStatus') {
-        setIsConnected((message as { connected?: boolean }).connected ?? false);
-      }
-    };
-
-    runtime.onMessage.addListener(
-      messageListener as (
-        message: unknown,
-        sender: chrome.runtime.MessageSender,
-        sendResponse: (response?: unknown) => void,
-      ) => void,
-    );
+    const unsubRules = subscribe('rulesUpdated', (payload) => {
+      if (Array.isArray(payload.rules)) setRules(payload.rules);
+      loadLocalCollections();
+    });
+    const unsubTemplates = subscribe('templatesUpdated', (payload) => {
+      if (Array.isArray(payload.templates)) setTemplates(payload.templates);
+      loadTemplateData();
+    });
+    const unsubConnection = subscribe('connectionStatus', (payload) => {
+      setIsConnected(payload.connected ?? false);
+    });
 
     // Listen for pause marker changes
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
@@ -296,13 +272,9 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     const intervalId = setInterval(loadRules, 5000);
 
     return () => {
-      runtime.onMessage.removeListener(
-        messageListener as (
-          message: unknown,
-          sender: chrome.runtime.MessageSender,
-          sendResponse: (response?: unknown) => void,
-        ) => void,
-      );
+      unsubRules();
+      unsubTemplates();
+      unsubConnection();
       storage.onChanged.removeListener(handleStorageChange);
       clearInterval(intervalId);
     };
@@ -431,154 +403,113 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   // no per-function guessing about which subset to reload.
 
   const createLocalRule = useCallback(
-    (rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid?: string, parentPath?: string): Promise<V5.Rule | null> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createLocalRule', rule, collectionUid, parentPath }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean; rule?: V5.Rule };
-            if (resp.success && resp.rule) {
-              refreshRules();
-              resolve(resp.rule);
-              return;
-            }
-          }
-          resolve(null);
-        });
-      });
+    async (
+      rule: Omit<V5.Rule, 'uid' | 'path'>,
+      collectionUid?: string,
+      parentPath?: string,
+    ): Promise<V5.Rule | null> => {
+      const resp = await call('createLocalRule', { rule, collectionUid, parentPath }).catch(() => null);
+      if (resp?.success && resp.rule) {
+        refreshRules();
+        return resp.rule;
+      }
+      return null;
     },
     [refreshRules],
   );
 
   const updateLocalRuleFn = useCallback(
-    (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'updateLocalRule', ruleId: uid, updates }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
+      const resp = await call('updateLocalRule', { ruleId: uid, updates }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const deleteLocalRuleFn = useCallback(
-    (uid: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'deleteRule', ruleId: uid }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string): Promise<boolean> => {
+      const resp = await call('deleteRule', { ruleId: uid }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const createLocalCollectionFn = useCallback(
-    (name: string): Promise<V5.Collection | null> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createLocalCollection', name }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean; collection?: V5.Collection };
-            if (resp.success && resp.collection) {
-              refreshRules();
-              resolve(resp.collection);
-              return;
-            }
-          }
-          resolve(null);
-        });
-      });
+    async (name: string): Promise<V5.Collection | null> => {
+      const resp = await call('createLocalCollection', { name }).catch(() => null);
+      if (resp?.success && resp.collection) {
+        refreshRules();
+        return resp.collection;
+      }
+      return null;
     },
     [refreshRules],
   );
 
   const renameLocalCollectionFn = useCallback(
-    (uid: string, name: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'renameLocalCollection', collectionUid: uid, name }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string, name: string): Promise<boolean> => {
+      const resp = await call('renameLocalCollection', { collectionUid: uid, name }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const deleteLocalCollectionFn = useCallback(
-    (uid: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'deleteLocalCollection', collectionUid: uid }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string): Promise<boolean> => {
+      const resp = await call('deleteLocalCollection', { collectionUid: uid }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const createLocalFolderFn = useCallback(
-    (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createLocalFolder', name, parentPath }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean; folder?: { uid: string; path: string; name: string } };
-            if (resp.success && resp.folder) {
-              refreshRules();
-              resolve(resp.folder);
-              return;
-            }
-          }
-          resolve(null);
-        });
-      });
+    async (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
+      const resp = await call('createLocalFolder', { name, parentPath }).catch(() => null);
+      if (resp?.success && resp.folder) {
+        refreshRules();
+        return resp.folder;
+      }
+      return null;
     },
     [refreshRules],
   );
 
   const renameLocalFolderFn = useCallback(
-    (uid: string, name: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'renameLocalFolder', folderUid: uid, name }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string, name: string): Promise<boolean> => {
+      const resp = await call('renameLocalFolder', { folderUid: uid, name }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const deleteLocalFolderFn = useCallback(
-    (uid: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'deleteLocalFolder', folderUid: uid }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string): Promise<boolean> => {
+      const resp = await call('deleteLocalFolder', { folderUid: uid }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
@@ -586,158 +517,113 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   // ── Template CRUD ─────────────────────────────────────────────
 
   const createTemplateFn = useCallback(
-    (
+    async (
       template: Omit<V5.Template, 'uid' | 'path'>,
       collectionUid?: string,
       parentPath?: string,
     ): Promise<V5.Template | null> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createTemplate', template, collectionUid, parentPath }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean; template?: V5.Template };
-            if (resp.success && resp.template) {
-              refreshRules();
-              resolve(resp.template);
-              return;
-            }
-          }
-          resolve(null);
-        });
-      });
+      const resp = await call('createTemplate', { template, collectionUid, parentPath }).catch(() => null);
+      if (resp?.success && resp.template) {
+        refreshRules();
+        return resp.template;
+      }
+      return null;
     },
     [refreshRules],
   );
 
   const updateTemplateFn = useCallback(
-    (uid: string, updates: Partial<Omit<V5.Template, 'uid' | 'path'>>): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'updateTemplate', templateUid: uid, updates }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string, updates: Partial<Omit<V5.Template, 'uid' | 'path'>>): Promise<boolean> => {
+      const resp = await call('updateTemplate', { templateUid: uid, updates }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const deleteTemplateFn = useCallback(
-    (uid: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'deleteTemplate', templateUid: uid }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string): Promise<boolean> => {
+      const resp = await call('deleteTemplate', { templateUid: uid }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const createTemplateCollectionFn = useCallback(
-    (name: string): Promise<V5.Collection | null> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createTemplateCollection', name }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean; collection?: V5.Collection };
-            if (resp.success && resp.collection) {
-              refreshRules();
-              resolve(resp.collection);
-              return;
-            }
-          }
-          resolve(null);
-        });
-      });
+    async (name: string): Promise<V5.Collection | null> => {
+      const resp = await call('createTemplateCollection', { name }).catch(() => null);
+      if (resp?.success && resp.collection) {
+        refreshRules();
+        return resp.collection;
+      }
+      return null;
     },
     [refreshRules],
   );
 
   const renameTemplateCollectionFn = useCallback(
-    (uid: string, name: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'renameTemplateCollection', collectionUid: uid, name }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string, name: string): Promise<boolean> => {
+      const resp = await call('renameTemplateCollection', { collectionUid: uid, name }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const deleteTemplateCollectionFn = useCallback(
-    (uid: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'deleteTemplateCollection', collectionUid: uid }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string): Promise<boolean> => {
+      const resp = await call('deleteTemplateCollection', { collectionUid: uid }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const createTemplateFolderFn = useCallback(
-    (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'createTemplateFolder', name, parentPath }, (response, error) => {
-          if (!error && response) {
-            const resp = response as { success?: boolean; folder?: { uid: string; path: string; name: string } };
-            if (resp.success && resp.folder) {
-              refreshRules();
-              resolve(resp.folder);
-              return;
-            }
-          }
-          resolve(null);
-        });
-      });
+    async (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
+      const resp = await call('createTemplateFolder', { name, parentPath }).catch(() => null);
+      if (resp?.success && resp.folder) {
+        refreshRules();
+        return resp.folder;
+      }
+      return null;
     },
     [refreshRules],
   );
 
   const renameTemplateFolderFn = useCallback(
-    (uid: string, name: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'renameTemplateFolder', folderUid: uid, name }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string, name: string): Promise<boolean> => {
+      const resp = await call('renameTemplateFolder', { folderUid: uid, name }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );
 
   const deleteTemplateFolderFn = useCallback(
-    (uid: string): Promise<boolean> => {
-      return new Promise((resolve) => {
-        sendMessageWithCallback({ type: 'deleteTemplateFolder', folderUid: uid }, (response, error) => {
-          if (!error && response && (response as { success?: boolean }).success) {
-            refreshRules();
-            resolve(true);
-            return;
-          }
-          resolve(false);
-        });
-      });
+    async (uid: string): Promise<boolean> => {
+      const resp = await call('deleteTemplateFolder', { folderUid: uid }).catch(() => null);
+      if (resp?.success) {
+        refreshRules();
+        return true;
+      }
+      return false;
     },
     [refreshRules],
   );

@@ -29,8 +29,8 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { hasNestedPauseMarkers, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
-import { runtime } from '@utils/browser-api';
+import { hasNestedPauseMarkers, isRuleComplete } from '@openheaders/core/utils';
+import { call } from '@utils/bridge';
 import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -204,6 +204,7 @@ function SectionHeader({
         {title}
       </span>
       {actions && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation guard for nested click handlers
         <span onClick={(e) => e.stopPropagation()} onKeyDown={() => {}}>
           {actions}
         </span>
@@ -254,7 +255,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     clearPauseOverride,
     clearNestedPauseOverrides,
     updateLocalRule,
-    deleteLocalRule,
     deleteLocalCollection,
     createLocalFolder,
     renameLocalFolder,
@@ -262,7 +262,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameLocalCollection,
     createLocalCollection,
     templateCollectionTrees,
-    templates,
     deleteTemplate,
     updateTemplate,
     createTemplateCollection,
@@ -357,9 +356,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleToggleRule = useCallback(
     (ruleUid: string, enabled: boolean) => {
-      runtime.sendMessage({ type: 'toggleRule', ruleId: ruleUid, enabled }, (response: unknown) => {
-        if (!(response as { success?: boolean } | undefined)?.success) message.error('Failed to toggle rule');
-      });
+      call('toggleRule', { ruleId: ruleUid, enabled })
+        .then((resp) => {
+          if (!resp?.success) message.error('Failed to toggle rule');
+        })
+        .catch(() => message.error('Failed to toggle rule'));
     },
     [message],
   );
@@ -890,7 +891,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
 
     return items;
-  }, [expandedKeys, lowerFilter, toggleExpand, onCreateRule]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: RULE_TYPE_LABEL is a module-level constant, stable across renders
+  }, [expandedKeys, lowerFilter, toggleExpand, onCreateRule, RULE_TYPE_LABEL]);
 
   // ── User template collection nodes ────────────────────────────
 
@@ -1293,23 +1295,34 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Tooltip>
         </Dropdown>
         <Tooltip title="Select Opened Tab" placement="bottom">
-          <div
+          <button
+            type="button"
             className="rules-sidebar-toolbar-icon"
-            style={{ color: token.colorTextSecondary }}
+            style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
             onClick={selectOpenedFile}
           >
             <AimOutlined />
-          </div>
+          </button>
         </Tooltip>
         <Tooltip title="Expand All" placement="bottom">
-          <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={expandAll}>
+          <button
+            type="button"
+            className="rules-sidebar-toolbar-icon"
+            style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+            onClick={expandAll}
+          >
             <MenuUnfoldOutlined />
-          </div>
+          </button>
         </Tooltip>
         <Tooltip title="Collapse All" placement="bottom">
-          <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }} onClick={collapseAll}>
+          <button
+            type="button"
+            className="rules-sidebar-toolbar-icon"
+            style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+            onClick={collapseAll}
+          >
             <BorderLeftOutlined />
-          </div>
+          </button>
         </Tooltip>
         <Dropdown
           menu={{
@@ -1354,14 +1367,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </Dropdown>
       </div>
 
-      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation */}
-      <div
-        ref={containerRef}
-        className="rules-sidebar-content"
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        style={{ outline: 'none' }}
-      >
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation container */}
+      <div ref={containerRef} className="rules-sidebar-content" onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
         <SectionHeader
           title="API REQUESTS"
           expanded={sectionsExpanded.requests}

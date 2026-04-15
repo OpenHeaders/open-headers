@@ -21,20 +21,19 @@ const EnumField: React.FC<EnumFieldProps> = ({ def }) => {
 
   const control =
     options.length <= 4 ? (
-      <Radio.Group
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        optionType="button"
-        buttonStyle="solid"
-      >
+      <Radio.Group value={value} onChange={(e) => setValue(e.target.value)} optionType="button" buttonStyle="solid">
         {options.map((opt) => {
-          const button = <Radio.Button value={opt.value}>{opt.label}</Radio.Button>;
+          const button = (
+            <Radio.Button key={String(opt.value)} value={opt.value}>
+              {opt.label}
+            </Radio.Button>
+          );
           return opt.description ? (
             <Tooltip key={String(opt.value)} title={opt.description}>
               {button}
             </Tooltip>
           ) : (
-            <span key={String(opt.value)}>{button}</span>
+            button
           );
         })}
       </Radio.Group>

@@ -14,10 +14,7 @@ import { registerSetting } from '../registry';
 
 const themeSchema = v.picklist(['light', 'dark', 'auto']);
 const densitySchema = v.picklist(['comfortable', 'compact']);
-const accentSchema = v.pipe(
-  v.string(),
-  v.regex(/^#[0-9a-fA-F]{6}$/, 'Must be a 6-digit hex color like #1677ff'),
-);
+const accentSchema = v.pipe(v.string(), v.regex(/^#[0-9a-fA-F]{6}$/, 'Must be a 6-digit hex color like #1677ff'));
 
 export type Theme = v.InferOutput<typeof themeSchema>;
 export type Density = v.InferOutput<typeof densitySchema>;

@@ -35,10 +35,11 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { runtime } from '@utils/browser-api';
+import { call } from '@utils/bridge';
 import { App, Button, Checkbox, Empty, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { LoadedTestRun } from '@/background/modules/test-run-store';
 import { Connector, Terminus } from './rule-flow/Connector';
 import type { RuleStatusOverlay } from './rule-flow/FlowRuleCard';
 import PriorityGroup, { PRIORITY_TIERS } from './rule-flow/PriorityGroup';
@@ -46,9 +47,6 @@ import PriorityGroup, { PRIORITY_TIERS } from './rule-flow/PriorityGroup';
 const { Text, Title } = Typography;
 
 // ── Types (must match background test-run-store) ────────────
-
-type TestRuleStatus = 'executed' | 'no-fire' | 'skipped';
-type TestRunOwnerType = 'rule' | 'folder' | 'collection';
 
 type ShadowKind =
   | 'block-terminal'
@@ -74,22 +72,7 @@ interface TestFireEvent {
 }
 
 /** Loaded from test-run-store — same shape as StoredTestRun + isStale. */
-interface TestRun {
-  id: string;
-  ownerType: TestRunOwnerType;
-  ownerId: string;
-  ownerNameAtRun: string;
-  ruleUids: string[];
-  url: string;
-  startedAt: number;
-  endedAt: number;
-  waitSeconds: number;
-  fires: TestFireEvent[];
-  ruleStatuses: Record<string, TestRuleStatus>;
-  noFireReasons?: Record<string, ShadowAttribution>;
-  ownerHashAtRun: string;
-  isStale: boolean;
-}
+type TestRun = LoadedTestRun;
 
 /**
  * Human-readable explanation for each shadow reason. Keyed on the
@@ -164,29 +147,34 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
   useEffect(() => {
     setLoading(true);
     setError(null);
-    runtime.sendMessage({ type: 'getTestRun', runId }, (response: unknown) => {
-      const data = response as { success?: boolean; run?: TestRun | null; error?: string } | null;
-      if (data?.success && data.run) {
-        setRun(data.run);
-      } else if (data?.success) {
-        setError('Run not found — it may have been deleted.');
-      } else {
-        setError(data?.error ?? 'Failed to load test run');
-      }
-      setLoading(false);
-    });
+    call('getTestRun', { runId })
+      .then((data) => {
+        if (data?.success && data.run) {
+          setRun(data.run);
+        } else if (data?.success) {
+          setError('Run not found — it may have been deleted.');
+        } else {
+          setError(data?.error ?? 'Failed to load test run');
+        }
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, [runId]);
 
   const handleDelete = useCallback(() => {
-    runtime.sendMessage({ type: 'deleteTestRun', runId }, (response: unknown) => {
-      const data = response as { success?: boolean } | null;
-      if (data?.success) {
-        message.success('Test run deleted');
-        onAfterDelete?.();
-      } else {
-        message.error('Failed to delete test run');
-      }
-    });
+    call('deleteTestRun', { runId })
+      .then((data) => {
+        if (data?.success) {
+          message.success('Test run deleted');
+          onAfterDelete?.();
+        } else {
+          message.error('Failed to delete test run');
+        }
+      })
+      .catch(() => message.error('Failed to delete test run'));
   }, [runId, message, onAfterDelete]);
 
   // Resolve scoped rules from the live rule store. Rules can change between

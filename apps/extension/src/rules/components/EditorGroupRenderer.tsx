@@ -88,9 +88,7 @@ function computeZoneForLeaf(leafEl: HTMLElement, clientX: number, clientY: numbe
         { zone: 'top', distance: relY, threshold: TOP_EDGE_THRESHOLD },
         { zone: 'bottom', distance: 1 - relY, threshold: EDGE_THRESHOLD },
       ];
-      const hit = candidates
-        .filter((c2) => c2.distance < c2.threshold)
-        .sort((a, b) => a.distance - b.distance)[0];
+      const hit = candidates.filter((c2) => c2.distance < c2.threshold).sort((a, b) => a.distance - b.distance)[0];
       if (hit) return hit.zone;
     }
   }
@@ -259,9 +257,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
     onDragOver: (event) => {
       const drag = dragRef.current;
       if (!drag) return;
-      const overData = event.over?.data.current as
-        | { kind?: unknown; leafId?: unknown; tabId?: unknown }
-        | undefined;
+      const overData = event.over?.data.current as { kind?: unknown; leafId?: unknown; tabId?: unknown } | undefined;
       if (overData?.kind !== 'editor-tab') {
         setInsertion((prev) => (prev === null ? prev : null));
         return;
@@ -299,7 +295,11 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
       // Priority 1: dropped on another editor tab (sortable droppable).
       const over = event.over;
       const overData = over?.data.current as { kind?: unknown; leafId?: unknown; tabId?: unknown } | undefined;
-      if (overData?.kind === 'editor-tab' && typeof overData.leafId === 'string' && typeof overData.tabId === 'string') {
+      if (
+        overData?.kind === 'editor-tab' &&
+        typeof overData.leafId === 'string' &&
+        typeof overData.tabId === 'string'
+      ) {
         const toLeafId = overData.leafId;
         const toTabId = overData.tabId;
         if (drag.fromLeafId === toLeafId) {

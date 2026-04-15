@@ -15,7 +15,6 @@ import { storage } from '@utils/browser-api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   activateTabInLeaf,
-  allLeaves,
   type EditorLeaf,
   type EditorNode,
   findLeaf,

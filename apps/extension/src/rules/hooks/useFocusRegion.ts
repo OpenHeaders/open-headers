@@ -137,13 +137,9 @@ export function useFocusRegion({ shellRef, setFocusedRegion, setFocusedDock }: U
   // external store — no React reconciler work runs inside this listener,
   // so the commit can't race with antd's controlled <Radio.Group> click
   // handling.
-  useShellClickCapture(
-    useCallback((event: MouseEvent) => commitFromTarget(event.target), [commitFromTarget]),
-  );
+  useShellClickCapture(useCallback((event: MouseEvent) => commitFromTarget(event.target), [commitFromTarget]));
 
-  useShellFocusIn(
-    useCallback((event: FocusEvent) => commitFromTarget(event.target), [commitFromTarget]),
-  );
+  useShellFocusIn(useCallback((event: FocusEvent) => commitFromTarget(event.target), [commitFromTarget]));
 
   useShellFocusOut(
     useCallback(

@@ -2,7 +2,8 @@ import ErrorBoundary from '@components/ErrorBoundary';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
-import { runtime } from '@utils/browser-api';
+import { call, presence } from '@utils/bridge';
+import { logger } from '@utils/logger';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -69,59 +70,19 @@ const AppContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    console.log(new Date().toISOString(), 'INFO ', '[Popup]', 'Popup: Establishing connection to background script');
+    // Presence port: the background's tab-listeners watches for this
+    // port to disconnect so it can refresh the badge when the popup
+    // closes. Bridge.presence owns the full lifecycle.
+    const disposePresence = presence('popup');
 
-    let port: chrome.runtime.Port | null = null;
+    // Announce popupOpen so the SW reports connection status + rule set
+    // in one round-trip. Fire-and-forget: the periodic poll in
+    // RuleContext will refresh if this first call loses the race.
+    call('popupOpen').catch((error: Error) => {
+      logger.info('Popup', 'popupOpen RPC failed:', error.message);
+    });
 
-    try {
-      const browserAPI = getBrowserAPI();
-      port = browserAPI.runtime.connect({ name: 'popup' });
-
-      port.onDisconnect.addListener(() => {
-        if (browserAPI.runtime.lastError) {
-          console.log(
-            new Date().toISOString(),
-            'INFO ',
-            '[Popup]',
-            'Popup: Port disconnected:',
-            browserAPI.runtime.lastError.message,
-          );
-        }
-      });
-
-      runtime.sendMessage({ type: 'popupOpen' }, (response: unknown) => {
-        if (browserAPI.runtime.lastError) {
-          console.log(
-            new Date().toISOString(),
-            'INFO ',
-            '[Popup]',
-            'Popup: Background script not ready yet:',
-            browserAPI.runtime.lastError.message,
-          );
-        } else if (response) {
-          console.log(new Date().toISOString(), 'INFO ', '[Popup]', 'Popup: Received response from background');
-        }
-      });
-    } catch (error) {
-      console.log(
-        new Date().toISOString(),
-        'INFO ',
-        '[Popup]',
-        'Popup: Error connecting to background:',
-        (error as Error).message,
-      );
-    }
-
-    return () => {
-      console.log(new Date().toISOString(), 'INFO ', '[Popup]', 'Popup: Closing, disconnecting from background');
-      if (port) {
-        try {
-          port.disconnect();
-        } catch (_error) {
-          // Ignore disconnect errors
-        }
-      }
-    };
+    return disposePresence;
   }, []);
 
   return (

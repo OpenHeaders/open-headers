@@ -10,7 +10,7 @@
 import { PlayCircleOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { parseTestTargetUrl } from '@openheaders/core/utils';
-import { runtime } from '@utils/browser-api';
+import { call } from '@utils/bridge';
 import { App, AutoComplete, Button, Input, Modal, Space, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -118,12 +118,11 @@ const TestRunModal: React.FC<TestRunModalProps> = ({
 
     setError(null);
 
-    // Fire-and-forget: the response callback won't fire if Chrome closes the
-    // popup before the capture window ends, but the background still runs the
-    // test and persists the result. The in-page widget on the test tab is
-    // the primary feedback surface.
-    runtime.sendMessage({
-      type: 'startTestRun',
+    // Fire-and-forget: the response won't arrive if Chrome closes the
+    // popup before the capture window ends, but the background still runs
+    // the test and persists the result. The in-page widget on the test
+    // tab is the primary feedback surface.
+    void call('startTestRun', {
       ownerType,
       ownerId,
       scopeLabel,
@@ -133,7 +132,7 @@ const TestRunModal: React.FC<TestRunModalProps> = ({
       // `127.0.0.1:3000` would otherwise be interpreted as a file path.
       url: targetUrl,
       waitSeconds: waitNumber,
-    });
+    }).catch(() => undefined);
 
     message.success({
       content: 'Test running — see the floating panel on the new tab',

@@ -31,6 +31,23 @@ const runtimeMock = {
   onStartup: {
     addListener: vi.fn(),
   },
+  onConnect: {
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  },
+  connect: vi.fn((_info?: chrome.runtime.ConnectInfo) => ({
+    name: _info?.name ?? '',
+    disconnect: vi.fn(),
+    onDisconnect: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    },
+    onMessage: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    },
+    postMessage: vi.fn(),
+  })),
   getURL: vi.fn((path: string) => `chrome-extension://test-id/${path}`),
   getManifest: vi.fn(() => ({ version: '4.0.0' })),
   lastError: null as chrome.runtime.LastError | null,

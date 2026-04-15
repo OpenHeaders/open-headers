@@ -452,6 +452,8 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       setExpandedRowKey,
       containerRef,
       focusLastRowOnPageChange,
+      onOpenSettings,
+      onPauseRow,
     ],
   );
 

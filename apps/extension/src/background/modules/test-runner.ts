@@ -56,6 +56,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete, parseTestTargetUrl, resolvePauseState } from '@openheaders/core/utils';
+import { broadcast } from '@utils/bridge';
 import { runtime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { applyAllRules, applyAllRulesAsync, getPauseMarkers } from '../dnr-manager';
@@ -63,7 +64,6 @@ import { matchRulesToRequest } from './request-tracker';
 import { getRules } from './rule-store';
 import { arbitrate, type ShadowAttribution } from './shadow-arbitration';
 import {
-  type Evidence,
   getObservedUrls,
   getTabSnapshotForScope,
   type RequestRecord,
@@ -209,17 +209,11 @@ export {
 
 async function persistAndAnnounce(result: TestRun): Promise<void> {
   await persistTestRun(result);
-  try {
-    // Notify any open workspace/popup listeners that a new result is available.
-    runtime.sendMessage({
-      type: 'testRunFinished',
-      runId: result.id,
-      ownerType: result.ownerType,
-      ownerId: result.ownerId,
-    });
-  } catch {
-    // No listeners — fine.
-  }
+  broadcast('testRunFinished', {
+    runId: result.id,
+    ownerType: result.ownerType,
+    ownerId: result.ownerId,
+  });
 }
 
 // ── Public start/stop API ─────────────────────────────────────────

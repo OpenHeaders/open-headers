@@ -117,6 +117,7 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
                   }}
                 />
               ) : (
+                // biome-ignore lint/a11y/noStaticElementInteractions: role="button" provided conditionally when interactive
                 <span
                   className={`rules-breadcrumb ${isLast && onRename ? 'editable' : ''}`}
                   style={{

@@ -13,8 +13,8 @@ vi.mock('@utils/browser-api', () => ({
 }));
 
 const mockSendMessage = vi.fn();
-vi.mock('@utils/messaging', () => ({
-  sendMessageWithCallback: (...args: unknown[]) => mockSendMessage(...args),
+vi.mock('@utils/bridge', () => ({
+  broadcast: (type: string, payload: Record<string, unknown>) => mockSendMessage({ type, ...payload }),
 }));
 
 vi.mock('@utils/logger', () => ({
@@ -401,7 +401,9 @@ describe('addTrackedUrl', () => {
 
   it('notifies popup when a new URL is tracked', () => {
     addTrackedUrl(1, 'https://api.openheaders.io/v2');
-    expect(mockSendMessage).toHaveBeenCalledWith({ type: 'trackedUrlsUpdated', tabId: 1 }, expect.any(Function));
+    // Bridge broadcast path: direct `sendMessage({...})` without a callback
+    // so Firefox promise rejects stay silent when no page is open.
+    expect(mockSendMessage).toHaveBeenCalledWith({ type: 'trackedUrlsUpdated', tabId: 1 });
   });
 
   it('does not notify for duplicate URLs', () => {

@@ -3,9 +3,9 @@ import { useRules } from '@hooks/useRules';
 import { App, Badge, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import { useSetting } from '@/rules/settings/hooks';
 import { getBrowserAPI } from '@/types/browser';
+import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 
 const { Title, Text } = Typography;
 

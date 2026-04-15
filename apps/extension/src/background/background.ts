@@ -11,6 +11,7 @@ import { RecordingService } from '@assets/recording/background/recording-service
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { resolvePauseState } from '@openheaders/core/utils';
+import { broadcast } from '@utils/bridge';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
@@ -157,21 +158,13 @@ async function initializeExtension(): Promise<void> {
   // WebSocket-driven path where the desktop deletes rules/folders without
   // going through message-handler's local CRUD handlers.
   onStoreChange(() => {
-    try {
-      runtime.sendMessage({ type: 'rulesUpdated', rules: getRules() });
-    } catch {
-      // No listeners — popup/workspace not open
-    }
+    broadcast('rulesUpdated', { rules: getRules() });
     pruneOrphanTestRunOwnersFromStore();
   });
 
   // Broadcast template changes to all open extension pages
   onTemplateStoreChange(() => {
-    try {
-      runtime.sendMessage({ type: 'templatesUpdated', templates: getTemplates() });
-    } catch {
-      // No listeners — popup/workspace not open
-    }
+    broadcast('templatesUpdated', { templates: getTemplates() });
   });
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);

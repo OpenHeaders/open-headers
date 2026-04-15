@@ -259,7 +259,7 @@ export function matchesPopupShortcut(event: KeyboardEvent, id: PopupShortcutId):
   if (!def) return false;
 
   const hardcoded = def.hardcodedAliases;
-  if (hardcoded && hardcoded.includes(event.key)) return true;
+  if (hardcoded?.includes(event.key)) return true;
 
   const chord = readChord(def.settingKey);
   if (!chord) return false;

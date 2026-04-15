@@ -169,6 +169,8 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
   const handleCardClick = readOnly && onCardClick ? () => onCardClick(rule.uid) : undefined;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: role="button" set conditionally for read-only (test-result) mode
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the inner edit button is the keyboard-accessible path; whole-card click is mouse-only
     <div
       ref={setNodeRef}
       style={style}

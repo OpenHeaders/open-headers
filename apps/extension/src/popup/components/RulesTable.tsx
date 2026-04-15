@@ -12,6 +12,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
+import { call } from '@utils/bridge';
 import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
@@ -195,16 +196,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
       const record = dataSourceRef.current[index];
       if (!record) return;
       if (!record.id.startsWith('local-') && !isConnected) return;
-      const { runtime } = await import('../../utils/browser-api');
-      runtime.sendMessage(
-        { type: 'toggleRule', ruleId: record.id, enabled: !record.isEnabled },
-        (response: unknown) => {
-          const resp = response as { success?: boolean } | undefined;
-          if (!resp?.success) {
-            message.error('Failed to toggle rule');
-          }
-        },
-      );
+      const resp = await call('toggleRule', { ruleId: record.id, enabled: !record.isEnabled }).catch(() => null);
+      if (!resp?.success) {
+        message.error('Failed to toggle rule');
+      }
     },
     [isConnected, message],
   );
@@ -226,15 +221,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
       const record = dataSourceRef.current[index];
       if (!record) return;
       if (!record.id.startsWith('local-') && !isConnected) return;
-      const { runtime } = await import('../../utils/browser-api');
-      runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
-        const resp = response as { success?: boolean } | undefined;
-        if (resp?.success) {
-          message.success('Rule deleted');
-        } else {
-          message.error('Failed to delete rule');
-        }
-      });
+      const resp = await call('deleteRule', { ruleId: record.id }).catch(() => null);
+      if (resp?.success) {
+        message.success('Rule deleted');
+      } else {
+        message.error('Failed to delete rule');
+      }
     },
     [isConnected, message],
   );
@@ -386,13 +378,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
             checked={enabled}
             disabled={!canToggle}
             onChange={async () => {
-              const { runtime } = await import('../../utils/browser-api');
-              runtime.sendMessage({ type: 'toggleRule', ruleId: record.id, enabled: !enabled }, (response: unknown) => {
-                const resp = response as { success?: boolean } | undefined;
-                if (!resp?.success) {
-                  message.error('Failed to toggle rule');
-                }
-              });
+              const resp = await call('toggleRule', { ruleId: record.id, enabled: !enabled }).catch(() => null);
+              if (!resp?.success) {
+                message.error('Failed to toggle rule');
+              }
             }}
             size="small"
           />
@@ -427,15 +416,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 title="Delete rule"
                 description={`Delete "${record.name}"?`}
                 onConfirm={async () => {
-                  const { runtime } = await import('../../utils/browser-api');
-                  runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
-                    const resp = response as { success?: boolean } | undefined;
-                    if (resp?.success) {
-                      message.success('Rule deleted');
-                    } else {
-                      message.error('Failed to delete rule');
-                    }
-                  });
+                  const resp = await call('deleteRule', { ruleId: record.id }).catch(() => null);
+                  if (resp?.success) {
+                    message.success('Rule deleted');
+                  } else {
+                    message.error('Failed to delete rule');
+                  }
                 }}
                 okText="Delete"
                 okType="danger"

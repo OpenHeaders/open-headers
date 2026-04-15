@@ -40,8 +40,7 @@
  * audit missed something — it didn't. Leave this as-is.
  */
 
-declare const browser: typeof chrome | undefined;
-const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+import { call } from '@utils/bridge';
 
 interface DelayConfig {
   ms: number;
@@ -177,10 +176,7 @@ async function run(): Promise<void> {
   // the popup's "matched Nx" counter would show 0 for main-frame delays
   // because the scriptable XHR/fetch monkey-patch never sees them.
   try {
-    await browserAPI.runtime.sendMessage({
-      type: 'oh-delay-bypass',
-      target: cfg.target,
-    });
+    await call('oh-delay-bypass', { target: cfg.target });
   } catch {
     /* background not ready — fall through and navigate anyway; loop will
        be rate-limited by Chrome's DNR redirect-chain cap */

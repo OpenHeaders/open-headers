@@ -16,7 +16,6 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { Dropdown, Tooltip, theme } from 'antd';
-import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { TreeNode } from './types';
 
@@ -129,6 +128,8 @@ export function TreeNodeRow({
   const paddingLeft = 8 + node.depth * 16;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: sidebar tree row — keyboard nav happens at the parent container level
+    // biome-ignore lint/a11y/useKeyWithClickEvents: sidebar tree row — keyboard nav happens at the parent container level
     <div
       className={className}
       data-item-id={node.id}
@@ -217,6 +218,8 @@ export function TreeNodeRow({
           {/* Hover action for leaf nodes (enable/disable) */}
           {!node.canAddChild && node.hoverAction && (
             <Tooltip title={node.hoverAction.tooltip} placement="top">
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: hover-only icon; keyboard path is the row itself */}
+              {/* biome-ignore lint/a11y/useKeyWithClickEvents: hover-only icon; keyboard path is the row itself */}
               <span
                 className="rules-sidebar-item-hover-action"
                 onClick={(e) => {

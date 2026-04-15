@@ -340,7 +340,7 @@ export const declarativeNetRequest = browserAPI.declarativeNetRequest
         const dnr = browserAPI.declarativeNetRequest as typeof chrome.declarativeNetRequest & {
           getSessionRules?: (
             cb?: (rules: chrome.declarativeNetRequest.Rule[]) => void,
-          ) => Promise<chrome.declarativeNetRequest.Rule[]> | void;
+          ) => Promise<chrome.declarativeNetRequest.Rule[]> | undefined;
         };
         if (typeof dnr.getSessionRules !== 'function') {
           return Promise.resolve([]);
@@ -376,7 +376,7 @@ export const declarativeNetRequest = browserAPI.declarativeNetRequest
           getMatchedRules?: (
             f: chrome.declarativeNetRequest.MatchedRulesFilter,
             cb?: (d: chrome.declarativeNetRequest.RulesMatchedDetails) => void,
-          ) => Promise<chrome.declarativeNetRequest.RulesMatchedDetails> | void;
+          ) => Promise<chrome.declarativeNetRequest.RulesMatchedDetails> | undefined;
         };
         if (typeof dnr.getMatchedRules !== 'function') {
           return Promise.resolve({ rulesMatchedInfo: [] });

@@ -153,9 +153,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
             {row.kind === 'folder' ? (
               <FolderOutlined
                 style={{
-                  color: row.effectivelyPaused
-                    ? 'var(--ant-color-warning, #faad14)'
-                    : token.colorTextTertiary,
+                  color: row.effectivelyPaused ? 'var(--ant-color-warning, #faad14)' : token.colorTextTertiary,
                 }}
               />
             ) : (

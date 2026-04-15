@@ -41,7 +41,6 @@ export interface CommandPaletteData {
 export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): CommandPaletteData {
   const {
     rules,
-    templates,
     localCollectionTrees,
     templateCollectionTrees,
     pausedUids,

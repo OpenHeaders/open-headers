@@ -6,14 +6,13 @@
  * a side effect of importing SettingsProvider (via ./schema).
  */
 
-export { SettingsProvider } from './SettingsProvider';
 export { default as SettingsModal } from './components/SettingsModal';
 export { default as SettingsShell } from './components/SettingsShell';
 export { default as SettingsTab } from './components/SettingsTab';
-
-export { useSetting, useSettingValue, useIsModified, useResetSetting, useSettingsReady } from './hooks';
-export { get as getSettingValue, set as setSettingValue, reset as resetSetting } from './store';
+export { useIsModified, useResetSetting, useSetting, useSettingsReady, useSettingValue } from './hooks';
 export { allCategories, allDefs, byCategory, getDef } from './registry';
+export { SettingsProvider } from './SettingsProvider';
 export { searchSettings } from './search';
+export { get as getSettingValue, reset as resetSetting, set as setSettingValue } from './store';
 
-export type { SettingDef, CategoryDef, SettingKey, SettingsMap, SettingType } from './types';
+export type { CategoryDef, SettingDef, SettingKey, SettingsMap, SettingType } from './types';

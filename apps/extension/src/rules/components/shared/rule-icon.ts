@@ -21,7 +21,6 @@ import {
   SendOutlined,
   StopOutlined,
   SwapOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail } from '@openheaders/core/utils';

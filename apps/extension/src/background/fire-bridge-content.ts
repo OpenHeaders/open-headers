@@ -7,10 +7,10 @@
  *
  * Listens for `window.postMessage` payloads tagged with `__ohFire: true`
  * from MAIN-world generated scripts (delay/body/mock/header-merge) and
- * forwards them to the background via chrome.runtime.sendMessage as
- * `tabFire` messages. The background drops fires on the floor for tabs
- * that aren't being tracked, so the overhead on untracked tabs is one
- * message listener + one cheap Map lookup per fire.
+ * forwards them to the background via the shared bridge as `tabFire`
+ * messages. The background drops fires on the floor for tabs that
+ * aren't being tracked, so the overhead on untracked tabs is one message
+ * listener + one cheap Map lookup per fire.
  *
  * Why postMessage and not CustomEvent: Chrome MV3 content scripts run in
  * isolated JS realms. `CustomEvent.detail` is an opaque cross-realm JS
@@ -20,6 +20,8 @@
  * channel in MV3 — it performs structured cloning of the payload, which
  * works across realms.
  */
+
+import { call } from '@utils/bridge';
 
 interface OhFirePayload {
   __ohFire: true;
@@ -34,16 +36,15 @@ interface OhFirePayload {
     if (ev.source !== window) return;
     const data = ev.data as OhFirePayload | null | undefined;
     if (!data || data.__ohFire !== true) return;
-    try {
-      chrome.runtime.sendMessage({
-        type: 'tabFire',
-        ruleUid: data.ruleUid,
-        url: data.url,
-        kind: data.kind,
-        t: data.t,
-      });
-    } catch {
-      // Background service worker may be evicted or reloading — ignore.
-    }
+    // Fire-and-forget: the background handler always resolves with
+    // `{ success: true }`. The `catch` swallows SW-evicted / context-
+    // invalidated errors that surface through `BridgeError`.
+    call('tabFire', {
+      ruleUid: data.ruleUid,
+      url: data.url,
+      t: data.t,
+    }).catch(() => {
+      /* background service worker evicted or reloading — ignore */
+    });
   });
 })();

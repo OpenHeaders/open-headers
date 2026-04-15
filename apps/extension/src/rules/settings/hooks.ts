@@ -23,9 +23,7 @@ import type { SettingKey, SettingsMap } from './types';
  * Read + write one setting. Mirrors `useState`'s shape so migrating
  * local state to a setting is a one-line change.
  */
-export function useSetting<K extends SettingKey>(
-  key: K,
-): [SettingsMap[K], (value: SettingsMap[K]) => void] {
+export function useSetting<K extends SettingKey>(key: K): [SettingsMap[K], (value: SettingsMap[K]) => void] {
   const subscribe = useCallback((fn: () => void) => subscribeKey(key, fn), [key]);
   const getSnapshot = useCallback(() => storeGet(key), [key]);
   const value = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -73,9 +71,6 @@ export function useUntypedSetting(key: string): [unknown, (value: unknown) => vo
   const subscribe = useCallback((fn: () => void) => subscribeKey(key as SettingKey, fn), [key]);
   const getSnapshot = useCallback(() => storeGet(key as SettingKey), [key]);
   const value = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  const setValue = useCallback(
-    (next: unknown) => storeSet(key as SettingKey, next as SettingsMap[SettingKey]),
-    [key],
-  );
+  const setValue = useCallback((next: unknown) => storeSet(key as SettingKey, next as SettingsMap[SettingKey]), [key]);
   return [value, setValue];
 }

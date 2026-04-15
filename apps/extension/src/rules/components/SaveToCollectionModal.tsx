@@ -215,7 +215,8 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       {/* Save to breadcrumb */}
       <div style={{ marginBottom: 8, fontSize: 12 }}>
         <Text style={{ fontSize: 12, fontWeight: 600 }}>Save to </Text>
-        {/* biome-ignore lint/a11y/useKeyWithClickEvents: breadcrumb nav */}
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: decorative breadcrumb nav — keyboard access via the confirm button */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: decorative breadcrumb nav */}
         <span
           style={{
             color: selectedCollectionId ? token.colorPrimary : token.colorText,
@@ -239,6 +240,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
             <span style={{ color: token.colorTextTertiary }}>{' / '}</span>
             {seg.onClick ? (
               // biome-ignore lint/a11y/useKeyWithClickEvents: breadcrumb nav
+              // biome-ignore lint/a11y/noStaticElementInteractions: breadcrumb nav
               <span
                 style={{ color: token.colorPrimary, cursor: 'pointer', padding: '1px 3px', borderRadius: 3 }}
                 onClick={seg.onClick}

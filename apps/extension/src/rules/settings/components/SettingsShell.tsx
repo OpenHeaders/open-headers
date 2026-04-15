@@ -33,9 +33,7 @@ interface SettingsShellProps {
 const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initialCategoryId }) => {
   const { token } = theme.useToken();
   const [query, setQuery] = useState('');
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
-    initialCategoryId ?? null,
-  );
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(initialCategoryId ?? null);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -116,18 +114,12 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
 
   useEffect(() => {
     if (initialSettingKey) {
-      const el = contentRef.current?.querySelector<HTMLElement>(
-        `[data-setting-key="${initialSettingKey}"]`,
-      );
+      const el = contentRef.current?.querySelector<HTMLElement>(`[data-setting-key="${initialSettingKey}"]`);
       if (el) {
         suppressSpyRef.current = true;
         el.scrollIntoView({ behavior: 'auto', block: 'center' });
         el.animate(
-          [
-            { background: token.colorPrimaryBg },
-            { background: token.colorPrimaryBg },
-            { background: 'transparent' },
-          ],
+          [{ background: token.colorPrimaryBg }, { background: token.colorPrimaryBg }, { background: 'transparent' }],
           { duration: 1400, easing: 'ease-out' },
         );
         window.setTimeout(() => {
@@ -139,7 +131,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
       window.setTimeout(() => scrollToCategory(initialCategoryId), 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialCategoryId, initialSettingKey, scrollToCategory, token.colorPrimaryBg]);
 
   // ── Render ─────────────────────────────────────────────────────────
 

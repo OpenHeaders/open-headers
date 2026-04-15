@@ -60,6 +60,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
           {modified && (
             <Tooltip title="Modified from default">
               <span
+                role="img"
                 aria-label="modified"
                 style={{
                   width: 6,
@@ -134,6 +135,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
           {gated && (
             <Tooltip title="Connect the desktop app to change this setting.">
               <div
+                role="img"
                 aria-label="Disabled — requires desktop connection"
                 style={{
                   position: 'absolute',

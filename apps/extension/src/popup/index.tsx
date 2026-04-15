@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@context/ThemeContext';
-import { SettingsProvider } from '@/rules/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
+import { SettingsProvider } from '@/rules/settings';
 import App from './App';
 import './styles/popup.less';
 

@@ -3,8 +3,8 @@
  * and the runtime environment. Demonstrates the `info` field type.
  */
 
-import * as v from 'valibot';
 import { runtime } from '@utils/browser-api';
+import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
 // valibot schema for info fields is a no-op string — the value is

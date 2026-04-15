@@ -17,10 +17,7 @@
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  setSettingValue,
-  useSettingValue,
-} from '@/rules/settings';
+import { setSettingValue, useSettingValue } from '@/rules/settings';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
@@ -80,9 +77,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   // ── Ant theme config ─────────────────────────────────────────────
-  const algorithms: Array<typeof theme.darkAlgorithm> = [
-    isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
-  ];
+  const algorithms: Array<typeof theme.darkAlgorithm> = [isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm];
   if (isCompactMode) algorithms.push(theme.compactAlgorithm);
 
   const antTheme = {

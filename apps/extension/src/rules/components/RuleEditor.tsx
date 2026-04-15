@@ -21,7 +21,7 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { runtime } from '@utils/browser-api';
+import { call } from '@utils/bridge';
 import type { MenuProps } from 'antd';
 import { App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -128,7 +128,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const handleToggleEnabled = useCallback(() => {
     if (mode === 'edit' && ruleUid) {
       // Same path as sidebar — goes through background, updates rule store, broadcasts back
-      runtime.sendMessage({ type: 'toggleRule', ruleId: ruleUid, enabled: !isEnabled });
+      void call('toggleRule', { ruleId: ruleUid, enabled: !isEnabled }).catch(() => undefined);
     } else {
       setDraftEnabled((prev) => !prev);
     }

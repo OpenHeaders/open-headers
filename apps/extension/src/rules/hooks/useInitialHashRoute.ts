@@ -17,7 +17,7 @@
  * "create a new collection called 'My Rules'" on every reload.
  */
 
-import { runtime } from '@utils/browser-api';
+import { call } from '@utils/bridge';
 import { useEffect, useRef } from 'react';
 import type { RuleFlowScope } from '../types';
 
@@ -86,17 +86,13 @@ export function useInitialHashRoute({
       // Recover the owner stamp from the persisted run so the bottom
       // panel's contextual Test Runs tab can resolve its bucket.
       const runId = parts[1];
-      runtime.sendMessage({ type: 'getTestRun', runId }, (response: unknown) => {
-        const data = response as {
-          success?: boolean;
-          run?: { ownerType?: string; ownerId?: string; ownerNameAtRun?: string } | null;
-        } | null;
-        const run = data?.run ?? null;
-        const ownerType = run?.ownerType as 'rule' | 'folder' | 'collection' | 'workspace' | undefined;
-        const ownerId = run?.ownerId;
-        const owner = ownerType && ownerId ? { type: ownerType, id: ownerId } : undefined;
-        openRunReportRef.current(runId, owner, run?.ownerNameAtRun);
-      });
+      call('getTestRun', { runId })
+        .then((data) => {
+          const run = data?.run ?? null;
+          const owner = run ? { type: run.ownerType, id: run.ownerId } : undefined;
+          openRunReportRef.current(runId, owner, run?.ownerNameAtRun);
+        })
+        .catch(() => openRunReportRef.current(runId));
     }
   }, [isStatusLoaded]);
 }

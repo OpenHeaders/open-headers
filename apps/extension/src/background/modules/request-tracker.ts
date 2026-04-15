@@ -13,8 +13,8 @@ import {
   isRuleComplete,
   type MatchPattern,
 } from '@openheaders/core/utils';
+import { broadcast } from '@utils/bridge';
 import { tabs } from '@utils/browser-api';
-import { sendMessageWithCallback } from '@utils/messaging';
 import type { ActiveRule, TrackedResource, TrackedResourceType } from '@/types/browser';
 import { getRules } from './rule-store';
 import {
@@ -407,7 +407,7 @@ export function addTrackedUrl(tabId: number, url: string, resourceType: TrackedR
   const trackedUrls = tabsWithActiveRules.get(tabId)!;
   if (trackedUrls.has(url)) return;
   trackedUrls.set(url, { timestamp: Date.now(), resourceType });
-  sendMessageWithCallback({ type: 'trackedUrlsUpdated', tabId }, () => {});
+  broadcast('trackedUrlsUpdated', { tabId });
 }
 
 export function clearAllTracking(): void {

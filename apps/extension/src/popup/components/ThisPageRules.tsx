@@ -13,7 +13,7 @@ import {
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import { resolvePauseState } from '@openheaders/core/utils';
-import { runtime } from '@utils/browser-api';
+import { call, subscribe } from '@utils/bridge';
 import {
   App,
   Badge,
@@ -218,7 +218,7 @@ function formatTimestampFull(timestamp: number): React.ReactNode {
 }
 
 interface ActiveRule {
-  id?: string;
+  id: string;
   name: string;
   ruleType: string;
   summary: string;
@@ -377,11 +377,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         if (tabs[0]) {
           const tab = tabs[0];
           const url = new URL(tab.url!);
-          const response = await new Promise<{ activeRules?: ActiveRule[] }>((resolve) => {
-            runtime.sendMessage({ type: 'getActiveRulesForTab', tabId: tab.id, tabUrl: tab.url }, (resp) => {
-              resolve((resp as { activeRules?: ActiveRule[] }) || { activeRules: [] });
-            });
-          });
+          const response = await call('getActiveRulesForTab', { tabId: tab.id, tabUrl: tab.url }).catch(() => ({
+            activeRules: [] as ActiveRule[],
+          }));
           setCurrentTab({ id: tab.id!, url: tab.url!, domain: url.hostname, title: tab.title || '' });
           setActiveRules(response.activeRules || []);
         }
@@ -408,18 +406,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
     // Listen for tracked URL changes pushed from the background
     // when the request monitor intercepts new requests.
-    const handleRuntimeMessage = (msg: Record<string, unknown>) => {
-      if (msg.type === 'trackedUrlsUpdated') {
-        void fetchActiveRules();
-      }
-    };
-    runtime.onMessage.addListener(handleRuntimeMessage as Parameters<typeof runtime.onMessage.addListener>[0]);
+    const unsubscribeTracked = subscribe('trackedUrlsUpdated', () => {
+      void fetchActiveRules();
+    });
 
     return () => {
       browserAPI.tabs.onUpdated.removeListener(handleTabUpdate);
       browserAPI.tabs.onActivated.removeListener(fetchActiveRules);
       browserAPI.storage.onChanged.removeListener(handleStorageChange);
-      runtime.onMessage.removeListener(handleRuntimeMessage as Parameters<typeof runtime.onMessage.removeListener>[0]);
+      unsubscribeTracked();
     };
   }, []);
 
@@ -438,16 +433,19 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     let cancelled = false;
     const poll = () => {
       if (cancelled) return;
-      runtime.sendMessage({ type: 'getTabTelemetry', tabId }, (resp) => {
-        if (cancelled) return;
-        const snap = resp as Partial<TelemetrySnapshot> | undefined;
-        setSnapshot({
-          counters: snap?.counters ?? {},
-          fires: snap?.fires ?? [],
-          byRule: snap?.byRule ?? {},
-          uniqueRequestCount: snap?.uniqueRequestCount ?? 0,
+      call('getTabTelemetry', { tabId })
+        .then((snap) => {
+          if (cancelled) return;
+          setSnapshot({
+            counters: snap?.counters ?? {},
+            fires: snap?.fires ?? [],
+            byRule: snap?.byRule ?? {},
+            uniqueRequestCount: snap?.uniqueRequestCount ?? 0,
+          });
+        })
+        .catch(() => {
+          /* SW momentarily unavailable — next tick will retry */
         });
-      });
     };
     poll();
     const interval = setInterval(poll, 500);
@@ -576,14 +574,18 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     if (!record) return;
     const isEnabled = record.isEnabled !== false;
     setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-    runtime.sendMessage({ type: 'toggleRule', ruleId: record.id, enabled: !isEnabled }, (response: unknown) => {
-      const resp = response as { success?: boolean } | undefined;
-      if (resp?.success) {
-        runtime.sendMessage({ type: 'rulesUpdated' });
-      } else {
+    call('toggleRule', { ruleId: record.id, enabled: !isEnabled })
+      .then((resp) => {
+        if (resp?.success) {
+          // Nudge the SW to revalidate tracked requests + rebuild DNR
+          void call('rulesUpdated').catch(() => undefined);
+        } else {
+          setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
+        }
+      })
+      .catch(() => {
         setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-      }
-    });
+      });
   }, []);
 
   const handleEditRow = useCallback((index: number) => {
@@ -605,14 +607,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       const record = dataSourceRef.current[index];
       if (!record) return;
       setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
-      runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
-        const resp = response as { success?: boolean } | undefined;
-        if (resp?.success) {
-          void message.success('Rule deleted');
-        } else {
-          void message.error('Failed to delete rule');
-        }
-      });
+      call('deleteRule', { ruleId: record.id })
+        .then((resp) => {
+          if (resp?.success) {
+            void message.success('Rule deleted');
+          } else {
+            void message.error('Failed to delete rule');
+          }
+        })
+        .catch(() => void message.error('Failed to delete rule'));
     },
     [message],
   );
@@ -843,18 +846,19 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             disabled={!canToggle}
             onChange={() => {
               setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-              runtime.sendMessage(
-                { type: 'toggleRule', ruleId: record.id, enabled: !isEnabled },
-                (response: unknown) => {
-                  const resp = response as { success?: boolean } | undefined;
+              call('toggleRule', { ruleId: record.id, enabled: !isEnabled })
+                .then((resp) => {
                   if (resp?.success) {
-                    runtime.sendMessage({ type: 'rulesUpdated' });
+                    void call('rulesUpdated').catch(() => undefined);
                   } else {
                     setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
                     void message.error('Failed to toggle rule');
                   }
-                },
-              );
+                })
+                .catch(() => {
+                  setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
+                  void message.error('Failed to toggle rule');
+                });
             }}
             size="small"
           />
@@ -883,14 +887,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               description={`Delete "${record.name}"?`}
               onConfirm={() => {
                 setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
-                runtime.sendMessage({ type: 'deleteRule', ruleId: record.id }, (response: unknown) => {
-                  const resp = response as { success?: boolean } | undefined;
-                  if (resp?.success) {
-                    void message.success('Rule deleted');
-                  } else {
-                    void message.error('Failed to delete rule');
-                  }
-                });
+                call('deleteRule', { ruleId: record.id })
+                  .then((resp) => {
+                    if (resp?.success) {
+                      void message.success('Rule deleted');
+                    } else {
+                      void message.error('Failed to delete rule');
+                    }
+                  })
+                  .catch(() => void message.error('Failed to delete rule'));
               }}
               okText="Delete"
               okType="danger"
@@ -1194,11 +1199,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                       : 'Filter resource types'
                   }
                 >
-                  <Badge
-                    dot={visibleResourceTypes.length < ALL_RESOURCE_TYPES.length}
-                    color="blue"
-                    offset={[-2, 2]}
-                  >
+                  <Badge dot={visibleResourceTypes.length < ALL_RESOURCE_TYPES.length} color="blue" offset={[-2, 2]}>
                     <Button type="text" size="small" icon={<FilterOutlined />} />
                   </Badge>
                 </Tooltip>

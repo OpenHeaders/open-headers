@@ -4,6 +4,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
+import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
@@ -352,11 +353,7 @@ export function handleGeneralMessage(
       deleteTestRunById(message.runId as string)
         .then(() => {
           // Notify any open listeners so the bottom panel list refreshes.
-          try {
-            browserRuntime.sendMessage({ type: 'testRunDeleted', runId: message.runId });
-          } catch {
-            // No listeners — fine.
-          }
+          broadcast('testRunDeleted', { runId: message.runId as string });
           safeResponse({ success: true });
         })
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
@@ -368,15 +365,10 @@ export function handleGeneralMessage(
       };
       deleteAllTestRunsForOwner(owner)
         .then(() => {
-          try {
-            browserRuntime.sendMessage({
-              type: 'testRunsClearedForOwner',
-              ownerType: owner.type,
-              ownerId: owner.id,
-            });
-          } catch {
-            // No listeners — fine.
-          }
+          broadcast('testRunsClearedForOwner', {
+            ownerType: owner.type,
+            ownerId: owner.id,
+          });
           safeResponse({ success: true });
         })
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));

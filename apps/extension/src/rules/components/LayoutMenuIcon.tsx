@@ -176,48 +176,21 @@ const LayoutMenuIcon: React.FC<LayoutMenuIconProps> = ({ kind, size = 16 }) => {
   } else if (kind === 'unsplit-horizontal') {
     content = (
       <>
-        <rect
-          x={0.5}
-          y={0.5}
-          width={15}
-          height={12}
-          rx={1.5}
-          fill={fill}
-          stroke="none"
-          fillOpacity={0.15}
-        />
+        <rect x={0.5} y={0.5} width={15} height={12} rx={1.5} fill={fill} stroke="none" fillOpacity={0.15} />
         <line x1={8} y1={1.5} x2={8} y2={11.5} stroke={stroke} strokeWidth={1} strokeDasharray="1.2 1.2" />
       </>
     );
   } else if (kind === 'unsplit-vertical') {
     content = (
       <>
-        <rect
-          x={0.5}
-          y={0.5}
-          width={15}
-          height={12}
-          rx={1.5}
-          fill={fill}
-          stroke="none"
-          fillOpacity={0.15}
-        />
+        <rect x={0.5} y={0.5} width={15} height={12} rx={1.5} fill={fill} stroke="none" fillOpacity={0.15} />
         <line x1={1.5} y1={6.5} x2={14.5} y2={6.5} stroke={stroke} strokeWidth={1} strokeDasharray="1.2 1.2" />
       </>
     );
   } else if (kind === 'unsplit-all') {
     content = (
       <>
-        <rect
-          x={0.5}
-          y={0.5}
-          width={15}
-          height={12}
-          rx={1.5}
-          fill={fill}
-          stroke="none"
-          fillOpacity={0.15}
-        />
+        <rect x={0.5} y={0.5} width={15} height={12} rx={1.5} fill={fill} stroke="none" fillOpacity={0.15} />
         <line
           x1={8}
           y1={1.5}

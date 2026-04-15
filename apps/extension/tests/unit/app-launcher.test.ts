@@ -99,16 +99,17 @@ describe('AppLauncher', () => {
       );
     });
 
-    it('propagates error when sendMessage throws synchronously in promise executor', async () => {
+    it('falls back to protocol when sendMessage throws synchronously', async () => {
       vi.mocked(chrome.runtime.sendMessage).mockImplementation(() => {
         throw new Error('Cannot access runtime');
       });
+      vi.mocked(chrome.tabs.create).mockImplementation((_props) => {
+        return Promise.resolve({ id: 55 } as chrome.tabs.Tab);
+      });
+      (chrome.tabs as Record<string, unknown>).remove = vi.fn(() => Promise.resolve());
 
-      // When sendMessage throws inside the Promise executor, the promise rejects.
-      // The try-catch in tryWebSocket wraps `return new Promise(...)` but the
-      // Promise constructor catches executor throws as rejections, not synchronous errors.
-      // The rejected promise bubbles up through launchOrFocus since it awaits tryWebSocket.
-      await expect(launcher.launchOrFocus(makeLaunchData())).rejects.toThrow('Cannot access runtime');
+      const result = await launcher.launchOrFocus(makeLaunchData());
+      expect(result).toEqual({ success: true, method: 'protocol' });
     });
   });
 

@@ -1,10 +1,13 @@
-// Simple recording utilities that work directly from popup
-import { MESSAGE_TYPES } from '@assets/recording/shared/constants';
+/**
+ * Popup-side recording entrypoints.
+ *
+ * Goes through the shared bridge like every other cross-context message
+ * in the extension — no direct `chrome.runtime.sendMessage` calls.
+ */
 
-declare const browser: typeof chrome | undefined;
-
-// Use the browser API wrapper to ensure cross-browser compatibility
-const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+import { call } from '@utils/bridge';
+import { logger } from '@utils/logger';
+import { getBrowserAPI } from '@/types/browser';
 
 interface StartRecordingResult {
   success: boolean;
@@ -12,139 +15,116 @@ interface StartRecordingResult {
   preNavigation?: boolean;
 }
 
-interface RecordingStateResult {
-  isRecording: boolean;
-  [key: string]: unknown;
-}
+type RecordingStateResult = { isRecording: boolean } & Record<string, unknown>;
 
-export async function startRecording(useWidget = false): Promise<StartRecordingResult> {
-  // Get active tab with retry logic for transient errors
-  let tab: chrome.tabs.Tab | undefined;
+const RESTRICTED_URL_PREFIXES = [
+  'chrome://',
+  'chrome-extension://',
+  'edge://',
+  'about:',
+  'file:///',
+  'view-source:',
+  'data:',
+  'blob:',
+  'chrome-devtools://',
+  'https://ntp.msn.com/edge/ntp',
+];
+
+/** Resolve the active tab with a short retry window for transient "tabs cannot be edited" errors. */
+async function resolveActiveTab(): Promise<chrome.tabs.Tab> {
+  const browserAPI = getBrowserAPI();
   let retries = 3;
-
   while (retries > 0) {
     try {
       const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
-      tab = tabs[0];
-      if (tab) break;
+      if (tabs[0]) return tabs[0];
+      retries -= 1;
     } catch (e) {
-      if ((e as Error).message.includes('Tabs cannot be edited right now')) {
+      if ((e as Error).message?.includes('Tabs cannot be edited right now')) {
         await new Promise((resolve) => setTimeout(resolve, 100));
-        retries--;
+        retries -= 1;
       } else {
         throw e;
       }
     }
   }
+  throw new Error('No active tab found');
+}
 
-  if (!tab) throw new Error('No active tab found');
+function isRestrictedUrl(url: string | undefined): boolean {
+  if (!url) return true;
+  return RESTRICTED_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
+}
 
-  // Check if we're on a restricted page
-  const restrictedUrls = [
-    'chrome://',
-    'chrome-extension://',
-    'edge://',
-    'about:',
-    'file:///',
-    'view-source:',
-    'data:',
-    'blob:',
-    'chrome-devtools://',
-    'https://ntp.msn.com/edge/ntp',
-  ];
+function makeRecordId(): string {
+  return `record-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
 
-  const isRestrictedPage = !tab.url || tab.url === '' || restrictedUrls.some((prefix) => tab!.url!.startsWith(prefix));
+export async function startRecording(useWidget = false): Promise<StartRecordingResult> {
+  const tab = await resolveActiveTab();
+  if (typeof tab.id !== 'number') throw new Error('Active tab has no id');
 
-  if (isRestrictedPage) {
-    const recordId = `record-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
-    await browserAPI.runtime.sendMessage({
-      action: 'START_PRE_NAV_RECORDING',
+  // Pre-navigation path: the active tab is on a restricted surface
+  // (chrome://, about:blank, …) where we cannot inject the content
+  // recorder. Start in pre-nav mode so the background begins capturing
+  // network events immediately; the widget mounts on the next commit.
+  if (isRestrictedUrl(tab.url)) {
+    const recordId = makeRecordId();
+    const response = await call('START_PRE_NAV_RECORDING', {
       tabId: tab.id,
-      recordId: recordId,
+      recordId,
       targetUrl: null,
-      useWidget: useWidget,
+      useWidget,
     });
-
-    return { success: true, recordId, preNavigation: true };
+    if (!response.success) {
+      throw new Error(response.error ?? 'Failed to start workflow in background');
+    }
+    return { success: true, recordId: response.recordId ?? recordId, preNavigation: true };
   }
 
-  const recordId = `record-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
-  // Single authority: background owns all start transitions.
-  // It will inject the content script and notify it as part of its start flow.
-  try {
-    await browserAPI.runtime.sendMessage({
-      type: MESSAGE_TYPES.START_RECORDING,
-      tabId: tab.id,
-      recordId: recordId,
-      useWidget: useWidget,
-    });
-  } catch (_e) {
-    throw new Error('Failed to start workflow in background');
+  const response = await call('START_RECORDING', { tabId: tab.id, useWidget });
+  if (!response.success) {
+    throw new Error(response.error ?? 'Failed to start workflow in background');
   }
-
-  return { success: true, recordId };
+  return { success: true, recordId: response.recordId ?? makeRecordId() };
 }
 
 export async function stopRecording(): Promise<{ success: boolean }> {
-  const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
-  if (!tab) throw new Error('No active tab found');
-
-  // Single authority: background owns all stop transitions.
-  // It will notify the content script as part of its stop flow.
-  await browserAPI.runtime.sendMessage({
-    type: 'STOP_RECORDING',
-    tabId: tab.id,
-  });
-
-  return { success: true };
+  const tab = await resolveActiveTab();
+  if (typeof tab.id !== 'number') throw new Error('Active tab has no id');
+  const response = await call('STOP_RECORDING', { tabId: tab.id });
+  return { success: response.success };
 }
 
 export async function getRecordingState(): Promise<RecordingStateResult> {
   try {
-    const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return { isRecording: false };
+    const tab = await resolveActiveTab();
+    if (typeof tab.id !== 'number') return { isRecording: false };
 
     try {
-      const response = await browserAPI.runtime.sendMessage({
-        action: 'GET_TAB_RECORDING_STATE',
-        tabId: tab.id,
-      });
-
-      console.log(new Date().toISOString(), 'INFO ', '[Recording]', '[Recording] Background state response:', response);
-
-      if (response && (response as RecordingStateResult).isRecording) {
-        return response as RecordingStateResult;
+      const response = await call('GET_TAB_RECORDING_STATE', { tabId: tab.id });
+      if ('isRecording' in response && response.isRecording) {
+        return response as unknown as RecordingStateResult;
       }
     } catch (e) {
-      console.log(new Date().toISOString(), 'INFO ', '[Recording]', '[Recording] Background state check failed:', e);
+      logger.info('Recording', 'Background state check failed:', (e as Error).message);
     }
 
+    // Fallback: ask the in-page content script directly. Used when the
+    // background has no state but the widget is still mounted (e.g. after
+    // a SW restart mid-recording).
     try {
-      const response = await browserAPI.tabs.sendMessage(tab.id!, {
-        type: MESSAGE_TYPES.GET_RECORDING_STATE,
-      });
-      console.log(
-        new Date().toISOString(),
-        'INFO ',
-        '[Recording]',
-        '[Recording] Content script state response:',
-        response,
-      );
-      return (response as RecordingStateResult) || { isRecording: false };
+      const browserAPI = getBrowserAPI();
+      const response = (await browserAPI.tabs.sendMessage(tab.id, {
+        type: 'GET_RECORDING_STATE',
+      })) as RecordingStateResult | undefined;
+      return response ?? { isRecording: false };
     } catch (e) {
-      console.log(
-        new Date().toISOString(),
-        'INFO ',
-        '[Recording]',
-        '[Recording] Content script state check failed:',
-        e,
-      );
+      logger.info('Recording', 'Content-script state check failed:', (e as Error).message);
       return { isRecording: false };
     }
   } catch (error) {
-    console.log(new Date().toISOString(), 'INFO ', '[Recording]', '[Recording] getRecordingState error:', error);
+    logger.info('Recording', 'getRecordingState error:', (error as Error).message);
     return { isRecording: false };
   }
 }

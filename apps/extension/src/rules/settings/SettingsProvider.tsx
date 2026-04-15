@@ -7,8 +7,8 @@
  * consumes `useSettingsReady()`.
  */
 
-import { useEffect } from 'react';
 import type React from 'react';
+import { useEffect } from 'react';
 import './schema';
 import { initSettingsStore } from './store';
 

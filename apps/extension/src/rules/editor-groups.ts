@@ -87,10 +87,7 @@ export function findParentSplit(root: EditorNode, leafId: string): EditorSplit |
 }
 
 /** Closest enclosing split AND which side the leaf sits on, or null if it's the root leaf. */
-export function findParentSplitLink(
-  root: EditorNode,
-  leafId: string,
-): { parent: EditorSplit; side: 'a' | 'b' } | null {
+export function findParentSplitLink(root: EditorNode, leafId: string): { parent: EditorSplit; side: 'a' | 'b' } | null {
   const path = parentPath(root, leafId);
   if (!path || path.length === 0) return null;
   return path[0];
