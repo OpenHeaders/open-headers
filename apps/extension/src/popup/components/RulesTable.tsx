@@ -13,6 +13,7 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
+import { scheduleFrame } from '@utils/frame-scheduler';
 import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
@@ -243,10 +244,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
           if (firstItem) {
             firstItem.focus();
           } else if (attempts > 0) {
-            requestAnimationFrame(() => tryFocus(attempts - 1));
+            scheduleFrame(() => tryFocus(attempts - 1));
           }
         };
-        requestAnimationFrame(() => tryFocus(5));
+        scheduleFrame(() => tryFocus(5));
       }
       return !prev;
     });

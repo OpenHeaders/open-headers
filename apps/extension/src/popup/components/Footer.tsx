@@ -14,6 +14,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import { getAppLauncher } from '@utils/app-launcher';
 import { BridgeError, call } from '@utils/bridge';
+import { scheduleFrame } from '@utils/frame-scheduler';
 import { App, Button, Dropdown, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -133,10 +134,10 @@ const Footer: React.FC = () => {
           if (firstItem) {
             firstItem.focus();
           } else if (attempts > 0) {
-            requestAnimationFrame(() => tryFocus(attempts - 1));
+            scheduleFrame(() => tryFocus(attempts - 1));
           }
         };
-        requestAnimationFrame(() => tryFocus(5));
+        scheduleFrame(() => tryFocus(5));
       }
       return !prev;
     });

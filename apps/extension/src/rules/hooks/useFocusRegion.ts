@@ -30,6 +30,7 @@
  * nothing about DOM focus at all.
  */
 
+import { scheduleFrame } from '@utils/frame-scheduler';
 import { type RefObject, useCallback, useMemo } from 'react';
 import { useShellClickCapture, useShellFocusIn, useShellFocusOut } from '../events/shell-event-bus';
 import { ALL_DOCK_SLOTS } from '../tool-windows';
@@ -175,7 +176,7 @@ export function useFocusRegion({ shellRef, setFocusedRegion, setFocusedDock }: U
       if (!root) return;
       // Defer to the next frame so React can commit any state changes
       // the caller made immediately before (e.g. opening the pane).
-      requestAnimationFrame(() => {
+      scheduleFrame(() => {
         const selector = REGION_FOCUS_SELECTORS[region];
         const match = root.querySelector<HTMLElement>(selector);
         if (match) {

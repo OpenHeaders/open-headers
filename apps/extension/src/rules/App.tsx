@@ -11,6 +11,7 @@
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
+import { scheduleFrame } from '@utils/frame-scheduler';
 import type { InputRef } from 'antd';
 import { theme } from 'antd';
 import type React from 'react';
@@ -428,10 +429,10 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
           if (firstItem) {
             firstItem.focus();
           } else if (attempts > 0) {
-            requestAnimationFrame(() => tryFocus(attempts - 1));
+            scheduleFrame(() => tryFocus(attempts - 1));
           }
         };
-        requestAnimationFrame(() => tryFocus(5));
+        scheduleFrame(() => tryFocus(5));
       }
       return !prev;
     });

@@ -1,3 +1,4 @@
+import { scheduleNextFrame } from '@utils/frame-scheduler';
 import type { RefObject } from 'react';
 import { useEffect } from 'react';
 
@@ -46,44 +47,42 @@ export function useKeyboardScrollAndHighlight(
     const container = containerRef.current;
     if (!container) return;
 
-    // Wait two frames: one for React render, one for Ant Design style update
-    let frame1 = requestAnimationFrame(() => {
-      frame1 = requestAnimationFrame(() => {
-        const activePane = getActivePane(container) as HTMLElement;
-        // Find expanded row by the data-row-key that Ant Design puts on each tr
-        const parentRow = activePane.querySelector(`tr[data-row-key="${expandedRowKey}"]`);
-        const expandedRow = parentRow?.nextElementSibling as HTMLElement | null;
-        if (!expandedRow?.classList.contains('ant-table-expanded-row')) return;
+    // Wait two frames: one for React render, one for Ant Design style update.
+    const cancel = scheduleNextFrame(() => {
+      const activePane = getActivePane(container) as HTMLElement;
+      // Find expanded row by the data-row-key that Ant Design puts on each tr
+      const parentRow = activePane.querySelector(`tr[data-row-key="${expandedRowKey}"]`);
+      const expandedRow = parentRow?.nextElementSibling as HTMLElement | null;
+      if (!expandedRow?.classList.contains('ant-table-expanded-row')) return;
 
-        // Scroll the bottom of the expanded content into view
-        scrollIntoScrollContainer(expandedRow, activePane);
+      // Scroll the bottom of the expanded content into view
+      scrollIntoScrollContainer(expandedRow, activePane);
 
-        // Virtual nested tables use React rowClassName + scrollTo ref — skip DOM manipulation
-        const isVirtual = expandedRow.querySelector('.ant-table-virtual') !== null;
-        if (isVirtual) return;
+      // Virtual nested tables use React rowClassName + scrollTo ref — skip DOM manipulation
+      const isVirtual = expandedRow.querySelector('.ant-table-virtual') !== null;
+      if (isVirtual) return;
 
-        // For non-virtual nested tables, highlight and scroll via DOM
-        container.querySelectorAll('.keyboard-focused-nested-row').forEach((el) => {
-          el.classList.remove('keyboard-focused-nested-row');
-        });
-        const nestedRows = expandedRow.querySelectorAll('.ant-table-row[data-row-key]');
-        const nestedRow = nestedRows[nestedFocusIndex] as HTMLElement | undefined;
-        if (nestedRow) {
-          nestedRow.classList.add('keyboard-focused-nested-row');
-          const nestedScrollContainer = expandedRow.querySelector('.ant-table-body');
-          if (nestedScrollContainer) {
-            const nestedContainerRect = nestedScrollContainer.getBoundingClientRect();
-            const nestedRowRect = nestedRow.getBoundingClientRect();
-            if (nestedRowRect.bottom > nestedContainerRect.bottom) {
-              nestedScrollContainer.scrollTop += nestedRowRect.bottom - nestedContainerRect.bottom;
-            } else if (nestedRowRect.top < nestedContainerRect.top) {
-              nestedScrollContainer.scrollTop -= nestedContainerRect.top - nestedRowRect.top;
-            }
+      // For non-virtual nested tables, highlight and scroll via DOM
+      container.querySelectorAll('.keyboard-focused-nested-row').forEach((el) => {
+        el.classList.remove('keyboard-focused-nested-row');
+      });
+      const nestedRows = expandedRow.querySelectorAll('.ant-table-row[data-row-key]');
+      const nestedRow = nestedRows[nestedFocusIndex] as HTMLElement | undefined;
+      if (nestedRow) {
+        nestedRow.classList.add('keyboard-focused-nested-row');
+        const nestedScrollContainer = expandedRow.querySelector('.ant-table-body');
+        if (nestedScrollContainer) {
+          const nestedContainerRect = nestedScrollContainer.getBoundingClientRect();
+          const nestedRowRect = nestedRow.getBoundingClientRect();
+          if (nestedRowRect.bottom > nestedContainerRect.bottom) {
+            nestedScrollContainer.scrollTop += nestedRowRect.bottom - nestedContainerRect.bottom;
+          } else if (nestedRowRect.top < nestedContainerRect.top) {
+            nestedScrollContainer.scrollTop -= nestedContainerRect.top - nestedRowRect.top;
           }
         }
-      });
+      }
     });
-    return () => cancelAnimationFrame(frame1);
+    return cancel;
   }, [nestedFocusIndex, expandedRowKey, containerRef]);
 
   // Clean up nested highlights when exiting nested mode

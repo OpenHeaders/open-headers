@@ -14,6 +14,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
+import { scheduleFrame } from '@utils/frame-scheduler';
 import {
   App,
   Badge,
@@ -463,12 +464,12 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   useEffect(() => {
     if (nestedFocusIndex < 0) return;
     // Wait a frame for the new nested table to mount when switching rules
-    const frame = requestAnimationFrame(() => {
+    const cancel = scheduleFrame(() => {
       if (nestedTableRef.current) {
         nestedTableRef.current.scrollTo({ index: nestedFocusIndex });
       }
     });
-    return () => cancelAnimationFrame(frame);
+    return cancel;
   }, [nestedFocusIndex, expandedRowKey]);
 
   const dataSourceRef = useRef<TableRecord[]>([]);

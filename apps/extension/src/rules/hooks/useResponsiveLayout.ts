@@ -10,6 +10,7 @@
  */
 
 import { storage } from '@utils/browser-api';
+import { scheduleFrame } from '@utils/frame-scheduler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LeftPanelKey, RightPanelKey, ToolLayoutState, WorkspaceLayout } from '../types';
 import type { BottomPaneState } from './useWorkspaceLayout';
@@ -186,8 +187,9 @@ export function useResponsiveLayout(): ResponsiveLayout {
   // ── Load persisted layout on mount ─────────────────────────────
 
   useEffect(() => {
-    // Use requestAnimationFrame to ensure layout is computed (browser restore guard)
-    requestAnimationFrame(() => {
+    // Defer one frame so the browser's window-restore measurements land
+    // before we read persisted ratios back into layout state.
+    scheduleFrame(() => {
       storage.local.get([STORAGE_KEY], (result: Record<string, unknown>) => {
         const saved = result[STORAGE_KEY] as PersistedLayout | undefined;
         if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
