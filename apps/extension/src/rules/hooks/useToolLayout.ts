@@ -92,9 +92,24 @@ function toolLayoutEquals(a: ToolLayoutState, b: ToolLayoutState): boolean {
   for (let i = 0; i < a.hidden.length; i++) {
     if (a.hidden[i] !== b.hidden[i]) return false;
   }
-  // Zen snapshots are coarse — compare by reference. Taking / restoring
-  // a snapshot always allocates a fresh object so this is sufficient.
-  return a.zenSnapshot === b.zenSnapshot;
+  // Zen snapshots must be compared by content, not reference — `patch`
+  // shallow-clones `zenSnapshot` on every mutation, so even a no-op
+  // mutator while zen is active yields a fresh object. A reference
+  // compare here would report "changed" on every patch, undoing the
+  // whole point of this function.
+  return zenSnapshotEquals(a.zenSnapshot, b.zenSnapshot);
+}
+
+function zenSnapshotEquals(
+  a: Record<DockSlot, ToolWindowId | null> | null,
+  b: Record<DockSlot, ToolWindowId | null> | null,
+): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  for (const slot of ALL_DOCK_SLOTS) {
+    if (a[slot] !== b[slot]) return false;
+  }
+  return true;
 }
 
 function removeFromDock(dock: DockState, id: ToolWindowId): void {
