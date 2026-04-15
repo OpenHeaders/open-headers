@@ -49,6 +49,7 @@ declare module '../types' {
     'keyboard.popup.cycleTheme': string;
     'keyboard.popup.toggleCompactMode': string;
     'keyboard.popup.openWorkspace': string;
+    'keyboard.popup.openSettings': string;
     'keyboard.popup.tabThisPage': string;
     'keyboard.popup.tabAllRules': string;
     'keyboard.popup.tabCollections': string;
@@ -76,6 +77,7 @@ interface PopupKeySpec {
     | 'keyboard.popup.cycleTheme'
     | 'keyboard.popup.toggleCompactMode'
     | 'keyboard.popup.openWorkspace'
+    | 'keyboard.popup.openSettings'
     | 'keyboard.popup.tabThisPage'
     | 'keyboard.popup.tabAllRules'
     | 'keyboard.popup.tabCollections';
@@ -218,6 +220,13 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Open Workspace',
     description: 'Open the full workspace tab.',
     tags: ['popup', 'workspace'],
+  },
+  {
+    key: 'keyboard.popup.openSettings',
+    default: 'mod+,',
+    label: 'Popup — Open Settings',
+    description: 'Open the settings page in a new workspace tab. Matches the workspace binding.',
+    tags: ['popup', 'settings', 'preferences'],
   },
   {
     key: 'keyboard.popup.tabThisPage',

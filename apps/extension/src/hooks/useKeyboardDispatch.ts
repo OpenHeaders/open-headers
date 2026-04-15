@@ -8,6 +8,7 @@ export interface FooterActions {
   onToggleRulesPause?: () => void;
   onToggleOptions?: () => void;
   onOpenWorkspace?: () => void;
+  onOpenSettings?: () => void;
 }
 
 interface UseKeyboardDispatchOptions {
@@ -84,7 +85,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
 
   const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow } = rowActions;
 
-  const { onToggleRecording, onToggleRulesPause, onToggleOptions, onOpenWorkspace } = footerActions;
+  const { onToggleRecording, onToggleRulesPause, onToggleOptions, onOpenWorkspace, onOpenSettings } = footerActions;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -123,6 +124,16 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       if (!isInputFocused() && onToggleOptions && matchesPopupShortcut(e, 'toggle-options-menu')) {
         e.preventDefault();
         onToggleOptions();
+        return;
+      }
+
+      // Open settings — handled here (before the modifier bail-out below)
+      // because its default chord `mod+,` carries a modifier key, and
+      // because it should fire from any popup context, not just the
+      // focused row mode.
+      if (!isInputFocused() && onOpenSettings && matchesPopupShortcut(e, 'open-settings')) {
+        e.preventDefault();
+        onOpenSettings();
         return;
       }
 

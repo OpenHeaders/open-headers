@@ -48,6 +48,7 @@ export type PopupShortcutId =
   | 'cycle-theme'
   | 'toggle-compact-mode'
   | 'open-workspace'
+  | 'open-settings'
   | 'tab-this-page'
   | 'tab-all-rules'
   | 'tab-collections';
@@ -118,6 +119,12 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
     id: 'open-workspace',
     settingKey: 'keyboard.popup.openWorkspace',
     description: 'Open workspace',
+    group: 'actions',
+  },
+  {
+    id: 'open-settings',
+    settingKey: 'keyboard.popup.openSettings',
+    description: 'Open settings',
     group: 'actions',
   },
   {

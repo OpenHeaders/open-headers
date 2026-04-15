@@ -102,4 +102,14 @@ describe('popup shortcuts registry', () => {
     const ids = POPUP_SHORTCUTS.map((def) => def.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it('open-settings default chord matches mod+, across platforms', () => {
+    const commaEvent = new KeyboardEvent('keydown', { key: ',', code: 'Comma', metaKey: true });
+    const ctrlCommaEvent = new KeyboardEvent('keydown', { key: ',', code: 'Comma', ctrlKey: true });
+    expect(matchesPopupShortcut(commaEvent, 'open-settings')).toBe(true);
+    expect(matchesPopupShortcut(ctrlCommaEvent, 'open-settings')).toBe(true);
+    // Plain `,` without a modifier must not fire.
+    const plainComma = new KeyboardEvent('keydown', { key: ',', code: 'Comma' });
+    expect(matchesPopupShortcut(plainComma, 'open-settings')).toBe(false);
+  });
 });

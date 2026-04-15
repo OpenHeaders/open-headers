@@ -71,10 +71,15 @@ const BROWSER_HINT = {
  * design; if a user rebinds to a modified chord we still render the
  * final key so the overlay doesn't go blank.
  */
-function displayKey(chord: string): string {
-  if (!chord) return '';
-  const parts = chord.split('+');
-  const raw = parts[parts.length - 1] ?? '';
+const MOD_DISPLAY = isMac ? '\u2318' : 'Ctrl';
+const MOD_DISPLAY_MAP: Record<string, string> = {
+  mod: MOD_DISPLAY,
+  shift: isMac ? '\u21E7' : 'Shift',
+  alt: isMac ? '\u2325' : 'Alt',
+  ctrl: isMac ? '\u2303' : 'Ctrl',
+};
+
+function displayKeyToken(raw: string): string {
   switch (raw) {
     case ' ':
       return 'Space';
@@ -93,6 +98,16 @@ function displayKey(chord: string): string {
     default:
       return raw.length === 1 ? raw : raw.charAt(0).toUpperCase() + raw.slice(1);
   }
+}
+
+function displayKey(chord: string): string {
+  if (!chord) return '';
+  const parts = chord.split('+');
+  const key = parts[parts.length - 1] ?? '';
+  const mods = parts.slice(0, -1).map((m) => MOD_DISPLAY_MAP[m] ?? m);
+  const label = displayKeyToken(key);
+  if (mods.length === 0) return label;
+  return isMac ? `${mods.join('')}${label}` : `${mods.join('+')}+${label}`;
 }
 
 function buildEntryKeys(def: PopupShortcutDef, chord: string): string[] {
