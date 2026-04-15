@@ -13,31 +13,14 @@ import { logger } from '@utils/logger';
 import type { SendResponse } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
 
-const RECORDING_MESSAGE_TYPES = new Set<string>([
-  'START_RECORDING',
-  'START_PRE_NAV_RECORDING',
-  'STOP_RECORDING',
-  'STOP_RECORDING_FROM_WIDGET',
-  'CANCEL_RECORDING',
-  'GET_RECORDING_STATE',
-  'GET_TAB_RECORDING_STATE',
-  'CONTENT_SCRIPT_READY',
-  'QUERY_RECORDING_STATE',
-  'RECORDING_DATA',
-  'DOWNLOAD_WORKFLOW',
-  'SEND_WORKFLOW_TO_APP',
-  'GET_EXTENSION_NETWORK_DATA',
-  'GET_ALL_COOKIES',
-  'ACCUMULATE_RECORD_DATA',
-  'GET_ACCUMULATED_RECORD_DATA',
-  'RESTORE_BADGE_STATE',
-  'MARK_PAGE_VISITED',
-]);
-
 /**
  * Dispatch recording messages. Returns `true` when the handler took
  * ownership of the message (and will call `sendResponse` either sync or
- * async), `false` when the message is not a recording message.
+ * async), `false` when the message isn't one this handler owns.
+ *
+ * Routing is delegated to the `switch` below — the set of handled
+ * types is the set of `case` labels, no duplicate runtime registry to
+ * keep in sync.
  */
 export function handleRecordingMessage(
   message: Record<string, unknown>,
@@ -47,7 +30,7 @@ export function handleRecordingMessage(
   sendRecordingViaWebSocket: (recording: WorkflowRecordingPayload) => boolean,
 ): boolean | undefined {
   const type = typeof message.type === 'string' ? message.type : '';
-  if (!type || !RECORDING_MESSAGE_TYPES.has(type)) return false;
+  if (!type) return false;
 
   switch (type) {
     case 'START_RECORDING':
@@ -185,12 +168,6 @@ export function handleRecordingMessage(
       return true;
     }
 
-    case 'GET_EXTENSION_NETWORK_DATA':
-      // Network data is captured inline with recording events now — this
-      // RPC stays for content-script compatibility but always returns empty.
-      sendResponse({ success: true, networkData: [] });
-      return true;
-
     case 'GET_ALL_COOKIES': {
       const cookieTabId = (message.tabId as number | undefined) ?? sender.tab?.id;
       if (typeof cookieTabId !== 'number') {
@@ -216,16 +193,6 @@ export function handleRecordingMessage(
       return true;
     }
 
-    case 'ACCUMULATE_RECORD_DATA':
-      // Accumulation is owned by the recording service itself; the RPC
-      // exists so legacy callers get a success ack.
-      sendResponse({ success: true });
-      return true;
-
-    case 'GET_ACCUMULATED_RECORD_DATA':
-      sendResponse({ success: true, recordData: null });
-      return true;
-
     case 'RESTORE_BADGE_STATE': {
       const badgeTabId = message.tabId as number;
       tabs.get(badgeTabId, (tab: chrome.tabs.Tab) => {
@@ -240,10 +207,6 @@ export function handleRecordingMessage(
       });
       return true;
     }
-
-    case 'MARK_PAGE_VISITED':
-      sendResponse({ wasFirstPage: false });
-      return true;
 
     default:
       return false;

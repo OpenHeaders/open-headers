@@ -18,7 +18,7 @@
  *   3. Call it with `bridge.call(...)` / `bridge.broadcast(...)`.
  */
 
-import type { AppNavigationIntent, RecordingEvent, WorkflowRecordingPayload } from '@openheaders/core';
+import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders/core';
 import type { V5 } from '@openheaders/core/types';
 import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
@@ -333,29 +333,13 @@ export interface BridgeRpcContract {
     req: { recording: WorkflowRecordingPayload };
     res: { success: boolean; error?: string | null };
   };
-  GET_EXTENSION_NETWORK_DATA: {
-    req: Record<string, never>;
-    res: { success: boolean; networkData: RecordingEvent[] };
-  };
   GET_ALL_COOKIES: {
     req: { tabId?: number };
     res: { success: boolean; cookies?: chrome.cookies.Cookie[]; error?: string };
   };
-  ACCUMULATE_RECORD_DATA: {
-    req: Record<string, unknown>;
-    res: { success: boolean };
-  };
-  GET_ACCUMULATED_RECORD_DATA: {
-    req: Record<string, never>;
-    res: { success: boolean; recordData: null };
-  };
   RESTORE_BADGE_STATE: {
     req: { tabId: number };
     res: { success: boolean; needsBadgeUpdate?: boolean };
-  };
-  MARK_PAGE_VISITED: {
-    req: Record<string, unknown>;
-    res: { wasFirstPage: boolean };
   };
 }
 
