@@ -103,6 +103,21 @@ describe('popup shortcuts registry', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('toggle-shortcuts-help matches the shift+? chord a real Shift+/ press produces', () => {
+    const shiftSlash = new KeyboardEvent('keydown', {
+      key: '?',
+      code: 'Slash',
+      shiftKey: true,
+    });
+    expect(matchesPopupShortcut(shiftSlash, 'toggle-shortcuts-help')).toBe(true);
+
+    // A bare `?` with no shift modifier should NOT fire (defensive —
+    // some layouts produce `?` without shift, in which case we'd want
+    // the user to rebind rather than silently firing).
+    const plain = new KeyboardEvent('keydown', { key: '?', code: 'Slash' });
+    expect(matchesPopupShortcut(plain, 'toggle-shortcuts-help')).toBe(false);
+  });
+
   it('open-settings default chord matches mod+, across platforms', () => {
     const commaEvent = new KeyboardEvent('keydown', { key: ',', code: 'Comma', metaKey: true });
     const ctrlCommaEvent = new KeyboardEvent('keydown', { key: ',', code: 'Comma', ctrlKey: true });

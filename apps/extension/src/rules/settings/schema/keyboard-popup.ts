@@ -90,7 +90,11 @@ interface PopupKeySpec {
 const POPUP_KEYS: readonly PopupKeySpec[] = [
   {
     key: 'keyboard.popup.toggleShortcutsHelp',
-    default: '?',
+    // Stored as `shift+?` because `?` is produced by Shift+/ on every
+    // common layout — `buildChordsFromEvent` prepends the active shift
+    // modifier to the chord, so a bare `?` default never matches a
+    // real keypress.
+    default: 'shift+?',
     label: 'Popup — Toggle Shortcuts Help',
     description: 'Show or hide the popup keyboard-shortcut cheatsheet.',
     tags: ['popup', 'help', 'cheatsheet'],
