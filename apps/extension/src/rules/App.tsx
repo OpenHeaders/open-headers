@@ -46,6 +46,7 @@ import { useInitialLanding } from './hooks/useInitialLanding';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useSaveToCollectionFlow } from './hooks/useSaveToCollectionFlow';
+import { getFocusedRegion } from './stores/focus-region-store';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
@@ -184,7 +185,7 @@ const RulesAppWorkspace: React.FC<RulesAppWorkspaceProps> = ({ layout }) => {
         focus.focusRegion('editor');
         return;
       }
-      const isFocused = tl.state.focusedRegion === region;
+      const isFocused = getFocusedRegion() === region;
       const isOpen = tl.isRegionOpen(region);
       if (isOpen && isFocused) {
         tl.toggleRegion(region);

@@ -33,11 +33,11 @@ import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYP
 import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
-import BodyRuleFields from './rule-fields/BodyRuleFields';
+import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields from './rule-fields/InjectRuleFields';
-import MockRuleFields from './rule-fields/MockRuleFields';
+import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
@@ -334,17 +334,34 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     applyTemplate(initialTemplateKey);
   }, [initialTemplateKey, applyTemplate, selectedType]);
 
-  const handleValuesChange = useCallback(() => {
-    if (!isDirtyRef.current) {
-      isDirtyRef.current = true;
-      onDirtyChange?.(true);
-    }
-    // Sync header badge counts from live form state during editing
-    const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
-    const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
-    setHeaderReqCount(reqH?.length ?? 0);
-    setHeaderResCount(resH?.length ?? 0);
-  }, [onDirtyChange, form]);
+  const handleValuesChange = useCallback(
+    (changedValues: Record<string, unknown>) => {
+      if (!isDirtyRef.current) {
+        isDirtyRef.current = true;
+        onDirtyChange?.(true);
+      }
+      // Sync header badge counts from live form state during editing
+      const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
+      const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
+      setHeaderReqCount(reqH?.length ?? 0);
+      setHeaderResCount(resH?.length ?? 0);
+
+      // Prefill the dynamic code template the first time the user flips
+      // Body/Mock to Dynamic mode. Lives here — not inside the field
+      // components — so the child rule-field components stay pure-render
+      // and don't need a parallel Form.useWatch subscription for side
+      // effects. `changedValues` tells us exactly which Radio just flipped.
+      if (changedValues.bodyModType === 'dynamic') {
+        const dyn = form.getFieldValue('bodyDynamicContent') as string | undefined;
+        if (!dyn?.trim()) form.setFieldValue('bodyDynamicContent', BODY_DYNAMIC_TEMPLATE);
+      }
+      if (changedValues.mockBodyType === 'dynamic') {
+        const dyn = form.getFieldValue('mockDynamicBody') as string | undefined;
+        if (!dyn?.trim()) form.setFieldValue('mockDynamicBody', MOCK_DYNAMIC_TEMPLATE);
+      }
+    },
+    [onDirtyChange, form],
+  );
 
   // ── Build rule: merges form content with externally-owned name/enabled ──
 

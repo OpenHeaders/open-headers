@@ -15,6 +15,7 @@ import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { useState } from 'react';
+import { useIsDockFocused } from '../stores/focus-region-store';
 import { ALL_DOCK_SLOTS, DOCK_LABELS, TOOL_WINDOW_MAP } from '../tool-windows';
 import type { DockSlot, ToolWindowId } from '../types';
 import DockSlotIcon from './DockSlotIcon';
@@ -24,8 +25,6 @@ export interface DockTabStripProps {
   windows: ToolWindowId[];
   activeId: ToolWindowId | null;
   orientation: 'vertical' | 'horizontal';
-  /** Whether the region this dock belongs to currently owns focus. */
-  focused: boolean;
   /** Whether tab labels should be rendered alongside icons. */
   showLabels: boolean;
   /** True while any dock tab is being dragged — forces empty strips to
@@ -149,7 +148,6 @@ const DockTabStrip: React.FC<DockTabStripProps> = ({
   windows,
   activeId,
   orientation,
-  focused,
   showLabels,
   dragging,
   onActivate,
@@ -159,6 +157,7 @@ const DockTabStrip: React.FC<DockTabStripProps> = ({
   onToggleLabels,
 }) => {
   const { token } = theme.useToken();
+  const focused = useIsDockFocused(slot);
   const { setNodeRef: setStripRef, isOver: isStripOver } = useDroppable({
     id: `dock:${slot}`,
     data: { slot },

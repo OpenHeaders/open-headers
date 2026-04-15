@@ -128,7 +128,10 @@ export function useFocusRegion({ shellRef, setFocusedRegion, setFocusedDock }: U
 
     // Capture-phase click so stopPropagation in children doesn't swallow
     // the region update. Click (not pointerdown) so right-clicks and drag
-    // gestures don't move focus.
+    // gestures don't move focus. Safe to call synchronously because
+    // setFocusedRegion/setFocusedDock write to an external store — no
+    // React reconciler work runs inside this listener, so the commit
+    // can't race with antd's controlled <Radio.Group> click handling.
     const handleClick = (event: MouseEvent) => {
       commitFromTarget(event.target);
     };

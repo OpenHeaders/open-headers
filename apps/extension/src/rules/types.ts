@@ -159,14 +159,6 @@ export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked';
 export interface ToolLayoutState {
   docks: Record<DockSlot, DockState>;
   hidden: ToolWindowId[];
-  focusedRegion: FocusRegion;
-  /**
-   * Exact dock slot that currently owns keyboard focus. Drives the blue
-   * "focused" accent on tool-window tabs — only the tab for this dock's
-   * active window lights up, not every tab in the same region. Null when
-   * focus is outside any dock (editor, command palette, etc).
-   */
-  focusedDock: DockSlot | null;
   /**
    * Zen-mode snapshot. When non-null the shell is in zen mode — all docks
    * captured here have been collapsed and the snapshot holds the pre-zen

@@ -5,12 +5,22 @@
  *   Static Data — user provides a literal response body (JSON, HTML, etc.)
  *   Dynamic (JavaScript) — user writes a modifyResponse() function that
  *     receives request context and returns the modified response.
+ *
+ * Conditional blocks read their trigger value via `Form.Item shouldUpdate`
+ * render props, not `Form.useWatch`. The useWatch subscription model has a
+ * first-render timing race in this layout (already called out in
+ * RuleEditor.tsx for HeaderRuleFields) that leaves Radio.Groups visibly
+ * "stuck". shouldUpdate reads the current form value synchronously via
+ * `getFieldValue`, so it is immune to that race.
+ *
+ * The dynamic-template prefill side effect lives in the parent editor's
+ * `onValuesChange`, which sees the mockBodyType change via `changedValues`
+ * the moment the Radio flips — no parallel hook needed here.
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
@@ -107,7 +117,7 @@ const STATUS_CODES = [
   },
 ];
 
-const DYNAMIC_TEMPLATE = `function modifyResponse(args) {
+export const MOCK_DYNAMIC_TEMPLATE = `function modifyResponse(args) {
   const { method, url, response, responseType, requestHeaders, requestData, responseJSON } = args;
   // Change response below depending upon request attributes received in args
 
@@ -117,21 +127,6 @@ const DYNAMIC_TEMPLATE = `function modifyResponse(args) {
 const MockRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
-  const bodyType = Form.useWatch('mockBodyType');
-  const resourceType = Form.useWatch('mockResourceType');
-  const prevBodyTypeRef = useRef(bodyType);
-
-  // Prefill dynamic template on first switch
-  useEffect(() => {
-    if (bodyType === prevBodyTypeRef.current) return;
-    if (bodyType === 'dynamic') {
-      const dynamicContent = form.getFieldValue('mockDynamicBody') as string;
-      if (!dynamicContent?.trim()) {
-        form.setFieldValue('mockDynamicBody', DYNAMIC_TEMPLATE);
-      }
-    }
-    prevBodyTypeRef.current = bodyType;
-  }, [bodyType, form]);
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -141,7 +136,10 @@ const MockRuleFields: React.FC = () => {
         </Text>
         <InfoCircleOutlined
           style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => openDocs(getDocId(bodyType === 'dynamic' ? 'mock-dynamic' : 'mock-static', 'action'))}
+          onClick={() => {
+            const bodyType = form.getFieldValue('mockBodyType');
+            openDocs(getDocId(bodyType === 'dynamic' ? 'mock-dynamic' : 'mock-static', 'action'));
+          }}
         />
       </div>
       <Alert
@@ -164,50 +162,55 @@ const MockRuleFields: React.FC = () => {
         </Form.Item>
       </div>
 
-      {/* GraphQL Operation filter */}
-      {resourceType === 'graphql' && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              GraphQL Operation (Request Payload Filter)
-            </Text>
-            <InfoCircleOutlined
-              style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-              onClick={() => openDocs(getDocId('body-graphql', 'action'))}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Form.Item name="mockGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
-              <Input size="small" placeholder="Key e.g. operationName" />
-            </Form.Item>
-            <Form.Item name="mockGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
-              <Select
-                size="small"
-                options={[
-                  { value: 'Equals', label: 'Equals' },
-                  { value: 'Contains', label: 'Contains' },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="mockGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
-              <Input size="small" placeholder="value e.g. getUsers" />
-            </Form.Item>
-            <Button
-              type="link"
-              size="small"
-              onClick={() => {
-                form.setFieldsValue({
-                  mockGraphqlKey: undefined,
-                  mockGraphqlOperator: 'Equals',
-                  mockGraphqlValue: undefined,
-                });
-              }}
-            >
-              Reset
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* GraphQL Operation filter — shown only when resourceType === 'graphql'. */}
+      <Form.Item noStyle shouldUpdate={(prev, cur) => prev.mockResourceType !== cur.mockResourceType}>
+        {({ getFieldValue }) => {
+          if (getFieldValue('mockResourceType') !== 'graphql') return null;
+          return (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  GraphQL Operation (Request Payload Filter)
+                </Text>
+                <InfoCircleOutlined
+                  style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                  onClick={() => openDocs(getDocId('body-graphql', 'action'))}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Form.Item name="mockGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
+                  <Input size="small" placeholder="Key e.g. operationName" />
+                </Form.Item>
+                <Form.Item name="mockGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
+                  <Select
+                    size="small"
+                    options={[
+                      { value: 'Equals', label: 'Equals' },
+                      { value: 'Contains', label: 'Contains' },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item name="mockGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
+                  <Input size="small" placeholder="value e.g. getUsers" />
+                </Form.Item>
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => {
+                    form.setFieldsValue({
+                      mockGraphqlKey: undefined,
+                      mockGraphqlOperator: 'Equals',
+                      mockGraphqlValue: undefined,
+                    });
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            </div>
+          );
+        }}
+      </Form.Item>
 
       <div style={{ marginBottom: 12 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -250,32 +253,46 @@ const MockRuleFields: React.FC = () => {
           </Form.Item>
         </div>
 
-        {bodyType === 'dynamic' && (
-          <div
-            style={{
-              fontSize: 11,
-              color: 'var(--ant-color-text-secondary)',
-              lineHeight: 1.5,
-              marginBottom: 8,
-              padding: '6px 8px',
-              background: 'var(--ant-color-fill-quaternary)',
-              borderRadius: 4,
-            }}
-          >
-            The real request is made first. Your function receives the response and request context, then returns the
-            modified response. Return a string or an object (auto-serialized to JSON).
-          </div>
-        )}
-
-        {bodyType === 'dynamic' ? (
-          <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
-            <CodeEditor language="javascript" minHeight={240} />
-          </Form.Item>
-        ) : (
-          <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
-            <CodeEditor language="json" placeholder={'{"message": "custom response", "data": []}'} minHeight={160} />
-          </Form.Item>
-        )}
+        {/* Dynamic info banner + the static/dynamic CodeEditor swap — both
+            depend on mockBodyType, so they live in one shouldUpdate block. */}
+        <Form.Item noStyle shouldUpdate={(prev, cur) => prev.mockBodyType !== cur.mockBodyType}>
+          {({ getFieldValue }) => {
+            const isDynamic = getFieldValue('mockBodyType') === 'dynamic';
+            return (
+              <>
+                {isDynamic && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--ant-color-text-secondary)',
+                      lineHeight: 1.5,
+                      marginBottom: 8,
+                      padding: '6px 8px',
+                      background: 'var(--ant-color-fill-quaternary)',
+                      borderRadius: 4,
+                    }}
+                  >
+                    The real request is made first. Your function receives the response and request context, then
+                    returns the modified response. Return a string or an object (auto-serialized to JSON).
+                  </div>
+                )}
+                {isDynamic ? (
+                  <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
+                    <CodeEditor language="javascript" minHeight={240} />
+                  </Form.Item>
+                ) : (
+                  <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
+                    <CodeEditor
+                      language="json"
+                      placeholder={'{"message": "custom response", "data": []}'}
+                      minHeight={160}
+                    />
+                  </Form.Item>
+                )}
+              </>
+            );
+          }}
+        </Form.Item>
       </div>
     </div>
   );

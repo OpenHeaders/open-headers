@@ -14,6 +14,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  getFocusedDock,
+  setFocusedDock as setFocusedDockStore,
+  setFocusedRegion as setFocusedRegionStore,
+} from '../stores/focus-region-store';
 import { ALL_DOCK_SLOTS, dockRegion, TOOL_WINDOW_MAP, TOOL_WINDOWS } from '../tool-windows';
 import type { DockSlot, DockState, FocusRegion, ToolLayoutState, ToolRegion, ToolWindowId } from '../types';
 
@@ -40,8 +45,6 @@ function makeDefaultDocks(): Record<DockSlot, DockState> {
 export const DEFAULT_TOOL_LAYOUT: ToolLayoutState = {
   docks: makeDefaultDocks(),
   hidden: [],
-  focusedRegion: null,
-  focusedDock: null,
   zenSnapshot: null,
 };
 
@@ -138,8 +141,6 @@ export function normalizeToolLayout(raw: Partial<ToolLayoutState> | null | undef
   return {
     docks,
     hidden,
-    focusedRegion: null,
-    focusedDock: null,
     // Zen mode is always ephemeral — any persisted snapshot is discarded.
     zenSnapshot: null,
   };
@@ -249,19 +250,22 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
 
   const activateWindow = useCallback(
     (id: ToolWindowId) => {
+      let focusTarget: DockSlot | null = null;
       patch((next) => {
         const slot = findDock(next.docks, id);
         if (!slot) return;
         next.docks[slot].active = id;
-        next.focusedDock = slot;
         lastActiveRef.current[slot] = id;
+        focusTarget = slot;
       });
+      if (focusTarget) setFocusedDockStore(focusTarget);
     },
     [patch],
   );
 
   const toggleWindow = useCallback(
     (id: ToolWindowId) => {
+      let focusTarget: DockSlot | null = null;
       patch((next) => {
         const slot = findDock(next.docks, id);
         if (!slot) return;
@@ -271,9 +275,10 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
         } else {
           dock.active = id;
           lastActiveRef.current[slot] = id;
-          next.focusedDock = slot;
+          focusTarget = slot;
         }
       });
+      if (focusTarget) setFocusedDockStore(focusTarget);
     },
     [patch],
   );
@@ -314,10 +319,11 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
   // dock already had it.
   const moveWindow = useCallback(
     (id: ToolWindowId, target: DockSlot, insertAt?: number) => {
+      let focusTarget: DockSlot | null = null;
       patch((next) => {
         const sourceSlot = findDock(next.docks, id);
         const wasSelected = sourceSlot !== null && next.docks[sourceSlot].active === id;
-        const wasFocused = wasSelected && next.focusedDock === sourceSlot;
+        const wasFocused = wasSelected && getFocusedDock() === sourceSlot;
 
         if (sourceSlot === target && insertAt === undefined) return;
 
@@ -337,9 +343,10 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
           lastActiveRef.current[target] = id;
         }
         if (wasFocused) {
-          next.focusedDock = target;
+          focusTarget = target;
         }
       });
+      if (focusTarget) setFocusedDockStore(focusTarget);
     },
     [patch],
   );
@@ -390,6 +397,7 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
    * newer user choice.
    */
   const toggleZenMode = useCallback(() => {
+    let clearFocus = false;
     patch((next) => {
       if (next.zenSnapshot) {
         for (const s of ALL_DOCK_SLOTS) {
@@ -422,30 +430,18 @@ export function useToolLayout({ initial, onPersist }: UseToolLayoutOptions = {})
       }
       if (!anyCaptured) return;
       next.zenSnapshot = snap;
-      next.focusedDock = null;
+      clearFocus = true;
     });
+    if (clearFocus) setFocusedDockStore(null);
   }, [patch]);
 
-  const setFocusedRegion = useCallback(
-    (region: FocusRegion) =>
-      patch((next) => {
-        next.focusedRegion = region;
-        // Leaving dock regions drops the per-dock focus so the activity
-        // bars stop showing a blue accent.
-        if (region === null || region === 'editor') {
-          next.focusedDock = null;
-        }
-      }),
-    [patch],
-  );
+  const setFocusedRegion = useCallback((region: FocusRegion) => {
+    setFocusedRegionStore(region);
+  }, []);
 
-  const setFocusedDock = useCallback(
-    (slot: DockSlot | null) =>
-      patch((next) => {
-        next.focusedDock = slot;
-      }),
-    [patch],
-  );
+  const setFocusedDock = useCallback((slot: DockSlot | null) => {
+    setFocusedDockStore(slot);
+  }, []);
 
   return useMemo<ToolLayoutApi>(
     () => ({

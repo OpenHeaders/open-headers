@@ -13,11 +13,11 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
-import BodyRuleFields from './rule-fields/BodyRuleFields';
+import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields from './rule-fields/InjectRuleFields';
-import MockRuleFields from './rule-fields/MockRuleFields';
+import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import TwoToneIconPicker from './TwoToneIconPicker';
@@ -133,16 +133,30 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     registerSaveRef?.(handleSave);
   }, [registerSaveRef, handleSave]);
 
-  const handleValuesChange = useCallback(() => {
-    if (!isDirtyRef.current) {
-      isDirtyRef.current = true;
-      onDirtyChange?.(true);
-    }
-    const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
-    const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
-    setHeaderReqCount(reqH?.length ?? 0);
-    setHeaderResCount(resH?.length ?? 0);
-  }, [onDirtyChange, form]);
+  const handleValuesChange = useCallback(
+    (changedValues: Record<string, unknown>) => {
+      if (!isDirtyRef.current) {
+        isDirtyRef.current = true;
+        onDirtyChange?.(true);
+      }
+      const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
+      const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
+      setHeaderReqCount(reqH?.length ?? 0);
+      setHeaderResCount(resH?.length ?? 0);
+
+      // Same dynamic-template prefill as RuleEditor — side effects live at
+      // the form parent so Body/Mock field components stay pure-render.
+      if (changedValues.bodyModType === 'dynamic') {
+        const dyn = form.getFieldValue('bodyDynamicContent') as string | undefined;
+        if (!dyn?.trim()) form.setFieldValue('bodyDynamicContent', BODY_DYNAMIC_TEMPLATE);
+      }
+      if (changedValues.mockBodyType === 'dynamic') {
+        const dyn = form.getFieldValue('mockDynamicBody') as string | undefined;
+        if (!dyn?.trim()) form.setFieldValue('mockDynamicBody', MOCK_DYNAMIC_TEMPLATE);
+      }
+    },
+    [onDirtyChange, form],
+  );
 
   if (!template) {
     return (

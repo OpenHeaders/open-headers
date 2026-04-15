@@ -276,7 +276,6 @@ const VerticalActivityBar: React.FC<VerticalBarProps> = ({ side, tl, getWindows,
       windows={windowsList}
       activeId={dock.active}
       orientation="vertical"
-      focused={tl.state.focusedDock === slot}
       showLabels={showLabels}
       dragging={dragging}
       onActivate={tl.toggleWindow}
