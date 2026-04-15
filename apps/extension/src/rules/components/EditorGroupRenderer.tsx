@@ -210,6 +210,8 @@ export interface EditorGroupRendererProps {
   onCreateRule: (type: string) => void;
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
+  /** Forwarded to the focused leaf's TabBar so App.tsx can reach the tab-search toggle. */
+  registerTabSearchToggle?: (toggle: () => void) => void;
   onTabDoubleClick?: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseOther: (tabId: string) => void;
@@ -233,6 +235,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   onCreateRule,
   createMenuOpen,
   onCreateMenuOpenChange,
+  registerTabSearchToggle,
   onTabDoubleClick,
   onCloseTab,
   onCloseOther,
@@ -460,6 +463,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           canUnsplitAll={canUnsplitAll}
           createMenuOpen={isFocused ? createMenuOpen : false}
           onCreateMenuOpenChange={isFocused ? onCreateMenuOpenChange : undefined}
+          registerTabSearchToggle={isFocused ? registerTabSearchToggle : undefined}
         />
         {/* Everything below the tab bar — breadcrumb + content — lives
             inside a single positioned wrapper so the drop-preview

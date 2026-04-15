@@ -40,6 +40,7 @@ export interface WorkspaceShortcutHandlers {
   onCloseTab: () => void;
   onPrevTab: () => void;
   onNextTab: () => void;
+  onTabSearch: () => void;
   onSave: () => void;
   onNewRule: () => void;
   onFocusFilter: () => void;
@@ -143,8 +144,7 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     label: 'Search tabs',
     settingKey: 'keyboard.tabSearch',
     category: 'tabs',
-    // handled in TabBar.tsx; included here only for shortcut labels/docs
-    handler: { kind: 'direct', name: 'onCommandPalette' },
+    handler: { kind: 'direct', name: 'onTabSearch' },
   },
 
   // Navigation

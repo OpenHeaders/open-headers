@@ -34,10 +34,13 @@ import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useDragIntent } from '../drag-intent';
+import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import type { ClosedTab, RulesTab } from '../types';
 import LayoutMenuIcon from './LayoutMenuIcon';
+import { menuItemLabel } from './MenuItemShortcutLabel';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 
@@ -168,6 +171,13 @@ interface TabBarProps {
   /** Controlled open state for the + create menu (e.g. triggered by ⌥N). */
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
+  /**
+   * Registers the tab-search toggle function with the host (App.tsx)
+   * so the workspace shortcut registry can invoke it via the
+   * `onTabSearch` handler. TabBar owns the `tabSearchOpen` state; the
+   * host owns the shortcut dispatch.
+   */
+  registerTabSearchToggle?: (toggle: () => void) => void;
 }
 
 // ── Tab visual (pill) ────────────────────────────────────────────
@@ -660,6 +670,7 @@ const TabBar: React.FC<TabBarProps> = ({
   canUnsplitAll,
   createMenuOpen,
   onCreateMenuOpenChange,
+  registerTabSearchToggle,
 }) => {
   const { token } = theme.useToken();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -685,17 +696,21 @@ const TabBar: React.FC<TabBarProps> = ({
     if (scrollRef.current) scrollRef.current.scrollLeft += e.deltaY;
   }, []);
 
-  // ── Keyboard shortcut: Shift+Cmd+A ────────────────────────────
+  // ── Register tab-search toggle with the workspace shortcut host ──
+  //
+  // The workspace shortcut registry owns chord dispatch; TabBar owns the
+  // `tabSearchOpen` state. We bridge the two by publishing a toggle
+  // function upward on mount, so pressing the `tab-search` chord (user-
+  // rebindable) invokes the SAME setState that the click affordance
+  // does — instead of the old hardcoded `Shift+Cmd+A` window listener
+  // that never reflected user rebinds.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        setTabSearchOpen((v) => !v);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
+    if (!registerTabSearchToggle) return;
+    registerTabSearchToggle(() => setTabSearchOpen((v) => !v));
+    return () => registerTabSearchToggle(() => undefined);
+  }, [registerTabSearchToggle]);
+  const tabSearchLabel = useShortcutLabel('tab-search');
+  const newRuleLabel = useShortcutLabel('new-rule');
 
   // ── Context menu builder ───────────────────────────────────────
   const menuIconWrap = useCallback(
@@ -720,7 +735,7 @@ const TabBar: React.FC<TabBarProps> = ({
       const splitDisabled = tabs.length < 2;
       return {
         items: [
-          { key: 'close', label: 'Close', onClick: () => onClose(tab.id) },
+          { key: 'close', label: menuItemLabel('Close', 'close-tab'), onClick: () => onClose(tab.id) },
           {
             key: 'close-other',
             label: 'Close Other Tabs',
@@ -928,15 +943,17 @@ const TabBar: React.FC<TabBarProps> = ({
           open={createMenuOpen}
           onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
         >
-          <div className="rules-tab-action" style={{ color: token.colorTextSecondary, flexShrink: 0 }}>
-            <PlusOutlined style={{ fontSize: 12 }} />
-          </div>
+          <Tooltip title={<ShortcutHintTitle label={newRuleLabel}>New rule</ShortcutHintTitle>} placement="bottom">
+            <div className="rules-tab-action" style={{ color: token.colorTextSecondary, flexShrink: 0 }}>
+              <PlusOutlined style={{ fontSize: 12 }} />
+            </div>
+          </Tooltip>
         </Dropdown>
       </div>
 
       {/* Tab search chevron (always visible, outside scroll) */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
-        <Tooltip title="Search tabs (Shift+Cmd+A)" placement="bottom">
+        <Tooltip title={<ShortcutHintTitle label={tabSearchLabel}>Search tabs</ShortcutHintTitle>} placement="bottom">
           <div
             className="rules-tab-action"
             style={{ color: token.colorTextSecondary }}
