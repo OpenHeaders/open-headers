@@ -1,7 +1,14 @@
 import { isFirefox } from '@utils/browser-api';
 import { Typography } from 'antd';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  POPUP_SHORTCUTS,
+  type PopupShortcutDef,
+  type PopupShortcutGroup,
+  type PopupShortcutId,
+  usePopupShortcutChords,
+} from '../shortcuts/popup-shortcuts';
 
 const { Text } = Typography;
 
@@ -11,6 +18,7 @@ interface KeyboardShortcutsOverlayProps {
 }
 
 interface ShortcutEntry {
+  id?: PopupShortcutId;
   keys: string[];
   combo?: boolean;
   description: string;
@@ -22,66 +30,121 @@ interface ShortcutGroup {
   hint?: { label: string; onClick: () => void };
 }
 
-const LEFT_COLUMN: ShortcutGroup[] = [
-  {
-    title: 'Navigation',
-    shortcuts: [
-      { keys: ['1'], description: 'This Page tab' },
-      { keys: ['2'], description: 'All Rules tab' },
-      { keys: ['3'], description: 'Tags tab' },
-      { keys: ['/'], description: 'Focus search' },
-      { keys: ['[', ']'], description: 'Prev / next page' },
-      { keys: ['Esc'], description: 'Clear search / deselect' },
-    ],
-  },
-  {
-    title: 'Actions',
-    shortcuts: [
-      { keys: ['a'], description: 'Add new rule' },
-      { keys: ['w'], description: 'Open workspace' },
-      { keys: ['r'], description: 'Toggle recording' },
-      { keys: ['p'], description: 'Pause / resume rules' },
-      { keys: ['o'], description: 'Options menu' },
-      { keys: ['t'], description: 'Cycle theme' },
-      { keys: ['m'], description: 'Compact mode' },
-      { keys: ['?'], description: 'This panel' },
-    ],
-  },
-];
-
 const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 
-const RIGHT_COLUMN: ShortcutGroup[] = [
-  {
-    title: 'Table rows',
-    shortcuts: [
-      { keys: ['j', '\u2193'], description: 'Move down' },
-      { keys: ['k', '\u2191'], description: 'Move up' },
-      { keys: ['l', '\u2192'], description: 'Expand / enter sub-rows' },
-      { keys: ['h', '\u2190'], description: 'Collapse / exit sub-rows' },
-      { keys: ['Space'], description: 'Toggle on / off' },
-      { keys: ['e'], description: 'Edit rule' },
-      { keys: ['c'], description: 'Copy value' },
-      { keys: ['dd'], description: 'Delete (press twice)' },
-    ],
+/**
+ * Mapping from registry group to the visible column heading in the
+ * overlay. Popup shortcuts live in one place (`POPUP_SHORTCUTS`) so we
+ * can't accidentally show a key here that the dispatcher doesn't
+ * recognize, or rebind in settings without updating this overlay.
+ */
+const GROUP_TITLES: Record<PopupShortcutGroup, string> = {
+  navigation: 'Navigation',
+  actions: 'Actions',
+  row: 'Table rows',
+  browser: 'Browser',
+};
+
+const GROUP_ORDER: readonly PopupShortcutGroup[] = ['navigation', 'actions', 'row', 'browser'];
+
+const BROWSER_SHORTCUT: ShortcutEntry = {
+  keys: isMac ? ['\u2318', '\u21E7', '.'] : ['Ctrl', 'Shift', '.'],
+  combo: true,
+  description: 'Open popup',
+};
+
+const BROWSER_HINT = {
+  label: 'Customize browser shortcut \u2197',
+  onClick: (): void => {
+    if (isFirefox) {
+      void chrome.tabs.create({ url: 'about:addons' });
+    } else {
+      void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+    }
   },
-  {
-    title: 'Browser',
-    shortcuts: [
-      { keys: isMac ? ['\u2318', '\u21E7', '.'] : ['Ctrl', 'Shift', '.'], combo: true, description: 'Open popup' },
-    ],
-    hint: {
-      label: 'Customize browser shortcut \u2197',
-      onClick: () => {
-        if (isFirefox) {
-          void chrome.tabs.create({ url: 'about:addons' });
-        } else {
-          void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
-        }
-      },
-    },
-  },
-];
+};
+
+/**
+ * Display helpers — convert a normalized chord string (the format used
+ * by the settings store and `buildChordsFromEvent`) into a single-key
+ * overlay label, without modifiers. Popup shortcuts are single-key by
+ * design; if a user rebinds to a modified chord we still render the
+ * final key so the overlay doesn't go blank.
+ */
+function displayKey(chord: string): string {
+  if (!chord) return '';
+  const parts = chord.split('+');
+  const raw = parts[parts.length - 1] ?? '';
+  switch (raw) {
+    case ' ':
+      return 'Space';
+    case 'arrowup':
+      return '\u2191';
+    case 'arrowdown':
+      return '\u2193';
+    case 'arrowleft':
+      return '\u2190';
+    case 'arrowright':
+      return '\u2192';
+    case 'escape':
+      return 'Esc';
+    case 'enter':
+      return '\u21B5';
+    default:
+      return raw.length === 1 ? raw : raw.charAt(0).toUpperCase() + raw.slice(1);
+  }
+}
+
+function buildEntryKeys(def: PopupShortcutDef, chord: string): string[] {
+  const primary = displayKey(chord);
+  const aliasKeys = (def.hardcodedAliases ?? [])
+    .map((alias) => displayKey(alias.toLowerCase()))
+    .filter((k) => k && k !== primary);
+  const keys = primary ? [primary, ...aliasKeys] : aliasKeys;
+  return keys.length > 0 ? keys : ['—'];
+}
+
+interface OverlayColumns {
+  left: ShortcutGroup[];
+  right: ShortcutGroup[];
+}
+
+function useOverlayColumns(): OverlayColumns {
+  // One subscription drives the entire overlay — if the user rebinds
+  // any popup chord from Settings → Keyboard, the underlying store
+  // replaces the snapshot and every overlay row repaints on the next
+  // tick. No per-key hook call, so adding shortcuts can't trip React's
+  // rules of hooks.
+  const chords = usePopupShortcutChords();
+
+  return useMemo<OverlayColumns>(() => {
+    const grouped: Record<PopupShortcutGroup, ShortcutEntry[]> = {
+      navigation: [],
+      actions: [],
+      row: [],
+      browser: [],
+    };
+    for (const def of POPUP_SHORTCUTS) {
+      grouped[def.group].push({
+        id: def.id,
+        keys: buildEntryKeys(def, chords[def.id]),
+        description: def.description,
+      });
+    }
+    grouped.browser.push(BROWSER_SHORTCUT);
+
+    const groups: ShortcutGroup[] = GROUP_ORDER.map((group) => ({
+      title: GROUP_TITLES[group],
+      shortcuts: grouped[group],
+      hint: group === 'browser' ? BROWSER_HINT : undefined,
+    }));
+
+    return {
+      left: groups.filter((g) => g.title === GROUP_TITLES.navigation || g.title === GROUP_TITLES.actions),
+      right: groups.filter((g) => g.title === GROUP_TITLES.row || g.title === GROUP_TITLES.browser),
+    };
+  }, [chords]);
+}
 
 const Kbd: React.FC<{ children: string }> = ({ children }) => <span className="kbd-key">{children}</span>;
 
@@ -129,6 +192,7 @@ const ShortcutColumn: React.FC<{ groups: ShortcutGroup[] }> = ({ groups }) => (
 
 const KeyboardShortcutsOverlay: React.FC<KeyboardShortcutsOverlayProps> = ({ visible, onClose }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const columns = useOverlayColumns();
 
   // Close on click outside
   useEffect(() => {
@@ -171,9 +235,9 @@ const KeyboardShortcutsOverlay: React.FC<KeyboardShortcutsOverlayProps> = ({ vis
           </span>
         </div>
         <div className="keyboard-shortcuts-body">
-          <ShortcutColumn groups={LEFT_COLUMN} />
+          <ShortcutColumn groups={columns.left} />
           <div className="keyboard-shortcuts-divider" />
-          <ShortcutColumn groups={RIGHT_COLUMN} />
+          <ShortcutColumn groups={columns.right} />
         </div>
       </div>
     </div>

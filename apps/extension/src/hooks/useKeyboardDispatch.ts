@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import { useCallback, useEffect } from 'react';
+import { matchesPopupShortcut } from '@/popup/shortcuts/popup-shortcuts';
 import type { RowActions } from '@/popup/utils/table-shared';
 
 export interface FooterActions {
@@ -36,12 +37,6 @@ interface UseKeyboardDispatchOptions {
   onToggleCompactMode?: () => void;
   focusLastRowOnPageChange: RefObject<boolean>;
 }
-
-const TAB_KEYS: Record<string, string> = {
-  '1': 'active-rules',
-  '2': 'all-rules',
-  '3': 'collections',
-};
 
 function isInputFocused(): boolean {
   const el = document.activeElement;
@@ -101,8 +96,10 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         return;
       }
 
-      // Shortcuts overlay toggle
-      if (key === '?' && !isInputFocused()) {
+      // Shortcuts overlay toggle — always available, even while the
+      // overlay itself is showing, so the user can dismiss it with the
+      // same key they opened it with.
+      if (!isInputFocused() && matchesPopupShortcut(e, 'toggle-shortcuts-help')) {
         e.preventDefault();
         setIsShortcutsOverlayVisible((prev: boolean) => !prev);
         return;
@@ -122,8 +119,8 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       if (isTourOpen) return;
 
       // Toggle options dropdown — must be handled before isOverlayOpen() bail-out
-      // so pressing 'o' again can close the dropdown
-      if (key === 'o' && !isInputFocused() && onToggleOptions) {
+      // so pressing the bound key again can close the dropdown
+      if (!isInputFocused() && onToggleOptions && matchesPopupShortcut(e, 'toggle-options-menu')) {
         e.preventDefault();
         onToggleOptions();
         return;
@@ -131,10 +128,10 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
 
       if (isOverlayOpen()) return;
 
-      // Pending delete confirmation
+      // Pending delete confirmation — Enter or the delete-row chord confirms.
       if (pendingDeleteIndex >= 0) {
         e.preventDefault();
-        if ((key === 'Enter' || key === 'd') && onDeleteRow) {
+        if ((key === 'Enter' || matchesPopupShortcut(e, 'delete-row')) && onDeleteRow) {
           onDeleteRow(pendingDeleteIndex);
         }
         setPendingDeleteIndex(-1);
@@ -174,15 +171,25 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       // Ignore single-key shortcuts when a modifier is held (e.g. Ctrl+R to reload)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-      // Tab switching: 1, 2, 3
-      if (TAB_KEYS[key]) {
+      // Tab switching
+      if (matchesPopupShortcut(e, 'tab-this-page')) {
         e.preventDefault();
-        onTabChange(TAB_KEYS[key]);
+        onTabChange('active-rules');
+        return;
+      }
+      if (matchesPopupShortcut(e, 'tab-all-rules')) {
+        e.preventDefault();
+        onTabChange('all-rules');
+        return;
+      }
+      if (matchesPopupShortcut(e, 'tab-collections')) {
+        e.preventDefault();
+        onTabChange('collections');
         return;
       }
 
-      // Focus search: /
-      if (key === '/') {
+      // Focus search
+      if (matchesPopupShortcut(e, 'focus-search')) {
         e.preventDefault();
         const activePane = containerRef.current?.querySelector('.ant-tabs-tabpane-active') ?? containerRef.current;
         const searchInput = activePane?.querySelector<HTMLInputElement>(
@@ -196,8 +203,8 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         return;
       }
 
-      // Page navigation: [ / ]
-      if (key === '[') {
+      // Page navigation
+      if (matchesPopupShortcut(e, 'prev-page')) {
         e.preventDefault();
         if (hasPrevPage && onPrevPage) {
           onPrevPage();
@@ -205,7 +212,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         }
         return;
       }
-      if (key === ']') {
+      if (matchesPopupShortcut(e, 'next-page')) {
         e.preventDefault();
         if (hasNextPage && onNextPage) {
           onNextPage();
@@ -216,27 +223,27 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
 
       // === Nested focus mode (inside expanded row's sub-table) ===
       if (nestedFocusIndex >= 0 && focusedRowIndex >= 0) {
-        if (key === 'j' || key === 'ArrowDown') {
+        if (matchesPopupShortcut(e, 'move-down')) {
           e.preventDefault();
           if (nestedRowCount > 0) {
             setNestedFocusIndex((prev: number) => (prev + 1 >= nestedRowCount ? 0 : prev + 1));
           }
           return;
         }
-        if (key === 'k' || key === 'ArrowUp') {
+        if (matchesPopupShortcut(e, 'move-up')) {
           e.preventDefault();
           if (nestedRowCount > 0) {
             setNestedFocusIndex((prev: number) => (prev <= 0 ? nestedRowCount - 1 : prev - 1));
           }
           return;
         }
-        if (key === 'ArrowLeft' || key === 'h') {
+        if (matchesPopupShortcut(e, 'collapse-row')) {
           e.preventDefault();
           setNestedFocusIndex(-1);
           setExpandedRowKey(null);
           return;
         }
-        if (key === 'c' && !e.ctrlKey && !e.metaKey) {
+        if (matchesPopupShortcut(e, 'copy-value') && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           // Copy nested row URL — this is the one place we touch DOM for a user action
           const activePane = containerRef.current?.querySelector('.ant-tabs-tabpane-active') ?? containerRef.current;
@@ -253,7 +260,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
           }
           return;
         }
-        if (key === ' ') {
+        if (matchesPopupShortcut(e, 'toggle-row')) {
           e.preventDefault();
           // Toggle the switch in the focused nested row
           const activePane = containerRef.current?.querySelector('.ant-tabs-tabpane-active') ?? containerRef.current;
@@ -274,8 +281,8 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         return;
       }
 
-      // === Parent row navigation: j/k ===
-      if (key === 'j' || key === 'ArrowDown') {
+      // === Parent row navigation ===
+      if (matchesPopupShortcut(e, 'move-down')) {
         e.preventDefault();
         if (visibleRowCount === 0) return;
         setFocusedRowIndex((prev: number) => {
@@ -291,7 +298,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         });
         return;
       }
-      if (key === 'k' || key === 'ArrowUp') {
+      if (matchesPopupShortcut(e, 'move-up')) {
         e.preventDefault();
         if (visibleRowCount === 0) return;
         setFocusedRowIndex((prev: number) => {
@@ -310,7 +317,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
 
       // === Row actions (when a parent row is focused) ===
       if (focusedRowIndex >= 0) {
-        if (key === 'ArrowRight' || key === 'l' || key === 'Enter') {
+        if (matchesPopupShortcut(e, 'expand-row')) {
           e.preventDefault();
           if (onExpandRow) {
             // Tree table mode — expand focused node
@@ -326,7 +333,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
           }
           return;
         }
-        if (key === 'ArrowLeft' || key === 'h') {
+        if (matchesPopupShortcut(e, 'collapse-row')) {
           e.preventDefault();
           if (onCollapseRow) {
             // Tree table mode — collapse focused node
@@ -336,22 +343,22 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
           }
           return;
         }
-        if (key === ' ' && onToggleRow) {
+        if (onToggleRow && matchesPopupShortcut(e, 'toggle-row')) {
           e.preventDefault();
           onToggleRow(focusedRowIndex);
           return;
         }
-        if (key === 'e' && onEditRow) {
+        if (onEditRow && matchesPopupShortcut(e, 'edit-row')) {
           e.preventDefault();
           onEditRow(focusedRowIndex);
           return;
         }
-        if (key === 'c' && onCopyRow && !e.ctrlKey && !e.metaKey) {
+        if (onCopyRow && !e.ctrlKey && !e.metaKey && matchesPopupShortcut(e, 'copy-value')) {
           e.preventDefault();
           onCopyRow(focusedRowIndex);
           return;
         }
-        if (key === 'd' && onDeleteRow) {
+        if (onDeleteRow && matchesPopupShortcut(e, 'delete-row')) {
           e.preventDefault();
           setPendingDeleteIndex(focusedRowIndex);
           return;
@@ -359,32 +366,32 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       }
 
       // Global actions
-      if (key === 'a' && onAddRule) {
+      if (onAddRule && matchesPopupShortcut(e, 'add-rule')) {
         e.preventDefault();
         onAddRule();
         return;
       }
-      if (key === 'r' && onToggleRecording) {
+      if (onToggleRecording && matchesPopupShortcut(e, 'toggle-recording')) {
         e.preventDefault();
         onToggleRecording();
         return;
       }
-      if (key === 'p' && onToggleRulesPause) {
+      if (onToggleRulesPause && matchesPopupShortcut(e, 'toggle-rules-pause')) {
         e.preventDefault();
         onToggleRulesPause();
         return;
       }
-      if (key === 't' && onCycleTheme) {
+      if (onCycleTheme && matchesPopupShortcut(e, 'cycle-theme')) {
         e.preventDefault();
         onCycleTheme();
         return;
       }
-      if (key === 'm' && onToggleCompactMode) {
+      if (onToggleCompactMode && matchesPopupShortcut(e, 'toggle-compact-mode')) {
         e.preventDefault();
         onToggleCompactMode();
         return;
       }
-      if (key === 'w' && onOpenWorkspace) {
+      if (onOpenWorkspace && matchesPopupShortcut(e, 'open-workspace')) {
         e.preventDefault();
         onOpenWorkspace();
         return;
