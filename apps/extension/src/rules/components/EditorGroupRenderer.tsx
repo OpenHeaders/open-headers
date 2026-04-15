@@ -424,13 +424,21 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
         >
           {renderLeafHeader({ leaf, isFocusedLeaf: isFocused, activeTab })}
-          <div className="rules-editor-content" style={{ position: 'relative' }}>
+          <div className="rules-editor-content">
             {leaf.tabs.length === 0 && renderEmpty()}
-            {leaf.tabs.map((tab) => (
-              <div key={tab.id} style={{ display: tab.id === leaf.activeTabId ? 'block' : 'none', height: '100%' }}>
-                {renderTabBody({ tab, leafId: leaf.id, isFocusedLeaf: isFocused })}
-              </div>
-            ))}
+            {leaf.tabs.map((tab) => {
+              const isActive = tab.id === leaf.activeTabId;
+              return (
+                <div
+                  key={tab.id}
+                  className={`rules-editor-tab-panel${isActive ? ' active' : ''}`}
+                  aria-hidden={isActive ? undefined : true}
+                  inert={!isActive}
+                >
+                  {renderTabBody({ tab, leafId: leaf.id, isFocusedLeaf: isFocused })}
+                </div>
+              );
+            })}
           </div>
           <LeafDropPreview active={hoverHere} zone={hover?.zone ?? 'center'} />
         </div>

@@ -693,10 +693,25 @@ html, body, #root {
 
 .rules-editor-content {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  position: relative;
+}
+
+// Per-tab panel — each open tab gets its own scroll container and its
+// own container-query context. Inactive panels stay in layout
+// (position: absolute + visibility: hidden) so their scrollTop and any
+// embedded editor state (CodeMirror, form focus) survive tab switches.
+.rules-editor-tab-panel {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
   container-type: inline-size;
   container-name: editor;
+
+  &:not(.active) {
+    visibility: hidden;
+    pointer-events: none;
+  }
 }
 
 .rules-welcome {
