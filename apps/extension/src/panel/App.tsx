@@ -32,6 +32,66 @@ import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { usePanelToolLayout } from './data/use-panel-tool-layout';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
+type SidebarLayout = 'proportional' | 'compact' | 'stacked';
+
+const SIDEBAR_LAYOUT_OPTIONS: { key: SidebarLayout; label: string }[] = [
+  { key: 'proportional', label: 'Proportional (even halves)' },
+  { key: 'compact', label: 'Compact (bottom pinned)' },
+  { key: 'stacked', label: 'Stacked (all at top)' },
+];
+
+function SidebarLayoutIcon({ variant }: { variant: SidebarLayout }) {
+  const stroke = 'var(--dt-text-muted)';
+  const fill = 'var(--dt-text)';
+  const CELL_H = 2.4;
+  const LEFT = 0.5;
+  const RIGHT = 5.5;
+  const TOP = 0.5;
+  const occupied: Record<SidebarLayout, number[]> = {
+    proportional: [1, 3, 5],
+    compact: [1, 2, 5],
+    stacked: [1, 2, 3],
+  };
+  const cells = occupied[variant];
+  const sorted = [...cells].sort((a, b) => a - b);
+  const blocks: { start: number; end: number }[] = [];
+  for (const row of sorted) {
+    const last = blocks[blocks.length - 1];
+    if (last && row === last.end + 1) last.end = row;
+    else blocks.push({ start: row, end: row });
+  }
+  return (
+    <svg viewBox="0 0 16 13" width={16} height={13} role="img" aria-hidden="true" style={{ display: 'block' }}>
+      <rect x={0.5} y={0.5} width={15} height={12} rx={1.5} fill="none" stroke={stroke} strokeWidth={1} />
+      <line x1={RIGHT} y1={TOP} x2={RIGHT} y2={12.5} stroke={stroke} strokeWidth={1} />
+      {blocks.map((b) => (
+        <rect
+          key={`${b.start}-${b.end}`}
+          x={LEFT}
+          y={TOP + (b.start - 1) * CELL_H}
+          width={RIGHT - LEFT}
+          height={(b.end - b.start + 1) * CELL_H}
+          fill={fill}
+          fillOpacity={0.15}
+        />
+      ))}
+      {blocks.map((b) => {
+        const dividers: React.ReactNode[] = [];
+        const top = TOP + (b.start - 1) * CELL_H;
+        const bottom = TOP + b.end * CELL_H;
+        if (top > TOP + 0.01)
+          dividers.push(
+            <line key={`t${b.start}`} x1={LEFT} y1={top} x2={RIGHT} y2={top} stroke={stroke} strokeWidth={0.75} />,
+          );
+        if (bottom < 12.5 - 0.01)
+          dividers.push(
+            <line key={`b${b.end}`} x1={LEFT} y1={bottom} x2={RIGHT} y2={bottom} stroke={stroke} strokeWidth={0.75} />,
+          );
+        return dividers;
+      })}
+    </svg>
+  );
+}
 
 // ── Region toggle SVG (same as workspace StatusBar) ──────────────
 
@@ -297,8 +357,11 @@ export default function App() {
   const [activityLabels, setActivityLabels] = useState(true);
   const [rightActivityLabels, setRightActivityLabels] = useState(true);
   const [bottomFullWidth, setBottomFullWidth] = useState(false);
+  const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>('proportional');
+  const [sidebarLayoutOpen, setSidebarLayoutOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  const [dockDragging, setDockDragging] = useState(false);
   const [searchHighlight, setSearchHighlight] = useState<string | undefined>(undefined);
   const [searchSection, setSearchSection] = useState<string | undefined>(undefined);
   const [searchLineNumber, setSearchLineNumber] = useState<number | undefined>(undefined);
@@ -429,9 +492,47 @@ export default function App() {
   const totalSize = useMemo(() => formatTotalSize(entries), [entries]);
   const finishTime = useMemo(() => formatFinishTime(entries), [entries]);
 
-  // ── DnD overlay for editor tabs ────────────────────────────
+  // ── DnD (both editor tabs and dock tabs) ────────────────────
   const [dragTabId, setDragTabId] = useState<string | null>(null);
   const dragTab = dragTabId ? (groups.allTabs.find((t) => t.id === dragTabId) ?? null) : null;
+  const [dragDockWindowId, setDragDockWindowId] = useState<PanelToolWindowId | null>(null);
+
+  const handleDndStart = useCallback((event: { active: { data: { current?: Record<string, unknown> } } }) => {
+    const data = event.active.data.current;
+    if (!data) return;
+    if (data.kind === 'editor-tab' && typeof data.tabId === 'string') {
+      setDragTabId(data.tabId);
+    } else if (data.kind === 'tool-window' && typeof data.toolWindowId === 'string') {
+      setDragDockWindowId(data.toolWindowId as PanelToolWindowId);
+      setDockDragging(true);
+    }
+  }, []);
+
+  const handleDndEnd = useCallback(
+    (event: {
+      active: { data: { current?: Record<string, unknown> } };
+      over: { data: { current?: Record<string, unknown> } } | null;
+    }) => {
+      const data = event.active.data.current;
+      if (data?.kind === 'tool-window' && typeof data.toolWindowId === 'string') {
+        const overData = event.over?.data.current;
+        if (overData?.slot && typeof overData.slot === 'string') {
+          const targetSlot = overData.slot as PanelDockSlot;
+          tl.moveWindow(data.toolWindowId as PanelToolWindowId, targetSlot);
+        }
+      }
+      setDragTabId(null);
+      setDragDockWindowId(null);
+      setDockDragging(false);
+    },
+    [tl],
+  );
+
+  const handleDndCancel = useCallback(() => {
+    setDragTabId(null);
+    setDragDockWindowId(null);
+    setDockDragging(false);
+  }, []);
 
   // ── Tool window content renderer ───────────────────────────
   const renderToolWindow = useCallback(
@@ -498,12 +599,12 @@ export default function App() {
       const region = panelDockRegion(slot);
       return (
         <div className="dt-dock-slot" data-region={region} tabIndex={-1}>
-          <DockTabStrip slot={slot} dock={dock} tl={tl} />
+          <DockTabStrip slot={slot} dock={dock} tl={tl} dragging={dockDragging} />
           {dock.active && <div className="dt-dock-content">{renderToolWindow(dock.active)}</div>}
         </div>
       );
     },
-    [tl, renderToolWindow],
+    [tl, renderToolWindow, dockDragging],
   );
 
   // ── Render a region (left / right / bottom) ────────────────
@@ -540,179 +641,292 @@ export default function App() {
       onFocusCapture={handleFocusCapture}
     >
       <div className="dt-panel">
-        {/* Left activity bar */}
-        <nav
-          className={`dt-activity-bar ${activityLabels ? '' : 'dt-activity-bar--compact'}`}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setActivityLabels(!activityLabels);
-          }}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDndStart}
+          onDragEnd={handleDndEnd}
+          onDragCancel={handleDndCancel}
         >
-          <button
-            type="button"
-            className="dt-activity-icon"
-            data-state={iconState('network')}
-            onClick={() => tl.toggleWindow('network')}
-            title={`Network (${entries.length})`}
+          {/* Left activity bar */}
+          <nav
+            className={`dt-activity-bar ${activityLabels ? '' : 'dt-activity-bar--compact'} dt-activity-bar--layout-${sidebarLayout}`}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setActivityLabels(!activityLabels);
+            }}
           >
-            <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-              <path
-                d="M1 4h14M1 8h10M1 12h6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            {activityLabels && <span className="dt-activity-label">Network</span>}
-          </button>
-          <button
-            type="button"
-            className="dt-activity-icon"
-            data-state={iconState('rules')}
-            onClick={() => tl.toggleWindow('rules')}
-            title="Rule Activity"
-          >
-            <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-              <path
-                d="M3 2v12M7 4l5 4-5 4z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-            </svg>
-            {activityLabels && <span className="dt-activity-label">Rules</span>}
-          </button>
-          <button
-            type="button"
-            className="dt-activity-icon"
-            data-state={iconState('search')}
-            onClick={() => tl.toggleWindow('search')}
-            title="Search"
-          >
-            <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-              <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <line x1="10" y1="10" x2="14" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            {activityLabels && <span className="dt-activity-label">Search</span>}
-          </button>
-        </nav>
-
-        {/* Main layout — outer split controls full-width bottom */}
-        <Allotment
-          vertical={bottomFullWidth && bottomOpen}
-          proportionalLayout={false}
-          key={bottomFullWidth ? 'full' : 'nested'}
-        >
-          <Allotment.Pane priority={LayoutPriority.High} minSize={120}>
-            <Allotment proportionalLayout={false}>
-              {/* Left region */}
-              <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
-                {renderRegion('left')}
-              </Allotment.Pane>
-
-              {/* Center — toolbar + filter + editor groups */}
-              <Allotment.Pane priority={LayoutPriority.High}>
-                <div className="dt-main" data-region="main" tabIndex={-1}>
-                  {/* Toolbar */}
-                  <div className="dt-toolbar">
-                    <button
-                      type="button"
-                      className="dt-toolbar-icon dt-toolbar-icon--record"
-                      data-active={recording}
-                      onClick={() => setRecording(!recording)}
-                      title={recording ? 'Stop recording' : 'Record network log'}
-                    >
-                      <IconRecord active={recording} />
-                    </button>
-                    <button type="button" className="dt-toolbar-icon" onClick={clear} title="Clear network log">
-                      <IconClear />
-                    </button>
-                    <div className="dt-toolbar-separator" />
-                    <button
-                      type="button"
-                      className="dt-toolbar-icon"
-                      data-active={showFilter}
-                      onClick={() => setShowFilter(!showFilter)}
-                      title="Filter"
-                    >
-                      <IconFilter />
-                    </button>
-                    <button
-                      type="button"
-                      className="dt-toolbar-icon"
-                      data-active={iconState('search') !== undefined}
-                      onClick={() => tl.toggleWindow('search')}
-                      title="Search"
-                    >
-                      <IconSearch />
-                    </button>
-                    <div className="dt-toolbar-separator" />
-                    <label className="dt-checkbox">
-                      <input type="checkbox" checked={preserveLog} onChange={(e) => setPreserveLog(e.target.checked)} />
-                      Preserve log
-                    </label>
-                    {rulesVisible && (
-                      <>
-                        <div className="dt-toolbar-separator" />
-                        <RuleExecutionsHint />
-                      </>
+            <div className="dt-activity-group dt-activity-group--top">
+              {tl.state.docks['left-top'].windows.map((wId) => {
+                const def = PANEL_TOOL_WINDOW_MAP[wId];
+                return (
+                  <button
+                    key={wId}
+                    type="button"
+                    className="dt-activity-icon"
+                    data-state={iconState(wId)}
+                    onClick={() => tl.toggleWindow(wId)}
+                    title={wId === 'network' ? `Network (${entries.length})` : def.label}
+                  >
+                    {wId === 'network' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <path
+                          d="M1 4h14M1 8h10M1 12h6"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
                     )}
-                  </div>
+                    {wId === 'rules' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <path
+                          d="M3 2v12M7 4l5 4-5 4z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
+                    {wId === 'search' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        <line
+                          x1="10"
+                          y1="10"
+                          x2="14"
+                          y2="14"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
+                    {wId === 'console' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <path
+                          d="M2 4l4 4-4 4M8 12h6"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                    {wId === 'docs' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        <text
+                          x="8"
+                          y="12"
+                          textAnchor="middle"
+                          fill="currentColor"
+                          fontSize="10"
+                          fontFamily="serif"
+                          fontStyle="italic"
+                        >
+                          i
+                        </text>
+                      </svg>
+                    )}
+                    {activityLabels && <span className="dt-activity-label">{def.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="dt-activity-group dt-activity-group--bottom">
+              {tl.state.docks['left-bottom'].windows.map((wId) => {
+                const def = PANEL_TOOL_WINDOW_MAP[wId];
+                return (
+                  <button
+                    key={wId}
+                    type="button"
+                    className="dt-activity-icon"
+                    data-state={iconState(wId)}
+                    onClick={() => tl.toggleWindow(wId)}
+                    title={def.label}
+                  >
+                    {wId === 'network' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <path
+                          d="M1 4h14M1 8h10M1 12h6"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
+                    {wId === 'rules' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <path
+                          d="M3 2v12M7 4l5 4-5 4z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
+                    {wId === 'search' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        <line
+                          x1="10"
+                          y1="10"
+                          x2="14"
+                          y2="14"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
+                    {wId === 'console' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <path
+                          d="M2 4l4 4-4 4M8 12h6"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                    {wId === 'docs' && (
+                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        <text
+                          x="8"
+                          y="12"
+                          textAnchor="middle"
+                          fill="currentColor"
+                          fontSize="10"
+                          fontFamily="serif"
+                          fontStyle="italic"
+                        >
+                          i
+                        </text>
+                      </svg>
+                    )}
+                    {activityLabels && <span className="dt-activity-label">{def.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
 
-                  {/* Filter bar */}
-                  {showFilter && (
-                    <div className="dt-filter-bar">
-                      <FilterInput
-                        value={urlFilter}
-                        onChange={setUrlFilter}
-                        config={filterConfig}
-                        onConfigChange={setFilterConfig}
-                        hasError={filterError}
-                        placeholder="Filter"
-                      />
+          {/* Main layout — outer split controls full-width bottom */}
+          <Allotment
+            vertical={bottomFullWidth && bottomOpen}
+            proportionalLayout={false}
+            key={bottomFullWidth ? 'full' : 'nested'}
+          >
+            <Allotment.Pane priority={LayoutPriority.High} minSize={120}>
+              <Allotment proportionalLayout={false}>
+                {/* Left region */}
+                <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
+                  {renderRegion('left')}
+                </Allotment.Pane>
+
+                {/* Center — toolbar + filter + editor groups */}
+                <Allotment.Pane priority={LayoutPriority.High}>
+                  <div className="dt-main" data-region="main" tabIndex={-1}>
+                    {/* Toolbar */}
+                    <div className="dt-toolbar">
+                      <button
+                        type="button"
+                        className="dt-toolbar-icon dt-toolbar-icon--record"
+                        data-active={recording}
+                        onClick={() => setRecording(!recording)}
+                        title={recording ? 'Stop recording' : 'Record network log'}
+                      >
+                        <IconRecord active={recording} />
+                      </button>
+                      <button type="button" className="dt-toolbar-icon" onClick={clear} title="Clear network log">
+                        <IconClear />
+                      </button>
+                      <div className="dt-toolbar-separator" />
                       <button
                         type="button"
                         className="dt-toolbar-icon"
-                        data-state={iconState('docs')}
-                        onClick={() => tl.toggleWindow('docs')}
-                        title="Filter syntax help"
+                        data-active={showFilter}
+                        onClick={() => setShowFilter(!showFilter)}
+                        title="Filter"
                       >
-                        <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                          <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                          <text
-                            x="8"
-                            y="12"
-                            textAnchor="middle"
-                            fill="currentColor"
-                            fontSize="10"
-                            fontFamily="serif"
-                            fontStyle="italic"
-                          >
-                            i
-                          </text>
-                        </svg>
+                        <IconFilter />
                       </button>
-                      <div className="dt-filter-separator" />
-                      <ResourceFilter value={filter} onChange={setFilter} />
+                      <button
+                        type="button"
+                        className="dt-toolbar-icon"
+                        data-active={iconState('search') !== undefined}
+                        onClick={() => tl.toggleWindow('search')}
+                        title="Search"
+                      >
+                        <IconSearch />
+                      </button>
+                      <div className="dt-toolbar-separator" />
+                      <label className="dt-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={preserveLog}
+                          onChange={(e) => setPreserveLog(e.target.checked)}
+                        />
+                        Preserve log
+                      </label>
+                      {rulesVisible && (
+                        <>
+                          <div className="dt-toolbar-separator" />
+                          <RuleExecutionsHint />
+                        </>
+                      )}
                     </div>
-                  )}
 
-                  {/* Editor groups + optional nested bottom */}
-                  <div className="dt-content">
-                    <DndContext
-                      sensors={sensors}
-                      onDragStart={(e) => {
-                        const data = e.active.data.current as { kind?: unknown; tabId?: unknown } | undefined;
-                        if (data?.kind === 'editor-tab' && typeof data.tabId === 'string') {
-                          setDragTabId(data.tabId);
-                        }
-                      }}
-                      onDragEnd={() => setDragTabId(null)}
-                      onDragCancel={() => setDragTabId(null)}
-                    >
+                    {/* Filter bar */}
+                    {showFilter && (
+                      <div className="dt-filter-bar">
+                        <FilterInput
+                          value={urlFilter}
+                          onChange={setUrlFilter}
+                          config={filterConfig}
+                          onConfigChange={setFilterConfig}
+                          hasError={filterError}
+                          placeholder="Filter"
+                        />
+                        <button
+                          type="button"
+                          className="dt-toolbar-icon"
+                          data-state={iconState('docs')}
+                          onClick={() => tl.toggleWindow('docs')}
+                          title="Filter syntax help"
+                        >
+                          <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                            <text
+                              x="8"
+                              y="12"
+                              textAnchor="middle"
+                              fill="currentColor"
+                              fontSize="10"
+                              fontFamily="serif"
+                              fontStyle="italic"
+                            >
+                              i
+                            </text>
+                          </svg>
+                        </button>
+                        <div className="dt-filter-separator" />
+                        <ResourceFilter value={filter} onChange={setFilter} />
+                      </div>
+                    )}
+
+                    {/* Editor groups + optional nested bottom */}
+                    <div className="dt-content">
                       {bottomFullWidth ? (
                         <InspectorEditorGroupRenderer
                           groups={groups}
@@ -747,83 +961,82 @@ export default function App() {
                           </Allotment.Pane>
                         </Allotment>
                       )}
-                      <DragOverlay dropAnimation={null}>
-                        {dragTab && (
-                          <div
-                            className="dt-editor-tab active"
-                            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.2)', opacity: 0.9 }}
-                          >
-                            <span
-                              className="dt-method-badge"
-                              style={{
-                                color:
-                                  dragTab.method === 'GET'
-                                    ? '#61affe'
-                                    : dragTab.method === 'POST'
-                                      ? '#49cc90'
-                                      : '#fca130',
-                              }}
-                            >
-                              {dragTab.method}
-                            </span>
-                            <span className="dt-editor-tab-label">{dragTab.label.replace(/^[A-Z]+ /, '')}</span>
-                          </div>
-                        )}
-                      </DragOverlay>
-                    </DndContext>
+                    </div>
                   </div>
+                </Allotment.Pane>
+
+                {/* Right region */}
+                <Allotment.Pane preferredSize={400} minSize={180} maxSize={500} visible={rightOpen} snap>
+                  {renderRegion('right')}
+                </Allotment.Pane>
+              </Allotment>
+            </Allotment.Pane>
+
+            {/* Full-width bottom region (only in full-width mode) */}
+            {bottomFullWidth && (
+              <Allotment.Pane preferredSize={160} minSize={80} visible={bottomOpen} snap>
+                <div data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
+                  {renderRegion('bottom')}
                 </div>
               </Allotment.Pane>
+            )}
+          </Allotment>
 
-              {/* Right region */}
-              <Allotment.Pane preferredSize={400} minSize={180} maxSize={500} visible={rightOpen} snap>
-                {renderRegion('right')}
-              </Allotment.Pane>
-            </Allotment>
-          </Allotment.Pane>
-
-          {/* Full-width bottom region (only in full-width mode) */}
-          {bottomFullWidth && (
-            <Allotment.Pane preferredSize={160} minSize={80} visible={bottomOpen} snap>
-              <div data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
-                {renderRegion('bottom')}
-              </div>
-            </Allotment.Pane>
-          )}
-        </Allotment>
-
-        {/* Right activity bar */}
-        <nav
-          className={`dt-activity-bar dt-activity-bar--right ${rightActivityLabels ? '' : 'dt-activity-bar--compact'}`}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setRightActivityLabels(!rightActivityLabels);
-          }}
-        >
-          <button
-            type="button"
-            className="dt-activity-icon"
-            data-state={iconState('docs')}
-            onClick={() => tl.toggleWindow('docs')}
-            title="Filter Docs"
+          {/* Right activity bar */}
+          <nav
+            className={`dt-activity-bar dt-activity-bar--right ${rightActivityLabels ? '' : 'dt-activity-bar--compact'}`}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setRightActivityLabels(!rightActivityLabels);
+            }}
           >
-            <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-              <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <text
-                x="8"
-                y="12"
-                textAnchor="middle"
-                fill="currentColor"
-                fontSize="10"
-                fontFamily="serif"
-                fontStyle="italic"
-              >
-                i
-              </text>
-            </svg>
-            {rightActivityLabels && <span className="dt-activity-label">Docs</span>}
-          </button>
-        </nav>
+            <button
+              type="button"
+              className="dt-activity-icon"
+              data-state={iconState('docs')}
+              onClick={() => tl.toggleWindow('docs')}
+              title="Filter Docs"
+            >
+              <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <text
+                  x="8"
+                  y="12"
+                  textAnchor="middle"
+                  fill="currentColor"
+                  fontSize="10"
+                  fontFamily="serif"
+                  fontStyle="italic"
+                >
+                  i
+                </text>
+              </svg>
+              {rightActivityLabels && <span className="dt-activity-label">Docs</span>}
+            </button>
+          </nav>
+
+          {/* DragOverlay — renders at top level for both editor tabs and dock tabs */}
+          <DragOverlay dropAnimation={null}>
+            {dragTab && (
+              <div className="dt-editor-tab active" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.2)', opacity: 0.9 }}>
+                <span
+                  className="dt-method-badge"
+                  style={{
+                    color: dragTab.method === 'GET' ? '#61affe' : dragTab.method === 'POST' ? '#49cc90' : '#fca130',
+                  }}
+                >
+                  {dragTab.method}
+                </span>
+                <span className="dt-editor-tab-label">{dragTab.label.replace(/^[A-Z]+ /, '')}</span>
+              </div>
+            )}
+            {dragDockWindowId && (
+              <div className="dt-dock-tab active" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.2)', opacity: 0.9 }}>
+                {PANEL_TOOL_WINDOW_MAP[dragDockWindowId].label}
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       </div>
 
       {/* Status bar — full width, outside activity bars and Allotment */}
@@ -960,19 +1173,41 @@ export default function App() {
                       <LayoutIcon kind={activityLabels ? 'show-labels' : 'hide-labels'} />
                     </span>
                     <span>{activityLabels ? '\u2713' : '\u2003'}</span>
-                    Show activity bar labels
+                    Show Tool Window Names
                   </button>
-                  <button
-                    type="button"
-                    className="dt-ctx-item"
-                    onClick={() => {
-                      tl.toggleZenMode();
-                      setLayoutMenuOpen(false);
-                    }}
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: hover submenu */}
+                  <div
+                    className="dt-ctx-item dt-ctx-sub"
+                    onMouseEnter={() => setSidebarLayoutOpen(true)}
+                    onMouseLeave={() => setSidebarLayoutOpen(false)}
                   >
-                    <span>{tl.state.zenSnapshot ? '\u2713' : '\u2003'}</span>
-                    Zen mode
-                  </button>
+                    <span className="dt-layout-menu-icon">
+                      <SidebarLayoutIcon variant={sidebarLayout} />
+                    </span>
+                    Sidebar Layout {'\u25B8'}
+                    {sidebarLayoutOpen && (
+                      <div className="dt-ctx-menu dt-ctx-submenu" style={{ left: '-100%', right: 'auto' }}>
+                        {SIDEBAR_LAYOUT_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            className="dt-ctx-item"
+                            onClick={() => {
+                              setSidebarLayout(opt.key);
+                              setSidebarLayoutOpen(false);
+                              setLayoutMenuOpen(false);
+                            }}
+                          >
+                            <span className="dt-layout-menu-icon">
+                              <SidebarLayoutIcon variant={opt.key} />
+                            </span>
+                            <span>{sidebarLayout === opt.key ? '\u2713' : '\u2003'}</span>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="dt-ctx-sep" />
                   <button
                     type="button"
@@ -983,7 +1218,7 @@ export default function App() {
                       setLayoutMenuOpen(false);
                     }}
                   >
-                    Restore all hidden panels
+                    Restore Hidden Sidebar Tools
                     {tl.state.hidden.length > 0 && (
                       <span style={{ marginLeft: 'auto', color: 'var(--dt-text-muted)' }}>
                         ({tl.state.hidden.length})

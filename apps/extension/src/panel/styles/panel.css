@@ -127,6 +127,32 @@ body {
   min-width: 32px;
 }
 
+/* Activity bar groups — top and bottom dock slot icons */
+.dt-activity-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+}
+
+/* Sidebar layout variants */
+.dt-activity-bar--layout-proportional .dt-activity-group {
+  flex: 1;
+}
+
+.dt-activity-bar--layout-compact .dt-activity-group--top {
+  flex: 0 0 auto;
+}
+
+.dt-activity-bar--layout-compact .dt-activity-group--bottom {
+  margin-top: auto;
+}
+
+.dt-activity-bar--layout-stacked .dt-activity-group {
+  flex: 0 0 auto;
+}
+
 .dt-activity-bar--right {
   border-right: none;
   border-left: 1px solid var(--dt-border);
