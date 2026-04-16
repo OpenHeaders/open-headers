@@ -3,12 +3,14 @@ import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dn
 import { CSS } from '@dnd-kit/utilities';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { setFocusedDock, setFocusedRegion } from '../data/focus-store';
 import {
   ALL_PANEL_DOCK_SLOTS,
   PANEL_DOCK_LABELS,
   PANEL_TOOL_WINDOW_MAP,
   type PanelDockSlot,
   type PanelToolWindowId,
+  panelDockRegion,
 } from '../data/tool-windows';
 import type { PanelDockState, PanelToolLayoutApi } from '../data/use-panel-tool-layout';
 
@@ -218,7 +220,11 @@ export const DockTabStrip: React.FC<DockTabStripProps> = ({
             isFocused={focused}
             showLabels={showLabels}
             icon={icons?.[wId] ?? fallbackIcon}
-            onActivate={() => tl.toggleWindow(wId)}
+            onActivate={() => {
+              tl.toggleWindow(wId);
+              setFocusedDock(slot);
+              setFocusedRegion(panelDockRegion(slot));
+            }}
             onContextMenu={(e) => handleContextMenu(e, wId)}
           />
         ))}
