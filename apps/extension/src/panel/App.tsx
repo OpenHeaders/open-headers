@@ -418,7 +418,7 @@ export default function App() {
   const panelRef = useRef<HTMLDivElement>(null);
   const themeButtonRef = useRef<HTMLButtonElement>(null);
   const layoutButtonRef = useRef<HTMLButtonElement>(null);
-  const focusedRegion = useFocusedRegion();
+  useFocusedRegion(); // subscribe so setFocusedRegion triggers re-renders
   const focusedDock = useFocusedDock();
   const [horizontalSizes, setHorizontalSizes] = useState<number[] | null>(null);
   const [verticalSizes, setVerticalSizes] = useState<number[] | null>(null);
@@ -549,21 +549,98 @@ export default function App() {
   const totalSize = useMemo(() => formatTotalSize(entries), [entries]);
   const finishTime = useMemo(() => formatFinishTime(entries), [entries]);
 
-  // ── DnD (both editor tabs and dock tabs) ────────────────────
+  // ── DnD (same pattern as workspace ShellLayout) ─────────────
+  type DockWindowsMap = Record<PanelDockSlot, PanelToolWindowId[]>;
   const [dragTabId, setDragTabId] = useState<string | null>(null);
   const dragTab = dragTabId ? (groups.allTabs.find((t) => t.id === dragTabId) ?? null) : null;
   const [dragDockWindowId, setDragDockWindowId] = useState<PanelToolWindowId | null>(null);
+  const [preview, setPreview] = useState<DockWindowsMap | null>(null);
 
-  const handleDndStart = useCallback((event: { active: { data: { current?: Record<string, unknown> } } }) => {
-    const data = event.active.data.current;
-    if (!data) return;
-    if (data.kind === 'editor-tab' && typeof data.tabId === 'string') {
-      setDragTabId(data.tabId);
-    } else if (data.kind === 'tool-window' && typeof data.toolWindowId === 'string') {
-      setDragDockWindowId(data.toolWindowId as PanelToolWindowId);
-      setDockDragging(true);
-    }
-  }, []);
+  const getWindows = useCallback(
+    (slot: PanelDockSlot): PanelToolWindowId[] => preview?.[slot] ?? tl.state.docks[slot].windows,
+    [preview, tl.state.docks],
+  );
+
+  const resolveTarget = useCallback(
+    (nodeId: string, source: DockWindowsMap): { slot: PanelDockSlot; index: number } | null => {
+      if (nodeId.startsWith('dock:')) {
+        const slot = nodeId.slice(5) as PanelDockSlot;
+        return { slot, index: source[slot].length };
+      }
+      if (nodeId.startsWith('drop:')) {
+        const slot = nodeId.slice(5) as PanelDockSlot;
+        return { slot, index: source[slot].length };
+      }
+      if (nodeId.startsWith('tw:')) {
+        const twId = nodeId.slice(3) as PanelToolWindowId;
+        for (const slot of ALL_PANEL_DOCK_SLOTS) {
+          const idx = source[slot].indexOf(twId);
+          if (idx >= 0) return { slot, index: idx };
+        }
+      }
+      return null;
+    },
+    [],
+  );
+
+  const handleDndStart = useCallback(
+    (event: { active: { id: string | number; data: { current?: Record<string, unknown> } } }) => {
+      const data = event.active.data.current;
+      if (!data) return;
+      if (data.kind === 'editor-tab' && typeof data.tabId === 'string') {
+        setDragTabId(data.tabId);
+        return;
+      }
+      if (data.kind === 'tool-window' && typeof data.toolWindowId === 'string') {
+        setDragDockWindowId(data.toolWindowId as PanelToolWindowId);
+        setDockDragging(true);
+        const snapshot = {} as DockWindowsMap;
+        for (const slot of ALL_PANEL_DOCK_SLOTS) snapshot[slot] = [...tl.state.docks[slot].windows];
+        setPreview(snapshot);
+      }
+    },
+    [tl.state.docks],
+  );
+
+  const handleDragOver = useCallback(
+    (event: {
+      active: { id: string | number; data: { current?: Record<string, unknown> } };
+      over: { id: string | number } | null;
+    }) => {
+      const data = event.active.data.current;
+      if (!data || data.kind === 'editor-tab') return;
+      if (!event.over) return;
+      setPreview((prev) => {
+        if (!prev) return prev;
+        const activeLoc = resolveTarget(String(event.active.id), prev);
+        const overLoc = resolveTarget(String(event.over!.id), prev);
+        if (!activeLoc || !overLoc) return prev;
+        const activeTw = String(event.active.id).slice(3) as PanelToolWindowId;
+
+        if (activeLoc.slot === overLoc.slot) {
+          if (activeLoc.index === overLoc.index) return prev;
+          const next = { ...prev };
+          const list = [...prev[activeLoc.slot]];
+          list.splice(activeLoc.index, 1);
+          list.splice(overLoc.index, 0, activeTw);
+          next[activeLoc.slot] = list;
+          return next;
+        }
+
+        const next = { ...prev };
+        next[activeLoc.slot] = prev[activeLoc.slot].filter((id) => id !== activeTw);
+        const destList = [...prev[overLoc.slot]];
+        const insertIndex =
+          String(event.over!.id).startsWith('dock:') || String(event.over!.id).startsWith('drop:')
+            ? destList.length
+            : overLoc.index;
+        destList.splice(Math.max(0, Math.min(insertIndex, destList.length)), 0, activeTw);
+        next[overLoc.slot] = destList;
+        return next;
+      });
+    },
+    [resolveTarget],
+  );
 
   const handleDndEnd = useCallback(
     (event: {
@@ -571,31 +648,33 @@ export default function App() {
       over: { data: { current?: Record<string, unknown> } } | null;
     }) => {
       const data = event.active.data.current;
-      if (data?.kind === 'tool-window' && typeof data.toolWindowId === 'string') {
-        const overData = event.over?.data.current;
-        let targetSlot: PanelDockSlot | null = null;
-        if (overData?.slot && typeof overData.slot === 'string') {
-          // Dropped on a dock strip (useDroppable)
-          targetSlot = overData.slot as PanelDockSlot;
-        } else if (overData?.fromSlot && typeof overData.fromSlot === 'string') {
-          // Dropped on another dock tab (useSortable)
-          targetSlot = overData.fromSlot as PanelDockSlot;
-        }
-        if (targetSlot) {
-          tl.moveWindow(data.toolWindowId as PanelToolWindowId, targetSlot);
-        }
+      if (data?.kind === 'editor-tab') {
+        setDragTabId(null);
+        return;
       }
-      setDragTabId(null);
+
+      const activeTw = data?.kind === 'tool-window' ? (data.toolWindowId as PanelToolWindowId) : null;
+      const finalPreview = preview;
       setDragDockWindowId(null);
       setDockDragging(false);
+      setPreview(null);
+      if (!activeTw || !finalPreview) return;
+
+      for (const slot of ALL_PANEL_DOCK_SLOTS) {
+        const idx = finalPreview[slot].indexOf(activeTw);
+        if (idx < 0) continue;
+        tl.moveWindow(activeTw, slot, idx);
+        return;
+      }
     },
-    [tl],
+    [preview, tl],
   );
 
   const handleDndCancel = useCallback(() => {
     setDragTabId(null);
     setDragDockWindowId(null);
     setDockDragging(false);
+    setPreview(null);
   }, []);
 
   // ── Drop zone overlay rects (same algorithm as workspace) ───
@@ -886,6 +965,7 @@ export default function App() {
         <DndContext
           sensors={sensors}
           onDragStart={handleDndStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDndEnd}
           onDragCancel={handleDndCancel}
         >
@@ -902,10 +982,12 @@ export default function App() {
                 <DockTabStrip
                   slot="left-top"
                   dock={tl.state.docks['left-top']}
+                  windows={getWindows('left-top')}
                   tl={tl}
                   dragging={dockDragging}
                   focused={focusedDock === 'left-top'}
                   showLabels={activityLabels}
+                  onToggleLabels={() => setActivityLabels((v) => !v)}
                   icons={TOOL_WINDOW_ICONS}
                 />
               </div>
@@ -913,10 +995,12 @@ export default function App() {
                 <DockTabStrip
                   slot="left-bottom"
                   dock={tl.state.docks['left-bottom']}
+                  windows={getWindows('left-bottom')}
                   tl={tl}
                   dragging={dockDragging}
                   focused={focusedDock === 'left-bottom'}
                   showLabels={activityLabels}
+                  onToggleLabels={() => setActivityLabels((v) => !v)}
                   icons={TOOL_WINDOW_ICONS}
                 />
               </div>
@@ -925,10 +1009,12 @@ export default function App() {
               <DockTabStrip
                 slot="bottom-left"
                 dock={tl.state.docks['bottom-left']}
+                windows={getWindows('bottom-left')}
                 tl={tl}
                 dragging={dockDragging}
                 focused={focusedDock === 'bottom-left'}
                 showLabels={activityLabels}
+                onToggleLabels={() => setActivityLabels((v) => !v)}
                 icons={TOOL_WINDOW_ICONS}
               />
             </div>
@@ -1024,10 +1110,12 @@ export default function App() {
                 <DockTabStrip
                   slot="right-top"
                   dock={tl.state.docks['right-top']}
+                  windows={getWindows('right-top')}
                   tl={tl}
                   dragging={dockDragging}
                   focused={focusedDock === 'right-top'}
                   showLabels={activityLabels}
+                  onToggleLabels={() => setActivityLabels((v) => !v)}
                   icons={TOOL_WINDOW_ICONS}
                 />
               </div>
@@ -1035,10 +1123,12 @@ export default function App() {
                 <DockTabStrip
                   slot="right-bottom"
                   dock={tl.state.docks['right-bottom']}
+                  windows={getWindows('right-bottom')}
                   tl={tl}
                   dragging={dockDragging}
                   focused={focusedDock === 'right-bottom'}
                   showLabels={activityLabels}
+                  onToggleLabels={() => setActivityLabels((v) => !v)}
                   icons={TOOL_WINDOW_ICONS}
                 />
               </div>
@@ -1047,10 +1137,12 @@ export default function App() {
               <DockTabStrip
                 slot="bottom-right"
                 dock={tl.state.docks['bottom-right']}
+                windows={getWindows('bottom-right')}
                 tl={tl}
                 dragging={dockDragging}
                 focused={focusedDock === 'bottom-right'}
                 showLabels={activityLabels}
+                onToggleLabels={() => setActivityLabels((v) => !v)}
                 icons={TOOL_WINDOW_ICONS}
               />
             </div>
