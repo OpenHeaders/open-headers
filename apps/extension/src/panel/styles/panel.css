@@ -1664,6 +1664,97 @@ body {
   font-size: 12px;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Dock Tab Strip — dockable tool-window system
+   ══════════════════════════════════════════════════════════════ */
+
+.dt-dock-slot {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--dt-bg);
+}
+
+.dt-dock-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-dock-tab-strip {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  min-height: 26px;
+  background: var(--dt-header-bg);
+  border-bottom: 1px solid var(--dt-border);
+  user-select: none;
+}
+
+.dt-dock-tab-strip--drag-over {
+  background: var(--dt-pill-active-bg);
+  outline: 1px dashed var(--dt-link);
+  outline-offset: -1px;
+}
+
+.dt-dock-tab {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 8px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dt-dock-tab:hover {
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+}
+
+.dt-dock-tab.active {
+  color: var(--dt-text);
+  border-bottom-color: var(--dt-tab-active-border);
+}
+
+.dt-dock-tab-strip-spacer {
+  flex: 1;
+}
+
+.dt-dock-tab-strip-close {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 14px;
+  padding: 0 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.dt-dock-tab-strip-close:hover {
+  color: var(--dt-text);
+}
+
+/* Hide internal headers when tool window is inside a dock */
+.dt-dock-content > .dt-search-panel > .dt-search-panel-header {
+  display: none;
+}
+
+.dt-dock-content > .dt-detail-pane > .dt-tabs {
+  display: none;
+}
+
 /* ── Allotment overrides for panel ────────────────────────── */
 .dt-editor-tree .split-view-view {
   overflow: hidden;

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type PanelRegion = 'left' | 'search' | 'main' | 'right' | null;
+export type PanelRegion = 'left' | 'main' | 'right' | 'bottom' | null;
 
 let focusedRegion: PanelRegion = null;
 const listeners = new Set<() => void>();
