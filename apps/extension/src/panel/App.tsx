@@ -415,9 +415,12 @@ export default function App() {
   const [, setSearchNonce] = useState(0);
 
   const shellRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const themeButtonRef = useRef<HTMLButtonElement>(null);
   const layoutButtonRef = useRef<HTMLButtonElement>(null);
   const focusedRegion = useFocusedRegion();
+  const [horizontalSizes, setHorizontalSizes] = useState<number[] | null>(null);
+  const [verticalSizes, setVerticalSizes] = useState<number[] | null>(null);
 
   // DnD sensors for editor tab drag
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -588,14 +591,14 @@ export default function App() {
     setDockDragging(false);
   }, []);
 
-  // ── Drop zone overlay rects ────────────────────────────────
-  const [shellSize, setShellSize] = useState({ width: 0, height: 0 });
+  // ── Drop zone overlay rects (same algorithm as workspace) ───
+  const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
-    const el = shellRef.current;
+    const el = panelRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const r = entries[0]?.contentRect;
-      if (r) setShellSize({ width: r.width, height: r.height });
+      if (r) setPanelSize({ width: r.width, height: r.height });
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -606,34 +609,80 @@ export default function App() {
     return tl.dockOf(dragDockWindowId);
   }, [dragDockWindowId, tl]);
 
+  const PREFERRED_SIDEBAR = 320;
+  const PREFERRED_INSPECTOR = 400;
+  const PREFERRED_BOTTOM = 160;
+
   const dropZoneRects = useMemo<Record<PanelDockSlot, DropZoneRect> | null>(() => {
     if (!dockDragging) return null;
-    const fullW = shellSize.width;
-    const fullH = shellSize.height;
+    const fullW = panelSize.width;
+    const fullH = panelSize.height;
     if (fullW === 0 || fullH === 0) return null;
 
     const barW = activityLabels ? 56 : 32;
-    const innerW = fullW - barW * 2;
-    const sideW = Math.round(innerW * 0.27);
-    const midW = innerW - sideW * 2;
-    const halfH = Math.round(fullH * 0.5);
-    const bottomH = Math.round(fullH * 0.3);
-    const topH = fullH - bottomH;
+    const displaySidebarW = leftOpen ? (horizontalSizes?.[0] ?? PREFERRED_SIDEBAR) : PREFERRED_SIDEBAR;
+    const hLen = horizontalSizes?.length ?? 0;
+    const displayInspectorW = rightOpen ? (horizontalSizes?.[hLen - 1] ?? PREFERRED_INSPECTOR) : PREFERRED_INSPECTOR;
+    const vLen = verticalSizes?.length ?? 0;
+    const displayBottomH = bottomOpen ? (verticalSizes?.[vLen - 1] ?? PREFERRED_BOTTOM) : PREFERRED_BOTTOM;
 
+    const leftRectX = barW;
+    const leftRectEnd = leftRectX + displaySidebarW;
+    const rightRectX = fullW - barW - displayInspectorW;
+    const bottomLeftX = leftRectEnd;
+    const bottomWidth = Math.max(0, rightRectX - leftRectEnd);
+
+    let leftRect: DropZoneRect;
+    let rightRect: DropZoneRect;
+    let bottomRect: DropZoneRect;
+
+    if (bottomFullWidth) {
+      const topH = Math.max(0, fullH - displayBottomH);
+      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: topH };
+      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: topH };
+      bottomRect = { left: barW, top: topH, width: Math.max(0, fullW - barW * 2), height: displayBottomH };
+    } else {
+      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: fullH };
+      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: fullH };
+      bottomRect = {
+        left: bottomLeftX,
+        top: Math.max(0, fullH - displayBottomH),
+        width: bottomWidth,
+        height: displayBottomH,
+      };
+    }
+
+    const halfV = (r: DropZoneRect): [DropZoneRect, DropZoneRect] => [
+      { left: r.left, top: r.top, width: r.width, height: r.height / 2 },
+      { left: r.left, top: r.top + r.height / 2, width: r.width, height: r.height / 2 },
+    ];
+    const halfH = (r: DropZoneRect): [DropZoneRect, DropZoneRect] => [
+      { left: r.left, top: r.top, width: r.width / 2, height: r.height },
+      { left: r.left + r.width / 2, top: r.top, width: r.width / 2, height: r.height },
+    ];
+
+    const [lt, lb] = halfV(leftRect);
+    const [rt, rb] = halfV(rightRect);
+    const [bl, br] = halfH(bottomRect);
     return {
-      'left-top': { left: barW, top: 0, width: sideW, height: halfH },
-      'left-bottom': { left: barW, top: halfH, width: sideW, height: halfH },
-      'right-top': { left: barW + sideW + midW, top: 0, width: sideW, height: halfH },
-      'right-bottom': { left: barW + sideW + midW, top: halfH, width: sideW, height: halfH },
-      'bottom-left': { left: barW + sideW, top: topH, width: Math.round(midW / 2), height: bottomH },
-      'bottom-right': {
-        left: barW + sideW + Math.round(midW / 2),
-        top: topH,
-        width: Math.round(midW / 2),
-        height: bottomH,
-      },
+      'left-top': lt,
+      'left-bottom': lb,
+      'right-top': rt,
+      'right-bottom': rb,
+      'bottom-left': bl,
+      'bottom-right': br,
     };
-  }, [dockDragging, shellSize, activityLabels]);
+  }, [
+    dockDragging,
+    panelSize,
+    horizontalSizes,
+    verticalSizes,
+    activityLabels,
+    bottomFullWidth,
+    leftOpen,
+    rightOpen,
+    bottomOpen,
+  ]);
 
   // ── Tool window content renderer ───────────────────────────
   const renderToolWindow = useCallback(
@@ -826,7 +875,7 @@ export default function App() {
         )}
       </div>
 
-      <div className="dt-panel">
+      <div className="dt-panel" ref={panelRef}>
         <DndContext
           sensors={sensors}
           onDragStart={handleDndStart}
@@ -848,6 +897,7 @@ export default function App() {
                   dock={tl.state.docks['left-top']}
                   tl={tl}
                   dragging={dockDragging}
+                  focused={focusedRegion === 'left'}
                   showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -858,6 +908,7 @@ export default function App() {
                   dock={tl.state.docks['left-bottom']}
                   tl={tl}
                   dragging={dockDragging}
+                  focused={focusedRegion === 'left'}
                   showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -869,6 +920,7 @@ export default function App() {
                 dock={tl.state.docks['bottom-left']}
                 tl={tl}
                 dragging={dockDragging}
+                focused={focusedRegion === 'bottom'}
                 showLabels={activityLabels}
                 icons={TOOL_WINDOW_ICONS}
               />
@@ -882,7 +934,7 @@ export default function App() {
             key={bottomFullWidth ? 'full' : 'nested'}
           >
             <Allotment.Pane priority={LayoutPriority.High} minSize={120}>
-              <Allotment proportionalLayout={false}>
+              <Allotment proportionalLayout={false} onChange={setHorizontalSizes}>
                 {/* Left region */}
                 <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
                   {renderRegion('left')}
@@ -906,7 +958,7 @@ export default function App() {
                           recentlyClosed={groups.recentlyClosed}
                         />
                       ) : (
-                        <Allotment vertical proportionalLayout={false}>
+                        <Allotment vertical proportionalLayout={false} onChange={setVerticalSizes}>
                           <Allotment.Pane priority={LayoutPriority.High} minSize={120}>
                             <InspectorEditorGroupRenderer
                               groups={groups}
@@ -963,6 +1015,7 @@ export default function App() {
                   dock={tl.state.docks['right-top']}
                   tl={tl}
                   dragging={dockDragging}
+                  focused={focusedRegion === 'right'}
                   showLabels={rightActivityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -973,6 +1026,7 @@ export default function App() {
                   dock={tl.state.docks['right-bottom']}
                   tl={tl}
                   dragging={dockDragging}
+                  focused={focusedRegion === 'right'}
                   showLabels={rightActivityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -984,6 +1038,7 @@ export default function App() {
                 dock={tl.state.docks['bottom-right']}
                 tl={tl}
                 dragging={dockDragging}
+                focused={focusedRegion === 'bottom'}
                 showLabels={rightActivityLabels}
                 icons={TOOL_WINDOW_ICONS}
               />

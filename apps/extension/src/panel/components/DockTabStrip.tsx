@@ -104,6 +104,7 @@ interface SortableDockTabProps {
   slot: PanelDockSlot;
   windowId: PanelToolWindowId;
   isActive: boolean;
+  isFocused: boolean;
   showLabels: boolean;
   icon: React.ReactNode;
   onActivate: () => void;
@@ -114,6 +115,7 @@ const SortableDockTab: React.FC<SortableDockTabProps> = ({
   slot,
   windowId,
   isActive,
+  isFocused,
   showLabels,
   icon,
   onActivate,
@@ -138,7 +140,7 @@ const SortableDockTab: React.FC<SortableDockTabProps> = ({
     <div
       ref={setNodeRef}
       className={`dt-activity-icon${isDragging ? ' dragging' : ''}`}
-      data-state={isActive ? 'active' : undefined}
+      data-state={isActive && isFocused ? 'focused' : isActive ? 'active' : undefined}
       data-tool-window={windowId}
       style={sortableStyle}
       {...attributes}
@@ -164,11 +166,20 @@ interface DockTabStripProps {
   dock: PanelDockState;
   tl: PanelToolLayoutApi;
   dragging: boolean;
+  focused: boolean;
   showLabels?: boolean;
   icons?: Record<PanelToolWindowId, React.ReactNode>;
 }
 
-export const DockTabStrip: React.FC<DockTabStripProps> = ({ slot, dock, tl, dragging, showLabels = true, icons }) => {
+export const DockTabStrip: React.FC<DockTabStripProps> = ({
+  slot,
+  dock,
+  tl,
+  dragging,
+  focused,
+  showLabels = true,
+  icons,
+}) => {
   const [ctxMenu, setCtxMenu] = useState<DockCtxMenuState | null>(null);
 
   const { setNodeRef, isOver } = useDroppable({
@@ -204,6 +215,7 @@ export const DockTabStrip: React.FC<DockTabStripProps> = ({ slot, dock, tl, drag
             slot={slot}
             windowId={wId}
             isActive={dock.active === wId}
+            isFocused={focused}
             showLabels={showLabels}
             icon={icons?.[wId] ?? fallbackIcon}
             onActivate={() => tl.toggleWindow(wId)}
