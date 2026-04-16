@@ -940,8 +940,8 @@ export default function App() {
           {bottomFullWidth ? (
             <Allotment key="full" vertical proportionalLayout={false} onChange={setVerticalSizes}>
               <Allotment.Pane priority={LayoutPriority.High}>
-                <Allotment proportionalLayout={false} onChange={setHorizontalSizes}>
-                  <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
+                <Allotment proportionalLayout defaultSizes={[50, 50]} onChange={setHorizontalSizes}>
+                  <Allotment.Pane minSize={180} visible={leftOpen} snap>
                     {renderRegion('left')}
                   </Allotment.Pane>
                   <Allotment.Pane priority={LayoutPriority.High}>
@@ -961,7 +961,7 @@ export default function App() {
                       </div>
                     </div>
                   </Allotment.Pane>
-                  <Allotment.Pane preferredSize={400} minSize={180} maxSize={500} visible={rightOpen} snap>
+                  <Allotment.Pane minSize={180} maxSize={500} visible={rightOpen} snap>
                     {renderRegion('right')}
                   </Allotment.Pane>
                 </Allotment>
@@ -974,8 +974,8 @@ export default function App() {
             </Allotment>
           ) : (
             <div key="classic" style={{ height: '100%', width: '100%' }}>
-              <Allotment proportionalLayout={false} onChange={setHorizontalSizes}>
-                <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
+              <Allotment proportionalLayout defaultSizes={[50, 50]} onChange={setHorizontalSizes}>
+                <Allotment.Pane minSize={180} visible={leftOpen} snap>
                   {renderRegion('left')}
                 </Allotment.Pane>
                 <Allotment.Pane priority={LayoutPriority.High}>
@@ -1004,7 +1004,7 @@ export default function App() {
                     </div>
                   </div>
                 </Allotment.Pane>
-                <Allotment.Pane preferredSize={400} minSize={180} maxSize={500} visible={rightOpen} snap>
+                <Allotment.Pane minSize={180} maxSize={500} visible={rightOpen} snap>
                   {renderRegion('right')}
                 </Allotment.Pane>
               </Allotment>
