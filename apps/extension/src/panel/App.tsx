@@ -16,7 +16,7 @@ import { TrafficList } from './components/TrafficList';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import type { PanelRegion } from './data/focus-store';
-import { setFocusedRegion, useFocusedRegion } from './data/focus-store';
+import { setFocusedDock, setFocusedRegion, useFocusedDock, useFocusedRegion } from './data/focus-store';
 import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
 import {
@@ -419,6 +419,7 @@ export default function App() {
   const themeButtonRef = useRef<HTMLButtonElement>(null);
   const layoutButtonRef = useRef<HTMLButtonElement>(null);
   const focusedRegion = useFocusedRegion();
+  const focusedDock = useFocusedDock();
   const [horizontalSizes, setHorizontalSizes] = useState<number[] | null>(null);
   const [verticalSizes, setVerticalSizes] = useState<number[] | null>(null);
 
@@ -438,6 +439,12 @@ export default function App() {
     const key = regionEl.getAttribute('data-region') as PanelRegion;
     if (key === 'left' || key === 'main' || key === 'right' || key === 'bottom') {
       setFocusedRegion(key);
+      const dockEl = target.closest<HTMLElement>('[data-dock-slot]');
+      if (dockEl) {
+        setFocusedDock(dockEl.getAttribute('data-dock-slot') as PanelDockSlot);
+      } else if (key === 'main') {
+        setFocusedDock(null);
+      }
     }
   }, []);
 
@@ -448,6 +455,7 @@ export default function App() {
       const next = e.relatedTarget as HTMLElement | null;
       if (!next || (root && !root.contains(next))) {
         setFocusedRegion(null);
+        setFocusedDock(null);
       }
     };
     root.addEventListener('focusout', handler);
@@ -459,11 +467,10 @@ export default function App() {
       const slot = tl.dockOf(windowId);
       if (!slot) return undefined;
       if (tl.state.docks[slot].active !== windowId) return undefined;
-      const region = panelDockRegion(slot);
-      if (focusedRegion === region) return 'focused';
+      if (focusedDock === slot) return 'focused';
       return 'active';
     },
-    [tl, focusedRegion],
+    [tl, focusedDock],
   );
 
   // ── Filter ─────────────────────────────────────────────────
@@ -897,7 +904,7 @@ export default function App() {
                   dock={tl.state.docks['left-top']}
                   tl={tl}
                   dragging={dockDragging}
-                  focused={focusedRegion === 'left'}
+                  focused={focusedDock === 'left-top'}
                   showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -908,7 +915,7 @@ export default function App() {
                   dock={tl.state.docks['left-bottom']}
                   tl={tl}
                   dragging={dockDragging}
-                  focused={focusedRegion === 'left'}
+                  focused={focusedDock === 'left-bottom'}
                   showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -920,7 +927,7 @@ export default function App() {
                 dock={tl.state.docks['bottom-left']}
                 tl={tl}
                 dragging={dockDragging}
-                focused={focusedRegion === 'bottom'}
+                focused={focusedDock === 'bottom-left'}
                 showLabels={activityLabels}
                 icons={TOOL_WINDOW_ICONS}
               />
@@ -1019,7 +1026,7 @@ export default function App() {
                   dock={tl.state.docks['right-top']}
                   tl={tl}
                   dragging={dockDragging}
-                  focused={focusedRegion === 'right'}
+                  focused={focusedDock === 'right-top'}
                   showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -1030,7 +1037,7 @@ export default function App() {
                   dock={tl.state.docks['right-bottom']}
                   tl={tl}
                   dragging={dockDragging}
-                  focused={focusedRegion === 'right'}
+                  focused={focusedDock === 'right-bottom'}
                   showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
@@ -1042,7 +1049,7 @@ export default function App() {
                 dock={tl.state.docks['bottom-right']}
                 tl={tl}
                 dragging={dockDragging}
-                focused={focusedRegion === 'bottom'}
+                focused={focusedDock === 'bottom-right'}
                 showLabels={activityLabels}
                 icons={TOOL_WINDOW_ICONS}
               />
