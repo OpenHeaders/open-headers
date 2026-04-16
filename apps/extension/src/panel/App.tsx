@@ -927,25 +927,19 @@ export default function App() {
             </div>
           </nav>
 
-          {/* Main layout — outer split controls full-width bottom */}
-          <Allotment
-            vertical={bottomFullWidth && bottomOpen}
-            proportionalLayout={false}
-            key={bottomFullWidth ? 'full' : 'nested'}
-          >
-            <Allotment.Pane priority={LayoutPriority.High} minSize={120}>
-              <Allotment proportionalLayout={false} onChange={setHorizontalSizes}>
-                {/* Left region */}
-                <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
-                  {renderRegion('left')}
-                </Allotment.Pane>
-
-                {/* Center — toolbar + filter + editor groups */}
-                <Allotment.Pane priority={LayoutPriority.High}>
-                  <div className="dt-main" data-region="main" tabIndex={-1}>
-                    {/* Editor groups + optional nested bottom */}
-                    <div className="dt-content">
-                      {bottomFullWidth ? (
+          {/* Main layout — same pattern as workspace ShellLayout:
+              full-width: vertical Allotment (always vertical, bottom uses visible prop)
+              classic: horizontal three-column with bottom nested inside center */}
+          {bottomFullWidth ? (
+            <Allotment key="full" vertical proportionalLayout={false} onChange={setVerticalSizes}>
+              <Allotment.Pane priority={LayoutPriority.High}>
+                <Allotment proportionalLayout={false} onChange={setHorizontalSizes}>
+                  <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
+                    {renderRegion('left')}
+                  </Allotment.Pane>
+                  <Allotment.Pane priority={LayoutPriority.High}>
+                    <div className="dt-main" data-region="main" tabIndex={-1}>
+                      <div className="dt-content">
                         <InspectorEditorGroupRenderer
                           groups={groups}
                           renderTabBody={renderTabBody}
@@ -957,48 +951,58 @@ export default function App() {
                           onCloseToRight={groups.closeTabsToRight}
                           recentlyClosed={groups.recentlyClosed}
                         />
-                      ) : (
-                        <Allotment vertical proportionalLayout={false} onChange={setVerticalSizes}>
-                          <Allotment.Pane priority={LayoutPriority.High} minSize={120}>
-                            <InspectorEditorGroupRenderer
-                              groups={groups}
-                              renderTabBody={renderTabBody}
-                              renderEmpty={renderEmpty}
-                              onCloseTab={groups.closeTab}
-                              onCloseOther={groups.closeOtherTabs}
-                              onCloseAll={groups.closeAllTabs}
-                              onCloseToLeft={groups.closeTabsToLeft}
-                              onCloseToRight={groups.closeTabsToRight}
-                              recentlyClosed={groups.recentlyClosed}
-                            />
-                          </Allotment.Pane>
-                          <Allotment.Pane preferredSize={160} minSize={80} visible={bottomOpen} snap>
-                            <div data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
-                              {renderRegion('bottom')}
-                            </div>
-                          </Allotment.Pane>
-                        </Allotment>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </Allotment.Pane>
-
-                {/* Right region */}
-                <Allotment.Pane preferredSize={400} minSize={180} maxSize={500} visible={rightOpen} snap>
-                  {renderRegion('right')}
-                </Allotment.Pane>
-              </Allotment>
-            </Allotment.Pane>
-
-            {/* Full-width bottom region (only in full-width mode) */}
-            {bottomFullWidth && (
+                  </Allotment.Pane>
+                  <Allotment.Pane preferredSize={400} minSize={180} maxSize={500} visible={rightOpen} snap>
+                    {renderRegion('right')}
+                  </Allotment.Pane>
+                </Allotment>
+              </Allotment.Pane>
               <Allotment.Pane preferredSize={160} minSize={80} visible={bottomOpen} snap>
                 <div data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
                   {renderRegion('bottom')}
                 </div>
               </Allotment.Pane>
-            )}
-          </Allotment>
+            </Allotment>
+          ) : (
+            <div key="classic" style={{ height: '100%', width: '100%' }}>
+              <Allotment proportionalLayout={false} onChange={setHorizontalSizes}>
+                <Allotment.Pane preferredSize={320} minSize={180} visible={leftOpen} snap>
+                  {renderRegion('left')}
+                </Allotment.Pane>
+                <Allotment.Pane priority={LayoutPriority.High}>
+                  <div className="dt-main" data-region="main" tabIndex={-1}>
+                    <div className="dt-content">
+                      <Allotment vertical proportionalLayout={false} onChange={setVerticalSizes}>
+                        <Allotment.Pane priority={LayoutPriority.High} minSize={120}>
+                          <InspectorEditorGroupRenderer
+                            groups={groups}
+                            renderTabBody={renderTabBody}
+                            renderEmpty={renderEmpty}
+                            onCloseTab={groups.closeTab}
+                            onCloseOther={groups.closeOtherTabs}
+                            onCloseAll={groups.closeAllTabs}
+                            onCloseToLeft={groups.closeTabsToLeft}
+                            onCloseToRight={groups.closeTabsToRight}
+                            recentlyClosed={groups.recentlyClosed}
+                          />
+                        </Allotment.Pane>
+                        <Allotment.Pane preferredSize={160} minSize={80} visible={bottomOpen} snap>
+                          <div data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
+                            {renderRegion('bottom')}
+                          </div>
+                        </Allotment.Pane>
+                      </Allotment>
+                    </div>
+                  </div>
+                </Allotment.Pane>
+                <Allotment.Pane preferredSize={400} minSize={180} maxSize={500} visible={rightOpen} snap>
+                  {renderRegion('right')}
+                </Allotment.Pane>
+              </Allotment>
+            </div>
+          )}
 
           {/* Right activity bar — vertical dock tab strips for right + bottom-right docks */}
           <nav
