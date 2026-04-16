@@ -402,7 +402,7 @@ export default function App() {
   const [filterConfig, setFilterConfig] = useState<FilterConfig>(DEFAULT_FILTER_CONFIG);
   const [showFilter, setShowFilter] = useState(true);
   const [activityLabels, setActivityLabels] = useState(true);
-  const [rightActivityLabels, setRightActivityLabels] = useState(true);
+  const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [bottomFullWidth, setBottomFullWidth] = useState(false);
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>('proportional');
   const [sidebarLayoutOpen, setSidebarLayoutOpen] = useState(false);
@@ -887,7 +887,7 @@ export default function App() {
             className={`dt-activity-bar ${activityLabels ? '' : 'dt-activity-bar--compact'} dt-activity-bar--layout-${sidebarLayout}`}
             onContextMenu={(e) => {
               e.preventDefault();
-              setActivityLabels(!activityLabels);
+              setBarCtxMenu({ x: e.clientX, y: e.clientY });
             }}
           >
             <div className="dt-activity-group dt-activity-group--top">
@@ -1002,10 +1002,10 @@ export default function App() {
 
           {/* Right activity bar — vertical dock tab strips for right + bottom-right docks */}
           <nav
-            className={`dt-activity-bar dt-activity-bar--right ${rightActivityLabels ? '' : 'dt-activity-bar--compact'} dt-activity-bar--layout-${sidebarLayout}`}
+            className={`dt-activity-bar dt-activity-bar--right ${activityLabels ? '' : 'dt-activity-bar--compact'} dt-activity-bar--layout-${sidebarLayout}`}
             onContextMenu={(e) => {
               e.preventDefault();
-              setRightActivityLabels(!rightActivityLabels);
+              setBarCtxMenu({ x: e.clientX, y: e.clientY });
             }}
           >
             <div className="dt-activity-group dt-activity-group--top">
@@ -1016,7 +1016,7 @@ export default function App() {
                   tl={tl}
                   dragging={dockDragging}
                   focused={focusedRegion === 'right'}
-                  showLabels={rightActivityLabels}
+                  showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
               </div>
@@ -1027,7 +1027,7 @@ export default function App() {
                   tl={tl}
                   dragging={dockDragging}
                   focused={focusedRegion === 'right'}
-                  showLabels={rightActivityLabels}
+                  showLabels={activityLabels}
                   icons={TOOL_WINDOW_ICONS}
                 />
               </div>
@@ -1039,11 +1039,35 @@ export default function App() {
                 tl={tl}
                 dragging={dockDragging}
                 focused={focusedRegion === 'bottom'}
-                showLabels={rightActivityLabels}
+                showLabels={activityLabels}
                 icons={TOOL_WINDOW_ICONS}
               />
             </div>
           </nav>
+
+          {/* Activity bar right-click context menu */}
+          {barCtxMenu && (
+            <>
+              {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop */}
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop */}
+              <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setBarCtxMenu(null)} />
+              <div
+                className="dt-ctx-menu"
+                style={{ position: 'fixed', left: barCtxMenu.x, top: barCtxMenu.y, zIndex: 100 }}
+              >
+                <button
+                  type="button"
+                  className="dt-ctx-item"
+                  onClick={() => {
+                    setActivityLabels((v) => !v);
+                    setBarCtxMenu(null);
+                  }}
+                >
+                  {activityLabels ? 'Hide Tool Window Names' : 'Show Tool Window Names'}
+                </button>
+              </div>
+            </>
+          )}
 
           {/* Drop zone overlay — 6 labeled zones shown during dock tab drags */}
           <DropZoneOverlay visible={dockDragging} rects={dropZoneRects} highlightedSlot={highlightedSlot} />
@@ -1199,7 +1223,6 @@ export default function App() {
                     className="dt-ctx-item"
                     onClick={() => {
                       setActivityLabels((v) => !v);
-                      setRightActivityLabels((v) => !v);
                       setLayoutMenuOpen(false);
                     }}
                   >
