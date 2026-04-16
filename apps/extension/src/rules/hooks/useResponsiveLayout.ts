@@ -12,8 +12,7 @@
 import { storage } from '@utils/browser-api';
 import { scheduleFrame } from '@utils/frame-scheduler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LeftPanelKey, RightPanelKey, ToolLayoutState, WorkspaceLayout } from '../types';
-import type { BottomPaneState } from './useWorkspaceLayout';
+import type { ToolLayoutState } from '../types';
 
 // ── Storage key ────────────────────────────────────────────────────
 
@@ -44,32 +43,12 @@ interface PersistedLayout {
   /** Bottom panel height as ratio of viewport height (0–1) */
   bottomRatio: number;
   /**
-   * Legacy three-pane layout state — written by the old
-   * useWorkspaceLayout hook. Kept optional so old records keep loading.
-   * Ignored on load now that the tool-window layout state lives in
-   * `toolLayout`.
-   */
-  leftPanel?: LeftPanelKey | null;
-  rightPanel?: RightPanelKey | null;
-  bottomOpen?: boolean;
-  bottomTab?: string;
-  activityBarLabels?: boolean;
-  /**
    * Dockable tool-window layout. Owns dock assignments and the
    * hidden list. Normalized on load so stale records never leave a
    * tool window orphaned. Layout behaviors (bottom full-width, label
    * visibility, sidebar layout) now live in the settings store.
    */
   toolLayout?: Partial<ToolLayoutState>;
-}
-
-/** Bundle returned to the host describing the persisted workspace state. */
-export interface PersistedWorkspaceState {
-  leftPanel: LeftPanelKey | null;
-  rightPanel: RightPanelKey | null;
-  bottomOpen: boolean;
-  bottomTab: string | undefined;
-  activityBarLabels: boolean;
 }
 
 export interface ResponsiveLayoutSizes {
@@ -91,18 +70,6 @@ export interface ResponsiveLayout {
   getCoordinatedSidebarSize: (inspectorVisible: boolean) => number | null;
   /** Whether persisted layout has been loaded (avoid flash of default sizes) */
   ready: boolean;
-  /**
-   * Previously-persisted workspace state (panel keys, bottom tab, label
-   * visibility) loaded alongside the size ratios. Null until `ready` flips
-   * to true. Host feeds this into useWorkspaceLayout as its `initial`.
-   */
-  persistedWorkspace: PersistedWorkspaceState | null;
-  /**
-   * Called by the host whenever the workspace layout state machine
-   * changes. Debounced (500ms) along with the size ratios so rapid panel
-   * toggles coalesce into one chrome.storage write.
-   */
-  persistWorkspaceLayout: (layout: WorkspaceLayout, bottom: BottomPaneState) => void;
   /** Previously-persisted tool-window layout, or null on fresh profiles. */
   persistedToolLayout: Partial<ToolLayoutState> | null;
   /** Persist the tool-window layout — debounced through the same write. */
@@ -177,7 +144,6 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
 
 export function useResponsiveLayout(): ResponsiveLayout {
   const [persisted, setPersisted] = useState<PersistedLayout | null>(null);
-  const [persistedWorkspace, setPersistedWorkspace] = useState<PersistedWorkspaceState | null>(null);
   const [persistedToolLayout, setPersistedToolLayout] = useState<Partial<ToolLayoutState> | null>(null);
   const [ready, setReady] = useState(false);
   const [shouldCollapse, setShouldCollapse] = useState(() => getViewportWidth() < BP_SIDEBAR_COLLAPSE);
@@ -195,16 +161,6 @@ export function useResponsiveLayout(): ResponsiveLayout {
         if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
           setPersisted(saved);
           latestPersistedRef.current = saved;
-          // Map persisted workspace fields into the hook's return — the
-          // host feeds them into useWorkspaceLayout's initial value so the
-          // previously-open panel layout survives refresh.
-          setPersistedWorkspace({
-            leftPanel: saved.leftPanel ?? 'items',
-            rightPanel: saved.rightPanel ?? null,
-            bottomOpen: saved.bottomOpen ?? false,
-            bottomTab: saved.bottomTab,
-            activityBarLabels: saved.activityBarLabels ?? true,
-          });
           setPersistedToolLayout(saved.toolLayout ?? null);
         }
         setReady(true);
@@ -260,10 +216,7 @@ export function useResponsiveLayout(): ResponsiveLayout {
     [flushPersist],
   );
 
-  // ── Workspace layout persistence ───────────────────────────────
-  // Merges the state-machine fields into the same storage record as the
-  // size ratios so both migrate together. The debounce is shared — a
-  // burst of toggles coalesces into a single write.
+  // ── Tool-window layout persistence ─────────────────────────────
 
   const persistToolLayout = useCallback(
     (next: ToolLayoutState) => {
@@ -278,25 +231,6 @@ export function useResponsiveLayout(): ResponsiveLayout {
           docks: next.docks,
           hidden: next.hidden,
         },
-      });
-    },
-    [schedulePersist],
-  );
-
-  const persistWorkspaceLayout = useCallback(
-    (layout: WorkspaceLayout, bottom: BottomPaneState) => {
-      const prev = latestPersistedRef.current ?? {
-        sidebarRatio: 0.17,
-        inspectorRatio: 0.2,
-        bottomRatio: 0.25,
-      };
-      schedulePersist({
-        ...prev,
-        leftPanel: layout.leftPanel,
-        rightPanel: layout.rightPanel,
-        bottomOpen: layout.bottomOpen,
-        bottomTab: bottom.tab,
-        activityBarLabels: layout.activityBarLabels,
       });
     },
     [schedulePersist],
@@ -351,8 +285,6 @@ export function useResponsiveLayout(): ResponsiveLayout {
     onVerticalResize,
     getCoordinatedSidebarSize,
     ready,
-    persistedWorkspace,
-    persistWorkspaceLayout,
     persistedToolLayout,
     persistToolLayout,
   };
