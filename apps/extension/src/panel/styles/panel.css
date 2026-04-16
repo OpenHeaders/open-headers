@@ -127,7 +127,7 @@ body {
   min-width: 32px;
 }
 
-/* Activity bar groups — top and bottom dock slot icons */
+/* Activity bar groups (same 3-group model as workspace) */
 .dt-activity-group {
   display: flex;
   flex-direction: column;
@@ -136,12 +136,49 @@ body {
   width: 100%;
 }
 
+.dt-activity-group--top {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dt-activity-group--bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(128, 128, 128, 0.34);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dt-activity-subslot {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-height: 32px;
+  overflow: hidden;
+}
+
+.dt-activity-subslot--second {
+  border-top: 1px dashed rgba(128, 128, 128, 0.32);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
 /* Sidebar layout variants */
-.dt-activity-bar--layout-proportional .dt-activity-group {
-  flex: 1;
+.dt-activity-bar--layout-proportional .dt-activity-group--top {
+  flex: 1 1 auto;
 }
 
 .dt-activity-bar--layout-compact .dt-activity-group--top {
+  flex: 0 0 auto;
+}
+
+.dt-activity-bar--layout-compact .dt-activity-subslot {
   flex: 0 0 auto;
 }
 
@@ -149,8 +186,37 @@ body {
   margin-top: auto;
 }
 
-.dt-activity-bar--layout-stacked .dt-activity-group {
+.dt-activity-bar--layout-stacked .dt-activity-group--top {
   flex: 0 0 auto;
+}
+
+.dt-activity-bar--layout-stacked .dt-activity-subslot {
+  flex: 0 0 auto;
+}
+
+.dt-activity-bar--layout-stacked .dt-activity-group--bottom {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+/* Dock strip (used inside activity bar subslots) */
+.dt-dock-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+}
+
+.dt-dock-strip--drag-over {
+  background: rgba(26, 115, 232, 0.08);
+  border-radius: 4px;
+}
+
+.dt-dock-strip--empty-drop {
+  min-height: 32px;
+  border: 1px dashed rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
 }
 
 .dt-activity-bar--right {
@@ -1711,66 +1777,8 @@ body {
   flex-direction: column;
 }
 
-.dt-dock-tab-strip {
-  display: flex;
-  align-items: stretch;
-  height: 26px;
-  min-height: 26px;
-  background: var(--dt-header-bg);
-  border-bottom: 1px solid var(--dt-border);
-  user-select: none;
-}
-
-.dt-dock-tab-strip--drag-over {
-  background: var(--dt-pill-active-bg);
-  outline: 1px dashed var(--dt-link);
-  outline-offset: -1px;
-}
-
-.dt-dock-tab {
-  border: none;
-  background: transparent;
-  color: var(--dt-text-muted);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 0 8px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.dt-dock-tab:hover {
-  color: var(--dt-text);
-  background: var(--dt-row-hover);
-}
-
-.dt-dock-tab.active {
-  color: var(--dt-text);
-  border-bottom-color: var(--dt-tab-active-border);
-}
-
-.dt-dock-tab-strip-spacer {
-  flex: 1;
-}
-
-.dt-dock-tab-strip-close {
-  border: none;
-  background: transparent;
-  color: var(--dt-text-muted);
-  font-size: 14px;
-  padding: 0 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  line-height: 1;
-}
-
-.dt-dock-tab-strip-close:hover {
-  color: var(--dt-text);
-}
+/* Dock tab strip styles removed — strips now render as activity-bar
+   icons inside the sidebar, not as horizontal headers on content panels. */
 
 /* Hide internal headers when tool window is inside a dock */
 .dt-dock-content > .dt-search-panel > .dt-search-panel-header {

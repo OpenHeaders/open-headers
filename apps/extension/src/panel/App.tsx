@@ -645,20 +645,19 @@ export default function App() {
     ],
   );
 
-  // ── Render a single dock slot ──────────────────────────────
-  const renderDock = useCallback(
+  // ── Render a dock's content (no strip — strip lives in activity bar) ──
+  const renderDockContent = useCallback(
     (slot: PanelDockSlot): React.ReactNode => {
       const dock = tl.state.docks[slot];
-      if (dock.windows.length === 0) return null;
+      if (!dock.active) return null;
       const region = panelDockRegion(slot);
       return (
-        <div className="dt-dock-slot" data-region={region} tabIndex={-1}>
-          <DockTabStrip slot={slot} dock={dock} tl={tl} dragging={dockDragging} />
-          {dock.active && <div className="dt-dock-content">{renderToolWindow(dock.active)}</div>}
+        <div className="dt-dock-slot" data-region={region} data-dock-slot={slot} tabIndex={-1}>
+          <div className="dt-dock-content">{renderToolWindow(dock.active)}</div>
         </div>
       );
     },
-    [tl, renderToolWindow, dockDragging],
+    [tl, renderToolWindow],
   );
 
   // ── Render a region (left / right / bottom) ────────────────
@@ -666,22 +665,24 @@ export default function App() {
     (region: PanelToolRegion): React.ReactNode => {
       const slots = ALL_PANEL_DOCK_SLOTS.filter((s) => panelDockRegion(s) === region);
       const [slotA, slotB] = slots;
-      const hasA = tl.state.docks[slotA].windows.length > 0;
-      const hasB = tl.state.docks[slotB].windows.length > 0;
+      const activeA = tl.state.docks[slotA].active !== null;
+      const activeB = tl.state.docks[slotB].active !== null;
 
-      if (!hasA && !hasB) return null;
-      if (hasA && !hasB) return renderDock(slotA);
-      if (!hasA && hasB) return renderDock(slotB);
+      if (!activeA && !activeB) return null;
 
       const vertical = region !== 'bottom';
       return (
-        <Allotment vertical={vertical}>
-          <Allotment.Pane minSize={50}>{renderDock(slotA)}</Allotment.Pane>
-          <Allotment.Pane minSize={50}>{renderDock(slotB)}</Allotment.Pane>
+        <Allotment vertical={vertical} proportionalLayout={false}>
+          <Allotment.Pane minSize={50} visible={activeA} snap>
+            {activeA && renderDockContent(slotA)}
+          </Allotment.Pane>
+          <Allotment.Pane minSize={50} visible={activeB} snap>
+            {activeB && renderDockContent(slotB)}
+          </Allotment.Pane>
         </Allotment>
       );
     },
-    [tl.state.docks, renderDock],
+    [tl.state.docks, renderDockContent],
   );
 
   // ── Rules hint visible? ────────────────────────────────────
@@ -701,7 +702,7 @@ export default function App() {
           onDragEnd={handleDndEnd}
           onDragCancel={handleDndCancel}
         >
-          {/* Left activity bar — shows all tool windows, grouped by left-top vs others */}
+          {/* Left activity bar — vertical dock tab strips, same pattern as workspace */}
           <nav
             className={`dt-activity-bar ${activityLabels ? '' : 'dt-activity-bar--compact'} dt-activity-bar--layout-${sidebarLayout}`}
             onContextMenu={(e) => {
@@ -710,36 +711,36 @@ export default function App() {
             }}
           >
             <div className="dt-activity-group dt-activity-group--top">
-              {tl.state.docks['left-top'].windows.map((wId) => (
-                <button
-                  key={wId}
-                  type="button"
-                  className="dt-activity-icon"
-                  data-state={iconState(wId)}
-                  onClick={() => tl.toggleWindow(wId)}
-                  title={PANEL_TOOL_WINDOW_MAP[wId].label}
-                >
-                  {TOOL_WINDOW_ICONS[wId]}
-                  {activityLabels && <span className="dt-activity-label">{PANEL_TOOL_WINDOW_MAP[wId].label}</span>}
-                </button>
-              ))}
+              <div className="dt-activity-subslot dt-activity-subslot--first">
+                <DockTabStrip
+                  slot="left-top"
+                  dock={tl.state.docks['left-top']}
+                  tl={tl}
+                  dragging={dockDragging}
+                  showLabels={activityLabels}
+                  icons={TOOL_WINDOW_ICONS}
+                />
+              </div>
+              <div className="dt-activity-subslot dt-activity-subslot--second">
+                <DockTabStrip
+                  slot="left-bottom"
+                  dock={tl.state.docks['left-bottom']}
+                  tl={tl}
+                  dragging={dockDragging}
+                  showLabels={activityLabels}
+                  icons={TOOL_WINDOW_ICONS}
+                />
+              </div>
             </div>
             <div className="dt-activity-group dt-activity-group--bottom">
-              {PANEL_TOOL_WINDOWS.filter(
-                (def) => !tl.state.hidden.includes(def.id) && !tl.state.docks['left-top'].windows.includes(def.id),
-              ).map((def) => (
-                <button
-                  key={def.id}
-                  type="button"
-                  className="dt-activity-icon"
-                  data-state={iconState(def.id)}
-                  onClick={() => tl.toggleWindow(def.id)}
-                  title={def.label}
-                >
-                  {TOOL_WINDOW_ICONS[def.id]}
-                  {activityLabels && <span className="dt-activity-label">{def.label}</span>}
-                </button>
-              ))}
+              <DockTabStrip
+                slot="bottom-left"
+                dock={tl.state.docks['bottom-left']}
+                tl={tl}
+                dragging={dockDragging}
+                showLabels={activityLabels}
+                icons={TOOL_WINDOW_ICONS}
+              />
             </div>
           </nav>
 
@@ -904,37 +905,46 @@ export default function App() {
             )}
           </Allotment>
 
-          {/* Right activity bar */}
+          {/* Right activity bar — vertical dock tab strips for right + bottom-right docks */}
           <nav
-            className={`dt-activity-bar dt-activity-bar--right ${rightActivityLabels ? '' : 'dt-activity-bar--compact'}`}
+            className={`dt-activity-bar dt-activity-bar--right ${rightActivityLabels ? '' : 'dt-activity-bar--compact'} dt-activity-bar--layout-${sidebarLayout}`}
             onContextMenu={(e) => {
               e.preventDefault();
               setRightActivityLabels(!rightActivityLabels);
             }}
           >
-            <button
-              type="button"
-              className="dt-activity-icon"
-              data-state={iconState('docs')}
-              onClick={() => tl.toggleWindow('docs')}
-              title="Filter Docs"
-            >
-              <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                <text
-                  x="8"
-                  y="12"
-                  textAnchor="middle"
-                  fill="currentColor"
-                  fontSize="10"
-                  fontFamily="serif"
-                  fontStyle="italic"
-                >
-                  i
-                </text>
-              </svg>
-              {rightActivityLabels && <span className="dt-activity-label">Docs</span>}
-            </button>
+            <div className="dt-activity-group dt-activity-group--top">
+              <div className="dt-activity-subslot dt-activity-subslot--first">
+                <DockTabStrip
+                  slot="right-top"
+                  dock={tl.state.docks['right-top']}
+                  tl={tl}
+                  dragging={dockDragging}
+                  showLabels={rightActivityLabels}
+                  icons={TOOL_WINDOW_ICONS}
+                />
+              </div>
+              <div className="dt-activity-subslot dt-activity-subslot--second">
+                <DockTabStrip
+                  slot="right-bottom"
+                  dock={tl.state.docks['right-bottom']}
+                  tl={tl}
+                  dragging={dockDragging}
+                  showLabels={rightActivityLabels}
+                  icons={TOOL_WINDOW_ICONS}
+                />
+              </div>
+            </div>
+            <div className="dt-activity-group dt-activity-group--bottom">
+              <DockTabStrip
+                slot="bottom-right"
+                dock={tl.state.docks['bottom-right']}
+                tl={tl}
+                dragging={dockDragging}
+                showLabels={rightActivityLabels}
+                icons={TOOL_WINDOW_ICONS}
+              />
+            </div>
           </nav>
 
           {/* DragOverlay — renders at top level for both editor tabs and dock tabs */}

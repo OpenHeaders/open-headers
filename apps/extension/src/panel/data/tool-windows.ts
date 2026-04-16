@@ -57,7 +57,10 @@ export function panelDockRegion(slot: PanelDockSlot): PanelToolRegion {
   return 'bottom';
 }
 
-export function renderToolWindowIcon(svgIcon: string): React.ReactNode {
-  // Returns null — icons are rendered inline in App.tsx via SVG elements
-  return null;
-}
+export const PANEL_TOOL_WINDOW_SVG_PATHS: Record<PanelToolWindowId, string> = {
+  network: 'M1 4h14M1 8h10M1 12h6',
+  rules: 'M3 2v12M7 4l5 4-5 4z',
+  search: '', // uses circle + line, handled separately
+  docs: '', // uses circle + text, handled separately
+  console: 'M2 4l4 4-4 4M8 12h6',
+};

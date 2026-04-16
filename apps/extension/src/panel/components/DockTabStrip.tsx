@@ -98,17 +98,27 @@ const DockContextMenu: React.FC<DockCtxMenuProps> = ({ state, currentSlot, tl, o
   );
 };
 
-// ── Sortable dock tab ────────────────────────────────────────────
+// ── Sortable dock tab (renders as activity-bar icon button) ──────
 
 interface SortableDockTabProps {
   slot: PanelDockSlot;
   windowId: PanelToolWindowId;
   isActive: boolean;
+  showLabels: boolean;
+  icon: React.ReactNode;
   onActivate: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
-const SortableDockTab: React.FC<SortableDockTabProps> = ({ slot, windowId, isActive, onActivate, onContextMenu }) => {
+const SortableDockTab: React.FC<SortableDockTabProps> = ({
+  slot,
+  windowId,
+  isActive,
+  showLabels,
+  icon,
+  onActivate,
+  onContextMenu,
+}) => {
   const def = PANEL_TOOL_WINDOW_MAP[windowId];
   const data: DockTabDragData = { kind: 'tool-window', toolWindowId: windowId, fromSlot: slot };
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -127,7 +137,9 @@ const SortableDockTab: React.FC<SortableDockTabProps> = ({ slot, windowId, isAct
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: dnd-kit overrides role
     <div
       ref={setNodeRef}
-      className={`dt-dock-tab${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}`}
+      className={`dt-activity-icon${isDragging ? ' dragging' : ''}`}
+      data-state={isActive ? 'active' : undefined}
+      data-tool-window={windowId}
       style={sortableStyle}
       {...attributes}
       {...listeners}
@@ -139,7 +151,8 @@ const SortableDockTab: React.FC<SortableDockTabProps> = ({ slot, windowId, isAct
         if (e.key === 'Enter') onActivate();
       }}
     >
-      {def.label}
+      {icon}
+      {showLabels && <span className="dt-activity-label">{def.label}</span>}
     </div>
   );
 };
@@ -151,9 +164,11 @@ interface DockTabStripProps {
   dock: PanelDockState;
   tl: PanelToolLayoutApi;
   dragging: boolean;
+  showLabels?: boolean;
+  icons?: Record<PanelToolWindowId, React.ReactNode>;
 }
 
-export const DockTabStrip: React.FC<DockTabStripProps> = ({ slot, dock, tl, dragging }) => {
+export const DockTabStrip: React.FC<DockTabStripProps> = ({ slot, dock, tl, dragging, showLabels = true, icons }) => {
   const [ctxMenu, setCtxMenu] = useState<DockCtxMenuState | null>(null);
 
   const { setNodeRef, isOver } = useDroppable({
@@ -170,12 +185,17 @@ export const DockTabStrip: React.FC<DockTabStripProps> = ({ slot, dock, tl, drag
 
   const sortableItems = dock.windows.map((id) => `tw:${id}`);
 
+  const fallbackIcon = (
+    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+
   return (
     <div
       ref={setNodeRef}
-      className={`dt-dock-tab-strip${isOver ? ' dt-dock-tab-strip--drag-over' : ''}`}
+      className={`dt-dock-strip${isOver ? ' dt-dock-strip--drag-over' : ''}${dragging && dock.windows.length === 0 ? ' dt-dock-strip--empty-drop' : ''}`}
       data-dock-slot={slot}
-      role="tablist"
     >
       <SortableContext items={sortableItems} strategy={horizontalListSortingStrategy}>
         {dock.windows.map((wId) => (
@@ -184,17 +204,13 @@ export const DockTabStrip: React.FC<DockTabStripProps> = ({ slot, dock, tl, drag
             slot={slot}
             windowId={wId}
             isActive={dock.active === wId}
+            showLabels={showLabels}
+            icon={icons?.[wId] ?? fallbackIcon}
             onActivate={() => tl.toggleWindow(wId)}
             onContextMenu={(e) => handleContextMenu(e, wId)}
           />
         ))}
       </SortableContext>
-      <div className="dt-dock-tab-strip-spacer" />
-      {dock.active && (
-        <button type="button" className="dt-dock-tab-strip-close" onClick={() => tl.closeDock(slot)} title="Close">
-          {'\u00d7'}
-        </button>
-      )}
       {ctxMenu && <DockContextMenu state={ctxMenu} currentSlot={slot} tl={tl} onClose={() => setCtxMenu(null)} />}
     </div>
   );
