@@ -1,0 +1,1134 @@
+/*
+ * Chrome DevTools Network tab-native stylesheet.
+ *
+ * All colours are declared as custom properties so light/dark
+ * switching is a single attribute flip on the root element.
+ * The [data-theme] attribute is set by the ThemeContext (from
+ * the app's global settings store) and by the pre-mount
+ * theme-init.js script for first-paint correctness.
+ */
+
+/* ── Light palette (default) ────────────────────────────── */
+:root,
+[data-theme='light'] {
+  --dt-bg: #fff;
+  --dt-bg-alt: #f5f5f5;
+  --dt-text: #303030;
+  --dt-text-muted: #888;
+  --dt-border: #e0e0e0;
+  --dt-row-hover: #f0f0f0;
+  --dt-row-selected: #e8f0fe;
+  --dt-row-zebra: #f8f8f8;
+  --dt-header-bg: #f1f1f1;
+  --dt-link: #1a73e8;
+  --dt-status-green: #00a800;
+  --dt-status-red: #ff0000;
+  --dt-status-orange: #e68a00;
+  --dt-sidebar-bg: #f5f5f5;
+  --dt-sidebar-active: #e8f0fe;
+  --dt-tab-active-border: #1a73e8;
+  --dt-details-bg: transparent;
+  --dt-pill-active-bg: #e8f0fe;
+  --dt-pill-active-text: #1a73e8;
+  --dt-fire-auth: #2f54eb;
+  --dt-fire-inferred: #d48806;
+  --dt-input-bg: #fff;
+  --dt-input-border: #d9d9d9;
+}
+
+/* ── Dark palette ───────────────────────────────────────── */
+[data-theme='dark'] {
+  --dt-bg: #1e1e1e;
+  --dt-bg-alt: #252525;
+  --dt-text: #e0e0e0;
+  --dt-text-muted: #888;
+  --dt-border: #3c3c3c;
+  --dt-row-hover: #2a2a2a;
+  --dt-row-selected: #062e61;
+  --dt-row-zebra: #222;
+  --dt-header-bg: #292929;
+  --dt-link: #8ab4f8;
+  --dt-status-green: #4caf50;
+  --dt-status-red: #f44336;
+  --dt-status-orange: #ffb74d;
+  --dt-sidebar-bg: #252525;
+  --dt-sidebar-active: #062e61;
+  --dt-tab-active-border: #8ab4f8;
+  --dt-details-bg: transparent;
+  --dt-pill-active-bg: #1a3a5c;
+  --dt-pill-active-text: #8ab4f8;
+  --dt-fire-auth: #6990f0;
+  --dt-fire-inferred: #e8b339;
+  --dt-input-bg: #2a2a2a;
+  --dt-input-border: #3c3c3c;
+}
+
+/* ── Reset ──────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--dt-bg);
+  color: var(--dt-text);
+}
+
+#root {
+  height: 100%;
+}
+
+/* ── Root panel ─────────────────────────────────────────── */
+.dt-panel {
+  display: flex;
+  height: 100vh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  background: var(--dt-bg);
+  color: var(--dt-text);
+}
+
+.dt-panel-mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* ── Activity bar (icon + text, right-click toggles labels) */
+.dt-activity-bar {
+  width: 56px;
+  min-width: 56px;
+  background: var(--dt-sidebar-bg);
+  border-right: 1px solid var(--dt-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 0;
+  gap: 1px;
+  user-select: none;
+}
+
+.dt-activity-bar--compact {
+  width: 32px;
+  min-width: 32px;
+}
+
+.dt-activity-bar--right {
+  border-right: none;
+  border-left: 1px solid var(--dt-border);
+}
+
+.dt-activity-icon {
+  width: 52px;
+  padding: 5px 0 3px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font: inherit;
+}
+
+.dt-activity-bar--compact .dt-activity-icon {
+  width: 28px;
+  padding: 5px 0;
+}
+
+.dt-activity-icon:hover {
+  background: rgba(128, 128, 128, 0.1);
+  color: var(--dt-text);
+}
+
+/* Active (unfocused) — panel open, grey selected background */
+.dt-activity-icon[data-state='active'] {
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--dt-text);
+  border-radius: 0;
+  width: 100%;
+}
+
+/* Focused — panel open + primary interaction, blue accent */
+.dt-activity-icon[data-state='focused'] {
+  background: var(--dt-pill-active-bg);
+  color: var(--dt-link);
+  border-radius: 0;
+  width: 100%;
+}
+
+/* Side indicator border — left bar uses left border, right bar uses right */
+.dt-activity-bar:not(.dt-activity-bar--right) .dt-activity-icon[data-state='active'] {
+  border-left: 2px solid var(--dt-text-muted);
+}
+
+.dt-activity-bar:not(.dt-activity-bar--right) .dt-activity-icon[data-state='focused'] {
+  border-left: 2px solid var(--dt-link);
+}
+
+.dt-activity-bar--right .dt-activity-icon[data-state='active'] {
+  border-right: 2px solid var(--dt-text-muted);
+}
+
+.dt-activity-bar--right .dt-activity-icon[data-state='focused'] {
+  border-right: 2px solid var(--dt-link);
+}
+
+.dt-activity-icon svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.dt-activity-label {
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ── Main content area ──────────────────────────────────── */
+.dt-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Toolbar (top row — icons + checkboxes) ─────────────── */
+.dt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+}
+
+.dt-toolbar-separator {
+  width: 1px;
+  height: 16px;
+  background: var(--dt-border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.dt-toolbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dt-toolbar-icon:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+.dt-toolbar-icon[data-active='true'] {
+  color: var(--dt-link);
+}
+
+.dt-toolbar-icon--record {
+  color: #888;
+}
+
+.dt-toolbar-icon--record[data-active='true'] {
+  color: #e53935;
+}
+
+.dt-toolbar-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* ── Filter bar (second row — input + pills) ────────────── */
+.dt-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.dt-filter-input {
+  border: 1px solid var(--dt-input-border);
+  border-radius: 2px;
+  background: var(--dt-input-bg);
+  color: var(--dt-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 4px;
+  height: 20px;
+  width: 140px;
+  outline: none;
+}
+
+.dt-filter-input--grow {
+  flex: 1;
+  min-width: 80px;
+  width: auto;
+}
+
+.dt-filter-input:focus {
+  border-color: var(--dt-link);
+}
+
+.dt-filter-input--error {
+  border-color: var(--dt-status-red) !important;
+}
+
+/* ── Filter input with inline toggles ─────────────────── */
+.dt-filter-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+}
+
+.dt-filter-input-wrap .dt-filter-input {
+  width: 100%;
+  padding-right: 58px;
+}
+
+.dt-filter-input-toggles {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 1px;
+  align-items: center;
+}
+
+.dt-filter-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.dt-filter-toggle:hover {
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+}
+
+.dt-filter-toggle[data-active='true'] {
+  color: var(--dt-pill-active-text);
+  background: var(--dt-pill-active-bg);
+  border-color: var(--dt-pill-active-text);
+}
+
+.dt-filter-input::placeholder {
+  color: var(--dt-text-muted);
+}
+
+.dt-filter-separator {
+  width: 1px;
+  height: 14px;
+  background: var(--dt-border);
+  flex-shrink: 0;
+}
+
+.dt-filter-pills {
+  display: flex;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.dt-filter-pill {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 5px;
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.dt-filter-pill:hover {
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+}
+
+.dt-filter-pill[data-active='true'] {
+  color: var(--dt-pill-active-text);
+  background: var(--dt-pill-active-bg);
+  font-weight: 600;
+}
+
+.dt-filter-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dt-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-checkbox input {
+  margin: 0;
+}
+
+.dt-btn {
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 6px;
+  height: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-btn:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-btn-primary {
+  background: var(--dt-link);
+  color: #fff;
+  border-color: var(--dt-link);
+}
+
+.dt-btn-primary:hover {
+  opacity: 0.85;
+}
+
+.dt-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dt-btn-link {
+  border: none;
+  background: transparent;
+  color: var(--dt-link);
+  padding: 0;
+  height: auto;
+  cursor: pointer;
+  font: inherit;
+  font-size: inherit;
+}
+
+.dt-btn-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Content split (traffic list + detail pane) ─────────── */
+.dt-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dt-traffic-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dt-traffic-pane--full {
+  flex: 1;
+}
+
+.dt-detail-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Table ──────────────────────────────────────────────── */
+.dt-table {
+  flex: 1;
+  overflow: auto;
+}
+
+.dt-table-header {
+  display: grid;
+  padding: 0 4px;
+  height: 22px;
+  align-items: center;
+  background: var(--dt-header-bg);
+  border-bottom: 1px solid var(--dt-border);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  user-select: none;
+}
+
+.dt-table-header span {
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-row {
+  display: grid;
+  padding: 0 4px;
+  height: 20px;
+  align-items: center;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.dt-row:nth-child(even) {
+  background: var(--dt-row-zebra);
+}
+
+.dt-row:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-row[data-selected='true'] {
+  background: var(--dt-row-selected);
+}
+
+.dt-row span {
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-col-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.dt-col-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-col-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.dt-fire-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dt-fire-dot--auth {
+  background: var(--dt-fire-auth);
+}
+
+.dt-fire-dot--inferred {
+  background: var(--dt-fire-inferred);
+}
+
+.dt-col-status--2xx {
+  color: var(--dt-status-green);
+}
+
+.dt-col-status--3xx {
+  color: var(--dt-status-orange);
+}
+
+.dt-col-status--4xx,
+.dt-col-status--5xx {
+  color: var(--dt-status-red);
+}
+
+.dt-col-muted {
+  color: var(--dt-text-muted);
+}
+
+.dt-col-right {
+  text-align: right;
+}
+
+/* Column template — shared between header and rows */
+.dt-cols {
+  grid-template-columns: 14px 82px minmax(140px, 2fr) 48px 72px 72px minmax(52px, 0.5fr) 64px;
+}
+
+/* Sortable column header button */
+.dt-col-sort {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0 4px;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-col-sort:hover {
+  background: var(--dt-row-hover);
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+.dt-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--dt-text-muted);
+  font-size: 12px;
+  padding: 24px;
+}
+
+.dt-empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.dt-empty-hero strong {
+  font-size: 14px;
+  color: var(--dt-text);
+}
+
+.dt-empty-hero-sub {
+  color: var(--dt-text-muted);
+  font-size: 12px;
+  max-width: 300px;
+}
+
+/* ── Tab bar (detail pane) ──────────────────────────────── */
+.dt-tabs {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  overflow-x: auto;
+}
+
+.dt-tab {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 0 8px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.dt-tab:hover {
+  color: var(--dt-text);
+}
+
+.dt-tab[aria-selected='true'],
+.dt-tab--active {
+  color: var(--dt-text);
+  border-bottom-color: var(--dt-tab-active-border);
+  font-weight: 600;
+}
+
+.dt-tab-close {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 14px;
+  padding: 0 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.dt-tab-close:hover {
+  color: var(--dt-text);
+}
+
+.dt-tab-body {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 8px;
+}
+
+/* ── Disclosure sections ────────────────────────────────── */
+.dt-section {
+  margin-bottom: 2px;
+}
+
+.dt-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 3px 8px 3px 0;
+  list-style-type: disclosure-closed;
+  user-select: none;
+  position: sticky;
+  top: 0;
+  background: var(--dt-bg);
+  z-index: 1;
+}
+
+.dt-section[open] > summary {
+  list-style-type: disclosure-open;
+}
+
+/* ── Key-value pairs ────────────────────────────────────── */
+.dt-kv {
+  display: flex;
+  gap: 4px;
+  padding: 1px 0;
+  padding-left: 12px;
+  line-height: 1.5;
+}
+
+.dt-kv-key {
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+}
+
+.dt-kv-val {
+  word-break: break-all;
+}
+
+.dt-kv--highlighted {
+  background: #fdd835;
+  color: #000;
+  border-radius: 2px;
+}
+
+[data-theme='dark'] .dt-kv--highlighted {
+  background: #7b6b00;
+  color: #fff;
+}
+
+.dt-kv-val--status-ok::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dt-status-green);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.dt-kv-val--status-err::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dt-status-red);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ── Status bar ─────────────────────────────────────────── */
+.dt-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px;
+  height: 22px;
+  min-height: 22px;
+  border-top: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  color: var(--dt-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ── Rule activity view ─────────────────────────────────── */
+.dt-executions {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 8px;
+}
+
+.dt-executions-hint {
+  color: var(--dt-text-muted);
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+}
+
+.dt-exec-group {
+  margin-bottom: 4px;
+}
+
+.dt-exec-group > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 2px 0;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style-type: disclosure-closed;
+}
+
+.dt-exec-group[open] > summary {
+  list-style-type: disclosure-open;
+}
+
+.dt-exec-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0 4px;
+  border-radius: 2px;
+  line-height: 1.6;
+}
+
+.dt-exec-badge--auth {
+  color: var(--dt-fire-auth);
+  background: color-mix(in srgb, var(--dt-fire-auth) 12%, transparent);
+}
+
+.dt-exec-badge--inferred {
+  color: var(--dt-fire-inferred);
+  background: color-mix(in srgb, var(--dt-fire-inferred) 12%, transparent);
+}
+
+.dt-exec-badge--dangling {
+  color: var(--dt-status-orange);
+  background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);
+}
+
+.dt-exec-url {
+  display: block;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-link);
+  padding: 1px 0 1px 16px;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.dt-exec-url:hover {
+  text-decoration: underline;
+}
+
+.dt-exec-url--muted {
+  color: var(--dt-text-muted);
+  cursor: default;
+  text-decoration: none;
+  font-style: italic;
+}
+
+.dt-exec-url--muted:hover {
+  text-decoration: none;
+}
+
+/* ── Response body ──────────────────────────────────────── */
+.dt-body-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.dt-body-tag {
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  padding: 0 4px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+}
+
+.dt-body-pre {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 480px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dt-body-info {
+  padding: 6px 8px;
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+
+/* ── CTA buttons row ────────────────────────────────────── */
+.dt-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+/* ── Search panel (left drawer) ─────────────────────────── */
+.dt-search-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--dt-bg);
+  border-right: 1px solid var(--dt-border);
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.dt-search-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-search-panel-title {
+  font-weight: 600;
+}
+
+.dt-search-panel-input-row {
+  display: flex;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-search-panel-results {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dt-search-group {
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-search-group > summary {
+  cursor: pointer;
+  padding: 3px 6px;
+  background: var(--dt-bg-alt);
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 11px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.dt-search-group-time {
+  color: var(--dt-text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+.dt-search-group-file {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 50%;
+}
+
+.dt-search-group-origin {
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+}
+
+.dt-search-match {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--dt-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 6px 1px 16px;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.dt-search-match:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-search-match-line {
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+  min-width: 24px;
+  text-align: right;
+}
+
+.dt-search-match-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+.dt-search-match-section {
+  color: var(--dt-text-muted);
+  font-size: 9px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 4px;
+}
+
+.dt-search-highlight {
+  background: #fdd835;
+  color: #000;
+  border-radius: 1px;
+  padding: 0 1px;
+}
+
+[data-theme='dark'] .dt-search-highlight {
+  background: #7b6b00;
+  color: #fff;
+}
+
+.dt-search-panel-status {
+  padding: 4px 6px;
+  border-top: 1px solid var(--dt-border);
+  color: var(--dt-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Filter docs panel ──────────────────────────────────── */
+.dt-filter-docs {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.dt-filter-docs-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0 2px 12px;
+  align-items: baseline;
+}
+
+.dt-filter-docs-row code {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  padding: 0 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dt-filter-docs-row span {
+  color: var(--dt-text-muted);
+}
+
+/* ── Response body search highlight ─────────────────────── */
+.dt-body-pre mark {
+  background: #fdd835;
+  color: #000;
+  border-radius: 1px;
+  padding: 0 1px;
+}
+
+[data-theme='dark'] .dt-body-pre mark {
+  background: #7b6b00;
+  color: #fff;
+}
