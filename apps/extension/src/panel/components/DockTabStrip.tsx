@@ -38,26 +38,71 @@ interface DockCtxMenuProps {
   onClose: () => void;
 }
 
-function DockSlotIcon({ slot }: { slot: PanelDockSlot }) {
-  const s = 'var(--dt-text-muted)';
-  const f = 'var(--dt-text)';
-  const highlight: Record<PanelDockSlot, React.ReactNode> = {
-    'left-top': <rect x={0.5} y={0.5} width={5} height={6} fill={f} fillOpacity={0.15} />,
-    'left-bottom': <rect x={0.5} y={6.5} width={5} height={6} fill={f} fillOpacity={0.15} />,
-    'right-top': <rect x={10.5} y={0.5} width={5} height={6} fill={f} fillOpacity={0.15} />,
-    'right-bottom': <rect x={10.5} y={6.5} width={5} height={6} fill={f} fillOpacity={0.15} />,
-    'bottom-left': <rect x={5.5} y={8.5} width={5} height={4} fill={f} fillOpacity={0.15} />,
-    'bottom-right': <rect x={10.5} y={8.5} width={5} height={4} fill={f} fillOpacity={0.15} />,
-  };
+/**
+ * DockSlotIcon — same SVG as workspace's DockSlotIcon.tsx but with
+ * CSS variables instead of Ant Design tokens.
+ * Each icon shows only its region's structure (left, right, or bottom).
+ */
+function DockSlotIcon({ slot, size = 20 }: { slot: PanelDockSlot; size?: number }) {
+  const stroke = 'var(--dt-text-muted)';
+  const fill = 'var(--dt-text)';
+  const height = Math.round((size * 16) / 20);
+
+  const FL = 0.5;
+  const FR = 19.5;
+  const FT = 0.5;
+  const FB = 15.5;
+  const LCR = 6;
+  const RCL = 14;
+  const SHY = 8;
+  const BST = 11;
+  const BSM = 10;
+
+  const region: 'left' | 'right' | 'bottom' = slot.startsWith('left-')
+    ? 'left'
+    : slot.startsWith('right-')
+      ? 'right'
+      : 'bottom';
+
+  let tr: { x: number; y: number; w: number; h: number };
+  if (slot === 'left-top') tr = { x: FL, y: FT, w: LCR - FL, h: SHY - FT };
+  else if (slot === 'left-bottom') tr = { x: FL, y: SHY, w: LCR - FL, h: FB - SHY };
+  else if (slot === 'right-top') tr = { x: RCL, y: FT, w: FR - RCL, h: SHY - FT };
+  else if (slot === 'right-bottom') tr = { x: RCL, y: SHY, w: FR - RCL, h: FB - SHY };
+  else if (slot === 'bottom-left') tr = { x: FL, y: BST, w: BSM - FL, h: FB - BST };
+  else tr = { x: BSM, y: BST, w: FR - BSM, h: FB - BST };
+
   return (
-    <svg viewBox="0 0 16 13" width={16} height={13} role="img" aria-hidden="true" style={{ display: 'block' }}>
-      <rect x={0.5} y={0.5} width={15} height={12} rx={1.5} fill="none" stroke={s} strokeWidth={1} />
-      <line x1={5.5} y1={0.5} x2={5.5} y2={12.5} stroke={s} strokeWidth={0.75} />
-      <line x1={10.5} y1={0.5} x2={10.5} y2={12.5} stroke={s} strokeWidth={0.75} />
-      <line x1={0.5} y1={6.5} x2={5.5} y2={6.5} stroke={s} strokeWidth={0.75} />
-      <line x1={10.5} y1={6.5} x2={15.5} y2={6.5} stroke={s} strokeWidth={0.75} />
-      <line x1={5.5} y1={8.5} x2={15.5} y2={8.5} stroke={s} strokeWidth={0.75} />
-      {highlight[slot]}
+    <svg viewBox="0 0 20 16" width={size} height={height} role="img" aria-hidden="true" style={{ display: 'block' }}>
+      <rect x={0.5} y={0.5} width={19} height={15} rx={1.5} fill="none" stroke={stroke} strokeWidth={1} />
+      {region === 'left' && (
+        <>
+          <line x1={LCR} y1={FT} x2={LCR} y2={FB} stroke={stroke} strokeWidth={1} />
+          <line x1={FL} y1={SHY} x2={LCR} y2={SHY} stroke={stroke} strokeWidth={0.75} />
+        </>
+      )}
+      {region === 'right' && (
+        <>
+          <line x1={RCL} y1={FT} x2={RCL} y2={FB} stroke={stroke} strokeWidth={1} />
+          <line x1={RCL} y1={SHY} x2={FR} y2={SHY} stroke={stroke} strokeWidth={0.75} />
+        </>
+      )}
+      {region === 'bottom' && (
+        <>
+          <line x1={FL} y1={BST} x2={FR} y2={BST} stroke={stroke} strokeWidth={1} />
+          <line x1={BSM} y1={BST} x2={BSM} y2={FB} stroke={stroke} strokeWidth={0.75} />
+        </>
+      )}
+      <rect
+        x={tr.x}
+        y={tr.y}
+        width={tr.w}
+        height={tr.h}
+        fill={fill}
+        fillOpacity={0.15}
+        stroke={stroke}
+        strokeWidth={1}
+      />
     </svg>
   );
 }
