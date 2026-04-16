@@ -9,18 +9,11 @@
  */
 
 import { AppstoreOutlined, BookOutlined, CodeOutlined, ExperimentOutlined, FundViewOutlined } from '@ant-design/icons';
-import type React from 'react';
-import type { DockSlot, ToolRegion, ToolWindowId } from './types';
+import type { ToolWindowDef as GenericToolWindowDef } from '@/shared/dock-layout';
+import { ALL_DOCK_SLOTS as _ALL, dockRegion as _dockRegion, DOCK_LABELS as _LABELS } from '@/shared/dock-layout';
+import type { ToolWindowId } from './types';
 
-export interface ToolWindowDef {
-  id: ToolWindowId;
-  label: string;
-  icon: React.ReactNode;
-  /** Core tool windows cannot be hidden — the Hide menu entry is disabled. */
-  core: boolean;
-  /** Initial dock slot on a fresh profile; also the restore target for Hide → Show. */
-  defaultSlot: DockSlot;
-}
+export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
 
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'items', label: 'Items', icon: <AppstoreOutlined />, core: true, defaultSlot: 'left-top' },
@@ -38,27 +31,7 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
   {} as Record<ToolWindowId, ToolWindowDef>,
 );
 
-export const ALL_DOCK_SLOTS: readonly DockSlot[] = [
-  'left-top',
-  'left-bottom',
-  'right-top',
-  'right-bottom',
-  'bottom-left',
-  'bottom-right',
-];
-
-export const DOCK_LABELS: Record<DockSlot, string> = {
-  'left-top': 'Left Top',
-  'left-bottom': 'Left Bottom',
-  'right-top': 'Right Top',
-  'right-bottom': 'Right Bottom',
-  'bottom-left': 'Bottom Left',
-  'bottom-right': 'Bottom Right',
-};
-
-/** Map from a dock slot to the high-level screen region that contains it. */
-export function dockRegion(slot: DockSlot): ToolRegion {
-  if (slot === 'left-top' || slot === 'left-bottom') return 'left';
-  if (slot === 'right-top' || slot === 'right-bottom') return 'right';
-  return 'bottom';
-}
+// Re-export shared constants so existing imports from this module keep working.
+export const ALL_DOCK_SLOTS = _ALL;
+export const DOCK_LABELS = _LABELS;
+export const dockRegion = _dockRegion;

@@ -3,6 +3,7 @@ import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import RulesApp from './App';
 import { SettingsProvider } from './settings';
+import '@/shared/dock-layout/dock-layout.css';
 import './styles/rules.less';
 import './styles/rule-flow.less';
 

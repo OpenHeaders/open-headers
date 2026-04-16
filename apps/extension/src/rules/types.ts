@@ -121,50 +121,19 @@ export interface ClosedTab {
 
 // ── Dockable tool-window model ────────────────────────────────────────
 //
-// Replaces the older three-pane fixed layout with six docks that can each
-// host any number of tool windows. The user drags tool windows between
-// docks; hides them via a context menu; and toggles whether the bottom
-// region spans the full viewport width or only the middle column.
+// Shared dock types are defined in @/shared/dock-layout and re-exported
+// here for backwards compatibility. Workspace-specific types (ToolWindowId)
+// stay here because they define which windows THIS surface has.
 
-/** The six dock slots a tool window can live in. */
-export type DockSlot = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom' | 'bottom-left' | 'bottom-right';
+export type { DockSlot, SidebarLayoutVariant, ToolRegion } from '@/shared/dock-layout';
+
+import type { DockState as GenericDockState, ToolLayoutState as GenericToolLayoutState } from '@/shared/dock-layout';
 
 /** Identifiers for every tool window known to the extension shell. */
 export type ToolWindowId = 'items' | 'docs' | 'variables' | 'page-traffic' | 'test-runs';
 
-/** Visual region that backs a dock — three high-level regions feed into layout math. */
-export type ToolRegion = 'left' | 'right' | 'bottom';
+/** Runtime state for one dock, bound to workspace's ToolWindowId. */
+export type DockState = GenericDockState<ToolWindowId>;
 
-/** Runtime state for one dock: which tool windows live there and which is showing. */
-export interface DockState {
-  windows: ToolWindowId[];
-  /** Active tool window; null = dock is collapsed. */
-  active: ToolWindowId | null;
-}
-
-/** Layout variant for the activity bar.
- *  - proportional: top section splits 50/50, bottom pinned to bar bottom.
- *  - compact: top sub-slots content-height, bottom still pinned to bar bottom.
- *  - stacked: all three sections clustered at the top with dividers between. */
-export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked';
-
-/**
- * Full tool-window layout state. Replaces WorkspaceLayout's booleans.
- *
- * `bottomFullWidth`, `showToolWindowLabels`, and `sidebarLayout` used to
- * live here — they now live in the settings store under the
- * `workspaceLayout.*` keys so the footer menu and the Settings page
- * agree on one source of truth.
- */
-export interface ToolLayoutState {
-  docks: Record<DockSlot, DockState>;
-  hidden: ToolWindowId[];
-  /**
-   * Zen-mode snapshot. When non-null the shell is in zen mode — all docks
-   * captured here have been collapsed and the snapshot holds the pre-zen
-   * active tool window per dock, so a later `toggleZenMode()` can restore
-   * exactly the docks that were open at the moment of entry. Null when
-   * zen mode is inactive. Ephemeral — never persisted across reloads.
-   */
-  zenSnapshot: Record<DockSlot, ToolWindowId | null> | null;
-}
+/** Full tool-window layout state, bound to workspace's ToolWindowId. */
+export type ToolLayoutState = GenericToolLayoutState<ToolWindowId>;

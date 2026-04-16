@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionTree } from '../../src/types/v5/collection';
-import {
-  computePausedUids,
-  hasNestedPauseMarkers,
-  type PauseMarker,
-  resolvePauseState,
-} from '../../src/utils/pause';
+import { computePausedUids, hasNestedPauseMarkers, type PauseMarker, resolvePauseState } from '../../src/utils/pause';
 
 function markers(record: Record<string, PauseMarker>): Map<string, PauseMarker> {
   return new Map(Object.entries(record));
@@ -84,15 +79,11 @@ describe('resolvePauseState', () => {
   });
 
   it('returns true when self path is marked paused', () => {
-    expect(
-      resolvePauseState('rules/col-a/folder-x', markers({ 'rules/col-a/folder-x': 'paused' })),
-    ).toBe(true);
+    expect(resolvePauseState('rules/col-a/folder-x', markers({ 'rules/col-a/folder-x': 'paused' }))).toBe(true);
   });
 
   it('returns true when an ancestor is marked paused', () => {
-    expect(
-      resolvePauseState('rules/col-a/folder-x/rule-r1', markers({ 'rules/col-a': 'paused' })),
-    ).toBe(true);
+    expect(resolvePauseState('rules/col-a/folder-x/rule-r1', markers({ 'rules/col-a': 'paused' }))).toBe(true);
   });
 
   it('returns false when self has an unpaused override even though ancestor is paused', () => {
@@ -161,10 +152,7 @@ describe('computePausedUids', () => {
   });
 
   it('honors an unpaused folder override under a paused collection', () => {
-    const result = computePausedUids(
-      trees,
-      markers({ 'rules/col-a': 'paused', 'rules/col-a/folder-x': 'unpaused' }),
-    );
+    const result = computePausedUids(trees, markers({ 'rules/col-a': 'paused', 'rules/col-a/folder-x': 'unpaused' }));
     // col-a paused; folder-y + rule-r2 inherit paused;
     // folder-x + rule-r1 are protected by the override.
     expect(result).toEqual(new Set(['col-a', 'folder-y', 'rule-r2']));

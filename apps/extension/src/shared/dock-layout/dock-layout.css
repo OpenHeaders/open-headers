@@ -1,0 +1,409 @@
+/**
+ * dock-layout.css — shared CSS for the dockable tool-window shell.
+ *
+ * Imported by both workspace (rules.less) and the devtools panel
+ * (panel.css) so the six-dock layout, activity bars, tab strips,
+ * drop zones, and drag previews look identical in both surfaces.
+ */
+
+/* ── Main row (activity bar | content | activity bar) ─────────────── */
+
+.rules-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.rules-main-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.rules-main-horizontal {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* ── Activity bar ─────────────────────────────────────────────────── */
+
+.rules-activity-bar {
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  padding-bottom: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  outline: none;
+  transition: width 0.12s ease;
+}
+
+.rules-activity-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.rules-activity-bar--compact {
+  width: 36px;
+}
+
+.rules-activity-bar--layout-compact .rules-activity-group--top {
+  flex: 0 0 auto;
+}
+
+.rules-activity-bar--layout-compact .rules-activity-subslot {
+  flex: 0 0 auto;
+}
+
+.rules-activity-bar--layout-compact .rules-activity-group--bottom {
+  margin-top: auto;
+}
+
+.rules-activity-bar--layout-stacked .rules-activity-group--top {
+  flex: 0 0 auto;
+}
+
+.rules-activity-bar--layout-stacked .rules-activity-subslot {
+  flex: 0 0 auto;
+}
+
+.rules-activity-bar--layout-stacked .rules-activity-group--bottom {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.rules-activity-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 2px;
+}
+
+.rules-activity-group--top {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rules-activity-subslot {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  overflow: hidden;
+}
+
+.rules-activity-subslot--second {
+  border-top: 1px dashed rgba(128, 128, 128, 0.32);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
+.rules-activity-subslot .rules-dock-strip--vertical {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.rules-activity-group--bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(128, 128, 128, 0.34);
+  padding-top: 6px;
+  margin-top: 6px;
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rules-activity-bar--compact .rules-activity-subslot,
+.rules-activity-bar--compact .rules-activity-group--bottom {
+  min-height: 32px;
+}
+
+/* ── Dock tab strip ───────────────────────────────────────────────── */
+
+.rules-dock-strip {
+  display: flex;
+  gap: 2px;
+}
+
+.rules-dock-strip--vertical {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
+.rules-dock-strip--horizontal {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  min-height: 28px;
+}
+
+.rules-dock-strip--empty-drop {
+  min-height: 36px;
+  min-width: 36px;
+  outline: 1px dashed rgba(22, 119, 255, 0.35);
+  outline-offset: -3px;
+  border-radius: 4px;
+}
+
+.rules-dock-strip-tabs {
+  display: flex;
+  flex-direction: inherit;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rules-dock-strip--horizontal .rules-dock-strip-tabs {
+  flex-direction: row;
+}
+
+.rules-dock-strip-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.12s, background 0.12s;
+  font-size: 10px;
+}
+
+.rules-dock-strip-close:hover {
+  opacity: 1;
+  background: rgba(128, 128, 128, 0.12);
+}
+
+/* ── Dock tab ─────────────────────────────────────────────────────── */
+
+.rules-dock-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.12s;
+}
+
+.rules-dock-tab--vertical {
+  width: 56px;
+  padding: 6px 0 4px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  font-size: 15px;
+}
+
+.rules-activity-bar--compact .rules-dock-tab--vertical {
+  width: 32px;
+  padding: 6px 0;
+}
+
+.rules-dock-tab--horizontal {
+  padding: 3px 8px;
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+.rules-dock-tab:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.rules-dock-tab.active:not(.focused) {
+  background: rgba(128, 128, 128, 0.18);
+}
+
+.rules-dock-tab.dragging {
+  cursor: grabbing;
+  opacity: 1;
+}
+
+.rules-dock-tab.dragging > .rules-dock-tab-icon,
+.rules-dock-tab.dragging > .rules-dock-tab-label {
+  visibility: hidden;
+}
+
+.rules-dock-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rules-dock-tab-label {
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 56px;
+}
+
+.rules-dock-tab--horizontal .rules-dock-tab-label {
+  font-size: 11px;
+  max-width: none;
+}
+
+/* ── Dock body (content area of an active dock) ───────────────────── */
+
+.rules-dock-body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.rules-dock-body--bottom {
+  display: flex;
+  flex-direction: column;
+}
+
+.rules-dock-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Region containers ────────────────────────────────────────────── */
+
+.rules-region {
+  outline: none;
+}
+
+/* ── Drop zone overlay (shown during dock tab drag) ───────────────── */
+
+.rules-drop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.rules-drop-zone {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border 0.12s;
+}
+
+.rules-drop-zone-label {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rules-drop-zone-label-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Drag preview (DragOverlay) ───────────────────────────────────── */
+
+.rules-drag-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(22, 119, 255, 0.92);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.rules-drag-preview-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.rules-drag-preview-label {
+  white-space: nowrap;
+}
+
+/* ── Status bar ───────────────────────────────────────────────────── */
+
+.rules-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 12px;
+  font-size: 11px;
+  flex-shrink: 0;
+  height: 24px;
+}
+
+.rules-statusbar-left,
+.rules-statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rules-statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+
+.rules-statusbar-divider {
+  width: 1px;
+  height: 14px;
+}
+
+.rules-panel-toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rules-panel-toggle {
+  width: 22px;
+  height: 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.rules-panel-toggle:hover {
+  opacity: 1;
+}
+
+.rules-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+}
