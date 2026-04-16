@@ -22,6 +22,7 @@ import {
   ALL_PANEL_DOCK_SLOTS,
   PANEL_DOCK_LABELS,
   PANEL_TOOL_WINDOW_MAP,
+  PANEL_TOOL_WINDOWS,
   type PanelDockSlot,
   type PanelToolRegion,
   type PanelToolWindowId,
@@ -319,6 +320,52 @@ function sectionToTab(section: string): DetailSection {
   return 'headers';
 }
 
+const TOOL_WINDOW_ICONS: Record<PanelToolWindowId, React.ReactNode> = {
+  network: (
+    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+      <path d="M1 4h14M1 8h10M1 12h6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+  rules: (
+    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+      <path
+        d="M3 2v12M7 4l5 4-5 4z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+  search: (
+    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+      <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <line x1="10" y1="10" x2="14" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+  docs: (
+    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <text x="8" y="12" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontStyle="italic">
+        i
+      </text>
+    </svg>
+  ),
+  console: (
+    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+      <path
+        d="M2 4l4 4-4 4M8 12h6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+};
+
 function menuPositionAbove(ref: React.RefObject<HTMLElement | null>): React.CSSProperties {
   if (!ref.current) return { position: 'fixed', bottom: 24, right: 8 };
   const rect = ref.current.getBoundingClientRect();
@@ -516,8 +563,15 @@ export default function App() {
       const data = event.active.data.current;
       if (data?.kind === 'tool-window' && typeof data.toolWindowId === 'string') {
         const overData = event.over?.data.current;
+        let targetSlot: PanelDockSlot | null = null;
         if (overData?.slot && typeof overData.slot === 'string') {
-          const targetSlot = overData.slot as PanelDockSlot;
+          // Dropped on a dock strip (useDroppable)
+          targetSlot = overData.slot as PanelDockSlot;
+        } else if (overData?.fromSlot && typeof overData.fromSlot === 'string') {
+          // Dropped on another dock tab (useSortable)
+          targetSlot = overData.fromSlot as PanelDockSlot;
+        }
+        if (targetSlot) {
           tl.moveWindow(data.toolWindowId as PanelToolWindowId, targetSlot);
         }
       }
@@ -647,7 +701,7 @@ export default function App() {
           onDragEnd={handleDndEnd}
           onDragCancel={handleDndCancel}
         >
-          {/* Left activity bar */}
+          {/* Left activity bar — shows all tool windows, grouped by left-top vs others */}
           <nav
             className={`dt-activity-bar ${activityLabels ? '' : 'dt-activity-bar--compact'} dt-activity-bar--layout-${sidebarLayout}`}
             onContextMenu={(e) => {
@@ -656,168 +710,36 @@ export default function App() {
             }}
           >
             <div className="dt-activity-group dt-activity-group--top">
-              {tl.state.docks['left-top'].windows.map((wId) => {
-                const def = PANEL_TOOL_WINDOW_MAP[wId];
-                return (
-                  <button
-                    key={wId}
-                    type="button"
-                    className="dt-activity-icon"
-                    data-state={iconState(wId)}
-                    onClick={() => tl.toggleWindow(wId)}
-                    title={wId === 'network' ? `Network (${entries.length})` : def.label}
-                  >
-                    {wId === 'network' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <path
-                          d="M1 4h14M1 8h10M1 12h6"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'rules' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <path
-                          d="M3 2v12M7 4l5 4-5 4z"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinejoin="round"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'search' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                        <line
-                          x1="10"
-                          y1="10"
-                          x2="14"
-                          y2="14"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'console' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <path
-                          d="M2 4l4 4-4 4M8 12h6"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'docs' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                        <text
-                          x="8"
-                          y="12"
-                          textAnchor="middle"
-                          fill="currentColor"
-                          fontSize="10"
-                          fontFamily="serif"
-                          fontStyle="italic"
-                        >
-                          i
-                        </text>
-                      </svg>
-                    )}
-                    {activityLabels && <span className="dt-activity-label">{def.label}</span>}
-                  </button>
-                );
-              })}
+              {tl.state.docks['left-top'].windows.map((wId) => (
+                <button
+                  key={wId}
+                  type="button"
+                  className="dt-activity-icon"
+                  data-state={iconState(wId)}
+                  onClick={() => tl.toggleWindow(wId)}
+                  title={PANEL_TOOL_WINDOW_MAP[wId].label}
+                >
+                  {TOOL_WINDOW_ICONS[wId]}
+                  {activityLabels && <span className="dt-activity-label">{PANEL_TOOL_WINDOW_MAP[wId].label}</span>}
+                </button>
+              ))}
             </div>
             <div className="dt-activity-group dt-activity-group--bottom">
-              {tl.state.docks['left-bottom'].windows.map((wId) => {
-                const def = PANEL_TOOL_WINDOW_MAP[wId];
-                return (
-                  <button
-                    key={wId}
-                    type="button"
-                    className="dt-activity-icon"
-                    data-state={iconState(wId)}
-                    onClick={() => tl.toggleWindow(wId)}
-                    title={def.label}
-                  >
-                    {wId === 'network' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <path
-                          d="M1 4h14M1 8h10M1 12h6"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'rules' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <path
-                          d="M3 2v12M7 4l5 4-5 4z"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinejoin="round"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'search' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                        <line
-                          x1="10"
-                          y1="10"
-                          x2="14"
-                          y2="14"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'console' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <path
-                          d="M2 4l4 4-4 4M8 12h6"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
-                    {wId === 'docs' && (
-                      <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                        <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                        <text
-                          x="8"
-                          y="12"
-                          textAnchor="middle"
-                          fill="currentColor"
-                          fontSize="10"
-                          fontFamily="serif"
-                          fontStyle="italic"
-                        >
-                          i
-                        </text>
-                      </svg>
-                    )}
-                    {activityLabels && <span className="dt-activity-label">{def.label}</span>}
-                  </button>
-                );
-              })}
+              {PANEL_TOOL_WINDOWS.filter(
+                (def) => !tl.state.hidden.includes(def.id) && !tl.state.docks['left-top'].windows.includes(def.id),
+              ).map((def) => (
+                <button
+                  key={def.id}
+                  type="button"
+                  className="dt-activity-icon"
+                  data-state={iconState(def.id)}
+                  onClick={() => tl.toggleWindow(def.id)}
+                  title={def.label}
+                >
+                  {TOOL_WINDOW_ICONS[def.id]}
+                  {activityLabels && <span className="dt-activity-label">{def.label}</span>}
+                </button>
+              ))}
             </div>
           </nav>
 

@@ -6,12 +6,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ALL_PANEL_DOCK_SLOTS,
-  panelDockRegion,
   PANEL_TOOL_WINDOW_MAP,
   PANEL_TOOL_WINDOWS,
   type PanelDockSlot,
   type PanelToolRegion,
   type PanelToolWindowId,
+  panelDockRegion,
 } from './tool-windows';
 
 export interface PanelDockState {
@@ -37,7 +37,11 @@ function makeDefaultDocks(): Record<PanelDockSlot, PanelDockState> {
   for (const def of PANEL_TOOL_WINDOWS) {
     docks[def.defaultSlot].windows.push(def.id);
   }
-  docks['left-top'].active = docks['left-top'].windows[0] ?? null;
+  for (const slot of ALL_PANEL_DOCK_SLOTS) {
+    if (docks[slot].windows.length > 0) {
+      docks[slot].active = docks[slot].windows[0];
+    }
+  }
   return docks;
 }
 
@@ -318,6 +322,19 @@ export function usePanelToolLayout(): PanelToolLayoutApi {
       toggleRegion,
       toggleZenMode,
     }),
-    [state, dockOf, isRegionOpen, isDockOpen, activateWindow, toggleWindow, hideWindow, restoreWindow, moveWindow, closeDock, toggleRegion, toggleZenMode],
+    [
+      state,
+      dockOf,
+      isRegionOpen,
+      isDockOpen,
+      activateWindow,
+      toggleWindow,
+      hideWindow,
+      restoreWindow,
+      moveWindow,
+      closeDock,
+      toggleRegion,
+      toggleZenMode,
+    ],
   );
 }

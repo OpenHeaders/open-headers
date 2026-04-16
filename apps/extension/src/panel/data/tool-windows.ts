@@ -20,9 +20,9 @@ export interface PanelToolWindowDef {
 export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
   { id: 'network', label: 'Network', svgIcon: 'network', core: true, defaultSlot: 'left-top' },
   { id: 'rules', label: 'Rules', svgIcon: 'rules', core: false, defaultSlot: 'left-bottom' },
-  { id: 'search', label: 'Search', svgIcon: 'search', core: false, defaultSlot: 'left-bottom' },
+  { id: 'search', label: 'Search', svgIcon: 'search', core: false, defaultSlot: 'bottom-left' },
   { id: 'docs', label: 'Docs', svgIcon: 'docs', core: false, defaultSlot: 'right-top' },
-  { id: 'console', label: 'Console', svgIcon: 'console', core: false, defaultSlot: 'bottom-left' },
+  { id: 'console', label: 'Console', svgIcon: 'console', core: false, defaultSlot: 'bottom-right' },
 ];
 
 export const PANEL_TOOL_WINDOW_MAP: Record<PanelToolWindowId, PanelToolWindowDef> = PANEL_TOOL_WINDOWS.reduce(
