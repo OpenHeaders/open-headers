@@ -703,6 +703,41 @@ body {
   text-align: right;
 }
 
+/* ── Resource type icons ─────────────────────────────────── */
+.dt-resource-icon {
+  flex-shrink: 0;
+  color: var(--dt-text-muted);
+}
+.dt-resource-icon--document,
+.dt-resource-icon--main_frame,
+.dt-resource-icon--sub_frame { color: #1a73e8; }
+.dt-resource-icon--script,
+.dt-resource-icon--js { color: #e8a317; }
+.dt-resource-icon--stylesheet,
+.dt-resource-icon--css { color: #7b1fa2; }
+.dt-resource-icon--image,
+.dt-resource-icon--img { color: #0d904f; }
+.dt-resource-icon--font { color: #c62828; }
+.dt-resource-icon--media { color: #00838f; }
+.dt-resource-icon--fetch,
+.dt-resource-icon--xmlhttprequest,
+.dt-resource-icon--xhr { color: #1a73e8; }
+.dt-resource-icon--websocket,
+.dt-resource-icon--ws { color: #6d4c41; }
+.dt-resource-icon--wasm { color: #654ff0; }
+
+/* ── Blocked request rows (red, like Chrome DevTools) ───── */
+.dt-row--blocked {
+  color: var(--dt-status-red);
+}
+.dt-row--blocked .dt-col-muted {
+  color: var(--dt-status-red);
+  opacity: 0.7;
+}
+.dt-row--blocked .dt-resource-icon {
+  color: var(--dt-status-red);
+}
+
 /* Column template — shared between header and rows */
 .dt-cols {
   grid-template-columns: 32px 14px 82px minmax(140px, 2fr) 48px 72px 72px minmax(52px, 0.5fr) 64px;
@@ -1837,4 +1872,346 @@ body {
 /* ── Allotment overrides for panel ────────────────────────── */
 .dt-editor-tree .split-view-view {
   overflow: hidden;
+}
+
+/* ── Initiator view ──────────────────────────────────────── */
+.dt-initiator-view {
+  padding: 4px 0;
+}
+.dt-initiator-stack {
+  padding: 2px 0 2px 12px;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.dt-initiator-frame {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.dt-initiator-fn {
+  color: var(--dt-text);
+  font-weight: 500;
+}
+.dt-initiator-loc {
+  color: var(--dt-text-muted);
+  font-size: 10px;
+}
+.dt-initiator-chain {
+  padding: 4px 0 4px 12px;
+  font-size: 11px;
+  line-height: 2;
+}
+.dt-initiator-chain-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.dt-initiator-chain-arrow {
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+}
+.dt-initiator-chain-url {
+  word-break: break-all;
+  color: var(--dt-link);
+}
+.dt-initiator-chain-item--target .dt-initiator-chain-url {
+  color: var(--dt-text);
+}
+
+/* ── Timing view ─────────────────────────────────────────── */
+.dt-timing-view {
+  padding: 4px 0;
+}
+.dt-timing-bar-section {
+  padding: 8px 12px;
+}
+.dt-timing-bar {
+  display: flex;
+  height: 16px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--dt-border);
+}
+.dt-timing-bar-segment {
+  min-width: 1px;
+  transition: width 0.2s;
+}
+.dt-timing-bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+}
+.dt-timing-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dt-timing-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.dt-timing-total {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-top: 1px solid var(--dt-border);
+}
+
+/* ── Cookies view ────────────────────────────────────────── */
+.dt-cookies-view {
+  padding: 4px 0;
+}
+.dt-cookie-table-wrap {
+  overflow-x: auto;
+  padding: 0 12px;
+}
+.dt-cookie-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: monospace;
+}
+.dt-cookie-table th {
+  text-align: left;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--dt-border);
+  white-space: nowrap;
+  color: var(--dt-text-muted);
+  font-size: 10px;
+}
+.dt-cookie-table td {
+  padding: 2px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dt-border) 50%, transparent);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-cookie-name {
+  font-weight: 600;
+}
+.dt-cookie-value {
+  max-width: 280px;
+}
+
+/* ── Hex viewer ──────────────────────────────────────────── */
+.dt-hex-viewer {
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow: auto;
+  flex: 1;
+  padding: 4px 8px;
+}
+.dt-hex-row {
+  display: flex;
+  gap: 12px;
+  white-space: pre;
+  line-height: 20px;
+}
+.dt-hex-offset {
+  color: var(--dt-text-muted);
+  user-select: none;
+}
+.dt-hex-bytes {
+  letter-spacing: 0.5px;
+}
+.dt-hex-ascii {
+  color: var(--dt-text-muted);
+  letter-spacing: 0.5px;
+}
+
+/* ── Response viewer toolbar (bottom bar) ────────────────── */
+/* ── Response/Preview view layout ─────────────────────────── */
+.dt-response-view,
+.dt-preview-image-wrap,
+.dt-preview-font-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.dt-response-view-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 8px;
+}
+
+.dt-response-toolbar,
+.dt-preview-meta-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+  height: 22px;
+  border-top: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  color: var(--dt-text-muted);
+}
+.dt-response-toolbar {
+  justify-content: space-between;
+}
+.dt-response-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dt-preview-meta-bar {
+  gap: 16px;
+}
+.dt-response-toolbar-info {
+  color: var(--dt-text-muted);
+}
+.dt-response-toolbar-modes {
+  display: flex;
+  gap: 2px;
+}
+.dt-response-toolbar-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--dt-text-muted);
+}
+.dt-response-toolbar-btn:hover {
+  background: var(--dt-row-hover);
+}
+.dt-response-toolbar-btn.active {
+  background: var(--dt-link);
+  color: #fff;
+  border-color: var(--dt-link);
+}
+
+/* ── CodeMirror wrapper ──────────────────────────────────── */
+.dt-codemirror-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.dt-codemirror-wrap .cm-editor {
+  height: 100%;
+}
+.cm-searchMatch {
+  background: rgba(255, 200, 0, 0.35);
+  border-radius: 2px;
+}
+.cm-searchMatch-active {
+  background: rgba(255, 150, 0, 0.6);
+  outline: 1px solid rgba(255, 150, 0, 0.8);
+}
+
+/* ── Preview content ─────────────────────────────────────── */
+.dt-preview-image-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  background: repeating-conic-gradient(#f0f0f0 0% 25%, transparent 0% 50%) 50%/16px 16px;
+}
+[data-theme='dark'] .dt-preview-image-container {
+  background: repeating-conic-gradient(#333 0% 25%, #2a2a2a 0% 50%) 50%/16px 16px;
+}
+.dt-preview-svg svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+.dt-body-image {
+  max-width: 100%;
+  max-height: 480px;
+  display: block;
+  object-fit: contain;
+}
+.dt-font-glyphs {
+  padding: 16px 24px;
+  font-size: 36px;
+  line-height: 1.4;
+  letter-spacing: 2px;
+}
+.dt-font-glyph-row {
+  white-space: nowrap;
+}
+
+/* ── Payload view ────────────────────────────────────────── */
+.dt-payload-view {
+  padding: 4px 0;
+}
+.dt-payload-toggles {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: 12px;
+}
+.dt-payload-toggle-btn {
+  background: none;
+  border: 1px solid var(--dt-border);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--dt-link);
+}
+.dt-payload-toggle-btn:hover {
+  background: var(--dt-row-hover);
+}
+.dt-payload-table {
+  font-family: monospace;
+  font-size: 11px;
+}
+.dt-payload-row {
+  display: grid;
+  grid-template-columns: minmax(80px, auto) 1fr;
+  gap: 16px;
+  padding: 4px 12px;
+  align-items: baseline;
+}
+.dt-payload-row:nth-child(even) {
+  background: var(--dt-row-zebra);
+}
+.dt-payload-key {
+  font-weight: 600;
+  word-break: break-all;
+}
+.dt-payload-val {
+  word-break: break-all;
+}
+
+/* ── Base64 pre ──────────────────────────────────────────── */
+.dt-body-pre--base64 {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.dt-body-pre--virtual {
+  overflow: auto;
+  line-height: 16px;
+}
+
+/* ── Skeleton loader ─────────────────────────────────────── */
+.dt-response-skeleton {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dt-skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--dt-border) 25%, var(--dt-bg-alt) 50%, var(--dt-border) 75%);
+  background-size: 200% 100%;
+  animation: dt-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes dt-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

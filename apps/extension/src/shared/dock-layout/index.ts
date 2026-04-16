@@ -7,6 +7,7 @@ export type { FocusStore } from './focus-store';
 export { createFocusStore } from './focus-store';
 export type { LayoutMenuIconKind } from './LayoutMenuIcon';
 export { default as LayoutMenuIcon } from './LayoutMenuIcon';
+export { default as RegionToggle } from './RegionToggle';
 export type { ShellLayoutProps } from './ShellLayout';
 export { default as ShellLayout } from './ShellLayout';
 export { default as SidebarLayoutIcon } from './SidebarLayoutIcon';
@@ -31,3 +32,7 @@ export type {
 } from './types';
 export type { DockLayoutApi, UseDockLayoutOptions } from './use-dock-layout';
 export { makeDefaultDocks, normalizeDockLayout, useDockLayout } from './use-dock-layout';
+export type { DockLayoutStorageResult } from './use-dock-layout-storage';
+export { useDockLayoutStorage } from './use-dock-layout-storage';
+export type { FocusRegionApi, UseFocusRegionOptions } from './use-focus-region';
+export { useFocusRegion } from './use-focus-region';

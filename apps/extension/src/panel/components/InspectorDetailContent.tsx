@@ -8,6 +8,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { DetailSection } from '../data/inspector-tab';
 import { buildHeaderDraftFromRequest, handOffRuleDraft } from '../data/rule-draft-bridge';
 import type { InspectorRequest } from '../data/types';
+import CookiesView from './detail/CookiesView';
+import InitiatorView from './detail/InitiatorView';
+import PayloadView from './detail/PayloadView';
+import PreviewView from './detail/PreviewView';
+import TimingView from './detail/TimingView';
 import { JsonTree } from './JsonTree';
 import { ResponseBodyView } from './ResponseBodyView';
 
@@ -20,14 +25,19 @@ interface InspectorDetailContentProps {
   searchLineNumber?: number;
 }
 
-const SECTIONS: Array<{ key: DetailSection; label: string }> = [
-  { key: 'headers', label: 'Headers' },
-  { key: 'payload', label: 'Payload' },
-  { key: 'response', label: 'Response' },
-  { key: 'initiator', label: 'Initiator' },
-  { key: 'timing', label: 'Timing' },
-  { key: 'har', label: 'HAR' },
-];
+const PAYLOAD_SECTION: { key: DetailSection; label: string } = { key: 'payload', label: 'Payload' };
+const COOKIES_SECTION: { key: DetailSection; label: string } = { key: 'cookies', label: 'Cookies' };
+const HAR_SECTION: { key: DetailSection; label: string } = { key: 'har', label: 'HAR' };
+
+function hasPayload(har: InspectorDetailContentProps['request']['harEntry']): boolean {
+  if (har.request?.queryString && har.request.queryString.length > 0) return true;
+  return !!har.request?.postData?.text;
+}
+
+function hasCookies(har: InspectorDetailContentProps['request']['harEntry']): boolean {
+  if (har.request?.cookies && har.request.cookies.length > 0) return true;
+  return (har.response?.headers ?? []).some((h) => h.name.toLowerCase() === 'set-cookie');
+}
 
 function PlaceholderButton({ label }: { label: string }) {
   return (
@@ -60,22 +70,22 @@ export function InspectorDetailContent({
   searchLineNumber,
 }: InspectorDetailContentProps) {
   const [error, setError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const tabBodyRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to highlighted element when search navigates here
+  // Auto-scroll to highlighted element when search navigates here.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: searchLineNumber triggers re-scroll when clicking different results for the same query
   useEffect(() => {
-    if (!searchHighlight || !tabBodyRef.current) return;
+    if (!searchHighlight || !rootRef.current) return;
     requestAnimationFrame(() => {
-      const el = tabBodyRef.current?.querySelector('.dt-kv--highlighted') ?? tabBodyRef.current?.querySelector('mark');
+      const el = rootRef.current?.querySelector('.dt-kv--highlighted') ?? rootRef.current?.querySelector('mark');
       if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
-  }, [searchHighlight]);
+  }, [searchHighlight, searchLineNumber]);
 
   const har = request.harEntry;
   const requestHeaders = har.request?.headers ?? [];
   const responseHeaders = har.response?.headers ?? [];
-  const queryString = har.request?.queryString ?? [];
-  const postData = har.request?.postData;
 
   const createHeaderRule = async (
     direction: 'request' | 'response',
@@ -93,11 +103,21 @@ export function InspectorDetailContent({
 
   const statusOk = request.statusCode != null && request.statusCode < 400;
   const section = activeSection;
+  const sections: Array<{ key: DetailSection; label: string }> = [
+    { key: 'headers', label: 'Headers' },
+    ...(hasPayload(har) ? [PAYLOAD_SECTION] : []),
+    { key: 'preview', label: 'Preview' },
+    { key: 'response', label: 'Response' },
+    { key: 'initiator', label: 'Initiator' },
+    { key: 'timing', label: 'Timing' },
+    ...(hasCookies(har) ? [COOKIES_SECTION] : []),
+    HAR_SECTION,
+  ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className="dt-detail-sections" role="tablist">
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <button
             key={s.key}
             type="button"
@@ -117,7 +137,11 @@ export function InspectorDetailContent({
         </div>
       )}
 
-      <div className="dt-tab-body" ref={tabBodyRef}>
+      <div
+        className="dt-tab-body"
+        ref={tabBodyRef}
+        style={section === 'preview' || section === 'response' ? { display: 'none' } : undefined}
+      >
         {section === 'headers' && (
           <>
             <div className="dt-cta-row" style={{ padding: '4px 0' }}>
@@ -257,84 +281,13 @@ export function InspectorDetailContent({
           </>
         )}
 
-        {section === 'payload' && (
-          <>
-            <details className="dt-section" open>
-              <summary>Query Parameters</summary>
-              {queryString.length > 0 ? (
-                queryString.map((q, i) => (
-                  <div key={`q-${i}-${q.name}`} className="dt-kv" style={{ fontFamily: 'monospace' }}>
-                    <span className="dt-kv-key" style={{ fontWeight: 600 }}>
-                      {q.name}:
-                    </span>
-                    <span className="dt-kv-val">{q.value}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="dt-kv dt-col-muted">No query parameters.</div>
-              )}
-            </details>
-            {postData && (
-              <details className="dt-section" open>
-                <summary>Request Body ({postData.mimeType})</summary>
-                <pre className="dt-body-pre" style={{ marginLeft: 12 }}>
-                  {postData.text ?? ''}
-                </pre>
-              </details>
-            )}
-          </>
-        )}
+        {section === 'payload' && <PayloadView har={har} />}
 
-        {section === 'response' && (
-          <>
-            <div className="dt-cta-row">
-              <PlaceholderButton label="Modify API response" />
-            </div>
-            <ResponseBodyView
-              request={request}
-              searchHighlight={searchSection === 'Response' ? searchHighlight : undefined}
-              searchLineNumber={searchSection === 'Response' ? searchLineNumber : undefined}
-            />
-          </>
-        )}
+        {section === 'initiator' && <InitiatorView har={har} requestUrl={request.url} />}
 
-        {section === 'initiator' && (
-          <div className="dt-panel-mono" style={{ fontSize: 12, lineHeight: 1.6 }}>
-            {har._initiator ? (
-              <JsonTree value={har._initiator} defaultExpandedDepth={3} />
-            ) : (
-              <span className="dt-col-muted">No initiator data available.</span>
-            )}
-          </div>
-        )}
+        {section === 'timing' && <TimingView har={har} />}
 
-        {section === 'timing' && (
-          <>
-            {har.timings ? (
-              <details className="dt-section" open>
-                <summary>Timing Breakdown</summary>
-                {Object.entries(har.timings).map(([key, val]) => (
-                  <div key={key} className="dt-kv">
-                    <span className="dt-kv-key" style={{ minWidth: 80 }}>
-                      {key}:
-                    </span>
-                    <span className="dt-kv-val">
-                      {typeof val === 'number' && val >= 0 ? `${val.toFixed(2)} ms` : '\u2014'}
-                    </span>
-                  </div>
-                ))}
-              </details>
-            ) : (
-              <span className="dt-col-muted">No timing data available.</span>
-            )}
-            {har.time != null && (
-              <div className="dt-kv" style={{ marginTop: 4, fontWeight: 600 }}>
-                <span className="dt-kv-key">Total:</span>
-                <span className="dt-kv-val">{har.time.toFixed(2)} ms</span>
-              </div>
-            )}
-          </>
-        )}
+        {section === 'cookies' && <CookiesView har={har} />}
 
         {section === 'har' && (
           <div className="dt-panel-mono" style={{ fontSize: 12, lineHeight: 1.6 }}>
@@ -342,6 +295,16 @@ export function InspectorDetailContent({
           </div>
         )}
       </div>
+
+      {section === 'preview' && <PreviewView request={request} />}
+
+      {section === 'response' && (
+        <ResponseBodyView
+          request={request}
+          searchHighlight={searchSection === 'Response' ? searchHighlight : undefined}
+          searchLineNumber={searchSection === 'Response' ? searchLineNumber : undefined}
+        />
+      )}
     </div>
   );
 }

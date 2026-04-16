@@ -1,4 +1,4 @@
-export type DetailSection = 'headers' | 'payload' | 'response' | 'initiator' | 'timing' | 'har';
+export type DetailSection = 'headers' | 'payload' | 'preview' | 'response' | 'initiator' | 'timing' | 'cookies' | 'har';
 
 export type TabSource = 'network' | 'rules';
 

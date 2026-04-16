@@ -32,7 +32,7 @@
 /* ── Activity bar ─────────────────────────────────────────────────── */
 
 .rules-activity-bar {
-  width: 64px;
+  width: 52px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -269,6 +269,8 @@
 .rules-dock-body {
   height: 100%;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .rules-dock-body--bottom {

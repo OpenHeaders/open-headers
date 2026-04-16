@@ -42,6 +42,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ALL_DOCK_SLOTS, regionDocks } from './constants';
 import DockTabStrip from './DockTabStrip';
 import DropZoneOverlay from './DropZoneOverlay';
+import type { FocusStore } from './focus-store';
 import type { DockSlot, DropZoneRect, SidebarLayoutVariant, ToolWindowDef } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
@@ -73,6 +74,8 @@ export interface ShellLayoutProps<T extends string> {
   };
   /** Custom collision detection for editor-tab drags. */
   collisionDetection?: CollisionDetection;
+  /** Focus store — drives the blue accent on active tool-window tabs. */
+  focusStore: FocusStore;
 }
 
 type ToolWindowDragData<T extends string> = { kind: 'tool-window'; toolWindowId: T; fromSlot: DockSlot };
@@ -193,7 +196,20 @@ interface VerticalBarProps<T extends string> {
   showLabels: boolean;
   sidebarLayout: SidebarLayoutVariant;
   onToggleLabels: () => void;
-  isFocused: (slot: DockSlot) => boolean;
+  focusStore: FocusStore;
+}
+
+/**
+ * Per-slot wrapper that subscribes to the focus store independently,
+ * so only the strip whose focus state changed re-renders — not the
+ * entire ShellLayout tree.
+ */
+function FocusAwareStrip<T extends string>({
+  focusStore: store,
+  ...props
+}: Omit<import('./DockTabStrip').DockTabStripProps<T>, 'isFocused'> & { focusStore: FocusStore }) {
+  const focused = store.useIsDockFocused(props.slot);
+  return <DockTabStrip<T> {...props} isFocused={focused} />;
 }
 
 function VerticalActivityBar<T extends string>({
@@ -205,7 +221,7 @@ function VerticalActivityBar<T extends string>({
   showLabels,
   sidebarLayout,
   onToggleLabels,
-  isFocused,
+  focusStore,
 }: VerticalBarProps<T>) {
   const { token } = theme.useToken();
   const [upperFirstSlot, upperSecondSlot] = regionDocks(side);
@@ -224,7 +240,7 @@ function VerticalActivityBar<T extends string>({
   ];
 
   const renderStrip = (slot: DockSlot, windowsList: T[]) => (
-    <DockTabStrip<T>
+    <FocusAwareStrip<T>
       slot={slot}
       windows={windowsList}
       activeId={tl.state.docks[slot].active}
@@ -232,7 +248,7 @@ function VerticalActivityBar<T extends string>({
       showLabels={showLabels}
       dragging={dragging}
       windowMap={windowMap}
-      isFocused={isFocused(slot)}
+      focusStore={focusStore}
       onActivate={tl.toggleWindow}
       onHide={tl.hideWindow}
       onMove={tl.moveWindow}
@@ -281,6 +297,7 @@ function ShellLayoutInner<T extends string>({
   onToggleLabels,
   sizes,
   collisionDetection,
+  focusStore,
 }: ShellLayoutProps<T>) {
   const [draggingId, setDraggingId] = useState<T | null>(null);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
@@ -441,15 +458,6 @@ function ShellLayoutInner<T extends string>({
     [],
   );
 
-  // ── isFocused — reads from focusStore via tl ────────────────────
-  // Note: ShellLayout itself doesn't subscribe to the focus store to
-  // avoid re-rendering the entire tree. Instead, DockTabStrip subscribes
-  // per-slot via useIsDockFocused. We pass isFocused as a thunk to the
-  // activity bar so it can read it synchronously during render.
-  // For the activity bar, we just pass false — each DockTabStrip will
-  // subscribe independently.
-  const isFocusedStub = useCallback(() => false, []);
-
   // ── Editor pane ───────────────────────────────────────────────────
 
   const editorPane = (
@@ -542,7 +550,7 @@ function ShellLayoutInner<T extends string>({
     return null;
   }, [preview, draggingId]);
 
-  const ACTIVITY_BAR_WIDTH = 64;
+  const ACTIVITY_BAR_WIDTH = 52;
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(() => {
     if (!dragging) return null;
     const fullW = shellSize.width;
@@ -633,7 +641,7 @@ function ShellLayoutInner<T extends string>({
         showLabels={showToolWindowLabels}
         sidebarLayout={sidebarLayout}
         onToggleLabels={onToggleLabels}
-        isFocused={isFocusedStub}
+        focusStore={focusStore}
       />
       <div className="rules-main-horizontal">{centerContent}</div>
       <VerticalActivityBar<T>
@@ -645,7 +653,7 @@ function ShellLayoutInner<T extends string>({
         showLabels={showToolWindowLabels}
         sidebarLayout={sidebarLayout}
         onToggleLabels={onToggleLabels}
-        isFocused={isFocusedStub}
+        focusStore={focusStore}
       />
     </div>
   );

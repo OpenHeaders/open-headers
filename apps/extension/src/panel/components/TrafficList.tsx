@@ -1,7 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter } from '../data/filter-engine';
 import type { InspectorRequest } from '../data/types';
+import {
+  extractName,
+  formatDuration,
+  formatInitiator,
+  formatSize,
+  formatTimestamp,
+  statusClass,
+} from './traffic/formatters';
+import ResourceIcon from './traffic/ResourceIcon';
+import { isBlockedRequest } from './traffic/request-status';
+import { matchesResourceType, normalizeResourceType, RESOURCE_LABEL } from './traffic/resource-types';
 
 interface TrafficListProps {
   entries: readonly InspectorRequest[];
@@ -15,112 +26,8 @@ interface TrafficListProps {
   onReloadPage: () => void;
 }
 
-const RESOURCE_LABEL: Record<string, string> = {
-  main_frame: 'document',
-  sub_frame: 'document',
-  document: 'document',
-  xmlhttprequest: 'xhr',
-  xhr: 'xhr',
-  fetch: 'fetch',
-  script: 'script',
-  stylesheet: 'stylesheet',
-  image: 'image',
-  font: 'font',
-  media: 'media',
-  websocket: 'websocket',
-  ping: 'ping',
-  other: 'other',
-};
-
 type SortKey = 'name' | 'status' | 'type' | 'initiator' | 'size' | 'time' | 'timestamp';
 type SortDir = 'asc' | 'desc';
-
-function normalizeResourceType(raw: string | undefined): string {
-  if (!raw) return 'other';
-  return raw.toLowerCase();
-}
-
-const KNOWN_TYPES = new Set([
-  'main_frame',
-  'sub_frame',
-  'document',
-  'xmlhttprequest',
-  'xhr',
-  'fetch',
-  'script',
-  'stylesheet',
-  'image',
-  'font',
-  'media',
-  'websocket',
-  'manifest',
-  'wasm',
-]);
-
-function matchesCategory(rt: string, category: string): boolean {
-  if (category === 'xhr') return rt === 'xmlhttprequest' || rt === 'xhr' || rt === 'fetch';
-  if (category === 'doc') return rt === 'main_frame' || rt === 'sub_frame' || rt === 'document';
-  if (category === 'js') return rt === 'script';
-  if (category === 'css') return rt === 'stylesheet';
-  if (category === 'img') return rt === 'image';
-  if (category === 'media') return rt === 'media';
-  if (category === 'font') return rt === 'font';
-  if (category === 'ws') return rt === 'websocket';
-  if (category === 'manifest') return rt === 'manifest';
-  if (category === 'wasm') return rt === 'wasm';
-  if (category === 'other') return !KNOWN_TYPES.has(rt);
-  return false;
-}
-
-function matchesResourceType(entry: InspectorRequest, filter: ReadonlySet<string>): boolean {
-  if (filter.size === 0) return true;
-  const rt = normalizeResourceType(entry.resourceType);
-  for (const cat of filter) {
-    if (matchesCategory(rt, cat)) return true;
-  }
-  return false;
-}
-
-function formatSize(bytes: number | undefined): string {
-  if (bytes == null || bytes < 0) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDuration(ms: number | undefined): string {
-  if (ms == null || ms < 0) return '';
-  if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(2)} s`;
-}
-
-function formatTimestamp(ms: number): string {
-  const d = new Date(ms);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  const mmm = String(d.getMilliseconds()).padStart(3, '0');
-  return `${hh}:${mm}:${ss}.${mmm}`;
-}
-
-function statusClass(code: number | undefined): string {
-  if (code == null) return '';
-  if (code >= 500) return 'dt-col-status--5xx';
-  if (code >= 400) return 'dt-col-status--4xx';
-  if (code >= 300) return 'dt-col-status--3xx';
-  if (code >= 200 && code < 300) return 'dt-col-status--2xx';
-  return '';
-}
-
-function extractName(url: string): { hostname: string; path: string } {
-  try {
-    const parsed = new URL(url);
-    const path = parsed.pathname === '/' && !parsed.search ? '' : parsed.pathname + parsed.search;
-    return { hostname: parsed.hostname, path };
-  } catch {
-    return { hostname: url, path: '' };
-  }
-}
 
 function getSortValue(entry: InspectorRequest, key: SortKey): string | number {
   switch (key) {
@@ -132,10 +39,8 @@ function getSortValue(entry: InspectorRequest, key: SortKey): string | number {
       return entry.statusCode ?? -1;
     case 'type':
       return RESOURCE_LABEL[normalizeResourceType(entry.resourceType)] ?? 'other';
-    case 'initiator': {
-      const obj = entry.harEntry?._initiator as Record<string, unknown> | undefined;
-      return ((obj?.type as string) ?? '').toLowerCase();
-    }
+    case 'initiator':
+      return formatInitiator(entry.harEntry?._initiator).toLowerCase();
     case 'size':
       return entry.responseSize ?? -1;
     case 'time':
@@ -171,6 +76,8 @@ export function TrafficList({
 }: TrafficListProps) {
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const tableRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(0);
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -183,7 +90,7 @@ export function TrafficList({
 
   const filtered = useMemo(() => {
     return entries.filter((e) => {
-      if (!matchesResourceType(e, filter)) return false;
+      if (!matchesResourceType(e.resourceType, filter)) return false;
       if (filterTokens.length > 0 && !matchesUrlFilter(e, filterTokens, filterConfig)) return false;
       return true;
     });
@@ -204,6 +111,19 @@ export function TrafficList({
     });
     return arr;
   }, [filtered, sortKey, sortDir]);
+
+  useEffect(() => {
+    const el = tableRef.current;
+    if (!el || sorted.length <= prevCountRef.current) {
+      prevCountRef.current = sorted.length;
+      return;
+    }
+    prevCountRef.current = sorted.length;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (nearBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [sorted.length]);
 
   if (filtered.length === 0) {
     if (entries.length === 0) {
@@ -239,17 +159,18 @@ export function TrafficList({
           </button>
         ))}
       </div>
-      <div className="dt-table">
+      <div className="dt-table" ref={tableRef}>
         {sorted.map((entry) => {
-          const rt = RESOURCE_LABEL[normalizeResourceType(entry.resourceType)] ?? 'other';
-          const { hostname, path } = extractName(entry.url);
-          const initiatorObj = entry.harEntry?._initiator as Record<string, unknown> | undefined;
-          const initiator = (initiatorObj?.type as string) ?? '';
+          const rawType = normalizeResourceType(entry.resourceType);
+          const rt = RESOURCE_LABEL[rawType] ?? 'other';
+          const { name, detail } = extractName(entry.url);
+          const initiator = formatInitiator(entry.harEntry?._initiator);
+          const blocked = isBlockedRequest(entry);
           return (
             <button
               key={entry.id}
               type="button"
-              className="dt-row dt-cols"
+              className={`dt-row dt-cols ${blocked ? 'dt-row--blocked' : ''}`}
               data-selected={entry.id === selectedId}
               onClick={() => onSelect(entry.id)}
               title={entry.url}
@@ -266,12 +187,12 @@ export function TrafficList({
               </span>
               <span className="dt-col-muted">{formatTimestamp(entry.timestamp)}</span>
               <span className="dt-col-name">
-                <span className="dt-col-name-text">
-                  {hostname}
-                  <span className="dt-col-muted">{path}</span>
-                </span>
+                <ResourceIcon type={rawType} />
+                <span className="dt-col-name-text">{name}</span>
               </span>
-              <span className={statusClass(entry.statusCode)}>{entry.statusCode ?? ''}</span>
+              <span className={statusClass(entry.statusCode)}>
+                {blocked ? `(${entry.statusText || 'blocked'})` : (entry.statusCode ?? '')}
+              </span>
               <span>{rt}</span>
               <span className="dt-col-muted">{initiator}</span>
               <span className="dt-col-right">{formatSize(entry.responseSize)}</span>

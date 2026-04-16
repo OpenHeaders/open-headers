@@ -5,7 +5,7 @@
  * window IDs and their icons/labels/default slots are defined here.
  */
 
-import { AppstoreOutlined, BookOutlined, CodeOutlined, ExperimentOutlined, SearchOutlined } from '@ant-design/icons';
+import { AuditOutlined, BookOutlined, CodeOutlined, GlobalOutlined, SearchOutlined } from '@ant-design/icons';
 import type {
   DockSlot,
   DockState as GenericDockState,
@@ -24,8 +24,8 @@ export type PanelToolLayoutState = GenericToolLayoutState<PanelToolWindowId>;
 export type PanelToolWindowDef = GenericToolWindowDef<PanelToolWindowId>;
 
 export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
-  { id: 'network', label: 'Network', icon: <AppstoreOutlined />, core: true, defaultSlot: 'left-top' },
-  { id: 'rules', label: 'Rules', icon: <ExperimentOutlined />, core: false, defaultSlot: 'left-bottom' },
+  { id: 'network', label: 'Network', icon: <GlobalOutlined />, core: true, defaultSlot: 'left-top' },
+  { id: 'rules', label: 'Rules', icon: <AuditOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'search', label: 'Search', icon: <SearchOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'console', label: 'Console', icon: <CodeOutlined />, core: false, defaultSlot: 'bottom-right' },

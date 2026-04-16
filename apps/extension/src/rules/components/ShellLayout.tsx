@@ -606,7 +606,7 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
     return null;
   }, [preview, draggingId]);
 
-  const ACTIVITY_BAR_WIDTH = 64;
+  const ACTIVITY_BAR_WIDTH = 52;
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(() => {
     if (!dragging) return null;
     const fullW = shellSize.width;

@@ -1,4 +1,11 @@
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { InspectorRequest } from '../data/types';
+import HexViewer from './detail/HexViewer';
+import { prettyPrintCode } from './detail/pretty-print';
+import ResponseViewerToolbar, { type ViewMode } from './detail/ResponseViewerToolbar';
+import Skeleton from './detail/Skeleton';
+
+const CodeMirrorViewer = lazy(() => import('./detail/CodeMirrorViewer'));
 
 function isJsonMime(mime: string): boolean {
   return /\bjson\b/i.test(mime);
@@ -12,64 +19,35 @@ function isTextMime(mime: string): boolean {
   return /^text\//i.test(mime) || isJsonMime(mime) || isXmlMime(mime);
 }
 
-function isImageMime(mime: string): boolean {
-  return /^image\//i.test(mime);
+function isCssMime(mime: string): boolean {
+  return /\bcss\b/i.test(mime);
 }
 
-function prettyJson(raw: string): string {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
+function isJsMime(mime: string): boolean {
+  return /\b(javascript|ecmascript)\b/i.test(mime);
 }
 
-function highlightText(text: string, query: string): Array<{ text: string; highlight: boolean }> {
-  if (!query) return [{ text, highlight: false }];
-  const lower = text.toLowerCase();
-  const qLower = query.toLowerCase();
-  const parts: Array<{ text: string; highlight: boolean }> = [];
-  let pos = 0;
-  while (pos < text.length) {
-    const idx = lower.indexOf(qLower, pos);
-    if (idx === -1) {
-      parts.push({ text: text.slice(pos), highlight: false });
-      break;
-    }
-    if (idx > pos) parts.push({ text: text.slice(pos, idx), highlight: false });
-    parts.push({ text: text.slice(idx, idx + query.length), highlight: true });
-    pos = idx + query.length;
-  }
-  return parts;
+function isHtmlMime(mime: string): boolean {
+  return /\bhtml\b/i.test(mime);
 }
 
-function HighlightedPre({ text, query, targetLine }: { text: string; query: string; targetLine?: number }) {
-  if (!query) return <pre className="dt-body-pre">{text}</pre>;
-  if (targetLine != null) {
-    const lines = text.split('\n');
-    return (
-      <pre className="dt-body-pre">
-        {lines.map((line, i) => {
-          if (i + 1 === targetLine) {
-            const parts = highlightText(line, query);
-            return (
-              <span key={i}>
-                {parts.map((p, j) => (p.highlight ? <mark key={j}>{p.text}</mark> : <span key={j}>{p.text}</span>))}
-                {'\n'}
-              </span>
-            );
-          }
-          return <span key={i}>{`${line}\n`}</span>;
-        })}
-      </pre>
-    );
-  }
-  const parts = highlightText(text, query);
-  return (
-    <pre className="dt-body-pre">
-      {parts.map((p, i) => (p.highlight ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))}
-    </pre>
-  );
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function detectLanguage(mime: string): 'json' | 'css' | 'javascript' | 'html' | null {
+  if (isJsonMime(mime)) return 'json';
+  if (isCssMime(mime)) return 'css';
+  if (isJsMime(mime)) return 'javascript';
+  if (isHtmlMime(mime) || isXmlMime(mime)) return 'html';
+  return null;
+}
+
+function canPrettyPrint(mime: string): boolean {
+  return isJsonMime(mime) || isCssMime(mime) || isJsMime(mime) || isHtmlMime(mime) || isXmlMime(mime);
 }
 
 interface ResponseBodyViewProps {
@@ -78,12 +56,70 @@ interface ResponseBodyViewProps {
   searchLineNumber?: number;
 }
 
-export function ResponseBodyView({ request, searchHighlight, searchLineNumber }: ResponseBodyViewProps) {
+export function ResponseBodyView({ request, searchHighlight }: ResponseBodyViewProps) {
   const mime = request.mimeType ?? request.harEntry?.response?.content?.mimeType ?? '';
-  const size = request.responseSize ?? request.harEntry?.response?.content?.size ?? 0;
   const body = request.responseBody;
   const encoding = request.responseBodyEncoding;
   const highlight = searchHighlight ?? '';
+  const isBase64 = encoding === 'base64';
+  const isText = isTextMime(mime) || !isBase64;
+  const lang = detectLanguage(mime);
+  const isBinary = isBase64 && !isText;
+
+  const [viewMode, setViewMode] = useState<ViewMode>('hex');
+  const [prettyPrint, setPrettyPrint] = useState(canPrettyPrint(mime));
+  const [formattedText, setFormattedText] = useState<string | null>(null);
+  const [formatting, setFormatting] = useState(false);
+  const [cursorInfo, setCursorInfo] = useState<string | null>(null);
+  const togglePrettyPrint = useCallback(() => setPrettyPrint((p) => !p), []);
+  const handleCursorChange = useCallback(
+    (line: number, col: number) => setCursorInfo(`Line ${line}, Column ${col}`),
+    [],
+  );
+
+  const bytes = useMemo(() => {
+    if (!body || !isBase64) return null;
+    try {
+      return base64ToBytes(body);
+    } catch {
+      return null;
+    }
+  }, [body, isBase64]);
+
+  const textContent = useMemo(() => {
+    if (!body) return null;
+    if (!isBase64) return body;
+    if (bytes) {
+      try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [body, isBase64, bytes]);
+
+  // Run prettier asynchronously when pretty print is enabled
+  useEffect(() => {
+    if (!prettyPrint || !lang) {
+      setFormattedText(null);
+      setFormatting(false);
+      return;
+    }
+    const raw = textContent ?? body;
+    if (!raw) return;
+    let cancelled = false;
+    setFormatting(true);
+    prettyPrintCode(raw, lang).then((result) => {
+      if (!cancelled) {
+        setFormattedText(result);
+        setFormatting(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [prettyPrint, lang, textContent, body]);
 
   if (body == null) {
     return (
@@ -102,48 +138,66 @@ export function ResponseBodyView({ request, searchHighlight, searchLineNumber }:
     );
   }
 
-  const header = (
-    <div className="dt-body-meta">
-      <span className="dt-body-tag">{mime || 'unknown'}</span>
-      <span className="dt-body-tag">{size} bytes</span>
-      {encoding && <span className="dt-body-tag">{encoding}</span>}
-    </div>
-  );
+  let content: React.ReactNode;
+  let lineInfo: string | undefined;
 
-  if (isImageMime(mime) && encoding === 'base64') {
-    const dataUrl = `data:${mime};base64,${body}`;
+  // ── Binary content ─────────────────────────────────────────
+  if (isBinary) {
+    if (viewMode === 'base64') {
+      content = <pre className="dt-body-pre dt-body-pre--base64">{body}</pre>;
+    } else if (viewMode === 'utf8' && bytes) {
+      const lossy = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+      content = <pre className="dt-body-pre">{lossy}</pre>;
+    } else if (bytes) {
+      content = <HexViewer data={bytes} />;
+    } else {
+      content = <span className="dt-col-muted">Binary payload ({request.responseSize ?? 0} bytes).</span>;
+    }
+
     return (
-      <>
-        {header}
-        <img src={dataUrl} alt="response preview" style={{ maxWidth: '100%', maxHeight: 480, display: 'block' }} />
-      </>
+      <div className="dt-response-view">
+        <div className="dt-response-view-content">{content}</div>
+        <ResponseViewerToolbar mode={viewMode} onModeChange={setViewMode} />
+      </div>
     );
   }
 
-  if (isJsonMime(mime)) {
-    return (
-      <>
-        {header}
-        <HighlightedPre text={prettyJson(body)} query={highlight} targetLine={searchLineNumber} />
-      </>
-    );
+  // ── Text content ───────────────────────────────────────────
+  const rawText = textContent ?? body;
+
+  // Show skeleton while prettier is running
+  if (prettyPrint && formatting) {
+    content = <Skeleton />;
+  } else {
+    const displayText = prettyPrint && formattedText ? formattedText : rawText;
+    lineInfo = cursorInfo ?? `${displayText.split('\n').length} lines`;
+
+    if (lang) {
+      content = (
+        <Suspense fallback={<Skeleton />}>
+          <CodeMirrorViewer
+            value={displayText}
+            language={lang}
+            onCursorChange={handleCursorChange}
+            searchQuery={highlight || undefined}
+          />
+        </Suspense>
+      );
+    } else {
+      content = <pre className="dt-body-pre">{displayText}</pre>;
+    }
   }
 
-  if (isTextMime(mime) || encoding !== 'base64') {
-    return (
-      <>
-        {header}
-        <HighlightedPre text={body} query={highlight} targetLine={searchLineNumber} />
-      </>
-    );
-  }
+  const showPrettyPrint = canPrettyPrint(mime);
 
   return (
-    <>
-      {header}
-      <span className="dt-col-muted">
-        Binary payload ({size} bytes, base64-encoded). Preview limited to text and images.
-      </span>
-    </>
+    <div className="dt-response-view">
+      <div className="dt-response-view-content">{content}</div>
+      <ResponseViewerToolbar
+        lineInfo={lineInfo}
+        prettyPrint={showPrettyPrint ? prettyPrint : undefined}
+        onTogglePrettyPrint={showPrettyPrint ? togglePrettyPrint : undefined}
+      />
+    </div>
   );
 }
