@@ -15,7 +15,7 @@ import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type DragIntent, DragIntentContext } from '../data/drag-intent';
-import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../data/editor-groups';
+import { allLeaves, type EditorLeaf, type EditorNode, findLeaf } from '../data/editor-groups';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
 import type { UseInspectorEditorGroupsApi } from '../data/use-inspector-editor-groups';
 import InspectorTabBar from './InspectorTabBar';
@@ -123,13 +123,7 @@ interface LeafDropPreviewProps {
 
 const LeafDropPreview: React.FC<LeafDropPreviewProps> = ({ active, zone }) => {
   if (!active) return null;
-  return (
-    <div
-      aria-hidden="true"
-      className="dt-editor-drop-preview"
-      style={previewStyleFor(zone)}
-    />
-  );
+  return <div aria-hidden="true" className="dt-editor-drop-preview" style={previewStyleFor(zone)} />;
 };
 
 // ── Props ────────────────────────────────────────────────────────

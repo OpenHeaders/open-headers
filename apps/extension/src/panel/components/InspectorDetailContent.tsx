@@ -5,8 +5,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { buildHeaderDraftFromRequest, handOffRuleDraft } from '../data/rule-draft-bridge';
 import type { DetailSection } from '../data/inspector-tab';
+import { buildHeaderDraftFromRequest, handOffRuleDraft } from '../data/rule-draft-bridge';
 import type { InspectorRequest } from '../data/types';
 import { JsonTree } from './JsonTree';
 import { ResponseBodyView } from './ResponseBodyView';
@@ -69,7 +69,7 @@ export function InspectorDetailContent({
       const el = tabBodyRef.current?.querySelector('.dt-kv--highlighted') ?? tabBodyRef.current?.querySelector('mark');
       if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
-  }, [searchHighlight, searchSection, searchLineNumber]);
+  }, [searchHighlight]);
 
   const har = request.harEntry;
   const requestHeaders = har.request?.headers ?? [];
@@ -132,7 +132,9 @@ export function InspectorDetailContent({
               <summary>General</summary>
               <div className="dt-kv">
                 <span className="dt-kv-key">Request URL:</span>
-                <span className="dt-kv-val" style={{ wordBreak: 'break-all' }}>{request.url}</span>
+                <span className="dt-kv-val" style={{ wordBreak: 'break-all' }}>
+                  {request.url}
+                </span>
               </div>
               <div className="dt-kv">
                 <span className="dt-kv-key">Request Method:</span>
@@ -169,7 +171,9 @@ export function InspectorDetailContent({
                 <summary>Open Headers Rule Fires ({request.fires.length})</summary>
                 {request.fires.map((f, i) => (
                   <div key={`fire-${i}-${f.ruleUid}`} className="dt-kv" style={{ fontFamily: 'monospace' }}>
-                    <span className={`dt-exec-badge ${f.authoritative ? 'dt-exec-badge--auth' : 'dt-exec-badge--inferred'}`}>
+                    <span
+                      className={`dt-exec-badge ${f.authoritative ? 'dt-exec-badge--auth' : 'dt-exec-badge--inferred'}`}
+                    >
                       {f.authoritative ? 'authoritative' : 'inferred'}
                     </span>
                     <code>{f.ruleUid}</code>
@@ -260,7 +264,9 @@ export function InspectorDetailContent({
               {queryString.length > 0 ? (
                 queryString.map((q, i) => (
                   <div key={`q-${i}-${q.name}`} className="dt-kv" style={{ fontFamily: 'monospace' }}>
-                    <span className="dt-kv-key" style={{ fontWeight: 600 }}>{q.name}:</span>
+                    <span className="dt-kv-key" style={{ fontWeight: 600 }}>
+                      {q.name}:
+                    </span>
                     <span className="dt-kv-val">{q.value}</span>
                   </div>
                 ))
@@ -271,7 +277,9 @@ export function InspectorDetailContent({
             {postData && (
               <details className="dt-section" open>
                 <summary>Request Body ({postData.mimeType})</summary>
-                <pre className="dt-body-pre" style={{ marginLeft: 12 }}>{postData.text ?? ''}</pre>
+                <pre className="dt-body-pre" style={{ marginLeft: 12 }}>
+                  {postData.text ?? ''}
+                </pre>
               </details>
             )}
           </>
@@ -307,7 +315,9 @@ export function InspectorDetailContent({
                 <summary>Timing Breakdown</summary>
                 {Object.entries(har.timings).map(([key, val]) => (
                   <div key={key} className="dt-kv">
-                    <span className="dt-kv-key" style={{ minWidth: 80 }}>{key}:</span>
+                    <span className="dt-kv-key" style={{ minWidth: 80 }}>
+                      {key}:
+                    </span>
                     <span className="dt-kv-val">
                       {typeof val === 'number' && val >= 0 ? `${val.toFixed(2)} ms` : '\u2014'}
                     </span>

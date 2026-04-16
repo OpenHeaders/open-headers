@@ -37,11 +37,8 @@ function makeDefaultDocks(): Record<PanelDockSlot, PanelDockState> {
   for (const def of PANEL_TOOL_WINDOWS) {
     docks[def.defaultSlot].windows.push(def.id);
   }
-  for (const slot of ALL_PANEL_DOCK_SLOTS) {
-    if (docks[slot].windows.length > 0) {
-      docks[slot].active = docks[slot].windows[0];
-    }
-  }
+  // Only Network panel expanded by default
+  docks['left-top'].active = docks['left-top'].windows[0] ?? null;
   return docks;
 }
 

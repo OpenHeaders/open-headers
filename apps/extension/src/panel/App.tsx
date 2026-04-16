@@ -2,8 +2,9 @@ import { useTheme } from '@context/ThemeContext';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Allotment, LayoutPriority } from 'allotment';
 import 'allotment/dist/style.css';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DockTabStrip } from './components/DockTabStrip';
+import { DropZoneOverlay, type DropZoneRect } from './components/DropZoneOverlay';
 import { FilterDocs } from './components/FilterDocs';
 import { FilterInput } from './components/FilterInput';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
@@ -22,7 +23,6 @@ import {
   ALL_PANEL_DOCK_SLOTS,
   PANEL_DOCK_LABELS,
   PANEL_TOOL_WINDOW_MAP,
-  PANEL_TOOL_WINDOWS,
   type PanelDockSlot,
   type PanelToolRegion,
   type PanelToolWindowId,
@@ -588,6 +588,53 @@ export default function App() {
     setDockDragging(false);
   }, []);
 
+  // ── Drop zone overlay rects ────────────────────────────────
+  const [shellSize, setShellSize] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r) setShellSize({ width: r.width, height: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const highlightedSlot = useMemo<PanelDockSlot | null>(() => {
+    if (!dragDockWindowId) return null;
+    return tl.dockOf(dragDockWindowId);
+  }, [dragDockWindowId, tl]);
+
+  const dropZoneRects = useMemo<Record<PanelDockSlot, DropZoneRect> | null>(() => {
+    if (!dockDragging) return null;
+    const fullW = shellSize.width;
+    const fullH = shellSize.height;
+    if (fullW === 0 || fullH === 0) return null;
+
+    const barW = activityLabels ? 56 : 32;
+    const innerW = fullW - barW * 2;
+    const sideW = Math.round(innerW * 0.27);
+    const midW = innerW - sideW * 2;
+    const halfH = Math.round(fullH * 0.5);
+    const bottomH = Math.round(fullH * 0.3);
+    const topH = fullH - bottomH;
+
+    return {
+      'left-top': { left: barW, top: 0, width: sideW, height: halfH },
+      'left-bottom': { left: barW, top: halfH, width: sideW, height: halfH },
+      'right-top': { left: barW + sideW + midW, top: 0, width: sideW, height: halfH },
+      'right-bottom': { left: barW + sideW + midW, top: halfH, width: sideW, height: halfH },
+      'bottom-left': { left: barW + sideW, top: topH, width: Math.round(midW / 2), height: bottomH },
+      'bottom-right': {
+        left: barW + sideW + Math.round(midW / 2),
+        top: topH,
+        width: Math.round(midW / 2),
+        height: bottomH,
+      },
+    };
+  }, [dockDragging, shellSize, activityLabels]);
+
   // ── Tool window content renderer ───────────────────────────
   const renderToolWindow = useCallback(
     (windowId: PanelToolWindowId): React.ReactNode => {
@@ -695,6 +742,90 @@ export default function App() {
       onClickCapture={handleFocusCapture}
       onFocusCapture={handleFocusCapture}
     >
+      {/* App header — toolbar + filter, spans full width */}
+      <div className="dt-header">
+        <div className="dt-toolbar">
+          <button
+            type="button"
+            className="dt-toolbar-icon dt-toolbar-icon--record"
+            data-active={recording}
+            onClick={() => setRecording(!recording)}
+            title={recording ? 'Stop recording' : 'Record network log'}
+          >
+            <IconRecord active={recording} />
+          </button>
+          <button type="button" className="dt-toolbar-icon" onClick={clear} title="Clear network log">
+            <IconClear />
+          </button>
+          <div className="dt-toolbar-separator" />
+          <button
+            type="button"
+            className="dt-toolbar-icon"
+            data-active={showFilter}
+            onClick={() => setShowFilter(!showFilter)}
+            title="Filter"
+          >
+            <IconFilter />
+          </button>
+          <button
+            type="button"
+            className="dt-toolbar-icon"
+            data-active={iconState('search') !== undefined}
+            onClick={() => tl.toggleWindow('search')}
+            title="Search"
+          >
+            <IconSearch />
+          </button>
+          <div className="dt-toolbar-separator" />
+          <label className="dt-checkbox">
+            <input type="checkbox" checked={preserveLog} onChange={(e) => setPreserveLog(e.target.checked)} />
+            Preserve log
+          </label>
+          {rulesVisible && (
+            <>
+              <div className="dt-toolbar-separator" />
+              <RuleExecutionsHint />
+            </>
+          )}
+        </div>
+        {showFilter && (
+          <div className="dt-filter-bar">
+            <FilterInput
+              value={urlFilter}
+              onChange={setUrlFilter}
+              config={filterConfig}
+              onConfigChange={setFilterConfig}
+              hasError={filterError}
+              placeholder="Filter"
+            />
+            <button
+              type="button"
+              className="dt-toolbar-icon"
+              data-state={iconState('docs')}
+              onClick={() => tl.toggleWindow('docs')}
+              title="Filter syntax help"
+            >
+              <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+                <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <text
+                  x="8"
+                  y="12"
+                  textAnchor="middle"
+                  fill="currentColor"
+                  fontSize="10"
+                  fontFamily="serif"
+                  fontStyle="italic"
+                >
+                  i
+                </text>
+              </svg>
+            </button>
+            <div className="dt-filter-separator" />
+            <ResourceFilter value={filter} onChange={setFilter} />
+          </div>
+        )}
+      </div>
+
       <div className="dt-panel">
         <DndContext
           sensors={sensors}
@@ -760,94 +891,6 @@ export default function App() {
                 {/* Center — toolbar + filter + editor groups */}
                 <Allotment.Pane priority={LayoutPriority.High}>
                   <div className="dt-main" data-region="main" tabIndex={-1}>
-                    {/* Toolbar */}
-                    <div className="dt-toolbar">
-                      <button
-                        type="button"
-                        className="dt-toolbar-icon dt-toolbar-icon--record"
-                        data-active={recording}
-                        onClick={() => setRecording(!recording)}
-                        title={recording ? 'Stop recording' : 'Record network log'}
-                      >
-                        <IconRecord active={recording} />
-                      </button>
-                      <button type="button" className="dt-toolbar-icon" onClick={clear} title="Clear network log">
-                        <IconClear />
-                      </button>
-                      <div className="dt-toolbar-separator" />
-                      <button
-                        type="button"
-                        className="dt-toolbar-icon"
-                        data-active={showFilter}
-                        onClick={() => setShowFilter(!showFilter)}
-                        title="Filter"
-                      >
-                        <IconFilter />
-                      </button>
-                      <button
-                        type="button"
-                        className="dt-toolbar-icon"
-                        data-active={iconState('search') !== undefined}
-                        onClick={() => tl.toggleWindow('search')}
-                        title="Search"
-                      >
-                        <IconSearch />
-                      </button>
-                      <div className="dt-toolbar-separator" />
-                      <label className="dt-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={preserveLog}
-                          onChange={(e) => setPreserveLog(e.target.checked)}
-                        />
-                        Preserve log
-                      </label>
-                      {rulesVisible && (
-                        <>
-                          <div className="dt-toolbar-separator" />
-                          <RuleExecutionsHint />
-                        </>
-                      )}
-                    </div>
-
-                    {/* Filter bar */}
-                    {showFilter && (
-                      <div className="dt-filter-bar">
-                        <FilterInput
-                          value={urlFilter}
-                          onChange={setUrlFilter}
-                          config={filterConfig}
-                          onConfigChange={setFilterConfig}
-                          hasError={filterError}
-                          placeholder="Filter"
-                        />
-                        <button
-                          type="button"
-                          className="dt-toolbar-icon"
-                          data-state={iconState('docs')}
-                          onClick={() => tl.toggleWindow('docs')}
-                          title="Filter syntax help"
-                        >
-                          <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-                            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                            <text
-                              x="8"
-                              y="12"
-                              textAnchor="middle"
-                              fill="currentColor"
-                              fontSize="10"
-                              fontFamily="serif"
-                              fontStyle="italic"
-                            >
-                              i
-                            </text>
-                          </svg>
-                        </button>
-                        <div className="dt-filter-separator" />
-                        <ResourceFilter value={filter} onChange={setFilter} />
-                      </div>
-                    )}
-
                     {/* Editor groups + optional nested bottom */}
                     <div className="dt-content">
                       {bottomFullWidth ? (
@@ -947,6 +990,9 @@ export default function App() {
             </div>
           </nav>
 
+          {/* Drop zone overlay — 6 labeled zones shown during dock tab drags */}
+          <DropZoneOverlay visible={dockDragging} rects={dropZoneRects} highlightedSlot={highlightedSlot} />
+
           {/* DragOverlay — renders at top level for both editor tabs and dock tabs */}
           <DragOverlay dropAnimation={null}>
             {dragTab && (
@@ -963,8 +1009,9 @@ export default function App() {
               </div>
             )}
             {dragDockWindowId && (
-              <div className="dt-dock-tab active" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.2)', opacity: 0.9 }}>
-                {PANEL_TOOL_WINDOW_MAP[dragDockWindowId].label}
+              <div className="dt-drag-preview">
+                {TOOL_WINDOW_ICONS[dragDockWindowId]}
+                <span>{PANEL_TOOL_WINDOW_MAP[dragDockWindowId].label}</span>
               </div>
             )}
           </DragOverlay>

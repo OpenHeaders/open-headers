@@ -3,8 +3,6 @@
  * Same pattern as the workspace's tool-windows.tsx.
  */
 
-import type React from 'react';
-
 export type PanelDockSlot = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom' | 'bottom-left' | 'bottom-right';
 export type PanelToolWindowId = 'network' | 'rules' | 'search' | 'docs' | 'console';
 export type PanelToolRegion = 'left' | 'right' | 'bottom';

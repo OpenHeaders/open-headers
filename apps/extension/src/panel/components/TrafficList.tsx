@@ -254,7 +254,9 @@ export function TrafficList({
               onClick={() => onSelect(entry.id)}
               title={entry.url}
             >
-              <span className="dt-col-muted" style={{ textAlign: 'right' }}>{entry.displayId}</span>
+              <span className="dt-col-muted" style={{ textAlign: 'right' }}>
+                {entry.displayId}
+              </span>
               <span className="dt-col-dot">
                 {entry.fires.length > 0 && (
                   <span

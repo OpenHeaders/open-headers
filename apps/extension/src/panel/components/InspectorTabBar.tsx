@@ -123,7 +123,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     <button
       type="button"
       className={`dt-ctx-item${disabled ? ' disabled' : ''}`}
-      onClick={() => { if (!disabled) { action(); onClose(); } }}
+      onClick={() => {
+        if (!disabled) {
+          action();
+          onClose();
+        }
+      }}
       disabled={disabled}
     >
       {label}
@@ -141,6 +146,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
       {item('Close Tabs to the Left', () => onCloseToLeft(state.tabId), state.tabIndex === 0)}
       {item('Close Tabs to the Right', () => onCloseToRight(state.tabId), state.tabIndex === tabCount - 1)}
       <div className="dt-ctx-sep" />
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: hover submenu */}
       <div
         className={`dt-ctx-item dt-ctx-sub${splitDisabled ? ' disabled' : ''}`}
         onMouseEnter={() => !splitDisabled && setSplitOpen(true)}
@@ -209,7 +215,9 @@ const SortableTab: React.FC<SortableTabProps> = ({
     isActive ? 'active' : '',
     isDragging ? 'dragging' : '',
     isActive && isFocusedLeaf ? 'focused' : '',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
@@ -224,25 +232,29 @@ const SortableTab: React.FC<SortableTabProps> = ({
       aria-selected={isActive}
       title={tab.url}
       onClick={() => onSwitch(tab.id)}
-      onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, tab.id, tabIndex); }}
-      onKeyDown={(e) => { if (e.key === 'Enter') onSwitch(tab.id); }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu(e, tab.id, tabIndex);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onSwitch(tab.id);
+      }}
     >
       <span className="dt-method-badge" style={{ color: methodColor(tab.method) }}>
         {tab.method}
       </span>
-      <span className="dt-editor-tab-label">
-        {truncateMiddle(tab.label.replace(/^[A-Z]+ /, ''), TAB_LABEL_MAX)}
-      </span>
+      <span className="dt-editor-tab-label">{truncateMiddle(tab.label.replace(/^[A-Z]+ /, ''), TAB_LABEL_MAX)}</span>
       {tab.statusCode != null && (
-        <span className={`dt-editor-tab-status${tab.statusCode >= 400 ? ' error' : ''}`}>
-          {tab.statusCode}
-        </span>
+        <span className={`dt-editor-tab-status${tab.statusCode >= 400 ? ' error' : ''}`}>{tab.statusCode}</span>
       )}
       <button
         type="button"
         className="dt-editor-tab-close"
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onClose(tab.id); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose(tab.id);
+        }}
         aria-label="Close tab"
       >
         {'\u00d7'}
@@ -303,19 +315,37 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
 
   const lc = search.toLowerCase();
   const filtered = tabs.filter((t) => t.label.toLowerCase().includes(lc) || t.url.toLowerCase().includes(lc));
-  const filteredClosed = recentlyClosed.filter((c) => c.tab.label.toLowerCase().includes(lc) || c.tab.url.toLowerCase().includes(lc));
+  const filteredClosed = recentlyClosed.filter(
+    (c) => c.tab.label.toLowerCase().includes(lc) || c.tab.url.toLowerCase().includes(lc),
+  );
   const total = filtered.length + (closedExpanded ? filteredClosed.length : 0);
 
   const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { onClose(); return; }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedIndex((i) => Math.min(i + 1, total - 1)); return; }
-    if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedIndex((i) => Math.max(i - 1, 0)); return; }
+    if (e.key === 'Escape') {
+      onClose();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex((i) => Math.min(i + 1, total - 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex((i) => Math.max(i - 1, 0));
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (focusedIndex < filtered.length) { onSwitch(filtered[focusedIndex].id); onClose(); }
-      else if (closedExpanded) {
+      if (focusedIndex < filtered.length) {
+        onSwitch(filtered[focusedIndex].id);
+        onClose();
+      } else if (closedExpanded) {
         const ci = focusedIndex - filtered.length;
-        if (filteredClosed[ci]) { onReopen(filteredClosed[ci]); onClose(); }
+        if (filteredClosed[ci]) {
+          onReopen(filteredClosed[ci]);
+          onClose();
+        }
       }
     }
   };
@@ -333,7 +363,10 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
             className="dt-tab-search-input"
             placeholder={`Search tabs\u2026`}
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setFocusedIndex(0); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setFocusedIndex(0);
+            }}
             onKeyDown={handleKey}
           />
         </div>
@@ -344,7 +377,10 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
             <div
               key={tab.id}
               className={`dt-tab-search-item${idx === focusedIndex ? ' focused' : ''}${tab.id === activeTabId ? ' active' : ''}`}
-              onClick={() => { onSwitch(tab.id); onClose(); }}
+              onClick={() => {
+                onSwitch(tab.id);
+                onClose();
+              }}
             >
               <span className="dt-method-badge" style={{ color: methodColor(tab.method), fontSize: 9 }}>
                 {tab.method}
@@ -359,24 +395,28 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
               <div className="dt-tab-search-section" onClick={() => setClosedExpanded((v) => !v)}>
                 {closedExpanded ? '\u25BC' : '\u25B6'} Recently Closed ({recentlyClosed.length})
               </div>
-              {closedExpanded && filteredClosed.map((closed, idx) => {
-                const gi = filtered.length + idx;
-                return (
-                  // biome-ignore lint/a11y/useKeyWithClickEvents: handled by input
-                  // biome-ignore lint/a11y/noStaticElementInteractions: item
-                  <div
-                    key={`closed-${closed.tab.id}-${closed.closedAt}`}
-                    className={`dt-tab-search-item${gi === focusedIndex ? ' focused' : ''}`}
-                    style={{ opacity: 0.7 }}
-                    onClick={() => { onReopen(closed); onClose(); }}
-                  >
-                    <span className="dt-method-badge" style={{ color: methodColor(closed.tab.method), fontSize: 9 }}>
-                      {closed.tab.method}
-                    </span>
-                    <span className="dt-tab-search-item-label">{closed.tab.label}</span>
-                  </div>
-                );
-              })}
+              {closedExpanded &&
+                filteredClosed.map((closed, idx) => {
+                  const gi = filtered.length + idx;
+                  return (
+                    // biome-ignore lint/a11y/useKeyWithClickEvents: handled by input
+                    // biome-ignore lint/a11y/noStaticElementInteractions: item
+                    <div
+                      key={`closed-${closed.tab.id}-${closed.closedAt}`}
+                      className={`dt-tab-search-item${gi === focusedIndex ? ' focused' : ''}`}
+                      style={{ opacity: 0.7 }}
+                      onClick={() => {
+                        onReopen(closed);
+                        onClose();
+                      }}
+                    >
+                      <span className="dt-method-badge" style={{ color: methodColor(closed.tab.method), fontSize: 9 }}>
+                        {closed.tab.method}
+                      </span>
+                      <span className="dt-tab-search-item-label">{closed.tab.label}</span>
+                    </div>
+                  );
+                })}
             </>
           )}
           {filtered.length === 0 && filteredClosed.length === 0 && (

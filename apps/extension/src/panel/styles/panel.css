@@ -91,6 +91,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  position: relative;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
   font-size: 11px;
   line-height: 1.4;
@@ -98,10 +99,18 @@ body {
   color: var(--dt-text);
 }
 
+/* ── App header (full-width, above sidebars) ───────────── */
+.dt-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+}
+
 .dt-panel {
   display: flex;
   flex: 1;
   min-height: 0;
+  position: relative;
 }
 
 .dt-panel-mono {
@@ -1787,6 +1796,62 @@ body {
 
 .dt-dock-content > .dt-detail-pane > .dt-tabs {
   display: none;
+}
+
+/* ── Drop zone overlay (shown during dock tab drags) ──────── */
+.dt-drop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.dt-drop-zone {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed color-mix(in srgb, var(--dt-link) 50%, transparent);
+  background: color-mix(in srgb, var(--dt-link) 5%, transparent);
+  transition: background 0.12s, border 0.12s;
+}
+
+.dt-drop-zone--active {
+  background: color-mix(in srgb, var(--dt-link) 20%, transparent);
+  border: 2px solid var(--dt-link);
+}
+
+.dt-drop-zone-label {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--dt-bg);
+  color: var(--dt-link);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Drag preview (DragOverlay pill) ─────────────────────── */
+.dt-drag-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--dt-link);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.dt-drag-preview svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+  stroke: currentColor;
 }
 
 /* ── Allotment overrides for panel ────────────────────────── */
