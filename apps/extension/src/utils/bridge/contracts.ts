@@ -117,6 +117,14 @@ export interface BridgeRpcContract {
     };
     res: { success: boolean; rule?: V5.Rule };
   };
+  createRuleDraft: {
+    req: { draft: V5.RuleDraft };
+    res: { success: boolean; nonce?: string; error?: string };
+  };
+  takeRuleDraft: {
+    req: { nonce: string };
+    res: { success: boolean; draft: V5.RuleDraft | null };
+  };
   updateLocalRule: {
     req: {
       ruleId: string;

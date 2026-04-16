@@ -11,9 +11,35 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { type DraftUrlStrategy, deriveUrlFilter } from '@openheaders/core/utils';
 import { useCallback, useState } from 'react';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
+import { useSettingValue } from '../settings/hooks';
 import type { ClosedTab, LandingView, RuleFlowScope, RulesTab } from '../types';
+
+/**
+ * Turn a RuleDraft's pre-fill fields (url / urlFilter / requestMethods /
+ * resourceTypes) into `RuleCondition` entries consumable by the rule
+ * editor. `urlFilter` wins over `url` when both are present — callers
+ * who've already chosen a specific pattern don't get their choice
+ * overwritten by the strategy. Empty arrays are omitted so a bare
+ * draft lands on an empty conditions list, matching the pre-draft
+ * behavior.
+ */
+function buildDraftConditions(draft: V5.RuleDraftBase, strategy: DraftUrlStrategy): V5.RuleCondition[] {
+  const conditions: V5.RuleCondition[] = [];
+  const resolvedFilter = draft.urlFilter ?? (draft.url ? deriveUrlFilter(draft.url, strategy) : undefined);
+  if (resolvedFilter) {
+    conditions.push({ type: 'url-filter', values: [resolvedFilter] });
+  }
+  if (draft.requestMethods && draft.requestMethods.length > 0) {
+    conditions.push({ type: 'request-methods', values: draft.requestMethods });
+  }
+  if (draft.resourceTypes && draft.resourceTypes.length > 0) {
+    conditions.push({ type: 'resource-types', values: draft.resourceTypes });
+  }
+  return conditions;
+}
 
 interface UseTabOpenersOptions {
   rules: V5.Rule[];
@@ -51,7 +77,12 @@ export interface UseTabOpenersApi {
   setPendingRenameTabId: (id: string | null) => void;
   generateDraftName: (type: string) => string;
 
-  openCreateTab: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
+  openCreateTab: (
+    type: string,
+    context?: { collectionId: string; folderPath?: string },
+    templateKey?: string,
+    initialDraft?: V5.RuleDraft,
+  ) => void;
   openEditTab: (uid: string) => void;
   openCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
@@ -79,6 +110,7 @@ export function useTabOpeners({
   switchTab,
 }: UseTabOpenersOptions): UseTabOpenersApi {
   const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
+  const draftUrlStrategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
   const generateDraftName = useCallback(
     (type: string) => {
@@ -95,75 +127,132 @@ export function useTabOpeners({
   );
 
   const openCreateTab = useCallback(
-    (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => {
+    (
+      type: string,
+      context?: { collectionId: string; folderPath?: string },
+      templateKey?: string,
+      initialDraft?: V5.RuleDraft,
+    ) => {
       if (context?.collectionId) {
-        const draftName = generateDraftName(type);
+        // Drafts supersede templates for the name + conditions seed.
+        // If both are supplied the draft wins on a per-field basis
+        // (draft.name over generated, draft conditions over template
+        // conditions, draft action fields over template action fields).
+        const draftMatches = initialDraft && initialDraft.type === type ? initialDraft : undefined;
+        const draftName = draftMatches?.name ?? generateDraftName(type);
         const template = templateKey ? (TEMPLATES_BY_TYPE[type] ?? []).find((t) => t.key === templateKey) : undefined;
-        const baseConditions = template?.conditions ?? ([] as V5.RuleCondition[]);
+        const draftConditions = draftMatches ? buildDraftConditions(draftMatches, draftUrlStrategy) : [];
+        const baseConditions =
+          draftConditions.length > 0 ? draftConditions : (template?.conditions ?? ([] as V5.RuleCondition[]));
         const base = { name: draftName, type, enabled: true, conditions: baseConditions };
 
         let rule: Omit<V5.Rule, 'uid' | 'path'>;
         switch (type) {
           case 'header': {
             const fv = template?.formValues ?? {};
+            const headerDraft = draftMatches?.type === 'header' ? draftMatches : undefined;
             rule = {
               ...base,
               type: 'header',
               action: {
-                requestHeaders: (fv.requestHeaders as V5.HeaderModification[]) ?? [
-                  { operation: 'override' as const, headerName: '', value: '' },
-                ],
-                responseHeaders: (fv.responseHeaders as V5.HeaderModification[]) ?? [],
+                requestHeaders: headerDraft?.requestHeaders ??
+                  (fv.requestHeaders as V5.HeaderModification[]) ?? [
+                    { operation: 'override' as const, headerName: '', value: '' },
+                  ],
+                responseHeaders: headerDraft?.responseHeaders ?? (fv.responseHeaders as V5.HeaderModification[]) ?? [],
               },
             } as Omit<V5.HeaderRule, 'uid' | 'path'>;
             break;
           }
-          case 'block':
-            rule = { ...base, type: 'block', action: { statusCode: 403 } } as Omit<V5.BlockRule, 'uid' | 'path'>;
+          case 'block': {
+            const blockDraft = draftMatches?.type === 'block' ? draftMatches : undefined;
+            rule = {
+              ...base,
+              type: 'block',
+              action: {
+                statusCode: blockDraft?.statusCode ?? 403,
+                ...(blockDraft?.responseBody ? { responseBody: blockDraft.responseBody } : {}),
+              },
+            } as Omit<V5.BlockRule, 'uid' | 'path'>;
             break;
-          case 'redirect':
-            rule = { ...base, type: 'redirect', action: { matchPattern: '', redirectTo: '' } } as Omit<
-              V5.RedirectRule,
-              'uid' | 'path'
-            >;
+          }
+          case 'redirect': {
+            const redirectDraft = draftMatches?.type === 'redirect' ? draftMatches : undefined;
+            rule = {
+              ...base,
+              type: 'redirect',
+              action: {
+                matchPattern: redirectDraft?.matchPattern ?? '',
+                redirectTo: redirectDraft?.redirectTo ?? '',
+              },
+            } as Omit<V5.RedirectRule, 'uid' | 'path'>;
             break;
-          case 'query-param':
-            rule = { ...base, type: 'query-param', action: { params: [] } } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
+          }
+          case 'query-param': {
+            const qpDraft = draftMatches?.type === 'query-param' ? draftMatches : undefined;
+            rule = {
+              ...base,
+              type: 'query-param',
+              action: {
+                params: qpDraft?.params ?? [],
+              },
+            } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
             break;
-          case 'inject':
+          }
+          case 'inject': {
+            const injectDraft = draftMatches?.type === 'inject' ? draftMatches : undefined;
             rule = {
               ...base,
               type: 'inject',
-              action: { injectType: 'script', source: 'code', code: '', position: 'body-end' },
+              action: {
+                injectType: injectDraft?.injectType ?? 'script',
+                source: injectDraft?.source ?? 'code',
+                code: injectDraft?.code ?? '',
+                position: injectDraft?.position ?? 'body-end',
+                ...(injectDraft?.sourceUrl ? { sourceUrl: injectDraft.sourceUrl } : {}),
+                ...(injectDraft?.bypassCSP !== undefined ? { bypassCSP: injectDraft.bypassCSP } : {}),
+              },
             } as Omit<V5.InjectRule, 'uid' | 'path'>;
             break;
-          case 'delay':
+          }
+          case 'delay': {
+            const delayDraft = draftMatches?.type === 'delay' ? draftMatches : undefined;
             rule = {
               ...base,
               type: 'delay',
-              action: { delayMs: 1000 },
+              action: { delayMs: delayDraft?.delayMs ?? 1000 },
             } as Omit<V5.DelayRule, 'uid' | 'path'>;
             break;
-          case 'body':
+          }
+          case 'body': {
+            const bodyDraft = draftMatches?.type === 'body' ? draftMatches : undefined;
             rule = {
               ...base,
               type: 'body',
-              action: { bodyType: 'static', body: '', resourceType: 'rest' },
+              action: {
+                bodyType: bodyDraft?.bodyType ?? 'static',
+                body: bodyDraft?.body ?? '',
+                resourceType: bodyDraft?.resourceType ?? 'rest',
+              },
             } as Omit<V5.BodyRule, 'uid' | 'path'>;
             break;
-          case 'mock':
+          }
+          case 'mock': {
+            const mockDraft = draftMatches?.type === 'mock' ? draftMatches : undefined;
             rule = {
               ...base,
               type: 'mock',
               action: {
-                statusCode: 0,
-                responseBody: '',
-                contentType: 'application/json',
-                responseHeaders: {},
-                bodyType: 'static',
+                statusCode: mockDraft?.statusCode ?? 0,
+                responseBody: mockDraft?.responseBody ?? '',
+                contentType: mockDraft?.contentType ?? 'application/json',
+                responseHeaders: mockDraft?.responseHeaders ?? {},
+                bodyType: mockDraft?.bodyType ?? 'static',
+                ...(mockDraft?.resourceType ? { resourceType: mockDraft.resourceType } : {}),
               },
             } as Omit<V5.MockRule, 'uid' | 'path'>;
             break;
+          }
           default:
             return;
         }
@@ -195,11 +284,11 @@ export function useTabOpeners({
           if (!col) return;
           collectionId = col.uid;
         }
-        openCreateTab(type, { collectionId }, templateKey);
+        openCreateTab(type, { collectionId }, templateKey, initialDraft);
       };
       void resolveAndCreate();
     },
-    [generateDraftName, createLocalRule, localCollections, createLocalCollection, addTab],
+    [generateDraftName, createLocalRule, localCollections, createLocalCollection, addTab, draftUrlStrategy],
   );
 
   const openEditTab = useCallback(

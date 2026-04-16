@@ -87,14 +87,21 @@ body {
 }
 
 /* ── Root panel ─────────────────────────────────────────── */
-.dt-panel {
+.dt-panel-root {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
   font-size: 11px;
   line-height: 1.4;
   background: var(--dt-bg);
   color: var(--dt-text);
+}
+
+.dt-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 .dt-panel-mono {
@@ -616,7 +623,7 @@ body {
 
 /* Column template — shared between header and rows */
 .dt-cols {
-  grid-template-columns: 14px 82px minmax(140px, 2fr) 48px 72px 72px minmax(52px, 0.5fr) 64px;
+  grid-template-columns: 32px 14px 82px minmax(140px, 2fr) 48px 72px 72px minmax(52px, 0.5fr) 64px;
 }
 
 /* Sortable column header button */
@@ -804,16 +811,108 @@ body {
 .dt-status-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
   padding: 0 8px;
-  height: 22px;
-  min-height: 22px;
+  height: 24px;
+  min-height: 24px;
   border-top: 1px solid var(--dt-border);
   background: var(--dt-bg);
   color: var(--dt-text-muted);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
+  flex-shrink: 0;
+}
+
+.dt-status-bar-left,
+.dt-status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dt-status-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+}
+
+.dt-status-bar-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--dt-border);
+  flex-shrink: 0;
+}
+
+/* ── Region toggles ──────────────────────────────────────── */
+.dt-region-toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dt-region-toggle {
+  width: 22px;
+  height: 18px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  padding: 0;
+}
+
+.dt-region-toggle:hover {
+  opacity: 1;
+  background: var(--dt-row-hover);
+}
+
+/* ── Theme menu ──────────────────────────────────────────── */
+.dt-theme-menu {
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 120px;
+}
+
+.dt-theme-menu .dt-ctx-item {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Layout options menu ─────────────────────────────────── */
+.dt-layout-menu {
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 200px;
+}
+
+.dt-layout-menu .dt-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dt-layout-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /* ── Rule activity view ─────────────────────────────────── */
@@ -1131,4 +1230,441 @@ body {
 [data-theme='dark'] .dt-body-pre mark {
   background: #7b6b00;
   color: #fff;
+}
+
+/* ── Bottom panel ──────────────────────────────────────── */
+.dt-bottom-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--dt-bg);
+  border-top: 1px solid var(--dt-border);
+}
+
+.dt-bottom-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-header-bg);
+}
+
+.dt-bottom-panel-title {
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.dt-bottom-panel-close {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.dt-bottom-panel-close:hover {
+  color: var(--dt-text);
+}
+
+.dt-bottom-panel-body {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Editor Groups — split-tab system (same pattern as workspace)
+   ══════════════════════════════════════════════════════════════ */
+
+.dt-editor-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dt-editor-leaf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+}
+
+.dt-editor-leaf.focused {
+  outline-color: var(--dt-border);
+}
+
+.dt-editor-leaf-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.dt-editor-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-editor-tab-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────── */
+.dt-editor-tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: 28px;
+  min-height: 28px;
+  background: var(--dt-bg-alt);
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-editor-tabs-scroll {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.dt-editor-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Tab pill ─────────────────────────────────────────────── */
+.dt-editor-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  height: 100%;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  flex-shrink: 0;
+  user-select: none;
+  outline: none;
+  transition: background 0.08s, color 0.08s;
+}
+
+.dt-editor-tab:hover {
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+}
+
+.dt-editor-tab.active {
+  color: var(--dt-text);
+  background: var(--dt-bg);
+  border-bottom-color: var(--dt-border);
+}
+
+.dt-editor-tab.active.focused {
+  color: var(--dt-link);
+  border-bottom-color: var(--dt-link);
+}
+
+.dt-editor-tab.dragging {
+  background: var(--dt-pill-active-bg);
+  outline: 1px dashed var(--dt-link);
+  outline-offset: -2px;
+  border-bottom-color: transparent;
+}
+
+/* Insertion marker for cross-leaf drops */
+.dt-editor-tab-insertion {
+  background: var(--dt-pill-active-bg);
+  outline: 1px dashed var(--dt-link);
+  outline-offset: -2px;
+  border-bottom-color: transparent;
+}
+
+.dt-method-badge {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.dt-editor-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-editor-tab-status {
+  font-size: 9px;
+  color: var(--dt-status-green);
+  flex-shrink: 0;
+}
+
+.dt-editor-tab-status.error {
+  color: var(--dt-status-red);
+}
+
+.dt-editor-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.dt-editor-tab:hover .dt-editor-tab-close,
+.dt-editor-tab.active .dt-editor-tab-close {
+  opacity: 1;
+}
+
+.dt-editor-tab-close:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+/* ── Tab bar action button (chevron) ─────────────────────── */
+.dt-editor-tab-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+}
+
+.dt-editor-tab-action:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+/* ── Drop preview overlay ────────────────────────────────── */
+.dt-editor-drop-preview {
+  position: absolute;
+  pointer-events: none;
+  z-index: 40;
+  background: color-mix(in srgb, var(--dt-link) 14%, transparent);
+  border: 2px solid var(--dt-link);
+  border-radius: 4px;
+  transition: all 0.08s ease;
+}
+
+/* ── Context menu ────────────────────────────────────────── */
+.dt-ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 180px;
+  font-size: 11px;
+}
+
+.dt-ctx-item {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--dt-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 12px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-ctx-item:hover:not(.disabled) {
+  background: var(--dt-link);
+  color: #fff;
+}
+
+.dt-ctx-item.disabled {
+  color: var(--dt-text-muted);
+  cursor: default;
+}
+
+.dt-ctx-sep {
+  height: 1px;
+  background: var(--dt-border);
+  margin: 4px 0;
+}
+
+.dt-ctx-sub {
+  position: relative;
+}
+
+.dt-ctx-submenu {
+  position: absolute;
+  left: 100%;
+  top: -4px;
+}
+
+/* ── Tab search dropdown ─────────────────────────────────── */
+.dt-tab-search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.dt-tab-search-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 100;
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 220px;
+  max-width: 320px;
+}
+
+.dt-tab-search-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--dt-border);
+  background: transparent;
+  color: var(--dt-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 6px;
+  outline: none;
+}
+
+.dt-tab-search-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.dt-tab-search-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.dt-tab-search-item:hover,
+.dt-tab-search-item.focused {
+  background: var(--dt-row-hover);
+}
+
+.dt-tab-search-item.active {
+  font-weight: 600;
+}
+
+.dt-tab-search-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.dt-tab-search-section {
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dt-tab-search-empty {
+  padding: 12px 8px;
+  text-align: center;
+  color: var(--dt-text-muted);
+  font-size: 11px;
+}
+
+/* ── Detail section tabs (inside tab content) ────────────── */
+.dt-detail-sections {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  overflow-x: auto;
+}
+
+.dt-detail-section-tab {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 0 8px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.dt-detail-section-tab:hover {
+  color: var(--dt-text);
+}
+
+.dt-detail-section-tab[aria-selected='true'] {
+  color: var(--dt-text);
+  border-bottom-color: var(--dt-tab-active-border);
+  font-weight: 600;
+}
+
+/* ── Editor empty state ──────────────────────────────────── */
+.dt-editor-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--dt-text-muted);
+  font-size: 12px;
+}
+
+/* ── Allotment overrides for panel ────────────────────────── */
+.dt-editor-tree .split-view-view {
+  overflow: hidden;
 }

@@ -240,6 +240,8 @@ export default defineConfig({
         popup: path.resolve(__dirname, 'popup.html'),
         workspace: path.resolve(__dirname, 'workspace.html'),
         delay: path.resolve(__dirname, 'delay.html'),
+        devtools: path.resolve(__dirname, 'devtools.html'),
+        panel: path.resolve(__dirname, 'panel.html'),
         background: path.resolve(__dirname, 'src/background/index.ts'),
       },
       output: {

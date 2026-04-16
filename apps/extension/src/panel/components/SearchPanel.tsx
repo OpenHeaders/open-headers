@@ -209,7 +209,7 @@ export function SearchPanel({ entries, onClose, onResultClick, docsActive, onTog
       const { filename, origin } = extractFilename(entry.url);
       groups.push({
         entryId: entry.id,
-        filename,
+        filename: `#${entry.displayId} ${filename}`,
         origin,
         timestamp: formatTimestamp(entry.timestamp),
         matches: allMatches,

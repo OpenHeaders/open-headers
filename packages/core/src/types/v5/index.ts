@@ -55,6 +55,22 @@ export type {
   RuleCondition,
   RuleType,
 } from './rule';
+// ── Rule draft (pre-fill handoff) ─────────────────────────────────
+export type {
+  BlockRuleDraft,
+  BodyRuleDraft,
+  DelayRuleDraft,
+  HeaderRuleDraft,
+  HeaderRuleDraftHeader,
+  InjectRuleDraft,
+  MockRuleDraft,
+  QueryParamDraftEntry,
+  QueryParamRuleDraft,
+  RedirectRuleDraft,
+  RuleDraft,
+  RuleDraftBase,
+  RuleDraftType,
+} from './rule-draft';
 // ── Storage ────────────────────────────────────────────────────────
 export { V5_GITIGNORE } from './storage';
 // ── Template ──────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import { getActiveRulesForTab } from './request-tracker';
+import { createRuleDraft, takeRuleDraft } from './rule-draft-store';
 import {
   addLocalRule,
   addLocalRuleToCollection,
@@ -220,6 +221,17 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false, error: 'Not connected to desktop app' });
       }
+    } else if (message.type === 'createRuleDraft') {
+      try {
+        const nonce = createRuleDraft(message.draft);
+        safeResponse({ success: true, nonce });
+      } catch (err) {
+        safeResponse({ success: false, error: (err as Error).message });
+      }
+    } else if (message.type === 'takeRuleDraft') {
+      const nonce = message.nonce as string;
+      const draft = takeRuleDraft(nonce);
+      safeResponse({ success: true, draft });
     } else if (message.type === 'createLocalRule') {
       const ruleData = message.rule as Omit<V5.Rule, 'uid' | 'path'>;
       const parentPath = message.parentPath as string | undefined;

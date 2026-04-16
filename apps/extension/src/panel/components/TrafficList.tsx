@@ -115,7 +115,8 @@ function statusClass(code: number | undefined): string {
 function extractName(url: string): { hostname: string; path: string } {
   try {
     const parsed = new URL(url);
-    return { hostname: parsed.hostname, path: parsed.pathname + parsed.search };
+    const path = parsed.pathname === '/' && !parsed.search ? '' : parsed.pathname + parsed.search;
+    return { hostname: parsed.hostname, path };
   } catch {
     return { hostname: url, path: '' };
   }
@@ -224,6 +225,7 @@ export function TrafficList({
   return (
     <>
       <div className="dt-table-header dt-cols">
+        <span>#</span>
         <span />
         {COLUMNS.map((col) => (
           <button
@@ -252,6 +254,7 @@ export function TrafficList({
               onClick={() => onSelect(entry.id)}
               title={entry.url}
             >
+              <span className="dt-col-muted" style={{ textAlign: 'right' }}>{entry.displayId}</span>
               <span className="dt-col-dot">
                 {entry.fires.length > 0 && (
                   <span

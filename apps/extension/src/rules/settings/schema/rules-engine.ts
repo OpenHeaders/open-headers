@@ -4,10 +4,12 @@
  * shadowed matches.
  */
 
+import { DRAFT_URL_STRATEGIES, type DraftUrlStrategy } from '@openheaders/core/utils';
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
 const evaluationStrategySchema = v.picklist(['first-match', 'closest-match', 'all-matching']);
+const draftUrlStrategySchema = v.picklist(DRAFT_URL_STRATEGIES);
 
 const resourceTypeSchema = v.picklist([
   'main_frame',
@@ -56,6 +58,7 @@ declare module '../types' {
     'rulesEngine.showShadowWarnings': boolean;
     'rulesEngine.warnOnLargeRuleSets': boolean;
     'rulesEngine.largeRuleSetThreshold': number;
+    'rulesEngine.draftUrlStrategy': DraftUrlStrategy;
   }
 }
 
@@ -182,4 +185,23 @@ registerSetting({
   scope: 'user',
   numberRange: { min: 100, max: 30000, step: 100 },
   when: (get) => get('rulesEngine.warnOnLargeRuleSets'),
+});
+
+registerSetting({
+  key: 'rulesEngine.draftUrlStrategy',
+  type: 'enum',
+  default: 'path-wildcard',
+  schema: draftUrlStrategySchema,
+  label: 'Draft URL Strategy',
+  description:
+    'How pre-filled rules from the DevTools Inspector turn a captured URL into a url-filter pattern. Path wildcard (default) replaces the last path segment with * so sibling resources match. Host-only widens to the whole domain. Exact/raw keep the URL verbatim.',
+  category: 'rulesEngine',
+  tags: ['draft', 'devtools', 'inspector', 'url', 'pattern'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'path-wildcard', label: 'Path wildcard', description: 'Wildcard the last path segment (recommended)' },
+    { value: 'host-only', label: 'Host only', description: 'Match every request on the host' },
+    { value: 'exact', label: 'Exact URL', description: 'Match this URL verbatim (normalized)' },
+    { value: 'raw', label: 'Raw URL', description: 'Match this URL verbatim without normalization' },
+  ],
 });

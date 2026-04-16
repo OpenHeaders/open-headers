@@ -71,6 +71,7 @@ export class InspectorStore {
   private version = 0;
   private listeners: Set<() => void> = new Set();
   private arrivalCounter = 0;
+  private displayCounter = 1;
   /** Cached snapshot — rebuilt only on bump() so useSyncExternalStore is stable. */
   private snapshot: InspectorSnapshot = { entries: [], danglingFires: [], version: 0 };
   /**
@@ -110,6 +111,7 @@ export class InspectorStore {
     this.entries = [];
     this.danglingFires = [];
     this.byHarKey.clear();
+    this.displayCounter = 1;
     this.bump();
   };
 
@@ -146,6 +148,7 @@ export class InspectorStore {
       resourceType: har._resourceType,
       fires: [],
       arrivalIndex: this.arrivalCounter++,
+      displayId: this.displayCounter++,
     };
 
     // Before appending, sweep dangling fires for URL matches within

@@ -8,7 +8,7 @@
  * Used by the SaveToCollectionModal in both apps.
  */
 
-import type { FolderNode, TreeNode } from '../types/v5/collection';
+import type { TreeNode } from '../types/v5/collection';
 
 /**
  * Find the children of a folder at `folderPath` within a tree.

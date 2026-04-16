@@ -72,4 +72,6 @@ export interface InspectorRequest {
   fires: InspectorFire[];
   /** Monotonic counter — used as a stable render order tiebreaker. */
   arrivalIndex: number;
+  /** Sequential display id (1, 2, 3, ...) — reset on clear. Shown in UI. */
+  displayId: number;
 }

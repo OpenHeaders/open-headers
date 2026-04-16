@@ -29,7 +29,9 @@ import {
 } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
+import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 import { handleGeneralMessage } from './modules/message-handler';
+import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
@@ -152,6 +154,8 @@ async function initializeExtension(): Promise<void> {
   setupInjectListener();
   setupDelayBypassCleanup();
   setupTestRunnerPorts();
+  setupDevtoolsInspectorPorts();
+  setupOnRuleMatchedDebugBridge();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
   // and prune any orphaned test-run owner buckets. The prune covers the
