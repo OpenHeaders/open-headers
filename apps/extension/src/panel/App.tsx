@@ -6,20 +6,28 @@ import { createShellEventBus, ShellEventBusContext, ShellLayout, useFocusRegion 
 import { FilterDocs } from './components/FilterDocs';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';
+import { MatchedRulesPanel } from './components/MatchedRulesPanel';
 import PanelStatusBar from './components/PanelStatusBar';
 import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
 import { SearchPanel } from './components/SearchPanel';
 import { TrafficList } from './components/TrafficList';
+import type { ColumnKey } from './components/traffic/columns';
+import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/focus-store';
+import { serializeHar, suggestHarFilename } from './data/har-export';
 import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
+import type { InspectorRequest } from './data/types';
+import { useCacheBypass } from './data/use-cache-bypass';
 import { useInspector } from './data/use-inspector';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { usePanelToolLayout } from './data/use-panel-tool-layout';
+import { useRulesLookup } from './data/use-rules-lookup';
+import { useSearchSession } from './data/use-search-session';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -30,14 +38,32 @@ function sectionToTab(section: string): DetailSection {
   return 'headers';
 }
 
-function formatTotalSize(entries: readonly { responseSize?: number }[]): string {
-  let total = 0;
-  for (const e of entries) {
-    if (e.responseSize != null && e.responseSize > 0) total += e.responseSize;
-  }
+function formatBytes(total: number): string {
   if (total < 1024) return `${total} B`;
   if (total < 1024 * 1024) return `${(total / 1024).toFixed(1)} kB`;
   return `${(total / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatTransferredSize(entries: readonly InspectorRequest[]): string {
+  let total = 0;
+  for (const e of entries) {
+    const bs = e.harEntry.response?.bodySize;
+    if (typeof bs === 'number' && bs > 0) {
+      total += bs;
+    } else if (e.responseSize && e.responseSize > 0) {
+      total += e.responseSize;
+    }
+  }
+  return formatBytes(total);
+}
+
+function formatResourceSize(entries: readonly InspectorRequest[]): string {
+  let total = 0;
+  for (const e of entries) {
+    const size = e.harEntry.response?.content?.size;
+    if (typeof size === 'number' && size > 0) total += size;
+  }
+  return formatBytes(total);
 }
 
 function formatFinishTime(entries: readonly { duration?: number }[]): string {
@@ -82,6 +108,7 @@ function PanelContent() {
   const {
     entries,
     danglingFires,
+    navTiming,
     clear: clearStore,
     preserveLog,
     setPreserveLog,
@@ -91,6 +118,19 @@ function PanelContent() {
   const groups = useInspectorEditorGroups();
   const tl = usePanelToolLayout();
   const panelSizes = useMemo(getPanelSizes, []);
+  // Search session lives at the panel level — SearchPanel itself
+  // mounts/unmounts as the user toggles the Search tool window, and
+  // we don't want that to discard the user's query and results.
+  const searchSession = useSearchSession(entries);
+  // Rules registry — needed to attribute which request/response
+  // headers were added / modified / removed by an Open Headers rule.
+  const rulesByUid = useRulesLookup();
+  // "Disable Cache" toolbar toggle — panel-scoped, auto-cleans on unmount.
+  const cacheBypass = useCacheBypass();
+  // Live Rules Mode setting — drives per-rule cache-bypass attribution
+  // (yellow) for request headers on any request that matched a user
+  // header rule without explicit Cache-Control handling.
+  const [liveRulesMode] = useSetting('rulesEngine.liveRulesMode');
 
   const clear = useCallback(() => {
     clearStore();
@@ -115,7 +155,21 @@ function PanelContent() {
   const [searchHighlight, setSearchHighlight] = useState<string | undefined>(undefined);
   const [searchSection, setSearchSection] = useState<string | undefined>(undefined);
   const [searchLineNumber, setSearchLineNumber] = useState<number | undefined>(undefined);
+  /** N-th match within the searched section (0-based). Lets the viewer
+   *  scroll to this specific occurrence, not just the first. */
+  const [searchMatchIndex, setSearchMatchIndex] = useState<number | undefined>(undefined);
   const [, setSearchNonce] = useState(0);
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => new Set(DEFAULT_VISIBLE_COLUMNS));
+
+  // Sync inspected-window origin into filter config so "Hide 3rd party"
+  // has a baseline to compare against. Coming from the nav-timing port
+  // message avoids a second round-trip over inspectedWindow.eval.
+  useLayoutEffect(() => {
+    if (!navTiming) return;
+    setFilterConfig((prev) =>
+      prev.pageOrigin === navTiming.pageOrigin ? prev : { ...prev, pageOrigin: navTiming.pageOrigin },
+    );
+  }, [navTiming]);
 
   // ── Shell event bus + focus region ─────────────────────────
   const shellRef = useRef<HTMLDivElement>(null);
@@ -168,7 +222,7 @@ function PanelContent() {
   );
 
   const handleSearchResult = useCallback(
-    (entryId: string, highlight: string, section: string, lineNumber: number) => {
+    (entryId: string, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
       const entry = entries.find((e) => e.id === entryId);
       if (!entry) return;
       const tab = buildInspectorTab(entry, 'network');
@@ -179,6 +233,7 @@ function PanelContent() {
       setSearchHighlight(highlight);
       setSearchSection(section);
       setSearchLineNumber(lineNumber);
+      setSearchMatchIndex(matchIndex);
       setSearchNonce((n) => n + 1);
     },
     [entries, groups],
@@ -195,6 +250,9 @@ function PanelContent() {
       return (
         <InspectorDetailContent
           request={request}
+          rulesByUid={rulesByUid}
+          cacheBypassEnabled={cacheBypass.enabled}
+          liveRulesMode={liveRulesMode}
           activeSection={tab.activeSection}
           onSectionChange={(s) => {
             lastSectionRef.current = s;
@@ -203,10 +261,21 @@ function PanelContent() {
           searchHighlight={isActiveTab ? searchHighlight : undefined}
           searchSection={isActiveTab ? searchSection : undefined}
           searchLineNumber={isActiveTab ? searchLineNumber : undefined}
+          searchMatchIndex={isActiveTab ? searchMatchIndex : undefined}
         />
       );
     },
-    [entries, groups, searchHighlight, searchSection, searchLineNumber],
+    [
+      entries,
+      groups,
+      rulesByUid,
+      cacheBypass.enabled,
+      liveRulesMode,
+      searchHighlight,
+      searchSection,
+      searchLineNumber,
+      searchMatchIndex,
+    ],
   );
 
   const renderEmpty = useCallback(
@@ -216,8 +285,44 @@ function PanelContent() {
 
   const activeTab = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);
   const selectedId = activeTab?.requestId ?? null;
-  const totalSize = useMemo(() => formatTotalSize(entries), [entries]);
+  const transferredSize = useMemo(() => formatTransferredSize(entries), [entries]);
+  const resourceSize = useMemo(() => formatResourceSize(entries), [entries]);
   const finishTime = useMemo(() => formatFinishTime(entries), [entries]);
+
+  // ── HAR export helpers ─────────────────────────────────────
+  const downloadHar = useCallback((subset: readonly InspectorRequest[], filename: string) => {
+    const json = serializeHar(subset);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, []);
+
+  const handleSaveAllAsHar = useCallback(() => {
+    downloadHar(entries, suggestHarFilename(entries));
+  }, [entries, downloadHar]);
+
+  const handleSaveAsHar = useCallback(
+    (entry: InspectorRequest) => {
+      const single: readonly InspectorRequest[] = [entry];
+      downloadHar(single, suggestHarFilename(single));
+    },
+    [downloadHar],
+  );
+
+  const handleCopyAllAsHar = useCallback(async () => {
+    const json = serializeHar(entries);
+    try {
+      await navigator.clipboard.writeText(json);
+    } catch {
+      // Best-effort — clipboard may be gated in some DevTools contexts.
+    }
+  }, [entries]);
 
   // ── Tool window content ────────────────────────────────────
   const renderToolWindow = useCallback(
@@ -239,6 +344,11 @@ function PanelContent() {
                   chrome as unknown as { devtools?: { inspectedWindow?: { reload: () => void } } }
                 ).devtools?.inspectedWindow?.reload();
               }}
+              visibleColumns={visibleColumns}
+              onVisibleColumnsChange={setVisibleColumns}
+              onSaveAsHar={handleSaveAsHar}
+              onSaveAllAsHar={handleSaveAllAsHar}
+              onCopyAllAsHar={handleCopyAllAsHar}
             />
           );
         case 'rules':
@@ -246,7 +356,7 @@ function PanelContent() {
         case 'search':
           return (
             <SearchPanel
-              entries={entries}
+              session={searchSession}
               onClose={() => tl.toggleWindow('search')}
               onResultClick={handleSearchResult}
               docsActive={iconState('docs') !== undefined}
@@ -255,8 +365,16 @@ function PanelContent() {
           );
         case 'docs':
           return <FilterDocs onClose={() => tl.toggleWindow('docs')} />;
-        case 'console':
-          return <div className="dt-editor-empty">Console — content coming soon</div>;
+        case 'matched-rules': {
+          const selectedRequest = selectedId ? (entries.find((e) => e.id === selectedId) ?? null) : null;
+          return (
+            <MatchedRulesPanel
+              request={selectedRequest}
+              rulesByUid={rulesByUid}
+              onClose={() => tl.toggleWindow('matched-rules')}
+            />
+          );
+        }
       }
     },
     [
@@ -273,6 +391,12 @@ function PanelContent() {
       handleSearchResult,
       tl,
       iconState,
+      visibleColumns,
+      handleSaveAsHar,
+      handleSaveAllAsHar,
+      handleCopyAllAsHar,
+      searchSession,
+      rulesByUid,
     ],
   );
 
@@ -344,6 +468,11 @@ function PanelContent() {
         onToggleDocs={() => tl.toggleWindow('docs')}
         filter={filter}
         onFilterChange={setFilter}
+        onExportHar={handleSaveAllAsHar}
+        onCopyAllHar={handleCopyAllAsHar}
+        canExport={entries.length > 0}
+        cacheBypassEnabled={cacheBypass.enabled}
+        onToggleCacheBypass={cacheBypass.toggle}
       />
 
       <ShellLayout<PanelToolWindowId>
@@ -365,8 +494,11 @@ function PanelContent() {
       <PanelStatusBar
         tl={tl}
         requestCount={entries.length}
-        totalSize={totalSize}
+        transferredSize={transferredSize}
+        resourceSize={resourceSize}
         finishTime={finishTime}
+        dclMs={navTiming?.dclMs}
+        loadMs={navTiming?.loadMs}
         tabCount={groups.allTabs.length}
       />
     </div>

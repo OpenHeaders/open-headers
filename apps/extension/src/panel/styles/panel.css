@@ -19,6 +19,10 @@
   --dt-row-hover: #f0f0f0;
   --dt-row-selected: #e8f0fe;
   --dt-row-zebra: #f8f8f8;
+  --dt-row-attributed: #eef3fc;
+  --dt-row-attributed-removed: #f1f1f1;
+  --dt-row-attributed-system: #fff8db;
+  --dt-accent-system: #b8860b;
   --dt-header-bg: #f1f1f1;
   --dt-link: #1a73e8;
   --dt-status-green: #00a800;
@@ -46,6 +50,10 @@
   --dt-row-hover: #2a2a2a;
   --dt-row-selected: #062e61;
   --dt-row-zebra: #222;
+  --dt-row-attributed: #23314a;
+  --dt-row-attributed-removed: #2a2a2a;
+  --dt-row-attributed-system: #3a2e0d;
+  --dt-accent-system: #e6c75a;
   --dt-header-bg: #292929;
   --dt-link: #8ab4f8;
   --dt-status-green: #4caf50;
@@ -354,6 +362,99 @@ body {
   width: 14px;
   height: 14px;
   fill: currentColor;
+}
+
+/* ── "More filters" dropdown button + popover ────────────────────
+ * Mirrors Chrome's Network-panel convention — a compact text
+ * trigger with a caret, opening a vertical list of checkbox filters.
+ * The button dims when no filter is active and picks up the accent
+ * colour + an inline `N` badge when one or more are on. */
+.dt-toolbar-dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dt-toolbar-dropdown:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+.dt-toolbar-dropdown--active {
+  color: var(--dt-link);
+}
+
+.dt-toolbar-dropdown-caret {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.dt-toolbar-dropdown-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: var(--dt-link);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.dt-morefilters-popover .ant-popover-inner {
+  padding: 4px 0;
+}
+
+.dt-morefilters-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.dt-morefilters-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--dt-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dt-morefilters-item:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-morefilters-item--disabled {
+  color: var(--dt-text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.dt-morefilters-item input[type='checkbox'] {
+  margin: 0;
+}
+
+/* Group separator between `Hide *` and `Only *` filter groups —
+ * matches Chrome's visual pattern. */
+.dt-morefilters-divider {
+  height: 1px;
+  background: var(--dt-border);
+  margin: 4px 0;
 }
 
 /* ── Filter bar (second row — input + pills) ────────────── */
@@ -691,8 +792,21 @@ body {
 }
 
 .dt-col-status--4xx,
-.dt-col-status--5xx {
+.dt-col-status--5xx,
+.dt-col-status--error {
   color: var(--dt-status-red);
+}
+
+/* Early hints (103) — informational, muted. */
+.dt-col-status--1xx {
+  color: var(--dt-text-muted);
+}
+
+/* Pending status text — muted + italic to distinguish from numeric
+ * statuses. */
+.dt-col-status--pending {
+  color: var(--dt-text-muted);
+  font-style: italic;
 }
 
 .dt-col-muted {
@@ -725,22 +839,68 @@ body {
 .dt-resource-icon--websocket,
 .dt-resource-icon--ws { color: #6d4c41; }
 .dt-resource-icon--wasm { color: #654ff0; }
+.dt-resource-icon--preflight { color: #8e44ad; }
 
 /* ── Blocked request rows (red, like Chrome DevTools) ───── */
-.dt-row--blocked {
+.dt-row--blocked,
+.dt-row--failed {
   color: var(--dt-status-red);
 }
-.dt-row--blocked .dt-col-muted {
+.dt-row--blocked .dt-col-muted,
+.dt-row--failed .dt-col-muted {
   color: var(--dt-status-red);
   opacity: 0.7;
 }
-.dt-row--blocked .dt-resource-icon {
+.dt-row--blocked .dt-resource-icon,
+.dt-row--failed .dt-resource-icon {
   color: var(--dt-status-red);
 }
 
-/* Column template — shared between header and rows */
+/* ── Pending rows (italic, muted) ──────────────────────────
+ * Chrome animates a spinner; we keep it static to avoid the CPU
+ * tax of a live-painting indicator per row. The italic + muted
+ * text is still an unmistakeable "this hasn't finished" signal. */
+.dt-row--pending {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
+/* ── Redirect rows (no special row styling today) ──────────
+ * Chrome renders 3xx with the same colour as 2xx; the status
+ * column's `dt-col-status--3xx` class already applies the olive
+ * tint so the row-level class currently just identifies the
+ * redirect for future "follow redirect chain" UX to latch onto. */
+.dt-row--redirect {
+}
+
+/* ── Cached rows (grey, like Chrome DevTools) ──────────────
+ * When the response was served from disk or memory cache, the
+ * network stack didn't hit the wire. Match Chrome's convention:
+ * mute the entire row so the user can scan the list and tell
+ * "this was a cache hit" at a glance. The Size column already
+ * shows `(disk cache)` / `(memory cache)` as a second signal. */
+.dt-row--cached {
+  color: var(--dt-text-muted);
+}
+.dt-row--cached .dt-col-muted {
+  opacity: 0.75;
+}
+.dt-row--cached .dt-resource-icon {
+  opacity: 0.6;
+}
+/* The size-column label uses italic-muted so it reads as metadata
+ * rather than a number — mirrors DevTools' `(disk cache)` styling. */
+.dt-col-cache {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
+/* Column template — overridden inline by TrafficList to match the
+ * active visible-columns set. The fallback below matches the default
+ * visible set (dot, #, then user columns) so static-rendered rows
+ * before first paint still align. */
 .dt-cols {
-  grid-template-columns: 32px 14px 82px minmax(140px, 2fr) 48px 72px 72px minmax(52px, 0.5fr) 64px;
+  grid-template-columns: 14px 32px 100px 72px minmax(140px, 2fr) 56px 72px minmax(52px, 0.5fr) 72px 64px minmax(140px, 2fr);
 }
 
 /* Sortable column header button */
@@ -756,10 +916,65 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .dt-col-sort:hover {
   background: var(--dt-row-hover);
+}
+
+/* Narrow variant for the leading `#` header — right-aligned to match
+ * the numeric cell body, sized flush with the 32px track. */
+.dt-col-sort--hash {
+  text-align: right;
+  padding: 0 4px;
+}
+
+/* Column header cell = sort button + resize grip. Positioned relative
+ * so the grip can overflow the cell's right edge slightly (gives a
+ * wider hit target without affecting the grid-column's pixel width). */
+.dt-col-header-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: visible;
+}
+
+.dt-col-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 7px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 3;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.dt-col-resizer:hover::after,
+.dt-resizing-col .dt-col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 3px;
+  width: 1px;
+  background: var(--dt-link);
+}
+
+/* While a column resize is in progress, freeze the cursor + prevent
+ * text selection across the whole panel so the drag feels solid. */
+body.dt-resizing-col {
+  cursor: col-resize !important;
+  user-select: none;
 }
 
 /* ── Empty state ────────────────────────────────────────── */
@@ -900,6 +1115,95 @@ body {
 [data-theme='dark'] .dt-kv--highlighted {
   background: #7b6b00;
   color: #fff;
+}
+
+/* ── Attributed header rows (Open Headers rule fires) ─────────────
+ * A request/response header that Open Headers added, modified, or
+ * removed gets a coloured left indicator + glyph + tinted row
+ * background so the user can scan a long header list and instantly
+ * tell which rows came from their own rules.
+ *
+ *   Blue  → user rule added/modified the header
+ *   Gray  → user rule removed a server-sent header
+ *   Yellow → a system feature (Disable Cache toggle, future cache-
+ *            bust, etc.) injected the header. Distinct from user
+ *            rules so power users can tell "this came from the toolbar,
+ *            not from my ruleset".
+ *
+ * Search-highlight yellow still wins when both apply. */
+.dt-kv--oh-added,
+.dt-kv--oh-modified {
+  position: relative;
+  padding-left: 20px;
+  background: var(--dt-row-attributed);
+  border-radius: 2px;
+}
+
+.dt-kv--oh-removed {
+  position: relative;
+  padding-left: 20px;
+  background: var(--dt-row-attributed-removed);
+  border-radius: 2px;
+}
+
+.dt-kv--oh-system {
+  position: relative;
+  padding-left: 20px;
+  background: var(--dt-row-attributed-system);
+  border-radius: 2px;
+}
+
+.dt-kv--oh-added::before,
+.dt-kv--oh-modified::before,
+.dt-kv--oh-removed::before,
+.dt-kv--oh-system::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+}
+
+.dt-kv--oh-added::before,
+.dt-kv--oh-modified::before {
+  background: var(--dt-link, #1677ff);
+}
+
+.dt-kv--oh-removed::before {
+  background: var(--dt-text-muted);
+}
+
+.dt-kv--oh-system::before {
+  background: var(--dt-accent-system);
+}
+
+.dt-kv--oh-system .dt-btn-link,
+.dt-kv--oh-system .dt-kv-oh-value {
+  color: var(--dt-accent-system);
+}
+
+/* Modified/added header name + value share the link blue so the
+ * row reads at a glance as "this one's ours". */
+.dt-kv--oh-added .dt-btn-link,
+.dt-kv--oh-modified .dt-btn-link {
+  color: var(--dt-link, #1677ff);
+}
+
+.dt-kv--oh-added .dt-kv-oh-value,
+.dt-kv--oh-modified .dt-kv-oh-value {
+  color: var(--dt-link, #1677ff);
+}
+
+/* Removed headers stay in the list but fade out with strikethrough on
+ * the value — "the server sent this, but the page never saw it". */
+.dt-kv--oh-removed .dt-btn-link,
+.dt-kv--oh-removed .dt-kv-oh-value {
+  color: var(--dt-text-muted);
+}
+.dt-kv--oh-removed .dt-kv-oh-value {
+  text-decoration: line-through;
 }
 
 .dt-kv-val--status-ok::before {
@@ -1159,6 +1463,27 @@ body {
   color: var(--dt-text-muted);
 }
 
+/* Centered "no body" notice for the Response / Preview tabs when the
+ * classifier returns `not-applicable` / `unavailable` / `empty`.
+ * Mirrors Chrome Network's "Failed to load response data" layout. */
+.dt-response-notice {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.dt-response-notice strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* ── CTA buttons row ────────────────────────────────────── */
 .dt-cta-row {
   display: flex;
@@ -1176,6 +1501,85 @@ body {
   border-right: 1px solid var(--dt-border);
   font-size: 11px;
   overflow: hidden;
+}
+
+/* ── Matched Rules panel (bottom-right tool window) ───────────── */
+.dt-matched-rules-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--dt-bg);
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.dt-matched-rules-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-matched-rules-panel-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-matched-rules-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.dt-matched-rule {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-matched-rule-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dt-matched-rule-type {
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  padding: 1px 6px;
+  border: 1px solid var(--dt-border);
+  border-radius: 8px;
+}
+
+.dt-matched-rule-name {
+  font-weight: 600;
+}
+
+.dt-matched-rule-pattern {
+  margin-top: 2px;
+  color: var(--dt-text-muted);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 10px;
+}
+
+.dt-matched-rule-actions {
+  margin: 4px 0 0 0;
+  padding-left: 18px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 10px;
+  color: var(--dt-text);
+}
+
+.dt-matched-rule-actions li {
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .dt-search-panel-header {
@@ -1244,6 +1648,30 @@ body {
   font-size: 10px;
 }
 
+/* Match count badge shown on the right of the group summary — gives
+ * at-a-glance density info ("which files have lots of hits") so the
+ * user can triage without expanding every group. */
+.dt-search-group-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 8px;
+  padding: 0 6px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Over-limit notice — "N more not shown" inside a group. */
+.dt-search-group-more {
+  padding: 2px 6px 4px 16px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
 .dt-search-match {
   display: flex;
   gap: 6px;
@@ -1264,11 +1692,38 @@ body {
   background: var(--dt-row-hover);
 }
 
+/* Keyboard-navigated active row. Stronger than :hover so the current
+ * selection stays visible even as the cursor moves elsewhere. */
+.dt-search-match--active,
+.dt-search-match--active:hover {
+  background: var(--dt-row-selected, var(--dt-link));
+  color: var(--dt-text-on-accent, #fff);
+}
+
+.dt-search-match--active .dt-search-match-line,
+.dt-search-match--active .dt-search-match-section {
+  color: inherit;
+  opacity: 0.85;
+}
+
 .dt-search-match-line {
   color: var(--dt-text-muted);
   flex-shrink: 0;
-  min-width: 24px;
+  min-width: 32px;
   text-align: right;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* `L:C` coordinate label shown next to the ordinal for body matches.
+ * Monospace + tabular-nums keeps columns aligned across rows. */
+.dt-search-match-pos {
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  min-width: 40px;
 }
 
 .dt-search-match-text {
@@ -1306,6 +1761,72 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dt-search-panel-status--running {
+  border-top: none;
+  padding-top: 2px;
+}
+
+/* Submit/Cancel button next to the search input. Tightened vs the
+ * generic .dt-btn to fit inline with the filter input. */
+.dt-search-submit {
+  flex-shrink: 0;
+  margin-left: 4px;
+  padding: 2px 10px;
+  font-size: 11px;
+}
+
+/* Indeterminate-ish linear progress while scanning. Thin strip above
+ * the results area matching Chrome's native devtools spinner. */
+.dt-search-progress {
+  height: 2px;
+  background: var(--dt-border);
+  overflow: hidden;
+}
+
+.dt-search-progress-bar {
+  height: 100%;
+  background: var(--dt-link);
+  transition: width 120ms linear;
+}
+
+/* Skeleton rows shown while the scan runs and no partial results have
+ * landed yet. Uses the same shimmer animation as the response-body
+ * skeleton so the visual language stays consistent. */
+.dt-search-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+}
+
+.dt-search-skeleton-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dt-search-skeleton-bar {
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--dt-border) 25%, var(--dt-bg-alt) 50%, var(--dt-border) 75%);
+  background-size: 200% 100%;
+  animation: dt-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.dt-search-skeleton-bar--wide {
+  width: 80%;
+}
+
+.dt-search-skeleton-bar--narrow {
+  width: 40%;
+}
+
+/* Dim prior results while the user edits the query but hasn't
+ * re-submitted yet — signals "these are stale, press Enter to refresh". */
+.dt-search-panel-results[data-stale] {
+  opacity: 0.55;
 }
 
 /* ── Filter docs panel ──────────────────────────────────── */
@@ -2214,4 +2735,160 @@ body {
 @keyframes dt-skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ── Waterfall column ────────────────────────────────────── */
+.dt-waterfall-track {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  background: var(--dt-bg-alt);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dt-waterfall-bar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  display: flex;
+  min-width: 2px;
+  background: var(--dt-text-muted);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dt-waterfall-segment {
+  height: 100%;
+  display: inline-block;
+}
+
+/* ── Context menu checkable rows ─────────────────────────── */
+.dt-ctx-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+}
+
+.dt-ctx-check-mark {
+  display: inline-block;
+  width: 12px;
+  color: var(--dt-link);
+  flex-shrink: 0;
+}
+
+/* ── Export menu (toolbar) ───────────────────────────────── */
+.dt-export-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.dt-export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 2px;
+  min-width: 180px;
+  z-index: 1000;
+}
+
+.dt-checkbox--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── WebSocket Messages view ─────────────────────────────── */
+.dt-ws-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dt-ws-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 64px 92px;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  align-items: center;
+}
+
+.dt-ws-row-header {
+  font-family: inherit;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--dt-header-bg);
+}
+
+.dt-ws-list {
+  flex: 1;
+  overflow: auto;
+}
+
+.dt-ws-data {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-ws-len,
+.dt-ws-time {
+  color: var(--dt-text-muted);
+  text-align: right;
+}
+
+.dt-ws-dir {
+  text-align: center;
+  font-weight: 700;
+}
+
+.dt-ws-dir--send .dt-ws-dir {
+  color: var(--dt-status-orange);
+}
+
+.dt-ws-dir--recv .dt-ws-dir {
+  color: var(--dt-status-green);
+}
+
+/* ── SSE EventStream view ────────────────────────────────── */
+.dt-sse-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dt-sse-row {
+  display: grid;
+  grid-template-columns: 64px 96px 1fr;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  align-items: start;
+}
+
+.dt-sse-row-header {
+  font-family: inherit;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--dt-header-bg);
+}
+
+.dt-sse-list {
+  flex: 1;
+  overflow: auto;
+}
+
+.dt-sse-data {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

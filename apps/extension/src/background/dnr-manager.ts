@@ -42,6 +42,8 @@ import {
   redirectCompiler,
 } from './dnr-builders';
 import { updateScriptableRules } from './inject-manager';
+import { CACHE_BYPASS_ID_BASE } from './modules/cache-bypass';
+import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from './modules/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
 
@@ -286,6 +288,12 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
   dynamicDnrIdToUid.clear();
   runSessionRuleIdToUid.clear();
 
+  // Diff the effective-active rule set against the previous snapshot
+  // and enqueue any necessary cache eviction. Runs on every rebuild
+  // regardless of pause state — pausing the engine is itself a
+  // transition that should evict caches holding rule-applied bytes.
+  observeRuleState(rules, pauseMarkers, isPaused);
+
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
     clearAllDynamicRules();
@@ -444,7 +452,11 @@ function applySessionRules(newRules: DnrRule[]): Promise<void> {
   return dnr
     .getSessionRules()
     .then((existing) => {
-      const removeRuleIds = existing.map((r) => r.id);
+      // Preserve cache-bypass session rules (installed by the inspector
+      // panel's "Disable Cache" toggle) — they have their own lifecycle
+      // and shouldn't be nuked by a user-rule rebuild. See
+      // `modules/cache-bypass.ts`.
+      const removeRuleIds = existing.filter((r) => r.id < CACHE_BYPASS_ID_BASE).map((r) => r.id);
       return dnr.updateSessionRules!({
         removeRuleIds,
         addRules: newRules as chrome.declarativeNetRequest.Rule[],

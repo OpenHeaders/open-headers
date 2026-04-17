@@ -26,10 +26,12 @@ import type { MenuProps } from 'antd';
 import { App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { formatCode } from '../languages/formatter';
 import type { LanguageId } from '../languages/registry';
 import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYPE } from '../rule-templates';
+import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
@@ -65,6 +67,14 @@ interface RuleEditorProps {
   draftName?: string;
   /** Template to pre-apply on mount (from tab identity, not URL state). */
   initialTemplateKey?: string;
+  /**
+   * Pre-filled rule draft supplied by an external caller (e.g. the
+   * inspector panel's "override this header" CTA). Populates the form
+   * on mount when `mode === 'create'` so the user arrives at a
+   * ready-to-save rule — but the rule stays unsaved until they
+   * explicitly confirm via the Save modal.
+   */
+  initialDraft?: V5.RuleDraft;
   onSaved: (uid: string) => void;
   onSaveDraft?: (tabId: string, draftData: Record<string, unknown>) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -79,6 +89,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   tabId,
   draftName,
   initialTemplateKey,
+  initialDraft,
   onSaved,
   onSaveDraft,
   onDirtyChange,
@@ -107,6 +118,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const [headerActiveTab, setHeaderActiveTab] = useState('request');
   const [headerReqCount, setHeaderReqCount] = useState(0);
   const [headerResCount, setHeaderResCount] = useState(0);
+
+  // URL-derivation strategy for `initialDraft.url` → url-filter condition.
+  // Read live so a user who changes the setting mid-session gets the new
+  // behavior on next draft open.
+  const draftUrlStrategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
   // ── Enabled state: owned by rule store (edit) or local (create) ──
 
@@ -312,7 +328,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       }
     } else if (mode === 'create' && ruleType) {
       initializedRef.current = true;
-      form.setFieldsValue({
+
+      // Type defaults applied first so every form field has a value.
+      // An `initialDraft` (inspector handoff, future import flows) or
+      // `initialTemplateKey` (user-picked template) overrides specific
+      // fields on top. Precedence: defaults → template → draft.
+      const defaults: Record<string, unknown> = {
         ruleType,
         conditions: [],
         requestHeaders: [{ operation: 'override', headerName: '', value: '' }],
@@ -331,9 +352,51 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         bodyModType: 'static',
         bodyResourceType: 'rest',
         bodyGraphqlOperator: 'Equals',
-      });
+      };
+
+      // Apply `initialDraft` overlays for rule types the inspector /
+      // external callers target today. The conditions seed uses the
+      // same `buildDraftConditions` helper that the edit path used
+      // before — draft URL → url-pattern condition with the current
+      // draft-url strategy.
+      if (initialDraft && initialDraft.type === ruleType) {
+        const conditions = buildDraftConditions(initialDraft, draftUrlStrategy);
+        if (conditions.length > 0) defaults.conditions = conditions;
+
+        if (initialDraft.type === 'header') {
+          // Preserve the draft's direction intent: if the draft
+          // targets only response headers, leave requestHeaders
+          // empty so the editor's "jump to response tab" heuristic
+          // fires. The default placeholder would otherwise defeat it.
+          const targetsResponse = !!initialDraft.responseHeaders?.length;
+          const targetsRequest = !!initialDraft.requestHeaders?.length;
+          defaults.requestHeaders =
+            initialDraft.requestHeaders ??
+            (targetsResponse ? [] : [{ operation: 'override', headerName: '', value: '' }]);
+          defaults.responseHeaders = initialDraft.responseHeaders ?? (targetsRequest ? [] : []);
+        } else if (initialDraft.type === 'redirect') {
+          if (initialDraft.redirectTo) defaults.redirectTo = initialDraft.redirectTo;
+        } else if (initialDraft.type === 'block') {
+          if (initialDraft.statusCode != null) defaults.blockStatusCode = initialDraft.statusCode;
+          if (initialDraft.responseBody) defaults.blockResponseBody = initialDraft.responseBody;
+        }
+        // Other rule types extend similarly as inspector CTAs grow.
+      }
+
+      form.setFieldsValue(defaults);
+
+      // Header-direction badge counts + initial tab follow the same
+      // rule as the edit/template paths: if only one direction has
+      // entries, select it.
+      if (ruleType === 'header') {
+        const reqLen = Array.isArray(defaults.requestHeaders) ? (defaults.requestHeaders as unknown[]).length : 0;
+        const resLen = Array.isArray(defaults.responseHeaders) ? (defaults.responseHeaders as unknown[]).length : 0;
+        setHeaderReqCount(reqLen);
+        setHeaderResCount(resLen);
+        setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+      }
     }
-  }, [mode, ruleType, ruleUid, rules, form]);
+  }, [mode, ruleType, ruleUid, rules, form, initialDraft, draftUrlStrategy]);
 
   // Apply initial template after form init (from tab identity, runs once).
   // Must wait for selectedType to resolve — applyTemplate looks up templates by type.

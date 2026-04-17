@@ -59,6 +59,20 @@ export default function ResourceIcon({ type }: { type: string }) {
         <path d="M6 1.5v9M1.5 6h9" fill="none" stroke="currentColor" strokeWidth={0.8} />
       </svg>
     );
+  if (rt === 'preflight')
+    return (
+      <svg className={cls} viewBox="0 0 12 12" width={12} height={12} aria-hidden="true">
+        <circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth={1.2} />
+        <path
+          d="M4 6l1.5 1.5L8 5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
   if (rt === 'manifest')
     return (
       <svg className={cls} viewBox="0 0 12 12" width={12} height={12} aria-hidden="true">

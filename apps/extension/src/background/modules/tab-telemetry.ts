@@ -54,7 +54,10 @@
  */
 
 import type { TrackedResourceType } from '@/types/browser';
+import type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@/types/telemetry';
 import type { ShadowAttribution } from './shadow-arbitration';
+
+export type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@/types/telemetry';
 
 // ── Tunables ────────────────────────────────────────────────────────
 
@@ -83,28 +86,6 @@ const FALLBACK_WINDOW_MS = 500;
 
 // ── Public types ────────────────────────────────────────────────────
 
-/** Tier of evidence for a rule firing on a request. */
-export type Evidence = 'confirmed' | 'matched' | 'matched-fallback';
-
-/** One observation of a rule firing on a specific URL. */
-export interface RequestRecord {
-  ruleUid: string;
-  url: string;
-  pattern: string;
-  resourceType: TrackedResourceType;
-  /** Wall-clock timestamp in ms. */
-  t: number;
-  evidence: Evidence;
-  /**
-   * Set when shadow arbitration (see shadow-arbitration.ts) determined that
-   * another rule in the matching set made this rule's effect invisible or
-   * ambiguous. `kind` classifies the reason — block-terminal, retarget,
-   * mock-intercept, delay-page, or header-stacking. Populated at ingestion
-   * time from `ObservedFireMeta`; never set on scriptable fires (they're
-   * ground truth about what actually ran).
-   */
-  shadowedBy?: ShadowAttribution;
-}
 
 /** Metadata the caller supplies when reporting an observed (webRequest) fire. */
 export interface ObservedFireMeta {
@@ -130,18 +111,6 @@ export interface ObservedFireMeta {
 export interface ScriptableFireMeta {
   pattern: string;
   resourceType: TrackedResourceType;
-}
-
-/** Per-tab telemetry snapshot returned to consumers. */
-export interface TabTelemetrySnapshot {
-  /** Per-rule event counters — every non-dropped fire increments. */
-  counters: Record<string, number>;
-  /** Chronological fire log (newest last). Bounded. */
-  fires: RequestRecord[];
-  /** Per-rule unique-URL records, LRU order (oldest first). */
-  byRule: Record<string, RequestRecord[]>;
-  /** Unique normalized URLs across all rules. */
-  uniqueRequestCount: number;
 }
 
 export type TrackingReason = string;
@@ -467,6 +436,7 @@ export function recordObservedFire(
     resourceType: meta.resourceType,
     t,
     evidence: 'matched',
+    requestId,
     ...(meta.shadowedBy ? { shadowedBy: meta.shadowedBy } : {}),
   };
 
@@ -550,6 +520,39 @@ export function recordScriptableFire(
     evidence: 'confirmed',
   };
   appendFire(state, record);
+}
+
+// ── Delivery-mode back-fill ─────────────────────────────────────────
+
+/**
+ * Back-fill the delivery mode on every record for a given requestId.
+ * Called from request-monitor's `onCompleted` listener once Chrome
+ * reports whether the response was cache-served. Walks each place a
+ * record can live (pending main-frame queue, pending fallback buffer,
+ * chronological fire log, per-rule LRU maps) and updates in place.
+ *
+ * Safe no-op when the tab isn't tracked or no record exists yet for
+ * this requestId — a scriptable-only fire has no requestId so its
+ * deliveryMode stays undefined, which the UI renders as no tag.
+ */
+export function updateRequestDeliveryMode(tabId: number, requestId: string, mode: DeliveryMode): void {
+  const state = tabs.get(tabId);
+  if (!state) return;
+
+  for (const pending of state.pendingFires) {
+    if (pending.requestId === requestId) pending.record.deliveryMode = mode;
+  }
+  for (const entry of state.pendingFallback.values()) {
+    if (entry.record.requestId === requestId) entry.record.deliveryMode = mode;
+  }
+  for (const fire of state.fires) {
+    if (fire.requestId === requestId) fire.deliveryMode = mode;
+  }
+  for (const urlMap of state.uniquesByRule.values()) {
+    for (const record of urlMap.values()) {
+      if (record.requestId === requestId) record.deliveryMode = mode;
+    }
+  }
 }
 
 // ── Observed URL log ────────────────────────────────────────────────
@@ -710,7 +713,13 @@ export function onMainFrameError(tabId: number, requestId: string): void {
  * the tracked or untracked path.
  */
 function emptySnapshot(): TabTelemetrySnapshot {
-  return { counters: {}, fires: [], byRule: {}, uniqueRequestCount: 0 };
+  return { counters: {}, fires: [], byRule: {}, uniqueRequestCount: 0, totalFires: 0 };
+}
+
+function sumCounters(counters: Record<string, number>): number {
+  let total = 0;
+  for (const n of Object.values(counters)) total += n;
+  return total;
 }
 
 /**
@@ -740,6 +749,7 @@ export function getTabSnapshot(tabId: number): TabTelemetrySnapshot {
     fires: [...state.fires],
     byRule,
     uniqueRequestCount: uniqueUrls.size,
+    totalFires: sumCounters(counters),
   };
 }
 
@@ -769,7 +779,7 @@ export function getTabSnapshotForScope(tabId: number, scopeUids: Set<string>): T
     }
   }
 
-  return { counters, fires, byRule, uniqueRequestCount: uniqueUrls.size };
+  return { counters, fires, byRule, uniqueRequestCount: uniqueUrls.size, totalFires: sumCounters(counters) };
 }
 
 // ── Test helpers ────────────────────────────────────────────────────

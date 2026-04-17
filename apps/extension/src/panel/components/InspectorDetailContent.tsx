@@ -4,12 +4,18 @@
  * close) and with section state driven by InspectorTab.activeSection.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { validateHeaderName } from '@openheaders/core/utils';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
+import { formatHttpVersion } from '../data/http-version';
 import type { DetailSection } from '../data/inspector-tab';
 import { buildHeaderDraftFromRequest, handOffRuleDraft } from '../data/rule-draft-bridge';
 import type { InspectorRequest } from '../data/types';
+import type { RulesByUid } from '../data/use-rules-lookup';
 import CookiesView from './detail/CookiesView';
+import EventStreamView, { isEventStream } from './detail/EventStreamView';
 import InitiatorView from './detail/InitiatorView';
+import MessagesView, { hasWebSocketMessages } from './detail/MessagesView';
 import PayloadView from './detail/PayloadView';
 import PreviewView from './detail/PreviewView';
 import TimingView from './detail/TimingView';
@@ -18,15 +24,33 @@ import { ResponseBodyView } from './ResponseBodyView';
 
 interface InspectorDetailContentProps {
   request: InspectorRequest;
+  /** Rule registry used to attribute request/response header rows to
+   *  the Open Headers rule that added, modified, or removed them. */
+  rulesByUid: RulesByUid;
+  /** True while the "Disable Cache" toolbar toggle is on for the
+   *  inspected tab. Tags `Cache-Control: no-cache` / `Pragma: no-cache`
+   *  request headers as system-injected (yellow) instead of server. */
+  cacheBypassEnabled: boolean;
+  /** The `rulesEngine.liveRulesMode` setting. When on and any user
+   *  header rule fired on this request without touching Cache-Control,
+   *  the request carries automatic cache-bypass headers — attribute
+   *  them as `system/live-rules` (yellow) rather than server. */
+  liveRulesMode: boolean;
   activeSection: DetailSection;
   onSectionChange: (section: DetailSection) => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
+  /** N-th occurrence of `searchHighlight` inside `searchSection`
+   *  (0-based). Lets the viewer scroll to this exact match rather
+   *  than the first. */
+  searchMatchIndex?: number;
 }
 
 const PAYLOAD_SECTION: { key: DetailSection; label: string } = { key: 'payload', label: 'Payload' };
 const COOKIES_SECTION: { key: DetailSection; label: string } = { key: 'cookies', label: 'Cookies' };
+const MESSAGES_SECTION: { key: DetailSection; label: string } = { key: 'messages', label: 'Messages' };
+const EVENTSTREAM_SECTION: { key: DetailSection; label: string } = { key: 'eventstream', label: 'EventStream' };
 const HAR_SECTION: { key: DetailSection; label: string } = { key: 'har', label: 'HAR' };
 
 function hasPayload(har: InspectorDetailContentProps['request']['harEntry']): boolean {
@@ -61,13 +85,118 @@ function isHighlightedHeader(
   return headerText.toLowerCase().includes(highlight.toLowerCase());
 }
 
+/**
+ * Single attributed header row. Styling derives from the attribution:
+ *
+ *   - `server`   — default monospace row, no decoration.
+ *   - `added`    — blue left border + `+` glyph; "injected by <rule>"
+ *                  tooltip; click the name to jump to the rule (same
+ *                  affordance as `server` rows' "create a rule" jump,
+ *                  repurposed as "open the rule that injected this").
+ *   - `modified` — blue left border + `~` glyph; tooltip shows the
+ *                  original server value; value shown is the one the
+ *                  page actually sees.
+ *   - `removed`  — muted text + strikethrough on the value; tooltip
+ *                  explains that Open Headers removed it before it
+ *                  reached the page.
+ *
+ * The server-origin rows keep the existing "click name → open Create
+ * Rule prefilled" affordance. Rule-originated rows keep the same look
+ * for the name button but point at the rule that applied the change.
+ */
+interface AttributedHeaderRowProps {
+  row: AnnotatedHeader;
+  /** Row index in the rendered list — only used to correlate with
+   *  the search/highlight machinery. */
+  index: number;
+  sectionLabel: 'Request Headers' | 'Response Headers';
+  searchSection: string | undefined;
+  searchLineNumber: number | undefined;
+  searchHighlight: string | undefined;
+  onNameClick: (name: string, value: string) => void;
+}
+
+function AttributedHeaderRow({
+  row,
+  index,
+  sectionLabel,
+  searchSection,
+  searchLineNumber,
+  searchHighlight,
+  onNameClick,
+}: AttributedHeaderRowProps) {
+  const { name, value, attribution } = row;
+  const kind = attribution.kind;
+
+  // Chrome / Firefox / Edge reject DNR rules that target protected
+  // headers (`sec-ch-ua`, `host`, `content-length`, etc.) at apply
+  // time. We silently skip the "click to override" CTA for these —
+  // no lock icon, no special tooltip, no visual weirdness — the row
+  // just looks like a normal header that happens to not be a link.
+  const direction: 'request' | 'response' = sectionLabel === 'Response Headers' ? 'response' : 'request';
+  const isProtected = !validateHeaderName(name, direction === 'response').valid;
+
+  const classes = [
+    'dt-kv',
+    isHighlightedHeader(index, sectionLabel, searchSection, searchLineNumber, searchHighlight, `${name}: ${value}`)
+      ? 'dt-kv--highlighted'
+      : '',
+    kind === 'server' ? '' : `dt-kv--oh-${kind}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  let attributionTitle: string;
+  if (kind === 'added') {
+    const ruleName = attribution.rule.name ?? attribution.rule.uid;
+    attributionTitle = `Injected by Open Headers rule "${ruleName}"`;
+  } else if (kind === 'modified') {
+    const ruleName = attribution.rule.name ?? attribution.rule.uid;
+    attributionTitle = `Modified by Open Headers rule "${ruleName}" · original: ${attribution.originalValue}`;
+  } else if (kind === 'removed') {
+    const ruleName = attribution.rule.name ?? attribution.rule.uid;
+    attributionTitle = `Removed by Open Headers rule "${ruleName}"`;
+  } else if (kind === 'system') {
+    attributionTitle = `Injected by ${attribution.label} (Open Headers system feature)`;
+  } else {
+    attributionTitle = 'Create a rule to override this header';
+  }
+
+  return (
+    <div
+      className={classes}
+      style={{ fontFamily: 'monospace' }}
+      title={kind === 'server' ? undefined : attributionTitle}
+    >
+      {isProtected ? (
+        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{name}</span>
+      ) : (
+        <button
+          type="button"
+          className="dt-btn-link"
+          style={{ fontFamily: 'monospace', fontWeight: 600 }}
+          onClick={() => onNameClick(name, value)}
+          title={kind === 'server' ? 'Create a rule to override this header' : attributionTitle}
+        >
+          {name}
+        </button>
+      )}
+      <span className="dt-kv-oh-value">: {value}</span>
+    </div>
+  );
+}
+
 export function InspectorDetailContent({
   request,
+  rulesByUid,
+  cacheBypassEnabled,
+  liveRulesMode,
   activeSection,
   onSectionChange,
   searchHighlight,
   searchSection,
   searchLineNumber,
+  searchMatchIndex,
 }: InspectorDetailContentProps) {
   const [error, setError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -84,8 +213,47 @@ export function InspectorDetailContent({
   }, [searchHighlight, searchLineNumber]);
 
   const har = request.harEntry;
-  const requestHeaders = har.request?.headers ?? [];
-  const responseHeaders = har.response?.headers ?? [];
+  // Live Rules Mode system-attribution gate: yellow the cache-bypass
+  // request headers when a user header rule fired and didn't itself
+  // touch Cache-Control. Mirrors the DNR-side gate in header-builder.
+  const liveRulesFired = useMemo<boolean>(() => {
+    if (!liveRulesMode) return false;
+    const seen = new Set<string>();
+    for (const fire of request.fires) {
+      if (seen.has(fire.ruleUid)) continue;
+      seen.add(fire.ruleUid);
+      const rule = rulesByUid.get(fire.ruleUid);
+      if (!rule || rule.type !== 'header') continue;
+      const mods = [...(rule.action.requestHeaders ?? []), ...(rule.action.responseHeaders ?? [])];
+      if (mods.length === 0) continue;
+      const userTouchesCacheControl = (rule.action.requestHeaders ?? []).some(
+        (m) => m.headerName.toLowerCase() === 'cache-control',
+      );
+      if (!userTouchesCacheControl) return true;
+    }
+    return false;
+  }, [liveRulesMode, request.fires, rulesByUid]);
+
+  // Attribute each header row to a rule (or `server` for untouched
+  // rows). `attributeHeaders` merges rule-added rows that aren't in
+  // the HAR at all, so these lists may be longer than the raw HAR
+  // `headers` arrays. Recompute only when inputs change.
+  const requestHeaders = useMemo<readonly AnnotatedHeader[]>(
+    () =>
+      attributeHeaders(har.request?.headers ?? [], request.fires, 'request', rulesByUid, {
+        cacheBypassEnabled,
+        liveRulesFired,
+      }),
+    [har.request?.headers, request.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
+  );
+  const responseHeaders = useMemo<readonly AnnotatedHeader[]>(
+    () =>
+      attributeHeaders(har.response?.headers ?? [], request.fires, 'response', rulesByUid, {
+        cacheBypassEnabled,
+        liveRulesFired,
+      }),
+    [har.response?.headers, request.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
+  );
 
   const createHeaderRule = async (
     direction: 'request' | 'response',
@@ -103,8 +271,12 @@ export function InspectorDetailContent({
 
   const statusOk = request.statusCode != null && request.statusCode < 400;
   const section = activeSection;
+  const showMessages = hasWebSocketMessages(har);
+  const showEventStream = isEventStream(request.mimeType);
   const sections: Array<{ key: DetailSection; label: string }> = [
     { key: 'headers', label: 'Headers' },
+    ...(showMessages ? [MESSAGES_SECTION] : []),
+    ...(showEventStream ? [EVENTSTREAM_SECTION] : []),
     ...(hasPayload(har) ? [PAYLOAD_SECTION] : []),
     { key: 'preview', label: 'Preview' },
     { key: 'response', label: 'Response' },
@@ -179,6 +351,20 @@ export function InspectorDetailContent({
                 </div>
               )}
               {(() => {
+                const httpVersion = har.response?.httpVersion ?? har.request?.httpVersion;
+                if (!httpVersion) return null;
+                const friendly = formatHttpVersion(httpVersion);
+                const showRawHint = friendly !== httpVersion.toUpperCase();
+                return (
+                  <div className="dt-kv">
+                    <span className="dt-kv-key">HTTP Version:</span>
+                    <span className="dt-kv-val" title={showRawHint ? `ALPN: ${httpVersion}` : undefined}>
+                      {friendly}
+                    </span>
+                  </div>
+                );
+              })()}
+              {(() => {
                 const referrerPolicy = responseHeaders.find((h) => h.name.toLowerCase() === 'referrer-policy')?.value;
                 if (!referrerPolicy) return null;
                 return (
@@ -190,22 +376,11 @@ export function InspectorDetailContent({
               })()}
             </details>
 
-            {request.fires.length > 0 && (
-              <details className="dt-section" open>
-                <summary>Open Headers Rule Fires ({request.fires.length})</summary>
-                {request.fires.map((f, i) => (
-                  <div key={`fire-${i}-${f.ruleUid}`} className="dt-kv" style={{ fontFamily: 'monospace' }}>
-                    <span
-                      className={`dt-exec-badge ${f.authoritative ? 'dt-exec-badge--auth' : 'dt-exec-badge--inferred'}`}
-                    >
-                      {f.authoritative ? 'authoritative' : 'inferred'}
-                    </span>
-                    <code>{f.ruleUid}</code>
-                    {f.pattern && <span className="dt-col-muted"> &mdash; {f.pattern}</span>}
-                  </div>
-                ))}
-              </details>
-            )}
+            {/* Rule fires for this request live in the dedicated
+             *  "Matched Rules" tool window (bottom-right dock).
+             *  Keeping them out of the Headers tab avoids duplicating
+             *  information with the inline per-header attribution
+             *  badges below (modified / injected / removed). */}
 
             <details className="dt-section" open>
               <summary>
@@ -221,22 +396,16 @@ export function InspectorDetailContent({
               </summary>
               {responseHeaders.length > 0 ? (
                 responseHeaders.map((h, i) => (
-                  <div
+                  <AttributedHeaderRow
                     key={`res-${i}-${h.name}`}
-                    className={`dt-kv ${isHighlightedHeader(i, 'Response Headers', searchSection, searchLineNumber, searchHighlight, `${h.name}: ${h.value}`) ? 'dt-kv--highlighted' : ''}`}
-                    style={{ fontFamily: 'monospace' }}
-                  >
-                    <button
-                      type="button"
-                      className="dt-btn-link"
-                      style={{ fontFamily: 'monospace', fontWeight: 600 }}
-                      onClick={() => createHeaderRule('response', h.name, h.value)}
-                      title="Create a rule to override this header"
-                    >
-                      {h.name}
-                    </button>
-                    <span>: {h.value}</span>
-                  </div>
+                    row={h}
+                    index={i}
+                    sectionLabel="Response Headers"
+                    searchSection={searchSection}
+                    searchLineNumber={searchLineNumber}
+                    searchHighlight={searchHighlight}
+                    onNameClick={(name, value) => createHeaderRule('response', name, value)}
+                  />
                 ))
               ) : (
                 <div className="dt-kv dt-col-muted">None captured.</div>
@@ -257,22 +426,16 @@ export function InspectorDetailContent({
               </summary>
               {requestHeaders.length > 0 ? (
                 requestHeaders.map((h, i) => (
-                  <div
+                  <AttributedHeaderRow
                     key={`req-${i}-${h.name}`}
-                    className={`dt-kv ${isHighlightedHeader(i, 'Request Headers', searchSection, searchLineNumber, searchHighlight, `${h.name}: ${h.value}`) ? 'dt-kv--highlighted' : ''}`}
-                    style={{ fontFamily: 'monospace' }}
-                  >
-                    <button
-                      type="button"
-                      className="dt-btn-link"
-                      style={{ fontFamily: 'monospace', fontWeight: 600 }}
-                      onClick={() => createHeaderRule('request', h.name, h.value)}
-                      title="Create a rule to override this header"
-                    >
-                      {h.name}
-                    </button>
-                    <span>: {h.value}</span>
-                  </div>
+                    row={h}
+                    index={i}
+                    sectionLabel="Request Headers"
+                    searchSection={searchSection}
+                    searchLineNumber={searchLineNumber}
+                    searchHighlight={searchHighlight}
+                    onNameClick={(name, value) => createHeaderRule('request', name, value)}
+                  />
                 ))
               ) : (
                 <div className="dt-kv dt-col-muted">None captured.</div>
@@ -281,7 +444,13 @@ export function InspectorDetailContent({
           </>
         )}
 
-        {section === 'payload' && <PayloadView har={har} />}
+        {section === 'payload' && (
+          <PayloadView har={har} searchHighlight={searchHighlight} searchSection={searchSection} />
+        )}
+
+        {section === 'messages' && showMessages && <MessagesView har={har} />}
+
+        {section === 'eventstream' && showEventStream && <EventStreamView request={request} />}
 
         {section === 'initiator' && <InitiatorView har={har} requestUrl={request.url} />}
 
@@ -303,6 +472,7 @@ export function InspectorDetailContent({
           request={request}
           searchHighlight={searchSection === 'Response' ? searchHighlight : undefined}
           searchLineNumber={searchSection === 'Response' ? searchLineNumber : undefined}
+          searchMatchIndex={searchSection === 'Response' ? searchMatchIndex : undefined}
         />
       )}
     </div>

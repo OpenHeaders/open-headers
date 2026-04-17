@@ -126,7 +126,14 @@ export interface InspectorHarEntry {
   _priority?: string;
   _resourceType?: string;
   _webSocketMessages?: unknown[];
+  /** "disk" | "memory" (Chromium convention), or absent when not cached. */
   _fromCache?: string;
+  /** Non-standard boolean flag some Chromium builds set alongside _fromCache. */
+  _servedFromCache?: boolean;
+  /** Chromium flag: the response was intercepted and served by a service
+   *  worker's `fetch` handler. Populated on recent Chrome builds; absent
+   *  on older ones (we fall back to other signals in the classifier). */
+  _fetchedViaServiceWorker?: boolean;
 }
 
 /** Response body payload fetched asynchronously via entry.getContent. */
@@ -139,6 +146,22 @@ export interface InspectorHarBody {
 }
 
 /**
+ * Page-level navigation timing snapshot, sourced via
+ * `chrome.devtools.inspectedWindow.eval` of
+ * `performance.getEntriesByType('navigation')`. All values are ms since
+ * navigationStart; omitted fields mean the event hasn't fired yet or
+ * isn't applicable (e.g. frame-only navigations).
+ */
+export interface InspectorNavTiming {
+  /** Origin the metrics were sampled from — used as the "same page" baseline. */
+  pageOrigin: string | null;
+  /** DOMContentLoaded ms (relative to navigationStart). */
+  dclMs?: number;
+  /** Load event ms (relative to navigationStart). */
+  loadMs?: number;
+}
+
+/**
  * Wire format for messages posted over the port. Discriminated union
  * keyed by `type`. The panel's data layer parses incoming messages
  * against this shape.
@@ -148,7 +171,28 @@ export type InspectorPortMessage =
   | { type: 'har'; entry: InspectorHarEntry }
   | { type: 'har-body'; body: InspectorHarBody }
   | { type: 'nav'; url: string }
+  | { type: 'nav-timing'; timing: InspectorNavTiming }
   | { type: 'ready'; tabId: number };
+
+/**
+ * Wire format from the devtools_page HAR source port. The background
+ * re-emits a subset of these (translated to `InspectorPortMessage`) to
+ * inspector panels. `har-body` carries its payload flat (not under a
+ * nested `body` key) because the devtools_page posts the fields inline
+ * — history we keep to avoid churning that contract.
+ */
+export type HarSourceMessage =
+  | { type: 'har'; entry: InspectorHarEntry }
+  | {
+      type: 'har-body';
+      method: string;
+      url: string;
+      startedDateTime: string;
+      content?: string;
+      encoding?: string;
+    }
+  | { type: 'nav'; url: string }
+  | { type: 'nav-timing'; timing: InspectorNavTiming };
 
 /**
  * Open inspector ports, keyed by inspected tab id. A tab can have at
@@ -258,44 +302,46 @@ export function setupDevtoolsInspectorPorts(): void {
     // can still see the backlog.
     const harTabId = parseHarSourcePortName(port.name);
     if (harTabId != null) {
-      port.onMessage.addListener(
-        (msg: { type?: string; entry?: InspectorHarEntry; url?: string } & Partial<InspectorHarBody>) => {
-          if (msg?.type === 'har' && msg.entry) {
-            const outgoing: InspectorPortMessage = { type: 'har', entry: msg.entry };
-            broadcastToInspectorPorts(harTabId, outgoing);
-            pushHarBuffer(harTabId, outgoing);
-            return;
-          }
-          if (
-            msg?.type === 'har-body' &&
-            typeof msg.method === 'string' &&
-            typeof msg.url === 'string' &&
-            typeof msg.startedDateTime === 'string'
-          ) {
-            const outgoing: InspectorPortMessage = {
-              type: 'har-body',
-              body: {
-                method: msg.method,
-                url: msg.url,
-                startedDateTime: msg.startedDateTime,
-                content: msg.content ?? '',
-                encoding: msg.encoding ?? '',
-              },
-            };
-            broadcastToInspectorPorts(harTabId, outgoing);
-            pushHarBuffer(harTabId, outgoing);
-            return;
-          }
-          if (msg?.type === 'nav' && typeof msg.url === 'string') {
-            // Navigation in the inspected window — relay to live
-            // inspector ports so the panel can honor clear-on-nav.
-            // Not buffered: a buffered nav would replay stale clears
-            // on a late-connecting inspector and wipe legitimate
-            // backlog from the HAR buffer. Live-only is correct.
-            broadcastToInspectorPorts(harTabId, { type: 'nav', url: msg.url });
-          }
-        },
-      );
+      port.onMessage.addListener((msg: HarSourceMessage) => {
+        if (msg?.type === 'har' && msg.entry) {
+          const outgoing: InspectorPortMessage = { type: 'har', entry: msg.entry };
+          broadcastToInspectorPorts(harTabId, outgoing);
+          pushHarBuffer(harTabId, outgoing);
+          return;
+        }
+        if (
+          msg?.type === 'har-body' &&
+          typeof msg.method === 'string' &&
+          typeof msg.url === 'string' &&
+          typeof msg.startedDateTime === 'string'
+        ) {
+          const outgoing: InspectorPortMessage = {
+            type: 'har-body',
+            body: {
+              method: msg.method,
+              url: msg.url,
+              startedDateTime: msg.startedDateTime,
+              content: msg.content ?? '',
+              encoding: msg.encoding ?? '',
+            },
+          };
+          broadcastToInspectorPorts(harTabId, outgoing);
+          pushHarBuffer(harTabId, outgoing);
+          return;
+        }
+        if (msg?.type === 'nav' && typeof msg.url === 'string') {
+          // Navigation in the inspected window — relay to live
+          // inspector ports so the panel can honor clear-on-nav.
+          // Not buffered: a buffered nav would replay stale clears
+          // on a late-connecting inspector and wipe legitimate
+          // backlog from the HAR buffer. Live-only is correct.
+          broadcastToInspectorPorts(harTabId, { type: 'nav', url: msg.url });
+          return;
+        }
+        if (msg?.type === 'nav-timing' && msg.timing && typeof msg.timing === 'object') {
+          broadcastToInspectorPorts(harTabId, { type: 'nav-timing', timing: msg.timing });
+        }
+      });
       port.onDisconnect.addListener(() => {
         // DevTools window closed — drop the buffer to free memory.
         // A subsequent DevTools-reopen on the same tab will start with

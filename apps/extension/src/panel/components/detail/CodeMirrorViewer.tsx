@@ -5,6 +5,7 @@ import { highlightSelectionMatches } from '@codemirror/search';
 import type { Extension } from '@codemirror/state';
 import { Compartment, Facet } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { useTheme } from '@context';
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
@@ -93,37 +94,44 @@ interface CodeMirrorViewerProps {
   language: 'json' | 'css' | 'javascript' | 'html';
   onCursorChange?: (line: number, col: number) => void;
   searchQuery?: string;
+  /** N-th occurrence of `searchQuery` to scroll to (0-based). When
+   *  omitted/undefined we fall back to the first match. Updating this
+   *  while the query is stable re-runs scroll — that's what lets the
+   *  user click match #1 then match #5 in the same body and have the
+   *  viewport jump to each in turn. */
+  searchMatchIndex?: number;
 }
 
-export default function CodeMirrorViewer({ value, language, onCursorChange, searchQuery }: CodeMirrorViewerProps) {
+interface PendingScroll {
+  query: string;
+  matchIndex: number;
+}
+
+export default function CodeMirrorViewer({
+  value,
+  language,
+  onCursorChange,
+  searchQuery,
+  searchMatchIndex,
+}: CodeMirrorViewerProps) {
   const lang = langExtension(language);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const searchCompartment = useRef(new Compartment());
-  const pendingSearchRef = useRef<string | null>(null);
+  const pendingSearchRef = useRef<PendingScroll | null>(null);
+  const { isDarkMode } = useTheme();
 
-  const handleUpdate = useCallback(
-    (viewUpdate: {
-      state: { selection: { main: { head: number } } };
-      view: { state: { doc: { lineAt: (pos: number) => { number: number; from: number } } } };
-    }) => {
-      if (!onCursorChange) return;
-      const pos = viewUpdate.state.selection.main.head;
-      const line = viewUpdate.view.state.doc.lineAt(pos);
-      onCursorChange(line.number, pos - line.from + 1);
-    },
-    [onCursorChange],
-  );
-
-  // Track the search query we need to scroll to.
+  // Queue a scroll whenever the target changes. `searchMatchIndex` is
+  // part of the trigger so clicking match #1 then match #5 in the same
+  // body (same query) re-queues a scroll for the new match.
   // biome-ignore lint/correctness/useExhaustiveDependencies: value triggers re-scroll when document content changes after prettier formats
   useEffect(() => {
-    if (searchQuery) pendingSearchRef.current = searchQuery;
-  }, [searchQuery, value]);
+    if (searchQuery) pendingSearchRef.current = { query: searchQuery, matchIndex: searchMatchIndex ?? 0 };
+  }, [searchQuery, searchMatchIndex, value]);
 
   // After CodeMirror renders, check if we have a pending search to scroll to.
   // This runs on every CodeMirror update — including after value changes from
-  // prettier. We check the actual document content so we only scroll once
-  // the formatted text is committed.
+  // prettier. We walk the doc for the N-th occurrence of the query so
+  // clicking different matches in the same body scrolls to each in turn.
   const handleEditorUpdate = useCallback(
     (viewUpdate: { state: { selection: { main: { head: number } } }; view: EditorView }) => {
       // Cursor tracking
@@ -133,30 +141,42 @@ export default function CodeMirrorViewer({ value, language, onCursorChange, sear
         onCursorChange(line.number, pos - line.from + 1);
       }
 
-      // Pending search scroll
-      const query = pendingSearchRef.current;
-      if (!query) return;
+      const pending = pendingSearchRef.current;
+      if (!pending) return;
 
       const view = viewUpdate.view;
       const text = view.state.doc.toString();
-      const idx = text.toLowerCase().indexOf(query.toLowerCase());
+      const lower = text.toLowerCase();
+      const qLower = pending.query.toLowerCase();
+
+      // Walk to the N-th occurrence. If the document has fewer matches
+      // than requested (e.g. pretty-print removed whitespace that
+      // contained the query — rare), fall back to the last match so
+      // the click still does something useful.
+      let idx = -1;
+      let cursor = 0;
+      for (let i = 0; i <= pending.matchIndex; i++) {
+        const next = lower.indexOf(qLower, cursor);
+        if (next === -1) break;
+        idx = next;
+        cursor = next + qLower.length;
+      }
       if (idx < 0) return;
 
-      // Only scroll if we're not already at the match
+      // Skip if we're already parked on this exact match.
       const sel = view.state.selection.main;
-      if (sel.from === idx && sel.to === idx + query.length) {
+      if (sel.from === idx && sel.to === idx + pending.query.length) {
         pendingSearchRef.current = null;
         return;
       }
 
       pendingSearchRef.current = null;
-      // Reconfigure facet + select + scroll in one transaction
       view.dispatch({
         effects: [
-          searchCompartment.current.reconfigure(searchQueryFacet.of(query)),
+          searchCompartment.current.reconfigure(searchQueryFacet.of(pending.query)),
           EditorView.scrollIntoView(idx, { y: 'center' }),
         ],
-        selection: { anchor: idx, head: idx + query.length },
+        selection: { anchor: idx, head: idx + pending.query.length },
       });
     },
     [onCursorChange],
@@ -180,6 +200,7 @@ export default function CodeMirrorViewer({ value, language, onCursorChange, sear
         value={value}
         extensions={extensions}
         readOnly
+        theme={isDarkMode ? 'dark' : 'light'}
         basicSetup={{ lineNumbers: true, foldGutter: true }}
         onUpdate={handleEditorUpdate}
       />

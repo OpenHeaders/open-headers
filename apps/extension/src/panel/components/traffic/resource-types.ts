@@ -12,6 +12,7 @@ export const RESOURCE_LABEL: Record<string, string> = {
   media: 'media',
   websocket: 'websocket',
   ping: 'ping',
+  preflight: 'preflight',
   other: 'other',
 };
 

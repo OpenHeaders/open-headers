@@ -32,6 +32,7 @@ function getInspectedTabId(): number | null {
 export interface UseInspectorResult {
   entries: readonly ReturnType<InspectorStore['getSnapshot']>['entries'][number][];
   danglingFires: readonly ReturnType<InspectorStore['getSnapshot']>['danglingFires'][number][];
+  navTiming: ReturnType<InspectorStore['getSnapshot']>['navTiming'];
   tabId: number | null;
   ready: boolean;
   preserveLog: boolean;
@@ -73,6 +74,9 @@ export function useInspector(): UseInspectorResult {
           break;
         case 'nav':
           store.onNavigated();
+          break;
+        case 'nav-timing':
+          store.setNavTiming(msg.timing);
           break;
         default: {
           // Exhaustiveness guard — TypeScript flags any new
@@ -120,6 +124,7 @@ export function useInspector(): UseInspectorResult {
   return {
     entries: snapshot.entries,
     danglingFires: snapshot.danglingFires,
+    navTiming: snapshot.navTiming,
     tabId: tabIdRef.current,
     ready: readyRef.current,
     preserveLog: store.getPreserveLog(),

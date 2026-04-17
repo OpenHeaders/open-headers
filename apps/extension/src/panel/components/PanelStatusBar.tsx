@@ -19,12 +19,30 @@ const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; co
 interface PanelStatusBarProps {
   tl: DockLayoutApi<PanelToolWindowId>;
   requestCount: number;
-  totalSize: string;
+  transferredSize: string;
+  resourceSize: string;
   finishTime: string;
+  dclMs?: number;
+  loadMs?: number;
   tabCount: number;
 }
 
-const PanelStatusBar: React.FC<PanelStatusBarProps> = ({ tl, requestCount, totalSize, finishTime, tabCount }) => {
+function formatTiming(ms: number | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return '';
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+}
+
+const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
+  tl,
+  requestCount,
+  transferredSize,
+  resourceSize,
+  finishTime,
+  dclMs,
+  loadMs,
+  tabCount,
+}) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
 
@@ -119,8 +137,21 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({ tl, requestCount, total
         <span className="rules-statusbar-item">
           {requestCount} request{requestCount === 1 ? '' : 's'}
         </span>
-        <span className="rules-statusbar-item">{totalSize} transferred</span>
+        <span className="rules-statusbar-item">
+          {transferredSize} transferred
+          {resourceSize && resourceSize !== transferredSize ? ` / ${resourceSize} resources` : ''}
+        </span>
         {finishTime && <span className="rules-statusbar-item">Finish: {finishTime}</span>}
+        {formatTiming(dclMs) && (
+          <span className="rules-statusbar-item" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
+            DOMContentLoaded: {formatTiming(dclMs)}
+          </span>
+        )}
+        {formatTiming(loadMs) && (
+          <span className="rules-statusbar-item" style={{ color: '#d93025' }} title="Load event">
+            Load: {formatTiming(loadMs)}
+          </span>
+        )}
         {tabCount > 0 && (
           <span className="rules-statusbar-item">
             {tabCount} tab{tabCount === 1 ? '' : 's'}

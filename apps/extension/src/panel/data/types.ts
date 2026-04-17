@@ -11,8 +11,10 @@
  * request fired before DevTools was open to capture it).
  */
 
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
+import type { InspectorHarEntry, InspectorNavTiming } from '@/background/modules/devtools-inspector-port';
 import type { RequestRecord } from '@/background/modules/tab-telemetry';
+
+export type { InspectorNavTiming };
 
 /**
  * Per-rule fire attached to an `InspectorRequest`. `authoritative`

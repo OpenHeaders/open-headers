@@ -70,7 +70,112 @@ function postToBackground(msg: unknown): void {
 // honors this only when its "Preserve log" toggle is off.
 chrome.devtools.network.onNavigated.addListener((url: string) => {
   postToBackground({ type: 'nav', url });
+  scheduleNavTimingSample();
 });
+
+/**
+ * Snapshot Navigation Timing from the inspected window and forward it
+ * over the HAR source port. Returns whether the load event has fired,
+ * letting the caller decide when polling can stop. One eval per tick.
+ *
+ * Uses Navigation Timing L2 (`performance.getEntriesByType('navigation')[0]`)
+ * and falls back to the deprecated `performance.timing` API for older
+ * Chromium contexts.
+ */
+interface NavTimingProbeResult {
+  pageOrigin: string | null;
+  dclMs?: number;
+  loadMs?: number;
+}
+
+/** Chrome's eval exception info — the second arg to the callback. */
+interface EvalExceptionInfo {
+  isError?: boolean;
+  isException?: boolean;
+  value?: string;
+  code?: string;
+  description?: string;
+}
+
+const NAV_TIMING_EXPR = `(() => {
+  try {
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (nav) {
+      return {
+        pageOrigin: location.origin,
+        dclMs: nav.domContentLoadedEventEnd > 0 ? nav.domContentLoadedEventEnd : undefined,
+        loadMs: nav.loadEventEnd > 0 ? nav.loadEventEnd : undefined,
+      };
+    }
+    const t = performance.timing;
+    const nstart = t.navigationStart || 0;
+    return {
+      pageOrigin: location.origin,
+      dclMs: t.domContentLoadedEventEnd > 0 ? t.domContentLoadedEventEnd - nstart : undefined,
+      loadMs: t.loadEventEnd > 0 ? t.loadEventEnd - nstart : undefined,
+    };
+  } catch (e) {
+    return { pageOrigin: null };
+  }
+})()`;
+
+function sampleNavTiming(onResult: (loadFired: boolean) => void): void {
+  chrome.devtools.inspectedWindow.eval(
+    NAV_TIMING_EXPR,
+    (result: NavTimingProbeResult | null, err?: EvalExceptionInfo) => {
+      if (err || !result) {
+        onResult(false);
+        return;
+      }
+      postToBackground({
+        type: 'nav-timing',
+        timing: {
+          pageOrigin: result.pageOrigin ?? null,
+          dclMs: result.dclMs,
+          loadMs: result.loadMs,
+        },
+      });
+      onResult((result.loadMs ?? 0) > 0);
+    },
+  );
+}
+
+/**
+ * Poll Navigation Timing until the load event has fired or the budget
+ * expires. The cadence is deliberately coarse (500ms) — fast pages
+ * complete within a tick or two; slow pages tolerate the extra polls
+ * because each eval returns under a millisecond.
+ */
+const NAV_TIMING_POLL_MS = 500;
+const NAV_TIMING_MAX_ATTEMPTS = 40; // ~20s total at 500ms cadence
+
+let navTimingPoll: ReturnType<typeof setInterval> | null = null;
+let navTimingAttempts = 0;
+
+function stopNavTimingPoll(): void {
+  if (navTimingPoll != null) clearInterval(navTimingPoll);
+  navTimingPoll = null;
+}
+
+function scheduleNavTimingSample(): void {
+  navTimingAttempts = 0;
+  stopNavTimingPoll();
+  const tick = () => {
+    navTimingAttempts++;
+    sampleNavTiming((loadFired) => {
+      if (loadFired || navTimingAttempts >= NAV_TIMING_MAX_ATTEMPTS) {
+        stopNavTimingPoll();
+      }
+    });
+  };
+  tick();
+  navTimingPoll = setInterval(tick, NAV_TIMING_POLL_MS);
+}
+
+// Kick off an initial sample — the panel may open on an already-loaded
+// page, in which case no onNavigated fires but Navigation Timing is
+// already populated.
+scheduleNavTimingSample();
 
 chrome.devtools.network.onRequestFinished.addListener((entry) => {
   try {

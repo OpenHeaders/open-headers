@@ -2,6 +2,8 @@
  * Types for the workspace.html full-page editor.
  */
 
+import type { V5 } from '@openheaders/core/types';
+
 export type TabMode =
   | 'create'
   | 'edit'
@@ -34,6 +36,24 @@ export interface RulesTab {
   createType?: string;
   /** For create tabs: optional template key to pre-apply on mount. */
   templateKey?: string;
+  /**
+   * For create tabs: pre-filled rule draft from an external caller
+   * (inspector-panel "override this header" CTA, future import/paste
+   * flows). The editor populates the form from it on mount instead
+   * of using type defaults. The rule stays unsaved until the user
+   * explicitly confirms — we never persist behind their back.
+   */
+  initialDraft?: V5.RuleDraft;
+  /**
+   * For create tabs opened from a specific collection/folder
+   * (sidebar "Add Rule", CollectionOverview, FolderOverview): the
+   * destination the user picked. When set, the Save flow skips the
+   * SaveToCollectionModal and persists directly to this location —
+   * the user already answered the "where" question by clicking the
+   * contextual Add Rule affordance.
+   */
+  preferredCollectionId?: string;
+  preferredFolderPath?: string;
   /** For edit tabs: the rule uid being edited. */
   ruleUid?: string;
   /** Auto-generated draft name for create tabs (e.g. "New Header Rule (2)"). */

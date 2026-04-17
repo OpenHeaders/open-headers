@@ -59,6 +59,8 @@ declare module '../types' {
     'rulesEngine.warnOnLargeRuleSets': boolean;
     'rulesEngine.largeRuleSetThreshold': number;
     'rulesEngine.draftUrlStrategy': DraftUrlStrategy;
+    'rulesEngine.liveRulesMode': boolean;
+    'rulesEngine.bypassHttpCache': boolean;
   }
 }
 
@@ -185,6 +187,32 @@ registerSetting({
   scope: 'user',
   numberRange: { min: 100, max: 30000, step: 100 },
   when: (get) => get('rulesEngine.warnOnLargeRuleSets'),
+});
+
+registerSetting({
+  key: 'rulesEngine.liveRulesMode',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Live Rules Mode',
+  description:
+    "Injects Cache-Control: no-cache on every request that matches one of your rules, forcing revalidation with the server so the rule's effect is always applied fresh. Prevents stale cached responses from hiding a rule — useful when a rule's value changes (like an auth token) but the page keeps serving the old response from cache.",
+  category: 'rulesEngine',
+  tags: ['cache', 'freshness', 'no-cache', 'live', 'token'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'rulesEngine.bypassHttpCache',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  label: 'Bypass HTTP Cache',
+  description:
+    "Adds Cache-Control: no-cache to every request on the inspected tab — forces revalidation with the server. Scope is the HTTP cache only; Chrome's own Disable Cache (Network tab) also bypasses the renderer memory cache. Rule-matched requests are always kept fresh automatically by Live Rules Mode.",
+  category: 'rulesEngine',
+  tags: ['cache', 'bypass', 'devtools', 'http', 'debugging'],
+  scope: 'user',
 });
 
 registerSetting({

@@ -1,5 +1,12 @@
 /**
- * Badge Manager - Handles extension badge updates
+ * Badge Manager — extension badge rendering.
+ *
+ * Badge number semantics: **rule-matched requests observed on the
+ * current tab's current page** — i.e. `totalFires` from tab-telemetry.
+ * When rules exist for the site but no matching request has been
+ * observed yet (page quiet, or still loading), the badge stays empty.
+ * Non-numeric states (paused, disconnected) override and are shown
+ * with their own glyph.
  */
 
 import { logger } from '@utils/logger';
@@ -17,16 +24,31 @@ const DISCONNECTED_BADGE_THRESHOLD = 3;
 
 let lastBadgeState: string | null = null;
 
+export interface BadgeUpdateInput {
+  connected: boolean;
+  isPaused: boolean;
+  recordingService: IRecordingService | null;
+  reconnectAttempts?: number;
+  /** `totalFires` from the current tab's telemetry snapshot. */
+  fireCount: number;
+  /** Count of rules configured (enabled + unpaused) for the current
+   *  tab's site. Used only for the tooltip — NOT the badge number. */
+  configuredRuleCount: number;
+}
+
 /**
- * Updates the extension badge based on connection status, active rules, and placeholder usage
+ * Update the extension badge based on connection status, rule activity,
+ * and placeholder usage.
  */
-export async function updateExtensionBadge(
-  connected: boolean,
-  activeRules: unknown[],
-  isPaused: boolean,
-  recordingService: IRecordingService | null,
-  reconnectAttempts: number = 0,
-): Promise<void> {
+export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<void> {
+  const {
+    connected,
+    isPaused,
+    recordingService,
+    reconnectAttempts = 0,
+    fireCount,
+    configuredRuleCount,
+  } = input;
   // Get the appropriate API (chrome.action for MV3, chrome.browserAction for MV2/Firefox)
   const actionAPI =
     browserAPI.action || (browserAPI as unknown as { browserAction?: typeof chrome.action }).browserAction;
@@ -55,24 +77,25 @@ export async function updateExtensionBadge(
 
   // Determine badge state and count
   let badgeState: BadgeState = 'none';
-  const activeRulesCount = activeRules ? activeRules.length : 0;
   const showDisconnected =
     !connected &&
     reconnectAttempts >= DISCONNECTED_BADGE_THRESHOLD &&
     getSetting('desktop.connection.showBadgeWhenDisconnected') &&
     getSetting('desktop.connection.autoConnect');
 
-  // Priority: paused > disconnected > active > none
+  // Priority: paused > disconnected > active > none. "Active" means at
+  // least one rule-matched request has been observed on this tab.
   if (isPaused) {
     badgeState = 'paused';
   } else if (showDisconnected) {
     badgeState = 'disconnected';
-  } else if (activeRulesCount > 0) {
+  } else if (fireCount > 0) {
     badgeState = 'active';
   }
 
-  // Create a unique state key that includes the count
-  const currentStateKey = `${badgeState}-${activeRulesCount}-${isPaused}-${connected}`;
+  // Create a unique state key that includes the fire count so the badge
+  // redraws as traffic comes in.
+  const currentStateKey = `${badgeState}-${fireCount}-${configuredRuleCount}-${isPaused}-${connected}`;
 
   // Only update if state or count changed
   if (currentStateKey === lastBadgeState) {
@@ -117,8 +140,8 @@ export async function updateExtensionBadge(
       });
     }
   } else if (badgeState === 'active') {
-    // Show the number of active rules
-    const badgeText = activeRulesCount > 99 ? '99+' : activeRulesCount.toString();
+    // Show the count of rule-matched requests observed on this tab.
+    const badgeText = fireCount > 99 ? '99+' : fireCount.toString();
     actionAPI.setBadgeText({ text: badgeText }, () => {
       if (browserAPI.runtime.lastError) {
         logger.debug('BadgeManager', 'Badge text error:', browserAPI.runtime.lastError);
@@ -130,11 +153,13 @@ export async function updateExtensionBadge(
       }
     });
 
-    // Update the tooltip
+    // Tooltip includes both the activity count and the configured-rule
+    // count — "3 requests matched (5 rules active for this site)".
     if (actionAPI.setTitle) {
-      const ruleText = activeRulesCount === 1 ? 'rule' : 'rules';
+      const requestText = fireCount === 1 ? 'request' : 'requests';
+      const ruleText = configuredRuleCount === 1 ? 'rule' : 'rules';
       actionAPI.setTitle({
-        title: `Open Headers - Active\n${activeRulesCount} ${ruleText} active for this site`,
+        title: `Open Headers - Active\n${fireCount} ${requestText} matched by your ${configuredRuleCount} ${ruleText}`,
       });
     }
   } else {

@@ -8,6 +8,7 @@ import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
+import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
 import { getActiveRulesForTab } from './request-tracker';
 import { createRuleDraft, takeRuleDraft } from './rule-draft-store';
 import {
@@ -232,6 +233,18 @@ export function handleGeneralMessage(
       const nonce = message.nonce as string;
       const draft = takeRuleDraft(nonce);
       safeResponse({ success: true, draft });
+    } else if (message.type === 'setCacheBypass') {
+      // Inspector panel → background: "Disable Cache" toggle for an
+      // inspected tab. Installs / removes a tab-scoped DNR rule that
+      // adds `Cache-Control: no-cache` + `Pragma: no-cache` to outgoing
+      // requests. See `modules/cache-bypass.ts` for the full contract.
+      const tabId = message.tabId as number;
+      const enabled = !!message.enabled;
+      const handler = enabled ? enableCacheBypassForTab : disableCacheBypassForTab;
+      handler(tabId)
+        .then(() => safeResponse({ success: true }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'createLocalRule') {
       const ruleData = message.rule as Omit<V5.Rule, 'uid' | 'path'>;
       const parentPath = message.parentPath as string | undefined;

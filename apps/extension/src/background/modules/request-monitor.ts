@@ -30,6 +30,7 @@ import {
   onMainFrameRequest,
   recordObservedFire,
   recordObservedUrl,
+  updateRequestDeliveryMode,
 } from './tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
 
@@ -142,6 +143,14 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
   if (webRequestAPI.onCompleted) {
     webRequestAPI.onCompleted.addListener(
       (details: chrome.webRequest.OnCompletedDetails) => {
+        // Back-fill the delivery mode on every record that references
+        // this requestId. Chrome only knows the cache verdict after the
+        // response has started, so onCompleted is the first point where
+        // `fromCache` is reliably set.
+        if (details.tabId !== -1 && isTabTracked(details.tabId)) {
+          const mode = details.fromCache ? 'cached' : 'network';
+          updateRequestDeliveryMode(details.tabId, details.requestId, mode);
+        }
         // Remove from pending - request succeeded
         pendingRequests.delete(details.requestId);
       },

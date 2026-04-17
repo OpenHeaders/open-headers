@@ -1,18 +1,32 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
-import { matchesUrlFilter } from '../data/filter-engine';
+import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
+import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';
+import { formatSizeInfo, getSizeInfo, type SizeInfo } from '../data/size-info';
 import type { InspectorRequest } from '../data/types';
-import {
-  extractName,
-  formatDuration,
-  formatInitiator,
-  formatSize,
-  formatTimestamp,
-  statusClass,
-} from './traffic/formatters';
+import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
+import type { ColumnDef, ColumnKey } from './traffic/columns';
+import { COLUMN_DEFS, columnTrack, DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
+import { extractName, formatInitiator, formatTimestamp, statusClass } from './traffic/formatters';
+import { derivePreflightPairs, getRole, type PreflightIndex } from './traffic/preflight-pairs';
+import { RequestContextMenu, type RequestContextMenuState } from './traffic/RequestContextMenu';
 import ResourceIcon from './traffic/ResourceIcon';
-import { isBlockedRequest } from './traffic/request-status';
 import { matchesResourceType, normalizeResourceType, RESOURCE_LABEL } from './traffic/resource-types';
+import { WaterfallBar } from './traffic/WaterfallBar';
+
+type SortDir = 'asc' | 'desc';
+
+/**
+ * Sort target. `'id'` is the synthetic leading `#` column — not part
+ * of the toggleable registry but always sortable. Everything else
+ * maps to a `ColumnKey` in `COLUMN_DEFS`.
+ */
+type SortTarget = ColumnKey | 'id';
+
+function sortValueOf(entry: InspectorRequest, target: SortTarget): string | number {
+  if (target === 'id') return entry.arrivalIndex;
+  return COLUMN_DEFS[target].getSortValue(entry);
+}
 
 interface TrafficListProps {
   entries: readonly InspectorRequest[];
@@ -24,44 +38,168 @@ interface TrafficListProps {
   recording: boolean;
   onStartRecording: () => void;
   onReloadPage: () => void;
+  visibleColumns: ReadonlySet<ColumnKey>;
+  onVisibleColumnsChange: (next: Set<ColumnKey>) => void;
+  onSaveAsHar: (entry: InspectorRequest) => void;
+  onSaveAllAsHar: () => void;
+  onCopyAllAsHar: () => void;
 }
 
-type SortKey = 'name' | 'status' | 'type' | 'initiator' | 'size' | 'time' | 'timestamp';
-type SortDir = 'asc' | 'desc';
-
-function getSortValue(entry: InspectorRequest, key: SortKey): string | number {
-  switch (key) {
-    case 'timestamp':
-      return entry.timestamp;
-    case 'name':
-      return entry.url.toLowerCase();
-    case 'status':
-      return entry.statusCode ?? -1;
-    case 'type':
-      return RESOURCE_LABEL[normalizeResourceType(entry.resourceType)] ?? 'other';
-    case 'initiator':
-      return formatInitiator(entry.harEntry?._initiator).toLowerCase();
-    case 'size':
-      return entry.responseSize ?? -1;
-    case 'time':
-      return entry.duration ?? -1;
-  }
-}
-
-function sortIndicator(col: SortKey, sortKey: SortKey, sortDir: SortDir): string {
+function sortIndicator(col: SortTarget, sortKey: SortTarget, sortDir: SortDir): string {
   if (col !== sortKey) return '';
   return sortDir === 'asc' ? ' \u25b4' : ' \u25be';
 }
 
-const COLUMNS: Array<{ key: SortKey; label: string; className?: string }> = [
-  { key: 'timestamp', label: 'Timestamp' },
-  { key: 'name', label: 'Name' },
-  { key: 'status', label: 'Status' },
-  { key: 'type', label: 'Type' },
-  { key: 'initiator', label: 'Initiator' },
-  { key: 'size', label: 'Size', className: 'dt-col-right' },
-  { key: 'time', label: 'Time', className: 'dt-col-right' },
-];
+function sortCompare(a: InspectorRequest, b: InspectorRequest, target: SortTarget, dir: SortDir): number {
+  const va = sortValueOf(a, target);
+  const vb = sortValueOf(b, target);
+  let cmp: number;
+  if (typeof va === 'number' && typeof vb === 'number') {
+    cmp = va - vb;
+  } else {
+    cmp = String(va).localeCompare(String(vb));
+  }
+  return dir === 'asc' ? cmp : -cmp;
+}
+
+interface CellContext {
+  waterfall: { t0: number; tMax: number };
+  preflight: PreflightIndex;
+  onJumpTo: (id: string) => void;
+}
+
+/**
+ * Render the cell for a specific column — kept as a function so the
+ * Name column (which needs the resource icon + extracted name/detail)
+ * and the Status column (which colors by status code) can branch off
+ * the default `col.extract` path cleanly.
+ */
+function renderCell(
+  col: ColumnDef,
+  entry: InspectorRequest,
+  state: RequestState,
+  sizeInfo: SizeInfo,
+  ctx: CellContext,
+) {
+  const role = getRole(ctx.preflight, entry.id);
+  if (col.key === 'name') {
+    const rawType = normalizeResourceType(entry.resourceType);
+    const { name } = extractName(entry.url);
+    return (
+      <span className="dt-col-name">
+        <ResourceIcon type={rawType} />
+        <span className="dt-col-name-text">{name}</span>
+      </span>
+    );
+  }
+  if (col.key === 'method') {
+    // "<METHOD> + Preflight" on the parent, with the "Preflight" text
+    // linking back to the preflight row. Matches Chrome DevTools.
+    if (role.kind === 'parent') {
+      return (
+        <span>
+          {entry.method}
+          {' + '}
+          <button
+            type="button"
+            className="dt-btn-link"
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.onJumpTo(role.peerId);
+            }}
+            title="Jump to preflight request"
+          >
+            Preflight
+          </button>
+        </span>
+      );
+    }
+    return <span>{entry.method}</span>;
+  }
+  if (col.key === 'status') {
+    // Text + colour derive from the state taxonomy — `(pending)`,
+    // `(blocked)`, `(failed)`, `200`, `302`, etc. The compact column
+    // can still overflow long `net::ERR_*` messages; the tooltip
+    // surfaces the full text.
+    const text = statusText(state, entry);
+    return (
+      <span className={statusClass(state, entry.statusCode)} title={text}>
+        {text}
+      </span>
+    );
+  }
+  if (col.key === 'timestamp') {
+    return <span className="dt-col-muted">{formatTimestamp(entry.timestamp)}</span>;
+  }
+  if (col.key === 'type') {
+    const rawType = normalizeResourceType(entry.resourceType);
+    return <span>{RESOURCE_LABEL[rawType] ?? rawType}</span>;
+  }
+  if (col.key === 'initiator') {
+    // For preflight rows, Chrome shows "Preflight" linking to the
+    // parent CORS request instead of the JS stack that initiated it.
+    if (role.kind === 'preflight') {
+      return (
+        <span className="dt-col-muted">
+          <button
+            type="button"
+            className="dt-btn-link"
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.onJumpTo(role.peerId);
+            }}
+            title="Jump to the originating request"
+          >
+            Preflight
+          </button>
+        </span>
+      );
+    }
+    return <span className="dt-col-muted">{formatInitiator(entry.harEntry._initiator)}</span>;
+  }
+  if (col.key === 'waterfall') {
+    return <WaterfallBar entry={entry} t0={ctx.waterfall.t0} tMax={ctx.waterfall.tMax} />;
+  }
+  if (col.key === 'size') {
+    // The size column collapses three concerns into one:
+    //   - pending responses show `Pending…`
+    //   - cached responses show `(disk cache)` / `(memory cache)` /
+    //     `(ServiceWorker)` in muted italics — matches Chrome
+    //   - wire responses show `transferred / resource` when
+    //     compressed, or a single number otherwise
+    if (sizeInfo.kind === 'pending') {
+      return (
+        <span className="dt-col-right dt-col-cache" title="Response body not received yet">
+          Pending…
+        </span>
+      );
+    }
+    if (sizeInfo.kind === 'cached') {
+      const label = formatSizeInfo(sizeInfo);
+      return (
+        <span className="dt-col-right dt-col-cache" title={`Served from ${sizeInfo.source} cache`}>
+          {label}
+        </span>
+      );
+    }
+    const { transferred, resource } = sizeInfo;
+    if (transferred == null && resource == null) return <span className="dt-col-right" />;
+    if (transferred != null && resource != null && resource > transferred) {
+      // Two-number display — primary is wire-bytes, secondary is
+      // decoded. Users care about both: transferred = what the network
+      // paid, resource = what the page parses.
+      return (
+        <span className="dt-col-right" title={`Transferred: ${transferred} B · Resource: ${resource} B`}>
+          {formatSizeInfo(sizeInfo)}
+        </span>
+      );
+    }
+    return <span className="dt-col-right">{formatSizeInfo(sizeInfo)}</span>;
+  }
+  const value = col.extract(entry);
+  const className = col.align === 'right' ? 'dt-col-right' : '';
+  return <span className={className}>{value == null ? '' : value}</span>;
+}
 
 export function TrafficList({
   entries,
@@ -73,23 +211,131 @@ export function TrafficList({
   recording,
   onStartRecording,
   onReloadPage,
+  visibleColumns,
+  onVisibleColumnsChange,
+  onSaveAsHar,
+  onSaveAllAsHar,
+  onCopyAllAsHar,
 }: TrafficListProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('timestamp');
+  const [sortKey, setSortKey] = useState<SortTarget>('id');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const tableRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
-  const handleSort = (key: SortKey) => {
-    if (key === sortKey) {
+  const [rowMenu, setRowMenu] = useState<RequestContextMenuState | null>(null);
+  const [colMenu, setColMenu] = useState<ColumnHeaderContextMenuState | null>(null);
+
+  // ── Column widths (user-resizable) ──────────────────────────
+  //
+  // We store user overrides as `Partial<Record<ColumnKey, number>>`.
+  // A column with no override uses its registry default (or `1fr` for
+  // stretchy columns). Resetting via the column menu clears overrides,
+  // which restores the stretch-based layout. Widths are session-scoped
+  // — matches Chrome's Network tab behaviour where resizes don't
+  // persist across DevTools re-opens.
+  const [columnWidths, setColumnWidths] = useState<Partial<Record<ColumnKey, number>>>({});
+
+  const columns = useMemo<ColumnDef[]>(() => {
+    // Preserve the order defined in DEFAULT_VISIBLE_COLUMNS so we get
+    // Timestamp → Method → Name → ... regardless of toggle order. Any
+    // column not in the default list (e.g. Path, URL, Scheme) appends
+    // after the defaults in registry order.
+    const order: ColumnKey[] = [];
+    for (const k of DEFAULT_VISIBLE_COLUMNS) if (visibleColumns.has(k)) order.push(k);
+    for (const k of Object.keys(COLUMN_DEFS) as ColumnKey[]) {
+      if (!order.includes(k) && visibleColumns.has(k)) order.push(k);
+    }
+    return order.map((k) => COLUMN_DEFS[k]);
+  }, [visibleColumns]);
+
+  const gridTemplate = useMemo(() => {
+    // Leading fixed columns: rule-fire dot (empty or colored) then
+    // the sequential display id. Keep them narrow — status surface
+    // only, not content-driven.
+    const tracks = ['14px', '32px'];
+    for (const c of columns) tracks.push(columnTrack(c, columnWidths[c.key]));
+    return tracks.join(' ');
+  }, [columns, columnWidths]);
+
+  // Per-column-header refs. A Map rather than an object so the "set
+  // callback ref" closure doesn't depend on the key set at compile
+  // time — this lets us register a ref for any ColumnKey as columns
+  // become visible. The ref is the header-cell wrapper, whose rendered
+  // width is authoritative for stretchy columns (their width is
+  // browser-computed from `1fr`, not registry-default).
+  const cellRefs = useRef<Map<ColumnKey, HTMLDivElement>>(new Map());
+  const registerCellRef = useCallback(
+    (key: ColumnKey) => (el: HTMLDivElement | null) => {
+      if (el) cellRefs.current.set(key, el);
+      else cellRefs.current.delete(key);
+    },
+    [],
+  );
+
+  // Resize a column by dragging its right-edge grip. We measure the
+  // live rendered width from the cell's ref (so stretchy columns
+  // convert to their actual pixel size at the moment drag starts, not
+  // their registry default) and apply deltas live. Esc aborts.
+  const beginResize = useCallback((e: React.PointerEvent<HTMLElement>, columnKey: ColumnKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const cellEl = cellRefs.current.get(columnKey);
+    if (!cellEl) return;
+    const startWidth = cellEl.getBoundingClientRect().width;
+    const startX = e.clientX;
+    const colMin = COLUMN_DEFS[columnKey].minWidth ?? DEFAULT_COLUMN_MIN_WIDTH;
+
+    const onMove = (ev: PointerEvent) => {
+      const delta = ev.clientX - startX;
+      const next = Math.max(Math.round(startWidth + delta), colMin);
+      setColumnWidths((prev) => (prev[columnKey] === next ? prev : { ...prev, [columnKey]: next }));
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('keydown', onKey);
+      document.body.classList.remove('dt-resizing-col');
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        setColumnWidths((prev) => {
+          const { [columnKey]: _discard, ...rest } = prev;
+          return rest;
+        });
+        onUp();
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('keydown', onKey);
+    document.body.classList.add('dt-resizing-col');
+  }, []);
+
+  const resetColumnWidth = useCallback((columnKey: ColumnKey) => {
+    setColumnWidths((prev) => {
+      if (!(columnKey in prev)) return prev;
+      const { [columnKey]: _discard, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  const handleSortTarget = (target: SortTarget) => {
+    if (target === sortKey) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
-      setSortKey(key);
+      setSortKey(target);
       setSortDir('asc');
     }
   };
 
+  const handleSort = (col: ColumnDef) => {
+    if (!col.sortable) return;
+    handleSortTarget(col.key);
+  };
+
   const filtered = useMemo(() => {
     return entries.filter((e) => {
+      if (!passesRowFilters(e, filterConfig)) return false;
       if (!matchesResourceType(e.resourceType, filter)) return false;
       if (filterTokens.length > 0 && !matchesUrlFilter(e, filterTokens, filterConfig)) return false;
       return true;
@@ -98,19 +344,32 @@ export function TrafficList({
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
-    arr.sort((a, b) => {
-      const va = getSortValue(a, sortKey);
-      const vb = getSortValue(b, sortKey);
-      let cmp: number;
-      if (typeof va === 'number' && typeof vb === 'number') {
-        cmp = va - vb;
-      } else {
-        cmp = String(va).localeCompare(String(vb));
-      }
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
+    arr.sort((a, b) => sortCompare(a, b, sortKey, sortDir));
     return arr;
   }, [filtered, sortKey, sortDir]);
+
+  // Preflight pairing — derived from all entries (not filtered) so a
+  // preflight whose parent is filtered out still renders as "preflight"
+  // with a dead link resolver. Kept at the full-entry scope so the
+  // parent lookup is stable across filter changes.
+  const preflight = useMemo(() => derivePreflightPairs(entries), [entries]);
+
+  // Waterfall reference window: earliest start vs. latest finish across
+  // the visible, sorted rows. Recomputed with the rows so the bars
+  // re-scale as filters change.
+  const [t0, tMax] = useMemo(() => {
+    if (sorted.length === 0) return [0, 1];
+    let min = Number.POSITIVE_INFINITY;
+    let max = 0;
+    for (const e of sorted) {
+      if (e.timestamp < min) min = e.timestamp;
+      const end = e.timestamp + (e.duration && e.duration > 0 ? e.duration : 0);
+      if (end > max) max = end;
+    }
+    if (!Number.isFinite(min)) min = 0;
+    if (max <= min) max = min + 1;
+    return [min, max];
+  }, [sorted]);
 
   useEffect(() => {
     const el = tableRef.current;
@@ -124,6 +383,20 @@ export function TrafficList({
       el.scrollTop = el.scrollHeight;
     }
   }, [sorted.length]);
+
+  const toggleColumn = (key: ColumnKey) => {
+    const next = new Set(visibleColumns);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    // Name is mandatory — safety net even though the menu disables it.
+    next.add('name');
+    onVisibleColumnsChange(next);
+  };
+
+  const resetColumns = () => {
+    onVisibleColumnsChange(new Set(DEFAULT_VISIBLE_COLUMNS));
+    setColumnWidths({});
+  };
 
   if (filtered.length === 0) {
     if (entries.length === 0) {
@@ -142,42 +415,77 @@ export function TrafficList({
     return <div className="dt-empty">No matching requests.</div>;
   }
 
+  const selectedEntry = rowMenu ? sorted.find((e) => e.id === rowMenu.requestId) : undefined;
+
   return (
     <>
-      <div className="dt-table-header dt-cols">
-        <span>#</span>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: header row has a right-click menu but no primary action */}
+      <div
+        className="dt-table-header dt-cols"
+        style={{ gridTemplateColumns: gridTemplate }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setColMenu({ x: e.clientX, y: e.clientY });
+        }}
+      >
         <span />
-        {COLUMNS.map((col) => (
-          <button
-            key={col.key}
-            type="button"
-            className={`dt-col-sort ${col.className ?? ''}`}
-            onClick={() => handleSort(col.key)}
-          >
-            {col.label}
-            {sortIndicator(col.key, sortKey, sortDir)}
-          </button>
+        <button
+          type="button"
+          className="dt-col-sort dt-col-sort--hash"
+          onClick={() => handleSortTarget('id')}
+          title="Sort by arrival order"
+        >
+          #{sortIndicator('id', sortKey, sortDir)}
+        </button>
+        {columns.map((col) => (
+          <div key={col.key} ref={registerCellRef(col.key)} className="dt-col-header-cell">
+            <button
+              type="button"
+              className={`dt-col-sort ${col.align === 'right' ? 'dt-col-right' : ''}`}
+              onClick={() => handleSort(col)}
+              disabled={!col.sortable}
+            >
+              {col.label}
+              {col.sortable && sortIndicator(col.key, sortKey, sortDir)}
+            </button>
+            {/* Resize grip — every column is resizable; double-click
+                restores the registry default width. Modeled as a
+                presentation-role button so it's focusable for keyboard
+                navigation without participating in the header's semantic
+                grid row. */}
+            <button
+              type="button"
+              tabIndex={-1}
+              className="dt-col-resizer"
+              aria-label={`Resize ${col.label} column`}
+              onPointerDown={(e) => beginResize(e, col.key)}
+              onDoubleClick={() => resetColumnWidth(col.key)}
+            />
+          </div>
         ))}
       </div>
       <div className="dt-table" ref={tableRef}>
         {sorted.map((entry) => {
-          const rawType = normalizeResourceType(entry.resourceType);
-          const rt = RESOURCE_LABEL[rawType] ?? 'other';
-          const { name, detail } = extractName(entry.url);
-          const initiator = formatInitiator(entry.harEntry?._initiator);
-          const blocked = isBlockedRequest(entry);
+          // One classifier pass per row; cells + row class branch off
+          // the same `RequestState` so they can never disagree. Size
+          // info is a companion derivation that reuses the state.
+          const state = classifyRequestState(entry);
+          const sizeInfo = getSizeInfo(entry, state);
+          const stateClass = rowStateClass(state);
           return (
             <button
               key={entry.id}
               type="button"
-              className={`dt-row dt-cols ${blocked ? 'dt-row--blocked' : ''}`}
+              className={`dt-row dt-cols${stateClass ? ` ${stateClass}` : ''}`}
               data-selected={entry.id === selectedId}
               onClick={() => onSelect(entry.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setRowMenu({ x: e.clientX, y: e.clientY, requestId: entry.id });
+              }}
               title={entry.url}
+              style={{ gridTemplateColumns: gridTemplate }}
             >
-              <span className="dt-col-muted" style={{ textAlign: 'right' }}>
-                {entry.displayId}
-              </span>
               <span className="dt-col-dot">
                 {entry.fires.length > 0 && (
                   <span
@@ -185,22 +493,41 @@ export function TrafficList({
                   />
                 )}
               </span>
-              <span className="dt-col-muted">{formatTimestamp(entry.timestamp)}</span>
-              <span className="dt-col-name">
-                <ResourceIcon type={rawType} />
-                <span className="dt-col-name-text">{name}</span>
+              <span className="dt-col-muted" style={{ textAlign: 'right' }}>
+                {entry.displayId}
               </span>
-              <span className={statusClass(entry.statusCode)}>
-                {blocked ? `(${entry.statusText || 'blocked'})` : (entry.statusCode ?? '')}
-              </span>
-              <span>{rt}</span>
-              <span className="dt-col-muted">{initiator}</span>
-              <span className="dt-col-right">{formatSize(entry.responseSize)}</span>
-              <span className="dt-col-right">{formatDuration(entry.duration)}</span>
+              {columns.map((col) => (
+                <span key={col.key}>
+                  {renderCell(col, entry, state, sizeInfo, { waterfall: { t0, tMax }, preflight, onJumpTo: onSelect })}
+                </span>
+              ))}
             </button>
           );
         })}
       </div>
+
+      {rowMenu && selectedEntry && (
+        <RequestContextMenu
+          state={rowMenu}
+          request={selectedEntry}
+          allEntries={entries}
+          onClose={() => setRowMenu(null)}
+          onSaveAsHar={onSaveAsHar}
+          onSaveAllAsHar={onSaveAllAsHar}
+          onCopyAllAsHar={onCopyAllAsHar}
+        />
+      )}
+
+      {colMenu && (
+        <ColumnHeaderContextMenu
+          state={colMenu}
+          columns={Object.values(COLUMN_DEFS)}
+          visible={visibleColumns}
+          onToggle={toggleColumn}
+          onReset={resetColumns}
+          onClose={() => setColMenu(null)}
+        />
+      )}
     </>
   );
 }

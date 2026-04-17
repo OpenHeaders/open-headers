@@ -252,10 +252,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   const openers = useTabOpeners({
     rules,
     templates,
-    localCollections,
     allTabs,
-    createLocalRule,
-    createLocalCollection,
     addTab,
     switchTab,
   });
@@ -528,6 +525,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
             tabId={tab.id}
             draftName={tab.draftName}
             initialTemplateKey={tab.templateKey}
+            initialDraft={tab.initialDraft}
             onSaved={(uid) => handleSaved(tab.id, uid)}
             onSaveDraft={tab.mode === 'create' ? saveFlow.handleSaveDraft : undefined}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}

@@ -18,6 +18,7 @@ vi.mock('@/rules/settings/store', () => ({
   }),
 }));
 
+import type { BadgeUpdateInput } from '@/background/modules/badge-manager';
 import { resetBadgeState, updateExtensionBadge } from '@/background/modules/badge-manager';
 import type { IRecordingService } from '@/types/recording';
 
@@ -33,13 +34,21 @@ function getActionMock() {
   };
 }
 
-function makeActiveRules(count: number): unknown[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `rule-${crypto.randomUUID?.() ?? `a1b2c3d4-e5f6-7890-abcd-ef123456${String(i).padStart(4, '0')}`}`,
-    headerName: 'Authorization',
-    headerValue: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
-    domains: ['*.openheaders.io'],
-  }));
+/**
+ * Build an input payload with sensible defaults. Badge number is driven
+ * by `fireCount` (per-tab rule-matched request count). `configuredRuleCount`
+ * feeds the tooltip only.
+ */
+function makeInput(overrides: Partial<BadgeUpdateInput> = {}): BadgeUpdateInput {
+  return {
+    connected: true,
+    isPaused: false,
+    recordingService: null,
+    reconnectAttempts: 0,
+    fireCount: 0,
+    configuredRuleCount: 0,
+    ...overrides,
+  };
 }
 
 function makeRecordingService(overrides: Partial<IRecordingService> = {}): IRecordingService {
@@ -64,26 +73,29 @@ describe('updateExtensionBadge', () => {
   beforeEach(() => {
     resetBadgeState();
     vi.clearAllMocks();
-    // Ensure tabs.query returns empty array by default (no recording tabs)
     (chrome.tabs.query as ReturnType<typeof vi.fn>).mockImplementation(
       (_q: chrome.tabs.QueryInfo, cb: (tabs: chrome.tabs.Tab[]) => void) => cb([]),
     );
   });
 
-  // ── Priority: disconnected > paused > active > none ──
+  // ── Priority: paused > disconnected > active > none ──
 
   describe('badge state priority', () => {
-    it('shows paused badge when paused, even when disconnected with active rules', async () => {
+    it('shows paused badge when paused, even when disconnected with fires', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(false, makeActiveRules(5), true, null, 10);
+      await updateExtensionBadge(
+        makeInput({ connected: false, isPaused: true, reconnectAttempts: 10, fireCount: 5, configuredRuleCount: 5 }),
+      );
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '\u2212' }, expect.any(Function));
       expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#8c8c8c' }, expect.any(Function));
     });
 
-    it('shows disconnected badge over active count once past threshold', async () => {
+    it('shows disconnected badge over fire count once past threshold', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(false, makeActiveRules(3), false, null, 3);
+      await updateExtensionBadge(
+        makeInput({ connected: false, reconnectAttempts: 3, fireCount: 3, configuredRuleCount: 3 }),
+      );
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
       expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#c23b22' }, expect.any(Function));
@@ -91,7 +103,7 @@ describe('updateExtensionBadge', () => {
 
     it('shows paused badge when paused and connected', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, makeActiveRules(5), true, null, 0);
+      await updateExtensionBadge(makeInput({ isPaused: true, fireCount: 5, configuredRuleCount: 5 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '\u2212' }, expect.any(Function));
       expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#8c8c8c' }, expect.any(Function));
@@ -100,88 +112,85 @@ describe('updateExtensionBadge', () => {
       });
     });
 
-    it('shows active badge when connected, not paused, has rules', async () => {
+    it('shows active badge when connected, not paused, and requests have fired', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, makeActiveRules(7), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 7, configuredRuleCount: 3 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '7' }, expect.any(Function));
       expect(action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#E8E8E8' }, expect.any(Function));
       expect(action.setTitle).toHaveBeenCalledWith({
-        title: 'Open Headers - Active\n7 rules active for this site',
+        title: 'Open Headers - Active\n7 requests matched by your 3 rules',
       });
     });
 
-    it('clears badge when connected, not paused, no rules', async () => {
+    it('clears badge when connected, not paused, and fireCount is zero', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, [], false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 0, configuredRuleCount: 5 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '' });
       expect(action.setTitle).toHaveBeenCalledWith({ title: 'Open Headers' });
     });
   });
 
-  // ── Active rules count display ──
+  // ── Fire count display ──
 
-  describe('active rules count display', () => {
-    it('shows "1" for a single active rule with singular "rule" in tooltip', async () => {
+  describe('fire count display', () => {
+    it('shows "1" with singular tooltip when a single request matched', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, makeActiveRules(1), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 1, configuredRuleCount: 1 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '1' }, expect.any(Function));
       expect(action.setTitle).toHaveBeenCalledWith({
-        title: 'Open Headers - Active\n1 rule active for this site',
+        title: 'Open Headers - Active\n1 request matched by your 1 rule',
       });
     });
 
-    it('shows "50" for 50 rules', async () => {
+    it('shows "50" for 50 fires', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, makeActiveRules(50), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 50, configuredRuleCount: 2 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '50' }, expect.any(Function));
     });
 
-    it('shows "99" for 99 rules', async () => {
+    it('shows "99" for 99 fires', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, makeActiveRules(99), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 99, configuredRuleCount: 2 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '99' }, expect.any(Function));
     });
 
-    it('shows "99+" for 100 or more rules', async () => {
+    it('shows "99+" for 100 fires', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, makeActiveRules(100), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 100, configuredRuleCount: 2 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '99+' }, expect.any(Function));
     });
 
-    it('shows "99+" for 250 rules', async () => {
+    it('shows "99+" for 250 fires', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(true, makeActiveRules(250), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 250, configuredRuleCount: 2 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '99+' }, expect.any(Function));
     });
   });
 
   // ── Disconnected badge ──
-  // `desktop.connection.showBadgeWhenDisconnected` (opt-in, default off)
-  // drives a dedicated red "!" badge after DISCONNECTED_BADGE_THRESHOLD
-  // reconnect attempts. The store mock above forces the setting on so
-  // the behavior branch is exercised; tests verify the threshold, the
-  // fall-through when the setting is off, and the fall-through to the
-  // disconnected branch
-  // when the tab has cached rules but the app is down.
 
   describe('disconnected badge', () => {
-    it('stays empty when disconnected with no active rules before threshold', async () => {
+    it('stays empty when disconnected with no fires before threshold', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(false, [], false, null, 0);
+      await updateExtensionBadge(
+        makeInput({ connected: false, reconnectAttempts: 0, fireCount: 0, configuredRuleCount: 0 }),
+      );
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '' });
     });
 
     it('shows disconnected indicator past the reconnect threshold', async () => {
       const action = getActionMock();
-      await updateExtensionBadge(false, makeActiveRules(3), false, null, 10);
+      await updateExtensionBadge(
+        makeInput({ connected: false, reconnectAttempts: 10, fireCount: 3, configuredRuleCount: 3 }),
+      );
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
     });
@@ -215,7 +224,7 @@ describe('updateExtensionBadge', () => {
           ]),
       );
 
-      await updateExtensionBadge(true, makeActiveRules(5), false, recordingService, 0);
+      await updateExtensionBadge(makeInput({ recordingService, fireCount: 5, configuredRuleCount: 5 }));
 
       expect(action.setBadgeText).not.toHaveBeenCalled();
       expect(action.setBadgeBackgroundColor).not.toHaveBeenCalled();
@@ -247,7 +256,7 @@ describe('updateExtensionBadge', () => {
           ]),
       );
 
-      await updateExtensionBadge(true, makeActiveRules(3), false, recordingService, 0);
+      await updateExtensionBadge(makeInput({ recordingService, fireCount: 3, configuredRuleCount: 3 }));
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '3' }, expect.any(Function));
     });
@@ -259,21 +268,21 @@ describe('updateExtensionBadge', () => {
     it('does not re-update badge when called twice with same state', async () => {
       const action = getActionMock();
 
-      await updateExtensionBadge(true, makeActiveRules(5), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 5, configuredRuleCount: 5 }));
       expect(action.setBadgeText).toHaveBeenCalledTimes(1);
 
-      await updateExtensionBadge(true, makeActiveRules(5), false, null, 0);
-      // Should NOT be called again — same state key
+      await updateExtensionBadge(makeInput({ fireCount: 5, configuredRuleCount: 5 }));
+      // Same state key — no re-render.
       expect(action.setBadgeText).toHaveBeenCalledTimes(1);
     });
 
-    it('updates badge when state changes between calls', async () => {
+    it('updates badge when fire count changes between calls', async () => {
       const action = getActionMock();
 
-      await updateExtensionBadge(true, makeActiveRules(5), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 5, configuredRuleCount: 5 }));
       expect(action.setBadgeText).toHaveBeenCalledTimes(1);
 
-      await updateExtensionBadge(true, makeActiveRules(10), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 10, configuredRuleCount: 5 }));
       expect(action.setBadgeText).toHaveBeenCalledTimes(2);
     });
   });
@@ -284,18 +293,17 @@ describe('updateExtensionBadge', () => {
     it('allows badge to be updated again after reset', async () => {
       const action = getActionMock();
 
-      await updateExtensionBadge(true, makeActiveRules(5), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 5, configuredRuleCount: 5 }));
       expect(action.setBadgeText).toHaveBeenCalledTimes(1);
 
       // Same state — deduplicated
-      await updateExtensionBadge(true, makeActiveRules(5), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 5, configuredRuleCount: 5 }));
       expect(action.setBadgeText).toHaveBeenCalledTimes(1);
 
-      // Reset cached state
       resetBadgeState();
 
       // Now the same state should trigger an update
-      await updateExtensionBadge(true, makeActiveRules(5), false, null, 0);
+      await updateExtensionBadge(makeInput({ fireCount: 5, configuredRuleCount: 5 }));
       expect(action.setBadgeText).toHaveBeenCalledTimes(2);
     });
   });

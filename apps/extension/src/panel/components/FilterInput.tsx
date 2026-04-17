@@ -7,9 +7,19 @@ interface FilterInputProps {
   onConfigChange: (config: FilterConfig) => void;
   hasError: boolean;
   placeholder?: string;
+  /** Optional additional keydown handler — runs after the Alt+C/W/R bindings. */
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
-export function FilterInput({ value, onChange, config, onConfigChange, hasError, placeholder }: FilterInputProps) {
+export function FilterInput({
+  value,
+  onChange,
+  config,
+  onConfigChange,
+  hasError,
+  placeholder,
+  onKeyDown,
+}: FilterInputProps) {
   const toggle = (key: keyof FilterConfig) => {
     onConfigChange({ ...config, [key]: !config[key] });
   };
@@ -18,13 +28,19 @@ export function FilterInput({ value, onChange, config, onConfigChange, hasError,
     if (e.altKey && e.key === 'c') {
       e.preventDefault();
       toggle('matchCase');
-    } else if (e.altKey && e.key === 'w') {
+      return;
+    }
+    if (e.altKey && e.key === 'w') {
       e.preventDefault();
       toggle('wholeWord');
-    } else if (e.altKey && e.key === 'r') {
+      return;
+    }
+    if (e.altKey && e.key === 'r') {
       e.preventDefault();
       toggle('regexMode');
+      return;
     }
+    onKeyDown?.(e);
   };
 
   return (

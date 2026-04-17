@@ -18,6 +18,10 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+// Register every setting (including `rulesEngine.liveRulesMode` that the
+// header compiler reads) so `getSetting` returns a default instead of
+// throwing.
+import '@/rules/settings/schema';
 import { blockCompiler } from '@/background/dnr-builders/block-builder';
 import { delayCompiler } from '@/background/dnr-builders/delay-builder';
 import { headerCompiler } from '@/background/dnr-builders/header-builder';

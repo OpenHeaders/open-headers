@@ -11,47 +11,13 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { type DraftUrlStrategy, deriveUrlFilter } from '@openheaders/core/utils';
 import { useCallback, useState } from 'react';
-import { TEMPLATES_BY_TYPE } from '../rule-templates';
-import { useSettingValue } from '../settings/hooks';
 import type { ClosedTab, LandingView, RuleFlowScope, RulesTab } from '../types';
-
-/**
- * Turn a RuleDraft's pre-fill fields (url / urlFilter / requestMethods /
- * resourceTypes) into `RuleCondition` entries consumable by the rule
- * editor. `urlFilter` wins over `url` when both are present — callers
- * who've already chosen a specific pattern don't get their choice
- * overwritten by the strategy. Empty arrays are omitted so a bare
- * draft lands on an empty conditions list, matching the pre-draft
- * behavior.
- */
-function buildDraftConditions(draft: V5.RuleDraftBase, strategy: DraftUrlStrategy): V5.RuleCondition[] {
-  const conditions: V5.RuleCondition[] = [];
-  const resolvedFilter = draft.urlFilter ?? (draft.url ? deriveUrlFilter(draft.url, strategy) : undefined);
-  if (resolvedFilter) {
-    conditions.push({ type: 'url-filter', values: [resolvedFilter] });
-  }
-  if (draft.requestMethods && draft.requestMethods.length > 0) {
-    conditions.push({ type: 'request-methods', values: draft.requestMethods });
-  }
-  if (draft.resourceTypes && draft.resourceTypes.length > 0) {
-    conditions.push({ type: 'resource-types', values: draft.resourceTypes });
-  }
-  return conditions;
-}
 
 interface UseTabOpenersOptions {
   rules: V5.Rule[];
   templates: V5.Template[];
-  localCollections: V5.Collection[];
   allTabs: RulesTab[];
-  createLocalRule: (
-    rule: Omit<V5.Rule, 'uid' | 'path'>,
-    collectionUid?: string,
-    parentPath?: string,
-  ) => Promise<V5.Rule | null>;
-  createLocalCollection: (name: string) => Promise<V5.Collection | null>;
   addTab: (tab: RulesTab) => void;
   switchTab: (tabId: string) => void;
   reopenTab?: (closed: ClosedTab) => void;
@@ -102,15 +68,11 @@ export interface UseTabOpenersApi {
 export function useTabOpeners({
   rules,
   templates,
-  localCollections,
   allTabs,
-  createLocalRule,
-  createLocalCollection,
   addTab,
   switchTab,
 }: UseTabOpenersOptions): UseTabOpenersApi {
   const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
-  const draftUrlStrategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
   const generateDraftName = useCallback(
     (type: string) => {
@@ -126,6 +88,27 @@ export function useTabOpeners({
     [rules, allTabs],
   );
 
+  /**
+   * Opens a rule-creation tab in `mode: 'create'` — an unsaved draft.
+   * The rule is **not** persisted to the user's ruleset until they
+   * explicitly Save via the editor. This contract is uniform across
+   * every entry point (sidebar "Add Rule", collection/folder overview,
+   * inspector-panel "override this header", keyboard shortcuts).
+   *
+   * Inputs the tab carries to the editor:
+   *   - `templateKey` — pre-apply a built-in or user template
+   *   - `initialDraft` — pre-fill from an `V5.RuleDraft` (inspector
+   *     handoff, future import/paste flows)
+   *   - `preferredCollectionId` / `preferredFolderPath` — if the user
+   *     invoked a contextual Add Rule affordance, the Save flow
+   *     writes directly to that location instead of re-asking
+   *
+   * Before this refactor the function wrote an empty enabled rule to
+   * the user's ruleset immediately and opened an edit tab on top —
+   * the draft layer was dead code. That behavior silently activated
+   * rules users hadn't confirmed, which was especially jarring from
+   * the inspector panel's "click to override" CTA.
+   */
   const openCreateTab = useCallback(
     (
       type: string,
@@ -133,162 +116,29 @@ export function useTabOpeners({
       templateKey?: string,
       initialDraft?: V5.RuleDraft,
     ) => {
-      if (context?.collectionId) {
-        // Drafts supersede templates for the name + conditions seed.
-        // If both are supplied the draft wins on a per-field basis
-        // (draft.name over generated, draft conditions over template
-        // conditions, draft action fields over template action fields).
-        const draftMatches = initialDraft && initialDraft.type === type ? initialDraft : undefined;
-        const draftName = draftMatches?.name ?? generateDraftName(type);
-        const template = templateKey ? (TEMPLATES_BY_TYPE[type] ?? []).find((t) => t.key === templateKey) : undefined;
-        const draftConditions = draftMatches ? buildDraftConditions(draftMatches, draftUrlStrategy) : [];
-        const baseConditions =
-          draftConditions.length > 0 ? draftConditions : (template?.conditions ?? ([] as V5.RuleCondition[]));
-        const base = { name: draftName, type, enabled: true, conditions: baseConditions };
-
-        let rule: Omit<V5.Rule, 'uid' | 'path'>;
-        switch (type) {
-          case 'header': {
-            const fv = template?.formValues ?? {};
-            const headerDraft = draftMatches?.type === 'header' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'header',
-              action: {
-                requestHeaders: headerDraft?.requestHeaders ??
-                  (fv.requestHeaders as V5.HeaderModification[]) ?? [
-                    { operation: 'override' as const, headerName: '', value: '' },
-                  ],
-                responseHeaders: headerDraft?.responseHeaders ?? (fv.responseHeaders as V5.HeaderModification[]) ?? [],
-              },
-            } as Omit<V5.HeaderRule, 'uid' | 'path'>;
-            break;
-          }
-          case 'block': {
-            const blockDraft = draftMatches?.type === 'block' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'block',
-              action: {
-                statusCode: blockDraft?.statusCode ?? 403,
-                ...(blockDraft?.responseBody ? { responseBody: blockDraft.responseBody } : {}),
-              },
-            } as Omit<V5.BlockRule, 'uid' | 'path'>;
-            break;
-          }
-          case 'redirect': {
-            const redirectDraft = draftMatches?.type === 'redirect' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'redirect',
-              action: {
-                matchPattern: redirectDraft?.matchPattern ?? '',
-                redirectTo: redirectDraft?.redirectTo ?? '',
-              },
-            } as Omit<V5.RedirectRule, 'uid' | 'path'>;
-            break;
-          }
-          case 'query-param': {
-            const qpDraft = draftMatches?.type === 'query-param' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'query-param',
-              action: {
-                params: qpDraft?.params ?? [],
-              },
-            } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
-            break;
-          }
-          case 'inject': {
-            const injectDraft = draftMatches?.type === 'inject' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'inject',
-              action: {
-                injectType: injectDraft?.injectType ?? 'script',
-                source: injectDraft?.source ?? 'code',
-                code: injectDraft?.code ?? '',
-                position: injectDraft?.position ?? 'body-end',
-                ...(injectDraft?.sourceUrl ? { sourceUrl: injectDraft.sourceUrl } : {}),
-                ...(injectDraft?.bypassCSP !== undefined ? { bypassCSP: injectDraft.bypassCSP } : {}),
-              },
-            } as Omit<V5.InjectRule, 'uid' | 'path'>;
-            break;
-          }
-          case 'delay': {
-            const delayDraft = draftMatches?.type === 'delay' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'delay',
-              action: { delayMs: delayDraft?.delayMs ?? 1000 },
-            } as Omit<V5.DelayRule, 'uid' | 'path'>;
-            break;
-          }
-          case 'body': {
-            const bodyDraft = draftMatches?.type === 'body' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'body',
-              action: {
-                bodyType: bodyDraft?.bodyType ?? 'static',
-                body: bodyDraft?.body ?? '',
-                resourceType: bodyDraft?.resourceType ?? 'rest',
-              },
-            } as Omit<V5.BodyRule, 'uid' | 'path'>;
-            break;
-          }
-          case 'mock': {
-            const mockDraft = draftMatches?.type === 'mock' ? draftMatches : undefined;
-            rule = {
-              ...base,
-              type: 'mock',
-              action: {
-                statusCode: mockDraft?.statusCode ?? 0,
-                responseBody: mockDraft?.responseBody ?? '',
-                contentType: mockDraft?.contentType ?? 'application/json',
-                responseHeaders: mockDraft?.responseHeaders ?? {},
-                bodyType: mockDraft?.bodyType ?? 'static',
-                ...(mockDraft?.resourceType ? { resourceType: mockDraft.resourceType } : {}),
-              },
-            } as Omit<V5.MockRule, 'uid' | 'path'>;
-            break;
-          }
-          default:
-            return;
-        }
-        void createLocalRule(rule, context.collectionId, context.folderPath).then((created) => {
-          if (created) {
-            const editId = `edit-${created.uid}`;
-            addTab({
-              id: editId,
-              label: created.name,
-              ruleType: created.type,
-              dirty: false,
-              mode: 'edit',
-              ruleUid: created.uid,
-              templateKey,
-            });
-            setPendingRenameTabId(editId);
-          }
-        });
-        return;
-      }
-
-      // No collection context — pick or create one, then recurse.
-      const resolveAndCreate = async () => {
-        let collectionId: string;
-        if (localCollections.length > 0) {
-          collectionId = localCollections[0].uid;
-        } else {
-          const col = await createLocalCollection('My Rules');
-          if (!col) return;
-          collectionId = col.uid;
-        }
-        openCreateTab(type, { collectionId }, templateKey, initialDraft);
-      };
-      void resolveAndCreate();
+      const draftMatches = initialDraft && initialDraft.type === type ? initialDraft : undefined;
+      const draftName = draftMatches?.name ?? generateDraftName(type);
+      const tabId = `create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      addTab({
+        id: tabId,
+        label: draftName,
+        ruleType: type,
+        // A freshly-opened draft is "dirty" from the start — it has
+        // no saved form yet. The editor will flip it back to `false`
+        // if (and only if) the user cancels every field back to the
+        // type defaults, which is an edge case we're fine with.
+        dirty: true,
+        mode: 'create',
+        createType: type,
+        draftName,
+        templateKey,
+        initialDraft: draftMatches,
+        preferredCollectionId: context?.collectionId,
+        preferredFolderPath: context?.folderPath,
+      });
+      setPendingRenameTabId(tabId);
     },
-    [generateDraftName, createLocalRule, localCollections, createLocalCollection, addTab, draftUrlStrategy],
+    [generateDraftName, addTab],
   );
 
   const openEditTab = useCallback(

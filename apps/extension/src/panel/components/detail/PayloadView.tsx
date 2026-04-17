@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
+import { HighlightedText } from './HighlightedText';
+import TextBodyViewer from './TextBodyViewer';
 
 type QsViewMode = 'parsed' | 'source' | 'url-encoded';
 
@@ -50,12 +52,30 @@ function QsToggle({ mode, onModeChange }: { mode: QsViewMode; onModeChange: (m: 
 
 interface PayloadViewProps {
   har: InspectorHarEntry;
+  /** Query string the user just searched for. Highlighted in the
+   *  matching section's body (Query Params or Request Body) so they
+   *  can see where the match lives. */
+  searchHighlight?: string;
+  /** Section the search matched on (engine-side name: "Query Params"
+   *  or "Request Body"). Used to scope highlighting to the right pane —
+   *  without it, a search for "value" would light up both panes even
+   *  though the match came from only one. */
+  searchSection?: string;
 }
 
-export default function PayloadView({ har }: PayloadViewProps) {
+export default function PayloadView({ har, searchHighlight, searchSection }: PayloadViewProps) {
   const queryString = har.request?.queryString ?? [];
   const postData = har.request?.postData;
   const [qsMode, setQsMode] = useState<QsViewMode>('parsed');
+
+  const qsHighlight = searchSection === 'Query Params' ? searchHighlight : undefined;
+  const bodyHighlight = searchSection === 'Request Body' ? searchHighlight : undefined;
+
+  // Structured post data (form params) renders as a key/value table.
+  // Unstructured post data (raw text body) routes through the unified
+  // `TextBodyViewer` — same pipeline as the response body: Prettier +
+  // CodeMirror + theme + sniffer pill for misdeclared Content-Types.
+  const hasStructuredPostData = postData?.params && postData.params.length > 0;
 
   return (
     <div className="dt-payload-view">
@@ -69,14 +89,21 @@ export default function PayloadView({ har }: PayloadViewProps) {
             <div className="dt-payload-table">
               {queryString.map((q, i) => (
                 <div key={`q-${i}-${q.name}`} className="dt-payload-row">
-                  <span className="dt-payload-key">{decodeURIComponent(q.name)}</span>
-                  <span className="dt-payload-val">{decodeURIComponent(q.value)}</span>
+                  <span className="dt-payload-key">
+                    <HighlightedText text={decodeURIComponent(q.name)} query={qsHighlight} />
+                  </span>
+                  <span className="dt-payload-val">
+                    <HighlightedText text={decodeURIComponent(q.value)} query={qsHighlight} />
+                  </span>
                 </div>
               ))}
             </div>
           ) : (
             <pre className="dt-body-pre" style={{ margin: '4px 12px' }}>
-              {qsMode === 'source' ? buildSourceString(queryString) : buildUrlEncodedString(queryString)}
+              <HighlightedText
+                text={qsMode === 'source' ? buildSourceString(queryString) : buildUrlEncodedString(queryString)}
+                query={qsHighlight}
+              />
             </pre>
           )}
         </details>
@@ -85,19 +112,27 @@ export default function PayloadView({ har }: PayloadViewProps) {
       {postData && (
         <details className="dt-section" open>
           <summary>Request Body ({postData.mimeType})</summary>
-          {postData.params && postData.params.length > 0 ? (
+          {hasStructuredPostData ? (
             <div className="dt-payload-table">
-              {postData.params.map((p, i) => (
+              {postData.params?.map((p, i) => (
                 <div key={`p-${i}-${p.name}`} className="dt-payload-row">
-                  <span className="dt-payload-key">{p.name}</span>
-                  <span className="dt-payload-val">{p.value ?? ''}</span>
+                  <span className="dt-payload-key">
+                    <HighlightedText text={p.name} query={bodyHighlight} />
+                  </span>
+                  <span className="dt-payload-val">
+                    <HighlightedText text={p.value ?? ''} query={bodyHighlight} />
+                  </span>
                 </div>
               ))}
             </div>
           ) : (
-            <pre className="dt-body-pre" style={{ margin: '4px 12px' }}>
-              {postData.text ?? ''}
-            </pre>
+            <div className="dt-payload-body-wrap">
+              <TextBodyViewer
+                text={postData.text ?? ''}
+                declaredMime={postData.mimeType ?? ''}
+                searchQuery={bodyHighlight}
+              />
+            </div>
           )}
         </details>
       )}

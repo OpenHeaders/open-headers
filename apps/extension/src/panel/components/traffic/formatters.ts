@@ -20,12 +20,23 @@ export function formatTimestamp(ms: number): string {
   return `${hh}:${mm}:${ss}.${mmm}`;
 }
 
-export function statusClass(code: number | undefined): string {
+import type { RequestState } from '../../data/request-state';
+
+/**
+ * CSS class for the Status column. Derives both from the discriminated
+ * state (pending / blocked / failed / cached) and from the HTTP code
+ * when the state is success/redirect/cached. Early-hints 103 is
+ * treated as 1xx → muted.
+ */
+export function statusClass(state: RequestState, code: number | undefined): string {
+  if (state.kind === 'pending') return 'dt-col-status--pending';
+  if (state.kind === 'blocked' || state.kind === 'failed') return 'dt-col-status--error';
   if (code == null) return '';
   if (code >= 500) return 'dt-col-status--5xx';
   if (code >= 400) return 'dt-col-status--4xx';
   if (code >= 300) return 'dt-col-status--3xx';
   if (code >= 200 && code < 300) return 'dt-col-status--2xx';
+  if (code >= 100 && code < 200) return 'dt-col-status--1xx';
   return '';
 }
 

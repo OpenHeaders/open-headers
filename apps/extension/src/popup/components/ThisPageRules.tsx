@@ -82,40 +82,14 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   mock: 'Override API response (fetch/XHR)',
 };
 
-/**
- * One observation of a rule firing on a request — mirrors the
- * `RequestRecord` type exposed by the background's tab-telemetry module.
- * The popup receives these inside a snapshot and joins them to the
- * applicable-rules list at render time.
- */
-interface RequestRecord {
-  ruleUid: string;
-  url: string;
-  pattern: string;
-  resourceType: string;
-  t: number;
-  evidence: 'confirmed' | 'matched' | 'matched-fallback';
-  /**
-   * Populated by the background's shadow arbitrator when a higher-priority
-   * rule (currently: any matching `block` rule) would terminate the request
-   * before this rule could run. Phase 2 ships the popup render path behind
-   * an experimental setting so a wrong claim doesn't erode trust by default.
-   */
-  shadowedBy?: { uid: string; name: string };
-}
-
-interface TelemetrySnapshot {
-  counters: Record<string, number>;
-  fires: RequestRecord[];
-  byRule: Record<string, RequestRecord[]>;
-  uniqueRequestCount: number;
-}
+import type { RequestRecord, TabTelemetrySnapshot as TelemetrySnapshot } from '@/types/telemetry';
 
 const EMPTY_SNAPSHOT: TelemetrySnapshot = {
   counters: {},
   fires: [],
   byRule: {},
   uniqueRequestCount: 0,
+  totalFires: 0,
 };
 
 interface MatchedRequestRow extends RequestRecord {
@@ -442,6 +416,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             fires: snap?.fires ?? [],
             byRule: snap?.byRule ?? {},
             uniqueRequestCount: snap?.uniqueRequestCount ?? 0,
+            totalFires: snap?.totalFires ?? 0,
           });
         })
         .catch(() => {
@@ -1560,6 +1535,44 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                         </Tag>
                       </Tooltip>
                     );
+                  },
+                },
+                {
+                  title: 'Delivery',
+                  key: 'delivery',
+                  width: 90,
+                  align: 'center',
+                  sorter: (a, b) => (a.deliveryMode ?? '').localeCompare(b.deliveryMode ?? ''),
+                  render: (_: unknown, matchRecord: MatchedRequestRow) => {
+                    switch (matchRecord.deliveryMode) {
+                      case 'network':
+                        return (
+                          <Tooltip title="Request went to the network this session; response was not served from cache.">
+                            <Tag color="green" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                              ● live
+                            </Tag>
+                          </Tooltip>
+                        );
+                      case 'cached':
+                        return (
+                          <Tooltip title="Response was served from Chrome's HTTP cache. Your rule applied when this response was originally fetched or on the revalidation round-trip.">
+                            <Tag style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>● cached</Tag>
+                          </Tooltip>
+                        );
+                      case 'service-worker':
+                        return (
+                          <Tooltip title="A service worker intercepted the request. Whether your rule applied depends on what the service worker did next.">
+                            <Tag color="blue" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                              ● sw
+                            </Tag>
+                          </Tooltip>
+                        );
+                      default:
+                        // Scriptable fire or in-flight — no webRequest completion
+                        // yet, so delivery mode is unknown. Stay quiet rather
+                        // than show a misleading tag.
+                        return null;
+                    }
                   },
                 },
                 {

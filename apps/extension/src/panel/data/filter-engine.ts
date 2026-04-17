@@ -1,16 +1,44 @@
+import { classifyRequestState } from './request-state';
 import type { InspectorRequest } from './types';
 
+/**
+ * Toolbar-level coarse filters — mirrors Chrome's "More filters"
+ * menu conventions. `hide*` filters exclude matching rows; `only*`
+ * filters restrict the list to matching rows only. Multiple filters
+ * compose via AND (a row must pass every active filter).
+ */
 export interface FilterConfig {
   matchCase: boolean;
   wholeWord: boolean;
   regexMode: boolean;
+  /** Hide `data:` / `blob:` URLs (usually inline images, fonts). */
+  hideDataUrls: boolean;
+  /** Hide `chrome-extension://` / `moz-extension://` / etc. URLs. */
+  hideExtensionUrls: boolean;
+  /** Show ONLY requests to a different origin from `pageOrigin`. */
+  onlyThirdParty: boolean;
+  /** Show ONLY requests Chrome reported as blocked (status 0 / net::ERR_BLOCKED_*). */
+  onlyBlockedRequests: boolean;
+  /** Inspected-window origin, used as the same-origin baseline for `onlyThirdParty`. */
+  pageOrigin: string | null;
 }
 
 export const DEFAULT_FILTER_CONFIG: FilterConfig = {
   matchCase: false,
   wholeWord: false,
   regexMode: false,
+  hideDataUrls: false,
+  hideExtensionUrls: false,
+  onlyThirdParty: false,
+  onlyBlockedRequests: false,
+  pageOrigin: null,
 };
+
+const EXTENSION_URL_RE = /^(chrome|moz|edge|safari-web)-extension:\/\//i;
+
+function isExtensionUrl(url: string): boolean {
+  return EXTENSION_URL_RE.test(url);
+}
 
 export type PropertyFilterKey =
   | 'domain'
@@ -200,6 +228,49 @@ function matchToken(entry: InspectorRequest, token: FilterToken, config: FilterC
 export function matchesUrlFilter(entry: InspectorRequest, tokens: FilterToken[], config: FilterConfig): boolean {
   for (const token of tokens) {
     if (!matchToken(entry, token, config)) return false;
+  }
+  return true;
+}
+
+function isDataOrBlobUrl(url: string): boolean {
+  return url.startsWith('data:') || url.startsWith('blob:');
+}
+
+/**
+ * Strict first-party check — returns true only when we're *sure* the
+ * URL shares the page's origin. Unparseable URLs return false (we
+ * can't assert same-origin), which keeps defensive "don't silently
+ * hide unparseable rows" behavior in the `onlyThirdParty` branch.
+ */
+function isFirstParty(url: string, pageOrigin: string): boolean {
+  try {
+    return new URL(url).origin === pageOrigin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Coarse row filters applied before the URL-filter token pass. Kept
+ * separate so the URL filter can remain purely about URL/header/method
+ * token semantics and toolbar toggles stay an obvious pre-filter.
+ */
+export function passesRowFilters(entry: InspectorRequest, config: FilterConfig): boolean {
+  if (config.hideDataUrls && isDataOrBlobUrl(entry.url)) return false;
+  if (config.hideExtensionUrls && isExtensionUrl(entry.url)) return false;
+  // `onlyThirdParty` only makes sense once we know the page origin — if
+  // it's not set yet the filter is a no-op rather than hiding everything.
+  // Using the strict first-party check means unparseable URLs (rare but
+  // possible for synthetic / data-stream entries) fall through rather
+  // than silently disappear.
+  if (config.onlyThirdParty && config.pageOrigin != null && isFirstParty(entry.url, config.pageOrigin)) return false;
+  // Chrome's "Blocked requests" filter includes both `net::ERR_BLOCKED_*`
+  // aborts and any wire-level failure (DNS, TLS, timeout) — the common
+  // user intent is "show me what didn't succeed". Mirror that: our
+  // `failed` + `blocked` states both qualify.
+  if (config.onlyBlockedRequests) {
+    const s = classifyRequestState(entry);
+    if (s.kind !== 'blocked' && s.kind !== 'failed') return false;
   }
   return true;
 }

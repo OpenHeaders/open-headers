@@ -35,7 +35,11 @@
  * toggle (surfaced in the panel toolbar) disables the clear.
  */
 
-import type { InspectorHarBody, InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
+import type {
+  InspectorHarBody,
+  InspectorHarEntry,
+  InspectorNavTiming,
+} from '@/background/modules/devtools-inspector-port';
 import type { RequestRecord } from '@/background/modules/tab-telemetry';
 import type { DanglingFire, InspectorFire, InspectorRequest } from './types';
 
@@ -60,6 +64,7 @@ function harKey(method: string, url: string, startedDateTime: string): string {
 export interface InspectorSnapshot {
   entries: readonly InspectorRequest[];
   danglingFires: readonly DanglingFire[];
+  navTiming: InspectorNavTiming | null;
   version: number;
 }
 
@@ -73,7 +78,8 @@ export class InspectorStore {
   private arrivalCounter = 0;
   private displayCounter = 1;
   /** Cached snapshot — rebuilt only on bump() so useSyncExternalStore is stable. */
-  private snapshot: InspectorSnapshot = { entries: [], danglingFires: [], version: 0 };
+  private navTiming: InspectorNavTiming | null = null;
+  private snapshot: InspectorSnapshot = { entries: [], danglingFires: [], navTiming: null, version: 0 };
   /**
    * Preserve-log toggle. Defaults to `true` for power-user workflows
    * where losing history on every refresh is the opposite of helpful.
@@ -117,9 +123,23 @@ export class InspectorStore {
 
   /** Called when the inspected window navigates. Respects preserve-log. */
   onNavigated = (): void => {
-    if (this.preserveLog) return;
+    // Nav timing is scoped to the *current* page; reset regardless of
+    // preserve-log so the status bar doesn't keep showing DCL/Load
+    // numbers from a previous navigation.
+    this.navTiming = null;
+    if (this.preserveLog) {
+      this.bump();
+      return;
+    }
     this.clear();
   };
+
+  setNavTiming = (timing: InspectorNavTiming): void => {
+    this.navTiming = timing;
+    this.bump();
+  };
+
+  getNavTiming = (): InspectorNavTiming | null => this.navTiming;
 
   ingestHarEntry(har: InspectorHarEntry): void {
     if (!this.recording) return;
@@ -233,6 +253,7 @@ export class InspectorStore {
     this.snapshot = {
       entries: this.entries.slice(),
       danglingFires: this.danglingFires.slice(),
+      navTiming: this.navTiming,
       version: this.version,
     };
     for (const listener of this.listeners) {

@@ -1,35 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { isTextMime } from '../data/mime';
+import { classifyBodyState } from '../data/response-body-state';
 import type { InspectorRequest } from '../data/types';
 import HexViewer from './detail/HexViewer';
-import { prettyPrintCode } from './detail/pretty-print';
 import ResponseViewerToolbar, { type ViewMode } from './detail/ResponseViewerToolbar';
 import Skeleton from './detail/Skeleton';
-
-const CodeMirrorViewer = lazy(() => import('./detail/CodeMirrorViewer'));
-
-function isJsonMime(mime: string): boolean {
-  return /\bjson\b/i.test(mime);
-}
-
-function isXmlMime(mime: string): boolean {
-  return /\b(xml|xhtml)\b/i.test(mime);
-}
-
-function isTextMime(mime: string): boolean {
-  return /^text\//i.test(mime) || isJsonMime(mime) || isXmlMime(mime);
-}
-
-function isCssMime(mime: string): boolean {
-  return /\bcss\b/i.test(mime);
-}
-
-function isJsMime(mime: string): boolean {
-  return /\b(javascript|ecmascript)\b/i.test(mime);
-}
-
-function isHtmlMime(mime: string): boolean {
-  return /\bhtml\b/i.test(mime);
-}
+import TextBodyViewer from './detail/TextBodyViewer';
 
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -38,113 +14,81 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-function detectLanguage(mime: string): 'json' | 'css' | 'javascript' | 'html' | null {
-  if (isJsonMime(mime)) return 'json';
-  if (isCssMime(mime)) return 'css';
-  if (isJsMime(mime)) return 'javascript';
-  if (isHtmlMime(mime) || isXmlMime(mime)) return 'html';
-  return null;
-}
-
-function canPrettyPrint(mime: string): boolean {
-  return isJsonMime(mime) || isCssMime(mime) || isJsMime(mime) || isHtmlMime(mime) || isXmlMime(mime);
-}
-
 interface ResponseBodyViewProps {
   request: InspectorRequest;
   searchHighlight?: string;
   searchLineNumber?: number;
+  /** N-th occurrence of `searchHighlight` in this body (0-based). */
+  searchMatchIndex?: number;
 }
 
-export function ResponseBodyView({ request, searchHighlight }: ResponseBodyViewProps) {
-  const mime = request.mimeType ?? request.harEntry?.response?.content?.mimeType ?? '';
-  const body = request.responseBody;
-  const encoding = request.responseBodyEncoding;
+/**
+ * Center a short explanatory message when the response body is
+ * deliberately absent or unreachable. Matches Chrome's
+ * "Failed to load response data / <reason>" layout.
+ */
+function ResponseNotice({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="dt-response-notice">
+      <strong>{title}</strong>
+      <span className="dt-col-muted">{detail}</span>
+    </div>
+  );
+}
+
+export function ResponseBodyView({ request, searchHighlight, searchMatchIndex }: ResponseBodyViewProps) {
+  const declaredMime = request.mimeType ?? request.harEntry?.response?.content?.mimeType ?? '';
+  const state = useMemo(() => classifyBodyState(request), [request]);
   const highlight = searchHighlight ?? '';
-  const isBase64 = encoding === 'base64';
-  const isText = isTextMime(mime) || !isBase64;
-  const lang = detectLanguage(mime);
-  const isBinary = isBase64 && !isText;
 
   const [viewMode, setViewMode] = useState<ViewMode>('hex');
-  const [prettyPrint, setPrettyPrint] = useState(canPrettyPrint(mime));
-  const [formattedText, setFormattedText] = useState<string | null>(null);
-  const [formatting, setFormatting] = useState(false);
-  const [cursorInfo, setCursorInfo] = useState<string | null>(null);
-  const togglePrettyPrint = useCallback(() => setPrettyPrint((p) => !p), []);
-  const handleCursorChange = useCallback(
-    (line: number, col: number) => setCursorInfo(`Line ${line}, Column ${col}`),
-    [],
-  );
 
   const bytes = useMemo(() => {
-    if (!body || !isBase64) return null;
+    if (state.kind !== 'binary') return null;
     try {
-      return base64ToBytes(body);
+      return base64ToBytes(state.base64);
     } catch {
       return null;
     }
-  }, [body, isBase64]);
+  }, [state]);
 
-  const textContent = useMemo(() => {
-    if (!body) return null;
-    if (!isBase64) return body;
-    if (bytes) {
-      try {
-        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      } catch {
-        return null;
-      }
+  const binaryAsText = useMemo(() => {
+    if (state.kind !== 'binary' || !bytes) return null;
+    // Some servers return text with a binary-looking mime (e.g.
+    // application/octet-stream carrying JSON). Try a strict UTF-8
+    // decode; on failure we stay in hex mode.
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch {
+      return null;
     }
-    return null;
-  }, [body, isBase64, bytes]);
+  }, [state, bytes]);
 
-  // Run prettier asynchronously when pretty print is enabled
-  useEffect(() => {
-    if (!prettyPrint || !lang) {
-      setFormattedText(null);
-      setFormatting(false);
-      return;
-    }
-    const raw = textContent ?? body;
-    if (!raw) return;
-    let cancelled = false;
-    setFormatting(true);
-    prettyPrintCode(raw, lang).then((result) => {
-      if (!cancelled) {
-        setFormattedText(result);
-        setFormatting(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [prettyPrint, lang, textContent, body]);
-
-  if (body == null) {
+  // ── Non-body states ──────────────────────────────────────
+  if (state.kind === 'loading') {
     return (
-      <div className="dt-body-info">
-        Body not yet fetched. Chrome fetches response bodies asynchronously; it should arrive shortly.
+      <div className="dt-response-view">
+        <div className="dt-response-view-content">
+          <Skeleton />
+        </div>
       </div>
     );
   }
-
-  if (body === '') {
-    return (
-      <div className="dt-body-info">
-        Body not captured. Chrome&apos;s <code>entry.getContent</code> returned empty &mdash; the response was likely
-        served from disk cache, streamed without buffering, or was opaque cross-origin content.
-      </div>
-    );
+  if (state.kind === 'not-applicable') {
+    return <ResponseNotice title="No response body" detail={state.message} />;
   }
-
-  let content: React.ReactNode;
-  let lineInfo: string | undefined;
+  if (state.kind === 'unavailable') {
+    return <ResponseNotice title="Failed to load response data" detail={state.message} />;
+  }
+  if (state.kind === 'empty') {
+    return <ResponseNotice title="(empty response body)" detail="The server returned an empty body." />;
+  }
 
   // ── Binary content ─────────────────────────────────────────
-  if (isBinary) {
+  if (state.kind === 'binary') {
+    let content: React.ReactNode;
     if (viewMode === 'base64') {
-      content = <pre className="dt-body-pre dt-body-pre--base64">{body}</pre>;
+      content = <pre className="dt-body-pre dt-body-pre--base64">{state.base64}</pre>;
     } else if (viewMode === 'utf8' && bytes) {
       const lossy = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
       content = <pre className="dt-body-pre">{lossy}</pre>;
@@ -152,6 +96,20 @@ export function ResponseBodyView({ request, searchHighlight }: ResponseBodyViewP
       content = <HexViewer data={bytes} />;
     } else {
       content = <span className="dt-col-muted">Binary payload ({request.responseSize ?? 0} bytes).</span>;
+    }
+
+    // Binary bodies whose MIME is text-ish (e.g. base64-encoded JSON)
+    // can still be offered as text — route through `TextBodyViewer`
+    // when we have a clean UTF-8 decode and a text-shaped mime.
+    if (viewMode === 'utf8' && binaryAsText && isTextMime(declaredMime)) {
+      return (
+        <TextBodyViewer
+          text={binaryAsText}
+          declaredMime={declaredMime}
+          searchQuery={highlight || undefined}
+          searchMatchIndex={searchMatchIndex}
+        />
+      );
     }
 
     return (
@@ -163,41 +121,12 @@ export function ResponseBodyView({ request, searchHighlight }: ResponseBodyViewP
   }
 
   // ── Text content ───────────────────────────────────────────
-  const rawText = textContent ?? body;
-
-  // Show skeleton while prettier is running
-  if (prettyPrint && formatting) {
-    content = <Skeleton />;
-  } else {
-    const displayText = prettyPrint && formattedText ? formattedText : rawText;
-    lineInfo = cursorInfo ?? `${displayText.split('\n').length} lines`;
-
-    if (lang) {
-      content = (
-        <Suspense fallback={<Skeleton />}>
-          <CodeMirrorViewer
-            value={displayText}
-            language={lang}
-            onCursorChange={handleCursorChange}
-            searchQuery={highlight || undefined}
-          />
-        </Suspense>
-      );
-    } else {
-      content = <pre className="dt-body-pre">{displayText}</pre>;
-    }
-  }
-
-  const showPrettyPrint = canPrettyPrint(mime);
-
   return (
-    <div className="dt-response-view">
-      <div className="dt-response-view-content">{content}</div>
-      <ResponseViewerToolbar
-        lineInfo={lineInfo}
-        prettyPrint={showPrettyPrint ? prettyPrint : undefined}
-        onTogglePrettyPrint={showPrettyPrint ? togglePrettyPrint : undefined}
-      />
-    </div>
+    <TextBodyViewer
+      text={state.content}
+      declaredMime={declaredMime}
+      searchQuery={highlight || undefined}
+      searchMatchIndex={searchMatchIndex}
+    />
   );
 }

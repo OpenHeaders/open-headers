@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { classifyBodyState } from '../../data/response-body-state';
 import type { InspectorRequest } from '../../data/types';
 import { JsonTree } from '../JsonTree';
 import Skeleton from './Skeleton';
@@ -109,25 +110,34 @@ interface PreviewViewProps {
   request: InspectorRequest;
 }
 
+function PreviewNotice({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="dt-response-notice">
+      <strong>{title}</strong>
+      <span className="dt-col-muted">{detail}</span>
+    </div>
+  );
+}
+
 export default function PreviewView({ request }: PreviewViewProps) {
   const mime = request.mimeType ?? request.harEntry?.response?.content?.mimeType ?? '';
   const size = request.responseSize ?? request.harEntry?.response?.content?.size ?? 0;
-  const body = request.responseBody;
-  const encoding = request.responseBodyEncoding;
-  const isBase64 = encoding === 'base64';
+  const state = useMemo(() => classifyBodyState(request), [request]);
 
   const textContent = useMemo(() => {
-    if (!body) return null;
-    if (!isBase64) return body;
-    try {
-      const bin = atob(body);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    } catch {
-      return null;
+    if (state.kind === 'text') return state.content;
+    if (state.kind === 'binary') {
+      try {
+        const bin = atob(state.base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch {
+        return null;
+      }
     }
-  }, [body, isBase64]);
+    return null;
+  }, [state]);
 
   const metaBar = (extra?: React.ReactNode) => (
     <div className="dt-preview-meta-bar">
@@ -137,7 +147,8 @@ export default function PreviewView({ request }: PreviewViewProps) {
     </div>
   );
 
-  if (!body) {
+  // ── Non-body states — match Response tab messaging ───────
+  if (state.kind === 'loading') {
     return (
       <div className="dt-response-view">
         <div className="dt-response-view-content">
@@ -147,25 +158,34 @@ export default function PreviewView({ request }: PreviewViewProps) {
       </div>
     );
   }
+  if (state.kind === 'not-applicable') {
+    return <PreviewNotice title="No preview available" detail={state.message} />;
+  }
+  if (state.kind === 'unavailable') {
+    return <PreviewNotice title="Failed to load response data" detail={state.message} />;
+  }
+  if (state.kind === 'empty') {
+    return <PreviewNotice title="(empty response body)" detail="The server returned an empty body." />;
+  }
 
   let content: React.ReactNode;
 
-  if (isSvgMime(mime) && !isBase64) {
+  if (state.kind === 'text' && isSvgMime(mime)) {
     content = (
       <div
         className="dt-preview-image-container dt-preview-svg"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG rendering from response body
-        dangerouslySetInnerHTML={{ __html: body }}
+        dangerouslySetInnerHTML={{ __html: state.content }}
       />
     );
-  } else if (isImageMime(mime) && isBase64) {
+  } else if (state.kind === 'binary' && isImageMime(mime)) {
     return (
       <div className="dt-response-view">
-        <ImagePreview mime={mime} body={body} metaBar={metaBar} />
+        <ImagePreview mime={mime} body={state.base64} metaBar={metaBar} />
       </div>
     );
-  } else if (isFontMime(mime) && isBase64) {
-    const fontUrl = `data:${mime};base64,${body}`;
+  } else if (state.kind === 'binary' && isFontMime(mime)) {
+    const fontUrl = `data:${mime};base64,${state.base64}`;
     content = (
       <>
         <style>{`@font-face { font-family: 'dt-preview-font'; src: url('${fontUrl}'); }`}</style>

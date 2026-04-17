@@ -29,6 +29,7 @@ import {
 } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
+import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
 import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 import { handleGeneralMessage } from './modules/message-handler';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
@@ -43,7 +44,9 @@ import {
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import { getLocalCollectionTrees, getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
+import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
+import { getTabSnapshot } from './modules/tab-telemetry';
 import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
@@ -117,8 +120,16 @@ async function updateBadgeForCurrentTab(): Promise<void> {
 
     const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
     const markers = getPauseMarkers();
-    const activeRules = allMatchingRules.filter((r) => r.isEnabled !== false && !resolvePauseState(r.path, markers));
-    await updateExtensionBadge(isConnected, activeRules, isPaused, recordingService, attempts);
+    const configured = allMatchingRules.filter((r) => r.isEnabled !== false && !resolvePauseState(r.path, markers));
+    const snapshot = currentTab?.id != null ? getTabSnapshot(currentTab.id) : null;
+    await updateExtensionBadge({
+      connected: isConnected,
+      isPaused,
+      recordingService,
+      reconnectAttempts: attempts,
+      fireCount: snapshot?.totalFires ?? 0,
+      configuredRuleCount: configured.length,
+    });
   });
 }
 
@@ -146,7 +157,14 @@ async function initializeExtension(): Promise<void> {
   }
   extensionInitialized = true;
 
-  await updateExtensionBadge(false, [], false, recordingService, 0);
+  await updateExtensionBadge({
+    connected: false,
+    isPaused: false,
+    recordingService,
+    reconnectAttempts: 0,
+    fireCount: 0,
+    configuredRuleCount: 0,
+  });
   setupRequestMonitoring(debouncedUpdateBadge);
   setupTabListeners(debouncedUpdateBadge, recordingService);
   setupPeriodicCleanup();
@@ -176,6 +194,12 @@ async function initializeExtension(): Promise<void> {
   // Hydrate rules + templates from storage (offline start before WebSocket connects)
   await hydrateTemplatesFromStorage();
   const restoredRules = await hydrateFromStorage();
+  // Rehydrate the rule-state-observer snapshot BEFORE the first
+  // rebuildAll fires, so rule changes that happened while the SW was
+  // terminated are diffed against the pre-sleep baseline instead of
+  // hitting the first-run seeding skip.
+  await rehydrateObserverFromStorage();
+  await rehydrateCacheBypassFromSessionRules();
   let didInitialApply = false;
   if (restoredRules.length > 0) {
     logger.info('Background', `Restored ${restoredRules.length} rules from storage`);
@@ -383,7 +407,10 @@ function setupDelayBypassCleanup(): void {
 
   // Tab closed — drop any stashed entry.
   if (api.tabs?.onRemoved) {
-    api.tabs.onRemoved.addListener((tabId: number) => forgetDelayBypassForTab(tabId));
+    api.tabs.onRemoved.addListener((tabId: number) => {
+      forgetDelayBypassForTab(tabId);
+      void forgetCacheBypassForTab(tabId);
+    });
   }
 }
 

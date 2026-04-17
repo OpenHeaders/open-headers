@@ -15,6 +15,7 @@ import {
   recordScriptableFire,
   startTracking,
   stopTracking,
+  updateRequestDeliveryMode,
 } from '@/background/modules/tab-telemetry';
 
 // ── Fixture helpers ──────────────────────────────────────────────────
@@ -464,5 +465,97 @@ describe('tab-telemetry — snapshot isolation', () => {
     const fresh = getTabSnapshot(1);
     expect(fresh.fires).toHaveLength(1);
     expect(fresh.fires[0]?.ruleUid).toBe('rule-a');
+  });
+});
+
+// ── Delivery mode + totalFires ───────────────────────────────────────
+
+describe('totalFires + updateRequestDeliveryMode', () => {
+  it('totalFires is zero on a fresh tab', () => {
+    startTracking(1, 'active-popup');
+    expect(getTabSnapshot(1).totalFires).toBe(0);
+  });
+
+  it('totalFires equals the sum of per-rule counters as fires land', () => {
+    startTracking(1, 'active-popup');
+
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-1', 100, DNR_META);
+    recordObservedFire(1, 'rule-b', 'https://openheaders.io/b', 'req-2', 101, DNR_META);
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/c', 'req-3', 102, DNR_META);
+
+    const snap = getTabSnapshot(1);
+    expect(snap.counters).toEqual({ 'rule-a': 2, 'rule-b': 1 });
+    expect(snap.totalFires).toBe(3);
+  });
+
+  it('scoped snapshot computes totalFires over the scope only', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-1', 100, DNR_META);
+    recordObservedFire(1, 'rule-b', 'https://openheaders.io/b', 'req-2', 101, DNR_META);
+
+    const scoped = getTabSnapshotForScope(1, new Set(['rule-a']));
+    expect(scoped.totalFires).toBe(1);
+    expect(scoped.counters).toEqual({ 'rule-a': 1 });
+  });
+
+  it('records carry requestId so delivery-mode back-fill can target them', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-42', 100, DNR_META);
+
+    const snap = getTabSnapshot(1);
+    expect(snap.fires[0]?.requestId).toBe('req-42');
+    expect(snap.fires[0]?.deliveryMode).toBeUndefined();
+  });
+
+  it('updateRequestDeliveryMode back-fills all records for a given requestId', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-10', 100, DNR_META);
+    recordObservedFire(1, 'rule-b', 'https://openheaders.io/a', 'req-10', 100, DNR_META);
+
+    updateRequestDeliveryMode(1, 'req-10', 'cached');
+
+    const snap = getTabSnapshot(1);
+    expect(snap.fires.every((f) => f.deliveryMode === 'cached')).toBe(true);
+    // byRule also reflects the back-fill via shared object references.
+    for (const records of Object.values(snap.byRule)) {
+      for (const r of records) expect(r.deliveryMode).toBe('cached');
+    }
+  });
+
+  it('updateRequestDeliveryMode is a no-op for an unknown requestId', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-10', 100, DNR_META);
+
+    updateRequestDeliveryMode(1, 'req-never-seen', 'cached');
+
+    expect(getTabSnapshot(1).fires[0]?.deliveryMode).toBeUndefined();
+  });
+
+  it('updateRequestDeliveryMode is a no-op for an untracked tab', () => {
+    // Untracked tab — no state to update; should not throw.
+    expect(() => updateRequestDeliveryMode(999, 'req-1', 'network')).not.toThrow();
+  });
+
+  it('scriptable fires have no requestId and no deliveryMode', () => {
+    startTracking(1, 'active-popup');
+    recordScriptableFire(1, 'rule-a', 'https://openheaders.io/a', 100, SCRIPTABLE_META);
+
+    const record = getTabSnapshot(1).fires[0]!;
+    expect(record.requestId).toBeUndefined();
+    expect(record.deliveryMode).toBeUndefined();
+  });
+
+  it('back-fill reaches main-frame pending records too', () => {
+    startTracking(1, 'active-popup');
+    onMainFrameRequest(1, 'req-mf', 'https://openheaders.io/');
+    // Main-frame fires queue into pendingFires until commit.
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/', 'req-mf', 100, MAIN_FRAME_META);
+
+    updateRequestDeliveryMode(1, 'req-mf', 'network');
+    // Before commit, no snapshot view of pending — but the commit path
+    // must carry the back-filled mode through into fires.
+    onPageCommit(1, 'https://openheaders.io/');
+
+    expect(getTabSnapshot(1).fires[0]?.deliveryMode).toBe('network');
   });
 });

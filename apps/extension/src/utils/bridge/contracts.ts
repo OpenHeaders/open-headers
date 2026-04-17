@@ -125,6 +125,10 @@ export interface BridgeRpcContract {
     req: { nonce: string };
     res: { success: boolean; draft: V5.RuleDraft | null };
   };
+  setCacheBypass: {
+    req: { tabId: number; enabled: boolean };
+    res: { success: boolean; error?: string };
+  };
   updateLocalRule: {
     req: {
       ruleId: string;

@@ -21,6 +21,7 @@ import { formatUrlPattern, getHeaderOperationCapability } from '@openheaders/cor
 import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
 import { normalizeHeaderName } from '@utils/utils';
+import { get as getSetting } from '@/rules/settings/store';
 import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import type {
   CompilationPlan,
@@ -77,14 +78,31 @@ export const headerCompiler: RuleCompiler<V5.HeaderRule> = {
       return {};
     }
 
-    // Cache-busting request headers — always added when the rule modifies
-    // request headers so the server sees the modified request and doesn't
-    // return a cached response that would hide the modification.
-    if (reqMods.length > 0) {
-      reqMods.push(
-        { header: 'Cache-Control', operation: 'set', value: 'no-cache, no-store, must-revalidate' },
-        { header: 'Pragma', operation: 'set', value: 'no-cache' },
-      );
+    // ── Live Rules Mode (Layer 1 cache-freshness) ───────────────────
+    // For any rule that touches headers (request or response), ensure the
+    // request bypasses the HTTP cache so the rule's effect is visible on
+    // every fire — not just on the first load. Non-matched requests are
+    // untouched; only rules the user explicitly wrote revalidate. Scope:
+    //
+    //   - Precedence: if the user's rule already targets `Cache-Control`
+    //     in ANY way (set/append/remove), skip injection entirely — their
+    //     intent wins.
+    //   - Ordering: prepend via `unshift` so DNR's last-write-wins on
+    //     same-header applies the user's subsequent action naturally.
+    //     Defensive ordering beats re-checking on every future edit.
+    //   - Trigger: reqMods OR resMods. A response-header rule also needs
+    //     Cache-Control on the request; otherwise the cached response
+    //     reuse would hide the response modification.
+    //   - Toggle: `rulesEngine.liveRulesMode` (default on). Advanced users
+    //     can opt out.
+    if (getSetting('rulesEngine.liveRulesMode')) {
+      const userTouchesCacheControl = reqMods.some((m) => m.header.toLowerCase() === 'cache-control');
+      if (!userTouchesCacheControl) {
+        reqMods.unshift(
+          { header: 'Cache-Control', operation: 'set', value: 'no-cache' },
+          { header: 'Pragma', operation: 'set', value: 'no-cache' },
+        );
+      }
     }
 
     const dnrRules: DnrRule[] = [];
