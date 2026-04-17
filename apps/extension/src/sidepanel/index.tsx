@@ -3,14 +3,14 @@ import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { SettingsProvider } from '@/rules/settings';
 import { SurfaceProvider } from '@/shared/surface';
-import App from './App';
-import './styles/popup.less';
+import App from '../popup/App';
+import './styles/sidepanel.less';
 
 const container = document.getElementById('root');
 const root = createRoot(container!);
 
 root.render(
-  <SurfaceProvider mode="popup">
+  <SurfaceProvider mode="sidepanel">
     <SettingsProvider>
       <ThemeProvider>
         <AntApp>

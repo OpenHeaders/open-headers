@@ -620,7 +620,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
         <div className="header-rules-title">
           <div>
             <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Collections</Text>
-            <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>
+            <Text className="oh-toolbar-status" type="secondary" style={{ fontSize: '11px', display: 'block' }}>
               {localCollectionTrees.length} collection{localCollectionTrees.length !== 1 ? 's' : ''}, {totalRules} rule
               {totalRules !== 1 ? 's' : ''}
             </Text>
@@ -628,6 +628,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', height: 36 }}>
               <Input.Search
+                className="oh-search oh-toolbar-secondary"
                 placeholder="Search anything..."
                 allowClear
                 size="small"
@@ -703,11 +704,11 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
                 trigger={['click']}
               >
                 <Tooltip title="Sort order">
-                  <Button type="text" size="small" icon={<SortAscendingOutlined />} />
+                  <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
                 </Tooltip>
               </Dropdown>
             </div>
-            <div style={{ textAlign: 'right', marginTop: 2 }}>
+            <div className="oh-toolbar-secondary" style={{ textAlign: 'right', marginTop: 2 }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {searchText
                   ? `${filteredRecords.length} of ${treeRecords.length} collection${treeRecords.length !== 1 ? 's' : ''} matched`

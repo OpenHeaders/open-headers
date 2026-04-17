@@ -162,6 +162,62 @@ export function handleGeneralMessage(
         }
       });
       return true;
+    } else if (message.type === 'sidepanelToPopup') {
+      // Close the sidepanel first, then open the popup. The reverse
+      // order races with Chrome's focus restore at the tail of the
+      // sidepanel close animation — that focus shift blurs the popup,
+      // and popups auto-close on any blur.
+      //
+      // `sidePanel.close()` resolves when Chrome considers the panel
+      // closed, but the focus/layout settle can trail the promise by
+      // a few hundred ms (animation + window refocus). We wait a bit
+      // extra before opening the popup so the popup opens into a
+      // stable focus state.
+      const sidePanelApi = (
+        chrome as unknown as {
+          sidePanel?: {
+            close?: (o: { windowId?: number; tabId?: number }) => Promise<void>;
+          };
+        }
+      ).sidePanel;
+      const actionApi = chrome.action as unknown as {
+        openPopup?: (o?: { windowId?: number }) => Promise<void>;
+      };
+      const windowId = message.windowId as number | undefined;
+      const tabId = message.tabId as number | undefined;
+      const POST_CLOSE_SETTLE_MS = 500;
+
+      (async () => {
+        if (sidePanelApi?.close) {
+          // Our manifest declares a global panel, so windowId is the
+          // correct scope. tabId is kept as a fallback for any future
+          // tab-scoped panel.
+          const closeAttempts: { windowId?: number; tabId?: number }[] = [];
+          if (windowId != null) closeAttempts.push({ windowId });
+          if (tabId != null) closeAttempts.push({ tabId });
+          for (const opts of closeAttempts) {
+            try {
+              await sidePanelApi.close(opts);
+              break;
+            } catch (error) {
+              logger.info('ViewMode', 'sidePanel.close failed:', (error as Error).message);
+            }
+          }
+          await new Promise((resolve) => setTimeout(resolve, POST_CLOSE_SETTLE_MS));
+        }
+
+        if (!actionApi.openPopup) {
+          safeResponse({ success: true, opened: false, error: 'action.openPopup unavailable' });
+          return;
+        }
+        try {
+          await actionApi.openPopup(windowId != null ? { windowId } : undefined);
+          safeResponse({ success: true, opened: true });
+        } catch (error) {
+          safeResponse({ success: true, opened: false, error: (error as Error).message });
+        }
+      })();
+      return true;
     } else if (message.type === 'focusApp') {
       if (isWebSocketConnected()) {
         const sent = sendViaWebSocket({ type: 'focusApp', navigation: message.navigation as string });

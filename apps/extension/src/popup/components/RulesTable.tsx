@@ -1,7 +1,6 @@
 import {
   CheckOutlined,
   DeleteOutlined,
-  DownOutlined,
   EditOutlined,
   ExperimentOutlined,
   FileTextOutlined,
@@ -13,17 +12,16 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
-import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
-import { App, Button, Dropdown, Empty, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
+import { App, Button, Dropdown, Empty, Grid, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
-import { buildRuleTypeMenuItemsWithTemplates } from '@/rules/rule-type-menu';
 import { getBrowserAPI } from '@/types/browser';
 import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '../utils/table-shared';
+import { AddRulePalette } from './AddRulePalette';
 import {
   type ActionDetail,
   renderActionDetails,
@@ -76,6 +74,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
 
   const { rules, isConnected, uiState, updateUiState, pauseMarkers } = useRules();
   const { setFocusedRowIndex } = useKeyboardNav();
+  const screens = Grid.useBreakpoint();
 
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
   const [sortMode, setSortMode] = useState<SortMode>((uiState?.tableState?.sortMode as SortMode) || 'status');
@@ -232,13 +231,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
     [isConnected, message],
   );
 
-  const [addRuleMenuOpen, setAddRuleMenuOpen] = useState(false);
+  const [addRulePaletteOpen, setAddRulePaletteOpen] = useState(false);
 
   const handleAddRule = useCallback(() => {
-    setAddRuleMenuOpen((prev) => {
-      if (!prev) focusFirstDropdownItem();
-      return !prev;
-    });
+    setAddRulePaletteOpen((prev) => !prev);
   }, []);
 
   useRowActionRegistration(onRowActionsChange, {
@@ -331,6 +327,10 @@ const RulesTable: React.FC<RulesTableProps> = ({
       title: 'Details',
       key: 'details',
       width: 270,
+      // Hidden below 'md' (<768px viewport) — at narrow sidepanel widths
+      // there isn't room for the 270px column. Action info is still
+      // accessible via the row's expand/edit affordances.
+      responsive: ['md'],
       render: (_: unknown, record: TableRecord) =>
         renderActionDetails(record.actionDetail, 1, 16, record.isEnabled && record.isComplete),
     },
@@ -339,6 +339,9 @@ const RulesTable: React.FC<RulesTableProps> = ({
       dataIndex: 'conditions',
       key: 'conditions',
       width: 120,
+      // Hidden below 'sm' (<576px) — domains/scopes are visible from the
+      // edit view and the rule name usually conveys scope at a glance.
+      responsive: ['sm'],
       sorter: (a, b) => a.domains.join(',').localeCompare(b.domains.join(',')),
       filters: [...new Set(dataSource.flatMap((item) => item.domains))].map((domain) => ({
         text: domain,
@@ -426,10 +429,9 @@ const RulesTable: React.FC<RulesTableProps> = ({
     },
   ];
 
-  const addRuleMenuItems = buildRuleTypeMenuItemsWithTemplates(
-    (type) => openRulesPage(`/create/${type}`),
-    (type, templateKey) => openRulesPage(`/create/${type}/${templateKey}`),
-  );
+  const handlePaletteSelect = useCallback((ruleType: string, templateKey?: string) => {
+    openRulesPage(templateKey ? `/create/${ruleType}/${templateKey}` : `/create/${ruleType}`);
+  }, []);
 
   const hasColumnSort = !!sortedInfo.order;
   const sortMenuItems = [
@@ -509,6 +511,20 @@ const RulesTable: React.FC<RulesTableProps> = ({
       : []),
   ];
 
+  // Compute the table's `scroll.x` from the columns Ant will actually
+  // render at the current viewport. Hardcoding `scroll.x: 680` (the
+  // full-width sum) leaves a phantom scroll area when `responsive`
+  // hides Details / Conditions, which pushes the fixed-right Toggle
+  // and Actions columns off the visible right edge — so the user sees
+  // only the Name column with no actions. Sum the same widths Ant uses
+  // for visibility (`responsive` matches Antd's `Grid.useBreakpoint`).
+  const tableScrollX =
+    170 + // Name (always)
+    (screens.md ? 270 : 0) + // Details — responsive: ['md']
+    (screens.sm ? 120 : 0) + // Conditions — responsive: ['sm']
+    50 + // Toggle (always)
+    88; // Actions (always)
+
   return (
     <div className="header-rules-section">
       <div className="table-toolbar">
@@ -516,20 +532,20 @@ const RulesTable: React.FC<RulesTableProps> = ({
           <div>
             <Text style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Rules</Text>
             {totalCount > 0 && (
-              <Space size={4} style={{ display: 'flex' }}>
+              <Space className="oh-toolbar-status" size={4} style={{ display: 'flex' }}>
                 <Text type="secondary" style={{ fontSize: '11px' }}>
                   {activeCount} of {totalCount} active
                   {draftCount > 0 ? `, ${draftCount} draft` : ''}
                 </Text>
                 {pausedCount > 0 && (
-                  <>
+                  <span className="oh-status-detail" style={{ display: 'inline-flex', gap: 4 }}>
                     <Text type="secondary" style={{ fontSize: '11px' }}>
                       ·
                     </Text>
                     <Text type="warning" style={{ fontSize: '11px' }}>
                       {pausedCount} paused by collection
                     </Text>
-                  </>
+                  </span>
                 )}
               </Space>
             )}
@@ -543,6 +559,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 overlayInnerStyle={{ whiteSpace: 'nowrap' }}
               >
                 <Button
+                  className="oh-toolbar-secondary"
                   size="middle"
                   icon={<ExperimentOutlined />}
                   onClick={handleTestAll}
@@ -560,22 +577,21 @@ const RulesTable: React.FC<RulesTableProps> = ({
                   }}
                 />
               </Tooltip>
-              <Dropdown
-                menu={{ items: addRuleMenuItems }}
-                placement="bottomRight"
-                trigger={['click']}
-                open={addRuleMenuOpen}
-                onOpenChange={setAddRuleMenuOpen}
-              >
-                <Button type="primary" size="middle" className="add-rule-button">
+              <Tooltip title="Add a rule — search across types and templates">
+                <Button
+                  type="primary"
+                  size="middle"
+                  className="add-rule-button"
+                  onClick={() => setAddRulePaletteOpen(true)}
+                >
                   <Space>
                     <PlusOutlined />
-                    Add Rule
-                    <DownOutlined style={{ fontSize: '10px' }} />
+                    <span className="oh-collapse-label">Add Rule</span>
                   </Space>
                 </Button>
-              </Dropdown>
+              </Tooltip>
               <Search
+                className="oh-search oh-toolbar-secondary"
                 placeholder="Search anything..."
                 allowClear
                 size="small"
@@ -591,11 +607,11 @@ const RulesTable: React.FC<RulesTableProps> = ({
               />
               <Dropdown menu={{ items: sortMenuItems }} placement="bottomRight" trigger={['click']}>
                 <Tooltip title="Sort order">
-                  <Button type="text" size="small" icon={<SortAscendingOutlined />} />
+                  <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
                 </Tooltip>
               </Dropdown>
             </div>
-            <div style={{ textAlign: 'right', marginTop: 2 }}>
+            <div className="oh-toolbar-secondary" style={{ textAlign: 'right', marginTop: 2 }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {searchText
                   ? `${filteredData.length} of ${totalCount} rule${totalCount !== 1 ? 's' : ''} matched`
@@ -612,7 +628,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           columns={columns}
           pagination={paginationConfig}
           size="small"
-          scroll={{ x: 680, y: 290 }}
+          scroll={{ x: tableScrollX, y: 290 }}
           onChange={handleChange}
           onRow={(_record: TableRecord, index) => ({
             onClick: () => {
@@ -667,6 +683,11 @@ const RulesTable: React.FC<RulesTableProps> = ({
         scopeLabel={testState.scopeLabel}
         ruleUids={testState.ruleUids}
         allRules={rules}
+      />
+      <AddRulePalette
+        open={addRulePaletteOpen}
+        onClose={() => setAddRulePaletteOpen(false)}
+        onSelect={handlePaletteSelect}
       />
     </div>
   );

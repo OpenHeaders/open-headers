@@ -7,6 +7,7 @@ import { logger } from '@utils/logger';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useSurface } from '@/shared/surface';
 import { getBrowserAPI } from '@/types/browser';
 import Footer from './components/Footer';
 import Header from './components/Header';
@@ -20,12 +21,19 @@ const THEME_CYCLE = ['light', 'dark', 'auto'] as const;
 
 const AppInner: React.FC = () => {
   const { isDarkMode } = useTheme();
+  const surface = useSurface();
   const { containerRef, isShortcutsOverlayVisible, setIsShortcutsOverlayVisible } = useKeyboardNav();
   const [tourOpen, setTourOpen] = useState<boolean | null>(null);
   const handleTourClose = useCallback(() => setTourOpen(null), []);
 
   return (
-    <div ref={containerRef} tabIndex={-1} style={{ outline: 'none', height: '100%' }}>
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      data-surface={surface.mode}
+      className={`oh-surface oh-surface-${surface.mode}`}
+      style={{ outline: 'none', height: '100%' }}
+    >
       <Layout className="app-container" data-theme={isDarkMode ? 'dark' : 'light'}>
         <Header />
         <Content className="content">
@@ -46,6 +54,7 @@ const AppInner: React.FC = () => {
 
 const AppContent: React.FC = () => {
   const { themeMode, setThemeMode, toggleCompactMode } = useTheme();
+  const surface = useSurface();
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const cycleTheme = useCallback(() => {
@@ -70,20 +79,21 @@ const AppContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Presence port: the background's tab-listeners watches for this
-    // port to disconnect so it can refresh the badge when the popup
-    // closes. Bridge.presence owns the full lifecycle.
-    const disposePresence = presence('popup');
+    // Presence port: the background's tab-listeners watches for either
+    // 'popup' or 'sidepanel' port to disconnect so it can refresh the
+    // badge when the surface closes. Bridge.presence owns the full
+    // lifecycle.
+    const disposePresence = presence(surface.presenceName);
 
     // Announce popupOpen so the SW reports connection status + rule set
     // in one round-trip. Fire-and-forget: the periodic poll in
     // RuleContext will refresh if this first call loses the race.
     call('popupOpen').catch((error: Error) => {
-      logger.info('Popup', 'popupOpen RPC failed:', error.message);
+      logger.info(surface.mode, 'popupOpen RPC failed:', error.message);
     });
 
     return disposePresence;
-  }, []);
+  }, [surface]);
 
   return (
     <ErrorBoundary>

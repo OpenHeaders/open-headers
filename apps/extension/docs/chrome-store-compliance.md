@@ -40,7 +40,7 @@ The Open Headers build process uses **Vite** with **Terser** minification, speci
    - `npm run release` — Creates compliant packages for submission
 
 4. **Content Security Policy**
-   - Extension CSP in `manifests/chrome/manifest.json` allows `ws://127.0.0.1:59210` for the desktop app connection
+   - Extension CSP in `manifests/chrome/manifest.json` allows `ws://127.0.0.1:59510` for the v5 desktop app connection
    - No remote script loading, no `eval()`, no `new Function()`
    - `'unsafe-inline'` only for styles (required by Ant Design)
 

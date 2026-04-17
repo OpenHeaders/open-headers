@@ -353,7 +353,7 @@ const Footer: React.FC = () => {
             disabled={!isConnected}
             style={{ height: '36px', padding: '0 20px', fontWeight: 500, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
           >
-            View Workflows
+            <span className="oh-collapse-label">View Workflows</span>
           </Button>
         </Tooltip>
         <Dropdown
@@ -378,14 +378,14 @@ const Footer: React.FC = () => {
               size="middle"
               style={{ height: '36px', padding: '0 10px', fontWeight: 500, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
             >
-              Options
+              <span className="oh-collapse-label">Options</span>
             </Button>
           </Tooltip>
         </Dropdown>
 
         <Tooltip title={<ShortcutHintTitle label={helpLabel}>Keyboard shortcuts</ShortcutHintTitle>}>
           <span
-            className="kbd-key"
+            className="kbd-key oh-help-shortcut"
             role="button"
             tabIndex={0}
             onClick={() => setIsShortcutsOverlayVisible((prev: boolean) => !prev)}
@@ -401,7 +401,9 @@ const Footer: React.FC = () => {
 
       <div>
         <Space size={8} align="center">
-          <Text style={{ fontSize: '11px', color: token.colorTextTertiary }}>v{version}</Text>
+          <Text className="oh-version" style={{ fontSize: '11px', color: token.colorTextTertiary }}>
+            v{version}
+          </Text>
           <Tooltip title="Help us with a star on GitHub">
             <Button
               className="github-star-button"
@@ -416,6 +418,7 @@ const Footer: React.FC = () => {
           </Tooltip>
           <Tooltip title="Visit our website">
             <Button
+              className="oh-decorative"
               type="text"
               icon={<GlobalOutlined />}
               onClick={handleOpenWebsite}

@@ -358,6 +358,17 @@ export interface BridgeRpcContract {
     req: { tabId: number };
     res: { success: boolean; needsBadgeUpdate?: boolean };
   };
+
+  // ── View-mode ────────────────────────────────────────────────
+  // Sidepanel → popup transition runs in the SW because the popup
+  // auto-closes on any focus change. If we open the popup first and
+  // close the sidepanel after, Chrome's focus restore at the end of
+  // the sidepanel close animation blurs the popup. Sequencing in the
+  // SW (close sidepanel, await, then openPopup) avoids the race.
+  sidepanelToPopup: {
+    req: { windowId?: number; tabId?: number };
+    res: { success: boolean; opened: boolean; error?: string };
+  };
 }
 
 /**

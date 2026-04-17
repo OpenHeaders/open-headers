@@ -271,34 +271,35 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
     tabsWithActiveRules.clear();
   });
 
-  // Add listener for when popup closes to ensure badge is updated
+  // Refresh badge whenever a UI surface (popup or sidepanel) closes —
+  // both surfaces drive their own badge state while open, so on close
+  // we re-derive from the underlying counters. The presence port name
+  // is set by the UI side via `bridge.presence(surface.presenceName)`.
   runtime.onConnect?.addListener((port: chrome.runtime.Port) => {
-    if (port.name === 'popup') {
-      // Check if this is from an incognito context
-      if (
-        port.sender?.tab?.incognito ||
-        (port.sender as chrome.runtime.MessageSender & { incognito?: boolean })?.incognito
-      ) {
-        logger.info('TabListeners', 'Popup opened in incognito mode');
+    if (port.name !== 'popup' && port.name !== 'sidepanel') return;
+
+    if (
+      port.sender?.tab?.incognito ||
+      (port.sender as chrome.runtime.MessageSender & { incognito?: boolean })?.incognito
+    ) {
+      logger.info('TabListeners', `${port.name} opened in incognito mode`);
+    }
+
+    port.onDisconnect.addListener(() => {
+      if (runtime.lastError) {
+        logger.info(
+          'TabListeners',
+          `${port.name} disconnect error:`,
+          (runtime.lastError as chrome.runtime.LastError).message,
+        );
+      } else {
+        logger.debug('TabListeners', `${port.name} closed, updating badge`);
       }
 
-      port.onDisconnect.addListener(() => {
-        // Check for errors when popup disconnects
-        if (runtime.lastError) {
-          logger.info(
-            'TabListeners',
-            'Popup disconnect error:',
-            (runtime.lastError as chrome.runtime.LastError).message,
-          );
-        } else {
-          logger.debug('TabListeners', 'Popup closed, updating badge');
-        }
-
-        setTimeout(() => {
-          updateBadgeCallback();
-        }, 100);
-      });
-    }
+      setTimeout(() => {
+        updateBadgeCallback();
+      }, 100);
+    });
   });
 
   // Handle navigation for recording

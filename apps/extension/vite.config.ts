@@ -293,6 +293,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: path.resolve(__dirname, 'popup.html'),
+        sidepanel: path.resolve(__dirname, 'sidepanel.html'),
         workspace: path.resolve(__dirname, 'workspace.html'),
         delay: path.resolve(__dirname, 'delay.html'),
         devtools: path.resolve(__dirname, 'devtools.html'),

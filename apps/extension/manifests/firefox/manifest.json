@@ -43,6 +43,15 @@
     "type": "module"
   },
   "devtools_page": "devtools.html",
+  "sidebar_action": {
+    "default_title": "Open Headers",
+    "default_panel": "sidepanel.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -85,6 +94,6 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src 'self' ws://127.0.0.1:59210 http://127.0.0.1:59210; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self'; font-src 'self' https://cdnjs.cloudflare.com"
+    "extension_pages": "default-src 'self'; connect-src 'self' ws://127.0.0.1:59510 http://127.0.0.1:59510; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self'; font-src 'self' https://cdnjs.cloudflare.com"
   }
 }

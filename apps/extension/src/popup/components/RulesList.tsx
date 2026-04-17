@@ -16,7 +16,7 @@ const RulesList: React.FC = () => {
   const items = [
     {
       key: 'active-rules',
-      label: 'This Page',
+      label: <span className="oh-tab-label">This Page</span>,
       children: (
         <ThisPageRules
           isActive={activeTab === 'active-rules'}
@@ -30,7 +30,7 @@ const RulesList: React.FC = () => {
     },
     {
       key: 'all-rules',
-      label: 'All Rules',
+      label: <span className="oh-tab-label">All Rules</span>,
       children: (
         <RulesTable
           focusedRowIndex={activeTab === 'all-rules' ? focusedRowIndex : -1}
@@ -43,7 +43,7 @@ const RulesList: React.FC = () => {
     },
     {
       key: 'collections',
-      label: 'Collections',
+      label: <span className="oh-tab-label">Collections</span>,
       children: (
         <CollectionManager
           isActive={activeTab === 'collections'}

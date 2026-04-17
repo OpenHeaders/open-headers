@@ -24,7 +24,8 @@
     "activeTab",
     "scripting",
     "downloads",
-    "cookies"
+    "cookies",
+    "sidePanel"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -33,6 +34,9 @@
   "background": {
     "scripts": ["js/safari/SafariAPIs.js", "js/background/index.js"],
     "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "content_scripts": [
     {
@@ -69,6 +73,6 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src 'self' ws://127.0.0.1:59210 http://127.0.0.1:59210; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self'; font-src 'self' https://cdnjs.cloudflare.com"
+    "extension_pages": "default-src 'self'; connect-src 'self' ws://127.0.0.1:59510 http://127.0.0.1:59510; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self'; font-src 'self' https://cdnjs.cloudflare.com"
   }
 }

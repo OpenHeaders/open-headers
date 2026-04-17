@@ -4,8 +4,11 @@ import { App, Badge, Button, Space, Switch, Tooltip, Typography, theme } from 'a
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSetting } from '@/rules/settings/hooks';
+import { useSurface } from '@/shared/surface';
+import { switchViewMode } from '@/shared/view-mode';
 import { getBrowserAPI } from '@/types/browser';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
+import { SurfaceTargetIcon } from './SurfaceTargetIcon';
 
 const { Title, Text } = Typography;
 
@@ -13,9 +16,39 @@ const Header: React.FC = () => {
   const { token } = theme.useToken();
   const { isConnected, isStatusLoaded } = useRules();
   const { message } = App.useApp();
+  const surface = useSurface();
   const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
   const openSettingsLabel = usePopupShortcutLabel('open-settings');
   const togglePauseLabel = usePopupShortcutLabel('toggle-rules-pause');
+
+  const handleSwitchSurface = async (): Promise<void> => {
+    const next = surface.mode === 'popup' ? 'sidepanel' : 'popup';
+    let result: { opened: boolean };
+    try {
+      result = await switchViewMode(next);
+    } catch {
+      message.error('Could not switch view');
+      return;
+    }
+    if (surface.mode === 'popup') {
+      // We're inside the popup — close it so focus lands on the
+      // sidepanel that just opened.
+      window.close();
+      return;
+    }
+    // We're inside the sidepanel switching to popup. switchViewMode
+    // already invoked openPopup() + closed the sidepanel. If the popup
+    // couldn't auto-open (typically because the extension isn't pinned
+    // to the toolbar) tell the user how to find it.
+    if (!result.opened) {
+      message.info('Popup mode active. Pin the extension and click the toolbar icon to open it.');
+    }
+  };
+
+  const switchTooltip =
+    surface.mode === 'popup'
+      ? 'Switch to side panel (stays open as you browse)'
+      : 'Switch to popup mode (toolbar click)';
 
   const handleGlobalRulesToggle = async (checked: boolean): Promise<void> => {
     setIsRulesExecutionPaused(!checked);
@@ -110,6 +143,23 @@ const Header: React.FC = () => {
             />
           </Tooltip>
         </div>
+        <Tooltip title={switchTooltip}>
+          <Button
+            type="text"
+            size="small"
+            icon={<SurfaceTargetIcon target={surface.mode === 'popup' ? 'sidepanel' : 'popup'} />}
+            onClick={() => {
+              void handleSwitchSurface();
+            }}
+            aria-label={switchTooltip}
+            style={{
+              padding: '4px 8px',
+              height: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          />
+        </Tooltip>
         <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Open settings</ShortcutHintTitle>}>
           <Button
             type="text"

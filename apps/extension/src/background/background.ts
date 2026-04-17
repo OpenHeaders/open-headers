@@ -48,6 +48,7 @@ import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/
 import { getLocalCollectionTrees, getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
+import { initializeViewMode } from './modules/view-mode';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import {
@@ -192,6 +193,7 @@ async function initializeExtension(): Promise<void> {
   setupTabListeners(debouncedUpdateBadge, recordingService);
   setupPeriodicCleanup();
   initializeActiveTabTracking();
+  void initializeViewMode();
   setupInjectListener();
   setupDelayBypassCleanup();
   setupTestRunnerPorts();

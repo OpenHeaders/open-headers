@@ -1,8 +1,9 @@
 /**
  * Desktop Connection category — settings for the WebSocket link
- * between the extension and the Open Headers desktop app. The desktop
- * app runs a server on 127.0.0.1:59210 by default; the extension is
- * the client and reconnects with exponential backoff.
+ * between the extension and the Open Headers desktop app. The v5
+ * desktop app runs on 127.0.0.1:59510 (deliberately different from
+ * v4's :59210, so an installed v4 app can't accidentally answer); the
+ * extension is the client and reconnects with exponential backoff.
  */
 
 import * as v from 'valibot';
@@ -24,7 +25,7 @@ declare module '../types' {
 registerSetting({
   key: 'desktop.connection.autoConnect',
   type: 'boolean',
-  default: true,
+  default: false,
   schema: v.boolean(),
   label: 'Auto-Connect',
   description: 'Automatically connect to the desktop app whenever the extension starts.',
@@ -36,7 +37,7 @@ registerSetting({
 registerSetting({
   key: 'desktop.connection.url',
   type: 'string',
-  default: 'ws://127.0.0.1:59210',
+  default: 'ws://127.0.0.1:59510',
   schema: urlSchema,
   label: 'Desktop App URL',
   description: 'WebSocket URL of the Open Headers desktop app.',

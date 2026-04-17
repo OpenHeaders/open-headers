@@ -358,7 +358,7 @@ const InspectorDocs: React.FC = () => {
             code: 'websocket',
             color: 'lime',
             desc: 'WebSocket handshake — the initial HTTP upgrade request. Only the handshake is tracked, not individual messages.',
-            examples: ['new WebSocket("wss://ws.openheaders.io/live")', 'new WebSocket("ws://localhost:59210")'],
+            examples: ['new WebSocket("wss://ws.openheaders.io/live")', 'new WebSocket("ws://localhost:59510")'],
           },
           {
             tag: 'Ping',

@@ -373,11 +373,25 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
         const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
         if (tabs[0]) {
           const tab = tabs[0];
-          const url = new URL(tab.url!);
+          // `tab.url` may be missing (loading), empty (untyped new tab),
+          // or non-WHATWG-parseable on some Chrome internal pages. The
+          // popup never noticed because it closes on blur; the sidepanel
+          // stays open across navigations and would log a TypeError every
+          // time. Downstream code already handles missing/internal URLs
+          // (see the chrome:/about: regex below), so leave `domain` empty
+          // when the URL won't parse.
+          let domain = '';
+          if (tab.url) {
+            try {
+              domain = new URL(tab.url).hostname;
+            } catch {
+              /* internal scheme or unparseable — render with empty domain */
+            }
+          }
           const response = await call('getActiveRulesForTab', { tabId: tab.id, tabUrl: tab.url }).catch(() => ({
             activeRules: [] as ActiveRule[],
           }));
-          setCurrentTab({ id: tab.id!, url: tab.url!, domain: url.hostname, title: tab.title || '' });
+          setCurrentTab({ id: tab.id!, url: tab.url ?? '', domain, title: tab.title || '' });
           setActiveRules(response.activeRules || []);
         }
       } catch (error) {
@@ -1060,72 +1074,75 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                   : currentTab.domain}
               </Text>
             </Tooltip>
-            <Space size={4} style={{ display: 'flex', flexWrap: 'wrap' }}>
+            <Space className="oh-toolbar-status" size={4} style={{ display: 'flex', flexWrap: 'wrap' }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {activeCount} of {activeRules.length} active
               </Text>
-              {(() => {
-                const pausedCount = activeRules.filter((r) => resolvePauseState(r.path ?? '', pauseMarkers)).length;
-                return pausedCount > 0 ? (
-                  <>
-                    <Text type="secondary" style={{ fontSize: '11px' }}>
-                      ·
-                    </Text>
-                    <Text type="warning" style={{ fontSize: '11px' }}>
-                      {pausedCount} rule{pausedCount !== 1 ? 's' : ''} paused by collection
-                    </Text>
-                  </>
-                ) : null;
-              })()}
-              {(verdictCounts.firing > 0 || verdictCounts.silent > 0 || verdictCounts.related > 0) && (
-                <>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>
-                    ·
-                  </Text>
-                  {verdictCounts.firing > 0 && (
-                    <Tooltip title={VERDICT_TOOLTIP.firing}>
-                      <Text style={{ fontSize: '11px', color: '#1677ff' }}>{verdictCounts.firing} firing</Text>
-                    </Tooltip>
-                  )}
-                  {verdictCounts.silent > 0 && (
-                    <>
-                      {verdictCounts.firing > 0 && (
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          ·
-                        </Text>
-                      )}
-                      <Tooltip title={VERDICT_TOOLTIP.silent}>
-                        <Text style={{ fontSize: '11px', color: '#d48806' }}>
-                          {verdictCounts.silent} silent (cached)
-                        </Text>
-                      </Tooltip>
-                    </>
-                  )}
-                  {verdictCounts.related > 0 && (
+              <span className="oh-status-detail" style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                {(() => {
+                  const pausedCount = activeRules.filter((r) => resolvePauseState(r.path ?? '', pauseMarkers)).length;
+                  return pausedCount > 0 ? (
                     <>
                       <Text type="secondary" style={{ fontSize: '11px' }}>
                         ·
                       </Text>
-                      <Tooltip title={VERDICT_TOOLTIP.related}>
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          {verdictCounts.related} related
-                        </Text>
-                      </Tooltip>
+                      <Text type="warning" style={{ fontSize: '11px' }}>
+                        {pausedCount} rule{pausedCount !== 1 ? 's' : ''} paused by collection
+                      </Text>
                     </>
-                  )}
-                </>
-              )}
+                  ) : null;
+                })()}
+                {(verdictCounts.firing > 0 || verdictCounts.silent > 0 || verdictCounts.related > 0) && (
+                  <>
+                    <Text type="secondary" style={{ fontSize: '11px' }}>
+                      ·
+                    </Text>
+                    {verdictCounts.firing > 0 && (
+                      <Tooltip title={VERDICT_TOOLTIP.firing}>
+                        <Text style={{ fontSize: '11px', color: '#1677ff' }}>{verdictCounts.firing} firing</Text>
+                      </Tooltip>
+                    )}
+                    {verdictCounts.silent > 0 && (
+                      <>
+                        {verdictCounts.firing > 0 && (
+                          <Text type="secondary" style={{ fontSize: '11px' }}>
+                            ·
+                          </Text>
+                        )}
+                        <Tooltip title={VERDICT_TOOLTIP.silent}>
+                          <Text style={{ fontSize: '11px', color: '#d48806' }}>
+                            {verdictCounts.silent} silent (cached)
+                          </Text>
+                        </Tooltip>
+                      </>
+                    )}
+                    {verdictCounts.related > 0 && (
+                      <>
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          ·
+                        </Text>
+                        <Tooltip title={VERDICT_TOOLTIP.related}>
+                          <Text type="secondary" style={{ fontSize: '11px' }}>
+                            {verdictCounts.related} related
+                          </Text>
+                        </Tooltip>
+                      </>
+                    )}
+                  </>
+                )}
+              </span>
             </Space>
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36 }}>
-              <Space size={6} align="center">
+              <Space className="oh-toolbar-secondary" size={6} align="center">
                 <Badge status="processing" />
-                <Text type="secondary" style={{ fontSize: '11px' }}>
+                <Text className="oh-monitoring-text" type="secondary" style={{ fontSize: '11px' }}>
                   Live — monitoring requests
                 </Text>
               </Space>
               <Input.Search
+                className="oh-search oh-toolbar-secondary"
                 placeholder="Search anything..."
                 allowClear
                 size="small"
@@ -1252,7 +1269,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 trigger={['click']}
               >
                 <Tooltip title="Sort order">
-                  <Button type="text" size="small" icon={<SortAscendingOutlined />} />
+                  <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
                 </Tooltip>
               </Dropdown>
               <Dropdown
@@ -1347,14 +1364,19 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                       : 'Filter resource types'
                   }
                 >
-                  <Badge dot={visibleResourceTypes.length < ALL_RESOURCE_TYPES.length} color="blue" offset={[-2, 2]}>
+                  <Badge
+                    className="oh-toolbar-secondary"
+                    dot={visibleResourceTypes.length < ALL_RESOURCE_TYPES.length}
+                    color="blue"
+                    offset={[-2, 2]}
+                  >
                     <Button type="text" size="small" icon={<FilterOutlined />} />
                   </Badge>
                 </Tooltip>
               </Dropdown>
             </div>
             <div
-              className="value-cell"
+              className="value-cell oh-toolbar-secondary"
               style={{
                 display: 'flex',
                 alignItems: 'center',

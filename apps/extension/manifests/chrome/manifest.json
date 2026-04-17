@@ -27,7 +27,8 @@
     "cookies",
     "browsingData",
     "system.display",
-    "windows"
+    "windows",
+    "sidePanel"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -38,6 +39,9 @@
     "type": "module"
   },
   "devtools_page": "devtools.html",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -75,6 +79,6 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src 'self' ws://127.0.0.1:59210 http://127.0.0.1:59210; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self'; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:"
+    "extension_pages": "default-src 'self'; connect-src 'self' ws://127.0.0.1:59510 http://127.0.0.1:59510; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self'; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:"
   }
 }
