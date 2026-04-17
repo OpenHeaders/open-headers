@@ -9,11 +9,17 @@
  *
  * Design notes:
  *
- *   - **Debounced** (750ms, trailing). Rapid rule edits (typing in a
- *     URL-pattern field with live-save semantics) coalesce into one
- *     eviction call. Scope accumulates across the debounce window so
- *     a burst of toggles on different rules still evicts everything
- *     those rules touched.
+ *   - **No local debouncing.** Rule edits flow through `scheduleUpdate`
+ *     in rule-engine.ts which debounces at `rulesEngine.updateDebounceMs`
+ *     (default 150ms). By the time our observer sees a transition, the
+ *     upstream coalescing is already done. A second layer of debouncing
+ *     here would only widen the window during which a user refresh
+ *     could see a stale cache entry — without any benefit.
+ *
+ *   - **Serialized via a promise chain.** The docs warn that
+ *     `browsingData.remove` "can take tens of seconds to complete."
+ *     If a new transition lands while a prior flush is still in-flight,
+ *     its flush gets chained on instead of racing against it.
  *
  *   - **Broad fallback** kicks in when the caller flags the scope as
  *     broad OR when the number of distinct origins exceeds
@@ -24,8 +30,7 @@
  *   - **Graceful failure**: if `browsingData` permission isn't granted
  *     (enterprise policy, user revoked it after install) or the API
  *     is unavailable (non-Chromium build), we log and no-op. Worst
- *     case the user sees stale cache until natural expiry — which is
- *     exactly today's behavior.
+ *     case the user sees stale cache until natural expiry.
  *
  *   - **handlerBehaviorChanged** is called alongside so the extension's
  *     own webRequest routing cache (which drives inspector attribution)
@@ -42,23 +47,11 @@ import { logger } from '@utils/logger';
  */
 const BROAD_ORIGIN_THRESHOLD = 10;
 
-/**
- * Trailing-edge debounce window. Rule editors often fire many rapid
- * save events as the user types into a URL-pattern field; 750ms comfortably
- * straddles human typing cadence without delaying the post-edit
- * eviction past "feels immediate."
- */
-const DEBOUNCE_MS = 750;
-
 interface PendingInvalidation {
-  /** Union of origins collected across the current debounce window. */
   origins: Set<string>;
-  /** Sticky flag — any broad enqueue promotes the whole batch to global. */
   broad: boolean;
 }
 
-let pending: PendingInvalidation | null = null;
-let timer: ReturnType<typeof setTimeout> | null = null;
 /**
  * Promise chain that serializes `flush()` invocations. The docs note
  * `browsingData.remove` "can take tens of seconds to complete"; if a
@@ -69,57 +62,32 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let flushChain: Promise<void> = Promise.resolve();
 
 /**
- * Enqueue a cache-eviction request. Returns immediately; the actual
- * Chrome API call fires after `DEBOUNCE_MS` of quiet.
+ * Enqueue a cache-eviction request. Schedules a `browsingData.remove`
+ * call to run as soon as any in-flight eviction completes — no local
+ * debouncing; rule-engine handles that upstream.
  *
  *   - `origins`: concrete origin strings (`https://api.example.com`).
  *     Empty array + `broad: false` is a no-op.
- *   - `broad`: when true, don't bother with a scoped eviction — do a
- *     global HTTP cache wipe.
+ *   - `broad`: when true, do a global HTTP cache wipe instead of the
+ *     per-origin call.
  */
 export function enqueueInvalidation(origins: readonly string[], broad = false): void {
   if (!broad && origins.length === 0) return;
-
-  if (!pending) pending = { origins: new Set(), broad: false };
-  for (const o of origins) pending.origins.add(o);
-  if (broad) pending.broad = true;
-
-  if (timer) clearTimeout(timer);
-  timer = setTimeout(() => {
-    const batch = pending;
-    pending = null;
-    timer = null;
-    if (batch) scheduleFlush(batch);
-  }, DEBOUNCE_MS);
+  const batch: PendingInvalidation = { origins: new Set(origins), broad };
+  flushChain = flushChain.then(() => flush(batch));
 }
 
 /**
- * Force the pending batch to fire now instead of waiting out the debounce.
- * Used by the observer when it needs synchronous eviction — e.g. right
- * before a test harness takes a fresh snapshot. Awaits any previously-
- * chained flushes so the caller can be sure eviction is complete.
+ * Wait for the current flush chain to drain. Useful in tests or when
+ * a caller needs to be sure eviction has actually completed.
  */
 export async function flushPending(): Promise<void> {
-  if (timer && pending) {
-    clearTimeout(timer);
-    const batch = pending;
-    pending = null;
-    timer = null;
-    scheduleFlush(batch);
-  }
   await flushChain;
 }
 
-/** Test-only: drop any pending invalidation without firing it. */
+/** Test-only: reset the flush chain. */
 export function __resetPendingForTests(): void {
-  if (timer) clearTimeout(timer);
-  timer = null;
-  pending = null;
   flushChain = Promise.resolve();
-}
-
-function scheduleFlush(batch: PendingInvalidation): void {
-  flushChain = flushChain.then(() => flush(batch));
 }
 
 // ── Internal flush ───────────────────────────────────────────────
