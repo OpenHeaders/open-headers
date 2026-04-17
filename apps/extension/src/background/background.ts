@@ -39,14 +39,14 @@ import { setupRequestMonitoring } from './modules/request-monitor';
 import {
   getActiveRulesForTab,
   precompileRulePatterns,
+  rehydrateTabTracking,
   restoreTrackingState,
   revalidateTrackedRequests,
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
-import { getLocalCollectionTrees, getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
+import { getLocalCollectionTrees, getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
-import { getTabSnapshot } from './modules/tab-telemetry';
 import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
@@ -114,7 +114,6 @@ async function updateBadgeForCurrentTab(): Promise<void> {
 
   tabs.query({ active: true, currentWindow: true }, async (tabList: chrome.tabs.Tab[]) => {
     const currentTab = tabList[0];
-    const currentUrl = currentTab?.url || '';
 
     if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
@@ -128,16 +127,22 @@ async function updateBadgeForCurrentTab(): Promise<void> {
     const effectiveRules = getRules().filter((r) => isRuleEffective(r, markers, isPaused));
     const effectiveUids = new Set(effectiveRules.map((r) => r.uid));
 
-    // Intersect per-tab counters with currently-effective UIDs so the
-    // badge reflects rules that are BOTH active-right-now AND have
-    // matched a request on this page. A rule that fired earlier and
-    // was then disabled no longer counts (its counter lingers in the
-    // snapshot until the next onPageCommit, but the filter drops it).
-    const snapshot = currentTab?.id != null ? getTabSnapshot(currentTab.id) : null;
+    // Badge count = rules pointed at this tab with a concrete signal.
+    // Delegates to the verdict engine for consistency with the popup:
+    // anything the engine labels `firing`, `silent`, or `page` counts
+    // (firing = action ran; silent = matched but cache-suppressed;
+    // page = pattern matches the tab URL, will fire on next request).
+    // `related` (sibling-domain heuristic) is excluded — it's too weak
+    // a signal to turn into a badge number that reads "N rules active
+    // on this page."
     let matchedRuleCount = 0;
-    if (snapshot) {
-      for (const uid of Object.keys(snapshot.counters)) {
-        if (effectiveUids.has(uid)) matchedRuleCount++;
+    if (currentTab?.id != null && currentTab.url) {
+      const { activeRules } = getActiveRulesForTab(currentTab.id, currentTab.url);
+      for (const rule of activeRules) {
+        if (!effectiveUids.has(rule.id)) continue;
+        if (rule.verdict === 'firing' || rule.verdict === 'silent' || rule.verdict === 'page') {
+          matchedRuleCount++;
+        }
       }
     }
     await updateExtensionBadge({
@@ -218,6 +223,11 @@ async function initializeExtension(): Promise<void> {
   // hitting the first-run seeding skip.
   await rehydrateObserverFromStorage();
   await rehydrateCacheBypassFromSessionRules();
+  // Rebuild the per-tab subresource map from the last SW lifetime so the
+  // popup's "This Page" view doesn't lose cached-subresource attribution
+  // across SW eviction cycles. Runs before `restoreTrackingState` so the
+  // main-frame seeding doesn't clobber richer persisted state.
+  await rehydrateTabTracking();
   let didInitialApply = false;
   if (restoredRules.length > 0) {
     logger.info('Background', `Restored ${restoredRules.length} rules from storage`);

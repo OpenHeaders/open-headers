@@ -4,6 +4,7 @@
 
 import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
+import type { ObservationSource } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
 import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
 import {
@@ -231,9 +232,17 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
         if (!tabsWithActiveRules.has(tab.id!)) {
           tabsWithActiveRules.set(tab.id!, new Map());
         }
-        tabsWithActiveRules
-          .get(tab.id!)!
-          .set(normalizeUrlForTracking(tab.url!), { timestamp: Date.now(), resourceType: 'main_frame' });
+        {
+          const normalized = normalizeUrlForTracking(tab.url!);
+          const now = Date.now();
+          tabsWithActiveRules.get(tab.id!)!.set(normalized, {
+            firstSeenTs: now,
+            lastSeenTs: now,
+            timestamp: now,
+            resourceType: 'main_frame',
+            sources: new Set<ObservationSource>(['webRequest']),
+          });
+        }
         logger.info('TabListeners', `New tab ${tab.id} created with URL that matches rules`);
 
         if (tab.active) {
@@ -388,9 +397,17 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
             if (!tabsWithActiveRules.has(details.tabId)) {
               tabsWithActiveRules.set(details.tabId, new Map());
             }
-            tabsWithActiveRules
-              .get(details.tabId)!
-              .set(normalizeUrlForTracking(details.url), { timestamp: Date.now(), resourceType: 'main_frame' });
+            {
+              const normalized = normalizeUrlForTracking(details.url);
+              const now = Date.now();
+              tabsWithActiveRules.get(details.tabId)!.set(normalized, {
+                firstSeenTs: now,
+                lastSeenTs: now,
+                timestamp: now,
+                resourceType: 'main_frame',
+                sources: new Set<ObservationSource>(['webRequest']),
+              });
+            }
           }
 
           // Update badge

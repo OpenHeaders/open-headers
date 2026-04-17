@@ -45,6 +45,13 @@
       "run_at": "document_start",
       "all_frames": false,
       "world": "ISOLATED"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["js/content/perf-observer/index.js"],
+      "run_at": "document_start",
+      "all_frames": false,
+      "world": "ISOLATED"
     }
   ],
   "web_accessible_resources": [

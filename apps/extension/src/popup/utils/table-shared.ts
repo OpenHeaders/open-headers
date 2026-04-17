@@ -44,6 +44,16 @@ interface Sortable {
   statusRank: number;
   ruleType: string;
   name: string;
+  /**
+   * Lower = stronger verdict signal on the current tab. Optional
+   * because non-tab-scoped tables (e.g. the full RulesList /
+   * RulesTable) don't have verdicts — they always pass undefined and
+   * land on the existing sort paths. When set, it acts as the PRIMARY
+   * sort key so firing rules always top silent always top page etc.,
+   * regardless of which secondary sort mode the user picked. See
+   * `VERDICT_RANK` in `@/shared/verdict` for the canonical ordering.
+   */
+  verdictRank?: number;
 }
 
 /**
@@ -51,8 +61,17 @@ interface Sortable {
  * - status: status rank → browser priority → alphabetical
  * - priority: browser priority → alphabetical
  * - manual: preserve original order
+ *
+ * When both items expose a `verdictRank`, that becomes the primary key
+ * — keeping firing rules above silent above page above related
+ * regardless of the secondary mode. This matches how users read the
+ * popup: "what's actively affecting this page?" is always the first
+ * question; name / status / priority are tiebreakers.
  */
 export function compareBySortMode<T extends Sortable>(a: T, b: T, mode: SortMode): number {
+  if (a.verdictRank !== undefined && b.verdictRank !== undefined) {
+    if (a.verdictRank !== b.verdictRank) return a.verdictRank - b.verdictRank;
+  }
   if (mode === 'status') {
     if (a.statusRank !== b.statusRank) return a.statusRank - b.statusRank;
     const pa = DNR_PRIORITY[a.ruleType] ?? 0;

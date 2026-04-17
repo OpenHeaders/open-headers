@@ -23,6 +23,7 @@ import type { V5 } from '@openheaders/core/types';
 import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
 import type { ActiveRule } from '@/types/browser';
+import type { PerfResourceEntry } from '@/types/perf';
 import type { RecordingData, RecordingStateInfo } from '@/types/recording';
 
 /** Shared shape for a folder descriptor returned by create-folder RPCs. */
@@ -188,6 +189,10 @@ export interface BridgeRpcContract {
   };
   tabFire: {
     req: { ruleUid: string; url: string; t: number };
+    res: { success: boolean };
+  };
+  perfResourceEntries: {
+    req: { entries: PerfResourceEntry[] };
     res: { success: boolean };
   };
 

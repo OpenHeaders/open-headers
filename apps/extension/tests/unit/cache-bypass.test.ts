@@ -141,9 +141,7 @@ describe('rehydrateCacheBypassFromSessionRules', () => {
   it('recovery survives a simulated SW wake + tab close', async () => {
     // Pre-restart: bypass was installed for tab 42. Simulate that
     // by having a session rule and a cold module-state start.
-    getSessionRulesSpy.mockResolvedValueOnce([
-      { id: CACHE_BYPASS_ID_BASE + 42 } as chrome.declarativeNetRequest.Rule,
-    ]);
+    getSessionRulesSpy.mockResolvedValueOnce([{ id: CACHE_BYPASS_ID_BASE + 42 } as chrome.declarativeNetRequest.Rule]);
     await rehydrateCacheBypassFromSessionRules();
     updateSessionRulesSpy.mockClear();
 

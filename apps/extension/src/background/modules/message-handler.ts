@@ -8,8 +8,9 @@ import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
+import type { PerfResourceEntry } from '@/types/perf';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
-import { getActiveRulesForTab } from './request-tracker';
+import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
 import { createRuleDraft, takeRuleDraft } from './rule-draft-store';
 import {
   addLocalRule,
@@ -335,6 +336,20 @@ export function handleGeneralMessage(
       const tabId = message.tabId as number;
       const snap = getTabSnapshot(tabId);
       safeResponse(snap);
+    } else if (message.type === 'perfResourceEntries') {
+      // Content-script PerformanceObserver batch — feeds the tracked-URL
+      // map so cache-served subresources show up as applicable rules in
+      // the popup even though webRequest never fired for them. The SW
+      // attributes the batch to the sender tab; batches from untracked
+      // tabs still populate the map because the popup reads
+      // tabsWithActiveRules regardless of the tab-telemetry gate.
+      const tabId = _sender.tab?.id;
+      const entries = (message.entries as PerfResourceEntry[] | undefined) ?? [];
+      if (typeof tabId === 'number' && entries.length > 0) {
+        const matched = ingestPerfEntries(tabId, entries);
+        if (matched > 0) updateBadgeCallback();
+      }
+      safeResponse({ success: true });
     } else if (message.type === 'tabFire') {
       // Fire event forwarded from the always-on ISOLATED fire-bridge content
       // script. Always a scriptable fire — the in-page injection reported

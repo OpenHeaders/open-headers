@@ -40,6 +40,8 @@ import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { useSetting, useSettingValue } from '@/rules/settings/hooks';
 import type { TrackedResourceType } from '@/rules/settings/schema/rules-engine';
+import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@/shared/verdict';
+import type { SilentMatchRecord } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
@@ -205,6 +207,20 @@ interface ActiveRule {
   isEnabled?: boolean;
   domains?: string[];
   path?: string;
+  /**
+   * Verdict rendered by the verdict engine for this rule on the
+   * current tab. See `@/shared/verdict` for the canonical taxonomy and
+   * rank / label / tooltip metadata.
+   */
+  verdict?: RuleVerdict;
+  /** Short human-readable reason text supplied by the engine. */
+  verdictReason?: string;
+  /**
+   * Cached / SW-shortcut subresource URLs that match the rule's
+   * pattern but didn't fire webRequest. Merged into the per-rule
+   * sub-table as synthetic records with `evidence: 'silent'`.
+   */
+  silentRecords?: SilentMatchRecord[];
 }
 
 interface CurrentTabInfo {
@@ -217,6 +233,13 @@ interface CurrentTabInfo {
 interface TableRecord extends ActiveRule {
   key: string | number;
   statusRank: number;
+  /**
+   * Primary sort key — lower = stronger signal. Clusters the table
+   * into visual sections (firing → silent → page → related → idle)
+   * regardless of the secondary sort mode. See `VERDICT_RANK` in
+   * `@/shared/verdict` for the canonical ordering.
+   */
+  verdictRank: number;
   /** Total fire events for this rule on the current page (from counters). */
   fireCount: number;
   /** Unique-URL records for this rule, newest first. */
@@ -430,8 +453,6 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     };
   }, [currentTab?.id]);
 
-  const uniqueRequestCount = snapshot.uniqueRequestCount;
-
   // Scroll virtual nested table to focused row (also resets on expand)
   // biome-ignore lint/correctness/useExhaustiveDependencies: expandedRowKey intentionally resets scroll on re-expand
   useEffect(() => {
@@ -457,16 +478,53 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   // so flipping a type back on reveals the hidden fires instantly, with
   // no page reload. Fires that arrive while a type is hidden are still
   // collected — they become visible the moment the type is re-enabled.
-  // The `fireCountFor` count is derived from the filtered list so the
-  // popup badge count matches what's actually rendered instead of the
-  // raw backend counter.
+  //
+  // Silent records (subresources that matched but were cache-served, so
+  // no action ran) live on `ActiveRule.silentRecords` — NOT in the
+  // telemetry snapshot. Merge them here with `evidence: 'silent'` so
+  // the per-rule sub-table surfaces "the rule would have fired on
+  // these resources" alongside the rule's real fires, and
+  // `fireCountFor` includes them in the header "X requests" total.
   const recordsByRuleId = new Map<string, RequestRecord[]>();
   for (const [uid, recs] of Object.entries(snapshot.byRule)) {
     const filtered = recs.filter((r) => visibleTypeSet.has(r.resourceType || 'other'));
     recordsByRuleId.set(uid, filtered.reverse());
   }
+  for (const rule of activeRules) {
+    const silents = rule.silentRecords;
+    if (!silents || silents.length === 0) continue;
+    const silentRecords: RequestRecord[] = silents
+      .filter((s) => visibleTypeSet.has(s.resourceType || 'other'))
+      .map((s) => ({
+        ruleUid: rule.id,
+        url: s.url,
+        pattern: s.pattern,
+        resourceType: s.resourceType,
+        t: s.t,
+        evidence: 'silent' as const,
+      }));
+    if (silentRecords.length === 0) continue;
+    const existing = recordsByRuleId.get(rule.id) ?? [];
+    // Merge newest-first. Telemetry records arrive already reversed
+    // (newest-first) from the reduction above; silent records go
+    // last so real fires render on top.
+    recordsByRuleId.set(rule.id, [...existing, ...silentRecords.reverse()]);
+  }
   const recordsFor = (id: string | undefined): RequestRecord[] => (id ? (recordsByRuleId.get(id) ?? []) : []);
   const fireCountFor = (id: string | undefined): number => (id ? (recordsByRuleId.get(id)?.length ?? 0) : 0);
+
+  // Page-wide unique-URL count — the "N requests" figure in the header.
+  // Computed from the merged fire+silent records so cached-subresource
+  // matches are reflected (telemetry's own uniqueRequestCount only
+  // covers webRequest fires, which is why cache-heavy pages used to
+  // show "0 requests" despite having silent matches).
+  const uniqueRequestCount = (() => {
+    const unique = new Set<string>();
+    for (const recs of recordsByRuleId.values()) {
+      for (const r of recs) unique.add(r.url);
+    }
+    return unique.size;
+  })();
 
   // Highest evidence tier present in a record list, or 'none' when empty.
   const dominantEvidenceOf = (records: RequestRecord[]): RequestRecord['evidence'] | 'none' => {
@@ -475,6 +533,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       confirmed: 3,
       matched: 2,
       'matched-fallback': 1,
+      silent: 0,
       none: 0,
     };
     for (const r of records) {
@@ -521,10 +580,23 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           if (!dominantShadow) dominantShadow = r.shadowedBy;
         }
       }
+      // If we have a telemetry counter for this rule, the ground-truth
+      // verdict is `firing` — override whatever the background reported.
+      // This bridges the tiny window between a webRequest fire landing
+      // in telemetry and the popup's next getActiveRulesForTab call;
+      // without it the row would briefly flicker as `page` while the
+      // fire was already counted. `recordsByRuleId` includes merged
+      // silent records, so we check the raw telemetry `byRule` map
+      // instead — only real fires (not silent observations) should
+      // promote the verdict to `firing`.
+      const telemetryFireCount = snapshot.byRule[rule.id]?.length ?? 0;
+      const effectiveVerdict: RuleVerdict = telemetryFireCount > 0 ? 'firing' : (rule.verdict ?? 'page');
       return {
         ...rule,
+        verdict: effectiveVerdict,
         key: (rule.id || index) as string | number,
         statusRank,
+        verdictRank: VERDICT_RANK[effectiveVerdict],
         fireCount: fireCountFor(rule.id),
         records,
         dominantEvidence: dominantEvidenceOf(records),
@@ -654,7 +726,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             return !isEnabled ? 'Rule is disabled' : 'Rule is paused by its collection or folder';
           }
           if (count === 0) {
-            return 'Not matched yet — reload or interact with the page to trigger requests';
+            // Zero only happens for `page` / `related` verdicts — `firing`
+            // and `silent` always have records. Explain precisely why
+            // there's nothing to show so users aren't told "reload the
+            // page" when the page isn't the problem.
+            const verdict = record.verdict ?? 'page';
+            if (verdict === 'related') {
+              return 'Rule targets a related domain — no requests to that domain have been observed yet. It will fire if the page makes one.';
+            }
+            return 'Pattern matches this page but no matching requests have been observed yet. Interact with the page or reload to trigger them.';
           }
           if (shadowed && record.dominantShadow) {
             const allShadowed = record.shadowedCount === record.records.length;
@@ -668,13 +748,35 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               return `Script confirmed ${count} fire${count !== 1 ? 's' : ''} on this page (ground truth from in-page injection).`;
             case 'matched-fallback':
               return `Matched ${count} request${count !== 1 ? 's' : ''} via URL, but the in-page script reporter didn't confirm. Common causes: a strict Content-Security-Policy blocking the injection, or the resource type (stylesheet, image, manifest link) bypassing fetch/XHR interception.`;
+            case 'silent':
+              return `Pattern matched ${count} cached subresource${count !== 1 ? 's' : ''} — the action couldn't run because the response bypassed the network. Reload bypassing cache to force a fresh request.`;
             default:
               return `Matched ${count} request${count !== 1 ? 's' : ''} on this page. Chrome's declarativeNetRequest doesn't report which rule wins when several match — we observe URL matches, not arbitration outcomes.`;
           }
         })();
+        // When the rule has only silent matches (cached subresources),
+        // render the count in gold instead of blue to keep the "no
+        // action ran" semantic visible at a glance. The verdict chip
+        // beside it already says "SILENT," but the count color
+        // reinforces it without requiring the user to read the chip.
+        const silentOnly = record.dominantEvidence === 'silent';
         const tagLabel = outOfPlay ? '–' : shadowed ? `⚠ ${count}` : String(count);
-        const tagColor = outOfPlay ? 'default' : shadowed ? 'warning' : count > 0 ? 'blue' : 'default';
+        const tagColor = outOfPlay
+          ? 'default'
+          : shadowed
+            ? 'warning'
+            : count > 0
+              ? silentOnly
+                ? 'gold'
+                : 'blue'
+              : 'default';
         const tagVariant = !outOfPlay && count > 0 ? 'filled' : 'outlined';
+        // Verdict chip — rendered only when the rule is not firing and
+        // not out-of-play. "Firing" is already conveyed by the blue
+        // count tag below; layering a second "Firing" chip would be noise.
+        const verdict = record.verdict ?? 'page';
+        const showVerdictChip = !outOfPlay && verdict !== 'firing';
+        const verdictTooltip = record.verdictReason || VERDICT_TOOLTIP[verdict];
         return (
           <Space size={4} align="center">
             <Tooltip title={text.length > 20 ? text : undefined}>
@@ -699,6 +801,23 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 {tagLabel}
               </Tag>
             </Tooltip>
+            {showVerdictChip && (
+              <Tooltip title={verdictTooltip}>
+                <Tag
+                  color={VERDICT_COLOR[verdict]}
+                  style={{
+                    margin: 0,
+                    fontSize: 9,
+                    padding: '0 5px',
+                    lineHeight: '14px',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {VERDICT_LABEL[verdict]}
+                </Tag>
+              </Tooltip>
+            )}
           </Space>
         );
       },
@@ -909,6 +1028,23 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     (r) => r.isEnabled !== false && !resolvePauseState(r.path ?? '', pauseMarkers),
   ).length;
 
+  // Per-verdict counts for the header summary. `firing` is the ground
+  // truth count (telemetry has a counter). `silent` and `page` come
+  // from the background; `related` collapses into the "also on this
+  // domain" hint.
+  const verdictCounts = dataSource.reduce(
+    (acc, rec) => {
+      if (rec.isEnabled === false || resolvePauseState(rec.path ?? '', pauseMarkers)) return acc;
+      const state = rec.verdict ?? 'page';
+      if (state === 'firing') acc.firing++;
+      else if (state === 'silent') acc.silent++;
+      else if (state === 'page') acc.page++;
+      else if (state === 'related') acc.related++;
+      return acc;
+    },
+    { firing: 0, silent: 0, page: 0, related: 0 },
+  );
+
   return (
     <div className="header-rules-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="table-toolbar">
@@ -924,7 +1060,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                   : currentTab.domain}
               </Text>
             </Tooltip>
-            <Space size={4} style={{ display: 'flex' }}>
+            <Space size={4} style={{ display: 'flex', flexWrap: 'wrap' }}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {activeCount} of {activeRules.length} active
               </Text>
@@ -941,6 +1077,44 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                   </>
                 ) : null;
               })()}
+              {(verdictCounts.firing > 0 || verdictCounts.silent > 0 || verdictCounts.related > 0) && (
+                <>
+                  <Text type="secondary" style={{ fontSize: '11px' }}>
+                    ·
+                  </Text>
+                  {verdictCounts.firing > 0 && (
+                    <Tooltip title={VERDICT_TOOLTIP.firing}>
+                      <Text style={{ fontSize: '11px', color: '#1677ff' }}>{verdictCounts.firing} firing</Text>
+                    </Tooltip>
+                  )}
+                  {verdictCounts.silent > 0 && (
+                    <>
+                      {verdictCounts.firing > 0 && (
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          ·
+                        </Text>
+                      )}
+                      <Tooltip title={VERDICT_TOOLTIP.silent}>
+                        <Text style={{ fontSize: '11px', color: '#d48806' }}>
+                          {verdictCounts.silent} silent (cached)
+                        </Text>
+                      </Tooltip>
+                    </>
+                  )}
+                  {verdictCounts.related > 0 && (
+                    <>
+                      <Text type="secondary" style={{ fontSize: '11px' }}>
+                        ·
+                      </Text>
+                      <Tooltip title={VERDICT_TOOLTIP.related}>
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          {verdictCounts.related} related
+                        </Text>
+                      </Tooltip>
+                    </>
+                  )}
+                </>
+              )}
             </Space>
           </div>
           <div>
@@ -1207,7 +1381,28 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 <Text type="secondary" style={{ fontSize: '11px' }}>
                   {(() => {
                     if (!searchText) {
-                      return `${uniqueRequestCount} request${uniqueRequestCount !== 1 ? 's' : ''}`;
+                      // Break down the unified total into firing + silent
+                      // when any silent matches exist, so users on cached
+                      // pages can tell at a glance how much of the count
+                      // is cache-served vs. live. Pure-firing pages keep
+                      // the compact "N requests" label.
+                      const silentUrls = new Set<string>();
+                      const allUrls = new Set<string>();
+                      for (const recs of recordsByRuleId.values()) {
+                        for (const r of recs) {
+                          allUrls.add(r.url);
+                          if (r.evidence === 'silent') silentUrls.add(r.url);
+                        }
+                      }
+                      const totalCount = allUrls.size;
+                      const silentCount = silentUrls.size;
+                      if (silentCount === 0) {
+                        return `${totalCount} request${totalCount !== 1 ? 's' : ''}`;
+                      }
+                      if (silentCount === totalCount) {
+                        return `${totalCount} silent request${totalCount !== 1 ? 's' : ''} (cached)`;
+                      }
+                      return `${totalCount} request${totalCount !== 1 ? 's' : ''} (${silentCount} silent)`;
                     }
                     const q = searchText.toLowerCase();
                     const filteredRequests = new Set<string>();
@@ -1337,12 +1532,25 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               const searchUrlMatches = searchText && record.id ? urlMatchCountMap.get(record.id) || 0 : 0;
               const badgeCount = searchText ? searchUrlMatches : totalRequests;
               const bgColor = searchUrlMatches > 0 ? '#1677ff' : '#8c8c8c';
+              // Distinguish firing from silent in the expand-badge tooltip
+              // so a user scanning a cached-heavy page sees "5 requests
+              // (all silent — cached)" rather than an identical tooltip to
+              // a 5-fire rule. Pure-silent counts use "silent", mixed
+              // counts list both, and pure-fire counts read plain.
+              const silentCount = record.records.filter((r) => r.evidence === 'silent').length;
+              const firingCount = totalRequests - silentCount;
+              const describeRequests = (n: number): string => `${n} matched request${n !== 1 ? 's' : ''}`;
+              const expandHint = 'click to expand';
               const badgeTooltip =
                 searchUrlMatches > 0
-                  ? `${searchUrlMatches} of ${totalRequests} request${totalRequests !== 1 ? 's' : ''} match "${searchText}" — click to expand`
-                  : badgeCount > 0
-                    ? `${badgeCount} matched request${badgeCount !== 1 ? 's' : ''} — click to expand`
-                    : 'No matched requests yet — click to expand';
+                  ? `${searchUrlMatches} of ${totalRequests} request${totalRequests !== 1 ? 's' : ''} match "${searchText}" — ${expandHint}`
+                  : badgeCount === 0
+                    ? 'No matched requests yet — click to expand'
+                    : silentCount === totalRequests
+                      ? `${describeRequests(totalRequests)}, all cache-served (silent) — ${expandHint}`
+                      : silentCount > 0
+                        ? `${describeRequests(firingCount)} fired + ${silentCount} silent (cached) — ${expandHint}`
+                        : `${describeRequests(totalRequests)} — ${expandHint}`;
               return (
                 <Tooltip title={badgeTooltip}>
                   <span
@@ -1400,9 +1608,22 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               }
 
               if (matches.length === 0) {
+                // Empty-state copy tailored to WHY the record list is
+                // empty. Two paths land here:
+                //   (a) searchText narrowed to zero matches — tell the
+                //       user to clear / widen the search
+                //   (b) the rule has no fires and no silent matches — in
+                //       which case the verdict tells us what would help
+                const emptyHint = searchText
+                  ? `No matched requests contain "${searchText}". Clear or widen the search to see all matches.`
+                  : record.verdict === 'related'
+                    ? 'Rule targets a related domain — matches will appear if the page makes requests to that domain.'
+                    : record.verdict === 'page'
+                      ? 'Pattern matches this page. Matches will appear as the page issues requests that fit the pattern — interact with the page or reload to trigger them.'
+                      : 'No matched requests yet — reload the page to capture.';
                 return (
                   <Text type="secondary" style={{ fontSize: '12px', fontStyle: 'italic' }}>
-                    No matched requests yet — reload the page to capture
+                    {emptyHint}
                   </Text>
                 );
               }
@@ -1608,6 +1829,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                           <Tooltip title="Matched via URL, but the in-page script reporter didn't confirm. Common causes: a strict Content-Security-Policy blocking the MAIN-world injection, or a resource type (stylesheet, image, manifest link) that bypasses fetch/XHR interception.">
                             <Tag color="gold" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
                               ~ fallback
+                            </Tag>
+                          </Tooltip>
+                        );
+                      case 'silent':
+                        return (
+                          <Tooltip title="Pattern matched this subresource but the response was served from cache / a service worker / bfcache, so the rule's action could not run. Reload bypassing cache to force a fresh request.">
+                            <Tag color="gold" style={{ margin: 0, fontSize: '11px', cursor: 'help' }}>
+                              ⊘ silent
                             </Tag>
                           </Tooltip>
                         );

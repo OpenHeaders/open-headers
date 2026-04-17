@@ -160,7 +160,7 @@ export function originsFromUrlFilter(pattern: string): string[] | 'broad' {
 // where host is a literal (escaped dots allowed, slashes NOT escaped —
 // users who escape their slashes fall into the broad-wipe branch, which
 // is the safe over-eviction default).
-const REGEX_ORIGIN_RE = /^\^(https\?|http|https):\/\/([A-Za-z0-9\\.\-]+?(?::\d+)?)(?:\/|$)/;
+const REGEX_ORIGIN_RE = /^\^(https\?|http|https):\/\/([A-Za-z0-9\\.-]+?(?::\d+)?)(?:\/|$)/;
 
 function originFromRegexSource(source: string): string[] | 'broad' {
   const m = source.match(REGEX_ORIGIN_RE);

@@ -15,8 +15,10 @@ import {
 } from '@openheaders/core/utils';
 import { broadcast } from '@utils/bridge';
 import { tabs } from '@utils/browser-api';
-import type { ActiveRule, TrackedResource, TrackedResourceType } from '@/types/browser';
+import { computeVerdict } from '@/shared/verdict';
+import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
 import { getRules } from './rule-store';
+import { getTabSnapshot } from './tab-telemetry';
 import {
   clearPatternCache,
   doesUrlMatchPattern,
@@ -261,6 +263,16 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     }
   }
 
+  // Fire-confirmed rule set for this tab. Joining against telemetry
+  // here (rather than the popup join-at-render-time) keeps the popup
+  // query single-round-trip and centralizes the "what firing means"
+  // definition in one place.
+  const firingUids = new Set<string>();
+  if (typeof tabId === 'number') {
+    const snapshot = getTabSnapshot(tabId);
+    for (const uid of Object.keys(snapshot.counters)) firingUids.add(uid);
+  }
+
   const activeRules: ActiveRule[] = [];
   const rules = getRules();
 
@@ -273,51 +285,43 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     if (!isRuleComplete(rule)) continue;
 
     const patterns = getRuleMatchPatterns(rule);
-    let isApplicable = false;
+    const result = computeVerdict({
+      rule,
+      patterns,
+      normalizedTabUrl,
+      trackedResources,
+      firing: firingUids.has(rule.uid),
+      normalizeUrl: normalizeUrlForTracking,
+    });
 
-    for (const entry of patterns) {
-      if (doesUrlMatchEntry(normalizedTabUrl, entry)) {
-        isApplicable = true;
-        break;
-      }
-    }
+    if (!result) continue;
 
-    if (!isApplicable && trackedResources.size > 0) {
-      for (const resourceUrl of trackedResources.keys()) {
-        const normalizedResUrl = normalizeUrlForTracking(resourceUrl);
-        for (const entry of patterns) {
-          if (doesUrlMatchEntry(normalizedResUrl, entry)) {
-            isApplicable = true;
-            break;
-          }
-        }
-        if (isApplicable) break;
-      }
-    }
-
-    if (isApplicable) {
-      const detail = getActionDetail(rule);
-      const domains = rule.conditions
-        .filter((c) => c.type === 'request-domains')
-        .flatMap((c) => c.values)
-        .filter((v) => v.trim());
-      activeRules.push({
-        id: rule.uid,
-        key: rule.uid,
-        name: rule.name,
-        ruleType: rule.type,
-        summary: detail.label ? `${detail.label}: ${detail.value}` : detail.value || detail.tooltip,
-        actionLabel: detail.label,
-        actionOperation: detail.operation,
-        actionTooltip: detail.tooltip,
-        actionDirection: detail.direction,
-        actionValue: detail.value,
-        actionItems: detail.items,
-        isEnabled: rule.enabled,
-        domains,
-        path: rule.path,
-      });
-    }
+    const detail = getActionDetail(rule);
+    const domains = rule.conditions
+      .filter((c) => c.type === 'request-domains')
+      .flatMap((c) => c.values)
+      .filter((v) => v.trim());
+    activeRules.push({
+      id: rule.uid,
+      key: rule.uid,
+      name: rule.name,
+      ruleType: rule.type,
+      summary: detail.label ? `${detail.label}: ${detail.value}` : detail.value || detail.tooltip,
+      actionLabel: detail.label,
+      actionOperation: detail.operation,
+      actionTooltip: detail.tooltip,
+      actionDirection: detail.direction,
+      actionValue: detail.value,
+      actionItems: detail.items,
+      isEnabled: rule.enabled,
+      domains,
+      path: rule.path,
+      verdict: result.verdict,
+      verdictReason: result.reason,
+      // Only include when non-empty so the serialized payload stays
+      // lean for the 99% of rules that have no silent matches.
+      ...(result.silentRecords.length > 0 ? { silentRecords: result.silentRecords } : {}),
+    });
   }
 
   return { activeRules };
@@ -390,9 +394,15 @@ export async function restoreTrackingState(updateBadgeCallback: () => void): Pro
           if (!tabsWithActiveRules.has(tab.id)) {
             tabsWithActiveRules.set(tab.id, new Map());
           }
-          tabsWithActiveRules
-            .get(tab.id)!
-            .set(normalizeUrlForTracking(tab.url), { timestamp: Date.now(), resourceType: 'main_frame' });
+          const normalized = normalizeUrlForTracking(tab.url);
+          const now = Date.now();
+          tabsWithActiveRules.get(tab.id)!.set(normalized, {
+            firstSeenTs: now,
+            lastSeenTs: now,
+            timestamp: now,
+            resourceType: 'main_frame',
+            sources: new Set<ObservationSource>(['webRequest']),
+          });
         }
       }
     }
@@ -400,16 +410,277 @@ export async function restoreTrackingState(updateBadgeCallback: () => void): Pro
   });
 }
 
-export function addTrackedUrl(tabId: number, url: string, resourceType: TrackedResourceType = 'other'): void {
+/**
+ * Extra metadata the caller supplies when reporting an observation.
+ * `source` defaults to `'webRequest'` so existing callers don't need to
+ * thread a source through; `servedFromCache` is only meaningful for
+ * PerformanceObserver-sourced observations.
+ */
+export interface AddTrackedUrlOptions {
+  source?: ObservationSource;
+  servedFromCache?: boolean;
+}
+
+export function addTrackedUrl(
+  tabId: number,
+  url: string,
+  resourceType: TrackedResourceType = 'other',
+  options: AddTrackedUrlOptions = {},
+): void {
+  const source = options.source ?? 'webRequest';
+  const servedFromCache = options.servedFromCache ?? false;
   if (!tabsWithActiveRules.has(tabId)) {
     tabsWithActiveRules.set(tabId, new Map());
   }
   const trackedUrls = tabsWithActiveRules.get(tabId)!;
-  if (trackedUrls.has(url)) return;
-  trackedUrls.set(url, { timestamp: Date.now(), resourceType });
+  const now = Date.now();
+  const existing = trackedUrls.get(url);
+  if (existing) {
+    // Re-observation — merge provenance and bump lastSeenTs in place. A
+    // single fresh network observation downgrades `servedFromCache` to
+    // false (the record is now known to have been live at some point).
+    // We don't broadcast on re-observation: the popup already knows
+    // about this URL, and a per-request broadcast storm on noisy pages
+    // would wake the popup for no new information.
+    existing.sources.add(source);
+    existing.lastSeenTs = now;
+    existing.timestamp = now;
+    if (!servedFromCache) existing.servedFromCache = false;
+    scheduleTabTrackingPersist();
+    return;
+  }
+  trackedUrls.set(url, {
+    firstSeenTs: now,
+    lastSeenTs: now,
+    timestamp: now,
+    resourceType,
+    sources: new Set<ObservationSource>([source]),
+    servedFromCache,
+  });
   broadcast('trackedUrlsUpdated', { tabId });
+  scheduleTabTrackingPersist();
 }
 
 export function clearAllTracking(): void {
   tabsWithActiveRules.clear();
+}
+
+// ── Session persistence ────────────────────────────────────────────
+//
+// MV3 terminates the service worker after ~30s of inactivity. The
+// `tabsWithActiveRules` Map lives in module-level state that dies with
+// the worker, so every wake would drop the subresource attribution we
+// built up on prior requests — rules targeting cached subresources
+// would disappear from the popup until the user reloaded the page.
+//
+// We persist to `chrome.storage.session` (scoped to the browser
+// session, partitioned per profile, auto-cleaned on incognito close)
+// with a debounced writer so noisy pages don't spam the store. On SW
+// wake we rehydrate BEFORE any popup query could observe an empty map,
+// then reconcile against the current tab set so closed-tab entries
+// don't leak. The fire-bridge and perf-observer content scripts are
+// already persisted across the SW's lifetime, so new observations
+// after wake arrive naturally; session persistence only backfills what
+// we learned before the worker slept.
+//
+// Bounds: we keep at most 500 URLs per tab in the persisted payload
+// (LRU by lastSeenTs). This caps storage at ~5MB even with 50 active
+// tabs — well under `chrome.storage.session`'s 10MB quota, with
+// headroom for the rule-state observer and other consumers.
+
+const SESSION_STORAGE_KEY = 'tabTracker.tabsWithActiveRules';
+const PERSIST_DEBOUNCE_MS = 250;
+const MAX_PERSISTED_URLS_PER_TAB = 500;
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+interface PersistedResource {
+  firstSeenTs: number;
+  lastSeenTs: number;
+  resourceType: TrackedResourceType;
+  sources: ObservationSource[];
+  servedFromCache?: boolean;
+}
+
+type PersistedPayload = Record<string /* tabId */, Record<string /* url */, PersistedResource>>;
+
+interface SessionStorageApi {
+  get(key: string): Promise<Record<string, unknown>>;
+  set(items: Record<string, unknown>): Promise<void>;
+}
+
+function getSessionStorage(): SessionStorageApi | null {
+  const c = globalThis as unknown as {
+    chrome?: { storage?: { session?: SessionStorageApi } };
+    browser?: { storage?: { session?: SessionStorageApi } };
+  };
+  return c.chrome?.storage?.session ?? c.browser?.storage?.session ?? null;
+}
+
+export function scheduleTabTrackingPersist(): void {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void persistTabTracking();
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+async function persistTabTracking(): Promise<void> {
+  const session = getSessionStorage();
+  if (!session) return;
+  const payload: PersistedPayload = {};
+  for (const [tabId, urlMap] of tabsWithActiveRules) {
+    // LRU-bound the per-tab payload by lastSeenTs so a long-lived SPA
+    // doesn't balloon the persisted blob past the storage quota.
+    const entries = [...urlMap.entries()]
+      .sort((a, b) => b[1].lastSeenTs - a[1].lastSeenTs)
+      .slice(0, MAX_PERSISTED_URLS_PER_TAB);
+    const tabPayload: Record<string, PersistedResource> = {};
+    for (const [url, res] of entries) {
+      tabPayload[url] = {
+        firstSeenTs: res.firstSeenTs,
+        lastSeenTs: res.lastSeenTs,
+        resourceType: res.resourceType,
+        sources: [...res.sources],
+        servedFromCache: res.servedFromCache,
+      };
+    }
+    payload[String(tabId)] = tabPayload;
+  }
+  try {
+    await session.set({ [SESSION_STORAGE_KEY]: payload });
+  } catch {
+    /* Storage may be full or the API may be unavailable — non-fatal. */
+  }
+}
+
+function isPersistedPayload(raw: unknown): raw is PersistedPayload {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  for (const tabMap of Object.values(raw as Record<string, unknown>)) {
+    if (!tabMap || typeof tabMap !== 'object') return false;
+    for (const res of Object.values(tabMap as Record<string, unknown>)) {
+      if (!res || typeof res !== 'object') return false;
+      const r = res as Record<string, unknown>;
+      if (typeof r.firstSeenTs !== 'number') return false;
+      if (typeof r.lastSeenTs !== 'number') return false;
+      if (typeof r.resourceType !== 'string') return false;
+      if (!Array.isArray(r.sources)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Rehydrate `tabsWithActiveRules` from `chrome.storage.session`. Call
+ * once at SW init, before anything else could observe an empty map.
+ * Safe to call multiple times; subsequent calls merge with whatever
+ * state was already built up since startup.
+ *
+ * Reconciliation happens lazily: we hydrate everything, and a periodic
+ * tab cleanup (already scheduled by `setupPeriodicCleanup`) prunes
+ * entries for tabs that were closed during the SW's sleep.
+ */
+export async function rehydrateTabTracking(): Promise<void> {
+  const session = getSessionStorage();
+  if (!session) return;
+  try {
+    const result = await session.get(SESSION_STORAGE_KEY);
+    const raw = result[SESSION_STORAGE_KEY];
+    if (!isPersistedPayload(raw)) return;
+    for (const [tabIdStr, urlMap] of Object.entries(raw)) {
+      const tabId = Number(tabIdStr);
+      if (!Number.isFinite(tabId)) continue;
+      if (!tabsWithActiveRules.has(tabId)) {
+        tabsWithActiveRules.set(tabId, new Map());
+      }
+      const dest = tabsWithActiveRules.get(tabId)!;
+      for (const [url, res] of Object.entries(urlMap)) {
+        if (dest.has(url)) continue;
+        dest.set(url, {
+          firstSeenTs: res.firstSeenTs,
+          lastSeenTs: res.lastSeenTs,
+          timestamp: res.lastSeenTs,
+          resourceType: res.resourceType,
+          sources: new Set<ObservationSource>(res.sources),
+          servedFromCache: res.servedFromCache,
+        });
+      }
+    }
+  } catch {
+    /* Bad payload — skip rehydration, the SW will rebuild from scratch. */
+  }
+}
+
+// ── PerformanceObserver ingestion ──────────────────────────────────
+
+/**
+ * Map a Resource Timing `initiatorType` onto our `TrackedResourceType`
+ * enum, which is modeled on webRequest's resource taxonomy. The Resource
+ * Timing spec uses DOM-element names ("img", "script") rather than
+ * webRequest's categorical names ("image", "script"); most line up 1:1
+ * but a handful need translation. Anything unrecognized lands in
+ * 'other', which the popup's filter row treats as a valid category.
+ */
+function perfInitiatorToResourceType(initiatorType: string): TrackedResourceType {
+  switch (initiatorType) {
+    case 'img':
+    case 'image':
+      return 'image';
+    case 'script':
+      return 'script';
+    case 'css':
+    case 'link':
+      return 'stylesheet';
+    case 'xmlhttprequest':
+    case 'fetch':
+      return 'xmlhttprequest';
+    case 'iframe':
+    case 'frame':
+      return 'sub_frame';
+    case 'beacon':
+    case 'ping':
+      return 'ping';
+    case 'video':
+    case 'audio':
+      return 'media';
+    case 'navigation':
+      return 'main_frame';
+    default:
+      return 'other';
+  }
+}
+
+/**
+ * Ingest a batch of Resource Timing entries observed by the
+ * perf-observer content script. For each entry whose URL matches any
+ * rule, the URL is added to `tabsWithActiveRules` with
+ * `source='perfObserver'` and the cache flag from the timing entry.
+ *
+ * Unlike webRequest ingestion, this does NOT count as a "fire" — the
+ * rule's action couldn't have run on a cache-served response because
+ * there was no request to modify. Instead, the popup surfaces these as
+ * a `silent` verdict (applicable but no fire). Callers feed fire-level
+ * telemetry through `recordObservedFire` separately when webRequest
+ * also sees the same request.
+ *
+ * Returns the count of URLs that matched a rule for the caller's
+ * bookkeeping (currently unused, but useful for debugging).
+ */
+export function ingestPerfEntries(
+  tabId: number,
+  entries: ReadonlyArray<{ url: string; initiatorType: string; servedFromCache: boolean }>,
+): number {
+  if (!tabId || tabId < 0) return 0;
+  let matched = 0;
+  for (const entry of entries) {
+    if (!isTrackableUrl(entry.url)) continue;
+    if (!checkIfUrlMatchesAnyRule(entry.url)) continue;
+    const normalized = normalizeUrlForTracking(entry.url);
+    addTrackedUrl(tabId, normalized, perfInitiatorToResourceType(entry.initiatorType), {
+      source: 'perfObserver',
+      servedFromCache: entry.servedFromCache,
+    });
+    matched++;
+  }
+  return matched;
 }

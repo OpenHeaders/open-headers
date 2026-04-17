@@ -44,14 +44,7 @@ export interface BadgeUpdateInput {
  * and placeholder usage.
  */
 export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<void> {
-  const {
-    connected,
-    isPaused,
-    recordingService,
-    reconnectAttempts = 0,
-    matchedRuleCount,
-    configuredRuleCount,
-  } = input;
+  const { connected, isPaused, recordingService, reconnectAttempts = 0, matchedRuleCount, configuredRuleCount } = input;
   // Get the appropriate API (chrome.action for MV3, chrome.browserAction for MV2/Firefox)
   const actionAPI =
     browserAPI.action || (browserAPI as unknown as { browserAction?: typeof chrome.action }).browserAction;

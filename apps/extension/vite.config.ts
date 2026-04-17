@@ -189,8 +189,63 @@ function buildFireBridgePlugin() {
   };
 }
 
+/**
+ * Build the ISOLATED-world Resource-Timing observer content script as a
+ * self-contained IIFE. Registered via manifest.json content_scripts for
+ * `<all_urls>` at document_start. Uses PerformanceObserver to report
+ * subresource URLs — including memory-cache hits and bfcache restores
+ * that webRequest can't see — to the background as `perfResourceEntries`
+ * batch messages. Covers the observability gap that leaves rules
+ * appearing "not firing" on cached reloads.
+ */
+function buildPerfObserverPlugin() {
+  return {
+    name: 'build-perf-observer',
+    async writeBundle() {
+      await viteBuild({
+        configFile: false,
+        publicDir: false,
+        resolve: {
+          alias: {
+            '@': path.resolve(__dirname, 'src'),
+            '@components': path.resolve(__dirname, 'src/components'),
+            '@assets': path.resolve(__dirname, 'src/assets'),
+            '@styles': path.resolve(__dirname, 'src/assets/styles'),
+            '@utils': path.resolve(__dirname, 'src/utils'),
+            '@context': path.resolve(__dirname, 'src/context'),
+            '@hooks': path.resolve(__dirname, 'src/hooks'),
+          },
+        },
+        build: {
+          outDir: `dist/${browser}/js/content/perf-observer`,
+          emptyOutDir: false,
+          minify: isDev ? false : 'terser',
+          sourcemap: browser === 'firefox' ? 'inline' : false,
+          lib: {
+            entry: path.resolve(__dirname, 'src/background/perf-observer-content.ts'),
+            formats: ['iife'],
+            name: 'OhPerfObserver',
+            fileName: () => 'index.js',
+          },
+          rollupOptions: {},
+        },
+        define: {
+          globalThis: 'globalThis',
+        },
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), chromeSafePlugin(), copyAssetsPlugin(), buildContentScriptPlugin(), buildFireBridgePlugin()],
+  plugins: [
+    react(),
+    chromeSafePlugin(),
+    copyAssetsPlugin(),
+    buildContentScriptPlugin(),
+    buildFireBridgePlugin(),
+    buildPerfObserverPlugin(),
+  ],
 
   resolve: {
     alias: {

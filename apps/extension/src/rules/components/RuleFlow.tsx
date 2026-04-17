@@ -77,7 +77,12 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     }
     call('getActiveRulesForTab', { tabId: undefined, tabUrl })
       .then((data) => {
-        setThisPageRuleIds(new Set((data.activeRules ?? []).map((r) => r.id)));
+        // Keep strict semantics here: "This Page" means rules whose
+        // pattern actually matches this page or an observed subresource,
+        // NOT sibling rules on the same registrable domain. Filter out
+        // `related` verdicts — the verdict engine returns them for
+        // debugging context elsewhere but they'd over-highlight here.
+        setThisPageRuleIds(new Set((data.activeRules ?? []).filter((r) => r.verdict !== 'related').map((r) => r.id)));
       })
       .catch(() => setThisPageRuleIds(new Set()));
   }, [tabUrl, rulesFingerprint]);

@@ -19,7 +19,7 @@
 import { tabs } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
 import { get as getSetting } from '@/rules/settings/store';
-import type { PendingRequest, TrackedResourceType } from '@/types/browser';
+import type { ObservationSource, PendingRequest, TrackedResourceType } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import { addTrackedUrl, checkIfUrlMatchesAnyRule, matchRulesToRequest, tabsWithActiveRules } from './request-tracker';
 import { arbitrateWithStrategy } from './shadow-arbitration';
@@ -249,7 +249,14 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
 
           const tracked = tabsWithActiveRules.get(details.tabId)!;
           if (!tracked.has(pending.url)) {
-            tracked.set(pending.url, { timestamp: Date.now(), resourceType: details.type as TrackedResourceType });
+            const now = Date.now();
+            tracked.set(pending.url, {
+              firstSeenTs: now,
+              lastSeenTs: now,
+              timestamp: now,
+              resourceType: details.type as TrackedResourceType,
+              sources: new Set<ObservationSource>(['webRequest']),
+            });
           }
         }
       },

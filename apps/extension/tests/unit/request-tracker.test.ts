@@ -30,6 +30,7 @@ import {
   addTrackedUrl,
   checkIfUrlMatchesAnyRule,
   getActiveRulesForTab,
+  ingestPerfEntries,
   matchRulesToRequest,
   precompileRulePatterns,
   tabsWithActiveRules,
@@ -429,5 +430,79 @@ describe('addTrackedUrl', () => {
     expect(tabsWithActiveRules.get(1)!.size).toBe(101);
     expect(tabsWithActiveRules.get(1)!.has('https://openheaders.io/page/0')).toBe(true);
     expect(tabsWithActiveRules.get(1)!.has('https://openheaders.io/page/new')).toBe(true);
+  });
+});
+
+describe('ingestPerfEntries', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    tabsWithActiveRules.clear();
+    mockGetRules.mockReturnValue([]);
+  });
+
+  it('adds matching URLs with source=perfObserver and the cache flag', () => {
+    seedRules([makeHeaderRule({ conditions: hostConditions(['*.cdn.openheaders.io']) })]);
+    const count = ingestPerfEntries(5, [
+      { url: 'https://assets.cdn.openheaders.io/chunk.js', initiatorType: 'script', servedFromCache: true },
+    ]);
+    expect(count).toBe(1);
+    const tracked = tabsWithActiveRules.get(5)!;
+    const entry = [...tracked.values()][0]!;
+    expect(entry.sources.has('perfObserver')).toBe(true);
+    expect(entry.servedFromCache).toBe(true);
+    expect(entry.resourceType).toBe('script');
+  });
+
+  it('skips non-matching URLs', () => {
+    seedRules([makeHeaderRule({ conditions: hostConditions(['*.openheaders.io']) })]);
+    const count = ingestPerfEntries(5, [
+      { url: 'https://unrelated.com/chunk.js', initiatorType: 'script', servedFromCache: true },
+    ]);
+    expect(count).toBe(0);
+    expect(tabsWithActiveRules.has(5)).toBe(false);
+  });
+
+  it('skips non-trackable URLs (chrome://, etc.)', () => {
+    seedRules([makeHeaderRule({ conditions: hostConditions(['*']) })]);
+    const count = ingestPerfEntries(5, [
+      { url: 'chrome://extensions', initiatorType: 'other', servedFromCache: false },
+    ]);
+    expect(count).toBe(0);
+  });
+
+  it('maps perf initiator types to tracked resource types', () => {
+    seedRules([makeHeaderRule({ conditions: hostConditions(['*']) })]);
+    ingestPerfEntries(5, [
+      { url: 'https://a.openheaders.io/x.js', initiatorType: 'script', servedFromCache: false },
+      { url: 'https://a.openheaders.io/y.png', initiatorType: 'img', servedFromCache: false },
+      { url: 'https://a.openheaders.io/z.css', initiatorType: 'css', servedFromCache: false },
+      { url: 'https://a.openheaders.io/api', initiatorType: 'fetch', servedFromCache: false },
+    ]);
+    const tracked = tabsWithActiveRules.get(5)!;
+    const byType = [...tracked.values()].reduce<Record<string, number>>((acc, r) => {
+      acc[r.resourceType] = (acc[r.resourceType] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(byType).toEqual({ script: 1, image: 1, stylesheet: 1, xmlhttprequest: 1 });
+  });
+
+  it('preserves webRequest provenance when a URL is re-observed via perf', () => {
+    seedRules([makeHeaderRule({ conditions: hostConditions(['*.openheaders.io']) })]);
+    addTrackedUrl(5, 'https://api.openheaders.io/v2', 'xmlhttprequest');
+    ingestPerfEntries(5, [{ url: 'https://api.openheaders.io/v2', initiatorType: 'fetch', servedFromCache: true }]);
+    const entry = tabsWithActiveRules.get(5)!.get('https://api.openheaders.io/v2')!;
+    expect(entry.sources.has('webRequest')).toBe(true);
+    expect(entry.sources.has('perfObserver')).toBe(true);
+    // servedFromCache was false from webRequest path — a subsequent
+    // cache-served perf observation shouldn't flip it back to true.
+    expect(entry.servedFromCache).toBe(false);
+  });
+
+  it('ignores empty input and invalid tab ids', () => {
+    seedRules([makeHeaderRule({ conditions: hostConditions(['*']) })]);
+    expect(ingestPerfEntries(0, [])).toBe(0);
+    expect(
+      ingestPerfEntries(-1, [{ url: 'https://openheaders.io/', initiatorType: 'script', servedFromCache: false }]),
+    ).toBe(0);
   });
 });

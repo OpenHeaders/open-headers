@@ -106,7 +106,10 @@ async function flush(batch: PendingInvalidation): Promise<void> {
   try {
     if (broad) {
       await api.remove({}, { cache: true });
-      logger.debug('CacheInvalidator', `Global HTTP cache evicted (rule state transition, ${origins.length} origin(s))`);
+      logger.debug(
+        'CacheInvalidator',
+        `Global HTTP cache evicted (rule state transition, ${origins.length} origin(s))`,
+      );
     } else {
       await api.remove({ origins }, { cache: true });
       logger.debug('CacheInvalidator', `HTTP cache evicted for ${origins.length} origin(s)`);

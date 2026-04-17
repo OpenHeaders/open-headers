@@ -10,8 +10,29 @@
 import type { ShadowAttribution } from '@/background/modules/shadow-arbitration';
 import type { TrackedResourceType } from './browser';
 
-/** Tier of evidence for a rule firing on a request. */
-export type Evidence = 'confirmed' | 'matched' | 'matched-fallback';
+/**
+ * Tier of evidence that a rule applied to a request.
+ *
+ *   - `confirmed`        — in-page fire-bridge reported that the action
+ *                          ran. Ground truth for scriptable rule types.
+ *   - `matched`          — webRequest observed a URL that satisfied the
+ *                          rule's conditions. Best evidence for pure-DNR
+ *                          rules (Chrome does not tell extensions which
+ *                          rule wins in arbitration).
+ *   - `matched-fallback` — observed fire for a deferred rule type
+ *                          (could have emitted scriptable) that didn't
+ *                          confirm within the fallback window.
+ *   - `silent`           — pattern matched an observed URL but the
+ *                          response was served from cache / a service
+ *                          worker / bfcache. No network request reached
+ *                          webRequest, so DNR / scriptable actions did
+ *                          not run. Sourced from the perf-observer
+ *                          content script; attached to records that
+ *                          live in `ActiveRule.silentRecords`, NOT in
+ *                          the telemetry `byRule` / `counters` (those
+ *                          remain reserved for actions that ran).
+ */
+export type Evidence = 'confirmed' | 'matched' | 'matched-fallback' | 'silent';
 
 /**
  * How Chrome served the response.

@@ -49,6 +49,12 @@
       "js": ["js/content/fire-bridge/index.js"],
       "run_at": "document_start",
       "all_frames": false
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["js/content/perf-observer/index.js"],
+      "run_at": "document_start",
+      "all_frames": false
     }
   ],
   "web_accessible_resources": [

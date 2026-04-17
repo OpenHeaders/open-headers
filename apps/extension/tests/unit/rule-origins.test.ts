@@ -5,11 +5,7 @@
 import type { V5 } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 
-import {
-  extractOriginsFromRules,
-  extractRuleOrigins,
-  originsFromUrlFilter,
-} from '@/background/modules/rule-origins';
+import { extractOriginsFromRules, extractRuleOrigins, originsFromUrlFilter } from '@/background/modules/rule-origins';
 
 function rule(conditions: V5.RuleCondition[]): V5.Rule {
   return {

@@ -86,7 +86,6 @@ const FALLBACK_WINDOW_MS = 500;
 
 // ── Public types ────────────────────────────────────────────────────
 
-
 /** Metadata the caller supplies when reporting an observed (webRequest) fire. */
 export interface ObservedFireMeta {
   resourceType: TrackedResourceType;
@@ -373,8 +372,11 @@ function touchUnique(state: TabState, record: RequestRecord): void {
 }
 
 function upgradeEvidence(a: Evidence, b: Evidence): Evidence {
-  // Ordering: confirmed > matched > matched-fallback.
-  const rank: Record<Evidence, number> = { confirmed: 2, matched: 1, 'matched-fallback': 0 };
+  // Ordering: confirmed > matched > matched-fallback > silent. Silent
+  // records never reach this function today (they're populated outside
+  // tab-telemetry via `ActiveRule.silentRecords`), but the map must
+  // cover every `Evidence` value or TypeScript rejects the Record.
+  const rank: Record<Evidence, number> = { confirmed: 3, matched: 2, 'matched-fallback': 1, silent: 0 };
   return rank[a] >= rank[b] ? a : b;
 }
 
