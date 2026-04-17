@@ -282,7 +282,7 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
             (runtime.lastError as chrome.runtime.LastError).message,
           );
         } else {
-          logger.info('TabListeners', 'Popup closed, updating badge');
+          logger.debug('TabListeners', 'Popup closed, updating badge');
         }
 
         setTimeout(() => {
@@ -312,7 +312,7 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
         if (!isTrackableUrl(details.url)) {
           logger.debug('TabListeners', 'Internal navigation:', details.tabId, details.url);
         } else {
-          logger.info('TabListeners', 'Navigation committed:', details.tabId, details.url);
+          logger.debug('TabListeners', 'Navigation committed:', details.tabId, details.url);
         }
 
         // Page-context swap in tab-telemetry. onPageCommit promotes any
@@ -349,7 +349,7 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
       (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
         if (details.frameId === 0) {
           // Main frame only
-          logger.info('TabListeners', `History state updated in tab ${details.tabId}`);
+          logger.debug('TabListeners', `History state updated in tab ${details.tabId}`);
 
           // Skip non-trackable URLs
           if (!isTrackableUrl(details.url)) {

@@ -90,7 +90,20 @@ export function useInspector(): UseInspectorResult {
     const connect = () => {
       if (disposed) return;
       readyRef.current = false;
-      const port = chrome.runtime.connect({ name: `devtools-inspector:${tabId}` });
+      // `chrome.runtime.connect` throws "Extension context invalidated"
+      // when the DevTools panel survives an extension reload/update —
+      // the old panel context is still running but the background it's
+      // trying to reach has been torn down. Swallow and back off; Chrome
+      // will close the stale panel when the inspected tab refreshes.
+      let port: chrome.runtime.Port;
+      try {
+        port = chrome.runtime.connect({ name: `devtools-inspector:${tabId}` });
+      } catch {
+        activePort = null;
+        if (disposed) return;
+        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+        return;
+      }
       activePort = port;
       port.onMessage.addListener(handler);
       port.onDisconnect.addListener(() => {

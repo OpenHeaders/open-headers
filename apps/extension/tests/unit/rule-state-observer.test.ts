@@ -268,8 +268,6 @@ describe('storage.session persistence', () => {
     const session = installFakeSession();
     session.store['ruleStateObserver.snapshot'] = {
       r1: {
-        enabled: true,
-        paused: false,
         effective: true,
         origins: ['https://api.openheaders.io'],
         broad: false,

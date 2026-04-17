@@ -91,7 +91,7 @@ export async function enableCacheBypassForTab(tabId: number): Promise<void> {
       addRules: [buildCacheBypassRule(tabId)],
     });
     activeTabs.add(tabId);
-    logger.info('CacheBypass', `Enabled for tab ${tabId}`);
+    logger.debug('CacheBypass', `Enabled for tab ${tabId}`);
   } catch (err) {
     logger.error('CacheBypass', `Failed to enable for tab ${tabId}: ${(err as Error).message}`);
   }
@@ -107,7 +107,7 @@ export async function disableCacheBypassForTab(tabId: number): Promise<void> {
       addRules: [],
     });
     activeTabs.delete(tabId);
-    logger.info('CacheBypass', `Disabled for tab ${tabId}`);
+    logger.debug('CacheBypass', `Disabled for tab ${tabId}`);
   } catch (err) {
     logger.error('CacheBypass', `Failed to disable for tab ${tabId}: ${(err as Error).message}`);
   }

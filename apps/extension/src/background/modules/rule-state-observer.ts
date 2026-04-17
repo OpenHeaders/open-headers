@@ -57,15 +57,15 @@
 
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import { resolvePauseState } from '@openheaders/core/utils';
+import { isRuleEffective } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { enqueueInvalidation } from './cache-invalidator';
 import { extractRuleOrigins } from './rule-origins';
 
 interface RuleFingerprint {
-  enabled: boolean;
-  paused: boolean;
-  /** `enabled && !paused` — the single bit that gates DNR inclusion. */
+  /** `isRuleEffective(rule, pauseMarkers, enginePaused)` — the single
+   *  bit that gates DNR inclusion. Combines enabled, complete, pause
+   *  cascade, and engine pause. */
   effective: boolean;
   /** Pre-extracted at snapshot time so we still have it post-deletion. */
   origins: string[];
@@ -211,8 +211,6 @@ function isPersistedShape(raw: unknown): raw is Record<string, RuleFingerprint> 
   for (const value of Object.values(raw as Record<string, unknown>)) {
     if (!value || typeof value !== 'object') return false;
     const fp = value as Record<string, unknown>;
-    if (typeof fp.enabled !== 'boolean') return false;
-    if (typeof fp.paused !== 'boolean') return false;
     if (typeof fp.effective !== 'boolean') return false;
     if (!Array.isArray(fp.origins)) return false;
     if (typeof fp.broad !== 'boolean') return false;
@@ -229,11 +227,9 @@ function buildSnapshot(
 ): Snapshot {
   const out: Snapshot = new Map();
   for (const rule of rules) {
-    const enabled = rule.enabled === true;
-    const paused = enginePaused || resolvePauseState(rule.path, pauseMarkers);
-    const effective = enabled && !paused;
+    const effective = isRuleEffective(rule, pauseMarkers, enginePaused);
     const { origins, broad } = extractRuleOrigins(rule);
-    out.set(rule.uid, { enabled, paused, effective, origins, broad });
+    out.set(rule.uid, { effective, origins, broad });
   }
   return out;
 }

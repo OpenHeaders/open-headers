@@ -27,7 +27,7 @@ declare const browser: typeof chrome | undefined;
 
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import { isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
+import { isRuleEffective } from '@openheaders/core/utils';
 import { broadcast } from '@utils/bridge';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -265,8 +265,10 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
   const ctx: CompilerContext = { allocateId: () => nextId++ };
 
   for (const rule of rules) {
-    if (!rule.enabled || !isRuleComplete(rule)) continue;
-    if (resolvePauseState(rule.path, pauseMarkers)) continue;
+    // `compileRuleSet` only runs when the engine is NOT globally paused
+    // (checked upstream in `rebuildAll`), so we pass `false` for
+    // `enginePaused` here.
+    if (!isRuleEffective(rule, pauseMarkers, false)) continue;
 
     // inject-manager wants every rule that has any in-page side effect,
     // regardless of whether it ALSO produces DNR rules. Passed by value.
@@ -434,7 +436,7 @@ function applyDynamicRules(newRules: DnrRule[]): Promise<void> {
       });
     })
     .then(() => {
-      logger.info('DnrManager', `Applied ${newRules.length} dynamic DNR rules`);
+      logger.debug('DnrManager', `Applied ${newRules.length} dynamic DNR rules`);
     })
     .catch((e: Error) => {
       logger.error('DnrManager', 'Error updating dynamic rules:', e.message || 'Unknown error');
@@ -463,7 +465,7 @@ function applySessionRules(newRules: DnrRule[]): Promise<void> {
       });
     })
     .then(() => {
-      logger.info('DnrManager', `Applied ${newRules.length} session DNR rules`);
+      logger.debug('DnrManager', `Applied ${newRules.length} session DNR rules`);
     })
     .catch((e: Error) => {
       logger.error('DnrManager', 'Error updating session rules:', e.message || 'Unknown error');

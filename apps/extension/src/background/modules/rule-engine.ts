@@ -58,7 +58,7 @@ function flushUpdate(reason: string, forced?: boolean): void {
     return;
   }
 
-  logger.info('RuleEngine', `Updating network rules (${reason}), ${rules.length} rules`);
+  logger.debug('RuleEngine', `Updating network rules (${reason}), ${rules.length} rules`);
   updateNetworkRules(rules);
   lastRulesHash = currentHash;
 }

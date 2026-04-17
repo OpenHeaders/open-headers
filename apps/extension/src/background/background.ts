@@ -10,7 +10,7 @@ declare const browser: typeof chrome | undefined;
 import { RecordingService } from '@assets/recording/background/recording-service';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import { resolvePauseState } from '@openheaders/core/utils';
+import { isRuleEffective } from '@openheaders/core/utils';
 import { broadcast } from '@utils/bridge';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -118,20 +118,26 @@ async function updateBadgeForCurrentTab(): Promise<void> {
 
     if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
-    const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
     const markers = getPauseMarkers();
-    const configured = allMatchingRules.filter((r) => r.isEnabled !== false && !resolvePauseState(r.path, markers));
-    // Intersect the per-tab counters with the currently-active rule UIDs
-    // so the badge reflects rules that are BOTH active-right-now AND
-    // have matched a request on this page. A rule that fired earlier and
-    // has since been disabled or paused no longer counts.
+    // Currently-effective rules: enabled + complete + not paused at any
+    // level + engine not paused — the single canonical filter that every
+    // consumer (DNR compile loop, rule-state observer, this badge filter)
+    // must share. NOT filtered by tab URL: a rule targeting a subresource
+    // domain (e.g. api.example.com) still counts when the tab is on
+    // example.com — its counter increments via the subresource request.
+    const effectiveRules = getRules().filter((r) => isRuleEffective(r, markers, isPaused));
+    const effectiveUids = new Set(effectiveRules.map((r) => r.uid));
+
+    // Intersect per-tab counters with currently-effective UIDs so the
+    // badge reflects rules that are BOTH active-right-now AND have
+    // matched a request on this page. A rule that fired earlier and
+    // was then disabled no longer counts (its counter lingers in the
+    // snapshot until the next onPageCommit, but the filter drops it).
     const snapshot = currentTab?.id != null ? getTabSnapshot(currentTab.id) : null;
-    // `ActiveRule.id` IS the V5 rule uid (see request-tracker.getActiveRulesForTab).
-    const configuredUids = new Set(configured.map((r) => r.id));
     let matchedRuleCount = 0;
     if (snapshot) {
       for (const uid of Object.keys(snapshot.counters)) {
-        if (configuredUids.has(uid)) matchedRuleCount++;
+        if (effectiveUids.has(uid)) matchedRuleCount++;
       }
     }
     await updateExtensionBadge({
@@ -140,7 +146,7 @@ async function updateBadgeForCurrentTab(): Promise<void> {
       recordingService,
       reconnectAttempts: attempts,
       matchedRuleCount,
-      configuredRuleCount: configured.length,
+      configuredRuleCount: effectiveRules.length,
     });
   });
 }

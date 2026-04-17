@@ -10,6 +10,7 @@
 
 import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule, RuleBase } from '../types/v5/rule';
 import { getHeaderOperationCapability } from './headers';
+import { type PauseMarkers, resolvePauseState } from './pause';
 
 /**
  * Check whether a rule has all required fields to function.
@@ -92,4 +93,29 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
     default:
       return false;
   }
+}
+
+/**
+ * Single source of truth for "will this rule actually fire on live
+ * traffic right now?". Combines three independent axes:
+ *
+ *   - `rule.enabled === true`      — user's explicit toggle
+ *   - `isRuleComplete(rule)`        — all required fields present; drafts
+ *                                     never compile to DNR or fire as
+ *                                     scriptable injections
+ *   - `!resolvePauseState(path)`    — neither the rule nor any ancestor
+ *                                     collection/folder is paused
+ *   - `!enginePaused`               — the global `rulesEngine.paused`
+ *                                     kill switch isn't on
+ *
+ * Any place in the extension that needs "effective rule set" — DNR
+ * compile loop, rule-state observer snapshot, badge filter, popup
+ * display — should call this instead of reimplementing the check.
+ */
+export function isRuleEffective(rule: Rule, pauseMarkers: PauseMarkers, enginePaused: boolean): boolean {
+  if (rule.enabled !== true) return false;
+  if (enginePaused) return false;
+  if (resolvePauseState(rule.path, pauseMarkers)) return false;
+  if (!isRuleComplete(rule)) return false;
+  return true;
 }

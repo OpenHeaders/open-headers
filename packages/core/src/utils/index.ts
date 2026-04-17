@@ -31,7 +31,7 @@ export {
   formatUrlPattern,
   getRuleMatchPatterns,
 } from './rule-matcher';
-export { isRuleComplete } from './rule-validation';
+export { isRuleComplete, isRuleEffective } from './rule-validation';
 export type { TestTargetUrlResult } from './test-target-url';
 export { parseTestTargetUrl } from './test-target-url';
 export {
