@@ -21,8 +21,11 @@
   --dt-row-zebra: #f8f8f8;
   --dt-row-attributed: #eef3fc;
   --dt-row-attributed-removed: #f1f1f1;
-  --dt-row-attributed-system: #fff8db;
-  --dt-accent-system: #b8860b;
+  /* System-injected headers (live-rules cache-control / pragma) are
+     tinted to blend in — they're implementation detail, not user
+     intent. Light grey in light theme, subtle dark tone in dark. */
+  --dt-row-attributed-system: #f4f4f4;
+  --dt-accent-system: #9e9e9e;
   --dt-header-bg: #f1f1f1;
   --dt-link: #1a73e8;
   --dt-status-green: #00a800;
@@ -52,8 +55,8 @@
   --dt-row-zebra: #222;
   --dt-row-attributed: #23314a;
   --dt-row-attributed-removed: #2a2a2a;
-  --dt-row-attributed-system: #3a2e0d;
-  --dt-accent-system: #e6c75a;
+  --dt-row-attributed-system: #2a2a2a;
+  --dt-accent-system: #6a6a6a;
   --dt-header-bg: #292929;
   --dt-link: #8ab4f8;
   --dt-status-green: #4caf50;

@@ -89,7 +89,6 @@ const EMPTY_SNAPSHOT: TelemetrySnapshot = {
   fires: [],
   byRule: {},
   uniqueRequestCount: 0,
-  totalFires: 0,
 };
 
 interface MatchedRequestRow extends RequestRecord {
@@ -416,7 +415,6 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             fires: snap?.fires ?? [],
             byRule: snap?.byRule ?? {},
             uniqueRequestCount: snap?.uniqueRequestCount ?? 0,
-            totalFires: snap?.totalFires ?? 0,
           });
         })
         .catch(() => {

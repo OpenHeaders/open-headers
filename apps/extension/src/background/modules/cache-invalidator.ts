@@ -59,6 +59,14 @@ interface PendingInvalidation {
 
 let pending: PendingInvalidation | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
+/**
+ * Promise chain that serializes `flush()` invocations. The docs note
+ * `browsingData.remove` "can take tens of seconds to complete"; if a
+ * rule edit lands during a long-running eviction, the new batch's
+ * flush is chained onto the in-flight one instead of racing against
+ * it. Always resolves — `flush()` swallows API errors internally.
+ */
+let flushChain: Promise<void> = Promise.resolve();
 
 /**
  * Enqueue a cache-eviction request. Returns immediately; the actual
@@ -81,22 +89,25 @@ export function enqueueInvalidation(origins: readonly string[], broad = false): 
     const batch = pending;
     pending = null;
     timer = null;
-    if (batch) void flush(batch);
+    if (batch) scheduleFlush(batch);
   }, DEBOUNCE_MS);
 }
 
 /**
  * Force the pending batch to fire now instead of waiting out the debounce.
  * Used by the observer when it needs synchronous eviction — e.g. right
- * before a test harness takes a fresh snapshot. No-op if nothing's pending.
+ * before a test harness takes a fresh snapshot. Awaits any previously-
+ * chained flushes so the caller can be sure eviction is complete.
  */
 export async function flushPending(): Promise<void> {
-  if (!timer || !pending) return;
-  clearTimeout(timer);
-  const batch = pending;
-  pending = null;
-  timer = null;
-  await flush(batch);
+  if (timer && pending) {
+    clearTimeout(timer);
+    const batch = pending;
+    pending = null;
+    timer = null;
+    scheduleFlush(batch);
+  }
+  await flushChain;
 }
 
 /** Test-only: drop any pending invalidation without firing it. */
@@ -104,6 +115,11 @@ export function __resetPendingForTests(): void {
   if (timer) clearTimeout(timer);
   timer = null;
   pending = null;
+  flushChain = Promise.resolve();
+}
+
+function scheduleFlush(batch: PendingInvalidation): void {
+  flushChain = flushChain.then(() => flush(batch));
 }
 
 // ── Internal flush ───────────────────────────────────────────────

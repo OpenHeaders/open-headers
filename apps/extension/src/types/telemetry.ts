@@ -50,7 +50,8 @@ export interface RequestRecord {
 
 /** Per-tab telemetry snapshot returned to consumers. */
 export interface TabTelemetrySnapshot {
-  /** Per-rule event counters. */
+  /** Per-rule event counters. Keys are rule UIDs that matched at least
+   *  one request on this page since the last commit. */
   counters: Record<string, number>;
   /** Chronological fire log (newest last). Bounded. */
   fires: RequestRecord[];
@@ -58,6 +59,4 @@ export interface TabTelemetrySnapshot {
   byRule: Record<string, RequestRecord[]>;
   /** Unique normalized URLs across all rules. */
   uniqueRequestCount: number;
-  /** Sum of every per-rule counter — drives the extension badge. */
-  totalFires: number;
 }

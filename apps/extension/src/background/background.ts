@@ -121,13 +121,25 @@ async function updateBadgeForCurrentTab(): Promise<void> {
     const { activeRules: allMatchingRules } = getActiveRulesForTab(currentTab?.id, currentUrl);
     const markers = getPauseMarkers();
     const configured = allMatchingRules.filter((r) => r.isEnabled !== false && !resolvePauseState(r.path, markers));
+    // Intersect the per-tab counters with the currently-active rule UIDs
+    // so the badge reflects rules that are BOTH active-right-now AND
+    // have matched a request on this page. A rule that fired earlier and
+    // has since been disabled or paused no longer counts.
     const snapshot = currentTab?.id != null ? getTabSnapshot(currentTab.id) : null;
+    // `ActiveRule.id` IS the V5 rule uid (see request-tracker.getActiveRulesForTab).
+    const configuredUids = new Set(configured.map((r) => r.id));
+    let matchedRuleCount = 0;
+    if (snapshot) {
+      for (const uid of Object.keys(snapshot.counters)) {
+        if (configuredUids.has(uid)) matchedRuleCount++;
+      }
+    }
     await updateExtensionBadge({
       connected: isConnected,
       isPaused,
       recordingService,
       reconnectAttempts: attempts,
-      fireCount: snapshot?.totalFires ?? 0,
+      matchedRuleCount,
       configuredRuleCount: configured.length,
     });
   });
@@ -162,7 +174,7 @@ async function initializeExtension(): Promise<void> {
     isPaused: false,
     recordingService,
     reconnectAttempts: 0,
-    fireCount: 0,
+    matchedRuleCount: 0,
     configuredRuleCount: 0,
   });
   setupRequestMonitoring(debouncedUpdateBadge);

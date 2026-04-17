@@ -468,15 +468,15 @@ describe('tab-telemetry — snapshot isolation', () => {
   });
 });
 
-// ── Delivery mode + totalFires ───────────────────────────────────────
+// ── Delivery mode + per-rule counters ────────────────────────────────
 
-describe('totalFires + updateRequestDeliveryMode', () => {
-  it('totalFires is zero on a fresh tab', () => {
+describe('delivery mode + updateRequestDeliveryMode', () => {
+  it('counters is empty on a fresh tab', () => {
     startTracking(1, 'active-popup');
-    expect(getTabSnapshot(1).totalFires).toBe(0);
+    expect(getTabSnapshot(1).counters).toEqual({});
   });
 
-  it('totalFires equals the sum of per-rule counters as fires land', () => {
+  it('each fire increments the rule-uid counter', () => {
     startTracking(1, 'active-popup');
 
     recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-1', 100, DNR_META);
@@ -485,16 +485,14 @@ describe('totalFires + updateRequestDeliveryMode', () => {
 
     const snap = getTabSnapshot(1);
     expect(snap.counters).toEqual({ 'rule-a': 2, 'rule-b': 1 });
-    expect(snap.totalFires).toBe(3);
   });
 
-  it('scoped snapshot computes totalFires over the scope only', () => {
+  it('scoped snapshot reports counters for the scope only', () => {
     startTracking(1, 'active-popup');
     recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-1', 100, DNR_META);
     recordObservedFire(1, 'rule-b', 'https://openheaders.io/b', 'req-2', 101, DNR_META);
 
     const scoped = getTabSnapshotForScope(1, new Set(['rule-a']));
-    expect(scoped.totalFires).toBe(1);
     expect(scoped.counters).toEqual({ 'rule-a': 1 });
   });
 

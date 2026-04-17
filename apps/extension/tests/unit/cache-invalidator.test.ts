@@ -114,3 +114,44 @@ describe('flushPending', () => {
     expect(removeSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('serialized flushes', () => {
+  it('chains sequential flushes so browsingData.remove never runs in parallel', async () => {
+    // Use real timers so we can interleave enqueues and flushes naturally.
+    vi.useRealTimers();
+
+    let firstFlushResolve!: () => void;
+    const firstFlushInflight = new Promise<void>((resolve) => {
+      firstFlushResolve = resolve;
+    });
+    // Capture the order of calls and simulate a slow first flush so we
+    // can verify the second one truly waits.
+    const callOrder: string[] = [];
+    removeSpy.mockImplementationOnce(() => {
+      callOrder.push('first-start');
+      return firstFlushInflight.then(() => {
+        callOrder.push('first-end');
+      });
+    });
+    removeSpy.mockImplementationOnce(() => {
+      callOrder.push('second-start');
+      return Promise.resolve();
+    });
+
+    enqueueInvalidation(['https://a.openheaders.io']);
+    await new Promise((r) => setTimeout(r, 760));
+    // First flush is now in flight.
+    expect(callOrder).toEqual(['first-start']);
+
+    // While it's in flight, enqueue a second batch.
+    enqueueInvalidation(['https://b.openheaders.io']);
+    await new Promise((r) => setTimeout(r, 760));
+    // Second flush must NOT have started yet — first still in flight.
+    expect(callOrder).toEqual(['first-start']);
+
+    // Release the first flush; the second now runs, after it.
+    firstFlushResolve();
+    await flushPending();
+    expect(callOrder).toEqual(['first-start', 'first-end', 'second-start']);
+  });
+});

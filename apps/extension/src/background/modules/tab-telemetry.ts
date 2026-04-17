@@ -713,13 +713,7 @@ export function onMainFrameError(tabId: number, requestId: string): void {
  * the tracked or untracked path.
  */
 function emptySnapshot(): TabTelemetrySnapshot {
-  return { counters: {}, fires: [], byRule: {}, uniqueRequestCount: 0, totalFires: 0 };
-}
-
-function sumCounters(counters: Record<string, number>): number {
-  let total = 0;
-  for (const n of Object.values(counters)) total += n;
-  return total;
+  return { counters: {}, fires: [], byRule: {}, uniqueRequestCount: 0 };
 }
 
 /**
@@ -749,7 +743,6 @@ export function getTabSnapshot(tabId: number): TabTelemetrySnapshot {
     fires: [...state.fires],
     byRule,
     uniqueRequestCount: uniqueUrls.size,
-    totalFires: sumCounters(counters),
   };
 }
 
@@ -779,7 +772,7 @@ export function getTabSnapshotForScope(tabId: number, scopeUids: Set<string>): T
     }
   }
 
-  return { counters, fires, byRule, uniqueRequestCount: uniqueUrls.size, totalFires: sumCounters(counters) };
+  return { counters, fires, byRule, uniqueRequestCount: uniqueUrls.size };
 }
 
 // ── Test helpers ────────────────────────────────────────────────────
