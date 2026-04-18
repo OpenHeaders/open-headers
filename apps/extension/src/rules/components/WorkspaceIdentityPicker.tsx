@@ -20,7 +20,7 @@ import { StopOutlined } from '@ant-design/icons';
 import { Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
-import { TWO_TONE_ICON_MAP, renderTwoToneIcon } from './TwoToneIconPicker';
+import { renderTwoToneIcon, TWO_TONE_ICON_MAP } from './TwoToneIconPicker';
 import { resolveWorkspaceColor, resolveWorkspaceIconColor, WORKSPACE_COLOR_KEYS } from './workspace-colors';
 import { renderWorkspacePrefix } from './workspace-prefix';
 

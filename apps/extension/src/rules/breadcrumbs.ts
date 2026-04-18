@@ -18,6 +18,17 @@ export function computeBreadcrumbs(
 
   if (tab.mode === 'settings') return ['Settings'];
 
+  if (tab.mode === 'workspace-manager') return ['Workspaces'];
+  if (tab.mode === 'env-edit') return ['Environments', tab.label];
+  if (tab.mode === 'workspace-vars') return ['Workspace Variables'];
+  if (tab.mode === 'vault') return ['Vault'];
+  if (tab.mode === 'collection-vars') {
+    const col = tab.collectionUid ? localCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
+    return col ? ['Rules', col.name, 'Variables'] : ['Variables'];
+  }
+  if (tab.mode === 'request-edit') return ['API Requests', tab.label];
+  if (tab.mode === 'request-create') return ['API Requests', tab.draftName ?? tab.label];
+
   if (tab.mode === 'collection-overview') return ['Rules', tab.label];
 
   if (tab.mode === 'folder-overview' && tab.entityId) {

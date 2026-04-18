@@ -9,11 +9,11 @@
  */
 
 import { CheckOutlined, DownOutlined, SettingOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Space, Typography, theme } from 'antd';
+import type { V5 } from '@openheaders/core/types';
 import type { MenuProps } from 'antd';
+import { Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
-import type { V5 } from '@openheaders/core/types';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
 const { Text } = Typography;

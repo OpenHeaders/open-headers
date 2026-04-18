@@ -44,6 +44,7 @@ import { getPauseMarkers } from './modules/pause-markers-store';
 import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from './modules/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
+import { resolveRulesForCompile } from './modules/variables-resolver';
 
 // ── Paused state ─────────────────────────────────────────────────
 
@@ -266,9 +267,16 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
   return { dynamic, session, scriptables };
 }
 
-function rebuildAll(rules: V5.Rule[]): Promise<void> {
+function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   dynamicDnrIdToUid.clear();
   runSessionRuleIdToUid.clear();
+
+  // Resolve {{VAR}} templates against the current env/vars/vault/collection
+  // scopes BEFORE any downstream consumer sees the rules. Every compile
+  // and every observer diff must see the same resolved shape — otherwise
+  // a variable edit can change effective patterns without the observer
+  // noticing, or the DNR layer can receive literal "{{VAR}}" strings.
+  const rules = resolveRulesForCompile(rawRules);
 
   // Diff the effective-active rule set against the previous snapshot
   // and enqueue any necessary cache eviction. Runs on every rebuild
@@ -374,7 +382,12 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
       ? run.scopeRules.filter((r) => r.type !== 'delay')
       : run.scopeRules;
 
-    const { dynamic: runDynamic, session: runSession } = compileRuleSet(scopeForCompile, sessionIdCounter);
+    // Test-run scope snapshots predate the active env/vars and therefore
+    // carry raw `{{VAR}}` templates. Resolve against the CURRENT scopes
+    // so a test run reflects the live environment — same contract as
+    // the outer rule set above.
+    const resolvedScope = resolveRulesForCompile(scopeForCompile);
+    const { dynamic: runDynamic, session: runSession } = compileRuleSet(resolvedScope, sessionIdCounter);
     // Both the "dynamic" and "session" outputs from a test scope end up
     // in the session layer with tabIds stamped — within a test run,
     // everything is per-tab.

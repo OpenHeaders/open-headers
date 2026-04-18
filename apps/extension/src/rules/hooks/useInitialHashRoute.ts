@@ -13,6 +13,11 @@
  *   #/settings/{key}                 → open the settings modal focused on a key
  *   #/settings/category/{id}         → open the settings modal focused on a category
  *   #/workspaces                     → open the workspace manager tab
+ *   #/environment/{uid}              → open the environment editor tab
+ *   #/workspace-vars                 → open the workspace variables editor
+ *   #/vault                          → open the vault editor
+ *   #/collection-vars/{uid}          → open the collection-scoped variables editor
+ *   #/request/{uid}                  → open the API request editor
  *
  * Two-stage routing:
  *   1. Routes that don't need rules/collection data — `workspaces`,
@@ -46,6 +51,11 @@ interface UseInitialHashRouteOptions {
   ) => void;
   openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
   openWorkspaceManager: () => void;
+  openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
+  openWorkspaceVariables: () => void;
+  openVault: () => void;
+  openCollectionVariables: (uid: string, name: string) => void;
+  openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
 }
 
 export function useInitialHashRoute({
@@ -57,6 +67,11 @@ export function useInitialHashRoute({
   openRunReport,
   openSettings,
   openWorkspaceManager,
+  openEnvironmentEdit,
+  openWorkspaceVariables,
+  openVault,
+  openCollectionVariables,
+  openRequestEditTab,
 }: UseInitialHashRouteOptions): void {
   const hashProcessedRef = useRef(false);
   const openCreateTabRef = useRef(openCreateTab);
@@ -66,6 +81,11 @@ export function useInitialHashRoute({
   const openRunReportRef = useRef(openRunReport);
   const openSettingsRef = useRef(openSettings);
   const openWorkspaceManagerRef = useRef(openWorkspaceManager);
+  const openEnvironmentEditRef = useRef(openEnvironmentEdit);
+  const openWorkspaceVariablesRef = useRef(openWorkspaceVariables);
+  const openVaultRef = useRef(openVault);
+  const openCollectionVariablesRef = useRef(openCollectionVariables);
+  const openRequestEditTabRef = useRef(openRequestEditTab);
   openCreateTabRef.current = openCreateTab;
   openEditTabRef.current = openEditTab;
   openDocsRef.current = openDocs;
@@ -73,6 +93,11 @@ export function useInitialHashRoute({
   openRunReportRef.current = openRunReport;
   openSettingsRef.current = openSettings;
   openWorkspaceManagerRef.current = openWorkspaceManager;
+  openEnvironmentEditRef.current = openEnvironmentEdit;
+  openWorkspaceVariablesRef.current = openWorkspaceVariables;
+  openVaultRef.current = openVault;
+  openCollectionVariablesRef.current = openCollectionVariables;
+  openRequestEditTabRef.current = openRequestEditTab;
 
   // Parse the hash once on mount so stage 1 (data-free routes) and
   // stage 2 (rules-dependent routes) see identical segments.
@@ -89,6 +114,12 @@ export function useInitialHashRoute({
     if (parts[0] === 'workspaces') {
       hashProcessedRef.current = true;
       openWorkspaceManagerRef.current();
+    } else if (parts[0] === 'workspace-vars') {
+      hashProcessedRef.current = true;
+      openWorkspaceVariablesRef.current();
+    } else if (parts[0] === 'vault') {
+      hashProcessedRef.current = true;
+      openVaultRef.current();
     } else if (parts[0] === 'settings') {
       hashProcessedRef.current = true;
       if (parts[1] === 'category' && parts[2]) {
@@ -109,7 +140,18 @@ export function useInitialHashRoute({
     if (!isStatusLoaded || hashProcessedRef.current) return;
     hashProcessedRef.current = true;
     if (parts.length === 0 || !parts[0]) return;
-    if (parts[0] === 'create' && parts[1]) {
+    if (parts[0] === 'environment' && parts[1]) {
+      // Label is a placeholder — `useTabSyncEffects` overwrites it once
+      // `useEnvironments` resolves the env, so the tab title flips to
+      // the real name as soon as the env-store finishes hydration.
+      openEnvironmentEditRef.current(parts[1], 'Environment');
+    } else if (parts[0] === 'collection-vars' && parts[1]) {
+      openCollectionVariablesRef.current(parts[1], 'Collection');
+    } else if (parts[0] === 'request' && parts[1]) {
+      // Label is a placeholder — `useTabSyncEffects` corrects it once
+      // the request list arrives from the SW.
+      openRequestEditTabRef.current(parts[1], 'Request', 'GET');
+    } else if (parts[0] === 'create' && parts[1]) {
       const type = parts[1];
       const third = parts[2];
       // `draft-{nonce}` sigil lets the panel's rule-draft handoff
@@ -150,5 +192,5 @@ export function useInitialHashRoute({
         })
         .catch(() => openRunReportRef.current(runId));
     }
-  }, [isStatusLoaded]);
+  }, [isStatusLoaded, parts.length, parts[0]]);
 }

@@ -29,7 +29,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { storage } from '@utils/browser-api';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getCollectionTrees, getRules } from './rule-store';
 import type { ShadowAttribution } from './shadow-arbitration';
 import type { Evidence } from './tab-telemetry';
@@ -83,12 +83,6 @@ export type LoadedTestRun = StoredTestRun & { isStale: boolean };
 
 const MAX_PER_OWNER = 20;
 
-// ── Key helpers ───────────────────────────────────────────────────
-
-function testRunsKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.testRuns`;
-}
-
 // ── Storage primitives ────────────────────────────────────────────
 
 type Bucket = StoredTestRun[];
@@ -98,18 +92,13 @@ function ownerKey(owner: TestRunOwner): string {
   return `${owner.type}:${owner.id}`;
 }
 
-function readStore(workspaceId: string): Promise<StoreShape> {
-  return new Promise((resolve) => {
-    storage.local.get([testRunsKey(workspaceId)], (result: Record<string, unknown>) => {
-      resolve((result[testRunsKey(workspaceId)] as StoreShape | undefined) ?? {});
-    });
-  });
+async function readStore(workspaceId: string): Promise<StoreShape> {
+  const raw = await extensionStorage.get(wsKeys(workspaceId).testRuns);
+  return (raw as StoreShape | undefined) ?? {};
 }
 
 function writeStore(workspaceId: string, store: StoreShape): Promise<void> {
-  return new Promise((resolve) => {
-    storage.local.set({ [testRunsKey(workspaceId)]: store }, () => resolve());
-  });
+  return extensionStorage.set(wsKeys(workspaceId).testRuns, store as Record<string, unknown>);
 }
 
 /**
@@ -359,7 +348,5 @@ export async function pruneOrphanOwners(liveRuleIds: Set<string>, liveEntityIds:
  * workspace too.
  */
 export async function purgeWorkspaceTestRuns(workspaceId: string): Promise<void> {
-  await new Promise<void>((resolve) => {
-    storage.local.remove([testRunsKey(workspaceId)], () => resolve());
-  });
+  await extensionStorage.remove(wsKeys(workspaceId).testRuns);
 }

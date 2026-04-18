@@ -10,6 +10,8 @@
 
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
+import { useEnvironments } from '@hooks/useEnvironments';
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useWorkspaces } from '@hooks/useWorkspaces';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
@@ -38,10 +40,15 @@ import RuleEditor from './components/RuleEditor';
 const RuleFlow = lazy(() => import('./components/RuleFlow'));
 const RunReportView = lazy(() => import('./components/RunReportView'));
 const TemplateEditor = lazy(() => import('./components/TemplateEditor'));
-// WorkspaceManager stays synchronous — it's small, its data (`useWorkspaces`)
-// is already resolved at shell-mount time, and lazy-loading it costs a
-// blank-screen flash when users open the tab from `#/workspaces`.
-import WorkspaceManager from './components/WorkspaceManager';
+// Variable-related editors — each small, but shown from deep links
+// (env selector, inspector banner) rather than the landing flow. Lazy
+// keeps the workspace entry chunk lean while the user is in
+// rule-editing mode.
+const EnvironmentEditor = lazy(() => import('./components/EnvironmentEditor'));
+const WorkspaceVariablesEditor = lazy(() => import('./components/WorkspaceVariablesEditor'));
+const CollectionVariablesEditor = lazy(() => import('./components/CollectionVariablesEditor'));
+const VaultEditor = lazy(() => import('./components/VaultEditor'));
+const RequestEditor = lazy(() => import('./components/RequestEditor'));
 
 import SaveToCollectionModal from './components/SaveToCollectionModal';
 import ShellLayout from './components/ShellLayout';
@@ -49,6 +56,10 @@ import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import { renderTabLabel, tabIcon } from './components/TabBar';
 import TopBar from './components/TopBar';
+// WorkspaceManager stays synchronous — it's small, its data (`useWorkspaces`)
+// is already resolved at shell-mount time, and lazy-loading it costs a
+// blank-screen flash when users open the tab from `#/workspaces`.
+import WorkspaceManager from './components/WorkspaceManager';
 import { findLeaf } from './editor-groups';
 import { createShellEventBus, ShellEventBusContext } from './events/shell-event-bus';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
@@ -58,6 +69,7 @@ import { useInitialHashRoute } from './hooks/useInitialHashRoute';
 import { useInitialLanding } from './hooks/useInitialLanding';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
+import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useSaveToCollectionFlow } from './hooks/useSaveToCollectionFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
@@ -139,7 +151,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     templateCollectionTrees,
   } = useRules();
   const workspacesApi = useWorkspaces();
-  const { modal } = AntApp.useApp();
+  const envApi = useEnvironments();
+  const requestsApi = useRequests();
+  const { modal, message } = AntApp.useApp();
 
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups();
@@ -278,7 +292,26 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     openSettingsTab,
     openLandingTab,
     openWorkspaceManager,
+    openEnvironmentEdit,
+    openWorkspaceVariables,
+    openVault,
+    openCollectionVariables,
+    openRequestEditTab,
+    openCreateRequestTab,
   } = openers;
+
+  // Create-then-edit flow for the env selector. New envs are created
+  // via the bridge RPC (which fires `environmentsChanged` → envApi
+  // updates), then we open the editor in rename mode so the user can
+  // name it.
+  const handleCreateEnvironment = useCallback(async () => {
+    const env = await envApi.createEnvironment('New Environment');
+    if (!env) {
+      message.error('Failed to create environment');
+      return;
+    }
+    openEnvironmentEdit(env.uid, env.name, true);
+  }, [envApi, openEnvironmentEdit, message]);
 
   // ── Workspace switch with dirty-draft guard ────────────────────
   //
@@ -323,6 +356,11 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
 
   // ── Save-to-collection flow ────────────────────────────────────
   const saveFlow = useSaveToCollectionFlow({ allTabs, createLocalRule, replaceTab });
+  const requestSaveFlow = useSaveRequestFlow({
+    allTabs,
+    createRequest: requestsApi.createRequest,
+    replaceTab,
+  });
 
   // ── Dirty tracking / save refs ─────────────────────────────────
   const handleDirtyChange = useCallback(
@@ -371,6 +409,11 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     openRunReport,
     openSettings,
     openWorkspaceManager,
+    openEnvironmentEdit,
+    openWorkspaceVariables,
+    openVault,
+    openCollectionVariables,
+    openRequestEditTab,
   });
 
   // ── Initial landing (openTo = home/rules/collections) ─────────
@@ -385,6 +428,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     rules,
     templates,
     localCollectionTrees,
+    environments: envApi.environments,
+    requests: requestsApi.requests,
+    requestCollectionTrees: requestsApi.collectionTrees,
     allTabs,
     updateTab,
     closeTab: rawCloseTab,
@@ -411,10 +457,21 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'create') {
         updateTab(tab.id, { label: newName, draftName: newName });
+      } else if (tab.mode === 'env-edit' && tab.environmentUid) {
+        void envApi.renameEnvironment(tab.environmentUid, newName);
+        updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'request-edit' && tab.requestUid) {
+        void requestsApi.updateRequest(tab.requestUid, { name: newName });
+        updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'request-create') {
+        // Draft name change — no persistence until Save. Update both
+        // the tab label and the `draftName` field so the editor's
+        // Save handler picks up the renamed value.
+        updateTab(tab.id, { label: newName, draftName: newName });
       }
       setPendingRenameTabId(null);
     },
-    [renameLocalCollection, renameLocalFolder, updateLocalRule, updateTab, setPendingRenameTabId],
+    [renameLocalCollection, renameLocalFolder, updateLocalRule, envApi, requestsApi, updateTab, setPendingRenameTabId],
   );
 
   const handleSave = useCallback(() => {
@@ -471,10 +528,16 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     templates,
     localCollectionTrees,
     templateCollectionTrees,
+    requestCollectionTrees: requestsApi.collectionTrees,
     pausedUids,
+    environments: envApi.environments,
     openEditTab,
     openCreateTab,
     openTemplateEditTab,
+    openRequestEditTab,
+    openEnvironmentEdit,
+    openWorkspaceVariables,
+    openVault,
     onOpenCreateMenu: openCreateMenu,
     onTogglePanel: togglePanel,
     onShowShortcuts: handleShowShortcuts,
@@ -579,6 +642,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
             onOpenFolderOverview={openFolderOverview}
             onOpenRuleFlow={openRuleFlow}
             onOpenTestRuns={openTestRunsPanel}
+            onOpenCollectionVariables={openCollectionVariables}
           />
         );
       }
@@ -641,6 +705,75 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
           </Suspense>
         );
       }
+      if (tab.mode === 'env-edit' && tab.environmentUid) {
+        return (
+          <Suspense fallback={null}>
+            <EnvironmentEditor
+              environmentUid={tab.environmentUid}
+              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            />
+          </Suspense>
+        );
+      }
+      if (tab.mode === 'workspace-vars') {
+        return (
+          <Suspense fallback={null}>
+            <WorkspaceVariablesEditor
+              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            />
+          </Suspense>
+        );
+      }
+      if (tab.mode === 'vault') {
+        return (
+          <Suspense fallback={null}>
+            <VaultEditor
+              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            />
+          </Suspense>
+        );
+      }
+      if (tab.mode === 'collection-vars' && tab.collectionUid) {
+        return (
+          <Suspense fallback={null}>
+            <CollectionVariablesEditor
+              collectionUid={tab.collectionUid}
+              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            />
+          </Suspense>
+        );
+      }
+      if (tab.mode === 'request-edit' && tab.requestUid) {
+        return (
+          <Suspense fallback={null}>
+            <RequestEditor
+              mode="request-edit"
+              requestUid={tab.requestUid}
+              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            />
+          </Suspense>
+        );
+      }
+      if (tab.mode === 'request-create') {
+        return (
+          <Suspense fallback={null}>
+            <RequestEditor
+              mode="request-create"
+              draftName={tab.draftName ?? tab.label}
+              preferredCollectionId={tab.preferredCollectionId}
+              preferredFolderPath={tab.preferredFolderPath}
+              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+              onSaveDraft={(draftData) => requestSaveFlow.handleSaveDraft(tab.id, draftData)}
+            />
+          </Suspense>
+        );
+      }
       if (tab.mode === 'landing') {
         return (
           <LandingScreen
@@ -669,6 +802,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       openSettings,
       handleRunReportDeleted,
       workspacesApi,
+      openCollectionVariables,
+      requestSaveFlow.handleSaveDraft,
     ],
   );
 
@@ -683,14 +818,39 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     }): React.ReactNode => {
       if (!leafActiveTab) return null;
       const segments = computeBreadcrumbs(leafActiveTab, rules, localCollectionTrees);
-      const isEditable = leafActiveTab.mode === 'create' || leafActiveTab.mode === 'edit';
+      const isEditable =
+        leafActiveTab.mode === 'create' ||
+        leafActiveTab.mode === 'edit' ||
+        leafActiveTab.mode === 'env-edit' ||
+        leafActiveTab.mode === 'workspace-vars' ||
+        leafActiveTab.mode === 'vault' ||
+        leafActiveTab.mode === 'collection-vars' ||
+        leafActiveTab.mode === 'request-edit' ||
+        leafActiveTab.mode === 'request-create';
+      // "Save as template" only applies to rule editors — variables /
+      // vault aren't rule-shaped and can't be templated.
+      const supportsSaveAsTemplate = leafActiveTab.mode === 'create' || leafActiveTab.mode === 'edit';
+      // Only tab modes whose last breadcrumb segment corresponds to a
+      // renameable entity expose breadcrumb rename. Vault / workspace-vars
+      // / collection-vars have static or derived labels; letting the user
+      // type into them would silently no-op.
+      const isRenameable =
+        leafActiveTab.mode === 'create' ||
+        leafActiveTab.mode === 'edit' ||
+        leafActiveTab.mode === 'collection-overview' ||
+        leafActiveTab.mode === 'folder-overview' ||
+        leafActiveTab.mode === 'env-edit' ||
+        leafActiveTab.mode === 'request-edit' ||
+        leafActiveTab.mode === 'request-create';
       return (
         <BreadcrumbBar
           segments={segments}
           isDirty={leafActiveTab.mode === 'create' || leafActiveTab.dirty}
           onSave={isEditable ? () => saveRefMap.current.get(leafActiveTab.id)?.() : undefined}
-          onSaveAsTemplate={isEditable ? () => saveAsTemplateRefMap.current.get(leafActiveTab.id)?.() : undefined}
-          onRename={(newName) => handleBreadcrumbRenameFor(leafActiveTab, newName)}
+          onSaveAsTemplate={
+            supportsSaveAsTemplate ? () => saveAsTemplateRefMap.current.get(leafActiveTab.id)?.() : undefined
+          }
+          onRename={isRenameable ? (newName) => handleBreadcrumbRenameFor(leafActiveTab, newName) : undefined}
           autoRenameKey={pendingRenameTabId === leafActiveTab.id && isFocusedLeaf ? leafActiveTab.id : null}
         />
       );
@@ -701,12 +861,20 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   const renderEmpty = useCallback(() => <EmptyState onCreateRule={openCreateTab} />, [openCreateTab]);
 
   // ── Tool window renderer ──────────────────────────────────────
+  //
+  // The three left-top tool windows (`http-rules`, `api-requests`,
+  // `variables`) are all powered by the same `Sidebar` component —
+  // a `view` prop gates which sections render so keyboard nav,
+  // filter, and toolbar stay shared behavior instead of three forks.
   const renderToolWindow = useCallback(
     (id: ToolWindowId, _slot: DockSlot): React.ReactNode => {
       switch (id) {
-        case 'items':
+        case 'http-rules':
+        case 'api-requests':
+        case 'variables':
           return (
             <Sidebar
+              view={id}
               activeTabId={activeTabId}
               onSelectRule={openEditTab}
               onCreateRule={openCreateTab}
@@ -716,13 +884,18 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
               onSelectTemplate={openTemplateEditTab}
               onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
               onOpenTemplateFolderOverview={openTemplateFolderOverview}
+              onSelectEnvironment={openEnvironmentEdit}
+              onOpenWorkspaceVariables={openWorkspaceVariables}
+              onOpenVault={openVault}
+              onSelectRequest={openRequestEditTab}
+              onCreateRequest={openCreateRequestTab}
               filterRef={sidebarFilterRef}
             />
           );
         case 'docs':
           return <DocsPanel onClose={() => tl.toggleWindow('docs')} />;
-        case 'variables':
-          return <VariablesPanel onClose={() => tl.toggleWindow('variables')} />;
+        case 'var-scope':
+          return <VariablesPanel onClose={() => tl.toggleWindow('var-scope')} activeTab={activeTab ?? null} />;
         case 'page-traffic':
         case 'test-runs':
           return (
@@ -754,6 +927,11 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       contextOwner,
       openRunReport,
       activeTab,
+      openEnvironmentEdit,
+      openVault,
+      openWorkspaceVariables,
+      openRequestEditTab,
+      openCreateRequestTab,
     ],
   );
 
@@ -771,6 +949,16 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         activeWorkspaceId={workspacesApi.activeWorkspaceId}
         onSwitchWorkspace={handleSwitchWorkspace}
         onOpenWorkspaceManager={openWorkspaceManager}
+        environments={envApi.environments}
+        activeEnvironmentId={envApi.activeEnvironmentId}
+        onSwitchEnvironment={(uid) => void envApi.setActiveEnvironment(uid)}
+        onCreateEnvironment={() => void handleCreateEnvironment()}
+        onOpenEnvironment={(uid) => {
+          const env = envApi.environments.find((e) => e.uid === uid);
+          openEnvironmentEdit(uid, env?.name ?? 'Environment');
+        }}
+        onOpenWorkspaceVariables={openWorkspaceVariables}
+        onOpenVault={openVault}
       />
 
       <ShellLayout
@@ -825,6 +1013,17 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         onCreateCollection={createLocalCollection}
         onCreateFolder={createLocalFolder}
         onCancel={saveFlow.closeSaveModal}
+      />
+
+      <SaveToCollectionModal
+        open={requestSaveFlow.saveModalOpen}
+        entityName={requestSaveFlow.saveModalEntityName}
+        collectionTrees={requestsApi.collectionTrees}
+        collections={requestsApi.collections}
+        onSave={(params) => void requestSaveFlow.handleSaveModalConfirm(params)}
+        onCreateCollection={requestsApi.createCollection}
+        onCreateFolder={requestsApi.createFolder}
+        onCancel={requestSaveFlow.closeSaveModal}
       />
 
       <CommandPalette

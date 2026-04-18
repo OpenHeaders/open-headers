@@ -16,7 +16,16 @@ interface ScheduleOptions {
   immediate?: boolean;
 }
 
-const FORCED_REASONS = new Set(['pause', 'init', 'rules', 'rulesUpdated', 'pauseMarkers', 'prefs']);
+const FORCED_REASONS = new Set([
+  'pause',
+  'init',
+  'rules',
+  'rulesUpdated',
+  'pauseMarkers',
+  'prefs',
+  'vars',
+  'workspace',
+]);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let forcedPending = false;

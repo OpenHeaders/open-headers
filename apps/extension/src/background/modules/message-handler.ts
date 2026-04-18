@@ -17,6 +17,38 @@ import { logger } from '@utils/logger';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
+import {
+  createEnvironment,
+  deleteEnvironment,
+  getActiveEnvironmentId,
+  getEnvironments,
+  getVault,
+  getWorkspaceVariables,
+  renameEnvironment,
+  setActiveEnvironment,
+  setVault,
+  setWorkspaceVariables,
+  updateEnvironmentVariables,
+} from './environment-store';
+import { executeRequest, executeRequestDraft } from './request-executor';
+import {
+  addRequest,
+  addRequestToCollection,
+  createRequestCollection,
+  createRequestFolder,
+  deleteRequest,
+  deleteRequestCollection,
+  deleteRequestFolder,
+  ensureDefaultRequestCollection,
+  getRequest as getRequestById,
+  getRequestCollections,
+  getRequestCollectionTrees,
+  getRequestFolders,
+  getRequests,
+  renameRequestCollection,
+  renameRequestFolder,
+  updateRequest,
+} from './request-store';
 import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
 import { createRuleDraft, takeRuleDraft } from './rule-draft-store';
 import {
@@ -28,13 +60,14 @@ import {
   deleteFolder,
   deleteRule,
   ensureDefaultCollection,
-  getCollectionTrees,
   getCollections,
+  getCollectionTrees,
   getFolders,
   getRules,
   renameCollection,
   renameFolder,
   toggleRule,
+  updateCollectionVariables,
   updateRule,
 } from './rule-store';
 import { getTabSnapshot, recordScriptableFire } from './tab-telemetry';
@@ -66,6 +99,7 @@ import {
   type TestRunOwnerType,
 } from './test-run-store';
 import { startRun } from './test-runner';
+import { getResolvedRules } from './variables-resolver';
 import {
   deleteWorkspaceWithData,
   duplicateWorkspace as duplicateWorkspaceData,
@@ -106,7 +140,13 @@ const browserAPI = { runtime: browserRuntime };
 // ── Helpers ───────────────────────────────────────────────────────
 
 function findMatchingPattern(ruleUid: string, url: string): string | undefined {
-  const rule = getRules().find((r) => r.uid === ruleUid);
+  // Match against the resolved rule — raw `{{VAR}}` tokens in URL
+  // conditions would never match a real request URL. Fall through to
+  // the raw rule-store view if the resolver snapshot hasn't been
+  // populated yet (pre-first-compile edge case).
+  const resolved = getResolvedRules();
+  const pool = resolved.length > 0 ? resolved : getRules();
+  const rule = pool.find((r) => r.uid === ruleUid);
   if (!rule) return undefined;
   for (const entry of getRuleMatchPatterns(rule)) {
     if (doesUrlMatchEntry(url, entry)) return entry.pattern;
@@ -219,6 +259,135 @@ export function handleGeneralMessage(
       reorderWorkspacesMeta(message.idOrder as string[])
         .then(() => safeResponse({ success: true }))
         .catch(() => safeResponse({ success: false }));
+      return true;
+
+      // ── Environments / Variables / Vault ─────────────────────────
+    } else if (message.type === 'listEnvironments') {
+      safeResponse({
+        environments: getEnvironments(),
+        activeEnvironmentId: getActiveEnvironmentId(),
+      });
+    } else if (message.type === 'createEnvironment') {
+      const name = message.name as string;
+      const variables = (message.variables as V5.Variable[] | undefined) ?? [];
+      const environment = createEnvironment(name, variables);
+      safeResponse({ success: true, environment });
+    } else if (message.type === 'renameEnvironment') {
+      const success = renameEnvironment(message.uid as string, message.name as string);
+      safeResponse({ success });
+    } else if (message.type === 'updateEnvironmentVariables') {
+      const success = updateEnvironmentVariables(message.uid as string, message.variables as V5.Variable[]);
+      safeResponse({ success });
+    } else if (message.type === 'deleteEnvironment') {
+      const success = deleteEnvironment(message.uid as string);
+      safeResponse({ success });
+    } else if (message.type === 'setActiveEnvironment') {
+      const uid = message.uid as string | null;
+      setActiveEnvironment(uid)
+        .then((ok) => safeResponse({ success: ok }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'getWorkspaceVariables') {
+      safeResponse({ workspaceVariables: getWorkspaceVariables() });
+    } else if (message.type === 'setWorkspaceVariables') {
+      setWorkspaceVariables(message.workspaceVariables as V5.WorkspaceVariables);
+      safeResponse({ success: true });
+    } else if (message.type === 'getVault') {
+      safeResponse({ vault: getVault() });
+    } else if (message.type === 'setVault') {
+      setVault(message.vault as V5.Vault);
+      safeResponse({ success: true });
+    } else if (message.type === 'updateCollectionVariables') {
+      const success = updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[]);
+      if (success) {
+        // Collection-scoped variable edits change resolved DNR output —
+        // force a recompile so the effect is immediate.
+        scheduleUpdate('vars', { immediate: true });
+      }
+      safeResponse({ success });
+
+      // ── API Requests (active workspace) ───────────────────────
+    } else if (message.type === 'getLocalRequests') {
+      safeResponse({ requests: getRequests() });
+    } else if (message.type === 'getLocalRequest') {
+      const request = getRequestById(message.requestUid as string);
+      safeResponse({ success: request !== null, request: request ?? undefined });
+    } else if (message.type === 'getLocalRequestCollections') {
+      safeResponse({ collections: getRequestCollections() });
+    } else if (message.type === 'getLocalRequestCollectionTrees') {
+      safeResponse({ collectionTrees: getRequestCollectionTrees() });
+    } else if (message.type === 'getLocalRequestFolders') {
+      safeResponse({ folders: getRequestFolders() });
+    } else if (message.type === 'createLocalRequest') {
+      const name = (message.name as string | undefined) ?? 'New Request';
+      const collectionUid = message.collectionUid as string | undefined;
+      const parentPath = message.parentPath as string | undefined;
+      const seed = message.seed as Partial<V5.Request> | undefined;
+
+      // Resolve the target collection, falling back to the default if
+      // the caller's preferred collection was deleted between when the
+      // draft opened and when the user clicked Save. Without the
+      // existence check, `addRequestToCollection` would fabricate a
+      // `requests/<deleted-uid>/...` path and orphan the request —
+      // stored but not rendered by any tree.
+      const knownCollections = getRequestCollections();
+      const targetCollectionUid =
+        collectionUid && knownCollections.some((c) => c.uid === collectionUid)
+          ? collectionUid
+          : ensureDefaultRequestCollection().uid;
+
+      // Folder parent takes precedence over collection root — if the
+      // caller gave us an explicit `parentPath`, drop the request
+      // directly there; otherwise use the collection's root path.
+      const created = parentPath
+        ? addRequest(name, parentPath, seed)
+        : addRequestToCollection(name, targetCollectionUid, seed);
+      safeResponse({ success: true, request: created });
+    } else if (message.type === 'updateLocalRequest') {
+      const success = updateRequest(
+        message.requestUid as string,
+        message.updates as Partial<Omit<V5.Request, 'uid' | 'path'>>,
+      );
+      safeResponse({ success });
+    } else if (message.type === 'deleteLocalRequest') {
+      const success = deleteRequest(message.requestUid as string);
+      safeResponse({ success });
+    } else if (message.type === 'createLocalRequestCollection') {
+      const collection = createRequestCollection(message.name as string);
+      safeResponse({ success: true, collection });
+    } else if (message.type === 'renameLocalRequestCollection') {
+      const success = renameRequestCollection(message.collectionUid as string, message.name as string);
+      safeResponse({ success });
+    } else if (message.type === 'deleteLocalRequestCollection') {
+      const success = deleteRequestCollection(message.collectionUid as string);
+      safeResponse({ success });
+    } else if (message.type === 'createLocalRequestFolder') {
+      const folder = createRequestFolder(message.name as string, message.parentPath as string);
+      safeResponse({ success: true, folder });
+    } else if (message.type === 'renameLocalRequestFolder') {
+      const success = renameRequestFolder(message.folderUid as string, message.name as string);
+      safeResponse({ success });
+    } else if (message.type === 'deleteLocalRequestFolder') {
+      const success = deleteRequestFolder(message.folderUid as string);
+      safeResponse({ success });
+    } else if (message.type === 'executeRequest') {
+      const requestUid = message.requestUid as string | undefined;
+      const draft = message.draft as V5.Request | undefined;
+      const environmentId = message.environmentId as string | undefined;
+      const exec = requestUid
+        ? executeRequest(requestUid, { environmentId })
+        : draft
+          ? executeRequestDraft(draft, { environmentId })
+          : Promise.resolve(null);
+      exec
+        .then((snapshot) => {
+          if (!snapshot) {
+            safeResponse({ success: false, error: 'No request or draft provided' });
+          } else {
+            safeResponse({ success: true, snapshot });
+          }
+        })
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
 
       // ── Tab / app launcher ────────────────────────────────────

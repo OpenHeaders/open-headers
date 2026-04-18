@@ -14,7 +14,13 @@ export type TabMode =
   | 'run-report'
   | 'settings'
   | 'landing'
-  | 'workspace-manager';
+  | 'workspace-manager'
+  | 'env-edit'
+  | 'workspace-vars'
+  | 'vault'
+  | 'collection-vars'
+  | 'request-edit'
+  | 'request-create';
 
 /** Variant of the startup landing tab — drives which view `LandingScreen` renders. */
 export type LandingView = 'home' | 'rules' | 'collections';
@@ -83,6 +89,25 @@ export interface RulesTab {
   settingsInitialCategory?: string;
   /** For landing tabs: which top-level view is rendered (home, rules, collections). */
   landingView?: LandingView;
+  /**
+   * For env-edit tabs: the environment uid being edited. For
+   * collection-vars tabs: the collection uid being edited (separate
+   * from `entityId` to keep the collection-overview / collection-vars
+   * surfaces independent).
+   */
+  environmentUid?: string;
+  /** For collection-vars tabs: the collection uid whose variables are being edited. */
+  collectionUid?: string;
+  /** For request-edit tabs: the V5.Request uid being edited. */
+  requestUid?: string;
+  /**
+   * For request-create (draft) tabs opened from a specific collection
+   * or folder in the sidebar. When set, Save persists directly there;
+   * otherwise the SaveToCollectionModal prompts for a destination.
+   * Reuses `preferredCollectionId` / `preferredFolderPath` from the
+   * rule-create flow — the REQUEST collection uid happens to fit into
+   * the same field because they share the `V5.Collection` shape.
+   */
 }
 
 /**
@@ -102,11 +127,21 @@ export interface PanelVisibility {
  * bottom group panels open in the bottom Allotment pane. Only one key from
  * the top group and one key from the bottom group may be "active" at a
  * time (dockable tool-window model).
+ *
+ * Three left-top tool windows share the same slot and stack as tabs:
+ *   - `http-rules`   — rules + templates + environment quick-reference
+ *   - `api-requests` — api-request collections + environment quick-reference
+ *   - `variables`    — full variable management (vault, workspace-vars, envs)
  */
-export type LeftPanelKey = 'items' | 'page-traffic' | 'test-runs';
+export type LeftPanelKey = 'http-rules' | 'api-requests' | 'variables' | 'page-traffic' | 'test-runs';
 
-/** Right-side panel keys — all shown in the right Allotment pane. */
-export type RightPanelKey = 'docs' | 'variables';
+/**
+ * Right-side panel keys — all shown in the right Allotment pane.
+ * `var-scope` is the in-request / all-scopes variable resolution
+ * inspector (historically ID'd as `variables`; renamed to avoid
+ * collision with the left-pane `variables` management surface).
+ */
+export type RightPanelKey = 'docs' | 'var-scope';
 
 /**
  * Which screen region the user is currently interacting with. Drives the
@@ -151,7 +186,14 @@ export type { DockSlot, SidebarLayoutVariant, ToolRegion } from '@/shared/dock-l
 import type { DockState as GenericDockState, ToolLayoutState as GenericToolLayoutState } from '@/shared/dock-layout';
 
 /** Identifiers for every tool window known to the extension shell. */
-export type ToolWindowId = 'items' | 'docs' | 'variables' | 'page-traffic' | 'test-runs';
+export type ToolWindowId =
+  | 'http-rules'
+  | 'api-requests'
+  | 'variables'
+  | 'docs'
+  | 'var-scope'
+  | 'page-traffic'
+  | 'test-runs';
 
 /** Runtime state for one dock, bound to workspace's ToolWindowId. */
 export type DockState = GenericDockState<ToolWindowId>;

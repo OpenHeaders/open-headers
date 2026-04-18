@@ -86,12 +86,42 @@ export function tabIcon(
       )
     );
   }
+  if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
+    // Request tabs carry the HTTP method as their "icon" — same visual
+    // shorthand Postman uses in the tab strip.
+    const method = tab.ruleType || 'GET';
+    const color = REQUEST_METHOD_COLORS[method] ?? '#999';
+    return (
+      <span
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color,
+          fontFamily: "'SF Mono', monospace",
+          minWidth: 36,
+          display: 'inline-block',
+        }}
+      >
+        {method}
+      </span>
+    );
+  }
   // Rule tabs — use the same rich icon as the sidebar
   const rule = tab.ruleUid ? rules.find((r) => r.uid === tab.ruleUid) : undefined;
   const paused = tab.ruleUid ? pausedUids.has(tab.ruleUid) : false;
   const isActive = rule ? rule.enabled && isRuleComplete(rule) && !paused : false;
   return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive, paused });
 }
+
+const REQUEST_METHOD_COLORS: Record<string, string> = {
+  GET: '#61affe',
+  POST: '#49cc90',
+  PUT: '#fca130',
+  PATCH: '#50e3c2',
+  DELETE: '#f93e3e',
+  HEAD: '#9012fe',
+  OPTIONS: '#0d5aa7',
+};
 
 const TAB_LABEL_MAX = 20;
 function truncateMiddle(text: string, max: number): string {

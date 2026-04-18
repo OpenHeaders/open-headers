@@ -124,6 +124,9 @@ export interface WorkspaceKeys {
   rules: StorageKey<V5.Rule[]>;
   collections: StorageKey<V5.Collection[]>;
   folders: StorageKey<PersistedLocalFolder[]>;
+  requests: StorageKey<V5.Request[]>;
+  requestCollections: StorageKey<V5.Collection[]>;
+  requestFolders: StorageKey<PersistedLocalFolder[]>;
   templates: StorageKey<V5.Template[]>;
   templateCollections: StorageKey<V5.Collection[]>;
   templateFolders: StorageKey<PersistedLocalFolder[]>;
@@ -146,6 +149,9 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     rules: storageKey<V5.Rule[]>(`${p}.rules`),
     collections: storageKey<V5.Collection[]>(`${p}.collections`),
     folders: storageKey<PersistedLocalFolder[]>(`${p}.folders`),
+    requests: storageKey<V5.Request[]>(`${p}.requests`),
+    requestCollections: storageKey<V5.Collection[]>(`${p}.requestCollections`),
+    requestFolders: storageKey<PersistedLocalFolder[]>(`${p}.requestFolders`),
     templates: storageKey<V5.Template[]>(`${p}.templates`),
     templateCollections: storageKey<V5.Collection[]>(`${p}.templateCollections`),
     templateFolders: storageKey<PersistedLocalFolder[]>(`${p}.templateFolders`),

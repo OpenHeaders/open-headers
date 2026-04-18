@@ -7,6 +7,7 @@
 
 import {
   ApartmentOutlined,
+  CodeOutlined,
   ExperimentOutlined,
   FolderOutlined,
   PauseCircleOutlined,
@@ -31,6 +32,8 @@ interface CollectionOverviewProps {
   onOpenRuleFlow?: (scope: 'collection' | 'folder', entityId: string, label: string) => void;
   /** Open the bottom panel and focus the Test Runs tab scoped to this collection. */
   onOpenTestRuns?: () => void;
+  /** Open the collection-scoped variables editor tab. */
+  onOpenCollectionVariables?: (uid: string, name: string) => void;
 }
 
 interface ContentRow {
@@ -62,6 +65,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
   onOpenFolderOverview,
   onOpenRuleFlow,
   onOpenTestRuns,
+  onOpenCollectionVariables,
 }) => {
   const { token } = theme.useToken();
   const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
@@ -257,6 +261,17 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
           <Tooltip title="Show past test runs captured for this collection in the bottom panel">
             <Button size="small" icon={<ExperimentOutlined />} onClick={onOpenTestRuns}>
               Test Runs
+            </Button>
+          </Tooltip>
+        )}
+        {onOpenCollectionVariables && (
+          <Tooltip title="Edit variables scoped to this collection">
+            <Button
+              size="small"
+              icon={<CodeOutlined />}
+              onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
+            >
+              Variables
             </Button>
           </Tooltip>
         )}

@@ -19,29 +19,15 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { getActiveWorkspaceId } from './workspace-store';
 
-// ── Storage key helpers ─────────────────────────────────────────────
-
-function rulesKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.rules`;
-}
-function collectionsKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.collections`;
-}
-function foldersKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.folders`;
-}
-
-/** Stored folder — same concept as a directory with _folder.yaml on disk. */
-export interface LocalFolder {
-  uid: string;
-  /** Relative path (e.g. "rules/my-rules-abc1/staging-f1k2"). */
-  path: string;
-  name: string;
-}
+/** Stored folder — same concept as a directory with _folder.yaml on disk.
+ *  Identical shape to the `PersistedLocalFolder` declared in the key
+ *  registry; exported under this name because rule-store is the
+ *  historical home of the type. */
+export type LocalFolder = PersistedLocalFolder;
 
 // ── In-memory state (scoped to the currently active workspace) ──────
 
@@ -176,11 +162,7 @@ export function createCollection(name: string): V5.Collection {
 export function renameCollection(uid: string, name: string): boolean {
   const index = collections.findIndex((c) => c.uid === uid);
   if (index === -1) return false;
-  collections = [
-    ...collections.slice(0, index),
-    { ...collections[index], name },
-    ...collections.slice(index + 1),
-  ];
+  collections = [...collections.slice(0, index), { ...collections[index], name }, ...collections.slice(index + 1)];
   void persistCollections();
   return true;
 }
@@ -195,6 +177,19 @@ export function deleteCollection(uid: string): boolean {
   void persistCollections();
   void persistRules();
   void persistFolders();
+  return true;
+}
+
+/**
+ * Replace a collection's scoped variables. Used by the Variables editor
+ * (collection-vars tab) and by the Inspector "add variable" affordance.
+ * Returns false if the collection uid isn't in the active workspace.
+ */
+export function updateCollectionVariables(uid: string, variables: V5.Variable[]): boolean {
+  const index = collections.findIndex((c) => c.uid === uid);
+  if (index === -1) return false;
+  collections = [...collections.slice(0, index), { ...collections[index], variables }, ...collections.slice(index + 1)];
+  void persistCollections();
   return true;
 }
 
@@ -289,37 +284,25 @@ export function toggleRule(uid: string, enabled: boolean): boolean {
 
 // ── Persistence (scoped to loadedWorkspaceId) ──────────────────────
 
-function persistRules(): Promise<void> {
+async function persistRules(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [rulesKey(workspaceId)]: rules }, () => {
-      logger.debug('RuleStore', `Persisted ${rules.length} rules (ws=${workspaceId})`);
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).rules, rules);
+  logger.debug('RuleStore', `Persisted ${rules.length} rules (ws=${workspaceId})`);
+  notifyChange();
 }
 
-function persistCollections(): Promise<void> {
+async function persistCollections(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [collectionsKey(workspaceId)]: collections }, () => {
-      logger.debug('RuleStore', `Persisted ${collections.length} collections (ws=${workspaceId})`);
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).collections, collections);
+  logger.debug('RuleStore', `Persisted ${collections.length} collections (ws=${workspaceId})`);
+  notifyChange();
 }
 
-function persistFolders(): Promise<void> {
+async function persistFolders(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [foldersKey(workspaceId)]: folders }, () => {
-      logger.debug('RuleStore', `Persisted ${folders.length} folders (ws=${workspaceId})`);
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).folders, folders);
+  logger.debug('RuleStore', `Persisted ${folders.length} folders (ws=${workspaceId})`);
+  notifyChange();
 }
 
 // ── Hydration / workspace switch ────────────────────────────────────
@@ -331,22 +314,17 @@ interface WorkspaceSnapshot {
 }
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
-  return new Promise((resolve) => {
-    storage.local.get(
-      [rulesKey(workspaceId), collectionsKey(workspaceId), foldersKey(workspaceId)],
-      (result: Record<string, unknown>) => {
-        resolve({
-          rules: Array.isArray(result[rulesKey(workspaceId)]) ? (result[rulesKey(workspaceId)] as V5.Rule[]) : [],
-          collections: Array.isArray(result[collectionsKey(workspaceId)])
-            ? (result[collectionsKey(workspaceId)] as V5.Collection[])
-            : [],
-          folders: Array.isArray(result[foldersKey(workspaceId)])
-            ? (result[foldersKey(workspaceId)] as LocalFolder[])
-            : [],
-        });
-      },
-    );
+  const keys = wsKeys(workspaceId);
+  const result = await extensionStorage.getMany({
+    rules: keys.rules,
+    collections: keys.collections,
+    folders: keys.folders,
   });
+  return {
+    rules: Array.isArray(result.rules) ? result.rules : [],
+    collections: Array.isArray(result.collections) ? result.collections : [],
+    folders: Array.isArray(result.folders) ? result.folders : [],
+  };
 }
 
 /**

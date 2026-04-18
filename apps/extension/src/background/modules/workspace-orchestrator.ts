@@ -23,22 +23,33 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { get as getSetting } from '@/rules/settings/store';
+import { extensionStorage, type StorageKey, wsKeys } from '@/shared/storage';
 import { getRulesPaused } from '../dnr-manager';
-import { hydrateEnvironmentsFromStorage, purgeWorkspaceEnvironmentData, switchToWorkspace as switchEnvToWorkspace } from './environment-store';
-import { getPauseMarkers, hydratePauseMarkersFromStorage, switchToWorkspace as switchPauseMarkersToWorkspace } from './pause-markers-store';
+import {
+  hydrateEnvironmentsFromStorage,
+  purgeWorkspaceEnvironmentData,
+  switchToWorkspace as switchEnvToWorkspace,
+} from './environment-store';
+import {
+  getPauseMarkers,
+  hydratePauseMarkersFromStorage,
+  switchToWorkspace as switchPauseMarkersToWorkspace,
+} from './pause-markers-store';
+import {
+  hydrateFromStorage as hydrateRequestsFromStorage,
+  switchToWorkspace as switchRequestsToWorkspace,
+} from './request-store';
 import { scheduleUpdate } from './rule-engine';
 import { seedFromWorkspaceSwitch } from './rule-state-observer';
 import {
   getRules,
   hydrateFromStorage as hydrateRulesFromStorage,
-  switchToWorkspace as switchRulesToWorkspace,
   type LocalFolder,
+  switchToWorkspace as switchRulesToWorkspace,
 } from './rule-store';
-import { purgeWorkspaceTestRuns } from './test-run-store';
 import { hydrateTemplatesFromStorage, switchToWorkspace as switchTemplatesToWorkspace } from './template-store';
+import { purgeWorkspaceTestRuns } from './test-run-store';
 import {
   createWorkspace as createWorkspaceMeta,
   deleteWorkspace as deleteWorkspaceMeta,
@@ -47,44 +58,31 @@ import {
   setActiveWorkspaceId,
 } from './workspace-store';
 
-// ── Storage key helpers (must match per-store internals) ────────────
+// ── Storage key helpers ─────────────────────────────────────────────
 
-function wsKey(workspaceId: string, suffix: string): string {
-  return `oh.ws.${workspaceId}.${suffix}`;
-}
-
-const PER_WORKSPACE_DATA_SUFFIXES = [
-  'rules',
-  'collections',
-  'folders',
-  'templates',
-  'templateCollections',
-  'templateFolders',
-  'pauseMarkers',
-  'tabSession',
-  'panelLayout',
-  'settings.workspace',
-  'settings.collection',
-  // environments + vault are purged separately via environment-store API.
-  // testRuns via test-run-store API.
-];
-
-function storageGetMany(keys: string[]): Promise<Record<string, unknown>> {
-  return new Promise((resolve) => {
-    storage.local.get(keys, (result: Record<string, unknown>) => resolve(result));
-  });
-}
-
-function storageSetMany(items: Record<string, unknown>): Promise<void> {
-  return new Promise((resolve) => {
-    storage.local.set(items, () => resolve());
-  });
-}
-
-function storageRemoveMany(keys: string[]): Promise<void> {
-  return new Promise((resolve) => {
-    storage.local.remove(keys, () => resolve());
-  });
+/**
+ * Per-workspace keys the orchestrator clears on delete. Environments /
+ * vault / testRuns have their own purge paths (environment-store,
+ * test-run-store) so they stay encapsulated and we don't list them here.
+ */
+function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
+  const k = wsKeys(workspaceId);
+  return [
+    k.rules,
+    k.collections,
+    k.folders,
+    k.requests,
+    k.requestCollections,
+    k.requestFolders,
+    k.templates,
+    k.templateCollections,
+    k.templateFolders,
+    k.pauseMarkers,
+    k.tabSession,
+    k.panelLayout,
+    k.settingsWorkspace,
+    k.settingsCollection,
+  ];
 }
 
 // ── Initial hydration ───────────────────────────────────────────────
@@ -99,6 +97,7 @@ export async function hydrateActiveWorkspaceStores(): Promise<void> {
     hydrateEnvironmentsFromStorage(),
     hydrateTemplatesFromStorage(),
     hydrateRulesFromStorage(),
+    hydrateRequestsFromStorage(),
   ]);
 }
 
@@ -126,6 +125,7 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
     switchTemplatesToWorkspace(targetId),
     switchPauseMarkersToWorkspace(targetId),
     switchEnvToWorkspace(targetId),
+    switchRequestsToWorkspace(targetId),
   ]);
 
   // One broad cache-invalidation baseline reset — the union of
@@ -170,80 +170,81 @@ export async function duplicateWorkspace(
     kind: source.kind,
   });
 
-  // Read every per-workspace data key from the source.
-  const srcKeys = [
-    wsKey(sourceId, 'rules'),
-    wsKey(sourceId, 'collections'),
-    wsKey(sourceId, 'folders'),
-    wsKey(sourceId, 'templates'),
-    wsKey(sourceId, 'templateCollections'),
-    wsKey(sourceId, 'templateFolders'),
-    wsKey(sourceId, 'pauseMarkers'),
-    wsKey(sourceId, 'environments'),
-    wsKey(sourceId, 'workspaceVars'),
-    wsKey(sourceId, 'vault'),
-  ];
-  const src = await storageGetMany(srcKeys);
+  const srcK = wsKeys(sourceId);
+  const src = await extensionStorage.getMany({
+    rules: srcK.rules,
+    collections: srcK.collections,
+    folders: srcK.folders,
+    requests: srcK.requests,
+    requestCollections: srcK.requestCollections,
+    requestFolders: srcK.requestFolders,
+    templates: srcK.templates,
+    templateCollections: srcK.templateCollections,
+    templateFolders: srcK.templateFolders,
+    pauseMarkers: srcK.pauseMarkers,
+    environments: srcK.environments,
+    workspaceVars: srcK.workspaceVars,
+    vault: srcK.vault,
+  });
 
   // ── Rules side: rebuild uid + path mapping ───────────────────────
-  const srcRules = (src[wsKey(sourceId, 'rules')] as V5.Rule[] | undefined) ?? [];
-  const srcCollections = (src[wsKey(sourceId, 'collections')] as V5.Collection[] | undefined) ?? [];
-  const srcFolders = (src[wsKey(sourceId, 'folders')] as LocalFolder[] | undefined) ?? [];
-
   const { remappedRules, remappedCollections, remappedFolders, containerPathRemap } = deepCopyRuleHierarchy(
-    srcRules,
-    srcCollections,
-    srcFolders,
+    src.rules ?? [],
+    src.collections ?? [],
+    src.folders ?? [],
+  );
+
+  // ── Requests side: parallel structure under `requests/`. Uses the
+  // same deep-copy logic as rules, just a different on-disk prefix.
+  const { remappedRequests, remappedRequestCollections, remappedRequestFolders } = deepCopyRequestHierarchy(
+    src.requests ?? [],
+    src.requestCollections ?? [],
+    src.requestFolders ?? [],
   );
 
   // ── Template side: same treatment with the `templates/` prefix ───
-  const srcTemplates = (src[wsKey(sourceId, 'templates')] as V5.Template[] | undefined) ?? [];
-  const srcTemplateCollections = (src[wsKey(sourceId, 'templateCollections')] as V5.Collection[] | undefined) ?? [];
-  const srcTemplateFolders = (src[wsKey(sourceId, 'templateFolders')] as LocalFolder[] | undefined) ?? [];
-
   const { remappedTemplates, remappedTemplateCollections, remappedTemplateFolders } = deepCopyTemplateHierarchy(
-    srcTemplates,
-    srcTemplateCollections,
-    srcTemplateFolders,
+    src.templates ?? [],
+    src.templateCollections ?? [],
+    src.templateFolders ?? [],
   );
 
   // ── Environments + workspace vars + vault: fresh uids, same content
-  const srcEnvironments = (src[wsKey(sourceId, 'environments')] as V5.Environment[] | undefined) ?? [];
-  const newEnvironments = srcEnvironments.map((e) => ({ ...e, uid: generateUid() }));
-
-  const srcWorkspaceVars = src[wsKey(sourceId, 'workspaceVars')] as V5.WorkspaceVariables | undefined;
-  const srcVault = src[wsKey(sourceId, 'vault')] as V5.Vault | undefined;
+  const newEnvironments = (src.environments ?? []).map((e) => ({ ...e, uid: generateUid() }));
 
   // ── Pause markers: keyed by collection/folder path; reuse the
   // remap built by deepCopyRuleHierarchy. Markers on paths that no
   // longer resolve (defensive) are dropped.
-  const pauseMarkerMap = (src[wsKey(sourceId, 'pauseMarkers')] as Record<string, string> | undefined) ?? {};
   const remappedPauseMarkers: Record<string, string> = {};
-  for (const [path, marker] of Object.entries(pauseMarkerMap)) {
+  for (const [path, marker] of Object.entries(src.pauseMarkers ?? {})) {
     const newPath = containerPathRemap.get(path);
     if (newPath) remappedPauseMarkers[newPath] = marker;
   }
 
   // ── Write the new workspace's keys atomically ────────────────────
+  const newK = wsKeys(newMeta.id);
+  const writes: ReadonlyArray<readonly [StorageKey<unknown>, unknown]> = [
+    [newK.rules, remappedRules],
+    [newK.collections, remappedCollections],
+    [newK.folders, remappedFolders],
+    [newK.requests, remappedRequests],
+    [newK.requestCollections, remappedRequestCollections],
+    [newK.requestFolders, remappedRequestFolders],
+    [newK.templates, remappedTemplates],
+    [newK.templateCollections, remappedTemplateCollections],
+    [newK.templateFolders, remappedTemplateFolders],
+    [newK.pauseMarkers, remappedPauseMarkers],
+    [newK.environments, newEnvironments],
+    [newK.activeEnvironmentId, null],
+    ...(src.workspaceVars ? [[newK.workspaceVars, src.workspaceVars] as const] : []),
+    ...(src.vault ? [[newK.vault, src.vault] as const] : []),
+  ];
+  await extensionStorage.setMany(writes);
   const newId = newMeta.id;
-  const writes: Record<string, unknown> = {
-    [wsKey(newId, 'rules')]: remappedRules,
-    [wsKey(newId, 'collections')]: remappedCollections,
-    [wsKey(newId, 'folders')]: remappedFolders,
-    [wsKey(newId, 'templates')]: remappedTemplates,
-    [wsKey(newId, 'templateCollections')]: remappedTemplateCollections,
-    [wsKey(newId, 'templateFolders')]: remappedTemplateFolders,
-    [wsKey(newId, 'pauseMarkers')]: remappedPauseMarkers,
-    [wsKey(newId, 'environments')]: newEnvironments,
-    [wsKey(newId, 'activeEnvironmentId')]: null,
-  };
-  if (srcWorkspaceVars) writes[wsKey(newId, 'workspaceVars')] = srcWorkspaceVars;
-  if (srcVault) writes[wsKey(newId, 'vault')] = srcVault;
-  await storageSetMany(writes);
 
   logger.info(
     'WorkspaceOrchestrator',
-    `Duplicated ${sourceId} → ${newId}: ${remappedRules.length} rules, ${remappedTemplates.length} templates, ${newEnvironments.length} envs`,
+    `Duplicated ${sourceId} → ${newId}: ${remappedRules.length} rules, ${remappedRequests.length} requests, ${remappedTemplates.length} templates, ${newEnvironments.length} envs`,
   );
   return newMeta;
 }
@@ -264,7 +265,7 @@ export async function deleteWorkspaceWithData(id: string): Promise<string | null
   // Remove every per-workspace storage key for the deleted workspace.
   // Env / vault / testRuns each own their delete path (encapsulation),
   // so we call those explicitly rather than listing the keys here.
-  await storageRemoveMany(PER_WORKSPACE_DATA_SUFFIXES.map((suffix) => wsKey(id, suffix)));
+  await extensionStorage.remove(perWorkspaceDataKeys(id));
   await purgeWorkspaceEnvironmentData(id);
   await purgeWorkspaceTestRuns(id);
 
@@ -278,6 +279,7 @@ export async function deleteWorkspaceWithData(id: string): Promise<string | null
       switchTemplatesToWorkspace(newActive),
       switchPauseMarkersToWorkspace(newActive),
       switchEnvToWorkspace(newActive),
+      switchRequestsToWorkspace(newActive),
     ]);
     seedFromWorkspaceSwitch(getRules(), getPauseMarkers(), getRulesPaused());
     scheduleUpdate('workspace', { immediate: true });
@@ -402,4 +404,47 @@ function deepCopyTemplateHierarchy(
   });
 
   return { remappedTemplates, remappedTemplateCollections, remappedTemplateFolders };
+}
+
+interface RequestHierarchyCopy {
+  remappedRequests: V5.Request[];
+  remappedRequestCollections: V5.Collection[];
+  remappedRequestFolders: LocalFolder[];
+}
+
+function deepCopyRequestHierarchy(
+  requests: V5.Request[],
+  collections: V5.Collection[],
+  folders: LocalFolder[],
+): RequestHierarchyCopy {
+  const pathRemap = new Map<string, string>();
+  const folderByOldPath = new Map<string, LocalFolder>();
+
+  const remappedRequestCollections: V5.Collection[] = collections.map((c) => {
+    const uid = generateUid();
+    const path = `requests/${toFolderName(c.name, uid)}`;
+    pathRemap.set(c.path, path);
+    return { ...c, uid, path };
+  });
+
+  const sortedFolders = [...folders].sort((a, b) => a.path.split('/').length - b.path.split('/').length);
+  for (const f of sortedFolders) {
+    const uid = generateUid();
+    const parentOldPath = f.path.substring(0, f.path.lastIndexOf('/'));
+    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
+    const path = `${parentNewPath}/${toFolderName(f.name, uid)}`;
+    pathRemap.set(f.path, path);
+    folderByOldPath.set(f.path, { ...f, uid, path });
+  }
+  const remappedRequestFolders: LocalFolder[] = folders.map((f) => folderByOldPath.get(f.path) ?? f);
+
+  const remappedRequests: V5.Request[] = requests.map((r) => {
+    const uid = generateUid();
+    const parentOldPath = r.path.substring(0, r.path.lastIndexOf('/'));
+    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
+    const path = `${parentNewPath}/${toFolderName(r.name, uid)}`;
+    return { ...r, uid, path };
+  });
+
+  return { remappedRequests, remappedRequestCollections, remappedRequestFolders };
 }

@@ -18,22 +18,10 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import type { LocalFolder } from './rule-store';
 import { getActiveWorkspaceId } from './workspace-store';
-
-// ── Storage key helpers ─────────────────────────────────────────────
-
-function templatesKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.templates`;
-}
-function templateCollectionsKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.templateCollections`;
-}
-function templateFoldersKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.templateFolders`;
-}
 
 // ── In-memory state (scoped to active workspace) ────────────────────
 
@@ -271,40 +259,25 @@ export function deleteTemplate(uid: string): boolean {
 
 // ── Persistence ─────────────────────────────────────────────────────
 
-function persistTemplateCollections(): Promise<void> {
+async function persistTemplateCollections(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [templateCollectionsKey(workspaceId)]: templateCollections }, () => {
-      logger.debug(
-        'TemplateStore',
-        `Persisted ${templateCollections.length} template collections (ws=${workspaceId})`,
-      );
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).templateCollections, templateCollections);
+  logger.debug('TemplateStore', `Persisted ${templateCollections.length} template collections (ws=${workspaceId})`);
+  notifyChange();
 }
 
-function persistTemplateFolders(): Promise<void> {
+async function persistTemplateFolders(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [templateFoldersKey(workspaceId)]: templateFolders }, () => {
-      logger.debug('TemplateStore', `Persisted ${templateFolders.length} template folders (ws=${workspaceId})`);
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).templateFolders, templateFolders);
+  logger.debug('TemplateStore', `Persisted ${templateFolders.length} template folders (ws=${workspaceId})`);
+  notifyChange();
 }
 
-function persistTemplates(): Promise<void> {
+async function persistTemplates(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [templatesKey(workspaceId)]: templates }, () => {
-      logger.debug('TemplateStore', `Persisted ${templates.length} templates (ws=${workspaceId})`);
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).templates, templates);
+  logger.debug('TemplateStore', `Persisted ${templates.length} templates (ws=${workspaceId})`);
+  notifyChange();
 }
 
 // ── Hydration / workspace switch ────────────────────────────────────
@@ -316,24 +289,17 @@ interface WorkspaceSnapshot {
 }
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
-  return new Promise((resolve) => {
-    storage.local.get(
-      [templatesKey(workspaceId), templateCollectionsKey(workspaceId), templateFoldersKey(workspaceId)],
-      (result: Record<string, unknown>) => {
-        resolve({
-          templates: Array.isArray(result[templatesKey(workspaceId)])
-            ? (result[templatesKey(workspaceId)] as V5.Template[])
-            : [],
-          templateCollections: Array.isArray(result[templateCollectionsKey(workspaceId)])
-            ? (result[templateCollectionsKey(workspaceId)] as V5.Collection[])
-            : [],
-          templateFolders: Array.isArray(result[templateFoldersKey(workspaceId)])
-            ? (result[templateFoldersKey(workspaceId)] as LocalFolder[])
-            : [],
-        });
-      },
-    );
+  const keys = wsKeys(workspaceId);
+  const result = await extensionStorage.getMany({
+    templates: keys.templates,
+    templateCollections: keys.templateCollections,
+    templateFolders: keys.templateFolders,
   });
+  return {
+    templates: Array.isArray(result.templates) ? result.templates : [],
+    templateCollections: Array.isArray(result.templateCollections) ? result.templateCollections : [],
+    templateFolders: Array.isArray(result.templateFolders) ? result.templateFolders : [],
+  };
 }
 
 export async function hydrateTemplatesFromStorage(): Promise<void> {

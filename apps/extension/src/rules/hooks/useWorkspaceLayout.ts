@@ -48,7 +48,7 @@ export const LEFT_BOTTOM_LAUNCHERS: Partial<Record<LeftPanelKey, string>> = {
 // ── Initial layout ─────────────────────────────────────────────────
 
 export const DEFAULT_LAYOUT: WorkspaceLayout = {
-  leftPanel: 'items',
+  leftPanel: 'http-rules',
   rightPanel: null,
   bottomOpen: false,
   focusedRegion: null,
@@ -242,7 +242,7 @@ export function useWorkspaceLayout({
   const isIconActive = useCallback(
     (key: LeftPanelKey | RightPanelKey): boolean => {
       // Right panel keys
-      if (key === 'docs' || key === 'variables') {
+      if (key === 'docs' || key === 'var-scope') {
         return layout.rightPanel === key;
       }
       // Left bottom launchers: active only while bottom is open on their tab

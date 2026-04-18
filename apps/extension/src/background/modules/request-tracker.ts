@@ -2,7 +2,11 @@
  * Request Tracker — tracks which tabs have requests matching V5 rules.
  *
  * Used for badge display and the Active tab in the popup.
- * Reads rules from the in-memory rule store (no storage reads in hot paths).
+ * Reads rules from the in-memory rule store (no storage reads in hot
+ * paths). Pattern matching always uses the resolved-rule snapshot from
+ * `variables-resolver` — rules with `{{VAR}}` in URL conditions only
+ * match against the real, interpolated value. Falls back to the raw
+ * rule-store view until the first DNR compile populates the snapshot.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -17,7 +21,18 @@ import { broadcast } from '@utils/bridge';
 import { tabs } from '@utils/browser-api';
 import { computeVerdict } from '@/shared/verdict';
 import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
-import { getRules } from './rule-store';
+import { getRules as getRawRules } from './rule-store';
+import { getResolvedRules } from './variables-resolver';
+
+/** Read the current rule list in resolved form, falling back to the
+ *  raw rule-store view before the first compile has populated the
+ *  resolver snapshot. Every call site in this file that matches URL
+ *  patterns goes through this helper. */
+function getRules(): V5.Rule[] {
+  const resolved = getResolvedRules();
+  return resolved.length > 0 ? resolved : getRawRules();
+}
+
 import { getTabSnapshot } from './tab-telemetry';
 import {
   clearPatternCache,

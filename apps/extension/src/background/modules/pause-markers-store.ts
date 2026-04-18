@@ -19,13 +19,9 @@
  */
 
 import type { PauseMarker } from '@openheaders/core/utils';
-import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getActiveWorkspaceId } from './workspace-store';
-
-function pauseMarkersKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.pauseMarkers`;
-}
 
 // ── In-memory state ────────────────────────────────────────────────
 
@@ -73,31 +69,22 @@ export function replaceMarkers(record: Record<string, PauseMarker>): void {
   void persist();
 }
 
-function persist(): Promise<void> {
+async function persist(): Promise<void> {
   const workspaceId = assertLoaded();
   const payload = Object.fromEntries(markers);
-  return new Promise((resolve) => {
-    storage.local.set({ [pauseMarkersKey(workspaceId)]: payload }, () => {
-      logger.debug('PauseMarkersStore', `Persisted ${markers.size} markers (ws=${workspaceId})`);
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).pauseMarkers, payload);
+  logger.debug('PauseMarkersStore', `Persisted ${markers.size} markers (ws=${workspaceId})`);
+  notifyChange();
 }
 
 // ── Hydration / workspace switch ──────────────────────────────────
 
 async function readMarkersFor(workspaceId: string): Promise<Map<string, PauseMarker>> {
-  return new Promise((resolve) => {
-    storage.local.get([pauseMarkersKey(workspaceId)], (result: Record<string, unknown>) => {
-      const raw = result[pauseMarkersKey(workspaceId)];
-      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-        resolve(new Map(Object.entries(raw as Record<string, PauseMarker>)));
-      } else {
-        resolve(new Map());
-      }
-    });
-  });
+  const raw = await extensionStorage.get(wsKeys(workspaceId).pauseMarkers);
+  if (raw && typeof raw === 'object') {
+    return new Map(Object.entries(raw));
+  }
+  return new Map();
 }
 
 export async function hydratePauseMarkersFromStorage(): Promise<void> {

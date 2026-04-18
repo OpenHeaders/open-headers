@@ -118,8 +118,11 @@ export function useTabLifecycle({
       const tab = allTabs.find((t) => t.id === tabId);
       if (!tab) return;
 
-      // Draft tabs are always treated as unsaved
-      if (tab.mode === 'create') {
+      // Draft tabs are always treated as unsaved — rule-create +
+      // request-create share the "nothing persisted, Save transitions
+      // the tab" contract, so both need the save-flow branch rather
+      // than a direct close.
+      if (tab.mode === 'create' || tab.mode === 'request-create') {
         const result = await confirmUnsaved(tab);
         if (result === 'save') {
           switchTab(tabId);

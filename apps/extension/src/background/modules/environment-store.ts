@@ -20,24 +20,9 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getActiveWorkspaceId } from './workspace-store';
-
-// ── Storage keys ────────────────────────────────────────────────────
-
-function environmentsKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.environments`;
-}
-function activeEnvironmentKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.activeEnvironmentId`;
-}
-function workspaceVarsKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.workspaceVars`;
-}
-function vaultKey(workspaceId: string): string {
-  return `oh.ws.${workspaceId}.vault`;
-}
 
 // ── In-memory state ─────────────────────────────────────────────────
 
@@ -119,11 +104,7 @@ export function renameEnvironment(uid: string, name: string): boolean {
 export function updateEnvironmentVariables(uid: string, variables: V5.Variable[]): boolean {
   const idx = environments.findIndex((e) => e.uid === uid);
   if (idx === -1) return false;
-  environments = [
-    ...environments.slice(0, idx),
-    { ...environments[idx], variables },
-    ...environments.slice(idx + 1),
-  ];
+  environments = [...environments.slice(0, idx), { ...environments[idx], variables }, ...environments.slice(idx + 1)];
   void persistEnvironments();
   return true;
 }
@@ -168,45 +149,29 @@ export function setVault(next: V5.Vault): void {
 
 // ── Persistence ─────────────────────────────────────────────────────
 
-function persistEnvironments(): Promise<void> {
+async function persistEnvironments(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [environmentsKey(workspaceId)]: environments }, () => {
-      logger.debug('EnvironmentStore', `Persisted ${environments.length} envs (ws=${workspaceId})`);
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).environments, environments);
+  logger.debug('EnvironmentStore', `Persisted ${environments.length} envs (ws=${workspaceId})`);
+  notifyChange();
 }
 
-function persistActiveEnvironment(): Promise<void> {
+async function persistActiveEnvironment(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [activeEnvironmentKey(workspaceId)]: activeEnvironmentId }, () => {
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).activeEnvironmentId, activeEnvironmentId);
+  notifyChange();
 }
 
-function persistWorkspaceVariables(): Promise<void> {
+async function persistWorkspaceVariables(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [workspaceVarsKey(workspaceId)]: workspaceVariables }, () => {
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).workspaceVars, workspaceVariables);
+  notifyChange();
 }
 
-function persistVault(): Promise<void> {
+async function persistVault(): Promise<void> {
   const workspaceId = assertLoaded();
-  return new Promise((resolve) => {
-    storage.local.set({ [vaultKey(workspaceId)]: vault }, () => {
-      notifyChange();
-      resolve();
-    });
-  });
+  await extensionStorage.set(wsKeys(workspaceId).vault, vault);
+  notifyChange();
 }
 
 // ── Hydration / workspace switch ───────────────────────────────────
@@ -219,34 +184,22 @@ interface WorkspaceSnapshot {
 }
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
-  return new Promise((resolve) => {
-    storage.local.get(
-      [
-        environmentsKey(workspaceId),
-        activeEnvironmentKey(workspaceId),
-        workspaceVarsKey(workspaceId),
-        vaultKey(workspaceId),
-      ],
-      (result: Record<string, unknown>) => {
-        const storedEnvs = result[environmentsKey(workspaceId)];
-        const storedActive = result[activeEnvironmentKey(workspaceId)];
-        const storedVars = result[workspaceVarsKey(workspaceId)];
-        const storedVault = result[vaultKey(workspaceId)];
-        resolve({
-          environments: Array.isArray(storedEnvs) ? (storedEnvs as V5.Environment[]) : [],
-          activeEnvironmentId: typeof storedActive === 'string' ? storedActive : null,
-          workspaceVariables:
-            storedVars && typeof storedVars === 'object' && 'variables' in (storedVars as object)
-              ? (storedVars as V5.WorkspaceVariables)
-              : { variables: [] },
-          vault:
-            storedVault && typeof storedVault === 'object' && 'secrets' in (storedVault as object)
-              ? (storedVault as V5.Vault)
-              : { secrets: [] },
-        });
-      },
-    );
+  const keys = wsKeys(workspaceId);
+  const result = await extensionStorage.getMany({
+    environments: keys.environments,
+    activeEnvironmentId: keys.activeEnvironmentId,
+    workspaceVariables: keys.workspaceVars,
+    vault: keys.vault,
   });
+  return {
+    environments: Array.isArray(result.environments) ? result.environments : [],
+    activeEnvironmentId: typeof result.activeEnvironmentId === 'string' ? result.activeEnvironmentId : null,
+    workspaceVariables:
+      result.workspaceVariables && 'variables' in result.workspaceVariables
+        ? result.workspaceVariables
+        : { variables: [] },
+    vault: result.vault && 'secrets' in result.vault ? result.vault : { secrets: [] },
+  };
 }
 
 export async function hydrateEnvironmentsFromStorage(): Promise<void> {
@@ -290,12 +243,8 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
  * workspace delete so the storage quota isn't bloated by orphan data.
  */
 export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promise<void> {
-  await new Promise<void>((resolve) => {
-    storage.local.remove(
-      [environmentsKey(workspaceId), activeEnvironmentKey(workspaceId), workspaceVarsKey(workspaceId), vaultKey(workspaceId)],
-      () => resolve(),
-    );
-  });
+  const keys = wsKeys(workspaceId);
+  await extensionStorage.remove([keys.environments, keys.activeEnvironmentId, keys.workspaceVars, keys.vault]);
 }
 
 // ── Test helpers ───────────────────────────────────────────────────

@@ -1,15 +1,15 @@
-export { extensionStorage, ExtensionStorage } from './extension-storage';
+export { ExtensionStorage, extensionStorage } from './extension-storage';
 export {
-  OH,
-  UI,
-  storageKey,
-  wsKeys,
   type HotkeyCommandSignal,
+  OH,
   type PersistedLocalFolder,
   type PersistedPanelLayout,
   type PersistedPopupState,
   type PersistedTabSession,
   type StorageArea,
   type StorageKey,
+  storageKey,
+  UI,
   type WorkspaceKeys,
+  wsKeys,
 } from './keys';

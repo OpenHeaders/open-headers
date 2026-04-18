@@ -19,6 +19,9 @@ interface UseTabSyncEffectsOptions {
   rules: V5.Rule[];
   templates: V5.Template[];
   localCollectionTrees: V5.CollectionTree[];
+  environments: V5.Environment[];
+  requests: V5.Request[];
+  requestCollectionTrees: V5.CollectionTree[];
   allTabs: RulesTab[];
   updateTab: (tabId: string, updates: Partial<RulesTab>) => void;
   closeTab: (tabId: string, force?: boolean) => void;
@@ -28,6 +31,9 @@ export function useTabSyncEffects({
   rules,
   templates,
   localCollectionTrees,
+  environments,
+  requests,
+  requestCollectionTrees,
   allTabs,
   updateTab,
   closeTab,
@@ -41,9 +47,17 @@ export function useTabSyncEffects({
       } else if (tab.mode === 'template-edit' && tab.templateUid) {
         const tpl = templates.find((t) => t.uid === tab.templateUid);
         if (tpl && tpl.name !== tab.label) updateTab(tab.id, { label: tpl.name });
+      } else if (tab.mode === 'env-edit' && tab.environmentUid) {
+        const env = environments.find((e) => e.uid === tab.environmentUid);
+        if (env && env.name !== tab.label) updateTab(tab.id, { label: env.name });
+      } else if (tab.mode === 'request-edit' && tab.requestUid) {
+        const req = requests.find((r) => r.uid === tab.requestUid);
+        if (req && (req.name !== tab.label || req.method !== tab.ruleType)) {
+          updateTab(tab.id, { label: req.name, ruleType: req.method });
+        }
       }
     }
-  }, [rules, templates, allTabs, updateTab]);
+  }, [rules, templates, environments, requests, allTabs, updateTab]);
 
   // Close tabs whose backing entity was deleted.
   const prevEntityIds = useRef<Set<string>>(new Set());
@@ -60,14 +74,29 @@ export function useTabSyncEffects({
       };
       walk(col.tree);
     }
+    for (const env of environments) currentIds.add(env.uid);
+    for (const req of requests) currentIds.add(req.uid);
+    for (const col of requestCollectionTrees) {
+      currentIds.add(col.uid);
+      const walk = (nodes: V5.TreeNode[]) => {
+        for (const n of nodes) {
+          currentIds.add(n.uid);
+          if (n.type === 'folder') walk(n.children);
+        }
+      };
+      walk(col.tree);
+    }
 
     if (prevEntityIds.current.size > 0) {
       for (const tab of allTabs) {
-        const entityId = tab.ruleUid ?? tab.entityId;
+        // Collection-vars tabs key off `collectionUid`, env-edit tabs
+        // off `environmentUid`, request-edit off `requestUid` — the
+        // generic `ruleUid ?? entityId` fallback doesn't cover these.
+        const entityId = tab.ruleUid ?? tab.entityId ?? tab.collectionUid ?? tab.environmentUid ?? tab.requestUid;
         if (entityId && !currentIds.has(entityId)) closeTab(tab.id, true);
       }
     }
 
     prevEntityIds.current = currentIds;
-  }, [rules, localCollectionTrees, allTabs, closeTab]);
+  }, [rules, localCollectionTrees, environments, requests, requestCollectionTrees, allTabs, closeTab]);
 }

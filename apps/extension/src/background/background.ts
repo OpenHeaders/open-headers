@@ -18,27 +18,28 @@ import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs }
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
 import { get as getSetting, subscribeKey } from '@/rules/settings/store';
+import { extensionStorage, UI } from '@/shared/storage';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
-import {
-  forgetDelayBypassForTab,
-  markTabForDelayBypass,
-  resolveDelayBypass,
-  setRulesPaused,
-} from './dnr-manager';
+import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
 import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
+import {
+  getActiveEnvironmentId,
+  getEnvironments,
+  getVault,
+  getWorkspaceVariables,
+  onEnvironmentStoreChange,
+} from './modules/environment-store';
 import { handleGeneralMessage } from './modules/message-handler';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
-import {
-  applyExternalSnapshot as applyPauseMarkersSnapshot,
-  getPauseMarkers,
-} from './modules/pause-markers-store';
+import { applyExternalSnapshot as applyPauseMarkersSnapshot, getPauseMarkers } from './modules/pause-markers-store';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
+import { getRequests, onRequestStoreChange } from './modules/request-store';
 import {
   getActiveRulesForTab,
   precompileRulePatterns,
@@ -51,9 +52,9 @@ import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/
 import { getCollectionTrees, getRules, onStoreChange } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { getTemplates, onTemplateStoreChange } from './modules/template-store';
-import { initializeViewMode } from './modules/view-mode';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
+import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
   bootstrap as bootstrapWorkspaces,
@@ -117,7 +118,6 @@ function pruneOrphanTestRunOwnersFromStore(): void {
   }
   void pruneOrphanOwners(liveRules, liveEntities);
 }
-
 
 const recordingService: IRecordingService = new RecordingService();
 
@@ -229,6 +229,12 @@ async function initializeExtension(): Promise<void> {
     broadcast('templatesUpdated', { templates: getTemplates() });
   });
 
+  // Broadcast request changes — request-store doesn't feed DNR (requests
+  // are executed ad-hoc via the runner), so no scheduleUpdate here.
+  onRequestStoreChange(() => {
+    broadcast('requestsUpdated', { requests: getRequests() });
+  });
+
   // Broadcast workspace list changes (create/rename/delete/reorder).
   // Active-workspace switches fire `workspaceChanged` explicitly from
   // the orchestrator; this covers metadata mutations.
@@ -236,6 +242,23 @@ async function initializeExtension(): Promise<void> {
     broadcast('workspaceChanged', {
       workspaces: listWorkspaces(),
       activeWorkspaceId: getActiveWorkspaceId(),
+    });
+  });
+
+  // Env / workspace vars / vault / active-env mutations drive DNR
+  // recompilation — resolved rule values depend on every scope above.
+  // One listener covers all four because environment-store fires
+  // `onEnvironmentStoreChange` after every mutation. The broadcast lets
+  // UI surfaces (TopBar selector, Inspector Variables panel, sidebar
+  // Environments section) refresh without each subscribing to four
+  // separate channels.
+  onEnvironmentStoreChange(() => {
+    scheduleUpdate('vars', { immediate: true });
+    broadcast('environmentsChanged', {
+      environments: getEnvironments(),
+      activeEnvironmentId: getActiveEnvironmentId(),
+      workspaceVariables: getWorkspaceVariables(),
+      vault: getVault(),
     });
   });
 
@@ -351,7 +374,7 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
       }
     });
 
-    storage.local.remove('hotkeyCommand');
+    void extensionStorage.remove(UI.hotkeyCommand);
   }
 });
 

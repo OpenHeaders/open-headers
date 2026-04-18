@@ -8,8 +8,8 @@
  */
 
 import { CheckOutlined, DownOutlined, SettingOutlined } from '@ant-design/icons';
-import { Dropdown, Space, Typography, theme } from 'antd';
 import type { MenuProps } from 'antd';
+import { Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
@@ -76,11 +76,7 @@ const WorkspacePill: React.FC = () => {
           color: token.colorText,
         }}
       >
-        {renderWorkspacePrefix(
-          { icon: activeWorkspace.icon, color: activeWorkspace.color },
-          token,
-          { size: 14 },
-        )}
+        {renderWorkspacePrefix({ icon: activeWorkspace.icon, color: activeWorkspace.color }, token, { size: 14 })}
         <span
           style={{
             maxWidth: 120,

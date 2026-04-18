@@ -16,14 +16,14 @@
  * addition to being rejected by the orchestrator.
  */
 
-import { DeleteOutlined, EditOutlined, HolderOutlined, PlusOutlined, CopyOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined, HolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { V5 } from '@openheaders/core/types';
 import { App as AntApp, Button, Form, Input, Modal, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
-import type { V5 } from '@openheaders/core/types';
 import type { UseWorkspacesApi } from '@/hooks/useWorkspaces';
 import WorkspaceIdentityPicker, { type WorkspaceIdentity } from './WorkspaceIdentityPicker';
 import { DEFAULT_WORKSPACE_ICON } from './workspace-colors';
@@ -253,7 +253,16 @@ const SortableRow: React.FC<SortableRowProps> = ({
             {workspace.name}
           </Text>
           {isActive && (
-            <Text type="secondary" style={{ fontSize: 11, padding: '1px 6px', border: `1px solid ${tokenColorPrimary}`, borderRadius: 4, color: tokenColorPrimary }}>
+            <Text
+              type="secondary"
+              style={{
+                fontSize: 11,
+                padding: '1px 6px',
+                border: `1px solid ${tokenColorPrimary}`,
+                borderRadius: 4,
+                color: tokenColorPrimary,
+              }}
+            >
               Active
             </Text>
           )}
@@ -304,7 +313,14 @@ interface WorkspaceFormModalProps {
   onSubmit: (values: WorkspaceFormValues) => Promise<boolean>;
 }
 
-const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({ open, title, okText, initial, onCancel, onSubmit }) => {
+const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({
+  open,
+  title,
+  okText,
+  initial,
+  onCancel,
+  onSubmit,
+}) => {
   const [form] = Form.useForm<WorkspaceFormValues>();
 
   const handleOk = useCallback(async () => {

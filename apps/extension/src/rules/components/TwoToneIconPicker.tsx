@@ -159,7 +159,10 @@ import { createElement, useMemo, useState } from 'react';
  * (WorkspaceIdentityPicker, etc.) can share the same icon set
  * instead of maintaining a parallel list.
  */
-export const TWO_TONE_ICON_MAP: Record<string, React.ComponentType<{ twoToneColor?: string; style?: React.CSSProperties }>> = {
+export const TWO_TONE_ICON_MAP: Record<
+  string,
+  React.ComponentType<{ twoToneColor?: string; style?: React.CSSProperties }>
+> = {
   ThunderboltTwoTone,
   FireTwoTone,
   RocketTwoTone,

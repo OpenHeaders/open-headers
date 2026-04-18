@@ -1,17 +1,24 @@
 /**
- * Sidebar — IDE-style tree panel with 3 collapsible sections.
+ * Sidebar — IDE-style tree panel, rendered as one of three view modes:
  *
- * Mirrors desktop v5-shell/Sidebar.tsx exactly:
- * - Toolbar: filter, +create, expand/collapse all
- * - 3 collapsible sections (API Requests read-only, Rules functional, Environments read-only)
- * - Full TreeNodeRow rendering from V5.CollectionTree (collection → folder → rule)
- * - Keyboard navigation, inline rename, confirm delete
+ *   - `http-rules`   — RULES, TEMPLATES, ENVIRONMENTS (envs only)
+ *   - `api-requests` — API REQUESTS, ENVIRONMENTS (envs only)
+ *   - `variables`    — VAULT, WORKSPACE VARIABLES, ENVIRONMENTS
+ *
+ * All three views share one component so chrome (filter input, +add
+ * toolbar action, expand/collapse all, keyboard navigation, options
+ * menu) stays identical. Only the sections block varies by `view`.
+ *
+ * The ENVIRONMENTS section appears in every view — in `http-rules` and
+ * `api-requests` it acts as a quick reference / switcher for the active
+ * env; full variable management lives in the `variables` view.
  */
 
 import {
   AimOutlined,
   BorderLeftOutlined,
   CheckCircleOutlined,
+  CheckCircleTwoTone,
   ClearOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -19,6 +26,8 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
+  GlobalOutlined,
+  LockOutlined,
   MenuUnfoldOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -27,6 +36,8 @@ import {
   SearchOutlined,
   StopOutlined,
 } from '@ant-design/icons';
+import { useEnvironments } from '@hooks/useEnvironments';
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { hasNestedPauseMarkers, isRuleComplete } from '@openheaders/core/utils';
@@ -48,6 +59,37 @@ import { renderTwoToneIcon } from './TwoToneIconPicker';
 
 function iconEl(Icon: typeof StopOutlined, color: string, size = 12): React.ReactNode {
   return createElement(Icon, { style: { color, fontSize: size } });
+}
+
+const METHOD_COLORS: Record<string, string> = {
+  GET: '#61affe',
+  POST: '#49cc90',
+  PUT: '#fca130',
+  PATCH: '#50e3c2',
+  DELETE: '#f93e3e',
+  HEAD: '#9012fe',
+  OPTIONS: '#0d5aa7',
+};
+
+/** Compact method tag used as the leaf "icon" in the API Requests
+ *  tree — displays like GET / POST / PUT in Postman's sidebar. */
+function methodTag(method: string): React.ReactNode {
+  const color = METHOD_COLORS[method] ?? '#999';
+  return createElement(
+    'span',
+    {
+      style: {
+        display: 'inline-block',
+        minWidth: 36,
+        fontSize: 9,
+        fontWeight: 700,
+        color,
+        fontFamily: "'SF Mono', monospace",
+        textAlign: 'left',
+      },
+    },
+    method,
+  );
 }
 
 function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
@@ -215,7 +257,23 @@ function SectionHeader({
 
 // ── Props ──────────────────────────────────────────────────────────
 
+/**
+ * Which management surface this Sidebar instance renders. Each view
+ * shows a different subset of sections but shares the chrome (filter,
+ * toolbar, keyboard nav, options menu):
+ *
+ *   - `http-rules`   — RULES, TEMPLATES, ENVIRONMENTS (envs only)
+ *   - `api-requests` — API REQUESTS, ENVIRONMENTS (envs only)
+ *   - `variables`    — VAULT, WORKSPACE VARIABLES, ENVIRONMENTS (full)
+ *
+ * The embedded ENVIRONMENTS section in `http-rules` / `api-requests`
+ * is a quick-reference / switcher for the active env — full CRUD for
+ * vault and workspace-vars lives in the dedicated `variables` view.
+ */
+export type SidebarView = 'http-rules' | 'api-requests' | 'variables';
+
 interface SidebarProps {
+  view: SidebarView;
   activeTabId?: string | null;
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
@@ -228,11 +286,23 @@ interface SidebarProps {
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   /** Open template folder overview tab. */
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open an environment for editing. */
+  onSelectEnvironment?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open the workspace variables editor. */
+  onOpenWorkspaceVariables?: () => void;
+  /** Open the vault editor. */
+  onOpenVault?: () => void;
+  /** Open an API request for editing. */
+  onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
+  /** Open an unsaved request draft in a new tab. Context is the
+   *  user's clicked destination (collection root, or folder). */
+  onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
   /** Ref to the filter input for keyboard shortcut focus. */
   filterRef?: React.Ref<InputRef>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
+  view,
   activeTabId,
   onSelectRule,
   onCreateRule,
@@ -242,13 +312,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectTemplate,
   onOpenTemplateCollectionOverview,
   onOpenTemplateFolderOverview,
+  onSelectEnvironment,
+  onOpenWorkspaceVariables,
+  onOpenVault,
+  onSelectRequest,
+  onCreateRequest,
   filterRef,
 }) => {
   const { token } = theme.useToken();
   const {
     rules,
     localCollectionTrees,
-    isConnected,
     pauseMarkers,
     pausedUids,
     togglePause,
@@ -271,17 +345,47 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameTemplateFolder,
     deleteTemplateFolder,
   } = useRules();
+  const {
+    environments,
+    activeEnvironmentId,
+    createEnvironment,
+    renameEnvironment,
+    deleteEnvironment,
+    setActiveEnvironment,
+  } = useEnvironments();
+  const {
+    collectionTrees: requestCollectionTrees,
+    updateRequest: updateRequestData,
+    deleteRequest,
+    createCollection: createRequestCollectionRpc,
+    renameCollection: renameRequestCollectionRpc,
+    deleteCollection: deleteRequestCollectionRpc,
+    createFolder: createRequestFolderRpc,
+    renameFolder: renameRequestFolderRpc,
+    deleteFolder: deleteRequestFolderRpc,
+  } = useRequests();
   const { message } = App.useApp();
 
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
-  const [sectionsExpanded, setSectionsExpanded] = useState<Record<string, boolean>>({
-    requests: false,
-    rules: true,
-    templates: false,
-    environments: false,
+  // Default the one "primary" section of each view open so the user
+  // sees content immediately; secondary sections stay collapsed to
+  // avoid overwhelming a first-open view.
+  const [sectionsExpanded, setSectionsExpanded] = useState<Record<string, boolean>>(() => {
+    const base: Record<string, boolean> = { environments: false };
+    if (view === 'api-requests') {
+      base['api-requests'] = true;
+    } else if (view === 'variables') {
+      base.vault = true;
+      base['workspace-vars'] = true;
+      base.environments = true;
+    } else {
+      base.rules = true;
+      base.templates = false;
+    }
+    return base;
   });
   const [openWithSingleClick, setOpenWithSingleClick] = useState(true);
   const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = useState(true);
@@ -304,7 +408,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const expandAll = useCallback(() => {
-    setSectionsExpanded({ requests: true, rules: true, templates: true, environments: true });
+    // Each view has its own section keyset — expand all of THIS view's
+    // sections, not a union across all possible views.
+    if (view === 'api-requests') {
+      setSectionsExpanded({ 'api-requests': true, environments: true });
+    } else if (view === 'variables') {
+      setSectionsExpanded({ vault: true, 'workspace-vars': true, environments: true });
+    } else {
+      setSectionsExpanded({ rules: true, templates: true, environments: true });
+    }
     const allKeys = new Set<string>();
     const collectKeys = (nodes: V5.TreeNode[]) => {
       for (const n of nodes) {
@@ -323,12 +435,18 @@ const Sidebar: React.FC<SidebarProps> = ({
       collectKeys(col.tree);
     }
     setExpandedKeys(allKeys);
-  }, [localCollectionTrees, templateCollectionTrees]);
+  }, [view, localCollectionTrees, templateCollectionTrees]);
 
   const collapseAll = useCallback(() => {
-    setSectionsExpanded({ requests: false, rules: false, templates: false, environments: false });
+    if (view === 'api-requests') {
+      setSectionsExpanded({ 'api-requests': false, environments: false });
+    } else if (view === 'variables') {
+      setSectionsExpanded({ vault: false, 'workspace-vars': false, environments: false });
+    } else {
+      setSectionsExpanded({ rules: false, templates: false, environments: false });
+    }
     setExpandedKeys(new Set());
-  }, []);
+  }, [view]);
 
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
   const confirmDelete = useCallback(
@@ -992,25 +1110,432 @@ const Sidebar: React.FC<SidebarProps> = ({
     onOpenTemplateFolderOverview,
   ]);
 
-  // ── Flat items for keyboard nav ──────────────────────────────
+  // ── Request nodes (API Requests view) ────────────────────────
 
-  const allFlatItems = useMemo(
-    () => [
-      ...(sectionsExpanded.rules ? rulesNodes : []),
-      ...(sectionsExpanded.templates ? [...systemTemplateNodes, ...templateNodes] : []),
+  const walkRequestTree = useCallback(
+    (v5Nodes: V5.TreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
+      const items: TreeNode[] = [];
+      for (const node of v5Nodes) {
+        if (node.type === 'folder') {
+          const fid = `req-folder-${node.uid}`;
+          const isExpanded = expandedKeys.has(fid);
+          const onAddFolder = () => {
+            void createRequestFolderRpc('New Folder', node.path).then((f) => {
+              if (f) {
+                setExpandedKeys((prev) => {
+                  const next = new Set(prev);
+                  next.add(fid);
+                  return next;
+                });
+              }
+            });
+          };
+          const onAddRequest = () => {
+            // Expand the folder so the tab's "save target" indicator
+            // (breadcrumb in the future) matches what the user sees.
+            setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(fid);
+              return next;
+            });
+            // Walk up to find the owning collection — draft tabs need
+            // the collection uid, but the folder walker only has the
+            // folder path. The outer `requestCollectionTrees` loop owns
+            // collectionId via closure.
+            onCreateRequest?.({ collectionId, folderPath: node.path });
+          };
+          items.push({
+            id: fid,
+            kind: 'folder',
+            label: node.name,
+            depth,
+            expandable: true,
+            parentId,
+            icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+            canRename: true,
+            canDelete: true,
+            canAddChild: true,
+            onOpen: () => toggleExpand(fid),
+            onRename: async (name: string) => {
+              void renameRequestFolderRpc(node.uid, name);
+            },
+            onDelete: () =>
+              confirmDelete(node.name, () => {
+                void deleteRequestFolderRpc(node.uid);
+              }),
+            addMenuItems: [
+              {
+                key: 'add-request',
+                icon: createElement(PlusOutlined),
+                label: 'Add Request',
+                onClick: onAddRequest,
+              },
+              {
+                key: 'add-folder',
+                icon: createElement(FolderOutlined),
+                label: 'Add Folder',
+                onClick: onAddFolder,
+              },
+              { type: 'divider' as const, key: 'div' },
+              { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: () => setRenamingId(fid) },
+              {
+                key: 'delete',
+                icon: createElement(DeleteOutlined),
+                label: 'Delete',
+                danger: true,
+                onClick: () =>
+                  confirmDelete(node.name, () => {
+                    void deleteRequestFolderRpc(node.uid);
+                  }),
+              },
+            ],
+          });
+          if (isExpanded) {
+            const children = walkRequestTree(node.children, depth + 1, fid, collectionId);
+            items.push(...children);
+          }
+        } else if (node.type === 'request') {
+          if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
+          const rid = `request-${node.uid}`;
+          items.push({
+            id: rid,
+            kind: 'leaf',
+            label: node.name,
+            depth,
+            expandable: false,
+            parentId,
+            icon: methodTag(node.method),
+            canRename: true,
+            canDelete: true,
+            canAddChild: false,
+            onOpen: () => onSelectRequest?.(node.uid, node.name, node.method),
+            onRename: async (name: string) => {
+              void updateRequestData(node.uid, { name });
+            },
+            onDelete: () =>
+              confirmDelete(node.name, () => {
+                void deleteRequest(node.uid);
+              }),
+          });
+        }
+      }
+      return items;
+    },
+    [
+      expandedKeys,
+      lowerFilter,
+      toggleExpand,
+      updateRequestData,
+      deleteRequest,
+      createRequestFolderRpc,
+      renameRequestFolderRpc,
+      deleteRequestFolderRpc,
+      confirmDelete,
+      onSelectRequest,
+      onCreateRequest,
     ],
-    [sectionsExpanded.rules, sectionsExpanded.templates, rulesNodes, systemTemplateNodes, templateNodes],
   );
+
+  const requestNodes = useMemo((): TreeNode[] => {
+    const items: TreeNode[] = [];
+
+    for (const collection of requestCollectionTrees) {
+      if (lowerFilter && !collection.name.toLowerCase().includes(lowerFilter)) {
+        const hasMatch = collection.tree.some(
+          (n) => n.type === 'request' && n.name.toLowerCase().includes(lowerFilter),
+        );
+        if (!hasMatch) continue;
+      }
+
+      const colId = `req-col-${collection.uid}`;
+      const isExpanded = expandedKeys.has(colId);
+      const onAddRequest = () => {
+        setExpandedKeys((prev) => {
+          const next = new Set(prev);
+          next.add(colId);
+          return next;
+        });
+        onCreateRequest?.({ collectionId: collection.uid });
+      };
+      const onAddFolder = () => {
+        void createRequestFolderRpc('New Folder', collection.path).then((f) => {
+          if (f) {
+            setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(colId);
+              return next;
+            });
+          }
+        });
+      };
+
+      items.push({
+        id: colId,
+        kind: 'group',
+        label: collection.name,
+        depth: 0,
+        expandable: true,
+        icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+        canRename: true,
+        canDelete: true,
+        canAddChild: true,
+        onOpen: () => toggleExpand(colId),
+        onRename: async (name) => {
+          void renameRequestCollectionRpc(collection.uid, name);
+        },
+        onDelete: () =>
+          confirmDelete(collection.name, () => {
+            void deleteRequestCollectionRpc(collection.uid);
+          }),
+        addMenuItems: [
+          {
+            key: 'add-request',
+            icon: createElement(PlusOutlined),
+            label: 'Add Request',
+            onClick: onAddRequest,
+          },
+          {
+            key: 'add-folder',
+            icon: createElement(FolderOutlined),
+            label: 'Add Folder',
+            onClick: onAddFolder,
+          },
+          { type: 'divider' as const, key: 'div' },
+          { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: () => setRenamingId(colId) },
+          {
+            key: 'delete',
+            icon: createElement(DeleteOutlined),
+            label: 'Delete',
+            danger: true,
+            onClick: () =>
+              confirmDelete(collection.name, () => {
+                void deleteRequestCollectionRpc(collection.uid);
+              }),
+          },
+        ],
+      });
+
+      if (isExpanded) {
+        const children = walkRequestTree(collection.tree, 1, colId, collection.uid);
+        if (children.length > 0) {
+          items.push(...children);
+        } else {
+          items.push({
+            id: `${colId}-empty`,
+            kind: 'placeholder',
+            label: '',
+            depth: 1,
+            expandable: false,
+            icon: null,
+            canRename: false,
+            canDelete: false,
+            canAddChild: false,
+            placeholderTitle: 'No requests yet',
+            placeholderMessage: 'Add a request or folder to get started.',
+            placeholderActions: [
+              {
+                label: 'Add request',
+                icon: iconEl(PlusOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                onClick: onAddRequest,
+              },
+              {
+                label: 'Add folder',
+                icon: iconEl(FolderOutlined, 'var(--ant-color-text-tertiary, #999)'),
+                onClick: onAddFolder,
+              },
+            ],
+          });
+        }
+      }
+    }
+
+    return items;
+  }, [
+    requestCollectionTrees,
+    lowerFilter,
+    expandedKeys,
+    toggleExpand,
+    walkRequestTree,
+    createRequestFolderRpc,
+    renameRequestCollectionRpc,
+    deleteRequestCollectionRpc,
+    confirmDelete,
+    onCreateRequest,
+  ]);
+
+  const createNewRequestCollection = useCallback(async () => {
+    const col = await createRequestCollectionRpc('New Collection');
+    if (col) {
+      setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
+      setExpandedKeys((prev) => {
+        const next = new Set(prev);
+        next.add(`req-col-${col.uid}`);
+        return next;
+      });
+    } else {
+      message.error('Failed to create request collection');
+    }
+  }, [createRequestCollectionRpc, message]);
+
+  // ── Variable-management nodes (Variables view only) ──────────
+  //
+  // Vault and Workspace Variables are each a single leaf row —
+  // rendered inside their own SECTION HEADER in the Variables view so
+  // users can collapse them independently of the environment list.
+
+  const vaultNode = useMemo(
+    (): TreeNode => ({
+      id: 'vault-row',
+      kind: 'leaf',
+      label: 'Vault',
+      depth: 0,
+      expandable: false,
+      icon: iconEl(LockOutlined, 'var(--ant-color-error, #ff4d4f)'),
+      canRename: false,
+      canDelete: false,
+      canAddChild: false,
+      onOpen: () => onOpenVault?.(),
+    }),
+    [onOpenVault],
+  );
+
+  const workspaceVarsNode = useMemo(
+    (): TreeNode => ({
+      id: 'workspace-vars-row',
+      kind: 'leaf',
+      label: 'Workspace Variables',
+      depth: 0,
+      expandable: false,
+      icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+      canRename: false,
+      canDelete: false,
+      canAddChild: false,
+      onOpen: () => onOpenWorkspaceVariables?.(),
+    }),
+    [onOpenWorkspaceVariables],
+  );
+
+  // ── Environment nodes ─────────────────────────────────────────
+
+  const environmentNodes = useMemo((): TreeNode[] => {
+    const items: TreeNode[] = [];
+
+    for (const env of environments) {
+      if (lowerFilter && !env.name.toLowerCase().includes(lowerFilter)) continue;
+      const id = `env-${env.uid}`;
+      const isActive = env.uid === activeEnvironmentId;
+      items.push({
+        id,
+        kind: 'leaf',
+        label: env.name,
+        depth: 0,
+        expandable: false,
+        icon: iconEl(
+          isActive ? CheckCircleTwoTone : GlobalOutlined,
+          isActive ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)',
+        ),
+        canRename: true,
+        canDelete: true,
+        canAddChild: false,
+        onOpen: () => onSelectEnvironment?.(env.uid, env.name),
+        onRename: async (name: string) => {
+          void renameEnvironment(env.uid, name);
+        },
+        onDelete: () =>
+          confirmDelete(env.name, () => {
+            void deleteEnvironment(env.uid);
+          }),
+        addMenuItems: [
+          {
+            key: 'set-active',
+            icon: createElement(CheckCircleOutlined),
+            label: isActive ? 'Unset active' : 'Set active',
+            onClick: () => void setActiveEnvironment(isActive ? null : env.uid),
+          },
+          { type: 'divider' as const, key: 'div' },
+          { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: () => setRenamingId(id) },
+          {
+            key: 'delete',
+            icon: createElement(DeleteOutlined),
+            label: 'Delete',
+            danger: true,
+            onClick: () =>
+              confirmDelete(env.name, () => {
+                void deleteEnvironment(env.uid);
+              }),
+          },
+        ],
+      });
+    }
+    return items;
+  }, [
+    environments,
+    activeEnvironmentId,
+    lowerFilter,
+    renameEnvironment,
+    deleteEnvironment,
+    setActiveEnvironment,
+    confirmDelete,
+    onSelectEnvironment,
+  ]);
+
+  const createNewEnvironment = useCallback(async () => {
+    const env = await createEnvironment('New Environment');
+    if (env) {
+      setSectionsExpanded((prev) => ({ ...prev, environments: true }));
+      onSelectEnvironment?.(env.uid, env.name, true);
+    } else {
+      message.error('Failed to create environment');
+    }
+  }, [createEnvironment, onSelectEnvironment, message]);
+
+  // ── Flat items for keyboard nav ──────────────────────────────
+  //
+  // Flattening respects the current view: only nodes from sections
+  // this view actually renders can be keyboard-navigated.
+
+  const allFlatItems = useMemo(() => {
+    const items: TreeNode[] = [];
+    if (view === 'http-rules') {
+      if (sectionsExpanded.rules) items.push(...rulesNodes);
+      if (sectionsExpanded.templates) items.push(...systemTemplateNodes, ...templateNodes);
+      if (sectionsExpanded.environments) items.push(...environmentNodes);
+    } else if (view === 'api-requests') {
+      if (sectionsExpanded['api-requests']) items.push(...requestNodes);
+      if (sectionsExpanded.environments) items.push(...environmentNodes);
+    } else {
+      if (sectionsExpanded.vault) items.push(vaultNode);
+      if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
+      if (sectionsExpanded.environments) items.push(...environmentNodes);
+    }
+    return items;
+  }, [
+    view,
+    sectionsExpanded,
+    rulesNodes,
+    systemTemplateNodes,
+    templateNodes,
+    environmentNodes,
+    requestNodes,
+    vaultNode,
+    workspaceVarsNode,
+  ]);
 
   const isSelected = useCallback(
     (id: string) => {
       if (!alwaysSelectOpened || !activeTabId) return false;
-      // Direct match: col-{uid}, folder-{uid}, tpl-col-{uid}, tpl-folder-{uid} tabs
+      // Direct match: col-{uid}, folder-{uid}, tpl-col-{uid}, tpl-folder-{uid},
+      // env-{uid} tabs
       if (activeTabId === id) return true;
       // Rule tabs: edit-{uid} matches rule-{uid} sidebar node
       if (id.startsWith('rule-') && activeTabId === `edit-${id.replace('rule-', '')}`) return true;
       // Template tabs: tpl-edit-{uid} matches tpl-{uid} sidebar node
       if (id.startsWith('tpl-') && activeTabId === `tpl-edit-${id.replace('tpl-', '')}`) return true;
+      // Singletons in the Variables view — row id carries a `-row`
+      // suffix so it doesn't collide with dynamic uid-suffixed nodes,
+      // but the tab id is just the bare route name.
+      if (id === 'vault-row' && activeTabId === 'vault') return true;
+      if (id === 'workspace-vars-row' && activeTabId === 'workspace-vars') return true;
       return false;
     },
     [activeTabId, alwaysSelectOpened],
@@ -1061,6 +1586,69 @@ const Sidebar: React.FC<SidebarProps> = ({
       section = 'templates';
     } else if (activeTabId.startsWith('col-') || activeTabId.startsWith('folder-')) {
       nodeId = activeTabId;
+    } else if (activeTabId.startsWith('env-')) {
+      // env-{uid} tabs map to env-{uid} sidebar rows, rendered inside
+      // the ENVIRONMENTS section — which is present in every view.
+      nodeId = activeTabId;
+      setSectionsExpanded((prev) => ({ ...prev, environments: true }));
+      setFocusedId(nodeId);
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
+    } else if (activeTabId.startsWith('request-') && view === 'api-requests') {
+      // Walk request collection trees to find ancestors to expand.
+      nodeId = activeTabId;
+      const targetUid = activeTabId.replace('request-', '');
+      let found: { ancestors: string[] } | null = null;
+      for (const col of requestCollectionTrees) {
+        const colKey = `req-col-${col.uid}`;
+        const walk = (nodes: V5.TreeNode[], trail: string[]): string[] | null => {
+          for (const n of nodes) {
+            if (n.type === 'request' && n.uid === targetUid) return trail;
+            if (n.type === 'folder') {
+              const r = walk(n.children, [...trail, `req-folder-${n.uid}`]);
+              if (r) return r;
+            }
+          }
+          return null;
+        };
+        const result = walk(col.tree, [colKey]);
+        if (result) {
+          found = { ancestors: result };
+          break;
+        }
+      }
+      if (found) {
+        setExpandedKeys((prev) => {
+          const next = new Set(prev);
+          for (const k of found.ancestors) next.add(k);
+          return next;
+        });
+        setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
+        setFocusedId(nodeId);
+        setTimeout(() => {
+          containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
+        }, 50);
+        return true;
+      }
+      return false;
+    } else if (activeTabId === 'vault' && view === 'variables') {
+      setSectionsExpanded((prev) => ({ ...prev, vault: true }));
+      setFocusedId('vault-row');
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="vault-row"]`)?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
+    } else if (activeTabId === 'workspace-vars' && view === 'variables') {
+      setSectionsExpanded((prev) => ({ ...prev, 'workspace-vars': true }));
+      setFocusedId('workspace-vars-row');
+      setTimeout(() => {
+        containerRef.current
+          ?.querySelector(`[data-item-id="workspace-vars-row"]`)
+          ?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
     }
     if (!nodeId) return false;
 
@@ -1130,7 +1718,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
 
     return false;
-  }, [activeTabId, localCollectionTrees, templateCollectionTrees]);
+  }, [activeTabId, localCollectionTrees, templateCollectionTrees, requestCollectionTrees, view]);
 
   // Auto-select on active tab change, with retry when tree data arrives async
   const prevActiveTabRef = useRef(activeTabId);
@@ -1283,13 +1871,39 @@ const Sidebar: React.FC<SidebarProps> = ({
           style={{ flex: 1, fontSize: 11 }}
           variant="borderless"
         />
-        <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-          <Tooltip title="New rule" placement="bottom">
-            <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+        {view === 'http-rules' && (
+          <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
+            <Tooltip title="New rule" placement="bottom">
+              <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+                <PlusOutlined />
+              </div>
+            </Tooltip>
+          </Dropdown>
+        )}
+        {view === 'api-requests' && (
+          <Tooltip title="New request collection" placement="bottom">
+            <button
+              type="button"
+              className="rules-sidebar-toolbar-icon"
+              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={() => void createNewRequestCollection()}
+            >
               <PlusOutlined />
-            </div>
+            </button>
           </Tooltip>
-        </Dropdown>
+        )}
+        {view === 'variables' && (
+          <Tooltip title="New environment" placement="bottom">
+            <button
+              type="button"
+              className="rules-sidebar-toolbar-icon"
+              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={() => void createNewEnvironment()}
+            >
+              <PlusOutlined />
+            </button>
+          </Tooltip>
+        )}
         <Tooltip title="Select Opened Tab" placement="bottom">
           <button
             type="button"
@@ -1365,81 +1979,125 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation container */}
       <div ref={containerRef} className="rules-sidebar-content" onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
-        <SectionHeader
-          title="API REQUESTS"
-          expanded={sectionsExpanded.requests}
-          onToggle={() => toggleSection('requests')}
-        />
-        {sectionsExpanded.requests && (
-          <div className="rules-sidebar-empty" style={{ color: token.colorTextTertiary }}>
-            {isConnected
-              ? 'API requests are managed in the desktop app.'
-              : 'Connect to desktop app to see API requests.'}
-          </div>
+        {view === 'api-requests' && (
+          <>
+            <SectionHeader
+              title="API REQUESTS"
+              expanded={sectionsExpanded['api-requests']}
+              onToggle={() => toggleSection('api-requests')}
+              actions={
+                <Tooltip title="New request collection" placement="bottom">
+                  <PlusOutlined
+                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void createNewRequestCollection();
+                    }}
+                  />
+                </Tooltip>
+              }
+            />
+            {sectionsExpanded['api-requests'] && (
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {renderNodes(requestNodes, () => void createNewRequestCollection())}
+              </div>
+            )}
+          </>
         )}
 
-        <SectionHeader
-          title="RULES"
-          expanded={sectionsExpanded.rules}
-          onToggle={() => toggleSection('rules')}
-          actions={
-            <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-              <PlusOutlined
-                style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </Dropdown>
-          }
-        />
-        {sectionsExpanded.rules && (
-          <div style={{ flex: 1, overflowY: 'auto' }}>{renderNodes(rulesNodes, () => void createNewCollection())}</div>
-        )}
+        {view === 'http-rules' && (
+          <>
+            <SectionHeader
+              title="RULES"
+              expanded={sectionsExpanded.rules}
+              onToggle={() => toggleSection('rules')}
+              actions={
+                <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
+                  <PlusOutlined
+                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Dropdown>
+              }
+            />
+            {sectionsExpanded.rules && (
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {renderNodes(rulesNodes, () => void createNewCollection())}
+              </div>
+            )}
 
-        <SectionHeader
-          title="TEMPLATES"
-          expanded={sectionsExpanded.templates}
-          onToggle={() => toggleSection('templates')}
-          actions={
-            <Tooltip title="New template collection" placement="bottom">
-              <PlusOutlined
-                style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void createTemplateCollection('New Collection').then((col) => {
+            <SectionHeader
+              title="TEMPLATES"
+              expanded={sectionsExpanded.templates}
+              onToggle={() => toggleSection('templates')}
+              actions={
+                <Tooltip title="New template collection" placement="bottom">
+                  <PlusOutlined
+                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void createTemplateCollection('New Collection').then((col) => {
+                        if (col) {
+                          setSectionsExpanded((prev) => ({ ...prev, templates: true }));
+                          onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
+                        }
+                      });
+                    }}
+                  />
+                </Tooltip>
+              }
+            />
+            {sectionsExpanded.templates && (
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {renderNodes(systemTemplateNodes)}
+                {renderNodes(templateNodes, () => {
+                  void createTemplateCollection('My Templates').then((col) => {
                     if (col) {
                       setSectionsExpanded((prev) => ({ ...prev, templates: true }));
                       onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
                     }
                   });
-                }}
-              />
-            </Tooltip>
-          }
-        />
-        {sectionsExpanded.templates && (
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {renderNodes(systemTemplateNodes)}
-            {renderNodes(templateNodes, () => {
-              void createTemplateCollection('My Templates').then((col) => {
-                if (col) {
-                  setSectionsExpanded((prev) => ({ ...prev, templates: true }));
-                  onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
-                }
-              });
-            })}
-          </div>
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {view === 'variables' && (
+          <>
+            <SectionHeader title="VAULT" expanded={sectionsExpanded.vault} onToggle={() => toggleSection('vault')} />
+            {sectionsExpanded.vault && <div style={{ overflowY: 'auto' }}>{renderNodes([vaultNode])}</div>}
+
+            <SectionHeader
+              title="WORKSPACE VARIABLES"
+              expanded={sectionsExpanded['workspace-vars']}
+              onToggle={() => toggleSection('workspace-vars')}
+            />
+            {sectionsExpanded['workspace-vars'] && (
+              <div style={{ overflowY: 'auto' }}>{renderNodes([workspaceVarsNode])}</div>
+            )}
+          </>
         )}
 
         <SectionHeader
           title="ENVIRONMENTS"
           expanded={sectionsExpanded.environments}
           onToggle={() => toggleSection('environments')}
+          actions={
+            <Tooltip title="New environment" placement="bottom">
+              <PlusOutlined
+                style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void createNewEnvironment();
+                }}
+              />
+            </Tooltip>
+          }
         />
         {sectionsExpanded.environments && (
-          <div className="rules-sidebar-empty" style={{ color: token.colorTextTertiary }}>
-            {isConnected
-              ? 'Environments are managed in the desktop app.'
-              : 'Connect to desktop app to see environments.'}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {renderNodes(environmentNodes, () => void createNewEnvironment())}
           </div>
         )}
       </div>

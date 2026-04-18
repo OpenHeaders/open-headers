@@ -5,12 +5,13 @@
  */
 
 import { SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import type { V5 } from '@openheaders/core/types';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
-import type { V5 } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { getBrowserAPI } from '@/types/browser';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import EnvironmentSelector from './EnvironmentSelector';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 interface TopBarProps {
@@ -20,6 +21,13 @@ interface TopBarProps {
   activeWorkspaceId: string | null;
   onSwitchWorkspace: (id: string) => void;
   onOpenWorkspaceManager: () => void;
+  environments: V5.Environment[];
+  activeEnvironmentId: string | null;
+  onSwitchEnvironment: (uid: string | null) => void;
+  onCreateEnvironment: () => void;
+  onOpenEnvironment: (uid: string) => void;
+  onOpenWorkspaceVariables: () => void;
+  onOpenVault: () => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
@@ -29,6 +37,13 @@ const TopBar: React.FC<TopBarProps> = ({
   activeWorkspaceId,
   onSwitchWorkspace,
   onOpenWorkspaceManager,
+  environments,
+  activeEnvironmentId,
+  onSwitchEnvironment,
+  onCreateEnvironment,
+  onOpenEnvironment,
+  onOpenWorkspaceVariables,
+  onOpenVault,
 }) => {
   const { token } = theme.useToken();
   const commandPaletteLabel = useShortcutLabel('command-palette');
@@ -87,6 +102,15 @@ const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       <div className="rules-topbar-right">
+        <EnvironmentSelector
+          environments={environments}
+          activeEnvironmentId={activeEnvironmentId}
+          onSwitch={onSwitchEnvironment}
+          onCreateEnvironment={onCreateEnvironment}
+          onOpenEnvironment={onOpenEnvironment}
+          onOpenWorkspaceVariables={onOpenWorkspaceVariables}
+          onOpenVault={onOpenVault}
+        />
         <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Settings</ShortcutHintTitle>}>
           <Button size="small" type="text" icon={<SettingOutlined />} onClick={onOpenSettings} />
         </Tooltip>

@@ -20,6 +20,7 @@
 
 import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders/core';
 import type { V5 } from '@openheaders/core/types';
+import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
 import type { ActiveRule } from '@/types/browser';
@@ -351,6 +352,131 @@ export interface BridgeRpcContract {
     res: { success: boolean };
   };
 
+  // ── Environments / Variables / Vault (active workspace) ───────
+  listEnvironments: {
+    req: Record<string, never>;
+    res: { environments: V5.Environment[]; activeEnvironmentId: string | null };
+  };
+  createEnvironment: {
+    req: { name: string; variables?: V5.Variable[] };
+    res: { success: boolean; environment?: V5.Environment };
+  };
+  renameEnvironment: {
+    req: { uid: string; name: string };
+    res: { success: boolean };
+  };
+  updateEnvironmentVariables: {
+    req: { uid: string; variables: V5.Variable[] };
+    res: { success: boolean };
+  };
+  deleteEnvironment: {
+    req: { uid: string };
+    res: { success: boolean };
+  };
+  setActiveEnvironment: {
+    req: { uid: string | null };
+    res: { success: boolean };
+  };
+  getWorkspaceVariables: {
+    req: Record<string, never>;
+    res: { workspaceVariables: V5.WorkspaceVariables };
+  };
+  setWorkspaceVariables: {
+    req: { workspaceVariables: V5.WorkspaceVariables };
+    res: { success: boolean };
+  };
+  getVault: {
+    req: Record<string, never>;
+    res: { vault: V5.Vault };
+  };
+  setVault: {
+    req: { vault: V5.Vault };
+    res: { success: boolean };
+  };
+  updateCollectionVariables: {
+    req: { collectionUid: string; variables: V5.Variable[] };
+    res: { success: boolean };
+  };
+
+  // ── API Requests (active workspace) ────────────────────────────
+  getLocalRequests: {
+    req: Record<string, never>;
+    res: { requests: V5.Request[] };
+  };
+  getLocalRequest: {
+    req: { requestUid: string };
+    res: { success: boolean; request?: V5.Request };
+  };
+  getLocalRequestCollections: {
+    req: Record<string, never>;
+    res: { collections: V5.Collection[] };
+  };
+  getLocalRequestCollectionTrees: {
+    req: Record<string, never>;
+    res: { collectionTrees: V5.CollectionTree[] };
+  };
+  getLocalRequestFolders: {
+    req: Record<string, never>;
+    res: { folders: FolderDescriptor[] };
+  };
+  createLocalRequest: {
+    req: {
+      name: string;
+      collectionUid?: string;
+      parentPath?: string;
+      seed?: Partial<V5.Request>;
+    };
+    res: { success: boolean; request?: V5.Request };
+  };
+  updateLocalRequest: {
+    req: {
+      requestUid: string;
+      updates: Partial<Omit<V5.Request, 'uid' | 'path'>>;
+    };
+    res: { success: boolean };
+  };
+  deleteLocalRequest: {
+    req: { requestUid: string };
+    res: { success: boolean };
+  };
+  createLocalRequestCollection: {
+    req: { name: string };
+    res: { success: boolean; collection?: V5.Collection };
+  };
+  renameLocalRequestCollection: {
+    req: { collectionUid: string; name: string };
+    res: { success: boolean };
+  };
+  deleteLocalRequestCollection: {
+    req: { collectionUid: string };
+    res: { success: boolean };
+  };
+  createLocalRequestFolder: {
+    req: { name: string; parentPath: string };
+    res: { success: boolean; folder?: FolderDescriptor };
+  };
+  renameLocalRequestFolder: {
+    req: { folderUid: string; name: string };
+    res: { success: boolean };
+  };
+  deleteLocalRequestFolder: {
+    req: { folderUid: string };
+    res: { success: boolean };
+  };
+  /**
+   * Execute a persisted request or a draft. `requestUid` takes
+   * precedence when both are provided; `draft` is for unsaved editor
+   * state that the user wants to Send without persisting first.
+   */
+  executeRequest: {
+    req: {
+      requestUid?: string;
+      draft?: V5.Request;
+      environmentId?: string;
+    };
+    res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
+  };
+
   // ── Delay page ─────────────────────────────────────────────────
   'oh-delay-bypass': {
     req: { target: string };
@@ -467,6 +593,7 @@ export interface BridgeTabContract {
 export interface BridgeBroadcastContract {
   rulesUpdated: { rules: V5.Rule[]; timestamp?: number };
   templatesUpdated: { templates: V5.Template[] };
+  requestsUpdated: { requests: V5.Request[] };
   testRunFinished: { ownerType: TestRunOwnerType; ownerId: string; runId: string };
   testRunDeleted: { runId: string };
   testRunsClearedForOwner: { ownerType: TestRunOwnerType; ownerId: string };
@@ -480,6 +607,29 @@ export interface BridgeBroadcastContract {
    * instead of four separate broadcasts.
    */
   workspaceChanged: WorkspaceSnapshot;
+  /**
+   * Fires on any environment / workspace-variables / vault / active-env
+   * mutation in the active workspace. Carries the full 4-scope snapshot
+   * so `useEnvironments` stays in lockstep without per-field broadcasts.
+   */
+  environmentsChanged: EnvironmentsSnapshot;
+}
+
+// ── Variables / Environments ─────────────────────────────────────
+
+/**
+ * Snapshot of every variable-scoped state the UI cares about. Emitted
+ * as one atomic broadcast so consumers never see a half-applied switch
+ * (new active env but old var list, etc.).
+ *
+ * `activeEnvironmentId` is nullable — "No environment" is a valid state
+ * (Postman semantics); resolution still works via lower scopes.
+ */
+export interface EnvironmentsSnapshot {
+  environments: V5.Environment[];
+  activeEnvironmentId: string | null;
+  workspaceVariables: V5.WorkspaceVariables;
+  vault: V5.Vault;
 }
 
 export type BridgeRpcType = keyof BridgeRpcContract;

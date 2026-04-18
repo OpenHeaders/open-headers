@@ -6,7 +6,7 @@
  * workspace component.
  */
 
-import { FolderOutlined, SettingOutlined } from '@ant-design/icons';
+import { ApiOutlined, FolderOutlined, GlobalOutlined, LockOutlined, SettingOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/CommandPalette';
@@ -22,11 +22,17 @@ interface UseCommandPaletteDataOptions {
   templates: V5.Template[];
   localCollectionTrees: V5.CollectionTree[];
   templateCollectionTrees: V5.CollectionTree[];
+  requestCollectionTrees: V5.CollectionTree[];
   /** Effective paused uids — drives the yellow icon on rule items in the palette. */
   pausedUids: ReadonlySet<string>;
+  environments: V5.Environment[];
   openEditTab: (uid: string) => void;
   openCreateTab: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   openTemplateEditTab: (uid: string) => void;
+  openRequestEditTab: (uid: string, name: string, method?: string) => void;
+  openEnvironmentEdit: (uid: string, name: string) => void;
+  openWorkspaceVariables: () => void;
+  openVault: () => void;
   onOpenCreateMenu: () => void;
   onTogglePanel: (panel: 'sidebar' | 'bottomPanel' | 'inspector') => void;
   onShowShortcuts: () => void;
@@ -43,10 +49,16 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     rules,
     localCollectionTrees,
     templateCollectionTrees,
+    requestCollectionTrees,
     pausedUids,
+    environments,
     openEditTab,
     openCreateTab,
     openTemplateEditTab,
+    openRequestEditTab,
+    openEnvironmentEdit,
+    openWorkspaceVariables,
+    openVault,
     onOpenCreateMenu,
     onTogglePanel,
     onShowShortcuts,
@@ -141,6 +153,37 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       }
     }
 
+    // Request collections — one group per collection, same shape as
+    // the rules/templates groups so command-palette navigation is
+    // uniform.
+    for (const col of requestCollectionTrees) {
+      const requestItems: CommandPaletteItem[] = [];
+      const walkReq = (nodes: V5.TreeNode[]) => {
+        for (const node of nodes) {
+          if (node.type === 'request') {
+            requestItems.push({
+              id: `req-${node.uid}`,
+              icon: <ApiOutlined style={{ fontSize: 12 }} />,
+              label: node.name,
+              scope: node.method,
+              onSelect: () => openRequestEditTab(node.uid, node.name, node.method),
+            });
+          } else if (node.type === 'folder') {
+            walkReq(node.children);
+          }
+        }
+      };
+      walkReq(col.tree);
+      if (requestItems.length > 0) {
+        result.push({
+          id: `req-col-${col.uid}`,
+          icon: <ApiOutlined style={{ fontSize: 12 }} />,
+          label: col.name,
+          children: [{ id: `reqs-in-${col.uid}`, title: 'Requests', items: requestItems }],
+        });
+      }
+    }
+
     // Settings group — one drill target with one section per category,
     // each section holding the settings that belong to it. Label items
     // as "Category: Setting Label" so a non-drilled search still finds
@@ -174,10 +217,12 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
   }, [
     localCollectionTrees,
     templateCollectionTrees,
+    requestCollectionTrees,
     rules,
     pausedUids,
     openEditTab,
     openCreateTab,
+    openRequestEditTab,
     openTemplateEditTab,
     onOpenSettings,
   ]);
@@ -247,6 +292,32 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       ],
     });
 
+    const variableItems: CommandPaletteItem[] = [
+      {
+        id: 'cmd-open-workspace-vars',
+        icon: <SettingOutlined style={{ fontSize: 12 }} />,
+        label: 'Open Workspace Variables',
+        onSelect: openWorkspaceVariables,
+      },
+      {
+        id: 'cmd-open-vault',
+        icon: <LockOutlined style={{ fontSize: 12 }} />,
+        label: 'Open Vault',
+        onSelect: openVault,
+      },
+      ...environments.map((env) => ({
+        id: `cmd-open-env-${env.uid}`,
+        icon: <GlobalOutlined style={{ fontSize: 12 }} />,
+        label: `Open Environment: ${env.name}`,
+        onSelect: () => openEnvironmentEdit(env.uid, env.name),
+      })),
+    ];
+    result.push({
+      id: 'variables',
+      title: 'Variables',
+      items: variableItems,
+    });
+
     return result;
   }, [
     openCreateTab,
@@ -259,6 +330,10 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     toggleBottomLabel,
     toggleInspectorLabel,
     openSettingsLabel,
+    environments,
+    openEnvironmentEdit,
+    openWorkspaceVariables,
+    openVault,
   ]);
 
   return { groups, sections };

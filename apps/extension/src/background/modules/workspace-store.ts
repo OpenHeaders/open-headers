@@ -27,11 +27,8 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-
-const WORKSPACES_KEY = 'oh.workspaces';
-const ACTIVE_ID_KEY = 'oh.activeWorkspaceId';
+import { extensionStorage, OH } from '@/shared/storage';
 
 const DEFAULT_WORKSPACE_NAME = 'Default Workspace';
 const DEFAULT_WORKSPACE_COLOR = 'neutral';
@@ -145,7 +142,10 @@ export interface UpdateWorkspaceInput {
 }
 
 /** Update an existing workspace's metadata. */
-export async function updateWorkspace(id: string, updates: UpdateWorkspaceInput): Promise<V5.ExtensionWorkspace | null> {
+export async function updateWorkspace(
+  id: string,
+  updates: UpdateWorkspaceInput,
+): Promise<V5.ExtensionWorkspace | null> {
   const idx = workspaces.findIndex((w) => w.id === id);
   if (idx === -1) return null;
 
@@ -242,22 +242,19 @@ export async function setActiveWorkspaceId(id: string): Promise<boolean> {
 
 // ── Persistence ───────────────────────────────────────────────────────
 
-function persistWorkspaces(): Promise<void> {
-  return new Promise((resolve) => {
-    storage.local.set({ [WORKSPACES_KEY]: workspaces }, () => {
-      notifyChange();
-      resolve();
-    });
-  });
+async function persistWorkspaces(): Promise<void> {
+  await extensionStorage.set(OH.workspaces, workspaces);
+  notifyChange();
 }
 
-function persistActiveId(): Promise<void> {
-  return new Promise((resolve) => {
-    storage.local.set({ [ACTIVE_ID_KEY]: activeWorkspaceId }, () => {
-      notifyChange();
-      resolve();
-    });
-  });
+async function persistActiveId(): Promise<void> {
+  // Routed through the typed adapter even though `activeWorkspaceId` is
+  // nullable in-memory — the registry declares it as `string`, so we
+  // only call set once we have a real id.
+  if (activeWorkspaceId) {
+    await extensionStorage.set(OH.activeWorkspaceId, activeWorkspaceId);
+  }
+  notifyChange();
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────
@@ -269,15 +266,13 @@ function persistActiveId(): Promise<void> {
  * active workspace id.
  */
 export async function bootstrap(): Promise<void> {
-  const raw = await new Promise<Record<string, unknown>>((resolve) => {
-    storage.local.get([WORKSPACES_KEY, ACTIVE_ID_KEY], (result: Record<string, unknown>) => resolve(result));
+  const { list: storedList, active: storedActive } = await extensionStorage.getMany({
+    list: OH.workspaces,
+    active: OH.activeWorkspaceId,
   });
 
-  const storedList = raw[WORKSPACES_KEY];
-  const storedActive = raw[ACTIVE_ID_KEY];
-
   if (Array.isArray(storedList) && storedList.length > 0) {
-    workspaces = storedList as V5.ExtensionWorkspace[];
+    workspaces = storedList;
     const activeCandidate = typeof storedActive === 'string' ? storedActive : null;
     activeWorkspaceId =
       activeCandidate && workspaces.some((w) => w.id === activeCandidate)

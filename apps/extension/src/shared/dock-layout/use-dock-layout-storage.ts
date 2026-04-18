@@ -13,8 +13,8 @@
  * drop the toolLayout portion from its PersistedLayout record.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, storageKey, type StorageKey } from '@/shared/storage';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { extensionStorage, type StorageKey, storageKey } from '@/shared/storage';
 import type { ToolLayoutState } from './types';
 
 export interface DockLayoutStorageResult<T extends string> {

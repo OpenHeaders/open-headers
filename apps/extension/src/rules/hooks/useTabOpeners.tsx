@@ -64,6 +64,19 @@ export interface UseTabOpenersApi {
   openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
   openLandingTab: (view: LandingView) => void;
   openWorkspaceManager: () => void;
+  openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
+  openWorkspaceVariables: () => void;
+  openVault: () => void;
+  openCollectionVariables: (uid: string, name: string) => void;
+  openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
+  /**
+   * Open an unsaved request draft. Mirrors `openCreateTab` for rules —
+   * the tab starts dirty, nothing is persisted until the user clicks
+   * Save. `context` carries the destination the user picked (sidebar
+   * "Add Request" inside a collection/folder); the SaveToCollectionModal
+   * fills in when no context is available.
+   */
+  openCreateRequestTab: (context?: { collectionId?: string; folderPath?: string }) => void;
 }
 
 export function useTabOpeners({
@@ -361,6 +374,133 @@ export function useTabOpeners({
     });
   }, [allTabs, addTab, switchTab]);
 
+  const openEnvironmentEdit = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `env-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        if (autoRename) setPendingRenameTabId(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'env-edit',
+        environmentUid: uid,
+      });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openWorkspaceVariables = useCallback(() => {
+    const id = 'workspace-vars';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: 'Workspace Variables',
+      ruleType: '',
+      dirty: false,
+      mode: 'workspace-vars',
+    });
+  }, [allTabs, addTab, switchTab]);
+
+  const openVault = useCallback(() => {
+    const id = 'vault';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: 'Vault',
+      ruleType: '',
+      dirty: false,
+      mode: 'vault',
+    });
+  }, [allTabs, addTab, switchTab]);
+
+  const openCollectionVariables = useCallback(
+    (uid: string, name: string) => {
+      const id = `coll-vars-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: `${name} · Variables`,
+        ruleType: '',
+        dirty: false,
+        mode: 'collection-vars',
+        collectionUid: uid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openRequestEditTab = useCallback(
+    (uid: string, name: string, method = 'GET', autoRename = false) => {
+      const id = `request-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        if (autoRename) setPendingRenameTabId(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        // ruleType reused as a free-form "type hint" for the tab icon;
+        // using the HTTP method keeps the tab bar visually parseable.
+        ruleType: method,
+        dirty: false,
+        mode: 'request-edit',
+        requestUid: uid,
+      });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openCreateRequestTab = useCallback(
+    (context?: { collectionId?: string; folderPath?: string }) => {
+      // Generate a unique-per-workspace draft name so two "New Request"
+      // drafts side-by-side get (2), (3), … suffixes. Reuses the
+      // rule-draft numbering infrastructure through a type override;
+      // request drafts don't collide with rule drafts because they
+      // live in different stores (names are display-only either way).
+      const baseName = 'New Request';
+      const existingNames = new Set<string>();
+      for (const tab of allTabs) existingNames.add(tab.label);
+      let draftName = baseName;
+      let counter = 2;
+      while (existingNames.has(draftName)) {
+        draftName = `${baseName} (${counter++})`;
+      }
+
+      const tabId = `req-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      addTab({
+        id: tabId,
+        label: draftName,
+        // Draft tabs default to GET — the tab icon uses `ruleType` as
+        // the method hint, which flips once the user changes it.
+        ruleType: 'GET',
+        dirty: true,
+        mode: 'request-create',
+        draftName,
+        preferredCollectionId: context?.collectionId,
+        preferredFolderPath: context?.folderPath,
+      });
+      setPendingRenameTabId(tabId);
+    },
+    [allTabs, addTab],
+  );
+
   return {
     pendingRenameTabId,
     setPendingRenameTabId,
@@ -377,5 +517,11 @@ export function useTabOpeners({
     openSettingsTab,
     openLandingTab,
     openWorkspaceManager,
+    openEnvironmentEdit,
+    openWorkspaceVariables,
+    openVault,
+    openCollectionVariables,
+    openRequestEditTab,
+    openCreateRequestTab,
   };
 }
