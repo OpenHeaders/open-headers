@@ -34,6 +34,25 @@ export const TEMPLATE_FIELD_ORDER = [
   'updatedAt',
 ] as const;
 
+export const WORKSPACE_VARIABLES_FIELD_ORDER = ['schemaVersion', 'variables'] as const;
+
+export const VAULT_FIELD_ORDER = ['schemaVersion', 'secrets'] as const;
+
+export const ENVIRONMENT_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'variables'] as const;
+
+export const REQUEST_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'method',
+  'url',
+  'headers',
+  'params',
+  'auth',
+  'credentialsMode',
+  'body',
+] as const;
+
 /**
  * `path` is excluded from persisted YAML on purpose — it's the folder
  * name on disk (slug-uid), derivable from the filesystem. The runtime

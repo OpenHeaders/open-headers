@@ -1,0 +1,18 @@
+schemaVersion: 5
+uid: reqlogin
+name: Login
+method: POST
+url: "{{API_URL}}/auth/login"
+headers:
+  - key: Content-Type
+    value: application/json
+params:
+  - key: audit
+    value: dev
+    enabled: false
+auth:
+  type: bearer
+  token: "{{env.TOKEN}}"
+credentialsMode: omit
+body:
+  type: json

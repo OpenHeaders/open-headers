@@ -24,19 +24,28 @@
 export { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 export type { CollectionCodecContext } from './collection';
 export { parseCollection, serializeCollection } from './collection';
+export type { EnvironmentCodecInput, EnvironmentSerializeOutput } from './environment';
+export { parseEnvironment, serializeEnvironment } from './environment';
 export type { FolderCodecContext } from './folder';
 export { parseFolder, serializeFolder } from './folder';
 export { buildFreshDocument, mergeKnownFields } from './merge';
 export {
   COLLECTION_FIELD_ORDER,
+  ENVIRONMENT_FIELD_ORDER,
   FOLDER_FIELD_ORDER,
+  REQUEST_FIELD_ORDER,
   RULE_FIELD_ORDER,
   RUNTIME_ONLY_FIELDS,
   TEMPLATE_FIELD_ORDER,
+  VAULT_FIELD_ORDER,
   WORKSPACE_FIELD_ORDER,
+  WORKSPACE_VARIABLES_FIELD_ORDER,
 } from './ordering';
+export type { RequestCodecContext, RequestSerializeOutput, RequestSiblingFile } from './request';
+export { parseRequest, serializeRequest } from './request';
 export type { RuleCodecContext } from './rule';
 export { parseRule, serializeRule } from './rule';
 export type { TemplateCodecContext } from './template';
 export { parseTemplate, serializeTemplate } from './template';
+export { parseVault, parseWorkspaceVariables, serializeVault, serializeWorkspaceVariables } from './variables';
 export { parseWorkspace, serializeWorkspace } from './workspace';

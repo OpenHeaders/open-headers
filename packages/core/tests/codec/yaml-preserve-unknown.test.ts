@@ -12,15 +12,23 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseCollection,
+  parseEnvironment,
   parseFolder,
+  parseRequest,
   parseRule,
   parseTemplate,
+  parseVault,
   parseWorkspace,
+  parseWorkspaceVariables,
   serializeCollection,
+  serializeEnvironment,
   serializeFolder,
+  serializeRequest,
   serializeRule,
   serializeTemplate,
+  serializeVault,
   serializeWorkspace,
+  serializeWorkspaceVariables,
 } from '../../src/codec/yaml';
 import { mergePatch } from '../../src/schemas/document';
 
@@ -125,5 +133,59 @@ describe('yaml codec — preserve-unknown on identity write', () => {
     const out = serializeWorkspace(write);
     expect(out).toContain('description: Updated description');
     expect(out).toContain('teamNotes: from-the-future');
+  });
+
+  it('workspace-vars.yaml retains unknown top-level key', () => {
+    const raw = `schemaVersion: 5
+variables: []
+futureMeta: keep-me
+`;
+    const parsed = parseWorkspaceVariables(raw);
+    const write = mergePatch(parsed, () => {});
+    expect(serializeWorkspaceVariables(write)).toBe(raw);
+  });
+
+  it('workspace-vars.secret.yaml (vault) retains unknown top-level key', () => {
+    const raw = `schemaVersion: 5
+secrets: []
+rotationPolicy: monthly
+`;
+    const parsed = parseVault(raw);
+    const write = mergePatch(parsed, () => {});
+    expect(serializeVault(write)).toBe(raw);
+  });
+
+  it('environment default file retains unknown top-level key', () => {
+    const defaultRaw = `schemaVersion: 5
+uid: env00001
+name: staging
+variables: []
+futureMeta: retain
+`;
+    const parsed = parseEnvironment({ default: defaultRaw });
+    const write = mergePatch(parsed, () => {});
+    const out = serializeEnvironment(write);
+    expect(out.default).toBe(defaultRaw);
+  });
+
+  it('request.yaml retains unknown top-level key', () => {
+    const raw = `schemaVersion: 5
+uid: reqlogin
+name: Login
+method: POST
+url: "{{API_URL}}/auth/login"
+headers: []
+params: []
+auth:
+  type: none
+body:
+  type: none
+futureMeta:
+  owner: platform-team
+`;
+    const parsed = parseRequest(raw, { path: 'requests/auth-c0ll1111/login-reqlogin' });
+    const write = mergePatch(parsed, () => {});
+    const out = serializeRequest(write);
+    expect(out.requestYaml).toBe(raw);
   });
 });

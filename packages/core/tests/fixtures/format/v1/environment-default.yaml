@@ -1,0 +1,10 @@
+schemaVersion: 5
+uid: env00001
+name: staging
+variables:
+  - name: API_URL
+    value: https://staging.openheaders.io
+    type: default
+  - name: FEATURE_FLAG
+    value: "true"
+    type: default
