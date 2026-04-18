@@ -203,4 +203,24 @@ describe('RequestExecutor', () => {
     expect(snapshot.status).toBe(0);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  // ── Cookie-jar policy (ARCHITECTURE.md §14) ────────────────────────
+
+  it("defaults to credentials: 'omit' when the request doesn't opt in", async () => {
+    await executeRequestDraft(makeRequest());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.credentials).toBe('omit');
+  });
+
+  it("explicit credentialsMode: 'omit' stays omit", async () => {
+    await executeRequestDraft(makeRequest({ credentialsMode: 'omit' }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.credentials).toBe('omit');
+  });
+
+  it("credentialsMode: 'include' rides the browser cookie jar", async () => {
+    await executeRequestDraft(makeRequest({ credentialsMode: 'include' }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.credentials).toBe('include');
+  });
 });

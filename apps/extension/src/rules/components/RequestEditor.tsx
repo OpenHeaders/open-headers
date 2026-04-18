@@ -123,6 +123,8 @@ interface Draft {
   params: Row[];
   auth: V5.AuthConfig;
   body: V5.RequestBody;
+  /** Wire-level cookie policy. Omitted → executor's 'omit' default. */
+  credentialsMode?: V5.CredentialsMode;
 }
 
 function headersFromV5(list: V5.RequestHeader[]): Row[] {
@@ -147,6 +149,7 @@ function draftFromRequest(req: V5.Request): Draft {
     params: paramsFromV5(req.params),
     auth: req.auth,
     body: req.body,
+    credentialsMode: req.credentialsMode,
   };
 }
 
@@ -169,6 +172,7 @@ function fingerprint(d: Draft): string {
     params: d.params.filter((p) => p.key.trim()).map((p) => [p.key, p.value, p.enabled]),
     auth: d.auth,
     body: d.body,
+    credentialsMode: d.credentialsMode ?? 'omit',
   });
 }
 
@@ -246,6 +250,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         params: rowsToV5<V5.QueryParam>(draft.params),
         auth: draft.auth,
         body: draft.body,
+        credentialsMode: draft.credentialsMode,
       });
       return;
     }
@@ -257,6 +262,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       params: rowsToV5<V5.QueryParam>(draft.params),
       auth: draft.auth,
       body: draft.body,
+      credentialsMode: draft.credentialsMode,
     };
     void updateRequest(requestUid, updates).then((ok) => {
       if (ok) {
@@ -300,6 +306,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       params: rowsToV5<V5.QueryParam>(draft.params),
       auth: draft.auth,
       body: draft.body,
+      credentialsMode: draft.credentialsMode,
     };
     const snapshot = await execute({ draft: draftRequest });
     setSending(false);
@@ -407,8 +414,15 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
               },
               {
                 key: 'auth',
-                label: `Auth · ${draft.auth.type}`,
-                children: <AuthEditor auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />,
+                label: `Auth · ${draft.auth.type}${draft.credentialsMode === 'include' ? ' · cookies' : ''}`,
+                children: (
+                  <AuthEditor
+                    auth={draft.auth}
+                    onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                    credentialsMode={draft.credentialsMode}
+                    onCredentialsModeChange={(credentialsMode) => setDraft((d) => ({ ...d, credentialsMode }))}
+                  />
+                ),
               },
             ]}
           />
@@ -573,9 +587,12 @@ function bodyPlaceholder(type: V5.BodyType): string {
 interface AuthEditorProps {
   auth: V5.AuthConfig;
   onChange: (auth: V5.AuthConfig) => void;
+  /** Wire-level cookie policy. `undefined` treated as `'omit'`. */
+  credentialsMode: V5.CredentialsMode | undefined;
+  onCredentialsModeChange: (next: V5.CredentialsMode | undefined) => void;
 }
 
-const AuthEditor: React.FC<AuthEditorProps> = ({ auth, onChange }) => {
+const AuthEditor: React.FC<AuthEditorProps> = ({ auth, onChange, credentialsMode, onCredentialsModeChange }) => {
   const handleTypeChange = (type: AuthKind) => {
     // Switch to defaults for each auth type rather than carrying
     // fields across — avoids a type-mismatch mess if the user
@@ -651,6 +668,57 @@ const AuthEditor: React.FC<AuthEditorProps> = ({ auth, onChange }) => {
             : 'Auth inherits from the parent collection (reserved — inheritance lands with request scripts).'}
         </Text>
       )}
+
+      <CookiePolicySection value={credentialsMode} onChange={onCredentialsModeChange} />
+    </div>
+  );
+};
+
+// ── Cookie-jar policy ─────────────────────────────────────────────
+
+interface CookiePolicySectionProps {
+  value: V5.CredentialsMode | undefined;
+  onChange: (next: V5.CredentialsMode | undefined) => void;
+}
+
+const CookiePolicySection: React.FC<CookiePolicySectionProps> = ({ value, onChange }) => {
+  const { token } = theme.useToken();
+  const include = value === 'include';
+  return (
+    <div
+      style={{
+        marginTop: 20,
+        paddingTop: 16,
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
+      }}
+    >
+      <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
+        COOKIES
+      </Text>
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={include}
+          // Normalize "unchecked" back to `undefined` so the persisted
+          // shape stays minimal (explicit 'omit' is stored only when a
+          // user ever toggled it).
+          onChange={(e) => onChange(e.target.checked ? 'include' : undefined)}
+          style={{ marginTop: 2 }}
+        />
+        <div>
+          <Text style={{ fontSize: 12 }}>Include browser cookies</Text>
+          {include ? (
+            <Tag color="warning" style={{ marginLeft: 8, fontSize: 10 }}>
+              Can leak session cookies
+            </Tag>
+          ) : null}
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+            {include
+              ? "Rides the browser's cookie jar (like a logged-in tab). Use sparingly — any cookie that matches this URL's domain will be attached, including your active session."
+              : "Default. Requests send with no cookies attached. Matches Postman's desktop / API-testing behaviour."}
+          </Text>
+        </div>
+      </label>
     </div>
   );
 };

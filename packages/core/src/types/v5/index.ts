@@ -19,6 +19,7 @@ export type {
   AuthConfig,
   AuthType,
   BodyType,
+  CredentialsMode,
   HttpMethod,
   QueryParam,
   Request,

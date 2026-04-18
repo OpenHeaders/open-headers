@@ -72,6 +72,18 @@ export interface RequestBody {
 // Assembled from request.yaml + body.* + scripts.js by the reader layer.
 // Not stored as a single file — the writer splits it back into separate files.
 
+/**
+ * Wire-level cookie policy for the request executor.
+ *   - `'omit'`    — do not attach any cookies (default; safe under `<all_urls>`).
+ *   - `'include'` — ride the browser's cookie jar for this request.
+ *     Rarely needed; surfaces a warning in the UI because it can leak
+ *     a user's logged-in session to arbitrary hosts.
+ *
+ * Matches `RequestInit.credentials` values the executor passes to fetch.
+ * See ARCHITECTURE.md §14 — cookie-jar policy.
+ */
+export type CredentialsMode = 'omit' | 'include';
+
 export interface Request {
   /** Persisted format version for `request.yaml`. */
   schemaVersion: number;
@@ -88,6 +100,13 @@ export interface Request {
   headers: RequestHeader[];
   params: QueryParam[];
   auth: AuthConfig;
+  /**
+   * Cookie-jar policy. Omitted → executor defaults to `'omit'` (safe).
+   * Users opt in to `'include'` per request via a UI toggle; the UI
+   * surfaces a warning because it attaches the browser's cookies to
+   * arbitrary hosts.
+   */
+  credentialsMode?: CredentialsMode;
 
   // From body.* file
   body: RequestBody;

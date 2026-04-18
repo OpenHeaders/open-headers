@@ -29,7 +29,14 @@
 import type { V5 } from '@openheaders/core/types';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
-import { getActiveEnvironmentId, getEnvironments, getVault, getWorkspaceVariables } from './environment-store';
+import { withHostAccess } from '@/shared/fetch/with-host-access';
+import {
+  getActiveEnvironmentId,
+  getDefaultEnvironmentId,
+  getEnvironments,
+  getVault,
+  getWorkspaceVariables,
+} from './environment-store';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
 
@@ -92,6 +99,7 @@ function buildResolver(): VariableResolver {
   resolver.setVault(getVault());
   resolver.setEnvironments(getEnvironments());
   resolver.setActiveEnvironmentId(getActiveEnvironmentId());
+  resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
   resolver.setWorkspaceVariables(getWorkspaceVariables());
   // Feed variables from BOTH collection trees. Their uids are generated
   // from the same pool and never collide, so keying a single Map by uid
@@ -123,6 +131,8 @@ interface ResolvedRequest {
   url: string;
   headers: Array<{ key: string; value: string }>;
   body: { type: V5.BodyType; content: string };
+  /** Wire-level cookie policy. `'omit'` unless the request opts into `'include'`. */
+  credentialsMode: V5.CredentialsMode;
   // auth and params are folded into `url` + `headers` below.
 }
 
@@ -172,6 +182,10 @@ function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Re
     url: resolvedUrl,
     headers,
     body: { type: bodyType, content: resolvedBodyContent },
+    // Cookie-jar policy. `'omit'` is the safe default when the request
+    // doesn't explicitly opt in — even with `<all_urls>` granted, we
+    // never ride the browser's cookie jar by accident. See ARCHITECTURE.md §14.
+    credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
   };
 }
 
@@ -248,6 +262,11 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
     // Postman do by default.
     redirect: 'follow',
     cache: 'no-store',
+    // Wire-level cookie policy: default `'omit'` so nothing leaks from
+    // the browser's cookie jar to arbitrary hosts. Users opt in per
+    // request via `credentialsMode: 'include'` (UI toggle warns about
+    // the leak potential).
+    credentials: req.credentialsMode,
   };
 
   const fetchHeaders = new Headers();
@@ -270,7 +289,9 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
 
   const startedAt = performance.now();
   try {
-    const response = await fetch(req.url, init);
+    // Every user-facing fetch routes through withHostAccess — today a
+    // pass-through, tomorrow the gate for a minimal-permissions SKU.
+    const response = await withHostAccess(req.url, () => fetch(req.url, init));
     const durationMs = Math.round(performance.now() - startedAt);
 
     const headers: Array<{ key: string; value: string }> = [];
