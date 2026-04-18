@@ -8,6 +8,12 @@ export type {
   TemplateNode,
   TreeNode,
 } from './collection';
+// ── Extension workspace (browser-side multi-workspace record) ─────
+export type {
+  ExtensionWorkspace,
+  ExtensionWorkspaceKind,
+  ExtensionWorkspaceSource,
+} from './extension-workspace';
 // ── Request ────────────────────────────────────────────────────────
 export type {
   AuthConfig,

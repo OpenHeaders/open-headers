@@ -154,7 +154,12 @@ import { createElement, useMemo, useState } from 'react';
 
 // ── Icon registry ─────────────────────────────────────────────────
 
-const ICON_MAP: Record<string, React.ComponentType<{ twoToneColor?: string; style?: React.CSSProperties }>> = {
+/**
+ * The full TwoTone icon registry. Exported so other pickers
+ * (WorkspaceIdentityPicker, etc.) can share the same icon set
+ * instead of maintaining a parallel list.
+ */
+export const TWO_TONE_ICON_MAP: Record<string, React.ComponentType<{ twoToneColor?: string; style?: React.CSSProperties }>> = {
   ThunderboltTwoTone,
   FireTwoTone,
   RocketTwoTone,
@@ -298,7 +303,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ twoToneColor?: string; styl
   Html5TwoTone,
 };
 
-const ALL_ICON_KEYS = Object.keys(ICON_MAP);
+const ALL_ICON_KEYS = Object.keys(TWO_TONE_ICON_MAP);
 
 /** Default icon per rule type */
 const DEFAULT_ICON: Record<string, string> = {
@@ -322,7 +327,7 @@ export function renderTwoToneIcon(
   style?: React.CSSProperties,
   twoToneColor?: string,
 ): React.ReactNode {
-  const Icon = ICON_MAP[iconKey];
+  const Icon = TWO_TONE_ICON_MAP[iconKey];
   if (!Icon) return null;
   return createElement(Icon, { style, twoToneColor });
 }
@@ -374,7 +379,7 @@ const TwoToneIconPicker: React.FC<TwoToneIconPickerProps> = ({ value, onChange }
         }}
       >
         {filtered.map((key) => {
-          const Icon = ICON_MAP[key];
+          const Icon = TWO_TONE_ICON_MAP[key];
           const isSelected = value === key;
           return (
             <Tooltip key={key} title={key.replace('TwoTone', '')} placement="top">
@@ -414,7 +419,7 @@ const TwoToneIconPicker: React.FC<TwoToneIconPickerProps> = ({ value, onChange }
     </div>
   );
 
-  const SelectedIcon = value ? ICON_MAP[value] : null;
+  const SelectedIcon = value ? TWO_TONE_ICON_MAP[value] : null;
 
   return (
     <Popover content={grid} trigger="click" open={open} onOpenChange={setOpen} placement="bottomLeft">

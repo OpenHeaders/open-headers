@@ -1,31 +1,20 @@
 /**
- * Persistence for the action-button view mode. Uses `chrome.storage.sync`
- * so the preference follows the user across machines — same store the
- * other UI prefs use (settings store, popup tab).
+ * Persistence for the action-button view mode. Uses the typed
+ * `extensionStorage` adapter with the `OH.viewMode` key spec — stored
+ * in `chrome.storage.sync` so the preference follows the user across
+ * machines.
  */
 
-import { getBrowserAPI } from '@/types/browser';
-import { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY, type ViewMode } from './types';
+import { extensionStorage, OH } from '@/shared/storage';
+import { DEFAULT_VIEW_MODE, type ViewMode } from './types';
 
-function isViewMode(value: unknown): value is ViewMode {
-  return value === 'popup' || value === 'sidepanel';
+export async function getViewMode(): Promise<ViewMode> {
+  const stored = await extensionStorage.get(OH.viewMode);
+  return stored ?? DEFAULT_VIEW_MODE;
 }
 
-export function getViewMode(): Promise<ViewMode> {
-  return new Promise((resolve) => {
-    const api = getBrowserAPI();
-    api.storage.sync.get([VIEW_MODE_STORAGE_KEY], (result: Record<string, unknown>) => {
-      const stored = result[VIEW_MODE_STORAGE_KEY];
-      resolve(isViewMode(stored) ? stored : DEFAULT_VIEW_MODE);
-    });
-  });
-}
-
-export function setViewMode(mode: ViewMode): Promise<void> {
-  return new Promise((resolve) => {
-    const api = getBrowserAPI();
-    api.storage.sync.set({ [VIEW_MODE_STORAGE_KEY]: mode }, () => resolve());
-  });
+export async function setViewMode(mode: ViewMode): Promise<void> {
+  await extensionStorage.set(OH.viewMode, mode);
 }
 
 /**
@@ -33,14 +22,7 @@ export function setViewMode(mode: ViewMode): Promise<void> {
  * Returns a disposer.
  */
 export function onViewModeChanged(handler: (mode: ViewMode) => void): () => void {
-  const api = getBrowserAPI();
-  const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
-    if (areaName !== 'sync') return;
-    const change = changes[VIEW_MODE_STORAGE_KEY];
-    if (!change) return;
-    const next = change.newValue;
-    if (isViewMode(next)) handler(next);
-  };
-  api.storage.onChanged.addListener(listener);
-  return () => api.storage.onChanged.removeListener(listener);
+  return extensionStorage.subscribe(OH.viewMode, (next) => {
+    if (next === 'popup' || next === 'sidepanel') handler(next);
+  });
 }

@@ -4,15 +4,11 @@
  */
 
 import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
-import type { V5 } from '@openheaders/core/types';
 import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { get as getSetting, subscribeKey } from '@/rules/settings/store';
 import { handleRecordingInboundMessage, requestInitialRecordingSync } from './modules/recording-sync';
-import { scheduleUpdate } from './modules/rule-engine';
-import { setRulesFromApp } from './modules/rule-store';
-import { generateRulesHash } from './modules/utils';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
 // ── Configuration (live from settings store) ─────────────────────
@@ -37,7 +33,6 @@ let pingTimer: ReturnType<typeof setInterval> | null = null;
 let isConnecting = false;
 let isConnected = false;
 let reconnectAttempts = 0;
-let lastRulesHash = '';
 
 // ── Keep-alive ────────────────────────────────────────────────────
 //
@@ -123,23 +118,12 @@ function broadcastConnectionStatus(): void {
 }
 
 // ── Message handling ──────────────────────────────────────────────
-
-function handleRulesUpdate(rules: V5.Rule[]): void {
-  logger.info('WebSocket', `Received ${rules.length} rules from desktop`);
-
-  const newHash = generateRulesHash(rules);
-  const changed = newHash !== lastRulesHash;
-  lastRulesHash = newHash;
-
-  setRulesFromApp(rules);
-
-  if (changed) {
-    scheduleUpdate('rules', { immediate: true });
-  }
-
-  // Notify popup
-  broadcast('rulesUpdated', { rules, timestamp: Date.now() });
-}
+//
+// Inbound messages today are limited to recording sync and recording
+// hotkey signals. Team-workspace data sync (rules/collections/vars)
+// lands in v2 — when it does, it'll go through a workspace-scoped
+// channel that writes to the per-workspace stores, not a global
+// rules-push like the pre-v5 "desktop pushes rules" flow.
 
 function handleOtherMessages(parsed: Record<string, unknown>): void {
   if (handleRecordingInboundMessage(parsed)) return;
@@ -155,12 +139,7 @@ function createMessageHandler(): (event: MessageEvent) => void {
   return (event: MessageEvent) => {
     try {
       const parsed = JSON.parse(event.data as string);
-
-      if (parsed.type === 'rulesUpdate' && Array.isArray(parsed.rules)) {
-        handleRulesUpdate(parsed.rules as V5.Rule[]);
-      } else {
-        handleOtherMessages(parsed);
-      }
+      handleOtherMessages(parsed);
     } catch (err) {
       logger.warn('WebSocket', 'Error parsing message:', err);
     }
@@ -177,6 +156,13 @@ function handleConnectionFailure(): void {
   broadcastConnectionStatus();
 
   if (reconnectTimer) clearTimeout(reconnectTimer);
+
+  // Auto-connect off → don't schedule a reconnect. A failed manual
+  // connect should NOT silently transition into a retry loop.
+  if (!getSetting('desktop.connection.autoConnect')) {
+    reconnectAttempts = 0;
+    return;
+  }
 
   reconnectAttempts++;
   const delay = Math.min(getReconnectDelayMs() * 2 ** (reconnectAttempts - 1), getMaxReconnectDelayMs());
@@ -255,6 +241,13 @@ function connectStandardWebSocket(url: string): void {
 // ── Public API ────────────────────────────────────────────────────
 
 export function connectWebSocket(): Promise<boolean> {
+  // Single autoConnect chokepoint. Every entry path — initial boot,
+  // keep-alive alarm, URL-change subscriber, reconnect scheduler — funnels
+  // through here. If the user has Auto-Connect off, no path can sneak a
+  // socket open. Previously each call site had to remember to gate, and
+  // the URL-change subscriber + reconnect-on-failure both bypassed it.
+  if (!getSetting('desktop.connection.autoConnect')) return Promise.resolve(false);
+
   if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(true);
   if (isConnecting) return Promise.resolve(false);
 
@@ -285,8 +278,11 @@ export function connectWebSocket(): Promise<boolean> {
 }
 
 /**
- * Force-close the current connection and start a fresh one. Used when
- * `desktop.connection.url` or TLS requirement changes at runtime.
+ * Force-close the current connection and (if autoConnect is on) start
+ * a fresh one. Used when `desktop.connection.url` or TLS requirement
+ * changes at runtime. The connect call itself enforces the autoConnect
+ * gate, so passing through here when the setting is off cleanly tears
+ * down the old socket without opening a new one.
  */
 export function reconnectWebSocket(): void {
   if (reconnectTimer) {

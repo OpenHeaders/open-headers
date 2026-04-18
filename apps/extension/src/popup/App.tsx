@@ -7,8 +7,8 @@ import { logger } from '@utils/logger';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { extensionStorage, UI } from '@/shared/storage';
 import { useSurface } from '@/shared/surface';
-import { getBrowserAPI } from '@/types/browser';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
@@ -65,17 +65,15 @@ const AppContent: React.FC = () => {
 
   // Load persisted tab on mount
   useEffect(() => {
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.local.get(['activeRulesTab'], (result: Record<string, unknown>) => {
-      setActiveTab((result.activeRulesTab as string) || 'all-rules');
+    void extensionStorage.get(UI.activeRulesTab).then((saved) => {
+      setActiveTab(saved ?? 'all-rules');
     });
   }, []);
 
   // Persist tab changes
   const handleTabChange = useCallback((key: string) => {
     setActiveTab(key);
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.local.set({ activeRulesTab: key });
+    void extensionStorage.set(UI.activeRulesTab, key);
   }, []);
 
   useEffect(() => {

@@ -59,7 +59,8 @@ import { isRuleComplete, parseTestTargetUrl, resolvePauseState } from '@openhead
 import { broadcast } from '@utils/bridge';
 import { runtime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { applyAllRules, applyAllRulesAsync, getPauseMarkers } from '../dnr-manager';
+import { applyAllRules, applyAllRulesAsync } from '../dnr-manager';
+import { getPauseMarkers } from './pause-markers-store';
 import { matchRulesToRequest } from './request-tracker';
 import { getRules } from './rule-store';
 import { arbitrate, type ShadowAttribution } from './shadow-arbitration';

@@ -1,18 +1,23 @@
 /**
- * RuleContext — provides V5 rules to all popup components.
+ * RuleContext — provides the active workspace's V5 rules to the popup,
+ * sidepanel, and workspace.html surfaces.
  *
- * Rules come from the background service worker (which receives them
- * from the desktop app via WebSocket, or manages them locally).
- * The popup uses V5.Rule types directly from @openheaders/core.
+ * Data is owned by the background service worker. This context:
+ *   1. Fetches the active-workspace snapshot once on mount (popupOpen RPC).
+ *   2. Subscribes to `rulesUpdated` / `templatesUpdated` for live mutations.
+ *   3. Subscribes to `workspaceChanged` for atomic re-hydration on
+ *      workspace switch (and list mutations).
+ *   4. Rebinds the pause-markers storage listener to the new workspace
+ *      id's key when the active workspace changes.
  */
 
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { computePausedUids, resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
-import { storage } from '@utils/browser-api';
 import type React from 'react';
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { extensionStorage, UI, wsKeys } from '@/shared/storage';
 
 // ── Context shape ─────────────────────────────────────────────────
 
@@ -188,15 +193,25 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   const [templates, setTemplates] = useState<V5.Template[]>([]);
   const [templateCollections, setTemplateCollections] = useState<V5.Collection[]>([]);
   const [templateCollectionTrees, setTemplateCollectionTrees] = useState<V5.CollectionTree[]>([]);
+  // Workspace id tracked as BOTH ref (used in sync mutators without
+  // triggering re-renders) AND state (drives the pause-markers
+  // subscription rebind on workspace switch).
+  const activeWorkspaceIdRef = useRef<string | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
-  // ── Load rules from background ────────────────────────────────
+  // ── Load active workspace snapshot ────────────────────────────
 
   const loadRules = useCallback(() => {
     call('popupOpen')
-      .then((resp) => {
+      .then(async (resp) => {
         setRules(resp.rules ?? []);
         setIsConnected(resp.connected ?? false);
         setIsStatusLoaded(true);
+        activeWorkspaceIdRef.current = resp.activeWorkspaceId;
+        setActiveWorkspaceId(resp.activeWorkspaceId);
+        // Load workspace-scoped pause markers for the active workspace.
+        const record = await extensionStorage.get(wsKeys(resp.activeWorkspaceId).pauseMarkers);
+        setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
       })
       .catch(() => {
         setIsConnected(false);
@@ -238,15 +253,9 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     loadLocalCollections();
     loadTemplateData();
 
-    // Load pause markers
-    storage.local.get(['pauseMarkers'], (result: Record<string, unknown>) => {
-      const record = result.pauseMarkers as Record<string, PauseMarker> | undefined;
-      if (record && typeof record === 'object') {
-        setPauseMarkers(new Map(Object.entries(record)));
-      }
-    });
-
-    // Listen for rule/template updates from background (pushed on any store mutation)
+    // Listen for rule/template updates from background (pushed on any
+    // store mutation). Active-workspace switches come through
+    // `workspaceChanged` and trigger a full refresh.
     const unsubRules = subscribe('rulesUpdated', (payload) => {
       if (Array.isArray(payload.rules)) setRules(payload.rules);
       loadLocalCollections();
@@ -255,18 +264,16 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
       if (Array.isArray(payload.templates)) setTemplates(payload.templates);
       loadTemplateData();
     });
+    const unsubWorkspace = subscribe('workspaceChanged', (payload) => {
+      activeWorkspaceIdRef.current = payload.activeWorkspaceId;
+      setActiveWorkspaceId(payload.activeWorkspaceId);
+      // Full refetch — rules/collections/templates/pauseMarkers all
+      // change atomically on workspace switch.
+      refreshRules();
+    });
     const unsubConnection = subscribe('connectionStatus', (payload) => {
       setIsConnected(payload.connected ?? false);
     });
-
-    // Listen for pause marker changes
-    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-      if (areaName === 'local' && changes.pauseMarkers) {
-        const record = (changes.pauseMarkers.newValue as Record<string, PauseMarker>) || {};
-        setPauseMarkers(new Map(Object.entries(record)));
-      }
-    };
-    storage.onChanged.addListener(handleStorageChange);
 
     // Periodic refresh (connection status can change)
     const intervalId = setInterval(loadRules, 5000);
@@ -274,28 +281,37 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     return () => {
       unsubRules();
       unsubTemplates();
+      unsubWorkspace();
       unsubConnection();
-      storage.onChanged.removeListener(handleStorageChange);
       clearInterval(intervalId);
     };
-  }, [loadRules, loadLocalCollections, loadTemplateData]);
+  }, [loadRules, loadLocalCollections, loadTemplateData, refreshRules]);
+
+  // Pause-marker storage subscription — rebinds when the active
+  // workspace id changes so every switch picks up the new workspace's
+  // persisted markers without a polling round-trip.
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    const unsub = extensionStorage.subscribe(wsKeys(activeWorkspaceId).pauseMarkers, (record) => {
+      setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
+    });
+    return unsub;
+  }, [activeWorkspaceId]);
 
   // ── UI state persistence ──────────────────────────────────────
 
   useEffect(() => {
-    storage.local.get(['popupState'], (result: Record<string, unknown>) => {
-      const popupState = result.popupState as { uiState?: Partial<UiState> } | undefined;
+    void extensionStorage.get(UI.popupState).then((popupState) => {
       if (popupState?.uiState) {
-        setUiState((prev) => ({ ...prev, ...popupState.uiState }));
+        setUiState((prev) => ({ ...prev, ...(popupState.uiState as Partial<UiState>) }));
       }
     });
   }, []);
 
   useEffect(() => {
     const saveTimeout = setTimeout(() => {
-      storage.local.get(['popupState'], (result: Record<string, unknown>) => {
-        const popupState = (result.popupState || {}) as Record<string, unknown>;
-        storage.local.set({ popupState: { ...popupState, uiState } });
+      void extensionStorage.get(UI.popupState).then((prev) => {
+        void extensionStorage.set(UI.popupState, { ...(prev ?? {}), uiState });
       });
     }, 500);
     return () => clearTimeout(saveTimeout);
@@ -316,7 +332,10 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     (mutator: (prev: ReadonlyMap<string, PauseMarker>) => Map<string, PauseMarker>) => {
       setPauseMarkers((prev) => {
         const next = mutator(prev);
-        storage.local.set({ pauseMarkers: Object.fromEntries(next) });
+        const workspaceId = activeWorkspaceIdRef.current;
+        if (workspaceId) {
+          void extensionStorage.set(wsKeys(workspaceId).pauseMarkers, Object.fromEntries(next));
+        }
         return next;
       });
     },

@@ -1,10 +1,10 @@
 /**
  * useDockLayoutStorage — persist and restore dock layout state via
- * chrome.storage.local.
+ * the typed `extensionStorage` adapter.
  *
- * Each surface (workspace, devtools panel) provides its own storage key
- * so their layouts are independent. The hook loads persisted state on
- * mount and exposes a debounced `onPersist` callback that
+ * Each surface (workspace, devtools panel) provides its own storage
+ * key so their layouts are independent. The hook loads persisted
+ * state on mount and exposes a debounced `onPersist` callback that
  * `useDockLayout` calls after every mutation.
  *
  * The workspace currently bundles dock persistence inside
@@ -13,8 +13,8 @@
  * drop the toolLayout portion from its PersistedLayout record.
  */
 
-import { storage } from '@utils/browser-api';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { extensionStorage, storageKey, type StorageKey } from '@/shared/storage';
 import type { ToolLayoutState } from './types';
 
 export interface DockLayoutStorageResult<T extends string> {
@@ -28,34 +28,31 @@ export interface DockLayoutStorageResult<T extends string> {
 
 const DEBOUNCE_MS = 500;
 
-export function useDockLayoutStorage<T extends string>(storageKey: string): DockLayoutStorageResult<T> {
+export function useDockLayoutStorage<T extends string>(keyName: string): DockLayoutStorageResult<T> {
   const [initial, setInitial] = useState<Partial<ToolLayoutState<T>> | null>(null);
   const [ready, setReady] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Derive a typed spec from the caller-provided string. The surface
+  // chooses its own key so we keep the spec local instead of pinning
+  // it in the shared registry.
+  const spec: StorageKey<Partial<ToolLayoutState<T>>> = storageKey(keyName);
+
   useEffect(() => {
-    storage.local.get([storageKey], (result: Record<string, unknown>) => {
-      const saved = result[storageKey] as Partial<ToolLayoutState<T>> | undefined;
-      if (saved?.docks) {
-        setInitial(saved);
-      }
+    void extensionStorage.get(spec).then((saved) => {
+      if (saved?.docks) setInitial(saved);
       setReady(true);
     });
-  }, [storageKey]);
+  }, [spec]);
 
   const onPersist = useCallback(
     (state: ToolLayoutState<T>) => {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        storage.local.set({
-          [storageKey]: {
-            docks: state.docks,
-            hidden: state.hidden,
-          },
-        });
+        void extensionStorage.set(spec, { docks: state.docks, hidden: state.hidden });
       }, DEBOUNCE_MS);
     },
-    [storageKey],
+    [spec],
   );
 
   return { initial, onPersist, ready };

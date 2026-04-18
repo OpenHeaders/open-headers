@@ -9,6 +9,7 @@ import { switchViewMode } from '@/shared/view-mode';
 import { getBrowserAPI } from '@/types/browser';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import { SurfaceTargetIcon } from './SurfaceTargetIcon';
+import WorkspacePill from './WorkspacePill';
 
 const { Title, Text } = Typography;
 
@@ -99,6 +100,7 @@ const Header: React.FC = () => {
               </span>
             </Tooltip>
           ))}
+        <WorkspacePill />
       </Space>
       <Space align="center" size={12}>
         <div

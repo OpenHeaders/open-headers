@@ -236,7 +236,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   onPageInfoChange,
   onRowActionsChange,
 }) => {
-  const { rules, isConnected, localCollectionTrees, pauseMarkers, togglePause } = useRules();
+  const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
   const { message } = App.useApp();
   const { setFocusedRowIndex } = useKeyboardNav();
   const togglePauseFocusedLabel = usePopupShortcutLabel('toggle-pause-focused');
@@ -297,9 +297,6 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const handleToggle = useCallback(
     (record: CollectionTreeRecord) => {
       if (record.nodeType === 'rule') {
-        const isLocal = record.uid.startsWith('local-');
-        const canToggle = isLocal || isConnected;
-        if (!canToggle) return;
         call('toggleRule', { ruleId: record.uid, enabled: !record.isEnabled })
           .then((resp) => {
             if (!resp?.success) message.error('Failed to toggle rule');
@@ -309,7 +306,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
         togglePause(record.path);
       }
     },
-    [isConnected, message, togglePause],
+    [message, togglePause],
   );
 
   const handleVisualize = useCallback((record: CollectionTreeRecord) => {
@@ -540,8 +537,6 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       fixed: 'right',
       render: (_: unknown, record: CollectionTreeRecord) => {
         if (record.nodeType === 'rule') {
-          const isLocal = record.uid.startsWith('local-');
-          const canToggle = isLocal || isConnected;
           return (
             // biome-ignore lint/a11y/useKeyWithClickEvents: stops row expand on switch click
             // biome-ignore lint/a11y/noStaticElementInteractions: stops row expand on switch click
@@ -549,12 +544,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
-              <Switch
-                size="small"
-                checked={record.isEnabled}
-                disabled={!canToggle}
-                onChange={() => handleToggle(record)}
-              />
+              <Switch size="small" checked={record.isEnabled} onChange={() => handleToggle(record)} />
               <Tooltip title="Test this rule against a URL">
                 <Button
                   type="text"

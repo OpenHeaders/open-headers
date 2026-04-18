@@ -2,11 +2,17 @@ import type { V5 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock rule-store before importing the store under test. The store reads
-// rule + collection state through getRules / getLocalCollectionTrees when
+// rule + collection state through getRules / getCollectionTrees when
 // computing owner hashes — the mocks let each test feed a tailored snapshot.
 vi.mock('@/background/modules/rule-store', () => ({
   getRules: vi.fn(() => [] as V5.Rule[]),
-  getLocalCollectionTrees: vi.fn(() => [] as V5.CollectionTree[]),
+  getCollectionTrees: vi.fn(() => [] as V5.CollectionTree[]),
+}));
+
+// Workspace-store is a singleton; the test-run-store keys its I/O off
+// `getActiveWorkspaceId()`, so we pin a deterministic id per test.
+vi.mock('@/background/modules/workspace-store', () => ({
+  getActiveWorkspaceId: vi.fn(() => 'test-ws'),
 }));
 
 vi.mock('@utils/logger', () => ({
@@ -18,7 +24,7 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-import { getLocalCollectionTrees, getRules } from '@/background/modules/rule-store';
+import { getCollectionTrees, getRules } from '@/background/modules/rule-store';
 import {
   computeOwnerHash,
   deleteAllTestRunsForOwner,
@@ -31,7 +37,7 @@ import {
 } from '@/background/modules/test-run-store';
 
 const mockGetRules = getRules as unknown as ReturnType<typeof vi.fn>;
-const mockGetTrees = getLocalCollectionTrees as unknown as ReturnType<typeof vi.fn>;
+const mockGetTrees = getCollectionTrees as unknown as ReturnType<typeof vi.fn>;
 
 // In-memory storage backing for chrome.storage.local. The chrome mock
 // declared in tests/__mocks__/chrome.ts is a noop; we override per-test

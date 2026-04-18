@@ -1,33 +1,39 @@
 /**
- * Rule Store — single source of truth for V5 rules in the extension.
+ * Rule Store — single source of truth for V5 rules in the active
+ * workspace.
  *
- * Two rule sources coexist:
- *   1. **App rules** — from WebSocket (desktop app), authoritative when connected
- *   2. **Local rules** — created in the extension popup, always available
+ * The store holds the CURRENT active workspace's rules/collections/
+ * folders in memory. Switching workspaces flushes any pending writes,
+ * loads the target workspace's persisted data, and replaces the
+ * singletons atomically.
  *
- * getRules() returns the merged set (app rules first, then local rules).
- * Local rules have `uid` prefixed with "local-" to avoid collisions.
+ * Persistence — every key scoped under the active workspace id:
+ *   - rules       → `oh.ws.<id>.rules`
+ *   - collections → `oh.ws.<id>.collections`
+ *   - folders     → `oh.ws.<id>.folders`
  *
- * Local rules belong to **local collections** with the same
- * Collection → Folder → Rule hierarchy as the desktop (V5.CollectionTree).
- * The tree is derived at read time from flat stored data (paths encode hierarchy).
- *
- * Persistence:
- *   - App rules → storage.local key "v5Rules" (cache for offline restart)
- *   - Local rules → storage.local key "v5LocalRules" (user-created, permanent)
- *   - Local collections → storage.local key "v5LocalCollections"
- *   - Local folders → storage.local key "v5LocalFolders"
+ * Tree shape is derived at read time from flat stored data (path encodes
+ * hierarchy). On-disk layout for team workspaces (v2) mirrors this with
+ * Bruno-style YAML directories managed by the desktop app.
  */
 
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { getActiveWorkspaceId } from './workspace-store';
 
-const APP_STORAGE_KEY = 'v5Rules';
-const LOCAL_RULES_KEY = 'v5LocalRules';
-const LOCAL_COLLECTIONS_KEY = 'v5LocalCollections';
-const LOCAL_FOLDERS_KEY = 'v5LocalFolders';
+// ── Storage key helpers ─────────────────────────────────────────────
+
+function rulesKey(workspaceId: string): string {
+  return `oh.ws.${workspaceId}.rules`;
+}
+function collectionsKey(workspaceId: string): string {
+  return `oh.ws.${workspaceId}.collections`;
+}
+function foldersKey(workspaceId: string): string {
+  return `oh.ws.${workspaceId}.folders`;
+}
 
 /** Stored folder — same concept as a directory with _folder.yaml on disk. */
 export interface LocalFolder {
@@ -37,10 +43,14 @@ export interface LocalFolder {
   name: string;
 }
 
-let appRules: V5.Rule[] = [];
-let localRules: V5.Rule[] = [];
-let localCollections: V5.Collection[] = [];
-let localFolders: LocalFolder[] = [];
+// ── In-memory state (scoped to the currently active workspace) ──────
+
+let rules: V5.Rule[] = [];
+let collections: V5.Collection[] = [];
+let folders: LocalFolder[] = [];
+/** Id of the workspace whose data is currently loaded. Null until first
+ *  hydration. Used to assert that reads/writes never outlive a switch. */
+let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
 
@@ -60,31 +70,23 @@ function notifyChange(): void {
 // ── Reads ────────────────────────────────────────────────────────────
 
 export function getRules(): V5.Rule[] {
-  return [...appRules, ...localRules];
+  return rules;
 }
 
-export function getAppRules(): V5.Rule[] {
-  return appRules;
+export function getCollections(): V5.Collection[] {
+  return collections;
 }
 
-export function getLocalRules(): V5.Rule[] {
-  return localRules;
-}
-
-export function getLocalCollections(): V5.Collection[] {
-  return localCollections;
-}
-
-export function getLocalFolders(): LocalFolder[] {
-  return localFolders;
+export function getFolders(): LocalFolder[] {
+  return folders;
 }
 
 /**
  * Build CollectionTree[] from flat collections + folders + rules.
- * Same structure as the desktop derives from the filesystem.
+ * Same structure the desktop derives from the filesystem.
  */
-export function getLocalCollectionTrees(): V5.CollectionTree[] {
-  return localCollections.map((collection) => {
+export function getCollectionTrees(): V5.CollectionTree[] {
+  return collections.map((collection) => {
     const tree = buildTreeForPath(collection.path);
     return { ...collection, tree };
   });
@@ -94,10 +96,9 @@ export function getLocalCollectionTrees(): V5.CollectionTree[] {
 function buildTreeForPath(parentPath: string): V5.TreeNode[] {
   const nodes: V5.TreeNode[] = [];
 
-  // Find folders that are direct children of this path
-  const childFolders = localFolders.filter((f) => {
-    const parentOfFolder = f.path.substring(0, f.path.lastIndexOf('/'));
-    return parentOfFolder === parentPath;
+  const childFolders = folders.filter((f) => {
+    const parent = f.path.substring(0, f.path.lastIndexOf('/'));
+    return parent === parentPath;
   });
 
   for (const folder of childFolders) {
@@ -111,10 +112,9 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
     });
   }
 
-  // Find rules that are direct children of this path
-  const childRules = localRules.filter((r) => {
-    const parentOfRule = r.path.substring(0, r.path.lastIndexOf('/'));
-    return parentOfRule === parentPath;
+  const childRules = rules.filter((r) => {
+    const parent = r.path.substring(0, r.path.lastIndexOf('/'));
+    return parent === parentPath;
   });
 
   for (const rule of childRules) {
@@ -131,29 +131,22 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
   return nodes;
 }
 
-// ── App rules (from WebSocket) ───────────────────────────────────────
-
-export function setRulesFromApp(incoming: V5.Rule[]): void {
-  appRules = incoming;
-  storage.local.set({ [APP_STORAGE_KEY]: incoming }, () => {
-    logger.debug('RuleStore', `Persisted ${incoming.length} app rules to storage`);
-  });
-  notifyChange();
-}
-
-// ── Local collections ────────────────────────────────────────────────
+// ── Collections ─────────────────────────────────────────────────────
 
 const DEFAULT_COLLECTION_NAME = 'My Rules';
 
-function generateLocalUid(): string {
-  return `local-${generateUid()}`;
+function assertLoaded(): string {
+  if (!loadedWorkspaceId) {
+    throw new Error('RuleStore: mutation before hydration');
+  }
+  return loadedWorkspaceId;
 }
 
 export function ensureDefaultCollection(): V5.Collection {
-  const existing = localCollections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
+  const existing = collections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
 
-  const uid = generateLocalUid();
+  const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     uid,
@@ -161,13 +154,13 @@ export function ensureDefaultCollection(): V5.Collection {
     name: DEFAULT_COLLECTION_NAME,
     variables: [],
   };
-  localCollections = [...localCollections, collection];
-  persistLocalCollections();
+  collections = [...collections, collection];
+  void persistCollections();
   return collection;
 }
 
-export function createLocalCollection(name: string): V5.Collection {
-  const uid = generateLocalUid();
+export function createCollection(name: string): V5.Collection {
+  const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     uid,
@@ -175,182 +168,236 @@ export function createLocalCollection(name: string): V5.Collection {
     name,
     variables: [],
   };
-  localCollections = [...localCollections, collection];
-  persistLocalCollections();
+  collections = [...collections, collection];
+  void persistCollections();
   return collection;
 }
 
-export function renameLocalCollection(uid: string, name: string): boolean {
-  const index = localCollections.findIndex((c) => c.uid === uid);
+export function renameCollection(uid: string, name: string): boolean {
+  const index = collections.findIndex((c) => c.uid === uid);
   if (index === -1) return false;
-  localCollections = [
-    ...localCollections.slice(0, index),
-    { ...localCollections[index], name },
-    ...localCollections.slice(index + 1),
+  collections = [
+    ...collections.slice(0, index),
+    { ...collections[index], name },
+    ...collections.slice(index + 1),
   ];
-  persistLocalCollections();
+  void persistCollections();
   return true;
 }
 
-export function deleteLocalCollection(uid: string): boolean {
-  const collection = localCollections.find((c) => c.uid === uid);
+export function deleteCollection(uid: string): boolean {
+  const collection = collections.find((c) => c.uid === uid);
   if (!collection) return false;
 
-  localCollections = localCollections.filter((c) => c.uid !== uid);
-  localRules = localRules.filter((r) => !r.path.startsWith(collection.path));
-  localFolders = localFolders.filter((f) => !f.path.startsWith(collection.path));
-  persistLocalCollections();
-  persistLocalRules();
-  persistLocalFolders();
+  collections = collections.filter((c) => c.uid !== uid);
+  rules = rules.filter((r) => !r.path.startsWith(collection.path));
+  folders = folders.filter((f) => !f.path.startsWith(collection.path));
+  void persistCollections();
+  void persistRules();
+  void persistFolders();
   return true;
 }
 
-function persistLocalCollections(): void {
-  storage.local.set({ [LOCAL_COLLECTIONS_KEY]: localCollections }, () => {
-    logger.debug('RuleStore', `Persisted ${localCollections.length} local collections to storage`);
-  });
-  notifyChange();
-}
+// ── Folders ─────────────────────────────────────────────────────────
 
-// ── Local folders ───────────────────────────────────────────────────
-
-/**
- * Create a folder within a collection or another folder.
- * parentPath is the path of the parent (collection or folder).
- */
-export function createLocalFolder(name: string, parentPath: string): LocalFolder {
-  const uid = generateLocalUid();
+export function createFolder(name: string, parentPath: string): LocalFolder {
+  const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
     uid,
     path: `${parentPath}/${folderName}`,
     name,
   };
-  localFolders = [...localFolders, folder];
-  persistLocalFolders();
+  folders = [...folders, folder];
+  void persistFolders();
   return folder;
 }
 
-export function renameLocalFolder(uid: string, name: string): boolean {
-  const index = localFolders.findIndex((f) => f.uid === uid);
+export function renameFolder(uid: string, name: string): boolean {
+  const index = folders.findIndex((f) => f.uid === uid);
   if (index === -1) return false;
-  localFolders = [...localFolders.slice(0, index), { ...localFolders[index], name }, ...localFolders.slice(index + 1)];
-  persistLocalFolders();
+  folders = [...folders.slice(0, index), { ...folders[index], name }, ...folders.slice(index + 1)];
+  void persistFolders();
   return true;
 }
 
-export function deleteLocalFolder(uid: string): boolean {
-  const folder = localFolders.find((f) => f.uid === uid);
+export function deleteFolder(uid: string): boolean {
+  const folder = folders.find((f) => f.uid === uid);
   if (!folder) return false;
 
-  // Delete the folder and all nested folders + rules
-  localFolders = localFolders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-  localRules = localRules.filter((r) => !r.path.startsWith(`${folder.path}/`));
-  persistLocalFolders();
-  persistLocalRules();
+  folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
+  rules = rules.filter((r) => !r.path.startsWith(`${folder.path}/`));
+  void persistFolders();
+  void persistRules();
   return true;
 }
 
-function persistLocalFolders(): void {
-  storage.local.set({ [LOCAL_FOLDERS_KEY]: localFolders }, () => {
-    logger.debug('RuleStore', `Persisted ${localFolders.length} local folders to storage`);
-  });
-  notifyChange();
-}
-
-// ── Local rules (extension CRUD) ─────────────────────────────────────
+// ── Rules ───────────────────────────────────────────────────────────
 
 /**
- * Add a local rule. parentPath is the collection or folder path.
+ * Add a rule. `parentPath` is the collection or folder path.
  */
-export function addLocalRule(rule: Omit<V5.Rule, 'uid' | 'path'>, parentPath: string): V5.Rule {
-  const uid = generateLocalUid();
+export function addRule(rule: Omit<V5.Rule, 'uid' | 'path'>, parentPath: string): V5.Rule {
+  const uid = generateUid();
   const folderName = toFolderName(rule.name, uid);
   const created: V5.Rule = {
     ...rule,
     uid,
     path: `${parentPath}/${folderName}`,
   } as V5.Rule;
-  localRules = [...localRules, created];
-  persistLocalRules();
+  rules = [...rules, created];
+  void persistRules();
   return created;
 }
 
 /**
- * Add a local rule within a collection (by collection uid).
- * Resolves the collection path, then calls addLocalRule.
+ * Add a rule within a collection by uid. Resolves the collection path,
+ * then calls `addRule`.
  */
-export function addLocalRuleToCollection(rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid: string): V5.Rule {
-  const collection = localCollections.find((c) => c.uid === collectionUid);
+export function addRuleToCollection(rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid: string): V5.Rule {
+  const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `rules/${collectionUid}`;
-  return addLocalRule(rule, parentPath);
+  return addRule(rule, parentPath);
 }
 
-export function updateLocalRule(uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): boolean {
-  const index = localRules.findIndex((r) => r.uid === uid);
+export function updateRule(uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): boolean {
+  const index = rules.findIndex((r) => r.uid === uid);
   if (index === -1) return false;
 
-  const existing = localRules[index];
+  const existing = rules[index];
   const updated = { ...existing, ...updates } as V5.Rule;
-  localRules = [...localRules.slice(0, index), updated, ...localRules.slice(index + 1)];
-  persistLocalRules();
+  rules = [...rules.slice(0, index), updated, ...rules.slice(index + 1)];
+  void persistRules();
   return true;
 }
 
-export function deleteLocalRule(uid: string): boolean {
-  const before = localRules.length;
-  localRules = localRules.filter((r) => r.uid !== uid);
-  if (localRules.length === before) return false;
-  persistLocalRules();
+export function deleteRule(uid: string): boolean {
+  const before = rules.length;
+  rules = rules.filter((r) => r.uid !== uid);
+  if (rules.length === before) return false;
+  void persistRules();
   return true;
 }
 
-export function toggleLocalRule(uid: string, enabled: boolean): boolean {
-  const index = localRules.findIndex((r) => r.uid === uid);
+export function toggleRule(uid: string, enabled: boolean): boolean {
+  const index = rules.findIndex((r) => r.uid === uid);
   if (index === -1) return false;
-  localRules = [...localRules.slice(0, index), { ...localRules[index], enabled }, ...localRules.slice(index + 1)];
-  persistLocalRules();
+  rules = [...rules.slice(0, index), { ...rules[index], enabled }, ...rules.slice(index + 1)];
+  void persistRules();
   return true;
 }
 
-function persistLocalRules(): void {
-  storage.local.set({ [LOCAL_RULES_KEY]: localRules }, () => {
-    logger.debug('RuleStore', `Persisted ${localRules.length} local rules to storage`);
+// ── Persistence (scoped to loadedWorkspaceId) ──────────────────────
+
+function persistRules(): Promise<void> {
+  const workspaceId = assertLoaded();
+  return new Promise((resolve) => {
+    storage.local.set({ [rulesKey(workspaceId)]: rules }, () => {
+      logger.debug('RuleStore', `Persisted ${rules.length} rules (ws=${workspaceId})`);
+      notifyChange();
+      resolve();
+    });
   });
-  notifyChange();
 }
 
-// ── Hydration ────────────────────────────────────────────────────────
+function persistCollections(): Promise<void> {
+  const workspaceId = assertLoaded();
+  return new Promise((resolve) => {
+    storage.local.set({ [collectionsKey(workspaceId)]: collections }, () => {
+      logger.debug('RuleStore', `Persisted ${collections.length} collections (ws=${workspaceId})`);
+      notifyChange();
+      resolve();
+    });
+  });
+}
 
-export function hydrateFromStorage(): Promise<V5.Rule[]> {
+function persistFolders(): Promise<void> {
+  const workspaceId = assertLoaded();
+  return new Promise((resolve) => {
+    storage.local.set({ [foldersKey(workspaceId)]: folders }, () => {
+      logger.debug('RuleStore', `Persisted ${folders.length} folders (ws=${workspaceId})`);
+      notifyChange();
+      resolve();
+    });
+  });
+}
+
+// ── Hydration / workspace switch ────────────────────────────────────
+
+interface WorkspaceSnapshot {
+  rules: V5.Rule[];
+  collections: V5.Collection[];
+  folders: LocalFolder[];
+}
+
+async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   return new Promise((resolve) => {
     storage.local.get(
-      [APP_STORAGE_KEY, LOCAL_RULES_KEY, LOCAL_COLLECTIONS_KEY, LOCAL_FOLDERS_KEY],
+      [rulesKey(workspaceId), collectionsKey(workspaceId), foldersKey(workspaceId)],
       (result: Record<string, unknown>) => {
-        const storedApp = result[APP_STORAGE_KEY] as V5.Rule[] | undefined;
-        const storedLocal = result[LOCAL_RULES_KEY] as V5.Rule[] | undefined;
-        const storedCollections = result[LOCAL_COLLECTIONS_KEY] as V5.Collection[] | undefined;
-        const storedFolders = result[LOCAL_FOLDERS_KEY] as LocalFolder[] | undefined;
-
-        if (Array.isArray(storedApp) && storedApp.length > 0) {
-          appRules = storedApp;
-          logger.info('RuleStore', `Hydrated ${storedApp.length} app rules from storage`);
-        }
-        if (Array.isArray(storedLocal) && storedLocal.length > 0) {
-          localRules = storedLocal;
-          logger.info('RuleStore', `Hydrated ${storedLocal.length} local rules from storage`);
-        }
-        if (Array.isArray(storedCollections) && storedCollections.length > 0) {
-          localCollections = storedCollections;
-          logger.info('RuleStore', `Hydrated ${storedCollections.length} local collections from storage`);
-        }
-        if (Array.isArray(storedFolders) && storedFolders.length > 0) {
-          localFolders = storedFolders;
-          logger.info('RuleStore', `Hydrated ${storedFolders.length} local folders from storage`);
-        }
-
-        resolve(getRules());
+        resolve({
+          rules: Array.isArray(result[rulesKey(workspaceId)]) ? (result[rulesKey(workspaceId)] as V5.Rule[]) : [],
+          collections: Array.isArray(result[collectionsKey(workspaceId)])
+            ? (result[collectionsKey(workspaceId)] as V5.Collection[])
+            : [],
+          folders: Array.isArray(result[foldersKey(workspaceId)])
+            ? (result[foldersKey(workspaceId)] as LocalFolder[])
+            : [],
+        });
       },
     );
   });
+}
+
+/**
+ * Hydrate the store from the currently active workspace's persisted
+ * data. Call after `workspaceStore.bootstrap()` so getActiveWorkspaceId
+ * resolves. Idempotent — subsequent calls re-load from storage, which
+ * is fine because the single owner (background.ts) calls us once.
+ */
+export async function hydrateFromStorage(): Promise<V5.Rule[]> {
+  const workspaceId = getActiveWorkspaceId();
+  const snapshot = await readWorkspaceSnapshot(workspaceId);
+  rules = snapshot.rules;
+  collections = snapshot.collections;
+  folders = snapshot.folders;
+  loadedWorkspaceId = workspaceId;
+  logger.info(
+    'RuleStore',
+    `Hydrated ws=${workspaceId}: ${rules.length} rules, ${collections.length} collections, ${folders.length} folders`,
+  );
+  return getRules();
+}
+
+/**
+ * Atomically swap the in-memory state to a different workspace. Reads
+ * the target workspace's persisted data first, then replaces the
+ * singletons and notifies. Writes in flight for the previous workspace
+ * are serialized through the in-process event loop — storage.local.set
+ * calls are queued in order, so calling this after the last mutation
+ * in workspace A is safe.
+ */
+export async function switchToWorkspace(workspaceId: string): Promise<void> {
+  if (loadedWorkspaceId === workspaceId) return;
+  const snapshot = await readWorkspaceSnapshot(workspaceId);
+  rules = snapshot.rules;
+  collections = snapshot.collections;
+  folders = snapshot.folders;
+  loadedWorkspaceId = workspaceId;
+  logger.info(
+    'RuleStore',
+    `Switched to ws=${workspaceId}: ${rules.length} rules, ${collections.length} collections, ${folders.length} folders`,
+  );
+  notifyChange();
+}
+
+// ── Test helpers ────────────────────────────────────────────────────
+
+/** Test-only: reset the module without touching storage. */
+export function __resetForTests(): void {
+  rules = [];
+  collections = [];
+  folders = [];
+  loadedWorkspaceId = null;
+  changeListeners.clear();
 }

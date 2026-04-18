@@ -1,0 +1,317 @@
+/**
+ * Workspace Store — authoritative list of extension workspaces and the
+ * active workspace id.
+ *
+ * Single responsibility: CRUD over `ExtensionWorkspace[]` + the active
+ * pointer. Does NOT touch per-workspace data (rules, templates, test
+ * runs, etc.) — that's owned by the respective stores, which the
+ * orchestrator in background.ts flushes and swaps when `setActive` is
+ * called.
+ *
+ * Storage:
+ *   - `oh.workspaces`         — ExtensionWorkspace[], sorted by sortIndex
+ *   - `oh.activeWorkspaceId`  — string (always points at a live workspace)
+ *
+ * Invariants enforced at this boundary:
+ *   - list is non-empty after bootstrap (default workspace seeded)
+ *   - list cannot shrink below 1 entry (deleteWorkspace of the last one
+ *     is rejected; UI should gate this with a disabled delete button)
+ *   - activeWorkspaceId always matches some workspace in the list; on
+ *     delete-of-active, the "next-best" workspace becomes active
+ *     (previous in sort order, or first if deleted one was first)
+ *
+ * Per-workspace data for a duplicated or deleted workspace is NOT
+ * managed here — orchestrator code in background.ts calls into each
+ * store's own per-workspace entry points.
+ */
+
+import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
+import { storage } from '@utils/browser-api';
+import { logger } from '@utils/logger';
+
+const WORKSPACES_KEY = 'oh.workspaces';
+const ACTIVE_ID_KEY = 'oh.activeWorkspaceId';
+
+const DEFAULT_WORKSPACE_NAME = 'Default Workspace';
+const DEFAULT_WORKSPACE_COLOR = 'neutral';
+/**
+ * Starting two-tone icon for the seeded default workspace. Kept in
+ * sync with `DEFAULT_WORKSPACE_ICON` in
+ * `rules/components/workspace-colors.ts` — the UI reads the TwoTone
+ * registry key directly from the workspace entity, so this constant
+ * only needs to match one of the registered icons.
+ */
+const DEFAULT_WORKSPACE_ICON = 'AppstoreTwoTone';
+
+// ── In-memory state ───────────────────────────────────────────────────
+
+let workspaces: V5.ExtensionWorkspace[] = [];
+let activeWorkspaceId: string | null = null;
+
+// ── Change listeners ──────────────────────────────────────────────────
+
+type ChangeListener = () => void;
+const listeners: Set<ChangeListener> = new Set();
+
+export function onWorkspaceStoreChange(listener: ChangeListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function notifyChange(): void {
+  for (const fn of listeners) fn();
+}
+
+// ── Reads ─────────────────────────────────────────────────────────────
+
+/** Current workspace list, sorted by sortIndex (ascending), then createdAt. */
+export function listWorkspaces(): V5.ExtensionWorkspace[] {
+  return [...workspaces].sort(compareWorkspaces);
+}
+
+export function getActiveWorkspaceId(): string {
+  if (!activeWorkspaceId) {
+    throw new Error('WorkspaceStore: read before bootstrap — activeWorkspaceId is null');
+  }
+  return activeWorkspaceId;
+}
+
+export function getActiveWorkspace(): V5.ExtensionWorkspace {
+  const id = getActiveWorkspaceId();
+  const ws = workspaces.find((w) => w.id === id);
+  if (!ws) {
+    throw new Error(`WorkspaceStore: active id "${id}" not found in list`);
+  }
+  return ws;
+}
+
+export function getWorkspace(id: string): V5.ExtensionWorkspace | null {
+  return workspaces.find((w) => w.id === id) ?? null;
+}
+
+// ── Sort helpers ──────────────────────────────────────────────────────
+
+function compareWorkspaces(a: V5.ExtensionWorkspace, b: V5.ExtensionWorkspace): number {
+  if (a.sortIndex !== b.sortIndex) return a.sortIndex - b.sortIndex;
+  return a.createdAt.localeCompare(b.createdAt);
+}
+
+function nextSortIndex(): number {
+  if (workspaces.length === 0) return 0;
+  return Math.max(...workspaces.map((w) => w.sortIndex)) + 1;
+}
+
+// ── Writes ────────────────────────────────────────────────────────────
+
+export interface CreateWorkspaceInput {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  kind?: V5.ExtensionWorkspaceKind;
+}
+
+export async function createWorkspace(input: CreateWorkspaceInput): Promise<V5.ExtensionWorkspace> {
+  const now = new Date().toISOString();
+  const workspace: V5.ExtensionWorkspace = {
+    id: generateUid(),
+    kind: input.kind ?? 'personal',
+    name: input.name.trim() || 'Untitled Workspace',
+    description: input.description,
+    color: input.color,
+    icon: input.icon,
+    sortIndex: nextSortIndex(),
+    createdAt: now,
+    updatedAt: now,
+  };
+  workspaces = [...workspaces, workspace];
+  await persistWorkspaces();
+  logger.info('WorkspaceStore', `Created workspace ${workspace.id} "${workspace.name}"`);
+  return workspace;
+}
+
+export interface UpdateWorkspaceInput {
+  name?: string;
+  description?: string;
+  color?: string;
+  /**
+   * Icon patch semantics:
+   *   - `undefined` → don't touch the existing icon
+   *   - `null`      → clear the icon (workspace renders as a color square)
+   *   - `string`    → set the icon to this TwoTone registry key
+   */
+  icon?: string | null;
+}
+
+/** Update an existing workspace's metadata. */
+export async function updateWorkspace(id: string, updates: UpdateWorkspaceInput): Promise<V5.ExtensionWorkspace | null> {
+  const idx = workspaces.findIndex((w) => w.id === id);
+  if (idx === -1) return null;
+
+  const prev = workspaces[idx];
+  const next: V5.ExtensionWorkspace = {
+    ...prev,
+    ...(updates.name !== undefined && { name: updates.name.trim() || prev.name }),
+    ...(updates.description !== undefined && { description: updates.description }),
+    ...(updates.color !== undefined && { color: updates.color }),
+    updatedAt: new Date().toISOString(),
+  };
+  if (updates.icon === null) {
+    delete next.icon;
+  } else if (updates.icon !== undefined) {
+    next.icon = updates.icon;
+  }
+  workspaces = [...workspaces.slice(0, idx), next, ...workspaces.slice(idx + 1)];
+  await persistWorkspaces();
+  return next;
+}
+
+/**
+ * Delete a workspace. Rejects if it would empty the list.
+ *
+ * If the active workspace is deleted, the caller is responsible for
+ * triggering a `switchActiveWorkspace` via the orchestrator — this
+ * module only updates the active pointer, not the per-workspace data
+ * stores (rule-store, template-store, etc.).
+ *
+ * Returns the new active workspace id (unchanged when a non-active
+ * workspace was deleted), or `null` if the delete was rejected.
+ */
+export async function deleteWorkspace(id: string): Promise<string | null> {
+  if (workspaces.length <= 1) {
+    logger.info('WorkspaceStore', `Refusing to delete last workspace ${id}`);
+    return null;
+  }
+  const idx = workspaces.findIndex((w) => w.id === id);
+  if (idx === -1) return activeWorkspaceId;
+
+  const wasActive = activeWorkspaceId === id;
+  workspaces = [...workspaces.slice(0, idx), ...workspaces.slice(idx + 1)];
+
+  if (wasActive) {
+    // Pick neighbour: previous by sort order, else first remaining.
+    const sorted = [...workspaces].sort(compareWorkspaces);
+    const neighbour = sorted[Math.max(0, idx - 1)] ?? sorted[0];
+    activeWorkspaceId = neighbour.id;
+  }
+  await persistWorkspaces();
+  await persistActiveId();
+  return activeWorkspaceId;
+}
+
+/**
+ * Reorder workspaces to match the given id list. Ids not in the input
+ * are preserved at the end in their existing order. Used by
+ * drag-to-reorder in the switcher UI.
+ */
+export async function reorderWorkspaces(idOrder: readonly string[]): Promise<void> {
+  const byId = new Map(workspaces.map((w) => [w.id, w] as const));
+  const touched = new Set<string>();
+  const reordered: V5.ExtensionWorkspace[] = [];
+
+  let index = 0;
+  for (const id of idOrder) {
+    const ws = byId.get(id);
+    if (!ws || touched.has(id)) continue;
+    touched.add(id);
+    reordered.push({ ...ws, sortIndex: index++ });
+  }
+  for (const ws of workspaces) {
+    if (touched.has(ws.id)) continue;
+    reordered.push({ ...ws, sortIndex: index++ });
+  }
+  const now = new Date().toISOString();
+  workspaces = reordered.map((w) => ({ ...w, updatedAt: now }));
+  await persistWorkspaces();
+}
+
+/**
+ * Switch the active-workspace pointer. The orchestrator is responsible
+ * for calling the per-workspace-data stores' `switchToWorkspace` methods
+ * in response — this module does not own their in-memory state.
+ */
+export async function setActiveWorkspaceId(id: string): Promise<boolean> {
+  const target = workspaces.find((w) => w.id === id);
+  if (!target) return false;
+  if (activeWorkspaceId === id) return true;
+  activeWorkspaceId = id;
+  await persistActiveId();
+  return true;
+}
+
+// ── Persistence ───────────────────────────────────────────────────────
+
+function persistWorkspaces(): Promise<void> {
+  return new Promise((resolve) => {
+    storage.local.set({ [WORKSPACES_KEY]: workspaces }, () => {
+      notifyChange();
+      resolve();
+    });
+  });
+}
+
+function persistActiveId(): Promise<void> {
+  return new Promise((resolve) => {
+    storage.local.set({ [ACTIVE_ID_KEY]: activeWorkspaceId }, () => {
+      notifyChange();
+      resolve();
+    });
+  });
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────
+
+/**
+ * Load the workspace list from storage. If absent, seed a default
+ * workspace and set it active. Call exactly once at SW boot, before any
+ * per-workspace store is hydrated — the stores key their reads off the
+ * active workspace id.
+ */
+export async function bootstrap(): Promise<void> {
+  const raw = await new Promise<Record<string, unknown>>((resolve) => {
+    storage.local.get([WORKSPACES_KEY, ACTIVE_ID_KEY], (result: Record<string, unknown>) => resolve(result));
+  });
+
+  const storedList = raw[WORKSPACES_KEY];
+  const storedActive = raw[ACTIVE_ID_KEY];
+
+  if (Array.isArray(storedList) && storedList.length > 0) {
+    workspaces = storedList as V5.ExtensionWorkspace[];
+    const activeCandidate = typeof storedActive === 'string' ? storedActive : null;
+    activeWorkspaceId =
+      activeCandidate && workspaces.some((w) => w.id === activeCandidate)
+        ? activeCandidate
+        : [...workspaces].sort(compareWorkspaces)[0].id;
+    if (activeWorkspaceId !== storedActive) await persistActiveId();
+    logger.info('WorkspaceStore', `Loaded ${workspaces.length} workspace(s), active=${activeWorkspaceId}`);
+    return;
+  }
+
+  // First boot — seed a default personal workspace.
+  const now = new Date().toISOString();
+  const defaultWorkspace: V5.ExtensionWorkspace = {
+    id: generateUid(),
+    kind: 'personal',
+    name: DEFAULT_WORKSPACE_NAME,
+    color: DEFAULT_WORKSPACE_COLOR,
+    icon: DEFAULT_WORKSPACE_ICON,
+    sortIndex: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+  workspaces = [defaultWorkspace];
+  activeWorkspaceId = defaultWorkspace.id;
+  await persistWorkspaces();
+  await persistActiveId();
+  logger.info('WorkspaceStore', `Seeded default workspace ${defaultWorkspace.id}`);
+}
+
+// ── Test helpers ──────────────────────────────────────────────────────
+
+/** Test-only: reset module state without touching storage. */
+export function __resetForTests(): void {
+  workspaces = [];
+  activeWorkspaceId = null;
+  listeners.clear();
+}

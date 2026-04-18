@@ -14,13 +14,13 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { extensionStorage, UI } from '@/shared/storage';
 import { getBrowserAPI } from '@/types/browser';
 
 const logoUrl = getBrowserAPI().runtime.getURL('images/logo-pixel.svg');
 
 const { Text } = Typography;
 
-const STORAGE_KEY = 'onboardingCompleted';
 const TOTAL_STEPS = 7;
 
 interface OnboardingTourProps {
@@ -57,9 +57,8 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
   // On mount, check if onboarding should auto-show (first time)
   useEffect(() => {
     if (open !== null) return;
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.local.get([STORAGE_KEY], (result: Record<string, unknown>) => {
-      if (!result[STORAGE_KEY]) {
+    void extensionStorage.get(UI.onboardingCompleted).then((done) => {
+      if (!done) {
         // Set tour open immediately to hide ConnectionInfo, then show tour after brief layout settle
         setIsTourOpen(true);
         setTimeout(() => setIsVisible(true), 100);
@@ -83,8 +82,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
   const handleClose = useCallback(() => {
     setIsVisible(false);
     setCurrentStep(0);
-    const browserAPI = getBrowserAPI();
-    browserAPI.storage.local.set({ [STORAGE_KEY]: true });
+    void extensionStorage.set(UI.onboardingCompleted, true);
     onClose();
   }, [onClose]);
 

@@ -13,7 +13,8 @@ export type TabMode =
   | 'rule-flow'
   | 'run-report'
   | 'settings'
-  | 'landing';
+  | 'landing'
+  | 'workspace-manager';
 
 /** Variant of the startup landing tab — drives which view `LandingScreen` renders. */
 export type LandingView = 'home' | 'rules' | 'collections';

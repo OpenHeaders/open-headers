@@ -138,14 +138,13 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
   const complete = isRuleComplete(rule);
   const paused = pausedUids.has(rule.uid);
   const isActive = rule.enabled && complete && !paused;
-  const isLocal = rule.uid.startsWith('local-');
   const detail = useMemo(() => getActionDetail(rule), [rule]);
 
   // dnd-kit subscribes regardless so the hooks order stays stable, but in
   // read-only mode (test results) we hide the handle and ignore listeners.
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: rule.uid,
-    disabled: !isLocal || readOnly === true,
+    disabled: readOnly === true,
   });
 
   const style = {
@@ -155,11 +154,11 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
   };
 
   const handleToggle = (checked: boolean) => {
-    if (isLocal) void updateLocalRule(rule.uid, { enabled: checked });
+    void updateLocalRule(rule.uid, { enabled: checked });
   };
 
   const handleDelete = () => {
-    if (isLocal) void deleteLocalRule(rule.uid);
+    void deleteLocalRule(rule.uid);
   };
 
   // In test-result mode, clicking the card opens the side-panel detail
@@ -186,7 +185,7 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
       {!readOnly && (
         <div
           className="flow-rule-card-handle"
-          style={{ color: isLocal ? token.colorTextQuaternary : 'transparent', cursor: isLocal ? 'grab' : 'default' }}
+          style={{ color: token.colorTextQuaternary, cursor: 'grab' }}
           {...attributes}
           {...listeners}
         >
@@ -214,11 +213,6 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
             {complete && paused && (
               <Tag color="warning" style={{ fontSize: 10, margin: 0, lineHeight: '16px' }}>
                 Paused
-              </Tag>
-            )}
-            {!isLocal && (
-              <Tag color="blue" style={{ fontSize: 10, margin: 0, lineHeight: '16px' }}>
-                App
               </Tag>
             )}
             {statusOverlay && <StatusOverlayTag overlay={statusOverlay} />}
@@ -273,7 +267,7 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
       <div className="flow-rule-card-actions">
         {!readOnly && (
           <Tooltip title={rule.enabled ? 'Disable' : 'Enable'}>
-            <Switch size="small" checked={rule.enabled} onChange={handleToggle} disabled={!isLocal} />
+            <Switch size="small" checked={rule.enabled} onChange={handleToggle} />
           </Tooltip>
         )}
         <Tooltip title="Open in editor">
@@ -290,7 +284,6 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
           />
         </Tooltip>
         {!readOnly &&
-          isLocal &&
           (confirmOnDelete ? (
             <Popconfirm
               title="Delete this rule?"

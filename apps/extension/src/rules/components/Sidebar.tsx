@@ -472,7 +472,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         } else if (node.type === 'rule') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `rule-${node.uid}`;
-          const isLocal = node.uid.startsWith('local-');
           const fullRule = rules.find((r) => r.uid === node.uid);
           const complete = fullRule ? isRuleComplete(fullRule) : true;
           const rulePaused = pausedUids.has(node.uid);
@@ -511,8 +510,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             parentId,
             icon: buildRuleIcon({ ruleType: node.ruleType, rule: fullRule, isActive, paused: rulePaused }),
             badge,
-            canRename: isLocal,
-            canDelete: isLocal,
+            canRename: true,
+            canDelete: true,
             canAddChild: false,
             hoverAction: node.enabled
               ? {
@@ -526,18 +525,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onClick: () => handleToggleRule(node.uid, true),
                 },
             onOpen: () => onSelectRule(node.uid),
-            onRename:
-              isLocal && fullRule
-                ? async (name: string) => {
-                    void updateLocalRule(node.uid, { name });
-                  }
-                : undefined,
-            onDelete: isLocal
-              ? () =>
-                  confirmDelete(node.name, () => {
-                    onDeleteRule?.(node.uid);
-                  })
+            onRename: fullRule
+              ? async (name: string) => {
+                  void updateLocalRule(node.uid, { name });
+                }
               : undefined,
+            onDelete: () =>
+              confirmDelete(node.name, () => {
+                onDeleteRule?.(node.uid);
+              }),
           });
         }
       }

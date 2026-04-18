@@ -9,14 +9,11 @@
  *   5. Guard against degenerate viewport values (browser restore, 0-width)
  */
 
-import { storage } from '@utils/browser-api';
+import { subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@utils/frame-scheduler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { extensionStorage, OH, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
 import type { ToolLayoutState } from '../types';
-
-// ── Storage key ────────────────────────────────────────────────────
-
-const STORAGE_KEY = 'workspacePanelLayout';
 
 // ── Breakpoints (CSS pixels, accounts for browser zoom) ───────────
 
@@ -149,24 +146,60 @@ export function useResponsiveLayout(): ResponsiveLayout {
   const [shouldCollapse, setShouldCollapse] = useState(() => getViewportWidth() < BP_SIDEBAR_COLLAPSE);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestPersistedRef = useRef<PersistedLayout | null>(null);
+  const activeWorkspaceIdRef = useRef<string | null>(null);
 
-  // ── Load persisted layout on mount ─────────────────────────────
+  const loadLayoutFor = useCallback(async (workspaceId: string) => {
+    const saved = (await extensionStorage.get(wsKeys(workspaceId).panelLayout)) as PersistedLayout | undefined;
+    if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
+      setPersisted(saved);
+      latestPersistedRef.current = saved;
+      setPersistedToolLayout(saved.toolLayout ?? null);
+    } else {
+      setPersisted(null);
+      latestPersistedRef.current = null;
+      setPersistedToolLayout(null);
+    }
+    setReady(true);
+  }, []);
 
+  // ── Load persisted layout on mount (for active workspace) ──────
+  //
+  // Read the active workspace id directly through extensionStorage —
+  // no SW RPC. `layout.ready` gates the entire workspace shell, so any
+  // async hop here delays first paint by a cold-SW round-trip.
   useEffect(() => {
-    // Defer one frame so the browser's window-restore measurements land
-    // before we read persisted ratios back into layout state.
+    // Defer one frame so the browser's window-restore measurements
+    // land before we read persisted ratios back into layout state.
     scheduleFrame(() => {
-      storage.local.get([STORAGE_KEY], (result: Record<string, unknown>) => {
-        const saved = result[STORAGE_KEY] as PersistedLayout | undefined;
-        if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
-          setPersisted(saved);
-          latestPersistedRef.current = saved;
-          setPersistedToolLayout(saved.toolLayout ?? null);
+      void extensionStorage.get(OH.activeWorkspaceId).then((id) => {
+        if (typeof id === 'string' && id.length > 0) {
+          activeWorkspaceIdRef.current = id;
+          void loadLayoutFor(id);
+        } else {
+          // Background bootstrap hasn't stamped the active id yet —
+          // render with defaults; the `workspaceChanged` broadcast
+          // below will rehydrate once bootstrap completes.
+          setReady(true);
         }
-        setReady(true);
       });
     });
-  }, []);
+  }, [loadLayoutFor]);
+
+  // ── Resync on workspace switch ─────────────────────────────────
+
+  useEffect(() => {
+    const unsub = subscribe('workspaceChanged', (payload) => {
+      const nextId = payload.activeWorkspaceId;
+      if (activeWorkspaceIdRef.current === nextId) return;
+      activeWorkspaceIdRef.current = nextId;
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+      void loadLayoutFor(nextId);
+    });
+    return unsub;
+  }, [loadLayoutFor]);
 
   // ── matchMedia breakpoint listener ─────────────────────────────
 
@@ -188,7 +221,9 @@ export function useResponsiveLayout(): ResponsiveLayout {
   // ── Persist helpers (debounced 500ms) ──────────────────────────
 
   const flushPersist = useCallback((ratios: PersistedLayout) => {
-    storage.local.set({ [STORAGE_KEY]: ratios });
+    const workspaceId = activeWorkspaceIdRef.current;
+    if (!workspaceId) return;
+    void extensionStorage.set(wsKeys(workspaceId).panelLayout, ratios as PersistedPanelLayout);
   }, []);
 
   const schedulePersist = useCallback(

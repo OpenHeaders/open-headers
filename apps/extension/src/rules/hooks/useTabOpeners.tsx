@@ -63,6 +63,7 @@ export interface UseTabOpenersApi {
   openRuleFlow: (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => void;
   openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
   openLandingTab: (view: LandingView) => void;
+  openWorkspaceManager: () => void;
 }
 
 export function useTabOpeners({
@@ -345,6 +346,21 @@ export function useTabOpeners({
     [allTabs, addTab, switchTab],
   );
 
+  const openWorkspaceManager = useCallback(() => {
+    const id = 'workspace-manager';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: 'Workspaces',
+      ruleType: '',
+      dirty: false,
+      mode: 'workspace-manager',
+    });
+  }, [allTabs, addTab, switchTab]);
+
   return {
     pendingRenameTabId,
     setPendingRenameTabId,
@@ -360,5 +376,6 @@ export function useTabOpeners({
     openRuleFlow,
     openSettingsTab,
     openLandingTab,
+    openWorkspaceManager,
   };
 }

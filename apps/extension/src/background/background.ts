@@ -1,8 +1,10 @@
 /**
  * Main background service worker — minimal orchestrator.
  *
- * Rule update ownership is centralized in rule-engine.ts.
- * Rules arrive pre-resolved from the desktop app via WebSocket.
+ * Rule update ownership is centralized in rule-engine.ts. Rule / collection
+ * / template data is owned entirely by the extension; per-workspace stores
+ * in `modules/` are the single source of truth. Team workspaces synced
+ * from the desktop app land in v2 through `workspace-orchestrator.ts`.
  */
 
 declare const browser: typeof chrome | undefined;
@@ -20,11 +22,8 @@ import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
 import {
   forgetDelayBypassForTab,
-  getPauseMarkers,
-  initPauseState,
   markTabForDelayBypass,
   resolveDelayBypass,
-  setPauseMarkers,
   setRulesPaused,
 } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
@@ -33,6 +32,10 @@ import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from '.
 import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 import { handleGeneralMessage } from './modules/message-handler';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
+import {
+  applyExternalSnapshot as applyPauseMarkersSnapshot,
+  getPauseMarkers,
+} from './modules/pause-markers-store';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
@@ -45,12 +48,19 @@ import {
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
-import { getLocalCollectionTrees, getRules, hydrateFromStorage, onStoreChange } from './modules/rule-store';
+import { getCollectionTrees, getRules, onStoreChange } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
-import { getTemplates, hydrateTemplatesFromStorage, onTemplateStoreChange } from './modules/template-store';
+import { getTemplates, onTemplateStoreChange } from './modules/template-store';
 import { initializeViewMode } from './modules/view-mode';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
+import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
+import {
+  bootstrap as bootstrapWorkspaces,
+  getActiveWorkspaceId,
+  listWorkspaces,
+  onWorkspaceStoreChange,
+} from './modules/workspace-store';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -60,10 +70,15 @@ import {
   sendViaWebSocket,
 } from './websocket';
 
+// Workspace list must be bootstrapped first — every per-workspace store
+// keys its reads off the active workspace id. Settings + per-workspace
+// hydration chain off this promise.
+const workspacesReady = bootstrapWorkspaces();
+
 // Settings must be loaded before anything touches the rule engine — the
 // first compile reads persisted `rulesEngine.paused`, `maxActiveRules`,
 // `evaluationStrategy`, etc., and would otherwise race the async load.
-const settingsReady = bootstrapSettings().then(() => {
+const settingsReady = workspacesReady.then(bootstrapSettings).then(() => {
   setRulesPaused(getSetting('rulesEngine.paused'));
   subscribeKey('rulesEngine.paused', () => {
     setRulesPaused(getSetting('rulesEngine.paused'));
@@ -77,19 +92,18 @@ const settingsReady = bootstrapSettings().then(() => {
   subscribeKey('rulesEngine.maxActiveRules', rebuildOnPrefChange);
   subscribeKey('rulesEngine.evaluationStrategy', rebuildOnPrefChange);
 });
-initPauseState();
 
 /**
  * Compute the live rule + entity (folder/collection) id sets and ask the
  * test-run store to drop any owner bucket whose target is gone. Called
- * after every rule-store change so deletions driven by the WebSocket also
- * cascade-clean orphan test-run buckets.
+ * after every rule-store change so deletions cascade-clean orphan
+ * test-run buckets.
  */
 function pruneOrphanTestRunOwnersFromStore(): void {
   const liveRules = new Set<string>();
   const liveEntities = new Set<string>();
   for (const r of getRules()) liveRules.add(r.uid);
-  for (const c of getLocalCollectionTrees()) {
+  for (const c of getCollectionTrees()) {
     liveEntities.add(c.uid);
     const walk = (nodes: V5.TreeNode[]): void => {
       for (const n of nodes) {
@@ -103,6 +117,7 @@ function pruneOrphanTestRunOwnersFromStore(): void {
   }
   void pruneOrphanOwners(liveRules, liveEntities);
 }
+
 
 const recordingService: IRecordingService = new RecordingService();
 
@@ -214,11 +229,21 @@ async function initializeExtension(): Promise<void> {
     broadcast('templatesUpdated', { templates: getTemplates() });
   });
 
+  // Broadcast workspace list changes (create/rename/delete/reorder).
+  // Active-workspace switches fire `workspaceChanged` explicitly from
+  // the orchestrator; this covers metadata mutations.
+  onWorkspaceStoreChange(() => {
+    broadcast('workspaceChanged', {
+      workspaces: listWorkspaces(),
+      activeWorkspaceId: getActiveWorkspaceId(),
+    });
+  });
+
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 
-  // Hydrate rules + templates from storage (offline start before WebSocket connects)
-  await hydrateTemplatesFromStorage();
-  const restoredRules = await hydrateFromStorage();
+  // Hydrate the active workspace's per-workspace stores from storage.
+  await hydrateActiveWorkspaceStores();
+  const restoredRules = getRules();
   // Rehydrate the rule-state-observer snapshot BEFORE the first
   // rebuildAll fires, so rule changes that happened while the SW was
   // terminated are diffed against the pre-sleep baseline instead of
@@ -282,13 +307,18 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
 // ── Storage listeners ─────────────────────────────────────────────
 
 storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
-  // Collection/folder pause markers
-  if (area === 'local' && changes.pauseMarkers) {
-    const record = (changes.pauseMarkers.newValue as Record<string, PauseMarker>) || {};
-    logger.info('Background', 'Pause markers changed:', record);
-    setPauseMarkers(record);
-    scheduleUpdate('pauseMarkers', { immediate: true });
-    debouncedUpdateBadge();
+  // Collection/folder pause markers — workspace-scoped key. Only react
+  // to changes for the currently active workspace; other workspaces'
+  // markers don't drive the DNR engine until they become active.
+  if (area === 'local' && extensionInitialized) {
+    const activeKey = `oh.ws.${getActiveWorkspaceId()}.pauseMarkers`;
+    if (changes[activeKey]) {
+      const record = (changes[activeKey].newValue as Record<string, PauseMarker>) || {};
+      logger.info('Background', 'Pause markers changed:', record);
+      applyPauseMarkersSnapshot(record);
+      scheduleUpdate('pauseMarkers', { immediate: true });
+      debouncedUpdateBadge();
+    }
   }
 
   // Hotkey commands

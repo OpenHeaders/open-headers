@@ -1,22 +1,35 @@
 /**
  * TopBar — mirrors the desktop V5Shell TopBar.
  *
- * Layout: [Logo] [Title] [Rules badge] | [⌘K Search...] | [Settings]
+ * Layout: [Logo] [Workspace Switcher] | [⌘K Search...] | [Settings]
  */
 
 import { SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
+import type { V5 } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { getBrowserAPI } from '@/types/browser';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 interface TopBarProps {
   onCommandPalette?: () => void;
   onOpenSettings?: () => void;
+  workspaces: V5.ExtensionWorkspace[];
+  activeWorkspaceId: string | null;
+  onSwitchWorkspace: (id: string) => void;
+  onOpenWorkspaceManager: () => void;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ onCommandPalette, onOpenSettings }) => {
+const TopBar: React.FC<TopBarProps> = ({
+  onCommandPalette,
+  onOpenSettings,
+  workspaces,
+  activeWorkspaceId,
+  onSwitchWorkspace,
+  onOpenWorkspaceManager,
+}) => {
   const { token } = theme.useToken();
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const openSettingsLabel = useShortcutLabel('open-settings');
@@ -36,6 +49,12 @@ const TopBar: React.FC<TopBarProps> = ({ onCommandPalette, onOpenSettings }) => 
           className="rules-topbar-logo"
         />
         <span className="rules-topbar-title">Open Headers</span>
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          onSwitch={onSwitchWorkspace}
+          onOpenManager={onOpenWorkspaceManager}
+        />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, maxWidth: 420, justifyContent: 'center' }}>

@@ -8,8 +8,10 @@ function makeVariable(name: string, value: string, type: 'default' | 'secret' = 
   return { name, value, type };
 }
 
-function makeEnvironment(name: string, vars: Variable[], isActive = false): Environment {
-  return { name, path: `environments/${name.toLowerCase()}.yaml`, variables: vars, isActive };
+let envCounter = 0;
+function makeEnvironment(name: string, vars: Variable[]): Environment {
+  envCounter += 1;
+  return { uid: `env-${envCounter}`, name, variables: vars };
 }
 
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
@@ -50,9 +52,9 @@ describe('VariableResolver', () => {
 
     it('resolves from active environment over globals', () => {
       resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('BASE_URL', 'https://global.openheaders.io')]));
-      resolver.setEnvironments([
-        makeEnvironment('Development', [makeVariable('BASE_URL', 'https://dev.openheaders.io')], true),
-      ]);
+      const dev = makeEnvironment('Development', [makeVariable('BASE_URL', 'https://dev.openheaders.io')]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
 
       const result = resolver.resolve('BASE_URL');
       expect(result?.value).toBe('https://dev.openheaders.io');
@@ -60,7 +62,9 @@ describe('VariableResolver', () => {
     });
 
     it('resolves from environment over collection (env has higher priority)', () => {
-      resolver.setEnvironments([makeEnvironment('Dev', [makeVariable('VERSION', 'v2')], true)]);
+      const dev = makeEnvironment('Dev', [makeVariable('VERSION', 'v2')]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
       resolver.setCollectionVariables('coll-1', [makeVariable('VERSION', 'v3')]);
 
       const result = resolver.resolve('VERSION', { collectionId: 'coll-1' });
@@ -69,7 +73,9 @@ describe('VariableResolver', () => {
     });
 
     it('falls through to collection when environment has no value', () => {
-      resolver.setEnvironments([makeEnvironment('Dev', [], true)]);
+      const dev = makeEnvironment('Dev', []);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
       resolver.setCollectionVariables('coll-1', [makeVariable('VERSION', 'v3')]);
 
       const result = resolver.resolve('VERSION', { collectionId: 'coll-1' });
@@ -78,8 +84,10 @@ describe('VariableResolver', () => {
     });
 
     it('resolves from vault over everything', () => {
+      const dev = makeEnvironment('Dev', [makeVariable('SECRET_KEY', 'from-env')]);
       resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('SECRET_KEY', 'from-globals')]));
-      resolver.setEnvironments([makeEnvironment('Dev', [makeVariable('SECRET_KEY', 'from-env')], true)]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
       resolver.setCollectionVariables('coll-1', [makeVariable('SECRET_KEY', 'from-collection')]);
       resolver.setVault(makeVault([{ name: 'SECRET_KEY', value: 'from-vault' }]));
 
@@ -90,7 +98,9 @@ describe('VariableResolver', () => {
     });
 
     it('falls through to lower scope when higher scope has empty value', () => {
-      resolver.setEnvironments([makeEnvironment('Dev', [makeVariable('TOKEN', '')], true)]);
+      const dev = makeEnvironment('Dev', [makeVariable('TOKEN', '')]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
       resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('TOKEN', 'fallback')]));
 
       const result = resolver.resolve('TOKEN');
@@ -107,18 +117,27 @@ describe('VariableResolver', () => {
       expect(result?.scope).toBe('workspace');
     });
 
-    it('uses specific environment via context', () => {
-      resolver.setEnvironments([
-        makeEnvironment('Dev', [makeVariable('URL', 'https://dev.openheaders.io')], true),
-        makeEnvironment('Prod', [makeVariable('URL', 'https://prod.openheaders.io')], false),
-      ]);
+    it('resolves nothing from environment when no active env is set ("no environment" state)', () => {
+      const dev = makeEnvironment('Dev', [makeVariable('X', 'v')]);
+      resolver.setEnvironments([dev]);
+      // activeEnvironmentId stays null by default — Postman "no environment" semantics.
+      expect(resolver.resolve('X')).toBeNull();
+    });
 
-      const result = resolver.resolve('URL', { environmentName: 'Prod' });
+    it('uses specific environment via context override', () => {
+      const dev = makeEnvironment('Dev', [makeVariable('URL', 'https://dev.openheaders.io')]);
+      const prod = makeEnvironment('Prod', [makeVariable('URL', 'https://prod.openheaders.io')]);
+      resolver.setEnvironments([dev, prod]);
+      resolver.setActiveEnvironmentId(dev.uid);
+
+      const result = resolver.resolve('URL', { environmentId: prod.uid });
       expect(result?.value).toBe('https://prod.openheaders.io');
     });
 
     it('marks secret variables correctly', () => {
-      resolver.setEnvironments([makeEnvironment('Dev', [makeVariable('API_KEY', 'sk-123', 'secret')], true)]);
+      const dev = makeEnvironment('Dev', [makeVariable('API_KEY', 'sk-123', 'secret')]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
 
       const result = resolver.resolve('API_KEY');
       expect(result?.isSensitive).toBe(true);
@@ -182,13 +201,11 @@ describe('VariableResolver', () => {
     });
 
     it('resolves comma-separated domain lists', () => {
-      resolver.setEnvironments([
-        makeEnvironment(
-          'Dev',
-          [makeVariable('DOMAINS', '*.dev.openheaders.io,staging.openheaders.io,localhost:3000')],
-          true,
-        ),
+      const dev = makeEnvironment('Dev', [
+        makeVariable('DOMAINS', '*.dev.openheaders.io,staging.openheaders.io,localhost:3000'),
       ]);
+      resolver.setEnvironments([dev]);
+      resolver.setActiveEnvironmentId(dev.uid);
 
       const { result } = resolver.resolveTemplate('{{DOMAINS}}');
       expect(result).toBe('*.dev.openheaders.io,staging.openheaders.io,localhost:3000');

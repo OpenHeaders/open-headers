@@ -72,7 +72,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
 }) => {
   const { message } = App.useApp();
 
-  const { rules, isConnected, uiState, updateUiState, pauseMarkers } = useRules();
+  const { rules, uiState, updateUiState, pauseMarkers } = useRules();
   const { setFocusedRowIndex } = useKeyboardNav();
   const screens = Grid.useBreakpoint();
 
@@ -195,13 +195,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
     async (index: number) => {
       const record = dataSourceRef.current[index];
       if (!record) return;
-      if (!record.id.startsWith('local-') && !isConnected) return;
       const resp = await call('toggleRule', { ruleId: record.id, enabled: !record.isEnabled }).catch(() => null);
       if (!resp?.success) {
         message.error('Failed to toggle rule');
       }
     },
-    [isConnected, message],
+    [message],
   );
 
   const handleEditRow = useCallback((index: number) => {
@@ -220,7 +219,6 @@ const RulesTable: React.FC<RulesTableProps> = ({
     async (index: number) => {
       const record = dataSourceRef.current[index];
       if (!record) return;
-      if (!record.id.startsWith('local-') && !isConnected) return;
       const resp = await call('deleteRule', { ruleId: record.id }).catch(() => null);
       if (resp?.success) {
         message.success('Rule deleted');
@@ -228,7 +226,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
         message.error('Failed to delete rule');
       }
     },
-    [isConnected, message],
+    [message],
   );
 
   const [addRulePaletteOpen, setAddRulePaletteOpen] = useState(false);
@@ -363,12 +361,9 @@ const RulesTable: React.FC<RulesTableProps> = ({
       sorter: (a, b) => Number(b.isEnabled) - Number(a.isEnabled),
       sortOrder: sortedInfo.columnKey === 'isEnabled' ? sortedInfo.order : null,
       render: (enabled: boolean, record: TableRecord) => {
-        const isLocal = record.id.startsWith('local-');
-        const canToggle = isLocal || isConnected;
         return (
           <Switch
             checked={enabled}
-            disabled={!canToggle}
             onChange={async () => {
               const resp = await call('toggleRule', { ruleId: record.id, enabled: !enabled }).catch(() => null);
               if (!resp?.success) {
@@ -387,8 +382,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
       align: 'center',
       fixed: 'right',
       render: (_: unknown, record: TableRecord) => {
-        const isLocal = record.id.startsWith('local-');
-        const canAct = isLocal || isConnected;
+        const canAct = true;
         return (
           <Space size={2}>
             <Tooltip title="Test this rule against a URL">

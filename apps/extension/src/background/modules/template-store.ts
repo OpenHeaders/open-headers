@@ -1,16 +1,19 @@
 /**
- * Template Store — persistence for user-defined templates.
+ * Template Store — per-workspace persistence for user-defined rule
+ * templates.
  *
- * Mirrors rule-store.ts patterns exactly:
+ * Mirrors rule-store.ts:
  *   - Flat storage with path-based hierarchy
- *   - Separate collections and folders (independent from rule collections)
+ *   - Separate collections and folders (independent from rule
+ *     collections)
  *   - Tree derived at read time from flat data
- *   - Change listeners for broadcasting updates
+ *   - In-memory state scoped to the active workspace; `switchToWorkspace`
+ *     reloads from the target workspace's keys
  *
- * Storage keys:
- *   - v5LocalTemplates — template items
- *   - v5LocalTemplateCollections — template collections
- *   - v5LocalTemplateFolders — template folders
+ * Storage keys (all scoped to active workspace id):
+ *   - `oh.ws.<id>.templates`
+ *   - `oh.ws.<id>.templateCollections`
+ *   - `oh.ws.<id>.templateFolders`
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -18,14 +21,26 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import type { LocalFolder } from './rule-store';
+import { getActiveWorkspaceId } from './workspace-store';
 
-const TEMPLATES_KEY = 'v5LocalTemplates';
-const TEMPLATE_COLLECTIONS_KEY = 'v5LocalTemplateCollections';
-const TEMPLATE_FOLDERS_KEY = 'v5LocalTemplateFolders';
+// ── Storage key helpers ─────────────────────────────────────────────
 
-let localTemplates: V5.Template[] = [];
+function templatesKey(workspaceId: string): string {
+  return `oh.ws.${workspaceId}.templates`;
+}
+function templateCollectionsKey(workspaceId: string): string {
+  return `oh.ws.${workspaceId}.templateCollections`;
+}
+function templateFoldersKey(workspaceId: string): string {
+  return `oh.ws.${workspaceId}.templateFolders`;
+}
+
+// ── In-memory state (scoped to active workspace) ────────────────────
+
+let templates: V5.Template[] = [];
 let templateCollections: V5.Collection[] = [];
 let templateFolders: LocalFolder[] = [];
+let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
 
@@ -41,16 +56,10 @@ function notifyChange(): void {
   for (const listener of changeListeners) listener();
 }
 
-// ── UID generation ──────────────────────────────────────────────────
-
-function generateLocalUid(): string {
-  return `local-${generateUid()}`;
-}
-
 // ── Reads ───────────────────────────────────────────────────────────
 
 export function getTemplates(): V5.Template[] {
-  return localTemplates;
+  return templates;
 }
 
 export function getTemplateCollections(): V5.Collection[] {
@@ -72,8 +81,8 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
   const nodes: V5.TreeNode[] = [];
 
   const childFolders = templateFolders.filter((f) => {
-    const parentOfFolder = f.path.substring(0, f.path.lastIndexOf('/'));
-    return parentOfFolder === parentPath;
+    const parent = f.path.substring(0, f.path.lastIndexOf('/'));
+    return parent === parentPath;
   });
 
   for (const folder of childFolders) {
@@ -87,9 +96,9 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
     });
   }
 
-  const childTemplates = localTemplates.filter((t) => {
-    const parentOfTemplate = t.path.substring(0, t.path.lastIndexOf('/'));
-    return parentOfTemplate === parentPath;
+  const childTemplates = templates.filter((t) => {
+    const parent = t.path.substring(0, t.path.lastIndexOf('/'));
+    return parent === parentPath;
   });
 
   for (const template of childTemplates) {
@@ -110,11 +119,18 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
 
 const DEFAULT_COLLECTION_NAME = 'Default Templates';
 
+function assertLoaded(): string {
+  if (!loadedWorkspaceId) {
+    throw new Error('TemplateStore: mutation before hydration');
+  }
+  return loadedWorkspaceId;
+}
+
 export function ensureDefaultTemplateCollection(): V5.Collection {
   const existing = templateCollections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
 
-  const uid = generateLocalUid();
+  const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     uid,
@@ -123,12 +139,12 @@ export function ensureDefaultTemplateCollection(): V5.Collection {
     variables: [],
   };
   templateCollections = [...templateCollections, collection];
-  persistTemplateCollections();
+  void persistTemplateCollections();
   return collection;
 }
 
 export function createTemplateCollection(name: string): V5.Collection {
-  const uid = generateLocalUid();
+  const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     uid,
@@ -137,7 +153,7 @@ export function createTemplateCollection(name: string): V5.Collection {
     variables: [],
   };
   templateCollections = [...templateCollections, collection];
-  persistTemplateCollections();
+  void persistTemplateCollections();
   return collection;
 }
 
@@ -151,7 +167,7 @@ export function renameTemplateCollection(uid: string, name: string): boolean {
     { ...col, name },
     ...templateCollections.slice(index + 1),
   ];
-  persistTemplateCollections();
+  void persistTemplateCollections();
   return true;
 }
 
@@ -161,25 +177,18 @@ export function deleteTemplateCollection(uid: string): boolean {
   if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable
 
   templateCollections = templateCollections.filter((c) => c.uid !== uid);
-  localTemplates = localTemplates.filter((t) => !t.path.startsWith(col.path));
+  templates = templates.filter((t) => !t.path.startsWith(col.path));
   templateFolders = templateFolders.filter((f) => !f.path.startsWith(col.path));
-  persistTemplateCollections();
-  persistTemplates();
-  persistTemplateFolders();
+  void persistTemplateCollections();
+  void persistTemplates();
+  void persistTemplateFolders();
   return true;
-}
-
-function persistTemplateCollections(): void {
-  storage.local.set({ [TEMPLATE_COLLECTIONS_KEY]: templateCollections }, () => {
-    logger.debug('TemplateStore', `Persisted ${templateCollections.length} template collections`);
-  });
-  notifyChange();
 }
 
 // ── Folders ─────────────────────────────────────────────────────────
 
 export function createTemplateFolder(name: string, parentPath: string): LocalFolder {
-  const uid = generateLocalUid();
+  const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
     uid,
@@ -187,7 +196,7 @@ export function createTemplateFolder(name: string, parentPath: string): LocalFol
     name,
   };
   templateFolders = [...templateFolders, folder];
-  persistTemplateFolders();
+  void persistTemplateFolders();
   return folder;
 }
 
@@ -199,7 +208,7 @@ export function renameTemplateFolder(uid: string, name: string): boolean {
     { ...templateFolders[index], name },
     ...templateFolders.slice(index + 1),
   ];
-  persistTemplateFolders();
+  void persistTemplateFolders();
   return true;
 }
 
@@ -208,23 +217,16 @@ export function deleteTemplateFolder(uid: string): boolean {
   if (!folder) return false;
 
   templateFolders = templateFolders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-  localTemplates = localTemplates.filter((t) => !t.path.startsWith(`${folder.path}/`));
-  persistTemplateFolders();
-  persistTemplates();
+  templates = templates.filter((t) => !t.path.startsWith(`${folder.path}/`));
+  void persistTemplateFolders();
+  void persistTemplates();
   return true;
-}
-
-function persistTemplateFolders(): void {
-  storage.local.set({ [TEMPLATE_FOLDERS_KEY]: templateFolders }, () => {
-    logger.debug('TemplateStore', `Persisted ${templateFolders.length} template folders`);
-  });
-  notifyChange();
 }
 
 // ── Templates (CRUD) ────────────────────────────────────────────────
 
 export function addTemplate(template: Omit<V5.Template, 'uid' | 'path'>, parentPath: string): V5.Template {
-  const uid = generateLocalUid();
+  const uid = generateUid();
   const folderName = toFolderName(template.name, uid);
   const now = new Date().toISOString();
   const created: V5.Template = {
@@ -234,8 +236,8 @@ export function addTemplate(template: Omit<V5.Template, 'uid' | 'path'>, parentP
     createdAt: template.createdAt || now,
     updatedAt: template.updatedAt || now,
   };
-  localTemplates = [...localTemplates, created];
-  persistTemplates();
+  templates = [...templates, created];
+  void persistTemplates();
   return created;
 }
 
@@ -249,57 +251,124 @@ export function addTemplateToCollection(
 }
 
 export function updateTemplate(uid: string, updates: Partial<Omit<V5.Template, 'uid' | 'path'>>): boolean {
-  const index = localTemplates.findIndex((t) => t.uid === uid);
+  const index = templates.findIndex((t) => t.uid === uid);
   if (index === -1) return false;
 
-  const existing = localTemplates[index];
+  const existing = templates[index];
   const updated: V5.Template = { ...existing, ...updates, updatedAt: new Date().toISOString() };
-  localTemplates = [...localTemplates.slice(0, index), updated, ...localTemplates.slice(index + 1)];
-  persistTemplates();
+  templates = [...templates.slice(0, index), updated, ...templates.slice(index + 1)];
+  void persistTemplates();
   return true;
 }
 
 export function deleteTemplate(uid: string): boolean {
-  const before = localTemplates.length;
-  localTemplates = localTemplates.filter((t) => t.uid !== uid);
-  if (localTemplates.length === before) return false;
-  persistTemplates();
+  const before = templates.length;
+  templates = templates.filter((t) => t.uid !== uid);
+  if (templates.length === before) return false;
+  void persistTemplates();
   return true;
 }
 
-function persistTemplates(): void {
-  storage.local.set({ [TEMPLATES_KEY]: localTemplates }, () => {
-    logger.debug('TemplateStore', `Persisted ${localTemplates.length} templates`);
+// ── Persistence ─────────────────────────────────────────────────────
+
+function persistTemplateCollections(): Promise<void> {
+  const workspaceId = assertLoaded();
+  return new Promise((resolve) => {
+    storage.local.set({ [templateCollectionsKey(workspaceId)]: templateCollections }, () => {
+      logger.debug(
+        'TemplateStore',
+        `Persisted ${templateCollections.length} template collections (ws=${workspaceId})`,
+      );
+      notifyChange();
+      resolve();
+    });
   });
-  notifyChange();
 }
 
-// ── Hydration ───────────────────────────────────────────────────────
+function persistTemplateFolders(): Promise<void> {
+  const workspaceId = assertLoaded();
+  return new Promise((resolve) => {
+    storage.local.set({ [templateFoldersKey(workspaceId)]: templateFolders }, () => {
+      logger.debug('TemplateStore', `Persisted ${templateFolders.length} template folders (ws=${workspaceId})`);
+      notifyChange();
+      resolve();
+    });
+  });
+}
 
-export function hydrateTemplatesFromStorage(): Promise<void> {
+function persistTemplates(): Promise<void> {
+  const workspaceId = assertLoaded();
+  return new Promise((resolve) => {
+    storage.local.set({ [templatesKey(workspaceId)]: templates }, () => {
+      logger.debug('TemplateStore', `Persisted ${templates.length} templates (ws=${workspaceId})`);
+      notifyChange();
+      resolve();
+    });
+  });
+}
+
+// ── Hydration / workspace switch ────────────────────────────────────
+
+interface WorkspaceSnapshot {
+  templates: V5.Template[];
+  templateCollections: V5.Collection[];
+  templateFolders: LocalFolder[];
+}
+
+async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   return new Promise((resolve) => {
     storage.local.get(
-      [TEMPLATES_KEY, TEMPLATE_COLLECTIONS_KEY, TEMPLATE_FOLDERS_KEY],
+      [templatesKey(workspaceId), templateCollectionsKey(workspaceId), templateFoldersKey(workspaceId)],
       (result: Record<string, unknown>) => {
-        const storedTemplates = result[TEMPLATES_KEY] as V5.Template[] | undefined;
-        const storedCollections = result[TEMPLATE_COLLECTIONS_KEY] as V5.Collection[] | undefined;
-        const storedFolders = result[TEMPLATE_FOLDERS_KEY] as LocalFolder[] | undefined;
-
-        if (Array.isArray(storedTemplates) && storedTemplates.length > 0) {
-          localTemplates = storedTemplates;
-          logger.info('TemplateStore', `Hydrated ${storedTemplates.length} templates`);
-        }
-        if (Array.isArray(storedCollections) && storedCollections.length > 0) {
-          templateCollections = storedCollections;
-          logger.info('TemplateStore', `Hydrated ${storedCollections.length} template collections`);
-        }
-        if (Array.isArray(storedFolders) && storedFolders.length > 0) {
-          templateFolders = storedFolders;
-          logger.info('TemplateStore', `Hydrated ${storedFolders.length} template folders`);
-        }
-
-        resolve();
+        resolve({
+          templates: Array.isArray(result[templatesKey(workspaceId)])
+            ? (result[templatesKey(workspaceId)] as V5.Template[])
+            : [],
+          templateCollections: Array.isArray(result[templateCollectionsKey(workspaceId)])
+            ? (result[templateCollectionsKey(workspaceId)] as V5.Collection[])
+            : [],
+          templateFolders: Array.isArray(result[templateFoldersKey(workspaceId)])
+            ? (result[templateFoldersKey(workspaceId)] as LocalFolder[])
+            : [],
+        });
       },
     );
   });
+}
+
+export async function hydrateTemplatesFromStorage(): Promise<void> {
+  const workspaceId = getActiveWorkspaceId();
+  const snapshot = await readWorkspaceSnapshot(workspaceId);
+  templates = snapshot.templates;
+  templateCollections = snapshot.templateCollections;
+  templateFolders = snapshot.templateFolders;
+  loadedWorkspaceId = workspaceId;
+  logger.info(
+    'TemplateStore',
+    `Hydrated ws=${workspaceId}: ${templates.length} templates, ${templateCollections.length} collections, ${templateFolders.length} folders`,
+  );
+}
+
+export async function switchToWorkspace(workspaceId: string): Promise<void> {
+  if (loadedWorkspaceId === workspaceId) return;
+  const snapshot = await readWorkspaceSnapshot(workspaceId);
+  templates = snapshot.templates;
+  templateCollections = snapshot.templateCollections;
+  templateFolders = snapshot.templateFolders;
+  loadedWorkspaceId = workspaceId;
+  logger.info(
+    'TemplateStore',
+    `Switched to ws=${workspaceId}: ${templates.length} templates, ${templateCollections.length} collections, ${templateFolders.length} folders`,
+  );
+  notifyChange();
+}
+
+// ── Test helpers ────────────────────────────────────────────────────
+
+export function __resetForTests(): void {
+  templates = [];
+  templateCollections = [];
+  templateFolders = [];
+  loadedWorkspaceId = null;
+  changeListeners.clear();
 }

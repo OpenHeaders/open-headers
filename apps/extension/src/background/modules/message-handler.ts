@@ -1,5 +1,12 @@
 /**
- * Message Handler — handles non-recording messages from the popup.
+ * Message Handler — handles non-recording RPCs from every extension
+ * surface (popup, sidepanel, workspace.html, devtools panel).
+ *
+ * Every handler is a pure dispatch: parse the request, delegate to the
+ * appropriate per-workspace store, emit the broadcast side-effects
+ * through the rule-engine, and return the response. Cross-store
+ * orchestration (workspace switching / duplication / deletion) lives
+ * in `workspace-orchestrator.ts` — we call it, not inline it.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -13,23 +20,22 @@ import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypas
 import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
 import { createRuleDraft, takeRuleDraft } from './rule-draft-store';
 import {
-  addLocalRule,
-  addLocalRuleToCollection,
-  createLocalCollection,
-  createLocalFolder,
-  deleteLocalCollection,
-  deleteLocalFolder,
-  deleteLocalRule,
+  addRule,
+  addRuleToCollection,
+  createCollection,
+  createFolder,
+  deleteCollection,
+  deleteFolder,
+  deleteRule,
   ensureDefaultCollection,
-  getLocalCollections,
-  getLocalCollectionTrees,
-  getLocalFolders,
-  getLocalRules,
+  getCollectionTrees,
+  getCollections,
+  getFolders,
   getRules,
-  renameLocalCollection,
-  renameLocalFolder,
-  toggleLocalRule,
-  updateLocalRule,
+  renameCollection,
+  renameFolder,
+  toggleRule,
+  updateRule,
 } from './rule-store';
 import { getTabSnapshot, recordScriptableFire } from './tab-telemetry';
 import {
@@ -60,19 +66,27 @@ import {
   type TestRunOwnerType,
 } from './test-run-store';
 import { startRun } from './test-runner';
+import {
+  deleteWorkspaceWithData,
+  duplicateWorkspace as duplicateWorkspaceData,
+  switchActiveWorkspace,
+} from './workspace-orchestrator';
+import {
+  createWorkspace as createWorkspaceMeta,
+  getActiveWorkspace,
+  getActiveWorkspaceId,
+  listWorkspaces,
+  reorderWorkspaces as reorderWorkspacesMeta,
+  updateWorkspace as updateWorkspaceMeta,
+} from './workspace-store';
 
-/**
- * Compute the set of currently live rule/folder/collection ids and ask
- * the test-run store to drop any bucket whose owner is gone. Called
- * after any tree mutation that could orphan a run bucket — adding one
- * sweep is simpler than threading deletion calls into every CRUD path.
- * Fire-and-forget; storage failures are non-fatal.
- */
+// ── Orphan test-run sweep ──────────────────────────────────────────
+
 function pruneOrphanTestRunOwners(): void {
   const liveRules = new Set<string>();
   const liveEntities = new Set<string>();
   for (const r of getRules()) liveRules.add(r.uid);
-  for (const c of getLocalCollectionTrees()) {
+  for (const c of getCollectionTrees()) {
     liveEntities.add(c.uid);
     const walk = (nodes: V5.TreeNode[]): void => {
       for (const n of nodes) {
@@ -89,13 +103,8 @@ function pruneOrphanTestRunOwners(): void {
 
 const browserAPI = { runtime: browserRuntime };
 
-/**
- * Find the first URL-condition pattern on `ruleUid` that matches `url`.
- * Used to enrich scriptable fire events with the specific pattern that
- * matched, so the popup's expand panel can highlight it. Returns undefined
- * if the rule is gone or no pattern matches — the caller should fall back
- * to a wildcard display value.
- */
+// ── Helpers ───────────────────────────────────────────────────────
+
 function findMatchingPattern(ruleUid: string, url: string): string | undefined {
   const rule = getRules().find((r) => r.uid === ruleUid);
   if (!rule) return undefined;
@@ -115,6 +124,8 @@ function createSafeResponse(sendResponse: SendResponse): SendResponse {
   };
 }
 
+// ── Main dispatcher ───────────────────────────────────────────────
+
 export function handleGeneralMessage(
   message: Record<string, unknown>,
   _sender: chrome.runtime.MessageSender,
@@ -127,11 +138,14 @@ export function handleGeneralMessage(
     ctx;
 
   try {
+    // ── Connection / presence ──────────────────────────────────
     if (message.type === 'popupOpen') {
       safeResponse({
         type: 'rulesUpdated',
         rules: getRules(),
         connected: isWebSocketConnected(),
+        workspaces: listWorkspaces(),
+        activeWorkspaceId: getActiveWorkspaceId(),
       });
     } else if (message.type === 'checkConnection') {
       safeResponse({ connected: isWebSocketConnected() });
@@ -153,6 +167,61 @@ export function handleGeneralMessage(
           safeResponse({ success: false, error: error.message });
         });
       return true;
+
+      // ── Workspaces ──────────────────────────────────────────────
+    } else if (message.type === 'listWorkspaces') {
+      safeResponse({ workspaces: listWorkspaces(), activeWorkspaceId: getActiveWorkspaceId() });
+    } else if (message.type === 'getActiveWorkspace') {
+      safeResponse({ workspace: getActiveWorkspace() });
+    } else if (message.type === 'createWorkspace') {
+      const name = message.name as string;
+      const description = message.description as string | undefined;
+      const color = message.color as string | undefined;
+      createWorkspaceMeta({ name, description, color })
+        .then((workspace) => safeResponse({ success: true, workspace }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'renameWorkspace') {
+      updateWorkspaceMeta(message.id as string, { name: message.name as string })
+        .then((ws) => safeResponse({ success: ws !== null }))
+        .catch(() => safeResponse({ success: false }));
+      return true;
+    } else if (message.type === 'updateWorkspace') {
+      updateWorkspaceMeta(message.id as string, message.updates as Record<string, unknown>)
+        .then((workspace) => safeResponse({ success: workspace !== null, workspace: workspace ?? undefined }))
+        .catch(() => safeResponse({ success: false }));
+      return true;
+    } else if (message.type === 'deleteWorkspace') {
+      deleteWorkspaceWithData(message.id as string)
+        .then((newActive) => {
+          if (newActive === null) {
+            safeResponse({ success: false, error: 'Cannot delete the last workspace' });
+          } else {
+            safeResponse({ success: true, activeWorkspaceId: newActive });
+          }
+        })
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'duplicateWorkspace') {
+      duplicateWorkspaceData(message.id as string, { name: message.name as string | undefined })
+        .then((workspace) => {
+          if (!workspace) safeResponse({ success: false, error: 'Source workspace not found' });
+          else safeResponse({ success: true, workspace });
+        })
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'setActiveWorkspace') {
+      switchActiveWorkspace(message.id as string)
+        .then((ok) => safeResponse({ success: ok, ...(ok ? {} : { error: 'Unknown workspace id' }) }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'reorderWorkspaces') {
+      reorderWorkspacesMeta(message.idOrder as string[])
+        .then(() => safeResponse({ success: true }))
+        .catch(() => safeResponse({ success: false }));
+      return true;
+
+      // ── Tab / app launcher ────────────────────────────────────
     } else if (message.type === 'openTab') {
       tabs.create({ url: message.url as string }, (tab: chrome.tabs.Tab) => {
         if (browserAPI.runtime.lastError) {
@@ -163,16 +232,6 @@ export function handleGeneralMessage(
       });
       return true;
     } else if (message.type === 'sidepanelToPopup') {
-      // Close the sidepanel first, then open the popup. The reverse
-      // order races with Chrome's focus restore at the tail of the
-      // sidepanel close animation — that focus shift blurs the popup,
-      // and popups auto-close on any blur.
-      //
-      // `sidePanel.close()` resolves when Chrome considers the panel
-      // closed, but the focus/layout settle can trail the promise by
-      // a few hundred ms (animation + window refocus). We wait a bit
-      // extra before opening the popup so the popup opens into a
-      // stable focus state.
       const sidePanelApi = (
         chrome as unknown as {
           sidePanel?: {
@@ -189,9 +248,6 @@ export function handleGeneralMessage(
 
       (async () => {
         if (sidePanelApi?.close) {
-          // Our manifest declares a global panel, so windowId is the
-          // correct scope. tabId is kept as a fallback for any future
-          // tab-scoped panel.
           const closeAttempts: { windowId?: number; tabId?: number }[] = [];
           if (windowId != null) closeAttempts.push({ windowId });
           if (tabId != null) closeAttempts.push({ tabId });
@@ -225,6 +281,8 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: false });
       }
+
+      // ── Recording settings (WebSocket passthrough) ────────────
     } else if (message.type === 'toggleVideoRecording') {
       if (isWebSocketConnected()) {
         safeResponse({ success: sendViaWebSocket({ type: 'toggleVideoRecording', enabled: !!message.enabled }) });
@@ -249,36 +307,26 @@ export function handleGeneralMessage(
       } else {
         safeResponse({ success: true, hotkey: 'CommandOrControl+Shift+E' });
       }
+
+      // ── Rule CRUD (active workspace) ──────────────────────────
     } else if (message.type === 'toggleRule') {
       const ruleId = message.ruleId as string;
       const enabled = message.enabled as boolean;
-      if (ruleId.startsWith('local-')) {
-        const success = toggleLocalRule(ruleId, enabled);
-        if (success) {
-          scheduleUpdate('rules', { immediate: true });
-          updateBadgeCallback();
-        }
-        safeResponse({ success });
-      } else if (isWebSocketConnected()) {
-        safeResponse({ success: sendViaWebSocket({ type: 'toggleRule', ruleId, enabled }) });
-      } else {
-        safeResponse({ success: false, error: 'Not connected to desktop app' });
+      const success = toggleRule(ruleId, enabled);
+      if (success) {
+        scheduleUpdate('rules', { immediate: true });
+        updateBadgeCallback();
       }
+      safeResponse({ success });
     } else if (message.type === 'deleteRule') {
       const ruleId = message.ruleId as string;
-      if (ruleId.startsWith('local-')) {
-        const success = deleteLocalRule(ruleId);
-        if (success) {
-          scheduleUpdate('rules', { immediate: true });
-          updateBadgeCallback();
-          pruneOrphanTestRunOwners();
-        }
-        safeResponse({ success });
-      } else if (isWebSocketConnected()) {
-        safeResponse({ success: sendViaWebSocket({ type: 'deleteRule', ruleId }) });
-      } else {
-        safeResponse({ success: false, error: 'Not connected to desktop app' });
+      const success = deleteRule(ruleId);
+      if (success) {
+        scheduleUpdate('rules', { immediate: true });
+        updateBadgeCallback();
+        pruneOrphanTestRunOwners();
       }
+      safeResponse({ success });
     } else if (message.type === 'createRuleDraft') {
       try {
         const nonce = createRuleDraft(message.draft);
@@ -291,10 +339,6 @@ export function handleGeneralMessage(
       const draft = takeRuleDraft(nonce);
       safeResponse({ success: true, draft });
     } else if (message.type === 'setCacheBypass') {
-      // Inspector panel → background: "Disable Cache" toggle for an
-      // inspected tab. Installs / removes a tab-scoped DNR rule that
-      // adds `Cache-Control: no-cache` + `Pragma: no-cache` to outgoing
-      // requests. See `modules/cache-bypass.ts` for the full contract.
       const tabId = message.tabId as number;
       const enabled = !!message.enabled;
       const handler = enabled ? enableCacheBypassForTab : disableCacheBypassForTab;
@@ -309,10 +353,10 @@ export function handleGeneralMessage(
 
       let created: V5.Rule;
       if (parentPath) {
-        created = addLocalRule(ruleData, parentPath);
+        created = addRule(ruleData, parentPath);
       } else {
         const collection = collectionUid ? { uid: collectionUid } : ensureDefaultCollection();
-        created = addLocalRuleToCollection(ruleData, collection.uid);
+        created = addRuleToCollection(ruleData, collection.uid);
       }
       scheduleUpdate('rules', { immediate: true });
       updateBadgeCallback();
@@ -320,28 +364,28 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLocalRule') {
       const ruleId = message.ruleId as string;
       const updates = message.updates as Partial<Omit<V5.Rule, 'uid' | 'path'>>;
-      const success = updateLocalRule(ruleId, updates);
+      const success = updateRule(ruleId, updates);
       if (success) {
         scheduleUpdate('rules', { immediate: true });
         updateBadgeCallback();
       }
       safeResponse({ success });
     } else if (message.type === 'getLocalRules') {
-      safeResponse({ rules: getLocalRules() });
+      safeResponse({ rules: getRules() });
     } else if (message.type === 'getLocalCollections') {
-      safeResponse({ collections: getLocalCollections() });
+      safeResponse({ collections: getCollections() });
     } else if (message.type === 'getLocalCollectionTrees') {
-      safeResponse({ collectionTrees: getLocalCollectionTrees() });
+      safeResponse({ collectionTrees: getCollectionTrees() });
     } else if (message.type === 'getLocalFolders') {
-      safeResponse({ folders: getLocalFolders() });
+      safeResponse({ folders: getFolders() });
     } else if (message.type === 'createLocalFolder') {
-      const folder = createLocalFolder(message.name as string, message.parentPath as string);
+      const folder = createFolder(message.name as string, message.parentPath as string);
       safeResponse({ success: true, folder });
     } else if (message.type === 'renameLocalFolder') {
-      const success = renameLocalFolder(message.folderUid as string, message.name as string);
+      const success = renameFolder(message.folderUid as string, message.name as string);
       safeResponse({ success });
     } else if (message.type === 'deleteLocalFolder') {
-      const success = deleteLocalFolder(message.folderUid as string);
+      const success = deleteFolder(message.folderUid as string);
       if (success) {
         scheduleUpdate('rules', { immediate: true });
         updateBadgeCallback();
@@ -350,28 +394,25 @@ export function handleGeneralMessage(
       safeResponse({ success });
     } else if (message.type === 'createLocalCollection') {
       const name = message.name as string;
-      const collection = createLocalCollection(name);
+      const collection = createCollection(name);
       safeResponse({ success: true, collection });
     } else if (message.type === 'renameLocalCollection') {
-      const success = renameLocalCollection(message.collectionUid as string, message.name as string);
+      const success = renameCollection(message.collectionUid as string, message.name as string);
       safeResponse({ success });
     } else if (message.type === 'deleteLocalCollection') {
-      const success = deleteLocalCollection(message.collectionUid as string);
+      const success = deleteCollection(message.collectionUid as string);
       if (success) {
         scheduleUpdate('rules', { immediate: true });
         updateBadgeCallback();
         pruneOrphanTestRunOwners();
       }
       safeResponse({ success });
+
+      // ── Per-tab telemetry + active rules ──────────────────────
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);
       safeResponse({ activeRules: result.activeRules });
     } else if (message.type === 'startTestRun') {
-      // Launch a test run and resolve with the final result once the
-      // capture window closes. Popup callers fire-and-forget — the in-page
-      // widget on the test tab is the primary feedback surface, so the
-      // response only matters for callers that explicitly await it (e.g.
-      // automated tests).
       const ownerType = message.ownerType as TestRunOwnerType;
       const ownerId = message.ownerId as string;
       const owner: TestRunOwner = { type: ownerType, id: ownerId };
@@ -384,21 +425,10 @@ export function handleGeneralMessage(
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'getTabTelemetry') {
-      // Read-path for the popup's live fire data. Returns the full telemetry
-      // snapshot for the given tab — counters, chronological fires, per-rule
-      // unique URL records, and a cross-rule unique request count. The popup
-      // composes this with `getActiveRulesForTab` (applicable rules) to
-      // render the This Page tab. Empty snapshot for untracked tabs.
       const tabId = message.tabId as number;
       const snap = getTabSnapshot(tabId);
       safeResponse(snap);
     } else if (message.type === 'perfResourceEntries') {
-      // Content-script PerformanceObserver batch — feeds the tracked-URL
-      // map so cache-served subresources show up as applicable rules in
-      // the popup even though webRequest never fired for them. The SW
-      // attributes the batch to the sender tab; batches from untracked
-      // tabs still populate the map because the popup reads
-      // tabsWithActiveRules regardless of the tab-telemetry gate.
       const tabId = _sender.tab?.id;
       const entries = (message.entries as PerfResourceEntry[] | undefined) ?? [];
       if (typeof tabId === 'number' && entries.length > 0) {
@@ -407,13 +437,6 @@ export function handleGeneralMessage(
       }
       safeResponse({ success: true });
     } else if (message.type === 'tabFire') {
-      // Fire event forwarded from the always-on ISOLATED fire-bridge content
-      // script. Always a scriptable fire — the in-page injection reported
-      // the match itself. Routes into tab-telemetry with enriched metadata
-      // (pattern + resource type) so the popup's expand panel can highlight
-      // which condition matched. The in-page wrapper only fires for
-      // fetch/XHR calls, so resource type is hardcoded to 'xmlhttprequest'.
-      // tab-telemetry drops fires for any tab that is not currently tracked.
       const tabId = _sender.tab?.id;
       if (typeof tabId === 'number') {
         const ruleUid = message.ruleUid as string;
@@ -424,6 +447,8 @@ export function handleGeneralMessage(
         recordScriptableFire(tabId, ruleUid, url, t, { pattern, resourceType: 'xmlhttprequest' });
       }
       safeResponse({ success: true });
+
+      // ── Test runs ──────────────────────────────────────────────
     } else if (message.type === 'listTestRunsForOwner') {
       const owner: TestRunOwner = {
         type: message.ownerType as TestRunOwnerType,
@@ -434,8 +459,6 @@ export function handleGeneralMessage(
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'listAllTestRuns') {
-      // Workspace-wide Test Runs panel (left ActivityBar launcher). Returns
-      // every persisted run across every owner bucket, newest-first.
       listAllTestRuns()
         .then((runs) => safeResponse({ success: true, runs }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
@@ -448,7 +471,6 @@ export function handleGeneralMessage(
     } else if (message.type === 'deleteTestRun') {
       deleteTestRunById(message.runId as string)
         .then(() => {
-          // Notify any open listeners so the bottom panel list refreshes.
           broadcast('testRunDeleted', { runId: message.runId as string });
           safeResponse({ success: true });
         })
@@ -470,18 +492,19 @@ export function handleGeneralMessage(
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'toggleAllRules') {
-      if (isWebSocketConnected()) {
-        safeResponse({
-          success: sendViaWebSocket({
-            type: 'toggleAllRules',
-            ruleIds: message.ruleIds as string[],
-            enabled: message.enabled as boolean,
-          }),
-        });
-      } else {
-        safeResponse({ success: false, error: 'Not connected to desktop app' });
+      const ruleIds = message.ruleIds as string[];
+      const enabled = message.enabled as boolean;
+      let touched = false;
+      for (const ruleId of ruleIds) {
+        if (toggleRule(ruleId, enabled)) touched = true;
       }
-      // ── Template CRUD ──────────────────────────────────────────────
+      if (touched) {
+        scheduleUpdate('rules', { immediate: true });
+        updateBadgeCallback();
+      }
+      safeResponse({ success: true });
+
+      // ── Template CRUD ──────────────────────────────────────────
     } else if (message.type === 'getTemplates') {
       safeResponse({ templates: getTemplates() });
     } else if (message.type === 'getTemplateCollections') {

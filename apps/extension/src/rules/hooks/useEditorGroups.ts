@@ -11,8 +11,9 @@
  * context menu.
  */
 
-import { storage } from '@utils/browser-api';
+import { subscribe } from '@utils/bridge';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { extensionStorage, OH, wsKeys } from '@/shared/storage';
 import {
   activateTabInLeaf,
   type EditorLeaf,
@@ -44,16 +45,15 @@ const ROOT_LEAF_ID = 'leaf-root';
 
 // ── Session persistence ─────────────────────────────────────────────
 //
-// A flat snapshot of the open tabs plus the globally-focused tab id is
-// written to storage.local on every state change (debounced) so that
-// `general.openTo === 'last'` and `general.restoreTabsOnStartup` can
-// bring the editor back up with the same set of tabs. The split tree
-// is intentionally NOT persisted — rehydrating a multi-leaf layout
-// across different viewport sizes is a usability trap, and flattening
-// into the root leaf is both deterministic and matches what every
-// other editor (VS Code reload, JetBrains restart) does when the
-// previous layout can't be trusted.
-const SESSION_STORAGE_KEY = 'workspaceTabSession';
+// Tab sessions are per-workspace: each workspace remembers its own
+// open tabs. Keyed under `oh.ws.<id>.tabSession` via the storage
+// registry — switching workspaces swaps the session cleanly. Writes
+// are debounced per state change.
+//
+// The split tree is intentionally NOT persisted — rehydrating a
+// multi-leaf layout across viewport sizes is a usability trap. We
+// flatten into the root leaf on restore, matching VS Code / JetBrains
+// restart behaviour when the previous layout can't be trusted.
 const SESSION_DEBOUNCE_MS = 500;
 
 interface PersistedTabSession {
@@ -170,15 +170,9 @@ export function useEditorGroups(): UseEditorGroupsApi {
   const saveRefMap = useRef<Map<string, () => void>>(new Map());
   const sessionRestoredRef = useRef(false);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeWorkspaceIdRef = useRef<string | null>(null);
 
-  // ── Restore persisted tab session on first mount ────────────────
-  //
-  // Gated on general.openTo === 'last' AND general.restoreTabsOnStartup.
-  // Every other openTo value lands on an empty editor — the caller
-  // (App.tsx) is responsible for any "open X by default" behavior.
-  useEffect(() => {
-    if (sessionRestoredRef.current) return;
-    sessionRestoredRef.current = true;
+  const restoreSession = useCallback((workspaceId: string, allowOverwrite: boolean) => {
     let shouldRestore = false;
     try {
       shouldRestore = getSetting('general.openTo') === 'last' && getSetting('general.restoreTabsOnStartup');
@@ -186,21 +180,18 @@ export function useEditorGroups(): UseEditorGroupsApi {
       shouldRestore = false;
     }
     if (!shouldRestore) return;
-    storage.local.get([SESSION_STORAGE_KEY], (result: Record<string, unknown>) => {
-      const saved = result[SESSION_STORAGE_KEY] as PersistedTabSession | undefined;
-      if (!saved || !Array.isArray(saved.tabs) || saved.tabs.length === 0) return;
+    void extensionStorage.get(wsKeys(workspaceId).tabSession).then((rawSaved) => {
+      const saved = rawSaved as PersistedTabSession | undefined;
       setState((prev) => {
-        // If a hash-route handler already opened tabs before the async
-        // storage read resolved, leave them alone — restoration should
-        // never overwrite live state it didn't own.
-        if (treeAllTabs(prev.root).length > 0) return prev;
-        // Rehydrate into the root leaf with every persisted tab. Dirty
-        // flags are dropped — reloaded tabs are considered clean.
-        const clean = saved.tabs.map((t) => ({ ...t, dirty: false }));
+        // Hash-route handler may have opened tabs before the read
+        // resolved on first mount — never overwrite live state unless
+        // the caller (workspace switch) explicitly allows it.
+        if (!allowOverwrite && treeAllTabs(prev.root).length > 0) return prev;
+        const clean = (saved?.tabs ?? []).map((t) => ({ ...t, dirty: false }));
         const rootLeaf = makeLeaf(ROOT_LEAF_ID);
         const filled = clean.reduce<EditorNode>((acc, tab) => insertTabIntoLeaf(acc, ROOT_LEAF_ID, tab), rootLeaf);
         const activeId =
-          saved.activeTabId && clean.some((t) => t.id === saved.activeTabId)
+          saved?.activeTabId && clean.some((t) => t.id === saved.activeTabId)
             ? saved.activeTabId
             : (clean[0]?.id ?? null);
         const withActive = activeId ? activateTabInLeaf(filled, ROOT_LEAF_ID, activeId) : filled;
@@ -209,18 +200,57 @@ export function useEditorGroups(): UseEditorGroupsApi {
     });
   }, []);
 
+  // ── Restore persisted tab session on first mount ────────────────
+  //
+  // Gated on general.openTo === 'last' AND general.restoreTabsOnStartup.
+  // Every other openTo value lands on an empty editor — the caller
+  // (App.tsx) is responsible for any "open X by default" behavior.
+  //
+  // Reads the active workspace id directly from storage (no SW RPC):
+  // this effect mounts alongside the shell, and a cold-SW round-trip
+  // here would gate session restore behind seconds of latency.
+  useEffect(() => {
+    if (sessionRestoredRef.current) return;
+    sessionRestoredRef.current = true;
+    void extensionStorage.get(OH.activeWorkspaceId).then((id) => {
+      if (typeof id === 'string' && id.length > 0) {
+        activeWorkspaceIdRef.current = id;
+        restoreSession(id, false);
+      }
+    });
+  }, [restoreSession]);
+
+  // ── Resync on workspace switch ──────────────────────────────────
+  useEffect(() => {
+    const unsub = subscribe('workspaceChanged', (payload) => {
+      const nextId = payload.activeWorkspaceId;
+      if (activeWorkspaceIdRef.current === nextId) return;
+      activeWorkspaceIdRef.current = nextId;
+      // Cancel any pending persist so we don't write the outgoing
+      // workspace's state under the incoming workspace's key.
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+      restoreSession(nextId, true);
+    });
+    return unsub;
+  }, [restoreSession]);
+
   // ── Persist tab session on every state change (debounced) ───────
   useEffect(() => {
     // Skip until the restore pass has run — otherwise the first render
     // would overwrite the persisted session with an empty state.
     if (!sessionRestoredRef.current) return;
+    const workspaceId = activeWorkspaceIdRef.current;
+    if (!workspaceId) return;
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => {
       const snapshot: PersistedTabSession = {
         tabs: treeAllTabs(state.root),
         activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
       };
-      storage.local.set({ [SESSION_STORAGE_KEY]: snapshot });
+      void extensionStorage.set(wsKeys(workspaceId).tabSession, snapshot);
     }, SESSION_DEBOUNCE_MS);
     return () => {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);

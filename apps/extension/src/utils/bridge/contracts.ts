@@ -26,6 +26,14 @@ import type { ActiveRule } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import type { RecordingData, RecordingStateInfo } from '@/types/recording';
 
+// ── Workspace ────────────────────────────────────────────────────
+
+/** Snapshot returned whenever the UI needs the current workspace list + active id. */
+export interface WorkspaceSnapshot {
+  workspaces: V5.ExtensionWorkspace[];
+  activeWorkspaceId: string;
+}
+
 /** Shared shape for a folder descriptor returned by create-folder RPCs. */
 export interface FolderDescriptor {
   uid: string;
@@ -54,7 +62,60 @@ export interface BridgeRpcContract {
   // ── Connection / presence ──────────────────────────────────────
   popupOpen: {
     req: Record<string, never>;
-    res: { type?: string; rules: V5.Rule[]; connected: boolean };
+    res: {
+      type?: string;
+      rules: V5.Rule[];
+      connected: boolean;
+      workspaces: V5.ExtensionWorkspace[];
+      activeWorkspaceId: string;
+    };
+  };
+
+  // ── Workspaces ─────────────────────────────────────────────────
+  listWorkspaces: {
+    req: Record<string, never>;
+    res: WorkspaceSnapshot;
+  };
+  getActiveWorkspace: {
+    req: Record<string, never>;
+    res: { workspace: V5.ExtensionWorkspace };
+  };
+  createWorkspace: {
+    req: { name: string; description?: string; color?: string; icon?: string };
+    res: { success: boolean; workspace?: V5.ExtensionWorkspace; error?: string };
+  };
+  renameWorkspace: {
+    req: { id: string; name: string };
+    res: { success: boolean };
+  };
+  updateWorkspace: {
+    req: {
+      id: string;
+      updates: {
+        name?: string;
+        description?: string;
+        color?: string;
+        /** `null` clears the icon (color-only mode); undefined leaves it untouched. */
+        icon?: string | null;
+      };
+    };
+    res: { success: boolean; workspace?: V5.ExtensionWorkspace };
+  };
+  deleteWorkspace: {
+    req: { id: string };
+    res: { success: boolean; activeWorkspaceId?: string; error?: string };
+  };
+  duplicateWorkspace: {
+    req: { id: string; name?: string };
+    res: { success: boolean; workspace?: V5.ExtensionWorkspace; error?: string };
+  };
+  setActiveWorkspace: {
+    req: { id: string };
+    res: { success: boolean; error?: string };
+  };
+  reorderWorkspaces: {
+    req: { idOrder: string[] };
+    res: { success: boolean };
   };
   checkConnection: {
     req: Record<string, never>;
@@ -412,6 +473,13 @@ export interface BridgeBroadcastContract {
   connectionStatus: { connected: boolean };
   trackedUrlsUpdated: { tabId?: number };
   largeRuleSetWarning: { activeCount: number; threshold: number; dropped: number };
+  /**
+   * Fires on any workspace list mutation (create/rename/delete/reorder)
+   * AND on active-workspace switch. UI surfaces re-read rules, templates,
+   * environments, and pause markers on this event — one atomic refetch
+   * instead of four separate broadcasts.
+   */
+  workspaceChanged: WorkspaceSnapshot;
 }
 
 export type BridgeRpcType = keyof BridgeRpcContract;

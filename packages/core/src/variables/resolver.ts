@@ -34,12 +34,14 @@ const TEMPLATE_REGEX = /\{\{([^}]+)\}\}/g;
 export class VariableResolver {
   private vault: Vault;
   private environments: Environment[];
+  private activeEnvironmentId: string | null;
   private collectionVariables: Map<string, Variable[]>;
   private workspaceVariables: WorkspaceVariables;
 
   constructor() {
     this.vault = { secrets: [] };
     this.environments = [];
+    this.activeEnvironmentId = null;
     this.collectionVariables = new Map();
     this.workspaceVariables = { variables: [] };
   }
@@ -52,6 +54,15 @@ export class VariableResolver {
 
   setEnvironments(environments: Environment[]): void {
     this.environments = environments;
+  }
+
+  /**
+   * Identify which environment resolves {{VAR}} references at runtime.
+   * `null` means "no environment" (Postman semantics — valid state, not
+   * an error; the resolver still resolves from lower scopes).
+   */
+  setActiveEnvironmentId(id: string | null): void {
+    this.activeEnvironmentId = id;
   }
 
   setCollectionVariables(collectionId: string, variables: Variable[]): void {
@@ -79,10 +90,9 @@ export class VariableResolver {
       return { name, value: vaultSecret.value, scope: 'vault', isSensitive: true };
     }
 
-    // 2. Active environment
-    const activeEnv = context?.environmentName
-      ? this.environments.find((e) => e.name === context.environmentName)
-      : this.environments.find((e) => e.isActive);
+    // 2. Active environment (context-override first, then configured active).
+    const activeEnvId = context?.environmentId ?? this.activeEnvironmentId;
+    const activeEnv = activeEnvId ? this.environments.find((e) => e.uid === activeEnvId) : null;
 
     if (activeEnv) {
       const envVar = activeEnv.variables.find((v) => v.name === name);

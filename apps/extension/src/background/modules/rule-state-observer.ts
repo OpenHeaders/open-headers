@@ -140,6 +140,52 @@ export async function rehydrateFromStorage(): Promise<void> {
 }
 
 /**
+ * Reseed the observer after a workspace switch. Unlike the incremental
+ * `observeRuleState` diff, this:
+ *   1. Captures the full set of origins the OUTGOING workspace touched
+ *      (every effective rule's origins).
+ *   2. Unions them with the INCOMING workspace's effective origins.
+ *   3. Issues a single invalidation (broad if either side was broad).
+ *   4. Replaces the snapshot baseline with the new workspace's state so
+ *      subsequent diffs are relative to the new active set.
+ *
+ * One broad wipe is almost always cheaper and safer than emitting a
+ * transition per rule uid — a workspace switch changes dozens or hundreds
+ * of rules at once, and per-rule diffs fan out into many small evictions
+ * the cache invalidator then has to coalesce anyway.
+ */
+export function seedFromWorkspaceSwitch(
+  nextRules: readonly V5.Rule[],
+  pauseMarkers: ReadonlyMap<string, PauseMarker>,
+  enginePaused: boolean,
+): void {
+  const next = buildSnapshot(nextRules, pauseMarkers, enginePaused);
+
+  const origins = new Set<string>();
+  let broad = false;
+
+  if (previousSnapshot) {
+    for (const fp of previousSnapshot.values()) {
+      if (!fp.effective) continue;
+      for (const o of fp.origins) origins.add(o);
+      if (fp.broad) broad = true;
+    }
+  }
+  for (const fp of next.values()) {
+    if (!fp.effective) continue;
+    for (const o of fp.origins) origins.add(o);
+    if (fp.broad) broad = true;
+  }
+
+  previousSnapshot = next;
+  schedulePersist();
+
+  if (broad || origins.size > 0) {
+    enqueueInvalidation([...origins], broad);
+  }
+}
+
+/**
  * Test-only helper. Resets the observer's internal snapshot so the
  * next call to `observeRuleState` is treated as the first run.
  */

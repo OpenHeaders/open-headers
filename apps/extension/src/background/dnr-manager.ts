@@ -23,10 +23,7 @@
  * lifecycles and stay cleanly decoupled.
  */
 
-declare const browser: typeof chrome | undefined;
-
 import type { V5 } from '@openheaders/core/types';
-import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { broadcast } from '@utils/bridge';
 import { declarativeNetRequest } from '@utils/browser-api';
@@ -43,6 +40,7 @@ import {
 } from './dnr-builders';
 import { updateScriptableRules } from './inject-manager';
 import { CACHE_BYPASS_ID_BASE } from './modules/cache-bypass';
+import { getPauseMarkers } from './modules/pause-markers-store';
 import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from './modules/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
@@ -50,7 +48,6 @@ import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runne
 // ── Paused state ─────────────────────────────────────────────────
 
 let isPaused = false;
-let pauseMarkers: Map<string, PauseMarker> = new Map();
 
 /**
  * Dynamic-layer rule id → source V5.Rule.uid. Rebuilt on every applyAllRules()
@@ -78,25 +75,8 @@ export function setRulesPaused(paused: boolean): void {
   isPaused = paused;
 }
 
-export function setPauseMarkers(record: Record<string, PauseMarker>): void {
-  pauseMarkers = new Map(Object.entries(record));
-}
-
-export function getPauseMarkers(): ReadonlyMap<string, PauseMarker> {
-  return pauseMarkers;
-}
-
-export function initPauseState(): void {
-  const browserAPI = (typeof browser !== 'undefined' ? browser : chrome) as typeof chrome;
-  // The global pause flag lives in the settings store (`rulesEngine.paused`)
-  // and is pushed here from background.ts after bootstrapSettings() resolves.
-  // This function only hydrates per-collection/folder pause markers.
-  browserAPI.storage.local.get(['pauseMarkers'], (result: Record<string, unknown>) => {
-    const record = result.pauseMarkers as Record<string, PauseMarker> | undefined;
-    if (record && typeof record === 'object') {
-      pauseMarkers = new Map(Object.entries(record));
-    }
-  });
+export function getRulesPaused(): boolean {
+  return isPaused;
 }
 
 // ── Compiler registry ────────────────────────────────────────────
@@ -268,7 +248,7 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
     // `compileRuleSet` only runs when the engine is NOT globally paused
     // (checked upstream in `rebuildAll`), so we pass `false` for
     // `enginePaused` here.
-    if (!isRuleEffective(rule, pauseMarkers, false)) continue;
+    if (!isRuleEffective(rule, getPauseMarkers(), false)) continue;
 
     // inject-manager wants every rule that has any in-page side effect,
     // regardless of whether it ALSO produces DNR rules. Passed by value.
@@ -294,7 +274,7 @@ function rebuildAll(rules: V5.Rule[]): Promise<void> {
   // and enqueue any necessary cache eviction. Runs on every rebuild
   // regardless of pause state — pausing the engine is itself a
   // transition that should evict caches holding rule-applied bytes.
-  observeRuleState(rules, pauseMarkers, isPaused);
+  observeRuleState(rules, getPauseMarkers(), isPaused);
 
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');

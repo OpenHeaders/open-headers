@@ -303,7 +303,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
-  const { isConnected, pauseMarkers } = useRules();
+  const { pauseMarkers } = useRules();
   const {
     expandedRowKey,
     nestedFocusIndex,
@@ -945,12 +945,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       sortOrder: sortedInfo.columnKey === 'isEnabled' ? sortedInfo.order : null,
       render: (enabled: unknown, record: TableRecord) => {
         const isEnabled = enabled !== false;
-        const isLocal = (record.id || '').startsWith('local-');
-        const canToggle = isLocal || isConnected;
         return (
           <Switch
             checked={isEnabled}
-            disabled={!canToggle}
             onChange={() => {
               setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
               call('toggleRule', { ruleId: record.id, enabled: !isEnabled })
@@ -979,8 +976,6 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       align: 'center',
       fixed: 'right',
       render: (_: unknown, record: TableRecord) => {
-        const isLocal = (record.id || '').startsWith('local-');
-        const canAct = isLocal || isConnected;
         return (
           <Space size={2}>
             <Button
@@ -1007,9 +1002,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               okText="Delete"
               okType="danger"
               cancelText="Cancel"
-              disabled={!canAct}
             >
-              <Button type="text" danger icon={<DeleteOutlined />} size="small" disabled={!canAct} />
+              <Button type="text" danger icon={<DeleteOutlined />} size="small" />
             </Popconfirm>
           </Space>
         );

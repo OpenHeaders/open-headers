@@ -41,12 +41,17 @@ export interface Vault {
 // ── Environment ────────────────────────────────────────────────────
 
 export interface Environment {
-  /** Derived from filename (e.g. "staging" from staging.yaml). */
+  /** Stable identity; generated on create, never changes. Used for all
+   *  in-memory links and the `activeEnvironmentId` pointer. */
+  uid: string;
+  /** Display name (e.g. "staging"). Freely renamed; never used as an
+   *  identity key. For team workspaces, also drives the YAML filename. */
   name: string;
-  /** Relative path within workspace. */
-  path: string;
+  /** Relative path within workspace for team workspaces (e.g.
+   *  "environments/staging.yaml"). Optional — omitted for personal
+   *  workspaces, which live purely in chrome.storage.local. */
+  path?: string;
   variables: Variable[];
-  isActive: boolean;
 }
 
 // ── Workspace variables ────────────────────────────────────────────
@@ -68,8 +73,9 @@ export interface ResolvedVariable {
 
 /** Resolution context — determines which scopes to check. */
 export interface ResolutionContext {
-  /** Active environment name. */
-  environmentName?: string;
+  /** Override the active environment for this resolution only. When
+   *  omitted, the resolver uses its configured active environment. */
+  environmentId?: string;
   /** Collection uid for collection-scoped variable lookup. */
   collectionId?: string;
 }

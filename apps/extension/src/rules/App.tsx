@@ -11,9 +11,10 @@
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
+import { useWorkspaces } from '@hooks/useWorkspaces';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
-import { theme } from 'antd';
+import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
@@ -37,6 +38,10 @@ import RuleEditor from './components/RuleEditor';
 const RuleFlow = lazy(() => import('./components/RuleFlow'));
 const RunReportView = lazy(() => import('./components/RunReportView'));
 const TemplateEditor = lazy(() => import('./components/TemplateEditor'));
+// WorkspaceManager stays synchronous — it's small, its data (`useWorkspaces`)
+// is already resolved at shell-mount time, and lazy-loading it costs a
+// blank-screen flash when users open the tab from `#/workspaces`.
+import WorkspaceManager from './components/WorkspaceManager';
 
 import SaveToCollectionModal from './components/SaveToCollectionModal';
 import ShellLayout from './components/ShellLayout';
@@ -133,6 +138,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     templates,
     templateCollectionTrees,
   } = useRules();
+  const workspacesApi = useWorkspaces();
+  const { modal } = AntApp.useApp();
 
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups();
@@ -270,7 +277,35 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     openRuleFlow,
     openSettingsTab,
     openLandingTab,
+    openWorkspaceManager,
   } = openers;
+
+  // ── Workspace switch with dirty-draft guard ────────────────────
+  //
+  // If any editor tab has unsaved changes, confirm with the user
+  // before switching. The dirty tracking already lives in
+  // `dirtyMap` (populated by RuleEditor via onDirtyChange), so we
+  // reuse it rather than threading a second source of truth.
+  const handleSwitchWorkspace = useCallback(
+    (targetId: string) => {
+      if (targetId === workspacesApi.activeWorkspaceId) return;
+      const hasDirty = Array.from(dirtyMap.current.values()).some(Boolean);
+      const doSwitch = (): void => void workspacesApi.setActiveWorkspace(targetId);
+      if (hasDirty) {
+        modal.confirm({
+          title: 'Discard unsaved drafts?',
+          content: 'Switching workspaces will close editor tabs with unsaved changes.',
+          okText: 'Switch and discard',
+          cancelText: 'Cancel',
+          okButtonProps: { danger: true },
+          onOk: doSwitch,
+        });
+        return;
+      }
+      doSwitch();
+    },
+    [workspacesApi, modal, dirtyMap],
+  );
 
   const openSettings = useCallback(
     (target?: { settingKey?: string; categoryId?: string }) => {
@@ -335,6 +370,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     openRuleFlow,
     openRunReport,
     openSettings,
+    openWorkspaceManager,
   });
 
   // ── Initial landing (openTo = home/rules/collections) ─────────
@@ -598,6 +634,13 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
           <SettingsTab initialSettingKey={tab.settingsInitialKey} initialCategoryId={tab.settingsInitialCategory} />
         );
       }
+      if (tab.mode === 'workspace-manager') {
+        return (
+          <Suspense fallback={null}>
+            <WorkspaceManager api={workspacesApi} />
+          </Suspense>
+        );
+      }
       if (tab.mode === 'landing') {
         return (
           <LandingScreen
@@ -625,6 +668,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       openTestRunsPanel,
       openSettings,
       handleRunReportDeleted,
+      workspacesApi,
     ],
   );
 
@@ -720,7 +764,14 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       data-theme={isDarkMode ? 'dark' : 'light'}
       style={{ background: token.colorBgLayout }}
     >
-      <TopBar onCommandPalette={() => setCommandPaletteOpen(true)} onOpenSettings={openSettings} />
+      <TopBar
+        onCommandPalette={() => setCommandPaletteOpen(true)}
+        onOpenSettings={openSettings}
+        workspaces={workspacesApi.workspaces}
+        activeWorkspaceId={workspacesApi.activeWorkspaceId}
+        onSwitchWorkspace={handleSwitchWorkspace}
+        onOpenWorkspaceManager={openWorkspaceManager}
+      />
 
       <ShellLayout
         tl={tl}
