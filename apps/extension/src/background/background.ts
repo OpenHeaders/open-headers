@@ -18,6 +18,7 @@ import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs }
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
 import { get as getSetting, subscribeKey } from '@/rules/settings/store';
+import { subscribe as subscribeStatus } from '@/shared/status';
 import { extensionStorage, UI } from '@/shared/storage';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
@@ -38,6 +39,7 @@ import { handleGeneralMessage } from './modules/message-handler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { applyExternalSnapshot as applyPauseMarkersSnapshot, getPauseMarkers } from './modules/pause-markers-store';
+import { auditHostPermissions } from './modules/permissions-audit';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
@@ -209,6 +211,16 @@ async function initializeExtension(): Promise<void> {
     level: 'info',
     message: 'Service worker initialized',
     context: {},
+  });
+  // Audit host permissions once on wake. Doesn't block init — if
+  // permissions are narrowed, the Status pill flips red but rules
+  // and requests still run on whatever hosts are still granted.
+  void auditHostPermissions();
+
+  // Broadcast Status snapshot changes so UI surfaces (workspace footer,
+  // popup inline pill) can stay in lockstep with the SW without polling.
+  subscribeStatus((snapshot) => {
+    broadcast('statusUpdated', snapshot);
   });
 
   await updateExtensionBadge({

@@ -14,6 +14,7 @@ import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils
 import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
@@ -739,6 +740,10 @@ export function handleGeneralMessage(
     } else if (message.type === 'clearObservabilityLog') {
       clearObservabilityLog();
       safeResponse({ success: true });
+
+      // ── Status snapshot ──────────────────────────────────────────
+    } else if (message.type === 'getStatusSnapshot') {
+      safeResponse({ snapshot: getStatusSnapshot() });
     } else if (message.type && (message.type as string).startsWith('proxy-')) {
       return false;
     } else {

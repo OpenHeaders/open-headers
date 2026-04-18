@@ -24,6 +24,7 @@ import type { ExecutedRequestSnapshot } from '@/background/modules/request-execu
 import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
 import type { LogEntry as ObservabilityLogEntry } from '@/shared/observability/types';
+import type { StatusSnapshot } from '@/shared/status/types';
 import type { ActiveRule } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import type { RecordingData, RecordingStateInfo } from '@/types/recording';
@@ -575,6 +576,12 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { success: boolean };
   };
+
+  // ── Status snapshot ──────────────────────────────────────────────
+  getStatusSnapshot: {
+    req: Record<string, never>;
+    res: { snapshot: StatusSnapshot };
+  };
 }
 
 /**
@@ -639,6 +646,12 @@ export interface BridgeBroadcastContract {
    * on every record.
    */
   observabilityLogUpdated: { size: number };
+  /**
+   * Fires on every Status snapshot change — a subsystem reported a new
+   * state, or the snapshot was cleared. Payload is the full snapshot so
+   * listeners don't have to re-query after each event.
+   */
+  statusUpdated: StatusSnapshot;
 }
 
 // ── Variables / Environments ─────────────────────────────────────

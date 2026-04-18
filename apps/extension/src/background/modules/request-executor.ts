@@ -30,6 +30,7 @@ import type { V5 } from '@openheaders/core/types';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
+import { report as reportStatus } from '@/shared/status';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -294,6 +295,14 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
     // pass-through, tomorrow the gate for a minimal-permissions SKU.
     const response = await withHostAccess(req.url, () => fetch(req.url, init));
     const durationMs = Math.round(performance.now() - startedAt);
+    // A successful fetch resets the Status pill — the user sees
+    // green again on their next glance. A reset is a clean transition
+    // from yellow (most recent failure) back to green (baseline).
+    reportStatus({
+      subsystem: 'requests',
+      state: 'green',
+      message: `Last request: ${response.status} ${response.statusText || 'OK'}`,
+    });
 
     const headers: Array<{ key: string; value: string }> = [];
     response.headers.forEach((value, key) => {
@@ -330,6 +339,18 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
       context: {
         errorClass: err instanceof Error ? err.name : undefined,
         stack: err instanceof Error ? err.stack : undefined,
+      },
+    });
+    // Surface as a Status pill — one-shot fetch failures don't need
+    // red (they may be routine offline / DNS blips), but the user
+    // should see the most recent failure when they glance at the footer.
+    reportStatus({
+      subsystem: 'requests',
+      state: 'yellow',
+      message: `Last request failed: ${message}`,
+      context: {
+        url: req.url,
+        errorClass: err instanceof Error ? err.name : undefined,
       },
     });
     return {
