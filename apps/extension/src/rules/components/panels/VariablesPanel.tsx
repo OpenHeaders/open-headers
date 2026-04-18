@@ -16,12 +16,20 @@
  * sync without extra RPCs.
  */
 
-import { CloseOutlined, CodeOutlined, EyeInvisibleOutlined, EyeOutlined, LockOutlined } from '@ant-design/icons';
+import {
+  CloseOutlined,
+  CodeOutlined,
+  ExclamationCircleOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  LockOutlined,
+} from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
+import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';
-import { Empty, Tag, Typography, theme } from 'antd';
+import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import type { RulesTab } from '../../types';
@@ -53,32 +61,30 @@ interface DisplayVariable {
   resolved: boolean;
 }
 
-const TEMPLATE_RX = /\{\{([^}]+)\}\}/g;
-
-function extractFromString(s: string, out: Set<string>): void {
-  for (const match of s.matchAll(TEMPLATE_RX)) {
-    out.add(match[1].trim());
-  }
-}
+const TEMPLATE_RX = /\{\{[^}]+\}\}/;
 
 /**
- * Walk every string leaf of a JSON-serializable value and collect
- * {{VAR}} names referenced anywhere. We'd normally be tempted to
- * `JSON.stringify(rule)` and regex the whole blob, but that picks up
- * escaped `{{...}}` inside code strings too. Traversing leaves keeps
- * the result honest.
+ * Walk every string leaf of a JSON-serializable value and collect the
+ * strings that contain at least one `{{...}}` reference. We need the
+ * full strings (not just names) so we can feed them through
+ * `resolver.resolveTemplate` and get the structured `ResolutionError`
+ * list alongside the resolved values.
+ *
+ * Traversing leaves (instead of `JSON.stringify(rule)`-plus-regex) keeps
+ * escaped `{{...}}` inside code strings and inject snippets honest —
+ * we only surface references the executor would actually try to resolve.
  */
-function collectVarNames(input: unknown, out: Set<string>): void {
+function collectTemplateStrings(input: unknown, out: string[]): void {
   if (typeof input === 'string') {
-    extractFromString(input, out);
+    if (TEMPLATE_RX.test(input)) out.push(input);
     return;
   }
   if (Array.isArray(input)) {
-    for (const item of input) collectVarNames(item, out);
+    for (const item of input) collectTemplateStrings(item, out);
     return;
   }
   if (input && typeof input === 'object') {
-    for (const v of Object.values(input as Record<string, unknown>)) collectVarNames(v, out);
+    for (const v of Object.values(input as Record<string, unknown>)) collectTemplateStrings(v, out);
   }
 }
 
@@ -158,30 +164,55 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     : null;
 
   // ── "In request" — variables referenced by the active rule/scope
-  const inRequestVars = useMemo<DisplayVariable[]>(() => {
-    if (!activeRule) return [];
-    const names = new Set<string>();
-    collectVarNames(activeRule, names);
+  //    Walks every template-containing string in the rule, resolves
+  //    each through the full resolveTemplate machinery (so namespaces,
+  //    default-env fallback, reserved-namespace detection all apply),
+  //    then dedupes variables by display name and errors by reference.
+  const { inRequestVars, inRequestErrors } = useMemo<{
+    inRequestVars: DisplayVariable[];
+    inRequestErrors: ResolutionError[];
+  }>(() => {
+    if (!activeRule) return { inRequestVars: [], inRequestErrors: [] };
+    const templateStrings: string[] = [];
+    collectTemplateStrings(activeRule, templateStrings);
 
-    return [...names].map((name) => {
-      const resolved = resolver.resolve(name, activeCollectionId ? { collectionId: activeCollectionId } : undefined);
-      if (!resolved) {
-        return {
-          name,
-          value: '',
-          scope: 'workspace' as DisplayScope,
-          isSensitive: false,
-          resolved: false,
-        };
+    const ctx = activeCollectionId ? { collectionId: activeCollectionId } : undefined;
+    const seenVars = new Map<string, DisplayVariable>();
+    const seenErrors = new Map<string, ResolutionError>();
+
+    for (const str of templateStrings) {
+      const { variables, errors } = resolver.resolveTemplate(str, ctx);
+      for (const v of variables) {
+        if (seenVars.has(v.name)) continue;
+        if (v.resolved) {
+          seenVars.set(v.name, {
+            name: v.name,
+            value: v.value ?? '',
+            scope: (v.scope ?? 'workspace') as DisplayScope,
+            isSensitive: v.isSensitive ?? false,
+            resolved: true,
+          });
+        } else {
+          seenVars.set(v.name, {
+            name: v.name,
+            value: '',
+            scope: 'workspace' as DisplayScope,
+            isSensitive: false,
+            resolved: false,
+          });
+        }
       }
-      return {
-        name,
-        value: resolved.value,
-        scope: resolved.scope as DisplayScope,
-        isSensitive: resolved.isSensitive,
-        resolved: true,
-      };
-    });
+      for (const e of errors) {
+        if (!seenErrors.has(e.reference)) {
+          seenErrors.set(e.reference, e);
+        }
+      }
+    }
+
+    return {
+      inRequestVars: [...seenVars.values()],
+      inRequestErrors: [...seenErrors.values()],
+    };
   }, [activeRule, activeCollectionId, resolver]);
 
   // ── "All" — every scope's variables, whatever their referenced state
@@ -318,7 +349,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
         </div>
 
         {mode === 'in-request' ? (
-          <InRequestView vars={inRequestVars} activeRule={activeRule} />
+          <InRequestView vars={inRequestVars} errors={inRequestErrors} activeRule={activeRule} />
         ) : (
           <AllScopesView
             allVars={allVars}
@@ -334,7 +365,15 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
 
 // ── In-request view ───────────────────────────────────────────────
 
-function InRequestView({ vars, activeRule }: { vars: DisplayVariable[]; activeRule: V5.Rule | null }) {
+function InRequestView({
+  vars,
+  errors,
+  activeRule,
+}: {
+  vars: DisplayVariable[];
+  errors: ResolutionError[];
+  activeRule: V5.Rule | null;
+}) {
   const { token } = theme.useToken();
   if (!activeRule) {
     return (
@@ -370,7 +409,85 @@ function InRequestView({ vars, activeRule }: { vars: DisplayVariable[]; activeRu
           <Text style={{ color: token.colorError, fontSize: 11 }}>⚠ {vars.length - resolvedCount} unresolved</Text>
         )}
       </div>
+
+      {errors.length > 0 ? <ResolutionErrorList errors={errors} /> : null}
     </>
+  );
+}
+
+// ── Resolution-error list ─────────────────────────────────────────
+
+/**
+ * Structured-error list shown below the variable rows. Each entry
+ * renders `{{reference}}` + a tag for the failure reason + the
+ * resolver's concrete fix hint. The resolver owns hint generation
+ * (see `@openheaders/core/variables/resolver.ts`) — the UI is a
+ * rendering layer only.
+ */
+function ResolutionErrorList({ errors }: { errors: ResolutionError[] }) {
+  const { token } = theme.useToken();
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        paddingTop: 10,
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
+      }}
+    >
+      <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 6, color: token.colorError }}>
+        <ExclamationCircleOutlined style={{ marginRight: 4 }} />
+        Resolution issues ({errors.length})
+      </Text>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {errors.map((e) => (
+          <ResolutionErrorRow key={e.reference} error={e} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const REASON_TAG_COLOR: Record<ResolutionError['reason'], string> = {
+  unresolved: 'error',
+  'unset-in-scope': 'warning',
+  'unknown-namespace': 'magenta',
+  'reserved-namespace': 'geekblue',
+  empty: 'default',
+};
+
+const REASON_TAG_LABEL: Record<ResolutionError['reason'], string> = {
+  unresolved: 'unresolved',
+  'unset-in-scope': 'not in scope',
+  'unknown-namespace': 'unknown namespace',
+  'reserved-namespace': 'reserved',
+  empty: 'empty',
+};
+
+function ResolutionErrorRow({ error }: { error: ResolutionError }) {
+  const { token } = theme.useToken();
+  return (
+    <div
+      style={{
+        padding: '6px 8px',
+        background: token.colorErrorBg,
+        border: `1px solid ${token.colorErrorBorder}`,
+        borderRadius: 4,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
+        <Tooltip title="The raw reference inside {{…}}">
+          <Text code style={{ fontSize: 11 }}>
+            {`{{${error.reference}}}`}
+          </Text>
+        </Tooltip>
+        <Tag color={REASON_TAG_COLOR[error.reason]} style={{ fontSize: 10, margin: 0 }}>
+          {REASON_TAG_LABEL[error.reason]}
+        </Tag>
+      </div>
+      <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+        {error.hint}
+      </Text>
+    </div>
   );
 }
 

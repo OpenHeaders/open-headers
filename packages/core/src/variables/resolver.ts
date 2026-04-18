@@ -361,6 +361,12 @@ export interface TemplateVariable {
   resolved: boolean;
   value?: string;
   scope?: VariableScope;
+  /**
+   * Whether the resolved source marked this variable as sensitive.
+   * Lets UIs mask secret values by default (vault secrets, env vars
+   * tagged `type: 'secret'`). Absent on unresolved references.
+   */
+  isSensitive?: boolean;
 }
 
 /**
@@ -466,7 +472,13 @@ export function resolveTemplate(
     if (!seen.has(key)) {
       seen.add(key);
       if (resolved) {
-        variables.push({ name: key, resolved: true, value: resolved.value, scope: resolved.scope });
+        variables.push({
+          name: key,
+          resolved: true,
+          value: resolved.value,
+          scope: resolved.scope,
+          isSensitive: resolved.isSensitive,
+        });
       } else {
         variables.push({ name: key, resolved: false });
 

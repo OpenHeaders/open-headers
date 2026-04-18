@@ -159,7 +159,13 @@ describe('VariableResolver', () => {
       const { result, variables } = resolver.resolveTemplate('Hello {{NAME}}!');
       expect(result).toBe('Hello OpenHeaders!');
       expect(variables).toHaveLength(1);
-      expect(variables[0]).toEqual({ name: 'NAME', resolved: true, value: 'OpenHeaders', scope: 'workspace' });
+      expect(variables[0]).toEqual({
+        name: 'NAME',
+        resolved: true,
+        value: 'OpenHeaders',
+        scope: 'workspace',
+        isSensitive: false,
+      });
     });
 
     it('resolves multiple variables', () => {
