@@ -19,6 +19,8 @@
 export type ExtensionWorkspaceKind = 'personal' | 'team';
 
 export interface ExtensionWorkspace {
+  /** Persisted format version for the `oh.workspaces` array entry. */
+  schemaVersion: number;
   /** Stable identity; generated on create, never changes. */
   id: string;
   /** Which storage/sync model backs this workspace. */

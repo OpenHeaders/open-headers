@@ -112,6 +112,7 @@ export interface CreateWorkspaceInput {
 export async function createWorkspace(input: CreateWorkspaceInput): Promise<V5.ExtensionWorkspace> {
   const now = new Date().toISOString();
   const workspace: V5.ExtensionWorkspace = {
+    schemaVersion: 5,
     id: generateUid(),
     kind: input.kind ?? 'personal',
     name: input.name.trim() || 'Untitled Workspace',
@@ -286,6 +287,7 @@ export async function bootstrap(): Promise<void> {
   // First boot — seed a default personal workspace.
   const now = new Date().toISOString();
   const defaultWorkspace: V5.ExtensionWorkspace = {
+    schemaVersion: 5,
     id: generateUid(),
     kind: 'personal',
     name: DEFAULT_WORKSPACE_NAME,

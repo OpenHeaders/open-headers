@@ -135,7 +135,7 @@ export function ensureDefaultCollection(): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
-    schemaVersion: 1,
+    schemaVersion: 5,
     uid,
     path: `rules/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -150,7 +150,7 @@ export function createCollection(name: string): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
-    schemaVersion: 1,
+    schemaVersion: 5,
     uid,
     path: `rules/${folderName}`,
     name,
@@ -201,6 +201,7 @@ export function createFolder(name: string, parentPath: string): LocalFolder {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
+    schemaVersion: 5,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -240,7 +241,7 @@ export function addRule(rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>, p
   const uid = generateUid();
   const folderName = toFolderName(rule.name, uid);
   const created = {
-    schemaVersion: 1,
+    schemaVersion: 5,
     ...rule,
     uid,
     path: `${parentPath}/${folderName}`,

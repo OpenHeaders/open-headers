@@ -82,7 +82,7 @@ describe('compilePatternToRegexSource', () => {
 // ── getRuleMatchPatterns ─────────────────────────────────────────
 
 const baseRule: Omit<HeaderRule, 'conditions'> = {
-  schemaVersion: 1,
+  schemaVersion: 5,
   uid: 'x1',
   path: 'rules/col-abc1/rule-x1',
   name: 'T',

@@ -1,7 +1,7 @@
 /**
  * Workspace manifest (workspace.yaml).
  *
- *   schemaVersion: 1
+ *   schemaVersion: 5
  *   uid: a1b2c3d4                  # workspace identity, stable across renames
  *   name: My API Project
  *   description: …
@@ -10,7 +10,9 @@
  * The workspace IS a git repo (when synced via desktop/team). The manifest
  * is one of several versioned entities — every persisted YAML file carries
  * its own `schemaVersion`, so migrations can target a single entity kind
- * without rewriting the whole tree. See docs/V5_FOUNDATION_PLAN.md §Phase 0.
+ * without rewriting the whole tree. Starts at 5 to align with the v5 brand;
+ * future breaking changes bump per-entity (6, 7, …). See
+ * docs/V5_FOUNDATION_PLAN.md §Phase 0.
  */
 
 /**

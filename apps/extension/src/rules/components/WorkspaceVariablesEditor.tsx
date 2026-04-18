@@ -49,7 +49,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
 
   const handleSave = useCallback(() => {
     if (!isDirty) return;
-    void setWorkspaceVariables({ schemaVersion: 1, variables: draft }).then((ok) => {
+    void setWorkspaceVariables({ schemaVersion: 5, variables: draft }).then((ok) => {
       if (ok) {
         persistedFpRef.current = fingerprint(draft);
         onDirtyChange?.(false);

@@ -296,7 +296,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     }
 
     const draftRequest: V5.Request = {
-      schemaVersion: 1,
+      schemaVersion: 5,
       uid: summary?.uid ?? 'draft',
       path,
       name: summary?.name ?? draftName ?? 'Draft',

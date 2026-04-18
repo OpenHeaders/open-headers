@@ -35,7 +35,7 @@ describe('VariableSchema', () => {
 
 describe('VaultSchema', () => {
   it('accepts an empty vault', () => {
-    expect(v.parse(VaultSchema, { schemaVersion: 1, secrets: [] })).toEqual({ schemaVersion: 1, secrets: [] });
+    expect(v.parse(VaultSchema, { schemaVersion: 5, secrets: [] })).toEqual({ schemaVersion: 5, secrets: [] });
   });
 
   it('rejects a missing schemaVersion', () => {
@@ -51,7 +51,7 @@ describe('EnvironmentSchema', () => {
   it('accepts a valid environment', () => {
     expect(
       v.parse(EnvironmentSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         name: 'staging',
         variables: [{ name: 'API_URL', value: 'x', type: 'default' }],
@@ -60,21 +60,21 @@ describe('EnvironmentSchema', () => {
   });
 
   it('rejects a non-8-char uid', () => {
-    expect(v.safeParse(EnvironmentSchema, { schemaVersion: 1, uid: 'abc', name: 's', variables: [] }).success).toBe(
+    expect(v.safeParse(EnvironmentSchema, { schemaVersion: 5, uid: 'abc', name: 's', variables: [] }).success).toBe(
       false,
     );
   });
 
   it('rejects an uppercase uid', () => {
     expect(
-      v.safeParse(EnvironmentSchema, { schemaVersion: 1, uid: 'ABCD1234', name: 's', variables: [] }).success,
+      v.safeParse(EnvironmentSchema, { schemaVersion: 5, uid: 'ABCD1234', name: 's', variables: [] }).success,
     ).toBe(false);
   });
 
   it('accepts optional path', () => {
     expect(
       v.parse(EnvironmentSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         name: 'staging',
         path: 'environments/staging.yaml',
@@ -86,13 +86,13 @@ describe('EnvironmentSchema', () => {
 
 describe('WorkspaceSchema', () => {
   it('accepts the minimal manifest', () => {
-    expect(v.parse(WorkspaceSchema, { schemaVersion: 1, name: 'My Workspace' })).toBeTruthy();
+    expect(v.parse(WorkspaceSchema, { schemaVersion: 5, name: 'My Workspace' })).toBeTruthy();
   });
 
   it('accepts defaultEnvironmentId', () => {
     expect(
       v.parse(WorkspaceSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         name: 'x',
         defaultEnvironmentId: 'abcd1234',
       }),
@@ -104,6 +104,7 @@ describe('ExtensionWorkspaceSchema', () => {
   it('accepts a personal workspace', () => {
     expect(
       v.parse(ExtensionWorkspaceSchema, {
+        schemaVersion: 5,
         id: 'abcd1234',
         kind: 'personal',
         name: 'mine',
@@ -117,9 +118,23 @@ describe('ExtensionWorkspaceSchema', () => {
   it('rejects an unknown kind', () => {
     expect(
       v.safeParse(ExtensionWorkspaceSchema, {
+        schemaVersion: 5,
         id: 'abcd1234',
         kind: 'public',
         name: 'x',
+        sortIndex: 0,
+        createdAt: '2026',
+        updatedAt: '2026',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a missing schemaVersion', () => {
+    expect(
+      v.safeParse(ExtensionWorkspaceSchema, {
+        id: 'abcd1234',
+        kind: 'personal',
+        name: 'mine',
         sortIndex: 0,
         createdAt: '2026',
         updatedAt: '2026',
@@ -132,7 +147,7 @@ describe('CollectionSchema', () => {
   it('accepts an empty collection', () => {
     expect(
       v.parse(CollectionSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'rules/auth-abcd1234',
         name: 'Auth',
@@ -144,7 +159,7 @@ describe('CollectionSchema', () => {
   it('accepts explicit order', () => {
     expect(
       v.parse(CollectionSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'rules/auth-abcd1234',
         name: 'Auth',
@@ -159,7 +174,7 @@ describe('RequestSchema', () => {
   it('accepts a bearer-auth request', () => {
     expect(
       v.parse(RequestSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'requests/auth-xxxx1234/login-abcd1234',
         name: 'Login',
@@ -176,7 +191,7 @@ describe('RequestSchema', () => {
   it('rejects an unknown auth type', () => {
     expect(
       v.safeParse(RequestSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'x',
         name: 'x',
@@ -193,7 +208,7 @@ describe('RequestSchema', () => {
   it('accepts credentialsMode: "include"', () => {
     expect(
       v.parse(RequestSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'x',
         name: 'x',
@@ -213,7 +228,7 @@ describe('RuleSchema', () => {
   it('accepts a header rule', () => {
     expect(
       v.parse(RuleSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'rules/auth/rule-abcd1234',
         name: 'Bearer',
@@ -231,7 +246,7 @@ describe('RuleSchema', () => {
   it('accepts a block rule', () => {
     expect(
       v.parse(RuleSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'rules/block/rule-abcd1234',
         name: 'Block',
@@ -246,7 +261,7 @@ describe('RuleSchema', () => {
   it('accepts a query-param rule', () => {
     expect(
       v.parse(RuleSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'rules/qp/rule-abcd1234',
         name: 'Add utm',
@@ -261,7 +276,7 @@ describe('RuleSchema', () => {
   it('rejects an unknown rule type', () => {
     expect(
       v.safeParse(RuleSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'x',
         name: 'x',
@@ -276,7 +291,7 @@ describe('RuleSchema', () => {
   it('rejects when action shape is wrong for the type', () => {
     expect(
       v.safeParse(RuleSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'x',
         name: 'x',
@@ -293,7 +308,7 @@ describe('TemplateSchema', () => {
   it('accepts a valid template', () => {
     expect(
       v.parse(TemplateSchema, {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'abcd1234',
         path: 'templates/my/tpl-abcd1234',
         name: 'Bearer preset',
@@ -312,7 +327,7 @@ describe('TemplateSchema', () => {
 
 describe('WorkspaceVariablesSchema', () => {
   it('accepts empty variables', () => {
-    expect(v.parse(WorkspaceVariablesSchema, { schemaVersion: 1, variables: [] })).toBeTruthy();
+    expect(v.parse(WorkspaceVariablesSchema, { schemaVersion: 5, variables: [] })).toBeTruthy();
   });
 });
 

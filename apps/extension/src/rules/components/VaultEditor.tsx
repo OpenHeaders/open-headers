@@ -32,7 +32,7 @@ function toVars(vault: V5.Vault): V5.Variable[] {
 }
 function fromVars(vars: V5.Variable[]): V5.Vault {
   return {
-    schemaVersion: 1,
+    schemaVersion: 5,
     secrets: vars.filter((v) => v.name.trim()).map((v) => ({ name: v.name, value: v.value })),
   };
 }

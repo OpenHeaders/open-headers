@@ -30,6 +30,7 @@ export const ExtensionWorkspaceSourceSchema = v.object({
 });
 
 export const ExtensionWorkspaceSchema = v.object({
+  schemaVersion: SchemaVersionSchema,
   id: v.string(),
   kind: ExtensionWorkspaceKindSchema,
   name: v.string(),

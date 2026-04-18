@@ -19,8 +19,8 @@ vi.mock('@/background/modules/environment-store', () => ({
   getEnvironments: vi.fn(() => [] as V5.Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
-  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 1, variables: [] }) as V5.WorkspaceVariables),
-  getVault: vi.fn(() => ({ schemaVersion: 1, secrets: [] }) as V5.Vault),
+  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as V5.WorkspaceVariables),
+  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as V5.Vault),
 }));
 
 vi.mock('@/background/modules/request-store', () => ({
@@ -49,7 +49,7 @@ const mockRequestCollections = getRequestCollections as ReturnType<typeof vi.fn>
 
 function makeRequest(overrides: Partial<V5.Request> = {}): V5.Request {
   return {
-    schemaVersion: 1,
+    schemaVersion: 5,
     uid: 'r1',
     path: 'requests/default-xxxx/r1',
     name: 'R',
@@ -68,14 +68,14 @@ describe('RequestExecutor', () => {
     fetchMock.mockReset();
     mockEnvs.mockReturnValue([]);
     mockActiveEnvId.mockReturnValue(null);
-    mockWsVars.mockReturnValue({ schemaVersion: 1, variables: [] });
-    mockVault.mockReturnValue({ schemaVersion: 1, secrets: [] });
+    mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] });
     mockRequestCollections.mockReturnValue([]);
   });
 
   it('resolves workspace variables in URL', async () => {
     mockWsVars.mockReturnValue({
-      schemaVersion: 1,
+      schemaVersion: 5,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     await executeRequestDraft(makeRequest({ url: 'https://{{HOST}}/v1/ping' }));
@@ -87,7 +87,7 @@ describe('RequestExecutor', () => {
     // the bug where the executor looked in rule-collections instead.
     mockRequestCollections.mockReturnValue([
       {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'rc-1',
         path: 'requests/auth-coll',
         name: 'Auth',

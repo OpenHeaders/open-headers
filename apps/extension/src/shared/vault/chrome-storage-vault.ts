@@ -28,7 +28,7 @@ import { noopCipher, type Vault, type VaultCipher, type VaultScope } from '@open
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 
-const EMPTY_BLOB: V5.Vault = { schemaVersion: 1, secrets: [] };
+const EMPTY_BLOB: V5.Vault = { schemaVersion: 5, secrets: [] };
 
 export class ChromeStorageVault implements Vault {
   constructor(private readonly cipher: VaultCipher = noopCipher) {}

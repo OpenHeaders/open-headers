@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/core",
-  "version": "4.1.0",
+  "version": "5.0.0",
   "private": true,
   "description": "OpenHeaders core domain model — types, schemas, protocol, and shared utilities",
   "type": "module",

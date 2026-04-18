@@ -11,18 +11,18 @@ function makeVariable(name: string, value: string, type: 'default' | 'secret' = 
 let envCounter = 0;
 function makeEnvironment(name: string, vars: Variable[]): Environment {
   envCounter += 1;
-  return { schemaVersion: 1, uid: `env-${envCounter}`, name, variables: vars };
+  return { schemaVersion: 5, uid: `env-${envCounter}`, name, variables: vars };
 }
 
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
   return {
-    schemaVersion: 1,
+    schemaVersion: 5,
     secrets: secrets.map((s) => ({ ...s })),
   };
 }
 
 function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
-  return { schemaVersion: 1, variables: vars };
+  return { schemaVersion: 5, variables: vars };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -284,12 +284,12 @@ describe('VariableResolver — explicit namespaces', () => {
   beforeEach(() => {
     resolver = new VariableResolver();
     resolver.setVault({
-      schemaVersion: 1,
+      schemaVersion: 5,
       secrets: [{ name: 'TOKEN', value: 'vault-token' }],
     });
     resolver.setEnvironments([
       {
-        schemaVersion: 1,
+        schemaVersion: 5,
         uid: 'e-staging',
         name: 'staging',
         variables: [{ name: 'API_URL', value: 'https://api.staging', type: 'default' }],
@@ -297,7 +297,7 @@ describe('VariableResolver — explicit namespaces', () => {
     ]);
     resolver.setActiveEnvironmentId('e-staging');
     resolver.setWorkspaceVariables({
-      schemaVersion: 1,
+      schemaVersion: 5,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
     resolver.setCollectionVariables('coll-1', [{ name: 'REGION', value: 'eu-west-1', type: 'default' }]);
@@ -359,7 +359,7 @@ describe('VariableResolver — default environment fallback', () => {
   let resolver: VariableResolver;
 
   const makeEnv = (uid: string, name: string, vars: Array<[string, string]>): Environment => ({
-    schemaVersion: 1,
+    schemaVersion: 5,
     uid,
     name,
     variables: vars.map(([n, v]) => ({ name: n, value: v, type: 'default' as const })),
@@ -440,7 +440,7 @@ describe('VariableResolver — structured resolution errors', () => {
   beforeEach(() => {
     resolver = new VariableResolver();
     resolver.setWorkspaceVariables({
-      schemaVersion: 1,
+      schemaVersion: 5,
       variables: [{ name: 'KNOWN', value: 'v', type: 'default' }],
     });
     resolver.setActiveEnvironmentId('e-staging');

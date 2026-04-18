@@ -80,6 +80,8 @@ export interface PersistedPanelLayout {
 }
 
 export interface PersistedLocalFolder {
+  /** Persisted format version for each `_folder.yaml` once the codec lands. */
+  schemaVersion: number;
   uid: string;
   path: string;
   name: string;

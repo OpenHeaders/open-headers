@@ -121,7 +121,7 @@ export function ensureDefaultTemplateCollection(): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
-    schemaVersion: 1,
+    schemaVersion: 5,
     uid,
     path: `templates/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -136,7 +136,7 @@ export function createTemplateCollection(name: string): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
-    schemaVersion: 1,
+    schemaVersion: 5,
     uid,
     path: `templates/${folderName}`,
     name,
@@ -181,6 +181,7 @@ export function createTemplateFolder(name: string, parentPath: string): LocalFol
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
+    schemaVersion: 5,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -223,7 +224,7 @@ export function addTemplate(
   const folderName = toFolderName(template.name, uid);
   const now = new Date().toISOString();
   const created: V5.Template = {
-    schemaVersion: 1,
+    schemaVersion: 5,
     ...template,
     uid,
     path: `${parentPath}/${folderName}`,

@@ -4,7 +4,7 @@ import { isRuleComplete } from '../../src/utils/rule-validation';
 
 const hostCondition: RuleCondition = { type: 'request-domains', values: ['openheaders.io'] };
 const base = {
-  schemaVersion: 1,
+  schemaVersion: 5,
   uid: 'x1',
   path: 'rules/col-abc1/rule-x1',
   name: 'Test',
@@ -162,7 +162,7 @@ describe('isRuleComplete', () => {
 
   it('works on Omit<Rule, uid | path> for pre-save checks', () => {
     const partial = {
-      schemaVersion: 1,
+      schemaVersion: 5,
       name: 'Draft',
       type: 'header' as const,
       enabled: true,
@@ -177,7 +177,7 @@ describe('isRuleComplete', () => {
 
   it('empty draft rule is incomplete', () => {
     const partial = {
-      schemaVersion: 1,
+      schemaVersion: 5,
       name: 'New Header Rule',
       type: 'header' as const,
       enabled: true,
