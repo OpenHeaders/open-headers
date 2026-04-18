@@ -35,6 +35,11 @@ function chromeSafePlugin() {
 function copyAssetsPlugin() {
   const copies: Array<{ from: string; to: string }> = [
     { from: `manifests/${browser}/manifest.json`, to: 'manifest.json' },
+    // PERMISSIONS.md — ships inside the packed extension so store
+    // reviewers and security-conscious users can read the justification
+    // for every permission the manifest requests. See the file header
+    // for the invariant: new permissions require a PERMISSIONS.md entry.
+    { from: 'PERMISSIONS.md', to: 'PERMISSIONS.md' },
     // Images
     { from: 'src/assets/images/icon16.png', to: 'images/icon16.png' },
     { from: 'src/assets/images/icon48.png', to: 'images/icon48.png' },
