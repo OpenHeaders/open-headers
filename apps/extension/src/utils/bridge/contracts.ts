@@ -355,7 +355,11 @@ export interface BridgeRpcContract {
   // ── Environments / Variables / Vault (active workspace) ───────
   listEnvironments: {
     req: Record<string, never>;
-    res: { environments: V5.Environment[]; activeEnvironmentId: string | null };
+    res: {
+      environments: V5.Environment[];
+      activeEnvironmentId: string | null;
+      defaultEnvironmentId: string | null;
+    };
   };
   createEnvironment: {
     req: { name: string; variables?: V5.Variable[] };
@@ -374,6 +378,10 @@ export interface BridgeRpcContract {
     res: { success: boolean };
   };
   setActiveEnvironment: {
+    req: { uid: string | null };
+    res: { success: boolean };
+  };
+  setDefaultEnvironment: {
     req: { uid: string | null };
     res: { success: boolean };
   };
@@ -628,6 +636,12 @@ export interface BridgeBroadcastContract {
 export interface EnvironmentsSnapshot {
   environments: V5.Environment[];
   activeEnvironmentId: string | null;
+  /**
+   * Workspace default env uid (used as the resolver fallback when the
+   * active env misses a variable, or when there's no active env).
+   * `null` means no default is configured.
+   */
+  defaultEnvironmentId: string | null;
   workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
 }

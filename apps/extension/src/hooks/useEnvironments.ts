@@ -23,6 +23,9 @@ export interface UseEnvironmentsApi {
   environments: V5.Environment[];
   activeEnvironmentId: string | null;
   activeEnvironment: V5.Environment | null;
+  /** Fallback-env uid — resolver walks `active → default → unresolved`. `null` = no fallback. */
+  defaultEnvironmentId: string | null;
+  defaultEnvironment: V5.Environment | null;
   workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
   isReady: boolean;
@@ -33,6 +36,8 @@ export interface UseEnvironmentsApi {
   deleteEnvironment: (uid: string) => Promise<boolean>;
   /** Pass `null` to enter "No environment" mode. */
   setActiveEnvironment: (uid: string | null) => Promise<boolean>;
+  /** Pass `null` to clear the default-env fallback. */
+  setDefaultEnvironment: (uid: string | null) => Promise<boolean>;
 
   setWorkspaceVariables: (vars: V5.WorkspaceVariables) => Promise<boolean>;
   setVault: (vault: V5.Vault) => Promise<boolean>;
@@ -43,6 +48,7 @@ export interface UseEnvironmentsApi {
 export function useEnvironments(): UseEnvironmentsApi {
   const [environments, setEnvironments] = useState<V5.Environment[]>([]);
   const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(null);
+  const [defaultEnvironmentId, setDefaultEnvironmentIdState] = useState<string | null>(null);
   const [workspaceVariables, setWorkspaceVariablesState] = useState<V5.WorkspaceVariables>({
     schemaVersion: 1,
     variables: [],
@@ -65,6 +71,7 @@ export function useEnvironments(): UseEnvironmentsApi {
       if (envResp) {
         setEnvironments(envResp.environments);
         setActiveEnvironmentId(envResp.activeEnvironmentId);
+        setDefaultEnvironmentIdState(envResp.defaultEnvironmentId);
       }
       if (varsResp) setWorkspaceVariablesState(varsResp.workspaceVariables);
       if (vaultResp) setVaultState(vaultResp.vault);
@@ -74,6 +81,7 @@ export function useEnvironments(): UseEnvironmentsApi {
     const unsub = subscribe('environmentsChanged', (payload) => {
       setEnvironments(payload.environments);
       setActiveEnvironmentId(payload.activeEnvironmentId);
+      setDefaultEnvironmentIdState(payload.defaultEnvironmentId);
       setWorkspaceVariablesState(payload.workspaceVariables);
       setVaultState(payload.vault);
     });
@@ -92,6 +100,7 @@ export function useEnvironments(): UseEnvironmentsApi {
         if (envResp) {
           setEnvironments(envResp.environments);
           setActiveEnvironmentId(envResp.activeEnvironmentId);
+          setDefaultEnvironmentIdState(envResp.defaultEnvironmentId);
         }
         if (varsResp) setWorkspaceVariablesState(varsResp.workspaceVariables);
         if (vaultResp) setVaultState(vaultResp.vault);
@@ -130,6 +139,11 @@ export function useEnvironments(): UseEnvironmentsApi {
     return Boolean(resp?.success);
   }, []);
 
+  const setDefaultEnvironment = useCallback(async (uid: string | null) => {
+    const resp = await call('setDefaultEnvironment', { uid }).catch(() => null);
+    return Boolean(resp?.success);
+  }, []);
+
   const setWorkspaceVariables = useCallback(async (vars: V5.WorkspaceVariables) => {
     const resp = await call('setWorkspaceVariables', { workspaceVariables: vars }).catch(() => null);
     return Boolean(resp?.success);
@@ -150,10 +164,17 @@ export function useEnvironments(): UseEnvironmentsApi {
     [environments, activeEnvironmentId],
   );
 
+  const defaultEnvironment = useMemo(
+    () => (defaultEnvironmentId ? (environments.find((e) => e.uid === defaultEnvironmentId) ?? null) : null),
+    [environments, defaultEnvironmentId],
+  );
+
   return {
     environments,
     activeEnvironmentId,
     activeEnvironment,
+    defaultEnvironmentId,
+    defaultEnvironment,
     workspaceVariables,
     vault,
     isReady,
@@ -162,6 +183,7 @@ export function useEnvironments(): UseEnvironmentsApi {
     updateEnvironmentVariables,
     deleteEnvironment,
     setActiveEnvironment,
+    setDefaultEnvironment,
     setWorkspaceVariables,
     setVault,
     updateCollectionVariables,

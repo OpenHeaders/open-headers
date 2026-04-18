@@ -88,7 +88,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
   const { token } = theme.useToken();
   const [mode, setMode] = useState<'in-request' | 'all'>('in-request');
 
-  const { environments, activeEnvironmentId, workspaceVariables, vault } = useEnvironments();
+  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
   const { rules, localCollections, localCollectionTrees } = useRules();
 
   // Identify the active rule + collection for the current tab. Other
@@ -141,13 +141,17 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     r.setVault(vault);
     r.setEnvironments(environments);
     r.setActiveEnvironmentId(activeEnvironmentId);
+    r.setDefaultEnvironmentId(defaultEnvironmentId);
     r.setWorkspaceVariables(workspaceVariables);
     for (const c of localCollections) r.setCollectionVariables(c.uid, c.variables ?? []);
     return r;
-  }, [vault, environments, activeEnvironmentId, workspaceVariables, localCollections]);
+  }, [vault, environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, localCollections]);
 
   const activeEnvironment = activeEnvironmentId
     ? (environments.find((e) => e.uid === activeEnvironmentId)?.name ?? null)
+    : null;
+  const defaultEnvironment = defaultEnvironmentId
+    ? (environments.find((e) => e.uid === defaultEnvironmentId)?.name ?? null)
     : null;
   const activeCollectionName = activeCollectionId
     ? (localCollections.find((c) => c.uid === activeCollectionId)?.name ?? null)
@@ -319,6 +323,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
           <AllScopesView
             allVars={allVars}
             activeEnvironmentName={activeEnvironment}
+            defaultEnvironmentName={defaultEnvironment}
             activeCollectionName={activeCollectionName}
           />
         )}
@@ -374,6 +379,7 @@ function InRequestView({ vars, activeRule }: { vars: DisplayVariable[]; activeRu
 function AllScopesView({
   allVars,
   activeEnvironmentName,
+  defaultEnvironmentName,
   activeCollectionName,
 }: {
   allVars: {
@@ -383,16 +389,25 @@ function AllScopesView({
     workspace: DisplayVariable[];
   };
   activeEnvironmentName: string | null;
+  defaultEnvironmentName: string | null;
   activeCollectionName: string | null;
 }) {
+  // If a default env is configured and differs from the active one, surface
+  // it in the environment-scope subtitle so users understand why a value is
+  // resolving from a different env than the one they picked.
+  const envSubtitle = (() => {
+    if (activeEnvironmentName && defaultEnvironmentName && defaultEnvironmentName !== activeEnvironmentName) {
+      return `${activeEnvironmentName} · default: ${defaultEnvironmentName}`;
+    }
+    if (activeEnvironmentName) return activeEnvironmentName;
+    if (defaultEnvironmentName) return `No environment · default: ${defaultEnvironmentName}`;
+    return 'No environment';
+  })();
+
   return (
     <>
       <ScopeSection scope="vault" variables={allVars.vault} />
-      <ScopeSection
-        scope="environment"
-        variables={allVars.environment}
-        subtitle={activeEnvironmentName ?? 'No environment'}
-      />
+      <ScopeSection scope="environment" variables={allVars.environment} subtitle={envSubtitle} />
       <ScopeSection
         scope="collection"
         variables={allVars.collection}

@@ -2,10 +2,11 @@
  * VariableResolver — centralized {{VAR}} resolution across the 4-scope chain.
  *
  * Resolution priority (highest → lowest):
- *   1. Secret (per-machine secrets, never synced)
- *   2. Environment (switchable: dev/staging/prod)
- *   3. Collection (scoped to a collection, synced)
- *   4. Workspace (workspace-wide, synced)
+ *   1. Vault (per-user secrets, never synced)
+ *   2. Active environment (switchable: dev/staging/prod)
+ *   3. Default environment (falls back here when active misses — ARCHITECTURE §5)
+ *   4. Collection (scoped to a collection, synced)
+ *   5. Workspace (workspace-wide, synced)
  *
  * This is pure domain logic — no I/O, no framework deps.
  * Both the main process and renderer use this.
@@ -34,6 +35,69 @@ const NAMESPACE_TO_SCOPE: Partial<Record<VariableNamespace, VariableScope>> = {
   workspace: 'workspace',
 };
 
+// ── Resolution errors ──────────────────────────────────────────────
+
+/**
+ * Why a specific `{{...}}` reference didn't resolve. Passed to the UI so it
+ * can show an actionable message next to the field — not a generic
+ * "undefined variable" dead-end. See ARCHITECTURE.md §5 — "errors-as-spec".
+ */
+export type ResolutionErrorReason =
+  | 'empty' // `{{}}` or `{{ns.}}`
+  | 'unknown-namespace' // `{{foo.X}}` — foo is not a registered namespace
+  | 'reserved-namespace' // `{{file.X}}` / `{{dynamic.X}}` — reserved for features not yet shipped
+  | 'unset-in-scope' // `{{env.X}}` but X not in active env (and no default fallback)
+  | 'unresolved'; // `{{X}}` — nowhere in the 4-scope chain
+
+export interface ResolutionError {
+  /** The raw text between the braces, trimmed. E.g. "env.API_URL" or "foo.X". */
+  reference: string;
+  /** Specific failure category. */
+  reason: ResolutionErrorReason;
+  /**
+   * Parsed namespace, or `null` if the reference is flat. `'unknown'` if the
+   * segment before the dot is not a registered namespace.
+   */
+  namespace: VariableNamespace | 'unknown' | null;
+  /** The variable name portion (without the namespace prefix). Empty for `empty` reason. */
+  variableName: string;
+  /** Active env uid at resolution time, or null if "no environment". */
+  activeEnvironmentId: string | null;
+  /** Default env uid at resolution time, or null if none is configured. */
+  defaultEnvironmentId: string | null;
+  /** Short human-readable fix hint. UI may replace with a richer message. */
+  hint: string;
+}
+
+function buildHint(
+  reason: ResolutionErrorReason,
+  namespace: VariableNamespace | 'unknown' | null,
+  activeEnvironmentId: string | null,
+): string {
+  switch (reason) {
+    case 'empty':
+      return 'Reference is empty. Use {{name}} or {{namespace.name}}.';
+    case 'unknown-namespace':
+      return 'Unknown namespace. Valid namespaces: env, vault, collection, workspace, dynamic, file.';
+    case 'reserved-namespace':
+      if (namespace === 'file') return 'File references are coming in v2.';
+      if (namespace === 'dynamic') return 'Dynamic variables ($timestamp, $guid, …) are coming soon.';
+      return 'This namespace is reserved.';
+    case 'unset-in-scope':
+      if (namespace === 'env') {
+        return activeEnvironmentId
+          ? 'Set this variable in Environments → active environment (or in the default environment as a fallback).'
+          : 'No active environment is selected. Select one in Environments, or set a default environment.';
+      }
+      if (namespace === 'vault') return 'Set this secret in the Vault.';
+      if (namespace === 'collection') return 'Set this variable in the current collection.';
+      if (namespace === 'workspace') return 'Set this variable in Workspace Variables.';
+      return 'Not set in this scope.';
+    case 'unresolved':
+      return 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
+  }
+}
+
 // ── VariableResolver ───────────────────────────────────────────────
 
 /**
@@ -44,6 +108,7 @@ export class VariableResolver {
   private vault: Vault;
   private environments: Environment[];
   private activeEnvironmentId: string | null;
+  private defaultEnvironmentId: string | null;
   private collectionVariables: Map<string, Variable[]>;
   private workspaceVariables: WorkspaceVariables;
 
@@ -51,6 +116,7 @@ export class VariableResolver {
     this.vault = { schemaVersion: 1, secrets: [] };
     this.environments = [];
     this.activeEnvironmentId = null;
+    this.defaultEnvironmentId = null;
     this.collectionVariables = new Map();
     this.workspaceVariables = { schemaVersion: 1, variables: [] };
   }
@@ -68,10 +134,20 @@ export class VariableResolver {
   /**
    * Identify which environment resolves {{VAR}} references at runtime.
    * `null` means "no environment" (Postman semantics — valid state, not
-   * an error; the resolver still resolves from lower scopes).
+   * an error; the resolver still resolves from lower scopes and from the
+   * default environment if one is set).
    */
   setActiveEnvironmentId(id: string | null): void {
     this.activeEnvironmentId = id;
+  }
+
+  /**
+   * Configure the workspace's default environment uid. Resolution falls back
+   * to this env when the active env doesn't define a variable (or when
+   * there is no active env). `null` disables the fallback.
+   */
+  setDefaultEnvironmentId(id: string | null): void {
+    this.defaultEnvironmentId = id;
   }
 
   setCollectionVariables(collectionId: string, variables: Variable[]): void {
@@ -84,6 +160,26 @@ export class VariableResolver {
 
   setWorkspaceVariables(vars: WorkspaceVariables): void {
     this.workspaceVariables = vars;
+  }
+
+  // ── Internal helpers ─────────────────────────────────────────────
+
+  /**
+   * Try to resolve `name` from a single environment by uid. Returns null
+   * when the env doesn't exist or doesn't carry `name`.
+   */
+  private tryResolveFromEnv(envId: string | null, name: string): ResolvedVariable | null {
+    if (!envId) return null;
+    const env = this.environments.find((e) => e.uid === envId);
+    if (!env) return null;
+    const envVar = env.variables.find((v) => v.name === name);
+    if (!envVar || envVar.value === '') return null;
+    return {
+      name,
+      value: envVar.value,
+      scope: 'environment',
+      isSensitive: envVar.type === 'secret',
+    };
   }
 
   // ── Resolution ───────────────────────────────────────────────────
@@ -101,21 +197,17 @@ export class VariableResolver {
 
     // 2. Active environment (context-override first, then configured active).
     const activeEnvId = context?.environmentId ?? this.activeEnvironmentId;
-    const activeEnv = activeEnvId ? this.environments.find((e) => e.uid === activeEnvId) : null;
+    const fromActive = this.tryResolveFromEnv(activeEnvId, name);
+    if (fromActive) return fromActive;
 
-    if (activeEnv) {
-      const envVar = activeEnv.variables.find((v) => v.name === name);
-      if (envVar && envVar.value !== '') {
-        return {
-          name,
-          value: envVar.value,
-          scope: 'environment',
-          isSensitive: envVar.type === 'secret',
-        };
-      }
+    // 3. Default environment — fallback when active doesn't define `name`
+    //    (or when there's no active env at all).
+    if (this.defaultEnvironmentId && this.defaultEnvironmentId !== activeEnvId) {
+      const fromDefault = this.tryResolveFromEnv(this.defaultEnvironmentId, name);
+      if (fromDefault) return fromDefault;
     }
 
-    // 3. Collection (if context specifies one)
+    // 4. Collection (if context specifies one)
     if (context?.collectionId) {
       const collVars = this.collectionVariables.get(context.collectionId);
       if (collVars) {
@@ -131,7 +223,7 @@ export class VariableResolver {
       }
     }
 
-    // 4. Workspace (lowest priority)
+    // 5. Workspace (lowest priority)
     const workspaceVar = this.workspaceVariables.variables.find((v) => v.name === name);
     if (workspaceVar && workspaceVar.value !== '') {
       return {
@@ -168,16 +260,10 @@ export class VariableResolver {
       }
       case 'environment': {
         const activeEnvId = context?.environmentId ?? this.activeEnvironmentId;
-        const activeEnv = activeEnvId ? this.environments.find((e) => e.uid === activeEnvId) : null;
-        if (!activeEnv) return null;
-        const envVar = activeEnv.variables.find((v) => v.name === name);
-        if (envVar && envVar.value !== '') {
-          return {
-            name,
-            value: envVar.value,
-            scope: 'environment',
-            isSensitive: envVar.type === 'secret',
-          };
+        const fromActive = this.tryResolveFromEnv(activeEnvId, name);
+        if (fromActive) return fromActive;
+        if (this.defaultEnvironmentId && this.defaultEnvironmentId !== activeEnvId) {
+          return this.tryResolveFromEnv(this.defaultEnvironmentId, name);
         }
         return null;
       }
@@ -218,13 +304,21 @@ export class VariableResolver {
    * forms. Unresolved variables are left as-is: `{{UNKNOWN}}` stays in the
    * output. This is intentional — for DNR compatibility, literal references
    * must pass through when unresolved. The caller surfaces errors via the
-   * returned `variables` list (resolved: false).
+   * returned `errors` list (one structured `ResolutionError` per unique
+   * unresolved reference).
    */
-  resolveTemplate(template: string, context?: ResolutionContext): { result: string; variables: TemplateVariable[] } {
+  resolveTemplate(
+    template: string,
+    context?: ResolutionContext,
+  ): { result: string; variables: TemplateVariable[]; errors: ResolutionError[] } {
     return resolveTemplate(
       template,
       (name) => this.resolve(name, context),
       (name, ns) => this.resolveScoped(name, ns, context),
+      {
+        activeEnvironmentId: context?.environmentId ?? this.activeEnvironmentId,
+        defaultEnvironmentId: this.defaultEnvironmentId,
+      },
     );
   }
 
@@ -281,6 +375,18 @@ export function resolveVariable(
 }
 
 /**
+ * Environment identity snapshot attached to resolution errors.
+ *
+ * When the resolver reports that `{{env.API_URL}}` is unset, the UI needs to
+ * know *which* active env was checked and whether a default was available.
+ * The caller passes this snapshot in so error objects carry it through.
+ */
+export interface ResolutionEnvSnapshot {
+  activeEnvironmentId: string | null;
+  defaultEnvironmentId: string | null;
+}
+
+/**
  * Resolve all `{{...}}` references in a template string.
  *
  * Accepts two lookup functions so the same implementation handles flat
@@ -291,26 +397,53 @@ export function resolveVariable(
  *
  * Unresolved references are left literal in the output. Unknown namespaces
  * and reserved namespaces (`dynamic`, `file`) also leave the reference
- * literal — the caller walks the returned `variables` list to surface
- * errors in the UI.
+ * literal — the caller walks the returned `errors` list to surface issues
+ * in the UI.
  */
 export function resolveTemplate(
   template: string,
   lookup: (name: string) => ResolvedVariable | null,
   scopedLookup?: (name: string, namespace: VariableNamespace) => ResolvedVariable | null,
-): { result: string; variables: TemplateVariable[] } {
+  env?: ResolutionEnvSnapshot,
+): { result: string; variables: TemplateVariable[]; errors: ResolutionError[] } {
   const variables: TemplateVariable[] = [];
+  const errors: ResolutionError[] = [];
   const seen = new Set<string>();
+  const activeEnvironmentId = env?.activeEnvironmentId ?? null;
+  const defaultEnvironmentId = env?.defaultEnvironmentId ?? null;
 
   const result = template.replace(TEMPLATE_REGEX, (match, inner: string) => {
     const parsed = parseReference(inner);
+
     if (!parsed.ok) {
-      // Empty or unknown-namespace — leave literal. Track it so the UI
-      // can surface the error under the `raw` name.
+      // Parse-level failure — emit one structured error per unique raw ref.
       const key = `!${parsed.raw}`;
       if (!seen.has(key)) {
         seen.add(key);
         variables.push({ name: parsed.raw, resolved: false });
+
+        if (parsed.reason === 'unknown-namespace') {
+          const ns: VariableNamespace | 'unknown' = 'unknown';
+          errors.push({
+            reference: parsed.raw,
+            reason: 'unknown-namespace',
+            namespace: ns,
+            variableName: parsed.raw.slice((parsed.namespace?.length ?? 0) + 1),
+            activeEnvironmentId,
+            defaultEnvironmentId,
+            hint: buildHint('unknown-namespace', ns, activeEnvironmentId),
+          });
+        } else {
+          errors.push({
+            reference: parsed.raw,
+            reason: 'empty',
+            namespace: null,
+            variableName: '',
+            activeEnvironmentId,
+            defaultEnvironmentId,
+            hint: buildHint('empty', null, activeEnvironmentId),
+          });
+        }
       }
       return match;
     }
@@ -336,11 +469,44 @@ export function resolveTemplate(
         variables.push({ name: key, resolved: true, value: resolved.value, scope: resolved.scope });
       } else {
         variables.push({ name: key, resolved: false });
+
+        // Emit a structured error per unique unresolved reference.
+        if (ref.namespace === 'file' || ref.namespace === 'dynamic') {
+          errors.push({
+            reference: ref.raw,
+            reason: 'reserved-namespace',
+            namespace: ref.namespace,
+            variableName: ref.name,
+            activeEnvironmentId,
+            defaultEnvironmentId,
+            hint: buildHint('reserved-namespace', ref.namespace, activeEnvironmentId),
+          });
+        } else if (ref.namespace) {
+          errors.push({
+            reference: ref.raw,
+            reason: 'unset-in-scope',
+            namespace: ref.namespace,
+            variableName: ref.name,
+            activeEnvironmentId,
+            defaultEnvironmentId,
+            hint: buildHint('unset-in-scope', ref.namespace, activeEnvironmentId),
+          });
+        } else {
+          errors.push({
+            reference: ref.raw,
+            reason: 'unresolved',
+            namespace: null,
+            variableName: ref.name,
+            activeEnvironmentId,
+            defaultEnvironmentId,
+            hint: buildHint('unresolved', null, activeEnvironmentId),
+          });
+        }
       }
     }
 
     return resolved ? resolved.value : match;
   });
 
-  return { result, variables };
+  return { result, variables, errors };
 }

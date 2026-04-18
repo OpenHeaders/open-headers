@@ -24,7 +24,13 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { resolveRule, VariableResolver } from '@openheaders/core/variables';
-import { getActiveEnvironmentId, getEnvironments, getVault, getWorkspaceVariables } from './environment-store';
+import {
+  getActiveEnvironmentId,
+  getDefaultEnvironmentId,
+  getEnvironments,
+  getVault,
+  getWorkspaceVariables,
+} from './environment-store';
 import { getCollections, getRules } from './rule-store';
 
 // ── Singleton resolver + last resolved snapshot ────────────────────
@@ -63,6 +69,7 @@ function syncResolverFromStores(): void {
   resolver.setVault(getVault());
   resolver.setEnvironments(getEnvironments());
   resolver.setActiveEnvironmentId(getActiveEnvironmentId());
+  resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
   resolver.setWorkspaceVariables(getWorkspaceVariables());
 
   // Collection scope: reset then re-populate from rule-store. Using
@@ -164,5 +171,6 @@ export function __resetForTests(): void {
   resolver.setVault({ schemaVersion: 1, secrets: [] });
   resolver.setEnvironments([]);
   resolver.setActiveEnvironmentId(null);
+  resolver.setDefaultEnvironmentId(null);
   resolver.setWorkspaceVariables({ schemaVersion: 1, variables: [] });
 }

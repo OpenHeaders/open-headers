@@ -348,3 +348,175 @@ describe('VariableResolver — explicit namespaces', () => {
     expect(variables[0]).toEqual({ name: 'foo.X', resolved: false });
   });
 });
+
+describe('VariableResolver — default environment fallback', () => {
+  let resolver: VariableResolver;
+
+  const makeEnv = (uid: string, name: string, vars: Array<[string, string]>): Environment => ({
+    schemaVersion: 1,
+    uid,
+    name,
+    variables: vars.map(([n, v]) => ({ name: n, value: v, type: 'default' as const })),
+  });
+
+  beforeEach(() => {
+    resolver = new VariableResolver();
+    resolver.setEnvironments([
+      makeEnv('e-default', 'default', [
+        ['API_URL', 'https://api.default'],
+        ['TIMEOUT', '30'],
+      ]),
+      makeEnv('e-staging', 'staging', [['API_URL', 'https://api.staging']]),
+    ]);
+  });
+
+  it('falls back to default env when active env is missing the variable', () => {
+    resolver.setActiveEnvironmentId('e-staging');
+    resolver.setDefaultEnvironmentId('e-default');
+
+    // TIMEOUT only exists in default.
+    const out = resolver.resolve('TIMEOUT');
+    expect(out?.value).toBe('30');
+    expect(out?.scope).toBe('environment');
+  });
+
+  it('active env wins over default when both define the variable', () => {
+    resolver.setActiveEnvironmentId('e-staging');
+    resolver.setDefaultEnvironmentId('e-default');
+
+    const out = resolver.resolve('API_URL');
+    expect(out?.value).toBe('https://api.staging');
+  });
+
+  it('resolves from default env even when no active env is selected', () => {
+    resolver.setActiveEnvironmentId(null);
+    resolver.setDefaultEnvironmentId('e-default');
+
+    const out = resolver.resolve('TIMEOUT');
+    expect(out?.value).toBe('30');
+  });
+
+  it('does not fall back when default env is not configured', () => {
+    resolver.setActiveEnvironmentId('e-staging');
+    resolver.setDefaultEnvironmentId(null);
+
+    expect(resolver.resolve('TIMEOUT')).toBeNull();
+  });
+
+  it('setDefaultEnvironmentId(null) disables the fallback', () => {
+    resolver.setActiveEnvironmentId('e-staging');
+    resolver.setDefaultEnvironmentId('e-default');
+    expect(resolver.resolve('TIMEOUT')?.value).toBe('30');
+
+    resolver.setDefaultEnvironmentId(null);
+    expect(resolver.resolve('TIMEOUT')).toBeNull();
+  });
+
+  it('{{env.X}} also falls back to default env for scoped lookups', () => {
+    resolver.setActiveEnvironmentId('e-staging');
+    resolver.setDefaultEnvironmentId('e-default');
+    const { result } = resolver.resolveTemplate('{{env.TIMEOUT}}');
+    expect(result).toBe('30');
+  });
+
+  it('default == active is not double-checked', () => {
+    resolver.setActiveEnvironmentId('e-default');
+    resolver.setDefaultEnvironmentId('e-default');
+    // Behaviorally identical to "no default configured" — single lookup.
+    expect(resolver.resolve('TIMEOUT')?.value).toBe('30');
+    expect(resolver.resolve('NOPE')).toBeNull();
+  });
+});
+
+describe('VariableResolver — structured resolution errors', () => {
+  let resolver: VariableResolver;
+
+  beforeEach(() => {
+    resolver = new VariableResolver();
+    resolver.setWorkspaceVariables({
+      schemaVersion: 1,
+      variables: [{ name: 'KNOWN', value: 'v', type: 'default' }],
+    });
+    resolver.setActiveEnvironmentId('e-staging');
+    resolver.setDefaultEnvironmentId('e-default');
+  });
+
+  it('emits an unresolved error for a flat unknown variable', () => {
+    const { errors } = resolver.resolveTemplate('{{UNKNOWN}}');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      reference: 'UNKNOWN',
+      reason: 'unresolved',
+      namespace: null,
+      variableName: 'UNKNOWN',
+      activeEnvironmentId: 'e-staging',
+      defaultEnvironmentId: 'e-default',
+    });
+    expect(errors[0].hint).toMatch(/vault, environment/);
+  });
+
+  it('emits an unset-in-scope error for explicit env lookup missing the key', () => {
+    const { errors } = resolver.resolveTemplate('{{env.API_URL}}');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      reference: 'env.API_URL',
+      reason: 'unset-in-scope',
+      namespace: 'env',
+      variableName: 'API_URL',
+    });
+    expect(errors[0].hint).toMatch(/Environments/);
+  });
+
+  it('emits an unknown-namespace error for {{foo.X}}', () => {
+    const { errors } = resolver.resolveTemplate('{{foo.X}}');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      reference: 'foo.X',
+      reason: 'unknown-namespace',
+      namespace: 'unknown',
+    });
+    expect(errors[0].hint).toMatch(/Valid namespaces/);
+  });
+
+  it('emits a reserved-namespace error for {{file.X}}', () => {
+    const { errors } = resolver.resolveTemplate('{{file.fixture.json}}');
+    expect(errors[0]).toMatchObject({
+      reference: 'file.fixture.json',
+      reason: 'reserved-namespace',
+      namespace: 'file',
+    });
+    expect(errors[0].hint).toMatch(/v2/);
+  });
+
+  it('emits a reserved-namespace error for {{dynamic.uuid}}', () => {
+    const { errors } = resolver.resolveTemplate('{{dynamic.uuid}}');
+    expect(errors[0]).toMatchObject({ reason: 'reserved-namespace', namespace: 'dynamic' });
+  });
+
+  it('emits an empty error for whitespace-only {{   }}', () => {
+    const { errors } = resolver.resolveTemplate('Hello {{   }}');
+    expect(errors[0]).toMatchObject({ reason: 'empty', namespace: null });
+  });
+
+  it('emits an empty error for trailing-dot {{env.}}', () => {
+    const { errors } = resolver.resolveTemplate('{{env.}}');
+    expect(errors[0]).toMatchObject({ reason: 'empty', namespace: null });
+  });
+
+  it('deduplicates errors by reference — same {{X}} twice → one error', () => {
+    const { errors } = resolver.resolveTemplate('{{MISSING}} {{MISSING}} {{MISSING}}');
+    expect(errors).toHaveLength(1);
+  });
+
+  it('returns no errors when every reference resolves', () => {
+    const { errors } = resolver.resolveTemplate('Hello {{KNOWN}}!');
+    expect(errors).toEqual([]);
+  });
+
+  it('returns all errors for a mixed template', () => {
+    const { errors } = resolver.resolveTemplate('{{KNOWN}} {{env.API_URL}} {{foo.X}} {{MISSING}}');
+    expect(errors).toHaveLength(3);
+    const reasons = errors.map((e) => e.reason).sort();
+    expect(reasons).toEqual(['unknown-namespace', 'unresolved', 'unset-in-scope']);
+  });
+});

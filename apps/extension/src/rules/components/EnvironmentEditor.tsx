@@ -7,10 +7,10 @@
  * the save cue consistently with every other editor tab.
  */
 
-import { CheckCircleTwoTone, GlobalOutlined } from '@ant-design/icons';
+import { CheckCircleTwoTone, GlobalOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Tag, Typography, theme } from 'antd';
+import { Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import VariableTable from './panels/VariableTable';
@@ -29,7 +29,14 @@ function fingerprint(vars: V5.Variable[]): string {
 
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
-  const { environments, activeEnvironmentId, updateEnvironmentVariables, setActiveEnvironment } = useEnvironments();
+  const {
+    environments,
+    activeEnvironmentId,
+    defaultEnvironmentId,
+    updateEnvironmentVariables,
+    setActiveEnvironment,
+    setDefaultEnvironment,
+  } = useEnvironments();
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
 
@@ -77,6 +84,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   }
 
   const isActive = activeEnvironmentId === env.uid;
+  const isDefault = defaultEnvironmentId === env.uid;
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
 
   return (
@@ -97,13 +105,35 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
               {env.name}
             </Title>
             {isActive && <Tag color="blue">Active</Tag>}
+            {isDefault && (
+              <Tooltip title="Resolver falls back here when the active env is missing a variable.">
+                <Tag color="gold" icon={<StarFilled />}>
+                  Default
+                </Tag>
+              </Tooltip>
+            )}
           </div>
-          <div>
+          <div style={{ display: 'flex', gap: 8 }}>
             {!isActive && (
               <Button size="small" icon={<CheckCircleTwoTone />} onClick={() => void setActiveEnvironment(env.uid)}>
                 Set active
               </Button>
             )}
+            <Tooltip
+              title={
+                isDefault
+                  ? 'Unset as default — resolver will stop falling back to this env.'
+                  : 'Set as default — resolver falls back here when the active env is missing a variable.'
+              }
+            >
+              <Button
+                size="small"
+                icon={isDefault ? <StarFilled style={{ color: token.colorWarning }} /> : <StarOutlined />}
+                onClick={() => void setDefaultEnvironment(isDefault ? null : env.uid)}
+              >
+                {isDefault ? 'Unset default' : 'Set as default'}
+              </Button>
+            </Tooltip>
           </div>
         </div>
 

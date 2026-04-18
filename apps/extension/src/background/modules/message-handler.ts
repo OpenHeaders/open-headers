@@ -21,11 +21,13 @@ import {
   createEnvironment,
   deleteEnvironment,
   getActiveEnvironmentId,
+  getDefaultEnvironmentId,
   getEnvironments,
   getVault,
   getWorkspaceVariables,
   renameEnvironment,
   setActiveEnvironment,
+  setDefaultEnvironment,
   setVault,
   setWorkspaceVariables,
   updateEnvironmentVariables,
@@ -266,6 +268,7 @@ export function handleGeneralMessage(
       safeResponse({
         environments: getEnvironments(),
         activeEnvironmentId: getActiveEnvironmentId(),
+        defaultEnvironmentId: getDefaultEnvironmentId(),
       });
     } else if (message.type === 'createEnvironment') {
       const name = message.name as string;
@@ -284,6 +287,12 @@ export function handleGeneralMessage(
     } else if (message.type === 'setActiveEnvironment') {
       const uid = message.uid as string | null;
       setActiveEnvironment(uid)
+        .then((ok) => safeResponse({ success: ok }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'setDefaultEnvironment') {
+      const uid = message.uid as string | null;
+      setDefaultEnvironment(uid)
         .then((ok) => safeResponse({ success: ok }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;

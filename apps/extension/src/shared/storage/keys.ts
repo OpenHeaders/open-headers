@@ -132,6 +132,7 @@ export interface WorkspaceKeys {
   templateFolders: StorageKey<PersistedLocalFolder[]>;
   environments: StorageKey<V5.Environment[]>;
   activeEnvironmentId: StorageKey<string | null>;
+  defaultEnvironmentId: StorageKey<string | null>;
   workspaceVars: StorageKey<V5.WorkspaceVariables>;
   vault: StorageKey<V5.Vault>;
   pauseMarkers: StorageKey<Record<string, PauseMarker>>;
@@ -157,6 +158,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     templateFolders: storageKey<PersistedLocalFolder[]>(`${p}.templateFolders`),
     environments: storageKey<V5.Environment[]>(`${p}.environments`),
     activeEnvironmentId: storageKey<string | null>(`${p}.activeEnvironmentId`),
+    defaultEnvironmentId: storageKey<string | null>(`${p}.defaultEnvironmentId`),
     workspaceVars: storageKey<V5.WorkspaceVariables>(`${p}.workspaceVars`),
     vault: storageKey<V5.Vault>(`${p}.vault`),
     pauseMarkers: storageKey<Record<string, PauseMarker>>(`${p}.pauseMarkers`),

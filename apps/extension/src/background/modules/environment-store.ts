@@ -9,13 +9,15 @@
  * Storage keys (scoped to active workspace):
  *   - `oh.ws.<id>.environments`          → Environment[]
  *   - `oh.ws.<id>.activeEnvironmentId`   → string | null
+ *   - `oh.ws.<id>.defaultEnvironmentId`  → string | null
  *   - `oh.ws.<id>.workspaceVars`         → WorkspaceVariables
  *   - `oh.ws.<id>.vault`                 → Vault (local-per-device,
  *                                          never synced)
  *
  * "No environment" is a valid state (Postman semantics) — activeId
- * stays null. Variable resolution still works via workspace / collection
- * scopes.
+ * stays null. If a default environment is set, resolution still falls
+ * back to it when the active env misses a variable (or when there's no
+ * active env at all) — matches ARCHITECTURE.md §5.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -28,6 +30,7 @@ import { getActiveWorkspaceId } from './workspace-store';
 
 let environments: V5.Environment[] = [];
 let activeEnvironmentId: string | null = null;
+let defaultEnvironmentId: string | null = null;
 let workspaceVariables: V5.WorkspaceVariables = { schemaVersion: 1, variables: [] };
 let vault: V5.Vault = { schemaVersion: 1, secrets: [] };
 let loadedWorkspaceId: string | null = null;
@@ -59,6 +62,15 @@ export function getActiveEnvironmentId(): string | null {
 export function getActiveEnvironment(): V5.Environment | null {
   if (!activeEnvironmentId) return null;
   return environments.find((e) => e.uid === activeEnvironmentId) ?? null;
+}
+
+export function getDefaultEnvironmentId(): string | null {
+  return defaultEnvironmentId;
+}
+
+export function getDefaultEnvironment(): V5.Environment | null {
+  if (!defaultEnvironmentId) return null;
+  return environments.find((e) => e.uid === defaultEnvironmentId) ?? null;
 }
 
 export function getWorkspaceVariables(): V5.WorkspaceVariables {
@@ -118,6 +130,10 @@ export function deleteEnvironment(uid: string): boolean {
     activeEnvironmentId = null;
     void persistActiveEnvironment();
   }
+  if (defaultEnvironmentId === uid) {
+    defaultEnvironmentId = null;
+    void persistDefaultEnvironment();
+  }
   void persistEnvironments();
   return true;
 }
@@ -131,6 +147,20 @@ export async function setActiveEnvironment(uid: string | null): Promise<boolean>
   if (activeEnvironmentId === uid) return true;
   activeEnvironmentId = uid;
   await persistActiveEnvironment();
+  return true;
+}
+
+/**
+ * Pick the workspace's default environment. Resolution falls back to
+ * this env when the active env is missing a variable (or when there's
+ * no active env). Pass `null` to clear — resolution behaves flat again.
+ * No-op if the uid doesn't match an existing environment.
+ */
+export async function setDefaultEnvironment(uid: string | null): Promise<boolean> {
+  if (uid !== null && !environments.some((e) => e.uid === uid)) return false;
+  if (defaultEnvironmentId === uid) return true;
+  defaultEnvironmentId = uid;
+  await persistDefaultEnvironment();
   return true;
 }
 
@@ -163,6 +193,12 @@ async function persistActiveEnvironment(): Promise<void> {
   notifyChange();
 }
 
+async function persistDefaultEnvironment(): Promise<void> {
+  const workspaceId = assertLoaded();
+  await extensionStorage.set(wsKeys(workspaceId).defaultEnvironmentId, defaultEnvironmentId);
+  notifyChange();
+}
+
 async function persistWorkspaceVariables(): Promise<void> {
   const workspaceId = assertLoaded();
   await extensionStorage.set(wsKeys(workspaceId).workspaceVars, workspaceVariables);
@@ -180,6 +216,7 @@ async function persistVault(): Promise<void> {
 interface WorkspaceSnapshot {
   environments: V5.Environment[];
   activeEnvironmentId: string | null;
+  defaultEnvironmentId: string | null;
   workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
 }
@@ -189,12 +226,14 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
   const result = await extensionStorage.getMany({
     environments: keys.environments,
     activeEnvironmentId: keys.activeEnvironmentId,
+    defaultEnvironmentId: keys.defaultEnvironmentId,
     workspaceVariables: keys.workspaceVars,
     vault: keys.vault,
   });
   return {
     environments: Array.isArray(result.environments) ? result.environments : [],
     activeEnvironmentId: typeof result.activeEnvironmentId === 'string' ? result.activeEnvironmentId : null,
+    defaultEnvironmentId: typeof result.defaultEnvironmentId === 'string' ? result.defaultEnvironmentId : null,
     workspaceVariables:
       result.workspaceVariables && 'variables' in result.workspaceVariables
         ? result.workspaceVariables
@@ -203,21 +242,26 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
   };
 }
 
+/**
+ * Reconcile persisted pointer ids against the loaded environment list.
+ * Drops any stale id whose env no longer exists.
+ */
+function reconcilePointer(persisted: string | null, envs: V5.Environment[]): string | null {
+  return persisted && envs.some((e) => e.uid === persisted) ? persisted : null;
+}
+
 export async function hydrateEnvironmentsFromStorage(): Promise<void> {
   const workspaceId = getActiveWorkspaceId();
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   environments = snapshot.environments;
-  // Drop stale active-id if the environment no longer exists.
-  activeEnvironmentId =
-    snapshot.activeEnvironmentId && environments.some((e) => e.uid === snapshot.activeEnvironmentId)
-      ? snapshot.activeEnvironmentId
-      : null;
+  activeEnvironmentId = reconcilePointer(snapshot.activeEnvironmentId, environments);
+  defaultEnvironmentId = reconcilePointer(snapshot.defaultEnvironmentId, environments);
   workspaceVariables = snapshot.workspaceVariables;
   vault = snapshot.vault;
   loadedWorkspaceId = workspaceId;
   logger.info(
     'EnvironmentStore',
-    `Hydrated ws=${workspaceId}: ${environments.length} envs, active=${activeEnvironmentId ?? 'none'}`,
+    `Hydrated ws=${workspaceId}: ${environments.length} envs, active=${activeEnvironmentId ?? 'none'}, default=${defaultEnvironmentId ?? 'none'}`,
   );
 }
 
@@ -225,16 +269,14 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
   if (loadedWorkspaceId === workspaceId) return;
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   environments = snapshot.environments;
-  activeEnvironmentId =
-    snapshot.activeEnvironmentId && environments.some((e) => e.uid === snapshot.activeEnvironmentId)
-      ? snapshot.activeEnvironmentId
-      : null;
+  activeEnvironmentId = reconcilePointer(snapshot.activeEnvironmentId, environments);
+  defaultEnvironmentId = reconcilePointer(snapshot.defaultEnvironmentId, environments);
   workspaceVariables = snapshot.workspaceVariables;
   vault = snapshot.vault;
   loadedWorkspaceId = workspaceId;
   logger.info(
     'EnvironmentStore',
-    `Switched to ws=${workspaceId}: ${environments.length} envs, active=${activeEnvironmentId ?? 'none'}`,
+    `Switched to ws=${workspaceId}: ${environments.length} envs, active=${activeEnvironmentId ?? 'none'}, default=${defaultEnvironmentId ?? 'none'}`,
   );
   notifyChange();
 }
@@ -245,7 +287,13 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
  */
 export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promise<void> {
   const keys = wsKeys(workspaceId);
-  await extensionStorage.remove([keys.environments, keys.activeEnvironmentId, keys.workspaceVars, keys.vault]);
+  await extensionStorage.remove([
+    keys.environments,
+    keys.activeEnvironmentId,
+    keys.defaultEnvironmentId,
+    keys.workspaceVars,
+    keys.vault,
+  ]);
 }
 
 // ── Test helpers ───────────────────────────────────────────────────
@@ -253,6 +301,7 @@ export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promis
 export function __resetForTests(): void {
   environments = [];
   activeEnvironmentId = null;
+  defaultEnvironmentId = null;
   workspaceVariables = { schemaVersion: 1, variables: [] };
   vault = { schemaVersion: 1, secrets: [] };
   loadedWorkspaceId = null;

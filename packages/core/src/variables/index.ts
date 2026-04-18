@@ -12,7 +12,12 @@ export {
   RESERVED_NAMESPACES,
   SCOPE_NAMESPACES,
 } from './namespaces';
-export type { TemplateVariable } from './resolver';
+export type {
+  ResolutionEnvSnapshot,
+  ResolutionError,
+  ResolutionErrorReason,
+  TemplateVariable,
+} from './resolver';
 export { resolveTemplate, resolveVariable, VariableResolver } from './resolver';
 export { resolveRule, resolveRules } from './rule-resolver';
 export type { SystemVariable } from './system-variables';

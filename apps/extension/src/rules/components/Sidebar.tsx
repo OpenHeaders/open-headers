@@ -34,6 +34,8 @@ import {
   PlusOutlined,
   RollbackOutlined,
   SearchOutlined,
+  StarFilled,
+  StarOutlined,
   StopOutlined,
 } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
@@ -348,10 +350,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     environments,
     activeEnvironmentId,
+    defaultEnvironmentId,
     createEnvironment,
     renameEnvironment,
     deleteEnvironment,
     setActiveEnvironment,
+    setDefaultEnvironment,
   } = useEnvironments();
   const {
     collectionTrees: requestCollectionTrees,
@@ -1424,6 +1428,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (lowerFilter && !env.name.toLowerCase().includes(lowerFilter)) continue;
       const id = `env-${env.uid}`;
       const isActive = env.uid === activeEnvironmentId;
+      const isDefault = env.uid === defaultEnvironmentId;
       items.push({
         id,
         kind: 'leaf',
@@ -1434,6 +1439,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           isActive ? CheckCircleTwoTone : GlobalOutlined,
           isActive ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)',
         ),
+        // Trailing star indicates the default-env fallback.
+        badge: isDefault
+          ? createElement(
+              Tooltip,
+              { title: 'Default environment — used as fallback when the active env is missing a variable.' },
+              createElement(StarFilled, { style: { color: 'var(--ant-color-warning, #faad14)', fontSize: 11 } }),
+            )
+          : undefined,
         canRename: true,
         canDelete: true,
         canAddChild: false,
@@ -1451,6 +1464,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             icon: createElement(CheckCircleOutlined),
             label: isActive ? 'Unset active' : 'Set active',
             onClick: () => void setActiveEnvironment(isActive ? null : env.uid),
+          },
+          {
+            key: 'set-default',
+            icon: createElement(isDefault ? StarFilled : StarOutlined),
+            label: isDefault ? 'Unset default' : 'Set as default',
+            onClick: () => void setDefaultEnvironment(isDefault ? null : env.uid),
           },
           { type: 'divider' as const, key: 'div' },
           { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: () => setRenamingId(id) },
@@ -1471,10 +1490,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [
     environments,
     activeEnvironmentId,
+    defaultEnvironmentId,
     lowerFilter,
     renameEnvironment,
     deleteEnvironment,
     setActiveEnvironment,
+    setDefaultEnvironment,
     confirmDelete,
     onSelectEnvironment,
   ]);
