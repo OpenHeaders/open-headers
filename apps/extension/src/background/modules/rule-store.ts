@@ -17,10 +17,12 @@
  * Bruno-style YAML directories managed by the desktop app.
  */
 
+import { CollectionSchema, FolderSchema, RuleSchema } from '@openheaders/core/schemas';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 /** Stored folder — same concept as a directory with _folder.yaml on disk.
@@ -324,16 +326,18 @@ interface WorkspaceSnapshot {
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
-  const result = await extensionStorage.getMany({
-    rules: keys.rules,
-    collections: keys.collections,
-    folders: keys.folders,
-  });
-  return {
-    rules: Array.isArray(result.rules) ? result.rules : [],
-    collections: Array.isArray(result.collections) ? result.collections : [],
-    folders: Array.isArray(result.folders) ? result.folders : [],
-  };
+  const [rules, collections, folders] = await Promise.all([
+    extensionStorage.getValidatedArray(keys.rules, RuleSchema, {
+      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.rules.key, workspaceId }),
+    }),
+    extensionStorage.getValidatedArray(keys.collections, CollectionSchema, {
+      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.collections.key, workspaceId }),
+    }),
+    extensionStorage.getValidatedArray(keys.folders, FolderSchema, {
+      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.folders.key, workspaceId }),
+    }),
+  ]);
+  return { rules, collections, folders };
 }
 
 /**

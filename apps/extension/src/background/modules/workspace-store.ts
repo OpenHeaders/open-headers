@@ -25,10 +25,12 @@
  * store's own per-workspace entry points.
  */
 
+import { ExtensionWorkspaceSchema } from '@openheaders/core/schemas';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, OH } from '@/shared/storage';
+import { driftRecorder } from './storage-drift';
 
 const DEFAULT_WORKSPACE_NAME = 'Default Workspace';
 const DEFAULT_WORKSPACE_COLOR = 'neutral';
@@ -267,12 +269,14 @@ async function persistActiveId(): Promise<void> {
  * active workspace id.
  */
 export async function bootstrap(): Promise<void> {
-  const { list: storedList, active: storedActive } = await extensionStorage.getMany({
-    list: OH.workspaces,
-    active: OH.activeWorkspaceId,
-  });
+  const [storedList, storedActive] = await Promise.all([
+    extensionStorage.getValidatedArray(OH.workspaces, ExtensionWorkspaceSchema, {
+      onError: driftRecorder({ subsystem: 'workspace', storageKey: OH.workspaces.key }),
+    }),
+    extensionStorage.get(OH.activeWorkspaceId),
+  ]);
 
-  if (Array.isArray(storedList) && storedList.length > 0) {
+  if (storedList.length > 0) {
     workspaces = storedList;
     const activeCandidate = typeof storedActive === 'string' ? storedActive : null;
     activeWorkspaceId =

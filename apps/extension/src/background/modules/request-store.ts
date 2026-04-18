@@ -17,10 +17,12 @@
  * workspaces in v2.
  */
 
+import { CollectionSchema, FolderSchema, RequestSchema } from '@openheaders/core/schemas';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 /** Re-export from rule-store-style shape. Identical runtime layout. */
@@ -278,16 +280,18 @@ interface WorkspaceSnapshot {
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
-  const result = await extensionStorage.getMany({
-    requests: keys.requests,
-    collections: keys.requestCollections,
-    folders: keys.requestFolders,
-  });
-  return {
-    requests: Array.isArray(result.requests) ? result.requests : [],
-    collections: Array.isArray(result.collections) ? result.collections : [],
-    folders: Array.isArray(result.folders) ? result.folders : [],
-  };
+  const [requests, collections, folders] = await Promise.all([
+    extensionStorage.getValidatedArray(keys.requests, RequestSchema, {
+      onError: driftRecorder({ subsystem: 'request-executor', storageKey: keys.requests.key, workspaceId }),
+    }),
+    extensionStorage.getValidatedArray(keys.requestCollections, CollectionSchema, {
+      onError: driftRecorder({ subsystem: 'request-executor', storageKey: keys.requestCollections.key, workspaceId }),
+    }),
+    extensionStorage.getValidatedArray(keys.requestFolders, FolderSchema, {
+      onError: driftRecorder({ subsystem: 'request-executor', storageKey: keys.requestFolders.key, workspaceId }),
+    }),
+  ]);
+  return { requests, collections, folders };
 }
 
 export async function hydrateFromStorage(): Promise<V5.Request[]> {

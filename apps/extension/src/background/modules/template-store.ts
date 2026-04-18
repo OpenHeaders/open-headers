@@ -16,11 +16,13 @@
  *   - `oh.ws.<id>.templateFolders`
  */
 
+import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/core/schemas';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import type { LocalFolder } from './rule-store';
+import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state (scoped to active workspace) ────────────────────
@@ -297,16 +299,18 @@ interface WorkspaceSnapshot {
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
-  const result = await extensionStorage.getMany({
-    templates: keys.templates,
-    templateCollections: keys.templateCollections,
-    templateFolders: keys.templateFolders,
-  });
-  return {
-    templates: Array.isArray(result.templates) ? result.templates : [],
-    templateCollections: Array.isArray(result.templateCollections) ? result.templateCollections : [],
-    templateFolders: Array.isArray(result.templateFolders) ? result.templateFolders : [],
-  };
+  const [templates, templateCollections, templateFolders] = await Promise.all([
+    extensionStorage.getValidatedArray(keys.templates, TemplateSchema, {
+      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.templates.key, workspaceId }),
+    }),
+    extensionStorage.getValidatedArray(keys.templateCollections, CollectionSchema, {
+      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.templateCollections.key, workspaceId }),
+    }),
+    extensionStorage.getValidatedArray(keys.templateFolders, FolderSchema, {
+      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.templateFolders.key, workspaceId }),
+    }),
+  ]);
+  return { templates, templateCollections, templateFolders };
 }
 
 export async function hydrateTemplatesFromStorage(): Promise<void> {

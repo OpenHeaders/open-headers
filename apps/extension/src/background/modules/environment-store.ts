@@ -20,10 +20,12 @@
  * active env at all) — matches ARCHITECTURE.md §5.
  */
 
+import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '@openheaders/core/schemas';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
+import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state ─────────────────────────────────────────────────
@@ -223,22 +225,24 @@ interface WorkspaceSnapshot {
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
-  const result = await extensionStorage.getMany({
-    environments: keys.environments,
-    activeEnvironmentId: keys.activeEnvironmentId,
-    defaultEnvironmentId: keys.defaultEnvironmentId,
-    workspaceVariables: keys.workspaceVars,
-    vault: keys.vault,
-  });
+  const drift = (storageKey: string) => driftRecorder({ subsystem: 'environment', storageKey, workspaceId });
+
+  const [environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault] = await Promise.all([
+    extensionStorage.getValidatedArray(keys.environments, EnvironmentSchema, { onError: drift(keys.environments.key) }),
+    extensionStorage.get(keys.activeEnvironmentId),
+    extensionStorage.get(keys.defaultEnvironmentId),
+    extensionStorage.getValidated(keys.workspaceVars, WorkspaceVariablesSchema, {
+      onError: drift(keys.workspaceVars.key),
+    }),
+    extensionStorage.getValidated(keys.vault, VaultSchema, { onError: drift(keys.vault.key) }),
+  ]);
+
   return {
-    environments: Array.isArray(result.environments) ? result.environments : [],
-    activeEnvironmentId: typeof result.activeEnvironmentId === 'string' ? result.activeEnvironmentId : null,
-    defaultEnvironmentId: typeof result.defaultEnvironmentId === 'string' ? result.defaultEnvironmentId : null,
-    workspaceVariables:
-      result.workspaceVariables && 'variables' in result.workspaceVariables
-        ? result.workspaceVariables
-        : { schemaVersion: 5, variables: [] },
-    vault: result.vault && 'secrets' in result.vault ? result.vault : { schemaVersion: 5, secrets: [] },
+    environments,
+    activeEnvironmentId: typeof activeEnvironmentId === 'string' ? activeEnvironmentId : null,
+    defaultEnvironmentId: typeof defaultEnvironmentId === 'string' ? defaultEnvironmentId : null,
+    workspaceVariables: workspaceVariables ?? { schemaVersion: 5, variables: [] },
+    vault: vault ?? { schemaVersion: 5, secrets: [] },
   };
 }
 
