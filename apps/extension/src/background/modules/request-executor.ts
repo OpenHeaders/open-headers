@@ -37,6 +37,7 @@ import {
   getVault,
   getWorkspaceVariables,
 } from './environment-store';
+import { recordLog } from './observability-log';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
 
@@ -321,6 +322,16 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
     const durationMs = Math.round(performance.now() - startedAt);
     const message = err instanceof Error ? err.message : String(err);
     logger.info('RequestExecutor', `fetch failed for ${req.url}: ${message}`);
+    recordLog({
+      subsystem: 'request-executor',
+      op: 'fetch',
+      level: 'error',
+      message: `Fetch failed for ${req.url}: ${message}`,
+      context: {
+        errorClass: err instanceof Error ? err.name : undefined,
+        stack: err instanceof Error ? err.stack : undefined,
+      },
+    });
     return {
       status: 0,
       statusText: '',

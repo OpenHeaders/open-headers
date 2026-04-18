@@ -22,6 +22,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
+import type { LogEntry } from '@/shared/observability/types';
 import type { ViewMode } from '@/shared/view-mode/types';
 
 // ── Core key type ────────────────────────────────────────────────────
@@ -101,6 +102,13 @@ export const OH = {
   viewMode: storageKey<ViewMode>('oh.viewMode', 'sync'),
   /** User-scope settings dict (global — never per-workspace). */
   settingsUser: storageKey<Record<string, unknown>>('oh.settings.user'),
+  /**
+   * Observability ring-buffer snapshot. Capped at {@link DEFAULT_CAPACITY}
+   * entries; persisted in full on each flush because a ring trimmed to
+   * 500 structured records is still tiny. Global (not per-workspace)
+   * so subsystem-level events during workspace switches aren't lost.
+   */
+  observabilityLog: storageKey<LogEntry[]>('oh.observability.log'),
 } as const;
 
 // ── UI-global keys (not workspace-scoped by design) ─────────────────

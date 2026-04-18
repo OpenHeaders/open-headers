@@ -35,6 +35,7 @@ import {
   onEnvironmentStoreChange,
 } from './modules/environment-store';
 import { handleGeneralMessage } from './modules/message-handler';
+import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { applyExternalSnapshot as applyPauseMarkersSnapshot, getPauseMarkers } from './modules/pause-markers-store';
 import { handleRecordingMessage } from './modules/recording-handler';
@@ -196,6 +197,19 @@ async function initializeExtension(): Promise<void> {
     return;
   }
   extensionInitialized = true;
+
+  // Pull the observability ring back into memory before subsystems
+  // record their first post-wake events — a dropped startup window
+  // would mean the user's bug report misses the events most likely
+  // to have triggered the report.
+  await hydrateObservabilityLog();
+  recordLog({
+    subsystem: 'extension',
+    op: 'sw-init',
+    level: 'info',
+    message: 'Service worker initialized',
+    context: {},
+  });
 
   await updateExtensionBadge({
     connected: false,

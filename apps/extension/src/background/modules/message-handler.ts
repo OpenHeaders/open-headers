@@ -32,6 +32,7 @@ import {
   setWorkspaceVariables,
   updateEnvironmentVariables,
 } from './environment-store';
+import { clearObservabilityLog, getObservabilityLog } from './observability-log';
 import { executeRequest, executeRequestDraft } from './request-executor';
 import {
   addRequest,
@@ -731,6 +732,13 @@ export function handleGeneralMessage(
     } else if (message.type === 'deleteTemplateFolder') {
       const success = deleteTemplateFolder(message.folderUid as string);
       safeResponse({ success });
+
+      // ── Observability log ────────────────────────────────────────
+    } else if (message.type === 'getObservabilityLog') {
+      safeResponse({ entries: [...getObservabilityLog()] });
+    } else if (message.type === 'clearObservabilityLog') {
+      clearObservabilityLog();
+      safeResponse({ success: true });
     } else if (message.type && (message.type as string).startsWith('proxy-')) {
       return false;
     } else {

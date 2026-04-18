@@ -23,6 +23,7 @@ import type { V5 } from '@openheaders/core/types';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
+import type { LogEntry as ObservabilityLogEntry } from '@/shared/observability/types';
 import type { ActiveRule } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import type { RecordingData, RecordingStateInfo } from '@/types/recording';
@@ -564,6 +565,16 @@ export interface BridgeRpcContract {
     req: { windowId?: number; tabId?: number };
     res: { success: boolean; opened: boolean; error?: string };
   };
+
+  // ── Observability log ────────────────────────────────────────────
+  getObservabilityLog: {
+    req: Record<string, never>;
+    res: { entries: ObservabilityLogEntry[] };
+  };
+  clearObservabilityLog: {
+    req: Record<string, never>;
+    res: { success: boolean };
+  };
 }
 
 /**
@@ -621,6 +632,13 @@ export interface BridgeBroadcastContract {
    * so `useEnvironments` stays in lockstep without per-field broadcasts.
    */
   environmentsChanged: EnvironmentsSnapshot;
+  /**
+   * Fires whenever the observability log records or clears entries.
+   * Payload carries the current size only — full entry reads happen
+   * via the `getObservabilityLog` RPC so we don't push the buffer
+   * on every record.
+   */
+  observabilityLogUpdated: { size: number };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

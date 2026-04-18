@@ -31,6 +31,7 @@ import {
   purgeWorkspaceEnvironmentData,
   switchToWorkspace as switchEnvToWorkspace,
 } from './environment-store';
+import { recordLog } from './observability-log';
 import {
   getPauseMarkers,
   hydratePauseMarkersFromStorage,
@@ -139,6 +140,13 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
   // background.ts broadcasts `workspaceChanged` automatically.
   await setActiveWorkspaceId(targetId);
   logger.info('WorkspaceOrchestrator', `Switched to workspace ${targetId}`);
+  recordLog({
+    subsystem: 'workspace',
+    op: 'switch',
+    level: 'info',
+    message: `Switched to workspace ${target.name}`,
+    context: { workspaceId: targetId },
+  });
   return true;
 }
 

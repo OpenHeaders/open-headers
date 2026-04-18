@@ -7,6 +7,7 @@
  * buttons via `action.danger`.
  */
 
+import { call } from '@utils/bridge';
 import * as v from 'valibot';
 import { allDefs, registerSetting } from '../registry';
 import { get as getStoreValue, reset as resetSetting, set as setStoreValue } from '../store';
@@ -21,6 +22,8 @@ declare module '../types' {
     'data.exportSettings': string;
     'data.importSettings': string;
     'data.resetAllSettings': string;
+    'data.exportObservabilityLog': string;
+    'data.clearObservabilityLog': string;
   }
 }
 
@@ -140,6 +143,50 @@ registerSetting({
           setStoreValue(def.key as SettingKey, result.output as SettingsMap[SettingKey]);
         }
       }
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.exportObservabilityLog',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Export Diagnostic Log',
+  description:
+    'Download the last 500 structured events (rule rebuilds, request errors, workspace switches) as JSON. Local-only; nothing leaves the device unless you attach the file to a bug report yourself.',
+  category: 'data',
+  tags: ['export', 'log', 'diagnostic', 'observability', 'bug-report', 'triage'],
+  scope: 'user',
+  action: {
+    label: 'Export log',
+    run: async () => {
+      const resp = await call('getObservabilityLog').catch(() => null);
+      const entries = resp?.entries ?? [];
+      downloadJson(`openheaders-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
+        exportedAt: new Date().toISOString(),
+        entries,
+      });
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.clearObservabilityLog',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Clear Diagnostic Log',
+  description: 'Drop every buffered event. Does not affect rules, requests, or any workspace data.',
+  category: 'data',
+  tags: ['clear', 'log', 'diagnostic', 'observability', 'reset'],
+  scope: 'user',
+  action: {
+    label: 'Clear',
+    danger: true,
+    run: async () => {
+      if (!window.confirm('Clear the diagnostic log? This drops every buffered event.')) return;
+      await call('clearObservabilityLog').catch(() => null);
     },
   },
 });
