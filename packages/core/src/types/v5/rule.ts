@@ -8,11 +8,52 @@
  * A rule = conditions (when to match) + action (what to do).
  * Conditions are AND-evaluated: all must match for the rule to fire.
  * Actions are type-specific: header, redirect, body, inject, block, delay, mock, query-param.
+ *
+ * Persisted shapes (RuleBase, RuleCondition, every per-type action + rule,
+ * the `Rule` discriminated union) are derived from the valibot schemas so
+ * drift between runtime validator and type is impossible by construction.
+ * Narrowing helpers (`ExtensionRuleType`, `DnrRuleType`, `ScriptRuleType`)
+ * stay hand-written because they encode capability subsets, not persisted
+ * shapes.
  */
+
+import type * as v from 'valibot';
+import type {
+  BlockActionSchema,
+  BlockRuleSchema,
+  BodyActionSchema,
+  BodyModTypeSchema,
+  BodyResourceTypeSchema,
+  BodyRuleSchema,
+  ConditionTypeSchema,
+  DelayActionSchema,
+  DelayRuleSchema,
+  HeaderActionSchema,
+  HeaderModificationSchema,
+  HeaderOperationSchema,
+  HeaderRuleSchema,
+  InjectActionSchema,
+  InjectRuleSchema,
+  InjectSourceSchema,
+  InjectTypeSchema,
+  MockActionSchema,
+  MockBodyTypeSchema,
+  MockRuleSchema,
+  QueryParamActionSchema,
+  QueryParamEntrySchema,
+  QueryParamOperationSchema,
+  QueryParamRuleSchema,
+  RedirectActionSchema,
+  RedirectRuleSchema,
+  RuleBaseSchema,
+  RuleConditionSchema,
+  RuleSchema,
+  RuleTypeSchema,
+} from '../../schemas/rule';
 
 // ── Rule types ─────────────────────────────────────────────────────
 
-export type RuleType = 'header' | 'redirect' | 'body' | 'inject' | 'block' | 'delay' | 'mock' | 'query-param';
+export type RuleType = v.InferOutput<typeof RuleTypeSchema>;
 
 /**
  * Rule types supported by the browser extension.
@@ -28,67 +69,15 @@ export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
 export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock';
 
 // ── Conditions ────────────────────────────────────────────────────
-//
-// Each condition type maps 1:1 to a Chrome declarativeNetRequest field.
-// No abstraction layer — what the user configures is exactly what Chrome executes.
+
+export type ConditionType = v.InferOutput<typeof ConditionTypeSchema>;
+export type RuleCondition = v.InferOutput<typeof RuleConditionSchema>;
 
 /**
- * Condition types that map directly to Chrome DNR condition fields.
- *
- * ── URL Matching (pick one per rule) ──
- *   'url-filter'             → urlFilter (Chrome's pattern language: * wildcards, || domain anchors, | start/end)
- *   'url-regex'              → regexFilter (RE2 regex on full URL, mutually exclusive with url-filter)
- *
- * ── Domain Filtering ──
- *   'request-domains'        → requestDomains (subdomain matching: 'a.com' matches '*.a.com')
- *   'exclude-request-domains'→ excludedRequestDomains
- *   'initiator-domains'      → initiatorDomains (page that made the request)
- *   'exclude-initiator-domains' → excludedInitiatorDomains
- *
- * ── Request Filtering ──
- *   'request-methods'        → requestMethods (multi-select)
- *   'exclude-request-methods'→ excludedRequestMethods
- *   'resource-types'         → resourceTypes (multi-select)
- *   'exclude-resource-types' → excludedResourceTypes
- *   'domain-type'            → domainType ('firstParty' | 'thirdParty')
- *
- * ── Header Matching (Chrome 128+) ──
- *   'request-header'         → requestHeaders (header name + exact values)
- *   'exclude-request-header' → excludedRequestHeaders
- *   'response-header'        → responseHeaders
- *   'exclude-response-header'→ excludedResponseHeaders
+ * Chrome DNR resource-type values used inside `resource-types` condition entries.
+ * Kept hand-written because the schema stores values as free-form strings
+ * (the DNR API validates at the browser boundary).
  */
-export type ConditionType =
-  // URL matching
-  | 'url-filter'
-  | 'url-regex'
-  // Domain filtering
-  | 'request-domains'
-  | 'exclude-request-domains'
-  | 'initiator-domains'
-  | 'exclude-initiator-domains'
-  // Request filtering
-  | 'request-methods'
-  | 'exclude-request-methods'
-  | 'resource-types'
-  | 'exclude-resource-types'
-  | 'domain-type'
-  // Header matching (Chrome 128+)
-  | 'request-header'
-  | 'exclude-request-header'
-  | 'response-header'
-  | 'exclude-response-header';
-
-/** A single condition entry — one row in the conditions panel. */
-export interface RuleCondition {
-  /** Maps directly to a Chrome DNR condition field. */
-  type: ConditionType;
-  /** Values. Array for multi-value fields (domains, methods, types). Supports {{VAR}}. */
-  values: string[];
-  /** Header name — only for header condition types. */
-  headerName?: string;
-}
-
 export type ResourceType =
   | 'page'
   | 'xhr'
@@ -102,207 +91,57 @@ export type ResourceType =
 
 // ── Base rule ──────────────────────────────────────────────────────
 
-export interface RuleBase {
-  /** Persisted format version for `rule.yaml`. */
-  schemaVersion: number;
-  /** 8-char lowercase-alphanumeric identity. Embedded in rule.yaml. Stable across renames. */
-  uid: string;
-  /** Relative path within workspace. Forward slashes. */
-  path: string;
-  name: string;
-  type: RuleType;
-  enabled: boolean;
-  /** Conditions that must ALL match for this rule to fire (AND-evaluated). */
-  conditions: RuleCondition[];
-}
+export type RuleBase = v.InferOutput<typeof RuleBaseSchema>;
 
 // ── Header rule ────────────────────────────────────────────────────
 
-/**
- * Header operations:
- *   override → Chrome `set`: sets header to this value (replaces if present, adds if missing)
- *   add      → Chrome `append`: adds a new header entry (duplicate header line, original kept)
- *   remove   → Chrome `remove`: deletes all instances of this header
- *   merge    → Script-based: reads existing value at runtime, appends your value with separator
- */
-export type HeaderOperation = 'override' | 'add' | 'remove' | 'merge';
-
-/** A single header modification — one row in the "Request Headers" or "Response Headers" list. */
-export interface HeaderModification {
-  operation: HeaderOperation;
-  headerName: string;
-  /** Header value. Supports {{VAR}} interpolation. Not needed for 'remove'. */
-  value?: string;
-  /** Separator for 'merge' operation. Defaults to '; ' for Cookie/Set-Cookie, ', ' for everything else. */
-  mergeSeparator?: string;
-}
-
-/**
- * Header action — supports 4 operations per modification:
- *   override/add/remove use Chrome's declarativeNetRequest API (DNR)
- *   merge uses content script injection (reads existing value at runtime)
- * Both mechanisms work transparently — the user doesn't need to know which is used.
- */
-export interface HeaderAction {
-  requestHeaders: HeaderModification[];
-  responseHeaders: HeaderModification[];
-}
-
-export interface HeaderRule extends RuleBase {
-  type: 'header';
-  action: HeaderAction;
-}
+export type HeaderOperation = v.InferOutput<typeof HeaderOperationSchema>;
+export type HeaderModification = v.InferOutput<typeof HeaderModificationSchema>;
+export type HeaderAction = v.InferOutput<typeof HeaderActionSchema>;
+export type HeaderRule = v.InferOutput<typeof HeaderRuleSchema>;
 
 // ── Redirect rule ──────────────────────────────────────────────────
 
-export interface RedirectAction {
-  /** URL pattern to match. */
-  matchPattern: string;
-  /** URL to redirect to. Supports {{VAR}} and capture groups. */
-  redirectTo: string;
-}
-
-export interface RedirectRule extends RuleBase {
-  type: 'redirect';
-  action: RedirectAction;
-}
+export type RedirectAction = v.InferOutput<typeof RedirectActionSchema>;
+export type RedirectRule = v.InferOutput<typeof RedirectRuleSchema>;
 
 // ── Body rule ──────────────────────────────────────────────────────
 
-export type BodyModType = 'static' | 'dynamic';
-
-/** 'rest' = REST API. 'graphql' = GraphQL API (adds operation filter). */
-export type BodyResourceType = 'rest' | 'graphql';
-
-export interface BodyAction {
-  /** 'static' = replace body with literal value. 'dynamic' = JS function that modifies body. */
-  bodyType: BodyModType;
-  /** For static: the replacement body content. For dynamic: the JS function code. */
-  body: string;
-  /** Resource type — REST or GraphQL. */
-  resourceType: BodyResourceType;
-  /** GraphQL payload filter — key, operator, value (only when resourceType is 'graphql'). */
-  graphqlFilter?: {
-    key: string;
-    operator: 'Equals' | 'Contains';
-    value: string;
-  };
-}
-
-export interface BodyRule extends RuleBase {
-  type: 'body';
-  action: BodyAction;
-}
+export type BodyModType = v.InferOutput<typeof BodyModTypeSchema>;
+export type BodyResourceType = v.InferOutput<typeof BodyResourceTypeSchema>;
+export type BodyAction = v.InferOutput<typeof BodyActionSchema>;
+export type BodyRule = v.InferOutput<typeof BodyRuleSchema>;
 
 // ── Inject rule (script/CSS injection) ─────────────────────────────
 
-export type InjectType = 'script' | 'css';
-
-/** 'code' = inline code. 'url' = load from external URL. */
-export type InjectSource = 'code' | 'url';
-
-export interface InjectAction {
-  injectType: InjectType;
-  /** Inline code (when source is 'code'). */
-  code: string;
-  /** External URL to load script/CSS from (when source is 'url'). */
-  sourceUrl?: string;
-  /** Code source mode. Defaults to 'code'. */
-  source: InjectSource;
-  /** Where to inject: head, body-start, body-end. */
-  position: 'head' | 'body-start' | 'body-end';
-  /** Strip Content-Security-Policy headers so injected scripts can execute on strict sites. */
-  bypassCSP?: boolean;
-}
-
-export interface InjectRule extends RuleBase {
-  type: 'inject';
-  action: InjectAction;
-}
+export type InjectType = v.InferOutput<typeof InjectTypeSchema>;
+export type InjectSource = v.InferOutput<typeof InjectSourceSchema>;
+export type InjectAction = v.InferOutput<typeof InjectActionSchema>;
+export type InjectRule = v.InferOutput<typeof InjectRuleSchema>;
 
 // ── Block rule ─────────────────────────────────────────────────────
 
-export interface BlockAction {
-  /** Status code to return (e.g. 403, 503). */
-  statusCode: number;
-  /** Optional response body. */
-  responseBody?: string;
-}
-
-export interface BlockRule extends RuleBase {
-  type: 'block';
-  action: BlockAction;
-}
+export type BlockAction = v.InferOutput<typeof BlockActionSchema>;
+export type BlockRule = v.InferOutput<typeof BlockRuleSchema>;
 
 // ── Delay rule ─────────────────────────────────────────────────────
 
-export interface DelayAction {
-  /** Milliseconds to delay the response. */
-  delayMs: number;
-}
-
-export interface DelayRule extends RuleBase {
-  type: 'delay';
-  action: DelayAction;
-}
+export type DelayAction = v.InferOutput<typeof DelayActionSchema>;
+export type DelayRule = v.InferOutput<typeof DelayRuleSchema>;
 
 // ── Mock rule (Modify API Response) ──────────────────────────────
 
-/** 'static' = fixed response body. 'dynamic' = JS function that receives request context and returns modified response. */
-export type MockBodyType = 'static' | 'dynamic';
-
-export interface MockAction {
-  statusCode: number;
-  responseHeaders: Record<string, string>;
-  /** For static mode: the literal response body. For dynamic mode: the JavaScript function code. */
-  responseBody: string;
-  contentType: string;
-  /** Response body mode. Defaults to 'static'. */
-  bodyType: MockBodyType;
-  /** Resource type — REST or GraphQL. Defaults to 'rest'. */
-  resourceType?: BodyResourceType;
-  /** GraphQL payload filter — only intercept requests matching this operation (when resourceType is 'graphql'). */
-  graphqlFilter?: {
-    key: string;
-    operator: 'Equals' | 'Contains';
-    value: string;
-  };
-}
-
-export interface MockRule extends RuleBase {
-  type: 'mock';
-  action: MockAction;
-}
+export type MockBodyType = v.InferOutput<typeof MockBodyTypeSchema>;
+export type MockAction = v.InferOutput<typeof MockActionSchema>;
+export type MockRule = v.InferOutput<typeof MockRuleSchema>;
 
 // ── Query Param rule ──────────────────────────────────────────────
 
-export type QueryParamOperation = 'add' | 'override' | 'remove' | 'remove-all';
-
-export interface QueryParamEntry {
-  /** Parameter name. Supports {{VAR}}. Not needed for 'remove-all'. */
-  param: string;
-  /** Parameter value. Not needed for 'remove' or 'remove-all'. Supports {{VAR}}. */
-  value?: string;
-  operation: QueryParamOperation;
-}
-
-export interface QueryParamAction {
-  params: QueryParamEntry[];
-}
-
-export interface QueryParamRule extends RuleBase {
-  type: 'query-param';
-  action: QueryParamAction;
-}
+export type QueryParamOperation = v.InferOutput<typeof QueryParamOperationSchema>;
+export type QueryParamEntry = v.InferOutput<typeof QueryParamEntrySchema>;
+export type QueryParamAction = v.InferOutput<typeof QueryParamActionSchema>;
+export type QueryParamRule = v.InferOutput<typeof QueryParamRuleSchema>;
 
 // ── Union ──────────────────────────────────────────────────────────
 
-export type Rule =
-  | HeaderRule
-  | RedirectRule
-  | BodyRule
-  | InjectRule
-  | BlockRule
-  | DelayRule
-  | MockRule
-  | QueryParamRule;
+export type Rule = v.InferOutput<typeof RuleSchema>;

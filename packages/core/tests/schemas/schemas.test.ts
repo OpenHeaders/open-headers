@@ -94,17 +94,26 @@ describe('EnvironmentSchema', () => {
 
 describe('WorkspaceSchema', () => {
   it('accepts the minimal manifest', () => {
-    expect(v.parse(WorkspaceSchema, { schemaVersion: 5, name: 'My Workspace' })).toBeTruthy();
+    expect(v.parse(WorkspaceSchema, { schemaVersion: 5, uid: 'abcd1234', name: 'My Workspace' })).toBeTruthy();
   });
 
   it('accepts defaultEnvironmentId', () => {
     expect(
       v.parse(WorkspaceSchema, {
         schemaVersion: 5,
+        uid: 'abcd1234',
         name: 'x',
         defaultEnvironmentId: 'abcd1234',
       }),
     ).toBeTruthy();
+  });
+
+  it('rejects a missing uid (Phase 0 invariant #1)', () => {
+    expect(v.safeParse(WorkspaceSchema, { schemaVersion: 5, name: 'x' }).success).toBe(false);
+  });
+
+  it('rejects a non-8-char uid', () => {
+    expect(v.safeParse(WorkspaceSchema, { schemaVersion: 5, uid: 'too-short', name: 'x' }).success).toBe(false);
   });
 });
 

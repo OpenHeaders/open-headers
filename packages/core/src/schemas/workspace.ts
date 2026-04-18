@@ -3,7 +3,7 @@
  */
 
 import * as v from 'valibot';
-import { SchemaVersionSchema } from './common';
+import { SchemaVersionSchema, UidSchema } from './common';
 
 /**
  * On-disk `workspace.yaml` + runtime `V5.Workspace`. `rootPath` is
@@ -11,9 +11,13 @@ import { SchemaVersionSchema } from './common';
  * strips it on serialize. Schemas are shared by runtime + codec —
  * `rootPath` is optional here because the parsed-from-disk form omits
  * it.
+ *
+ * `uid` is the Phase 0 invariant #1 identity key — embedded in every
+ * persisted YAML and the sole source of truth for cross-entity links.
  */
 export const WorkspaceSchema = v.object({
   schemaVersion: SchemaVersionSchema,
+  uid: UidSchema,
   name: v.string(),
   description: v.optional(v.string()),
   defaultEnvironmentId: v.optional(v.string()),

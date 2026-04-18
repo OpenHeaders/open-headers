@@ -44,8 +44,10 @@ export {
   QueryParamRuleSchema,
   RedirectActionSchema,
   RedirectRuleSchema,
+  RuleBaseSchema,
   RuleConditionSchema,
   RuleSchema,
+  RuleTypeSchema,
 } from './rule';
 export { RuleDraftSchema } from './rule-draft';
 export { TemplateIncludesSchema, TemplateSchema } from './template';

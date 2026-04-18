@@ -6,6 +6,7 @@
  *   name: My API Project
  *   description: …
  *   defaultEnvironmentId: …        # optional; resolver falls back here when active env lacks a var
+ *   rootPath: …                    # runtime-only (desktop absolute path); codec strips on serialize
  *
  * The workspace IS a git repo (when synced via desktop/team). The manifest
  * is one of several versioned entities — every persisted YAML file carries
@@ -13,7 +14,16 @@
  * without rewriting the whole tree. Starts at 5 to align with the v5 brand;
  * future breaking changes bump per-entity (6, 7, …). See
  * docs/V5_FOUNDATION_PLAN.md §Phase 0.
+ *
+ * `Workspace` is derived from `WorkspaceSchema` so the runtime validator
+ * and the type stay locked together. `rootPath` is optional here to match
+ * the parsed-from-disk form (the codec strips it on serialize); callers
+ * that operate on the in-memory form populate `rootPath` after parse and
+ * must narrow with a guard.
  */
+
+import type * as v from 'valibot';
+import type { WorkspaceSchema } from '../../schemas/workspace';
 
 /**
  * Top-level sections that organize collections within a workspace.
@@ -21,15 +31,4 @@
  */
 export type WorkspaceSection = 'requests' | 'rules' | 'environments' | 'recordings' | 'proxy-rules';
 
-export interface Workspace {
-  /** Persisted format version for `workspace.yaml`. Starts at 1. */
-  schemaVersion: number;
-  /** Stable workspace identity. 8-char lowercase-alphanumeric. */
-  uid: string;
-  name: string;
-  description?: string;
-  /** Environment uid to fall back to when the active env is unset or missing a variable. */
-  defaultEnvironmentId?: string;
-  /** Workspace root directory (absolute path, runtime only — not on disk). */
-  rootPath: string;
-}
+export type Workspace = v.InferOutput<typeof WorkspaceSchema>;

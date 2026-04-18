@@ -15,6 +15,8 @@
  * route through this class.
  */
 
+import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
+import type * as v from 'valibot';
 import { getBrowserAPI } from '@/types/browser';
 import type { StorageArea, StorageKey } from './keys';
 
@@ -142,6 +144,45 @@ export class ExtensionStorage {
       byArea.set(spec.area, keys);
     }
     return Promise.all([...byArea.entries()].map(([area, keys]) => areaRemove(area, keys))).then(() => undefined);
+  }
+
+  /**
+   * Schema-validated single-entity read. Returns the parsed value on
+   * success; `null` when the slot is empty OR when the stored raw fails
+   * the schema. Optional `onError` callback is invoked with the raw
+   * input + the valibot issues when validation fails — wire this into
+   * the observability log to surface storage drift.
+   *
+   * Use this at read sites where a corrupted blob in `chrome.storage.*`
+   * (sync conflict, manual DevTools edit, bit-rot) should fall through
+   * to a fresh default rather than crash the reader. Matches the
+   * read-validates / write-preserves discipline (ARCHITECTURE §7).
+   */
+  async getValidated<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+    spec: StorageKey<v.InferOutput<TSchema>>,
+    schema: TSchema,
+    options?: ParseEntityOptions,
+  ): Promise<v.InferOutput<TSchema> | null> {
+    const raw = await this.get(spec);
+    if (raw === undefined) return null;
+    return parseEntity(schema, raw, options);
+  }
+
+  /**
+   * Schema-validated array read. Drops entries that fail the schema
+   * (per-entry `onError` callback lets callers log drift without
+   * poisoning the whole list) and returns the surviving set. Returns
+   * an empty array when the slot is empty or the stored raw isn't an
+   * array.
+   */
+  async getValidatedArray<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+    spec: StorageKey<Array<v.InferOutput<TSchema>>>,
+    schema: TSchema,
+    options?: ParseEntityOptions,
+  ): Promise<Array<v.InferOutput<TSchema>>> {
+    const raw = await this.get(spec);
+    if (raw === undefined) return [];
+    return parseEntityArray(schema, raw, options);
   }
 
   /**

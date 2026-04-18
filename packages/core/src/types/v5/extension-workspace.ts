@@ -15,59 +15,19 @@
  *     owns YAML I/O and git. Creation of team workspaces happens in the
  *     desktop app, not the extension. Reserved for v2 — stubbed here so
  *     the type shape is stable from day 1.
+ *
+ * Shapes are derived from `ExtensionWorkspaceSchema` +
+ * `ExtensionWorkspaceSourceSchema` so the runtime validator and the
+ * type stay in lockstep.
  */
-export type ExtensionWorkspaceKind = 'personal' | 'team';
 
-export interface ExtensionWorkspace {
-  /** Persisted format version for the `oh.workspaces` array entry. */
-  schemaVersion: number;
-  /** Stable identity; generated on create, never changes. */
-  id: string;
-  /** Which storage/sync model backs this workspace. */
-  kind: ExtensionWorkspaceKind;
-  /** Display name. Freely renamed; never used for identity or entity links. */
-  name: string;
-  description?: string;
-  /**
-   * Workspace prefix indicator. Exactly one of the two rendering
-   * modes — never both — so users can choose a minimal color square
-   * OR a tinted icon without cluttering the UI with two visual
-   * markers.
-   *
-   *   - `icon` unset  → render a plain color square filled with
-   *                     `color` (or a neutral border token if color
-   *                     is also unset).
-   *   - `icon` set    → render the TwoTone icon with `color` applied
-   *                     as its two-tone primary. The standalone
-   *                     square is NOT drawn in this mode.
-   *
-   * `color` is a palette key (e.g. "blue", "neutral") resolved by
-   * the UI's `resolveWorkspaceColor` helpers.
-   * `icon` is a TwoTone registry key (e.g. "AppstoreTwoTone")
-   * resolved through `TwoToneIconPicker`'s registry.
-   */
-  color?: string;
-  icon?: string;
-  /**
-   * User-controlled ordering in the workspace switcher. Lower values
-   * sort first; ties broken by createdAt ascending.
-   */
-  sortIndex: number;
-  /** ISO 8601. */
-  createdAt: string;
-  /** ISO 8601. Bumped on any mutation of the entity. */
-  updatedAt: string;
-  /**
-   * Team-workspace backing descriptor. Present only when kind === 'team'.
-   * v1 wires only personal; this field is reserved for the desktop sync
-   * work in v2.
-   */
-  source?: ExtensionWorkspaceSource;
-}
+import type * as v from 'valibot';
+import type {
+  ExtensionWorkspaceKindSchema,
+  ExtensionWorkspaceSchema,
+  ExtensionWorkspaceSourceSchema,
+} from '../../schemas/workspace';
 
-export interface ExtensionWorkspaceSource {
-  /** Stable desktop-side workspace identifier the extension mirrors. */
-  desktopWorkspaceId: string;
-  /** Display-only path shown in the UI; never used for I/O. */
-  displayPath?: string;
-}
+export type ExtensionWorkspaceKind = v.InferOutput<typeof ExtensionWorkspaceKindSchema>;
+export type ExtensionWorkspace = v.InferOutput<typeof ExtensionWorkspaceSchema>;
+export type ExtensionWorkspaceSource = v.InferOutput<typeof ExtensionWorkspaceSourceSchema>;

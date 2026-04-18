@@ -5,9 +5,7 @@
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { RuleConditionSchema } from './rule';
-
-const RuleTypeSchema = v.picklist(['header', 'redirect', 'body', 'inject', 'block', 'delay', 'mock', 'query-param']);
+import { RuleConditionSchema, RuleTypeSchema } from './rule';
 
 export const TemplateIncludesSchema = v.object({
   conditions: v.boolean(),

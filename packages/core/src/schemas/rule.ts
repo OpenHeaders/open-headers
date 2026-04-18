@@ -11,6 +11,19 @@
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 
+// ── Rule-type discriminator (shared by rule + template) ────────────
+
+export const RuleTypeSchema = v.picklist([
+  'header',
+  'redirect',
+  'body',
+  'inject',
+  'block',
+  'delay',
+  'mock',
+  'query-param',
+]);
+
 // ── Conditions ──────────────────────────────────────────────────────
 
 export const ConditionTypeSchema = v.picklist([
@@ -38,15 +51,29 @@ export const RuleConditionSchema = v.object({
 });
 
 // ── RuleBase shared fields ─────────────────────────────────────────
+//
+// Exposed as a full `RuleBaseSchema` so `V5.RuleBase` can be derived from
+// it (matches the Phase 2 "derive types from schemas" discipline). The
+// schema is never parsed in isolation — each rule variant carries the
+// discriminator + action on top via `v.variant('type', [...])`.
+//
+// `type` is kept as the wide `RuleTypeSchema` picklist here so derived
+// consumers (e.g. `isRuleComplete`'s switch over `base.type`) can read the
+// discriminator without narrowing to a specific rule variant. Each variant
+// below overrides it with `v.literal('<kind>')` — valibot's `v.variant`
+// discriminates on the literal, so runtime parsing remains exact.
 
-const RuleBaseFields = {
+export const RuleBaseSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
   path: RelativePathSchema,
   name: v.string(),
+  type: RuleTypeSchema,
   enabled: v.boolean(),
   conditions: v.array(RuleConditionSchema),
-} as const;
+});
+
+const RuleBaseFields = RuleBaseSchema.entries;
 
 // ── Header rule ────────────────────────────────────────────────────
 

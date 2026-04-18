@@ -16,30 +16,23 @@
  * mirrors the uid for grep/git-diff readability but is not authoritative.
  * Child ordering is explicit via `order: string[]` (list of child folder
  * names) — absent = alphabetical.
+ *
+ * `Collection` is derived from `CollectionSchema`. Tree-node types
+ * (`FolderNode`, `RequestNode`, `RuleNode`, `TemplateNode`, `TreeNode`,
+ * `CollectionTree`) are runtime UI shapes, not persisted, and stay
+ * hand-written.
  */
 
+import type * as v from 'valibot';
+import type { CollectionSchema } from '../../schemas/collection';
 import type { HttpMethod } from './request';
 import type { RuleType } from './rule';
-import type { Variable } from './variable';
 
 // ── Collection ─────────────────────────────────────────────────────
 
-export interface Collection {
-  /** Persisted format version for `_collection.yaml`. */
-  schemaVersion: number;
-  /** 8-char lowercase-alphanumeric identity. Embedded in _collection.yaml. */
-  uid: string;
-  /** Relative path within workspace (e.g. "requests/auth-a1b2c3d4"). Forward slashes. */
-  path: string;
-  name: string;
-  description?: string;
-  /** Collection-scoped variables (synced via Git, non-secret only). */
-  variables: Variable[];
-  /** Explicit child ordering — list of child folder names ("<slug>-<uid>"). Absent = alphabetical. */
-  order?: string[];
-}
+export type Collection = v.InferOutput<typeof CollectionSchema>;
 
-// ── Tree nodes (sidebar) ───────────────────────────────────────────
+// ── Tree nodes (sidebar, runtime-only) ─────────────────────────────
 
 export interface FolderNode {
   type: 'folder';

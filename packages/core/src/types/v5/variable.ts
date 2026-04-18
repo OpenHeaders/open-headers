@@ -11,7 +11,21 @@
  *   environments/staging.yaml     — environment variables (flat key-value)
  *   environments/prod.secret.yaml — environment secrets (.gitignored)
  *   _collection.yaml vars:        — collection-scoped variables
+ *
+ * Persisted shapes (Variable, VaultSecret, Vault, WorkspaceVariables,
+ * Environment) are derived from the valibot schemas so drift between the
+ * type and the runtime validator is impossible by construction.
  */
+
+import type * as v from 'valibot';
+import type {
+  EnvironmentSchema,
+  VariableSchema,
+  VariableTypeSchema,
+  VaultSchema,
+  VaultSecretSchema,
+  WorkspaceVariablesSchema,
+} from '../../schemas/variable';
 
 // ── Variable scope ─────────────────────────────────────────────────
 
@@ -20,55 +34,23 @@ export type VariableScope = 'vault' | 'environment' | 'collection' | 'workspace'
 
 // ── Variable ───────────────────────────────────────────────────────
 
-export interface Variable {
-  name: string;
-  value: string;
-  type: 'default' | 'secret';
-}
+export type VariableType = v.InferOutput<typeof VariableTypeSchema>;
+export type Variable = v.InferOutput<typeof VariableSchema>;
 
 // ── Vault ──────────────────────────────────────────────────────────
 
-/** A secret stored in the local vault. Encrypted at rest, never synced via Git. */
-export interface VaultSecret {
-  name: string;
-  value: string;
-}
-
-export interface Vault {
-  /** Persisted format version for `workspace-vars.secret.yaml`. */
-  schemaVersion: number;
-  secrets: VaultSecret[];
-}
+export type VaultSecret = v.InferOutput<typeof VaultSecretSchema>;
+export type Vault = v.InferOutput<typeof VaultSchema>;
 
 // ── Environment ────────────────────────────────────────────────────
 
-export interface Environment {
-  /** Persisted format version for `<name>.yaml`. */
-  schemaVersion: number;
-  /** Stable identity; generated on create, never changes. 8-char lowercase-alphanumeric.
-   *  Embedded in the environment's YAML. Used for all in-memory links and the
-   *  `activeEnvironmentId` pointer. */
-  uid: string;
-  /** Display name (e.g. "staging"). Freely renamed; never used as an
-   *  identity key. For team workspaces, also drives the YAML filename. */
-  name: string;
-  /** Relative path within workspace for team workspaces (e.g.
-   *  "environments/staging.yaml"). Optional — omitted for personal
-   *  workspaces, which live purely in chrome.storage.local. */
-  path?: string;
-  variables: Variable[];
-}
+export type Environment = v.InferOutput<typeof EnvironmentSchema>;
 
 // ── Workspace variables ────────────────────────────────────────────
 
-/** Workspace-wide variables. Lowest resolution priority. */
-export interface WorkspaceVariables {
-  /** Persisted format version for `workspace-vars.yaml`. */
-  schemaVersion: number;
-  variables: Variable[];
-}
+export type WorkspaceVariables = v.InferOutput<typeof WorkspaceVariablesSchema>;
 
-// ── Resolution ─────────────────────────────────────────────────────
+// ── Resolution (runtime-only, not persisted) ──────────────────────
 
 /** Result of resolving a single {{VAR}} reference. */
 export interface ResolvedVariable {

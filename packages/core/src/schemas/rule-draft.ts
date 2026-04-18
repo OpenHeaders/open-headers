@@ -7,42 +7,48 @@
  */
 
 import * as v from 'valibot';
+import {
+  BodyModTypeSchema,
+  BodyResourceTypeSchema,
+  HeaderOperationSchema,
+  InjectSourceSchema,
+  InjectTypeSchema,
+  QueryParamOperationSchema,
+} from './rule';
 
-const RuleDraftBaseFields = {
+// Shared draft base fields — carried by every rule-draft variant.
+export const RuleDraftBaseSchema = v.object({
   name: v.optional(v.string()),
   url: v.optional(v.string()),
   urlFilter: v.optional(v.string()),
   requestMethods: v.optional(v.array(v.string())),
   resourceTypes: v.optional(v.array(v.string())),
-};
+});
 
-const HeaderOperationSchema = v.picklist(['override', 'add', 'remove', 'merge']);
+const RuleDraftBaseFields = RuleDraftBaseSchema.entries;
 
-const HeaderRuleDraftHeaderSchema = v.object({
+export const HeaderRuleDraftHeaderSchema = v.object({
   operation: HeaderOperationSchema,
   headerName: v.string(),
   value: v.optional(v.string()),
   mergeSeparator: v.optional(v.string()),
 });
 
-const HeaderRuleDraftSchema = v.object({
+export const HeaderRuleDraftSchema = v.object({
   type: v.literal('header'),
   ...RuleDraftBaseFields,
   requestHeaders: v.optional(v.array(HeaderRuleDraftHeaderSchema)),
   responseHeaders: v.optional(v.array(HeaderRuleDraftHeaderSchema)),
 });
 
-const RedirectRuleDraftSchema = v.object({
+export const RedirectRuleDraftSchema = v.object({
   type: v.literal('redirect'),
   ...RuleDraftBaseFields,
   matchPattern: v.optional(v.string()),
   redirectTo: v.optional(v.string()),
 });
 
-const BodyResourceTypeSchema = v.picklist(['rest', 'graphql']);
-const BodyModTypeSchema = v.picklist(['static', 'dynamic']);
-
-const BodyRuleDraftSchema = v.object({
+export const BodyRuleDraftSchema = v.object({
   type: v.literal('body'),
   ...RuleDraftBaseFields,
   bodyType: v.optional(BodyModTypeSchema),
@@ -50,7 +56,7 @@ const BodyRuleDraftSchema = v.object({
   resourceType: v.optional(BodyResourceTypeSchema),
 });
 
-const MockRuleDraftSchema = v.object({
+export const MockRuleDraftSchema = v.object({
   type: v.literal('mock'),
   ...RuleDraftBaseFields,
   statusCode: v.optional(v.number()),
@@ -61,38 +67,34 @@ const MockRuleDraftSchema = v.object({
   resourceType: v.optional(BodyResourceTypeSchema),
 });
 
-const BlockRuleDraftSchema = v.object({
+export const BlockRuleDraftSchema = v.object({
   type: v.literal('block'),
   ...RuleDraftBaseFields,
   statusCode: v.optional(v.number()),
   responseBody: v.optional(v.string()),
 });
 
-const DelayRuleDraftSchema = v.object({
+export const DelayRuleDraftSchema = v.object({
   type: v.literal('delay'),
   ...RuleDraftBaseFields,
   delayMs: v.optional(v.number()),
 });
 
-const QueryParamOperationSchema = v.picklist(['add', 'override', 'remove', 'remove-all']);
-
-const QueryParamDraftEntrySchema = v.object({
+export const QueryParamDraftEntrySchema = v.object({
   operation: QueryParamOperationSchema,
   param: v.string(),
   value: v.optional(v.string()),
 });
 
-const QueryParamRuleDraftSchema = v.object({
+export const QueryParamRuleDraftSchema = v.object({
   type: v.literal('query-param'),
   ...RuleDraftBaseFields,
   params: v.optional(v.array(QueryParamDraftEntrySchema)),
 });
 
-const InjectTypeSchema = v.picklist(['script', 'css']);
-const InjectSourceSchema = v.picklist(['code', 'url']);
 const InjectPositionSchema = v.picklist(['head', 'body-start', 'body-end']);
 
-const InjectRuleDraftSchema = v.object({
+export const InjectRuleDraftSchema = v.object({
   type: v.literal('inject'),
   ...RuleDraftBaseFields,
   injectType: v.optional(InjectTypeSchema),

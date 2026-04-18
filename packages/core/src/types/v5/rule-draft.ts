@@ -12,114 +12,44 @@
  * while a draft is "here's some pre-fill data, fill the rest yourself."
  * Keeping them separate means we never have to produce synthetic values
  * for required fields just to satisfy the `Rule` type.
+ *
+ * Every shape is derived from the valibot schemas in
+ * `schemas/rule-draft.ts` so the bridge-boundary validator and the type
+ * stay locked together.
  */
 
-import type { BodyResourceType, HeaderOperation, InjectSource, InjectType, QueryParamOperation } from './rule';
+import type * as v from 'valibot';
+import type {
+  BlockRuleDraftSchema,
+  BodyRuleDraftSchema,
+  DelayRuleDraftSchema,
+  HeaderRuleDraftHeaderSchema,
+  HeaderRuleDraftSchema,
+  InjectRuleDraftSchema,
+  MockRuleDraftSchema,
+  QueryParamDraftEntrySchema,
+  QueryParamRuleDraftSchema,
+  RedirectRuleDraftSchema,
+  RuleDraftBaseSchema,
+  RuleDraftSchema,
+} from '../../schemas/rule-draft';
 
-/** Fields common to every rule-draft variant. */
-export interface RuleDraftBase {
-  /** Optional pre-fill name. When absent, the create-tab generates the default. */
-  name?: string;
-  /**
-   * Full raw URL observed when the draft was authored. The workspace
-   * derives the actual `url-filter` condition from this via the
-   * user-configurable draft URL strategy (exact / path-wildcard /
-   * host-only / raw). Prefer this over `urlFilter` when the caller has
-   * the whole URL and wants the workspace to decide how specific the
-   * generated pattern should be.
-   */
-  url?: string;
-  /**
-   * Caller-controlled pre-computed `url-filter` pattern. Takes
-   * precedence over `url` when both are supplied — use this when the
-   * caller has already decided on an exact pattern and doesn't want
-   * the workspace's strategy applied.
-   */
-  urlFilter?: string;
-  /** Seeds a `request-methods` condition. */
-  requestMethods?: string[];
-  /** Seeds a `resource-types` condition. */
-  resourceTypes?: string[];
-}
+export type RuleDraftBase = v.InferOutput<typeof RuleDraftBaseSchema>;
 
-// ── Per-type drafts ────────────────────────────────────────────────
+export type HeaderRuleDraftHeader = v.InferOutput<typeof HeaderRuleDraftHeaderSchema>;
+export type HeaderRuleDraft = v.InferOutput<typeof HeaderRuleDraftSchema>;
 
-export interface HeaderRuleDraftHeader {
-  operation: HeaderOperation;
-  headerName: string;
-  value?: string;
-  mergeSeparator?: string;
-}
+export type RedirectRuleDraft = v.InferOutput<typeof RedirectRuleDraftSchema>;
+export type BodyRuleDraft = v.InferOutput<typeof BodyRuleDraftSchema>;
+export type MockRuleDraft = v.InferOutput<typeof MockRuleDraftSchema>;
+export type BlockRuleDraft = v.InferOutput<typeof BlockRuleDraftSchema>;
+export type DelayRuleDraft = v.InferOutput<typeof DelayRuleDraftSchema>;
 
-export interface HeaderRuleDraft extends RuleDraftBase {
-  type: 'header';
-  requestHeaders?: HeaderRuleDraftHeader[];
-  responseHeaders?: HeaderRuleDraftHeader[];
-}
+export type QueryParamDraftEntry = v.InferOutput<typeof QueryParamDraftEntrySchema>;
+export type QueryParamRuleDraft = v.InferOutput<typeof QueryParamRuleDraftSchema>;
 
-export interface RedirectRuleDraft extends RuleDraftBase {
-  type: 'redirect';
-  matchPattern?: string;
-  redirectTo?: string;
-}
+export type InjectRuleDraft = v.InferOutput<typeof InjectRuleDraftSchema>;
 
-export interface BodyRuleDraft extends RuleDraftBase {
-  type: 'body';
-  bodyType?: 'static' | 'dynamic';
-  body?: string;
-  resourceType?: BodyResourceType;
-}
-
-export interface MockRuleDraft extends RuleDraftBase {
-  type: 'mock';
-  statusCode?: number;
-  responseBody?: string;
-  responseHeaders?: Record<string, string>;
-  contentType?: string;
-  bodyType?: 'static' | 'dynamic';
-  resourceType?: BodyResourceType;
-}
-
-export interface BlockRuleDraft extends RuleDraftBase {
-  type: 'block';
-  statusCode?: number;
-  responseBody?: string;
-}
-
-export interface DelayRuleDraft extends RuleDraftBase {
-  type: 'delay';
-  delayMs?: number;
-}
-
-export interface QueryParamDraftEntry {
-  operation: QueryParamOperation;
-  param: string;
-  value?: string;
-}
-
-export interface QueryParamRuleDraft extends RuleDraftBase {
-  type: 'query-param';
-  params?: QueryParamDraftEntry[];
-}
-
-export interface InjectRuleDraft extends RuleDraftBase {
-  type: 'inject';
-  injectType?: InjectType;
-  source?: InjectSource;
-  code?: string;
-  sourceUrl?: string;
-  position?: 'head' | 'body-start' | 'body-end';
-  bypassCSP?: boolean;
-}
-
-export type RuleDraft =
-  | HeaderRuleDraft
-  | RedirectRuleDraft
-  | BodyRuleDraft
-  | MockRuleDraft
-  | BlockRuleDraft
-  | DelayRuleDraft
-  | QueryParamRuleDraft
-  | InjectRuleDraft;
+export type RuleDraft = v.InferOutput<typeof RuleDraftSchema>;
 
 export type RuleDraftType = RuleDraft['type'];
