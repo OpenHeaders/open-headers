@@ -4,6 +4,7 @@
   "author": "Open Headers",
   "version": "0.0.0",
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhYORZu9Z8m0WQgoTU7VE8ZvoqgacKTep6bl5ZwvWAd4f+ZfPmCtzv2XLn6UA4l/i5J9efBIKhWi0ky+oO8DlbbVrA8u4T6uOKH5JgfjXsy+8AfJtGzIcupfLFW5wudzJPb+Jz2odK/rtJSkKDS/cyXQNYy/tJaukkjyPsRe5rFgCxieC7RezZtJl+QsuczJZZw2DDOX99e+DaxwEkokv9PRPj3KuQ0eIzQH/Ncjl/7Ds8EHh2O7VN8U1W5aBueHeCngGPVY1VOkZdwMlAR2O8CfzR3L7/nWfap0ex7YKWIrqbchxhR1J5auPT4pJIk9oOkqt8mmdNqE/IHN+iQsEyQIDAQAB",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
