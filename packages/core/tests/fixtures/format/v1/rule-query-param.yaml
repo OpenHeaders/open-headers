@@ -1,0 +1,16 @@
+schemaVersion: 5
+uid: rulequp1
+name: Force region to eu
+type: query-param
+enabled: true
+conditions:
+  - type: request-domains
+    values:
+      - api.openheaders.io
+action:
+  params:
+    - param: region
+      value: eu-central-1
+      operation: override
+    - param: tracking
+      operation: remove-all

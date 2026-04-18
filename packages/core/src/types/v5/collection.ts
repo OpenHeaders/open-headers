@@ -24,13 +24,21 @@
  */
 
 import type * as v from 'valibot';
-import type { CollectionSchema } from '../../schemas/collection';
+import type { CollectionSchema, FolderSchema } from '../../schemas/collection';
 import type { HttpMethod } from './request';
 import type { RuleType } from './rule';
 
 // ── Collection ─────────────────────────────────────────────────────
 
 export type Collection = v.InferOutput<typeof CollectionSchema>;
+
+/**
+ * `_folder.yaml` — the lightweight grouping folder inside a collection.
+ * Does not carry variables (the collection is the variable-scoping
+ * unit). `path` is populated by the caller at parse time and stripped
+ * from the persisted YAML.
+ */
+export type Folder = v.InferOutput<typeof FolderSchema>;
 
 // ── Tree nodes (sidebar, runtime-only) ─────────────────────────────
 

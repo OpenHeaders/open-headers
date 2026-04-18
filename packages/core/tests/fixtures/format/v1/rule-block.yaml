@@ -1,0 +1,11 @@
+schemaVersion: 5
+uid: ruleblk1
+name: Block analytics
+type: block
+enabled: true
+conditions:
+  - type: request-domains
+    values:
+      - analytics.openheaders.io
+action:
+  statusCode: 403

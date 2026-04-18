@@ -1,0 +1,5 @@
+schemaVersion: 5
+uid: a1b2c3d4
+name: OpenHeaders Demo
+description: Sample workspace exercising the v5 codec.
+defaultEnvironmentId: staging8

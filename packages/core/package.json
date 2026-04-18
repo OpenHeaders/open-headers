@@ -34,6 +34,10 @@
     "./vault": {
       "import": "./src/vault/index.ts",
       "default": "./dist/vault/index.js"
+    },
+    "./codec/yaml": {
+      "import": "./src/codec/yaml/index.ts",
+      "default": "./dist/codec/yaml/index.js"
     }
   },
   "scripts": {

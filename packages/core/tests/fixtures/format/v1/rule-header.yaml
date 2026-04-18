@@ -1,0 +1,15 @@
+schemaVersion: 5
+uid: rulehdr1
+name: Set Authorization header
+type: header
+enabled: true
+conditions:
+  - type: request-domains
+    values:
+      - api.openheaders.io
+action:
+  requestHeaders:
+    - operation: override
+      headerName: Authorization
+      value: Bearer {{env.TOKEN}}
+  responseHeaders: []

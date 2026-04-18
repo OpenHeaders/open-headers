@@ -1,0 +1,13 @@
+schemaVersion: 5
+uid: rulebdy1
+name: Inject feature flag override
+type: body
+enabled: false
+conditions:
+  - type: request-domains
+    values:
+      - api.openheaders.io
+action:
+  bodyType: static
+  body: "{\"featureFlag\":\"on\"}"
+  resourceType: rest

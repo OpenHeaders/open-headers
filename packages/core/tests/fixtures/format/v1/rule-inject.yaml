@@ -1,0 +1,14 @@
+schemaVersion: 5
+uid: rulenjc1
+name: Inject console banner
+type: inject
+enabled: true
+conditions:
+  - type: request-domains
+    values:
+      - app.openheaders.io
+action:
+  injectType: script
+  code: console.info("openheaders dev overlay active");
+  source: code
+  position: body-end

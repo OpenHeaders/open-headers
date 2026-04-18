@@ -1,0 +1,12 @@
+schemaVersion: 5
+uid: ruleredr
+name: Redirect staging to local
+type: redirect
+enabled: true
+conditions:
+  - type: url-filter
+    values:
+      - "||staging.openheaders.io/*"
+action:
+  matchPattern: https://staging.openheaders.io/*
+  redirectTo: http://localhost:3000/{0}

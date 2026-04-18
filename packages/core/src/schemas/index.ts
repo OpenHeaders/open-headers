@@ -1,4 +1,4 @@
-export { CollectionSchema } from './collection';
+export { CollectionSchema, FolderSchema } from './collection';
 export { MIN_SCHEMA_VERSION, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';

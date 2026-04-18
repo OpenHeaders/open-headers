@@ -1,0 +1,16 @@
+schemaVersion: 5
+uid: rulemck1
+name: Mock /me endpoint
+type: mock
+enabled: true
+conditions:
+  - type: request-domains
+    values:
+      - api.openheaders.io
+action:
+  statusCode: 200
+  responseHeaders:
+    Content-Type: application/json
+  responseBody: "{\"id\":\"user-1\",\"email\":\"hello@openheaders.io\"}"
+  contentType: application/json
+  bodyType: static

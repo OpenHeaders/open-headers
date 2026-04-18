@@ -1,0 +1,11 @@
+schemaVersion: 5
+uid: ruledly1
+name: Simulate slow network
+type: delay
+enabled: false
+conditions:
+  - type: request-domains
+    values:
+      - api.openheaders.io
+action:
+  delayMs: 1500

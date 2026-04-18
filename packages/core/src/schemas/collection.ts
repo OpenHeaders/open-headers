@@ -18,3 +18,18 @@ export const CollectionSchema = v.object({
   // Absent = alphabetical. See Phase 0 invariant #10.
   order: v.optional(v.array(v.string())),
 });
+
+/**
+ * On-disk `_folder.yaml` — the lightweight grouping folder inside a
+ * collection. Does not carry variables (collection is the only
+ * variable-scoping folder type per the 4-scope model). `path` is
+ * populated by the caller at parse time; not written to YAML. See
+ * Phase 0 invariants #10 (order) + #11 (rules live in collections).
+ */
+export const FolderSchema = v.object({
+  schemaVersion: SchemaVersionSchema,
+  uid: UidSchema,
+  path: RelativePathSchema,
+  name: v.string(),
+  order: v.optional(v.array(v.string())),
+});

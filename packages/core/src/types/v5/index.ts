@@ -2,6 +2,7 @@
 export type {
   Collection,
   CollectionTree,
+  Folder,
   FolderNode,
   RequestNode,
   RuleNode,

@@ -27,6 +27,13 @@
  * See docs/V5_FOUNDATION_PLAN.md §Phase 0 #4.
  */
 
+/**
+ * Phantom brand tags — exist only in the type system. The runtime
+ * objects are plain `{ value, raw? }` shapes; the nominal distinction
+ * between `ParsedDocument` / `WriteableDocument` is enforced by the
+ * `__brand` field below, which never exists at runtime. This keeps the
+ * discipline zero-cost (no Symbol allocation, no property access).
+ */
 declare const PARSED_DOCUMENT_BRAND: unique symbol;
 declare const WRITEABLE_DOCUMENT_BRAND: unique symbol;
 
@@ -41,7 +48,7 @@ export interface ParsedDocument<T> {
   readonly value: T;
   /** Opaque parser output preserving unknown keys + comments. */
   readonly raw: unknown;
-  readonly [PARSED_DOCUMENT_BRAND]: true;
+  readonly [PARSED_DOCUMENT_BRAND]?: 'parsed';
 }
 
 /**
@@ -56,12 +63,12 @@ export interface WriteableDocument<T> {
   readonly value: T;
   /** Present when this write is a merge over a parsed document; absent for fresh writes. */
   readonly raw?: unknown;
-  readonly [WRITEABLE_DOCUMENT_BRAND]: true;
+  readonly [WRITEABLE_DOCUMENT_BRAND]?: 'writeable';
 }
 
 /** Type constructor — used only by the codec when it finishes parsing. */
 export function makeParsed<T>(value: T, raw: unknown): ParsedDocument<T> {
-  return { value, raw, [PARSED_DOCUMENT_BRAND]: true } as ParsedDocument<T>;
+  return { value, raw } as ParsedDocument<T>;
 }
 
 /**
@@ -76,7 +83,7 @@ export function makeParsed<T>(value: T, raw: unknown): ParsedDocument<T> {
 export function mergePatch<T>(parsed: ParsedDocument<T>, patch: (draft: T) => void): WriteableDocument<T> {
   const draft = structuredClone(parsed.value) as T;
   patch(draft);
-  return { value: draft, raw: parsed.raw, [WRITEABLE_DOCUMENT_BRAND]: true } as WriteableDocument<T>;
+  return { value: draft, raw: parsed.raw } as WriteableDocument<T>;
 }
 
 /**
@@ -85,5 +92,5 @@ export function mergePatch<T>(parsed: ParsedDocument<T>, patch: (draft: T) => vo
  * discarded." Use only for explicit reset / new-file / import flows.
  */
 export function freshDocument<T>(value: T): WriteableDocument<T> {
-  return { value, [WRITEABLE_DOCUMENT_BRAND]: true } as WriteableDocument<T>;
+  return { value } as WriteableDocument<T>;
 }
