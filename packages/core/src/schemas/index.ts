@@ -1,5 +1,5 @@
 export { CollectionSchema } from './collection';
-export { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+export { MIN_SCHEMA_VERSION, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
 export type { ParseEntityOptions } from './parse';

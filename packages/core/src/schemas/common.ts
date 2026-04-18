@@ -10,13 +10,15 @@
 import * as v from 'valibot';
 
 /**
- * Positive integer — matches `schemaVersion: number`. Fresh v5 workspaces
- * start at 5 (aligned with the v5 brand). Breaking changes bump
- * per-entity; the schema stays lenient on lower bounds so a long-lived
- * codebase can still validate a hypothetical v1–v4 snapshot without
- * surgery if one ever shows up. See docs/V5_FOUNDATION_PLAN.md §Phase 0 #3.
+ * The V5 baseline. Fresh workspaces carry `schemaVersion: 5`; any
+ * persisted entity below 5 is rejected at the boundary. V5 has no
+ * prior users to support (per memory: project_v5_fresh_start) — so
+ * we don't carry a compat pane for v1–v4. Future breaking changes in
+ * any entity bump per-entity (6, 7, …). See
+ * docs/V5_FOUNDATION_PLAN.md §Phase 0 #3.
  */
-export const SchemaVersionSchema = v.pipe(v.number(), v.integer(), v.minValue(1));
+export const MIN_SCHEMA_VERSION = 5;
+export const SchemaVersionSchema = v.pipe(v.number(), v.integer(), v.minValue(MIN_SCHEMA_VERSION));
 
 /** 8-char lowercase-alphanumeric uid (see `packages/core/src/utils/workspace.ts`). */
 export const UidSchema = v.pipe(v.string(), v.regex(/^[a-z0-9]{8}$/));

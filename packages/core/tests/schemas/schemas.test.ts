@@ -42,8 +42,16 @@ describe('VaultSchema', () => {
     expect(v.safeParse(VaultSchema, { secrets: [] }).success).toBe(false);
   });
 
-  it('rejects a zero schemaVersion', () => {
-    expect(v.safeParse(VaultSchema, { schemaVersion: 0, secrets: [] }).success).toBe(false);
+  it('rejects schemaVersion below 5 — V5 is the baseline; no pre-5 snapshots exist', () => {
+    for (const pre5 of [0, 1, 2, 3, 4]) {
+      expect(v.safeParse(VaultSchema, { schemaVersion: pre5, secrets: [] }).success).toBe(false);
+    }
+  });
+
+  it('accepts schemaVersion 5 and later (for future entity bumps)', () => {
+    expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [] }).success).toBe(true);
+    expect(v.safeParse(VaultSchema, { schemaVersion: 6, secrets: [] }).success).toBe(true);
+    expect(v.safeParse(VaultSchema, { schemaVersion: 100, secrets: [] }).success).toBe(true);
   });
 });
 
