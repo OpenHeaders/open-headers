@@ -356,6 +356,7 @@ describe('allowlist constants stay in sync with Chrome/Firefox source', () => {
 
 describe('isRuleComplete gate — header rule capability integration', () => {
   const baseRule = {
+    schemaVersion: 1,
     uid: 'x1',
     path: 'rules/col/rule-x1',
     name: 'Test',

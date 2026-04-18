@@ -1,15 +1,17 @@
 /**
  * Storage constants for the git-based workspace format.
  *
- * The reader/writer layer handles YAML serialization.
- * No per-file wrapper types needed — types in request.ts, rule.ts, etc.
- * represent the in-memory model directly.
+ * Per-user state (active environment, pause markers, UI layout, response
+ * history) lives under `.oh-local/` — gitignored. Per-user secrets live
+ * in `*.secret.yaml` siblings — also gitignored, but the committed
+ * `*.secret.yaml.template` mirror (empty values) keeps teammates aware
+ * of which keys they need to populate.
  */
 
 // ── Gitignore template ─────────────────────────────────────────────
 
 export const V5_GITIGNORE = `# OpenHeaders — local-only files
 *.secret.yaml
-.active-environment
-.responses/
+!*.secret.yaml.template
+.oh-local/
 `;

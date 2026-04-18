@@ -174,7 +174,7 @@ export interface BridgeRpcContract {
   };
   createLocalRule: {
     req: {
-      rule: Omit<V5.Rule, 'uid' | 'path'>;
+      rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>;
       collectionUid?: string;
       parentPath?: string;
     };
@@ -195,7 +195,7 @@ export interface BridgeRpcContract {
   updateLocalRule: {
     req: {
       ruleId: string;
-      updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>;
+      updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res: { success: boolean };
   };
@@ -310,7 +310,7 @@ export interface BridgeRpcContract {
   };
   createTemplate: {
     req: {
-      template: Omit<V5.Template, 'uid' | 'path'>;
+      template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>;
       collectionUid?: string;
       parentPath?: string;
     };
@@ -319,7 +319,7 @@ export interface BridgeRpcContract {
   updateTemplate: {
     req: {
       templateUid: string;
-      updates: Partial<Omit<V5.Template, 'uid' | 'path'>>;
+      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res: { success: boolean };
   };
@@ -431,7 +431,7 @@ export interface BridgeRpcContract {
   updateLocalRequest: {
     req: {
       requestUid: string;
-      updates: Partial<Omit<V5.Request, 'uid' | 'path'>>;
+      updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res: { success: boolean };
   };

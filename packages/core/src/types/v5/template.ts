@@ -4,6 +4,8 @@
  * Templates mirror the Rule structure but store form field values
  * rather than a live rule action. They live in their own collections
  * (separate from rule collections) under a TEMPLATES sidebar section.
+ *
+ * On disk, each template is an item folder containing `template.yaml`.
  */
 
 import type { RuleCondition, RuleType } from './rule';
@@ -11,9 +13,11 @@ import type { RuleCondition, RuleType } from './rule';
 // ── Template ──────────────────────────────────────────────────────
 
 export interface Template {
-  /** Unique ID, prefixed with "local-" for extension-created templates. */
+  /** Persisted format version for `template.yaml`. */
+  schemaVersion: number;
+  /** 8-char lowercase-alphanumeric identity. Embedded in template.yaml. */
   uid: string;
-  /** Relative path within the template collection hierarchy. */
+  /** Relative path within the template collection hierarchy. Forward slashes. */
   path: string;
   name: string;
   /** Which rule type this template creates (header, block, redirect, etc.). */

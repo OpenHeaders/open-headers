@@ -103,9 +103,11 @@ export type ResourceType =
 // ── Base rule ──────────────────────────────────────────────────────
 
 export interface RuleBase {
-  /** 4-char uid from folder name suffix. */
+  /** Persisted format version for `rule.yaml`. */
+  schemaVersion: number;
+  /** 8-char lowercase-alphanumeric identity. Embedded in rule.yaml. Stable across renames. */
   uid: string;
-  /** Relative path within workspace. */
+  /** Relative path within workspace. Forward slashes. */
   path: string;
   name: string;
   type: RuleType;

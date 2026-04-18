@@ -16,6 +16,7 @@ function hostConditions(domains: string[]): V5.RuleCondition[] {
 
 function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
+    schemaVersion: 1,
     uid: `rule-${Math.random().toString(36).slice(2, 6)}`,
     path: 'rules/test',
     name: 'Test Rule',

@@ -115,6 +115,7 @@ export function ensureDefaultRequestCollection(): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
+    schemaVersion: 1,
     uid,
     path: `requests/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -129,6 +130,7 @@ export function createRequestCollection(name: string): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
+    schemaVersion: 1,
     uid,
     path: `requests/${folderName}`,
     name,
@@ -197,6 +199,7 @@ export function addRequest(name: string, parentPath: string, seed?: Partial<V5.R
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const created: V5.Request = {
+    schemaVersion: 1,
     uid,
     path: `${parentPath}/${folderName}`,
     name,

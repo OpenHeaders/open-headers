@@ -35,14 +35,19 @@ export interface VaultSecret {
 }
 
 export interface Vault {
+  /** Persisted format version for `workspace-vars.secret.yaml`. */
+  schemaVersion: number;
   secrets: VaultSecret[];
 }
 
 // ── Environment ────────────────────────────────────────────────────
 
 export interface Environment {
-  /** Stable identity; generated on create, never changes. Used for all
-   *  in-memory links and the `activeEnvironmentId` pointer. */
+  /** Persisted format version for `<name>.yaml`. */
+  schemaVersion: number;
+  /** Stable identity; generated on create, never changes. 8-char lowercase-alphanumeric.
+   *  Embedded in the environment's YAML. Used for all in-memory links and the
+   *  `activeEnvironmentId` pointer. */
   uid: string;
   /** Display name (e.g. "staging"). Freely renamed; never used as an
    *  identity key. For team workspaces, also drives the YAML filename. */
@@ -58,6 +63,8 @@ export interface Environment {
 
 /** Workspace-wide variables. Lowest resolution priority. */
 export interface WorkspaceVariables {
+  /** Persisted format version for `workspace-vars.yaml`. */
+  schemaVersion: number;
   variables: Variable[];
 }
 

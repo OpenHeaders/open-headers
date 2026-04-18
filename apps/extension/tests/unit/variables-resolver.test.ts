@@ -5,8 +5,8 @@ vi.mock('@/background/modules/environment-store', () => {
   return {
     getEnvironments: vi.fn(() => [] as V5.Environment[]),
     getActiveEnvironmentId: vi.fn(() => null as string | null),
-    getWorkspaceVariables: vi.fn(() => ({ variables: [] }) as V5.WorkspaceVariables),
-    getVault: vi.fn(() => ({ secrets: [] }) as V5.Vault),
+    getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 1, variables: [] }) as V5.WorkspaceVariables),
+    getVault: vi.fn(() => ({ schemaVersion: 1, secrets: [] }) as V5.Vault),
   };
 });
 
@@ -37,6 +37,7 @@ const mockStoreRules = getRules as ReturnType<typeof vi.fn>;
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> & { path: string; uid: string }): V5.HeaderRule {
   return {
+    schemaVersion: 1,
     name: 'R',
     type: 'header',
     enabled: true,
@@ -50,7 +51,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> & { path: string; uid:
 }
 
 function env(name: string, variables: V5.Variable[], uid = `e-${name}`): V5.Environment {
-  return { uid, name, variables };
+  return { schemaVersion: 1, uid, name, variables };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -60,14 +61,15 @@ describe('VariablesResolver (extension)', () => {
     __resetForTests();
     mockEnvs.mockReturnValue([]);
     mockActiveEnvId.mockReturnValue(null);
-    mockWsVars.mockReturnValue({ variables: [] });
-    mockVault.mockReturnValue({ secrets: [] });
+    mockWsVars.mockReturnValue({ schemaVersion: 1, variables: [] });
+    mockVault.mockReturnValue({ schemaVersion: 1, secrets: [] });
     mockCollections.mockReturnValue([]);
     mockStoreRules.mockReturnValue([]);
   });
 
   it('resolves workspace variable when no higher scope defines it', () => {
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -79,6 +81,7 @@ describe('VariablesResolver (extension)', () => {
 
   it('lets active environment override workspace scope', () => {
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
     mockEnvs.mockReturnValue([
@@ -93,11 +96,10 @@ describe('VariablesResolver (extension)', () => {
   });
 
   it('lets vault secret override environment scope', () => {
-    mockEnvs.mockReturnValue([
-      env('prod', [{ name: 'TOKEN', value: 'env-token', type: 'default' }], 'e-prod'),
-    ]);
+    mockEnvs.mockReturnValue([env('prod', [{ name: 'TOKEN', value: 'env-token', type: 'default' }], 'e-prod')]);
     mockActiveEnvId.mockReturnValue('e-prod');
     mockVault.mockReturnValue({
+      schemaVersion: 1,
       secrets: [{ name: 'TOKEN', value: 'vault-token' }],
     });
 
@@ -109,6 +111,7 @@ describe('VariablesResolver (extension)', () => {
 
   it('resolves collection-scoped variables for rules inside that collection', () => {
     const collection: V5.Collection = {
+      schemaVersion: 1,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
@@ -116,6 +119,7 @@ describe('VariablesResolver (extension)', () => {
     };
     mockCollections.mockReturnValue([collection]);
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -127,6 +131,7 @@ describe('VariablesResolver (extension)', () => {
 
   it('falls back to workspace scope for rules outside any collection', () => {
     const collection: V5.Collection = {
+      schemaVersion: 1,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
@@ -134,6 +139,7 @@ describe('VariablesResolver (extension)', () => {
     };
     mockCollections.mockReturnValue([collection]);
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -149,6 +155,7 @@ describe('VariablesResolver (extension)', () => {
     ]);
     mockActiveEnvId.mockReturnValue(null);
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -167,6 +174,7 @@ describe('VariablesResolver (extension)', () => {
 
   it('does not mutate input rules', () => {
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'TOKEN', value: 'ws', type: 'default' }],
     });
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
@@ -195,6 +203,7 @@ describe('VariablesResolver (extension)', () => {
 
   it('resolves variables in rule conditions too', () => {
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
 
@@ -211,6 +220,7 @@ describe('VariablesResolver (extension)', () => {
 
   it('caches the resolved snapshot for consumers like request-tracker', () => {
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     const rule = makeHeaderRule({
@@ -231,6 +241,7 @@ describe('VariablesResolver (extension)', () => {
 
   it('does not overwrite the snapshot when compiling a test-run subset', () => {
     mockWsVars.mockReturnValue({
+      schemaVersion: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     const r1 = makeHeaderRule({

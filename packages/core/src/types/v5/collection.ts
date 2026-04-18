@@ -4,14 +4,18 @@
  * Collections organize Requests (or Rules) into a folder hierarchy.
  * On disk, a collection is a directory containing `_collection.yaml`:
  *
- *   requests/auth/
- *     _collection.yaml   — name, vars, sort order
- *     login-x7k2/        — request item folder
- *     tokens/             — grouping folder (has _folder.yaml or children)
- *       refresh-m9p1/     — request item folder
+ *   requests/auth-a1b2c3d4/
+ *     _collection.yaml           — schemaVersion, uid, name, variables, order
+ *     login-x7k2abcd/            — request item folder
+ *     tokens/                    — grouping folder (has _folder.yaml)
+ *       _folder.yaml             — schemaVersion, uid, name, order
+ *       refresh-m9p1qwer/        — request item folder
  *
- * Identity is the filesystem path. The 4-char uid suffix on the
- * folder name provides a stable key for in-memory lookups.
+ * Identity is the 8-char uid embedded inside each YAML (`_collection.yaml`,
+ * `_folder.yaml`, `request.yaml`, `rule.yaml`). The folder-name suffix
+ * mirrors the uid for grep/git-diff readability but is not authoritative.
+ * Child ordering is explicit via `order: string[]` (list of child folder
+ * names) — absent = alphabetical.
  */
 
 import type { HttpMethod } from './request';
@@ -21,16 +25,18 @@ import type { Variable } from './variable';
 // ── Collection ─────────────────────────────────────────────────────
 
 export interface Collection {
-  /** 4-char uid from folder name suffix. */
+  /** Persisted format version for `_collection.yaml`. */
+  schemaVersion: number;
+  /** 8-char lowercase-alphanumeric identity. Embedded in _collection.yaml. */
   uid: string;
-  /** Relative path within workspace (e.g. "requests/auth"). */
+  /** Relative path within workspace (e.g. "requests/auth-a1b2c3d4"). Forward slashes. */
   path: string;
   name: string;
   description?: string;
   /** Collection-scoped variables (synced via Git, non-secret only). */
   variables: Variable[];
-  /** Sort order within the sidebar. */
-  sort?: number;
+  /** Explicit child ordering — list of child folder names ("<slug>-<uid>"). Absent = alphabetical. */
+  order?: string[];
 }
 
 // ── Tree nodes (sidebar) ───────────────────────────────────────────

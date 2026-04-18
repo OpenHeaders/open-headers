@@ -1,3 +1,17 @@
+export type {
+  ParseResult,
+  ReservedNamespace,
+  ScopeNamespace,
+  VariableNamespace,
+  VariableReference,
+} from './namespaces';
+export {
+  describeNamespace,
+  isVariableNamespace,
+  parseReference,
+  RESERVED_NAMESPACES,
+  SCOPE_NAMESPACES,
+} from './namespaces';
 export type { TemplateVariable } from './resolver';
 export { resolveTemplate, resolveVariable, VariableResolver } from './resolver';
 export { resolveRule, resolveRules } from './rule-resolver';

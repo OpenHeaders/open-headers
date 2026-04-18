@@ -127,8 +127,8 @@ class WorkspaceStateService {
       rules: [],
       environments: [],
       activeEnvironmentName: null,
-      workspaceVariables: { variables: [] },
-      vault: { secrets: [] },
+      workspaceVariables: { schemaVersion: 1, variables: [] },
+      vault: { schemaVersion: 1, secrets: [] },
     };
     this.configReady = new Promise((resolve) => {
       this._resolveConfigReady = resolve;
@@ -393,10 +393,11 @@ class WorkspaceStateService {
 
   async createEnvironment(name: string): Promise<V5.Environment> {
     const env: V5.Environment = {
+      schemaVersion: 1,
+      uid: generateUid(),
       name,
       path: `environments/${name.toLowerCase()}.yaml`,
       variables: [],
-      isActive: false,
     };
     this.state.environments.push(env);
     this.dirty.environments = true;

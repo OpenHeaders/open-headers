@@ -11,17 +11,18 @@ function makeVariable(name: string, value: string, type: 'default' | 'secret' = 
 let envCounter = 0;
 function makeEnvironment(name: string, vars: Variable[]): Environment {
   envCounter += 1;
-  return { uid: `env-${envCounter}`, name, variables: vars };
+  return { schemaVersion: 1, uid: `env-${envCounter}`, name, variables: vars };
 }
 
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
   return {
+    schemaVersion: 1,
     secrets: secrets.map((s) => ({ ...s })),
   };
 }
 
 function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
-  return { variables: vars };
+  return { schemaVersion: 1, variables: vars };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -261,5 +262,89 @@ describe('resolveTemplate (standalone)', () => {
     const { result, variables } = resolveTemplate('Bearer {{TOKEN}}', lookup);
     expect(result).toBe('Bearer abc123');
     expect(variables[0].scope).toBe('vault');
+  });
+
+  it('leaves references with unknown namespaces literal', () => {
+    const lookup = () => null;
+    const { result, variables } = resolveTemplate('{{foo.X}}', lookup);
+    expect(result).toBe('{{foo.X}}');
+    expect(variables[0]).toEqual({ name: 'foo.X', resolved: false });
+  });
+});
+
+describe('VariableResolver — explicit namespaces', () => {
+  let resolver: VariableResolver;
+
+  beforeEach(() => {
+    resolver = new VariableResolver();
+    resolver.setVault({
+      schemaVersion: 1,
+      secrets: [{ name: 'TOKEN', value: 'vault-token' }],
+    });
+    resolver.setEnvironments([
+      {
+        schemaVersion: 1,
+        uid: 'e-staging',
+        name: 'staging',
+        variables: [{ name: 'API_URL', value: 'https://api.staging', type: 'default' }],
+      },
+    ]);
+    resolver.setActiveEnvironmentId('e-staging');
+    resolver.setWorkspaceVariables({
+      schemaVersion: 1,
+      variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
+    });
+    resolver.setCollectionVariables('coll-1', [{ name: 'REGION', value: 'eu-west-1', type: 'default' }]);
+  });
+
+  it('{{vault.X}} resolves only from the vault', () => {
+    const { result, variables } = resolver.resolveTemplate('Bearer {{vault.TOKEN}}');
+    expect(result).toBe('Bearer vault-token');
+    expect(variables[0]).toMatchObject({ name: 'vault.TOKEN', resolved: true, scope: 'vault' });
+  });
+
+  it('{{env.X}} resolves only from the active environment', () => {
+    const { result } = resolver.resolveTemplate('{{env.API_URL}}');
+    expect(result).toBe('https://api.staging');
+  });
+
+  it('{{env.X}} does not fall through to lower scopes', () => {
+    // TOKEN exists in vault + workspace but NOT in the active env.
+    const { result, variables } = resolver.resolveTemplate('{{env.TOKEN}}');
+    expect(result).toBe('{{env.TOKEN}}');
+    expect(variables[0]).toEqual({ name: 'env.TOKEN', resolved: false });
+  });
+
+  it('{{collection.X}} resolves only from the named collection', () => {
+    const { result } = resolver.resolveTemplate('{{collection.REGION}}', { collectionId: 'coll-1' });
+    expect(result).toBe('eu-west-1');
+  });
+
+  it('{{workspace.X}} resolves only from workspace vars', () => {
+    const { result } = resolver.resolveTemplate('{{workspace.TOKEN}}');
+    expect(result).toBe('ws-token');
+  });
+
+  it('flat {{X}} still walks the 4-scope chain (backward compat)', () => {
+    const { result } = resolver.resolveTemplate('{{TOKEN}}');
+    expect(result).toBe('vault-token'); // vault wins in the chain
+  });
+
+  it('{{file.X}} is reserved and unresolvable today', () => {
+    const { result, variables } = resolver.resolveTemplate('{{file.fixture.json}}');
+    expect(result).toBe('{{file.fixture.json}}');
+    expect(variables[0]).toEqual({ name: 'file.fixture.json', resolved: false });
+  });
+
+  it('{{dynamic.uuid}} is reserved for a future dedicated resolver', () => {
+    const { result, variables } = resolver.resolveTemplate('{{dynamic.uuid}}');
+    expect(result).toBe('{{dynamic.uuid}}');
+    expect(variables[0]).toEqual({ name: 'dynamic.uuid', resolved: false });
+  });
+
+  it('{{foo.X}} is left literal (unknown namespace)', () => {
+    const { result, variables } = resolver.resolveTemplate('{{foo.X}}');
+    expect(result).toBe('{{foo.X}}');
+    expect(variables[0]).toEqual({ name: 'foo.X', resolved: false });
   });
 });

@@ -161,8 +161,8 @@ export function syncResolver(): void {
 export function __resetForTests(): void {
   lastKnownCollectionUids = new Set();
   lastResolvedRules = [];
-  resolver.setVault({ secrets: [] });
+  resolver.setVault({ schemaVersion: 1, secrets: [] });
   resolver.setEnvironments([]);
   resolver.setActiveEnvironmentId(null);
-  resolver.setWorkspaceVariables({ variables: [] });
+  resolver.setWorkspaceVariables({ schemaVersion: 1, variables: [] });
 }

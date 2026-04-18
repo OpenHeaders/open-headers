@@ -3,13 +3,14 @@
  *
  * A Request is a standalone HTTP call (API client).
  * On disk, each request is a folder containing:
- *   request.yaml  — method, URL, headers, params, auth
- *   body.*        — body content (extension = content type)
- *   scripts.js    — pre-request and post-response scripts
+ *   request.yaml     — schemaVersion, uid, name, method, URL, headers, params, auth
+ *   body.*           — body content (file extension = content type)
+ *   pre-request.js   — optional pre-request script
+ *   test.js          — optional post-response test script
  *
- * The reader/writer layer assembles these into a unified Request object.
- * No IDs or timestamps on disk — identity is the filesystem path,
- * with a 4-char uid suffix on the folder name for stable in-memory keys.
+ * The reader/writer assembles these into a unified Request object.
+ * The 8-char uid is embedded in `request.yaml` and mirrored in the folder
+ * name's `<slug>-<uid>` suffix (slug is a human hint; uid is the identity).
  */
 
 // ── HTTP method ────────────────────────────────────────────────────
@@ -72,9 +73,11 @@ export interface RequestBody {
 // Not stored as a single file — the writer splits it back into separate files.
 
 export interface Request {
-  /** 4-char uid from folder name suffix (e.g. "x7k2"). Stable across renames. */
+  /** Persisted format version for `request.yaml`. */
+  schemaVersion: number;
+  /** 8-char lowercase-alphanumeric identity. Embedded in request.yaml. Stable across renames. */
   uid: string;
-  /** Relative path within workspace (e.g. "requests/auth/login-x7k2"). */
+  /** Relative path within workspace (e.g. "requests/auth-a1b2c3d4/login-x7k2abcd"). Forward slashes. */
   path: string;
 
   // From request.yaml
@@ -89,7 +92,7 @@ export interface Request {
   // From body.* file
   body: RequestBody;
 
-  // From scripts.js
+  // From pre-request.js / test.js
   preRequestScript?: string;
   testScript?: string;
 }

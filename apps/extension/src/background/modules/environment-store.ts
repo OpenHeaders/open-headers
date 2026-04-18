@@ -28,8 +28,8 @@ import { getActiveWorkspaceId } from './workspace-store';
 
 let environments: V5.Environment[] = [];
 let activeEnvironmentId: string | null = null;
-let workspaceVariables: V5.WorkspaceVariables = { variables: [] };
-let vault: V5.Vault = { secrets: [] };
+let workspaceVariables: V5.WorkspaceVariables = { schemaVersion: 1, variables: [] };
+let vault: V5.Vault = { schemaVersion: 1, secrets: [] };
 let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
@@ -80,6 +80,7 @@ function assertLoaded(): string {
 
 export function createEnvironment(name: string, variables: V5.Variable[] = []): V5.Environment {
   const env: V5.Environment = {
+    schemaVersion: 1,
     uid: generateUid(),
     name: name.trim() || 'Untitled Environment',
     variables,
@@ -197,8 +198,8 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     workspaceVariables:
       result.workspaceVariables && 'variables' in result.workspaceVariables
         ? result.workspaceVariables
-        : { variables: [] },
-    vault: result.vault && 'secrets' in result.vault ? result.vault : { secrets: [] },
+        : { schemaVersion: 1, variables: [] },
+    vault: result.vault && 'secrets' in result.vault ? result.vault : { schemaVersion: 1, secrets: [] },
   };
 }
 
@@ -252,8 +253,8 @@ export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promis
 export function __resetForTests(): void {
   environments = [];
   activeEnvironmentId = null;
-  workspaceVariables = { variables: [] };
-  vault = { secrets: [] };
+  workspaceVariables = { schemaVersion: 1, variables: [] };
+  vault = { schemaVersion: 1, secrets: [] };
   loadedWorkspaceId = null;
   listeners.clear();
 }

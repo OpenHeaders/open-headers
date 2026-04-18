@@ -69,6 +69,7 @@ afterEach(() => {
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
+    schemaVersion: 1,
     uid: 'rule-1',
     path: 'rules/col-1/rule-1',
     name: 'Auth header',
@@ -103,6 +104,7 @@ function makeRun(overrides: Partial<StoredTestRun> = {}): StoredTestRun {
 
 function makeCollectionTree(uid: string, ruleNodes: V5.TreeNode[]): V5.CollectionTree {
   return {
+    schemaVersion: 1,
     uid,
     path: `rules/${uid}`,
     name: uid,

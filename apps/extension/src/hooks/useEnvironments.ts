@@ -43,8 +43,11 @@ export interface UseEnvironmentsApi {
 export function useEnvironments(): UseEnvironmentsApi {
   const [environments, setEnvironments] = useState<V5.Environment[]>([]);
   const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(null);
-  const [workspaceVariables, setWorkspaceVariablesState] = useState<V5.WorkspaceVariables>({ variables: [] });
-  const [vault, setVaultState] = useState<V5.Vault>({ secrets: [] });
+  const [workspaceVariables, setWorkspaceVariablesState] = useState<V5.WorkspaceVariables>({
+    schemaVersion: 1,
+    variables: [],
+  });
+  const [vault, setVaultState] = useState<V5.Vault>({ schemaVersion: 1, secrets: [] });
   const [isReady, setIsReady] = useState(false);
 
   // Initial snapshot + subscription. Three parallel reads at mount

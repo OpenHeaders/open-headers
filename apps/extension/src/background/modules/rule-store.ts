@@ -135,6 +135,7 @@ export function ensureDefaultCollection(): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
+    schemaVersion: 1,
     uid,
     path: `rules/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -149,6 +150,7 @@ export function createCollection(name: string): V5.Collection {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
+    schemaVersion: 1,
     uid,
     path: `rules/${folderName}`,
     name,
@@ -231,11 +233,14 @@ export function deleteFolder(uid: string): boolean {
 
 /**
  * Add a rule. `parentPath` is the collection or folder path.
+ * `schemaVersion` is owned by the store — callers provide the feature
+ * payload, the store stamps the persisted version.
  */
-export function addRule(rule: Omit<V5.Rule, 'uid' | 'path'>, parentPath: string): V5.Rule {
+export function addRule(rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>, parentPath: string): V5.Rule {
   const uid = generateUid();
   const folderName = toFolderName(rule.name, uid);
-  const created: V5.Rule = {
+  const created = {
+    schemaVersion: 1,
     ...rule,
     uid,
     path: `${parentPath}/${folderName}`,
@@ -249,7 +254,10 @@ export function addRule(rule: Omit<V5.Rule, 'uid' | 'path'>, parentPath: string)
  * Add a rule within a collection by uid. Resolves the collection path,
  * then calls `addRule`.
  */
-export function addRuleToCollection(rule: Omit<V5.Rule, 'uid' | 'path'>, collectionUid: string): V5.Rule {
+export function addRuleToCollection(
+  rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>,
+  collectionUid: string,
+): V5.Rule {
   const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `rules/${collectionUid}`;
   return addRule(rule, parentPath);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HeaderRule, RuleCondition } from '../../src/types/v5/rule';
+import type { HeaderRule } from '../../src/types/v5/rule';
 import {
   compilePatternToRegexSource,
   compileRuleForInjection,
@@ -82,6 +82,7 @@ describe('compilePatternToRegexSource', () => {
 // ── getRuleMatchPatterns ─────────────────────────────────────────
 
 const baseRule: Omit<HeaderRule, 'conditions'> = {
+  schemaVersion: 1,
   uid: 'x1',
   path: 'rules/col-abc1/rule-x1',
   name: 'T',
