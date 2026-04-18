@@ -30,6 +30,10 @@
     "./variables": {
       "import": "./src/variables/index.ts",
       "default": "./dist/variables/index.js"
+    },
+    "./vault": {
+      "import": "./src/vault/index.ts",
+      "default": "./dist/vault/index.js"
     }
   },
   "scripts": {

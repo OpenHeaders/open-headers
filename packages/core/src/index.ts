@@ -12,3 +12,4 @@ export * from './schemas/index';
 // Re-export everything for convenience (full barrel)
 export * from './types/index';
 export * from './utils/index';
+export * from './vault/index';
