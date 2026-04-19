@@ -24,6 +24,19 @@ test.beforeAll(async () => {
   const serviceWorker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = serviceWorker.url().split('/')[2];
 
+  // Mark the onboarding tour as completed BEFORE opening the popup.
+  // On a fresh profile, `OnboardingTour` auto-shows a modal `Tour`
+  // whose transparent mask blocks clicks to the rest of the popup
+  // (see `OnboardingTour.tsx` — reads `UI.onboardingCompleted` from
+  // `chrome.storage.local`). Seeding the flag in the SW context keeps
+  // the popup's real UI interactive from first paint.
+  await serviceWorker.evaluate(
+    async () =>
+      new Promise<void>((resolve) => {
+        chrome.storage.local.set({ onboardingCompleted: true }, () => resolve());
+      }),
+  );
+
   page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
 
