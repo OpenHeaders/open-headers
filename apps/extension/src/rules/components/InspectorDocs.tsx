@@ -297,61 +297,77 @@ const InspectorDocs: React.FC = () => {
     const target = sectionsRef.current.get(pendingSection);
     if (!container || !target) return;
 
-    // ── Scroll-when-laid-out primitive ───────────────────────────
+    // ── Scroll-when-layout-is-settled primitive ───────────────────
     //
-    // This panel lives inside an `Allotment` split-view whose pixel
-    // sizes get committed via ResizeObserver AFTER React's first
-    // paint — so a fresh mount can see the container AND its target
-    // at zero height for one or more frames before Allotment
-    // settles. We don't guess at timing; we observe both elements
-    // and fire exactly when each reports a non-zero bounding rect.
+    // The docs panel lives inside an Allotment split-view. Allotment
+    // owns its own ResizeObserver that sizes panes AFTER React's
+    // first paint — so a fresh workspace tab opened from the popup
+    // or sidepanel hands us a container that's mounted but still
+    // being laid out across multiple frames as the viewport, the
+    // Allotment split, and the docs pane all settle.
     //
-    // Design:
-    //   (1) React refs — no `querySelector`. `SectionTitle`
-    //       registers itself with `registerSection` so the target
-    //       is proven to exist in the committed DOM before we
-    //       measure it.
-    //   (2) `container.scrollTo({top})` with element-relative math
-    //       instead of `el.scrollIntoView`. Decouples us from the
-    //       ancestor-chain sizing quirks that interrupt
-    //       `scrollIntoView`'s smooth-scroll animation whenever a
-    //       parent pane resizes mid-flight.
-    //   (3) A single `ResizeObserver` watches BOTH the container
-    //       and the target. Whichever becomes "laid out" last
-    //       triggers the scroll — catches every ordering (container
-    //       sizes first, target renders first, or both on the same
-    //       frame).
-    //   (4) A `consumed` latch guarantees at-most-one scroll per
-    //       effect run so later observer calls (e.g. a user drag-
-    //       resizing the pane) don't retrigger.
-    //   (5) `clearPending()` only fires inside the scroll closure,
-    //       never in the effect body — otherwise the state flip
-    //       would trigger an effect re-run whose cleanup disconnects
-    //       the observer before it ever gets a chance to fire.
+    // Why earlier attempts failed:
+    //   • `scrollIntoView({behavior:'smooth'})` starts an animation
+    //     that the browser cancels the moment any ancestor reflows
+    //     — which Allotment does several times on cold mount.
+    //   • "Observe until first non-zero size, then fire one scroll"
+    //     still loses the race: we scroll against an intermediate
+    //     layout, then Allotment's final sizing pass reflows the
+    //     container and the target drifts off-screen again.
+    //
+    // The primitive that actually works: re-pin the target on every
+    // layout change, using instant `scrollTop` writes that can't be
+    // interrupted. Once layout stops changing, we're done.
+    //
+    //   (1) A `ResizeObserver` watches both the container and the
+    //       target — whichever reflows triggers a re-pin. RO fires
+    //       its initial callback on `observe()` so we always get
+    //       at least one attempt even if nothing ever resizes.
+    //   (2) Each attempt writes `scrollTop` imperatively to the
+    //       target's offset, so any prior scroll is overwritten
+    //       rather than animated over.
+    //   (3) "Settled" = no resize events for 180ms. A debounced
+    //       stability timer restarts on every pin; when it fires,
+    //       layout has quiesced and we `clearPending()`. 180ms is
+    //       well past Allotment's settling window but still feels
+    //       instant to the user.
+    //   (4) `clearPending()` only runs from the stability timer,
+    //       never in the effect body — if it fired eagerly, the
+    //       state flip would trigger an effect re-run whose
+    //       cleanup disconnects the observer before it ever pins
+    //       the final layout. That was the bug in every prior
+    //       iteration.
 
-    let consumed = false;
-    const scrollIfReady = () => {
-      if (consumed) return;
+    let disposed = false;
+    let stabilityTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const pin = () => {
+      if (disposed) return;
       const containerRect = container.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       if (containerRect.height === 0 || targetRect.height === 0) return;
-      consumed = true;
-      const top = container.scrollTop + (targetRect.top - containerRect.top) - 8;
-      container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-      clearPending();
+
+      const desired = Math.max(0, container.scrollTop + (targetRect.top - containerRect.top) - 8);
+      container.scrollTop = desired;
+
+      if (stabilityTimer) clearTimeout(stabilityTimer);
+      stabilityTimer = setTimeout(() => {
+        if (disposed) return;
+        clearPending();
+      }, 180);
     };
 
-    // Fire once synchronously — covers the in-workspace case where
-    // the panel is already laid out when the user clicks (i).
-    scrollIfReady();
-    if (consumed) return;
+    pin();
 
-    // Otherwise defer until whichever observed element reports a
-    // real layout. One observer, two targets.
-    const ro = new ResizeObserver(scrollIfReady);
+    const ro = new ResizeObserver(pin);
     ro.observe(container);
     ro.observe(target);
-    return () => ro.disconnect();
+
+    return () => {
+      disposed = true;
+      ro.disconnect();
+      if (stabilityTimer) clearTimeout(stabilityTimer);
+    };
   }, [pendingSection, pendingCounter, clearPending]);
 
   // TOC clicks reuse the same registry as the external nav. Container
