@@ -238,8 +238,36 @@ export interface BridgeRpcContract {
     req: {
       ruleId: string;
       updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
+      /**
+       * Phase 10 stale-draft contract. Optional — callers that track
+       * the `version` they loaded opt in to cross-tab concurrent-edit
+       * protection by passing it here. When present, the SW rejects
+       * the save with `reason: 'stale-draft'` + the server's current
+       * copy if the stored `version` has advanced since load.
+       * Omitting the field preserves the legacy last-write-wins path
+       * (used today by the inspector's "override header" CTA and any
+       * flow that saves a rule the user didn't load into an editor).
+       */
+      expectedVersion?: number;
     };
-    res: { success: boolean };
+    /**
+     * Result mirrors `RuleWriteResult` from rule-store:
+     *   - `ok: true` — save accepted, `version` is the new counter
+     *     the client should track for subsequent saves.
+     *   - `reason: 'stale-draft'` — another tab saved first; the
+     *     renderer prompts the user to reload (take the server copy)
+     *     or keep editing (force-save bumps expectedVersion out of
+     *     the way).
+     *   - `reason: 'not-found'` — rule was deleted between load and
+     *     save.
+     *   - `reason: 'other'` — unexpected error (lock timeout, storage
+     *     failure). Covers the message-handler catch path.
+     */
+    res:
+      | { ok: true; version: number; rule: V5.Rule }
+      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverRule: V5.Rule }
+      | { ok: false; reason: 'not-found' }
+      | { ok: false; reason: 'other'; message: string };
   };
   getLocalRules: {
     req: Record<string, never>;

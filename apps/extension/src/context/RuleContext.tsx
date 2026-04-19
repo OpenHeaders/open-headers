@@ -442,8 +442,13 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   const updateLocalRuleFn = useCallback(
     async (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
+      // This path (legacy signature) does NOT pass `expectedVersion`
+      // so the SW takes it as last-write-wins — matches the prior
+      // behavior. The stale-draft-aware call site lives in the rule
+      // editor where `loadedVersion` is tracked; it uses `call(...)`
+      // directly to consume the full `RuleWriteResult` shape.
       const resp = await call('updateLocalRule', { ruleId: uid, updates }).catch(() => null);
-      if (resp?.success) {
+      if (resp?.ok) {
         refreshRules();
         return true;
       }

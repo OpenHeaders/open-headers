@@ -21,6 +21,7 @@ import { CollectionSchema, FolderSchema, RuleSchema } from '@openheaders/core/sc
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
+import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -307,65 +308,91 @@ function versionOf(rule: V5.Rule): number {
   return rule.version;
 }
 
-export function updateRule(
+export async function updateRule(
   uid: string,
   updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
   options: UpdateRuleOptions = {},
-): RuleWriteResult {
-  const index = rules.findIndex((r) => r.uid === uid);
-  if (index === -1) return { ok: false, reason: 'not-found' };
+): Promise<RuleWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'rule', uid),
+    async () => {
+      const index = rules.findIndex((r) => r.uid === uid);
+      if (index === -1) return { ok: false, reason: 'not-found' } as RuleWriteResult;
 
-  const existing = rules[index];
-  const current = versionOf(existing);
-  if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-    // Concurrent-write race: another tab already saved a newer
-    // version. Surface the server copy so the renderer can prompt
-    // the user to reload or keep editing.
-    return { ok: false, reason: 'stale-draft', serverVersion: current, serverRule: existing };
-  }
+      const existing = rules[index];
+      const current = versionOf(existing);
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        // Concurrent-write race: another tab already saved a newer
+        // version. Surface the server copy so the renderer can
+        // prompt the user to reload or keep editing.
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverRule: existing,
+        } as RuleWriteResult;
+      }
 
-  // Never let the caller stomp uid / path / or the version counter —
-  // all three are store-managed. Strip them before applying updates.
-  const {
-    uid: _ignoreUid,
-    path: _ignorePath,
-    ...safeUpdates
-  } = updates as {
-    uid?: string;
-    path?: string;
-    version?: number;
-  } & Partial<Omit<V5.Rule, 'uid' | 'path'>>;
+      // Never let the caller stomp uid / path / or the version counter —
+      // all three are store-managed. Strip them before applying updates.
+      const {
+        uid: _ignoreUid,
+        path: _ignorePath,
+        ...safeUpdates
+      } = updates as {
+        uid?: string;
+        path?: string;
+        version?: number;
+      } & Partial<Omit<V5.Rule, 'uid' | 'path'>>;
 
-  const nextVersion = current + 1;
-  const updated = { ...existing, ...safeUpdates, version: nextVersion } as V5.Rule;
-  rules = [...rules.slice(0, index), updated, ...rules.slice(index + 1)];
-  void persistRules();
-  return { ok: true, version: nextVersion, rule: updated };
+      const nextVersion = current + 1;
+      const updated = { ...existing, ...safeUpdates, version: nextVersion } as V5.Rule;
+      rules = [...rules.slice(0, index), updated, ...rules.slice(index + 1)];
+      await persistRules();
+      return { ok: true, version: nextVersion, rule: updated } as RuleWriteResult;
+    },
+    { op: 'rule-update' },
+  );
 }
 
-export function deleteRule(uid: string): boolean {
-  const before = rules.length;
-  rules = rules.filter((r) => r.uid !== uid);
-  if (rules.length === before) return false;
-  void persistRules();
-  return true;
+export async function deleteRule(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'rule', uid),
+    async () => {
+      const before = rules.length;
+      rules = rules.filter((r) => r.uid !== uid);
+      if (rules.length === before) return false;
+      await persistRules();
+      return true;
+    },
+    { op: 'rule-delete' },
+  );
 }
 
-export function toggleRule(uid: string, enabled: boolean): boolean {
-  const index = rules.findIndex((r) => r.uid === uid);
-  if (index === -1) return false;
-  // Quick toggle — no expectedVersion check (popup one-click UX would
-  // break if we required a loaded-version round-trip). Still bumps
-  // the counter so subsequent editor saves see the newer baseline
-  // and can detect their own staleness correctly.
-  const nextVersion = versionOf(rules[index]) + 1;
-  rules = [
-    ...rules.slice(0, index),
-    { ...rules[index], enabled, version: nextVersion } as V5.Rule,
-    ...rules.slice(index + 1),
-  ];
-  void persistRules();
-  return true;
+export async function toggleRule(uid: string, enabled: boolean): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'rule', uid),
+    async () => {
+      const index = rules.findIndex((r) => r.uid === uid);
+      if (index === -1) return false;
+      // Quick toggle — no expectedVersion check (popup one-click UX
+      // would break if we required a loaded-version round-trip).
+      // Still bumps the counter so subsequent editor saves see the
+      // newer baseline and can detect their own staleness correctly.
+      const nextVersion = versionOf(rules[index]) + 1;
+      rules = [
+        ...rules.slice(0, index),
+        { ...rules[index], enabled, version: nextVersion } as V5.Rule,
+        ...rules.slice(index + 1),
+      ];
+      await persistRules();
+      return true;
+    },
+    { op: 'rule-toggle' },
+  );
 }
 
 // ── Persistence (scoped to loadedWorkspaceId) ──────────────────────

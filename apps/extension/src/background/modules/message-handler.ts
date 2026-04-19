@@ -510,21 +510,29 @@ export function handleGeneralMessage(
     } else if (message.type === 'toggleRule') {
       const ruleId = message.ruleId as string;
       const enabled = message.enabled as boolean;
-      const success = toggleRule(ruleId, enabled);
-      if (success) {
-        scheduleUpdate('rules', { immediate: true });
-        updateBadgeCallback();
-      }
-      safeResponse({ success });
+      toggleRule(ruleId, enabled)
+        .then((success) => {
+          if (success) {
+            scheduleUpdate('rules', { immediate: true });
+            updateBadgeCallback();
+          }
+          safeResponse({ success });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'deleteRule') {
       const ruleId = message.ruleId as string;
-      const success = deleteRule(ruleId);
-      if (success) {
-        scheduleUpdate('rules', { immediate: true });
-        updateBadgeCallback();
-        pruneOrphanTestRunOwners();
-      }
-      safeResponse({ success });
+      deleteRule(ruleId)
+        .then((success) => {
+          if (success) {
+            scheduleUpdate('rules', { immediate: true });
+            updateBadgeCallback();
+            pruneOrphanTestRunOwners();
+          }
+          safeResponse({ success });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'createRuleDraft') {
       try {
         const nonce = createRuleDraft(message.draft);
@@ -562,12 +570,20 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLocalRule') {
       const ruleId = message.ruleId as string;
       const updates = message.updates as Partial<Omit<V5.Rule, 'uid' | 'path'>>;
-      const success = updateRule(ruleId, updates);
-      if (success) {
-        scheduleUpdate('rules', { immediate: true });
-        updateBadgeCallback();
-      }
-      safeResponse({ success });
+      // `expectedVersion` is optional — callers that track their
+      // loaded version get stale-draft protection; legacy callers
+      // that don't pass it are accepted as last-write-wins.
+      const expectedVersion = message.expectedVersion as number | undefined;
+      updateRule(ruleId, updates, { expectedVersion })
+        .then((result) => {
+          if (result.ok) {
+            scheduleUpdate('rules', { immediate: true });
+            updateBadgeCallback();
+          }
+          safeResponse(result);
+        })
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
     } else if (message.type === 'getLocalRules') {
       safeResponse({ rules: getRules() });
     } else if (message.type === 'getLocalCollections') {
@@ -692,15 +708,21 @@ export function handleGeneralMessage(
     } else if (message.type === 'toggleAllRules') {
       const ruleIds = message.ruleIds as string[];
       const enabled = message.enabled as boolean;
-      let touched = false;
-      for (const ruleId of ruleIds) {
-        if (toggleRule(ruleId, enabled)) touched = true;
-      }
-      if (touched) {
-        scheduleUpdate('rules', { immediate: true });
-        updateBadgeCallback();
-      }
-      safeResponse({ success: true });
+      // Each toggle acquires its own per-rule lock. Run them in
+      // parallel — the SW is single-threaded but awaits serialize
+      // the storage writes; `Promise.all` keeps the net round-trip
+      // close to a single toggle's duration.
+      Promise.all(ruleIds.map((ruleId) => toggleRule(ruleId, enabled)))
+        .then((results) => {
+          const touched = results.some((r) => r);
+          if (touched) {
+            scheduleUpdate('rules', { immediate: true });
+            updateBadgeCallback();
+          }
+          safeResponse({ success: true });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
 
       // ── Template CRUD ──────────────────────────────────────────
     } else if (message.type === 'getTemplates') {
