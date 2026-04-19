@@ -22,17 +22,54 @@ import type {
   Rule,
   RuleCondition,
 } from '../types/v5';
-import type { VariableResolver } from './resolver';
+import type { ResolutionError, VariableResolver } from './resolver';
 
 // ── Single-rule resolution ────────────────────────────────────────
 
 /**
+ * A rule plus every `{{VAR}}` reference that failed to resolve while
+ * interpolating it. Errors are deduped by `reference` — a rule that
+ * references `{{env.API_URL}}` in ten fields produces one entry.
+ */
+export interface RuleResolution {
+  rule: Rule;
+  errors: ResolutionError[];
+}
+
+/**
+ * Resolve all {{VAR}} templates in a rule's string fields AND return
+ * every resolution failure encountered. This is the richer entry point
+ * that downstream compile pipelines use to surface broken references
+ * to the user before the rule hits the wire with a literal `{{X}}` in
+ * its pattern — see `rule-engine`'s Status reporting.
+ */
+export function resolveRuleWithDiagnostics(
+  rule: Rule,
+  resolver: VariableResolver,
+  context?: ResolutionContext,
+): RuleResolution {
+  const collector: ResolutionError[] = [];
+  const resolvedRule = walkRule(rule, resolver, context, collector);
+  return { rule: resolvedRule, errors: dedupeErrors(collector) };
+}
+
+/**
  * Resolve all {{VAR}} templates in a rule's string fields.
  * Returns a new rule object with all templates interpolated.
- * Unresolved variables are left as-is in the output.
+ * Unresolved variables are left as-is in the output — for callers that
+ * need the error list, use `resolveRuleWithDiagnostics`.
  */
 export function resolveRule(rule: Rule, resolver: VariableResolver, context?: ResolutionContext): Rule {
-  const resolvedConditions = resolveConditions(rule.conditions, resolver, context);
+  return walkRule(rule, resolver, context, undefined);
+}
+
+function walkRule(
+  rule: Rule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): Rule {
+  const resolvedConditions = resolveConditions(rule.conditions, resolver, context, errors);
 
   const base = {
     ...rule,
@@ -41,21 +78,21 @@ export function resolveRule(rule: Rule, resolver: VariableResolver, context?: Re
 
   switch (rule.type) {
     case 'header':
-      return resolveHeaderRule(base as HeaderRule, resolver, context);
+      return resolveHeaderRule(base as HeaderRule, resolver, context, errors);
     case 'redirect':
-      return resolveRedirectRule(base as RedirectRule, resolver, context);
+      return resolveRedirectRule(base as RedirectRule, resolver, context, errors);
     case 'body':
-      return resolveBodyRule(base as BodyRule, resolver, context);
+      return resolveBodyRule(base as BodyRule, resolver, context, errors);
     case 'inject':
-      return resolveInjectRule(base as InjectRule, resolver, context);
+      return resolveInjectRule(base as InjectRule, resolver, context, errors);
     case 'block':
-      return resolveBlockRule(base as BlockRule, resolver, context);
+      return resolveBlockRule(base as BlockRule, resolver, context, errors);
     case 'delay':
       return base as DelayRule;
     case 'mock':
-      return resolveMockRule(base as MockRule, resolver, context);
+      return resolveMockRule(base as MockRule, resolver, context, errors);
     case 'query-param':
-      return resolveQueryParamRule(base as QueryParamRule, resolver, context);
+      return resolveQueryParamRule(base as QueryParamRule, resolver, context, errors);
   }
 }
 
@@ -66,27 +103,44 @@ export function resolveRules(rules: Rule[], resolver: VariableResolver, context?
   return rules.map((rule) => resolveRule(rule, resolver, context));
 }
 
+function dedupeErrors(errors: ResolutionError[]): ResolutionError[] {
+  const seen = new Set<string>();
+  const out: ResolutionError[] = [];
+  for (const e of errors) {
+    if (seen.has(e.reference)) continue;
+    seen.add(e.reference);
+    out.push(e);
+  }
+  return out;
+}
+
 // ── Condition resolution ─────────────────────────────────────────
 
 function resolveConditions(
   conditions: RuleCondition[],
   resolver: VariableResolver,
-  context?: ResolutionContext,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
 ): RuleCondition[] {
   return conditions.map((c) => ({
     ...c,
-    values: resolveStrings(c.values, resolver, context),
-    ...(c.headerName ? { headerName: resolveString(c.headerName, resolver, context) } : {}),
+    values: resolveStrings(c.values, resolver, context, errors),
+    ...(c.headerName ? { headerName: resolveString(c.headerName, resolver, context, errors) } : {}),
   }));
 }
 
 // ── Per-type resolvers ────────────────────────────────────────────
 
-function resolveHeaderRule(rule: HeaderRule, resolver: VariableResolver, context?: ResolutionContext): HeaderRule {
+function resolveHeaderRule(
+  rule: HeaderRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): HeaderRule {
   const resolveMods = (mods: HeaderRule['action']['requestHeaders']) =>
     mods.map((m) => ({
       ...m,
-      value: m.value ? resolveString(m.value, resolver, context) : undefined,
+      value: m.value ? resolveString(m.value, resolver, context, errors) : undefined,
     }));
   return {
     ...rule,
@@ -100,60 +154,86 @@ function resolveHeaderRule(rule: HeaderRule, resolver: VariableResolver, context
 function resolveRedirectRule(
   rule: RedirectRule,
   resolver: VariableResolver,
-  context?: ResolutionContext,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
 ): RedirectRule {
   return {
     ...rule,
     action: {
       ...rule.action,
-      matchPattern: resolveString(rule.action.matchPattern, resolver, context),
-      redirectTo: resolveString(rule.action.redirectTo, resolver, context),
+      matchPattern: resolveString(rule.action.matchPattern, resolver, context, errors),
+      redirectTo: resolveString(rule.action.redirectTo, resolver, context, errors),
     },
   };
 }
 
-function resolveBodyRule(rule: BodyRule, resolver: VariableResolver, context?: ResolutionContext): BodyRule {
+function resolveBodyRule(
+  rule: BodyRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): BodyRule {
   return {
     ...rule,
     action: {
       ...rule.action,
       // Only resolve variables in static body content, not in dynamic JS code
-      body: rule.action.bodyType === 'static' ? resolveString(rule.action.body, resolver, context) : rule.action.body,
+      body:
+        rule.action.bodyType === 'static'
+          ? resolveString(rule.action.body, resolver, context, errors)
+          : rule.action.body,
     },
   };
 }
 
-function resolveInjectRule(rule: InjectRule, resolver: VariableResolver, context?: ResolutionContext): InjectRule {
+function resolveInjectRule(
+  rule: InjectRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): InjectRule {
   return {
     ...rule,
     action: {
       ...rule.action,
-      code: resolveString(rule.action.code, resolver, context),
+      code: resolveString(rule.action.code, resolver, context, errors),
     },
   };
 }
 
-function resolveBlockRule(rule: BlockRule, resolver: VariableResolver, context?: ResolutionContext): BlockRule {
+function resolveBlockRule(
+  rule: BlockRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): BlockRule {
   return {
     ...rule,
     action: {
       ...rule.action,
-      responseBody: rule.action.responseBody ? resolveString(rule.action.responseBody, resolver, context) : undefined,
+      responseBody: rule.action.responseBody
+        ? resolveString(rule.action.responseBody, resolver, context, errors)
+        : undefined,
     },
   };
 }
 
-function resolveMockRule(rule: MockRule, resolver: VariableResolver, context?: ResolutionContext): MockRule {
+function resolveMockRule(
+  rule: MockRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): MockRule {
   const resolvedHeaders: Record<string, string> = {};
   for (const [key, value] of Object.entries(rule.action.responseHeaders)) {
-    resolvedHeaders[key] = resolveString(value, resolver, context);
+    resolvedHeaders[key] = resolveString(value, resolver, context, errors);
   }
 
   return {
     ...rule,
     action: {
       ...rule.action,
-      responseBody: resolveString(rule.action.responseBody, resolver, context),
+      responseBody: resolveString(rule.action.responseBody, resolver, context, errors),
       responseHeaders: resolvedHeaders,
     },
   };
@@ -162,7 +242,8 @@ function resolveMockRule(rule: MockRule, resolver: VariableResolver, context?: R
 function resolveQueryParamRule(
   rule: QueryParamRule,
   resolver: VariableResolver,
-  context?: ResolutionContext,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
 ): QueryParamRule {
   return {
     ...rule,
@@ -170,8 +251,8 @@ function resolveQueryParamRule(
       ...rule.action,
       params: rule.action.params.map((entry) => ({
         ...entry,
-        param: resolveString(entry.param, resolver, context),
-        value: entry.value ? resolveString(entry.value, resolver, context) : undefined,
+        param: resolveString(entry.param, resolver, context, errors),
+        value: entry.value ? resolveString(entry.value, resolver, context, errors) : undefined,
       })),
     },
   };
@@ -179,10 +260,24 @@ function resolveQueryParamRule(
 
 // ── String resolution helpers ─────────────────────────────────────
 
-function resolveString(template: string, resolver: VariableResolver, context?: ResolutionContext): string {
-  return resolver.resolveTemplate(template, context).result;
+function resolveString(
+  template: string,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): string {
+  const { result, errors: templateErrors } = resolver.resolveTemplate(template, context);
+  if (errors && templateErrors.length > 0) {
+    for (const err of templateErrors) errors.push(err);
+  }
+  return result;
 }
 
-function resolveStrings(templates: string[], resolver: VariableResolver, context?: ResolutionContext): string[] {
-  return templates.map((t) => resolveString(t, resolver, context));
+function resolveStrings(
+  templates: string[],
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): string[] {
+  return templates.map((t) => resolveString(t, resolver, context, errors));
 }

@@ -25,7 +25,13 @@ import {
   getWorkspaceVariables,
 } from '@/background/modules/environment-store';
 import { getCollections, getRules } from '@/background/modules/rule-store';
-import { __resetForTests, getResolvedRules, resolveRulesForCompile } from '@/background/modules/variables-resolver';
+import {
+  __resetForTests,
+  getLastAggregatedResolutionErrors,
+  getLastResolutionErrors,
+  getResolvedRules,
+  resolveRulesForCompile,
+} from '@/background/modules/variables-resolver';
 
 const mockEnvs = getEnvironments as ReturnType<typeof vi.fn>;
 const mockActiveEnvId = getActiveEnvironmentId as ReturnType<typeof vi.fn>;
@@ -264,5 +270,62 @@ describe('VariablesResolver (extension)', () => {
     // Test-run scope compiles only r1 — snapshot must stay at 2.
     resolveRulesForCompile([r1]);
     expect(getResolvedRules()).toHaveLength(2);
+  });
+
+  describe('resolution error diagnostics', () => {
+    it('records per-rule errors when a reference is unresolved', () => {
+      const rule = makeHeaderRule({ uid: 'r1', path: 'rules/test' });
+      mockStoreRules.mockReturnValue([rule]);
+      resolveRulesForCompile([rule]);
+      const errors = getLastResolutionErrors();
+      expect(errors.has('r1')).toBe(true);
+      expect(errors.get('r1')?.[0].reference).toBe('TOKEN');
+    });
+
+    it('leaves the per-rule map empty when every reference resolves', () => {
+      mockWsVars.mockReturnValue({
+        schemaVersion: 5,
+        variables: [{ name: 'TOKEN', value: 'x', type: 'default' }],
+      });
+      const rule = makeHeaderRule({ uid: 'r1', path: 'rules/test' });
+      mockStoreRules.mockReturnValue([rule]);
+      resolveRulesForCompile([rule]);
+      expect(getLastResolutionErrors().size).toBe(0);
+    });
+
+    it('getLastAggregatedResolutionErrors dedupes references across rules', () => {
+      const r1 = makeHeaderRule({ uid: 'r1', path: 'rules/a' });
+      const r2 = makeHeaderRule({ uid: 'r2', path: 'rules/b' });
+      mockStoreRules.mockReturnValue([r1, r2]);
+      resolveRulesForCompile([r1, r2]);
+      const agg = getLastAggregatedResolutionErrors();
+      expect(agg.map((e) => e.reference)).toEqual(['TOKEN']);
+    });
+
+    it('getLastAggregatedResolutionErrors filters out reserved-namespace references', () => {
+      const rule = makeHeaderRule({
+        uid: 'r1',
+        path: 'rules/test',
+        action: {
+          requestHeaders: [{ operation: 'override', headerName: 'X-File', value: '{{file.fixture}}' }],
+          responseHeaders: [],
+        },
+      });
+      mockStoreRules.mockReturnValue([rule]);
+      resolveRulesForCompile([rule]);
+      const agg = getLastAggregatedResolutionErrors();
+      expect(agg.map((e) => e.reference)).not.toContain('file.fixture');
+    });
+
+    it('test-run subset compile does NOT overwrite persisted errors', () => {
+      const r1 = makeHeaderRule({ uid: 'r1', path: 'rules/a' });
+      const r2 = makeHeaderRule({ uid: 'r2', path: 'rules/b' });
+      mockStoreRules.mockReturnValue([r1, r2]);
+      resolveRulesForCompile([r1, r2]);
+      expect(getLastResolutionErrors().size).toBe(2);
+      // Subset compile — snapshot must NOT be replaced with the partial view.
+      resolveRulesForCompile([r1]);
+      expect(getLastResolutionErrors().size).toBe(2);
+    });
   });
 });

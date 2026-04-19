@@ -55,6 +55,12 @@ vi.mock('@/background/modules/rule-state-observer', () => ({
 
 vi.mock('@/background/modules/variables-resolver', () => ({
   resolveRulesForCompile: vi.fn((rules: V5.Rule[]) => rules),
+  getLastAggregatedResolutionErrors: vi.fn(() => []),
+  getLastResolutionErrors: vi.fn(() => new Map<string, unknown>()),
+}));
+
+vi.mock('@/background/modules/observability-log', () => ({
+  recordLog: vi.fn(),
 }));
 
 vi.mock('@/background/modules/rule-store', () => ({
@@ -67,6 +73,10 @@ vi.mock('@/background/inject-manager', () => ({
 
 import { declarativeNetRequest } from '@utils/browser-api';
 import { applyAllRulesAsync, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
+import {
+  getLastAggregatedResolutionErrors,
+  getLastResolutionErrors,
+} from '@/background/modules/variables-resolver';
 import { get as getSetting } from '@/rules/settings/store';
 import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@/shared/status';
 
@@ -75,6 +85,8 @@ const mockUpdateDynamicRules = declarativeNetRequest!.updateDynamicRules as Retu
 const mockGetSessionRules = declarativeNetRequest!.getSessionRules as ReturnType<typeof vi.fn>;
 const mockUpdateSessionRules = declarativeNetRequest!.updateSessionRules as ReturnType<typeof vi.fn>;
 const mockGetSetting = getSetting as unknown as ReturnType<typeof vi.fn>;
+const mockAggregatedErrors = getLastAggregatedResolutionErrors as ReturnType<typeof vi.fn>;
+const mockResolutionErrors = getLastResolutionErrors as ReturnType<typeof vi.fn>;
 
 function hostConditions(domains: string[]): V5.RuleCondition[] {
   return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
@@ -110,6 +122,8 @@ describe('dnr-manager Status reporting (rules subsystem)', () => {
     mockUpdateDynamicRules.mockResolvedValue(undefined);
     mockGetSessionRules.mockResolvedValue([]);
     mockUpdateSessionRules.mockResolvedValue(undefined);
+    mockAggregatedErrors.mockReturnValue([]);
+    mockResolutionErrors.mockReturnValue(new Map());
     mockGetSetting.mockImplementation((key: string) => {
       switch (key) {
         case 'rulesEngine.maxActiveRules':
@@ -236,6 +250,69 @@ describe('dnr-manager Status reporting (rules subsystem)', () => {
     const entry = rulesSnapshot();
     expect(entry?.state).toBe('yellow');
     expect(entry?.message).toMatch(/Dropped 1 rule over cap \(2\)/);
+  });
+
+  it('reports yellow with unresolved-variable summary when resolver returns errors', async () => {
+    mockAggregatedErrors.mockReturnValue([
+      { reference: 'TOKEN', reason: 'unresolved', namespace: null, variableName: 'TOKEN', hint: 'Unknown variable' },
+      {
+        reference: 'env.API_URL',
+        reason: 'unset-in-scope',
+        namespace: 'env',
+        variableName: 'API_URL',
+        activeEnvironmentId: 'env-staging',
+        defaultEnvironmentId: null,
+        hint: 'Add API_URL to staging',
+      },
+    ]);
+    mockResolutionErrors.mockReturnValue(
+      new Map([
+        ['rule-a', [{ reference: 'TOKEN' }]],
+        ['rule-b', [{ reference: 'env.API_URL' }]],
+      ]),
+    );
+    await applyAllRulesAsync();
+    const entry = rulesSnapshot();
+    expect(entry?.state).toBe('yellow');
+    expect(entry?.message).toBe('2 unresolved variables in 2 rules');
+    expect(entry?.context?.unresolvedCount).toBe(2);
+    expect(entry?.context?.affectedRuleCount).toBe(2);
+    expect(entry?.context?.firstReference).toBe('TOKEN');
+  });
+
+  it('unresolved variables win over cap breach (worst-first priority)', async () => {
+    mockGetSetting.mockImplementation((key: string) => {
+      if (key === 'rulesEngine.maxActiveRules') return 1;
+      if (key === 'rulesEngine.warnOnLargeRuleSets') return false;
+      if (key === 'rulesEngine.largeRuleSetThreshold') return 4000;
+      return undefined;
+    });
+    mockAggregatedErrors.mockReturnValue([
+      { reference: 'TOKEN', reason: 'unresolved', namespace: null, variableName: 'TOKEN', hint: 'x' },
+    ]);
+    mockResolutionErrors.mockReturnValue(new Map([['rule-a', [{ reference: 'TOKEN' }]]]));
+    updateNetworkRules([
+      makeHeaderRule({ uid: 'aa111111' }),
+      makeHeaderRule({ uid: 'bb222222' }),
+      makeHeaderRule({ uid: 'cc333333' }),
+    ]);
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    const entry = rulesSnapshot();
+    expect(entry?.state).toBe('yellow');
+    expect(entry?.message).toMatch(/unresolved variable/);
+  });
+
+  it('transport failure still wins over unresolved variables', async () => {
+    mockAggregatedErrors.mockReturnValue([
+      { reference: 'TOKEN', reason: 'unresolved', namespace: null, variableName: 'TOKEN', hint: 'x' },
+    ]);
+    mockResolutionErrors.mockReturnValue(new Map([['rule-a', [{ reference: 'TOKEN' }]]]));
+    mockUpdateDynamicRules.mockRejectedValueOnce(new Error('boom'));
+    await applyAllRulesAsync();
+    const entry = rulesSnapshot();
+    expect(entry?.state).toBe('red');
+    expect(entry?.message).toMatch(/dynamic DNR rules: boom/);
   });
 
   it('dynamic-layer failure wins over cap breach (worst-first priority)', async () => {

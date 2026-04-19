@@ -40,11 +40,16 @@ import {
 } from './dnr-builders';
 import { updateScriptableRules } from './inject-manager';
 import { CACHE_BYPASS_ID_BASE } from './modules/cache-bypass';
+import { recordLog } from './modules/observability-log';
 import { getPauseMarkers } from './modules/pause-markers-store';
 import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from './modules/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
-import { resolveRulesForCompile } from './modules/variables-resolver';
+import {
+  getLastAggregatedResolutionErrors,
+  getLastResolutionErrors,
+  resolveRulesForCompile,
+} from './modules/variables-resolver';
 
 // ── Paused state ─────────────────────────────────────────────────
 
@@ -417,8 +422,8 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   const sessionPromise = applySessionRules(sessionToApply);
   return Promise.all([dynamicPromise, sessionPromise]).then(([dyn, ses]) => {
     // Single reporting point for the `rules` Status subsystem. Layered
-    // so the worst condition wins: transport failure > cap breach >
-    // large-rule-set warning > healthy.
+    // so the worst condition wins: transport failure > unresolved
+    // references > cap breach > large-rule-set warning > healthy.
     if (!dyn.ok || !ses.ok) {
       const layer = !dyn.ok ? 'dynamic' : 'session';
       const error = !dyn.ok ? dyn.error : !ses.ok ? ses.error : 'Unknown error';
@@ -427,6 +432,40 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
         state: 'red',
         message: `Failed to apply ${layer} DNR rules: ${error}`,
         context: { layer, error },
+      });
+      return;
+    }
+    // Report unresolved {{VAR}} references BEFORE cap/large-set checks.
+    // A rule with a literal `{{TOKEN}}` left in its pattern is broken in
+    // a way the user can't see from the cap/size numbers — it silently
+    // matches nothing on the wire. Reserved namespaces (`{{file.X}}` /
+    // `{{dynamic.X}}`) are excluded by getLastAggregatedResolutionErrors
+    // because those are intentionally unresolved until v2 ships the
+    // corresponding feature.
+    const resolutionErrors = getLastAggregatedResolutionErrors();
+    if (resolutionErrors.length > 0) {
+      const perRuleErrors = getLastResolutionErrors();
+      const affectedRuleCount = perRuleErrors.size;
+      // Log a single aggregate entry — per-reference entries would
+      // spam the ring on every rebuild (hundreds of variable refs in a
+      // large rule set). The UI can drill into `getLastResolutionErrors`
+      // for per-rule attribution.
+      recordLog({
+        subsystem: 'rule-engine',
+        op: 'resolve',
+        level: 'warn',
+        message: `${resolutionErrors.length} unresolved variable${resolutionErrors.length === 1 ? '' : 's'} across ${affectedRuleCount} rule${affectedRuleCount === 1 ? '' : 's'}`,
+        context: {},
+      });
+      reportStatus({
+        subsystem: 'rules',
+        state: 'yellow',
+        message: `${resolutionErrors.length} unresolved variable${resolutionErrors.length === 1 ? '' : 's'} in ${affectedRuleCount} rule${affectedRuleCount === 1 ? '' : 's'}`,
+        context: {
+          unresolvedCount: resolutionErrors.length,
+          affectedRuleCount,
+          firstReference: resolutionErrors[0]?.reference,
+        },
       });
       return;
     }

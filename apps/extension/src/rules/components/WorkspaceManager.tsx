@@ -225,14 +225,23 @@ const SortableRow: React.FC<SortableRowProps> = ({
         borderRadius: 6,
       }}
     >
-      <span
+      <button
+        type="button"
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
-        style={{ cursor: 'grab', color: token.colorTextTertiary, display: 'inline-flex', alignItems: 'center' }}
+        style={{
+          cursor: 'grab',
+          color: token.colorTextTertiary,
+          display: 'inline-flex',
+          alignItems: 'center',
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+        }}
       >
         <HolderOutlined />
-      </span>
+      </button>
 
       {/* Combined identity picker — clicking the icon opens the same
           popover as the create/edit modal, letting the user change

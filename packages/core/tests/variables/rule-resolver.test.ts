@@ -1,0 +1,157 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import type { Environment, HeaderRule, RedirectRule, Variable, WorkspaceVariables } from '../../src/types/v5';
+import { resolveRule, resolveRuleWithDiagnostics, VariableResolver } from '../../src/variables';
+
+function makeVariable(name: string, value: string, type: 'default' | 'secret' = 'default'): Variable {
+  return { name, value, type };
+}
+
+function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
+  return { schemaVersion: 5, variables: vars };
+}
+
+function makeEnvironment(name: string, vars: Variable[]): Environment {
+  return { schemaVersion: 5, uid: `env-${name}`, name, variables: vars };
+}
+
+function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
+  return {
+    schemaVersion: 5,
+    uid: 'r1a2b3c4',
+    path: 'rules/test',
+    name: 'Test',
+    type: 'header',
+    enabled: true,
+    conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+    action: {
+      requestHeaders: [{ operation: 'override', headerName: 'X-Token', value: '{{TOKEN}}' }],
+      responseHeaders: [],
+    },
+    ...overrides,
+  };
+}
+
+function makeRedirectRule(overrides: Partial<RedirectRule> = {}): RedirectRule {
+  return {
+    schemaVersion: 5,
+    uid: 'r2a3b4c5',
+    path: 'rules/redir',
+    name: 'Redir',
+    type: 'redirect',
+    enabled: true,
+    conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+    action: {
+      matchPattern: 'https://{{HOST}}/old',
+      redirectTo: 'https://{{HOST}}/new',
+    },
+    ...overrides,
+  };
+}
+
+describe('resolveRuleWithDiagnostics', () => {
+  let resolver: VariableResolver;
+
+  beforeEach(() => {
+    resolver = new VariableResolver();
+  });
+
+  it('returns the resolved rule plus empty error list when every reference resolves', () => {
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([makeVariable('HOST', 'api.openheaders.io'), makeVariable('TOKEN', 'abc123')]),
+    );
+    const { rule, errors } = resolveRuleWithDiagnostics(makeHeaderRule(), resolver);
+    expect(errors).toEqual([]);
+    expect(rule.conditions[0].values[0]).toBe('api.openheaders.io');
+    expect((rule as HeaderRule).action.requestHeaders[0].value).toBe('abc123');
+  });
+
+  it('reports a single error per unresolved reference (deduped across fields)', () => {
+    resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOST', 'api.openheaders.io')]));
+    // {{TOKEN}} is referenced in the header value only
+    const { errors } = resolveRuleWithDiagnostics(makeHeaderRule(), resolver);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].reference).toBe('TOKEN');
+    expect(errors[0].reason).toBe('unresolved');
+  });
+
+  it('dedupes identical references appearing in multiple fields', () => {
+    // {{HOST}} appears in conditions + action.matchPattern + action.redirectTo
+    const { errors } = resolveRuleWithDiagnostics(makeRedirectRule(), resolver);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].reference).toBe('HOST');
+  });
+
+  it('distinguishes namespaced vs flat references', () => {
+    // Two unresolved refs: {{env.MISSING}} and flat {{HOST}}
+    const rule = makeHeaderRule({
+      conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: 'X-Env', value: '{{env.MISSING}}' }],
+        responseHeaders: [],
+      },
+    });
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    const refs = errors.map((e) => e.reference).sort();
+    expect(refs).toEqual(['HOST', 'env.MISSING']);
+  });
+
+  it('reserved-namespace references surface with reason reserved-namespace', () => {
+    const rule = makeHeaderRule({
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: 'X-File', value: '{{file.fixture}}' }],
+        responseHeaders: [],
+      },
+    });
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    const fileErr = errors.find((e) => e.reference === 'file.fixture');
+    expect(fileErr?.reason).toBe('reserved-namespace');
+  });
+
+  it('unknown-namespace references surface with reason unknown-namespace', () => {
+    const rule = makeHeaderRule({
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: 'X-Foo', value: '{{foo.X}}' }],
+        responseHeaders: [],
+      },
+    });
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    const err = errors.find((e) => e.reference === 'foo.X');
+    expect(err?.reason).toBe('unknown-namespace');
+  });
+
+  it('unset-in-scope when env.X is referenced but env has no X', () => {
+    resolver.setEnvironments([makeEnvironment('staging', [makeVariable('HOST', 'api.openheaders.io')])]);
+    resolver.setActiveEnvironmentId('env-staging');
+    const rule = makeHeaderRule({
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: 'X-Token', value: '{{env.TOKEN}}' }],
+        responseHeaders: [],
+      },
+    });
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    const err = errors.find((e) => e.reference === 'env.TOKEN');
+    expect(err?.reason).toBe('unset-in-scope');
+  });
+
+  it('resolveRule (legacy) stays as a thin drop-errors wrapper', () => {
+    // Same unresolved input — resolveRule returns the rule, no errors surface.
+    const out = resolveRule(makeHeaderRule(), resolver);
+    expect(out.conditions[0].values[0]).toBe('{{HOST}}');
+  });
+
+  it('delay rules carry conditions-only diagnostics (no action resolution needed)', () => {
+    const rule = {
+      schemaVersion: 5 as const,
+      uid: 'r3a4b5c6',
+      path: 'rules/delay',
+      name: 'Delay',
+      type: 'delay' as const,
+      enabled: true,
+      conditions: [{ type: 'request-domains' as const, values: ['{{HOST}}'] }],
+      action: { delayMs: 500 },
+    };
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].reference).toBe('HOST');
+  });
+});

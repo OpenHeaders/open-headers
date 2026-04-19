@@ -23,7 +23,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { resolveRule, VariableResolver } from '@openheaders/core/variables';
+import { type ResolutionError, resolveRuleWithDiagnostics, VariableResolver } from '@openheaders/core/variables';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -52,11 +52,58 @@ const resolver = new VariableResolver();
 let lastResolvedRules: V5.Rule[] = [];
 
 /**
+ * Per-rule resolution errors collected during the most recent
+ * `resolveRulesForCompile`. Keyed by rule uid so callers can line up
+ * errors against specific rules without re-walking the set. Errors for
+ * a rule with no unresolved references are not stored — `has` → false.
+ *
+ * Cleared (reset to an empty map) at the start of every resolve pass
+ * so the snapshot always matches `lastResolvedRules`.
+ */
+let lastResolutionErrors: Map<string, ResolutionError[]> = new Map();
+
+/**
  * Current resolved-rule snapshot. Returns an empty array until the
  * first DNR compile runs.
  */
 export function getResolvedRules(): V5.Rule[] {
   return lastResolvedRules;
+}
+
+/**
+ * Per-rule resolution errors from the most recent compile pass.
+ * `.get(ruleUid)` returns the error list for that rule, or `undefined`
+ * if the rule resolved cleanly (or hasn't been compiled yet).
+ *
+ * Both the outer Map and each inner list are typed readonly so callers
+ * can't mutate module state through the returned reference — the same
+ * snapshot is read by Status reporting, Inspector surfaces, and tests.
+ */
+export function getLastResolutionErrors(): ReadonlyMap<string, readonly ResolutionError[]> {
+  return lastResolutionErrors;
+}
+
+/**
+ * Flat list of every resolution error aggregated across the rule set,
+ * deduped by `reference`. Useful for subsystem-level reporting
+ * (observability + Status) where per-rule attribution isn't required.
+ * Reserved-namespace errors (`{{file.X}}` / `{{dynamic.X}}`) are
+ * filtered out — those references are intentionally unresolved until
+ * those features ship in v2, so they should not yellow-pill the
+ * `rules` subsystem.
+ */
+export function getLastAggregatedResolutionErrors(): ResolutionError[] {
+  const seen = new Set<string>();
+  const out: ResolutionError[] = [];
+  for (const errors of lastResolutionErrors.values()) {
+    for (const err of errors) {
+      if (err.reason === 'reserved-namespace') continue;
+      if (seen.has(err.reference)) continue;
+      seen.add(err.reference);
+      out.push(err);
+    }
+  }
+  return out;
 }
 
 /**
@@ -128,9 +175,16 @@ export function resolveRulesForCompile(rules: V5.Rule[]): V5.Rule[] {
   const collections = getCollections();
   const collectionOf = buildRuleToCollectionContext(collections);
 
+  const perRuleErrors: Map<string, ResolutionError[]> = new Map();
   const resolved = rules.map((rule) => {
     const collectionId = collectionOf(rule.path);
-    return resolveRule(rule, resolver, collectionId ? { collectionId } : undefined);
+    const { rule: resolvedRule, errors } = resolveRuleWithDiagnostics(
+      rule,
+      resolver,
+      collectionId ? { collectionId } : undefined,
+    );
+    if (errors.length > 0) perRuleErrors.set(rule.uid, errors);
+    return resolvedRule;
   });
 
   // Only persist the snapshot when compiling the FULL active-workspace
@@ -140,6 +194,7 @@ export function resolveRulesForCompile(rules: V5.Rule[]): V5.Rule[] {
   // the live store count is a cheap discriminator.
   if (rules.length >= getRules().length) {
     lastResolvedRules = resolved;
+    lastResolutionErrors = perRuleErrors;
   }
   return resolved;
 }
@@ -168,6 +223,7 @@ export function syncResolver(): void {
 export function __resetForTests(): void {
   lastKnownCollectionUids = new Set();
   lastResolvedRules = [];
+  lastResolutionErrors = new Map();
   resolver.setVault({ schemaVersion: 5, secrets: [] });
   resolver.setEnvironments([]);
   resolver.setActiveEnvironmentId(null);
