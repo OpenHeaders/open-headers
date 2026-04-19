@@ -3,6 +3,7 @@ import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSetting } from '@/rules/settings/hooks';
+import type { StatusPillProps } from '@/shared/status';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useSurface } from '@/shared/surface';
 import { switchViewMode } from '@/shared/view-mode';
@@ -67,6 +68,16 @@ const Header: React.FC = () => {
   // truth for desktop-app connection state on both surfaces.
   const isSidepanel = surface.mode === 'sidepanel';
 
+  // Popup/sidepanel don't host the Docs panel — opening it there
+  // would require round-tripping through a workspace-managed state
+  // machine that isn't mounted. Instead, defer to `workspace.html`'s
+  // hash router (`#/docs/<id>` in useInitialHashRoute) so the docs
+  // tool window opens in the new tab immediately on load.
+  const handleOpenDocs: StatusPillProps['onOpenDocs'] = (sectionId) => {
+    const url = getBrowserAPI().runtime.getURL(`workspace.html#/docs/${sectionId}`);
+    getBrowserAPI().tabs.create({ url });
+  };
+
   return (
     <div className="header">
       <Space align="center" size={8}>
@@ -86,6 +97,7 @@ const Header: React.FC = () => {
           density="compact"
           placement={isSidepanel ? 'right' : 'bottom'}
           renderSubsystemExtras={productStatusExtras}
+          onOpenDocs={handleOpenDocs}
         />
         <WorkspacePill />
       </Space>

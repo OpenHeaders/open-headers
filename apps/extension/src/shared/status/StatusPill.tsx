@@ -21,7 +21,8 @@
  *     something actually needs attention.
  */
 
-import { Popover, Tag, Tooltip, Typography, theme } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Button, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { useStatus } from '@/hooks/useStatus';
@@ -37,6 +38,14 @@ export const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 
  * align to the same x-offset across the whole panel.
  */
 export const STATUS_TAG_WIDTH = 92;
+
+/**
+ * Docs anchor for the "System Status" reference section. Surfaces
+ * that mount the `StatusPill` pass this id through the `openDocs`
+ * hook (workspace) or the `#/docs/...` hash route (popup/sidepanel)
+ * when the user clicks the popover's (i) button.
+ */
+export const STATUS_DOCS_SECTION_ID = 'doc-system-status';
 
 export type StatusPillDensity = 'row' | 'full' | 'compact';
 
@@ -69,6 +78,14 @@ export interface StatusPillProps {
     subsystem: StatusSubsystem,
     entry: StatusSnapshot[StatusSubsystem] | undefined,
   ) => React.ReactNode;
+  /**
+   * If provided, the popover title shows an (i) button that calls this
+   * with `STATUS_DOCS_SECTION_ID`. Surfaces that have a docs panel
+   * (workspace) wire it to `useInspectorNav().openDocs`; surfaces that
+   * don't (popup / sidepanel) open `workspace.html#/docs/<id>` in a
+   * new tab. Omit the prop to hide the (i) button entirely.
+   */
+  onOpenDocs?: (sectionId: string) => void;
 }
 
 const DEFAULT_PLACEMENT: Record<StatusPillDensity, TooltipPlacement> = {
@@ -82,6 +99,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   className,
   placement,
   renderSubsystemExtras,
+  onOpenDocs,
 }) => {
   const { token } = theme.useToken();
   const { snapshot, worst } = useStatus();
@@ -93,23 +111,38 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   const body = <StatusPopoverBody snapshot={snapshot} token={token} renderSubsystemExtras={renderSubsystemExtras} />;
   // Flex + align-items: center keeps the dot vertically centered on
   // the "System status" cap height (Space doesn't cross-align inline
-  // children by default). `justify-content: flex-start` pins the title
-  // group to the header's left edge so it lines up with the tag
-  // column of each subsystem row below.
+  // children by default). The left group (dot + label) pins flush to
+  // the header's left edge; when `onOpenDocs` is provided, a small
+  // (i) button is right-aligned via `justify-content: space-between`
+  // so the label column still lines up with the tag column below.
   const titleNode = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 6 }}>
-      <span
-        style={{
-          display: 'inline-block',
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          background: color,
-        }}
-      />
-      <Typography.Text strong style={{ fontSize: 12 }}>
-        System status
-      </Typography.Text>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: color,
+          }}
+        />
+        <Typography.Text strong style={{ fontSize: 12 }}>
+          System status
+        </Typography.Text>
+      </div>
+      {onOpenDocs && (
+        <Tooltip title="About this panel">
+          <Button
+            type="text"
+            size="small"
+            icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
+            onClick={() => onOpenDocs(STATUS_DOCS_SECTION_ID)}
+            aria-label="Open system status documentation"
+            style={{ padding: '0 4px', height: 20, minWidth: 'auto' }}
+          />
+        </Tooltip>
+      )}
     </div>
   );
 

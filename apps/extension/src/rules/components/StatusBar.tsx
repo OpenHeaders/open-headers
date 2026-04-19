@@ -18,6 +18,7 @@ import { useCallback } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
 import { productStatusExtras, StatusPill } from '@/shared/status';
+import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { useSetting, useSettingValue } from '../settings/hooks';
@@ -42,6 +43,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
   const { token } = theme.useToken();
   const { isConnected, isStatusLoaded, rules } = useRules();
   const { themeMode, setThemeMode } = useTheme();
+  const { openDocs } = useInspectorNav();
   const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
   const toggleBottomLabel = useShortcutLabel('toggle-bottom');
   const toggleInspectorLabel = useShortcutLabel('toggle-inspector');
@@ -165,7 +167,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
         <span className="rules-statusbar-item">
           {enabledCount}/{rules.length} rule{rules.length !== 1 ? 's' : ''} active
         </span>
-        <StatusPill renderSubsystemExtras={productStatusExtras} />
+        <StatusPill renderSubsystemExtras={productStatusExtras} onOpenDocs={openDocs} />
       </div>
 
       <div className="rules-statusbar-right">

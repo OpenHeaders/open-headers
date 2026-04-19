@@ -193,6 +193,7 @@ const TOC = [
   { id: 'templates', label: 'Templates' },
   { id: 'script-rules', label: 'Script-Based Rules' },
   { id: 'limitations', label: 'Limitations' },
+  { id: 'doc-system-status', label: 'System Status' },
   { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts' },
 ];
 
@@ -796,6 +797,148 @@ const InspectorDocs: React.FC = () => {
       <Card size="small" style={{ marginBottom: 8 }}>
         <strong>Header matching conditions</strong>
         <DocParagraph>Chrome 128+ only. Older browsers ignore these conditions.</DocParagraph>
+      </Card>
+
+      {/* ── System Status ── */}
+      <SectionTitle id="doc-system-status">System Status</SectionTitle>
+      <DocParagraph>
+        The <strong>System status</strong> pill (in the workspace footer and the popup/sidepanel header) is a live
+        snapshot of the extension's health. Each subsystem reports a single state with the worst level winning — the
+        compact dot colors red &gt; yellow &gt; green.
+      </DocParagraph>
+      <DocParagraph>
+        Rows come in two groups, greys first (no events recorded yet in this service-worker lifetime) and coloreds after
+        (have reported at least once). The Desktop App row at the bottom is a product note, not a live subsystem. Full
+        history lives in the Observability log — export it from <strong>Settings → Data → Export Diagnostic Log</strong>
+        .
+      </DocParagraph>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>
+          <Tag color="default" style={{ fontSize: 10 }}>
+            Sync
+          </Tag>{' '}
+          Desktop-app connection
+        </strong>
+        <DocParagraph>
+          Mirrors the WebSocket connection to the OpenHeaders desktop app.{' '}
+          <Tag color="success" style={{ fontSize: 10 }}>
+            green
+          </Tag>{' '}
+          Connected or disabled on purpose (auto-connect off).{' '}
+          <Tag color="warning" style={{ fontSize: 10 }}>
+            yellow
+          </Tag>{' '}
+          Connecting, reconnecting, or the settings URL was rejected.{' '}
+          <Tag color="error" style={{ fontSize: 10 }}>
+            red
+          </Tag>{' '}
+          Not used today — reserved for fatal desktop-sync failures.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>
+          <Tag color="default" style={{ fontSize: 10 }}>
+            Rules
+          </Tag>{' '}
+          Declarative-Net-Request engine
+        </strong>
+        <DocParagraph>
+          Reports on every DNR rebuild.{' '}
+          <Tag color="success" style={{ fontSize: 10 }}>
+            green
+          </Tag>{' '}
+          N active rules, or "Rule execution paused".{' '}
+          <Tag color="warning" style={{ fontSize: 10 }}>
+            yellow
+          </Tag>{' '}
+          Unresolved <code>{'{{VAR}}'}</code> references in the compiled set, or rule cap exceeded, or approaching DNR
+          capacity.{' '}
+          <Tag color="error" style={{ fontSize: 10 }}>
+            red
+          </Tag>{' '}
+          Transport failure — Chrome rejected the dynamic or session rule update.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>
+          <Tag color="default" style={{ fontSize: 10 }}>
+            Requests
+          </Tag>{' '}
+          API request executor
+        </strong>
+        <DocParagraph>
+          Reflects the last ad-hoc API request fired from the Request editor (Send button).{' '}
+          <Tag color="success" style={{ fontSize: 10 }}>
+            green
+          </Tag>{' '}
+          Last request returned a response.{' '}
+          <Tag color="warning" style={{ fontSize: 10 }}>
+            yellow
+          </Tag>{' '}
+          Last request failed before producing a response (network offline, DNS, abort, etc.).
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>
+          <Tag color="default" style={{ fontSize: 10 }}>
+            Permissions
+          </Tag>{' '}
+          Host permissions audit
+        </strong>
+        <DocParagraph>
+          Audits <code>&lt;all_urls&gt;</code> on each service-worker wake.{' '}
+          <Tag color="success" style={{ fontSize: 10 }}>
+            green
+          </Tag>{' '}
+          All host permissions granted.{' '}
+          <Tag color="warning" style={{ fontSize: 10 }}>
+            yellow
+          </Tag>{' '}
+          Audit couldn't run (unusual — the browser didn't expose <code>chrome.permissions</code>).{' '}
+          <Tag color="error" style={{ fontSize: 10 }}>
+            red
+          </Tag>{' '}
+          Host permissions were narrowed from <code>chrome://extensions</code>. Rules targeting revoked hosts will
+          silently no-op until you restore access.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>
+          <Tag color="default" style={{ fontSize: 10 }}>
+            Secrets
+          </Tag>{' '}
+          Vault integrity
+        </strong>
+        <DocParagraph>
+          Tracks the per-workspace vault blob.{' '}
+          <Tag color="success" style={{ fontSize: 10 }}>
+            green
+          </Tag>{' '}
+          "Vault healthy" after a successful decrypt.{' '}
+          <Tag color="warning" style={{ fontSize: 10 }}>
+            yellow
+          </Tag>{' '}
+          Schema drift on hydrate — a stored vault entry didn't match the current shape and was dropped.{' '}
+          <Tag color="error" style={{ fontSize: 10 }}>
+            red
+          </Tag>{' '}
+          A cipher decrypt failed for a named secret — state sticks red until a subsequent successful read. Reinstall or
+          restore from backup if it persists.
+        </DocParagraph>
+      </Card>
+      <Card size="small" style={{ marginBottom: 8 }}>
+        <strong>
+          <Tag color="blue" style={{ fontSize: 10 }}>
+            Desktop App
+          </Tag>{' '}
+          Product note — not a subsystem
+        </strong>
+        <DocParagraph>
+          The v5 desktop app is in development and will ship after the v5 extension stabilizes. Workspaces, variables,
+          team sync, and workflow recordings that integrate with the desktop app will unlock once it's released. The
+          <code>Sync</code> subsystem will flip from "disabled" to "connecting" automatically on first launch of the new
+          desktop app — no reinstall required.
+        </DocParagraph>
       </Card>
 
       {/* ── Keyboard Shortcuts ── */}
