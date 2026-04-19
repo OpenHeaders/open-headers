@@ -19,10 +19,12 @@
 import { CaretRightOutlined, DeleteOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@hooks/useRequests';
 import type { V5 } from '@openheaders/core/types';
-import { App, Button, Input, Select, Tabs, Tag, Typography, theme } from 'antd';
+import { App, Button, Input, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
+import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
+import MultipartEditor from './MultipartEditor';
 import StaleDraftBanner from './StaleDraftBanner';
 
 const { Text } = Typography;
@@ -83,11 +85,7 @@ const BODY_TYPE_OPTIONS: { value: V5.BodyType; label: string; disabled?: boolean
   { value: 'text', label: 'Text' },
   { value: 'form', label: 'Form urlencoded' },
   { value: 'graphql', label: 'GraphQL' },
-  // multipart requires FormData construction in the executor (distinct
-  // field parser, per-field Content-Type). Listed as disabled so a
-  // request loaded from an older workspace format still round-trips,
-  // but new requests can't opt in until v2.
-  { value: 'multipart', label: 'Multipart (not yet supported)', disabled: true },
+  { value: 'multipart', label: 'Multipart form-data' },
 ];
 
 type AuthKind = V5.AuthConfig['type'];
@@ -426,39 +424,81 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       <div
         style={{
           display: 'flex',
-          gap: 8,
+          flexDirection: 'column',
+          gap: 4,
           padding: '10px 16px',
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
-        <Select
-          value={draft.method}
-          onChange={(method) => setDraft((d) => ({ ...d, method }))}
-          options={METHOD_OPTIONS}
-          size="middle"
-          style={{ width: 110 }}
-          popupMatchSelectWidth={false}
-          labelRender={({ label }) => (
-            <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
-          )}
-        />
-        <Input
-          value={draft.url}
-          onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
-          placeholder="https://api.openheaders.io/v1/..."
-          size="middle"
-          style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 13 }}
-          onPressEnter={() => void handleSend()}
-        />
-        <Button
-          type="primary"
-          icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
-          size="middle"
-          onClick={() => void handleSend()}
-          disabled={sending}
-        >
-          {sending ? 'Sending…' : 'Send'}
-        </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Select
+            value={draft.method}
+            onChange={(method) => setDraft((d) => ({ ...d, method }))}
+            options={METHOD_OPTIONS}
+            size="middle"
+            style={{ width: 110 }}
+            popupMatchSelectWidth={false}
+            labelRender={({ label }) => (
+              <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
+            )}
+          />
+          <Input
+            value={draft.url}
+            onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
+            placeholder="https://api.openheaders.io/v1/..."
+            size="middle"
+            style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 13 }}
+            onPressEnter={() => void handleSend()}
+            onBlur={() => {
+              // Normalize on blur so the stored value matches what will
+              // actually be fetched. Prevents a silent mismatch between
+              // what the user sees in the URL bar and what hits the
+              // network. In-flight typing keeps the user's verbatim
+              // input (so they can edit the host without being fought
+              // by auto-prefix on every keystroke).
+              const trimmed = draft.url.trim();
+              if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
+                const normalized = ensureScheme(trimmed);
+                if (normalized !== draft.url) {
+                  setDraft((d) => ({ ...d, url: normalized }));
+                }
+              }
+            }}
+          />
+          <Button
+            type="primary"
+            icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
+            size="middle"
+            onClick={() => void handleSend()}
+            disabled={sending}
+          >
+            {sending ? 'Sending…' : 'Send'}
+          </Button>
+        </div>
+        {/*
+         * Ghost preview — when the user's URL has no scheme, show the
+         * normalized form so the wire-level rewrite (ensureScheme) isn't
+         * invisible. Rendering only when we'd actually rewrite keeps
+         * the UI quiet for the common case of a fully-qualified URL.
+         */}
+        {needsSchemeNormalization(draft.url) && (
+          <Tooltip
+            title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
+            placement="bottomLeft"
+          >
+            <span
+              style={{
+                marginLeft: 118,
+                fontSize: 11,
+                color: token.colorTextTertiary,
+                fontFamily: "'SF Mono', monospace",
+                cursor: 'help',
+              }}
+            >
+              → {ensureScheme(draft.url.trim())}
+            </span>
+          </Tooltip>
+        )}
       </div>
 
       {/* Editor / response split */}
@@ -627,24 +667,44 @@ const BodyEditor: React.FC<BodyEditorProps> = ({ body, onChange }) => {
         </Text>
         <Select
           value={body.type}
-          onChange={(type) => onChange({ ...body, type })}
+          onChange={(type) => {
+            // When crossing body.type boundaries, reset fields that don't
+            // apply to the new type so stale content doesn't linger on a
+            // hidden field and re-surface if the user flips back. The
+            // codec already guards against persistence of irrelevant
+            // fields, but this keeps the draft shape honest in-memory.
+            if (type === 'multipart') {
+              onChange({ type, multipartParts: body.multipartParts ?? [] });
+            } else if (type === 'none') {
+              onChange({ type });
+            } else {
+              onChange({ type, content: body.content ?? '' });
+            }
+          }}
           options={BODY_TYPE_OPTIONS}
           size="small"
-          style={{ width: 160 }}
+          style={{ width: 180 }}
         />
       </div>
-      {body.type !== 'none' && (
-        <Input.TextArea
-          value={body.content ?? ''}
-          onChange={(e) => onChange({ ...body, content: e.target.value })}
-          placeholder={bodyPlaceholder(body.type)}
-          autoSize={{ minRows: 8, maxRows: 24 }}
-          style={{
-            fontFamily: "'SF Mono', 'Fira Code', monospace",
-            fontSize: 12,
-            background: token.colorBgContainer,
-          }}
+      {body.type === 'multipart' ? (
+        <MultipartEditor
+          parts={body.multipartParts ?? []}
+          onChange={(parts) => onChange({ type: 'multipart', multipartParts: parts })}
         />
+      ) : (
+        body.type !== 'none' && (
+          <Input.TextArea
+            value={body.content ?? ''}
+            onChange={(e) => onChange({ ...body, content: e.target.value })}
+            placeholder={bodyPlaceholder(body.type)}
+            autoSize={{ minRows: 8, maxRows: 24 }}
+            style={{
+              fontFamily: "'SF Mono', 'Fira Code', monospace",
+              fontSize: 12,
+              background: token.colorBgContainer,
+            }}
+          />
+        )
       )}
     </div>
   );
@@ -898,6 +958,7 @@ const ResponsePanel: React.FC<{
         size="small"
         activeKey={activeTab}
         onChange={(k) => setActiveTab(k as 'body' | 'headers')}
+        className="rules-response-tabs"
         style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
         items={[
           {

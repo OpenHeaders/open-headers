@@ -19,6 +19,8 @@
  */
 
 import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders/core';
+import type { FileRef } from '@openheaders/core/files';
+import type { ImportReport } from '@openheaders/core/import';
 import type { V5 } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
@@ -26,6 +28,7 @@ import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
 import type { LogEntry as ObservabilityLogEntry } from '@/shared/observability/types';
 import type { StatusSnapshot } from '@/shared/status/types';
+import type { PersistedPanelLayout } from '@/shared/storage';
 import type { ActiveRule } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import type { RecordingData, RecordingStateInfo } from '@/types/recording';
@@ -102,8 +105,21 @@ export interface BridgeRpcContract {
         /** `null` clears the icon (color-only mode); undefined leaves it untouched. */
         icon?: string | null;
       };
+      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
+      expectedVersion?: number;
     };
-    res: { success: boolean; workspace?: V5.ExtensionWorkspace };
+    /**
+     * `success`/`workspace` shape is preserved for existing callers
+     * (WorkspaceManager.onSubmit pattern). The Phase 10 fields
+     * (`version`, `reason`) are additive — callers that want the
+     * discriminated union shape read them; callers that don't keep
+     * using `success`.
+     */
+    res:
+      | { success: true; workspace: V5.ExtensionWorkspace; version: number }
+      | { success: false; reason: 'stale-draft'; serverVersion: number; serverWorkspace: V5.ExtensionWorkspace }
+      | { success: false; reason: 'not-found' }
+      | { success: false; reason: 'other'; message: string };
   };
   deleteWorkspace: {
     req: { id: string };
@@ -569,8 +585,17 @@ export interface BridgeRpcContract {
     res: { success: boolean };
   };
   updateCollectionVariables: {
-    req: { collectionUid: string; variables: V5.Variable[] };
-    res: { success: boolean };
+    req: {
+      collectionUid: string;
+      variables: V5.Variable[];
+      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
+      expectedVersion?: number;
+    };
+    res:
+      | { ok: true; version: number; collection: V5.Collection }
+      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverCollection: V5.Collection }
+      | { ok: false; reason: 'not-found' }
+      | { ok: false; reason: 'other'; message: string };
   };
 
   // ── API Requests (active workspace) ────────────────────────────
@@ -748,10 +773,94 @@ export interface BridgeRpcContract {
     res: { success: boolean };
   };
 
+  // ── Import reports (per-workspace ring, ARCHITECTURE §23) ────────
+  /** Record an import report. Dedupes by `sourceHash` (non-empty
+   *  replaces prior entry; empty string appends as a distinct event). */
+  recordImportReport: {
+    req: { report: ImportReport };
+    res: { success: boolean; error?: string };
+  };
+  /** Read the full ring — oldest first. Callers typically reverse()
+   *  for most-recent-first display. */
+  listImportReports: {
+    req: Record<string, never>;
+    res: { reports: ImportReport[] };
+  };
+  /** Drop every report for the active workspace. */
+  clearImportReports: {
+    req: Record<string, never>;
+    res: { success: boolean; error?: string };
+  };
+  /**
+   * Look up a prior import report by `sourceHash` for the active
+   * workspace. Returns `null` when no match exists — the UI uses
+   * this to decide whether to render the re-import-diff panel
+   * (ARCHITECTURE §23). Empty-hash inputs always return null since
+   * those aren't considered identifying.
+   */
+  findImportReportBySourceHash: {
+    req: { sourceHash: string };
+    res: { report: ImportReport | null };
+  };
+
+  // ── Files (Phase 12 — ARCHITECTURE §6 content-addressed blobs) ────
+  /**
+   * List every file blob in the active workspace. Metadata only
+   * (FileRef = hash + filename + mimeType + size); bytes are fetched
+   * separately via `getFile` when the user previews or when the
+   * executor builds a multipart body.
+   */
+  listFiles: {
+    req: Record<string, never>;
+    res: { files: FileRef[] };
+  };
+  /**
+   * Upload a blob. `chrome.runtime.sendMessage` JSON-serializes its
+   * payload (ArrayBuffer becomes `{}` on the wire), so we ship the
+   * bytes as a base64 string and decode them on the SW side. The SW
+   * reconstitutes a Blob and writes to IDB. Dedups by content hash
+   * within the workspace.
+   */
+  putFile: {
+    req: { filename: string; mimeType?: string; bytesBase64: string };
+    res: { success: boolean; fileRef?: FileRef; error?: string };
+  };
+  /**
+   * Return the raw bytes for a blob. Matches `putFile`'s base64
+   * transport — the SW encodes the blob bytes before responding,
+   * the caller decodes to ArrayBuffer / Blob as needed. Returns
+   * `found: false` when the hash isn't stored in this workspace.
+   */
+  getFile: {
+    req: { hash: string };
+    res: { found: boolean; bytesBase64?: string; mimeType?: string };
+  };
+  /**
+   * Delete a blob. Callers should check upstream references (request
+   * multipart parts) before firing; the SW does not cascade.
+   */
+  deleteFile: {
+    req: { hash: string };
+    res: { success: boolean; removed: boolean; error?: string };
+  };
+
   // ── Status snapshot ──────────────────────────────────────────────
   getStatusSnapshot: {
     req: Record<string, never>;
     res: { snapshot: StatusSnapshot };
+  };
+
+  // ── Layout (panel ratios + tool-window dock state) ───────────────
+  /**
+   * Persist the active workspace's panel-layout record. Routed
+   * through the SW so the write is serialized through the
+   * `layoutLockName(ws)` Web Lock — two tabs dragging different
+   * panes concurrently can't stomp each other. The layout blob is
+   * opaque at the SW boundary; the renderer owns its shape.
+   */
+  setLayout: {
+    req: { layout: PersistedPanelLayout };
+    res: { success: boolean; error?: string };
   };
 }
 
@@ -848,6 +957,16 @@ export interface BridgeBroadcastContract {
    * tab-id they learned from `getWorkspaceTabOrdinal` at mount.
    */
   workspaceTabsChanged: { ordinals: Record<number, number>; count: number };
+
+  /**
+   * Fires on every active-workspace file-blob mutation (put / delete /
+   * bulk purge). Carries the current `FileRef[]` snapshot so
+   * consumers never render stale lists after a sibling tab uploads,
+   * and so the multipart body editor's file picker stays live.
+   *
+   * Bytes are NOT included — hooks fetch them on demand via `getFile`.
+   */
+  filesChanged: { files: FileRef[] };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

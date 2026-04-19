@@ -35,6 +35,7 @@ import {
   getWorkspaceVariables,
   onEnvironmentStoreChange,
 } from './modules/environment-store';
+import { listFiles, onFilesStoreChange } from './modules/files-store';
 import { handleGeneralMessage } from './modules/message-handler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
@@ -296,6 +297,18 @@ async function initializeExtension(): Promise<void> {
     });
   });
 
+  // Files (Phase 12.4b) — broadcast after every put / delete / purge
+  // so sibling workspace tabs and the multipart body editor's file
+  // picker see the new list immediately. `listFiles` reads IDB
+  // (async) so we await before firing; the listener callback is
+  // sync-void, so we kick a fire-and-forget async task here.
+  onFilesStoreChange(() => {
+    void (async () => {
+      const files = await listFiles().catch(() => []);
+      broadcast('filesChanged', { files });
+    })();
+  });
+
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 
   // Hydrate the active workspace's per-workspace stores from storage.
@@ -338,13 +351,43 @@ async function initializeExtension(): Promise<void> {
 }
 
 // ── Alarms ────────────────────────────────────────────────────────
+//
+// `updateBadge` is always-on — the icon badge is a core UX surface.
+// `wsReconnect` is conditional on `desktop.connection.autoConnect`
+// because its *only* job is to retry the websocket to the desktop
+// companion; when the feature is off it's pure wake-up noise (every
+// 30 s the SW would spin up just to log "skipping" and bail). We
+// register/unregister the alarm when the setting flips so users who
+// don't use desktop sync get a quiet, battery-friendly SW.
+const WS_RECONNECT_ALARM = 'wsReconnect';
 
-alarms!.create('keepAlive', { periodInMinutes: 0.5 });
+function applyWsReconnectAlarm(enabled: boolean): void {
+  if (enabled) {
+    alarms!.create(WS_RECONNECT_ALARM, { periodInMinutes: 0.5 });
+  } else {
+    alarms!.clear(WS_RECONNECT_ALARM);
+  }
+}
+
+applyWsReconnectAlarm(getSetting('desktop.connection.autoConnect'));
 alarms!.create('updateBadge', { delayInMinutes: 0.01, periodInMinutes: 0.033 });
 
+subscribeKey('desktop.connection.autoConnect', () => {
+  // Listener is a bare signal; read the fresh value via `getSetting`.
+  const enabled = Boolean(getSetting('desktop.connection.autoConnect'));
+  applyWsReconnectAlarm(enabled);
+  // Flipping the setting on shouldn't leave the user waiting up to
+  // 30 s for the first reconnect-alarm tick. `connectWebSocket` is
+  // idempotent (bails if already connected / connecting) so calling
+  // unconditionally is safe — the function itself re-checks the
+  // `autoConnect` guard before actually opening a socket.
+  if (enabled) void connectWebSocket();
+});
+
 alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
-  if (alarm.name === 'keepAlive') {
-    logger.debug('Background', 'Keep alive ping');
+  if (alarm.name === WS_RECONNECT_ALARM) {
+    // Guard against a stale alarm firing after autoConnect flipped off
+    // between `onAlarm` scheduling and this handler running.
     if (!getSetting('desktop.connection.autoConnect')) return;
     if (!isWebSocketConnected() && !isWebSocketConnecting()) {
       const attempts = getReconnectAttempts();

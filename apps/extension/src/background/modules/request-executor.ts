@@ -29,6 +29,7 @@
 import type { V5 } from '@openheaders/core/types';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
+import { ensureScheme } from '@/shared/fetch/ensure-scheme';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { report as reportStatus } from '@/shared/status';
 import {
@@ -38,6 +39,7 @@ import {
   getVault,
   getWorkspaceVariables,
 } from './environment-store';
+import { getFileBlob, listFiles } from './files-store';
 import { recordLog } from './observability-log';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
@@ -90,13 +92,13 @@ export async function executeRequestDraft(
   request: V5.Request,
   options: ExecuteRequestOptions = {},
 ): Promise<ExecutedRequestSnapshot> {
-  const resolved = resolveRequest(request, options);
+  const resolved = await resolveRequest(request, options);
   return executeResolved(resolved);
 }
 
 // ── Variable resolution ────────────────────────────────────────────
 
-function buildResolver(): VariableResolver {
+async function buildResolver(): Promise<VariableResolver> {
   const resolver = new VariableResolver();
   resolver.setVault(getVault());
   resolver.setEnvironments(getEnvironments());
@@ -112,6 +114,17 @@ function buildResolver(): VariableResolver {
   }
   for (const c of getRequestCollections()) {
     resolver.setCollectionVariables(c.uid, c.variables ?? []);
+  }
+  // File registry — powers `{{file.X}}` (ARCHITECTURE §6). Loading
+  // the full workspace file list once per request is cheap (metadata
+  // only, no blob bytes), and matches how other scopes are fed.
+  try {
+    const files = await listFiles();
+    resolver.setFileRegistry(files);
+  } catch {
+    // If IDB is briefly unavailable (SW restart race) we proceed
+    // without a registry; `{{file.X}}` surfaces `unset-in-scope` on
+    // the error channel rather than breaking the request entirely.
   }
   return resolver;
 }
@@ -132,14 +145,14 @@ interface ResolvedRequest {
   method: V5.HttpMethod;
   url: string;
   headers: Array<{ key: string; value: string }>;
-  body: { type: V5.BodyType; content: string };
+  body: V5.RequestBody;
   /** Wire-level cookie policy. `'omit'` unless the request opts into `'include'`. */
   credentialsMode: V5.CredentialsMode;
   // auth and params are folded into `url` + `headers` below.
 }
 
-function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): ResolvedRequest {
-  const resolver = buildResolver();
+async function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Promise<ResolvedRequest> {
+  const resolver = await buildResolver();
   const context = {
     collectionId: collectionIdForRequest(request),
     environmentId: options.environmentId,
@@ -167,14 +180,13 @@ function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Re
 
   // ── Body ────────────────────────────────────────────────────────
   const bodyType: V5.BodyType = request.body?.type ?? 'none';
-  const rawBody = request.body?.content ?? '';
-  const resolvedBodyContent = bodyType === 'none' ? '' : resolveStr(rawBody);
+  const resolvedBody = buildResolvedBody(request.body, bodyType, resolveStr);
 
   // Ensure Content-Type header matches the body type if the user
-  // didn't set one. Skipped for `none` (no body) and `form` (set by
-  // the URLSearchParams path below) to avoid overriding intentional
-  // user overrides.
-  if (bodyType !== 'none' && !headers.some((h) => h.key.toLowerCase() === 'content-type')) {
+  // didn't set one. Skipped for `none` (no body), `form` (set by
+  // the URLSearchParams path below), and `multipart` (set by the
+  // browser with a generated boundary).
+  if (bodyType !== 'none' && bodyType !== 'multipart' && !headers.some((h) => h.key.toLowerCase() === 'content-type')) {
     const ct = defaultContentType(bodyType);
     if (ct) headers.push({ key: 'Content-Type', value: ct });
   }
@@ -183,12 +195,50 @@ function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Re
     method: request.method,
     url: resolvedUrl,
     headers,
-    body: { type: bodyType, content: resolvedBodyContent },
+    body: resolvedBody,
     // Cookie-jar policy. `'omit'` is the safe default when the request
     // doesn't explicitly opt in — even with `<all_urls>` granted, we
     // never ride the browser's cookie jar by accident. See ARCHITECTURE.md §14.
     credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
   };
+}
+
+/**
+ * Build the resolved body payload the executor will attach to the
+ * fetch. String bodies get template resolution applied to their
+ * content; multipart bodies have their TEXT-part names + values
+ * (and any file-part filenameOverride) run through template
+ * resolution so `{{env.API_USER}}` and friends work the same way
+ * across body types. File-part bytes themselves are resolved later
+ * by `buildMultipartForm` via the BlobStore.
+ */
+function buildResolvedBody(
+  body: V5.RequestBody | undefined,
+  type: V5.BodyType,
+  resolveStr: (s: string) => string,
+): V5.RequestBody {
+  if (type === 'multipart') {
+    const parts = body?.multipartParts ?? [];
+    const resolvedParts: V5.MultipartPart[] = parts.map((part) => {
+      const name = resolveStr(part.name);
+      if (part.kind === 'text') {
+        return { kind: 'text', name, value: resolveStr(part.value), enabled: part.enabled };
+      }
+      const filenameOverride =
+        typeof part.filenameOverride === 'string' ? resolveStr(part.filenameOverride) : part.filenameOverride;
+      return {
+        kind: 'file',
+        name,
+        fileRef: part.fileRef,
+        filenameOverride,
+        enabled: part.enabled,
+      };
+    });
+    return { type: 'multipart', multipartParts: resolvedParts };
+  }
+  if (type === 'none') return { type: 'none' };
+  const rawBody = body?.content ?? '';
+  return { type, content: resolveStr(rawBody) };
 }
 
 function applyAuth(
@@ -225,6 +275,12 @@ function applyAuth(
   }
 }
 
+// `ensureScheme` lives in the shared fetch module so the renderer
+// (RequestEditor URL bar) and the executor apply the exact same
+// normalization. Re-exported here so the request-executor unit
+// test keeps importing from one place.
+export { ensureScheme } from '@/shared/fetch/ensure-scheme';
+
 function appendQueryParams(url: string, params: Array<{ key: string; value: string }>): string {
   if (params.length === 0) return url;
   // URL() would normalize in surprising ways (lowercasing the host,
@@ -253,9 +309,19 @@ function defaultContentType(type: V5.BodyType): string | null {
 // ── Execution ──────────────────────────────────────────────────────
 
 async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSnapshot> {
-  if (!req.url.trim()) {
+  const trimmed = req.url.trim();
+  if (!trimmed) {
     return errorSnapshot('URL is empty');
   }
+  // Normalize scheme-less URLs. Chrome's `fetch()` resolves relative
+  // URLs against the caller's origin — and the SW's origin is
+  // `chrome-extension://<id>/`, whose asset filesystem returns
+  // `ERR_FILE_NOT_FOUND` for unknown paths. That makes "example.com"
+  // + GET produce a confusing "Failed to fetch" with no actionable
+  // cause. Postman/Insomnia both assume `https://` when no scheme is
+  // present; we match that. Templated URLs (`{{BASE}}/x`) are left
+  // alone — the template may carry the scheme itself.
+  req = { ...req, url: ensureScheme(trimmed) };
 
   const init: RequestInit = {
     method: req.method,
@@ -285,6 +351,23 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
     // Parse the urlencoded text into URLSearchParams so the browser
     // sets Content-Type + length for us.
     init.body = new URLSearchParams(req.body.content);
+  } else if (req.body.type === 'multipart') {
+    // Build FormData from the structured part list. For file parts
+    // we resolve `fileRef.hash` to bytes via the BlobStore; dropped
+    // parts (missing blob) land as a report entry in the response
+    // snapshot so the user sees exactly what slipped through.
+    const form = await buildMultipartForm(req.body.multipartParts ?? []);
+    init.body = form;
+    // IMPORTANT: clear any user-set `Content-Type: multipart/form-data`
+    // header. The browser MUST set its own Content-Type with the
+    // generated boundary; a manually-set header omits the boundary
+    // and every server rejects the request with "malformed multipart".
+    if (fetchHeaders.has('Content-Type')) {
+      const ct = (fetchHeaders.get('Content-Type') ?? '').toLowerCase();
+      if (ct.startsWith('multipart/form-data')) {
+        fetchHeaders.delete('Content-Type');
+      }
+    }
   } else if (req.body.type !== 'none') {
     init.body = req.body.content;
   }
@@ -365,6 +448,36 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
       error: message,
     };
   }
+}
+
+/**
+ * Build a FormData object from a V5 multipart part list. Text parts
+ * go through verbatim; file parts resolve `fileRef.hash` to the
+ * actual blob bytes via the per-workspace BlobStore. Missing blobs
+ * are skipped silently today — the user sees the mismatch reflected
+ * in the response (no part by that name) rather than a hard error.
+ * A future dedicated Status-subsystem entry could surface this more
+ * loudly once we have the UI affordance.
+ */
+async function buildMultipartForm(parts: readonly V5.MultipartPart[]): Promise<FormData> {
+  const form = new FormData();
+  for (const part of parts) {
+    if (part.enabled === false) continue;
+    if (part.kind === 'text') {
+      form.append(part.name, part.value);
+      continue;
+    }
+    const blob = await getFileBlob(part.fileRef.hash);
+    if (!blob) continue;
+    const filename = part.filenameOverride ?? part.fileRef.filename;
+    const mimeType = part.fileRef.mimeType ?? blob.type ?? 'application/octet-stream';
+    // Retype the blob so the multipart boundary carries the right
+    // content-type (browsers default to application/octet-stream
+    // for generic blobs, which some servers treat as opaque).
+    const typed = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+    form.append(part.name, typed, filename);
+  }
+  return form;
 }
 
 function errorSnapshot(message: string): ExecutedRequestSnapshot {

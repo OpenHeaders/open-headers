@@ -47,7 +47,8 @@ export type SettingType =
   | 'keyvalue'
   | 'color'
   | 'action'
-  | 'info';
+  | 'info'
+  | 'files-browser';
 
 // ── Per-type option shapes ───────────────────────────────────────────
 

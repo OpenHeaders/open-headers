@@ -24,6 +24,12 @@ declare module '../types' {
     'data.resetAllSettings': string;
     'data.exportObservabilityLog': string;
     'data.clearObservabilityLog': string;
+    'data.exportImportReports': string;
+    'data.clearImportReports': string;
+    'data.uploadFile': string;
+    'data.exportFilesManifest': string;
+    'data.clearAllFiles': string;
+    'data.filesBrowser': string;
   }
 }
 
@@ -187,6 +193,158 @@ registerSetting({
     run: async () => {
       if (!window.confirm('Clear the diagnostic log? This drops every buffered event.')) return;
       await call('clearObservabilityLog').catch(() => null);
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.exportImportReports',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Export Import Reports',
+  description:
+    'Download the structured drop/transform reports for every import run (curl today; HAR / Postman / Insomnia next) as JSON. Lives per-workspace — 50 most recent imports per workspace. Never leaves the device unless you attach the file.',
+  category: 'data',
+  tags: ['export', 'import', 'curl', 'har', 'report', 'audit'],
+  scope: 'user',
+  action: {
+    label: 'Export reports',
+    run: async () => {
+      const resp = await call('listImportReports').catch(() => null);
+      const reports = resp?.reports ?? [];
+      downloadJson(`openheaders-import-reports-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
+        exportedAt: new Date().toISOString(),
+        reports,
+      });
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.clearImportReports',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Clear Import Reports',
+  description:
+    'Drop every import report for the active workspace. Does not affect the requests themselves — only the audit log of what was dropped/transformed during import.',
+  category: 'data',
+  tags: ['clear', 'import', 'curl', 'har', 'report', 'reset'],
+  scope: 'user',
+  action: {
+    label: 'Clear',
+    danger: true,
+    run: async () => {
+      if (!window.confirm('Clear import reports for this workspace? This cannot be undone.')) return;
+      await call('clearImportReports').catch(() => null);
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.uploadFile',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Upload File',
+  description:
+    'Add a file to the active workspace for use in multipart bodies and `{{file.X}}` references. Files are content-addressed (sha256) so re-uploading the same bytes stays as one blob. Storage is local IndexedDB; nothing leaves the device.',
+  category: 'data',
+  tags: ['file', 'blob', 'upload', 'multipart', 'attachment'],
+  scope: 'user',
+  action: {
+    label: 'Upload…',
+    run: async () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      await new Promise<void>((resolve) => {
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) {
+            resolve();
+            return;
+          }
+          const buf = await file.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          const CHUNK = 0x8000;
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += CHUNK) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+          }
+          const bytesBase64 = btoa(binary);
+          await call('putFile', {
+            filename: file.name,
+            mimeType: file.type || undefined,
+            bytesBase64,
+          }).catch(() => null);
+          resolve();
+        };
+        input.click();
+      });
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.exportFilesManifest',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Export Files Manifest',
+  description:
+    'Download the list of files in the active workspace (filename, hash, size, MIME type) as JSON. Bytes are NOT included — this is a manifest for audit and re-upload by teammates, not a backup of the content.',
+  category: 'data',
+  tags: ['file', 'blob', 'export', 'manifest', 'audit'],
+  scope: 'user',
+  action: {
+    label: 'Export manifest',
+    run: async () => {
+      const resp = await call('listFiles').catch(() => null);
+      const files = resp?.files ?? [];
+      downloadJson(`openheaders-files-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
+        exportedAt: new Date().toISOString(),
+        files,
+      });
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.filesBrowser',
+  type: 'files-browser',
+  default: '',
+  schema: actionSchema,
+  label: 'Files',
+  description:
+    'Every uploaded blob in the active workspace. Download bytes, copy the short hash, or delete. File metadata (filename, size, MIME type, hash) is searchable across the settings index.',
+  category: 'data',
+  tags: ['file', 'blob', 'browser', 'download', 'preview', 'attachment'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'data.clearAllFiles',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Clear All Files',
+  description:
+    'Delete every file blob in the active workspace. Requests that reference these files via multipart parts will error when executed; you will need to re-upload the files or edit those requests.',
+  category: 'data',
+  tags: ['file', 'blob', 'clear', 'delete', 'reset'],
+  scope: 'user',
+  action: {
+    label: 'Clear all',
+    danger: true,
+    run: async () => {
+      if (!window.confirm('Delete every file in this workspace? Multipart parts referencing them will error on send.'))
+        return;
+      const resp = await call('listFiles').catch(() => null);
+      const files = resp?.files ?? [];
+      for (const f of files) {
+        await call('deleteFile', { hash: f.hash }).catch(() => null);
+      }
     },
   },
 });

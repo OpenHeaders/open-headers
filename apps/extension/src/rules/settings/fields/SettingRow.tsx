@@ -20,6 +20,7 @@ import BooleanField from './BooleanField';
 import CodeField from './CodeField';
 import ColorField from './ColorField';
 import EnumField from './EnumField';
+import FilesBrowserField from './FilesBrowserField';
 import InfoField from './InfoField';
 import KeybindingField from './KeybindingField';
 import KeyValueField from './KeyValueField';
@@ -63,6 +64,8 @@ const SettingRow: React.FC<SettingRowProps> = ({ def }) => {
       return <KeybindingField def={def} />;
     case 'code':
       return <CodeField def={def} />;
+    case 'files-browser':
+      return <FilesBrowserField def={def} />;
     default:
       return null;
   }
