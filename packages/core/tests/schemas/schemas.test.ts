@@ -194,6 +194,7 @@ describe('RequestSchema', () => {
     expect(
       v.parse(RequestSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'requests/auth-xxxx1234/login-abcd1234',
         name: 'Login',
@@ -211,6 +212,7 @@ describe('RequestSchema', () => {
     expect(
       v.safeParse(RequestSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'x',
         name: 'x',
@@ -228,6 +230,7 @@ describe('RequestSchema', () => {
     expect(
       v.parse(RequestSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'x',
         name: 'x',

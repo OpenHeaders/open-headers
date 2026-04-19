@@ -368,14 +368,20 @@ export function handleGeneralMessage(
         : addRequestToCollection(name, targetCollectionUid, seed);
       safeResponse({ success: true, request: created });
     } else if (message.type === 'updateLocalRequest') {
-      const success = updateRequest(
+      const expectedVersion = message.expectedVersion as number | undefined;
+      updateRequest(
         message.requestUid as string,
-        message.updates as Partial<Omit<V5.Request, 'uid' | 'path'>>,
-      );
-      safeResponse({ success });
+        message.updates as Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+        { expectedVersion },
+      )
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
     } else if (message.type === 'deleteLocalRequest') {
-      const success = deleteRequest(message.requestUid as string);
-      safeResponse({ success });
+      deleteRequest(message.requestUid as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'createLocalRequestCollection') {
       const collection = createRequestCollection(message.name as string);
       safeResponse({ success: true, collection });

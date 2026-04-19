@@ -172,6 +172,7 @@ futureMeta: retain
 
   it('request.yaml retains unknown top-level key', () => {
     const raw = `schemaVersion: 5
+version: 1
 uid: reqlogin
 name: Login
 method: POST

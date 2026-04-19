@@ -50,6 +50,7 @@ const mockRequestCollections = getRequestCollections as ReturnType<typeof vi.fn>
 function makeRequest(overrides: Partial<V5.Request> = {}): V5.Request {
   return {
     schemaVersion: 5,
+    version: 1,
     uid: 'r1',
     path: 'requests/default-xxxx/r1',
     name: 'R',

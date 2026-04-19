@@ -19,10 +19,11 @@
 import { CaretRightOutlined, DeleteOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@hooks/useRequests';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Input, Select, Tabs, Tag, Typography, theme } from 'antd';
+import { App, Button, Input, Select, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
+import StaleDraftBanner from './StaleDraftBanner';
 
 const { Text } = Typography;
 
@@ -189,6 +190,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   onSaveDraft,
 }) => {
   const { token } = theme.useToken();
+  const { message } = App.useApp();
   const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
 
   const isCreateMode = mode === 'request-create';
@@ -206,6 +208,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // contract); edit-mode starts clean and flips to dirty on edit.
   const persistedFpRef = useRef<string>(isCreateMode ? '' : fingerprint(emptyDraft()));
 
+  // ── Phase 10 stale-draft tracking ─────────────────────────────────
+  //
+  // Snapshot `version` when the full request loads; send it as
+  // `expectedVersion` on save so a concurrent-edit race surfaces
+  // `reason: 'stale-draft'` and we render the banner.
+  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
+  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
+
   // Sending + response state — independent from persistence lifecycle.
   const [sending, setSending] = useState(false);
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
@@ -222,6 +232,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         const d = draftFromRequest(full);
         setDraft(d);
         persistedFpRef.current = fingerprint(d);
+        // Snapshot the version the user is editing against. Only set
+        // once per uid; subsequent broadcast refreshes don't bump it
+        // (that would defeat stale-draft detection).
+        setLoadedVersion(full.version);
       }
       setLoading(false);
     });
@@ -239,8 +253,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   // Save handler. Create-mode hands the draft to the save flow (which
   // either persists directly or opens a picker); edit-mode writes
-  // straight through to `updateRequest`.
-  const handleSave = useCallback(() => {
+  // straight through to `updateRequest`, consuming the full Phase 10
+  // result and rendering the stale-draft banner on race rejection.
+  const handleSave = useCallback(async () => {
     if (isCreateMode) {
       onSaveDraft?.({
         name: draftName ?? 'New Request',
@@ -255,7 +270,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       return;
     }
     if (!requestUid || !isDirty) return;
-    const updates: Partial<Omit<V5.Request, 'uid' | 'path'>> = {
+    const updates = {
       method: draft.method,
       url: draft.url,
       headers: rowsToV5<V5.RequestHeader>(draft.headers),
@@ -264,17 +279,63 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       body: draft.body,
       credentialsMode: draft.credentialsMode,
     };
-    void updateRequest(requestUid, updates).then((ok) => {
-      if (ok) {
-        persistedFpRef.current = fingerprint(draft);
-        onDirtyChange?.(false);
-      }
-    });
-  }, [isCreateMode, requestUid, draft, draftName, isDirty, updateRequest, onSaveDraft, onDirtyChange]);
+    const result = await updateRequest(requestUid, updates, loadedVersion ?? undefined);
+    if (result.ok) {
+      persistedFpRef.current = fingerprint(draft);
+      setLoadedVersion(result.version);
+      setStaleDraft(null);
+      onDirtyChange?.(false);
+    } else if (result.reason === 'stale-draft') {
+      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
+    } else if (result.reason === 'not-found') {
+      message.error('Request was deleted from another tab');
+    } else {
+      message.error(`Failed to update request${'message' in result ? `: ${result.message}` : ''}`);
+    }
+  }, [
+    isCreateMode,
+    requestUid,
+    draft,
+    draftName,
+    isDirty,
+    updateRequest,
+    onSaveDraft,
+    onDirtyChange,
+    loadedVersion,
+    message,
+  ]);
+
+  const handleStaleDraftReload = useCallback(async () => {
+    if (!requestUid) return;
+    const full = await getRequest(requestUid);
+    if (full) {
+      const d = draftFromRequest(full);
+      setDraft(d);
+      persistedFpRef.current = fingerprint(d);
+      setLoadedVersion(full.version);
+    }
+    setStaleDraft(null);
+    onDirtyChange?.(false);
+  }, [requestUid, getRequest, onDirtyChange]);
+
+  const handleStaleDraftKeepEditing = useCallback(async () => {
+    // Snap loadedVersion forward to the server's current value so the
+    // next save's expectedVersion matches and isn't rejected.
+    if (!requestUid) return;
+    const full = await getRequest(requestUid);
+    if (full) setLoadedVersion(full.version);
+    setStaleDraft(null);
+  }, [requestUid, getRequest]);
+
+  // registerSaveRef takes a sync callback; wrap the async handler so
+  // the breadcrumb Save button kicks off the save without awaiting.
+  const handleSaveSync = useCallback(() => {
+    void handleSave();
+  }, [handleSave]);
 
   useEffect(() => {
-    registerSaveRef?.(handleSave);
-  }, [registerSaveRef, handleSave]);
+    registerSaveRef?.(handleSaveSync);
+  }, [registerSaveRef, handleSaveSync]);
 
   // Send handler. Works in both modes — create-mode synthesizes a
   // path under the preferred collection (preferred > folder > root) so
@@ -297,6 +358,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
     const draftRequest: V5.Request = {
       schemaVersion: 5,
+      // In-memory ad-hoc draft executed via Send — never persisted
+      // under this uid so the version is a placeholder.
+      version: loadedVersion ?? 1,
       uid: summary?.uid ?? 'draft',
       path,
       name: summary?.name ?? draftName ?? 'Draft',
@@ -311,7 +375,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     const snapshot = await execute({ draft: draftRequest });
     setSending(false);
     setResponse(snapshot);
-  }, [sending, summary, draftName, draft, execute, preferredCollectionId, preferredFolderPath, requestCollections]);
+  }, [
+    sending,
+    summary,
+    draftName,
+    draft,
+    execute,
+    preferredCollectionId,
+    preferredFolderPath,
+    requestCollections,
+    loadedVersion,
+  ]);
 
   // Edit mode with missing summary — request was deleted elsewhere.
   if (!isCreateMode && !summary) {
@@ -337,6 +411,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {staleDraft && (
+        <div style={{ padding: '8px 16px 0' }}>
+          <StaleDraftBanner
+            entityLabel="request"
+            serverVersion={staleDraft.serverVersion}
+            loadedVersion={staleDraft.loadedVersion}
+            onReload={() => void handleStaleDraftReload()}
+            onKeepEditing={() => void handleStaleDraftKeepEditing()}
+          />
+        </div>
+      )}
       {/* URL bar */}
       <div
         style={{

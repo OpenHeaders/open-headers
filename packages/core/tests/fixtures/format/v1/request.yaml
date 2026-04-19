@@ -1,4 +1,5 @@
 schemaVersion: 5
+version: 1
 uid: reqlogin
 name: Login
 method: POST

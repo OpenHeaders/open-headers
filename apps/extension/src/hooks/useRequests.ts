@@ -11,9 +11,16 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import { useCallback, useEffect, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
+
+/**
+ * Phase 10 write-result shape for request updates, sourced directly
+ * from the bridge contract so the hook API can't drift from the RPC.
+ */
+export type RequestWriteResult = BridgeRpcResponse<'updateLocalRequest'>;
 
 export interface UseRequestsApi {
   requests: V5.Request[];
@@ -32,7 +39,17 @@ export interface UseRequestsApi {
     parentPath?: string;
     seed?: Partial<V5.Request>;
   }) => Promise<V5.Request | null>;
-  updateRequest: (requestUid: string, updates: Partial<Omit<V5.Request, 'uid' | 'path'>>) => Promise<boolean>;
+  /**
+   * Update a request. Returns the full Phase 10 write result so
+   * editors can surface `stale-draft` on concurrent-edit races.
+   * Callers that don't track `expectedVersion` (scriptable imports,
+   * programmatic edits) omit it and get last-write-wins semantics.
+   */
+  updateRequest: (
+    requestUid: string,
+    updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+    expectedVersion?: number,
+  ) => Promise<RequestWriteResult>;
   deleteRequest: (requestUid: string) => Promise<boolean>;
 
   createCollection: (name: string) => Promise<V5.Collection | null>;
@@ -99,9 +116,11 @@ export function useRequests(): UseRequestsApi {
     return resp?.success ? (resp.request ?? null) : null;
   }, []);
 
-  const updateRequest = useCallback<UseRequestsApi['updateRequest']>(async (requestUid, updates) => {
-    const resp = await call('updateLocalRequest', { requestUid, updates }).catch(() => null);
-    return Boolean(resp?.success);
+  const updateRequest = useCallback<UseRequestsApi['updateRequest']>(async (requestUid, updates, expectedVersion) => {
+    const payload = expectedVersion !== undefined ? { requestUid, updates, expectedVersion } : { requestUid, updates };
+    return call('updateLocalRequest', payload).catch(
+      (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
+    );
   }, []);
 
   const deleteRequest = useCallback(async (requestUid: string) => {

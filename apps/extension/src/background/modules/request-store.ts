@@ -21,6 +21,7 @@ import { CollectionSchema, FolderSchema, RequestSchema } from '@openheaders/core
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
+import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -197,11 +198,18 @@ export function deleteRequestFolder(uid: string): boolean {
 /** Seed shape for a fresh request — name + minimal defaults. Callers
  *  hand us the new request's display name; everything else is a sane
  *  empty default the editor can populate. */
-export function addRequest(name: string, parentPath: string, seed?: Partial<V5.Request>): V5.Request {
+export function addRequest(
+  name: string,
+  parentPath: string,
+  seed?: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+): V5.Request {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const created: V5.Request = {
     schemaVersion: 5,
+    // Phase 10 write counter — starts at 1 on creation. See
+    // `RuleBase.version` for the stale-draft contract.
+    version: 1,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -219,7 +227,11 @@ export function addRequest(name: string, parentPath: string, seed?: Partial<V5.R
   return created;
 }
 
-export function addRequestToCollection(name: string, collectionUid: string, seed?: Partial<V5.Request>): V5.Request {
+export function addRequestToCollection(
+  name: string,
+  collectionUid: string,
+  seed?: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+): V5.Request {
   const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `requests/${collectionUid}`;
   return addRequest(name, parentPath, seed);
@@ -229,22 +241,68 @@ export function getRequest(uid: string): V5.Request | null {
   return requests.find((r) => r.uid === uid) ?? null;
 }
 
-export function updateRequest(uid: string, updates: Partial<Omit<V5.Request, 'uid' | 'path'>>): boolean {
-  const index = requests.findIndex((r) => r.uid === uid);
-  if (index === -1) return false;
-  const existing = requests[index];
-  const updated = { ...existing, ...updates } as V5.Request;
-  requests = [...requests.slice(0, index), updated, ...requests.slice(index + 1)];
-  void persistRequests();
-  return true;
+/**
+ * Outcome of a versioned request write (Phase 10 stale-draft contract
+ * — parallel to `RuleWriteResult` / `EnvironmentWriteResult`).
+ */
+export type RequestWriteResult =
+  | { ok: true; version: number; request: V5.Request }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverRequest: V5.Request }
+  | { ok: false; reason: 'not-found' };
+
+export interface UpdateRequestOptions {
+  /** Version the client loaded. Omit to opt out of stale-draft detection. */
+  expectedVersion?: number;
 }
 
-export function deleteRequest(uid: string): boolean {
-  const before = requests.length;
-  requests = requests.filter((r) => r.uid !== uid);
-  if (requests.length === before) return false;
-  void persistRequests();
-  return true;
+function requestVersionOf(r: V5.Request): number {
+  return r.version;
+}
+
+export async function updateRequest(
+  uid: string,
+  updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+  options: UpdateRequestOptions = {},
+): Promise<RequestWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'request', uid),
+    async () => {
+      const index = requests.findIndex((r) => r.uid === uid);
+      if (index === -1) return { ok: false, reason: 'not-found' } as RequestWriteResult;
+      const existing = requests[index];
+      const current = requestVersionOf(existing);
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverRequest: existing,
+        } as RequestWriteResult;
+      }
+      const nextVersion = current + 1;
+      const updated = { ...existing, ...updates, version: nextVersion } as V5.Request;
+      requests = [...requests.slice(0, index), updated, ...requests.slice(index + 1)];
+      await persistRequests();
+      return { ok: true, version: nextVersion, request: updated } as RequestWriteResult;
+    },
+    { op: 'request-update' },
+  );
+}
+
+export async function deleteRequest(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'request', uid),
+    async () => {
+      const before = requests.length;
+      requests = requests.filter((r) => r.uid !== uid);
+      if (requests.length === before) return false;
+      await persistRequests();
+      return true;
+    },
+    { op: 'request-delete' },
+  );
 }
 
 // ── Persistence ─────────────────────────────────────────────────────
