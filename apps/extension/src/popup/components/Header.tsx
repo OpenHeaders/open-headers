@@ -113,7 +113,7 @@ const Header: React.FC = () => {
               ))}
           </>
         )}
-        <StatusPill density="compact" />
+        <StatusPill density="compact" placement={isSidepanel ? 'right' : 'bottom'} />
         <WorkspacePill />
       </Space>
       <Space align="center" size={12}>

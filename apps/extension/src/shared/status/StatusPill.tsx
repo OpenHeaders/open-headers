@@ -22,6 +22,7 @@
  */
 
 import { Popover, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import type { TooltipPlacement } from 'antd/es/tooltip';
 import type React from 'react';
 import { useStatus } from '@/hooks/useStatus';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
@@ -35,9 +36,27 @@ export interface StatusPillProps {
   /** Extra class to forward to the outer span — lets the workspace
    *  footer keep its `rules-statusbar-item` hit target styling. */
   className?: string;
+  /**
+   * Override the popover placement. Density-specific defaults:
+   *   - `row`     → `top`    (workspace footer; opens upward)
+   *   - `full`    → `top`    (legacy compact; opens upward)
+   *   - `compact` → `bottom` (popup header; opens downward)
+   *
+   * The sidepanel surface is narrower than the popup, so the default
+   * `bottom`/`right`-centered popover can clip against the sidepanel's
+   * right edge. Callers there pass `right` / `bottomLeft` to flip the
+   * opening direction.
+   */
+  placement?: TooltipPlacement;
 }
 
-export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', className }) => {
+const DEFAULT_PLACEMENT: Record<StatusPillDensity, TooltipPlacement> = {
+  row: 'top',
+  full: 'top',
+  compact: 'bottom',
+};
+
+export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', className, placement }) => {
   const { token } = theme.useToken();
   const { snapshot, worst } = useStatus();
   const hasEntries = Object.values(snapshot).some(Boolean);
@@ -63,9 +82,11 @@ export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', classNa
     </Space>
   );
 
+  const effectivePlacement = placement ?? DEFAULT_PLACEMENT[density];
+
   if (density === 'row') {
     return (
-      <Popover placement="top" trigger={['click']} content={body} title={titleNode}>
+      <Popover placement={effectivePlacement} trigger={['click']} content={body} title={titleNode}>
         <span
           className={className ?? 'rules-statusbar-item'}
           role="status"
@@ -82,7 +103,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', classNa
 
   if (density === 'compact') {
     return (
-      <Popover placement="bottom" trigger={['click', 'hover']} content={body} title={titleNode}>
+      <Popover placement={effectivePlacement} trigger={['click', 'hover']} content={body} title={titleNode}>
         <span
           className={className}
           role="status"
@@ -108,7 +129,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', classNa
   }
 
   return (
-    <Popover placement="top" trigger={['click', 'hover']} content={body} title={titleNode}>
+    <Popover placement={effectivePlacement} trigger={['click', 'hover']} content={body} title={titleNode}>
       <span
         className={className ?? 'rules-statusbar-item'}
         role="status"
