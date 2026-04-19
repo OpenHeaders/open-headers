@@ -29,6 +29,7 @@ import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/wor
 import { intentToHash, parseIntent } from '@openheaders/core/workspace-intent';
 import { getBrowserAPI } from '@/types/browser';
 import { recordLog } from './observability-log';
+import { ordinalForTab } from './workspace-tab-registry';
 
 /** Path of the workspace HTML file in the packed extension. */
 const WORKSPACE_HTML = 'workspace.html';
@@ -183,7 +184,7 @@ async function warmPath(
       subsystem: 'workspace',
       op: 'navigator/delivered',
       level: 'info',
-      message: `warm · ${intent.kind}`,
+      message: `warm · ${intent.kind}${ordinalSuffix(tabId)}`,
       context: {},
     });
     return { ok: true, tabId, windowId, path: 'warm' };
@@ -219,7 +220,7 @@ async function coldPath(intent: WorkspaceIntent, workspaceUrl: string): Promise<
     subsystem: 'workspace',
     op: 'navigator/created',
     level: 'info',
-    message: `cold · ${intent.kind}`,
+    message: `cold · ${intent.kind}${ordinalSuffix(tab.id)}`,
     context: {},
   });
   return { ok: true, tabId: tab.id, windowId: tab.windowId, path: 'cold' };
@@ -264,6 +265,18 @@ function errorClassOf(err: unknown): string | undefined {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * ` · #<ordinal>` suffix for the structured log, or empty string
+ * when the registry hasn't yet assigned an ordinal (cold-path race
+ * with the `tabs.onCreated` listener — the listener may not have
+ * fired by the time `tabs.create` resolves).
+ */
+function ordinalSuffix(tabId: number | undefined): string {
+  if (typeof tabId !== 'number') return '';
+  const ordinal = ordinalForTab(tabId);
+  return ordinal === null ? '' : ` · #${ordinal}`;
 }
 
 // ── Chrome API wrappers ─────────────────────────────────────────────

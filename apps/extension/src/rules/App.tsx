@@ -76,6 +76,7 @@ import { useTabSyncEffects } from './hooks/useTabSyncEffects';
 import { useToolLayout } from './hooks/useToolLayout';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
+import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
 import { SettingsModal, SettingsTab } from './settings';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
@@ -398,6 +399,12 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       setPendingRenameTabId(null);
     }
   }, [activeTabId, pendingRenameTabId, setPendingRenameTabId]);
+
+  // ── Tab-title composition (`#<n> Open Headers` when ≥2 tabs) ──
+  // Must mount once at the shell; subsequent route-aware title
+  // mutations flow through `setBase` on this single owner so every
+  // workspace tab writes the same prefix uniformly.
+  useWorkspaceTabTitle();
 
   // ── Workspace Intent routing (cold-hash + warm-message) ────────
   useWorkspaceIntentRouter({

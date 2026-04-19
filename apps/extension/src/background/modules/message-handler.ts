@@ -118,6 +118,7 @@ import {
   reorderWorkspaces as reorderWorkspacesMeta,
   updateWorkspace as updateWorkspaceMeta,
 } from './workspace-store';
+import { ordinalForTab, workspaceTabCount } from './workspace-tab-registry';
 
 // ── Orphan test-run sweep ──────────────────────────────────────────
 
@@ -412,6 +413,10 @@ export function handleGeneralMessage(
         }
       });
       return true;
+    } else if (message.type === 'getWorkspaceTabOrdinal') {
+      const tabId = _sender.tab?.id;
+      const ordinal = typeof tabId === 'number' ? ordinalForTab(tabId) : null;
+      safeResponse({ ordinal, count: workspaceTabCount() });
     } else if (message.type === 'openWorkspaceIntent') {
       // Focus-or-create dispatch for cross-surface workspace navigation.
       // Payload is intentionally validated inside the navigator (schema

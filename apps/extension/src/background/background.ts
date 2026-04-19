@@ -66,6 +66,7 @@ import {
   listWorkspaces,
   onWorkspaceStoreChange,
 } from './modules/workspace-store';
+import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -235,6 +236,11 @@ async function initializeExtension(): Promise<void> {
   setupTabListeners(debouncedUpdateBadge, recordingService);
   setupPeriodicCleanup();
   initializeActiveTabTracking();
+  // Workspace tab ordinals must be live before the first intent
+  // dispatch so the navigator's cold/warm logs can stamp `#<n>`.
+  // The setup also runs a one-shot bootstrap against existing tabs
+  // so ordinals repopulate after SW wake.
+  setupWorkspaceTabRegistry();
   void initializeViewMode();
   setupInjectListener();
   setupDelayBypassCleanup();

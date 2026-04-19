@@ -165,6 +165,24 @@ export interface BridgeRpcContract {
       | { ok: false; reason: string };
   };
 
+  /**
+   * Tab-ordinal bootstrap for a freshly-mounted workspace page.
+   *
+   * Renderers don't know their own tab id, so the SW derives it from
+   * `sender.tab.id` and replies with that tab's current ordinal plus
+   * the global live-tab count. Called once at mount; subsequent
+   * changes arrive via the `workspaceTabsChanged` broadcast.
+   *
+   * `ordinal` is `null` if the tab is somehow not tracked (rare —
+   * happens during a race between mount and the SW's `onCreated`
+   * listener). The hook falls back to rendering `Open Headers` until
+   * the first broadcast fills it in.
+   */
+  getWorkspaceTabOrdinal: {
+    req: Record<string, never>;
+    res: { ordinal: number | null; count: number };
+  };
+
   // ── Recording settings (WebSocket passthrough) ─────────────────
   toggleVideoRecording: {
     req: { enabled: boolean };
@@ -687,6 +705,18 @@ export interface BridgeBroadcastContract {
    * past the boundary. See Phase 9.
    */
   'workspace-intent': { intent: WorkspaceIntent };
+
+  /**
+   * Fired by the SW's `workspace-tab-registry` whenever a workspace
+   * tab is assigned, freed, or swapped (tab-discard restore). Every
+   * open workspace surface uses this to recompose `document.title`
+   * via the `useWorkspaceTabTitle` hook.
+   *
+   * `ordinals` is a plain object keyed by numeric tab id so the wire
+   * shape is JSON-safe; renderers look up their own ordinal by the
+   * tab-id they learned from `getWorkspaceTabOrdinal` at mount.
+   */
+  workspaceTabsChanged: { ordinals: Record<number, number>; count: number };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

@@ -36,6 +36,10 @@ export interface LogEntryContext {
   stack?: string;
   /** Extension version at record time. Filled by `recordLog`. */
   extensionVersion?: string;
+  /** Tab id when the event is tab-scoped (workspace tab registry, etc.). */
+  tabId?: number;
+  /** Count of tracked entities (workspace tabs, etc.) at record time. */
+  count?: number;
 }
 
 export interface LogEntry {
