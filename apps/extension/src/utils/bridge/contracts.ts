@@ -513,6 +513,42 @@ export interface BridgeRpcContract {
       | { ok: false; reason: 'stale-draft'; serverVersion: number; serverVault: V5.Vault }
       | { ok: false; reason: 'other'; message: string };
   };
+
+  /**
+   * Per-secret vault mutators — the channel the `ChromeStorageVault`
+   * renderer-side Vault interface uses for `put` / `delete`. Routing
+   * every write through the SW keeps the Web Lock wrapping + version
+   * counter authoritative; direct `chrome.storage.local.set` on the
+   * vault key is architecturally forbidden (two writers = race).
+   *
+   * Last-write-wins semantics — the per-key callers (OAuth refresh,
+   * API-key flows) don't track a loaded version, and the lock alone
+   * prevents lost updates. Bulk edits from `VaultEditor` still use
+   * `setVault` with an explicit `expectedVersion` for full
+   * stale-draft semantics.
+   */
+  vaultPutSecret: {
+    req: { key: string; value: string };
+    res: { ok: true; version: number; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
+  };
+  vaultDeleteSecret: {
+    req: { key: string };
+    res: { ok: true; version: number; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
+  };
+  /**
+   * Per-secret read — returns the SW's in-memory snapshot value.
+   * Reads are consistent without a lock (single-threaded SW; no
+   * concurrent writer visible to the reader).
+   */
+  vaultGetSecret: {
+    req: { key: string };
+    res: { value: string | null };
+  };
+  /** List every secret name in the active workspace's vault. */
+  vaultListSecretNames: {
+    req: Record<string, never>;
+    res: { names: string[] };
+  };
   updateCollectionVariables: {
     req: { collectionUid: string; variables: V5.Variable[] };
     res: { success: boolean };

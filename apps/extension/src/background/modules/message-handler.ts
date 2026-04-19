@@ -21,11 +21,15 @@ import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypas
 import {
   createEnvironment,
   deleteEnvironment,
+  deleteVaultSecret,
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
   getEnvironments,
   getVault,
+  getVaultSecret,
   getWorkspaceVariables,
+  listVaultSecretNames,
+  putVaultSecret,
   renameEnvironment,
   setActiveEnvironment,
   setDefaultEnvironment,
@@ -329,6 +333,20 @@ export function handleGeneralMessage(
         .then((result) => safeResponse(result))
         .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
       return true;
+    } else if (message.type === 'vaultPutSecret') {
+      putVaultSecret(message.key as string, message.value as string)
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
+    } else if (message.type === 'vaultDeleteSecret') {
+      deleteVaultSecret(message.key as string)
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
+    } else if (message.type === 'vaultGetSecret') {
+      safeResponse({ value: getVaultSecret(message.key as string) });
+    } else if (message.type === 'vaultListSecretNames') {
+      safeResponse({ names: listVaultSecretNames() });
     } else if (message.type === 'updateCollectionVariables') {
       const success = updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[]);
       if (success) {

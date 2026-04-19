@@ -1,124 +1,97 @@
-import type { V5 } from '@openheaders/core/types';
+/**
+ * Coverage for `ChromeStorageVault` — the renderer-side Vault
+ * implementation. Every mutation routes through the SW via
+ * `bridge.call('vaultPutSecret' | 'vaultDeleteSecret' | ...)`; no
+ * direct `chrome.storage.local` writes happen here. The tests mock
+ * the bridge module and assert the exact RPC traffic each Vault
+ * method produces + verify cipher injection stays round-trip safe.
+ */
+
 import type { VaultCipher, VaultScope } from '@openheaders/core/vault';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Hoisted — the vi.mock factory is hoisted above imports.
-const { mockGet, mockSet } = vi.hoisted(() => ({
-  mockGet: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
-  mockSet: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
+// Hoisted mock for the bridge `call` function — every ChromeStorageVault
+// method goes through this single channel. Tests set the resolver per
+// case to simulate the SW's response for each RPC.
+const { mockCall } = vi.hoisted(() => ({
+  mockCall: vi.fn<(type: string, payload?: unknown) => Promise<unknown>>(),
 }));
 
-vi.mock('@/shared/storage', async () => {
-  const real = await vi.importActual<typeof import('@/shared/storage')>('@/shared/storage');
-  return {
-    ...real,
-    extensionStorage: {
-      get: mockGet,
-      set: mockSet,
-      getMany: vi.fn(async () => ({})),
-      remove: vi.fn(async () => undefined),
-    },
-  };
-});
+vi.mock('@utils/bridge', () => ({
+  call: mockCall,
+  subscribe: vi.fn(),
+  broadcast: vi.fn(),
+  receive: vi.fn(),
+  presence: vi.fn(),
+  tabCall: vi.fn(),
+}));
 
 import { ChromeStorageVault } from '@/shared/vault/chrome-storage-vault';
 
 const PERSONAL: VaultScope = { kind: 'personal', workspaceId: 'ws-1' };
 const SESSION: VaultScope = { kind: 'session' };
 
-function makeBlob(secrets: Array<{ name: string; value: string }>): V5.Vault {
-  return { schemaVersion: 5, version: 1, secrets };
-}
-
 beforeEach(() => {
-  mockGet.mockReset().mockResolvedValue(undefined);
-  mockSet.mockReset().mockResolvedValue(undefined);
+  mockCall.mockReset();
 });
 
 describe('ChromeStorageVault — personal scope', () => {
-  it('get returns null when the blob is empty', async () => {
-    const vault = new ChromeStorageVault();
-    expect(await vault.get('TOKEN', PERSONAL)).toBeNull();
-  });
-
-  it('get returns the stored value when present', async () => {
-    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'abc123' }]));
+  it('get fires vaultGetSecret and returns the SW snapshot value', async () => {
+    mockCall.mockImplementation(async (type) => {
+      if (type === 'vaultGetSecret') return { value: 'abc123' };
+      throw new Error(`unexpected call: ${type}`);
+    });
     const vault = new ChromeStorageVault();
     expect(await vault.get('TOKEN', PERSONAL)).toBe('abc123');
+    expect(mockCall).toHaveBeenCalledWith('vaultGetSecret', { key: 'TOKEN' });
   });
 
-  it('get returns null for keys that exist with empty values', async () => {
-    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: '' }]));
+  it('get returns null when the SW reports missing key', async () => {
+    mockCall.mockResolvedValue({ value: null });
     const vault = new ChromeStorageVault();
     expect(await vault.get('TOKEN', PERSONAL)).toBeNull();
   });
 
-  it('put adds a new secret when the key is absent', async () => {
-    mockGet.mockResolvedValue(makeBlob([]));
+  it('put fires vaultPutSecret — NO direct storage write', async () => {
+    mockCall.mockResolvedValue({ ok: true, version: 2, vault: { schemaVersion: 5, version: 2, secrets: [] } });
     const vault = new ChromeStorageVault();
     await vault.put('TOKEN', 'abc123', PERSONAL);
-    expect(mockSet).toHaveBeenCalledOnce();
-    const [, payload] = mockSet.mock.calls[0] as unknown as [unknown, V5.Vault];
-    expect(payload.secrets).toEqual([{ name: 'TOKEN', value: 'abc123' }]);
+    expect(mockCall).toHaveBeenCalledTimes(1);
+    expect(mockCall).toHaveBeenCalledWith('vaultPutSecret', { key: 'TOKEN', value: 'abc123' });
   });
 
-  it('put overwrites an existing secret rather than duplicating', async () => {
-    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'old' }]));
+  it('delete fires vaultDeleteSecret', async () => {
+    mockCall.mockResolvedValue({ ok: true, version: 3, vault: { schemaVersion: 5, version: 3, secrets: [] } });
     const vault = new ChromeStorageVault();
-    await vault.put('TOKEN', 'new', PERSONAL);
-    const [, payload] = mockSet.mock.calls[0] as unknown as [unknown, V5.Vault];
-    expect(payload.secrets).toHaveLength(1);
-    expect(payload.secrets[0]).toEqual({ name: 'TOKEN', value: 'new' });
+    await vault.delete('TOKEN', PERSONAL);
+    expect(mockCall).toHaveBeenCalledWith('vaultDeleteSecret', { key: 'TOKEN' });
   });
 
-  it('delete removes the key and persists the change', async () => {
-    mockGet.mockResolvedValue(
-      makeBlob([
-        { name: 'A', value: '1' },
-        { name: 'B', value: '2' },
-      ]),
-    );
-    const vault = new ChromeStorageVault();
-    await vault.delete('A', PERSONAL);
-    const [, payload] = mockSet.mock.calls[0] as unknown as [unknown, V5.Vault];
-    expect(payload.secrets).toEqual([{ name: 'B', value: '2' }]);
-  });
-
-  it('delete is a no-op when the key is absent (no write)', async () => {
-    mockGet.mockResolvedValue(makeBlob([{ name: 'A', value: '1' }]));
-    const vault = new ChromeStorageVault();
-    await vault.delete('MISSING', PERSONAL);
-    expect(mockSet).not.toHaveBeenCalled();
-  });
-
-  it('list enumerates every stored key', async () => {
-    mockGet.mockResolvedValue(
-      makeBlob([
-        { name: 'A', value: '1' },
-        { name: 'B', value: '2' },
-      ]),
-    );
+  it('list fires vaultListSecretNames and returns the reported names', async () => {
+    mockCall.mockResolvedValue({ names: ['A', 'B'] });
     const vault = new ChromeStorageVault();
     expect(await vault.list(PERSONAL)).toEqual(['A', 'B']);
+    expect(mockCall).toHaveBeenCalledWith('vaultListSecretNames');
   });
 });
 
 describe('ChromeStorageVault — session scope (v1 no-op)', () => {
-  it('get returns null', async () => {
+  it('get returns null without hitting the bridge', async () => {
     const vault = new ChromeStorageVault();
     expect(await vault.get('TOKEN', SESSION)).toBeNull();
-    expect(mockGet).not.toHaveBeenCalled();
+    expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('put is a no-op (no storage write)', async () => {
+  it('put is a no-op (no RPC)', async () => {
     const vault = new ChromeStorageVault();
     await vault.put('TOKEN', 'abc', SESSION);
-    expect(mockSet).not.toHaveBeenCalled();
+    expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('list returns an empty array', async () => {
+  it('list returns an empty array without hitting the bridge', async () => {
     const vault = new ChromeStorageVault();
     expect(await vault.list(SESSION)).toEqual([]);
+    expect(mockCall).not.toHaveBeenCalled();
   });
 });
 
@@ -128,46 +101,51 @@ describe('ChromeStorageVault — cipher injection', () => {
     decrypt: (x) => x.toLowerCase(),
   };
 
-  it('encrypts on put', async () => {
-    mockGet.mockResolvedValue(makeBlob([]));
+  it('encrypts in the renderer BEFORE shipping across the bridge', async () => {
+    mockCall.mockResolvedValue({ ok: true, version: 2, vault: { schemaVersion: 5, version: 2, secrets: [] } });
     const vault = new ChromeStorageVault(upperCipher);
     await vault.put('TOKEN', 'hello', PERSONAL);
-    const [, payload] = mockSet.mock.calls[0] as unknown as [unknown, V5.Vault];
-    expect(payload.secrets[0]?.value).toBe('HELLO');
+    // SW sees the encrypted payload, never the plaintext.
+    expect(mockCall).toHaveBeenCalledWith('vaultPutSecret', { key: 'TOKEN', value: 'HELLO' });
   });
 
-  it('decrypts on get', async () => {
-    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'STORED' }]));
+  it('decrypts the SW payload on get', async () => {
+    mockCall.mockResolvedValue({ value: 'STORED' });
     const vault = new ChromeStorageVault(upperCipher);
     expect(await vault.get('TOKEN', PERSONAL)).toBe('stored');
   });
 
-  it('returns null and warns when decrypt throws', async () => {
+  it('returns null when decrypt throws (reports status red)', async () => {
     const failingCipher: VaultCipher = {
       encrypt: (x) => x,
       decrypt: () => {
         throw new Error('bad-mac');
       },
     };
-    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'unrecoverable' }]));
+    mockCall.mockResolvedValue({ value: 'unrecoverable' });
     const vault = new ChromeStorageVault(failingCipher);
     expect(await vault.get('TOKEN', PERSONAL)).toBeNull();
   });
 });
 
-describe('ChromeStorageVault — robustness', () => {
-  it('treats a malformed blob (non-array secrets) as empty', async () => {
-    mockGet.mockResolvedValue({ schemaVersion: 5, version: 1, secrets: 'bogus' });
+describe('ChromeStorageVault — bridge failure tolerance', () => {
+  it('get returns null when the bridge rejects', async () => {
+    mockCall.mockRejectedValue(new Error('sw asleep'));
     const vault = new ChromeStorageVault();
     expect(await vault.get('ANY', PERSONAL)).toBeNull();
+  });
+
+  it('list returns empty when the bridge rejects', async () => {
+    mockCall.mockRejectedValue(new Error('sw asleep'));
+    const vault = new ChromeStorageVault();
     expect(await vault.list(PERSONAL)).toEqual([]);
   });
 
-  it('survives a failing storage read', async () => {
-    mockGet.mockRejectedValue(new Error('quota'));
+  it('put swallows bridge rejection (fail-open)', async () => {
+    mockCall.mockRejectedValue(new Error('timeout'));
     const vault = new ChromeStorageVault();
-    expect(await vault.get('ANY', PERSONAL)).toBeNull();
-    expect(await vault.list(PERSONAL)).toEqual([]);
+    // Should not throw — caller's credential save UX stays responsive.
+    await expect(vault.put('TOKEN', 'x', PERSONAL)).resolves.toBeUndefined();
   });
 });
 
@@ -181,7 +159,7 @@ describe('ChromeStorageVault — secrets Status subsystem', () => {
         throw new TypeError('bad-mac');
       },
     };
-    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'ciphertext' }]));
+    mockCall.mockResolvedValue({ value: 'ciphertext' });
     const vault = new ChromeStorageVault(failingCipher);
     await vault.get('TOKEN', PERSONAL);
     const entry = getStatusSnapshot().secrets;
@@ -199,7 +177,7 @@ describe('ChromeStorageVault — secrets Status subsystem', () => {
       encrypt: (x) => x,
       decrypt: (x) => x.toLowerCase(),
     };
-    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'STORED' }]));
+    mockCall.mockResolvedValue({ value: 'STORED' });
     const vault = new ChromeStorageVault(cipher);
     await vault.get('TOKEN', PERSONAL);
     const entry = getStatusSnapshot().secrets;
