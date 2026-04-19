@@ -24,6 +24,7 @@ import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '@openh
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
+import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -95,6 +96,7 @@ function assertLoaded(): string {
 export function createEnvironment(name: string, variables: V5.Variable[] = []): V5.Environment {
   const env: V5.Environment = {
     schemaVersion: 5,
+    version: 1,
     uid: generateUid(),
     name: name.trim() || 'Untitled Environment',
     variables,
@@ -104,40 +106,111 @@ export function createEnvironment(name: string, variables: V5.Variable[] = []): 
   return env;
 }
 
-export function renameEnvironment(uid: string, name: string): boolean {
-  const idx = environments.findIndex((e) => e.uid === uid);
-  if (idx === -1) return false;
-  environments = [
-    ...environments.slice(0, idx),
-    { ...environments[idx], name: name.trim() || environments[idx].name },
-    ...environments.slice(idx + 1),
-  ];
-  void persistEnvironments();
-  return true;
+/**
+ * Outcome of a versioned environment write (Phase 10 stale-draft
+ * contract — parallel to `RuleWriteResult`).
+ */
+export type EnvironmentWriteResult =
+  | { ok: true; version: number; environment: V5.Environment }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverEnvironment: V5.Environment }
+  | { ok: false; reason: 'not-found' };
+
+export interface EnvironmentUpdateOptions {
+  /** Version the client loaded. Omit to opt out of stale-draft detection (legacy callers). */
+  expectedVersion?: number;
 }
 
-export function updateEnvironmentVariables(uid: string, variables: V5.Variable[]): boolean {
-  const idx = environments.findIndex((e) => e.uid === uid);
-  if (idx === -1) return false;
-  environments = [...environments.slice(0, idx), { ...environments[idx], variables }, ...environments.slice(idx + 1)];
-  void persistEnvironments();
-  return true;
+function environmentVersionOf(env: V5.Environment): number {
+  return env.version;
 }
 
-export function deleteEnvironment(uid: string): boolean {
-  const before = environments.length;
-  environments = environments.filter((e) => e.uid !== uid);
-  if (environments.length === before) return false;
-  if (activeEnvironmentId === uid) {
-    activeEnvironmentId = null;
-    void persistActiveEnvironment();
-  }
-  if (defaultEnvironmentId === uid) {
-    defaultEnvironmentId = null;
-    void persistDefaultEnvironment();
-  }
-  void persistEnvironments();
-  return true;
+export async function renameEnvironment(
+  uid: string,
+  name: string,
+  options: EnvironmentUpdateOptions = {},
+): Promise<EnvironmentWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'environment', uid),
+    async () => {
+      const idx = environments.findIndex((e) => e.uid === uid);
+      if (idx === -1) return { ok: false, reason: 'not-found' } as EnvironmentWriteResult;
+      const existing = environments[idx];
+      const current = environmentVersionOf(existing);
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverEnvironment: existing,
+        } as EnvironmentWriteResult;
+      }
+      const nextVersion = current + 1;
+      const updated: V5.Environment = {
+        ...existing,
+        name: name.trim() || existing.name,
+        version: nextVersion,
+      };
+      environments = [...environments.slice(0, idx), updated, ...environments.slice(idx + 1)];
+      await persistEnvironments();
+      return { ok: true, version: nextVersion, environment: updated } as EnvironmentWriteResult;
+    },
+    { op: 'environment-rename' },
+  );
+}
+
+export async function updateEnvironmentVariables(
+  uid: string,
+  variables: V5.Variable[],
+  options: EnvironmentUpdateOptions = {},
+): Promise<EnvironmentWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'environment', uid),
+    async () => {
+      const idx = environments.findIndex((e) => e.uid === uid);
+      if (idx === -1) return { ok: false, reason: 'not-found' } as EnvironmentWriteResult;
+      const existing = environments[idx];
+      const current = environmentVersionOf(existing);
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverEnvironment: existing,
+        } as EnvironmentWriteResult;
+      }
+      const nextVersion = current + 1;
+      const updated: V5.Environment = { ...existing, variables, version: nextVersion };
+      environments = [...environments.slice(0, idx), updated, ...environments.slice(idx + 1)];
+      await persistEnvironments();
+      return { ok: true, version: nextVersion, environment: updated } as EnvironmentWriteResult;
+    },
+    { op: 'environment-variables' },
+  );
+}
+
+export async function deleteEnvironment(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'environment', uid),
+    async () => {
+      const before = environments.length;
+      environments = environments.filter((e) => e.uid !== uid);
+      if (environments.length === before) return false;
+      if (activeEnvironmentId === uid) {
+        activeEnvironmentId = null;
+        await persistActiveEnvironment();
+      }
+      if (defaultEnvironmentId === uid) {
+        defaultEnvironmentId = null;
+        await persistDefaultEnvironment();
+      }
+      await persistEnvironments();
+      return true;
+    },
+    { op: 'environment-delete' },
+  );
 }
 
 /**

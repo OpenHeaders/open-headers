@@ -437,11 +437,28 @@ export interface BridgeRpcContract {
   };
   renameEnvironment: {
     req: { uid: string; name: string };
-    res: { success: boolean };
+    // Same `EnvironmentWriteResult` shape as `updateEnvironmentVariables`.
+    // Rename typically fires from the sidebar (no tracked version)
+    // so the SW accepts it as last-write-wins; the store still
+    // bumps the counter so subsequent editor saves catch staleness.
+    res:
+      | { ok: true; version: number; environment: V5.Environment }
+      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverEnvironment: V5.Environment }
+      | { ok: false; reason: 'not-found' }
+      | { ok: false; reason: 'other'; message: string };
   };
   updateEnvironmentVariables: {
-    req: { uid: string; variables: V5.Variable[] };
-    res: { success: boolean };
+    req: {
+      uid: string;
+      variables: V5.Variable[];
+      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
+      expectedVersion?: number;
+    };
+    res:
+      | { ok: true; version: number; environment: V5.Environment }
+      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverEnvironment: V5.Environment }
+      | { ok: false; reason: 'not-found' }
+      | { ok: false; reason: 'other'; message: string };
   };
   deleteEnvironment: {
     req: { uid: string };

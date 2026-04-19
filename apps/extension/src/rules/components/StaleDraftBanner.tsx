@@ -22,6 +22,12 @@ import { Alert, Button, Space } from 'antd';
 import type React from 'react';
 
 export interface StaleDraftBannerProps {
+  /**
+   * User-facing entity noun — "rule", "environment", "request",
+   * "workspace variables", etc. Used to build the message copy so
+   * one banner component serves every editor surface.
+   */
+  entityLabel: string;
   /** Version the server has on disk right now — strictly greater than
    *  this tab's `loadedVersion`. Shown so power users can see how
    *  many intervening saves they'd overwrite. */
@@ -36,6 +42,7 @@ export interface StaleDraftBannerProps {
 }
 
 const StaleDraftBanner: React.FC<StaleDraftBannerProps> = ({
+  entityLabel,
   serverVersion,
   loadedVersion,
   onReload,
@@ -47,7 +54,7 @@ const StaleDraftBanner: React.FC<StaleDraftBannerProps> = ({
     <Alert
       type="warning"
       showIcon
-      message="This rule was modified in another tab"
+      message={`This ${entityLabel} was modified in another tab`}
       description={
         <div style={{ fontSize: 12, lineHeight: 1.5 }}>
           {intervening > 0 ? (
@@ -58,8 +65,8 @@ const StaleDraftBanner: React.FC<StaleDraftBannerProps> = ({
             </>
           ) : (
             <>
-              Another tab saved this rule. Reload to see the changes (your unsaved edits will be lost) or keep editing —
-              your version will overwrite the other tab's changes on the next save.
+              Another tab saved this {entityLabel}. Reload to see the changes (your unsaved edits will be lost) or keep
+              editing — your version will overwrite the other tab's changes on the next save.
             </>
           )}
         </div>

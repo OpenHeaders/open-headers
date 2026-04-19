@@ -40,4 +40,12 @@ export const EnvironmentSchema = v.object({
   name: v.string(),
   path: v.optional(v.string()),
   variables: v.array(VariableSchema),
+  /**
+   * Phase 10 monotonic write counter — separate from `schemaVersion`.
+   * Starts at 1 on creation, incremented by the environment-store on
+   * every save. Clients that load the environment into an editor
+   * send this back as `expectedVersion` on save for stale-draft
+   * protection. V5 has zero users, so required from day one.
+   */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
 });

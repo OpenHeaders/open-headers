@@ -280,14 +280,25 @@ export function handleGeneralMessage(
       const environment = createEnvironment(name, variables);
       safeResponse({ success: true, environment });
     } else if (message.type === 'renameEnvironment') {
-      const success = renameEnvironment(message.uid as string, message.name as string);
-      safeResponse({ success });
+      // Rename-only writes don't flow through a stateful editor, so
+      // no `expectedVersion` is enforced here — it's a
+      // fire-and-forget sidebar action. The store still bumps the
+      // counter so subsequent editor saves notice the bump.
+      renameEnvironment(message.uid as string, message.name as string)
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
     } else if (message.type === 'updateEnvironmentVariables') {
-      const success = updateEnvironmentVariables(message.uid as string, message.variables as V5.Variable[]);
-      safeResponse({ success });
+      const expectedVersion = message.expectedVersion as number | undefined;
+      updateEnvironmentVariables(message.uid as string, message.variables as V5.Variable[], { expectedVersion })
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
     } else if (message.type === 'deleteEnvironment') {
-      const success = deleteEnvironment(message.uid as string);
-      safeResponse({ success });
+      deleteEnvironment(message.uid as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'setActiveEnvironment') {
       const uid = message.uid as string | null;
       setActiveEnvironment(uid)

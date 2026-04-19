@@ -59,7 +59,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> & { path: string; uid:
 }
 
 function env(name: string, variables: V5.Variable[], uid = `e-${name}`): V5.Environment {
-  return { schemaVersion: 5, uid, name, variables };
+  return { schemaVersion: 5, version: 1, uid, name, variables };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────

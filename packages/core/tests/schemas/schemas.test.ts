@@ -60,6 +60,7 @@ describe('EnvironmentSchema', () => {
     expect(
       v.parse(EnvironmentSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         name: 'staging',
         variables: [{ name: 'API_URL', value: 'x', type: 'default' }],
@@ -83,6 +84,7 @@ describe('EnvironmentSchema', () => {
     expect(
       v.parse(EnvironmentSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         name: 'staging',
         path: 'environments/staging.yaml',

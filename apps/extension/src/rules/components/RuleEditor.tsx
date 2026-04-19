@@ -860,6 +860,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
         {staleDraft && (
           <StaleDraftBanner
+            entityLabel="rule"
             serverVersion={staleDraft.serverVersion}
             loadedVersion={staleDraft.loadedVersion}
             onReload={handleStaleDraftReload}

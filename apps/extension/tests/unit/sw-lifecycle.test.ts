@@ -115,8 +115,8 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       'oh.workspaces': [workspace(activeWs)],
       'oh.activeWorkspaceId': activeWs,
       [`oh.ws.${activeWs}.environments`]: [
-        { schemaVersion: 5, uid: makeUid('envstage'), name: 'staging', variables: [] },
-        { schemaVersion: 5, uid: makeUid('envprod0'), name: 'prod', variables: [] },
+        { schemaVersion: 5, version: 1, uid: makeUid('envstage'), name: 'staging', variables: [] },
+        { schemaVersion: 5, version: 1, uid: makeUid('envprod0'), name: 'prod', variables: [] },
       ],
       [`oh.ws.${activeWs}.defaultEnvironmentId`]: null,
       [`oh.ws.${activeWs}.workspaceVars`]: {
@@ -232,7 +232,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
   it('orchestrator: hydrateActiveWorkspaceStores replays every per-workspace store at once', async () => {
     const activeWs = 'ws-e2e';
-    const env = { schemaVersion: 5, uid: makeUid('envdev00'), name: 'dev', variables: [] };
+    const env = { schemaVersion: 5, version: 1, uid: makeUid('envdev00'), name: 'dev', variables: [] };
     const coll = {
       schemaVersion: 5,
       uid: makeUid('eecc1234'),

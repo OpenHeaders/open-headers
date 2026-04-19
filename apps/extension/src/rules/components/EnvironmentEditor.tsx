@@ -10,10 +10,11 @@
 import { CheckCircleTwoTone, GlobalOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import VariableTable from './panels/VariableTable';
+import StaleDraftBanner from './StaleDraftBanner';
 
 const { Text, Title } = Typography;
 
@@ -29,6 +30,7 @@ function fingerprint(vars: V5.Variable[]): string {
 
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
+  const { message } = App.useApp();
   const {
     environments,
     activeEnvironmentId,
@@ -42,6 +44,20 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
 
   const [draft, setDraft] = useState<V5.Variable[]>(() => env?.variables ?? []);
   const persistedFpRef = useRef<string>(fingerprint(env?.variables ?? []));
+
+  // ── Phase 10 stale-draft tracking ─────────────────────────────────
+  //
+  // Same pattern as `RuleEditor`: snapshot `env.version` at first
+  // arrival, send it as `expectedVersion` on save, show the
+  // `StaleDraftBanner` on `reason: 'stale-draft'` rejection.
+  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
+  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
+
+  useEffect(() => {
+    if (loadedVersion !== null) return;
+    if (typeof env?.version !== 'number') return;
+    setLoadedVersion(env.version);
+  }, [env?.version, loadedVersion]);
 
   // Re-sync local draft when the environment identity or persisted
   // content changes externally (save round-trip, other-workspace load,
@@ -61,19 +77,53 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!env || !isDirty) return;
-    void updateEnvironmentVariables(env.uid, draft).then((ok) => {
-      if (ok) {
-        persistedFpRef.current = fingerprint(draft);
-        onDirtyChange?.(false);
-      }
-    });
-  }, [env, isDirty, draft, updateEnvironmentVariables, onDirtyChange]);
+    const result = await updateEnvironmentVariables(env.uid, draft, loadedVersion ?? undefined);
+    if (result.ok) {
+      persistedFpRef.current = fingerprint(draft);
+      setLoadedVersion(result.version);
+      setStaleDraft(null);
+      onDirtyChange?.(false);
+    } else if (result.reason === 'stale-draft') {
+      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
+    } else if (result.reason === 'not-found') {
+      message.error('Environment was deleted from another tab');
+    } else {
+      message.error(`Failed to update environment${'message' in result ? `: ${result.message}` : ''}`);
+    }
+  }, [env, isDirty, draft, updateEnvironmentVariables, onDirtyChange, loadedVersion, message]);
+
+  const handleStaleDraftReload = useCallback(() => {
+    // Discard this tab's in-memory edits; snap loadedVersion to the
+    // server's current version (the live `env` is broadcast-refreshed
+    // by the winning save's `environmentsChanged` event).
+    if (!env) return;
+    persistedFpRef.current = fingerprint(env.variables);
+    setDraft(env.variables);
+    setLoadedVersion(env.version);
+    setStaleDraft(null);
+    onDirtyChange?.(false);
+  }, [env, onDirtyChange]);
+
+  const handleStaleDraftKeepEditing = useCallback(() => {
+    // Snap loadedVersion forward so the next save's expectedVersion
+    // matches the server and isn't rejected. This tab's draft wins
+    // last-write-wins on the next Save click.
+    if (!env) return;
+    setLoadedVersion(env.version);
+    setStaleDraft(null);
+  }, [env]);
+
+  // registerSaveRef takes a sync callback; wrap our async handler so
+  // the breadcrumb Save button kicks off the save without awaiting.
+  const handleSaveSync = useCallback(() => {
+    void handleSave();
+  }, [handleSave]);
 
   useEffect(() => {
-    registerSaveRef?.(handleSave);
-  }, [registerSaveRef, handleSave]);
+    registerSaveRef?.(handleSaveSync);
+  }, [registerSaveRef, handleSaveSync]);
 
   if (!env) {
     return (
@@ -90,6 +140,15 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   return (
     <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        {staleDraft && (
+          <StaleDraftBanner
+            entityLabel="environment"
+            serverVersion={staleDraft.serverVersion}
+            loadedVersion={staleDraft.loadedVersion}
+            onReload={handleStaleDraftReload}
+            onKeepEditing={handleStaleDraftKeepEditing}
+          />
+        )}
         <div
           style={{
             display: 'flex',

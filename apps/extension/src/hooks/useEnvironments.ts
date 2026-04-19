@@ -16,8 +16,18 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+/**
+ * Phase 10 write-result shape for environment mutations — sourced
+ * directly from the bridge contract so the hook can't drift from the
+ * RPC. The contract defines the same shape twice (renameEnvironment /
+ * updateEnvironmentVariables); they're identical so we name it once
+ * here for the consumer-facing API.
+ */
+export type EnvironmentWriteResult = BridgeRpcResponse<'updateEnvironmentVariables'>;
 
 export interface UseEnvironmentsApi {
   environments: V5.Environment[];
@@ -31,8 +41,18 @@ export interface UseEnvironmentsApi {
   isReady: boolean;
 
   createEnvironment: (name: string, variables?: V5.Variable[]) => Promise<V5.Environment | null>;
-  renameEnvironment: (uid: string, name: string) => Promise<boolean>;
-  updateEnvironmentVariables: (uid: string, variables: V5.Variable[]) => Promise<boolean>;
+  /**
+   * Rename — returns the full Phase 10 write result. Callers that
+   * don't track `expectedVersion` (sidebar, context menu) omit it
+   * and get last-write-wins semantics. Editors pass the loaded
+   * version so a cross-tab rename collision surfaces `stale-draft`.
+   */
+  renameEnvironment: (uid: string, name: string, expectedVersion?: number) => Promise<EnvironmentWriteResult>;
+  updateEnvironmentVariables: (
+    uid: string,
+    variables: V5.Variable[],
+    expectedVersion?: number,
+  ) => Promise<EnvironmentWriteResult>;
   deleteEnvironment: (uid: string) => Promise<boolean>;
   /** Pass `null` to enter "No environment" mode. */
   setActiveEnvironment: (uid: string | null) => Promise<boolean>;
@@ -119,15 +139,22 @@ export function useEnvironments(): UseEnvironmentsApi {
     return resp?.success ? (resp.environment ?? null) : null;
   }, []);
 
-  const renameEnvironment = useCallback(async (uid: string, name: string) => {
-    const resp = await call('renameEnvironment', { uid, name }).catch(() => null);
-    return Boolean(resp?.success);
+  const renameEnvironment = useCallback<UseEnvironmentsApi['renameEnvironment']>(async (uid, name, expectedVersion) => {
+    const payload = expectedVersion !== undefined ? { uid, name, expectedVersion } : { uid, name };
+    return call('renameEnvironment', payload).catch(
+      (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
+    );
   }, []);
 
-  const updateEnvironmentVariables = useCallback(async (uid: string, variables: V5.Variable[]) => {
-    const resp = await call('updateEnvironmentVariables', { uid, variables }).catch(() => null);
-    return Boolean(resp?.success);
-  }, []);
+  const updateEnvironmentVariables = useCallback<UseEnvironmentsApi['updateEnvironmentVariables']>(
+    async (uid, variables, expectedVersion) => {
+      const payload = expectedVersion !== undefined ? { uid, variables, expectedVersion } : { uid, variables };
+      return call('updateEnvironmentVariables', payload).catch(
+        (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
+      );
+    },
+    [],
+  );
 
   const deleteEnvironment = useCallback(async (uid: string) => {
     const resp = await call('deleteEnvironment', { uid }).catch(() => null);
