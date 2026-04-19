@@ -216,7 +216,7 @@ export interface BridgeRpcContract {
   };
   createLocalRule: {
     req: {
-      rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>;
+      rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>;
       collectionUid?: string;
       parentPath?: string;
     };
@@ -237,7 +237,7 @@ export interface BridgeRpcContract {
   updateLocalRule: {
     req: {
       ruleId: string;
-      updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
+      updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
       /**
        * Phase 10 stale-draft contract. Optional — callers that track
        * the `version` they loaded opt in to cross-tab concurrent-edit

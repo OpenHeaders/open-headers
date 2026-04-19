@@ -643,7 +643,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         // — `loadedVersion` is always defined by the time the user saves
         // because the `useEffect` above captures it from `liveRule`
         // before the first keystroke.
-        const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
+        const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
         type UpdateResult = Awaited<ReturnType<typeof call<'updateLocalRule'>>>;
         const result: UpdateResult = await call('updateLocalRule', {
           ruleId: ruleUid,
