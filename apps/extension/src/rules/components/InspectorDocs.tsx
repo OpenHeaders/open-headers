@@ -264,52 +264,85 @@ const InspectorDocs: React.FC = () => {
     const container = scrollRef.current;
     const section = pendingSection;
 
-    // Unified scroll+clear primitive. Called in two codepaths — the
-    // fast path (container already laid out) AND the slow path (we
-    // had to wait for layout via ResizeObserver). In both cases the
-    // scroll happens SYNCHRONOUSLY before `clearPending` re-renders
-    // the nav context, so the effect's cleanup — which fires when
-    // the clear flips `pendingSection` to null — can't race us.
+    // ── Why this looks the way it does ────────────────────────────
     //
-    // The previous implementation deferred the scroll inside a
-    // requestAnimationFrame but still called `clearPending` eagerly
-    // during the effect body. The state change re-ran the effect,
-    // whose cleanup cancelled the rAF before it fired — the scroll
-    // never happened.
-    const scrollAndClear = () => {
-      const el = container.querySelector(`#${section}`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // The docs panel lives inside an `Allotment` split-view. Allotment
+    // commits pane pixel sizes via its OWN ResizeObserver AFTER React's
+    // first paint — which means there's a window where our effect sees
+    // either a zero-height container (fresh workspace tab from popup)
+    // OR a seemingly-ready container whose size is about to change
+    // again as Allotment settles. `scrollIntoView({behavior: 'smooth'})`
+    // fired during that window is reliably interrupted / reset when
+    // Allotment reapplies heights on the next frame.
+    //
+    // Architectural fix:
+    //   (1) Scroll with deterministic container-relative math
+    //       (`container.scrollTo({top: …})`) instead of
+    //       `el.scrollIntoView`. Decouples us from the ancestor-chain
+    //       sizing quirks that were biting us.
+    //   (2) Defer the scroll past Allotment's first resize commit via
+    //       double-rAF. Two frames gives the split-view library enough
+    //       time to settle on a final pane height.
+    //   (3) Cover the slow edge case — if the container is still at
+    //       zero height after two frames (unusual, but possible on
+    //       slow cold starts) — with a ResizeObserver fallback that
+    //       fires on the first non-zero layout and takes over.
+    //   (4) `clearPending()` runs INSIDE the scroll callback, never in
+    //       the effect body. If it ran in the body it would flip
+    //       `pendingSection` to null, trigger a re-render, and the
+    //       effect cleanup would cancel our pending rAFs + disconnect
+    //       the ResizeObserver before either could fire. We saw this
+    //       exact bug in an earlier iteration.
+    //   (5) A `consumed` gate ensures the rAF path and the
+    //       ResizeObserver path can never both fire — whichever
+    //       reaches the ready state first wins.
+
+    let consumed = false;
+    const consume = () => {
+      if (consumed) return;
+      consumed = true;
+      const el = container.querySelector<HTMLElement>(`#${section}`);
+      if (el) {
+        // Measure the element relative to the scroll container so
+        // Allotment can resize ancestors freely without invalidating
+        // the target. 8px breathing room mirrors the `scroll-margin-
+        // top: 8px` declared on each SectionTitle.
+        const containerRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const target = container.scrollTop + (elRect.top - containerRect.top) - 8;
+        container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      }
       clearPending();
     };
 
-    // Fast path — container has real dimensions right now (in-
-    // workspace click on an already-visible docs panel, or a
-    // previously-mounted panel being re-targeted).
-    if (container.clientHeight > 0) {
-      scrollAndClear();
-      return;
-    }
+    // Path A — two-frame defer covers the common case (container is
+    // laid out but Allotment hasn't finished its first sizing pass).
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (container.clientHeight > 0) consume();
+        // If still zero, the ResizeObserver below will pick it up.
+      });
+    });
 
-    // Slow path — container exists but hasn't been laid out yet.
-    // Happens when the docs panel mounts fresh as part of the same
-    // render pass that set `pendingSection` (fresh workspace tab
-    // opened from `#/docs/<id>`; first-time open of the docs tool
-    // window). React commits the DOM before useEffect runs, but the
-    // browser's first layout may leave the container at height 0
-    // for a beat while parent flex/grid rules resolve.
-    //
-    // Observing the container catches the layout pass as soon as
-    // the browser gives it a non-zero height. We disconnect after
-    // the first successful scroll so subsequent user-driven resizes
-    // don't re-trigger anything.
+    // Path B — long-tail fallback for an ancestor that stays at zero
+    // height past the two-frame window. Disconnects itself after the
+    // first successful fire so subsequent user-driven resizes can't
+    // re-scroll.
     const ro = new ResizeObserver(() => {
-      if (container.clientHeight > 0) {
+      if (container.clientHeight > 0 && !consumed) {
         ro.disconnect();
-        scrollAndClear();
+        consume();
       }
     });
     ro.observe(container);
-    return () => ro.disconnect();
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      ro.disconnect();
+    };
   }, [pendingSection, pendingCounter, clearPending]);
 
   const scrollTo = (id: string) => {
