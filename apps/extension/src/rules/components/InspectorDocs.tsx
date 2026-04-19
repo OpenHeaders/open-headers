@@ -261,35 +261,55 @@ const InspectorDocs: React.FC = () => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: pendingCounter forces re-scroll for repeat requests
   useEffect(() => {
     if (!pendingSection || !scrollRef.current) return;
-    // Two rAFs give the browser one full paint to commit the docs
-    // panel's flex layout before we measure + scroll. This path runs
-    // in two shapes:
-    //   (a) In-workspace: `InspectorDocs` is already mounted + sized;
-    //       the scroll would work immediately but rAF costs nothing.
-    //   (b) Fresh workspace tab opened from `#/docs/<id>` (popup /
-    //       sidepanel handoff): the component mounts as part of the
-    //       first render pass and its scroll container hasn't settled
-    //       into its final height when the effect first fires, so
-    //       `scrollIntoView` silently resolves against a zero-height
-    //       box. Deferring past the next frame guarantees a real
-    //       viewport to scroll inside of.
+    const container = scrollRef.current;
     const section = pendingSection;
-    let cancelled = false;
-    const raf1 = requestAnimationFrame(() => {
-      if (cancelled) return;
-      requestAnimationFrame(() => {
-        if (cancelled) return;
-        const el = scrollRef.current?.querySelector(`#${section}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      });
-    });
-    clearPending();
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf1);
+
+    // Unified scroll+clear primitive. Called in two codepaths — the
+    // fast path (container already laid out) AND the slow path (we
+    // had to wait for layout via ResizeObserver). In both cases the
+    // scroll happens SYNCHRONOUSLY before `clearPending` re-renders
+    // the nav context, so the effect's cleanup — which fires when
+    // the clear flips `pendingSection` to null — can't race us.
+    //
+    // The previous implementation deferred the scroll inside a
+    // requestAnimationFrame but still called `clearPending` eagerly
+    // during the effect body. The state change re-ran the effect,
+    // whose cleanup cancelled the rAF before it fired — the scroll
+    // never happened.
+    const scrollAndClear = () => {
+      const el = container.querySelector(`#${section}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      clearPending();
     };
+
+    // Fast path — container has real dimensions right now (in-
+    // workspace click on an already-visible docs panel, or a
+    // previously-mounted panel being re-targeted).
+    if (container.clientHeight > 0) {
+      scrollAndClear();
+      return;
+    }
+
+    // Slow path — container exists but hasn't been laid out yet.
+    // Happens when the docs panel mounts fresh as part of the same
+    // render pass that set `pendingSection` (fresh workspace tab
+    // opened from `#/docs/<id>`; first-time open of the docs tool
+    // window). React commits the DOM before useEffect runs, but the
+    // browser's first layout may leave the container at height 0
+    // for a beat while parent flex/grid rules resolve.
+    //
+    // Observing the container catches the layout pass as soon as
+    // the browser gives it a non-zero height. We disconnect after
+    // the first successful scroll so subsequent user-driven resizes
+    // don't re-trigger anything.
+    const ro = new ResizeObserver(() => {
+      if (container.clientHeight > 0) {
+        ro.disconnect();
+        scrollAndClear();
+      }
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
   }, [pendingSection, pendingCounter, clearPending]);
 
   const scrollTo = (id: string) => {
