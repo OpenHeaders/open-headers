@@ -9,7 +9,12 @@
 
 import { call, subscribe } from '@utils/bridge';
 import { useEffect, useMemo, useState } from 'react';
-import { type StatusSnapshot, worstLevel } from '@/shared/status';
+// Import directly from the submodule (not the `@/shared/status` barrel)
+// to avoid a chunking cycle: StatusPill is exported from the barrel AND
+// consumes this hook, so routing the hook through the barrel makes
+// Rollup emit a circular-chunk warning and risks a broken execution
+// order at runtime.
+import { type StatusSnapshot, worstLevel } from '@/shared/status/types';
 
 export interface UseStatusApi {
   snapshot: StatusSnapshot;
