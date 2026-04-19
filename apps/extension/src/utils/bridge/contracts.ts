@@ -20,6 +20,7 @@
 
 import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders/core';
 import type { V5 } from '@openheaders/core/types';
+import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
@@ -141,6 +142,27 @@ export interface BridgeRpcContract {
   focusApp: {
     req: { navigation?: AppNavigationIntent };
     res: { success: boolean };
+  };
+
+  /**
+   * Workspace Intent — the single cross-surface navigation RPC.
+   *
+   * Every "open X in the workspace" action from popup / sidepanel /
+   * devpanel (or the workspace itself, when dispatching to another
+   * workspace tab) goes through this one call. The SW picks the right
+   * target tab (same-window preference, see `selectTargetTab`) and
+   * either delivers the intent to an existing workspace page over
+   * runtime messaging (warm path) or opens a fresh tab at the intent's
+   * encoded URL (cold path).
+   *
+   * The intent is schema-validated at the SW boundary; malformed
+   * payloads are rejected without side effects. See Phase 9 spec.
+   */
+  openWorkspaceIntent: {
+    req: { intent: WorkspaceIntent; callerContext?: IntentCallerContext };
+    res:
+      | { ok: true; tabId: number; windowId?: number; path: 'warm' | 'warm-fallback' | 'cold' }
+      | { ok: false; reason: string };
   };
 
   // ── Recording settings (WebSocket passthrough) ─────────────────

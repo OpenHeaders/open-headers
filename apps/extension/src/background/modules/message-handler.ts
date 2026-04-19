@@ -104,6 +104,7 @@ import {
 } from './test-run-store';
 import { startRun } from './test-runner';
 import { getResolvedRules } from './variables-resolver';
+import { openWorkspaceIntent } from './workspace-navigator';
 import {
   deleteWorkspaceWithData,
   duplicateWorkspace as duplicateWorkspaceData,
@@ -410,6 +411,18 @@ export function handleGeneralMessage(
           safeResponse({ success: true, tabId: tab.id });
         }
       });
+      return true;
+    } else if (message.type === 'openWorkspaceIntent') {
+      // Focus-or-create dispatch for cross-surface workspace navigation.
+      // Payload is intentionally validated inside the navigator (schema
+      // at the boundary); we just forward the raw fields here.
+      const payload = message as unknown as {
+        intent?: unknown;
+        callerContext?: { surface?: 'popup' | 'sidepanel' | 'devpanel' | 'workspace'; callerWindowId?: number };
+      };
+      openWorkspaceIntent(payload.intent, payload.callerContext ?? {})
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: err.message }));
       return true;
     } else if (message.type === 'sidepanelToPopup') {
       const sidePanelApi = (
