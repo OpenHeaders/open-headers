@@ -177,6 +177,40 @@ function DocParagraph({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Traffic-light row used by the System Status docs — a fixed-width
+ * colored tag followed by its description. Keeps each color state on
+ * its own line so the docs read like a legend instead of one run-on
+ * paragraph.
+ */
+function StateRow({
+  color,
+  label,
+  children,
+}: {
+  color: 'success' | 'warning' | 'error';
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 6,
+        fontSize: 12,
+        lineHeight: 1.7,
+        marginTop: 4,
+      }}
+    >
+      <Tag color={color} style={{ fontSize: 10, minWidth: 48, textAlign: 'center', margin: 0, marginTop: 2 }}>
+        {label}
+      </Tag>
+      <span style={{ color: 'var(--ant-color-text-secondary)', flex: 1 }}>{children}</span>
+    </div>
+  );
+}
+
 // ── TOC ─────────────────────────────────────────────────────────
 
 const TOC = [
@@ -227,11 +261,35 @@ const InspectorDocs: React.FC = () => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: pendingCounter forces re-scroll for repeat requests
   useEffect(() => {
     if (!pendingSection || !scrollRef.current) return;
-    const el = scrollRef.current.querySelector(`#${pendingSection}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    // Two rAFs give the browser one full paint to commit the docs
+    // panel's flex layout before we measure + scroll. This path runs
+    // in two shapes:
+    //   (a) In-workspace: `InspectorDocs` is already mounted + sized;
+    //       the scroll would work immediately but rAF costs nothing.
+    //   (b) Fresh workspace tab opened from `#/docs/<id>` (popup /
+    //       sidepanel handoff): the component mounts as part of the
+    //       first render pass and its scroll container hasn't settled
+    //       into its final height when the effect first fires, so
+    //       `scrollIntoView` silently resolves against a zero-height
+    //       box. Deferring past the next frame guarantees a real
+    //       viewport to scroll inside of.
+    const section = pendingSection;
+    let cancelled = false;
+    const raf1 = requestAnimationFrame(() => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        const el = scrollRef.current?.querySelector(`#${section}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
     clearPending();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+    };
   }, [pendingSection, pendingCounter, clearPending]);
 
   const scrollTo = (id: string) => {
@@ -819,21 +877,16 @@ const InspectorDocs: React.FC = () => {
           </Tag>{' '}
           Desktop-app connection
         </strong>
-        <DocParagraph>
-          Mirrors the WebSocket connection to the OpenHeaders desktop app.{' '}
-          <Tag color="success" style={{ fontSize: 10 }}>
-            green
-          </Tag>{' '}
-          Connected or disabled on purpose (auto-connect off).{' '}
-          <Tag color="warning" style={{ fontSize: 10 }}>
-            yellow
-          </Tag>{' '}
-          Connecting, reconnecting, or the settings URL was rejected.{' '}
-          <Tag color="error" style={{ fontSize: 10 }}>
-            red
-          </Tag>{' '}
+        <DocParagraph>Mirrors the WebSocket connection to the OpenHeaders desktop app.</DocParagraph>
+        <StateRow color="success" label="green">
+          Connected, or disabled on purpose (auto-connect off).
+        </StateRow>
+        <StateRow color="warning" label="yellow">
+          Connecting, reconnecting, or the settings URL was rejected.
+        </StateRow>
+        <StateRow color="error" label="red">
           Not used today — reserved for fatal desktop-sync failures.
-        </DocParagraph>
+        </StateRow>
       </Card>
       <Card size="small" style={{ marginBottom: 8 }}>
         <strong>
@@ -842,22 +895,17 @@ const InspectorDocs: React.FC = () => {
           </Tag>{' '}
           Declarative-Net-Request engine
         </strong>
-        <DocParagraph>
-          Reports on every DNR rebuild.{' '}
-          <Tag color="success" style={{ fontSize: 10 }}>
-            green
-          </Tag>{' '}
-          N active rules, or "Rule execution paused".{' '}
-          <Tag color="warning" style={{ fontSize: 10 }}>
-            yellow
-          </Tag>{' '}
-          Unresolved <code>{'{{VAR}}'}</code> references in the compiled set, or rule cap exceeded, or approaching DNR
-          capacity.{' '}
-          <Tag color="error" style={{ fontSize: 10 }}>
-            red
-          </Tag>{' '}
+        <DocParagraph>Reports on every DNR rebuild.</DocParagraph>
+        <StateRow color="success" label="green">
+          N active rules, or "Rule execution paused".
+        </StateRow>
+        <StateRow color="warning" label="yellow">
+          Unresolved <code>{'{{VAR}}'}</code> references in the compiled set, rule cap exceeded, or approaching DNR
+          capacity.
+        </StateRow>
+        <StateRow color="error" label="red">
           Transport failure — Chrome rejected the dynamic or session rule update.
-        </DocParagraph>
+        </StateRow>
       </Card>
       <Card size="small" style={{ marginBottom: 8 }}>
         <strong>
@@ -866,17 +914,13 @@ const InspectorDocs: React.FC = () => {
           </Tag>{' '}
           API request executor
         </strong>
-        <DocParagraph>
-          Reflects the last ad-hoc API request fired from the Request editor (Send button).{' '}
-          <Tag color="success" style={{ fontSize: 10 }}>
-            green
-          </Tag>{' '}
-          Last request returned a response.{' '}
-          <Tag color="warning" style={{ fontSize: 10 }}>
-            yellow
-          </Tag>{' '}
+        <DocParagraph>Reflects the last ad-hoc API request fired from the Request editor (Send button).</DocParagraph>
+        <StateRow color="success" label="green">
+          Last request returned a response.
+        </StateRow>
+        <StateRow color="warning" label="yellow">
           Last request failed before producing a response (network offline, DNS, abort, etc.).
-        </DocParagraph>
+        </StateRow>
       </Card>
       <Card size="small" style={{ marginBottom: 8 }}>
         <strong>
@@ -886,21 +930,18 @@ const InspectorDocs: React.FC = () => {
           Host permissions audit
         </strong>
         <DocParagraph>
-          Audits <code>&lt;all_urls&gt;</code> on each service-worker wake.{' '}
-          <Tag color="success" style={{ fontSize: 10 }}>
-            green
-          </Tag>{' '}
-          All host permissions granted.{' '}
-          <Tag color="warning" style={{ fontSize: 10 }}>
-            yellow
-          </Tag>{' '}
-          Audit couldn't run (unusual — the browser didn't expose <code>chrome.permissions</code>).{' '}
-          <Tag color="error" style={{ fontSize: 10 }}>
-            red
-          </Tag>{' '}
+          Audits <code>&lt;all_urls&gt;</code> on each service-worker wake.
+        </DocParagraph>
+        <StateRow color="success" label="green">
+          All host permissions granted.
+        </StateRow>
+        <StateRow color="warning" label="yellow">
+          Audit couldn't run (unusual — the browser didn't expose <code>chrome.permissions</code>).
+        </StateRow>
+        <StateRow color="error" label="red">
           Host permissions were narrowed from <code>chrome://extensions</code>. Rules targeting revoked hosts will
           silently no-op until you restore access.
-        </DocParagraph>
+        </StateRow>
       </Card>
       <Card size="small" style={{ marginBottom: 8 }}>
         <strong>
@@ -909,22 +950,17 @@ const InspectorDocs: React.FC = () => {
           </Tag>{' '}
           Vault integrity
         </strong>
-        <DocParagraph>
-          Tracks the per-workspace vault blob.{' '}
-          <Tag color="success" style={{ fontSize: 10 }}>
-            green
-          </Tag>{' '}
-          "Vault healthy" after a successful decrypt.{' '}
-          <Tag color="warning" style={{ fontSize: 10 }}>
-            yellow
-          </Tag>{' '}
-          Schema drift on hydrate — a stored vault entry didn't match the current shape and was dropped.{' '}
-          <Tag color="error" style={{ fontSize: 10 }}>
-            red
-          </Tag>{' '}
+        <DocParagraph>Tracks the per-workspace vault blob.</DocParagraph>
+        <StateRow color="success" label="green">
+          "Vault healthy" after a successful decrypt.
+        </StateRow>
+        <StateRow color="warning" label="yellow">
+          Schema drift on hydrate — a stored vault entry didn't match the current shape and was dropped.
+        </StateRow>
+        <StateRow color="error" label="red">
           A cipher decrypt failed for a named secret — state sticks red until a subsequent successful read. Reinstall or
           restore from backup if it persists.
-        </DocParagraph>
+        </StateRow>
       </Card>
       <Card size="small" style={{ marginBottom: 8 }}>
         <strong>
