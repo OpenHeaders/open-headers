@@ -234,6 +234,29 @@ describe('openWorkspaceIntent — warm path', () => {
     }
   });
 
+  it('treats "message port closed" as successful delivery (pub-sub pattern, no response)', async () => {
+    // Real Chrome emits "The message port closed before a response was
+    // received" whenever a listener doesn't synchronously respond —
+    // which is the normal case for our `bridge.subscribe` pub-sub
+    // renderer-side handler. The navigator must NOT treat this as a
+    // failure, otherwise every warm-path dispatch would pointlessly
+    // retry + URL-fallback.
+    const { query, update, sendMessage, windowsUpdate } = installChromeMocks();
+    query.mockResolvedValueOnce([makeTab({ id: 10, windowId: 7 })]);
+    update.mockResolvedValue(undefined);
+    windowsUpdate.mockResolvedValue({} as chrome.windows.Window);
+    sendMessage.mockRejectedValueOnce(new Error('The message port closed before a response was received.'));
+
+    const result = await openWorkspaceIntent(DOCS_INTENT, { callerWindowId: 7 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.path).toBe('warm');
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(mockRecordLog).toHaveBeenCalledWith(
+      expect.objectContaining({ op: 'navigator/delivered', message: expect.stringContaining('warm') }),
+    );
+  });
+
   it('falls back to URL navigation when both sendMessage attempts fail', async () => {
     vi.useFakeTimers();
     try {

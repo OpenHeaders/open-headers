@@ -234,13 +234,26 @@ async function tryDeliverIntent(tabId: number, intent: WorkspaceIntent): Promise
     try {
       await sendMessageToTab(tabId, { type: 'workspace-intent', intent });
       return true;
-    } catch {
+    } catch (err) {
+      // Chrome surfaces "The message port closed before a response was
+      // received" whenever a listener fires synchronously and does not
+      // call `sendResponse`. Our renderer uses `bridge.subscribe`
+      // (pub-sub, no response) to consume workspace intents, so this
+      // IS the normal success signature — the message WAS delivered,
+      // the channel just closed without a reply. Treat it as success
+      // to avoid a needless warm→cold fallback on every dispatch.
+      if (isChannelClosedError(err)) return true;
       if (attempt === 0) {
         await sleep(SEND_MESSAGE_RETRY_MS);
       }
     }
   }
   return false;
+}
+
+function isChannelClosedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  return /message port closed|message channel (?:closed|is closed)/i.test(msg);
 }
 
 function failLogged(intent: WorkspaceIntent, reason: string, err: unknown): NavigatorResult {
