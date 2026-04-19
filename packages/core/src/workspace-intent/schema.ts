@@ -1,0 +1,166 @@
+/**
+ * Valibot schema for `WorkspaceIntent` — the navigation contract.
+ *
+ * Every kind is a schema-validated literal-tagged object. The `kind`
+ * picklist is exported so the router's reducer can exhaust via a
+ * `assertNever` guard, making "adding a new intent without handling it"
+ * a compile error.
+ *
+ * All uid-bearing kinds use the shared 8-char `UidSchema` to match the
+ * rest of the persisted V5 model (invariant #2 in the V5 plan).
+ */
+
+import * as v from 'valibot';
+import { UidSchema } from '../schemas/common';
+
+// ── Shared sub-schemas ──────────────────────────────────────────────
+
+/** Rule-flow scope picklist — matches the workspace's `RuleFlowScope`. */
+export const RuleFlowScopeSchema = v.picklist(['this-page', 'collection', 'folder', 'all-active']);
+
+export type RuleFlowScope = v.InferOutput<typeof RuleFlowScopeSchema>;
+
+/** The 8 extension rule types — matches `ExtensionRuleType` in V5 types. */
+export const IntentRuleTypeSchema = v.picklist([
+  'header',
+  'block',
+  'redirect',
+  'query-param',
+  'inject',
+  'delay',
+  'body',
+  'mock',
+]);
+
+/**
+ * Docs-section id — lowercase-with-hyphens, matches how InspectorDocs
+ * declares its SectionTitle ids (e.g. `doc-system-status`,
+ * `keyboard-shortcuts`, `actions-mock`). Enforced at the schema layer
+ * so a malformed section id can't bypass sanitation on the renderer.
+ */
+export const DocsSectionIdSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(64), v.regex(/^[a-z0-9][a-z0-9-]*$/));
+
+/** Non-empty string with a sane upper bound — for hosted URLs and similar. */
+const BoundedStringSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(2048));
+
+// ── Per-kind intent shapes ──────────────────────────────────────────
+
+export const OpenWorkspaceIntentSchema = v.object({
+  kind: v.literal('open-workspace'),
+});
+
+export const OpenDocsIntentSchema = v.object({
+  kind: v.literal('open-docs'),
+  section: DocsSectionIdSchema,
+});
+
+export const EditRuleIntentSchema = v.object({
+  kind: v.literal('edit-rule'),
+  uid: UidSchema,
+});
+
+export const CreateRuleIntentSchema = v.object({
+  kind: v.literal('create-rule'),
+  ruleType: IntentRuleTypeSchema,
+  templateKey: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(128))),
+  draftNonce: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(128))),
+  context: v.optional(
+    v.object({
+      collectionId: UidSchema,
+      folderPath: v.optional(BoundedStringSchema),
+    }),
+  ),
+});
+
+export const EditEnvironmentIntentSchema = v.object({
+  kind: v.literal('edit-environment'),
+  uid: UidSchema,
+});
+
+export const OpenCollectionVarsIntentSchema = v.object({
+  kind: v.literal('open-collection-vars'),
+  uid: UidSchema,
+});
+
+export const OpenRequestEditorIntentSchema = v.object({
+  kind: v.literal('open-request-editor'),
+  uid: UidSchema,
+});
+
+export const OpenSettingsIntentSchema = v.object({
+  kind: v.literal('open-settings'),
+  target: v.optional(
+    v.union([
+      v.object({ settingKey: v.pipe(v.string(), v.minLength(1), v.maxLength(128)) }),
+      v.object({ categoryId: v.pipe(v.string(), v.minLength(1), v.maxLength(128)) }),
+    ]),
+  ),
+});
+
+export const OpenWorkspaceManagerIntentSchema = v.object({
+  kind: v.literal('open-workspace-manager'),
+});
+
+export const OpenWorkspaceVarsIntentSchema = v.object({
+  kind: v.literal('open-workspace-vars'),
+});
+
+export const OpenVaultIntentSchema = v.object({
+  kind: v.literal('open-vault'),
+});
+
+export const OpenRunReportIntentSchema = v.object({
+  kind: v.literal('open-run-report'),
+  // Test-run ids are generated via `generateUid` (8 chars) today.
+  runId: UidSchema,
+});
+
+export const OpenRuleFlowIntentSchema = v.object({
+  kind: v.literal('open-rule-flow'),
+  scope: RuleFlowScopeSchema,
+  /** Full URL the flow is scoped to; only present for `this-page`. */
+  url: v.optional(BoundedStringSchema),
+});
+
+// ── Union + kind picklist ───────────────────────────────────────────
+
+export const WorkspaceIntentSchema = v.variant('kind', [
+  OpenWorkspaceIntentSchema,
+  OpenDocsIntentSchema,
+  EditRuleIntentSchema,
+  CreateRuleIntentSchema,
+  EditEnvironmentIntentSchema,
+  OpenCollectionVarsIntentSchema,
+  OpenRequestEditorIntentSchema,
+  OpenSettingsIntentSchema,
+  OpenWorkspaceManagerIntentSchema,
+  OpenWorkspaceVarsIntentSchema,
+  OpenVaultIntentSchema,
+  OpenRunReportIntentSchema,
+  OpenRuleFlowIntentSchema,
+]);
+
+export type WorkspaceIntent = v.InferOutput<typeof WorkspaceIntentSchema>;
+
+/**
+ * All valid intent kinds. Exported so the renderer reducer can exhaust
+ * via `assertNever` — adding a new kind without handling it becomes a
+ * compile error. Keep in sync with the variant members above.
+ */
+export const WORKSPACE_INTENT_KINDS = [
+  'open-workspace',
+  'open-docs',
+  'edit-rule',
+  'create-rule',
+  'edit-environment',
+  'open-collection-vars',
+  'open-request-editor',
+  'open-settings',
+  'open-workspace-manager',
+  'open-workspace-vars',
+  'open-vault',
+  'open-run-report',
+  'open-rule-flow',
+] as const;
+
+export type WorkspaceIntentKind = (typeof WORKSPACE_INTENT_KINDS)[number];

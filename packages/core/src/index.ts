@@ -13,3 +13,4 @@ export * from './schemas/index';
 export * from './types/index';
 export * from './utils/index';
 export * from './vault/index';
+export * from './workspace-intent/index';

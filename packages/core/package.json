@@ -38,6 +38,10 @@
     "./codec/yaml": {
       "import": "./src/codec/yaml/index.ts",
       "default": "./dist/codec/yaml/index.js"
+    },
+    "./workspace-intent": {
+      "import": "./src/workspace-intent/index.ts",
+      "default": "./dist/workspace-intent/index.js"
     }
   },
   "scripts": {
