@@ -67,6 +67,7 @@ function hostConditions(domains: string[]): V5.RuleCondition[] {
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     schemaVersion: 5,
+    version: 1,
     uid: `rule-${crypto.randomUUID?.() ?? 'a1b2'}`.slice(0, 8),
     path: 'rules/test',
     name: 'Test Rule',
@@ -455,6 +456,7 @@ describe('header-manager', () => {
     it('ignores desktop-only rule types (body, delay, mock)', async () => {
       const bodyRule: V5.Rule = {
         schemaVersion: 5,
+        version: 1,
         uid: 'bdy1',
         path: 'rules/body',
         name: 'Body Rule',

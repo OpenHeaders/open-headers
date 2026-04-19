@@ -15,6 +15,7 @@ function hostConditions(domains: string[]): V5.RuleCondition[] {
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     schemaVersion: 5,
+    version: 1,
     uid: 'r1a2',
     path: 'rules/auth/bearer-r1a2',
     name: 'Bearer Token',
@@ -101,6 +102,7 @@ describe('generateRulesHash', () => {
     const r2: V5.Rule[] = [
       {
         schemaVersion: 5,
+        version: 1,
         uid: 'x1y2',
         path: 'rules/test',
         name: 'Block Rule',

@@ -247,6 +247,9 @@ export function addRule(rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>, p
     ...rule,
     uid,
     path: `${parentPath}/${folderName}`,
+    // Phase 10 write counter — starts at 1 on creation, incremented
+    // on every subsequent save. See `RuleBase.version` in core.
+    version: 1,
   } as V5.Rule;
   rules = [...rules, created];
   void persistRules();
@@ -266,15 +269,78 @@ export function addRuleToCollection(
   return addRule(rule, parentPath);
 }
 
-export function updateRule(uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): boolean {
+/**
+ * Outcome of a versioned rule write (Phase 10 stale-draft contract).
+ *
+ * - `ok: true` — the store accepted the change and returns the new
+ *   `version` stamped on disk. Callers update their `loadedVersion`
+ *   to this value before the next save.
+ * - `reason: 'stale-draft'` — the client's `expectedVersion` didn't
+ *   match the current stored version. The server's copy is returned
+ *   verbatim so the renderer can prompt the user to reload vs keep
+ *   editing (ARCHITECTURE §13). No mutation happens.
+ * - `reason: 'not-found'` — the uid isn't in the store (e.g. deleted
+ *   from another tab between load and save).
+ */
+export type RuleWriteResult =
+  | { ok: true; version: number; rule: V5.Rule }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverRule: V5.Rule }
+  | { ok: false; reason: 'not-found' };
+
+export interface UpdateRuleOptions {
+  /**
+   * Version the client observed when it loaded the rule. Omitted =
+   * "caller opts out of stale-draft detection" (quick toggles, legacy
+   * call sites). Pass through as-is from the UI's tracked version.
+   */
+  expectedVersion?: number;
+}
+
+/**
+ * Read the write counter on a rule. `version` is required by the
+ * schema (v5 has zero users, no backwards-compat optionality), but
+ * this helper centralizes access so any future sidecar-fallback logic
+ * (e.g. a migration path for a third-party importer that doesn't
+ * stamp versions) lives in one place.
+ */
+function versionOf(rule: V5.Rule): number {
+  return rule.version;
+}
+
+export function updateRule(
+  uid: string,
+  updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
+  options: UpdateRuleOptions = {},
+): RuleWriteResult {
   const index = rules.findIndex((r) => r.uid === uid);
-  if (index === -1) return false;
+  if (index === -1) return { ok: false, reason: 'not-found' };
 
   const existing = rules[index];
-  const updated = { ...existing, ...updates } as V5.Rule;
+  const current = versionOf(existing);
+  if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+    // Concurrent-write race: another tab already saved a newer
+    // version. Surface the server copy so the renderer can prompt
+    // the user to reload or keep editing.
+    return { ok: false, reason: 'stale-draft', serverVersion: current, serverRule: existing };
+  }
+
+  // Never let the caller stomp uid / path / or the version counter —
+  // all three are store-managed. Strip them before applying updates.
+  const {
+    uid: _ignoreUid,
+    path: _ignorePath,
+    ...safeUpdates
+  } = updates as {
+    uid?: string;
+    path?: string;
+    version?: number;
+  } & Partial<Omit<V5.Rule, 'uid' | 'path'>>;
+
+  const nextVersion = current + 1;
+  const updated = { ...existing, ...safeUpdates, version: nextVersion } as V5.Rule;
   rules = [...rules.slice(0, index), updated, ...rules.slice(index + 1)];
   void persistRules();
-  return true;
+  return { ok: true, version: nextVersion, rule: updated };
 }
 
 export function deleteRule(uid: string): boolean {
@@ -288,7 +354,16 @@ export function deleteRule(uid: string): boolean {
 export function toggleRule(uid: string, enabled: boolean): boolean {
   const index = rules.findIndex((r) => r.uid === uid);
   if (index === -1) return false;
-  rules = [...rules.slice(0, index), { ...rules[index], enabled }, ...rules.slice(index + 1)];
+  // Quick toggle — no expectedVersion check (popup one-click UX would
+  // break if we required a loaded-version round-trip). Still bumps
+  // the counter so subsequent editor saves see the newer baseline
+  // and can detect their own staleness correctly.
+  const nextVersion = versionOf(rules[index]) + 1;
+  rules = [
+    ...rules.slice(0, index),
+    { ...rules[index], enabled, version: nextVersion } as V5.Rule,
+    ...rules.slice(index + 1),
+  ];
   void persistRules();
   return true;
 }

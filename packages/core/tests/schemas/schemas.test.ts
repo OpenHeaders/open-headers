@@ -246,6 +246,7 @@ describe('RuleSchema', () => {
     expect(
       v.parse(RuleSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'rules/auth/rule-abcd1234',
         name: 'Bearer',
@@ -264,6 +265,7 @@ describe('RuleSchema', () => {
     expect(
       v.parse(RuleSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'rules/block/rule-abcd1234',
         name: 'Block',
@@ -279,6 +281,7 @@ describe('RuleSchema', () => {
     expect(
       v.parse(RuleSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'rules/qp/rule-abcd1234',
         name: 'Add utm',

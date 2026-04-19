@@ -16,9 +16,21 @@ export const FOLDER_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'order'] as c
 /**
  * Rule entries — shared across all 8 variants. Each variant carries its
  * own `type` literal + type-specific `action`, but the base fields
- * always serialize in this order.
+ * always serialize in this order. `version` sits right after
+ * `schemaVersion` so both "version" concepts live next to each other
+ * at the top of the file (Phase 10 write counter vs. Phase 0 shape
+ * version).
  */
-export const RULE_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'type', 'enabled', 'conditions', 'action'] as const;
+export const RULE_FIELD_ORDER = [
+  'schemaVersion',
+  'version',
+  'uid',
+  'name',
+  'type',
+  'enabled',
+  'conditions',
+  'action',
+] as const;
 
 export const TEMPLATE_FIELD_ORDER = [
   'schemaVersion',

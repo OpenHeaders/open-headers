@@ -1,4 +1,5 @@
 schemaVersion: 5
+version: 1
 uid: ruleblk1
 name: Block analytics
 type: block

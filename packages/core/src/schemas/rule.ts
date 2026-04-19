@@ -71,6 +71,15 @@ export const RuleBaseSchema = v.object({
   type: RuleTypeSchema,
   enabled: v.boolean(),
   conditions: v.array(RuleConditionSchema),
+  /**
+   * Monotonic write counter — separate from `schemaVersion`. Every
+   * successful save in the SW increments this by one (starting at 1
+   * on first write). Clients send their loaded `version` on save so
+   * the SW can reject stale drafts that lost a concurrent-edit race
+   * (Phase 10 + ARCHITECTURE §13). V5 has zero users, so the field
+   * is required from day one — no optionality for backwards-compat.
+   */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
 });
 
 const RuleBaseFields = RuleBaseSchema.entries;

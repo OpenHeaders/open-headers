@@ -37,6 +37,7 @@ function makeCtx(start = 1): CompilerContext {
 function baseRule(action: V5.HeaderRule['action']): V5.HeaderRule {
   return {
     schemaVersion: 5,
+    version: 1,
     uid: 'h1',
     path: 'rules/header',
     name: 'Rule',

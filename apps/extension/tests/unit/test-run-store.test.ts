@@ -70,6 +70,7 @@ afterEach(() => {
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     schemaVersion: 5,
+    version: 1,
     uid: 'rule-1',
     path: 'rules/col-1/rule-1',
     name: 'Auth header',

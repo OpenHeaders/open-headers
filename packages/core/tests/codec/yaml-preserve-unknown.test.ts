@@ -59,6 +59,7 @@ futureFlag: keep-around
 `;
 
 const RULE_WITH_UNKNOWN = `schemaVersion: 5
+version: 1
 uid: rulehdr1
 name: Set Authorization header
 type: header

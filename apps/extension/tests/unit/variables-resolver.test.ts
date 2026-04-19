@@ -45,6 +45,7 @@ const mockStoreRules = getRules as ReturnType<typeof vi.fn>;
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> & { path: string; uid: string }): V5.HeaderRule {
   return {
     schemaVersion: 5,
+    version: 1,
     name: 'R',
     type: 'header',
     enabled: true,
