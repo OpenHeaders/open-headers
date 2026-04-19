@@ -263,9 +263,19 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token, 
       }).filter((n): n is React.ReactElement => n !== null)
     : [];
 
+  // Reorder the subsystem rows so static-info (no entry yet) rows
+  // come before state-carrying (has an entry, green/yellow/red) rows.
+  // Within each partition the canonical SUBSYSTEM_ORDER is preserved
+  // so rows don't shuffle laterally — they only migrate once, on the
+  // first report for their subsystem. Keeps the informational block
+  // and the dynamic-state block visually grouped.
+  const greys: StatusSubsystem[] = SUBSYSTEM_ORDER.filter((sub) => !snapshot[sub]);
+  const coloreds: StatusSubsystem[] = SUBSYSTEM_ORDER.filter((sub) => !!snapshot[sub]);
+  const orderedSubsystems: StatusSubsystem[] = [...greys, ...coloreds];
+
   return (
     <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {SUBSYSTEM_ORDER.map((sub) => {
+      {orderedSubsystems.map((sub) => {
         const entry = snapshot[sub];
         const state: StatusLevel = entry?.state ?? 'green';
         const color = state === 'red' ? 'error' : state === 'yellow' ? 'warning' : entry ? 'success' : 'default';
