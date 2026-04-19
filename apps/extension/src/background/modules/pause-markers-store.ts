@@ -20,6 +20,7 @@
 
 import type { PauseMarker } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
+import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -55,18 +56,48 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
-export function setMarker(path: string, marker: PauseMarker): void {
-  markers.set(path, marker);
-  void persist();
+/**
+ * Phase 10 — every mutator runs inside the pause-markers lock so
+ * renderer-side toggles (RuleContext funneling through the bridge)
+ * serialize against each other and against any SW-side callers.
+ * Before Phase 10 the renderer wrote `chrome.storage.local` directly,
+ * racing with itself across tabs and with the `applyExternalSnapshot`
+ * hydrate path. Routing every write through the store's lock is the
+ * same fix applied to `setVault` / `putVaultSecret`.
+ */
+export async function setMarker(path: string, marker: PauseMarker): Promise<void> {
+  const workspaceId = assertLoaded();
+  await withLock(
+    entityLockName(workspaceId, 'pause-markers', 'singleton'),
+    async () => {
+      markers.set(path, marker);
+      await persist();
+    },
+    { op: 'pause-markers-set' },
+  );
 }
 
-export function clearMarker(path: string): void {
-  if (markers.delete(path)) void persist();
+export async function clearMarker(path: string): Promise<void> {
+  const workspaceId = assertLoaded();
+  await withLock(
+    entityLockName(workspaceId, 'pause-markers', 'singleton'),
+    async () => {
+      if (markers.delete(path)) await persist();
+    },
+    { op: 'pause-markers-clear' },
+  );
 }
 
-export function replaceMarkers(record: Record<string, PauseMarker>): void {
-  markers = new Map(Object.entries(record));
-  void persist();
+export async function replaceMarkers(record: Record<string, PauseMarker>): Promise<void> {
+  const workspaceId = assertLoaded();
+  await withLock(
+    entityLockName(workspaceId, 'pause-markers', 'singleton'),
+    async () => {
+      markers = new Map(Object.entries(record));
+      await persist();
+    },
+    { op: 'pause-markers-replace' },
+  );
 }
 
 async function persist(): Promise<void> {

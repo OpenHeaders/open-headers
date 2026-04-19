@@ -119,7 +119,13 @@ export type EnvironmentWriteResult =
   | { ok: false; reason: 'not-found' };
 
 export interface EnvironmentUpdateOptions {
-  /** Version the client loaded. Omit to opt out of stale-draft detection (legacy callers). */
+  /**
+   * Version the client loaded. Omit to opt out of stale-draft
+   * detection — used by call sites that don't track a version
+   * (sidebar rename, context-menu actions, bulk external imports).
+   * The lock still serializes writes; without the check these are
+   * last-write-wins.
+   */
   expectedVersion?: number;
 }
 

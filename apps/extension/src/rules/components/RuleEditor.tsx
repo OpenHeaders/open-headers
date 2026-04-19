@@ -101,14 +101,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { openDocs } = useInspectorNav();
-  const {
-    rules,
-    createLocalRule,
-    updateLocalRule,
-    localCollections,
-    templates: userTemplates,
-    templateCollectionTrees,
-  } = useRules();
+  const { rules, createLocalRule, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);

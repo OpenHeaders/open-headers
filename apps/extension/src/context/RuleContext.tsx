@@ -335,10 +335,15 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     (mutator: (prev: ReadonlyMap<string, PauseMarker>) => Map<string, PauseMarker>) => {
       setPauseMarkers((prev) => {
         const next = mutator(prev);
-        const workspaceId = activeWorkspaceIdRef.current;
-        if (workspaceId) {
-          void extensionStorage.set(wsKeys(workspaceId).pauseMarkers, Object.fromEntries(next));
-        }
+        // Route every pause-marker write through the SW so concurrent
+        // tab toggles serialize through the same `entityLockName(ws,
+        // 'pause-markers', 'singleton')` lock as every other Phase 10
+        // entity. The SW broadcasts via `storage.onChanged` so the
+        // other tabs' `extensionStorage.subscribe` listener picks up
+        // the canonical state; we don't have to care about the
+        // round-trip here — local state is optimistic and the
+        // broadcast corrects any divergence.
+        void call('setPauseMarkers', { markers: Object.fromEntries(next) }).catch(() => undefined);
         return next;
       });
     },
@@ -442,10 +447,13 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   const updateLocalRuleFn = useCallback(
     async (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
-      // This path (legacy signature) does NOT pass `expectedVersion`
-      // so the SW takes it as last-write-wins — matches the prior
-      // behavior. The stale-draft-aware call site lives in the rule
-      // editor where `loadedVersion` is tracked; it uses `call(...)`
+      // Unversioned entry point for callers that don't track the
+      // loaded version (inspector "override header" CTA, programmatic
+      // saves). Stale-draft detection is intentionally off — the lock
+      // still serializes the write so there's no read-modify-write
+      // race; a later editor save with a tracked version will catch
+      // any concurrent writes through its own `expectedVersion`
+      // check. Editors go through `call('updateLocalRule', ...)`
       // directly to consume the full `RuleWriteResult` shape.
       const resp = await call('updateLocalRule', { ruleId: uid, updates }).catch(() => null);
       if (resp?.ok) {

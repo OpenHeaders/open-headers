@@ -239,14 +239,18 @@ export interface BridgeRpcContract {
       ruleId: string;
       updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
       /**
-       * Phase 10 stale-draft contract. Optional — callers that track
+       * Phase 10 stale-draft contract. Optional — editors that track
        * the `version` they loaded opt in to cross-tab concurrent-edit
        * protection by passing it here. When present, the SW rejects
        * the save with `reason: 'stale-draft'` + the server's current
        * copy if the stored `version` has advanced since load.
-       * Omitting the field preserves the legacy last-write-wins path
-       * (used today by the inspector's "override header" CTA and any
-       * flow that saves a rule the user didn't load into an editor).
+       *
+       * Omitting the field signals an unversioned write — the
+       * inspector's "override header" CTA and any programmatic flow
+       * that didn't load the rule into an editor. Those calls are
+       * accepted as last-write-wins; the per-entity lock still
+       * serializes the storage write so there's no read-modify-write
+       * race at the boundary.
        */
       expectedVersion?: number;
     };
@@ -548,6 +552,21 @@ export interface BridgeRpcContract {
   vaultListSecretNames: {
     req: Record<string, never>;
     res: { names: string[] };
+  };
+
+  /**
+   * Replace the pause-markers map for the active workspace. Every
+   * renderer-side pause toggle goes through this RPC so writes
+   * serialize through the SW's `entityLockName(ws, 'pause-markers',
+   * 'singleton')` lock. The renderer computes the next full map from
+   * its local snapshot + the user action; the SW just writes it.
+   * Concurrent writers land atomically one-at-a-time through the
+   * lock; the broadcast back to other tabs keeps every renderer's
+   * view in sync.
+   */
+  setPauseMarkers: {
+    req: { markers: Record<string, 'paused' | 'unpaused'> };
+    res: { success: boolean };
   };
   updateCollectionVariables: {
     req: { collectionUid: string; variables: V5.Variable[] };

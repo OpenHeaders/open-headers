@@ -38,6 +38,7 @@ import {
   updateEnvironmentVariables,
 } from './environment-store';
 import { clearObservabilityLog, getObservabilityLog } from './observability-log';
+import { replaceMarkers as replacePauseMarkers } from './pause-markers-store';
 import { executeRequest, executeRequestDraft } from './request-executor';
 import {
   addRequest,
@@ -347,6 +348,16 @@ export function handleGeneralMessage(
       safeResponse({ value: getVaultSecret(message.key as string) });
     } else if (message.type === 'vaultListSecretNames') {
       safeResponse({ names: listVaultSecretNames() });
+    } else if (message.type === 'setPauseMarkers') {
+      const payload = message.markers as Record<string, 'paused' | 'unpaused'>;
+      replacePauseMarkers(payload)
+        .then(() => {
+          scheduleUpdate('pause-markers', { immediate: true });
+          updateBadgeCallback();
+          safeResponse({ success: true });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'updateCollectionVariables') {
       const success = updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[]);
       if (success) {
@@ -613,9 +624,11 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLocalRule') {
       const ruleId = message.ruleId as string;
       const updates = message.updates as Partial<Omit<V5.Rule, 'uid' | 'path'>>;
-      // `expectedVersion` is optional — callers that track their
-      // loaded version get stale-draft protection; legacy callers
-      // that don't pass it are accepted as last-write-wins.
+      // `expectedVersion` is optional — editors that track their
+      // loaded version get stale-draft protection. Unversioned
+      // callers (inspector "override header" CTA, programmatic
+      // saves) omit it and are accepted as last-write-wins; the
+      // lock still serializes so the storage write itself is atomic.
       const expectedVersion = message.expectedVersion as number | undefined;
       updateRule(ruleId, updates, { expectedVersion })
         .then((result) => {

@@ -240,7 +240,10 @@ export function deleteFolder(uid: string): boolean {
  * `schemaVersion` is owned by the store — callers provide the feature
  * payload, the store stamps the persisted version.
  */
-export function addRule(rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>, parentPath: string): V5.Rule {
+export function addRule(
+  rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+  parentPath: string,
+): V5.Rule {
   const uid = generateUid();
   const folderName = toFolderName(rule.name, uid);
   const created = {
