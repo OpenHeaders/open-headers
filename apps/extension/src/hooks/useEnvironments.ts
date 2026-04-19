@@ -28,6 +28,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
  * here for the consumer-facing API.
  */
 export type EnvironmentWriteResult = BridgeRpcResponse<'updateEnvironmentVariables'>;
+export type WorkspaceVariablesWriteResult = BridgeRpcResponse<'setWorkspaceVariables'>;
+export type VaultWriteResult = BridgeRpcResponse<'setVault'>;
 
 export interface UseEnvironmentsApi {
   environments: V5.Environment[];
@@ -59,8 +61,17 @@ export interface UseEnvironmentsApi {
   /** Pass `null` to clear the default-env fallback. */
   setDefaultEnvironment: (uid: string | null) => Promise<boolean>;
 
-  setWorkspaceVariables: (vars: V5.WorkspaceVariables) => Promise<boolean>;
-  setVault: (vault: V5.Vault) => Promise<boolean>;
+  /**
+   * Replace the workspace-scoped variables blob. Returns the full
+   * Phase 10 result so editors can detect concurrent-edit races.
+   * Callers that don't track `expectedVersion` omit it and get
+   * last-write-wins semantics.
+   */
+  setWorkspaceVariables: (
+    vars: V5.WorkspaceVariables,
+    expectedVersion?: number,
+  ) => Promise<WorkspaceVariablesWriteResult>;
+  setVault: (vault: V5.Vault, expectedVersion?: number) => Promise<VaultWriteResult>;
 
   updateCollectionVariables: (collectionUid: string, variables: V5.Variable[]) => Promise<boolean>;
 }
@@ -71,9 +82,10 @@ export function useEnvironments(): UseEnvironmentsApi {
   const [defaultEnvironmentId, setDefaultEnvironmentIdState] = useState<string | null>(null);
   const [workspaceVariables, setWorkspaceVariablesState] = useState<V5.WorkspaceVariables>({
     schemaVersion: 5,
+    version: 1,
     variables: [],
   });
-  const [vault, setVaultState] = useState<V5.Vault>({ schemaVersion: 5, secrets: [] });
+  const [vault, setVaultState] = useState<V5.Vault>({ schemaVersion: 5, version: 1, secrets: [] });
   const [isReady, setIsReady] = useState(false);
 
   // Initial snapshot + subscription. Three parallel reads at mount
@@ -171,14 +183,22 @@ export function useEnvironments(): UseEnvironmentsApi {
     return Boolean(resp?.success);
   }, []);
 
-  const setWorkspaceVariables = useCallback(async (vars: V5.WorkspaceVariables) => {
-    const resp = await call('setWorkspaceVariables', { workspaceVariables: vars }).catch(() => null);
-    return Boolean(resp?.success);
-  }, []);
+  const setWorkspaceVariables = useCallback<UseEnvironmentsApi['setWorkspaceVariables']>(
+    async (vars, expectedVersion) => {
+      const payload =
+        expectedVersion !== undefined ? { workspaceVariables: vars, expectedVersion } : { workspaceVariables: vars };
+      return call('setWorkspaceVariables', payload).catch(
+        (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
+      );
+    },
+    [],
+  );
 
-  const setVault = useCallback(async (next: V5.Vault) => {
-    const resp = await call('setVault', { vault: next }).catch(() => null);
-    return Boolean(resp?.success);
+  const setVault = useCallback<UseEnvironmentsApi['setVault']>(async (next, expectedVersion) => {
+    const payload = expectedVersion !== undefined ? { vault: next, expectedVersion } : { vault: next };
+    return call('setVault', payload).catch(
+      (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
+    );
   }, []);
 
   const updateCollectionVariables = useCallback(async (collectionUid: string, variables: V5.Variable[]) => {

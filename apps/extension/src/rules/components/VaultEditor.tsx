@@ -15,10 +15,11 @@
 import { LockOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
-import { Alert, Typography, theme } from 'antd';
+import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import VariableTable from './panels/VariableTable';
+import StaleDraftBanner from './StaleDraftBanner';
 
 const { Text, Title } = Typography;
 
@@ -33,6 +34,9 @@ function toVars(vault: V5.Vault): V5.Variable[] {
 function fromVars(vars: V5.Variable[]): V5.Vault {
   return {
     schemaVersion: 5,
+    // Placeholder — the SW stamps the real version on write. Only the
+    // `secrets` field feeds `setVault`.
+    version: 1,
     secrets: vars.filter((v) => v.name.trim()).map((v) => ({ name: v.name, value: v.value })),
   };
 }
@@ -42,10 +46,21 @@ function fingerprint(vault: V5.Vault): string {
 
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
+  const { message } = App.useApp();
   const { vault, setVault } = useEnvironments();
 
   const [draft, setDraft] = useState<V5.Variable[]>(() => toVars(vault));
   const persistedFpRef = useRef<string>(fingerprint(vault));
+
+  // Phase 10 — snapshot loaded version once; only our own successful
+  // saves advance it. See `RuleEditor` for the full contract.
+  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
+  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
+
+  useEffect(() => {
+    if (loadedVersion !== null) return;
+    setLoadedVersion(vault.version);
+  }, [vault.version, loadedVersion]);
 
   useEffect(() => {
     const fp = fingerprint(vault);
@@ -61,20 +76,44 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!isDirty) return;
     const next = fromVars(draft);
-    void setVault(next).then((ok) => {
-      if (ok) {
-        persistedFpRef.current = fingerprint(next);
-        onDirtyChange?.(false);
-      }
-    });
-  }, [isDirty, draft, setVault, onDirtyChange]);
+    const result = await setVault(next, loadedVersion ?? undefined);
+    if (result.ok) {
+      persistedFpRef.current = fingerprint(next);
+      setLoadedVersion(result.version);
+      setStaleDraft(null);
+      onDirtyChange?.(false);
+    } else if (result.reason === 'stale-draft') {
+      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
+    } else {
+      message.error(`Failed to save vault${'message' in result ? `: ${result.message}` : ''}`);
+    }
+  }, [isDirty, draft, setVault, onDirtyChange, loadedVersion, message]);
+
+  const handleStaleDraftReload = useCallback(() => {
+    // Discard this tab's edits; re-hydrate from the broadcast-fresh
+    // vault + snap loadedVersion forward.
+    persistedFpRef.current = fingerprint(vault);
+    setDraft(toVars(vault));
+    setLoadedVersion(vault.version);
+    setStaleDraft(null);
+    onDirtyChange?.(false);
+  }, [vault, onDirtyChange]);
+
+  const handleStaleDraftKeepEditing = useCallback(() => {
+    setLoadedVersion(vault.version);
+    setStaleDraft(null);
+  }, [vault.version]);
+
+  const handleSaveSync = useCallback(() => {
+    void handleSave();
+  }, [handleSave]);
 
   useEffect(() => {
-    registerSaveRef?.(handleSave);
-  }, [registerSaveRef, handleSave]);
+    registerSaveRef?.(handleSaveSync);
+  }, [registerSaveRef, handleSaveSync]);
 
   // Force every row to be treated as secret by the table. Table's
   // `allowSecrets` governs whether the user can toggle; passing false
@@ -86,6 +125,15 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   return (
     <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        {staleDraft && (
+          <StaleDraftBanner
+            entityLabel="vault"
+            serverVersion={staleDraft.serverVersion}
+            loadedVersion={staleDraft.loadedVersion}
+            onReload={handleStaleDraftReload}
+            onKeepEditing={handleStaleDraftKeepEditing}
+          />
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <LockOutlined style={{ fontSize: 18, color: token.colorError }} />
           <Title level={4} style={{ margin: 0 }}>

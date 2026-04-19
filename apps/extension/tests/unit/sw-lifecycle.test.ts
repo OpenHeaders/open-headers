@@ -42,7 +42,11 @@ function workspace(id: string, overrides: Record<string, unknown> = {}) {
 }
 
 function makeUid(seed: string): string {
-  return seed.padEnd(8, '0').slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '0');
+  return seed
+    .padEnd(8, '0')
+    .slice(0, 8)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '0');
 }
 
 describe('SW lifecycle — persisted stores reconstruct from storage alone', () => {
@@ -121,10 +125,12 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       [`oh.ws.${activeWs}.defaultEnvironmentId`]: null,
       [`oh.ws.${activeWs}.workspaceVars`]: {
         schemaVersion: 5,
+        version: 1,
         variables: [{ name: 'API_URL', value: 'https://api.openheaders.io', type: 'default' }],
       },
       [`oh.ws.${activeWs}.vault`]: {
         schemaVersion: 5,
+        version: 1,
         secrets: [{ name: 'TOKEN', value: 'abc' }],
       },
     });
@@ -258,8 +264,8 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       [`oh.ws.${activeWs}.collections`]: [coll],
       [`oh.ws.${activeWs}.folders`]: [],
       [`oh.ws.${activeWs}.environments`]: [env],
-      [`oh.ws.${activeWs}.vault`]: { schemaVersion: 5, secrets: [] },
-      [`oh.ws.${activeWs}.workspaceVars`]: { schemaVersion: 5, variables: [] },
+      [`oh.ws.${activeWs}.vault`]: { schemaVersion: 5, version: 1, secrets: [] },
+      [`oh.ws.${activeWs}.workspaceVars`]: { schemaVersion: 5, version: 1, variables: [] },
       [`oh.ws.${activeWs}.templates`]: [],
       [`oh.ws.${activeWs}.templateCollections`]: [],
       [`oh.ws.${activeWs}.templateFolders`]: [],

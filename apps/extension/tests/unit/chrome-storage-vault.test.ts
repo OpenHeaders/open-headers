@@ -27,7 +27,7 @@ const PERSONAL: VaultScope = { kind: 'personal', workspaceId: 'ws-1' };
 const SESSION: VaultScope = { kind: 'session' };
 
 function makeBlob(secrets: Array<{ name: string; value: string }>): V5.Vault {
-  return { schemaVersion: 5, secrets };
+  return { schemaVersion: 5, version: 1, secrets };
 }
 
 beforeEach(() => {
@@ -157,7 +157,7 @@ describe('ChromeStorageVault — cipher injection', () => {
 
 describe('ChromeStorageVault — robustness', () => {
   it('treats a malformed blob (non-array secrets) as empty', async () => {
-    mockGet.mockResolvedValue({ schemaVersion: 5, secrets: 'bogus' });
+    mockGet.mockResolvedValue({ schemaVersion: 5, version: 1, secrets: 'bogus' });
     const vault = new ChromeStorageVault();
     expect(await vault.get('ANY', PERSONAL)).toBeNull();
     expect(await vault.list(PERSONAL)).toEqual([]);

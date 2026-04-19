@@ -34,8 +34,11 @@ import { getActiveWorkspaceId } from './workspace-store';
 let environments: V5.Environment[] = [];
 let activeEnvironmentId: string | null = null;
 let defaultEnvironmentId: string | null = null;
-let workspaceVariables: V5.WorkspaceVariables = { schemaVersion: 5, variables: [] };
-let vault: V5.Vault = { schemaVersion: 5, secrets: [] };
+// Workspace-scoped singletons — both start at `version: 1` just like a
+// freshly-created persisted entity. The counter advances on every
+// SW-side write (see `setWorkspaceVariables` / `setVault`).
+let workspaceVariables: V5.WorkspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
+let vault: V5.Vault = { schemaVersion: 5, version: 1, secrets: [] };
 let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
@@ -241,16 +244,84 @@ export async function setDefaultEnvironment(uid: string | null): Promise<boolean
 
 // ── Workspace variables ────────────────────────────────────────────
 
-export function setWorkspaceVariables(vars: V5.WorkspaceVariables): void {
-  workspaceVariables = vars;
-  void persistWorkspaceVariables();
+/**
+ * Outcome of a versioned workspace-scoped write (Phase 10 stale-draft
+ * contract). Workspace-variables + vault are singletons per workspace,
+ * so the "not-found" case of the multi-entity contract is absent —
+ * the blob always exists (init on hydrate).
+ */
+export type WorkspaceVariablesWriteResult =
+  | { ok: true; version: number; workspaceVariables: V5.WorkspaceVariables }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverWorkspaceVariables: V5.WorkspaceVariables };
+
+export type VaultWriteResult =
+  | { ok: true; version: number; vault: V5.Vault }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverVault: V5.Vault };
+
+export interface SingletonUpdateOptions {
+  expectedVersion?: number;
+}
+
+export async function setWorkspaceVariables(
+  next: Omit<V5.WorkspaceVariables, 'schemaVersion' | 'version'> & { schemaVersion?: number },
+  options: SingletonUpdateOptions = {},
+): Promise<WorkspaceVariablesWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'workspace-vars', 'singleton'),
+    async () => {
+      const current = workspaceVariables.version;
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverWorkspaceVariables: workspaceVariables,
+        } as WorkspaceVariablesWriteResult;
+      }
+      const nextVersion = current + 1;
+      workspaceVariables = {
+        schemaVersion: 5,
+        version: nextVersion,
+        variables: next.variables,
+      };
+      await persistWorkspaceVariables();
+      return { ok: true, version: nextVersion, workspaceVariables } as WorkspaceVariablesWriteResult;
+    },
+    { op: 'workspace-vars-set' },
+  );
 }
 
 // ── Vault (secrets) ────────────────────────────────────────────────
 
-export function setVault(next: V5.Vault): void {
-  vault = next;
-  void persistVault();
+export async function setVault(
+  next: Omit<V5.Vault, 'schemaVersion' | 'version'> & { schemaVersion?: number },
+  options: SingletonUpdateOptions = {},
+): Promise<VaultWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'vault', 'singleton'),
+    async () => {
+      const current = vault.version;
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverVault: vault,
+        } as VaultWriteResult;
+      }
+      const nextVersion = current + 1;
+      vault = {
+        schemaVersion: 5,
+        version: nextVersion,
+        secrets: next.secrets,
+      };
+      await persistVault();
+      return { ok: true, version: nextVersion, vault } as VaultWriteResult;
+    },
+    { op: 'vault-set' },
+  );
 }
 
 // ── Persistence ─────────────────────────────────────────────────────
@@ -323,8 +394,8 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     environments,
     activeEnvironmentId: typeof activeEnvironmentId === 'string' ? activeEnvironmentId : null,
     defaultEnvironmentId: typeof defaultEnvironmentId === 'string' ? defaultEnvironmentId : null,
-    workspaceVariables: workspaceVariables ?? { schemaVersion: 5, variables: [] },
-    vault: vault ?? { schemaVersion: 5, secrets: [] },
+    workspaceVariables: workspaceVariables ?? { schemaVersion: 5, version: 1, variables: [] },
+    vault: vault ?? { schemaVersion: 5, version: 1, secrets: [] },
   };
 }
 
@@ -388,8 +459,8 @@ export function __resetForTests(): void {
   environments = [];
   activeEnvironmentId = null;
   defaultEnvironmentId = null;
-  workspaceVariables = { schemaVersion: 5, variables: [] };
-  vault = { schemaVersion: 5, secrets: [] };
+  workspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
+  vault = { schemaVersion: 5, version: 1, secrets: [] };
   loadedWorkspaceId = null;
   listeners.clear();
 }

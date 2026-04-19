@@ -224,9 +224,9 @@ export function __resetForTests(): void {
   lastKnownCollectionUids = new Set();
   lastResolvedRules = [];
   lastResolutionErrors = new Map();
-  resolver.setVault({ schemaVersion: 5, secrets: [] });
+  resolver.setVault({ schemaVersion: 5, version: 1, secrets: [] });
   resolver.setEnvironments([]);
   resolver.setActiveEnvironmentId(null);
   resolver.setDefaultEnvironmentId(null);
-  resolver.setWorkspaceVariables({ schemaVersion: 5, variables: [] });
+  resolver.setWorkspaceVariables({ schemaVersion: 5, version: 1, variables: [] });
 }

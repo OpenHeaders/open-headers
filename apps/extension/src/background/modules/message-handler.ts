@@ -314,13 +314,21 @@ export function handleGeneralMessage(
     } else if (message.type === 'getWorkspaceVariables') {
       safeResponse({ workspaceVariables: getWorkspaceVariables() });
     } else if (message.type === 'setWorkspaceVariables') {
-      setWorkspaceVariables(message.workspaceVariables as V5.WorkspaceVariables);
-      safeResponse({ success: true });
+      const expectedVersion = message.expectedVersion as number | undefined;
+      const payload = message.workspaceVariables as V5.WorkspaceVariables;
+      setWorkspaceVariables({ variables: payload.variables }, { expectedVersion })
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
     } else if (message.type === 'getVault') {
       safeResponse({ vault: getVault() });
     } else if (message.type === 'setVault') {
-      setVault(message.vault as V5.Vault);
-      safeResponse({ success: true });
+      const expectedVersion = message.expectedVersion as number | undefined;
+      const payload = message.vault as V5.Vault;
+      setVault({ secrets: payload.secrets }, { expectedVersion })
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
     } else if (message.type === 'updateCollectionVariables') {
       const success = updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[]);
       if (success) {

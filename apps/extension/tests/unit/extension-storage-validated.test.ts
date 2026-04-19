@@ -43,11 +43,13 @@ describe('extensionStorage.getValidated', () => {
     const spec = storageKey<V5.Vault>('oh.ws.test.vault');
     await extensionStorage.set(spec, {
       schemaVersion: 5,
+      version: 1,
       secrets: [{ name: 'TOKEN', value: 'abc' }],
     });
     const parsed = await extensionStorage.getValidated(spec, VaultSchema);
     expect(parsed).toEqual({
       schemaVersion: 5,
+      version: 1,
       secrets: [{ name: 'TOKEN', value: 'abc' }],
     });
   });

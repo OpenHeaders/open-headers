@@ -483,16 +483,35 @@ export interface BridgeRpcContract {
     res: { workspaceVariables: V5.WorkspaceVariables };
   };
   setWorkspaceVariables: {
-    req: { workspaceVariables: V5.WorkspaceVariables };
-    res: { success: boolean };
+    req: {
+      workspaceVariables: V5.WorkspaceVariables;
+      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
+      expectedVersion?: number;
+    };
+    res:
+      | { ok: true; version: number; workspaceVariables: V5.WorkspaceVariables }
+      | {
+          ok: false;
+          reason: 'stale-draft';
+          serverVersion: number;
+          serverWorkspaceVariables: V5.WorkspaceVariables;
+        }
+      | { ok: false; reason: 'other'; message: string };
   };
   getVault: {
     req: Record<string, never>;
     res: { vault: V5.Vault };
   };
   setVault: {
-    req: { vault: V5.Vault };
-    res: { success: boolean };
+    req: {
+      vault: V5.Vault;
+      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
+      expectedVersion?: number;
+    };
+    res:
+      | { ok: true; version: number; vault: V5.Vault }
+      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverVault: V5.Vault }
+      | { ok: false; reason: 'other'; message: string };
   };
   updateCollectionVariables: {
     req: { collectionUid: string; variables: V5.Variable[] };

@@ -113,12 +113,12 @@ export class VariableResolver {
   private workspaceVariables: WorkspaceVariables;
 
   constructor() {
-    this.vault = { schemaVersion: 5, secrets: [] };
+    this.vault = { schemaVersion: 5, version: 1, secrets: [] };
     this.environments = [];
     this.activeEnvironmentId = null;
     this.defaultEnvironmentId = null;
     this.collectionVariables = new Map();
-    this.workspaceVariables = { schemaVersion: 5, variables: [] };
+    this.workspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
   }
 
   // ── Scope setters ────────────────────────────────────────────────

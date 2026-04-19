@@ -29,7 +29,14 @@ import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 
-const EMPTY_BLOB: V5.Vault = { schemaVersion: 5, secrets: [] };
+// Phase 10 note — this direct-storage vault path writes to the same
+// `oh.ws.<id>.vault` key that the SW's `setVault` manages. Per-key
+// writes here bypass the SW's Web Lock wrapping; it's safe for now
+// because OAuth/API-key features (the only direct-vault writers) are
+// all per-tab user actions with no cross-tab race surface, but if a
+// future caller adds concurrent direct-vault writes we'd need to
+// route them through the SW bridge to pick up the locking.
+const EMPTY_BLOB: V5.Vault = { schemaVersion: 5, version: 1, secrets: [] };
 
 export class ChromeStorageVault implements Vault {
   constructor(private readonly cipher: VaultCipher = noopCipher) {}
@@ -93,8 +100,14 @@ export class ChromeStorageVault implements Vault {
     try {
       const stored = await extensionStorage.get(wsKeys(workspaceId).vault);
       if (stored && 'secrets' in stored && Array.isArray(stored.secrets)) {
-        // Fresh copy — callers mutate the return value.
-        return { schemaVersion: stored.schemaVersion ?? 1, secrets: [...stored.secrets] };
+        // Fresh copy — callers mutate the return value. Preserve the
+        // `version` counter from storage so concurrent SW writes can
+        // still advance it deterministically.
+        return {
+          schemaVersion: stored.schemaVersion ?? 5,
+          version: typeof stored.version === 'number' ? stored.version : 1,
+          secrets: [...stored.secrets],
+        };
       }
     } catch (err) {
       logger.warn('ChromeStorageVault', `readBlob failed for ${workspaceId}`, err);
