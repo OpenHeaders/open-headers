@@ -23,7 +23,11 @@ import type {
   AuthConfigSchema,
   BodyTypeSchema,
   CredentialsModeSchema,
+  FileRefSchema,
   HttpMethodSchema,
+  MultipartPartSchema,
+  OAuth2AuthSchema,
+  OAuth2FlowSchema,
   QueryParamSchema,
   RequestBodySchema,
   RequestHeaderSchema,
@@ -44,8 +48,10 @@ export type QueryParam = v.InferOutput<typeof QueryParamSchema>;
 
 // ── Authentication ─────────────────────────────────────────────────
 
-export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'api-key';
+export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'api-key' | 'oauth2';
 export type AuthConfig = v.InferOutput<typeof AuthConfigSchema>;
+export type OAuth2Flow = v.InferOutput<typeof OAuth2FlowSchema>;
+export type OAuth2Auth = v.InferOutput<typeof OAuth2AuthSchema>;
 
 // ── Body ───────────────────────────────────────────────────────────
 //
@@ -60,6 +66,16 @@ export type AuthConfig = v.InferOutput<typeof AuthConfigSchema>;
 
 export type BodyType = v.InferOutput<typeof BodyTypeSchema>;
 export type RequestBody = v.InferOutput<typeof RequestBodySchema>;
+
+/**
+ * Content-addressed reference to a user-uploaded file blob. See
+ * `@openheaders/core/files` for the storage contract (IDB on the
+ * extension, OPFS on the desktop) and ARCHITECTURE.md §6.
+ */
+export type FileRef = v.InferOutput<typeof FileRefSchema>;
+
+/** One part of a multipart/form-data body. Discriminated union on `kind`. */
+export type MultipartPart = v.InferOutput<typeof MultipartPartSchema>;
 
 // ── Request (unified in-memory type) ───────────────────────────────
 

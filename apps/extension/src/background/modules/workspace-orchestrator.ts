@@ -31,6 +31,8 @@ import {
   purgeWorkspaceEnvironmentData,
   switchToWorkspace as switchEnvToWorkspace,
 } from './environment-store';
+import { purgeFilesForWorkspace } from './files-store';
+import { purgeOAuthForWorkspace } from './oauth-token-store';
 import { recordLog } from './observability-log';
 import {
   getPauseMarkers,
@@ -83,6 +85,7 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
     k.panelLayout,
     k.settingsWorkspace,
     k.settingsCollection,
+    k.importReports,
   ];
 }
 
@@ -276,6 +279,8 @@ export async function deleteWorkspaceWithData(id: string): Promise<string | null
   await extensionStorage.remove(perWorkspaceDataKeys(id));
   await purgeWorkspaceEnvironmentData(id);
   await purgeWorkspaceTestRuns(id);
+  await purgeFilesForWorkspace(id);
+  await purgeOAuthForWorkspace(id);
 
   // If we deleted the active workspace, swap the per-workspace stores
   // to the new active now — workspace-store already flipped the pointer

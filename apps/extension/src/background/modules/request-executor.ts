@@ -26,6 +26,7 @@
  * trying to display megabytes in a <pre>.
  */
 
+import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
@@ -40,6 +41,8 @@ import {
   getWorkspaceVariables,
 } from './environment-store';
 import { getFileBlob, listFiles } from './files-store';
+import { OAuth2FlowError, performRefresh as performOAuthRefresh } from './oauth-flow';
+import { getTokenBundle as getOAuthTokenBundle } from './oauth-token-store';
 import { recordLog } from './observability-log';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
@@ -172,7 +175,7 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
     .map((h) => ({ key: resolveStr(h.key), value: resolveStr(h.value) }));
 
   // ── Auth folds into headers/params ──────────────────────────────
-  applyAuth(request.auth, headers, enabledParams, resolveStr);
+  await applyAuth(request.auth, headers, enabledParams, resolveStr);
 
   // Append params to URL after auth — api-key-in-query lives in
   // enabledParams and MUST be appended too.
@@ -241,12 +244,12 @@ function buildResolvedBody(
   return { type, content: resolveStr(rawBody) };
 }
 
-function applyAuth(
+async function applyAuth(
   auth: V5.AuthConfig,
   headers: Array<{ key: string; value: string }>,
   params: Array<{ key: string; value: string }>,
   resolveStr: (s: string) => string,
-): void {
+): Promise<void> {
   if (auth.type === 'none' || auth.type === 'inherit') return;
   if (auth.type === 'basic') {
     const u = resolveStr(auth.username);
@@ -272,6 +275,34 @@ function applyAuth(
     const v = resolveStr(auth.value);
     if (auth.in === 'header') headers.push({ key: k, value: v });
     else params.push({ key: k, value: v });
+    return;
+  }
+  if (auth.type === 'oauth2') {
+    // OAuth2 access tokens live in the SW's per-workspace token
+    // store (ARCHITECTURE §18). We fetch the bundle, refresh if
+    // expired + a refresh token is available, then attach the
+    // `Authorization: Bearer <access_token>` header.
+    //
+    // Silent failures on the send path are the right default here:
+    // a missing/expired token surfaces in the response panel as a
+    // 401 from the target API, which is more actionable for the
+    // user than an extension-generated error. The Status pill +
+    // observability log capture the detail either way.
+    let bundle = await getOAuthTokenBundle(auth.credentialRef);
+    if (bundle && isOAuthTokenExpired(bundle) && bundle.refreshToken) {
+      try {
+        bundle = await performOAuthRefresh(auth);
+      } catch (err) {
+        if (err instanceof OAuth2FlowError) {
+          logger.info('RequestExecutor', `OAuth refresh failed for ${auth.credentialRef}: ${err.message}`);
+        } else {
+          throw err;
+        }
+      }
+    }
+    if (bundle) {
+      headers.push({ key: 'Authorization', value: `${bundle.tokenType} ${bundle.accessToken}` });
+    }
   }
 }
 

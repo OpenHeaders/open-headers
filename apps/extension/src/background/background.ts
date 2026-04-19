@@ -37,6 +37,7 @@ import {
 } from './modules/environment-store';
 import { listFiles, onFilesStoreChange } from './modules/files-store';
 import { handleGeneralMessage } from './modules/message-handler';
+import { listTokenBundles, onOAuthStoreChange } from './modules/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { applyExternalSnapshot as applyPauseMarkersSnapshot, getPauseMarkers } from './modules/pause-markers-store';
@@ -306,6 +307,16 @@ async function initializeExtension(): Promise<void> {
     void (async () => {
       const files = await listFiles().catch(() => []);
       broadcast('filesChanged', { files });
+    })();
+  });
+
+  // OAuth tokens (Phase 13) — broadcast after every authorize /
+  // refresh / revoke so the AuthEditor's "Connected" badge updates
+  // live across surfaces.
+  onOAuthStoreChange(() => {
+    void (async () => {
+      const tokens = await listTokenBundles().catch(() => ({}));
+      broadcast('oauthTokensChanged', { tokens });
     })();
   });
 

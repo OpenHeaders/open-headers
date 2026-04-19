@@ -21,6 +21,7 @@
 import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders/core';
 import type { FileRef } from '@openheaders/core/files';
 import type { ImportReport } from '@openheaders/core/import';
+import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
@@ -844,6 +845,68 @@ export interface BridgeRpcContract {
     res: { success: boolean; removed: boolean; error?: string };
   };
 
+  // ── OAuth 2.0 / OIDC (Phase 13 — ARCHITECTURE §18) ───────────────
+  /**
+   * List every stored OAuth token bundle for the active workspace.
+   * Keyed by `credentialRef`. Used by the AuthEditor to show
+   * "Connected" badges and by the upcoming OAuth management pane in
+   * Settings → Data.
+   *
+   * Access tokens are returned verbatim — any surface that displays
+   * them to the user should mask them. Consumers that only need
+   * expiry metadata should treat `accessToken` as opaque.
+   */
+  listOAuthTokens: {
+    req: Record<string, never>;
+    res: { tokens: Record<string, OAuth2TokenBundle> };
+  };
+  /**
+   * Run the full Authorization Code + PKCE flow for the given OAuth
+   * config. On success the token bundle is persisted and the returned
+   * bundle reflects the fresh state; on failure a descriptive message
+   * surfaces so the UI can toast the user (expired provider cert,
+   * misconfigured redirect, user cancelled, etc.).
+   */
+  oauthAuthorize: {
+    req: { config: V5.OAuth2Auth };
+    res: { success: boolean; bundle?: OAuth2TokenBundle; redirectUri?: string; error?: string };
+  };
+  /**
+   * Trigger a client-credentials token fetch for the given config.
+   * Used by machine-to-machine auth configurations where no user
+   * interaction is required.
+   */
+  oauthClientCredentials: {
+    req: { config: V5.OAuth2Auth };
+    res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
+  };
+  /**
+   * Force a refresh of the stored token for the given config. Useful
+   * when the user wants to proactively rotate the access token or
+   * diagnose refresh failures from the editor.
+   */
+  oauthRefresh: {
+    req: { config: V5.OAuth2Auth };
+    res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
+  };
+  /** Delete the stored token bundle for `credentialRef`. "Disconnect" flow. */
+  oauthRevoke: {
+    req: { credentialRef: string };
+    res: { success: boolean; removed: boolean };
+  };
+  /**
+   * Canonical redirect URI for this extension build. Shown in the
+   * AuthEditor so users paste the right value into the provider's
+   * allow-list. Stable across builds once the extension `key` is
+   * pinned (Phase 1). The SW is the authoritative source — different
+   * surfaces (popup / workspace) both read from here rather than
+   * recomputing against `chrome.identity.getRedirectURL()` locally.
+   */
+  oauthGetRedirectUri: {
+    req: Record<string, never>;
+    res: { redirectUri: string };
+  };
+
   // ── Status snapshot ──────────────────────────────────────────────
   getStatusSnapshot: {
     req: Record<string, never>;
@@ -967,6 +1030,14 @@ export interface BridgeBroadcastContract {
    * Bytes are NOT included — hooks fetch them on demand via `getFile`.
    */
   filesChanged: { files: FileRef[] };
+
+  /**
+   * Fires on every OAuth token-store mutation (authorize / refresh /
+   * revoke / purge). Carries the full map keyed by credentialRef so
+   * consumers (AuthEditor's "Connected" badge, OAuth management UI)
+   * stay in lockstep without per-credential subscriptions.
+   */
+  oauthTokensChanged: { tokens: Record<string, OAuth2TokenBundle> };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

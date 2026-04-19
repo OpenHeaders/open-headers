@@ -37,6 +37,22 @@ import {
   setWorkspaceVariables,
   updateEnvironmentVariables,
 } from './environment-store';
+import { deleteFile, getFileBlob, listFiles, putFile } from './files-store';
+import {
+  clearImportReports,
+  findImportReportBySourceHash,
+  listImportReports,
+  recordImportReport,
+} from './import-reports-store';
+import { setPanelLayout } from './layout-store';
+import {
+  getOAuthRedirectUri,
+  launchAuthorizationCodeFlow,
+  OAuth2FlowError,
+  performClientCredentialsFlow,
+  performRefresh,
+} from './oauth-flow';
+import { deleteTokenBundle, listTokenBundles } from './oauth-token-store';
 import { clearObservabilityLog, getObservabilityLog } from './observability-log';
 import { replaceMarkers as replacePauseMarkers } from './pause-markers-store';
 import { executeRequest, executeRequestDraft } from './request-executor';
@@ -234,13 +250,27 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'renameWorkspace') {
       updateWorkspaceMeta(message.id as string, { name: message.name as string })
-        .then((ws) => safeResponse({ success: ws !== null }))
+        .then((result) => safeResponse({ success: result.ok }))
         .catch(() => safeResponse({ success: false }));
       return true;
     } else if (message.type === 'updateWorkspace') {
-      updateWorkspaceMeta(message.id as string, message.updates as Record<string, unknown>)
-        .then((workspace) => safeResponse({ success: workspace !== null, workspace: workspace ?? undefined }))
-        .catch(() => safeResponse({ success: false }));
+      const expectedVersion = message.expectedVersion as number | undefined;
+      updateWorkspaceMeta(message.id as string, message.updates as Record<string, unknown>, { expectedVersion })
+        .then((result) => {
+          if (result.ok) {
+            safeResponse({ success: true, workspace: result.workspace, version: result.version });
+          } else if (result.reason === 'stale-draft') {
+            safeResponse({
+              success: false,
+              reason: 'stale-draft',
+              serverVersion: result.serverVersion,
+              serverWorkspace: result.serverWorkspace,
+            });
+          } else {
+            safeResponse({ success: false, reason: 'not-found' });
+          }
+        })
+        .catch((err: Error) => safeResponse({ success: false, reason: 'other', message: err.message }));
       return true;
     } else if (message.type === 'deleteWorkspace') {
       deleteWorkspaceWithData(message.id as string)
@@ -359,13 +389,20 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'updateCollectionVariables') {
-      const success = updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[]);
-      if (success) {
-        // Collection-scoped variable edits change resolved DNR output —
-        // force a recompile so the effect is immediate.
-        scheduleUpdate('vars', { immediate: true });
-      }
-      safeResponse({ success });
+      const expectedVersion = message.expectedVersion as number | undefined;
+      updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[], {
+        expectedVersion,
+      })
+        .then((result) => {
+          if (result.ok) {
+            // Collection-scoped variable edits change resolved DNR output —
+            // force a recompile so the effect is immediate.
+            scheduleUpdate('vars', { immediate: true });
+          }
+          safeResponse(result);
+        })
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
 
       // ── API Requests (active workspace) ───────────────────────
     } else if (message.type === 'getLocalRequests') {
@@ -423,20 +460,28 @@ export function handleGeneralMessage(
       const collection = createRequestCollection(message.name as string);
       safeResponse({ success: true, collection });
     } else if (message.type === 'renameLocalRequestCollection') {
-      const success = renameRequestCollection(message.collectionUid as string, message.name as string);
-      safeResponse({ success });
+      renameRequestCollection(message.collectionUid as string, message.name as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'deleteLocalRequestCollection') {
-      const success = deleteRequestCollection(message.collectionUid as string);
-      safeResponse({ success });
+      deleteRequestCollection(message.collectionUid as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'createLocalRequestFolder') {
       const folder = createRequestFolder(message.name as string, message.parentPath as string);
       safeResponse({ success: true, folder });
     } else if (message.type === 'renameLocalRequestFolder') {
-      const success = renameRequestFolder(message.folderUid as string, message.name as string);
-      safeResponse({ success });
+      renameRequestFolder(message.folderUid as string, message.name as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'deleteLocalRequestFolder') {
-      const success = deleteRequestFolder(message.folderUid as string);
-      safeResponse({ success });
+      deleteRequestFolder(message.folderUid as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'executeRequest') {
       const requestUid = message.requestUid as string | undefined;
       const draft = message.draft as V5.Request | undefined;
@@ -652,31 +697,43 @@ export function handleGeneralMessage(
       const folder = createFolder(message.name as string, message.parentPath as string);
       safeResponse({ success: true, folder });
     } else if (message.type === 'renameLocalFolder') {
-      const success = renameFolder(message.folderUid as string, message.name as string);
-      safeResponse({ success });
+      renameFolder(message.folderUid as string, message.name as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'deleteLocalFolder') {
-      const success = deleteFolder(message.folderUid as string);
-      if (success) {
-        scheduleUpdate('rules', { immediate: true });
-        updateBadgeCallback();
-        pruneOrphanTestRunOwners();
-      }
-      safeResponse({ success });
+      deleteFolder(message.folderUid as string)
+        .then((success) => {
+          if (success) {
+            scheduleUpdate('rules', { immediate: true });
+            updateBadgeCallback();
+            pruneOrphanTestRunOwners();
+          }
+          safeResponse({ success });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'createLocalCollection') {
       const name = message.name as string;
       const collection = createCollection(name);
       safeResponse({ success: true, collection });
     } else if (message.type === 'renameLocalCollection') {
-      const success = renameCollection(message.collectionUid as string, message.name as string);
-      safeResponse({ success });
+      renameCollection(message.collectionUid as string, message.name as string)
+        .then((result) => safeResponse({ success: result.ok }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'deleteLocalCollection') {
-      const success = deleteCollection(message.collectionUid as string);
-      if (success) {
-        scheduleUpdate('rules', { immediate: true });
-        updateBadgeCallback();
-        pruneOrphanTestRunOwners();
-      }
-      safeResponse({ success });
+      deleteCollection(message.collectionUid as string)
+        .then((success) => {
+          if (success) {
+            scheduleUpdate('rules', { immediate: true });
+            updateBadgeCallback();
+            pruneOrphanTestRunOwners();
+          }
+          safeResponse({ success });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
 
       // ── Per-tab telemetry + active rules ──────────────────────
     } else if (message.type === 'getActiveRulesForTab') {
@@ -821,20 +878,28 @@ export function handleGeneralMessage(
       const collection = createTemplateCollection(message.name as string);
       safeResponse({ success: true, collection });
     } else if (message.type === 'renameTemplateCollection') {
-      const success = renameTemplateCollection(message.collectionUid as string, message.name as string);
-      safeResponse({ success });
+      renameTemplateCollection(message.collectionUid as string, message.name as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'deleteTemplateCollection') {
-      const success = deleteTemplateCollection(message.collectionUid as string);
-      safeResponse({ success });
+      deleteTemplateCollection(message.collectionUid as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'createTemplateFolder') {
       const folder = createTemplateFolder(message.name as string, message.parentPath as string);
       safeResponse({ success: true, folder });
     } else if (message.type === 'renameTemplateFolder') {
-      const success = renameTemplateFolder(message.folderUid as string, message.name as string);
-      safeResponse({ success });
+      renameTemplateFolder(message.folderUid as string, message.name as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'deleteTemplateFolder') {
-      const success = deleteTemplateFolder(message.folderUid as string);
-      safeResponse({ success });
+      deleteTemplateFolder(message.folderUid as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
 
       // ── Observability log ────────────────────────────────────────
     } else if (message.type === 'getObservabilityLog') {
@@ -843,9 +908,118 @@ export function handleGeneralMessage(
       clearObservabilityLog();
       safeResponse({ success: true });
 
+      // ── Import reports ───────────────────────────────────────────
+    } else if (message.type === 'recordImportReport') {
+      const report = message.report as import('@openheaders/core/import').ImportReport;
+      recordImportReport(report)
+        .then(() => safeResponse({ success: true }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
+    } else if (message.type === 'listImportReports') {
+      listImportReports()
+        .then((reports) => safeResponse({ reports }))
+        .catch((err: Error) => safeResponse({ reports: [], error: err.message }));
+      return true;
+    } else if (message.type === 'clearImportReports') {
+      clearImportReports()
+        .then(() => safeResponse({ success: true }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
+    } else if (message.type === 'findImportReportBySourceHash') {
+      const hash = (message.sourceHash as string | undefined) ?? '';
+      findImportReportBySourceHash(hash)
+        .then((report) => safeResponse({ report }))
+        .catch((err: Error) => safeResponse({ report: null, error: err.message }));
+      return true;
+
+      // ── Files (Phase 12 — content-addressed blobs) ──────────────
+    } else if (message.type === 'listFiles') {
+      listFiles()
+        .then((files) => safeResponse({ files }))
+        .catch((err: Error) => safeResponse({ files: [], error: err.message }));
+      return true;
+    } else if (message.type === 'putFile') {
+      const filename = message.filename as string;
+      const mimeType = message.mimeType as string | undefined;
+      const bytesBase64 = message.bytesBase64 as string;
+      const blob = base64ToBlob(bytesBase64, mimeType);
+      putFile({ blob, filename, mimeType })
+        .then((fileRef) => safeResponse({ success: true, fileRef }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
+    } else if (message.type === 'getFile') {
+      const hash = message.hash as string;
+      getFileBlob(hash)
+        .then(async (blob) => {
+          if (!blob) {
+            safeResponse({ found: false });
+            return;
+          }
+          const bytesBase64 = await blobToBase64(blob);
+          safeResponse({ found: true, bytesBase64, mimeType: blob.type });
+        })
+        .catch((err: Error) => safeResponse({ found: false, error: err.message } as unknown as { found: false }));
+      return true;
+    } else if (message.type === 'deleteFile') {
+      const hash = message.hash as string;
+      deleteFile(hash)
+        .then((removed) => safeResponse({ success: true, removed }))
+        .catch((err: Error) => safeResponse({ success: false, removed: false, error: err.message }));
+      return true;
+
+      // ── OAuth 2.0 / OIDC (Phase 13) ──────────────────────────────
+    } else if (message.type === 'listOAuthTokens') {
+      listTokenBundles()
+        .then((tokens) => safeResponse({ tokens }))
+        .catch((err: Error) => safeResponse({ tokens: {}, error: err.message }));
+      return true;
+    } else if (message.type === 'oauthAuthorize') {
+      const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
+      launchAuthorizationCodeFlow(config)
+        .then((result) => safeResponse({ success: true, bundle: result.bundle, redirectUri: result.redirectUri }))
+        .catch((err: Error) => {
+          const msg = err instanceof OAuth2FlowError ? `${err.step}: ${err.message}` : err.message;
+          safeResponse({ success: false, error: msg });
+        });
+      return true;
+    } else if (message.type === 'oauthClientCredentials') {
+      const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
+      performClientCredentialsFlow(config)
+        .then((bundle) => safeResponse({ success: true, bundle }))
+        .catch((err: Error) => {
+          const msg = err instanceof OAuth2FlowError ? `${err.step}: ${err.message}` : err.message;
+          safeResponse({ success: false, error: msg });
+        });
+      return true;
+    } else if (message.type === 'oauthRefresh') {
+      const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
+      performRefresh(config)
+        .then((bundle) => safeResponse({ success: true, bundle }))
+        .catch((err: Error) => {
+          const msg = err instanceof OAuth2FlowError ? `${err.step}: ${err.message}` : err.message;
+          safeResponse({ success: false, error: msg });
+        });
+      return true;
+    } else if (message.type === 'oauthRevoke') {
+      const credentialRef = message.credentialRef as string;
+      deleteTokenBundle(credentialRef)
+        .then((removed) => safeResponse({ success: true, removed }))
+        .catch((err: Error) => safeResponse({ success: false, removed: false, error: err.message }));
+      return true;
+    } else if (message.type === 'oauthGetRedirectUri') {
+      safeResponse({ redirectUri: getOAuthRedirectUri() });
+      return true;
+
       // ── Status snapshot ──────────────────────────────────────────
     } else if (message.type === 'getStatusSnapshot') {
       safeResponse({ snapshot: getStatusSnapshot() });
+
+      // ── Layout ───────────────────────────────────────────────────
+    } else if (message.type === 'setLayout') {
+      setPanelLayout(message.layout as import('@/shared/storage').PersistedPanelLayout)
+        .then(() => safeResponse({ success: true }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type && (message.type as string).startsWith('proxy-')) {
       return false;
     } else {
@@ -857,4 +1031,33 @@ export function handleGeneralMessage(
     safeResponse({ error: (error as Error).message });
     return true;
   }
+}
+
+/**
+ * Base64 helpers for file-blob transport. `chrome.runtime.sendMessage`
+ * JSON-serializes its payload so ArrayBuffer / Blob are not directly
+ * usable on the wire; encoding to base64 is the cross-browser-safe
+ * bridge for the putFile / getFile RPCs. Chunked conversion below
+ * avoids `btoa(String.fromCharCode(...bigArray))`'s stack overflow
+ * on files larger than a few hundred KB.
+ */
+function base64ToBlob(b64: string, mimeType: string | undefined): Blob {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], mimeType ? { type: mimeType } : undefined);
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const slice = bytes.subarray(i, i + CHUNK);
+    // String.fromCharCode spread is bounded at ~65535 args in some engines;
+    // the explicit CHUNK cap above keeps us safe.
+    binary += String.fromCharCode(...slice);
+  }
+  return btoa(binary);
 }

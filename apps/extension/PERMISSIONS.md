@@ -23,7 +23,7 @@ per-request.
 | Permission | Why we ask for it |
 |---|---|
 | `storage` | `chrome.storage.local`, `.session`, and `.sync` hold the extension's entire persistent state: rules, requests, collections, environments, vault secrets, pause markers, UI preferences, and view-mode. Without this we have nowhere to put anything. |
-| `alarms` | Periodic `keepAlive` tick (30 s) prevents the MV3 service worker from idling mid-batch during heavy rule edits, and the `updateBadge` tick (2 s) refreshes the extension icon badge. No calendar, schedule, or user-visible timers. |
+| `alarms` | Two alarms: `updateBadge` (2 s, always on) refreshes the extension icon badge; `wsReconnect` (30 s, only when desktop auto-connect is enabled) retries the websocket handshake to the desktop companion. No calendar, schedule, or user-visible timers. Users who don't use desktop sync get zero extra wake-ups from the reconnect alarm. |
 | `declarativeNetRequest` | The header / redirect / block / query-param rules engine runs through Chrome's native DNR API. Without it we cannot modify traffic. All rule actions are declared at rule-save time — extension JS never inspects or modifies live traffic at request time. |
 | `declarativeNetRequestWithHostAccess` | Required to run DNR rules that modify headers on arbitrary hosts. The user's `<all_urls>` grant (see host permissions) authorizes DNR to touch those hosts. |
 | `declarativeNetRequestFeedback` | `onRuleMatchedDebug` emits "this rule fired" events that drive the verdict engine + DevTools panel telemetry. Users see whether their rule actually fired on real traffic. No data leaves the extension. |
@@ -38,6 +38,7 @@ per-request.
 | `system.display` *(Chrome/Edge only)* | `chrome.system.display.getInfo` powers the popup's "pop out into its own window" view-mode — we pick a sensible screen on multi-monitor setups. Not used on Firefox. |
 | `windows` *(Chrome/Edge only)* | `chrome.windows.create` / `.get` for the pop-out window view-mode. Not used on Firefox. |
 | `sidePanel` *(Chrome/Edge only)* | `chrome.sidePanel.setPanelBehavior` enables the persistent side-panel surface (one of four UI modes the user can pick). Firefox uses `sidebar_action`; Safari uses its own sidebar path. |
+| `identity` | `chrome.identity.launchWebAuthFlow` + `getRedirectURL()` power the OAuth 2.0 / OIDC auth subsystem (ARCHITECTURE §18). Only invoked when the user clicks the "Authorize" button on a request's OAuth config. The authorization window opens against the provider's own endpoint; tokens are exchanged at the provider's token endpoint via the same `withHostAccess` fetch path every user request uses. Redirect URI is `https://<extension-id>.chromiumapp.org/` — pinned stable by the pre-registered manifest `key` (§Phase 1). |
 
 ### Firefox-only
 
@@ -75,6 +76,71 @@ Injected at `document_start` on every page, via `matches: ["<all_urls>"]`, in th
 | User inject-rule code | Only when the user created an inject-rule and a matching URL loads. Runs in whichever world (ISOLATED or MAIN) the user's rule specifies. |
 
 ---
+
+## Content Security Policy
+
+`manifest.content_security_policy.extension_pages` governs what the
+extension's pages + service worker can connect to or load. Our policy:
+
+```
+default-src 'self';
+connect-src 'self' http: https: ws: wss: data: blob:;
+style-src 'self' 'unsafe-inline';
+script-src 'self';
+font-src 'self' data:;
+img-src 'self' data: blob:;
+```
+
+### Why `connect-src` is broad
+
+This extension is an API-testing tool. The request executor runs in
+the MV3 service worker and has to fire `fetch()` against arbitrary
+third-party hosts on the user's behalf — the same category as
+Postman / Insomnia / Thunder Client. MV3 applies the `extension_pages`
+`connect-src` policy to the service worker too, so the policy must
+authorize every scheme the user can legitimately test:
+
+- `http:` / `https:` — API requests (the 99% case).
+- `ws:` / `wss:` — native WebSocket testing + the optional
+  desktop-sync channel (`ws://127.0.0.1:59510` by default).
+- `data:` — DNR redirect targets for mocked responses (§22) and
+  future inline fixtures.
+- `blob:` — OPFS-spilled response bodies streamed back into the
+  renderer (§17 future work).
+
+The trust commitment stays the same: no telemetry, no background
+network, no writes to cookies. The CSP authorizes the user's own
+requests; it is not a license for the extension to talk to the
+internet on its own. Every outbound fetch either:
+- Is a direct response to a user action (Send, test run, rule
+  refresh schedule the user configured), OR
+- Routes through `withHostAccess(url, fn)` in
+  `apps/extension/src/shared/fetch/with-host-access.ts` — the single
+  choke point a future "request hosts on first use" minimal-
+  permissions SKU would plug in.
+
+### Why `style-src 'unsafe-inline'`
+
+Ant Design (our UI library) injects component styles via runtime
+CSS-in-JS — the generated `<style>` tags are inline by design. Every
+React / Ant-Design extension that doesn't use a strict-CSP-compatible
+styling library needs this. No external stylesheet sources are
+allowed (`'self'` only) — `unsafe-inline` applies to tag-embedded
+styles emitted by our own bundle.
+
+### Why `font-src 'self' data:`
+
+`'self'` covers fonts bundled into the extension package. `data:`
+covers base-64 inlined font fixtures (common pattern for small
+glyph sets). No external font sources are authorized.
+
+### Why `script-src 'self'`
+
+The strictest reasonable value for an extension. No remote scripts,
+no `eval` (MV3 would reject `'unsafe-eval'` anyway). User-authored
+inject-rule code runs through `chrome.scripting.executeScript` which
+is NOT governed by this CSP — it uses the host page's world, not
+ours.
 
 ## What this extension NEVER does
 

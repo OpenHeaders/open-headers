@@ -14,6 +14,81 @@ export const BodyTypeSchema = v.picklist(['none', 'json', 'xml', 'graphql', 'for
 
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
+/**
+ * OAuth 2.0 / OIDC flow identifier (ARCHITECTURE §18).
+ *
+ * - `authorization-code-pkce` — default for user-consent flows; the
+ *   SW opens the authorization URL in a new window via
+ *   `chrome.identity.launchWebAuthFlow` and exchanges the code + PKCE
+ *   verifier at the token endpoint.
+ * - `client-credentials` — machine-to-machine; POST direct to the
+ *   token endpoint with client_id + client_secret. No user prompt.
+ * - `device-code` — for CLI parity / embedded surfaces; poll the
+ *   token endpoint with the device_code until authorization completes.
+ * - `refresh-token` — not user-selected; the token store refreshes
+ *   silently via this flow before expiry (see §20 refresh machinery).
+ */
+export const OAuth2FlowSchema = v.picklist(['authorization-code-pkce', 'client-credentials', 'device-code']);
+
+/**
+ * First-class OAuth 2.0 / OIDC auth config (ARCHITECTURE §18).
+ *
+ * `credentialRef` is a stable per-request key used by the extension's
+ * OAuth token store to look up the long-lived material (refresh token
+ * + expires_at + last access token). The access_token + refresh_token
+ * are NEVER stored in the request YAML — only the config needed to
+ * perform the flow lives here; the secret material flows through
+ * `chrome.storage.local` via the Vault interface (§10) keyed by
+ * `credentialRef`.
+ *
+ * `clientSecret` is optional — Authorization Code + PKCE flows should
+ * ship without one (public clients). Client Credentials flows need it.
+ *
+ * `scopes` is space-joined on the wire; stored as an array so the UI
+ * can edit individual scopes. `extraAuthParams` / `extraTokenParams`
+ * let callers add provider-specific knobs (e.g. Google's `prompt`,
+ * Okta's `audience`) without schema churn.
+ */
+export const OAuth2AuthSchema = v.object({
+  type: v.literal('oauth2'),
+  /**
+   * Stable per-request credential id. The extension's token store keys
+   * by this; moving a request between workspaces keeps its tokens.
+   * Generated at auth-config creation time (like the request uid).
+   */
+  credentialRef: v.pipe(v.string(), v.minLength(1)),
+  /**
+   * Optional provider preset id (`'google'` / `'github'` / …). When
+   * set, the UI can rehydrate endpoints + scopes from the preset
+   * library without relying on the user to copy-paste them. Drifting
+   * endpoints between preset and stored config is tolerated — stored
+   * values always win.
+   */
+  providerPresetId: v.optional(v.string()),
+  flow: OAuth2FlowSchema,
+  /** Authorization endpoint URL (used by authorization-code-pkce + device-code). */
+  authorizationEndpoint: v.optional(v.string()),
+  /** Token endpoint URL (used by every flow). */
+  tokenEndpoint: v.pipe(v.string(), v.minLength(1)),
+  /** Device authorization endpoint (device-code flow only). */
+  deviceAuthorizationEndpoint: v.optional(v.string()),
+  clientId: v.pipe(v.string(), v.minLength(1)),
+  /** Optional — required for client-credentials; absent for public PKCE clients. */
+  clientSecret: v.optional(v.string()),
+  /** Space-joined on the wire; stored as an array for per-scope UI editing. */
+  scopes: v.array(v.string()),
+  /**
+   * Authorization code flow: where the token response's `access_token`
+   * is applied. Most providers expect `header` (Bearer). Some expose
+   * query-param variants; left open for future support.
+   */
+  sendAs: v.optional(v.picklist(['header'])),
+  /** Optional extra params appended to the authorization URL. */
+  extraAuthParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
+  /** Optional extra params appended to the token POST body. */
+  extraTokenParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
+});
+
 export const AuthConfigSchema = v.variant('type', [
   v.object({ type: v.literal('none') }),
   v.object({ type: v.literal('inherit') }),
@@ -32,6 +107,7 @@ export const AuthConfigSchema = v.variant('type', [
     value: v.string(),
     in: v.picklist(['header', 'query']),
   }),
+  OAuth2AuthSchema,
 ]);
 
 export const RequestHeaderSchema = v.object({

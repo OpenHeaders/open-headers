@@ -42,6 +42,18 @@
     "./workspace-intent": {
       "import": "./src/workspace-intent/index.ts",
       "default": "./dist/workspace-intent/index.js"
+    },
+    "./import": {
+      "import": "./src/import/index.ts",
+      "default": "./dist/import/index.js"
+    },
+    "./files": {
+      "import": "./src/files/index.ts",
+      "default": "./dist/files/index.js"
+    },
+    "./oauth": {
+      "import": "./src/oauth/index.ts",
+      "default": "./dist/oauth/index.js"
     }
   },
   "scripts": {

@@ -186,6 +186,11 @@ export const alarms = browserAPI.alarms
       create: (name: string, alarmInfo: chrome.alarms.AlarmCreateInfo): void => {
         browserAPI.alarms.create(name, alarmInfo);
       },
+      clear: (name: string): void => {
+        // Ignore the boolean/promise return — callers that need to
+        // know whether the alarm existed should `get` first.
+        void browserAPI.alarms.clear(name);
+      },
       onAlarm: {
         addListener: (listener: (alarm: chrome.alarms.Alarm) => void): void =>
           browserAPI.alarms.onAlarm.addListener(listener),
@@ -459,6 +464,78 @@ export const windows = browserAPI.windows
 type WebNavigationListener = (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => void;
 type WebNavigationErrorListener = (details: chrome.webNavigation.WebNavigationFramedErrorCallbackDetails) => void;
 // Cross-browser webNavigation API
+/**
+ * `chrome.identity` wrapper (OAuth 2.0 / OIDC — ARCHITECTURE §18).
+ *
+ * `launchWebAuthFlow` drives the authorization-code + PKCE flow by
+ * opening the provider's authorization URL in a dedicated window and
+ * intercepting the `https://<extension-id>.chromiumapp.org/` redirect.
+ * `getRedirectURL` returns the stable per-extension redirect origin
+ * so we can show the user the exact string they must register with
+ * the provider.
+ *
+ * Firefox + Safari: `browser.identity.*` has the same shape as
+ * Chrome's; the `browserAPI` indirection above uses `browser` when
+ * present. If identity isn't available (extremely old browsers), the
+ * wrapper surfaces the absence so callers can fall back to a clear
+ * error message instead of a confusing undefined crash.
+ */
+interface IdentityLaunchWebAuthFlowOptions {
+  url: string;
+  interactive: boolean;
+  /** Passed through verbatim so the caller keeps raw control (e.g. for abandonDetails). */
+  [key: string]: unknown;
+}
+
+interface IdentityApi {
+  launchWebAuthFlow: (
+    details: IdentityLaunchWebAuthFlowOptions,
+    callback?: (responseUrl?: string) => void,
+  ) => Promise<string | undefined> | void;
+  getRedirectURL: (path?: string) => string;
+}
+
+function getIdentityApi(): IdentityApi | null {
+  const id = (browserAPI as unknown as { identity?: IdentityApi }).identity;
+  if (!id || typeof id.launchWebAuthFlow !== 'function') return null;
+  return id;
+}
+
+export const identity = {
+  isAvailable: (): boolean => getIdentityApi() !== null,
+  launchWebAuthFlow: (options: IdentityLaunchWebAuthFlowOptions): Promise<string | null> => {
+    // Chrome supports a promise-returning form natively; Firefox's
+    // `browser.identity.launchWebAuthFlow` also returns a promise. We
+    // wrap anyway so `chrome.runtime.lastError` is surfaced as a
+    // proper rejection on Chrome's callback-form fallback.
+    const id = getIdentityApi();
+    if (!id) {
+      return Promise.reject(new Error('chrome.identity.launchWebAuthFlow is not available in this browser'));
+    }
+    return new Promise<string | null>((resolve, reject) => {
+      try {
+        const maybePromise = id.launchWebAuthFlow(options, (responseUrl) => {
+          if (browserAPI.runtime.lastError) {
+            reject(new Error(browserAPI.runtime.lastError.message ?? 'identity error'));
+            return;
+          }
+          resolve(responseUrl ?? null);
+        });
+        if (maybePromise && typeof (maybePromise as Promise<string>).then === 'function') {
+          (maybePromise as Promise<string | undefined>).then((url) => resolve(url ?? null), reject);
+        }
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  },
+  getRedirectURL: (path = ''): string => {
+    const id = getIdentityApi();
+    if (!id) return '';
+    return id.getRedirectURL(path);
+  },
+};
+
 export const webNavigation = browserAPI.webNavigation
   ? {
       onCommitted: browserAPI.webNavigation.onCommitted

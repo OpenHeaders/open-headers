@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import MultipartEditor from './MultipartEditor';
+import OAuth2AuthEditor from './OAuth2AuthEditor';
 import StaleDraftBanner from './StaleDraftBanner';
 
 const { Text } = Typography;
@@ -95,6 +96,7 @@ const AUTH_OPTIONS: { value: AuthKind; label: string }[] = [
   { value: 'basic', label: 'Basic' },
   { value: 'bearer', label: 'Bearer Token' },
   { value: 'api-key', label: 'API Key' },
+  { value: 'oauth2', label: 'OAuth 2.0 / OIDC' },
 ];
 
 interface Row {
@@ -750,6 +752,19 @@ const AuthEditor: React.FC<AuthEditorProps> = ({ auth, onChange, credentialsMode
       onChange({ type: 'bearer', token: '' });
     } else if (type === 'api-key') {
       onChange({ type: 'api-key', key: '', value: '', in: 'header' });
+    } else if (type === 'oauth2') {
+      // Fresh OAuth config with a freshly-minted credentialRef. Using
+      // crypto.randomUUID keeps the renderer-side creation path free
+      // of the core helper (the core path is for desktop + SW callers).
+      const credentialRef = `oauth2-cred-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
+      onChange({
+        type: 'oauth2',
+        credentialRef,
+        flow: 'authorization-code-pkce',
+        tokenEndpoint: '',
+        clientId: '',
+        scopes: [],
+      });
     }
   };
 
@@ -806,6 +821,7 @@ const AuthEditor: React.FC<AuthEditorProps> = ({ auth, onChange, credentialsMode
           </div>
         </div>
       )}
+      {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
       {(auth.type === 'none' || auth.type === 'inherit') && (
         <Text type="secondary" style={{ fontSize: 11 }}>
           {auth.type === 'none'

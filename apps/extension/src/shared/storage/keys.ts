@@ -82,6 +82,8 @@ export interface PersistedPanelLayout {
 export interface PersistedLocalFolder {
   /** Persisted format version for each `_folder.yaml` once the codec lands. */
   schemaVersion: number;
+  /** Phase 10 monotonic write counter — mirrors `FolderSchema.version`. */
+  version: number;
   uid: string;
   path: string;
   name: string;
@@ -152,6 +154,22 @@ export interface WorkspaceKeys {
   panelLayout: StorageKey<PersistedPanelLayout>;
   settingsWorkspace: StorageKey<Record<string, unknown>>;
   settingsCollection: StorageKey<Record<string, unknown>>;
+  /**
+   * Ring of recent import reports (curl / HAR / Postman / Insomnia /
+   * OpenAPI) for this workspace. Per ARCHITECTURE.md §23 every import
+   * emits a structured report; we persist the last N (default 50) so
+   * the user can audit drops + transforms long after the import and
+   * so the re-import-diff flow has a prior snapshot to compare to.
+   * Opaque at storage layer — shape is `ImportReport[]` from core.
+   */
+  importReports: StorageKey<unknown[]>;
+  /**
+   * OAuth 2.0 token store (ARCHITECTURE §18). Map of credentialRef →
+   * `OAuth2TokenBundle`. Opaque at storage layer — shape lives in
+   * `@openheaders/core/oauth`. Per-workspace so a workspace delete
+   * drops its OAuth material alongside environments + files.
+   */
+  oauth: StorageKey<unknown>;
 }
 
 export function wsKeys(workspaceId: string): WorkspaceKeys {
@@ -177,5 +195,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),
     settingsWorkspace: storageKey<Record<string, unknown>>(`${p}.settings.workspace`),
     settingsCollection: storageKey<Record<string, unknown>>(`${p}.settings.collection`),
+    importReports: storageKey<unknown[]>(`${p}.importReports`),
+    oauth: storageKey<unknown>(`${p}.oauth`),
   };
 }
