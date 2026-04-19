@@ -80,27 +80,39 @@ const Header: React.FC = () => {
     </div>
   );
 
+  // Sidepanel is narrower than the popup. Drop the logo + brand
+  // wordmark + desktop connection dot there so the workspace pill and
+  // right-side controls (surface switch, pause toggle, settings) keep
+  // their breathing room. The compact `StatusPill` already conveys
+  // desktop-sync state via its `sync` subsystem dot, so the dedicated
+  // connection Badge is redundant in the tighter sidepanel layout.
+  const isSidepanel = surface.mode === 'sidepanel';
+
   return (
     <div className="header">
       <Space align="center" size={8}>
-        <img
-          src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
-          alt="Open Headers"
-          style={{ width: 26, height: 26 }}
-        />
-        <Title level={4} className="popup-header-title" style={{ margin: 0 }}>
-          Open Headers
-        </Title>
-        {isStatusLoaded &&
-          (isConnected ? (
-            <Badge status="success" />
-          ) : (
-            <Tooltip title={disconnectedTooltip} placement="bottom" styles={{ root: { maxWidth: 280 } }}>
-              <span style={{ cursor: 'help', display: 'inline-flex' }}>
-                <Badge status="error" />
-              </span>
-            </Tooltip>
-          ))}
+        {!isSidepanel && (
+          <>
+            <img
+              src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
+              alt="Open Headers"
+              style={{ width: 26, height: 26 }}
+            />
+            <Title level={4} className="popup-header-title" style={{ margin: 0 }}>
+              Open Headers
+            </Title>
+            {isStatusLoaded &&
+              (isConnected ? (
+                <Badge status="success" />
+              ) : (
+                <Tooltip title={disconnectedTooltip} placement="bottom" styles={{ root: { maxWidth: 280 } }}>
+                  <span style={{ cursor: 'help', display: 'inline-flex' }}>
+                    <Badge status="error" />
+                  </span>
+                </Tooltip>
+              ))}
+          </>
+        )}
         <StatusPill density="compact" />
         <WorkspacePill />
       </Space>
