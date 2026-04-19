@@ -251,6 +251,7 @@ const TOC = [
   { id: 'script-rules', label: 'Script-Based Rules' },
   { id: 'limitations', label: 'Limitations' },
   { id: 'doc-system-status', label: 'System Status' },
+  { id: 'doc-multi-tab', label: 'Multi-tab Behavior' },
   { id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts' },
 ];
 
@@ -1066,6 +1067,63 @@ const InspectorDocs: React.FC = () => {
             team sync, and workflow recordings that integrate with the desktop app will unlock once it's released. The
             <code>Sync</code> subsystem will flip from "disabled" to "connecting" automatically on first launch of the
             new desktop app — no reinstall required.
+          </DocParagraph>
+        </Card>
+
+        {/* ── Multi-tab Behavior ── */}
+        <SectionTitle id="doc-multi-tab">Multi-tab Behavior</SectionTitle>
+        <DocParagraph>
+          Open Headers treats "multiple workspace tabs at once" as a normal, first-class state. Clicking a docs link in
+          the popup or an (i) button in the sidepanel reuses an existing workspace tab in the same window — no new tab —
+          and Chrome only opens a fresh tab when none exists in your current window.
+        </DocParagraph>
+        <Card size="small" style={{ marginBottom: 8 }}>
+          <strong>Navigation reuses existing tabs</strong>
+          <DocParagraph>
+            Same-window first: if a workspace tab is already open in the window you're clicking from, it activates and
+            receives the intent (docs section to scroll to, rule to edit, etc.). Different window: a fresh tab opens in
+            your current window rather than pulling focus across Chrome windows — mirroring how Chrome's own DevTools
+            works (one panel per window).
+          </DocParagraph>
+        </Card>
+        <Card size="small" style={{ marginBottom: 8 }}>
+          <strong>Tab numbering</strong>
+          <DocParagraph>
+            When you have two or more workspace tabs, each tab's title prefixes its ordinal —{' '}
+            <code>#1 Open Headers</code>, <code>#2 Open Headers</code>, <code>#3 Open Headers</code>. When the count
+            drops back to one, the surviving tab sheds the prefix and goes back to <code>Open Headers</code>. Ordinals
+            are stable within a tab's lifetime: closing <code>#1</code> while <code>#2</code> and <code>#3</code> are
+            alive does NOT renumber the survivors — the next tab you open gets <code>#4</code>, and numbering only
+            resets to <code>#1</code> after every workspace tab has closed.
+          </DocParagraph>
+        </Card>
+        <Card size="small" style={{ marginBottom: 8 }}>
+          <strong>Data changes sync across tabs</strong>
+          <DocParagraph>
+            Every persisted entity — rules, collections, folders, environments, workspace variables, vault, requests,
+            templates — lives in <code>chrome.storage.local</code> as the single source of truth. Saves in tab A
+            broadcast through the background and tab B re-hydrates automatically. Workspace switches and environment
+            switches propagate the same way, so both tabs move to the same active scope together.
+          </DocParagraph>
+        </Card>
+        <Card size="small" style={{ marginBottom: 8 }}>
+          <strong>Layout does NOT live-sync</strong>
+          <DocParagraph>
+            Pane ratios and tool-window dock state are per-workspace, but changes don't propagate to already-open tabs
+            on the same workspace. Dragging a splitter in tab A leaves tab B's layout untouched until you reload it —
+            live layout sync would feel jarring ("my pane jumped while I was typing"), matching how multi-window IDEs
+            (desktop IDEs) behave. A fresh tab opened AFTER the drag inherits the latest saved layout, so the change
+            is visible when you next pick it up.
+          </DocParagraph>
+        </Card>
+        <Card size="small" style={{ marginBottom: 8 }}>
+          <strong>Unsaved drafts are tab-local</strong>
+          <DocParagraph>
+            Unsaved edits in the rule / request / environment editor live inside that tab's memory. If tab A saves the
+            same rule tab B is editing, tab A's version wins the storage write — there's no "modified in another tab,
+            reload?" prompt yet (tracked for a future release). In practice this only matters when two tabs are actively
+            editing the same entity at the same time; browsing and switching workspaces work correctly across tabs
+            today.
           </DocParagraph>
         </Card>
 
