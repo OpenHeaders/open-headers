@@ -17,7 +17,7 @@ import type React from 'react';
 import { useCallback } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
-import { StatusPill } from '@/shared/status';
+import { productStatusExtras, StatusPill } from '@/shared/status';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { useSetting, useSettingValue } from '../settings/hooks';
@@ -165,7 +165,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
         <span className="rules-statusbar-item">
           {enabledCount}/{rules.length} rule{rules.length !== 1 ? 's' : ''} active
         </span>
-        <StatusPill />
+        <StatusPill renderSubsystemExtras={productStatusExtras} />
       </div>
 
       <div className="rules-statusbar-right">

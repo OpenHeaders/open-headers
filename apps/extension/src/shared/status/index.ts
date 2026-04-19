@@ -1,3 +1,4 @@
+export { productStatusExtras } from './product-extras';
 export type { StatusPillDensity, StatusPillProps } from './StatusPill';
 export { StatusPill } from './StatusPill';
 export type { ReportInput } from './store';

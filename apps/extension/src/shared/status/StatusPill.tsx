@@ -21,13 +21,22 @@
  *     something actually needs attention.
  */
 
-import { Popover, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import { Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
-import type React from 'react';
+import React from 'react';
 import { useStatus } from '@/hooks/useStatus';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 
 export const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 'permissions', 'secrets'];
+
+/**
+ * Fixed tag width shared by every row in the Status popover —
+ * built-in subsystems AND product-level extras. Sized to fit the
+ * longest label ("Permissions" / "Desktop App") at `fontSize: 10`
+ * with Ant's default horizontal padding, so right-side messages
+ * align to the same x-offset across the whole panel.
+ */
+export const STATUS_TAG_WIDTH = 92;
 
 export type StatusPillDensity = 'row' | 'full' | 'compact';
 
@@ -48,6 +57,18 @@ export interface StatusPillProps {
    * opening direction.
    */
   placement?: TooltipPlacement;
+  /**
+   * Render optional product-specific content inside a subsystem's row
+   * in the popover — below its message + timestamp. Keeps the
+   * `StatusPill` component generic (no hard-coded install CTAs or
+   * product copy) while letting consuming surfaces attach call-to-
+   * action buttons where they semantically belong. Return `null` (or
+   * omit the prop) when nothing extra should render.
+   */
+  renderSubsystemExtras?: (
+    subsystem: StatusSubsystem,
+    entry: StatusSnapshot[StatusSubsystem] | undefined,
+  ) => React.ReactNode;
 }
 
 const DEFAULT_PLACEMENT: Record<StatusPillDensity, TooltipPlacement> = {
@@ -56,7 +77,12 @@ const DEFAULT_PLACEMENT: Record<StatusPillDensity, TooltipPlacement> = {
   compact: 'bottom',
 };
 
-export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', className, placement }) => {
+export const StatusPill: React.FC<StatusPillProps> = ({
+  density = 'row',
+  className,
+  placement,
+  renderSubsystemExtras,
+}) => {
   const { token } = theme.useToken();
   const { snapshot, worst } = useStatus();
   const hasEntries = Object.values(snapshot).some(Boolean);
@@ -64,9 +90,14 @@ export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', classNa
   const summary = buildSummary(snapshot, worst);
   const ariaLabel = `System status: ${summary}`;
 
-  const body = <StatusPopoverBody snapshot={snapshot} token={token} />;
+  const body = <StatusPopoverBody snapshot={snapshot} token={token} renderSubsystemExtras={renderSubsystemExtras} />;
+  // Flex + align-items: center keeps the dot vertically centered on
+  // the "System status" cap height (Space doesn't cross-align inline
+  // children by default). `justify-content: flex-start` pins the title
+  // group to the header's left edge so it lines up with the tag
+  // column of each subsystem row below.
   const titleNode = (
-    <Space size={6}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 6 }}>
       <span
         style={{
           display: 'inline-block',
@@ -79,7 +110,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({ density = 'row', classNa
       <Typography.Text strong style={{ fontSize: 12 }}>
         System status
       </Typography.Text>
-    </Space>
+    </div>
   );
 
   const effectivePlacement = placement ?? DEFAULT_PLACEMENT[density];
@@ -214,9 +245,24 @@ const SubsystemPill: React.FC<SubsystemPillProps> = ({ subsystem, snapshot, toke
 interface StatusPopoverBodyProps {
   snapshot: StatusSnapshot;
   token: ReturnType<typeof theme.useToken>['token'];
+  renderSubsystemExtras?: (
+    subsystem: StatusSubsystem,
+    entry: StatusSnapshot[StatusSubsystem] | undefined,
+  ) => React.ReactNode;
 }
 
-const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token }) => {
+const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token, renderSubsystemExtras }) => {
+  // Collect extras first (same iteration order as the standard rows)
+  // so the block of product callouts is stable across renders and
+  // always sits BELOW every built-in subsystem row. Prevents a sync
+  // callout from visually splitting the standard five-row block.
+  const extrasRows = renderSubsystemExtras
+    ? SUBSYSTEM_ORDER.map((sub) => {
+        const node = renderSubsystemExtras(sub, snapshot[sub]);
+        return node ? <React.Fragment key={`extras-${sub}`}>{node}</React.Fragment> : null;
+      }).filter((n): n is React.ReactElement => n !== null)
+    : [];
+
   return (
     <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
       {SUBSYSTEM_ORDER.map((sub) => {
@@ -224,23 +270,23 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token }
         const state: StatusLevel = entry?.state ?? 'green';
         const color = state === 'red' ? 'error' : state === 'yellow' ? 'warning' : entry ? 'success' : 'default';
         return (
-          <div key={sub} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <Tag color={color} style={{ fontSize: 10, marginTop: 2, minWidth: 64, textAlign: 'center' }}>
+          // Status is a snapshot — "right now" by design. Timestamps
+          // would answer "when did this state last change", which is
+          // history-shaped info that belongs in the observability log
+          // (Settings → Export Diagnostic Log). Keeping the popover a
+          // pure state surface keeps each row single-line + the five-
+          // row block visually tight.
+          <div key={sub} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Tag color={color} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0 }}>
               {SUBSYSTEM_LABELS[sub]}
             </Tag>
-            <div style={{ flex: 1 }}>
-              <Typography.Text style={{ fontSize: 11, display: 'block', color: token.colorText }}>
-                {entry?.message ?? 'No events yet'}
-              </Typography.Text>
-              {entry?.timestamp && (
-                <Typography.Text type="secondary" style={{ fontSize: 10 }}>
-                  {new Date(entry.timestamp).toLocaleTimeString()}
-                </Typography.Text>
-              )}
-            </div>
+            <Typography.Text style={{ fontSize: 11, flex: 1, color: token.colorText }}>
+              {entry?.message ?? 'No events yet'}
+            </Typography.Text>
           </div>
         );
       })}
+      {extrasRows.length > 0 ? extrasRows : null}
     </div>
   );
 };
