@@ -118,8 +118,10 @@ export const OpenRunReportIntentSchema = v.object({
 export const OpenRuleFlowIntentSchema = v.object({
   kind: v.literal('open-rule-flow'),
   scope: RuleFlowScopeSchema,
-  /** Full URL the flow is scoped to; only present for `this-page`. */
+  /** Full URL the flow is scoped to; only used when `scope === 'this-page'`. */
   url: v.optional(BoundedStringSchema),
+  /** Collection/folder uid when `scope` is `collection` or `folder`. */
+  entityId: v.optional(UidSchema),
 });
 
 // ── Union + kind picklist ───────────────────────────────────────────

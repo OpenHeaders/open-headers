@@ -3,7 +3,8 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Button, Tabs, Tooltip } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { getBrowserAPI } from '@/types/browser';
+import { useSurface } from '@/shared/surface';
+import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import CollectionManager from './CollectionManager';
 import RulesTable from './RulesTable';
@@ -11,6 +12,7 @@ import ThisPageRules from './ThisPageRules';
 
 const RulesList: React.FC = () => {
   const { activeTab, onTabChange, focusedRowIndex, pendingDeleteIndex, setPageInfo, setRowActions } = useKeyboardNav();
+  const surface = useSurface();
   const openWorkspaceLabel = usePopupShortcutLabel('open-workspace');
 
   const items = [
@@ -79,8 +81,7 @@ const RulesList: React.FC = () => {
               size="small"
               icon={<AppstoreOutlined />}
               onClick={() => {
-                const url = getBrowserAPI().runtime.getURL('workspace.html');
-                getBrowserAPI().tabs.create({ url });
+                void openWorkspace({ kind: 'open-workspace' }, surface.mode);
               }}
             >
               Workspace

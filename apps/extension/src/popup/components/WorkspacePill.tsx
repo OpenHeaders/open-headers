@@ -14,12 +14,14 @@ import type React from 'react';
 import { useMemo } from 'react';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { renderWorkspacePrefix } from '@/rules/components/workspace-prefix';
-import { getBrowserAPI } from '@/types/browser';
+import { useSurface } from '@/shared/surface';
+import { openWorkspace } from '@/shared/workspace-intent';
 
 const { Text } = Typography;
 
 const WorkspacePill: React.FC = () => {
   const { token } = theme.useToken();
+  const surface = useSurface();
   const { workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace } = useWorkspaces();
 
   const items: MenuProps['items'] = useMemo(() => {
@@ -48,12 +50,11 @@ const WorkspacePill: React.FC = () => {
         icon: <SettingOutlined />,
         label: 'Manage workspaces…',
         onClick: () => {
-          const url = getBrowserAPI().runtime.getURL('workspace.html#/workspaces');
-          getBrowserAPI().tabs.create({ url });
+          void openWorkspace({ kind: 'open-workspace-manager' }, surface.mode);
         },
       },
     ];
-  }, [workspaces, activeWorkspaceId, setActiveWorkspace, token]);
+  }, [workspaces, activeWorkspaceId, setActiveWorkspace, token, surface.mode]);
 
   if (!activeWorkspace) return null;
 

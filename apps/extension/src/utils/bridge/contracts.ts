@@ -673,6 +673,20 @@ export interface BridgeBroadcastContract {
    * listeners don't have to re-query after each event.
    */
   statusUpdated: StatusSnapshot;
+
+  /**
+   * Workspace Intent — warm-path delivery from the SW navigator to an
+   * already-open workspace tab. Declared on the broadcast contract
+   * because `bridge.subscribe` is the renderer's shared subscription
+   * primitive; the SW dispatcher actually routes via `tabs.sendMessage`
+   * to a specific tab, but the listener shape is identical (both land
+   * in `chrome.runtime.onMessage`).
+   *
+   * Intent is schema-validated at the navigator + again at the
+   * renderer's router so malformed payloads can never propagate
+   * past the boundary. See Phase 9.
+   */
+  'workspace-intent': { intent: WorkspaceIntent };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

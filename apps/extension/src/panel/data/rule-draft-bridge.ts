@@ -10,6 +10,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
+import { openWorkspace } from '@/shared/workspace-intent';
 import type { InspectorRequest } from './types';
 
 /** Build a RuleDraft for a header rule pre-filled from a request. */
@@ -36,10 +37,13 @@ export function buildHeaderDraftFromRequest(
 }
 
 /**
- * Stash the draft in the background and open the workspace at the
- * matching `#/create/<type>/draft-<nonce>` route. The caller is
- * responsible for providing a well-formed draft; the background
- * re-validates through the valibot schema before minting the nonce.
+ * Stash the draft in the background and dispatch a `create-rule` intent
+ * to the workspace via the SW navigator. When a workspace tab is
+ * already open, the navigator reuses it (same-window preference) and
+ * delivers the intent via runtime messaging — the tab's intent router
+ * fetches the stashed draft via `takeRuleDraft` and opens the editor
+ * pre-filled. Otherwise a fresh workspace tab opens and its cold-path
+ * router does the same via the URL-encoded intent.
  */
 export async function handOffRuleDraft(draft: V5.RuleDraft): Promise<void> {
   const res = await call('createRuleDraft', { draft });
@@ -48,6 +52,5 @@ export async function handOffRuleDraft(draft: V5.RuleDraft): Promise<void> {
     // translates to an AntD message; the caller wires the UX.
     throw new Error(res.error ?? 'Failed to create rule draft');
   }
-  const workspaceUrl = chrome.runtime.getURL(`workspace.html#/create/${draft.type}/draft-${res.nonce}`);
-  await chrome.tabs.create({ url: workspaceUrl, active: true });
+  await openWorkspace({ kind: 'create-rule', ruleType: draft.type, draftNonce: res.nonce }, 'devpanel');
 }

@@ -7,6 +7,7 @@ import type { StatusPillProps } from '@/shared/status';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useSurface } from '@/shared/surface';
 import { switchViewMode } from '@/shared/view-mode';
+import { openWorkspace } from '@/shared/workspace-intent';
 import { getBrowserAPI } from '@/types/browser';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import { SurfaceTargetIcon } from './SurfaceTargetIcon';
@@ -57,8 +58,7 @@ const Header: React.FC = () => {
   };
 
   const handleOpenSettings = (): void => {
-    const url = getBrowserAPI().runtime.getURL('workspace.html#/settings');
-    getBrowserAPI().tabs.create({ url });
+    void openWorkspace({ kind: 'open-settings' }, surface.mode);
   };
 
   // Sidepanel is narrower than the popup. Drop the logo + brand
@@ -70,12 +70,12 @@ const Header: React.FC = () => {
 
   // Popup/sidepanel don't host the Docs panel — opening it there
   // would require round-tripping through a workspace-managed state
-  // machine that isn't mounted. Instead, defer to `workspace.html`'s
-  // hash router (`#/docs/<id>` in useInitialHashRoute) so the docs
-  // tool window opens in the new tab immediately on load.
+  // machine that isn't mounted. The navigator reuses an existing
+  // workspace tab when one is open (same-window preference) and
+  // creates a fresh one otherwise; the tab's intent router picks
+  // up the docs section either way.
   const handleOpenDocs: StatusPillProps['onOpenDocs'] = (sectionId) => {
-    const url = getBrowserAPI().runtime.getURL(`workspace.html#/docs/${sectionId}`);
-    getBrowserAPI().tabs.create({ url });
+    void openWorkspace({ kind: 'open-docs', section: sectionId }, surface.mode);
   };
 
   return (

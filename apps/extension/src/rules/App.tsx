@@ -2,7 +2,7 @@
  * Rules App — full-page rule management in its own browser tab.
  *
  * App.tsx is a thin wiring layer: data hooks (tabs, rules, templates)
- * flow into extracted module-hooks (useTabOpeners, useInitialHashRoute,
+ * flow into extracted module-hooks (useTabOpeners, useWorkspaceIntentRouter,
  * useTabSyncEffects, useCommandPaletteData, useSaveToCollectionFlow),
  * and the shell is rendered via ShellLayout + EditorGroupRenderer with
  * render-prop hooks for the editor body and tool-window content.
@@ -65,7 +65,6 @@ import { createShellEventBus, ShellEventBusContext } from './events/shell-event-
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
-import { useInitialHashRoute } from './hooks/useInitialHashRoute';
 import { useInitialLanding } from './hooks/useInitialLanding';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
@@ -75,6 +74,7 @@ import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
 import { useToolLayout } from './hooks/useToolLayout';
+import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { SettingsModal, SettingsTab } from './settings';
 import { ConnectionProvider } from './settings/ConnectionContext';
@@ -399,8 +399,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     }
   }, [activeTabId, pendingRenameTabId, setPendingRenameTabId]);
 
-  // ── Initial hash routing (deferred until data is loaded) ───────
-  useInitialHashRoute({
+  // ── Workspace Intent routing (cold-hash + warm-message) ────────
+  useWorkspaceIntentRouter({
     isStatusLoaded,
     openCreateTab,
     openEditTab,

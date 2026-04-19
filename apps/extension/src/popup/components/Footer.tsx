@@ -20,7 +20,8 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSetting } from '@/rules/settings/hooks';
-import { getBrowserAPI } from '@/types/browser';
+import { useSurface } from '@/shared/surface';
+import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import RecordingButton from './RecordingButton';
 
@@ -37,6 +38,7 @@ const formatHotkeyForDisplay = (hotkey: string): string => {
 
 const Footer: React.FC = () => {
   const { setFooterActions, setIsShortcutsOverlayVisible } = useKeyboardNav();
+  const surface = useSurface();
   const version = __APP_VERSION__;
   const { token } = theme.useToken();
   const [useWidget, setUseWidget] = useSetting('recording.showWidget');
@@ -131,14 +133,12 @@ const Footer: React.FC = () => {
   }, []);
 
   const handleOpenWorkspace = useCallback(() => {
-    const url = getBrowserAPI().runtime.getURL('workspace.html');
-    getBrowserAPI().tabs.create({ url });
-  }, []);
+    void openWorkspace({ kind: 'open-workspace' }, surface.mode);
+  }, [surface.mode]);
 
   const handleOpenSettings = useCallback(() => {
-    const url = getBrowserAPI().runtime.getURL('workspace.html#/settings');
-    getBrowserAPI().tabs.create({ url });
-  }, []);
+    void openWorkspace({ kind: 'open-settings' }, surface.mode);
+  }, [surface.mode]);
 
   useEffect(() => {
     setFooterActions({

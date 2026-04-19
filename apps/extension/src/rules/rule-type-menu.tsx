@@ -16,12 +16,13 @@ import {
   StopOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
+import type { V5 } from '@openheaders/core/types';
 import type React from 'react';
 import { createElement } from 'react';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 
 export interface RuleTypeMenuItem {
-  key: string;
+  key: V5.ExtensionRuleType;
   icon: React.ReactNode;
   label: string;
   description: string;

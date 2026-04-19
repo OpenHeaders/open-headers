@@ -56,6 +56,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { isRuleComplete, parseTestTargetUrl, resolvePauseState } from '@openheaders/core/utils';
+import { intentToHash } from '@openheaders/core/workspace-intent';
 import { broadcast } from '@utils/bridge';
 import { runtime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -459,10 +460,15 @@ function isInternalUrl(url: string): boolean {
 }
 
 function buildReportUrl(runId: string): string {
+  // Use the intent codec so the URL format stays in lockstep with the
+  // workspace's router — if the encoding ever changes, the schema +
+  // codec roll it forward together rather than this one hardcoded
+  // string drifting silently.
+  const hash = intentToHash({ kind: 'open-run-report', runId });
   try {
-    return runtime.getURL(`workspace.html#/test/${runId}`);
+    return runtime.getURL(`workspace.html${hash}`);
   } catch {
-    return `workspace.html#/test/${runId}`;
+    return `workspace.html${hash}`;
   }
 }
 

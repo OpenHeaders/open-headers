@@ -162,7 +162,8 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'open-vault' },
     { kind: 'open-run-report', runId: UID_A },
     { kind: 'open-rule-flow', scope: 'all-active' },
-    { kind: 'open-rule-flow', scope: 'collection' },
+    { kind: 'open-rule-flow', scope: 'collection', entityId: UID_A },
+    { kind: 'open-rule-flow', scope: 'folder', entityId: UID_B },
     {
       kind: 'open-rule-flow',
       scope: 'this-page',

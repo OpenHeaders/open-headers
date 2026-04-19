@@ -40,9 +40,10 @@ import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
 import { useSetting, useSettingValue } from '@/rules/settings/hooks';
 import type { TrackedResourceType } from '@/rules/settings/schema/rules-engine';
+import { useSurface } from '@/shared/surface';
 import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@/shared/verdict';
+import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
 import type { SilentMatchRecord } from '@/types/browser';
-import { getBrowserAPI } from '@/types/browser';
 import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderActionDetails,
@@ -56,10 +57,18 @@ declare const browser: typeof chrome | undefined;
 
 const { Text } = Typography;
 
-/** Open the full-page rules editor in a new tab. */
-function openRulesPage(hash: string): void {
-  const url = getBrowserAPI().runtime.getURL(`workspace.html#${hash}`);
-  getBrowserAPI().tabs.create({ url });
+/**
+ * Hook helper — binds `openWorkspace` to the caller's surface so every
+ * call site is a one-line `openRulesIntent({ kind: '…', … })`.
+ */
+function useOpenRulesIntent(): (intent: WorkspaceIntent) => void {
+  const surface = useSurface();
+  return useCallback(
+    (intent: WorkspaceIntent) => {
+      void openWorkspace(intent, surface.mode);
+    },
+    [surface.mode],
+  );
 }
 
 const RULE_TYPE_LABEL: Record<string, string> = {
@@ -304,6 +313,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { pauseMarkers } = useRules();
+  const openRulesIntent = useOpenRulesIntent();
   const {
     expandedRowKey,
     nestedFocusIndex,
@@ -648,11 +658,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       });
   }, []);
 
-  const handleEditRow = useCallback((index: number) => {
-    const record = dataSourceRef.current[index];
-    if (!record) return;
-    openRulesPage(`/edit/${record.id}`);
-  }, []);
+  const handleEditRow = useCallback(
+    (index: number) => {
+      const record = dataSourceRef.current[index];
+      if (!record) return;
+      openRulesIntent({ kind: 'edit-rule', uid: record.id });
+    },
+    [openRulesIntent],
+  );
 
   const handleCopyRow = useCallback((index: number) => {
     const record = dataSourceRef.current[index];
@@ -982,7 +995,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               type="text"
               icon={<EditOutlined />}
               size="small"
-              onClick={() => openRulesPage(`/edit/${record.id}`)}
+              onClick={() => openRulesIntent({ kind: 'edit-rule', uid: record.id })}
             />
             <Popconfirm
               title="Delete rule"
@@ -1385,8 +1398,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
                 icon={<ApartmentOutlined />}
                 onClick={() => {
                   if (currentTab?.url) {
-                    const url = getBrowserAPI().runtime.getURL(`workspace.html#/flow/this-page/${currentTab.url}`);
-                    getBrowserAPI().tabs.create({ url });
+                    openRulesIntent({ kind: 'open-rule-flow', scope: 'this-page', url: currentTab.url });
                   }
                 }}
                 style={{ fontSize: 11 }}
@@ -1536,7 +1548,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               >
                 <InfoCircleOutlined
                   style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={() => openRulesPage('/docs/doc-request-tracking')}
+                  onClick={() => openRulesIntent({ kind: 'open-docs', section: 'doc-request-tracking' })}
                 />
               </Tooltip>
             ),

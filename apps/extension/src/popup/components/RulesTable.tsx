@@ -19,7 +19,8 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
-import { getBrowserAPI } from '@/types/browser';
+import { useSurface } from '@/shared/surface';
+import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
 import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '../utils/table-shared';
 import { AddRulePalette } from './AddRulePalette';
 import {
@@ -32,9 +33,18 @@ import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 /** Open the full-page rules editor in a new tab. */
-function openRulesPage(hash: string): void {
-  const url = getBrowserAPI().runtime.getURL(`workspace.html#${hash}`);
-  getBrowserAPI().tabs.create({ url });
+/**
+ * Dispatch an intent to the workspace via the SW navigator. Captures
+ * the caller surface so cross-window focus-steal rules apply.
+ */
+function useOpenRulesIntent(): (intent: WorkspaceIntent) => void {
+  const surface = useSurface();
+  return useCallback(
+    (intent: WorkspaceIntent) => {
+      void openWorkspace(intent, surface.mode);
+    },
+    [surface.mode],
+  );
 }
 
 const { Search } = Input;
@@ -75,6 +85,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
   const { rules, uiState, updateUiState, pauseMarkers } = useRules();
   const { setFocusedRowIndex } = useKeyboardNav();
   const screens = Grid.useBreakpoint();
+  const openRulesIntent = useOpenRulesIntent();
 
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
   const [sortMode, setSortMode] = useState<SortMode>((uiState?.tableState?.sortMode as SortMode) || 'status');
@@ -203,11 +214,14 @@ const RulesTable: React.FC<RulesTableProps> = ({
     [message],
   );
 
-  const handleEditRow = useCallback((index: number) => {
-    const record = dataSourceRef.current[index];
-    if (!record) return;
-    openRulesPage(`/edit/${record.id}`);
-  }, []);
+  const handleEditRow = useCallback(
+    (index: number) => {
+      const record = dataSourceRef.current[index];
+      if (!record) return;
+      openRulesIntent({ kind: 'edit-rule', uid: record.id });
+    },
+    [openRulesIntent],
+  );
 
   const handleCopyRow = useCallback((index: number) => {
     const record = dataSourceRef.current[index];
@@ -394,7 +408,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 icon={<EditOutlined />}
                 size="small"
                 disabled={!canAct}
-                onClick={() => openRulesPage(`/edit/${record.id}`)}
+                onClick={() => openRulesIntent({ kind: 'edit-rule', uid: record.id })}
               />
             </Tooltip>
             <Tooltip title={!canAct ? 'App not connected' : 'Delete rule'}>
@@ -423,9 +437,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
     },
   ];
 
-  const handlePaletteSelect = useCallback((ruleType: string, templateKey?: string) => {
-    openRulesPage(templateKey ? `/create/${ruleType}/${templateKey}` : `/create/${ruleType}`);
-  }, []);
+  const handlePaletteSelect = useCallback(
+    (ruleType: V5.ExtensionRuleType, templateKey?: string) => {
+      openRulesIntent({ kind: 'create-rule', ruleType, templateKey });
+    },
+    [openRulesIntent],
+  );
 
   const hasColumnSort = !!sortedInfo.order;
   const sortMenuItems = [

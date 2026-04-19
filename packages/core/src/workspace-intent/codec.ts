@@ -131,10 +131,15 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
       return buildIntent({ kind: 'open-run-report', runId: rest[0] });
 
     case 'flow': {
-      const [scope, ...urlParts] = rest;
+      const [scope, ...trailingParts] = rest;
       if (!scope) return null;
       const base: Record<string, unknown> = { kind: 'open-rule-flow', scope };
-      if (urlParts.length > 0) base.url = urlParts.join('/');
+      if (trailingParts.length > 0) {
+        // `this-page` trailing segments are a full URL (may contain
+        // `/`). Other scopes encode a single entity uid.
+        if (scope === 'this-page') base.url = trailingParts.join('/');
+        else base.entityId = trailingParts[0];
+      }
       return buildIntent(base);
     }
 
@@ -208,10 +213,12 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'open-rule-flow': {
       const parts = ['flow', encodeSegment(intent.scope)];
-      if (intent.url) {
+      if (intent.scope === 'this-page' && intent.url) {
         // URL segments are split on `/` — encode each piece individually
         // so `://` and query strings round-trip intact.
         for (const piece of intent.url.split('/')) parts.push(encodeSegment(piece));
+      } else if (intent.entityId) {
+        parts.push(encodeSegment(intent.entityId));
       }
       return `#/${parts.join('/')}`;
     }

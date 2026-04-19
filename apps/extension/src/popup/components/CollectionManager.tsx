@@ -20,7 +20,8 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
-import { getBrowserAPI } from '@/types/browser';
+import { useSurface } from '@/shared/surface';
+import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import type { PageInfo, RowActions } from '../utils/table-shared';
 import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
@@ -238,6 +239,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
 }) => {
   const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
   const { message } = App.useApp();
+  const surface = useSurface();
   const { setFocusedRowIndex } = useKeyboardNav();
   const togglePauseFocusedLabel = usePopupShortcutLabel('toggle-pause-focused');
   const [searchText, setSearchText] = useState('');
@@ -309,10 +311,19 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
     [message, togglePause],
   );
 
-  const handleVisualize = useCallback((record: CollectionTreeRecord) => {
-    const url = getBrowserAPI().runtime.getURL(`workspace.html#/visualize/${record.uid}`);
-    getBrowserAPI().tabs.create({ url });
-  }, []);
+  const handleVisualize = useCallback(
+    (record: CollectionTreeRecord) => {
+      // Visualize the collection's rules as a flow diagram in the
+      // workspace. `folder` records aren't supported as top-level
+      // flow scopes today (the flow view expects a collection root);
+      // the rule-flow view will scope to the collection ancestor if
+      // a folder uid lands on this path — same fallback the workspace
+      // already applies for tree-nodes above leaf rules.
+      const scope = record.nodeType === 'folder' ? 'folder' : 'collection';
+      void openWorkspace({ kind: 'open-rule-flow', scope, entityId: record.uid }, surface.mode);
+    },
+    [surface.mode],
+  );
 
   // ── Test session launcher ──
   // Walks the collection/folder subtree and collects all rule uids under it,
