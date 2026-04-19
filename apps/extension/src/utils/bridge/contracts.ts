@@ -380,7 +380,7 @@ export interface BridgeRpcContract {
   };
   createTemplate: {
     req: {
-      template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>;
+      template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>;
       collectionUid?: string;
       parentPath?: string;
     };
@@ -389,9 +389,15 @@ export interface BridgeRpcContract {
   updateTemplate: {
     req: {
       templateUid: string;
-      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>;
+      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
+      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
+      expectedVersion?: number;
     };
-    res: { success: boolean };
+    res:
+      | { ok: true; version: number; template: V5.Template }
+      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverTemplate: V5.Template }
+      | { ok: false; reason: 'not-found' }
+      | { ok: false; reason: 'other'; message: string };
   };
   deleteTemplate: {
     req: { templateUid: string };

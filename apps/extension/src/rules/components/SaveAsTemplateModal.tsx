@@ -78,7 +78,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
 
   const handleCollectionSave = useCallback(
     async (params: { name: string; collectionId: string; folderPath?: string }) => {
-      const templateData: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'> = {
+      const templateData: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'> = {
         name: params.name,
         ruleType: ruleType as V5.RuleType,
         icon: icon || getDefaultIconForType(ruleType),

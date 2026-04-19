@@ -101,16 +101,16 @@ export interface RuleContextValue {
   templateCollections: V5.Collection[];
   /** Template collection trees (with folder → template hierarchy). */
   templateCollectionTrees: V5.CollectionTree[];
-  /** Create a template. `schemaVersion` is stamped by the store. */
+  /** Create a template. `schemaVersion` + `version` are stamped by the store. */
   createTemplate: (
-    template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>,
+    template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
     collectionUid?: string,
     parentPath?: string,
   ) => Promise<V5.Template | null>;
   /** Update a template by uid. */
   updateTemplate: (
     uid: string,
-    updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>,
+    updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
   ) => Promise<boolean>;
   /** Delete a template by uid. */
   deleteTemplate: (uid: string) => Promise<boolean>;
@@ -545,7 +545,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   const createTemplateFn = useCallback(
     async (
-      template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>,
+      template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
       collectionUid?: string,
       parentPath?: string,
     ): Promise<V5.Template | null> => {
@@ -560,9 +560,12 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
   );
 
   const updateTemplateFn = useCallback(
-    async (uid: string, updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>): Promise<boolean> => {
+    async (
+      uid: string,
+      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+    ): Promise<boolean> => {
       const resp = await call('updateTemplate', { templateUid: uid, updates }).catch(() => null);
-      if (resp?.success) {
+      if (resp?.ok) {
         refreshRules();
         return true;
       }

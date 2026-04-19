@@ -14,6 +14,11 @@ export const TemplateIncludesSchema = v.object({
 
 export const TemplateSchema = v.object({
   schemaVersion: SchemaVersionSchema,
+  /**
+   * Phase 10 monotonic write counter — required from day one per the
+   * v5-fresh-start discipline. See `RuleBase.version` for semantics.
+   */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   uid: UidSchema,
   path: RelativePathSchema,
   name: v.string(),

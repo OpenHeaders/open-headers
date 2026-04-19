@@ -20,6 +20,7 @@ import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/cor
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
+import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import type { LocalFolder } from './rule-store';
 import { driftRecorder } from './storage-drift';
@@ -219,7 +220,7 @@ export function deleteTemplateFolder(uid: string): boolean {
 // ── Templates (CRUD) ────────────────────────────────────────────────
 
 export function addTemplate(
-  template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>,
+  template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
   parentPath: string,
 ): V5.Template {
   const uid = generateUid();
@@ -227,6 +228,8 @@ export function addTemplate(
   const now = new Date().toISOString();
   const created: V5.Template = {
     schemaVersion: 5,
+    // Phase 10 write counter — starts at 1 on creation.
+    version: 1,
     ...template,
     uid,
     path: `${parentPath}/${folderName}`,
@@ -239,7 +242,7 @@ export function addTemplate(
 }
 
 export function addTemplateToCollection(
-  template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>,
+  template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
   collectionUid: string,
 ): V5.Template {
   const collection = templateCollections.find((c) => c.uid === collectionUid);
@@ -247,23 +250,72 @@ export function addTemplateToCollection(
   return addTemplate(template, parentPath);
 }
 
-export function updateTemplate(uid: string, updates: Partial<Omit<V5.Template, 'uid' | 'path'>>): boolean {
-  const index = templates.findIndex((t) => t.uid === uid);
-  if (index === -1) return false;
+/**
+ * Outcome of a versioned template write (Phase 10 stale-draft
+ * contract — parallel to `RuleWriteResult` / `RequestWriteResult`).
+ */
+export type TemplateWriteResult =
+  | { ok: true; version: number; template: V5.Template }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverTemplate: V5.Template }
+  | { ok: false; reason: 'not-found' };
 
-  const existing = templates[index];
-  const updated: V5.Template = { ...existing, ...updates, updatedAt: new Date().toISOString() };
-  templates = [...templates.slice(0, index), updated, ...templates.slice(index + 1)];
-  void persistTemplates();
-  return true;
+export interface UpdateTemplateOptions {
+  expectedVersion?: number;
 }
 
-export function deleteTemplate(uid: string): boolean {
-  const before = templates.length;
-  templates = templates.filter((t) => t.uid !== uid);
-  if (templates.length === before) return false;
-  void persistTemplates();
-  return true;
+function templateVersionOf(t: V5.Template): number {
+  return t.version;
+}
+
+export async function updateTemplate(
+  uid: string,
+  updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+  options: UpdateTemplateOptions = {},
+): Promise<TemplateWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'template', uid),
+    async () => {
+      const index = templates.findIndex((t) => t.uid === uid);
+      if (index === -1) return { ok: false, reason: 'not-found' } as TemplateWriteResult;
+      const existing = templates[index];
+      const current = templateVersionOf(existing);
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverTemplate: existing,
+        } as TemplateWriteResult;
+      }
+      const nextVersion = current + 1;
+      const updated: V5.Template = {
+        ...existing,
+        ...updates,
+        version: nextVersion,
+        updatedAt: new Date().toISOString(),
+      };
+      templates = [...templates.slice(0, index), updated, ...templates.slice(index + 1)];
+      await persistTemplates();
+      return { ok: true, version: nextVersion, template: updated } as TemplateWriteResult;
+    },
+    { op: 'template-update' },
+  );
+}
+
+export async function deleteTemplate(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'template', uid),
+    async () => {
+      const before = templates.length;
+      templates = templates.filter((t) => t.uid !== uid);
+      if (templates.length === before) return false;
+      await persistTemplates();
+      return true;
+    },
+    { op: 'template-delete' },
+  );
 }
 
 // ── Persistence ─────────────────────────────────────────────────────

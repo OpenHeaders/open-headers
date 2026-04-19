@@ -34,6 +34,7 @@ export const RULE_FIELD_ORDER = [
 
 export const TEMPLATE_FIELD_ORDER = [
   'schemaVersion',
+  'version',
   'uid',
   'name',
   'ruleType',

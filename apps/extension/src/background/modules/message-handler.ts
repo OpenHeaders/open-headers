@@ -764,14 +764,20 @@ export function handleGeneralMessage(
       }
       safeResponse({ success: true, template: created });
     } else if (message.type === 'updateTemplate') {
-      const success = updateTemplate(
+      const expectedVersion = message.expectedVersion as number | undefined;
+      updateTemplate(
         message.templateUid as string,
-        message.updates as Partial<Omit<V5.Template, 'uid' | 'path'>>,
-      );
-      safeResponse({ success });
+        message.updates as Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+        { expectedVersion },
+      )
+        .then((result) => safeResponse(result))
+        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
+      return true;
     } else if (message.type === 'deleteTemplate') {
-      const success = deleteTemplate(message.templateUid as string);
-      safeResponse({ success });
+      deleteTemplate(message.templateUid as string)
+        .then((success) => safeResponse({ success }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'createTemplateCollection') {
       const collection = createTemplateCollection(message.name as string);
       safeResponse({ success: true, collection });
