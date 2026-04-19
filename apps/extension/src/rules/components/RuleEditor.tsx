@@ -34,6 +34,7 @@ import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYP
 import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
+import RuleResolutionBanner from './RuleResolutionBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -759,6 +760,18 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     return null;
   }, [activeSystemTemplate, activeUserTemplate]);
 
+  // Collection a persisted rule belongs to — used by the resolution
+  // banner so collection-scoped `{{collection.X}}` references resolve
+  // correctly. Drafts (create mode) haven't been slotted yet, so
+  // collectionId is undefined and collection scope is unavailable.
+  const bannerCollectionId = useMemo<string | undefined>(() => {
+    if (mode !== 'edit' || !ruleUid) return undefined;
+    const rule = rules.find((r) => r.uid === ruleUid);
+    if (!rule) return undefined;
+    const match = localCollections.find((c) => rule.path.startsWith(`${c.path}/`));
+    return match?.uid;
+  }, [mode, ruleUid, rules, localCollections]);
+
   return (
     <div className="rules-rule-editor">
       <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
@@ -766,6 +779,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         <Form.Item name="ruleType" hidden>
           <input type="hidden" />
         </Form.Item>
+
+        <RuleResolutionBanner collectionId={bannerCollectionId} />
 
         {/* ── Templates ── */}
         <div style={{ marginBottom: 16 }}>

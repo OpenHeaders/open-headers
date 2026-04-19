@@ -33,6 +33,7 @@ import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import type { RulesTab } from '../../types';
+import { collectTemplateStrings } from '../../variable-references';
 
 const { Text } = Typography;
 
@@ -61,32 +62,8 @@ interface DisplayVariable {
   resolved: boolean;
 }
 
-const TEMPLATE_RX = /\{\{[^}]+\}\}/;
-
-/**
- * Walk every string leaf of a JSON-serializable value and collect the
- * strings that contain at least one `{{...}}` reference. We need the
- * full strings (not just names) so we can feed them through
- * `resolver.resolveTemplate` and get the structured `ResolutionError`
- * list alongside the resolved values.
- *
- * Traversing leaves (instead of `JSON.stringify(rule)`-plus-regex) keeps
- * escaped `{{...}}` inside code strings and inject snippets honest —
- * we only surface references the executor would actually try to resolve.
- */
-function collectTemplateStrings(input: unknown, out: string[]): void {
-  if (typeof input === 'string') {
-    if (TEMPLATE_RX.test(input)) out.push(input);
-    return;
-  }
-  if (Array.isArray(input)) {
-    for (const item of input) collectTemplateStrings(item, out);
-    return;
-  }
-  if (input && typeof input === 'object') {
-    for (const v of Object.values(input as Record<string, unknown>)) collectTemplateStrings(v, out);
-  }
-}
+// `TEMPLATE_RX` + `collectTemplateStrings` live in `../../variable-references`
+// so the rule-editor resolution banner can share the same walker.
 
 // ── Panel ──────────────────────────────────────────────────────────
 
