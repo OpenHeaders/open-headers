@@ -113,14 +113,18 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api }) => {
                 onDelete={() => handleDelete(w)}
                 onDuplicate={() => void handleDuplicate(w)}
                 onSwitch={() => void api.setActiveWorkspace(w.id)}
-                onIdentityChange={(identity) =>
+                onIdentityChange={(identity) => {
                   // Coerce undefined icon → null so the backend's
                   // "clear" path runs instead of "leave unchanged".
+                  // No expectedVersion — color/icon pickers are
+                  // rapid UI updates; last-write-wins is the right
+                  // semantics. The per-workspace lock still
+                  // serializes the storage write.
                   void api.updateWorkspace(w.id, {
                     color: identity.color,
                     icon: identity.icon ?? null,
-                  })
-                }
+                  });
+                }}
                 tokenColorBorder={token.colorBorderSecondary}
                 tokenColorBg={token.colorBgContainer}
                 tokenColorPrimary={token.colorPrimary}
@@ -158,16 +162,34 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api }) => {
           // emits `undefined` when the user selects "No icon", so
           // coerce undefined to null here to distinguish "no change"
           // (field not in the patch) from "clear it" (null).
-          const ws = await api.updateWorkspace(editTarget.id, {
-            ...values,
-            icon: values.icon ?? null,
-          });
-          if (!ws) {
-            message.error('Failed to update workspace');
+          // Pass the version we loaded so the SW can detect a
+          // concurrent rename from another tab.
+          const result = await api.updateWorkspace(
+            editTarget.id,
+            { ...values, icon: values.icon ?? null },
+            editTarget.version,
+          );
+          if (result.success) {
+            message.success(`Updated "${result.workspace.name}"`);
+            return true;
+          }
+          if (result.reason === 'stale-draft') {
+            message.warning(
+              `"${result.serverWorkspace.name}" was modified in another tab — reopening with the latest version`,
+            );
+            // Rehydrate the dialog's target to the server copy so a
+            // retry is unambiguous. The user re-enters any field
+            // changes, then saves.
+            setEditTarget(result.serverWorkspace);
             return false;
           }
-          message.success(`Updated "${ws.name}"`);
-          return true;
+          if (result.reason === 'not-found') {
+            message.error('This workspace was deleted from another tab');
+            setEditTarget(null);
+            return false;
+          }
+          message.error(`Failed to update workspace${'message' in result ? `: ${result.message}` : ''}`);
+          return false;
         }}
       />
     </div>

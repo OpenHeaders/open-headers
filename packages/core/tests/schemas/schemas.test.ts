@@ -4,6 +4,7 @@ import {
   CollectionSchema,
   EnvironmentSchema,
   ExtensionWorkspaceSchema,
+  FolderSchema,
   parseEntity,
   parseEntityArray,
   RequestSchema,
@@ -128,6 +129,7 @@ describe('ExtensionWorkspaceSchema', () => {
     expect(
       v.parse(ExtensionWorkspaceSchema, {
         schemaVersion: 5,
+        version: 1,
         id: 'abcd1234',
         kind: 'personal',
         name: 'mine',
@@ -142,6 +144,7 @@ describe('ExtensionWorkspaceSchema', () => {
     expect(
       v.safeParse(ExtensionWorkspaceSchema, {
         schemaVersion: 5,
+        version: 1,
         id: 'abcd1234',
         kind: 'public',
         name: 'x',
@@ -155,6 +158,21 @@ describe('ExtensionWorkspaceSchema', () => {
   it('rejects a missing schemaVersion', () => {
     expect(
       v.safeParse(ExtensionWorkspaceSchema, {
+        version: 1,
+        id: 'abcd1234',
+        kind: 'personal',
+        name: 'mine',
+        sortIndex: 0,
+        createdAt: '2026',
+        updatedAt: '2026',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a missing version (Phase 10 write counter required)', () => {
+    expect(
+      v.safeParse(ExtensionWorkspaceSchema, {
+        schemaVersion: 5,
         id: 'abcd1234',
         kind: 'personal',
         name: 'mine',
@@ -171,6 +189,7 @@ describe('CollectionSchema', () => {
     expect(
       v.parse(CollectionSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'rules/auth-abcd1234',
         name: 'Auth',
@@ -183,6 +202,7 @@ describe('CollectionSchema', () => {
     expect(
       v.parse(CollectionSchema, {
         schemaVersion: 5,
+        version: 1,
         uid: 'abcd1234',
         path: 'rules/auth-abcd1234',
         name: 'Auth',
@@ -190,6 +210,56 @@ describe('CollectionSchema', () => {
         order: ['login-wxyz1234', 'logout-pqrs5678'],
       }),
     ).toBeTruthy();
+  });
+
+  it('rejects a missing version (Phase 10 write counter required)', () => {
+    expect(
+      v.safeParse(CollectionSchema, {
+        schemaVersion: 5,
+        uid: 'abcd1234',
+        path: 'rules/auth-abcd1234',
+        name: 'Auth',
+        variables: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects version below 1', () => {
+    expect(
+      v.safeParse(CollectionSchema, {
+        schemaVersion: 5,
+        version: 0,
+        uid: 'abcd1234',
+        path: 'rules/auth-abcd1234',
+        name: 'Auth',
+        variables: [],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('FolderSchema', () => {
+  it('accepts a minimal folder', () => {
+    expect(
+      v.parse(FolderSchema, {
+        schemaVersion: 5,
+        version: 1,
+        uid: 'abcd1234',
+        path: 'rules/auth-wxyz1234/tokens-abcd1234',
+        name: 'Tokens',
+      }),
+    ).toBeTruthy();
+  });
+
+  it('rejects a missing version (Phase 10 write counter required)', () => {
+    expect(
+      v.safeParse(FolderSchema, {
+        schemaVersion: 5,
+        uid: 'abcd1234',
+        path: 'rules/auth-wxyz1234/tokens-abcd1234',
+        name: 'Tokens',
+      }).success,
+    ).toBe(false);
   });
 });
 

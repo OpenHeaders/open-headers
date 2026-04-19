@@ -7,16 +7,17 @@ function makeVariable(name: string, value: string, type: 'default' | 'secret' = 
 }
 
 function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
-  return { schemaVersion: 5, variables: vars };
+  return { schemaVersion: 5, version: 1, variables: vars };
 }
 
 function makeEnvironment(name: string, vars: Variable[]): Environment {
-  return { schemaVersion: 5, uid: `env-${name}`, name, variables: vars };
+  return { schemaVersion: 5, version: 1, uid: `env-${name}`, name, variables: vars };
 }
 
 function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
+    version: 1,
     uid: 'r1a2b3c4',
     path: 'rules/test',
     name: 'Test',
@@ -34,6 +35,7 @@ function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
 function makeRedirectRule(overrides: Partial<RedirectRule> = {}): RedirectRule {
   return {
     schemaVersion: 5,
+    version: 1,
     uid: 'r2a3b4c5',
     path: 'rules/redir',
     name: 'Redir',
@@ -95,7 +97,19 @@ describe('resolveRuleWithDiagnostics', () => {
     expect(refs).toEqual(['HOST', 'env.MISSING']);
   });
 
-  it('reserved-namespace references surface with reason reserved-namespace', () => {
+  it('reserved-namespace references (dynamic) surface with reason reserved-namespace', () => {
+    const rule = makeHeaderRule({
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
+        responseHeaders: [],
+      },
+    });
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    const err = errors.find((e) => e.reference === 'dynamic.timestamp');
+    expect(err?.reason).toBe('reserved-namespace');
+  });
+
+  it('unregistered {{file.X}} surfaces as unset-in-scope (not reserved)', () => {
     const rule = makeHeaderRule({
       action: {
         requestHeaders: [{ operation: 'override', headerName: 'X-File', value: '{{file.fixture}}' }],
@@ -104,7 +118,8 @@ describe('resolveRuleWithDiagnostics', () => {
     });
     const { errors } = resolveRuleWithDiagnostics(rule, resolver);
     const fileErr = errors.find((e) => e.reference === 'file.fixture');
-    expect(fileErr?.reason).toBe('reserved-namespace');
+    expect(fileErr?.reason).toBe('unset-in-scope');
+    expect(fileErr?.namespace).toBe('file');
   });
 
   it('unknown-namespace references surface with reason unknown-namespace', () => {
@@ -142,6 +157,7 @@ describe('resolveRuleWithDiagnostics', () => {
   it('delay rules carry conditions-only diagnostics (no action resolution needed)', () => {
     const rule = {
       schemaVersion: 5 as const,
+      version: 1,
       uid: 'r3a4b5c6',
       path: 'rules/delay',
       name: 'Delay',

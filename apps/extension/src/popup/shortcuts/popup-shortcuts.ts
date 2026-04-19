@@ -343,7 +343,10 @@ const MOD_DISPLAY_WIN: Record<string, string> = {
 };
 
 const KEY_DISPLAY: Record<string, string> = {
-  ' ': 'Space',
+  // Spacebar is stored as the word-mnemonic `space` (see
+  // `buildChordsFromEvent` in `useWorkspaceShortcuts.ts`) so the
+  // validation regex `[^\s+]+` accepts it.
+  space: 'Space',
   arrowup: '\u2191',
   arrowdown: '\u2193',
   arrowleft: '\u2190',

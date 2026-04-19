@@ -2,7 +2,7 @@
  * useInitialLanding — one-shot "open the configured landing tab on
  * startup" effect for the workspace shell.
  *
- * Complements useInitialHashRoute (which handles deep links) and
+ * Complements useWorkspaceIntentRouter (which handles deep links) and
  * useEditorGroups' session-restore pass (which handles openTo=last).
  * Runs after data is loaded and all other routing has had a chance to
  * open its own tabs; if nothing has and openTo is not "last", opens

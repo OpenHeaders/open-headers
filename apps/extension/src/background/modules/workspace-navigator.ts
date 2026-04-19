@@ -17,8 +17,7 @@
  *     `tabs.update({ url })` so the tab's cold-path router picks up the
  *     intent on the next load.
  *   • **Cold** — `chrome.tabs.create` with the intent encoded as a URL
- *     hash. The fresh tab decodes it on mount via `useInitialHashRoute`
- *     (Phase 9 will rename this to `useWorkspaceIntentRouter`).
+ *     hash. The fresh tab decodes it on mount via `useWorkspaceIntentRouter`.
  *
  * Every dispatch records one observability entry (subsystem: `workspace`)
  * with the intent kind + path taken, so "which tab got the intent" is

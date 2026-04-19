@@ -281,10 +281,11 @@ function connectStandardWebSocket(url: string): void {
 
 export function connectWebSocket(): Promise<boolean> {
   // Single autoConnect chokepoint. Every entry path — initial boot,
-  // keep-alive alarm, URL-change subscriber, reconnect scheduler — funnels
-  // through here. If the user has Auto-Connect off, no path can sneak a
-  // socket open. Previously each call site had to remember to gate, and
-  // the URL-change subscriber + reconnect-on-failure both bypassed it.
+  // `wsReconnect` alarm, URL-change subscriber, reconnect scheduler,
+  // autoConnect-flip subscriber — funnels through here. If the user
+  // has Auto-Connect off, no path can sneak a socket open. Previously
+  // each call site had to remember to gate, and the URL-change
+  // subscriber + reconnect-on-failure both bypassed it.
   if (!getSetting('desktop.connection.autoConnect')) {
     reportSyncStatus();
     return Promise.resolve(false);

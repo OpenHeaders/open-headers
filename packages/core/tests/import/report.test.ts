@@ -1,0 +1,121 @@
+/**
+ * ImportReport schema + builder helpers.
+ *
+ * Shape test for the report — every importer will produce this
+ * exact structure, so catching schema drift here prevents per-importer
+ * reinvention later.
+ */
+
+import * as v from 'valibot';
+import { describe, expect, it } from 'vitest';
+import {
+  createReport,
+  hashImportSource,
+  IMPORT_SOURCES,
+  ImportReportSchema,
+  recordDrop,
+  recordTransform,
+} from '../../src/import/report';
+
+describe('ImportReportSchema', () => {
+  it('accepts a minimal empty report', () => {
+    const report = {
+      schemaVersion: 5,
+      source: 'curl' as const,
+      sourceHash: '',
+      importedAt: '2026-04-19T00:00:00Z',
+      summary: { imported: 1, dropped: 0, transformed: 0 },
+      drops: [],
+      transforms: [],
+    };
+    expect(v.parse(ImportReportSchema, report)).toEqual(report);
+  });
+
+  it('rejects an unknown source', () => {
+    expect(
+      v.safeParse(ImportReportSchema, {
+        schemaVersion: 5,
+        source: 'made-up',
+        sourceHash: '',
+        importedAt: '2026',
+        summary: { imported: 0, dropped: 0, transformed: 0 },
+        drops: [],
+        transforms: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects negative summary counts', () => {
+    expect(
+      v.safeParse(ImportReportSchema, {
+        schemaVersion: 5,
+        source: 'curl',
+        sourceHash: '',
+        importedAt: '2026',
+        summary: { imported: -1, dropped: 0, transformed: 0 },
+        drops: [],
+        transforms: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts every listed IMPORT_SOURCES value', () => {
+    for (const source of IMPORT_SOURCES) {
+      const parsed = v.safeParse(ImportReportSchema, {
+        schemaVersion: 5,
+        source,
+        sourceHash: '',
+        importedAt: '2026',
+        summary: { imported: 0, dropped: 0, transformed: 0 },
+        drops: [],
+        transforms: [],
+      });
+      expect(parsed.success).toBe(true);
+    }
+  });
+});
+
+describe('createReport / recordDrop / recordTransform', () => {
+  it('initializes summary from the imported count', () => {
+    const report = createReport('curl', 3);
+    expect(report.summary).toEqual({ imported: 3, dropped: 0, transformed: 0 });
+  });
+
+  it('increments dropped count + appends the entry', () => {
+    const report = createReport('curl');
+    recordDrop(report, { path: 'flag:-k', reason: 'no tls bypass in browsers' });
+    expect(report.drops).toHaveLength(1);
+    expect(report.summary.dropped).toBe(1);
+  });
+
+  it('increments transformed count + appends the entry', () => {
+    const report = createReport('curl');
+    recordTransform(report, {
+      path: 'header[0]',
+      from: 'Authorization: ***',
+      to: 'auth.bearer',
+      reason: 'promoted to first-class auth',
+    });
+    expect(report.transforms).toHaveLength(1);
+    expect(report.summary.transformed).toBe(1);
+  });
+});
+
+describe('hashImportSource', () => {
+  it('produces the sha256:<hex> format', async () => {
+    const hash = await hashImportSource('curl https://api.openheaders.io');
+    expect(hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it('is stable across calls with identical input', async () => {
+    const a = await hashImportSource('curl -X POST https://api.openheaders.io/x');
+    const b = await hashImportSource('curl -X POST https://api.openheaders.io/x');
+    expect(a).toBe(b);
+  });
+
+  it('differs when a single character differs', async () => {
+    const a = await hashImportSource('curl -X POST https://api.openheaders.io/x');
+    const b = await hashImportSource('curl -X POST https://api.openheaders.io/y');
+    expect(a).not.toBe(b);
+  });
+});

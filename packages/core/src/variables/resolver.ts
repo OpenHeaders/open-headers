@@ -12,8 +12,10 @@
  * Both the main process and renderer use this.
  */
 
+import { buildFileRegistry, EMPTY_FILE_REGISTRY, type FileRegistry, resolveFileRef } from '../files';
 import type {
   Environment,
+  FileRef,
   ResolutionContext,
   ResolvedVariable,
   Variable,
@@ -33,6 +35,7 @@ const NAMESPACE_TO_SCOPE: Partial<Record<VariableNamespace, VariableScope>> = {
   env: 'environment',
   collection: 'collection',
   workspace: 'workspace',
+  file: 'file',
 };
 
 // ── Resolution errors ──────────────────────────────────────────────
@@ -45,7 +48,7 @@ const NAMESPACE_TO_SCOPE: Partial<Record<VariableNamespace, VariableScope>> = {
 export type ResolutionErrorReason =
   | 'empty' // `{{}}` or `{{ns.}}`
   | 'unknown-namespace' // `{{foo.X}}` — foo is not a registered namespace
-  | 'reserved-namespace' // `{{file.X}}` / `{{dynamic.X}}` — reserved for features not yet shipped
+  | 'reserved-namespace' // `{{dynamic.X}}` — reserved for features not yet shipped
   | 'unset-in-scope' // `{{env.X}}` but X not in active env (and no default fallback)
   | 'unresolved'; // `{{X}}` — nowhere in the 4-scope chain
 
@@ -92,6 +95,7 @@ function buildHint(
       if (namespace === 'vault') return 'Set this secret in the Vault.';
       if (namespace === 'collection') return 'Set this variable in the current collection.';
       if (namespace === 'workspace') return 'Set this variable in Workspace Variables.';
+      if (namespace === 'file') return 'Upload this file in Settings → Files (or reference it by its sha256 hash).';
       return 'Not set in this scope.';
     case 'unresolved':
       return 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
@@ -111,6 +115,7 @@ export class VariableResolver {
   private defaultEnvironmentId: string | null;
   private collectionVariables: Map<string, Variable[]>;
   private workspaceVariables: WorkspaceVariables;
+  private fileRegistry: FileRegistry;
 
   constructor() {
     this.vault = { schemaVersion: 5, version: 1, secrets: [] };
@@ -119,6 +124,7 @@ export class VariableResolver {
     this.defaultEnvironmentId = null;
     this.collectionVariables = new Map();
     this.workspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
+    this.fileRegistry = EMPTY_FILE_REGISTRY;
   }
 
   // ── Scope setters ────────────────────────────────────────────────
@@ -160,6 +166,20 @@ export class VariableResolver {
 
   setWorkspaceVariables(vars: WorkspaceVariables): void {
     this.workspaceVariables = vars;
+  }
+
+  /**
+   * Install the workspace's file registry. Accepts the already-built
+   * `FileRegistry` (see `@openheaders/core/files`) so callers can
+   * share the snapshot across resolver instances. Pass an array for
+   * the ergonomic path; we'll build the registry inline.
+   */
+  setFileRegistry(refsOrRegistry: readonly FileRef[] | FileRegistry): void {
+    if (Array.isArray(refsOrRegistry)) {
+      this.fileRegistry = buildFileRegistry(refsOrRegistry);
+    } else {
+      this.fileRegistry = refsOrRegistry as FileRegistry;
+    }
   }
 
   // ── Internal helpers ─────────────────────────────────────────────
@@ -293,6 +313,25 @@ export class VariableResolver {
           };
         }
         return null;
+      }
+      case 'file': {
+        // `{{file.X}}` resolves by filename OR explicit `sha256:<hex>`.
+        // Returns the hash string — the BYTES are looked up by the
+        // request executor via the per-platform BlobStore. Keeping
+        // the resolver string-only preserves its synchronous-pure
+        // contract; binary attachment is the executor's concern.
+        const fileRef = resolveFileRef(this.fileRegistry, name);
+        if (!fileRef) return null;
+        return {
+          name,
+          value: fileRef.hash,
+          scope: 'file',
+          // File refs are not sensitive in the secret sense — the
+          // hash is content-derived and doesn't reveal bytes. A
+          // later tier might mark blobs uploaded from the vault
+          // scope as sensitive; v1 treats them as plain data.
+          isSensitive: false,
+        };
       }
     }
   }
@@ -483,7 +522,7 @@ export function resolveTemplate(
         variables.push({ name: key, resolved: false });
 
         // Emit a structured error per unique unresolved reference.
-        if (ref.namespace === 'file' || ref.namespace === 'dynamic') {
+        if (ref.namespace === 'dynamic') {
           errors.push({
             reference: ref.raw,
             reason: 'reserved-namespace',

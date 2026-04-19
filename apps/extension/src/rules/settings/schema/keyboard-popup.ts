@@ -159,7 +159,12 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
   },
   {
     key: 'keyboard.popup.toggleRow',
-    default: ' ',
+    // Stored as the word-mnemonic `space`, not the raw ` ` character:
+    // the validation regex rejects whitespace, and the dispatcher's
+    // `buildChordsFromEvent` normalizes spacebar presses to `space`
+    // before matching. Consistent with `enter` / `escape` / arrow-key
+    // mnemonics.
+    default: 'space',
     label: 'Popup — Toggle Row',
     description: 'Toggle the focused rule on or off. Defaults to the spacebar.',
     tags: ['popup', 'toggle', 'rules'],

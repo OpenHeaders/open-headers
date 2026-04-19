@@ -177,6 +177,27 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     expect(parsed, `round-trip failed for ${JSON.stringify(intent)} → ${hash}`).toEqual(intent);
   });
 
+  it.each(roundTripCases)('hash → intent → hash is idempotent (byte equality) for %j', (intent) => {
+    // Stronger form: the serialized hash itself is stable under
+    // re-encoding. Any renderer that re-emits an intent pulled from
+    // the URL bar will not shift bookmarked URLs by a byte.
+    const hash1 = intentToHash(intent);
+    const parsed = hashToIntent(hash1);
+    expect(parsed).not.toBeNull();
+    if (!parsed) return;
+    const hash2 = intentToHash(parsed);
+    expect(hash2).toBe(hash1);
+  });
+
+  it('every WORKSPACE_INTENT_KINDS entry has at least one round-trip case', () => {
+    // Keeps the table honest: adding a new intent kind to the schema
+    // without a test fixture fails here instead of silently shipping.
+    const covered = new Set(roundTripCases.map((i) => i.kind));
+    for (const kind of WORKSPACE_INTENT_KINDS) {
+      expect(covered, `missing round-trip fixture for kind: ${kind}`).toContain(kind);
+    }
+  });
+
   it('empty hash → open-workspace', () => {
     expect(hashToIntent('')).toEqual({ kind: 'open-workspace' });
     expect(hashToIntent('#')).toEqual({ kind: 'open-workspace' });

@@ -31,6 +31,7 @@ import { installBackingStorage, seedStorage, seedStorageMany } from '../helpers/
 function workspace(id: string, overrides: Record<string, unknown> = {}) {
   return {
     schemaVersion: 5,
+    version: 1,
     id,
     kind: 'personal',
     name: id,
@@ -173,6 +174,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     };
     const coll = {
       schemaVersion: 5,
+      version: 1,
       uid: makeUid('abcd1234'),
       path: 'rules/coll-abcd1234',
       name: 'coll',
@@ -241,6 +243,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     const env = { schemaVersion: 5, version: 1, uid: makeUid('envdev00'), name: 'dev', variables: [] };
     const coll = {
       schemaVersion: 5,
+      version: 1,
       uid: makeUid('eecc1234'),
       path: 'rules/coll-eecc1234',
       name: 'c',

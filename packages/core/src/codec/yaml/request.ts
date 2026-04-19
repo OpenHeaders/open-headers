@@ -82,11 +82,14 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
   const doc = YAML.parseDocument(yaml);
   const raw = doc.toJS() as Record<string, unknown>;
 
-  // Body assembly: find the sole `body.<ext>` among siblings. Multiple
+  // Body assembly: start from whatever `body:` the YAML carried
+  // (type, multipartParts for multipart, …), then let the sibling
+  // `body.<ext>` file override `type` + inject `content`. Multiple
   // body files is a corrupt state — accept the first and ignore the
   // rest; the desktop storage service is responsible for enforcing
   // single-body on write.
-  let body: RequestBody = { type: 'none' };
+  const rawBody = (raw.body && typeof raw.body === 'object' ? raw.body : { type: 'none' }) as RequestBody;
+  let body: RequestBody = { ...rawBody };
   let preRequestScript: string | undefined;
   let testScript: string | undefined;
   let graphqlVariables: string | undefined;
@@ -94,7 +97,7 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
   for (const sibling of context.siblings ?? []) {
     if (sibling.fileName.startsWith('body.')) {
       const type = bodyTypeFromFileName(sibling.fileName);
-      body = { type, content: sibling.content };
+      body = { ...body, type, content: sibling.content };
     } else if (sibling.fileName === 'variables.json') {
       graphqlVariables = sibling.content;
     } else if (sibling.fileName === 'pre-request.js') {
@@ -137,10 +140,17 @@ export interface RequestSerializeOutput {
 
 export function serializeRequest(write: WriteableDocument<Request>): RequestSerializeOutput {
   // The request.yaml manifest omits body content + script content — those
-  // go to sibling files. Stripping them here keeps the YAML diff-readable.
+  // go to sibling files. Multipart parts STAY in the manifest because they
+  // are structured metadata (part names + file refs by hash), not a blob
+  // of content. The file bytes themselves live in the platform BlobStore
+  // and are looked up at execute time (see ARCHITECTURE.md §6).
+  const manifestBody: RequestBody = { type: write.value.body.type };
+  if (write.value.body.type === 'multipart' && write.value.body.multipartParts) {
+    manifestBody.multipartParts = write.value.body.multipartParts;
+  }
   const manifestView = {
     ...write.value,
-    body: { type: write.value.body.type },
+    body: manifestBody,
     preRequestScript: undefined,
     testScript: undefined,
   } as unknown as Request;

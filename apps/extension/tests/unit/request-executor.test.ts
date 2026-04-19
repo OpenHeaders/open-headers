@@ -38,8 +38,9 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@/background/modules/environment-store';
-import { executeRequestDraft } from '@/background/modules/request-executor';
+import { ensureScheme, executeRequestDraft } from '@/background/modules/request-executor';
 import { getRequestCollections } from '@/background/modules/request-store';
+import { needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 
 const mockEnvs = getEnvironments as ReturnType<typeof vi.fn>;
 const mockActiveEnvId = getActiveEnvironmentId as ReturnType<typeof vi.fn>;
@@ -77,6 +78,7 @@ describe('RequestExecutor', () => {
   it('resolves workspace variables in URL', async () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     await executeRequestDraft(makeRequest({ url: 'https://{{HOST}}/v1/ping' }));
@@ -89,6 +91,7 @@ describe('RequestExecutor', () => {
     mockRequestCollections.mockReturnValue([
       {
         schemaVersion: 5,
+        version: 1,
         uid: 'rc-1',
         path: 'requests/auth-coll',
         name: 'Auth',
@@ -223,5 +226,86 @@ describe('RequestExecutor', () => {
     await executeRequestDraft(makeRequest({ credentialsMode: 'include' }));
     const [, init] = fetchMock.mock.calls[0];
     expect(init.credentials).toBe('include');
+  });
+
+  it('prepends https:// to scheme-less URLs (prevents SW-origin ERR_FILE_NOT_FOUND)', async () => {
+    // Regression: entering "example.com" previously resolved to
+    // `chrome-extension://<id>/example.com` (the SW's origin) and
+    // hit the extension's asset filesystem, producing an opaque
+    // `Failed to fetch` with `net::ERR_FILE_NOT_FOUND` in DevTools.
+    await executeRequestDraft(makeRequest({ url: 'example.com' }));
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://example.com');
+  });
+
+  it('honors an explicit scheme on bare URLs', async () => {
+    await executeRequestDraft(makeRequest({ url: 'http://example.com' }));
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://example.com');
+  });
+});
+
+describe('ensureScheme', () => {
+  it('leaves URLs with a scheme://... untouched', () => {
+    expect(ensureScheme('https://api.openheaders.io')).toBe('https://api.openheaders.io');
+    expect(ensureScheme('http://example.com')).toBe('http://example.com');
+    expect(ensureScheme('ws://example.com/ws')).toBe('ws://example.com/ws');
+    expect(ensureScheme('wss://example.com/ws')).toBe('wss://example.com/ws');
+    expect(ensureScheme('file:///tmp/x')).toBe('file:///tmp/x');
+  });
+
+  it('prepends https:// for scheme-less URLs', () => {
+    expect(ensureScheme('api.openheaders.io')).toBe('https://api.openheaders.io');
+    expect(ensureScheme('example.com/path?q=1')).toBe('https://example.com/path?q=1');
+  });
+
+  it('treats host:port as host:port, not a scheme (prepends https://)', () => {
+    // Regression: `localhost:3000` is a common dev URL. Without this,
+    // the RFC-3986 scheme regex matched `localhost:` and left the
+    // URL unchanged, so fetch() blew up on an invalid scheme.
+    expect(ensureScheme('localhost:3000')).toBe('https://localhost:3000');
+    expect(ensureScheme('localhost:8080/api')).toBe('https://localhost:8080/api');
+    expect(ensureScheme('127.0.0.1:3000')).toBe('https://127.0.0.1:3000');
+  });
+
+  it('upgrades protocol-relative URLs to https://', () => {
+    expect(ensureScheme('//example.com/path')).toBe('https://example.com/path');
+  });
+
+  it('leaves template-only URLs alone', () => {
+    // `{{BASE_URL}}/x` — the template may carry a scheme at resolve time.
+    expect(ensureScheme('{{BASE_URL}}/x')).toBe('{{BASE_URL}}/x');
+    expect(ensureScheme('{{HOST}}')).toBe('{{HOST}}');
+  });
+
+  it('prepends https:// when template is after a plain host', () => {
+    // `example.com/{{path}}` still needs a scheme — only `{{…}}` at
+    // the very start opts out of the prefix.
+    expect(ensureScheme('example.com/{{path}}')).toBe('https://example.com/{{path}}');
+  });
+});
+
+describe('needsSchemeNormalization', () => {
+  it('returns true when ensureScheme would rewrite the URL', () => {
+    expect(needsSchemeNormalization('example.com')).toBe(true);
+    expect(needsSchemeNormalization('localhost:3000')).toBe(true);
+    expect(needsSchemeNormalization('//example.com')).toBe(true);
+  });
+
+  it('returns false when the URL already has an explicit scheme', () => {
+    expect(needsSchemeNormalization('https://example.com')).toBe(false);
+    expect(needsSchemeNormalization('http://example.com')).toBe(false);
+    expect(needsSchemeNormalization('ws://example.com')).toBe(false);
+    expect(needsSchemeNormalization('file:///tmp/x')).toBe(false);
+  });
+
+  it('returns false for empty / whitespace-only URLs (no hint when nothing to render)', () => {
+    expect(needsSchemeNormalization('')).toBe(false);
+    expect(needsSchemeNormalization('   ')).toBe(false);
+  });
+
+  it('returns false for bare-template URLs (template may carry its own scheme)', () => {
+    expect(needsSchemeNormalization('{{BASE_URL}}')).toBe(false);
+    expect(needsSchemeNormalization('{{BASE_URL}}/x')).toBe(false);
   });
 });

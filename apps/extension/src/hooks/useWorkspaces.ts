@@ -10,8 +10,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import { useCallback, useEffect, useState } from 'react';
+
+/** Phase 10 write-result for workspace metadata updates. */
+export type WorkspaceUpdateResult = BridgeRpcResponse<'updateWorkspace'>;
 
 export interface UseWorkspacesApi {
   workspaces: V5.ExtensionWorkspace[];
@@ -26,10 +30,19 @@ export interface UseWorkspacesApi {
     icon?: string;
   }) => Promise<V5.ExtensionWorkspace | null>;
   renameWorkspace: (id: string, name: string) => Promise<boolean>;
+  /**
+   * Update workspace metadata. Returns the full Phase 10 discriminated
+   * result so UI surfaces that track `version` (WorkspaceManager rename
+   * dialog) can detect cross-tab concurrent edits. Callers that don't
+   * track a version omit `expectedVersion` and get last-write-wins
+   * semantics — the per-workspace lock still serializes the storage
+   * write, so no silent drift.
+   */
   updateWorkspace: (
     id: string,
     updates: { name?: string; description?: string; color?: string; icon?: string | null },
-  ) => Promise<V5.ExtensionWorkspace | null>;
+    expectedVersion?: number,
+  ) => Promise<WorkspaceUpdateResult>;
   deleteWorkspace: (id: string) => Promise<{ success: boolean; error?: string; activeWorkspaceId?: string }>;
   duplicateWorkspace: (id: string, name?: string) => Promise<V5.ExtensionWorkspace | null>;
   setActiveWorkspace: (id: string) => Promise<boolean>;
@@ -77,9 +90,11 @@ export function useWorkspaces(): UseWorkspacesApi {
     return Boolean(resp?.success);
   }, []);
 
-  const updateWorkspace = useCallback<UseWorkspacesApi['updateWorkspace']>(async (id, updates) => {
-    const resp = await call('updateWorkspace', { id, updates }).catch(() => null);
-    return resp?.success ? (resp.workspace ?? null) : null;
+  const updateWorkspace = useCallback<UseWorkspacesApi['updateWorkspace']>(async (id, updates, expectedVersion) => {
+    const payload = expectedVersion !== undefined ? { id, updates, expectedVersion } : { id, updates };
+    return call('updateWorkspace', payload).catch(
+      (err: Error) => ({ success: false, reason: 'other', message: err.message }) as const,
+    );
   }, []);
 
   const deleteWorkspace = useCallback<UseWorkspacesApi['deleteWorkspace']>(async (id) => {

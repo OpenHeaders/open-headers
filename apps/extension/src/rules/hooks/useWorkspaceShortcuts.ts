@@ -257,7 +257,7 @@ const KEY_DISPLAY: Record<string, string> = {
   down: '↓',
   escape: 'Esc',
   enter: '↵',
-  ' ': 'Space',
+  space: 'Space',
 };
 
 function formatChord(chord: string): string {
@@ -347,7 +347,10 @@ const CODE_TO_KEY: Record<string, string> = {
   Period: '.',
   Slash: '/',
   Backquote: '`',
-  Space: ' ',
+  // Space uses the word-mnemonic (`space`), not the raw ` ` character,
+  // so the chord regex `[^\s+]+` accepts it and stored settings are
+  // human-readable (consistent with `enter` / `escape` / arrow keys).
+  Space: 'space',
   Enter: 'enter',
   Escape: 'escape',
   ArrowLeft: 'left',
@@ -382,7 +385,12 @@ export function buildChordsFromEvent(e: KeyboardEvent): string[] {
   if (e.altKey) mods.push('alt');
   const keys = new Set<string>();
   const eventKey = e.key.toLowerCase();
-  if (eventKey && eventKey !== 'dead') keys.add(eventKey);
+  // Normalize spacebar to the word-mnemonic `space` so stored chord
+  // strings never contain raw whitespace (which the validation regex
+  // rightly rejects). Other named keys (`enter`, `escape`, arrow
+  // keys) already pass the regex as-is.
+  const normalizedEventKey = eventKey === ' ' ? 'space' : eventKey;
+  if (normalizedEventKey && normalizedEventKey !== 'dead') keys.add(normalizedEventKey);
   const codeKey = codeToKey(e.code);
   if (codeKey) keys.add(codeKey);
   // Skip pure modifier presses

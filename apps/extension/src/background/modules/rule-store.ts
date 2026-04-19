@@ -139,6 +139,9 @@ export function ensureDefaultCollection(): V5.Collection {
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
+    // Phase 10 write counter — advances on every
+    // renameCollection / deleteCollection / updateCollectionVariables.
+    version: 1,
     uid,
     path: `rules/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -154,6 +157,7 @@ export function createCollection(name: string): V5.Collection {
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
+    version: 1,
     uid,
     path: `rules/${folderName}`,
     name,
@@ -164,38 +168,116 @@ export function createCollection(name: string): V5.Collection {
   return collection;
 }
 
-export function renameCollection(uid: string, name: string): boolean {
-  const index = collections.findIndex((c) => c.uid === uid);
-  if (index === -1) return false;
-  collections = [...collections.slice(0, index), { ...collections[index], name }, ...collections.slice(index + 1)];
-  void persistCollections();
-  return true;
+/**
+ * Outcome of a versioned collection write (Phase 10 stale-draft
+ * contract — parallel to `RuleWriteResult`). Editors that load a
+ * collection's variables track the returned version and pass it back
+ * as `expectedVersion` on save.
+ */
+export type CollectionWriteResult =
+  | { ok: true; version: number; collection: V5.Collection }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverCollection: V5.Collection }
+  | { ok: false; reason: 'not-found' };
+
+export interface UpdateCollectionOptions {
+  /**
+   * Version the client loaded. Omit to opt out of stale-draft
+   * detection — used by sidebar rename (no tracked version). The lock
+   * alone serializes writes in that case, so the race is still safe.
+   */
+  expectedVersion?: number;
 }
 
-export function deleteCollection(uid: string): boolean {
-  const collection = collections.find((c) => c.uid === uid);
-  if (!collection) return false;
+function collectionVersionOf(c: V5.Collection): number {
+  return c.version;
+}
 
-  collections = collections.filter((c) => c.uid !== uid);
-  rules = rules.filter((r) => !r.path.startsWith(collection.path));
-  folders = folders.filter((f) => !f.path.startsWith(collection.path));
-  void persistCollections();
-  void persistRules();
-  void persistFolders();
-  return true;
+export async function renameCollection(
+  uid: string,
+  name: string,
+  options: UpdateCollectionOptions = {},
+): Promise<CollectionWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'collection', uid),
+    async () => {
+      const index = collections.findIndex((c) => c.uid === uid);
+      if (index === -1) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
+      const existing = collections[index];
+      const current = collectionVersionOf(existing);
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverCollection: existing,
+        } as CollectionWriteResult;
+      }
+      const nextVersion = current + 1;
+      const updated: V5.Collection = { ...existing, name, version: nextVersion };
+      collections = [...collections.slice(0, index), updated, ...collections.slice(index + 1)];
+      await persistCollections();
+      return { ok: true, version: nextVersion, collection: updated } as CollectionWriteResult;
+    },
+    { op: 'collection-rename' },
+  );
+}
+
+export async function deleteCollection(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'collection', uid),
+    async () => {
+      const collection = collections.find((c) => c.uid === uid);
+      if (!collection) return false;
+
+      collections = collections.filter((c) => c.uid !== uid);
+      rules = rules.filter((r) => !r.path.startsWith(collection.path));
+      folders = folders.filter((f) => !f.path.startsWith(collection.path));
+      await persistCollections();
+      await persistRules();
+      await persistFolders();
+      return true;
+    },
+    { op: 'collection-delete' },
+  );
 }
 
 /**
  * Replace a collection's scoped variables. Used by the Variables editor
  * (collection-vars tab) and by the Inspector "add variable" affordance.
- * Returns false if the collection uid isn't in the active workspace.
+ * Returns the full Phase 10 write result so editors can detect
+ * stale-draft conflicts when two tabs edit the same collection.
  */
-export function updateCollectionVariables(uid: string, variables: V5.Variable[]): boolean {
-  const index = collections.findIndex((c) => c.uid === uid);
-  if (index === -1) return false;
-  collections = [...collections.slice(0, index), { ...collections[index], variables }, ...collections.slice(index + 1)];
-  void persistCollections();
-  return true;
+export async function updateCollectionVariables(
+  uid: string,
+  variables: V5.Variable[],
+  options: UpdateCollectionOptions = {},
+): Promise<CollectionWriteResult> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'collection', uid),
+    async () => {
+      const index = collections.findIndex((c) => c.uid === uid);
+      if (index === -1) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
+      const existing = collections[index];
+      const current = collectionVersionOf(existing);
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverCollection: existing,
+        } as CollectionWriteResult;
+      }
+      const nextVersion = current + 1;
+      const updated: V5.Collection = { ...existing, variables, version: nextVersion };
+      collections = [...collections.slice(0, index), updated, ...collections.slice(index + 1)];
+      await persistCollections();
+      return { ok: true, version: nextVersion, collection: updated } as CollectionWriteResult;
+    },
+    { op: 'collection-variables' },
+  );
 }
 
 // ── Folders ─────────────────────────────────────────────────────────
@@ -205,6 +287,8 @@ export function createFolder(name: string, parentPath: string): LocalFolder {
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
     schemaVersion: 5,
+    // Phase 10 write counter — advances on renameFolder / deleteFolder.
+    version: 1,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -214,23 +298,39 @@ export function createFolder(name: string, parentPath: string): LocalFolder {
   return folder;
 }
 
-export function renameFolder(uid: string, name: string): boolean {
-  const index = folders.findIndex((f) => f.uid === uid);
-  if (index === -1) return false;
-  folders = [...folders.slice(0, index), { ...folders[index], name }, ...folders.slice(index + 1)];
-  void persistFolders();
-  return true;
+export async function renameFolder(uid: string, name: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'folder', uid),
+    async () => {
+      const index = folders.findIndex((f) => f.uid === uid);
+      if (index === -1) return false;
+      const existing = folders[index];
+      const nextVersion = existing.version + 1;
+      folders = [...folders.slice(0, index), { ...existing, name, version: nextVersion }, ...folders.slice(index + 1)];
+      await persistFolders();
+      return true;
+    },
+    { op: 'folder-rename' },
+  );
 }
 
-export function deleteFolder(uid: string): boolean {
-  const folder = folders.find((f) => f.uid === uid);
-  if (!folder) return false;
+export async function deleteFolder(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'folder', uid),
+    async () => {
+      const folder = folders.find((f) => f.uid === uid);
+      if (!folder) return false;
 
-  folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-  rules = rules.filter((r) => !r.path.startsWith(`${folder.path}/`));
-  void persistFolders();
-  void persistRules();
-  return true;
+      folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
+      rules = rules.filter((r) => !r.path.startsWith(`${folder.path}/`));
+      await persistFolders();
+      await persistRules();
+      return true;
+    },
+    { op: 'folder-delete' },
+  );
 }
 
 // ── Rules ───────────────────────────────────────────────────────────

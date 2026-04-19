@@ -7,7 +7,7 @@
  * - error: Operation failures and exceptions
  * - warn:  Anomalies, retries, and fallbacks
  * - info:  Operational events and state changes
- * - debug: Detailed internals for troubleshooting (keep-alive pings, skip messages, etc.)
+ * - debug: Detailed internals for troubleshooting (reconnect attempts, skip messages, etc.)
  *
  * The current level is held in-memory only. Persistence is owned by
  * the settings store: `data.logLevel` in `rules/settings/schema/data.ts`.

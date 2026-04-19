@@ -35,6 +35,14 @@ export const ExtensionWorkspaceSourceSchema = v.object({
 
 export const ExtensionWorkspaceSchema = v.object({
   schemaVersion: SchemaVersionSchema,
+  /**
+   * Phase 10 monotonic write counter — advances on every
+   * createWorkspace / updateWorkspace / reorderWorkspaces / delete
+   * mutation. Protects WorkspaceManager's rename dialog against
+   * concurrent edits from two tabs (both dialogs send the patch with
+   * the version they loaded; the second one lands as `stale-draft`).
+   */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   id: v.string(),
   kind: ExtensionWorkspaceKindSchema,
   name: v.string(),

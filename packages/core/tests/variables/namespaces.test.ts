@@ -28,14 +28,17 @@ describe('parseReference', () => {
     });
   });
 
-  it('parses reserved namespaces (dynamic, file)', () => {
-    expect(parseReference('dynamic.uuid')).toEqual({
-      ok: true,
-      ref: { namespace: 'dynamic', name: 'uuid', raw: 'dynamic.uuid' },
-    });
+  it('parses the file scope namespace', () => {
     expect(parseReference('file.fixture.json')).toEqual({
       ok: true,
       ref: { namespace: 'file', name: 'fixture.json', raw: 'file.fixture.json' },
+    });
+  });
+
+  it('parses the dynamic (reserved) namespace', () => {
+    expect(parseReference('dynamic.uuid')).toEqual({
+      ok: true,
+      ref: { namespace: 'dynamic', name: 'uuid', raw: 'dynamic.uuid' },
     });
   });
 

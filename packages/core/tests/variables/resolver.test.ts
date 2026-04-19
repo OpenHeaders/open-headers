@@ -11,18 +11,19 @@ function makeVariable(name: string, value: string, type: 'default' | 'secret' = 
 let envCounter = 0;
 function makeEnvironment(name: string, vars: Variable[]): Environment {
   envCounter += 1;
-  return { schemaVersion: 5, uid: `env-${envCounter}`, name, variables: vars };
+  return { schemaVersion: 5, version: 1, uid: `env-${envCounter}`, name, variables: vars };
 }
 
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
   return {
     schemaVersion: 5,
+    version: 1,
     secrets: secrets.map((s) => ({ ...s })),
   };
 }
 
 function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
-  return { schemaVersion: 5, variables: vars };
+  return { schemaVersion: 5, version: 1, variables: vars };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -285,11 +286,13 @@ describe('VariableResolver — explicit namespaces', () => {
     resolver = new VariableResolver();
     resolver.setVault({
       schemaVersion: 5,
+      version: 1,
       secrets: [{ name: 'TOKEN', value: 'vault-token' }],
     });
     resolver.setEnvironments([
       {
         schemaVersion: 5,
+        version: 1,
         uid: 'e-staging',
         name: 'staging',
         variables: [{ name: 'API_URL', value: 'https://api.staging', type: 'default' }],
@@ -298,6 +301,7 @@ describe('VariableResolver — explicit namespaces', () => {
     resolver.setActiveEnvironmentId('e-staging');
     resolver.setWorkspaceVariables({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
     resolver.setCollectionVariables('coll-1', [{ name: 'REGION', value: 'eu-west-1', type: 'default' }]);
@@ -336,7 +340,7 @@ describe('VariableResolver — explicit namespaces', () => {
     expect(result).toBe('vault-token'); // vault wins in the chain
   });
 
-  it('{{file.X}} is reserved and unresolvable today', () => {
+  it('{{file.X}} with no registry leaves literal + marks unresolved', () => {
     const { result, variables } = resolver.resolveTemplate('{{file.fixture.json}}');
     expect(result).toBe('{{file.fixture.json}}');
     expect(variables[0]).toEqual({ name: 'file.fixture.json', resolved: false });
@@ -360,6 +364,7 @@ describe('VariableResolver — default environment fallback', () => {
 
   const makeEnv = (uid: string, name: string, vars: Array<[string, string]>): Environment => ({
     schemaVersion: 5,
+    version: 1,
     uid,
     name,
     variables: vars.map(([n, v]) => ({ name: n, value: v, type: 'default' as const })),
@@ -441,6 +446,7 @@ describe('VariableResolver — structured resolution errors', () => {
     resolver = new VariableResolver();
     resolver.setWorkspaceVariables({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'KNOWN', value: 'v', type: 'default' }],
     });
     resolver.setActiveEnvironmentId('e-staging');
@@ -484,14 +490,51 @@ describe('VariableResolver — structured resolution errors', () => {
     expect(errors[0].hint).toMatch(/Valid namespaces/);
   });
 
-  it('emits a reserved-namespace error for {{file.X}}', () => {
+  it('emits an unset-in-scope error for {{file.X}} when no file is registered', () => {
     const { errors } = resolver.resolveTemplate('{{file.fixture.json}}');
     expect(errors[0]).toMatchObject({
       reference: 'file.fixture.json',
-      reason: 'reserved-namespace',
+      reason: 'unset-in-scope',
       namespace: 'file',
     });
-    expect(errors[0].hint).toMatch(/v2/);
+    expect(errors[0].hint).toMatch(/Upload this file|sha256/);
+  });
+
+  it('resolves {{file.X}} to the content hash when the file is registered', () => {
+    resolver.setFileRegistry([
+      {
+        hash: 'sha256:abc1234567890abc1234567890abc1234567890abc1234567890abc12345678',
+        filename: 'fixture.json',
+        size: 42,
+      },
+    ]);
+    const { result, errors } = resolver.resolveTemplate('{{file.fixture.json}}');
+    expect(errors).toEqual([]);
+    expect(result).toBe('sha256:abc1234567890abc1234567890abc1234567890abc1234567890abc12345678');
+  });
+
+  it('resolves {{file.sha256:xxx}} directly by hash (bypasses filename lookup)', () => {
+    const hash = 'sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
+    resolver.setFileRegistry([{ hash, filename: 'invoice.pdf', size: 1024 }]);
+    const { result, errors } = resolver.resolveTemplate(`{{file.${hash}}}`);
+    expect(errors).toEqual([]);
+    expect(result).toBe(hash);
+  });
+
+  it('{{file.X}} does NOT participate in the flat {{X}} walk', () => {
+    // Flat {{X}} must never find a file by name — files are always
+    // explicit via the {{file.X}} form so URL/header values can't
+    // accidentally substitute a filename.
+    resolver.setFileRegistry([{ hash: 'sha256:' + 'a'.repeat(64), filename: 'API_URL', size: 10 }]);
+    const r = resolver.resolve('API_URL');
+    expect(r).toBeNull();
+  });
+
+  it('flat {{X}} still resolves from other scopes when a same-named file exists', () => {
+    resolver.setEnvironments([makeEnvironment('E', [makeVariable('SHARED_NAME', 'from-env')])]);
+    resolver.setActiveEnvironmentId('env-' + envCounter);
+    resolver.setFileRegistry([{ hash: 'sha256:' + 'a'.repeat(64), filename: 'SHARED_NAME', size: 1 }]);
+    expect(resolver.resolve('SHARED_NAME')?.value).toBe('from-env');
   });
 
   it('emits a reserved-namespace error for {{dynamic.uuid}}', () => {

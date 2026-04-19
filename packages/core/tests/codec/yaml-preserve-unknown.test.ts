@@ -45,6 +45,7 @@ teamNotes: from-the-future
 `;
 
 const COLLECTION_WITH_UNKNOWN = `schemaVersion: 5
+version: 1
 uid: c0ll1111
 name: Auth
 description: Authentication endpoints.
@@ -53,6 +54,7 @@ futureHint: preserve-me
 `;
 
 const FOLDER_WITH_UNKNOWN = `schemaVersion: 5
+version: 1
 uid: f0ld3r12
 name: Tokens
 futureFlag: keep-around

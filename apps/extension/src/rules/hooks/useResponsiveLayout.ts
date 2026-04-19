@@ -9,7 +9,7 @@
  *   5. Guard against degenerate viewport values (browser restore, 0-width)
  */
 
-import { subscribe } from '@utils/bridge';
+import { call, subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@utils/frame-scheduler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { extensionStorage, OH, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
@@ -221,9 +221,12 @@ export function useResponsiveLayout(): ResponsiveLayout {
   // ── Persist helpers (debounced 500ms) ──────────────────────────
 
   const flushPersist = useCallback((ratios: PersistedLayout) => {
-    const workspaceId = activeWorkspaceIdRef.current;
-    if (!workspaceId) return;
-    void extensionStorage.set(wsKeys(workspaceId).panelLayout, ratios as PersistedPanelLayout);
+    // Phase 10 — route through SW's `setLayout` RPC so the write
+    // serializes through `layoutLockName(ws)`. Two tabs dragging
+    // different panes simultaneously can't stomp each other; the
+    // lock is origin-scoped but living on the SW side keeps layout
+    // writes symmetric with every other persisted-entity store.
+    void call('setLayout', { layout: ratios as PersistedPanelLayout }).catch(() => undefined);
   }, []);
 
   const schedulePersist = useCallback(

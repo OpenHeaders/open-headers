@@ -9,6 +9,14 @@ import { VariableSchema } from './variable';
 
 export const CollectionSchema = v.object({
   schemaVersion: SchemaVersionSchema,
+  /**
+   * Phase 10 monotonic write counter — separate from `schemaVersion`.
+   * Starts at 1 on creation, incremented by the owning store on every
+   * save. Editors (CollectionVariablesEditor) send the loaded counter
+   * back as `expectedVersion` on save to detect concurrent cross-tab
+   * writes. V5 has zero users, so required from day one.
+   */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   uid: UidSchema,
   path: RelativePathSchema,
   name: v.string(),
@@ -28,6 +36,14 @@ export const CollectionSchema = v.object({
  */
 export const FolderSchema = v.object({
   schemaVersion: SchemaVersionSchema,
+  /**
+   * Phase 10 monotonic write counter — rename / delete operations bump
+   * this so a renaming race between two tabs is deterministic (one
+   * winner, the serialized order survives). No editor attaches to a
+   * folder today, so stale-draft detection is not used, but callers
+   * that want it can pass `expectedVersion` through the store.
+   */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   uid: UidSchema,
   path: RelativePathSchema,
   name: v.string(),

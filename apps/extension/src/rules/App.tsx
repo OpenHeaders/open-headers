@@ -14,6 +14,7 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useWorkspaces } from '@hooks/useWorkspaces';
+import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
@@ -28,6 +29,9 @@ import CommandPalette from './components/CommandPalette';
 import EditorGroupRenderer from './components/EditorGroupRenderer';
 import EmptyState from './components/EmptyState';
 import FolderOverview from './components/FolderOverview';
+import ImportCurlModal from './components/ImportCurlModal';
+import ImportHarModal from './components/ImportHarModal';
+import ImportPostmanModal from './components/ImportPostmanModal';
 import LandingScreen from './components/LandingScreen';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
@@ -208,8 +212,28 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMaximized, setSettingsMaximized] = useState(false);
   const [settingsTarget, setSettingsTarget] = useState<{ settingKey?: string; categoryId?: string }>({});
+  const [importCurlOpen, setImportCurlOpen] = useState(false);
+  const [importCurlContext, setImportCurlContext] = useState<{ collectionId?: string } | undefined>(undefined);
+  const [importHarOpen, setImportHarOpen] = useState(false);
+  const [importHarContext, setImportHarContext] = useState<{ collectionId?: string } | undefined>(undefined);
+  const [importPostmanOpen, setImportPostmanOpen] = useState(false);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  /**
+   * Look up a prior import report by source hash (ARCHITECTURE §23).
+   * Shared across every import modal so the re-import-diff panel
+   * renders uniformly. Errors are swallowed to `null` — the diff is
+   * a nice-to-have, not a blocker on the import flow.
+   */
+  const findPreviousImportReport = useCallback(async (sourceHash: string) => {
+    try {
+      const { report } = await call('findImportReportBySourceHash', { sourceHash });
+      return report;
+    } catch {
+      return null;
+    }
+  }, []);
 
   // Auto-collapse sidebar on narrow viewports (first-open only).
   const sidebarAutoCollapsedRef = useRef(false);
@@ -909,6 +933,15 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
               onOpenVault={openVault}
               onSelectRequest={openRequestEditTab}
               onCreateRequest={openCreateRequestTab}
+              onImportCurl={(ctx) => {
+                setImportCurlContext(ctx);
+                setImportCurlOpen(true);
+              }}
+              onImportHar={(ctx) => {
+                setImportHarContext(ctx);
+                setImportHarOpen(true);
+              }}
+              onImportPostman={() => setImportPostmanOpen(true)}
               filterRef={sidebarFilterRef}
             />
           );
@@ -1051,6 +1084,87 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         onClose={() => setCommandPaletteOpen(false)}
         groups={cmdGroups}
         sections={cmdSections}
+      />
+
+      <ImportCurlModal
+        open={importCurlOpen}
+        collections={requestsApi.collections}
+        initialCollectionId={importCurlContext?.collectionId}
+        onCancel={() => setImportCurlOpen(false)}
+        createRequest={async ({ name, collectionUid, seed }) => {
+          // The parser's output already carries every field the
+          // editor would normally enter; pass the full seed so the
+          // store builds the request with the imported shape.
+          const created = await requestsApi.createRequest({ name, collectionUid, seed });
+          return created ? { uid: created.uid } : null;
+        }}
+        findPreviousReport={findPreviousImportReport}
+        onImported={({ requestUid, name, method, report }) => {
+          setImportCurlOpen(false);
+          // Open the freshly-imported request in an editor tab so
+          // the user can immediately inspect or tweak it. Use the
+          // caller-chosen name + method so the tab label + method
+          // glyph match the new request on first paint (avoids a
+          // "Imported request / GET" flash before the hook hydrates).
+          openRequestEditTab(requestUid, name, method);
+          // Persist the structured import report (ARCHITECTURE §23).
+          // Fire-and-forget — the request itself already landed; a
+          // failure to persist the report is a nice-to-have loss,
+          // not a hard error. Surfaces at triage time via the
+          // observability log if it matters.
+          void call('recordImportReport', { report }).catch(() => undefined);
+        }}
+      />
+
+      <ImportHarModal
+        open={importHarOpen}
+        collections={requestsApi.collections}
+        initialCollectionId={importHarContext?.collectionId}
+        onCancel={() => setImportHarOpen(false)}
+        createRequest={async ({ name, collectionUid, seed }) => {
+          const created = await requestsApi.createRequest({ name, collectionUid, seed });
+          return created ? { uid: created.uid } : null;
+        }}
+        findPreviousReport={findPreviousImportReport}
+        onImported={({ report }) => {
+          setImportHarOpen(false);
+          // HAR imports can produce many requests at once — we don't
+          // auto-open an editor tab (Postman / Insomnia don't either)
+          // to avoid flooding the tab bar. The user browses the
+          // sidebar to find their new entries. The structured report
+          // still lands in storage for audit.
+          void call('recordImportReport', { report }).catch(() => undefined);
+        }}
+      />
+
+      <ImportPostmanModal
+        open={importPostmanOpen}
+        onCancel={() => setImportPostmanOpen(false)}
+        createCollection={async (name) => {
+          const c = await requestsApi.createCollection(name);
+          return c ? { uid: c.uid, path: c.path } : null;
+        }}
+        createFolder={async (name, parentPath) => {
+          const f = await requestsApi.createFolder(name, parentPath);
+          return f ? { uid: f.uid, path: f.path } : null;
+        }}
+        createRequest={async ({ name, parentPath, seed }) => {
+          const r = await requestsApi.createRequest({ name, parentPath, seed });
+          return r ? { uid: r.uid } : null;
+        }}
+        createEnvironment={async ({ name, variables }) => {
+          const e = await envApi.createEnvironment(name, variables);
+          return e ? { uid: e.uid } : null;
+        }}
+        findPreviousReport={findPreviousImportReport}
+        onImported={({ report }) => {
+          setImportPostmanOpen(false);
+          // Postman imports are multi-entity — like HAR, we don't
+          // auto-open an editor tab. The user navigates to the new
+          // collection from the sidebar. Structured report still
+          // lands in storage for audit.
+          void call('recordImportReport', { report }).catch(() => undefined);
+        }}
       />
 
       <ConnectionProvider value={{ isConnected }}>

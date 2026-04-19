@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type StorageKey, storageKey } from '@/shared/storage';
 import type { ToolLayoutState } from './types';
 
@@ -49,10 +50,22 @@ export function useDockLayoutStorage<T extends string>(keyName: string): DockLay
     (state: ToolLayoutState<T>) => {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        void extensionStorage.set(spec, { docks: state.docks, hidden: state.hidden });
+        // Phase 10 — wrap the write in a Web Lock keyed by the
+        // storage name so two tabs dragging the devtools panel's
+        // dock layout concurrently serialize through one writer.
+        // Origin-scoped lock (auto-released on tab death) is
+        // sufficient here since the panel layout is not
+        // per-workspace — no SW round-trip needed, same guarantee.
+        void withLock(
+          `oh:layout:${keyName}`,
+          async () => {
+            await extensionStorage.set(spec, { docks: state.docks, hidden: state.hidden });
+          },
+          { op: 'dock-layout-set' },
+        );
       }, DEBOUNCE_MS);
     },
-    [spec],
+    [spec, keyName],
   );
 
   return { initial, onPersist, ready };

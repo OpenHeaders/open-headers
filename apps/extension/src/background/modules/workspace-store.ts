@@ -29,6 +29,7 @@ import { ExtensionWorkspaceSchema } from '@openheaders/core/schemas';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
+import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, OH } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
 
@@ -112,23 +113,34 @@ export interface CreateWorkspaceInput {
 }
 
 export async function createWorkspace(input: CreateWorkspaceInput): Promise<V5.ExtensionWorkspace> {
-  const now = new Date().toISOString();
-  const workspace: V5.ExtensionWorkspace = {
-    schemaVersion: 5,
-    id: generateUid(),
-    kind: input.kind ?? 'personal',
-    name: input.name.trim() || 'Untitled Workspace',
-    description: input.description,
-    color: input.color,
-    icon: input.icon,
-    sortIndex: nextSortIndex(),
-    createdAt: now,
-    updatedAt: now,
-  };
-  workspaces = [...workspaces, workspace];
-  await persistWorkspaces();
-  logger.info('WorkspaceStore', `Created workspace ${workspace.id} "${workspace.name}"`);
-  return workspace;
+  return withLock(
+    entityLockName('global', 'workspace-meta', 'list'),
+    async () => {
+      const now = new Date().toISOString();
+      const workspace: V5.ExtensionWorkspace = {
+        schemaVersion: 5,
+        // Phase 10 write counter — starts at 1 on creation; every
+        // updateWorkspace / reorder increments it on a per-workspace
+        // basis so WorkspaceManager's rename dialog can detect
+        // concurrent edits across tabs.
+        version: 1,
+        id: generateUid(),
+        kind: input.kind ?? 'personal',
+        name: input.name.trim() || 'Untitled Workspace',
+        description: input.description,
+        color: input.color,
+        icon: input.icon,
+        sortIndex: nextSortIndex(),
+        createdAt: now,
+        updatedAt: now,
+      };
+      workspaces = [...workspaces, workspace];
+      await persistWorkspaces();
+      logger.info('WorkspaceStore', `Created workspace ${workspace.id} "${workspace.name}"`);
+      return workspace;
+    },
+    { op: 'workspace-create' },
+  );
 }
 
 export interface UpdateWorkspaceInput {
@@ -144,30 +156,64 @@ export interface UpdateWorkspaceInput {
   icon?: string | null;
 }
 
+/**
+ * Outcome of a versioned workspace metadata write (Phase 10 stale-draft
+ * contract — parallel to `RuleWriteResult`). WorkspaceManager's rename
+ * dialog sends `expectedVersion` to detect concurrent tabs editing the
+ * same workspace; sidebar context menu + quick edits omit it and get
+ * last-write-wins.
+ */
+export type WorkspaceUpdateResult =
+  | { ok: true; version: number; workspace: V5.ExtensionWorkspace }
+  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverWorkspace: V5.ExtensionWorkspace }
+  | { ok: false; reason: 'not-found' };
+
+export interface WorkspaceUpdateOptions {
+  expectedVersion?: number;
+}
+
 /** Update an existing workspace's metadata. */
 export async function updateWorkspace(
   id: string,
   updates: UpdateWorkspaceInput,
-): Promise<V5.ExtensionWorkspace | null> {
-  const idx = workspaces.findIndex((w) => w.id === id);
-  if (idx === -1) return null;
+  options: WorkspaceUpdateOptions = {},
+): Promise<WorkspaceUpdateResult> {
+  return withLock(
+    entityLockName('global', 'workspace-meta', id),
+    async () => {
+      const idx = workspaces.findIndex((w) => w.id === id);
+      if (idx === -1) return { ok: false, reason: 'not-found' } as WorkspaceUpdateResult;
 
-  const prev = workspaces[idx];
-  const next: V5.ExtensionWorkspace = {
-    ...prev,
-    ...(updates.name !== undefined && { name: updates.name.trim() || prev.name }),
-    ...(updates.description !== undefined && { description: updates.description }),
-    ...(updates.color !== undefined && { color: updates.color }),
-    updatedAt: new Date().toISOString(),
-  };
-  if (updates.icon === null) {
-    delete next.icon;
-  } else if (updates.icon !== undefined) {
-    next.icon = updates.icon;
-  }
-  workspaces = [...workspaces.slice(0, idx), next, ...workspaces.slice(idx + 1)];
-  await persistWorkspaces();
-  return next;
+      const prev = workspaces[idx];
+      const current = prev.version;
+      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
+        return {
+          ok: false,
+          reason: 'stale-draft',
+          serverVersion: current,
+          serverWorkspace: prev,
+        } as WorkspaceUpdateResult;
+      }
+      const nextVersion = current + 1;
+      const next: V5.ExtensionWorkspace = {
+        ...prev,
+        ...(updates.name !== undefined && { name: updates.name.trim() || prev.name }),
+        ...(updates.description !== undefined && { description: updates.description }),
+        ...(updates.color !== undefined && { color: updates.color }),
+        version: nextVersion,
+        updatedAt: new Date().toISOString(),
+      };
+      if (updates.icon === null) {
+        delete next.icon;
+      } else if (updates.icon !== undefined) {
+        next.icon = updates.icon;
+      }
+      workspaces = [...workspaces.slice(0, idx), next, ...workspaces.slice(idx + 1)];
+      await persistWorkspaces();
+      return { ok: true, version: nextVersion, workspace: next } as WorkspaceUpdateResult;
+    },
+    { op: 'workspace-update' },
+  );
 }
 
 /**
@@ -182,25 +228,31 @@ export async function updateWorkspace(
  * workspace was deleted), or `null` if the delete was rejected.
  */
 export async function deleteWorkspace(id: string): Promise<string | null> {
-  if (workspaces.length <= 1) {
-    logger.info('WorkspaceStore', `Refusing to delete last workspace ${id}`);
-    return null;
-  }
-  const idx = workspaces.findIndex((w) => w.id === id);
-  if (idx === -1) return activeWorkspaceId;
+  return withLock(
+    entityLockName('global', 'workspace-meta', id),
+    async () => {
+      if (workspaces.length <= 1) {
+        logger.info('WorkspaceStore', `Refusing to delete last workspace ${id}`);
+        return null;
+      }
+      const idx = workspaces.findIndex((w) => w.id === id);
+      if (idx === -1) return activeWorkspaceId;
 
-  const wasActive = activeWorkspaceId === id;
-  workspaces = [...workspaces.slice(0, idx), ...workspaces.slice(idx + 1)];
+      const wasActive = activeWorkspaceId === id;
+      workspaces = [...workspaces.slice(0, idx), ...workspaces.slice(idx + 1)];
 
-  if (wasActive) {
-    // Pick neighbour: previous by sort order, else first remaining.
-    const sorted = [...workspaces].sort(compareWorkspaces);
-    const neighbour = sorted[Math.max(0, idx - 1)] ?? sorted[0];
-    activeWorkspaceId = neighbour.id;
-  }
-  await persistWorkspaces();
-  await persistActiveId();
-  return activeWorkspaceId;
+      if (wasActive) {
+        // Pick neighbour: previous by sort order, else first remaining.
+        const sorted = [...workspaces].sort(compareWorkspaces);
+        const neighbour = sorted[Math.max(0, idx - 1)] ?? sorted[0];
+        activeWorkspaceId = neighbour.id;
+      }
+      await persistWorkspaces();
+      await persistActiveId();
+      return activeWorkspaceId;
+    },
+    { op: 'workspace-delete' },
+  );
 }
 
 /**
@@ -209,24 +261,32 @@ export async function deleteWorkspace(id: string): Promise<string | null> {
  * drag-to-reorder in the switcher UI.
  */
 export async function reorderWorkspaces(idOrder: readonly string[]): Promise<void> {
-  const byId = new Map(workspaces.map((w) => [w.id, w] as const));
-  const touched = new Set<string>();
-  const reordered: V5.ExtensionWorkspace[] = [];
+  return withLock(
+    entityLockName('global', 'workspace-meta', 'list'),
+    async () => {
+      const byId = new Map(workspaces.map((w) => [w.id, w] as const));
+      const touched = new Set<string>();
+      const reordered: V5.ExtensionWorkspace[] = [];
 
-  let index = 0;
-  for (const id of idOrder) {
-    const ws = byId.get(id);
-    if (!ws || touched.has(id)) continue;
-    touched.add(id);
-    reordered.push({ ...ws, sortIndex: index++ });
-  }
-  for (const ws of workspaces) {
-    if (touched.has(ws.id)) continue;
-    reordered.push({ ...ws, sortIndex: index++ });
-  }
-  const now = new Date().toISOString();
-  workspaces = reordered.map((w) => ({ ...w, updatedAt: now }));
-  await persistWorkspaces();
+      let index = 0;
+      for (const id of idOrder) {
+        const ws = byId.get(id);
+        if (!ws || touched.has(id)) continue;
+        touched.add(id);
+        // Reorder bumps the version counter too so a cross-tab rename
+        // following a reorder doesn't silently lose the rename.
+        reordered.push({ ...ws, sortIndex: index++, version: ws.version + 1 });
+      }
+      for (const ws of workspaces) {
+        if (touched.has(ws.id)) continue;
+        reordered.push({ ...ws, sortIndex: index++, version: ws.version + 1 });
+      }
+      const now = new Date().toISOString();
+      workspaces = reordered.map((w) => ({ ...w, updatedAt: now }));
+      await persistWorkspaces();
+    },
+    { op: 'workspace-reorder' },
+  );
 }
 
 /**
@@ -292,6 +352,7 @@ export async function bootstrap(): Promise<void> {
   const now = new Date().toISOString();
   const defaultWorkspace: V5.ExtensionWorkspace = {
     schemaVersion: 5,
+    version: 1,
     id: generateUid(),
     kind: 'personal',
     name: DEFAULT_WORKSPACE_NAME,

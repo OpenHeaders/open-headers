@@ -78,6 +78,7 @@ describe('VariablesResolver (extension)', () => {
   it('resolves workspace variable when no higher scope defines it', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -90,6 +91,7 @@ describe('VariablesResolver (extension)', () => {
   it('lets active environment override workspace scope', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
     mockEnvs.mockReturnValue([
@@ -108,6 +110,7 @@ describe('VariablesResolver (extension)', () => {
     mockActiveEnvId.mockReturnValue('e-prod');
     mockVault.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       secrets: [{ name: 'TOKEN', value: 'vault-token' }],
     });
 
@@ -120,6 +123,7 @@ describe('VariablesResolver (extension)', () => {
   it('resolves collection-scoped variables for rules inside that collection', () => {
     const collection: V5.Collection = {
       schemaVersion: 5,
+      version: 1,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
@@ -128,6 +132,7 @@ describe('VariablesResolver (extension)', () => {
     mockCollections.mockReturnValue([collection]);
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -140,6 +145,7 @@ describe('VariablesResolver (extension)', () => {
   it('falls back to workspace scope for rules outside any collection', () => {
     const collection: V5.Collection = {
       schemaVersion: 5,
+      version: 1,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
@@ -148,6 +154,7 @@ describe('VariablesResolver (extension)', () => {
     mockCollections.mockReturnValue([collection]);
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -164,6 +171,7 @@ describe('VariablesResolver (extension)', () => {
     mockActiveEnvId.mockReturnValue(null);
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
@@ -183,6 +191,7 @@ describe('VariablesResolver (extension)', () => {
   it('does not mutate input rules', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws', type: 'default' }],
     });
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
@@ -212,6 +221,7 @@ describe('VariablesResolver (extension)', () => {
   it('resolves variables in rule conditions too', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
 
@@ -229,6 +239,7 @@ describe('VariablesResolver (extension)', () => {
   it('caches the resolved snapshot for consumers like request-tracker', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     const rule = makeHeaderRule({
@@ -250,6 +261,7 @@ describe('VariablesResolver (extension)', () => {
   it('does not overwrite the snapshot when compiling a test-run subset', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
+      version: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     const r1 = makeHeaderRule({
@@ -286,6 +298,7 @@ describe('VariablesResolver (extension)', () => {
     it('leaves the per-rule map empty when every reference resolves', () => {
       mockWsVars.mockReturnValue({
         schemaVersion: 5,
+        version: 1,
         variables: [{ name: 'TOKEN', value: 'x', type: 'default' }],
       });
       const rule = makeHeaderRule({ uid: 'r1', path: 'rules/test' });
@@ -308,14 +321,14 @@ describe('VariablesResolver (extension)', () => {
         uid: 'r1',
         path: 'rules/test',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-File', value: '{{file.fixture}}' }],
+          requestHeaders: [{ operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
           responseHeaders: [],
         },
       });
       mockStoreRules.mockReturnValue([rule]);
       resolveRulesForCompile([rule]);
       const agg = getLastAggregatedResolutionErrors();
-      expect(agg.map((e) => e.reference)).not.toContain('file.fixture');
+      expect(agg.map((e) => e.reference)).not.toContain('dynamic.timestamp');
     });
 
     it('test-run subset compile does NOT overwrite persisted errors', () => {

@@ -125,6 +125,7 @@ export function ensureDefaultTemplateCollection(): V5.Collection {
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
+    version: 1,
     uid,
     path: `templates/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -140,6 +141,7 @@ export function createTemplateCollection(name: string): V5.Collection {
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
+    version: 1,
     uid,
     path: `templates/${folderName}`,
     name,
@@ -150,32 +152,47 @@ export function createTemplateCollection(name: string): V5.Collection {
   return collection;
 }
 
-export function renameTemplateCollection(uid: string, name: string): boolean {
-  const col = templateCollections.find((c) => c.uid === uid);
-  if (!col) return false;
-  if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable/unrenamable
-  const index = templateCollections.indexOf(col);
-  templateCollections = [
-    ...templateCollections.slice(0, index),
-    { ...col, name },
-    ...templateCollections.slice(index + 1),
-  ];
-  void persistTemplateCollections();
-  return true;
+export async function renameTemplateCollection(uid: string, name: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'template-collection', uid),
+    async () => {
+      const col = templateCollections.find((c) => c.uid === uid);
+      if (!col) return false;
+      if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable/unrenamable
+      const index = templateCollections.indexOf(col);
+      const nextVersion = col.version + 1;
+      templateCollections = [
+        ...templateCollections.slice(0, index),
+        { ...col, name, version: nextVersion },
+        ...templateCollections.slice(index + 1),
+      ];
+      await persistTemplateCollections();
+      return true;
+    },
+    { op: 'template-collection-rename' },
+  );
 }
 
-export function deleteTemplateCollection(uid: string): boolean {
-  const col = templateCollections.find((c) => c.uid === uid);
-  if (!col) return false;
-  if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable
+export async function deleteTemplateCollection(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'template-collection', uid),
+    async () => {
+      const col = templateCollections.find((c) => c.uid === uid);
+      if (!col) return false;
+      if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable
 
-  templateCollections = templateCollections.filter((c) => c.uid !== uid);
-  templates = templates.filter((t) => !t.path.startsWith(col.path));
-  templateFolders = templateFolders.filter((f) => !f.path.startsWith(col.path));
-  void persistTemplateCollections();
-  void persistTemplates();
-  void persistTemplateFolders();
-  return true;
+      templateCollections = templateCollections.filter((c) => c.uid !== uid);
+      templates = templates.filter((t) => !t.path.startsWith(col.path));
+      templateFolders = templateFolders.filter((f) => !f.path.startsWith(col.path));
+      await persistTemplateCollections();
+      await persistTemplates();
+      await persistTemplateFolders();
+      return true;
+    },
+    { op: 'template-collection-delete' },
+  );
 }
 
 // ── Folders ─────────────────────────────────────────────────────────
@@ -185,6 +202,7 @@ export function createTemplateFolder(name: string, parentPath: string): LocalFol
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
     schemaVersion: 5,
+    version: 1,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -194,27 +212,43 @@ export function createTemplateFolder(name: string, parentPath: string): LocalFol
   return folder;
 }
 
-export function renameTemplateFolder(uid: string, name: string): boolean {
-  const index = templateFolders.findIndex((f) => f.uid === uid);
-  if (index === -1) return false;
-  templateFolders = [
-    ...templateFolders.slice(0, index),
-    { ...templateFolders[index], name },
-    ...templateFolders.slice(index + 1),
-  ];
-  void persistTemplateFolders();
-  return true;
+export async function renameTemplateFolder(uid: string, name: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'template-folder', uid),
+    async () => {
+      const index = templateFolders.findIndex((f) => f.uid === uid);
+      if (index === -1) return false;
+      const existing = templateFolders[index];
+      const nextVersion = existing.version + 1;
+      templateFolders = [
+        ...templateFolders.slice(0, index),
+        { ...existing, name, version: nextVersion },
+        ...templateFolders.slice(index + 1),
+      ];
+      await persistTemplateFolders();
+      return true;
+    },
+    { op: 'template-folder-rename' },
+  );
 }
 
-export function deleteTemplateFolder(uid: string): boolean {
-  const folder = templateFolders.find((f) => f.uid === uid);
-  if (!folder) return false;
+export async function deleteTemplateFolder(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'template-folder', uid),
+    async () => {
+      const folder = templateFolders.find((f) => f.uid === uid);
+      if (!folder) return false;
 
-  templateFolders = templateFolders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-  templates = templates.filter((t) => !t.path.startsWith(`${folder.path}/`));
-  void persistTemplateFolders();
-  void persistTemplates();
-  return true;
+      templateFolders = templateFolders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
+      templates = templates.filter((t) => !t.path.startsWith(`${folder.path}/`));
+      await persistTemplateFolders();
+      await persistTemplates();
+      return true;
+    },
+    { op: 'template-folder-delete' },
+  );
 }
 
 // ── Templates (CRUD) ────────────────────────────────────────────────

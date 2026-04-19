@@ -152,13 +152,60 @@ beforeEach(() => {
 });
 
 describe('openWorkspaceIntent — malformed payload', () => {
-  it('rejects and logs when intent fails schema validation', async () => {
-    installChromeMocks();
+  it('rejects and logs when intent has an unknown kind', async () => {
+    const mocks = installChromeMocks();
     const result = await openWorkspaceIntent({ kind: 'not-a-kind' }, {});
     expect(result).toEqual({ ok: false, reason: 'invalid-intent' });
     expect(mockRecordLog).toHaveBeenCalledWith(
       expect.objectContaining({ subsystem: 'workspace', op: 'navigator/reject' }),
     );
+    // No tab side effects — malformed payloads must not reach the
+    // Chrome APIs (the rejection happens at the schema boundary).
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('rejects an intent missing a required field (edit-rule without uid)', async () => {
+    const mocks = installChromeMocks();
+    const result = await openWorkspaceIntent({ kind: 'edit-rule' }, { callerWindowId: 1 });
+    expect(result).toEqual({ ok: false, reason: 'invalid-intent' });
+    expect(mockRecordLog).toHaveBeenCalledWith(expect.objectContaining({ op: 'navigator/reject' }));
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an intent with a bad uid shape (too short)', async () => {
+    const mocks = installChromeMocks();
+    const result = await openWorkspaceIntent({ kind: 'edit-rule', uid: 'abc' }, { callerWindowId: 1 });
+    expect(result).toEqual({ ok: false, reason: 'invalid-intent' });
+    expect(mockRecordLog).toHaveBeenCalledWith(expect.objectContaining({ op: 'navigator/reject' }));
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects an intent with an uppercase uid (lowercase-only invariant)', async () => {
+    const mocks = installChromeMocks();
+    const result = await openWorkspaceIntent({ kind: 'edit-environment', uid: 'ABCD1234' }, { callerWindowId: 1 });
+    expect(result).toEqual({ ok: false, reason: 'invalid-intent' });
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects a totally missing kind field', async () => {
+    const mocks = installChromeMocks();
+    const result = await openWorkspaceIntent({}, {});
+    expect(result).toEqual({ ok: false, reason: 'invalid-intent' });
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-object payloads (null, string, number)', async () => {
+    const mocks = installChromeMocks();
+    for (const bad of [null, undefined, 'open-docs', 42, true]) {
+      const result = await openWorkspaceIntent(bad, {});
+      expect(result).toEqual({ ok: false, reason: 'invalid-intent' });
+    }
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 });
 

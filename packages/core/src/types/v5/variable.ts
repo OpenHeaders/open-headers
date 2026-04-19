@@ -29,8 +29,15 @@ import type {
 
 // ── Variable scope ─────────────────────────────────────────────────
 
-/** Resolution priority: vault (highest) > environment > collection > workspace (lowest). */
-export type VariableScope = 'vault' | 'environment' | 'collection' | 'workspace';
+/**
+ * Resolution priority: vault (highest) > environment > collection > workspace (lowest).
+ *
+ * `file` is a distinct, content-addressed scope — `{{file.X}}` resolves to the
+ * file's sha256 hash string (NOT bytes). Unlike the other scopes, `file` is
+ * not part of the flat `{{X}}` walk; it's only reachable via the explicit
+ * `{{file.X}}` form to keep the 4-scope precedence semantics stable.
+ */
+export type VariableScope = 'vault' | 'environment' | 'collection' | 'workspace' | 'file';
 
 // ── Variable ───────────────────────────────────────────────────────
 

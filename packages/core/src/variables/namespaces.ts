@@ -21,12 +21,18 @@ export type VariableNamespace = 'env' | 'vault' | 'collection' | 'workspace' | '
 /**
  * Namespaces that resolve against the user's variable scopes (the ones
  * {@link VariableResolver} already handles).
+ *
+ * `file` resolves to the content-addressed hash (`sha256:<hex>`)
+ * string — not the bytes. See `@openheaders/core/files`. It lives in
+ * the scope list (not the reserved list) because v1 ships the
+ * resolution; binary attachment is a separate concern handled by the
+ * executor at send time.
  */
-export const SCOPE_NAMESPACES = ['env', 'vault', 'collection', 'workspace'] as const;
+export const SCOPE_NAMESPACES = ['env', 'vault', 'collection', 'workspace', 'file'] as const;
 export type ScopeNamespace = (typeof SCOPE_NAMESPACES)[number];
 
 /** Namespaces reserved but not user-scoped (handled by dedicated resolvers). */
-export const RESERVED_NAMESPACES = ['dynamic', 'file'] as const;
+export const RESERVED_NAMESPACES = ['dynamic'] as const;
 export type ReservedNamespace = (typeof RESERVED_NAMESPACES)[number];
 
 const ALL_NAMESPACES: readonly string[] = [...SCOPE_NAMESPACES, ...RESERVED_NAMESPACES];
@@ -111,6 +117,6 @@ export function describeNamespace(ns: VariableNamespace): string {
     case 'dynamic':
       return 'built-in dynamic variables ($timestamp, $guid, …)';
     case 'file':
-      return 'file and binary references (coming in v2)';
+      return 'uploaded file references (by filename or sha256 hash)';
   }
 }

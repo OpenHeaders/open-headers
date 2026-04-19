@@ -21,6 +21,7 @@ import {
   CheckCircleTwoTone,
   ClearOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   EllipsisOutlined,
   FileTextOutlined,
@@ -299,6 +300,14 @@ interface SidebarProps {
   /** Open an unsaved request draft in a new tab. Context is the
    *  user's clicked destination (collection root, or folder). */
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Open the import-from-curl modal (api-requests view only). */
+  onImportCurl?: (context?: { collectionId?: string }) => void;
+  /** Open the import-from-HAR modal (api-requests view only). */
+  onImportHar?: (context?: { collectionId?: string }) => void;
+  /** Open the import-from-Postman modal. Workspace-scoped — Postman
+   *  imports always create a new V5 Collection, so no initial-
+   *  collection context is carried. */
+  onImportPostman?: () => void;
   /** Ref to the filter input for keyboard shortcut focus. */
   filterRef?: React.Ref<InputRef>;
 }
@@ -319,6 +328,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenVault,
   onSelectRequest,
   onCreateRequest,
+  onImportCurl,
+  onImportHar,
+  onImportPostman,
   filterRef,
 }) => {
   const { token } = theme.useToken();
@@ -1902,16 +1914,59 @@ const Sidebar: React.FC<SidebarProps> = ({
           </Dropdown>
         )}
         {view === 'api-requests' && (
-          <Tooltip title="New request collection" placement="bottom">
-            <button
-              type="button"
-              className="rules-sidebar-toolbar-icon"
-              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-              onClick={() => void createNewRequestCollection()}
-            >
-              <PlusOutlined />
-            </button>
-          </Tooltip>
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'collection',
+                  icon: <FolderOpenOutlined />,
+                  label: 'New Request Collection',
+                  onClick: () => void createNewRequestCollection(),
+                },
+                ...(onImportCurl || onImportHar || onImportPostman
+                  ? ([{ type: 'divider' as const, key: 'div-import' }] as const)
+                  : []),
+                ...(onImportCurl
+                  ? [
+                      {
+                        key: 'import-curl',
+                        icon: <DownloadOutlined />,
+                        label: 'Import from cURL',
+                        onClick: () => onImportCurl(),
+                      },
+                    ]
+                  : []),
+                ...(onImportHar
+                  ? [
+                      {
+                        key: 'import-har',
+                        icon: <DownloadOutlined />,
+                        label: 'Import from HAR',
+                        onClick: () => onImportHar(),
+                      },
+                    ]
+                  : []),
+                ...(onImportPostman
+                  ? [
+                      {
+                        key: 'import-postman',
+                        icon: <DownloadOutlined />,
+                        label: 'Import from Postman',
+                        onClick: () => onImportPostman(),
+                      },
+                    ]
+                  : []),
+              ],
+            }}
+            trigger={['click']}
+            placement="bottomRight"
+          >
+            <Tooltip title="Add request" placement="bottom">
+              <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+                <PlusOutlined />
+              </div>
+            </Tooltip>
+          </Dropdown>
         )}
         {view === 'variables' && (
           <Tooltip title="New environment" placement="bottom">
@@ -2007,15 +2062,58 @@ const Sidebar: React.FC<SidebarProps> = ({
               expanded={sectionsExpanded['api-requests']}
               onToggle={() => toggleSection('api-requests')}
               actions={
-                <Tooltip title="New request collection" placement="bottom">
+                <Dropdown
+                  menu={{
+                    items: [
+                      {
+                        key: 'collection',
+                        icon: <FolderOpenOutlined />,
+                        label: 'New Request Collection',
+                        onClick: () => void createNewRequestCollection(),
+                      },
+                      ...(onImportCurl || onImportHar || onImportPostman
+                        ? ([{ type: 'divider' as const, key: 'div-import' }] as const)
+                        : []),
+                      ...(onImportCurl
+                        ? [
+                            {
+                              key: 'import-curl',
+                              icon: <DownloadOutlined />,
+                              label: 'Import from cURL',
+                              onClick: () => onImportCurl(),
+                            },
+                          ]
+                        : []),
+                      ...(onImportHar
+                        ? [
+                            {
+                              key: 'import-har',
+                              icon: <DownloadOutlined />,
+                              label: 'Import from HAR',
+                              onClick: () => onImportHar(),
+                            },
+                          ]
+                        : []),
+                      ...(onImportPostman
+                        ? [
+                            {
+                              key: 'import-postman',
+                              icon: <DownloadOutlined />,
+                              label: 'Import from Postman',
+                              onClick: () => onImportPostman(),
+                            },
+                          ]
+                        : []),
+                    ],
+                  }}
+                  trigger={['click']}
+                  placement="bottomRight"
+                >
                   <PlusOutlined
                     style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void createNewRequestCollection();
-                    }}
+                    onClick={(e) => e.stopPropagation()}
                   />
-                </Tooltip>
+                </Dropdown>
               }
             />
             {sectionsExpanded['api-requests'] && (

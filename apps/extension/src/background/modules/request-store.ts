@@ -119,6 +119,7 @@ export function ensureDefaultRequestCollection(): V5.Collection {
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
+    version: 1,
     uid,
     path: `requests/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -134,6 +135,7 @@ export function createRequestCollection(name: string): V5.Collection {
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
+    version: 1,
     uid,
     path: `requests/${folderName}`,
     name,
@@ -144,24 +146,44 @@ export function createRequestCollection(name: string): V5.Collection {
   return collection;
 }
 
-export function renameRequestCollection(uid: string, name: string): boolean {
-  const index = collections.findIndex((c) => c.uid === uid);
-  if (index === -1) return false;
-  collections = [...collections.slice(0, index), { ...collections[index], name }, ...collections.slice(index + 1)];
-  void persistCollections();
-  return true;
+export async function renameRequestCollection(uid: string, name: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'request-collection', uid),
+    async () => {
+      const index = collections.findIndex((c) => c.uid === uid);
+      if (index === -1) return false;
+      const existing = collections[index];
+      const nextVersion = existing.version + 1;
+      collections = [
+        ...collections.slice(0, index),
+        { ...existing, name, version: nextVersion },
+        ...collections.slice(index + 1),
+      ];
+      await persistCollections();
+      return true;
+    },
+    { op: 'request-collection-rename' },
+  );
 }
 
-export function deleteRequestCollection(uid: string): boolean {
-  const collection = collections.find((c) => c.uid === uid);
-  if (!collection) return false;
-  collections = collections.filter((c) => c.uid !== uid);
-  requests = requests.filter((r) => !r.path.startsWith(collection.path));
-  folders = folders.filter((f) => !f.path.startsWith(collection.path));
-  void persistCollections();
-  void persistRequests();
-  void persistFolders();
-  return true;
+export async function deleteRequestCollection(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'request-collection', uid),
+    async () => {
+      const collection = collections.find((c) => c.uid === uid);
+      if (!collection) return false;
+      collections = collections.filter((c) => c.uid !== uid);
+      requests = requests.filter((r) => !r.path.startsWith(collection.path));
+      folders = folders.filter((f) => !f.path.startsWith(collection.path));
+      await persistCollections();
+      await persistRequests();
+      await persistFolders();
+      return true;
+    },
+    { op: 'request-collection-delete' },
+  );
 }
 
 // ── Folders ─────────────────────────────────────────────────────────
@@ -169,28 +191,44 @@ export function deleteRequestCollection(uid: string): boolean {
 export function createRequestFolder(name: string, parentPath: string): LocalFolder {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const folder: LocalFolder = { schemaVersion: 5, uid, path: `${parentPath}/${folderName}`, name };
+  const folder: LocalFolder = { schemaVersion: 5, version: 1, uid, path: `${parentPath}/${folderName}`, name };
   folders = [...folders, folder];
   void persistFolders();
   return folder;
 }
 
-export function renameRequestFolder(uid: string, name: string): boolean {
-  const index = folders.findIndex((f) => f.uid === uid);
-  if (index === -1) return false;
-  folders = [...folders.slice(0, index), { ...folders[index], name }, ...folders.slice(index + 1)];
-  void persistFolders();
-  return true;
+export async function renameRequestFolder(uid: string, name: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'request-folder', uid),
+    async () => {
+      const index = folders.findIndex((f) => f.uid === uid);
+      if (index === -1) return false;
+      const existing = folders[index];
+      const nextVersion = existing.version + 1;
+      folders = [...folders.slice(0, index), { ...existing, name, version: nextVersion }, ...folders.slice(index + 1)];
+      await persistFolders();
+      return true;
+    },
+    { op: 'request-folder-rename' },
+  );
 }
 
-export function deleteRequestFolder(uid: string): boolean {
-  const folder = folders.find((f) => f.uid === uid);
-  if (!folder) return false;
-  folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-  requests = requests.filter((r) => !r.path.startsWith(`${folder.path}/`));
-  void persistFolders();
-  void persistRequests();
-  return true;
+export async function deleteRequestFolder(uid: string): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'request-folder', uid),
+    async () => {
+      const folder = folders.find((f) => f.uid === uid);
+      if (!folder) return false;
+      folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
+      requests = requests.filter((r) => !r.path.startsWith(`${folder.path}/`));
+      await persistFolders();
+      await persistRequests();
+      return true;
+    },
+    { op: 'request-folder-delete' },
+  );
 }
 
 // ── Requests ────────────────────────────────────────────────────────

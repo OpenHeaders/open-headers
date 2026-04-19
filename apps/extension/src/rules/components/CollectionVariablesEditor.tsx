@@ -7,16 +7,22 @@
  * Secrets are NOT supported here — collection vars are synced via Git
  * in team workspaces (v2), and secrets must stay local-per-device
  * (Bruno model). The Vault is the only safe home for sensitive values.
+ *
+ * Phase 10 — same stale-draft contract as RuleEditor / EnvironmentEditor.
+ * The editor captures `loadedVersion` on first arrival, sends it as
+ * `expectedVersion` on save, and renders `StaleDraftBanner` when the
+ * SW rejects because another tab landed a newer write.
  */
 
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { Typography, theme } from 'antd';
+import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import VariableTable from './panels/VariableTable';
+import StaleDraftBanner from './StaleDraftBanner';
 
 const { Text, Title } = Typography;
 
@@ -35,6 +41,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   onDirtyChange,
   registerSaveRef,
 }) => {
+  const { message } = App.useApp();
   const { token } = theme.useToken();
   const { localCollections } = useRules();
   const { updateCollectionVariables } = useEnvironments();
@@ -48,6 +55,13 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   const [draft, setDraft] = useState<V5.Variable[]>(() => initialVars);
   const persistedFpRef = useRef<string>(fingerprint(initialVars));
 
+  // Phase 10 stale-draft tracking — see RuleEditor for the full
+  // rationale. `loadedVersion` is snapped once on first arrival and
+  // only advances on our own successful saves; cross-tab broadcasts
+  // do NOT bump it (that would defeat protection).
+  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
+  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
+
   useEffect(() => {
     if (!collection) return;
     const fp = fingerprint(collection.variables);
@@ -57,6 +71,12 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     }
   }, [collection]);
 
+  useEffect(() => {
+    if (loadedVersion !== null) return;
+    if (typeof collection?.version !== 'number') return;
+    setLoadedVersion(collection.version);
+  }, [collection?.version, loadedVersion]);
+
   const isDirty = useMemo(() => fingerprint(draft) !== persistedFpRef.current, [draft]);
 
   useEffect(() => {
@@ -65,17 +85,54 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
 
   const handleSave = useCallback(() => {
     if (!collection || !isDirty) return;
-    void updateCollectionVariables(collection.uid, draft).then((ok) => {
-      if (ok) {
+    void updateCollectionVariables(collection.uid, draft, loadedVersion ?? undefined).then((result) => {
+      if (result.ok) {
         persistedFpRef.current = fingerprint(draft);
+        setLoadedVersion(result.version);
+        setStaleDraft(null);
         onDirtyChange?.(false);
+        return;
       }
+      if (result.reason === 'stale-draft') {
+        // Another tab saved first — prompt the user to reload or keep
+        // editing. No toast; the banner is the interaction surface.
+        setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
+        return;
+      }
+      if (result.reason === 'not-found') {
+        message.error('Collection was deleted from another tab');
+        return;
+      }
+      message.error(`Failed to save collection variables: ${result.message}`);
     });
-  }, [collection, isDirty, draft, updateCollectionVariables, onDirtyChange]);
+  }, [collection, isDirty, draft, updateCollectionVariables, onDirtyChange, loadedVersion, message]);
 
   useEffect(() => {
     registerSaveRef?.(handleSave);
   }, [registerSaveRef, handleSave]);
+
+  const handleStaleReload = useCallback(() => {
+    // Discard local edits; snap loadedVersion forward to the server's
+    // current version. The collection reference from context has
+    // already been broadcast-refreshed so `initialVars` reflects the
+    // winning save.
+    const current = collection?.version ?? loadedVersion ?? 0;
+    setLoadedVersion(current);
+    setStaleDraft(null);
+    if (collection) {
+      persistedFpRef.current = fingerprint(collection.variables);
+      setDraft(collection.variables);
+      onDirtyChange?.(false);
+    }
+  }, [collection, loadedVersion, onDirtyChange]);
+
+  const handleStaleKeepEditing = useCallback(() => {
+    // Snap loadedVersion forward so the next save's expectedVersion
+    // matches and the overwrite lands.
+    const current = collection?.version ?? loadedVersion ?? 0;
+    setLoadedVersion(current);
+    setStaleDraft(null);
+  }, [collection, loadedVersion]);
 
   if (!collection) {
     return (
@@ -96,6 +153,16 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
             {collection.name} · Variables
           </Title>
         </div>
+
+        {staleDraft && (
+          <StaleDraftBanner
+            entityLabel="collection"
+            serverVersion={staleDraft.serverVersion}
+            loadedVersion={staleDraft.loadedVersion}
+            onReload={handleStaleReload}
+            onKeepEditing={handleStaleKeepEditing}
+          />
+        )}
 
         <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
           Variables available to every rule inside this collection. Overridden by environment and vault scopes;

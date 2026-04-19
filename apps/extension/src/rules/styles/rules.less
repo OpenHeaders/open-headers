@@ -758,6 +758,40 @@ html, body, #root {
   }
 }
 
+// ── Request response Tabs ──────────────────────────────────────────
+//
+// Ant Design's <Tabs> renders the children inside
+// `.ant-tabs-content-holder` → `.ant-tabs-content` → `.ant-tabs-tabpane`.
+// The outermost style we set (`flex: 1, min-height: 0`) only lands on
+// the OUTER `.ant-tabs` wrapper — the inner holder stays at its
+// intrinsic height, so the children's `overflow: auto` container has
+// nothing to clip against and the body/headers pane grows to fit the
+// content instead of scrolling. Same pattern as the popup's
+// `.header-rules-tabs` block (`popup.less:316`).
+.rules-response-tabs {
+  .ant-tabs-content-holder {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .ant-tabs-content {
+    flex: 1;
+    min-height: 0;
+  }
+  .ant-tabs-tabpane-active {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .ant-tabs-tabpane:focus,
+  .ant-tabs-tabpane:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+}
+
 // ── Status Bar ─────────────────────────────────────────────────────
 
 .rules-statusbar {

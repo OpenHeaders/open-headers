@@ -1,4 +1,5 @@
 schemaVersion: 5
+version: 1
 uid: c0ll1111
 name: Auth
 description: Authentication endpoints.

@@ -30,6 +30,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 export type EnvironmentWriteResult = BridgeRpcResponse<'updateEnvironmentVariables'>;
 export type WorkspaceVariablesWriteResult = BridgeRpcResponse<'setWorkspaceVariables'>;
 export type VaultWriteResult = BridgeRpcResponse<'setVault'>;
+export type CollectionWriteResult = BridgeRpcResponse<'updateCollectionVariables'>;
 
 export interface UseEnvironmentsApi {
   environments: V5.Environment[];
@@ -73,7 +74,19 @@ export interface UseEnvironmentsApi {
   ) => Promise<WorkspaceVariablesWriteResult>;
   setVault: (vault: V5.Vault, expectedVersion?: number) => Promise<VaultWriteResult>;
 
-  updateCollectionVariables: (collectionUid: string, variables: V5.Variable[]) => Promise<boolean>;
+  /**
+   * Replace a collection's variables. Returns the full Phase 10 write
+   * result so the CollectionVariablesEditor can surface stale-draft
+   * conflicts. Callers that don't track a version (sidebar "add
+   * variable" CTAs) omit `expectedVersion` and get last-write-wins
+   * semantics — the per-entity lock still serializes the storage
+   * write, so no silent drift.
+   */
+  updateCollectionVariables: (
+    collectionUid: string,
+    variables: V5.Variable[],
+    expectedVersion?: number,
+  ) => Promise<CollectionWriteResult>;
 }
 
 export function useEnvironments(): UseEnvironmentsApi {
@@ -201,10 +214,16 @@ export function useEnvironments(): UseEnvironmentsApi {
     );
   }, []);
 
-  const updateCollectionVariables = useCallback(async (collectionUid: string, variables: V5.Variable[]) => {
-    const resp = await call('updateCollectionVariables', { collectionUid, variables }).catch(() => null);
-    return Boolean(resp?.success);
-  }, []);
+  const updateCollectionVariables = useCallback<UseEnvironmentsApi['updateCollectionVariables']>(
+    async (collectionUid, variables, expectedVersion) => {
+      const payload =
+        expectedVersion !== undefined ? { collectionUid, variables, expectedVersion } : { collectionUid, variables };
+      return call('updateCollectionVariables', payload).catch(
+        (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
+      );
+    },
+    [],
+  );
 
   const activeEnvironment = useMemo(
     () => (activeEnvironmentId ? (environments.find((e) => e.uid === activeEnvironmentId) ?? null) : null),

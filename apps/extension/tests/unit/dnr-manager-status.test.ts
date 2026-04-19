@@ -73,10 +73,7 @@ vi.mock('@/background/inject-manager', () => ({
 
 import { declarativeNetRequest } from '@utils/browser-api';
 import { applyAllRulesAsync, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
-import {
-  getLastAggregatedResolutionErrors,
-  getLastResolutionErrors,
-} from '@/background/modules/variables-resolver';
+import { getLastAggregatedResolutionErrors, getLastResolutionErrors } from '@/background/modules/variables-resolver';
 import { get as getSetting } from '@/rules/settings/store';
 import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@/shared/status';
 

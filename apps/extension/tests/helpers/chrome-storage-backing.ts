@@ -22,7 +22,7 @@
  * those yet. Add when needed.
  */
 
-import { vi } from 'vitest';
+import type { vi } from 'vitest';
 import { chrome } from '../__mocks__/chrome';
 
 // Module-level Map — one per test file. `install()` clears it so each
