@@ -625,7 +625,6 @@ export interface BridgeBroadcastContract {
   testRunsClearedForOwner: { ownerType: TestRunOwnerType; ownerId: string };
   connectionStatus: { connected: boolean };
   trackedUrlsUpdated: { tabId?: number };
-  largeRuleSetWarning: { activeCount: number; threshold: number; dropped: number };
   /**
    * Fires on any workspace list mutation (create/rename/delete/reorder)
    * AND on active-workspace switch. UI surfaces re-read rules, templates,

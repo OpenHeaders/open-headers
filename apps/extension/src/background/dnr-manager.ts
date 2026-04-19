@@ -25,10 +25,10 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
-import { broadcast } from '@utils/bridge';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { get as getSetting } from '@/rules/settings/store';
+import { report as reportStatus } from '@/shared/status';
 import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
 import {
   blockCompiler,
@@ -289,6 +289,11 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
     clearAllDynamicRules();
     clearAllSessionRules();
     updateScriptableRules([]);
+    reportStatus({
+      subsystem: 'rules',
+      state: 'green',
+      message: 'Rule execution paused',
+    });
     return Promise.resolve();
   }
 
@@ -319,20 +324,17 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   }
 
   // ── Large rule-set warning ────────────────────────────────────
-  if (getSetting('rulesEngine.warnOnLargeRuleSets')) {
-    const threshold = getSetting('rulesEngine.largeRuleSetThreshold');
-    if (effectiveDynamic.length >= threshold) {
-      logger.warn(
-        'DnrManager',
-        `Active rule count (${effectiveDynamic.length}) >= ${threshold} — approaching DNR capacity`,
-      );
-      // Let the popup / workspace display a non-blocking warning.
-      broadcast('largeRuleSetWarning', {
-        activeCount: effectiveDynamic.length,
-        threshold,
-        dropped,
-      });
-    }
+  // Reported through the Status API (`rules` subsystem) after both DNR
+  // layers commit — see the tail of rebuildAll for the single-point
+  // reporting pass.
+  let largeRuleSet = false;
+  const largeRuleSetThreshold = getSetting('rulesEngine.largeRuleSetThreshold');
+  if (getSetting('rulesEngine.warnOnLargeRuleSets') && effectiveDynamic.length >= largeRuleSetThreshold) {
+    largeRuleSet = true;
+    logger.warn(
+      'DnrManager',
+      `Active rule count (${effectiveDynamic.length}) >= ${largeRuleSetThreshold} — approaching DNR capacity`,
+    );
   }
 
   const dynamicToApply: DnrRule[] = [];
@@ -413,12 +415,54 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   }
 
   const sessionPromise = applySessionRules(sessionToApply);
-  return Promise.all([dynamicPromise, sessionPromise]).then(() => undefined);
+  return Promise.all([dynamicPromise, sessionPromise]).then(([dyn, ses]) => {
+    // Single reporting point for the `rules` Status subsystem. Layered
+    // so the worst condition wins: transport failure > cap breach >
+    // large-rule-set warning > healthy.
+    if (!dyn.ok || !ses.ok) {
+      const layer = !dyn.ok ? 'dynamic' : 'session';
+      const error = !dyn.ok ? dyn.error : !ses.ok ? ses.error : 'Unknown error';
+      reportStatus({
+        subsystem: 'rules',
+        state: 'red',
+        message: `Failed to apply ${layer} DNR rules: ${error}`,
+        context: { layer, error },
+      });
+      return;
+    }
+    if (dropped > 0) {
+      reportStatus({
+        subsystem: 'rules',
+        state: 'yellow',
+        message: `Dropped ${dropped} rule${dropped === 1 ? '' : 's'} over cap (${cap})`,
+        context: { cap, dropped, active: effectiveDynamic.length },
+      });
+      return;
+    }
+    if (largeRuleSet) {
+      reportStatus({
+        subsystem: 'rules',
+        state: 'yellow',
+        message: `Approaching DNR capacity (${effectiveDynamic.length} ≥ ${largeRuleSetThreshold})`,
+        context: { active: effectiveDynamic.length, threshold: largeRuleSetThreshold },
+      });
+      return;
+    }
+    const activeCount = effectiveDynamic.length;
+    reportStatus({
+      subsystem: 'rules',
+      state: 'green',
+      message: `${activeCount} active DNR rule${activeCount === 1 ? '' : 's'}`,
+      context: { active: activeCount },
+    });
+  });
 }
 
 // ── DNR rule application ─────────────────────────────────────────
 
-function applyDynamicRules(newRules: DnrRule[]): Promise<void> {
+type ApplyResult = { ok: true } | { ok: false; error: string };
+
+function applyDynamicRules(newRules: DnrRule[]): Promise<ApplyResult> {
   return declarativeNetRequest!
     .getDynamicRules()
     .then((existingRules) => {
@@ -428,21 +472,28 @@ function applyDynamicRules(newRules: DnrRule[]): Promise<void> {
         addRules: newRules as chrome.declarativeNetRequest.Rule[],
       });
     })
-    .then(() => {
+    .then((): ApplyResult => {
       logger.debug('DnrManager', `Applied ${newRules.length} dynamic DNR rules`);
+      return { ok: true };
     })
-    .catch((e: Error) => {
-      logger.error('DnrManager', 'Error updating dynamic rules:', e.message || 'Unknown error');
+    .catch((e: Error): ApplyResult => {
+      const error = e.message || 'Unknown error';
+      logger.error('DnrManager', 'Error updating dynamic rules:', error);
+      return { ok: false, error };
     });
 }
 
-function applySessionRules(newRules: DnrRule[]): Promise<void> {
+function applySessionRules(newRules: DnrRule[]): Promise<ApplyResult> {
   const dnr = declarativeNetRequest;
   if (!dnr?.updateSessionRules || !dnr.getSessionRules) {
     if (newRules.length > 0) {
       logger.info('DnrManager', 'updateSessionRules unavailable — session rules will not be applied');
     }
-    return Promise.resolve();
+    // Absent API is not a failure — treat as no-op success so the
+    // Status pill doesn't show red on Firefox's session-rule-less
+    // codepath. Users on browsers without session rules never expect
+    // delay-tab scoping to work anyway.
+    return Promise.resolve({ ok: true });
   }
   return dnr
     .getSessionRules()
@@ -457,11 +508,14 @@ function applySessionRules(newRules: DnrRule[]): Promise<void> {
         addRules: newRules as chrome.declarativeNetRequest.Rule[],
       });
     })
-    .then(() => {
+    .then((): ApplyResult => {
       logger.debug('DnrManager', `Applied ${newRules.length} session DNR rules`);
+      return { ok: true };
     })
-    .catch((e: Error) => {
-      logger.error('DnrManager', 'Error updating session rules:', e.message || 'Unknown error');
+    .catch((e: Error): ApplyResult => {
+      const error = e.message || 'Unknown error';
+      logger.error('DnrManager', 'Error updating session rules:', error);
+      return { ok: false, error };
     });
 }
 

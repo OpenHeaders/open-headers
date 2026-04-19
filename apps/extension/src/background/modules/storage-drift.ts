@@ -17,10 +17,20 @@
 
 import type * as v from 'valibot';
 import type { LogSubsystem } from '@/shared/observability/types';
+import { report as reportStatus } from '@/shared/status';
+import type { StatusSubsystem } from '@/shared/status/types';
 import { recordLog } from './observability-log';
 
 export interface StorageDriftOptions {
   subsystem: LogSubsystem;
+  /**
+   * Optional StatusSubsystem to yellow-pill when drift is detected. When
+   * set, a single `Schema drift` Status entry is reported per recorder
+   * invocation (the store dedupe prevents churn if the same shape fails
+   * repeatedly). Leave unset for subsystems where drift is a triage-only
+   * concern (not user-surfaced).
+   */
+  statusSubsystem?: StatusSubsystem;
   /** Fully-qualified storage key (e.g. `oh.ws.<id>.rules`). */
   storageKey: string;
   /** Workspace id when the key is workspace-scoped. Optional for global keys. */
@@ -48,5 +58,17 @@ export function driftRecorder(
         workspaceId: options.workspaceId,
       },
     });
+    if (options.statusSubsystem) {
+      reportStatus({
+        subsystem: options.statusSubsystem,
+        state: 'yellow',
+        message: `Schema drift: dropped entry from ${options.storageKey}`,
+        context: {
+          storageKey: options.storageKey,
+          issue: firstIssue?.message,
+          path: path || undefined,
+        },
+      });
+    }
   };
 }

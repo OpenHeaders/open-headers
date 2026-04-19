@@ -328,13 +328,28 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
   const keys = wsKeys(workspaceId);
   const [rules, collections, folders] = await Promise.all([
     extensionStorage.getValidatedArray(keys.rules, RuleSchema, {
-      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.rules.key, workspaceId }),
+      onError: driftRecorder({
+        subsystem: 'rule-engine',
+        statusSubsystem: 'rules',
+        storageKey: keys.rules.key,
+        workspaceId,
+      }),
     }),
     extensionStorage.getValidatedArray(keys.collections, CollectionSchema, {
-      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.collections.key, workspaceId }),
+      onError: driftRecorder({
+        subsystem: 'rule-engine',
+        statusSubsystem: 'rules',
+        storageKey: keys.collections.key,
+        workspaceId,
+      }),
     }),
     extensionStorage.getValidatedArray(keys.folders, FolderSchema, {
-      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.folders.key, workspaceId }),
+      onError: driftRecorder({
+        subsystem: 'rule-engine',
+        statusSubsystem: 'rules',
+        storageKey: keys.folders.key,
+        workspaceId,
+      }),
     }),
   ]);
   return { rules, collections, folders };

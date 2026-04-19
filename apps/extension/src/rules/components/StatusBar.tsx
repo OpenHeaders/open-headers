@@ -12,13 +12,12 @@
 import { BulbFilled, BulbOutlined, LayoutOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
-import { useStatus } from '@hooks/useStatus';
-import { Dropdown, type MenuProps, Popover, Space, Tag, Typography, theme } from 'antd';
+import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
-import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from '@/shared/status';
+import { StatusPill } from '@/shared/status';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { useSetting, useSettingValue } from '../settings/hooks';
@@ -43,7 +42,6 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
   const { token } = theme.useToken();
   const { isConnected, isStatusLoaded, rules } = useRules();
   const { themeMode, setThemeMode } = useTheme();
-  const { snapshot: statusSnapshot, worst: statusWorst } = useStatus();
   const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
   const toggleBottomLabel = useShortcutLabel('toggle-bottom');
   const toggleInspectorLabel = useShortcutLabel('toggle-inspector');
@@ -167,7 +165,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
         <span className="rules-statusbar-item">
           {enabledCount}/{rules.length} rule{rules.length !== 1 ? 's' : ''} active
         </span>
-        <StatusPill snapshot={statusSnapshot} worst={statusWorst} token={token} />
+        <StatusPill />
       </div>
 
       <div className="rules-statusbar-right">
@@ -264,120 +262,3 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
 };
 
 export default StatusBar;
-
-// ── Status pill ───────────────────────────────────────────────────
-
-const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 'permissions', 'secrets'];
-
-/**
- * One-item compact indicator for the Status snapshot.
- *
- * Baseline: green dot + "Healthy". When any subsystem reports yellow
- * or red, the dot recolors and the label summarizes the worst state
- * + the subsystem that triggered it. Clicking opens a popover with a
- * per-subsystem breakdown + the latest message and context.
- *
- * Avoids the five-always-visible-pill layout until we actually have
- * five frequently-firing subsystems. Keeps the bottom bar readable
- * when all is well (the common case).
- */
-interface StatusPillProps {
-  snapshot: StatusSnapshot;
-  worst: StatusLevel;
-  token: ReturnType<typeof theme.useToken>['token'];
-}
-
-const StatusPill: React.FC<StatusPillProps> = ({ snapshot, worst, token }) => {
-  const hasEntries = Object.values(snapshot).some(Boolean);
-
-  const color = worst === 'red' ? token.colorError : worst === 'yellow' ? token.colorWarning : token.colorSuccess;
-
-  const summary = buildSummary(snapshot, worst);
-
-  return (
-    <Popover
-      placement="top"
-      trigger={['click', 'hover']}
-      content={<StatusPopoverBody snapshot={snapshot} token={token} />}
-      title={
-        <Space size={6}>
-          <span
-            style={{
-              display: 'inline-block',
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: color,
-            }}
-          />
-          <Typography.Text strong style={{ fontSize: 12 }}>
-            System status
-          </Typography.Text>
-        </Space>
-      }
-    >
-      <span
-        className="rules-statusbar-item"
-        role="status"
-        style={{ cursor: hasEntries ? 'pointer' : 'default' }}
-        aria-label={`System status: ${summary}`}
-      >
-        <span className="rules-dot" style={{ background: color }} />
-        {summary}
-      </span>
-    </Popover>
-  );
-};
-
-function buildSummary(snapshot: StatusSnapshot, worst: StatusLevel): string {
-  if (worst === 'green') {
-    return 'Healthy';
-  }
-  // Pick the first worst-level entry we find — deterministic via SUBSYSTEM_ORDER.
-  for (const sub of SUBSYSTEM_ORDER) {
-    const entry = snapshot[sub];
-    if (entry?.state === worst) {
-      return `${SUBSYSTEM_LABELS[sub]}: ${truncate(entry.message, 50)}`;
-    }
-  }
-  return worst === 'red' ? 'Failure' : 'Issues';
-}
-
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return `${s.slice(0, max - 1)}…`;
-}
-
-interface StatusPopoverBodyProps {
-  snapshot: StatusSnapshot;
-  token: ReturnType<typeof theme.useToken>['token'];
-}
-
-const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token }) => {
-  return (
-    <div style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {SUBSYSTEM_ORDER.map((sub) => {
-        const entry = snapshot[sub];
-        const state: StatusLevel = entry?.state ?? 'green';
-        const color = state === 'red' ? 'error' : state === 'yellow' ? 'warning' : entry ? 'success' : 'default';
-        return (
-          <div key={sub} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <Tag color={color} style={{ fontSize: 10, marginTop: 2, minWidth: 64, textAlign: 'center' }}>
-              {SUBSYSTEM_LABELS[sub]}
-            </Tag>
-            <div style={{ flex: 1 }}>
-              <Typography.Text style={{ fontSize: 11, display: 'block', color: token.colorText }}>
-                {entry?.message ?? 'No events yet'}
-              </Typography.Text>
-              {entry?.timestamp && (
-                <Typography.Text type="secondary" style={{ fontSize: 10 }}>
-                  {new Date(entry.timestamp).toLocaleTimeString()}
-                </Typography.Text>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};

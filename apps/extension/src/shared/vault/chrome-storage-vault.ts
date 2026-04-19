@@ -26,6 +26,7 @@
 import type { V5 } from '@openheaders/core/types';
 import { noopCipher, type Vault, type VaultCipher, type VaultScope } from '@openheaders/core/vault';
 import { logger } from '@utils/logger';
+import { report as reportStatus } from '@/shared/status';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 
 const EMPTY_BLOB: V5.Vault = { schemaVersion: 5, secrets: [] };
@@ -39,9 +40,21 @@ export class ChromeStorageVault implements Vault {
     const secret = blob.secrets.find((s) => s.name === key);
     if (!secret?.value) return null;
     try {
-      return await this.cipher.decrypt(secret.value);
+      const value = await this.cipher.decrypt(secret.value);
+      // Report green on success so a prior cipher failure can transition
+      // back to healthy. Stable message lets the store's dedup suppress
+      // churn across repeated successful decrypts.
+      reportStatus({ subsystem: 'secrets', state: 'green', message: 'Vault healthy' });
+      return value;
     } catch (err) {
+      const errorClass = err instanceof Error ? err.name : undefined;
       logger.warn('ChromeStorageVault', `Failed to decrypt ${key}`, err);
+      reportStatus({
+        subsystem: 'secrets',
+        state: 'red',
+        message: `Failed to decrypt vault entry: ${key}`,
+        context: { workspaceId: scope.workspaceId, errorClass },
+      });
       return null;
     }
   }

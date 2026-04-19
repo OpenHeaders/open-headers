@@ -4,6 +4,7 @@ import { App, Badge, Button, Space, Switch, Tooltip, Typography, theme } from 'a
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSetting } from '@/rules/settings/hooks';
+import { StatusPill } from '@/shared/status';
 import { useSurface } from '@/shared/surface';
 import { switchViewMode } from '@/shared/view-mode';
 import { getBrowserAPI } from '@/types/browser';
@@ -100,6 +101,7 @@ const Header: React.FC = () => {
               </span>
             </Tooltip>
           ))}
+        <StatusPill density="compact" />
         <WorkspacePill />
       </Space>
       <Space align="center" size={12}>

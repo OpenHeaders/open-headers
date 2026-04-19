@@ -170,3 +170,40 @@ describe('ChromeStorageVault — robustness', () => {
     expect(await vault.list(PERSONAL)).toEqual([]);
   });
 });
+
+describe('ChromeStorageVault — secrets Status subsystem', () => {
+  it('reports red on decrypt failure', async () => {
+    const { __resetStatusForTests, getStatusSnapshot } = await import('@/shared/status');
+    __resetStatusForTests();
+    const failingCipher: VaultCipher = {
+      encrypt: (x) => x,
+      decrypt: () => {
+        throw new TypeError('bad-mac');
+      },
+    };
+    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'ciphertext' }]));
+    const vault = new ChromeStorageVault(failingCipher);
+    await vault.get('TOKEN', PERSONAL);
+    const entry = getStatusSnapshot().secrets;
+    expect(entry?.state).toBe('red');
+    expect(entry?.message).toBe('Failed to decrypt vault entry: TOKEN');
+    expect(entry?.context?.errorClass).toBe('TypeError');
+    expect(entry?.context?.workspaceId).toBe('ws-1');
+  });
+
+  it('reports green on successful decrypt (resets after prior failure)', async () => {
+    const { __resetStatusForTests, getStatusSnapshot, report } = await import('@/shared/status');
+    __resetStatusForTests();
+    report({ subsystem: 'secrets', state: 'red', message: 'previous failure' });
+    const cipher: VaultCipher = {
+      encrypt: (x) => x,
+      decrypt: (x) => x.toLowerCase(),
+    };
+    mockGet.mockResolvedValue(makeBlob([{ name: 'TOKEN', value: 'STORED' }]));
+    const vault = new ChromeStorageVault(cipher);
+    await vault.get('TOKEN', PERSONAL);
+    const entry = getStatusSnapshot().secrets;
+    expect(entry?.state).toBe('green');
+    expect(entry?.message).toBe('Vault healthy');
+  });
+});

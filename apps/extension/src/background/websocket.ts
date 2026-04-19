@@ -8,6 +8,7 @@ import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { get as getSetting, subscribeKey } from '@/rules/settings/store';
+import { report as reportStatus } from '@/shared/status';
 import { handleRecordingInboundMessage, requestInitialRecordingSync } from './modules/recording-sync';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
@@ -117,6 +118,41 @@ function broadcastConnectionStatus(): void {
   broadcast('connectionStatus', { connected: isConnected });
 }
 
+/**
+ * Mirror the socket's state into the `sync` Status subsystem.
+ *
+ * Semantic intent vs actual state:
+ *   - autoConnect OFF  → green "Desktop sync disabled" (user opted out, not a failure)
+ *   - autoConnect ON + connected → green "Connected to desktop"
+ *   - autoConnect ON + disconnected + attempts=0 → yellow "Connecting…"
+ *   - autoConnect ON + disconnected + attempts>0 → yellow "Reconnecting (attempt N)"
+ */
+function reportSyncStatus(): void {
+  if (!getSetting('desktop.connection.autoConnect')) {
+    reportStatus({
+      subsystem: 'sync',
+      state: 'green',
+      message: 'Desktop sync disabled',
+    });
+    return;
+  }
+  if (isConnected) {
+    reportStatus({
+      subsystem: 'sync',
+      state: 'green',
+      message: 'Connected to desktop',
+    });
+    return;
+  }
+  const attempts = reconnectAttempts;
+  reportStatus({
+    subsystem: 'sync',
+    state: 'yellow',
+    message: attempts <= 1 ? 'Connecting to desktop…' : `Reconnecting (attempt ${attempts})`,
+    context: { attempts },
+  });
+}
+
 // ── Message handling ──────────────────────────────────────────────
 //
 // Inbound messages today are limited to recording sync and recording
@@ -161,10 +197,12 @@ function handleConnectionFailure(): void {
   // connect should NOT silently transition into a retry loop.
   if (!getSetting('desktop.connection.autoConnect')) {
     reconnectAttempts = 0;
+    reportSyncStatus();
     return;
   }
 
   reconnectAttempts++;
+  reportSyncStatus();
   const delay = Math.min(getReconnectDelayMs() * 2 ** (reconnectAttempts - 1), getMaxReconnectDelayMs());
 
   logger.debug('WebSocket', `Scheduling reconnection attempt ${reconnectAttempts} in ${delay}ms`);
@@ -218,6 +256,7 @@ function connectStandardWebSocket(url: string): void {
         isConnected = true;
         reconnectAttempts = 0;
         broadcastConnectionStatus();
+        reportSyncStatus();
         sendBrowserInfo();
         startPingTimer();
         requestInitialRecordingSync();
@@ -246,7 +285,10 @@ export function connectWebSocket(): Promise<boolean> {
   // through here. If the user has Auto-Connect off, no path can sneak a
   // socket open. Previously each call site had to remember to gate, and
   // the URL-change subscriber + reconnect-on-failure both bypassed it.
-  if (!getSetting('desktop.connection.autoConnect')) return Promise.resolve(false);
+  if (!getSetting('desktop.connection.autoConnect')) {
+    reportSyncStatus();
+    return Promise.resolve(false);
+  }
 
   if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(true);
   if (isConnecting) return Promise.resolve(false);
@@ -255,6 +297,11 @@ export function connectWebSocket(): Promise<boolean> {
   if (!url) {
     // Settings rejected the URL (e.g. requireTls violation). Don't
     // schedule a reconnect until the setting changes.
+    reportStatus({
+      subsystem: 'sync',
+      state: 'yellow',
+      message: 'Desktop URL rejected by settings',
+    });
     return Promise.resolve(false);
   }
 

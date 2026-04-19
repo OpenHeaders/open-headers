@@ -226,6 +226,15 @@ interface WorkspaceSnapshot {
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
   const drift = (storageKey: string) => driftRecorder({ subsystem: 'environment', storageKey, workspaceId });
+  // Vault drift is a `secrets` concern — both observability-tagged as `vault`
+  // and promoted to the `secrets` Status subsystem so the user sees a yellow
+  // pill if a vault entry vanishes on hydrate.
+  const vaultDrift = driftRecorder({
+    subsystem: 'vault',
+    statusSubsystem: 'secrets',
+    storageKey: keys.vault.key,
+    workspaceId,
+  });
 
   const [environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault] = await Promise.all([
     extensionStorage.getValidatedArray(keys.environments, EnvironmentSchema, { onError: drift(keys.environments.key) }),
@@ -234,7 +243,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     extensionStorage.getValidated(keys.workspaceVars, WorkspaceVariablesSchema, {
       onError: drift(keys.workspaceVars.key),
     }),
-    extensionStorage.getValidated(keys.vault, VaultSchema, { onError: drift(keys.vault.key) }),
+    extensionStorage.getValidated(keys.vault, VaultSchema, { onError: vaultDrift }),
   ]);
 
   return {
