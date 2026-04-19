@@ -404,7 +404,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   // Must mount once at the shell; subsequent route-aware title
   // mutations flow through `setBase` on this single owner so every
   // workspace tab writes the same prefix uniformly.
-  useWorkspaceTabTitle();
+  const { setBase: setTabTitleBase } = useWorkspaceTabTitle();
 
   // ── Workspace Intent routing (cold-hash + warm-message) ────────
   useWorkspaceIntentRouter({
@@ -450,6 +450,19 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     () => groups.focusedLeaf.tabs.find((t) => t.id === groups.focusedLeaf.activeTabId),
     [groups.focusedLeaf],
   );
+
+  // Thread the active tab label through the shell's single
+  // `document.title` composer. `setTabTitleBase` handles the `#<n>`
+  // prefix rule internally — callers only pass the contextual piece
+  // (e.g. `my-rule — Open Headers`), so multi-tab users see titles
+  // like `#2 my-rule — Open Headers`. No other component writes
+  // document.title for this surface; the invariant is enforced by
+  // having exactly one `useWorkspaceTabTitle` mount at the shell
+  // root. Passing `null` resets to the default "Open Headers".
+  useEffect(() => {
+    const label = activeTab?.label?.trim();
+    setTabTitleBase(label ? `${label} — Open Headers` : null);
+  }, [activeTab?.label, setTabTitleBase]);
 
   const handleBreadcrumbRenameFor = useCallback(
     (tab: RulesTab, newName: string) => {

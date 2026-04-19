@@ -203,9 +203,10 @@ test.describe('Workspace Intent — multi-window navigator', () => {
     const { win2Id, win1Id } = await serviceWorker.evaluate(
       async ({ workspaceUrl }: { workspaceUrl: string }) => {
         const created = await chrome.windows.create({ url: workspaceUrl, focused: false });
+        if (!created || typeof created.id !== 'number') throw new Error('chrome.windows.create returned no id');
         // Identify window 1 as "every window besides the newly-created one."
         const all = await chrome.windows.getAll({});
-        const win2Id = created.id as number;
+        const win2Id = created.id;
         const others = all.filter((w) => w.id !== win2Id).map((w) => w.id as number);
         return { win2Id, win1Id: others[0] };
       },
@@ -276,7 +277,10 @@ test.describe('Workspace Intent — multi-window navigator', () => {
       // AND its #doc-multi-tab section — even if the panel WERE open —
       // should not have been scrolled into view. The strict check:
       // the panel is not in the visible DOM.
-      const page2DocsVisible = await page2.locator('.rules-right-panel--docs').isVisible().catch(() => false);
+      const page2DocsVisible = await page2
+        .locator('.rules-right-panel--docs')
+        .isVisible()
+        .catch(() => false);
       expect(page2DocsVisible).toBe(false);
     } finally {
       await page1.close();
@@ -311,8 +315,9 @@ test.describe('Workspace Intent — multi-window navigator', () => {
     const { win2Id, win1Id, workspaceTabIdInWin2 } = await serviceWorker.evaluate(
       async ({ workspaceUrl }: { workspaceUrl: string }) => {
         const created = await chrome.windows.create({ url: workspaceUrl, focused: false });
+        if (!created || typeof created.id !== 'number') throw new Error('chrome.windows.create returned no id');
         const all = await chrome.windows.getAll({});
-        const win2Id = created.id as number;
+        const win2Id = created.id;
         const others = all.filter((w) => w.id !== win2Id).map((w) => w.id as number);
         // The workspace tab is the only tab in win2.
         const wsTabs = await chrome.tabs.query({ windowId: win2Id, url: `${workspaceUrl}*` });
@@ -375,18 +380,21 @@ test.describe('Workspace Intent — multi-window navigator', () => {
         .catch(() => {});
       // Close any workspace tabs that the cold path created.
       await serviceWorker
-        .evaluate(async ({ workspaceUrl }: { workspaceUrl: string }) => {
-          const tabs = await chrome.tabs.query({ url: `${workspaceUrl}*` });
-          for (const t of tabs) {
-            if (typeof t.id === 'number') {
-              try {
-                await chrome.tabs.remove(t.id);
-              } catch {
-                /* already closed */
+        .evaluate(
+          async ({ workspaceUrl }: { workspaceUrl: string }) => {
+            const tabs = await chrome.tabs.query({ url: `${workspaceUrl}*` });
+            for (const t of tabs) {
+              if (typeof t.id === 'number') {
+                try {
+                  await chrome.tabs.remove(t.id);
+                } catch {
+                  /* already closed */
+                }
               }
             }
-          }
-        }, { workspaceUrl: `chrome-extension://${extensionId}/workspace.html` })
+          },
+          { workspaceUrl: `chrome-extension://${extensionId}/workspace.html` },
+        )
         .catch(() => {});
     }
   });

@@ -27,12 +27,13 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, chromium, expect, type Page, test, type Worker } from '@playwright/test';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
 let context: BrowserContext;
 let extensionId: string;
+let serviceWorker: Worker;
 
 test.beforeAll(async () => {
   context = await chromium.launchPersistentContext('', {
@@ -41,7 +42,7 @@ test.beforeAll(async () => {
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
   });
 
-  const serviceWorker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
+  serviceWorker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   extensionId = serviceWorker.url().split('/')[2];
 });
 
@@ -142,6 +143,80 @@ test.describe('Workspace tab title — stability within lifetime', () => {
     } finally {
       if (!page2.isClosed()) await page2.close();
       if (!page3.isClosed()) await page3.close();
+    }
+  });
+});
+
+// ── Route composition — active tab label flows through composeTitle ─
+
+async function deliverIntent(workspaceUrl: string, intent: object): Promise<void> {
+  // Fire a `workspace-intent` message to the first matching workspace
+  // tab via the SW. This exercises the warm-path wire the navigator
+  // uses; changing `window.location.hash` after mount would be a no-op
+  // because the cold-hash router is one-shot.
+  await serviceWorker.evaluate(
+    async ({ url, intent }: { url: string; intent: object }) => {
+      const tabs: chrome.tabs.Tab[] = await new Promise((resolve) => {
+        chrome.tabs.query({ url: `${url}*` }, (found) => resolve(found));
+      });
+      // Prefer the currently-active tab so we can direct the intent to
+      // the specific page we want (when two workspace tabs exist).
+      const target = tabs.find((t) => t.active) ?? tabs[0];
+      const tabId = target?.id;
+      if (typeof tabId !== 'number') return;
+      try {
+        await new Promise<void>((resolve) => {
+          chrome.tabs.sendMessage(tabId, { type: 'workspace-intent', intent }, () => {
+            void chrome.runtime.lastError;
+            resolve();
+          });
+        });
+      } catch {
+        // pub-sub listener doesn't respond; Chrome closes the port
+        // cleanly but may reject. The message WAS delivered.
+      }
+    },
+    { url: workspaceUrl, intent },
+  );
+}
+
+test.describe('Workspace tab title — route composition', () => {
+  test('activating a tab threads its label through composeTitle (with #<n> prefix when count>=2)', async () => {
+    const page1 = await openWorkspace();
+    const page2 = await openWorkspace();
+    try {
+      await waitForTitle(page1, '#1 Open Headers');
+      await waitForTitle(page2, '#2 Open Headers');
+
+      // Bring page2 to the foreground so the SW picks IT as the
+      // active workspace tab for intent delivery.
+      await page2.bringToFront();
+      await page2.waitForTimeout(200);
+
+      // Dispatch a `create-rule` intent — this opens a NEW editor
+      // tab (mode=create) in page2 whose label comes from the draft-
+      // name generator (e.g. "New Header Rule"). The hook's effect
+      // watching `activeTab.label` then calls setBase, composing the
+      // title into `#2 <label> — Open Headers`. We avoid `open-docs`
+      // here because docs is a right-side panel, not an editor tab —
+      // it would not move `activeTab.label`.
+      await deliverIntent(`chrome-extension://${extensionId}/workspace.html`, {
+        kind: 'create-rule',
+        ruleType: 'header',
+      });
+
+      await expect
+        .poll(async () => await page2.title(), {
+          timeout: 8000,
+          message: 'expected page2 title to become "#2 <tab-label> — Open Headers"',
+        })
+        .toMatch(/^#2 \S.* — Open Headers$/);
+
+      // page1 is untouched — still plain prefix (no active tab there).
+      await waitForTitle(page1, '#1 Open Headers');
+    } finally {
+      await page1.close();
+      await page2.close();
     }
   });
 });
