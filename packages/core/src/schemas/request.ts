@@ -302,12 +302,29 @@ export const RequestSchema = v.object({
   uid: UidSchema,
   path: RelativePathSchema,
   name: v.string(),
+  /**
+   * Free-form Markdown notes surfaced in the request editor's Docs tab.
+   * Persisted so the body survives across sessions + syncs through git.
+   * Absent / empty string both render as the empty docs state.
+   */
+  description: v.optional(v.string()),
   method: HttpMethodSchema,
   url: v.string(),
   headers: v.array(RequestHeaderSchema),
   params: v.array(QueryParamSchema),
   auth: AuthConfigSchema,
   credentialsMode: v.optional(CredentialsModeSchema),
+  /**
+   * Whether the executor should transparently follow HTTP 3xx redirects.
+   * Default `undefined` / `true` → `fetch(..., { redirect: 'follow' })`.
+   * `false` → `'manual'`: fetch returns an opaqueredirect response so
+   * the user sees the redirect bounced back instead of the final target.
+   * The number of redirect hops is governed by the browser (typically
+   * 20) — there is no programmatic way to cap it from MV3 fetch, so
+   * that knob lives in the UI as a browser-controlled row and is not
+   * persisted.
+   */
+  followRedirects: v.optional(v.boolean()),
   body: RequestBodySchema,
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),

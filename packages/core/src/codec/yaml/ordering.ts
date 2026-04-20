@@ -66,12 +66,14 @@ export const REQUEST_FIELD_ORDER = [
   'version',
   'uid',
   'name',
+  'description',
   'method',
   'url',
   'headers',
   'params',
   'auth',
   'credentialsMode',
+  'followRedirects',
   'body',
 ] as const;
 

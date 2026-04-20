@@ -228,6 +228,26 @@ describe('RequestExecutor', () => {
     expect(init.credentials).toBe('include');
   });
 
+  // ── Redirect policy ───────────────────────────────────────────────
+
+  it("defaults to redirect: 'follow' when the request doesn't opt out", async () => {
+    await executeRequestDraft(makeRequest());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.redirect).toBe('follow');
+  });
+
+  it("followRedirects: true keeps redirect: 'follow'", async () => {
+    await executeRequestDraft(makeRequest({ followRedirects: true }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.redirect).toBe('follow');
+  });
+
+  it("followRedirects: false flips to redirect: 'manual' so 3xx hops surface", async () => {
+    await executeRequestDraft(makeRequest({ followRedirects: false }));
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.redirect).toBe('manual');
+  });
+
   it('prepends https:// to scheme-less URLs (prevents SW-origin ERR_FILE_NOT_FOUND)', async () => {
     // Regression: entering "example.com" previously resolved to
     // `chrome-extension://<id>/example.com` (the SW's origin) and

@@ -272,6 +272,13 @@ interface ResolvedRequest {
   body: V5.RequestBody;
   /** Wire-level cookie policy. `'omit'` unless the request opts into `'include'`. */
   credentialsMode: V5.CredentialsMode;
+  /**
+   * Redirect policy forwarded to `fetch`. `false` maps to `'manual'`,
+   * `undefined`/`true` map to `'follow'`. See the `followRedirects`
+   * field on `V5.Request` for the architectural note about the missing
+   * max-redirects cap.
+   */
+  followRedirects?: boolean;
   // auth and params are folded into `url` + `headers` below.
 }
 
@@ -324,6 +331,7 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
     // doesn't explicitly opt in — even with `<all_urls>` granted, we
     // never ride the browser's cookie jar by accident. See ARCHITECTURE.md §14.
     credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
+    followRedirects: request.followRedirects,
   };
 }
 
@@ -481,10 +489,14 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
 
   const init: RequestInit = {
     method: req.method,
-    // `manual` would let us inspect the 3xx chain but also break the
-    // response body read on redirects — `follow` matches what curl /
-    // Postman do by default.
-    redirect: 'follow',
+    // `followRedirects !== false` means chase 3xx to the final target
+    // (matches curl / browsers by default). `false` selects `'manual'`,
+    // which surfaces the first 3xx response verbatim — the fetch
+    // resolves with an `opaqueredirect` response so the UI shows that
+    // the hop happened without chasing it further. MV3 fetch can't
+    // expose intermediate redirect headers, so the UI rail documents
+    // that the max-redirects cap is browser-governed.
+    redirect: req.followRedirects === false ? 'manual' : 'follow',
     cache: 'no-store',
     // Wire-level cookie policy: default `'omit'` so nothing leaks from
     // the browser's cookie jar to arbitrary hosts. Users opt in per

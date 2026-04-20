@@ -83,7 +83,6 @@ interface Draft {
   body: V5.RequestBody;
   credentialsMode?: V5.CredentialsMode;
   followRedirects?: boolean;
-  maxRedirects?: number;
   preRequestScript?: string;
   postResponseScript?: string;
 }
@@ -123,12 +122,13 @@ function draftFromRequest(req: V5.Request): Draft {
   return {
     method: req.method,
     url: req.url,
-    description: '',
+    description: req.description ?? '',
     headers: headersFromV5(req.headers),
     params: paramsFromV5(req.params),
     auth: req.auth,
     body: req.body,
     credentialsMode: req.credentialsMode,
+    followRedirects: req.followRedirects,
     preRequestScript: req.preRequestScript,
     postResponseScript: req.postResponseScript,
   };
@@ -157,7 +157,6 @@ function fingerprint(d: Draft): string {
     body: d.body,
     credentialsMode: d.credentialsMode ?? 'omit',
     followRedirects: d.followRedirects ?? true,
-    maxRedirects: d.maxRedirects ?? 10,
     preRequestScript: d.preRequestScript ?? '',
     postResponseScript: d.postResponseScript ?? '',
   });
@@ -229,6 +228,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     if (isCreateMode) {
       onSaveDraft?.({
         name: draftName ?? 'New Request',
+        description: draft.description.trim() ? draft.description : undefined,
         method: draft.method,
         url: draft.url,
         headers: rowsToHeaders(draft.headers),
@@ -236,6 +236,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         auth: draft.auth,
         body: draft.body,
         credentialsMode: draft.credentialsMode,
+        followRedirects: draft.followRedirects,
         preRequestScript: draft.preRequestScript,
         postResponseScript: draft.postResponseScript,
       });
@@ -243,6 +244,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     }
     if (!requestUid || !isDirty) return;
     const updates = {
+      description: draft.description.trim() ? draft.description : undefined,
       method: draft.method,
       url: draft.url,
       headers: rowsToHeaders(draft.headers),
@@ -250,6 +252,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       auth: draft.auth,
       body: draft.body,
       credentialsMode: draft.credentialsMode,
+      followRedirects: draft.followRedirects,
       preRequestScript: draft.preRequestScript,
       postResponseScript: draft.postResponseScript,
     };
@@ -327,6 +330,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       uid: summary?.uid ?? 'draft',
       path,
       name: summary?.name ?? draftName ?? 'Draft',
+      description: draft.description.trim() ? draft.description : undefined,
       method: draft.method,
       url: draft.url,
       headers: rowsToHeaders(draft.headers),
@@ -334,6 +338,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       auth: draft.auth,
       body: draft.body,
       credentialsMode: draft.credentialsMode,
+      followRedirects: draft.followRedirects,
     };
     const snapshot = await execute({ draft: draftRequest });
     setSending(false);
@@ -381,9 +386,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   // Settings is "dirty" if any wired knob differs from default
   const settingsDirty =
-    draft.credentialsMode === 'include' ||
-    (draft.followRedirects !== undefined && draft.followRedirects !== true) ||
-    (draft.maxRedirects !== undefined && draft.maxRedirects !== 10);
+    draft.credentialsMode === 'include' || (draft.followRedirects !== undefined && draft.followRedirects !== true);
 
   const tabItems = [
     {
@@ -420,7 +423,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const settingsValue: RequestSettingsDraft = {
     credentialsMode: draft.credentialsMode,
     followRedirects: draft.followRedirects,
-    maxRedirects: draft.maxRedirects,
   };
 
   return (
@@ -579,7 +581,6 @@ const TabContent: React.FC<{
               ...d,
               credentialsMode: next.credentialsMode,
               followRedirects: next.followRedirects,
-              maxRedirects: next.maxRedirects,
             }))
           }
         />

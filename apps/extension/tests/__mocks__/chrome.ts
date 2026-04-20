@@ -76,6 +76,7 @@ const tabsMock = {
 const alarmsMock = {
   create: vi.fn(),
   clear: vi.fn(),
+  getAll: vi.fn(() => Promise.resolve([])),
   onAlarm: {
     addListener: vi.fn(),
     removeListener: vi.fn(),

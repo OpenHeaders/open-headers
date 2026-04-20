@@ -1,9 +1,8 @@
 /**
- * DocsTab — free-form markdown notes for the request. Reserved: the
- * `description` field isn't yet wired to the V5 `Request` schema; this
- * tab exists today for layout parity and surfaces a lightweight
- * textarea so authors have a place to jot rationale. Wiring to the
- * store lands alongside the schema extension.
+ * DocsTab — free-form markdown notes for the request. Persists as the
+ * optional `description` field on the V5 `Request` schema so rationale
+ * rides along in the workspace YAML (alongside the body + scripts)
+ * when team sync lands.
  */
 
 import { Input, Typography, theme } from 'antd';

@@ -257,6 +257,9 @@ export function addRequest(
     params: seed?.params ?? [],
     auth: seed?.auth ?? { type: 'inherit' },
     body: seed?.body ?? { type: 'none' },
+    ...(seed?.description ? { description: seed.description } : {}),
+    ...(seed?.credentialsMode ? { credentialsMode: seed.credentialsMode } : {}),
+    ...(seed?.followRedirects !== undefined ? { followRedirects: seed.followRedirects } : {}),
     ...(seed?.preRequestScript ? { preRequestScript: seed.preRequestScript } : {}),
     ...(seed?.postResponseScript ? { postResponseScript: seed.postResponseScript } : {}),
   };

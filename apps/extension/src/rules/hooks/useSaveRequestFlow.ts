@@ -39,6 +39,7 @@ export interface SaveRequestFlowApi {
  */
 export interface DraftData {
   name: string;
+  description?: string;
   method: V5.HttpMethod;
   url: string;
   headers: V5.RequestHeader[];
@@ -46,6 +47,7 @@ export interface DraftData {
   auth: V5.AuthConfig;
   body: V5.RequestBody;
   credentialsMode?: V5.CredentialsMode;
+  followRedirects?: boolean;
   preRequestScript?: string;
   postResponseScript?: string;
 }
@@ -89,6 +91,7 @@ export function useSaveRequestFlow({
           collectionUid: tab.preferredCollectionId,
           parentPath: tab.preferredFolderPath,
           seed: {
+            description: draftData.description,
             method: draftData.method,
             url: draftData.url,
             headers: draftData.headers,
@@ -96,6 +99,7 @@ export function useSaveRequestFlow({
             auth: draftData.auth,
             body: draftData.body,
             credentialsMode: draftData.credentialsMode,
+            followRedirects: draftData.followRedirects,
             preRequestScript: draftData.preRequestScript,
             postResponseScript: draftData.postResponseScript,
           },
@@ -122,6 +126,7 @@ export function useSaveRequestFlow({
         collectionUid: params.collectionId,
         parentPath: params.folderPath,
         seed: {
+          description: saveModalDraftData.description,
           method: saveModalDraftData.method,
           url: saveModalDraftData.url,
           headers: saveModalDraftData.headers,
@@ -129,6 +134,7 @@ export function useSaveRequestFlow({
           auth: saveModalDraftData.auth,
           body: saveModalDraftData.body,
           credentialsMode: saveModalDraftData.credentialsMode,
+          followRedirects: saveModalDraftData.followRedirects,
           preRequestScript: saveModalDraftData.preRequestScript,
           postResponseScript: saveModalDraftData.postResponseScript,
         },

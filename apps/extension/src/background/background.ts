@@ -37,6 +37,12 @@ import {
 } from './modules/environment-store';
 import { listFiles, onFilesStoreChange } from './modules/files-store';
 import { handleGeneralMessage } from './modules/message-handler';
+import {
+  handleOAuthAlarm,
+  isOAuthRefreshAlarm,
+  reconcileOAuthSchedules,
+  startOAuthScheduler,
+} from './modules/oauth-refresh-scheduler';
 import { listTokenBundles, onOAuthStoreChange } from './modules/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
@@ -320,6 +326,15 @@ async function initializeExtension(): Promise<void> {
     })();
   });
 
+  // Alarm-driven OAuth refresh (Phase 14 §20). Subscribe to store
+  // changes BEFORE the first reconcile so a write that races init
+  // doesn't miss rescheduling. Reconcile then walks every workspace's
+  // tokens + (re)schedules alarms + clears orphans.
+  startOAuthScheduler();
+  void reconcileOAuthSchedules().catch((err: unknown) => {
+    logger.warn('Background', 'OAuth scheduler reconcile failed', err);
+  });
+
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 
   // Hydrate the active workspace's per-workspace stores from storage.
@@ -412,6 +427,8 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     }
   } else if (alarm.name === 'updateBadge') {
     void updateBadgeForCurrentTab();
+  } else if (isOAuthRefreshAlarm(alarm)) {
+    await handleOAuthAlarm(alarm);
   }
 });
 

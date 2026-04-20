@@ -9,10 +9,9 @@
  * Wired knobs:
  *   • `credentialsMode` — flips the Disable cookie jar toggle
  *     (`undefined`/`'omit'` = disabled; `'include'` = cookie jar on).
- *   • `followRedirects` — maps to `RequestInit.redirect` via the
- *     `followRedirects` request-level override (schema-extend only
- *     when the executor wires it end-to-end; today rendered as a
- *     toggle that sets the field, defaulting to `true`).
+ *   • `followRedirects` — maps to `RequestInit.redirect` so the user
+ *     can surface intermediate 3xx responses (as `opaqueredirect`)
+ *     instead of chasing them to the final target.
  *
  * Read-only knobs (rendered for parity with the wider tooling
  * ecosystem; browser-controlled end-to-end):
@@ -20,12 +19,15 @@
  *   • SSL certificate verification — browser policy; not toggleable.
  *   • Follow original HTTP Method, Follow Authorization header,
  *     Remove referer header on redirect, Strict HTTP parser, Encode
- *     URL automatically, Server cipher suite, Maximum redirects,
- *     TLS/SSL protocols disabled, Cipher suite selection — all
- *     browser-controlled; surfaced for completeness.
+ *     URL automatically, Server cipher suite, Maximum redirects
+ *     (browser caps at ~20; fetch's `redirect: 'manual'` yields
+ *     `opaqueredirect` with no headers, so a manual follow loop is
+ *     not implementable from MV3 fetch), TLS/SSL protocols disabled,
+ *     Cipher suite selection — all browser-controlled; surfaced for
+ *     completeness.
  */
 
-import { Input, InputNumber, Select, Switch, Typography, theme } from 'antd';
+import { Input, Select, Switch, Typography, theme } from 'antd';
 import type React from 'react';
 
 const { Text, Link } = Typography;
@@ -35,8 +37,6 @@ export interface RequestSettingsDraft {
   credentialsMode?: 'omit' | 'include';
   /** Whether the fetch call follows redirects. Defaults to true. */
   followRedirects?: boolean;
-  /** Cap on the number of redirects; reserved — not wired yet. */
-  maxRedirects?: number;
 }
 
 interface SettingsTabProps {
@@ -193,17 +193,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
       />
       <Row
         label="Maximum number of redirects"
-        description="Set a cap on the maximum number of redirects to follow."
-        control={
-          <InputNumber
-            size="small"
-            min={1}
-            max={100}
-            value={value.maxRedirects ?? 10}
-            onChange={(next) => onChange({ ...value, maxRedirects: next ?? undefined })}
-            style={{ width: 90 }}
-          />
-        }
+        description="Browser fetch() caps the redirect chain at ~20 and returns opaqueredirect when manual mode is requested, so a per-request cap is not exposable from MV3."
+        control={<Input size="small" disabled value="Browser default (~20)" style={{ width: 200 }} />}
+        readOnly
       />
       <Row
         label="TLS/SSL protocols disabled during handshake"

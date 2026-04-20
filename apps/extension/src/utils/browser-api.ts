@@ -191,6 +191,18 @@ export const alarms = browserAPI.alarms
         // know whether the alarm existed should `get` first.
         void browserAPI.alarms.clear(name);
       },
+      getAll: (): Promise<chrome.alarms.Alarm[]> => {
+        // Chrome returns a promise (MV3) OR calls a callback (MV2-style
+        // in older polyfills). The modern API is promise-first; fall
+        // back to callback when the return isn't thenable.
+        const result = browserAPI.alarms.getAll();
+        if (result && typeof (result as Promise<unknown>).then === 'function') {
+          return result as Promise<chrome.alarms.Alarm[]>;
+        }
+        return new Promise<chrome.alarms.Alarm[]>((resolve) => {
+          browserAPI.alarms.getAll((alarms: chrome.alarms.Alarm[]) => resolve(alarms ?? []));
+        });
+      },
       onAlarm: {
         addListener: (listener: (alarm: chrome.alarms.Alarm) => void): void =>
           browserAPI.alarms.onAlarm.addListener(listener),

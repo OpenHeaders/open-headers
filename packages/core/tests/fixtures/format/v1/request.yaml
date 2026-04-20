@@ -2,6 +2,10 @@ schemaVersion: 5
 version: 1
 uid: reqlogin
 name: Login
+description: |
+  Exchanges credentials for an access token. Pre-request script seeds
+  the temporary client id; post-response test records the `Set-Cookie`
+  jar into the team-shared secrets drawer.
 method: POST
 url: "{{API_URL}}/auth/login"
 headers:
@@ -15,5 +19,6 @@ auth:
   type: bearer
   token: "{{env.TOKEN}}"
 credentialsMode: omit
+followRedirects: false
 body:
   type: json
