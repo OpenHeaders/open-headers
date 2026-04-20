@@ -36,6 +36,12 @@ import {
   onEnvironmentStoreChange,
 } from './modules/environment-store';
 import { listFiles, onFilesStoreChange } from './modules/files-store';
+// Module-load side effect: registers `liveChainAdapter` with the live
+// scheduler via `__setLiveRefreshAdapter`. Import for its side effect
+// even though we don't name anything from it here — the scheduler's
+// adapter port is filled at eval time so the first alarm fires
+// against a real chain runner rather than the Phase-C stub.
+import './modules/live-chain-adapter';
 import { onLiveCacheStoreChange } from './modules/live-cache-store';
 import {
   handleLiveAlarm,

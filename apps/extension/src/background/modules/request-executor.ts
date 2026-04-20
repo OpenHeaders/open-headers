@@ -104,6 +104,29 @@ export interface ExecuteRequestOptions {
   /** Pin a specific environment for this execution — leave undefined
    *  to use the workspace's active environment. */
   environmentId?: string;
+  /**
+   * Install a step-capture context on the resolver for the duration of
+   * this execution so `{{step.<stepId>.<captureName>}}` references in
+   * the request's templates resolve. Only used by Live Workflow chain
+   * runs — regular user fetches leave this unset (any `{{step.X.Y}}`
+   * in their templates surfaces as `step-out-of-context`).
+   */
+  stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
+  /**
+   * Skip the `requests` Status-pill report. Workflow refreshes aren't
+   * user-initiated requests; their success/failure belongs to the
+   * `live` subsystem (Phase G wires that) rather than flipping the
+   * generic request-executor pill on every chain step.
+   */
+  silentStatus?: boolean;
+  /**
+   * Skip pre-request + post-response script hooks. Chain step fetches
+   * are pure data-source fetches — running user scripts on them would
+   * blur the boundary between "my request" and "workflow refresh" and
+   * open a trivial infinite-recursion path (script calls sendRequest
+   * which triggers the same workflow).
+   */
+  skipScripts?: boolean;
 }
 
 /** Resolve + execute a persisted request by uid. */
@@ -132,7 +155,7 @@ export async function executeRequestDraft(
   let scriptOutcome: ExecutedRequestSnapshot['scripts'] = null;
   const finalResolved: ResolvedRequest = { ...resolved };
 
-  if (request.preRequestScript?.trim() && isOffscreenSupported()) {
+  if (!options.skipScripts && request.preRequestScript?.trim() && isOffscreenSupported()) {
     const snapshot = resolvedToSnapshot(finalResolved);
     const result = await runScript({
       kind: 'pre-request',
@@ -153,10 +176,15 @@ export async function executeRequestDraft(
     }
   }
 
-  const wireResult = await executeResolved(finalResolved);
+  const wireResult = await executeResolved(finalResolved, { silentStatus: options.silentStatus });
 
   // ── Post-response script hook ──────────────────────────────────
-  if (request.postResponseScript?.trim() && isOffscreenSupported() && wireResult.error == null) {
+  if (
+    !options.skipScripts &&
+    request.postResponseScript?.trim() &&
+    isOffscreenSupported() &&
+    wireResult.error == null
+  ) {
     const responseSnap: ResponseSnapshot = {
       status: wireResult.status,
       statusText: wireResult.statusText,
@@ -191,6 +219,75 @@ export async function executeRequestDraft(
 // module eval — idempotent if called again.
 __setExecuteRequestDraft(executeRequestDraft);
 
+// ── Live Workflow chain step executor ──────────────────────────────
+
+/**
+ * Internal header stamped on every Live Workflow chain fetch. Carries
+ * the `<workflowUid>:<stepId>` pair so:
+ *   (a) server-side logs can distinguish refresh traffic from user
+ *       traffic (rare but cheap),
+ *   (b) a future DNR-compile pass can exclude user rules referencing
+ *       the workflow's LVs from matching the tagged request (Phase E
+ *       territory — requires per-rule `referencedLvUids` tracking).
+ *
+ * Kept as a constant so the scheduler observability + UI picker + any
+ * future DNR condition all read the same string.
+ */
+export const LIVE_BYPASS_HEADER = 'X-OH-Live-Bypass';
+
+export interface LiveChainExecuteOptions {
+  /** Active env the chain was scheduled under. `null` = "No environment". */
+  environmentId: string | null;
+  /** Parent workflow uid — stamped into the bypass header. */
+  workflowUid: string;
+  /** Current step id — stamped into the bypass header. */
+  stepId: string;
+  /**
+   * Captures extracted from prior steps of this chain run. Keys are
+   * step ids; values are `captureName → extractedValue` maps. Installed
+   * on the resolver so `{{step.<id>.<name>}}` templates in this step's
+   * request resolve correctly.
+   */
+  stepCaptures: ReadonlyMap<string, ReadonlyMap<string, string>>;
+}
+
+/**
+ * Execute a persisted-request shape as one step of a Live Workflow
+ * chain. Shares the resolve → fetch pipeline with `executeRequestDraft`
+ * but:
+ *   - threads the step-capture context into variable resolution,
+ *   - skips pre/post script hooks (chain fetches are pure data-source
+ *     fetches; running user scripts here would blur "my request" vs
+ *     "workflow refresh" and trivially recurse via `oh.sendRequest`),
+ *   - stamps the `X-OH-Live-Bypass` header on the outgoing request,
+ *   - suppresses the `requests` Status pill (workflow refresh belongs
+ *     to the `live` subsystem, not the generic request pill).
+ *
+ * Returned `ExecutedRequestSnapshot` is the same shape as user-facing
+ * executions; the chain adapter maps it down to the core's
+ * `StepResponse`.
+ */
+export async function executeForLiveChain(
+  request: V5.Request,
+  options: LiveChainExecuteOptions,
+): Promise<ExecutedRequestSnapshot> {
+  // Inject the bypass header into the request BEFORE resolution so it
+  // gets normal templating treatment (no template in the value today,
+  // but staying consistent with the rest of the header pipeline means
+  // any future interpolation "just works").
+  const bypassValue = `${options.workflowUid}:${options.stepId}`;
+  const stamped: V5.Request = {
+    ...request,
+    headers: [...request.headers, { key: LIVE_BYPASS_HEADER, value: bypassValue, enabled: true }],
+  };
+  return executeRequestDraft(stamped, {
+    environmentId: options.environmentId ?? undefined,
+    stepCaptures: options.stepCaptures,
+    skipScripts: true,
+    silentStatus: true,
+  });
+}
+
 // ── Script integration helpers ─────────────────────────────────────
 
 function resolvedToSnapshot(req: ResolvedRequest): RequestSnapshot {
@@ -222,13 +319,21 @@ function applyMutation(target: ResolvedRequest, mutation: RequestMutation): void
 
 // ── Variable resolution ────────────────────────────────────────────
 
-async function buildResolver(): Promise<VariableResolver> {
+async function buildResolver(
+  stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>,
+): Promise<VariableResolver> {
   const resolver = new VariableResolver();
   resolver.setVault(getVault());
   resolver.setEnvironments(getEnvironments());
   resolver.setActiveEnvironmentId(getActiveEnvironmentId());
   resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
   resolver.setWorkspaceVariables(getWorkspaceVariables());
+  if (stepCaptures) {
+    // Step-capture context — only present during Live Workflow chain
+    // runs. Installed here so `{{step.<id>.<name>}}` references in a
+    // step's templates see prior steps' extracted values.
+    resolver.setStepCaptures(stepCaptures);
+  }
   // Feed variables from BOTH collection trees. Their uids are generated
   // from the same pool and never collide, so keying a single Map by uid
   // is safe — the resolver just needs to know a variable set per uid,
@@ -283,7 +388,7 @@ interface ResolvedRequest {
 }
 
 async function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Promise<ResolvedRequest> {
-  const resolver = await buildResolver();
+  const resolver = await buildResolver(options.stepCaptures);
   const context = {
     collectionId: collectionIdForRequest(request),
     environmentId: options.environmentId,
@@ -472,7 +577,10 @@ function defaultContentType(type: V5.BodyType): string | null {
 
 // ── Execution ──────────────────────────────────────────────────────
 
-async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSnapshot> {
+async function executeResolved(
+  req: ResolvedRequest,
+  options: { silentStatus?: boolean } = {},
+): Promise<ExecutedRequestSnapshot> {
   const trimmed = req.url.trim();
   if (!trimmed) {
     return errorSnapshot('URL is empty');
@@ -562,11 +670,16 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
     // A successful fetch resets the Status pill — the user sees
     // green again on their next glance. A reset is a clean transition
     // from yellow (most recent failure) back to green (baseline).
-    reportStatus({
-      subsystem: 'requests',
-      state: 'green',
-      message: `Last request: ${response.status} ${response.statusText || 'OK'}`,
-    });
+    // `silentStatus` suppresses the pill update for non-user-initiated
+    // fetches (e.g., Live Workflow refreshes, which report through the
+    // `live` subsystem instead).
+    if (!options.silentStatus) {
+      reportStatus({
+        subsystem: 'requests',
+        state: 'green',
+        message: `Last request: ${response.status} ${response.statusText || 'OK'}`,
+      });
+    }
 
     const headers: Array<{ key: string; value: string }> = [];
     response.headers.forEach((value, key) => {
@@ -609,15 +722,17 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
     // Surface as a Status pill — one-shot fetch failures don't need
     // red (they may be routine offline / DNS blips), but the user
     // should see the most recent failure when they glance at the footer.
-    reportStatus({
-      subsystem: 'requests',
-      state: 'yellow',
-      message: `Last request failed: ${message}`,
-      context: {
-        url: req.url,
-        errorClass: err instanceof Error ? err.name : undefined,
-      },
-    });
+    if (!options.silentStatus) {
+      reportStatus({
+        subsystem: 'requests',
+        state: 'yellow',
+        message: `Last request failed: ${message}`,
+        context: {
+          url: req.url,
+          errorClass: err instanceof Error ? err.name : undefined,
+        },
+      });
+    }
     return {
       status: 0,
       statusText: '',

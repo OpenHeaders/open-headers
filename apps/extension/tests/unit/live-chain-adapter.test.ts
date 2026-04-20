@@ -1,0 +1,450 @@
+/**
+ * live-chain-adapter — Phase D glue between the scheduler and the
+ * request executor. Mocks request-executor, request-store, and the
+ * live-cache-store so we exercise the adapter's contract in isolation:
+ *
+ *   1. On success, every step is fetched in order and captures are
+ *      committed atomically to the cache.
+ *   2. Step N sees captures from steps 0..N-1 via the `stepCaptures`
+ *      argument to `executeForLiveChain`.
+ *   3. Every step fetch carries the `workflowUid`/`stepId` so the
+ *      executor stamps the bypass header.
+ *   4. Fetch failures on step K abort the chain, record the error via
+ *      `recordRefreshError` (not `putWorkflowRunCache`), and re-throw
+ *      so the scheduler records a `refresh-failed` observability entry.
+ *   5. Extract failures ditto, with `extractorOk: false` on the error
+ *      record (cache's `lastExtractorOk` flag flips).
+ *   6. Missing request uid → chain fails at that step with fetch phase.
+ *   7. Module-load side effect registers the adapter via
+ *      `__setLiveRefreshAdapter`.
+ */
+
+import type { V5 } from '@openheaders/core/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// ── Mocks ──────────────────────────────────────────────────────────
+
+const executeForLiveChainMock = vi.fn();
+const getRequestMock = vi.fn();
+const putWorkflowRunCacheMock = vi.fn();
+const recordRefreshErrorMock = vi.fn();
+const setLiveRefreshAdapterMock = vi.fn();
+const getActiveWorkspaceIdMock = vi.fn<() => string>(() => 'ws-1');
+
+vi.mock('@utils/logger', () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock('@/background/modules/request-executor', () => ({
+  executeForLiveChain: (...args: unknown[]) => executeForLiveChainMock(...args),
+}));
+
+vi.mock('@/background/modules/request-store', () => ({
+  getRequest: (uid: string) => getRequestMock(uid),
+}));
+
+vi.mock('@/background/modules/live-cache-store', () => ({
+  putWorkflowRunCache: (...args: unknown[]) => putWorkflowRunCacheMock(...args),
+  recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
+}));
+
+vi.mock('@/background/modules/live-refresh-scheduler', () => ({
+  __setLiveRefreshAdapter: (adapter: unknown) => setLiveRefreshAdapterMock(adapter),
+}));
+
+vi.mock('@/background/modules/workspace-store', () => ({
+  getActiveWorkspaceId: () => getActiveWorkspaceIdMock(),
+}));
+
+// ── Fixtures ──────────────────────────────────────────────────────
+
+function makeStep(overrides: Partial<V5.WorkflowStep> = {}): V5.WorkflowStep {
+  return {
+    id: overrides.id ?? 'login',
+    requestUid: overrides.requestUid ?? 'reqlogin1',
+    captures: overrides.captures ?? [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+    ...overrides,
+  };
+}
+
+function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow {
+  return {
+    schemaVersion: 5,
+    version: 1,
+    uid: 'wflowxxx',
+    path: 'live-workflows/demo-wflowxxx',
+    name: 'Demo',
+    enabled: true,
+    refresh: { kind: 'interval', seconds: 300 },
+    steps: [makeStep()],
+    ...overrides,
+  };
+}
+
+function makeRequest(overrides: Partial<V5.Request> = {}): V5.Request {
+  return {
+    schemaVersion: 5,
+    version: 1,
+    uid: overrides.uid ?? 'reqlogin1',
+    path: `api-requests/login-${overrides.uid ?? 'reqlogin1'}`,
+    name: overrides.name ?? 'Login',
+    method: 'POST',
+    url: 'https://openheaders.io/auth',
+    headers: [],
+    params: [],
+    body: { type: 'none' },
+    auth: { type: 'none' },
+    ...overrides,
+  };
+}
+
+function makeSnapshot(body: string, overrides: Record<string, unknown> = {}) {
+  return {
+    status: 200,
+    statusText: 'OK',
+    url: 'https://openheaders.io/auth',
+    headers: [{ key: 'content-type', value: 'application/json' }],
+    body,
+    bodyTruncated: false,
+    bodyBytes: new TextEncoder().encode(body).byteLength,
+    durationMs: 10,
+    error: null,
+    scripts: null,
+    ...overrides,
+  };
+}
+
+// ── Dynamic import so module-load side effect captures the mock ────
+
+let adapterModule: typeof import('@/background/modules/live-chain-adapter');
+
+beforeEach(async () => {
+  vi.resetModules();
+  executeForLiveChainMock.mockReset();
+  getRequestMock.mockReset();
+  putWorkflowRunCacheMock.mockReset();
+  recordRefreshErrorMock.mockReset();
+  setLiveRefreshAdapterMock.mockReset();
+  getActiveWorkspaceIdMock.mockReset();
+  getActiveWorkspaceIdMock.mockReturnValue('ws-1');
+  adapterModule = await import('@/background/modules/live-chain-adapter');
+});
+
+afterEach(() => {
+  vi.resetModules();
+});
+
+// ── 1. Module-load registration ──────────────────────────────────
+
+describe('module-load side effect', () => {
+  it('registers the adapter with the scheduler at import time', () => {
+    // adapterModule import in beforeEach triggered the setter.
+    expect(setLiveRefreshAdapterMock).toHaveBeenCalledTimes(1);
+    expect(setLiveRefreshAdapterMock).toHaveBeenCalledWith(adapterModule.liveChainAdapter);
+  });
+});
+
+// ── 2. Happy path — single-step chain ────────────────────────────
+
+describe('single-step workflow', () => {
+  it('runs the step, commits captures atomically on success', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot(JSON.stringify({ access_token: 'tok-abc' })));
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow(),
+      environmentId: 'env-prod',
+    });
+
+    expect(putWorkflowRunCacheMock).toHaveBeenCalledTimes(1);
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
+    const [input, workspaceId] = putWorkflowRunCacheMock.mock.calls[0];
+    expect(workspaceId).toBe('ws-1');
+    expect(input.workflowUid).toBe('wflowxxx');
+    expect(input.environmentId).toBe('env-prod');
+    expect(input.stepCaptures).toEqual({ login: { token: 'tok-abc' } });
+    expect(input.stepResponseBytes.login).toBeGreaterThan(0);
+    // interval policy → expiresAt = extractedAt + seconds*1000
+    expect(input.expiresAt).toBe(input.extractedAt + 300_000);
+  });
+
+  it('stamps workflowUid+stepId on the executor call (bypass header source)', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('"ok"'));
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow({
+        steps: [makeStep({ captures: [{ name: 'v', extractor: { kind: 'whole-body' } }] })],
+      }),
+      environmentId: null,
+    });
+
+    expect(executeForLiveChainMock).toHaveBeenCalledTimes(1);
+    const [, opts] = executeForLiveChainMock.mock.calls[0];
+    expect(opts.workflowUid).toBe('wflowxxx');
+    expect(opts.stepId).toBe('login');
+    expect(opts.environmentId).toBeNull();
+  });
+});
+
+// ── 3. Multi-step — step N sees step 0..N-1 captures ─────────────
+
+describe('multi-step chain', () => {
+  const workflow = makeWorkflow({
+    steps: [
+      makeStep({
+        id: 'auth',
+        requestUid: 'reqauth01',
+        captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.token' } }],
+      }),
+      makeStep({
+        id: 'csrf',
+        requestUid: 'reqcsrf01',
+        captures: [{ name: 'xsrf', extractor: { kind: 'header', name: 'X-CSRF' } }],
+      }),
+      makeStep({
+        id: 'final',
+        requestUid: 'reqfinal1',
+        captures: [{ name: 'session', extractor: { kind: 'json-path', path: '$.sid' } }],
+      }),
+    ],
+  });
+
+  it('feeds each step the captures from prior steps', async () => {
+    getRequestMock.mockImplementation((uid: string) => makeRequest({ uid }));
+    // Snapshot the stepCaptures reference at each call — runChain
+    // reuses the same Map instance across steps (it's the live
+    // accumulator), so inspecting it after the refresh completes shows
+    // only the final state. Deep-clone at call time to capture history.
+    const snapshots: Array<Map<string, Map<string, string>>> = [];
+    const snapshotMap = (m: ReadonlyMap<string, ReadonlyMap<string, string>>) => {
+      const clone = new Map<string, Map<string, string>>();
+      for (const [k, inner] of m) clone.set(k, new Map(inner));
+      return clone;
+    };
+    executeForLiveChainMock.mockImplementation(async (_req, opts) => {
+      snapshots.push(snapshotMap(opts.stepCaptures));
+      const index = snapshots.length - 1;
+      if (index === 0) return makeSnapshot(JSON.stringify({ token: 'tok-1' }));
+      if (index === 1) {
+        return makeSnapshot('{}', { headers: [{ key: 'X-CSRF', value: 'csrf-2' }] });
+      }
+      return makeSnapshot(JSON.stringify({ sid: 'sid-3' }));
+    });
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow,
+      environmentId: null,
+    });
+
+    expect(snapshots).toHaveLength(3);
+    // Step 1 sees an empty capture map.
+    expect(snapshots[0].size).toBe(0);
+    // Step 2 sees step 1's captures.
+    expect(snapshots[1].get('auth')?.get('token')).toBe('tok-1');
+    // Step 3 sees step 1 + 2.
+    expect(snapshots[2].get('auth')?.get('token')).toBe('tok-1');
+    expect(snapshots[2].get('csrf')?.get('xsrf')).toBe('csrf-2');
+  });
+
+  it('commits all captures under the right stepId keys', async () => {
+    getRequestMock.mockImplementation((uid: string) => makeRequest({ uid }));
+    executeForLiveChainMock
+      .mockResolvedValueOnce(makeSnapshot(JSON.stringify({ token: 'T' })))
+      .mockResolvedValueOnce(makeSnapshot('{}', { headers: [{ key: 'X-CSRF', value: 'C' }] }))
+      .mockResolvedValueOnce(makeSnapshot(JSON.stringify({ sid: 'S' })));
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow,
+      environmentId: null,
+    });
+
+    const [input] = putWorkflowRunCacheMock.mock.calls[0];
+    expect(input.stepCaptures).toEqual({
+      auth: { token: 'T' },
+      csrf: { xsrf: 'C' },
+      final: { session: 'S' },
+    });
+  });
+});
+
+// ── 4. Fetch failure → recordRefreshError, not put ───────────────
+
+describe('fetch-phase failures', () => {
+  it('preserves last-good cache, records error, re-throws ChainRefreshError', async () => {
+    getRequestMock.mockImplementation((uid: string) => makeRequest({ uid }));
+    executeForLiveChainMock
+      .mockResolvedValueOnce(makeSnapshot(JSON.stringify({ token: 'T' })))
+      // Step 2 encounters a network error — the executor surfaces
+      // it as `error: 'DNS failure'`, the adapter throws to runChain.
+      .mockResolvedValueOnce(makeSnapshot('', { error: 'DNS failure', status: 0 }));
+
+    const workflow = makeWorkflow({
+      steps: [
+        makeStep({ id: 'one', requestUid: 'r1', captures: [{ name: 'v', extractor: { kind: 'whole-body' } }] }),
+        makeStep({ id: 'two', requestUid: 'r2', captures: [{ name: 'v', extractor: { kind: 'whole-body' } }] }),
+      ],
+    });
+
+    await expect(
+      adapterModule.liveChainAdapter.refreshWorkflow({
+        workspaceId: 'ws-1',
+        workflow,
+        environmentId: null,
+      }),
+    ).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+
+    expect(putWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(recordRefreshErrorMock).toHaveBeenCalledTimes(1);
+    const [errInput, errWs] = recordRefreshErrorMock.mock.calls[0];
+    expect(errWs).toBe('ws-1');
+    expect(errInput.failedStepId).toBe('two');
+    // Fetch-phase failures preserve `extractorOk` as true (extractor
+    // never ran, so nothing is provably wrong with it).
+    expect(errInput.extractorOk).toBe(true);
+    expect(errInput.message).toContain('DNS failure');
+  });
+
+  it('missing request uid aborts the chain as fetch failure', async () => {
+    getRequestMock.mockReturnValue(null);
+    const workflow = makeWorkflow({
+      steps: [makeStep({ requestUid: 'gone-uid' })],
+    });
+
+    await expect(
+      adapterModule.liveChainAdapter.refreshWorkflow({
+        workspaceId: 'ws-1',
+        workflow,
+        environmentId: null,
+      }),
+    ).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+
+    expect(executeForLiveChainMock).not.toHaveBeenCalled();
+    expect(recordRefreshErrorMock).toHaveBeenCalledTimes(1);
+    expect(recordRefreshErrorMock.mock.calls[0][0].message).toContain('gone-uid');
+  });
+});
+
+// ── 5. Extract failure flips extractorOk flag ────────────────────
+
+describe('extract-phase failures', () => {
+  it('records error with extractorOk=false and preserves cache', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+    // Fetch succeeds (non-JSON body) — json-path extractor will reject.
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('<html>oops</html>'));
+
+    await expect(
+      adapterModule.liveChainAdapter.refreshWorkflow({
+        workspaceId: 'ws-1',
+        workflow: makeWorkflow(),
+        environmentId: null,
+      }),
+    ).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+
+    expect(putWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(recordRefreshErrorMock).toHaveBeenCalledTimes(1);
+    const [errInput] = recordRefreshErrorMock.mock.calls[0];
+    expect(errInput.failedStepId).toBe('login');
+    expect(errInput.extractorOk).toBe(false);
+  });
+});
+
+// ── 7. Active-workspace guard ────────────────────────────────────
+
+describe('inactive-workspace guard', () => {
+  it('records error + throws without running chain when workspaceId ≠ active', async () => {
+    getActiveWorkspaceIdMock.mockReturnValue('ws-other');
+    getRequestMock.mockReturnValue(makeRequest());
+
+    await expect(
+      adapterModule.liveChainAdapter.refreshWorkflow({
+        workspaceId: 'ws-1',
+        workflow: makeWorkflow(),
+        environmentId: null,
+      }),
+    ).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+
+    expect(executeForLiveChainMock).not.toHaveBeenCalled();
+    expect(putWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(recordRefreshErrorMock).toHaveBeenCalledTimes(1);
+    expect(recordRefreshErrorMock.mock.calls[0][0].message).toContain('inactive');
+  });
+});
+
+// ── 6. Expiry derivation per refresh policy ──────────────────────
+
+describe('expiresAt derivation', () => {
+  beforeEach(() => {
+    getRequestMock.mockReturnValue(makeRequest());
+  });
+
+  it('interval → extractedAt + seconds*1000', async () => {
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('"ok"'));
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow({
+        refresh: { kind: 'interval', seconds: 120 },
+        steps: [makeStep({ captures: [{ name: 'v', extractor: { kind: 'whole-body' } }] })],
+      }),
+      environmentId: null,
+    });
+    const [input] = putWorkflowRunCacheMock.mock.calls[0];
+    expect(input.expiresAt).toBe(input.extractedAt + 120_000);
+  });
+
+  it('manual → null', async () => {
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('"ok"'));
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow({
+        refresh: { kind: 'manual' },
+        steps: [makeStep({ captures: [{ name: 'v', extractor: { kind: 'whole-body' } }] })],
+      }),
+      environmentId: null,
+    });
+    const [input] = putWorkflowRunCacheMock.mock.calls[0];
+    expect(input.expiresAt).toBeNull();
+  });
+
+  it('expires-in reads seconds from a capture', async () => {
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot(JSON.stringify({ expires_in: 600 })));
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow({
+        refresh: { kind: 'expires-in', stepId: 'login', captureName: 'ttl', leadSeconds: 60 },
+        steps: [
+          makeStep({
+            captures: [{ name: 'ttl', extractor: { kind: 'json-path', path: '$.expires_in' } }],
+          }),
+        ],
+      }),
+      environmentId: null,
+    });
+    const [input] = putWorkflowRunCacheMock.mock.calls[0];
+    // expiresAt is the absolute expiry (not leadSeconds-adjusted); the
+    // scheduler applies leadSeconds when computing the next fire.
+    expect(input.expiresAt).toBe(input.extractedAt + 600_000);
+  });
+
+  it('expires-in with non-numeric capture falls back to null', async () => {
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot(JSON.stringify({ expires_in: 'never' })));
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow({
+        refresh: { kind: 'expires-in', stepId: 'login', captureName: 'ttl', leadSeconds: 60 },
+        steps: [
+          makeStep({
+            captures: [{ name: 'ttl', extractor: { kind: 'json-path', path: '$.expires_in' } }],
+          }),
+        ],
+      }),
+      environmentId: null,
+    });
+    const [input] = putWorkflowRunCacheMock.mock.calls[0];
+    expect(input.expiresAt).toBeNull();
+  });
+});
