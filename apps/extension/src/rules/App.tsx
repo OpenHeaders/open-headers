@@ -11,6 +11,8 @@
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useLiveVariables } from '@hooks/useLiveVariables';
+import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useWorkspaces } from '@hooks/useWorkspaces';
@@ -35,6 +37,8 @@ import ImportCurlModal from './components/ImportCurlModal';
 import ImportHarModal from './components/ImportHarModal';
 import ImportPostmanModal from './components/ImportPostmanModal';
 import LandingScreen from './components/LandingScreen';
+import LiveVariableEditor from './components/live/LiveVariableEditor';
+import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
 import RequestEditor from './components/RequestEditor';
@@ -145,6 +149,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   const workspacesApi = useWorkspaces();
   const envApi = useEnvironments();
   const requestsApi = useRequests();
+  const liveVarsApi = useLiveVariables();
+  const liveWorkflowsApi = useLiveWorkflows();
   const { modal, message } = AntApp.useApp();
 
   // ── Editor groups (recursive split tree) ──────────────────────
@@ -455,6 +461,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     environments: envApi.environments,
     requests: requestsApi.requests,
     requestCollectionTrees: requestsApi.collectionTrees,
+    liveVariables: liveVarsApi.variables,
+    liveWorkflows: liveWorkflowsApi.workflows,
     allTabs,
     updateTab,
     closeTab: rawCloseTab,
@@ -505,10 +513,26 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         // the tab label and the `draftName` field so the editor's
         // Save handler picks up the renamed value.
         updateTab(tab.id, { label: newName, draftName: newName });
+      } else if (tab.mode === 'live-variable-edit' && tab.liveVariableUid) {
+        void liveVarsApi.updateVariable(tab.liveVariableUid, { name: newName });
+        updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
+        void liveWorkflowsApi.updateWorkflow(tab.liveWorkflowUid, { name: newName });
+        updateTab(tab.id, { label: `${newName} · Workflow` });
       }
       setPendingRenameTabId(null);
     },
-    [renameLocalCollection, renameLocalFolder, updateLocalRule, envApi, requestsApi, updateTab, setPendingRenameTabId],
+    [
+      renameLocalCollection,
+      renameLocalFolder,
+      updateLocalRule,
+      envApi,
+      requestsApi,
+      liveVarsApi,
+      liveWorkflowsApi,
+      updateTab,
+      setPendingRenameTabId,
+    ],
   );
 
   const handleSave = useCallback(() => {
@@ -766,6 +790,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
             requestUid={tab.requestUid}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            onCaptureResponseToLive={(uid) => openCreateLiveVariable(uid)}
           />
         );
       }
@@ -793,6 +818,47 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
           />
         );
       }
+      if (tab.mode === 'live-variable-edit' && tab.liveVariableUid) {
+        return (
+          <LiveVariableEditor
+            mode="edit"
+            variableUid={tab.liveVariableUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            openWorkflowTab={openLiveWorkflowEdit}
+          />
+        );
+      }
+      if (tab.mode === 'live-variable-create') {
+        return (
+          <LiveVariableEditor
+            mode="create"
+            seedRequestUid={tab.liveSeedRequestUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            openWorkflowTab={openLiveWorkflowEdit}
+            onCreated={(lv) =>
+              replaceTab(tab.id, {
+                id: `live-var-${lv.uid}`,
+                label: lv.name,
+                ruleType: '',
+                dirty: false,
+                mode: 'live-variable-edit',
+                liveVariableUid: lv.uid,
+              })
+            }
+          />
+        );
+      }
+      if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
+        return (
+          <LiveWorkflowEditor
+            workflowUid={tab.liveWorkflowUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
+        );
+      }
       return null;
     },
     [
@@ -812,6 +878,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       workspacesApi,
       openCollectionVariables,
       requestSaveFlow.handleSaveDraft,
+      openLiveWorkflowEdit,
+      openCreateLiveVariable,
+      replaceTab,
     ],
   );
 
@@ -834,7 +903,10 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         leafActiveTab.mode === 'vault' ||
         leafActiveTab.mode === 'collection-vars' ||
         leafActiveTab.mode === 'request-edit' ||
-        leafActiveTab.mode === 'request-create';
+        leafActiveTab.mode === 'request-create' ||
+        leafActiveTab.mode === 'live-variable-edit' ||
+        leafActiveTab.mode === 'live-variable-create' ||
+        leafActiveTab.mode === 'live-workflow-edit';
       // "Save as template" only applies to rule editors — variables /
       // vault aren't rule-shaped and can't be templated.
       const supportsSaveAsTemplate = leafActiveTab.mode === 'create' || leafActiveTab.mode === 'edit';
@@ -849,7 +921,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         leafActiveTab.mode === 'folder-overview' ||
         leafActiveTab.mode === 'env-edit' ||
         leafActiveTab.mode === 'request-edit' ||
-        leafActiveTab.mode === 'request-create';
+        leafActiveTab.mode === 'request-create' ||
+        leafActiveTab.mode === 'live-variable-edit' ||
+        leafActiveTab.mode === 'live-workflow-edit';
       return (
         <BreadcrumbBar
           segments={segments}
@@ -895,6 +969,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
               onSelectEnvironment={openEnvironmentEdit}
               onOpenWorkspaceVariables={openWorkspaceVariables}
               onOpenVault={openVault}
+              onSelectLiveVariable={openLiveVariableEdit}
+              onSelectLiveWorkflow={openLiveWorkflowEdit}
+              onCreateLiveVariable={openCreateLiveVariable}
               onSelectRequest={openRequestEditTab}
               onCreateRequest={openCreateRequestTab}
               onImportCurl={(ctx) => {
@@ -949,6 +1026,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       openWorkspaceVariables,
       openRequestEditTab,
       openCreateRequestTab,
+      openLiveVariableEdit,
+      openLiveWorkflowEdit,
+      openCreateLiveVariable,
     ],
   );
 

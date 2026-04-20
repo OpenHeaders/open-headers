@@ -24,6 +24,9 @@
  */
 
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useAllLiveCaches } from '@hooks/useLiveCache';
+import { useLiveVariables } from '@hooks/useLiveVariables';
+import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRules } from '@hooks/useRules';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';
@@ -60,6 +63,46 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
   const values = Form.useWatch<Record<string, unknown>>([], { preserve: true });
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
   const { localCollections } = useRules();
+  const { variables: liveVariables } = useLiveVariables();
+  const { workflows: liveWorkflows } = useLiveWorkflows();
+  const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
+  const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
+
+  const liveRegistry = useMemo(() => {
+    const nowMs = Date.now();
+    const registry = new Map<
+      string,
+      { value: string; expiresAt: number | null; stale: boolean; workflowUid: string }
+    >();
+    for (const lv of liveVariables) {
+      if (!lv.enabled) continue;
+      if (lv.manualOverride) {
+        const activeOverride = lv.manualOverride.until === undefined || lv.manualOverride.until > nowMs;
+        if (activeOverride) {
+          registry.set(lv.name, {
+            value: lv.manualOverride.value,
+            expiresAt: lv.manualOverride.until ?? null,
+            stale: false,
+            workflowUid: lv.workflowUid,
+          });
+          continue;
+        }
+      }
+      const runs = liveCaches[lv.workflowUid] ?? [];
+      const run =
+        runs.find((r) => r.environmentId === activeEnvironmentId) ?? runs.find((r) => r.environmentId === null) ?? null;
+      if (!run) continue;
+      const value = run.stepCaptures[lv.stepId]?.[lv.captureName];
+      if (typeof value !== 'string') continue;
+      registry.set(lv.name, {
+        value,
+        expiresAt: run.expiresAt,
+        stale: run.expiresAt !== null && run.expiresAt < nowMs,
+        workflowUid: lv.workflowUid,
+      });
+    }
+    return registry;
+  }, [liveVariables, liveCaches, activeEnvironmentId]);
 
   const resolver = useMemo(() => {
     const r = new VariableResolver();
@@ -69,8 +112,17 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
     r.setDefaultEnvironmentId(defaultEnvironmentId);
     r.setWorkspaceVariables(workspaceVariables);
     for (const c of localCollections) r.setCollectionVariables(c.uid, c.variables ?? []);
+    r.setLiveRegistry(liveRegistry);
     return r;
-  }, [vault, environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, localCollections]);
+  }, [
+    vault,
+    environments,
+    activeEnvironmentId,
+    defaultEnvironmentId,
+    workspaceVariables,
+    localCollections,
+    liveRegistry,
+  ]);
 
   const errors = useMemo<ResolutionError[]>(() => {
     if (!values) return [];

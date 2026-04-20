@@ -22,6 +22,8 @@ interface UseTabSyncEffectsOptions {
   environments: V5.Environment[];
   requests: V5.Request[];
   requestCollectionTrees: V5.CollectionTree[];
+  liveVariables: V5.LiveVariable[];
+  liveWorkflows: V5.LiveWorkflow[];
   allTabs: RulesTab[];
   updateTab: (tabId: string, updates: Partial<RulesTab>) => void;
   closeTab: (tabId: string, force?: boolean) => void;
@@ -34,6 +36,8 @@ export function useTabSyncEffects({
   environments,
   requests,
   requestCollectionTrees,
+  liveVariables,
+  liveWorkflows,
   allTabs,
   updateTab,
   closeTab,
@@ -55,9 +59,16 @@ export function useTabSyncEffects({
         if (req && (req.name !== tab.label || req.method !== tab.ruleType)) {
           updateTab(tab.id, { label: req.name, ruleType: req.method });
         }
+      } else if (tab.mode === 'live-variable-edit' && tab.liveVariableUid) {
+        const lv = liveVariables.find((v) => v.uid === tab.liveVariableUid);
+        if (lv && lv.name !== tab.label) updateTab(tab.id, { label: lv.name });
+      } else if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
+        const wf = liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid);
+        const expected = wf ? `${wf.name} · Workflow` : null;
+        if (expected && expected !== tab.label) updateTab(tab.id, { label: expected });
       }
     }
-  }, [rules, templates, environments, requests, allTabs, updateTab]);
+  }, [rules, templates, environments, requests, liveVariables, liveWorkflows, allTabs, updateTab]);
 
   // Close tabs whose backing entity was deleted.
   const prevEntityIds = useRef<Set<string>>(new Set());
@@ -86,17 +97,37 @@ export function useTabSyncEffects({
       };
       walk(col.tree);
     }
+    for (const lv of liveVariables) currentIds.add(lv.uid);
+    for (const wf of liveWorkflows) currentIds.add(wf.uid);
 
     if (prevEntityIds.current.size > 0) {
       for (const tab of allTabs) {
         // Collection-vars tabs key off `collectionUid`, env-edit tabs
-        // off `environmentUid`, request-edit off `requestUid` — the
-        // generic `ruleUid ?? entityId` fallback doesn't cover these.
-        const entityId = tab.ruleUid ?? tab.entityId ?? tab.collectionUid ?? tab.environmentUid ?? tab.requestUid;
+        // off `environmentUid`, request-edit off `requestUid`, live-*
+        // tabs off `liveVariableUid` / `liveWorkflowUid` — the generic
+        // `ruleUid ?? entityId` fallback doesn't cover these.
+        const entityId =
+          tab.ruleUid ??
+          tab.entityId ??
+          tab.collectionUid ??
+          tab.environmentUid ??
+          tab.requestUid ??
+          tab.liveVariableUid ??
+          tab.liveWorkflowUid;
         if (entityId && !currentIds.has(entityId)) closeTab(tab.id, true);
       }
     }
 
     prevEntityIds.current = currentIds;
-  }, [rules, localCollectionTrees, environments, requests, requestCollectionTrees, allTabs, closeTab]);
+  }, [
+    rules,
+    localCollectionTrees,
+    environments,
+    requests,
+    requestCollectionTrees,
+    liveVariables,
+    liveWorkflows,
+    allTabs,
+    closeTab,
+  ]);
 }

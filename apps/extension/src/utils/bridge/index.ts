@@ -257,7 +257,7 @@ export function presence(name: string): () => void {
   };
 }
 
-export type { BridgeMessageType } from './contracts';
+export type { BridgeMessageType, LiveWorkflowRunSnapshot } from './contracts';
 export { BridgeError } from './contracts';
 export type {
   BridgeBroadcastPayload,

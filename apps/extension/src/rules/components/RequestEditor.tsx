@@ -49,6 +49,12 @@ interface RequestEditorProps {
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
   onSaveDraft?: (draftData: import('../hooks/useSaveRequestFlow').DraftData) => void;
+  /**
+   * "Capture response to live variable" action — available only in
+   * request-edit mode where the request has a stable uid the LV editor
+   * can seed a 1-step workflow against.
+   */
+  onCaptureResponseToLive?: (requestUid: string) => void;
 }
 
 const METHOD_OPTIONS: { value: V5.HttpMethod; label: string }[] = [
@@ -175,6 +181,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   onDirtyChange,
   registerSaveRef,
   onSaveDraft,
+  onCaptureResponseToLive,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -532,7 +539,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             <TabContent tab={activeTab} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />
           </div>
         </div>
-        {response && <ResponsePanel response={response} onClear={() => setResponse(null)} />}
+        {response && (
+          <ResponsePanel
+            response={response}
+            onClear={() => setResponse(null)}
+            onCaptureToLive={
+              mode === 'request-edit' && requestUid && onCaptureResponseToLive
+                ? () => onCaptureResponseToLive(requestUid)
+                : undefined
+            }
+          />
+        )}
       </div>
     </div>
   );
@@ -635,7 +652,9 @@ type ResponseTabKey = 'body' | 'headers' | 'assertions' | 'script-log';
 const ResponsePanel: React.FC<{
   response: ExecutedRequestSnapshot;
   onClear: () => void;
-}> = ({ response, onClear }) => {
+  /** Show the "Capture to live variable" affordance when provided. */
+  onCaptureToLive?: () => void;
+}> = ({ response, onClear, onCaptureToLive }) => {
   const { token } = theme.useToken();
   const scripts = response.scripts ?? null;
   const assertions = scripts?.postResponse?.assertions ?? [];
@@ -693,6 +712,13 @@ const ResponsePanel: React.FC<{
           </>
         )}
         <div style={{ flex: 1 }} />
+        {onCaptureToLive && !response.error && (
+          <Tooltip title="Create a Live Variable bound to this request + a capture from this response.">
+            <Button size="small" onClick={onCaptureToLive}>
+              Capture to live variable
+            </Button>
+          </Tooltip>
+        )}
         <Button size="small" type="text" onClick={onClear}>
           Clear
         </Button>

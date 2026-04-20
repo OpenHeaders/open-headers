@@ -25,6 +25,9 @@ import {
   LockOutlined,
 } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useAllLiveCaches } from '@hooks/useLiveCache';
+import { useLiveVariables } from '@hooks/useLiveVariables';
+import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';
@@ -50,6 +53,7 @@ const SCOPE_CONFIG = {
   environment: { label: 'Environment', color: '#3498db', priority: 'high', letter: 'E' },
   collection: { label: 'Collection', color: '#2ecc71', priority: 'medium', letter: 'C' },
   workspace: { label: 'Workspace', color: '#f39c12', priority: 'lowest', letter: 'W' },
+  live: { label: 'Live', color: '#9b59b6', priority: 'resolved', letter: '↻' },
 } as const;
 
 type DisplayScope = keyof typeof SCOPE_CONFIG;
@@ -77,6 +81,10 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
   const { rules, localCollections, localCollectionTrees } = useRules();
+  const { variables: liveVariables } = useLiveVariables();
+  const { workflows: liveWorkflows } = useLiveWorkflows();
+  const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
+  const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
 
   // Identify the active rule + collection for the current tab. Other
   // tab modes (landing, settings, run-report, etc.) don't carry a
@@ -121,6 +129,44 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     return { activeRule: rule, activeCollectionId: collId };
   }, [activeTab, rules, localCollections, localCollectionTrees]);
 
+  // LiveRegistry mirrors the SW's `buildLiveRegistry`: enabled LVs
+  // only; filter cache rows to the active env; honor manual overrides.
+  const liveRegistry = useMemo(() => {
+    const nowMs = Date.now();
+    const registry = new Map<
+      string,
+      { value: string; expiresAt: number | null; stale: boolean; workflowUid: string }
+    >();
+    for (const lv of liveVariables) {
+      if (!lv.enabled) continue;
+      if (lv.manualOverride) {
+        const activeOverride = lv.manualOverride.until === undefined || lv.manualOverride.until > nowMs;
+        if (activeOverride) {
+          registry.set(lv.name, {
+            value: lv.manualOverride.value,
+            expiresAt: lv.manualOverride.until ?? null,
+            stale: false,
+            workflowUid: lv.workflowUid,
+          });
+          continue;
+        }
+      }
+      const runs = liveCaches[lv.workflowUid] ?? [];
+      const run =
+        runs.find((r) => r.environmentId === activeEnvironmentId) ?? runs.find((r) => r.environmentId === null) ?? null;
+      if (!run) continue;
+      const value = run.stepCaptures[lv.stepId]?.[lv.captureName];
+      if (typeof value !== 'string') continue;
+      registry.set(lv.name, {
+        value,
+        expiresAt: run.expiresAt,
+        stale: run.expiresAt !== null && run.expiresAt < nowMs,
+        workflowUid: lv.workflowUid,
+      });
+    }
+    return registry;
+  }, [liveVariables, liveCaches, activeEnvironmentId]);
+
   // Build a resolver that mirrors the SW's. Rebuilt every render —
   // cheap (array wiring only) and free of subtle sync bugs.
   const resolver = useMemo(() => {
@@ -131,8 +177,17 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     r.setDefaultEnvironmentId(defaultEnvironmentId);
     r.setWorkspaceVariables(workspaceVariables);
     for (const c of localCollections) r.setCollectionVariables(c.uid, c.variables ?? []);
+    r.setLiveRegistry(liveRegistry);
     return r;
-  }, [vault, environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, localCollections]);
+  }, [
+    vault,
+    environments,
+    activeEnvironmentId,
+    defaultEnvironmentId,
+    workspaceVariables,
+    localCollections,
+    liveRegistry,
+  ]);
 
   const activeEnvironment = activeEnvironmentId
     ? (environments.find((e) => e.uid === activeEnvironmentId)?.name ?? null)
@@ -231,8 +286,36 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
       isSensitive: v.type === 'secret',
       resolved: v.value !== '',
     }));
-    return { vault: vaultList, environment: envDisplay, collection: collList, workspace: wsList };
-  }, [vault, environments, activeEnvironmentId, workspaceVariables, localCollections, activeCollectionId]);
+    const liveList: DisplayVariable[] = liveVariables
+      .filter((lv) => lv.enabled)
+      .map((lv) => {
+        const entry = liveRegistry.get(lv.name);
+        return {
+          name: lv.name,
+          value: entry?.value ?? '',
+          scope: 'live' as const,
+          // Values can contain secrets (tokens) — mask by default.
+          isSensitive: true,
+          resolved: entry !== undefined,
+        };
+      });
+    return {
+      vault: vaultList,
+      environment: envDisplay,
+      collection: collList,
+      workspace: wsList,
+      live: liveList,
+    };
+  }, [
+    vault,
+    environments,
+    activeEnvironmentId,
+    workspaceVariables,
+    localCollections,
+    activeCollectionId,
+    liveVariables,
+    liveRegistry,
+  ]);
 
   return (
     <div
@@ -487,6 +570,7 @@ function AllScopesView({
     environment: DisplayVariable[];
     collection: DisplayVariable[];
     workspace: DisplayVariable[];
+    live: DisplayVariable[];
   };
   activeEnvironmentName: string | null;
   defaultEnvironmentName: string | null;
@@ -514,6 +598,15 @@ function AllScopesView({
         subtitle={activeCollectionName ?? 'No active collection'}
       />
       <ScopeSection scope="workspace" variables={allVars.workspace} />
+      <ScopeSection
+        scope="live"
+        variables={allVars.live}
+        subtitle={
+          allVars.live.length > 0
+            ? `${allVars.live.filter((v) => v.resolved).length}/${allVars.live.length} resolved`
+            : 'no live variables defined'
+        }
+      />
     </>
   );
 }

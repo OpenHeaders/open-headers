@@ -33,13 +33,18 @@ import {
   PauseCircleOutlined,
   PlayCircleOutlined,
   PlusOutlined,
+  ReloadOutlined,
   RollbackOutlined,
   SearchOutlined,
   StarFilled,
   StarOutlined,
   StopOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useAllLiveCaches } from '@hooks/useLiveCache';
+import { useLiveVariables } from '@hooks/useLiveVariables';
+import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
@@ -299,6 +304,12 @@ interface SidebarProps {
   onOpenWorkspaceVariables?: () => void;
   /** Open the vault editor. */
   onOpenVault?: () => void;
+  /** Open a Live Variable editor tab. */
+  onSelectLiveVariable?: (uid: string, name: string) => void;
+  /** Open a Live Workflow editor tab. */
+  onSelectLiveWorkflow?: (uid: string, name: string) => void;
+  /** Open an unsaved Live Variable draft tab. */
+  onCreateLiveVariable?: (seedRequestUid?: string) => void;
   /** Open an API request for editing. */
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   /** Open an unsaved request draft in a new tab. Context is the
@@ -330,6 +341,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectEnvironment,
   onOpenWorkspaceVariables,
   onOpenVault,
+  onSelectLiveVariable,
+  onSelectLiveWorkflow,
+  onCreateLiveVariable,
   onSelectRequest,
   onCreateRequest,
   onImportCurl,
@@ -374,6 +388,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     setDefaultEnvironment,
   } = useEnvironments();
   const {
+    variables: liveVariables,
+    deleteVariable: deleteLiveVariable,
+    updateVariable: updateLiveVariable,
+  } = useLiveVariables();
+  const { workflows: liveWorkflows, refreshNow: refreshLiveWorkflow } = useLiveWorkflows();
+  const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
+  const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
+  const {
     requests: allRequests,
     collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
@@ -409,6 +431,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       base.vault = true;
       base['workspace-vars'] = true;
       base.environments = true;
+      base['live-variables'] = true;
     } else {
       // `http-rules` view: rules + templates (and the System Templates
       // → Header drill-down) expanded on first open so the user can
@@ -446,7 +469,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (view === 'api-requests') {
       setSectionsExpanded({ 'api-requests': true, environments: true });
     } else if (view === 'variables') {
-      setSectionsExpanded({ vault: true, 'workspace-vars': true, environments: true });
+      setSectionsExpanded({
+        vault: true,
+        'workspace-vars': true,
+        environments: true,
+        'live-variables': true,
+      });
     } else {
       setSectionsExpanded({ rules: true, templates: true, environments: true });
     }
@@ -474,7 +502,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (view === 'api-requests') {
       setSectionsExpanded({ 'api-requests': false, environments: false });
     } else if (view === 'variables') {
-      setSectionsExpanded({ vault: false, 'workspace-vars': false, environments: false });
+      setSectionsExpanded({
+        vault: false,
+        'workspace-vars': false,
+        environments: false,
+        'live-variables': false,
+      });
     } else {
       setSectionsExpanded({ rules: false, templates: false, environments: false });
     }
@@ -1554,6 +1587,137 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [createEnvironment, onSelectEnvironment, message]);
 
+  // ── Live Variables ────────────────────────────────────────────
+  //
+  // Each LV renders as a leaf node with a status dot (derived from the
+  // backing workflow's cached run state) + a context menu (Edit,
+  // Refresh workflow, Open workflow, Delete). Sibling LVs that share
+  // a workflow render as peers — no explicit grouping yet (revisit when
+  // multi-bound workflows become common in the wild).
+  const liveVariableNodes = useMemo((): TreeNode[] => {
+    const items: TreeNode[] = [];
+    for (const lv of liveVariables) {
+      if (lowerFilter && !lv.name.toLowerCase().includes(lowerFilter)) continue;
+      const workflow = liveWorkflows.find((w) => w.uid === lv.workflowUid) ?? null;
+      const runs = liveCaches[lv.workflowUid] ?? [];
+      const run =
+        runs.find((r) => r.environmentId === activeEnvironmentId) ??
+        runs.find((r) => r.environmentId === null) ??
+        runs[0] ??
+        null;
+      // Classify status inline so the sidebar doesn't depend on the
+      // live-display module (cheap three-branch test).
+      let level: 'green' | 'yellow' | 'red' | 'idle' = 'idle';
+      if (run) {
+        if (run.consecutiveFailures >= 5) level = 'red';
+        else if (run.consecutiveFailures >= 1 || !run.lastExtractorOk) level = 'yellow';
+        else level = 'green';
+      }
+      const dotColor =
+        level === 'green'
+          ? 'var(--ant-color-success, #52c41a)'
+          : level === 'yellow'
+            ? 'var(--ant-color-warning, #faad14)'
+            : level === 'red'
+              ? 'var(--ant-color-error, #ff4d4f)'
+              : 'var(--ant-color-text-tertiary, #999)';
+      const id = `live-var-${lv.uid}`;
+      items.push({
+        id,
+        kind: 'leaf',
+        label: lv.name,
+        depth: 0,
+        expandable: false,
+        icon: createElement('span', {
+          style: {
+            display: 'inline-block',
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: dotColor,
+            marginRight: 2,
+          },
+        }),
+        badge: !lv.enabled
+          ? createElement(
+              'span',
+              {
+                style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)' },
+              },
+              'off',
+            )
+          : lv.manualOverride
+            ? createElement(
+                'span',
+                {
+                  style: { fontSize: 9, color: 'var(--ant-color-warning, #faad14)' },
+                },
+                'override',
+              )
+            : undefined,
+        canRename: true,
+        canDelete: true,
+        canAddChild: false,
+        onOpen: () => onSelectLiveVariable?.(lv.uid, lv.name),
+        onRename: async (name: string) => {
+          await updateLiveVariable(lv.uid, { name });
+        },
+        onDelete: () =>
+          confirmDelete(lv.name, () => {
+            void deleteLiveVariable(lv.uid);
+          }),
+        addMenuItems: [
+          {
+            key: 'edit',
+            icon: createElement(EditOutlined),
+            label: 'Edit',
+            onClick: () => onSelectLiveVariable?.(lv.uid, lv.name),
+          },
+          {
+            key: 'refresh',
+            icon: createElement(ReloadOutlined),
+            label: 'Refresh workflow now',
+            onClick: () => void refreshLiveWorkflow(lv.workflowUid, activeEnvironmentId),
+          },
+          ...(workflow
+            ? [
+                {
+                  key: 'open-workflow',
+                  icon: createElement(PlayCircleOutlined),
+                  label: 'Open workflow',
+                  onClick: () => onSelectLiveWorkflow?.(workflow.uid, workflow.name),
+                },
+              ]
+            : []),
+          { type: 'divider' as const, key: 'div' },
+          {
+            key: 'delete',
+            icon: createElement(DeleteOutlined),
+            label: 'Delete',
+            danger: true,
+            onClick: () =>
+              confirmDelete(lv.name, () => {
+                void deleteLiveVariable(lv.uid);
+              }),
+          },
+        ],
+      });
+    }
+    return items;
+  }, [
+    liveVariables,
+    liveWorkflows,
+    liveCaches,
+    activeEnvironmentId,
+    lowerFilter,
+    confirmDelete,
+    deleteLiveVariable,
+    updateLiveVariable,
+    refreshLiveWorkflow,
+    onSelectLiveVariable,
+    onSelectLiveWorkflow,
+  ]);
+
   // ── Flat items for keyboard nav ──────────────────────────────
   //
   // Flattening respects the current view: only nodes from sections
@@ -1571,6 +1735,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else {
       if (sectionsExpanded.vault) items.push(vaultNode);
       if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
+      if (sectionsExpanded['live-variables']) items.push(...liveVariableNodes);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     }
     return items;
@@ -1581,6 +1746,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     systemTemplateNodes,
     templateNodes,
     environmentNodes,
+    liveVariableNodes,
     requestNodes,
     vaultNode,
     workspaceVarsNode,
@@ -2226,6 +2392,36 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
             {sectionsExpanded['workspace-vars'] && (
               <div style={{ overflowY: 'auto' }}>{renderNodes([workspaceVarsNode])}</div>
+            )}
+
+            <SectionHeader
+              title="LIVE VARIABLES"
+              expanded={sectionsExpanded['live-variables']}
+              onToggle={() => toggleSection('live-variables')}
+              actions={
+                <Tooltip title="New live variable" placement="bottom">
+                  <PlusOutlined
+                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSectionsExpanded((prev) => ({ ...prev, 'live-variables': true }));
+                      onCreateLiveVariable?.();
+                    }}
+                  />
+                </Tooltip>
+              }
+            />
+            {sectionsExpanded['live-variables'] && (
+              <div style={{ overflowY: 'auto' }}>
+                {liveVariableNodes.length > 0 ? (
+                  renderNodes(liveVariableNodes, () => onCreateLiveVariable?.())
+                ) : (
+                  <div style={{ padding: '8px 16px', fontSize: 11, color: token.colorTextTertiary }}>
+                    <ThunderboltOutlined style={{ marginRight: 4 }} />
+                    No live variables yet — capture response values on a cadence via the + button.
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}
