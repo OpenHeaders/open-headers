@@ -28,7 +28,7 @@ import {
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
+import { isRequestComplete, isRuleComplete } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -66,6 +66,7 @@ export function tabIcon(
   rules: V5.Rule[],
   templates: V5.Template[],
   pausedUids: ReadonlySet<string>,
+  requests: V5.Request[] = [],
 ): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
@@ -89,8 +90,18 @@ export function tabIcon(
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
     // Request tabs carry the HTTP method as their "icon" — compact
     // color-coded marker readable at tab-strip density.
+    //
+    // `request-edit` tabs mirror the rule-tab treatment: a persisted
+    // request that `isRequestComplete` rejects (empty URL, unfilled
+    // auth field, …) renders as a greyed method tag — the same "draft"
+    // visual users already know from rules. `request-create` tabs
+    // stay colored because the user is in the middle of building the
+    // request and completeness isn't known until save.
     const method = tab.ruleType || 'GET';
-    const color = REQUEST_METHOD_COLORS[method] ?? '#999';
+    const request =
+      tab.mode === 'request-edit' && tab.requestUid ? requests.find((r) => r.uid === tab.requestUid) : undefined;
+    const incomplete = request ? !isRequestComplete(request) : false;
+    const color = incomplete ? TAB_ICON_GRAY : (REQUEST_METHOD_COLORS[method] ?? '#999');
     return (
       <span
         style={{
@@ -100,6 +111,7 @@ export function tabIcon(
           fontFamily: "'SF Mono', monospace",
           minWidth: 36,
           display: 'inline-block',
+          opacity: incomplete ? 0.7 : 1,
         }}
       >
         {method}
@@ -162,6 +174,10 @@ interface TabBarProps {
   activeTabId: string | null;
   rules: V5.Rule[];
   templates: V5.Template[];
+  /** Persisted API requests — feeds `isRequestComplete` so the tab
+   *  method-icon greys out when a saved request is incomplete (mirrors
+   *  the rule-draft treatment). */
+  requests: V5.Request[];
   /** Effective paused uids — drives the yellow tab icon for paused
    *  rules, collection-overviews, and folder-overviews. */
   pausedUids: ReadonlySet<string>;
@@ -227,6 +243,7 @@ interface TabPillContentProps {
   tab: RulesTab;
   rules: V5.Rule[];
   templates: V5.Template[];
+  requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
   onClose?: (id: string) => void;
   closeIconColor: string;
@@ -237,6 +254,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   tab,
   rules,
   templates,
+  requests,
   pausedUids,
   onClose,
   closeIconColor,
@@ -244,7 +262,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
 }) => {
   const inner = (
     <>
-      <span className="rules-type-badge">{tabIcon(tab, rules, templates, pausedUids)}</span>
+      <span className="rules-type-badge">{tabIcon(tab, rules, templates, pausedUids, requests)}</span>
       <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab)}
       </span>
@@ -301,6 +319,7 @@ interface CrossLeafInsertionMarkerProps {
   tab: RulesTab;
   rules: V5.Rule[];
   templates: V5.Template[];
+  requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
   token: ReturnType<typeof theme.useToken>['token'];
 }
@@ -309,6 +328,7 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
   tab,
   rules,
   templates,
+  requests,
   pausedUids,
   token,
 }) => (
@@ -321,6 +341,7 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
       tab={tab}
       rules={rules}
       templates={templates}
+      requests={requests}
       pausedUids={pausedUids}
       closeIconColor={token.colorTextTertiary}
       hidden
@@ -337,6 +358,7 @@ interface SortableTabProps {
   isActive: boolean;
   rules: V5.Rule[];
   templates: V5.Template[];
+  requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
   contextMenu: { items: ItemType[] };
   onSwitch: (id: string) => void;
@@ -351,6 +373,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
   isActive,
   rules,
   templates,
+  requests,
   pausedUids,
   contextMenu,
   onSwitch,
@@ -434,6 +457,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
         tab={tab}
         rules={rules}
         templates={templates}
+        requests={requests}
         pausedUids={pausedUids}
         onClose={onClose}
         closeIconColor={token.colorTextTertiary}
@@ -466,6 +490,7 @@ interface TabSearchProps {
   activeTabId: string | null;
   rules: V5.Rule[];
   templates: V5.Template[];
+  requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
   onSwitch: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
@@ -479,6 +504,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   activeTabId,
   rules,
   templates,
+  requests,
   pausedUids,
   onSwitch,
   recentlyClosed,
@@ -583,7 +609,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 }}
               >
                 <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                  {tabIcon(tab, rules, templates, pausedUids)}
+                  {tabIcon(tab, rules, templates, pausedUids, requests)}
                 </span>
                 <span
                   style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
@@ -635,7 +661,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                       }}
                     >
                       <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                        {tabIcon(closed.tab, rules, templates, pausedUids)}
+                        {tabIcon(closed.tab, rules, templates, pausedUids, requests)}
                       </span>
                       <span
                         style={{
@@ -674,6 +700,7 @@ const TabBar: React.FC<TabBarProps> = ({
   activeTabId,
   rules,
   templates,
+  requests,
   pausedUids,
   onSwitch,
   onClose,
@@ -935,6 +962,7 @@ const TabBar: React.FC<TabBarProps> = ({
                   tab={insertionTab}
                   rules={rules}
                   templates={templates}
+                  requests={requests}
                   pausedUids={pausedUids}
                   token={token}
                 />
@@ -946,6 +974,7 @@ const TabBar: React.FC<TabBarProps> = ({
                 isActive={tab.id === activeTabId}
                 rules={rules}
                 templates={templates}
+                requests={requests}
                 pausedUids={pausedUids}
                 contextMenu={buildContextMenu(tab, index)}
                 onSwitch={onSwitch}
@@ -959,6 +988,7 @@ const TabBar: React.FC<TabBarProps> = ({
               tab={insertionTab}
               rules={rules}
               templates={templates}
+              requests={requests}
               pausedUids={pausedUids}
               token={token}
             />
@@ -1004,6 +1034,7 @@ const TabBar: React.FC<TabBarProps> = ({
           activeTabId={activeTabId}
           rules={rules}
           templates={templates}
+          requests={requests}
           pausedUids={pausedUids}
           onSwitch={onSwitch}
           recentlyClosed={recentlyClosed}

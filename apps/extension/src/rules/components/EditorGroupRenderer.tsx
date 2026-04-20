@@ -203,6 +203,7 @@ export interface EditorGroupRendererProps {
   groups: UseEditorGroupsApi;
   rules: V5.Rule[];
   templates: V5.Template[];
+  requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
   renderTabBody: (ctx: RenderLeafContext) => React.ReactNode;
   renderLeafHeader: (ctx: RenderLeafHeaderContext) => React.ReactNode;
@@ -228,6 +229,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   groups,
   rules,
   templates,
+  requests,
   pausedUids,
   renderTabBody,
   renderLeafHeader,
@@ -432,6 +434,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           activeTabId={leaf.activeTabId}
           rules={rules}
           templates={templates}
+          requests={requests}
           pausedUids={pausedUids}
           onSwitch={groups.switchTab}
           onClose={onCloseTab}

@@ -981,6 +981,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
             groups={groups}
             rules={rules}
             templates={templates}
+            requests={requestsApi.requests}
             pausedUids={pausedUids}
             renderTabBody={renderTabBody}
             renderLeafHeader={renderLeafHeader}
@@ -1006,7 +1007,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
           if (!tab) return null;
           return (
             <div className="rules-drag-preview">
-              <span className="rules-drag-preview-icon">{tabIcon(tab, rules, templates, pausedUids)}</span>
+              <span className="rules-drag-preview-icon">
+                {tabIcon(tab, rules, templates, pausedUids, requestsApi.requests)}
+              </span>
               <span className="rules-drag-preview-label">{renderTabLabel(tab)}</span>
             </div>
           );

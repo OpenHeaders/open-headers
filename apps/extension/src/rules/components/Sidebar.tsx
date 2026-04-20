@@ -43,7 +43,7 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { hasNestedPauseMarkers, isRuleComplete } from '@openheaders/core/utils';
+import { hasNestedPauseMarkers, isRequestComplete, isRuleComplete } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
@@ -75,9 +75,12 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 /** Compact method tag used as the leaf "icon" in the API Requests
- *  tree — colored GET / POST / PUT label next to each request. */
-function methodTag(method: string): React.ReactNode {
-  const color = METHOD_COLORS[method] ?? '#999';
+ *  tree — colored GET / POST / PUT label next to each request.
+ *  `muted` greys the tag to signal an incomplete (draft) request, the
+ *  same way `buildRuleIcon` greys out rule icons when `isRuleComplete`
+ *  returns false. */
+function methodTag(method: string, muted = false): React.ReactNode {
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : (METHOD_COLORS[method] ?? '#999');
   return createElement(
     'span',
     {
@@ -89,6 +92,7 @@ function methodTag(method: string): React.ReactNode {
         color,
         fontFamily: "'SF Mono', monospace",
         textAlign: 'left',
+        opacity: muted ? 0.7 : 1,
       },
     },
     method,
@@ -370,6 +374,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     setDefaultEnvironment,
   } = useEnvironments();
   const {
+    requests: allRequests,
     collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
     deleteRequest,
@@ -1213,6 +1218,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;
+          // Mirror the rule-draft pattern: request is "draft" when
+          // `isRequestComplete` reports false (missing URL, missing
+          // auth field, …). The method tag greys out and we append a
+          // `draft` badge identical to the rule sidebar treatment.
+          const fullRequest = allRequests.find((r) => r.uid === node.uid);
+          const complete = fullRequest ? isRequestComplete(fullRequest) : true;
+          const badge: React.ReactNode = complete
+            ? undefined
+            : createElement(
+                'span',
+                { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } },
+                'draft',
+              );
           items.push({
             id: rid,
             kind: 'leaf',
@@ -1220,7 +1238,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: false,
             parentId,
-            icon: methodTag(node.method),
+            icon: methodTag(node.method, !complete),
+            badge,
             canRename: true,
             canDelete: true,
             canAddChild: false,
@@ -1238,6 +1257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       return items;
     },
     [
+      allRequests,
       expandedKeys,
       lowerFilter,
       toggleExpand,
