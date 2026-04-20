@@ -44,6 +44,25 @@ export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 export const OAuth2FlowSchema = v.picklist(['authorization-code-pkce', 'client-credentials', 'device-code']);
 
 /**
+ * UI-level grant-type choice. Independent of `flow` (the runtime wire
+ * behavior) because multiple UI choices collapse to the same wire
+ * flow — e.g. `authorization-code` and `authorization-code-pkce`
+ * both exchange via the token endpoint with a code, but the UI needs
+ * to show different field sets + help text for each.
+ *
+ * When absent, the UI infers a reasonable default from `flow` alone
+ * (PKCE-first for browser extensions).
+ */
+export const OAuth2UiGrantTypeSchema = v.picklist([
+  'authorization-code',
+  'authorization-code-pkce',
+  'implicit',
+  'password-credentials',
+  'client-credentials',
+  'device-code',
+]);
+
+/**
  * First-class OAuth 2.0 / OIDC auth config (ARCHITECTURE §18).
  *
  * `credentialRef` is a stable per-request key used by the extension's
@@ -79,6 +98,14 @@ export const OAuth2AuthSchema = v.object({
    */
   providerPresetId: v.optional(v.string()),
   flow: OAuth2FlowSchema,
+  /**
+   * UI grant-type choice. When present, the editor uses this value
+   * verbatim for display + field-set selection; when absent, derives
+   * from `flow`. Persisted so switching between e.g.
+   * `authorization-code` and `authorization-code-pkce` round-trips
+   * through save.
+   */
+  grantType: v.optional(OAuth2UiGrantTypeSchema),
   /** Authorization endpoint URL (used by authorization-code-pkce + device-code). */
   authorizationEndpoint: v.optional(v.string()),
   /** Token endpoint URL (used by every flow). */
@@ -91,11 +118,13 @@ export const OAuth2AuthSchema = v.object({
   /** Space-joined on the wire; stored as an array for per-scope UI editing. */
   scopes: v.array(v.string()),
   /**
-   * Authorization code flow: where the token response's `access_token`
-   * is applied. Most providers expect `header` (Bearer). Some expose
-   * query-param variants; left open for future support.
+   * Where the token response's `access_token` is applied on outgoing
+   * requests. `'header'` adds `Authorization: Bearer <token>` (the
+   * default + overwhelming majority of providers). `'query'` appends
+   * `?access_token=<token>` — a deprecated but still-supported path
+   * some legacy providers require.
    */
-  sendAs: v.optional(v.picklist(['header'])),
+  sendAs: v.optional(v.picklist(['header', 'query'])),
   /** Optional extra params appended to the authorization URL. */
   extraAuthParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
   /** Optional extra params appended to the token POST body. */

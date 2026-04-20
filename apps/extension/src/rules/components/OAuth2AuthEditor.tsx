@@ -24,11 +24,11 @@
  *   • "Client Credentials"             → client-credentials
  */
 
-import { CopyOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
+import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 import { useOAuth } from '@hooks/useOAuth';
-import { findOAuth2Preset, isExpired, OAUTH2_PROVIDER_PRESETS, secondsUntilExpiry } from '@openheaders/core/oauth';
+import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
-import { App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
+import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import KeyValueTable, { type KeyValueRow } from './request-editor/KeyValueTable';
@@ -153,10 +153,15 @@ const GRANT_TYPES: GrantTypeDef[] = [
 ];
 
 function getGrantType(auth: OAuth2Auth): GrantTypeDef {
+  // `auth.grantType` carries the user's UI choice verbatim — prefer it
+  // over `flow` so picking e.g. `authorization-code` (without PKCE) or
+  // `implicit` round-trips cleanly. Fall back to the `flow` mapping
+  // only for legacy rows that never wrote a grantType.
+  if (auth.grantType) {
+    const match = GRANT_TYPES.find((g) => g.id === auth.grantType);
+    if (match) return match;
+  }
   if (auth.flow === 'client-credentials') return GRANT_TYPES[4];
-  // authorization-code-pkce is our default; no way to tell auth-code
-  // vs pkce from the stored shape (we always do PKCE under the hood),
-  // so fall back to the PKCE variant on load.
   return GRANT_TYPES[1];
 }
 
@@ -180,36 +185,14 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
   const grantType = useMemo(() => getGrantType(auth), [auth]);
 
-  // ── Left rail ("Add authorization data to") ─────────────────────
-  const sendAs = (auth.sendAs ?? 'header') === 'header' ? 'Request Headers' : 'Request URL';
-
-  // ── Preset ───────────────────────────────────────────────────────
-  const applyPreset = useCallback(
-    (presetId: string) => {
-      if (presetId === 'custom') {
-        onChange({ ...auth, providerPresetId: undefined });
-        return;
-      }
-      const preset = findOAuth2Preset(presetId);
-      if (!preset) return;
-      onChange({
-        ...auth,
-        providerPresetId: preset.id,
-        authorizationEndpoint: preset.authorizationEndpoint,
-        tokenEndpoint: preset.tokenEndpoint,
-        deviceAuthorizationEndpoint: preset.deviceAuthorizationEndpoint ?? auth.deviceAuthorizationEndpoint,
-        scopes: [...preset.defaultScopes],
-        flow: preset.defaultFlow,
-      });
-    },
-    [auth, onChange],
-  );
-
   // ── Grant type swap ─────────────────────────────────────────────
   const onGrantChange = (id: GrantTypeId) => {
     const def = GRANT_TYPES.find((g) => g.id === id);
     if (!def) return;
-    onChange({ ...auth, flow: def.v5Flow });
+    // Write BOTH fields: `grantType` preserves the user's UI choice,
+    // `flow` drives runtime wire behavior (collapses to the subset
+    // the executor handles).
+    onChange({ ...auth, grantType: def.id, flow: def.v5Flow });
   };
 
   // ── Flow runners ────────────────────────────────────────────────
@@ -263,37 +246,20 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* ── "Add authorization data to" row (pins how the token is sent) */}
-      <LabeledRow label="Add authorization data to">
-        <Select
-          size="small"
-          value={sendAs}
-          onChange={() => {
-            // Only header is wired today — the selector is here for
-            // layout parity and will surface a second option once the
-            // query-param send path lands.
-          }}
-          options={[{ value: 'Request Headers', label: 'Request Headers' }]}
-          style={{ width: '100%' }}
+      {auth.sendAs === 'query' && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Sending the access token in the URL is deprecated"
+          description={
+            <>
+              RFC 6750 §2.3 kept the URI query-parameter method available but warns against it: tokens leak into server
+              logs, HTTP `Referer` headers, browser history, and intermediary caches. Prefer the default{' '}
+              <code>Authorization: Bearer</code> header unless the provider requires the query form.
+            </>
+          }
         />
-      </LabeledRow>
-
-      {/* ── Provider preset quick-fill ───────────────────────────────── */}
-      <LabeledRow
-        label="Provider preset"
-        description="Pre-fills endpoints + default scopes. Custom = configure manually."
-      >
-        <Select
-          size="small"
-          style={{ width: '100%' }}
-          value={auth.providerPresetId ?? 'custom'}
-          onChange={applyPreset}
-          options={[
-            { value: 'custom', label: 'Custom (no preset)' },
-            ...OAUTH2_PROVIDER_PRESETS.map((p) => ({ value: p.id, label: p.label })),
-          ]}
-        />
-      </LabeledRow>
+      )}
 
       {/* ── Current Token ────────────────────────────────────────────── */}
       <div>
@@ -381,21 +347,26 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
           {grantType.fields.callbackUrl && (
             <>
-              <LabeledRow
-                label="Callback URL"
-                description={
-                  <>
-                    Register this URL at your OAuth provider. It looks different from the{' '}
-                    <code>chrome-extension://…</code> URL in your address bar because Chrome exposes a dedicated{' '}
-                    <code>chromiumapp.org</code> redirect host for <code>chrome.identity.launchWebAuthFlow</code>. The
-                    extension ID is the same; only the host + scheme differ.
-                  </>
-                }
-              >
+              <LabeledRow label="Callback URL">
                 <Input
                   size="small"
                   readOnly
                   value={redirectUri ?? 'Detecting…'}
+                  suffix={
+                    <Tooltip
+                      title={
+                        <span>
+                          Register this URL at your OAuth provider. It looks different from the{' '}
+                          <code>chrome-extension://…</code> URL in your address bar because Chrome exposes a dedicated{' '}
+                          <code>chromiumapp.org</code> redirect host for <code>chrome.identity.launchWebAuthFlow</code>.
+                          The extension ID is the same; only the host + scheme differ.
+                        </span>
+                      }
+                      overlayStyle={{ maxWidth: 380 }}
+                    >
+                      <InfoCircleOutlined style={{ color: 'rgba(0, 0, 0, 0.45)', cursor: 'help' }} />
+                    </Tooltip>
+                  }
                   addonAfter={
                     <Tooltip title="Copy">
                       <CopyOutlined onClick={handleCopyRedirect} />

@@ -7,9 +7,11 @@
  * Authorization header is assembled.
  */
 
+import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
 import { Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
+import { useCallback } from 'react';
 import OAuth2AuthEditor from '../OAuth2AuthEditor';
 
 const { Text } = Typography;
@@ -62,11 +64,11 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 300px) 1fr', gap: 32, minHeight: 320 }}>
-      {/* Left rail — sticks to the top of the parent scroll container so
-          the auth-type picker stays visible while the right pane's long
-          OAuth 2.0 form scrolls past it. `align-self: start` keeps the
-          rail content-sized so `position: sticky` has something to
-          anchor against; without it the grid cell stretches to the
+      {/* Left rail — sticks to the top of the scroll container so the
+          auth-type picker stays visible while the right pane's long
+          OAuth 2.0 form scrolls past it. `align-self: start` keeps
+          the rail content-sized so `position: sticky` has something
+          to anchor against; without it the grid cell stretches to the
           row's full height and sticky collapses to a no-op. */}
       <div
         style={{
@@ -98,6 +100,7 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
             This request does not use any authorization.
           </Text>
         )}
+        {auth.type === 'oauth2' && <OAuth2LeftRailControls auth={auth} onChange={onChange} />}
       </div>
 
       {/* Right pane */}
@@ -234,6 +237,81 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         )}
 
         {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
+      </div>
+    </div>
+  );
+};
+
+// ── OAuth2 left-rail controls ─────────────────────────────────────
+//
+// When OAuth 2.0 is the active auth type, the rail grows two extra
+// selectors below the Auth Type dropdown:
+//   • "Add authorization data to" — header (Authorization: Bearer …)
+//     vs query (?access_token=…). Query is deprecated per RFC 6750
+//     but still honored for legacy providers; a warning surfaces in
+//     the right pane when selected.
+//   • "Provider preset"           — pre-fills endpoints + default
+//     scopes from the core preset library.
+
+const OAuth2LeftRailControls: React.FC<{
+  auth: Extract<V5.AuthConfig, { type: 'oauth2' }>;
+  onChange: (auth: V5.AuthConfig) => void;
+}> = ({ auth, onChange }) => {
+  const applyPreset = useCallback(
+    (presetId: string) => {
+      if (presetId === 'custom') {
+        onChange({ ...auth, providerPresetId: undefined });
+        return;
+      }
+      const preset = findOAuth2Preset(presetId);
+      if (!preset) return;
+      onChange({
+        ...auth,
+        providerPresetId: preset.id,
+        authorizationEndpoint: preset.authorizationEndpoint,
+        tokenEndpoint: preset.tokenEndpoint,
+        deviceAuthorizationEndpoint: preset.deviceAuthorizationEndpoint ?? auth.deviceAuthorizationEndpoint,
+        scopes: [...preset.defaultScopes],
+        flow: preset.defaultFlow,
+      });
+    },
+    [auth, onChange],
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text strong style={{ fontSize: 12 }}>
+          Add authorization data to
+        </Text>
+        <Select
+          size="middle"
+          value={auth.sendAs ?? 'header'}
+          onChange={(next: 'header' | 'query') => onChange({ ...auth, sendAs: next })}
+          options={[
+            { value: 'header', label: 'Request Headers' },
+            { value: 'query', label: 'Request URL' },
+          ]}
+          style={{ width: '100%' }}
+        />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text strong style={{ fontSize: 12 }}>
+          Provider preset
+        </Text>
+        <Select
+          size="middle"
+          value={auth.providerPresetId ?? 'custom'}
+          onChange={applyPreset}
+          options={[
+            { value: 'custom', label: 'Custom (no preset)' },
+            ...OAUTH2_PROVIDER_PRESETS.map((p) => ({ value: p.id, label: p.label })),
+          ]}
+          style={{ width: '100%' }}
+        />
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          Pre-fills endpoints + default scopes. Custom = configure manually.
+        </Text>
       </div>
     </div>
   );

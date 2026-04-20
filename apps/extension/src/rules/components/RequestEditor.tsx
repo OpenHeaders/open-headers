@@ -506,21 +506,29 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         )}
       </div>
 
-      {/* Editor / response split */}
+      {/* Editor / response split. The sub-tab bar (Docs · Params · …)
+          renders OUTSIDE the scroll container so it never participates
+          in scrolling — simpler + more robust than `position: sticky`,
+          and leaves child panes free to mount their own sticky rails
+          (e.g. the Authorization tab's auth-type picker) without
+          colliding with an outer sticky header. We pass empty `items`
+          to AntD Tabs so only the bar renders; the active pane is
+          rendered manually below inside its own scroller. */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div style={{ flex: response ? '0 0 55%' : 1, overflow: 'auto', padding: '8px 16px' }}>
-          <Tabs
-            size="small"
-            activeKey={activeTab}
-            onChange={(k) => setActiveTab(k as TabKey)}
-            items={tabItems.map((item) => ({
-              key: item.key,
-              label: item.label,
-              children: <TabContent tab={item.key} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />,
-            }))}
-            className="rules-request-tabs"
-            tabBarStyle={{ marginBottom: 10 }}
-          />
+        <div style={{ flex: response ? '0 0 55%' : 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ padding: '8px 16px 0' }}>
+            <Tabs
+              size="small"
+              activeKey={activeTab}
+              onChange={(k) => setActiveTab(k as TabKey)}
+              items={tabItems.map((item) => ({ key: item.key, label: item.label }))}
+              className="rules-request-tabs"
+              tabBarStyle={{ marginBottom: 0 }}
+            />
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
+            <TabContent tab={activeTab} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />
+          </div>
         </div>
         {response && <ResponsePanel response={response} onClear={() => setResponse(null)} />}
       </div>

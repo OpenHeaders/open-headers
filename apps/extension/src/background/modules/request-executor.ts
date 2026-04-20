@@ -419,7 +419,14 @@ async function applyAuth(
       }
     }
     if (bundle) {
-      headers.push({ key: 'Authorization', value: `${bundle.tokenType} ${bundle.accessToken}` });
+      if (auth.sendAs === 'query') {
+        // Legacy URI Query Parameter method (RFC 6750 §2.3) — the UI
+        // warns the user this is deprecated; we still honor it for
+        // providers that require it.
+        params.push({ key: 'access_token', value: bundle.accessToken });
+      } else {
+        headers.push({ key: 'Authorization', value: `${bundle.tokenType} ${bundle.accessToken}` });
+      }
     }
   }
 }
