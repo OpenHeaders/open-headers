@@ -48,6 +48,7 @@ import { recordLog } from './observability-log';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
+import { getLiveRegistrySnapshot } from './variables-resolver';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -328,6 +329,12 @@ async function buildResolver(
   resolver.setActiveEnvironmentId(getActiveEnvironmentId());
   resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
   resolver.setWorkspaceVariables(getWorkspaceVariables());
+  // Live scope — same snapshot the DNR compile pipeline uses, so a
+  // request that references `{{live.token}}` sees the same value as
+  // a DNR rule would. Empty until the first workflow refresh lands;
+  // the warm mirror in `variables-resolver` updates via
+  // `onLiveCacheStoreChange` between calls.
+  resolver.setLiveRegistry(getLiveRegistrySnapshot());
   if (stepCaptures) {
     // Step-capture context — only present during Live Workflow chain
     // runs. Installed here so `{{step.<id>.<name>}}` references in a

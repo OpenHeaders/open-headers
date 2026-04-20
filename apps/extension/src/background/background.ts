@@ -81,6 +81,7 @@ import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } 
 import { getTemplates, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
+import { hydrateLiveCacheMirror } from './modules/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
@@ -350,9 +351,21 @@ async function initializeExtension(): Promise<void> {
     broadcast('liveWorkflowsChanged', { workflows: getLiveWorkflows() });
   });
   onLiveVariableStoreChange(() => {
+    // LV name / enable / manualOverride changes flip what
+    // `{{live.X}}` resolves to, so recompile DNR. The batch-by-hash
+    // guard in `scheduleUpdate` no-ops when the emitted rule set is
+    // unchanged — cheap on the no-referrers common case.
+    scheduleUpdate('live-vars', { immediate: true });
     broadcast('liveVariablesChanged', { variables: getLiveVariables() });
   });
   onLiveCacheStoreChange((_workspaceId, workflowUid) => {
+    // New cached captures land in the LiveRegistry on the next
+    // compile. Rebuild now so DNR values follow the workflow's
+    // refresh cadence (Phase C fires the alarm → Phase D adapter
+    // writes captures → this listener rebuilds DNR → the user's
+    // `Authorization: {{live.token}}` rule picks up the new token
+    // within one debounce cycle).
+    scheduleUpdate('live-cache', { immediate: true });
     broadcast('liveCacheChanged', { workflowUid });
   });
 
@@ -379,6 +392,11 @@ async function initializeExtension(): Promise<void> {
 
   // Hydrate the active workspace's per-workspace stores from storage.
   await hydrateActiveWorkspaceStores();
+  // Warm the live-cache mirror used by `variables-resolver` so the
+  // first DNR compile after wake resolves `{{live.X}}` against real
+  // captures rather than an empty registry. The mirror auto-refreshes
+  // via `onLiveCacheStoreChange` after this point.
+  await hydrateLiveCacheMirror();
   const restoredRules = getRules();
   // Rehydrate the rule-state-observer snapshot BEFORE the first
   // rebuildAll fires, so rule changes that happened while the SW was

@@ -25,6 +25,13 @@ const FORCED_REASONS = new Set([
   'prefs',
   'vars',
   'workspace',
+  // Live Variables — cache writes (Phase C refresh) + LV definition
+  // edits (name / manualOverride / enable) both change the resolved
+  // value for `{{live.X}}` references. Treat as forced so the hash
+  // guard doesn't skip a rebuild when the change is semantic rather
+  // than structural.
+  'live-cache',
+  'live-vars',
 ]);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;

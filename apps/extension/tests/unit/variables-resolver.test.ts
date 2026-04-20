@@ -18,6 +18,17 @@ vi.mock('@/background/modules/rule-store', () => {
   };
 });
 
+// Live stores — mocked so the LiveRegistry-building path in
+// `variables-resolver` has deterministic inputs.
+vi.mock('@/background/modules/live-variable-store', () => ({
+  getLiveVariables: vi.fn(() => [] as V5.LiveVariable[]),
+  onLiveVariableStoreChange: vi.fn(() => () => {}),
+}));
+vi.mock('@/background/modules/live-cache-store', () => ({
+  listWorkflowRunCaches: vi.fn(() => Promise.resolve([])),
+  onLiveCacheStoreChange: vi.fn(() => () => {}),
+}));
+
 import {
   getActiveEnvironmentId,
   getEnvironments,
