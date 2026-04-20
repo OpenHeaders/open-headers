@@ -503,6 +503,7 @@ describe('VariableResolver — structured resolution errors', () => {
   it('resolves {{file.X}} to the content hash when the file is registered', () => {
     resolver.setFileRegistry([
       {
+        fileId: 'file:test-fixture',
         hash: 'sha256:abc1234567890abc1234567890abc1234567890abc1234567890abc12345678',
         filename: 'fixture.json',
         size: 42,
@@ -515,7 +516,7 @@ describe('VariableResolver — structured resolution errors', () => {
 
   it('resolves {{file.sha256:xxx}} directly by hash (bypasses filename lookup)', () => {
     const hash = 'sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
-    resolver.setFileRegistry([{ hash, filename: 'invoice.pdf', size: 1024 }]);
+    resolver.setFileRegistry([{ fileId: 'file:test-invoice', hash, filename: 'invoice.pdf', size: 1024 }]);
     const { result, errors } = resolver.resolveTemplate(`{{file.${hash}}}`);
     expect(errors).toEqual([]);
     expect(result).toBe(hash);
@@ -525,7 +526,9 @@ describe('VariableResolver — structured resolution errors', () => {
     // Flat {{X}} must never find a file by name — files are always
     // explicit via the {{file.X}} form so URL/header values can't
     // accidentally substitute a filename.
-    resolver.setFileRegistry([{ hash: 'sha256:' + 'a'.repeat(64), filename: 'API_URL', size: 10 }]);
+    resolver.setFileRegistry([
+      { fileId: 'file:test-api-url', hash: 'sha256:' + 'a'.repeat(64), filename: 'API_URL', size: 10 },
+    ]);
     const r = resolver.resolve('API_URL');
     expect(r).toBeNull();
   });
@@ -533,7 +536,9 @@ describe('VariableResolver — structured resolution errors', () => {
   it('flat {{X}} still resolves from other scopes when a same-named file exists', () => {
     resolver.setEnvironments([makeEnvironment('E', [makeVariable('SHARED_NAME', 'from-env')])]);
     resolver.setActiveEnvironmentId('env-' + envCounter);
-    resolver.setFileRegistry([{ hash: 'sha256:' + 'a'.repeat(64), filename: 'SHARED_NAME', size: 1 }]);
+    resolver.setFileRegistry([
+      { fileId: 'file:test-shared', hash: 'sha256:' + 'a'.repeat(64), filename: 'SHARED_NAME', size: 1 },
+    ]);
     expect(resolver.resolve('SHARED_NAME')?.value).toBe('from-env');
   });
 

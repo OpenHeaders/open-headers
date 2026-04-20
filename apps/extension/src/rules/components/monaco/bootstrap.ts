@@ -19,23 +19,128 @@
  * skips the basic-languages bundle; we add back only the ones we
  * actually render.
  *
- * Module-load side effect: the bootstrap promise starts the moment
- * this file is imported, BEFORE any `<Editor>` mounts. If we kicked
- * it from a `useEffect`, the React wrapper would race ahead with its
- * own default loader (which hits an AMD bootstrap blocked by our CSP),
- * leaving the "Loading…" spinner stuck forever — which is exactly the
- * devpanel Response/Preview bug we hit on first integration.
+ * Two-phase init:
+ *   1. SYNC (module-load): theme definitions, JS language-service
+ *      compiler options, + `oh.d.ts` ambient lib registration. These
+ *      all operate on the monaco singleton that the namespace imports
+ *      above already populated — no `loader.init()` dependency. Running
+ *      them synchronously guarantees they are in place the moment any
+ *      `<Editor>` component's internal `loader.init()` resolves, so
+ *      the first editor mounts with a defined theme AND with `oh.*`
+ *      already in the TS program (no race where tokens render
+ *      uncolored because the theme isn't registered yet).
+ *   2. ASYNC (bootstrap promise): worker-module imports + loader
+ *      wiring. These MUST be async because the Worker imports are
+ *      dynamic; that's fine because `<Editor>` awaits `loader.init()`
+ *      internally and our bootstrap's `loader.init()` call is the one
+ *      it's waiting for.
  */
 
 import { loader } from '@monaco-editor/react';
 import * as monacoEdCore from 'monaco-editor/esm/vs/editor/edcore.main';
-import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
+// ── Language registrations ─────────────────────────────────────────
+// Monaco splits "register the language ID + Monarch grammar" (in
+// `basic-languages/<lang>/<lang>.contribution`) from "register the
+// worker-backed language service" (in `language/<lang>/monaco.contribution`).
+// For CSS / HTML / JS / TS the LSP contribution DOES NOT self-register
+// the language — it waits for `languages.onLanguage('javascript', …)` to
+// fire, which only happens after the basic-languages module has called
+// `registerLanguage({ id: 'javascript', … })`. Without the basic-languages
+// import the model renders as plaintext (no tokens, no completions) and
+// the TS / CSS / HTML workers never spawn. JSON is the exception — its
+// LSP contribution self-registers, which is why JSON body worked before.
+//
+// Keep the basic-languages imports FIRST so they register the language
+// IDs before the LSP contributions install their `onLanguage` callbacks.
+import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution';
+import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution';
+import 'monaco-editor/esm/vs/basic-languages/css/css.contribution';
+import 'monaco-editor/esm/vs/basic-languages/html/html.contribution';
+import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
+// LSP contributions — JSON / CSS / HTML / TS workers + semantic features.
 import 'monaco-editor/esm/vs/language/json/monaco.contribution';
 import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
-import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
-import { javascriptDefaults, ScriptTarget } from 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
+import {
+  javascriptDefaults,
+  ScriptTarget,
+  typescriptDefaults,
+} from 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import { OH_AMBIENT_DTS } from '../script-editor/oh-types';
+import { registerPrettierFormatters } from './formatters';
+
+// ── Phase 1: synchronous monaco-singleton configuration ──────────
+//
+// `monacoEdCore.editor.defineTheme` and `javascriptDefaults.*` mutate
+// the singleton registries populated by the contribution imports
+// above. They work at module-load time — no need to wait for
+// `loader.init()`. Running them synchronously lets the Editor
+// component mount with a fully-configured singleton.
+
+monacoEdCore.editor.defineTheme('oh-light', {
+  base: 'vs',
+  inherit: true,
+  rules: [],
+  colors: {
+    'editor.lineHighlightBackground': '#F1F3F5',
+    'editor.lineHighlightBorder': '#F1F3F5',
+  },
+});
+monacoEdCore.editor.defineTheme('oh-dark', {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [],
+  colors: {
+    'editor.lineHighlightBackground': '#2A2D2E',
+    'editor.lineHighlightBorder': '#2A2D2E',
+  },
+});
+
+// JS language-service configuration for every JS-flavored Monaco
+// editor in the extension (scripts tab, raw-JavaScript body, etc.).
+// `allowNonTsExtensions: true` + `allowJs: true` let inmemory JS
+// models participate in the TS program alongside the ambient lib.
+const JS_COMPILER_OPTIONS = {
+  target: ScriptTarget.ESNext,
+  allowNonTsExtensions: true,
+  allowJs: true,
+  lib: ['esnext', 'dom'],
+  strict: false,
+  noEmit: true,
+};
+const JS_DIAGNOSTICS_OPTIONS = {
+  noSemanticValidation: false,
+  noSyntaxValidation: false,
+  // Silence top-level-await diagnostics (1375 / 1378) — the script
+  // sandbox wraps user source in an async function, so
+  // `await oh.variables.get(...)` at the top level is fine.
+  diagnosticCodesToIgnore: [1375, 1378],
+};
+
+javascriptDefaults.setCompilerOptions(JS_COMPILER_OPTIONS);
+javascriptDefaults.setDiagnosticsOptions(JS_DIAGNOSTICS_OPTIONS);
+// `typescriptDefaults` is applied too so a user who ever points an
+// editor at `language="typescript"` still sees `oh.*`. Same ambient
+// file path keys the same lib slot in both services.
+typescriptDefaults.setCompilerOptions(JS_COMPILER_OPTIONS);
+typescriptDefaults.setDiagnosticsOptions(JS_DIAGNOSTICS_OPTIONS);
+
+// `file:///oh.d.ts` uses the `file` scheme Monaco auto-assigns to
+// anonymous models so the declaration and the user's model share a
+// program. Ambient `declare const oh: {…}` (no import / export) →
+// visible globally in every JS / TS model.
+javascriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
+typescriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
+
+// Register Prettier as Monaco's `DocumentFormattingEditProvider` for
+// languages Monaco has no built-in formatter for (JS / XML). JSON /
+// CSS / HTML use Monaco's built-in LSP formatters — no registration
+// needed. Every Format button + Shift+Alt+F invocation funnels through
+// `editor.action.formatDocument`, which dispatches to whichever
+// provider owns the model's language.
+registerPrettierFormatters(monacoEdCore as unknown as typeof import('monaco-editor'));
+
+// ── Phase 2: async worker + loader wiring ────────────────────────
 
 let bootstrapPromise: Promise<void> | null = null;
 
@@ -69,32 +174,12 @@ function kickBootstrap(): Promise<void> {
 
     loader.config({ monaco: monacoEdCore as unknown as Parameters<typeof loader.config>[0]['monaco'] });
     await loader.init();
-
-    // Configure the TS language service for `oh.*` completions + hovers
-    // in pre-request / post-response script editors. Harmless for other
-    // languages — the declaration only kicks in when a model uses
-    // javascript / typescript.
-    javascriptDefaults.setCompilerOptions({
-      target: ScriptTarget.ESNext,
-      allowNonTsExtensions: true,
-      lib: ['esnext', 'dom'],
-      strict: true,
-      noEmit: true,
-    });
-    javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-    });
-    javascriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'ts:oh.d.ts');
   })();
 
   return bootstrapPromise;
 }
 
-// Module-load side effect: start the bootstrap immediately so
+// Module-load side effect: start the async bootstrap immediately so
 // `loader.config({ monaco })` wins the race against `<Editor>`'s
-// internal `loader.init()`. The exported `ohMonacoReady` promise
-// keeps the module from being tree-shaken — importers don't need
-// to await it (the `<Editor>` wrapper waits on `loader.init` itself),
-// but the export anchors the side effect.
+// internal `loader.init()`.
 export const ohMonacoReady: Promise<void> = kickBootstrap();

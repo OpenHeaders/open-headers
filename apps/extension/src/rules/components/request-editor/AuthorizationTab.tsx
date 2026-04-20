@@ -1,8 +1,6 @@
 /**
  * AuthorizationTab — two-column layout. Left rail: auth-type picker +
- * contextual note. Right pane: auth-type-specific form. Modelled on
- * the industry-standard API-client Authorization tab shape so users
- * switching from Insomnia / Bruno find familiar ground.
+ * contextual note. Right pane: auth-type-specific form.
  *
  * The wire-level `credentialsMode` (cookie-jar policy) lives under
  * the Settings tab now — this tab focuses purely on how the

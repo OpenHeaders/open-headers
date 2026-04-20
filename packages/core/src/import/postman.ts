@@ -844,15 +844,15 @@ function buildBody(
         if (p.disabled) continue;
         const name = typeof p.key === 'string' ? p.key : '';
         if (p.type === 'file') {
+          // `src` can be a single string or an array (multi-file pick).
+          // Emit one placeholder FileRef per entry; empty `src` falls
+          // back to a single unnamed placeholder.
           const srcArr = Array.isArray(p.src) ? p.src : typeof p.src === 'string' ? [p.src] : [];
-          const filename =
-            srcArr.length > 0 ? basenameFromPath(srcArr[0] ?? '') : typeof p.value === 'string' ? p.value : name;
-          parts.push({
-            kind: 'file',
-            name,
-            fileRef: placeholderFileRef({ filename: filename || 'unnamed' }),
-          });
-          filePlaceholderCount += 1;
+          const fileRefs = srcArr.length > 0
+            ? srcArr.map((s) => placeholderFileRef({ filename: basenameFromPath(s ?? '') || 'unnamed' }))
+            : [placeholderFileRef({ filename: (typeof p.value === 'string' ? p.value : name) || 'unnamed' })];
+          parts.push({ kind: 'file', name, fileRefs });
+          filePlaceholderCount += fileRefs.length;
           continue;
         }
         parts.push({ kind: 'text', name, value: typeof p.value === 'string' ? p.value : '' });
@@ -889,7 +889,7 @@ function buildBody(
           {
             kind: 'file',
             name: 'file',
-            fileRef: placeholderFileRef({ filename: filename || 'binary-body' }),
+            fileRefs: [placeholderFileRef({ filename: filename || 'binary-body' })],
           },
         ],
       };

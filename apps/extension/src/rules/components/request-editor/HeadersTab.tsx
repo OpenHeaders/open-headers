@@ -20,7 +20,36 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
-import KeyValueTable, { type KeyValueRow, type SuggestionRow } from './KeyValueTable';
+import KeyValueTable, { type KeyValueRow, makeKvRow, type SuggestionRow } from './KeyValueTable';
+
+function headerRowsToText(rows: KeyValueRow[]): string {
+  return rows
+    .filter((r) => r.key.trim() || r.value.trim() || r.description?.trim())
+    .map((r) => {
+      const prefix = r.enabled ? '' : '//';
+      const note = r.description ? ` # ${r.description}` : '';
+      return `${prefix}${r.key}: ${r.value}${note}`;
+    })
+    .join('\n');
+}
+
+function headerTextToRows(text: string): KeyValueRow[] {
+  const out: KeyValueRow[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trimStart();
+    if (!line) continue;
+    const enabled = !line.startsWith('//');
+    const payload = enabled ? line : line.replace(/^\/\/\s*/, '');
+    const hashIdx = payload.indexOf(' # ');
+    const noteless = hashIdx >= 0 ? payload.slice(0, hashIdx) : payload;
+    const description = hashIdx >= 0 ? payload.slice(hashIdx + 3).trim() : '';
+    const colonIdx = noteless.indexOf(':');
+    const key = colonIdx >= 0 ? noteless.slice(0, colonIdx) : noteless;
+    const value = colonIdx >= 0 ? noteless.slice(colonIdx + 1).trim() : '';
+    out.push(makeKvRow({ key: key.trim(), value, description, enabled }));
+  }
+  return out;
+}
 
 const { Text } = Typography;
 
@@ -143,6 +172,11 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body }) => {
         keyPlaceholder="Header"
         valuePlaceholder="Value"
         suggestionRows={showAuto ? suggestions : []}
+        bulkEdit={{
+          serialize: headerRowsToText,
+          parse: headerTextToRows,
+          placeholder: 'Content-Type: application/json\nAuthorization: Bearer {{token}} # auth\n//X-Disabled: value',
+        }}
       />
     </div>
   );

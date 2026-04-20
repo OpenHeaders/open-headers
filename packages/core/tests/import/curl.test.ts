@@ -255,13 +255,15 @@ describe('parseCurl — drops (logged, not silent)', () => {
       {
         kind: 'file',
         name: 'upload',
-        fileRef: {
-          hash: expect.stringMatching(/^placeholder:/),
-          filename: 'file.png',
-          size: 0,
-          mimeType: undefined,
-        },
-        filenameOverride: undefined,
+        fileRefs: [
+          {
+            fileId: expect.stringMatching(/^placeholder:/),
+            hash: expect.stringMatching(/^placeholder:/),
+            filename: 'file.png',
+            size: 0,
+            mimeType: undefined,
+          },
+        ],
       },
       { kind: 'text', name: 'caption', value: 'hello world' },
     ]);

@@ -2,13 +2,21 @@
  * ScriptEditor — Monaco-backed editor for `oh.*` pre-request +
  * post-response scripts (ARCHITECTURE §19). Monaco's TypeScript
  * language service gives completions, hovers, and deprecation tags
- * for the `oh.*` surface via the ambient `oh.d.ts` declaration fed
- * through the shared bootstrap.
+ * for the `oh.*` surface via the ambient `oh.d.ts` declaration below.
  *
  * Bootstrap: Monaco ships locally via `monaco-editor` in package.json;
  * the shared `./monaco/bootstrap.ts` wires the React wrapper to the
  * bundled copy (no network fetches) and registers Vite-emitted local
  * Worker URLs for each language service.
+ *
+ * The ambient `oh.d.ts` lib is registered here — not in the shared
+ * bootstrap — so it runs off the LIVE `monaco` namespace exposed by
+ * `useMonaco()`. Registering through the namespace (instead of the
+ * bare `monaco.contribution` module export) guarantees the JS language
+ * service is fully initialized before `addExtraLib` is called, and the
+ * well-known `file:///oh.d.ts` URI is what VS Code / Monaco expect for
+ * ambient declarations (the earlier `ts:oh.d.ts` scheme silently
+ * deregistered on some Monaco internals).
  */
 
 import { useTheme } from '@context/ThemeContext';
@@ -19,6 +27,10 @@ import type React from 'react';
 import { useRef } from 'react';
 import { useSettingValue } from '../../settings/hooks';
 // Side-effect import: kicks Monaco's bootstrap at module load.
+// The bootstrap also registers the `oh.*` ambient type declaration on
+// the JS language service, so every Monaco JS editor — this one AND
+// `CodeEditor` when `language === 'javascript'` — gets `oh.*`
+// completions for free.
 import '../monaco/bootstrap';
 
 // ── Component ─────────────────────────────────────────────────────
@@ -70,7 +82,13 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
     automaticLayout: true,
     readOnly,
     scrollBeyondLastLine: false,
-    padding: { top: 8, bottom: 8 },
+    // Flush-to-top layout so line 1 sits against the editor border.
+    padding: { top: 0, bottom: 8 },
+    // Paint only the line body (not the gutter number) so the grey
+    // band begins after the row-number column, matching the reference
+    // editors. The band color itself comes from `oh-light`/`oh-dark`.
+    renderLineHighlight: 'line',
+    renderLineHighlightOnlyWhenFocus: true,
   };
 
   const showPlaceholder = !readOnly && placeholder && !value;
@@ -89,7 +107,7 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
       <Editor
         height={minHeight}
         defaultLanguage="javascript"
-        theme={isDarkMode ? 'vs-dark' : 'vs'}
+        theme={isDarkMode ? 'oh-dark' : 'oh-light'}
         value={value}
         onMount={(ed) => {
           editorRef.current = ed;
@@ -101,8 +119,13 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
         <div
           style={{
             position: 'absolute',
-            top: 8,
+            top: 0,
             left: 62,
+            lineHeight: '19px',
+            maxWidth: 'calc(100% - 72px)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             fontFamily,
             fontSize,
             color: token.colorTextTertiary,

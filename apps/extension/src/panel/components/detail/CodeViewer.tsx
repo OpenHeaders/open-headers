@@ -92,7 +92,7 @@ export default function CodeViewer({
         height="100%"
         defaultLanguage={language}
         language={language}
-        theme={isDarkMode ? 'vs-dark' : 'vs'}
+        theme={isDarkMode ? 'oh-dark' : 'oh-light'}
         value={value}
         onMount={(ed, m) => {
           editorRef.current = ed;

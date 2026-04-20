@@ -967,8 +967,8 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'getFile') {
-      const hash = message.hash as string;
-      getFileBlob(hash)
+      const fileId = message.fileId as string;
+      getFileBlob(fileId)
         .then(async (blob) => {
           if (!blob) {
             safeResponse({ found: false });
@@ -980,8 +980,8 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ found: false, error: err.message } as unknown as { found: false }));
       return true;
     } else if (message.type === 'deleteFile') {
-      const hash = message.hash as string;
-      deleteFile(hash)
+      const fileId = message.fileId as string;
+      deleteFile(fileId)
         .then((removed) => safeResponse({ success: true, removed }))
         .catch((err: Error) => safeResponse({ success: false, removed: false, error: err.message }));
       return true;

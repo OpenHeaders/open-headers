@@ -32,6 +32,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.7.0",
     "@openheaders/core": "workspace:*",
+    "@prettier/plugin-xml": "^3.4.2",
     "allotment": "^1.20.5",
     "antd": "^6.3.5",
     "monaco-editor": "^0.55.1",

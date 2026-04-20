@@ -21,17 +21,19 @@ import { useCallback, useEffect, useState } from 'react';
 export interface UseFilesApi {
   files: FileRef[];
   isReady: boolean;
-  /** Upload a Blob/File to the active workspace. Returns the dedup-aware FileRef. */
+  /** Upload a Blob/File to the active workspace. Every call produces a
+   *  fresh `FileRef` with its own `fileId`; two uploads of the same
+   *  bytes are two independent entries. */
   uploadFile: (file: File | Blob, filename: string, mimeType?: string) => Promise<FileRef | null>;
-  /** Delete a blob by sha256 hash. Returns `true` when an entry was removed. */
-  deleteFile: (hash: string) => Promise<boolean>;
+  /** Delete a file by `fileId`. Returns `true` when an entry was removed. */
+  deleteFile: (fileId: string) => Promise<boolean>;
   /**
-   * Pull the raw bytes for a blob. Returns `null` when the hash is not
-   * stored in the active workspace. Callers typically use this for
-   * downloads or previews; the executor reads via `getFileBlob` directly
-   * inside the SW.
+   * Pull the raw bytes for a file by `fileId`. Returns `null` when the
+   * fileId isn't stored in the active workspace. Callers typically use
+   * this for downloads or previews; the executor reads via
+   * `getFileBlob` directly inside the SW.
    */
-  readFile: (hash: string) => Promise<{ blob: Blob; mimeType: string } | null>;
+  readFile: (fileId: string) => Promise<{ blob: Blob; mimeType: string } | null>;
 }
 
 export function useFiles(): UseFilesApi {
@@ -72,13 +74,13 @@ export function useFiles(): UseFilesApi {
     return resp?.success ? (resp.fileRef ?? null) : null;
   }, []);
 
-  const deleteFile = useCallback<UseFilesApi['deleteFile']>(async (hash) => {
-    const resp = await call('deleteFile', { hash }).catch(() => null);
+  const deleteFile = useCallback<UseFilesApi['deleteFile']>(async (fileId) => {
+    const resp = await call('deleteFile', { fileId }).catch(() => null);
     return Boolean(resp?.removed);
   }, []);
 
-  const readFile = useCallback<UseFilesApi['readFile']>(async (hash) => {
-    const resp = await call('getFile', { hash }).catch(() => null);
+  const readFile = useCallback<UseFilesApi['readFile']>(async (fileId) => {
+    const resp = await call('getFile', { fileId }).catch(() => null);
     if (!resp?.found || typeof resp.bytesBase64 !== 'string') return null;
     const buf = base64ToArrayBuffer(resp.bytesBase64);
     const mimeType = resp.mimeType ?? 'application/octet-stream';

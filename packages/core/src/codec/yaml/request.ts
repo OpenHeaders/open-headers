@@ -145,8 +145,14 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
   // of content. The file bytes themselves live in the platform BlobStore
   // and are looked up at execute time (see ARCHITECTURE.md §6).
   const manifestBody: RequestBody = { type: write.value.body.type };
+  if (write.value.body.rawFormat !== undefined) {
+    manifestBody.rawFormat = write.value.body.rawFormat;
+  }
   if (write.value.body.type === 'multipart' && write.value.body.multipartParts) {
     manifestBody.multipartParts = write.value.body.multipartParts;
+  }
+  if (write.value.body.type === 'form' && write.value.body.formParts) {
+    manifestBody.formParts = write.value.body.formParts;
   }
   const manifestView = {
     ...write.value,

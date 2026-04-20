@@ -39,14 +39,11 @@ vi.mock('@/background/modules/rule-store', () => ({
 
 vi.mock('@/background/modules/files-store', () => ({
   listFiles: vi.fn(async () => []),
-  getFileBlob: vi.fn(async (hash: string) => {
-    if (hash === 'sha256:' + 'a'.repeat(64)) {
-      return new Blob(['apple-bytes'], { type: 'text/plain' });
-    }
-    if (hash === 'sha256:' + 'b'.repeat(64)) {
-      return new Blob(['pdf-bytes'], { type: 'application/pdf' });
-    }
-    return null; // unknown hash
+  getFileBlob: vi.fn(async (fileId: string) => {
+    if (fileId === 'file:apple') return new Blob(['apple-bytes'], { type: 'text/plain' });
+    if (fileId === 'file:banana') return new Blob(['banana-bytes'], { type: 'text/plain' });
+    if (fileId === 'file:pdf') return new Blob(['pdf-bytes'], { type: 'application/pdf' });
+    return null;
   }),
 }));
 
@@ -97,13 +94,20 @@ describe('executor — multipart bodies', () => {
   });
 
   it('attaches file parts with resolved bytes + filename', async () => {
-    const hash = 'sha256:' + 'a'.repeat(64);
     await executeRequestDraft(
       makeMultipartRequest([
         {
           kind: 'file',
           name: 'attachment',
-          fileRef: { hash, filename: 'apple.txt', size: 11, mimeType: 'text/plain' },
+          fileRefs: [
+            {
+              fileId: 'file:apple',
+              hash: 'sha256:' + 'a'.repeat(64),
+              filename: 'apple.txt',
+              size: 11,
+              mimeType: 'text/plain',
+            },
+          ],
         },
       ]),
     );
@@ -115,6 +119,76 @@ describe('executor — multipart bodies', () => {
     expect((part as File).type).toBe('text/plain');
     const text = await (part as File).text();
     expect(text).toBe('apple-bytes');
+  });
+
+  it('emits one FormData entry per FileRef on a multi-file row', async () => {
+    await executeRequestDraft(
+      makeMultipartRequest([
+        {
+          kind: 'file',
+          name: 'attachments',
+          fileRefs: [
+            {
+              fileId: 'file:apple',
+              hash: 'sha256:' + 'a'.repeat(64),
+              filename: 'apple.txt',
+              size: 11,
+              mimeType: 'text/plain',
+            },
+            {
+              fileId: 'file:banana',
+              hash: 'sha256:' + 'b'.repeat(64),
+              filename: 'banana.txt',
+              size: 12,
+              mimeType: 'text/plain',
+            },
+          ],
+        },
+      ]),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    const form = await readFormData(init);
+    const entries = form.getAll('attachments');
+    expect(entries).toHaveLength(2);
+    expect((entries[0] as File).name).toBe('apple.txt');
+    expect((entries[1] as File).name).toBe('banana.txt');
+  });
+
+  it('treats two file refs with identical hashes but different fileIds as independent', async () => {
+    // Two uploads of the same bytes under different filenames produce
+    // two distinct file entries. The executor must emit them both —
+    // deduping at the row level would leak the old content-addressed
+    // model back into the wire.
+    await executeRequestDraft(
+      makeMultipartRequest([
+        {
+          kind: 'file',
+          name: 'logs',
+          fileRefs: [
+            {
+              fileId: 'file:apple',
+              hash: 'sha256:' + 'a'.repeat(64),
+              filename: 'console.log',
+              size: 11,
+              mimeType: 'text/plain',
+            },
+            {
+              fileId: 'file:banana',
+              hash: 'sha256:' + 'a'.repeat(64),
+              filename: 'console_backup.log',
+              size: 11,
+              mimeType: 'text/plain',
+            },
+          ],
+        },
+      ]),
+    );
+    const [, init] = fetchMock.mock.calls[0];
+    const form = await readFormData(init);
+    const entries = form.getAll('logs');
+    expect(entries).toHaveLength(2);
+    expect((entries[0] as File).name).toBe('console.log');
+    expect((entries[1] as File).name).toBe('console_backup.log');
   });
 
   it('skips parts marked enabled: false', async () => {
@@ -131,14 +205,20 @@ describe('executor — multipart bodies', () => {
   });
 
   it('skips file parts whose blobs resolve to null', async () => {
-    const missing = 'sha256:' + 'c'.repeat(64);
     await executeRequestDraft(
       makeMultipartRequest([
         { kind: 'text', name: 'present', value: 'yes' },
         {
           kind: 'file',
           name: 'missing',
-          fileRef: { hash: missing, filename: 'gone.bin', size: 0 },
+          fileRefs: [
+            {
+              fileId: 'file:gone',
+              hash: 'sha256:' + 'c'.repeat(64),
+              filename: 'gone.bin',
+              size: 0,
+            },
+          ],
         },
       ]),
     );
@@ -146,23 +226,6 @@ describe('executor — multipart bodies', () => {
     const form = await readFormData(init);
     expect(form.get('present')).toBe('yes');
     expect(form.get('missing')).toBeNull();
-  });
-
-  it('honors filenameOverride on file parts', async () => {
-    const hash = 'sha256:' + 'a'.repeat(64);
-    await executeRequestDraft(
-      makeMultipartRequest([
-        {
-          kind: 'file',
-          name: 'attachment',
-          fileRef: { hash, filename: 'apple.txt', size: 11 },
-          filenameOverride: 'served-as.txt',
-        },
-      ]),
-    );
-    const [, init] = fetchMock.mock.calls[0];
-    const form = await readFormData(init);
-    expect((form.get('attachment') as File).name).toBe('served-as.txt');
   });
 
   it('strips a manually-set Content-Type: multipart/form-data header', async () => {
@@ -224,17 +287,24 @@ describe('executor — multipart bodies', () => {
   });
 
   it('skips placeholder-hash file parts (no blob resolves)', async () => {
-    // Importer-emitted placeholders land with `placeholder:` hashes.
-    // BlobStore.getFileBlob returns null for anything not sha256, so
-    // the part silently drops out of the FormData until the user
-    // reconciles it via the multipart body editor.
+    // Importer-emitted placeholders land with `placeholder:` fileIds.
+    // BlobStore.getFileBlob returns null for anything that's not a
+    // real stored fileId, so the part silently drops out of the
+    // FormData until the user reconciles it via the multipart editor.
     await executeRequestDraft(
       makeMultipartRequest([
         { kind: 'text', name: 'ok', value: '1' },
         {
           kind: 'file',
           name: 'pending',
-          fileRef: { hash: 'placeholder:invoice.pdf', filename: 'invoice.pdf', size: 0 },
+          fileRefs: [
+            {
+              fileId: 'placeholder:invoice.pdf',
+              hash: 'placeholder:invoice.pdf',
+              filename: 'invoice.pdf',
+              size: 0,
+            },
+          ],
         },
       ]),
     );
@@ -273,27 +343,33 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
     expect(form.get('admin-field')).toBe('static');
   });
 
-  it('resolves {{VAR}} in file-part filenameOverride', async () => {
+  it('resolves {{VAR}} in multi-file row name via template', async () => {
     const { getWorkspaceVariables } = await import('@/background/modules/environment-store');
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'STEM', value: 'renamed', type: 'default' }],
+      variables: [{ name: 'FIELD', value: 'upload', type: 'default' }],
     } as V5.WorkspaceVariables);
 
-    const hash = 'sha256:' + 'a'.repeat(64);
     await executeRequestDraft(
       makeMultipartRequest([
         {
           kind: 'file',
-          name: 'attachment',
-          fileRef: { hash, filename: 'apple.txt', size: 11 },
-          filenameOverride: '{{STEM}}.txt',
+          name: '{{FIELD}}',
+          fileRefs: [
+            {
+              fileId: 'file:apple',
+              hash: 'sha256:' + 'a'.repeat(64),
+              filename: 'apple.txt',
+              size: 11,
+            },
+          ],
         },
       ]),
     );
     const [, init] = fetchMock.mock.calls[0];
     const form = await readFormData(init);
-    expect((form.get('attachment') as File).name).toBe('renamed.txt');
+    expect(form.get('upload')).toBeInstanceOf(File);
+    expect((form.get('upload') as File).name).toBe('apple.txt');
   });
 });

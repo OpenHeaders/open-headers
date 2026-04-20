@@ -1,35 +1,39 @@
 /**
  * File blob reference model for V5 (ARCHITECTURE.md §6).
  *
- * A `FileRef` is a content-addressed pointer to a user-uploaded blob.
- * The BYTES live in the extension's IndexedDB (or the desktop's OPFS
- * in v2+). The reference carries only the metadata needed to
- * recognize and attach the blob at request-execution time:
+ * A `FileRef` is a pointer to a user-uploaded blob. The BYTES live in
+ * the extension's IndexedDB (or the desktop's OPFS in v2+). The
+ * reference carries:
  *
- *   • `hash`     — `sha256:<64-hex>`, the identity.
- *   • `filename` — user-facing label, mirrored into the `Content-
- *     Disposition` of multipart parts unless overridden per-part.
+ *   • `fileId`   — stable per-file identity. Independent of content:
+ *     uploading identical bytes under two different filenames produces
+ *     TWO distinct `fileId`s. This is what the blob store keys by.
+ *   • `hash`     — `sha256:<64-hex>` content digest. Multiple FileRefs
+ *     MAY share a hash when users upload the same content under
+ *     different names; that's intended. Used by `{{file.X}}` template
+ *     resolution when users reference files by content.
+ *   • `filename` — user-facing label, mirrored into `Content-Disposition`
+ *     on multipart parts.
  *   • `mimeType` — optional, defaults to `application/octet-stream`
  *     when the executor attaches the blob.
  *   • `size`     — byte count; kept on the reference so UIs can
  *     render totals without reading every blob.
  *
- * The hash IS the identity: two uploads of the same bytes dedupe to
- * one blob. Renaming a file is free (filename only); re-uploading
- * the same content under a different name produces a duplicate
- * registry entry but a single blob.
+ * Identity split rationale: users think of files by their filename +
+ * upload event, not by the hash of their content. A user who uploads
+ * `console.log` and `console_backup.log` (same bytes) expects to see
+ * two files. The fileId carries file identity; the hash carries
+ * content identity. Same bytes still dedupe at the IDB layer when we
+ * want (e.g., shared blob pool with reference counting); for now each
+ * fileId gets its own row.
  *
  * # {{file.X}} resolution
  *
- * The `file` namespace (see `variables/namespaces.ts`) resolves to
- * the STRING `sha256:<hex>` — NOT the bytes. Callers that need the
- * bytes resolve the hash through the platform BlobStore.
- *
- * Rationale: keeping the template-resolution tier string-only
- * preserves the resolver's purity (no async, no I/O) and keeps the
- * same template machinery usable in DNR rule values + log lines +
- * wherever else `{{VAR}}` is interpolated. Binary attachment is a
- * separate concern, handled by the request executor at send time.
+ * The `file` namespace (see `variables/namespaces.ts`) resolves to a
+ * hash STRING — NOT the bytes. Callers that need the bytes resolve
+ * the fileId through the platform BlobStore. Lookup accepts either
+ * a filename (`{{file.invoice.pdf}}`) or an explicit hash
+ * (`{{file.sha256:abc…}}`) or a fileId (`{{file.file:<uuid>}}`).
  *
  * This file intentionally lives in `@openheaders/core` because both
  * the extension and the desktop need the FileRef shape + registry
@@ -41,25 +45,10 @@ import type { FileRef } from '../types/v5/request';
 
 export type { FileRef };
 
-/**
- * Placeholder hash prefix used by importers that recognized a file
- * reference (curl `-F ...@path`, HAR multipart, Postman formdata file
- * parts, Postman `file` body) without being able to carry the bytes
- * across. The hash field is required by the FileRef contract so
- * importers can't just emit `null`; a sentinel lets the UI surface a
- * "Upload required" badge and offer an inline replacement without
- * introducing a second not-yet-a-FileRef shape.
- *
- * The executor silently skips parts whose fileRef.hash does not
- * resolve in the BlobStore — placeholders never will, so they drop
- * out of the outgoing FormData until the user uploads the real file.
- *
- * Format: `placeholder:<opaque-label>` where `<opaque-label>` is the
- * importer's best guess at the original filename (URL-encoded to
- * tolerate any byte sequence). Not used as a lookup key — pure UI
- * signal.
- */
+/** Prefix for placeholder hashes + fileIds emitted by importers. */
 export const PLACEHOLDER_HASH_PREFIX = 'placeholder:';
+export const PLACEHOLDER_FILE_ID_PREFIX = 'placeholder:';
+export const REAL_FILE_ID_PREFIX = 'file:';
 
 /** `true` when a FileRef is an importer-emitted placeholder awaiting a real upload. */
 export function isPlaceholderFileRef(ref: FileRef): boolean {
@@ -69,11 +58,13 @@ export function isPlaceholderFileRef(ref: FileRef): boolean {
 /**
  * Build a placeholder FileRef from an importer. `filename` is the
  * label the importer recovered; `mimeType` / `size` are best-effort.
- * `size: 0` is correct — no bytes are known yet.
+ * Each call emits a fresh `fileId` so two placeholders with the same
+ * filename are still two distinct entries.
  */
 export function placeholderFileRef(input: { filename: string; mimeType?: string; size?: number }): FileRef {
   const label = encodeURIComponent(input.filename || 'missing');
   return {
+    fileId: `${PLACEHOLDER_FILE_ID_PREFIX}${generateFileIdSuffix()}`,
     hash: `${PLACEHOLDER_HASH_PREFIX}${label}`,
     filename: input.filename || 'missing',
     mimeType: input.mimeType,
@@ -82,45 +73,54 @@ export function placeholderFileRef(input: { filename: string; mimeType?: string;
 }
 
 /**
- * In-memory snapshot of the workspace's file registry — passed to
- * the VariableResolver so `{{file.X}}` can resolve synchronously.
- * Two indices for two lookup styles:
+ * Generate a fresh `fileId` for a real upload. Format: `file:<uuid>`
+ * — the prefix distinguishes real files from placeholders and leaves
+ * room for future id shapes.
+ */
+export function newFileId(): string {
+  return `${REAL_FILE_ID_PREFIX}${generateFileIdSuffix()}`;
+}
+
+/**
+ * In-memory snapshot of the workspace's file registry — passed to the
+ * VariableResolver so `{{file.X}}` can resolve synchronously. Three
+ * indices for three lookup styles:
  *
- *   • `byLabel` — `{{file.invoice.pdf}}` resolves by filename. If
- *     multiple FileRefs share the same filename, the first insertion
- *     wins (registrations are stable across resolver snapshots —
- *     user-observable collisions surface as import-report entries).
- *   • `byHash`  — `{{file.sha256:abc…}}` resolves by explicit hash.
- *     Rare in hand-written requests; common in YAML emitted by the
- *     codec where the hash is the canonical form.
+ *   • `byFileId` — `{{file.file:<uuid>}}` resolves by exact file identity.
+ *   • `byLabel`  — `{{file.invoice.pdf}}` resolves by filename. If
+ *     multiple FileRefs share the same filename, first-insertion
+ *     wins.
+ *   • `byHash`   — `{{file.sha256:abc…}}` resolves by content digest.
+ *     If multiple FileRefs share a hash, first-insertion wins.
  */
 export interface FileRegistry {
+  byFileId: ReadonlyMap<string, FileRef>;
   byLabel: ReadonlyMap<string, FileRef>;
   byHash: ReadonlyMap<string, FileRef>;
 }
 
-/**
- * Build a FileRegistry from a flat list of FileRefs. Duplicate-label
- * entries are resolved by first-insertion-wins (per the registry
- * contract above). Duplicate hashes should never occur — the hash IS
- * the identity; surfaced as a last-wins collapse if they do.
- */
+/** Build a FileRegistry from a flat list of FileRefs. */
 export function buildFileRegistry(refs: readonly FileRef[]): FileRegistry {
+  const byFileId = new Map<string, FileRef>();
   const byLabel = new Map<string, FileRef>();
   const byHash = new Map<string, FileRef>();
   for (const ref of refs) {
+    byFileId.set(ref.fileId, ref);
     if (!byLabel.has(ref.filename)) byLabel.set(ref.filename, ref);
-    byHash.set(ref.hash, ref);
+    if (!byHash.has(ref.hash)) byHash.set(ref.hash, ref);
   }
-  return { byLabel, byHash };
+  return { byFileId, byLabel, byHash };
 }
 
 /**
- * Look up a file by the name used in `{{file.X}}`. Accepts either a
- * filename (`invoice.pdf`) or an explicit hash (`sha256:abc…`).
+ * Look up a file by the name used in `{{file.X}}`. Accepts a
+ * filename, an explicit hash (`sha256:…`), or a fileId (`file:…`).
  * Returns `null` when the registry has no matching entry.
  */
 export function resolveFileRef(registry: FileRegistry, name: string): FileRef | null {
+  if (name.startsWith(REAL_FILE_ID_PREFIX) || name.startsWith(PLACEHOLDER_FILE_ID_PREFIX)) {
+    return registry.byFileId.get(name) ?? null;
+  }
   if (name.startsWith('sha256:')) {
     return registry.byHash.get(name) ?? null;
   }
@@ -129,6 +129,19 @@ export function resolveFileRef(registry: FileRegistry, name: string): FileRef | 
 
 /** Empty registry — convenient default when no files are uploaded yet. */
 export const EMPTY_FILE_REGISTRY: FileRegistry = {
+  byFileId: new Map(),
   byLabel: new Map(),
   byHash: new Map(),
 };
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+function generateFileIdSuffix(): string {
+  // `crypto.randomUUID` exists in every target runtime (service worker,
+  // renderer, desktop main + renderer). Falls back to a timestamp +
+  // random combo only if the runtime is a test harness without the
+  // global; kept defensive, not likely to fire.
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}

@@ -75,7 +75,7 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 /** Compact method tag used as the leaf "icon" in the API Requests
- *  tree — displays like GET / POST / PUT in Postman's sidebar. */
+ *  tree — colored GET / POST / PUT label next to each request. */
 function methodTag(method: string): React.ReactNode {
   const color = METHOD_COLORS[method] ?? '#999';
   return createElement(

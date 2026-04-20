@@ -302,12 +302,15 @@ describe('parseHar — body', () => {
       {
         kind: 'file',
         name: 'image',
-        fileRef: {
-          hash: expect.stringMatching(/^placeholder:/),
-          filename: 'kitten.png',
-          mimeType: 'image/png',
-          size: 0,
-        },
+        fileRefs: [
+          {
+            fileId: expect.stringMatching(/^placeholder:/),
+            hash: expect.stringMatching(/^placeholder:/),
+            filename: 'kitten.png',
+            mimeType: 'image/png',
+            size: 0,
+          },
+        ],
       },
     ]);
     expect(

@@ -1,8 +1,7 @@
 /**
  * ReimportDiffPanel — renders a `diffImportReports(prev, next)`
  * result as an Ant `Alert` with per-partition detail lists. Used by
- * every importer modal (curl, HAR, Postman, future) so the diff UX
- * stays uniform.
+ * every importer modal so the diff UX stays uniform.
  *
  * Surfaces:
  *   • Progress — "X drops resolved since last import."

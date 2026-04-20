@@ -425,7 +425,7 @@ function buildBody(
         parts.push({
           kind: 'file',
           name,
-          fileRef: placeholderFileRef({ filename: p.fileName, mimeType: p.contentType }),
+          fileRefs: [placeholderFileRef({ filename: p.fileName, mimeType: p.contentType })],
         });
         filePlaceholderCount += 1;
         continue;

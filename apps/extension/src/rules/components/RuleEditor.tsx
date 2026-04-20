@@ -28,7 +28,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
-import { formatCode } from '../languages/formatter';
+import { formatString } from '../languages/prettier';
 import type { LanguageId } from '../languages/registry';
 import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYPE } from '../rule-templates';
 import { useSettingValue } from '../settings/hooks';
@@ -598,11 +598,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       for (const { field, language } of targets) {
         const current = pre[field];
         if (typeof current !== 'string' || current.length === 0) continue;
-        const result = await formatCode(current, language);
-        if (result.ok) {
-          if (result.code !== current) form.setFieldValue(field, result.code);
-        } else {
-          message.warning(`Format on save skipped: ${result.error.message}`);
+        try {
+          const formatted = await formatString(current, language);
+          if (formatted !== current) form.setFieldValue(field, formatted);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : 'Unknown error';
+          message.warning(`Format on save skipped: ${reason}`);
         }
       }
     }

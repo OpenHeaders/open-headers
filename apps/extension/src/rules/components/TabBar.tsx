@@ -87,8 +87,8 @@ export function tabIcon(
     );
   }
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
-    // Request tabs carry the HTTP method as their "icon" — same visual
-    // shorthand Postman uses in the tab strip.
+    // Request tabs carry the HTTP method as their "icon" — compact
+    // color-coded marker readable at tab-strip density.
     const method = tab.ruleType || 'GET';
     const color = REQUEST_METHOD_COLORS[method] ?? '#999';
     return (

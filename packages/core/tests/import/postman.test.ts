@@ -681,12 +681,15 @@ describe('request mapping — body', () => {
       {
         kind: 'file',
         name: 'avatar',
-        fileRef: {
-          hash: expect.stringMatching(/^placeholder:/),
-          filename: 'pic.png',
-          mimeType: undefined,
-          size: 0,
-        },
+        fileRefs: [
+          {
+            fileId: expect.stringMatching(/^placeholder:/),
+            hash: expect.stringMatching(/^placeholder:/),
+            filename: 'pic.png',
+            mimeType: undefined,
+            size: 0,
+          },
+        ],
       },
     ]);
     expect(
@@ -717,12 +720,15 @@ describe('request mapping — body', () => {
       {
         kind: 'file',
         name: 'file',
-        fileRef: {
-          hash: expect.stringMatching(/^placeholder:/),
-          filename: 'x.bin',
-          mimeType: undefined,
-          size: 0,
-        },
+        fileRefs: [
+          {
+            fileId: expect.stringMatching(/^placeholder:/),
+            hash: expect.stringMatching(/^placeholder:/),
+            filename: 'x.bin',
+            mimeType: undefined,
+            size: 0,
+          },
+        ],
       },
     ]);
     expect(

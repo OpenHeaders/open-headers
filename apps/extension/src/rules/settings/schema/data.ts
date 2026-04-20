@@ -343,7 +343,7 @@ registerSetting({
       const resp = await call('listFiles').catch(() => null);
       const files = resp?.files ?? [];
       for (const f of files) {
-        await call('deleteFile', { hash: f.hash }).catch(() => null);
+        await call('deleteFile', { fileId: f.fileId }).catch(() => null);
       }
     },
   },

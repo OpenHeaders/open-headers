@@ -18,11 +18,6 @@ import ScriptEditor from '../script-editor/ScriptEditor';
 
 const { Text } = Typography;
 
-const SCRIPT_PLACEHOLDER: Record<ScriptKind, string> = {
-  'pre-request': 'Use JavaScript to mutate the outgoing request via oh.setHeader / oh.setUrl / oh.setBody.',
-  'post-response': 'Use JavaScript to write tests, visualize response, and more.',
-};
-
 interface ScriptsTabProps {
   preRequestScript: string;
   postResponseScript: string;
@@ -107,7 +102,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             : 'Runs in a sandboxed iframe after the response arrives. Register assertions with oh.test(name, fn).'}
         </Text>
         <div style={{ flex: 1, minHeight: 280 }}>
-          <ScriptEditor kind={active} value={value} onChange={onChange} placeholder={SCRIPT_PLACEHOLDER[active]} />
+          <ScriptEditor kind={active} value={value} onChange={onChange} />
         </div>
       </div>
     </div>

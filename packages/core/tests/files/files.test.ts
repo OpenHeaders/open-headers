@@ -17,7 +17,9 @@ import {
 } from '../../src/files';
 import { FileRefSchema } from '../../src/schemas/request';
 
+let FIXTURE_ID_COUNTER = 0;
 const fixtureRef = (overrides: Partial<FileRef> = {}): FileRef => ({
+  fileId: `file:fixture-${++FIXTURE_ID_COUNTER}`,
   hash: 'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
   filename: 'fixture.json',
   mimeType: 'application/json',
@@ -117,6 +119,7 @@ describe('placeholderFileRef — importer reconciliation', () => {
   it('isPlaceholderFileRef distinguishes placeholders from real sha256 refs', () => {
     const placeholder = placeholderFileRef({ filename: 'a.bin' });
     const real: FileRef = {
+      fileId: 'file:real-a',
       hash: 'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
       filename: 'a.bin',
       size: 4,
@@ -139,6 +142,7 @@ describe('FileRefSchema — placeholder + real ref discipline', () => {
   it('accepts real sha256 hashes', () => {
     expect(() =>
       v.parse(FileRefSchema, {
+        fileId: 'file:abc-123',
         hash: 'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
         filename: 'x.png',
         size: 10,
@@ -149,6 +153,7 @@ describe('FileRefSchema — placeholder + real ref discipline', () => {
   it('accepts placeholder hashes emitted by importers', () => {
     expect(() =>
       v.parse(FileRefSchema, {
+        fileId: 'placeholder:some-label',
         hash: 'placeholder:some-label',
         filename: 'some-label',
         size: 0,
@@ -158,12 +163,22 @@ describe('FileRefSchema — placeholder + real ref discipline', () => {
 
   it('rejects malformed hashes (wrong prefix, wrong length)', () => {
     const bad = [
-      { hash: 'md5:abc', filename: 'x', size: 0 },
-      { hash: 'sha256:short', filename: 'x', size: 0 },
-      { hash: '', filename: 'x', size: 0 },
+      { fileId: 'file:a', hash: 'md5:abc', filename: 'x', size: 0 },
+      { fileId: 'file:a', hash: 'sha256:short', filename: 'x', size: 0 },
+      { fileId: 'file:a', hash: '', filename: 'x', size: 0 },
     ];
     for (const b of bad) {
       expect(() => v.parse(FileRefSchema, b)).toThrow();
     }
+  });
+
+  it('rejects missing fileId', () => {
+    expect(() =>
+      v.parse(FileRefSchema, {
+        hash: 'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+        filename: 'x.png',
+        size: 10,
+      }),
+    ).toThrow();
   });
 });

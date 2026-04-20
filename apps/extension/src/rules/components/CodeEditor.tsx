@@ -2,11 +2,13 @@
  * CodeEditor — Monaco-backed editor host, driven by the `editor.*`
  * settings and the language registry.
  *
- * Monaco ships Linux-lite syntax highlighting + tokenization out of
- * the box for every language we care about (javascript / css / json /
- * html / xml / typescript). For formatting we wire Prettier in as a
- * `DocumentFormattingEditProvider` so `Shift-Alt-F` and the overlay
- * button both trigger the same pipeline.
+ * Formatting architecture: the Format button + Shift+Alt+F BOTH invoke
+ * Monaco's `editor.action.formatDocument` action. Monaco dispatches to
+ * whichever `DocumentFormattingEditProvider` owns the active model's
+ * language — JSON / CSS / HTML are handled by Monaco's built-in LSP
+ * workers (zero extra bundle), JS / XML are handled by the Prettier
+ * provider we register in `monaco/formatters.ts`. The UI never
+ * hard-codes "which formatter" — that decision is Monaco's.
  *
  * Host callers stay unchanged: `language` is still a string prop, same
  * `value` / `onChange` / `readOnly` / `placeholder` / `minHeight`.
@@ -21,13 +23,20 @@ import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
-import { formatCode } from '../languages/formatter';
 import { getLanguage, type LanguageId, toMonacoLanguage } from '../languages/registry';
 import { useSettingValue } from '../settings/hooks';
 // Side-effect import: kicks the Monaco bootstrap (loader.config + worker
-// wiring + TS language-service setup) at module-load time so it wins
-// the race against `<Editor>`'s own `loader.init`.
+// wiring + TS language-service setup + Prettier provider registration)
+// at module-load time so it wins the race against `<Editor>`'s own
+// `loader.init`.
 import './monaco/bootstrap';
+
+/** Monaco language ids that have a registered formatter — either
+ *  Monaco's built-in LSP (JSON / CSS / HTML) or our Prettier provider
+ *  (JS / XML). `plaintext` + graphql fallbacks stay off. The set is
+ *  source-of-truth constant: adding a language here requires adding a
+ *  provider somewhere Monaco can see. */
+const MONACO_FORMATTABLE_LANGUAGES = new Set(['javascript', 'json', 'css', 'html', 'xml']);
 
 interface CodeEditorProps {
   value?: string;
@@ -67,21 +76,36 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const bracketPairColorization = useSettingValue('editor.bracketPairColorization');
   const formatShortcutLabel = useShortcutLabel('format-code');
 
-  const formattable = getLanguage(language).formatter !== undefined;
+  // Ask Monaco whether a `DocumentFormattingEditProvider` is registered
+  // for the language — single source of truth for "is this buffer
+  // formattable?". JSON / CSS / HTML have Monaco's built-ins; JS / XML
+  // are registered by `registerPrettierFormatters`. Unregistered
+  // languages (text, graphql) return false → button stays hidden.
+  const formattable = MONACO_FORMATTABLE_LANGUAGES.has(toMonacoLanguage(language));
 
   const runFormat = useCallback(async () => {
-    if (readOnly || !formattable) return;
+    const editor = editorRef.current;
+    if (!editor || readOnly || !formattable) return;
     const current = valueRef.current;
-    const result = await formatCode(current, language);
-    if (!result.ok) {
-      setFormatError(result.error.message);
+    // Empty/whitespace buffer — there's nothing to format. Clear any
+    // prior error and no-op so a JSON.parse('') or Prettier invocation
+    // doesn't throw "Unexpected end of input" in the user's face.
+    if (current.trim().length === 0) {
+      setFormatError(null);
       return;
     }
-    setFormatError(null);
-    if (result.code !== current) {
-      onChange?.(result.code);
+    try {
+      const action = editor.getAction('editor.action.formatDocument');
+      if (!action) {
+        setFormatError(null);
+        return;
+      }
+      await action.run();
+      setFormatError(null);
+    } catch (err) {
+      setFormatError(err instanceof Error ? err.message : 'Format failed');
     }
-  }, [readOnly, formattable, language, onChange]);
+  }, [readOnly, formattable]);
 
   const runFormatRef = useRef(runFormat);
   runFormatRef.current = runFormat;
@@ -97,7 +121,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     automaticLayout: true,
     readOnly,
     scrollBeyondLastLine: false,
-    padding: { top: 8, bottom: 8 },
+    // Flush-to-top layout: line 1 butts up against the editor border
+    // (matches other API clients' editors). Bottom padding is fine —
+    // it's just breathing room at the scroll bottom.
+    padding: { top: 0, bottom: 8 },
+    // `'line'` paints only the line body (not the gutter number) —
+    // matches the reference editors where the grey band begins after
+    // the row number. The visible shade comes from our `oh-light` /
+    // `oh-dark` theme overriding `editor.lineHighlightBackground`.
+    renderLineHighlight: 'line',
+    // Hide the band when the editor doesn't have focus — the line
+    // highlight is a "you are editing here" cue, not a permanent
+    // row marker.
+    renderLineHighlightOnlyWhenFocus: true,
     bracketPairColorization: { enabled: bracketPairColorization },
     renderWhitespace: renderWhitespace === 'all' ? 'all' : renderWhitespace === 'boundary' ? 'boundary' : 'none',
     // Monaco's "fake" placeholder isn't native; we render our own overlay below.
@@ -127,22 +163,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         height={minHeight}
         defaultLanguage={toMonacoLanguage(language)}
         language={toMonacoLanguage(language)}
-        theme={isDarkMode ? 'vs-dark' : 'vs'}
+        theme={isDarkMode ? 'oh-dark' : 'oh-light'}
         value={value}
-        onMount={(ed, m) => {
+        onMount={(ed) => {
           editorRef.current = ed;
-          // Keybinding: Shift+Alt+F invokes the overlay format action
-          // so the shortcut matches Monaco's own convention AND the
-          // button both route through Prettier.
-          ed.addAction({
-            id: 'oh-format-code',
-            label: 'Format (Prettier)',
-            keybindings: [m.KeyMod.Shift | m.KeyMod.Alt | m.KeyCode.KeyF],
-            contextMenuGroupId: '1_modification',
-            run: () => {
-              void runFormatRef.current();
-            },
-          });
+          // Shift+Alt+F is Monaco's default keybinding for
+          // `editor.action.formatDocument`. Since both the Format
+          // button and the shortcut go through the same action, no
+          // custom keybinding registration is needed — Monaco dispatches
+          // to the language's formatter provider on its own.
         }}
         onChange={(next) => {
           if (formatError) setFormatError(null);
@@ -154,8 +183,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         <div
           style={{
             position: 'absolute',
-            top: 8,
+            top: 0,
             left: 52,
+            // Match Monaco's default line-height so the hint sits on the
+            // same vertical baseline as line 1's caret.
+            lineHeight: '19px',
+            maxWidth: 'calc(100% - 72px)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             color: token.colorTextTertiary,
             fontFamily,
             fontSize,

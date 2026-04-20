@@ -330,11 +330,11 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
 /**
  * Build the resolved body payload the executor will attach to the
  * fetch. String bodies get template resolution applied to their
- * content; multipart bodies have their TEXT-part names + values
- * (and any file-part filenameOverride) run through template
- * resolution so `{{env.API_USER}}` and friends work the same way
- * across body types. File-part bytes themselves are resolved later
- * by `buildMultipartForm` via the BlobStore.
+ * content; multipart bodies have their TEXT-part names + values run
+ * through template resolution so `{{env.API_USER}}` and friends work
+ * the same way across body types. File-part bytes themselves are
+ * resolved later by `buildMultipartForm` via the BlobStore; the
+ * `fileRefs` list passes through unchanged.
  */
 function buildResolvedBody(
   body: V5.RequestBody | undefined,
@@ -348,13 +348,10 @@ function buildResolvedBody(
       if (part.kind === 'text') {
         return { kind: 'text', name, value: resolveStr(part.value), enabled: part.enabled };
       }
-      const filenameOverride =
-        typeof part.filenameOverride === 'string' ? resolveStr(part.filenameOverride) : part.filenameOverride;
       return {
         kind: 'file',
         name,
-        fileRef: part.fileRef,
-        filenameOverride,
+        fileRefs: part.fileRefs,
         enabled: part.enabled,
       };
     });
@@ -500,9 +497,22 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
   // the user sees the actual error in the response panel rather than
   // wondering why their body was silently dropped.
   if (req.body.type === 'form') {
-    // Parse the urlencoded text into URLSearchParams so the browser
-    // sets Content-Type + length for us.
-    init.body = new URLSearchParams(req.body.content);
+    // Structured `formParts` is the source of truth when present —
+    // each enabled entry becomes a URLSearchParams field. Disabled
+    // rows stay on disk for later re-enable but are skipped on the
+    // wire. Legacy importers that only have the raw encoded string
+    // populate `content` instead; we fall back to parsing it.
+    const parts = req.body.formParts;
+    if (parts && parts.length > 0) {
+      const params = new URLSearchParams();
+      for (const p of parts) {
+        if (p.enabled === false) continue;
+        params.append(p.key, p.value);
+      }
+      init.body = params;
+    } else {
+      init.body = new URLSearchParams(req.body.content);
+    }
   } else if (req.body.type === 'multipart') {
     // Build FormData from the structured part list. For file parts
     // we resolve `fileRef.hash` to bytes via the BlobStore; dropped
@@ -621,15 +631,21 @@ async function buildMultipartForm(parts: readonly V5.MultipartPart[]): Promise<F
       form.append(part.name, part.value);
       continue;
     }
-    const blob = await getFileBlob(part.fileRef.hash);
-    if (!blob) continue;
-    const filename = part.filenameOverride ?? part.fileRef.filename;
-    const mimeType = part.fileRef.mimeType ?? blob.type ?? 'application/octet-stream';
-    // Retype the blob so the multipart boundary carries the right
-    // content-type (browsers default to application/octet-stream
-    // for generic blobs, which some servers treat as opaque).
-    const typed = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
-    form.append(part.name, typed, filename);
+    // File parts hold a list — emit one FormData append per FileRef so
+    // `<input type="file" multiple>` semantics round-trip correctly
+    // (HTTP multipart allows repeated field names by design). Missing
+    // blobs are skipped silently; the user sees the mismatch reflected
+    // in the response.
+    for (const ref of part.fileRefs) {
+      const blob = await getFileBlob(ref.fileId);
+      if (!blob) continue;
+      const mimeType = ref.mimeType ?? blob.type ?? 'application/octet-stream';
+      // Retype the blob so the multipart boundary carries the right
+      // content-type (browsers default to application/octet-stream
+      // for generic blobs, which some servers treat as opaque).
+      const typed = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+      form.append(part.name, typed, ref.filename);
+    }
   }
   return form;
 }

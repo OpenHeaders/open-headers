@@ -1,8 +1,8 @@
 /**
  * EnvironmentSelector — TopBar dropdown for switching the active
- * environment. Mirrors the Postman/Bruno model: a single active env,
- * plus "No environment" as a valid choice (variables still resolve
- * from workspace/collection/vault).
+ * environment. At most one environment is active at a time; "No
+ * environment" is a valid choice (variables still resolve from
+ * workspace / collection / vault).
  *
  * Business logic lives in `useEnvironments`; this component delegates
  * switch + navigation. Variables/Vault management opens a dedicated

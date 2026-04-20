@@ -24,6 +24,7 @@ import type {
   BodyTypeSchema,
   CredentialsModeSchema,
   FileRefSchema,
+  FormFieldSchema,
   HttpMethodSchema,
   MultipartPartSchema,
   OAuth2AuthSchema,
@@ -76,6 +77,9 @@ export type FileRef = v.InferOutput<typeof FileRefSchema>;
 
 /** One part of a multipart/form-data body. Discriminated union on `kind`. */
 export type MultipartPart = v.InferOutput<typeof MultipartPartSchema>;
+
+/** One key/value field of an `application/x-www-form-urlencoded` body. */
+export type FormField = v.InferOutput<typeof FormFieldSchema>;
 
 // ── Request (unified in-memory type) ───────────────────────────────
 

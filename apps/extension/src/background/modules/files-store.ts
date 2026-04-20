@@ -64,21 +64,31 @@ export async function listFiles(): Promise<FileRef[]> {
 }
 
 /**
- * Return the raw bytes for the given hash. Used by the request
+ * Return the raw bytes for the given `fileId`. Used by the request
  * executor when building a multipart body and by the UI to offer a
- * download. Returns null when the hash isn't stored for this workspace.
+ * download. Returns null when the fileId isn't stored in this workspace.
  */
-export async function getFileBlob(hash: string): Promise<Blob | null> {
+export async function getFileBlob(fileId: string): Promise<Blob | null> {
   const workspaceId = getActiveWorkspaceId();
-  return BlobStore.getBlob(workspaceId, hash);
+  return BlobStore.getBlob(workspaceId, fileId);
 }
 
-/** Delete a blob. Returns `true` iff an entry was removed. */
-export async function deleteFile(hash: string): Promise<boolean> {
+/**
+ * Return the raw bytes by content hash — first entry in the workspace
+ * with that hash wins. Used by `{{file.X}}` template resolution when
+ * users reference a file by content rather than identity.
+ */
+export async function getFileBlobByHash(hash: string): Promise<Blob | null> {
+  const workspaceId = getActiveWorkspaceId();
+  return BlobStore.getBlobByHash(workspaceId, hash);
+}
+
+/** Delete a file by `fileId`. Returns `true` iff an entry was removed. */
+export async function deleteFile(fileId: string): Promise<boolean> {
   const workspaceId = getActiveWorkspaceId();
   const removed = await withFilesLock(workspaceId, async () => {
-    const dropped = await BlobStore.deleteBlob(workspaceId, hash);
-    if (dropped) logger.info('FilesStore', `Deleted blob ${hash.slice(0, 14)}…`);
+    const dropped = await BlobStore.deleteBlob(workspaceId, fileId);
+    if (dropped) logger.info('FilesStore', `Deleted file ${fileId}`);
     return dropped;
   });
   if (removed) notifyChange();

@@ -807,9 +807,9 @@ export interface BridgeRpcContract {
   // ── Files (Phase 12 — ARCHITECTURE §6 content-addressed blobs) ────
   /**
    * List every file blob in the active workspace. Metadata only
-   * (FileRef = hash + filename + mimeType + size); bytes are fetched
-   * separately via `getFile` when the user previews or when the
-   * executor builds a multipart body.
+   * (FileRef = fileId + hash + filename + mimeType + size); bytes are
+   * fetched separately via `getFile` when the user previews or when
+   * the executor builds a multipart body.
    */
   listFiles: {
     req: Record<string, never>;
@@ -819,29 +819,30 @@ export interface BridgeRpcContract {
    * Upload a blob. `chrome.runtime.sendMessage` JSON-serializes its
    * payload (ArrayBuffer becomes `{}` on the wire), so we ship the
    * bytes as a base64 string and decode them on the SW side. The SW
-   * reconstitutes a Blob and writes to IDB. Dedups by content hash
-   * within the workspace.
+   * reconstitutes a Blob and writes to IDB. Every upload produces a
+   * fresh `fileId` — two uploads of the same bytes are two entries.
    */
   putFile: {
     req: { filename: string; mimeType?: string; bytesBase64: string };
     res: { success: boolean; fileRef?: FileRef; error?: string };
   };
   /**
-   * Return the raw bytes for a blob. Matches `putFile`'s base64
-   * transport — the SW encodes the blob bytes before responding,
+   * Return the raw bytes for a file by `fileId`. Matches `putFile`'s
+   * base64 transport — the SW encodes the blob bytes before responding,
    * the caller decodes to ArrayBuffer / Blob as needed. Returns
-   * `found: false` when the hash isn't stored in this workspace.
+   * `found: false` when the fileId isn't stored in this workspace.
    */
   getFile: {
-    req: { hash: string };
+    req: { fileId: string };
     res: { found: boolean; bytesBase64?: string; mimeType?: string };
   };
   /**
-   * Delete a blob. Callers should check upstream references (request
-   * multipart parts) before firing; the SW does not cascade.
+   * Delete a file by `fileId`. Callers should check upstream
+   * references (request multipart parts) before firing; the SW does
+   * not cascade.
    */
   deleteFile: {
-    req: { hash: string };
+    req: { fileId: string };
     res: { success: boolean; removed: boolean; error?: string };
   };
 

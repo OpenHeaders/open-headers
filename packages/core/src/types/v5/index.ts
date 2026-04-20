@@ -22,6 +22,7 @@ export type {
   BodyType,
   CredentialsMode,
   FileRef,
+  FormField,
   HttpMethod,
   MultipartPart,
   OAuth2Auth,

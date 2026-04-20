@@ -1,13 +1,15 @@
 /**
  * ParamsTab — Query Params editor. A three-column key/value/description
- * table; appended to the request URL as `?k=v` pairs by the executor.
- * "Bulk Edit" swaps the table for a plain text editor (one `key=value`
- * pair per line, `#` starts a comment, blank lines ignored).
+ * table, appended to the request URL as `?k=v` pairs by the executor.
+ *
+ * The whole surface (layout, ghost row, drag, checkbox, Bulk Edit
+ * toggle, column-visibility menu) is the shared `KeyValueTable`; this
+ * wrapper only supplies the Params-specific bulk-edit format
+ * (`key:value` lines; `//` disables, ` # …` trailing description).
  */
 
-import { Button, Input, Typography, theme } from 'antd';
+import { Typography } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
 import KeyValueTable, { type KeyValueRow, makeKvRow } from './KeyValueTable';
 
 const { Text } = Typography;
@@ -44,49 +46,25 @@ function textToRows(text: string): KeyValueRow[] {
   return out;
 }
 
+const PARAMS_BULK_PLACEHOLDER = 'param1:value1\nparam2:value2 # description\n//disabled:value';
+
 const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange }) => {
-  const { token } = theme.useToken();
-  const [bulkMode, setBulkMode] = useState(false);
-  const [bulkText, setBulkText] = useState('');
-
-  const bulkTextValue = useMemo(() => {
-    return bulkMode ? bulkText : rowsToText(rows);
-  }, [bulkMode, bulkText, rows]);
-
-  const enterBulk = () => {
-    setBulkText(rowsToText(rows));
-    setBulkMode(true);
-  };
-  const exitBulk = () => {
-    onChange(textToRows(bulkText));
-    setBulkMode(false);
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text strong style={{ fontSize: 13 }}>
-          Query Params
-        </Text>
-        <Button size="small" type="text" onClick={bulkMode ? exitBulk : enterBulk}>
-          {bulkMode ? 'Key-Value Edit' : 'Bulk Edit'}
-        </Button>
-      </div>
-      {bulkMode ? (
-        <Input.TextArea
-          value={bulkTextValue}
-          onChange={(e) => setBulkText(e.target.value)}
-          placeholder={'param1:value1\nparam2:value2 # description\n//disabled:value'}
-          autoSize={{ minRows: 6, maxRows: 18 }}
-          style={{
-            fontFamily: "'SF Mono', 'Fira Code', monospace",
-            fontSize: 12,
-            background: token.colorBgContainer,
-          }}
-        />
-      ) : (
-        <KeyValueTable rows={rows} onChange={onChange} keyPlaceholder="Key" valuePlaceholder="Value" />
-      )}
+      <Text strong style={{ fontSize: 13 }}>
+        Query Params
+      </Text>
+      <KeyValueTable
+        rows={rows}
+        onChange={onChange}
+        keyPlaceholder="Key"
+        valuePlaceholder="Value"
+        bulkEdit={{
+          serialize: rowsToText,
+          parse: textToRows,
+          placeholder: PARAMS_BULK_PLACEHOLDER,
+        }}
+      />
     </div>
   );
 };

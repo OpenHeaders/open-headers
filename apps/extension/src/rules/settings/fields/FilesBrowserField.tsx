@@ -29,6 +29,7 @@ interface FilesBrowserFieldProps {
 
 interface Row {
   key: string;
+  fileId: string;
   filename: string;
   size: number;
   mimeType?: string;
@@ -42,7 +43,8 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
   const rows = useMemo<Row[]>(
     () =>
       files.map((f) => ({
-        key: f.hash,
+        key: f.fileId,
+        fileId: f.fileId,
         filename: f.filename,
         size: f.size,
         mimeType: f.mimeType,
@@ -52,7 +54,7 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
   );
 
   const handleDownload = async (row: Row) => {
-    const result = await readFile(row.hash);
+    const result = await readFile(row.fileId);
     if (!result) return;
     const url = URL.createObjectURL(result.blob);
     const a = document.createElement('a');
@@ -113,7 +115,7 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
             description="Multipart parts referencing this file will error on send."
             okButtonProps={{ danger: true }}
             onConfirm={() => {
-              void deleteFile(row.hash);
+              void deleteFile(row.fileId);
             }}
           >
             <Button size="small" danger icon={<DeleteOutlined />} />

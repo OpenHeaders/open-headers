@@ -12,6 +12,19 @@ export const HttpMethodSchema = v.picklist(['GET', 'POST', 'PUT', 'PATCH', 'DELE
 
 export const BodyTypeSchema = v.picklist(['none', 'json', 'xml', 'graphql', 'form', 'multipart', 'text']);
 
+/**
+ * Syntax hint for `raw` bodies whose wire-level `BodyType` collapses to
+ * `'text'`. Lets the editor remember "user picked JavaScript / HTML"
+ * even though neither has a distinct wire-level body type — the bytes
+ * are still sent verbatim. Persisted alongside `body.type` so the
+ * dropdown choice round-trips through save/reload.
+ *
+ * `'json'` / `'xml'` are redundant with the corresponding `BodyType`
+ * variants but carried anyway so the classifier can be a single source
+ * of truth (no split between `body.type` and `body.rawFormat`).
+ */
+export const RawFormatSchema = v.picklist(['text', 'javascript', 'json', 'html', 'xml']);
+
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -146,6 +159,23 @@ export const QueryParamSchema = v.object({
  * bytes under different names stay one blob.
  */
 export const FileRefSchema = v.object({
+  /**
+   * Stable per-file identity. Independent of content — two uploads of
+   * the same bytes under different filenames produce two distinct
+   * `fileId`s. This is what the blob store keys by, what the UI uses
+   * for dedup inside a row, and what survives a rename without
+   * recomputing a hash.
+   *
+   * Format: `file:<uuid>` for real uploads; `placeholder:<opaque>` for
+   * importer stubs that haven't been reconciled yet.
+   */
+  fileId: v.pipe(v.string(), v.minLength(1)),
+  /**
+   * Content digest (`sha256:<64-hex>` or `placeholder:<opaque>`).
+   * Multiple FileRefs MAY share a hash when users upload identical
+   * bytes under different filenames — that's the intended semantic.
+   * Used by `{{file.X}}` template resolution by content.
+   */
   hash: v.pipe(v.string(), v.regex(/^(sha256:[0-9a-f]{64}|placeholder:.+)$/)),
   filename: v.string(),
   mimeType: v.optional(v.string()),
@@ -153,37 +183,66 @@ export const FileRefSchema = v.object({
 });
 
 /**
- * A single part of a multipart/form-data body. Text parts carry a
- * string value; file parts carry a `FileRef` (resolved to bytes by
- * the executor via the BlobStore). Discriminated on `kind` so
- * TypeScript exhausts the branches at compile time.
+ * A single part of a multipart/form-data body.
  *
- * `enabled: false` preserves the user's "keep around but don't send"
- * intent — the executor skips disabled parts during FormData
- * assembly.
+ * Text parts carry a string value. File parts carry a LIST of
+ * `FileRef`s — one field name can bind to multiple files
+ * (`<input type="file" multiple>` is the HTML equivalent; HTTP
+ * multipart allows repeated field names by design). The executor
+ * emits one `FormData.append(name, blob, filename)` per ref. Parts
+ * with zero refs render as a placeholder "Select files" row and are
+ * skipped at send time.
+ *
+ * Discriminated on `kind` so TypeScript exhausts the branches at
+ * compile time. `enabled: false` preserves the user's "keep around
+ * but don't send" intent — the executor skips disabled parts during
+ * FormData assembly.
  */
 export const MultipartPartSchema = v.variant('kind', [
   v.object({
     kind: v.literal('text'),
     name: v.string(),
     value: v.string(),
+    /** Optional free-form per-row note rendered in the Description column. */
+    description: v.optional(v.string()),
     enabled: v.optional(v.boolean()),
   }),
   v.object({
     kind: v.literal('file'),
     name: v.string(),
-    fileRef: FileRefSchema,
-    /** Optional override for the filename sent with the multipart part
-     *  (defaults to `fileRef.filename`). Useful when a user wants to
-     *  send `invoice.pdf` as `attachment.pdf` without duplicating the
-     *  blob. */
-    filenameOverride: v.optional(v.string()),
+    /** One or more file refs bound to this field name. Absent / empty
+     *  array is a valid "not yet picked" state the editor surfaces
+     *  as a neutral placeholder row. */
+    fileRefs: v.array(FileRefSchema),
+    /** Optional free-form per-row note rendered in the Description column. */
+    description: v.optional(v.string()),
     enabled: v.optional(v.boolean()),
   }),
 ]);
 
+/**
+ * Single field of an `application/x-www-form-urlencoded` body. Same
+ * shape as `QueryParam` but kept as its own type so the two domains
+ * don't get coupled — they happen to look alike today but the wire
+ * semantics differ (URL query strings vs request-body form fields).
+ */
+export const FormFieldSchema = v.object({
+  key: v.string(),
+  value: v.string(),
+  /** Optional free-form per-row note rendered in the Description column. */
+  description: v.optional(v.string()),
+  enabled: v.optional(v.boolean()),
+});
+
 export const RequestBodySchema = v.object({
   type: BodyTypeSchema,
+  /**
+   * UI-level syntax hint for `raw` bodies — only consulted when
+   * `type === 'text'` to distinguish JavaScript / HTML / plain Text,
+   * all of which share the same wire-level byte stream. For JSON / XML
+   * the redundant `rawFormat` may be present but `type` is authoritative.
+   */
+  rawFormat: v.optional(RawFormatSchema),
   content: v.optional(v.string()),
   graphqlVariables: v.optional(v.string()),
   /**
@@ -192,6 +251,15 @@ export const RequestBodySchema = v.object({
    * but valid — some APIs accept this for "kick off" endpoints).
    */
   multipartParts: v.optional(v.array(MultipartPartSchema)),
+  /**
+   * Structured `application/x-www-form-urlencoded` field list.
+   * Populated when `type === 'form'`; the executor builds a
+   * `URLSearchParams` from enabled entries (disabled rows stay on
+   * disk but aren't sent). If absent, the executor falls back to
+   * parsing `content` — lets legacy importers that only produce the
+   * raw encoded string still round-trip without data loss.
+   */
+  formParts: v.optional(v.array(FormFieldSchema)),
 });
 
 export const RequestSchema = v.object({

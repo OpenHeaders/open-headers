@@ -23,11 +23,12 @@
 
 import { InfoCircleOutlined, ReloadOutlined, WarningFilled } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import { Input, Radio, Select, Tooltip, Typography, theme } from 'antd';
+import { Radio, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import CodeEditor from '../CodeEditor';
 import MultipartEditor from '../MultipartEditor';
+import FormEditor from './FormEditor';
 
 const { Text } = Typography;
 
@@ -54,7 +55,12 @@ function classifyBody(body: V5.RequestBody): { radio: RadioValue; raw: RawFormat
     case 'xml':
       return { radio: 'raw', raw: 'xml' };
     case 'text':
-      return { radio: 'raw', raw: 'text' };
+      // `rawFormat` persists the user's dropdown choice for the three
+      // formats that all share `type: 'text'` at the wire level
+      // (text / javascript / html). Without it, the classifier would
+      // collapse every save back to 'text' and the dropdown would
+      // reset on reload.
+      return { radio: 'raw', raw: body.rawFormat === 'javascript' || body.rawFormat === 'html' ? body.rawFormat : 'text' };
   }
 }
 
@@ -65,6 +71,8 @@ function rawFormatToBodyType(raw: RawFormat): V5.BodyType {
     case 'xml':
       return 'xml';
     default:
+      // text / javascript / html share the same wire-level body type;
+      // the dropdown choice is carried separately on `body.rawFormat`.
       return 'text';
   }
 }
@@ -73,33 +81,34 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   const { token } = theme.useToken();
   const { radio, raw } = useMemo(() => classifyBody(body), [body]);
 
+  // Switching body encodings preserves every auxiliary field on the
+  // draft (rawFormat + content + multipartParts + formParts +
+  // graphqlVariables) so the user doesn't lose unsaved work by toggling
+  // the radio. Only the discriminant `type` changes; the executor
+  // reads whichever field matches the active type at send time and
+  // ignores the rest.
   const switchRadio = (next: RadioValue) => {
     if (next === radio) return;
-    switch (next) {
-      case 'none':
-        onChange({ type: 'none' });
-        return;
-      case 'form-data':
-        onChange({ type: 'multipart', multipartParts: body.multipartParts ?? [] });
-        return;
-      case 'form-urlencoded':
-        onChange({ type: 'form', content: body.content ?? '' });
-        return;
-      case 'raw':
-        onChange({ type: 'text', content: body.content ?? '' });
-        return;
-      case 'graphql':
-        onChange({
-          type: 'graphql',
-          content: body.content ?? '',
-          graphqlVariables: body.graphqlVariables,
-        });
-        return;
-    }
+    const nextType: V5.BodyType = (() => {
+      switch (next) {
+        case 'none':
+          return 'none';
+        case 'form-data':
+          return 'multipart';
+        case 'form-urlencoded':
+          return 'form';
+        case 'raw':
+          return rawFormatToBodyType(body.rawFormat ?? 'text');
+        case 'graphql':
+          return 'graphql';
+      }
+    })();
+    onChange({ ...body, type: nextType });
   };
 
   const switchRawFormat = (next: RawFormat) => {
-    onChange({ type: rawFormatToBodyType(next), content: body.content ?? '' });
+    // Same preservation pattern — only `type` + `rawFormat` change.
+    onChange({ ...body, type: rawFormatToBodyType(next), rawFormat: next });
   };
 
   const rawLangForEditor: 'text' | 'json' | 'xml' | 'html' | 'javascript' = (() => {
@@ -168,21 +177,14 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
       {radio === 'form-data' && (
         <MultipartEditor
           parts={body.multipartParts ?? []}
-          onChange={(parts) => onChange({ type: 'multipart', multipartParts: parts })}
+          onChange={(parts) => onChange({ ...body, type: 'multipart', multipartParts: parts })}
         />
       )}
 
       {radio === 'form-urlencoded' && (
-        <Input.TextArea
-          value={body.content ?? ''}
-          onChange={(e) => onChange({ type: 'form', content: e.target.value })}
-          placeholder="key1=value1&key2=value2"
-          autoSize={{ minRows: 6, maxRows: 18 }}
-          style={{
-            fontFamily: "'SF Mono', 'Fira Code', monospace",
-            fontSize: 12,
-            background: token.colorBgContainer,
-          }}
+        <FormEditor
+          fields={body.formParts ?? []}
+          onChange={(fields) => onChange({ ...body, type: 'form', formParts: fields })}
         />
       )}
 
@@ -190,9 +192,8 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
         <div style={{ minHeight: 240 }}>
           <CodeEditor
             value={body.content ?? ''}
-            onChange={(content) => onChange({ type: rawFormatToBodyType(raw), content })}
+            onChange={(content) => onChange({ ...body, type: rawFormatToBodyType(raw), rawFormat: raw, content })}
             language={rawLangForEditor}
-            placeholder="Request body"
             minHeight={240}
           />
         </div>
@@ -217,9 +218,8 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
                 value={body.content ?? ''}
-                onChange={(content) => onChange({ type: 'graphql', content, graphqlVariables: body.graphqlVariables })}
+                onChange={(content) => onChange({ ...body, type: 'graphql', content })}
                 language="graphql"
-                placeholder="query { field }"
                 minHeight={300}
               />
             </div>
@@ -244,11 +244,8 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
                 value={body.graphqlVariables ?? ''}
-                onChange={(variables) =>
-                  onChange({ type: 'graphql', content: body.content ?? '', graphqlVariables: variables })
-                }
+                onChange={(variables) => onChange({ ...body, type: 'graphql', graphqlVariables: variables })}
                 language="json"
-                placeholder={'{\n  "id": "123"\n}'}
                 minHeight={300}
               />
             </div>

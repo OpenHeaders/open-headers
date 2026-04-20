@@ -1,476 +1,589 @@
 /**
- * MultipartEditor — structured editor for `body.multipartParts`.
+ * MultipartEditor — form-data body editor. Uses the shared
+ * `EditableGridTable` shell (same visual language + drag + sticky
+ * header + ghost-row logic as Params / Headers). What differs: the
+ * Value cell carries a per-row `Text` / `File` kind selector.
  *
- * Lets users compose a `multipart/form-data` body part-by-part:
- *   • Text parts — `name` + `value`. Values run through template
- *     resolution at send time (Phase 12.4b).
- *   • File parts — pick from the workspace's file blobs, optionally
- *     override the filename sent over the wire. An inline "Upload"
- *     button routes through the same bridge RPC as Settings → Data.
+ *   • Text parts take a string value run through template resolution
+ *     at send time.
+ *   • File parts reference ONE OR MORE workspace blobs. HTTP multipart
+ *     allows repeated field names by design, so a single row with N
+ *     file refs emits N `FormData.append(name, …)` calls at send
+ *     time. Each file shows as a tag in the Value cell; users add
+ *     files via a single dropdown that groups "upload new" with
+ *     existing workspace files.
  *
- * Reorder is drag-based via @dnd-kit (same library the rule-flow and
- * sidebar use — one DragAndDrop story per surface). A placeholder
- * FileRef emitted by an importer surfaces as an "Upload required"
- * badge; clicking it opens the file picker so the user fills the gap
- * without leaving the editor.
+ * A placeholder FileRef emitted by an importer (curl `-F @path`, HAR
+ * multipart parts, etc.) surfaces as an "Upload required" tag + inline
+ * Upload button so reconciliation is one click.
  */
 
-import {
-  DeleteOutlined,
-  FileOutlined,
-  HolderOutlined,
-  PaperClipOutlined,
-  PlusOutlined,
-  UploadOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
-import type { DragEndEvent } from '@dnd-kit/core';
-import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { CloseOutlined, DeleteOutlined, FileOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { useFiles } from '@hooks/useFiles';
 import type { FileRef } from '@openheaders/core/files';
-import { isPlaceholderFileRef } from '@openheaders/core/files';
+import { isPlaceholderFileRef, placeholderFileRef } from '@openheaders/core/files';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Input, Select, Tag, Tooltip, Typography, theme } from 'antd';
+import { Dropdown, Input, Select, Tag, theme } from 'antd';
+import type { MenuProps } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef } from 'react';
+import { EditableGridTable, type EditableRowAdapter } from './request-editor/EditableGridTable';
 
-const { Text } = Typography;
+const FORM_DATA_COLUMN_WIDTHS = { value: 'minmax(280px, 1.6fr)' };
+
+// Injected once at module load: hover-reveal for the per-file delete
+// button inside the multipart file dropdown.
+const MP_DROPDOWN_STYLE_ID = 'mp-file-dropdown-styles';
+if (typeof document !== 'undefined' && !document.getElementById(MP_DROPDOWN_STYLE_ID)) {
+  const style = document.createElement('style');
+  style.id = MP_DROPDOWN_STYLE_ID;
+  style.textContent = `
+.mp-file-menu-item .mp-file-menu-delete { opacity: 0; transition: opacity 120ms ease; }
+.mp-file-menu-item:hover .mp-file-menu-delete { opacity: 1; }
+  `;
+  document.head.appendChild(style);
+}
 
 interface MultipartEditorProps {
   parts: V5.MultipartPart[];
   onChange: (parts: V5.MultipartPart[]) => void;
 }
 
-// Each part row needs a stable key across renders so React can track
-// drag-reorder moves without losing input focus. Parts don't carry a
-// uid field (persisted shape doesn't need one — ordering is positional),
-// so the editor assigns a transient id on mount and preserves it while
-// the draft lives.
-interface Row {
-  id: string;
-  part: V5.MultipartPart;
-}
-
 let rowIdCounter = 0;
 const nextRowId = (): string => `mp-${++rowIdCounter}`;
 
-const MultipartEditor: React.FC<MultipartEditorProps> = ({ parts, onChange }) => {
-  const { token } = theme.useToken();
-  const { files, isReady: filesReady, uploadFile } = useFiles();
+type IdentifiedPart = V5.MultipartPart & { __id: string };
+type IdentifiedFilePart = Extract<IdentifiedPart, { kind: 'file' }>;
 
-  // Hydrate transient ids once per incoming parts change. The rowMap
-  // ref preserves ids across re-renders so stable keying survives
-  // in-place edits without re-mounting inputs.
-  const rowMapRef = useRef<WeakMap<V5.MultipartPart, string>>(new WeakMap());
-  const rows = useMemo<Row[]>(() => {
+const cellFont: React.CSSProperties = {
+  fontFamily: "'SF Mono', 'Fira Code', monospace",
+  fontSize: 12,
+};
+
+const makeEmptyText = (id: string): IdentifiedPart => ({
+  __id: id,
+  kind: 'text',
+  name: '',
+  value: '',
+  description: '',
+  enabled: true,
+});
+
+const ADAPTER: EditableRowAdapter<IdentifiedPart> = {
+  getId: (r) => r.__id,
+  getEnabled: (r) => r.enabled !== false,
+  setEnabled: (r, v) => ({ ...r, enabled: v }),
+  getKey: (r) => r.name,
+  setKey: (r, v) => ({ ...r, name: v }),
+  getDescription: (r) => r.description ?? '',
+  setDescription: (r, v) => ({ ...r, description: v }),
+  makeEmpty: () => makeEmptyText(nextRowId()),
+  isEmpty: (r) => r.kind === 'text' && r.name === '' && r.value === '' && (r.description ?? '') === '',
+};
+
+function stripId(row: IdentifiedPart): V5.MultipartPart {
+  const { __id: _id, ...part } = row;
+  return part as V5.MultipartPart;
+}
+
+const MultipartEditor: React.FC<MultipartEditorProps> = ({ parts, onChange }) => {
+  const { files, isReady: filesReady, uploadFile, deleteFile } = useFiles();
+
+  const idMapRef = useRef<WeakMap<V5.MultipartPart, string>>(new WeakMap());
+  const rows = useMemo<IdentifiedPart[]>(() => {
     return parts.map((part) => {
-      let id = rowMapRef.current.get(part);
+      let id = idMapRef.current.get(part);
       if (!id) {
         id = nextRowId();
-        rowMapRef.current.set(part, id);
+        idMapRef.current.set(part, id);
       }
-      return { id, part };
+      return { ...part, __id: id } as IdentifiedPart;
     });
   }, [parts]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  const commit = useCallback(
-    (next: Row[]) => {
-      rowMapRef.current = new WeakMap();
-      for (const r of next) rowMapRef.current.set(r.part, r.id);
-      onChange(next.map((r) => r.part));
+  const handleChange = useCallback(
+    (next: IdentifiedPart[]) => {
+      const fresh = new WeakMap<V5.MultipartPart, string>();
+      const stripped = next.map((row) => {
+        const bare = stripId(row);
+        fresh.set(bare, row.__id);
+        return bare;
+      });
+      idMapRef.current = fresh;
+      onChange(stripped);
     },
     [onChange],
   );
 
-  const updatePart = useCallback(
-    (id: string, mutate: (part: V5.MultipartPart) => V5.MultipartPart) => {
-      commit(rows.map((r) => (r.id === id ? { id, part: mutate(r.part) } : r)));
-    },
-    [commit, rows],
+  return (
+    <EditableGridTable<IdentifiedPart>
+      rows={rows}
+      onChange={handleChange}
+      adapter={ADAPTER}
+      columnWidths={FORM_DATA_COLUMN_WIDTHS}
+      bulkEdit={{
+        serialize: serializeMultipartToText,
+        parse: (text) => parseMultipartFromText(text, rows, files),
+        placeholder:
+          'field1:text value\n' +
+          'avatar:@profile.png # file reference — rebinds by filename\n' +
+          'attachments:@one.pdf,@two.pdf # multiple files on one row\n' +
+          '//disabled:value',
+      }}
+      renderValueCell={(row, update, ctx) => (
+        <ValueCell
+          row={row}
+          update={update}
+          dim={ctx.dim}
+          isPlaceholder={ctx.isPlaceholder}
+          files={files}
+          filesReady={filesReady}
+          uploadFile={uploadFile}
+          deleteFile={deleteFile}
+        />
+      )}
+    />
   );
+};
 
-  const addTextPart = useCallback(() => {
-    commit([...rows, { id: nextRowId(), part: { kind: 'text', name: '', value: '' } }]);
-  }, [commit, rows]);
+// ── Value cell (Text/File switch) ─────────────────────────────────
 
-  const addFilePart = useCallback(
-    (fileRef: FileRef) => {
-      commit([
-        ...rows,
-        {
-          id: nextRowId(),
-          part: { kind: 'file', name: '', fileRef },
-        },
-      ]);
-    },
-    [commit, rows],
+interface ValueCellProps {
+  row: IdentifiedPart;
+  update: (next: IdentifiedPart) => void;
+  dim: boolean;
+  isPlaceholder: boolean;
+  files: FileRef[];
+  filesReady: boolean;
+  uploadFile: (file: File, filename: string, mimeType?: string) => Promise<FileRef | null>;
+  deleteFile: (hash: string) => Promise<boolean>;
+}
+
+const ValueCell: React.FC<ValueCellProps> = ({
+  row,
+  update,
+  dim,
+  isPlaceholder,
+  files,
+  filesReady,
+  uploadFile,
+  deleteFile,
+}) => {
+  const { token } = theme.useToken();
+
+  const switchKind = (kind: 'text' | 'file') => {
+    if (kind === row.kind) return;
+    const common = { name: row.name, description: row.description, enabled: row.enabled, __id: row.__id };
+    if (kind === 'text') {
+      update({ ...common, kind: 'text', value: '' });
+      return;
+    }
+    update({ ...common, kind: 'file', fileRefs: [] });
+  };
+
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+      <Select
+        variant="borderless"
+        size="small"
+        value={row.kind}
+        onChange={switchKind}
+        options={[
+          { value: 'text', label: 'Text' },
+          { value: 'file', label: 'File' },
+        ]}
+        style={{ width: 72, flexShrink: 0 }}
+        disabled={isPlaceholder}
+        popupMatchSelectWidth={false}
+      />
+      {row.kind === 'text' ? (
+        <Input
+          variant="borderless"
+          value={row.value}
+          placeholder="Value"
+          onChange={(e) => update({ ...row, value: e.target.value })}
+          style={{ ...cellFont, flex: 1, padding: '4px 6px', color: dim ? token.colorTextQuaternary : token.colorText }}
+        />
+      ) : (
+        <FileValueCell
+          row={row as IdentifiedFilePart}
+          update={update}
+          files={files}
+          filesReady={filesReady}
+          uploadFile={uploadFile}
+          deleteFile={deleteFile}
+          disabled={isPlaceholder}
+        />
+      )}
+    </div>
   );
+};
 
-  const removePart = useCallback(
-    (id: string) => {
-      commit(rows.filter((r) => r.id !== id));
-    },
-    [commit, rows],
-  );
+// ── File-value cell ───────────────────────────────────────────────
 
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      const oldIndex = rows.findIndex((r) => r.id === active.id);
-      const newIndex = rows.findIndex((r) => r.id === over.id);
-      if (oldIndex < 0 || newIndex < 0) return;
-      commit(arrayMove(rows, oldIndex, newIndex));
-    },
-    [commit, rows],
-  );
+interface FileValueCellProps {
+  row: IdentifiedFilePart;
+  update: (next: IdentifiedPart) => void;
+  files: FileRef[];
+  filesReady: boolean;
+  uploadFile: (file: File, filename: string, mimeType?: string) => Promise<FileRef | null>;
+  deleteFile: (hash: string) => Promise<boolean>;
+  disabled: boolean;
+}
 
-  const handleUploadAndReplace = useCallback(
-    async (id: string) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      await new Promise<void>((resolve) => {
-        input.onchange = async () => {
-          const file = input.files?.[0];
-          if (!file) {
-            resolve();
-            return;
-          }
-          const ref = await uploadFile(file, file.name, file.type || undefined);
-          if (ref) {
-            updatePart(id, (part) => {
-              if (part.kind !== 'file') return part;
-              return { ...part, fileRef: ref };
-            });
-          }
-          resolve();
-        };
-        input.click();
-      });
-    },
-    [uploadFile, updatePart],
-  );
+const FileValueCell: React.FC<FileValueCellProps> = ({
+  row,
+  update,
+  files,
+  filesReady,
+  uploadFile,
+  deleteFile,
+  disabled,
+}) => {
+  const { token } = theme.useToken();
+  // `fileRefs` can be undefined on rows that pre-date the multi-file
+  // schema widening; normalize to an empty list so the UI treats it
+  // as "no selection yet".
+  const fileRefs = row.fileRefs ?? [];
+  const hasPlaceholder = fileRefs.some((ref) => isPlaceholderFileRef(ref));
+  const isEmpty = fileRefs.length === 0;
 
-  const handleUploadAsNewPart = useCallback(async () => {
+  const promptUpload = useCallback(async () => {
     const input = document.createElement('input');
     input.type = 'file';
+    input.multiple = true;
     await new Promise<void>((resolve) => {
       input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) {
+        const picked = Array.from(input.files ?? []);
+        if (picked.length === 0) {
           resolve();
           return;
         }
-        const ref = await uploadFile(file, file.name, file.type || undefined);
-        if (ref) addFilePart(ref);
+        // Each upload produces a fresh `fileId`, so there's no true
+        // dedup at the upload layer — but attaching the SAME fileId
+        // twice to one row would emit the identical FormData entry
+        // back-to-back, which is almost never what the user wants.
+        // Gate on fileId (not hash) so "two uploads of the same
+        // bytes" still produce two separate chips.
+        const attached = new Set(fileRefs.map((r) => r.fileId));
+        const appended: FileRef[] = [];
+        for (const file of picked) {
+          const ref = await uploadFile(file, file.name, file.type || undefined);
+          if (!ref) continue;
+          if (attached.has(ref.fileId)) continue;
+          attached.add(ref.fileId);
+          appended.push(ref);
+        }
+        if (appended.length > 0) {
+          update({ ...row, fileRefs: [...fileRefs, ...appended] });
+        }
         resolve();
       };
       input.click();
     });
-  }, [uploadFile, addFilePart]);
+  }, [uploadFile, row, update, fileRefs]);
 
-  return (
-    <div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-          {rows.map((row) => (
-            <MultipartRow
-              key={row.id}
-              row={row}
-              files={files}
-              filesReady={filesReady}
-              onUpdate={(mutate) => updatePart(row.id, mutate)}
-              onRemove={() => removePart(row.id)}
-              onUploadReplace={() => void handleUploadAndReplace(row.id)}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
-
-      {rows.length === 0 && (
-        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4, marginBottom: 8 }}>
-          No parts yet. Add a text field or attach a file to build a multipart form body.
-        </Text>
-      )}
-
-      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-        <Button size="small" icon={<PlusOutlined />} onClick={addTextPart}>
-          Add text part
-        </Button>
-        <Button size="small" icon={<UploadOutlined />} onClick={() => void handleUploadAsNewPart()}>
-          Upload file
-        </Button>
-        {files.length > 0 && (
-          <Select
-            size="small"
-            placeholder={
-              <>
-                <PaperClipOutlined /> Attach existing file
-              </>
-            }
-            value={undefined}
-            style={{ width: 240 }}
-            onChange={(hash: string) => {
-              const ref = files.find((f) => f.hash === hash);
-              if (ref) addFilePart(ref);
-            }}
-            options={files.map((f) => ({
-              value: f.hash,
-              label: (
-                <span>
-                  <FileOutlined /> {f.filename}{' '}
-                  <Text type="secondary" style={{ fontSize: 10 }}>
-                    ({formatBytes(f.size)})
-                  </Text>
-                </span>
-              ),
-            }))}
-          />
-        )}
-      </div>
-
-      <Text type="secondary" style={{ display: 'block', marginTop: 10, fontSize: 11, color: token.colorTextTertiary }}>
-        Text-part values support <code>{'{{VAR}}'}</code> template resolution at send time. File parts resolve to bytes
-        via the workspace blob store; the browser sets the <code>multipart/form-data</code> Content-Type with its own
-        boundary.
-      </Text>
-    </div>
-  );
-};
-
-// ── Row (sortable) ─────────────────────────────────────────────────
-
-interface MultipartRowProps {
-  row: Row;
-  files: FileRef[];
-  filesReady: boolean;
-  onUpdate: (mutate: (part: V5.MultipartPart) => V5.MultipartPart) => void;
-  onRemove: () => void;
-  onUploadReplace: () => void;
-}
-
-const MultipartRow: React.FC<MultipartRowProps> = ({ row, files, filesReady, onUpdate, onRemove, onUploadReplace }) => {
-  const { token } = theme.useToken();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
-  const enabled = row.part.enabled !== false;
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const kindSelect = (
-    <Select
-      size="small"
-      value={row.part.kind}
-      style={{ width: 72 }}
-      onChange={(kind: 'text' | 'file') => {
-        if (kind === row.part.kind) return;
-        onUpdate((part) => {
-          if (kind === 'text') {
-            return { kind: 'text', name: part.name, value: '', enabled: part.enabled };
-          }
-          // Flipping to file — leave fileRef as a placeholder until
-          // the user picks one. The placeholder hash keeps the shape
-          // valid and the "Upload required" badge surfaces until
-          // replaced.
-          const placeholder: FileRef = {
-            hash: 'placeholder:new-file',
-            filename: 'new-file',
-            size: 0,
-          };
-          return { kind: 'file', name: part.name, fileRef: placeholder, enabled: part.enabled };
-        });
-      }}
-      options={[
-        { value: 'text', label: 'Text' },
-        { value: 'file', label: 'File' },
-      ]}
-    />
+  const pickExisting = useCallback(
+    (fileId: string) => {
+      const ref = files.find((f) => f.fileId === fileId);
+      if (!ref) return;
+      // Same fileId already on the row — picking again would add a
+      // duplicate. Silently skip.
+      if (fileRefs.some((r) => r.fileId === ref.fileId)) return;
+      update({ ...row, fileRefs: [...fileRefs, ref] });
+    },
+    [files, row, update, fileRefs],
   );
 
-  const nameInput = (
-    <Input
-      size="small"
-      placeholder="Field name"
-      value={row.part.name}
-      onChange={(e) => onUpdate((part) => ({ ...part, name: e.target.value }))}
-      style={{
-        flex: 1,
-        fontFamily: "'SF Mono', monospace",
-        fontSize: 11,
-        color: enabled ? token.colorText : token.colorTextQuaternary,
-      }}
-    />
+  const removeRef = useCallback(
+    (idx: number) => {
+      const next = fileRefs.filter((_, i) => i !== idx);
+      update({ ...row, fileRefs: next });
+    },
+    [row, update, fileRefs],
   );
+
+  const handleDelete = useCallback(
+    (fileId: string, e: React.MouseEvent) => {
+      // Stop propagation first so the enclosing menu item's onClick
+      // (which would attach the file to the row) doesn't also fire.
+      e.stopPropagation();
+      e.preventDefault();
+      void deleteFile(fileId);
+    },
+    [deleteFile],
+  );
+
+  // Dropdown menu: "+ New file" action on top, uploaded files below
+  // (minus anything already attached so the user can't pick a dupe).
+  // Each uploaded row exposes a hover-revealed delete button that
+  // purges the file from the workspace blob store.
+  const menuItems: MenuProps['items'] = useMemo(() => {
+    const attached = new Set(fileRefs.map((r) => r.fileId));
+    const available = files.filter((f) => !attached.has(f.fileId));
+    const items: NonNullable<MenuProps['items']> = [
+      {
+        key: '__new_file__',
+        icon: <PlusOutlined />,
+        label: 'New file from local machine',
+        onClick: () => void promptUpload(),
+      },
+    ];
+    if (filesReady && files.length > 0) {
+      items.push({ type: 'divider' });
+      items.push({
+        key: '__uploaded_header__',
+        type: 'group',
+        label: <span style={{ fontSize: 11, color: token.colorTextSecondary }}>Uploaded files</span>,
+        children:
+          available.length > 0
+            ? available.map((f) => ({
+                key: f.fileId,
+                icon: <FileOutlined />,
+                label: (
+                  <span
+                    className="mp-file-menu-item"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}
+                  >
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {f.filename}
+                      <span style={{ color: token.colorTextTertiary, marginLeft: 6, fontSize: 10 }}>
+                        ({formatBytes(f.size)})
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="mp-file-menu-delete"
+                      aria-label={`Delete ${f.filename} from workspace`}
+                      onClick={(e) => handleDelete(f.fileId, e)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        padding: '2px 4px',
+                        cursor: 'pointer',
+                        color: token.colorTextTertiary,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <DeleteOutlined />
+                    </button>
+                  </span>
+                ),
+                onClick: () => pickExisting(f.fileId),
+              }))
+            : [
+                {
+                  key: '__all_attached__',
+                  label: 'All uploaded files already attached',
+                  disabled: true,
+                },
+              ],
+      });
+    }
+    return items;
+  }, [files, fileRefs, filesReady, promptUpload, pickExisting, handleDelete, token]);
+
+  const triggerLabel = isEmpty ? (filesReady ? 'Select files' : 'Loading files…') : '+ Add file';
 
   return (
     <div
-      ref={setNodeRef}
       style={{
-        ...style,
+        flex: 1,
         display: 'flex',
-        flexDirection: 'column',
+        alignItems: 'center',
+        flexWrap: 'wrap',
         gap: 4,
-        marginBottom: 6,
-        padding: 6,
-        border: `1px solid ${token.colorBorderSecondary}`,
-        borderRadius: token.borderRadiusSM,
-        background: token.colorBgContainer,
+        minWidth: 0,
+        padding: '2px 0',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <Button
-          type="text"
-          size="small"
-          icon={<HolderOutlined />}
-          style={{ cursor: 'grab', padding: 0 }}
-          {...attributes}
-          {...listeners}
-        />
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => onUpdate((part) => ({ ...part, enabled: e.target.checked }))}
-          style={{ width: 14, height: 14 }}
-          aria-label="Enable part"
-        />
-        {kindSelect}
-        {nameInput}
-        <Button type="text" size="small" icon={<DeleteOutlined />} onClick={onRemove} aria-label="Remove part" />
-      </div>
-
-      {row.part.kind === 'text' ? (
-        <Input.TextArea
-          size="small"
-          autoSize={{ minRows: 1, maxRows: 8 }}
-          value={row.part.value}
-          placeholder="Value (supports {{VAR}})"
-          onChange={(e) =>
-            onUpdate((part) => {
-              if (part.kind !== 'text') return part;
-              return { ...part, value: e.target.value };
-            })
+      {fileRefs.map((ref, i) => (
+        <FileChip
+          key={`${ref.fileId}:${i}`}
+          ref_={ref}
+          onRemove={() => removeRef(i)}
+          missingInWorkspace={
+            !isPlaceholderFileRef(ref) && files.length > 0 && !files.some((f) => f.fileId === ref.fileId)
           }
+        />
+      ))}
+      <Dropdown
+        menu={{ items: menuItems }}
+        trigger={['click']}
+        disabled={disabled}
+        overlayStyle={{ minWidth: 260 }}
+      >
+        <button
+          type="button"
+          disabled={disabled}
           style={{
-            fontFamily: "'SF Mono', monospace",
-            fontSize: 11,
-            color: enabled ? token.colorText : token.colorTextQuaternary,
+            flex: 1,
+            minWidth: 120,
+            background: 'transparent',
+            border: 'none',
+            padding: '2px 6px',
+            textAlign: 'left',
+            color: isEmpty ? token.colorTextTertiary : token.colorPrimary,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            fontSize: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
           }}
-        />
-      ) : (
-        <FilePartRow
-          part={row.part}
-          files={files}
-          filesReady={filesReady}
-          onUpdate={onUpdate}
-          onUploadReplace={onUploadReplace}
-        />
+        >
+          {triggerLabel}
+        </button>
+      </Dropdown>
+      {hasPlaceholder && (
+        <Tag icon={<WarningOutlined />} color="warning" style={{ fontSize: 10, margin: 0 }}>
+          Upload required
+        </Tag>
       )}
     </div>
   );
 };
 
-// ── File-part sub-row ─────────────────────────────────────────────
-
-interface FilePartRowProps {
-  part: Extract<V5.MultipartPart, { kind: 'file' }>;
-  files: FileRef[];
-  filesReady: boolean;
-  onUpdate: (mutate: (part: V5.MultipartPart) => V5.MultipartPart) => void;
-  onUploadReplace: () => void;
+interface FileChipProps {
+  ref_: FileRef;
+  onRemove: () => void;
+  missingInWorkspace: boolean;
 }
 
-const FilePartRow: React.FC<FilePartRowProps> = ({ part, files, filesReady, onUpdate, onUploadReplace }) => {
+const FileChip: React.FC<FileChipProps> = ({ ref_, onRemove, missingInWorkspace }) => {
   const { token } = theme.useToken();
-  const placeholder = isPlaceholderFileRef(part.fileRef);
-  const selectedOption = placeholder ? undefined : part.fileRef.hash;
-  const exists = !placeholder && files.some((f) => f.hash === part.fileRef.hash);
-
+  const isPlaceholder = isPlaceholderFileRef(ref_);
+  const warning = isPlaceholder || missingInWorkspace;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Select
-          size="small"
-          placeholder="Select uploaded file"
-          style={{ flex: 1 }}
-          value={selectedOption}
-          onChange={(hash: string) => {
-            const ref = files.find((f) => f.hash === hash);
-            if (!ref) return;
-            onUpdate((p) => {
-              if (p.kind !== 'file') return p;
-              return { ...p, fileRef: ref };
-            });
-          }}
-          options={files.map((f) => ({
-            value: f.hash,
-            label: (
-              <span>
-                <FileOutlined /> {f.filename}{' '}
-                <Text type="secondary" style={{ fontSize: 10 }}>
-                  ({formatBytes(f.size)}
-                  {f.mimeType ? ` · ${f.mimeType}` : ''})
-                </Text>
-              </span>
-            ),
-          }))}
-          notFoundContent={filesReady ? 'No files uploaded yet — use "Upload file" above.' : 'Loading files…'}
-        />
-        <Tooltip title={placeholder ? 'Upload file to replace placeholder' : 'Upload new file and use it here'}>
-          <Button size="small" icon={<UploadOutlined />} onClick={onUploadReplace}>
-            {placeholder ? 'Upload' : 'Replace'}
-          </Button>
-        </Tooltip>
-      </div>
-
-      {placeholder && (
-        <Tag icon={<WarningOutlined />} color="warning" style={{ fontSize: 10, margin: 0 }}>
-          Upload required — imported placeholder for {part.fileRef.filename}
-        </Tag>
-      )}
-      {!placeholder && !exists && files.length > 0 && (
-        <Tag color="error" style={{ fontSize: 10, margin: 0 }}>
-          File <code>{part.fileRef.filename}</code> is no longer in this workspace. Re-upload or pick another file.
-        </Tag>
-      )}
-
-      <Input
-        size="small"
-        placeholder="filename override (optional — defaults to the uploaded filename)"
-        value={part.filenameOverride ?? ''}
-        onChange={(e) =>
-          onUpdate((p) => {
-            if (p.kind !== 'file') return p;
-            const next = e.target.value;
-            return { ...p, filenameOverride: next.length > 0 ? next : undefined };
-          })
-        }
-        style={{
-          fontFamily: "'SF Mono', monospace",
-          fontSize: 11,
-          color: token.colorText,
-        }}
-      />
-    </div>
+    <Tag
+      closable
+      onClose={(e) => {
+        e.preventDefault();
+        onRemove();
+      }}
+      closeIcon={<CloseOutlined style={{ fontSize: 10 }} />}
+      icon={warning ? <WarningOutlined /> : undefined}
+      color={warning ? 'warning' : 'default'}
+      style={{
+        fontSize: 11,
+        margin: 0,
+        color: warning ? token.colorWarningText : token.colorText,
+        background: warning ? token.colorWarningBg : token.colorFillQuaternary,
+        border: `1px solid ${warning ? token.colorWarningBorder : token.colorBorderSecondary}`,
+      }}
+    >
+      {ref_.filename}
+    </Tag>
   );
 };
 
-// ── Helpers ────────────────────────────────────────────────────────
+// ── Bulk-edit serialize / parse ───────────────────────────────────
+
+/**
+ * Serialize parts to the bulk-edit text format. Order is preserved so
+ * the user can reorder rows by moving lines around.
+ *   • Text part:  `name:value` (+ optional ` # description`)
+ *   • File part:  `name:@file1.ext[,@file2.ext…]` — one row can list
+ *     multiple file references; each is rebound by filename on parse.
+ *   • Disabled:   leading `//`.
+ */
+function serializeMultipartToText(parts: IdentifiedPart[]): string {
+  return parts
+    .filter((p) => {
+      if (p.kind === 'text') return p.name.trim() || p.value.trim() || p.description?.trim();
+      return (p.fileRefs ?? []).length > 0 || p.name.trim() || p.description?.trim();
+    })
+    .map((p) => {
+      const prefix = p.enabled === false ? '//' : '';
+      const note = p.description ? ` # ${p.description}` : '';
+      if (p.kind === 'text') {
+        return `${prefix}${p.name}:${p.value}${note}`;
+      }
+      const refs = p.fileRefs ?? [];
+      const fileList = refs.length === 0 ? '' : refs.map((ref) => `@${ref.filename}`).join(',');
+      return `${prefix}${p.name}:${fileList}${note}`;
+    })
+    .join('\n');
+}
+
+/**
+ * Parse bulk-edit text back into parts. File-reference entries
+ * (`name:@filename[,@filename2…]`) resolve each filename
+ * independently, in this order:
+ *
+ *   1. Existing file part on the draft with a FileRef matching the
+ *      declared filename — preserves the underlying hash + mimeType.
+ *   2. Uploaded workspace file with that filename — rebinds so the
+ *      user can swap files by retyping the name.
+ *   3. Placeholder FileRef — shows "Upload required" warning on exit.
+ *
+ * Any existing file parts NOT re-mentioned in the bulk text are
+ * dropped (same semantic as deleting a row in the table).
+ */
+function parseMultipartFromText(
+  text: string,
+  currentRows: IdentifiedPart[],
+  workspaceFiles: FileRef[],
+): IdentifiedPart[] {
+  const currentFileParts = currentRows.filter(
+    (p): p is IdentifiedFilePart => p.kind === 'file',
+  );
+  // Flatten every FileRef on the current draft so `@filename` lookups
+  // can match any ref in any row — lets users freely move file refs
+  // between rows by editing text.
+  const draftRefsByName = new Map<string, FileRef>();
+  for (const part of currentFileParts) {
+    for (const ref of part.fileRefs ?? []) {
+      if (!draftRefsByName.has(ref.filename)) draftRefsByName.set(ref.filename, ref);
+    }
+  }
+
+  const result: IdentifiedPart[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trimStart();
+    if (!line) continue;
+    const enabled = !line.startsWith('//');
+    const payload = enabled ? line : line.replace(/^\/\/\s*/, '');
+    const hashIdx = payload.indexOf(' # ');
+    const noteless = hashIdx >= 0 ? payload.slice(0, hashIdx) : payload;
+    const description = hashIdx >= 0 ? payload.slice(hashIdx + 3).trim() : '';
+    const colonIdx = noteless.indexOf(':');
+    const name = colonIdx >= 0 ? noteless.slice(0, colonIdx).trim() : noteless.trim();
+    const valueRaw = colonIdx >= 0 ? noteless.slice(colonIdx + 1).trim() : '';
+
+    if (valueRaw.startsWith('@') || valueRaw === '') {
+      // Split `@a.log,@b.log` — each entry resolved independently.
+      const refs: FileRef[] = [];
+      if (valueRaw.length > 0) {
+        const entries = valueRaw.split(',').map((s) => s.trim()).filter((s) => s.startsWith('@'));
+        for (const entry of entries) {
+          const declared = entry.slice(1).trim();
+          if (!declared) continue;
+          const fromDraft = draftRefsByName.get(declared);
+          if (fromDraft) {
+            refs.push(fromDraft);
+            continue;
+          }
+          const fromWorkspace = workspaceFiles.find((f) => f.filename === declared);
+          if (fromWorkspace) {
+            refs.push(fromWorkspace);
+            continue;
+          }
+          // Unknown — emit a placeholder whose filename echoes what
+          // the user typed so the exit chip reads `<name> — not found`.
+          refs.push(placeholderFileRef({ filename: declared }));
+        }
+      }
+      result.push({ __id: nextRowId(), kind: 'file', name, fileRefs: refs, description, enabled });
+    } else {
+      result.push({ __id: nextRowId(), kind: 'text', name, value: valueRaw, description, enabled });
+    }
+  }
+  return result;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;

@@ -31,6 +31,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import KeyValueTable, { type KeyValueRow } from './request-editor/KeyValueTable';
 
 const { Text, Link } = Typography;
 
@@ -638,77 +639,69 @@ interface ParamEntry {
   value: string;
 }
 
+let OAUTH_PARAM_UID_COUNTER = 0;
+const nextOAuthParamUid = (): string => `op-${++OAUTH_PARAM_UID_COUNTER}`;
+
+/**
+ * ParamsBlock — wraps the shared `KeyValueTable` so OAuth2's extra
+ * Auth / Token / Refresh parameter lists carry the same chrome as
+ * every other key-value surface in the extension (drag, checkbox,
+ * Bulk Edit, column-hide menu). The OAuth2 storage shape is
+ * deliberately narrow (`{key, value}` entries — no description /
+ * enabled on the schema), so the adapter maps onto KeyValueRow and
+ * strips the extra fields on commit.
+ */
 const ParamsBlock: React.FC<{
   title: string;
   entries: ParamEntry[];
   onChange: (entries: ParamEntry[]) => void;
   disabled?: boolean;
 }> = ({ title, entries, onChange, disabled }) => {
-  const { token } = theme.useToken();
-  const rows = entries.length === 0 ? [{ key: '', value: '' }] : [...entries, { key: '', value: '' }];
+  // Hydrate transient uids for the shared table; KeyValueRow carries
+  // them so drag reorder + in-place edits stay stable across renders.
+  const rowsWithUid = entries.map((e) => ({
+    uid: nextOAuthParamUid(),
+    key: e.key,
+    value: e.value,
+    description: '',
+    enabled: true,
+  }));
 
-  const update = (i: number, patch: Partial<ParamEntry>) => {
-    const next = [...rows];
-    next[i] = { ...next[i], ...patch };
-    const tidy = next.filter((e) => e.key.trim() || e.value.trim());
-    onChange(tidy);
-  };
+  if (disabled) {
+    // Read-only mirror: render the shared table with input rows but
+    // pointer-events off; the schema doesn't expose a "reserved /
+    // disabled" state yet and the wrapping `disabled` flag is only
+    // set by the Refresh Request reserved placeholder.
+    return (
+      <div style={{ opacity: 0.55, pointerEvents: 'none' }}>
+        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+          {title}
+        </Text>
+        <KeyValueTable rows={rowsWithUid} onChange={() => undefined} keyPlaceholder="Key" valuePlaceholder="Value" />
+      </div>
+    );
+  }
 
   return (
     <div>
       <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
         {title}
       </Text>
-      <div
-        style={{
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 4,
-          overflow: 'hidden',
+      <KeyValueTable
+        rows={rowsWithUid}
+        onChange={(next: KeyValueRow[]) => {
+          // Strip uid + the placeholder description/enabled metadata
+          // before commit — the OAuth2Auth schema persists only
+          // `{key, value}` entries.
+          onChange(
+            next
+              .filter((r) => r.key.trim() || r.value.trim())
+              .map(({ key, value }) => ({ key, value })),
+          );
         }}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            fontSize: 11,
-            background: token.colorFillAlter,
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-            padding: '4px 8px',
-            color: token.colorTextSecondary,
-          }}
-        >
-          <span>Key</span>
-          <span>Value</span>
-        </div>
-        {rows.map((r, i) => (
-          <div
-            key={`${title}:${i}`}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              borderBottom: i < rows.length - 1 ? `1px solid ${token.colorBorderSecondary}` : undefined,
-            }}
-          >
-            <Input
-              variant="borderless"
-              size="small"
-              placeholder={i === rows.length - 1 ? 'Create parameter' : 'Key'}
-              value={r.key}
-              disabled={disabled}
-              onChange={(e) => update(i, { key: e.target.value })}
-            />
-            <Input
-              variant="borderless"
-              size="small"
-              placeholder="Value"
-              value={r.value}
-              disabled={disabled}
-              onChange={(e) => update(i, { value: e.target.value })}
-              style={{ borderLeft: `1px solid ${token.colorBorderSecondary}` }}
-            />
-          </div>
-        ))}
-      </div>
+        keyPlaceholder="Key"
+        valuePlaceholder="Value"
+      />
     </div>
   );
 };

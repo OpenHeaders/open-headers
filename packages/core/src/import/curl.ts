@@ -376,16 +376,20 @@ function parseFormFlag(raw: string, report: ImportReport, index: number): Multip
   // replaces it post-import through the multipart body editor.
   if (rawValue.startsWith('@') || rawValue.startsWith('<')) {
     const path = rawValue.slice(1);
-    const filename = basename(path) || 'unnamed';
-    const fileRef = placeholderFileRef({ filename, mimeType });
+    const basenameFromPath = basename(path) || 'unnamed';
+    // Prefer the explicit `filename=…` param (curl's user-level rename
+    // feature) as the display filename on the placeholder; falls back
+    // to the filename inferred from the path.
+    const displayFilename = filenameOverride ?? basenameFromPath;
+    const fileRef = placeholderFileRef({ filename: displayFilename, mimeType });
     recordTransform(report, {
       path: `flag:-F[${index}]`,
       from: `${name}=${rawValue.startsWith('@') ? '@' : '<'}${path}`,
-      to: `multipart.file (${filename})`,
+      to: `multipart.file (${displayFilename})`,
       reason: `File part imported as a placeholder. Upload the real file via the request editor's multipart view to complete reconciliation.`,
       tracking: '#todo-file-blobs',
     });
-    return { kind: 'file', name, fileRef, filenameOverride };
+    return { kind: 'file', name, fileRefs: [fileRef] };
   }
 
   return { kind: 'text', name, value: rawValue };
