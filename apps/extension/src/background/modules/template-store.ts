@@ -108,7 +108,7 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
 
 // ── Collections ─────────────────────────────────────────────────────
 
-const DEFAULT_COLLECTION_NAME = 'Default Templates';
+const DEFAULT_COLLECTION_NAME = 'User Templates';
 
 function assertLoaded(): string {
   if (!loadedWorkspaceId) {

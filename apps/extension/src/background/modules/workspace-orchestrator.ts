@@ -51,7 +51,11 @@ import {
   type LocalFolder,
   switchToWorkspace as switchRulesToWorkspace,
 } from './rule-store';
-import { hydrateTemplatesFromStorage, switchToWorkspace as switchTemplatesToWorkspace } from './template-store';
+import {
+  ensureDefaultTemplateCollection,
+  hydrateTemplatesFromStorage,
+  switchToWorkspace as switchTemplatesToWorkspace,
+} from './template-store';
 import { purgeWorkspaceTestRuns } from './test-run-store';
 import {
   createWorkspace as createWorkspaceMeta,
@@ -103,6 +107,12 @@ export async function hydrateActiveWorkspaceStores(): Promise<void> {
     hydrateRulesFromStorage(),
     hydrateRequestsFromStorage(),
   ]);
+  // Seed a default "User Templates" collection so the Templates
+  // section has a ready destination for user-authored templates on
+  // a fresh workspace. Rules and requests stay unseeded — the user
+  // creates those collections explicitly. `ensureDefaultTemplateCollection`
+  // is idempotent; on an already-seeded workspace this is a no-op.
+  ensureDefaultTemplateCollection();
 }
 
 // ── Switch ──────────────────────────────────────────────────────────

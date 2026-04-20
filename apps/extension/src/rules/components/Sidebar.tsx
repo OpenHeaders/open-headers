@@ -390,7 +390,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  // Seed the tree-level drill-downs a first-open user expects to see
+  // populated on the `http-rules` view: System Templates (so the
+  // shipped presets are discoverable) and the Header folder within
+  // it (the most common starting point for new rules). Keys match
+  // the ids built by `systemTemplateNodes` below.
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() =>
+    view === 'http-rules' ? new Set(['sys-tpl-col', 'sys-tpl-header']) : new Set(),
+  );
   // Default the one "primary" section of each view open so the user
   // sees content immediately; secondary sections stay collapsed to
   // avoid overwhelming a first-open view.
@@ -403,11 +410,16 @@ const Sidebar: React.FC<SidebarProps> = ({
       base['workspace-vars'] = true;
       base.environments = true;
     } else {
+      // `http-rules` view: rules + templates (and the System Templates
+      // → Header drill-down) expanded on first open so the user can
+      // discover the shipped header-modification templates without
+      // hunting for the carets.
       base.rules = true;
-      base.templates = false;
+      base.templates = true;
     }
     return base;
   });
+
   const [openWithSingleClick, setOpenWithSingleClick] = useState(true);
   const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = useState(true);
   const [openFoldersWithSingleClick, setOpenFoldersWithSingleClick] = useState(true);
