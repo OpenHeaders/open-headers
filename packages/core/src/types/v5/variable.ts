@@ -36,8 +36,17 @@ import type {
  * file's sha256 hash string (NOT bytes). Unlike the other scopes, `file` is
  * not part of the flat `{{X}}` walk; it's only reachable via the explicit
  * `{{file.X}}` form to keep the 4-scope precedence semantics stable.
+ *
+ * `live` resolves an auto-refreshing Live Variable — the extracted value
+ * of a Live Workflow capture. Only reachable via the explicit `{{live.X}}`
+ * form so rule templates never silently pick up an in-flight refresh
+ * value when a workspace/env variable of the same name exists.
+ *
+ * `step` resolves a capture from an in-flight Live Workflow chain —
+ * `{{step.<stepId>.<captureName>}}`. Only meaningful while a chain is
+ * executing; surfaces a `step-out-of-context` error when absent.
  */
-export type VariableScope = 'vault' | 'environment' | 'collection' | 'workspace' | 'file';
+export type VariableScope = 'vault' | 'environment' | 'collection' | 'workspace' | 'file' | 'live' | 'step';
 
 // ── Variable ───────────────────────────────────────────────────────
 

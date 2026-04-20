@@ -15,6 +15,18 @@ export type {
   ExtensionWorkspaceKind,
   ExtensionWorkspaceSource,
 } from './extension-workspace';
+// ── Live Variables + Workflows ────────────────────────────────────
+export type {
+  Capture,
+  Extractor,
+  ExtractorKind,
+  LiveVariable,
+  LiveVariableOverride,
+  LiveWorkflow,
+  RefreshPolicy,
+  RefreshPolicyKind,
+  WorkflowStep,
+} from './live';
 // ── Request ────────────────────────────────────────────────────────
 export type {
   AuthConfig,

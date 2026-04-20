@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isVariableNamespace, parseReference } from '../../src/variables/namespaces';
+import { isVariableNamespace, parseReference, parseStepRefName } from '../../src/variables/namespaces';
 
 describe('parseReference', () => {
   it('parses flat references (no namespace)', () => {
@@ -42,6 +42,23 @@ describe('parseReference', () => {
     });
   });
 
+  it('parses the live scope namespace', () => {
+    expect(parseReference('live.authToken')).toEqual({
+      ok: true,
+      ref: { namespace: 'live', name: 'authToken', raw: 'live.authToken' },
+    });
+  });
+
+  it('parses the step scope namespace preserving the composite name', () => {
+    // step refs carry `stepId.captureName` in the `name` field — the
+    // resolver splits further via `parseStepRefName`. The outer parser
+    // only knows that `step` is a valid namespace.
+    expect(parseReference('step.login.sessionId')).toEqual({
+      ok: true,
+      ref: { namespace: 'step', name: 'login.sessionId', raw: 'step.login.sessionId' },
+    });
+  });
+
   it('trims whitespace around the inner expression', () => {
     expect(parseReference('  env.X  ')).toEqual({
       ok: true,
@@ -73,7 +90,7 @@ describe('parseReference', () => {
 
 describe('isVariableNamespace', () => {
   it('accepts registered namespaces', () => {
-    for (const ns of ['env', 'vault', 'collection', 'workspace', 'dynamic', 'file']) {
+    for (const ns of ['env', 'vault', 'collection', 'workspace', 'dynamic', 'file', 'live', 'step']) {
       expect(isVariableNamespace(ns)).toBe(true);
     }
   });
@@ -82,5 +99,31 @@ describe('isVariableNamespace', () => {
     expect(isVariableNamespace('secret')).toBe(false);
     expect(isVariableNamespace('foo')).toBe(false);
     expect(isVariableNamespace('')).toBe(false);
+  });
+});
+
+describe('parseStepRefName', () => {
+  it('splits "<stepId>.<captureName>"', () => {
+    expect(parseStepRefName('login.sessionId')).toEqual({ stepId: 'login', captureName: 'sessionId' });
+  });
+
+  it('returns null for a bare single-segment name', () => {
+    expect(parseStepRefName('login')).toBeNull();
+  });
+
+  it('returns null when the captureName segment is empty', () => {
+    expect(parseStepRefName('login.')).toBeNull();
+  });
+
+  it('returns null when the stepId segment is empty', () => {
+    expect(parseStepRefName('.sessionId')).toBeNull();
+  });
+
+  it('returns null when the capture name contains a dot (multi-dot refs unsupported)', () => {
+    expect(parseStepRefName('login.session.id')).toBeNull();
+  });
+
+  it('preserves hyphens and underscores in each segment', () => {
+    expect(parseStepRefName('csrf-step.csrf_token')).toEqual({ stepId: 'csrf-step', captureName: 'csrf_token' });
   });
 });

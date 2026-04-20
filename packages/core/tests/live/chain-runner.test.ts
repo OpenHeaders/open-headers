@@ -1,0 +1,214 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { FetchAdapter } from '../../src/live/chain-runner';
+import { runChain } from '../../src/live/chain-runner';
+import type { StepResponse } from '../../src/live/extractor';
+import type { LiveWorkflow, WorkflowStep } from '../../src/types/v5/live';
+
+function jsonResponse(payload: unknown, headers: Array<{ key: string; value: string }> = []): StepResponse {
+  return {
+    status: 200,
+    statusText: 'OK',
+    url: 'https://api.openheaders.io/x',
+    headers: [{ key: 'Content-Type', value: 'application/json' }, ...headers],
+    body: JSON.stringify(payload),
+  };
+}
+
+function singleStep(id: string, requestUid: string, captureExtractors: Array<[string, unknown]> = []): WorkflowStep {
+  return {
+    id,
+    requestUid,
+    captures: captureExtractors.map(([name, extractor]) => ({
+      name,
+      extractor: extractor as WorkflowStep['captures'][number]['extractor'],
+    })),
+  };
+}
+
+function workflow(steps: WorkflowStep[]): LiveWorkflow {
+  return {
+    schemaVersion: 5,
+    version: 1,
+    uid: 'wflow001',
+    path: 'live-workflows/demo-wflow001',
+    name: 'Demo',
+    enabled: true,
+    refresh: { kind: 'manual' },
+    steps,
+  };
+}
+
+describe('runChain — happy path', () => {
+  it('executes a single-step workflow and extracts captures', async () => {
+    const wf = workflow([
+      singleStep('fetch', 'reqfetch1', [
+        ['access_token', { kind: 'json-path', path: '$.access_token' }],
+        ['expires_in', { kind: 'json-path', path: '$.expires_in' }],
+      ]),
+    ]);
+    const adapter: FetchAdapter = {
+      async executeStep() {
+        return jsonResponse({ access_token: 'tk-42', expires_in: 300 });
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws-1', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      expect(outcome.stepCaptures.get('fetch')?.get('access_token')).toBe('tk-42');
+      expect(outcome.stepCaptures.get('fetch')?.get('expires_in')).toBe('300');
+    }
+  });
+
+  it('executes a 3-step chain and passes captures forward to the adapter', async () => {
+    const wf = workflow([
+      singleStep('login', 'reqlogin1', [['sessionId', { kind: 'json-path', path: '$.session' }]]),
+      singleStep('csrf', 'reqcsrf01', [['token', { kind: 'header', name: 'X-CSRF-Token' }]]),
+      singleStep('final', 'reqfinal1', [['access_token', { kind: 'json-path', path: '$.access_token' }]]),
+    ]);
+    const calls: Array<{ stepId: string; capturesSnapshot: Record<string, Record<string, string>> }> = [];
+    const adapter: FetchAdapter = {
+      async executeStep(step, stepCaptures) {
+        const snap: Record<string, Record<string, string>> = {};
+        for (const [sid, caps] of stepCaptures) {
+          snap[sid] = {};
+          for (const [k, v] of caps) snap[sid][k] = v;
+        }
+        calls.push({ stepId: step.id, capturesSnapshot: snap });
+        if (step.id === 'login') return jsonResponse({ session: 'sid-aaa' });
+        if (step.id === 'csrf') return jsonResponse({}, [{ key: 'X-CSRF-Token', value: 'csrf-bbb' }]);
+        return jsonResponse({ access_token: 'final-ccc' });
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws-1', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+
+    // Adapter saw the captures accumulate across steps.
+    expect(calls[0].capturesSnapshot).toEqual({});
+    expect(calls[1].capturesSnapshot).toEqual({ login: { sessionId: 'sid-aaa' } });
+    expect(calls[2].capturesSnapshot).toEqual({
+      login: { sessionId: 'sid-aaa' },
+      csrf: { token: 'csrf-bbb' },
+    });
+
+    if (outcome.ok) {
+      expect(outcome.stepCaptures.get('final')?.get('access_token')).toBe('final-ccc');
+      expect(outcome.stepCaptures.size).toBe(3);
+    }
+  });
+
+  it('records per-step response byte counts', async () => {
+    const wf = workflow([singleStep('only', 'reqonly01', [['v', { kind: 'whole-body' }]])]);
+    const adapter: FetchAdapter = {
+      async executeStep() {
+        return { status: 200, statusText: 'OK', url: '', headers: [], body: 'abc' };
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.stepResponseBytes.get('only')).toBe(3);
+  });
+
+  it('uses the injected clock for completedAt', async () => {
+    const wf = workflow([singleStep('only', 'reqonly01', [])]);
+    const adapter: FetchAdapter = {
+      async executeStep() {
+        return jsonResponse({});
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+      now: () => 42_000,
+    });
+    if (outcome.ok) expect(outcome.completedAt).toBe(42_000);
+  });
+});
+
+describe('runChain — failure semantics (atomic)', () => {
+  it('returns fetch failure when an adapter throws', async () => {
+    const wf = workflow([singleStep('first', 'reqfirst1', [])]);
+    const adapter: FetchAdapter = {
+      async executeStep() {
+        throw new Error('DNS broke');
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome).toMatchObject({ ok: false, failedStepId: 'first', failedPhase: 'fetch' });
+    if (!outcome.ok) expect(outcome.failedReason).toContain('DNS broke');
+  });
+
+  it('halts the chain when any extractor fails — later steps never run', async () => {
+    const wf = workflow([
+      singleStep('first', 'reqfirst1', [['v', { kind: 'json-path', path: '$.missing' }]]),
+      singleStep('second', 'reqsecnd1', []),
+    ]);
+    const executeStep = vi.fn(async () => jsonResponse({ other: 'x' }));
+    const adapter: FetchAdapter = { executeStep };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome).toMatchObject({ ok: false, failedStepId: 'first', failedPhase: 'extract' });
+    // The second step's executeStep was never called — atomic semantics.
+    expect(executeStep).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports partial captures from successful earlier steps on failure', async () => {
+    const wf = workflow([
+      singleStep('first', 'reqfirst1', [['ok', { kind: 'json-path', path: '$.ok' }]]),
+      singleStep('second', 'reqsecnd1', [['bad', { kind: 'json-path', path: '$.missing' }]]),
+    ]);
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        if (step.id === 'first') return jsonResponse({ ok: 'yes' });
+        return jsonResponse({ other: 'no' });
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.partialStepCaptures.get('first')?.get('ok')).toBe('yes');
+      expect(outcome.partialStepCaptures.has('second')).toBe(false);
+    }
+  });
+
+  it('surfaces extractor failure detail (kind + message) on extract phase', async () => {
+    const wf = workflow([singleStep('first', 'reqfirst1', [['bad', { kind: 'json-path', path: '$.missing' }]])]);
+    const adapter: FetchAdapter = {
+      async executeStep() {
+        return jsonResponse({ other: 'x' });
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    if (!outcome.ok) {
+      expect(outcome.extractorFailure?.kind).toBe('no-match');
+      expect(outcome.extractorFailure?.captureName).toBe('bad');
+    }
+  });
+});

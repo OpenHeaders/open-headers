@@ -1,0 +1,224 @@
+/**
+ * Valibot schemas for Live Variables + Live Workflows (v5).
+ *
+ * See docs/LIVE_VARIABLES_PLAN.md for the architectural motivation.
+ *
+ * ── Entity split ──────────────────────────────────────────────────
+ *
+ *   LiveWorkflow — a refreshable data source. Owns the ordered step
+ *   list, the refresh schedule, and (at runtime) the cached step
+ *   captures + failure state. A "single request LV" is internally a
+ *   workflow with exactly one step; chains have many. Multiple
+ *   LiveVariables can bind to one workflow and refresh atomically
+ *   with it.
+ *
+ *   LiveVariable — a thin namespace projection. "Expose
+ *   `<workflow>.<stepId>.<captureName>` as `{{live.<name>}}`." All
+ *   extraction logic lives on the workflow's step captures; the LV
+ *   is just the binding + UX metadata (manual override, sync-warm
+ *   flag, enabled state).
+ *
+ * ── Identifier conventions ────────────────────────────────────────
+ *
+ *   - `stepId`, `captureName`, and `LiveVariable.name` all share a
+ *     strict identifier shape (leading letter / underscore, followed
+ *     by letters / digits / underscore / hyphen). No dots — the dot
+ *     is the separator inside `{{step.<stepId>.<captureName>}}`, and
+ *     the resolver splits on the first dot after `step.`, so any dot
+ *     inside a stepId or capture name would ambiguate the reference.
+ *   - `uid` width + charset live in `common.ts` (8-char lowercase
+ *     alphanumeric, invariant #2).
+ *   - `LiveVariable.name` doubles as the namespace key in `{{live.X}}`
+ *     templates, so it must be a valid identifier AND unique within
+ *     the workspace. Uniqueness is enforced by the store layer, not
+ *     at the schema boundary (same as `Environment.name`).
+ */
+
+import * as v from 'valibot';
+import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+
+// ── Shared identifier shapes ──────────────────────────────────────
+
+/**
+ * Step ids and capture names — both must be URL-safe identifiers
+ * without dots, so `{{step.<id>.<capture>}}` parses unambiguously.
+ */
+const IDENT_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
+const IDENT_MESSAGE =
+  'Must start with a letter or underscore; only letters, digits, hyphens, and underscores are allowed.';
+
+export const StepIdSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(64), v.regex(IDENT_PATTERN, IDENT_MESSAGE));
+
+export const CaptureNameSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(64),
+  v.regex(IDENT_PATTERN, IDENT_MESSAGE),
+);
+
+/**
+ * Live Variable names double as the namespace key in `{{live.<name>}}`
+ * templates. Same identifier shape as step ids + capture names.
+ */
+export const LiveVariableNameSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(64),
+  v.regex(IDENT_PATTERN, IDENT_MESSAGE),
+);
+
+// ── Extractor ─────────────────────────────────────────────────────
+
+/**
+ * Discriminated union over the five v1 extractor kinds.
+ *
+ * - `json-path` — `$.a.b`, `$.a[0]`, dotted paths. The v1 evaluator
+ *   supports only a minimal subset (no wildcards, no filters); expand
+ *   as real use cases justify the complexity.
+ * - `header` — case-insensitive response-header lookup.
+ * - `body-regex` — JavaScript `RegExp` over the text body; `group`
+ *   defaults to 0 (whole match) when absent.
+ * - `whole-body` — the text body verbatim. Errors if the body is
+ *   binary (Content-Type doesn't decode as text).
+ * - `status-code` — the numeric status code as a decimal string (e.g.
+ *   `"200"`). Handy for rules that want to capture upstream liveness.
+ */
+export const ExtractorSchema = v.variant('kind', [
+  v.object({
+    kind: v.literal('json-path'),
+    path: v.pipe(v.string(), v.minLength(1)),
+  }),
+  v.object({
+    kind: v.literal('header'),
+    name: v.pipe(v.string(), v.minLength(1)),
+  }),
+  v.object({
+    kind: v.literal('body-regex'),
+    pattern: v.pipe(v.string(), v.minLength(1)),
+    /** RegExp group index to return; defaults to 0 (whole match). */
+    group: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  }),
+  v.object({
+    kind: v.literal('whole-body'),
+  }),
+  v.object({
+    kind: v.literal('status-code'),
+  }),
+]);
+
+// ── Capture ───────────────────────────────────────────────────────
+
+/**
+ * A named extraction from one workflow step's response. Referenced
+ * within later steps as `{{step.<stepId>.<captureName>}}`; exposed to
+ * `{{live.X}}` only if a `LiveVariable` binds to it.
+ */
+export const CaptureSchema = v.object({
+  name: CaptureNameSchema,
+  description: v.optional(v.string()),
+  extractor: ExtractorSchema,
+});
+
+// ── Workflow step ─────────────────────────────────────────────────
+
+export const WorkflowStepSchema = v.object({
+  id: StepIdSchema,
+  description: v.optional(v.string()),
+  /** Uid of the persisted `V5.Request` this step invokes. */
+  requestUid: UidSchema,
+  captures: v.array(CaptureSchema),
+});
+
+// ── Refresh policy ────────────────────────────────────────────────
+
+/**
+ * Minimum refresh interval in seconds. Chrome's packed MV3 build
+ * clamps `chrome.alarms.create` to a 30-second floor; schemas mirror
+ * that so editors can't persist sub-floor values.
+ */
+export const MIN_REFRESH_INTERVAL_SECONDS = 30;
+
+/**
+ * Discriminated union over the four refresh cadences.
+ *
+ * - `interval` — fire every N seconds.
+ * - `expires-in` — read a numeric seconds value from a step's capture
+ *   and fire `leadSeconds` BEFORE that many seconds have passed since
+ *   the last refresh. Classic OAuth `expires_in` shape.
+ * - `expires-at` — read an absolute milliseconds value from a
+ *   capture (e.g. a JWT `exp` field) and fire at
+ *   `value - leadSeconds * 1000`.
+ * - `manual` — never auto-fire; the user refreshes explicitly.
+ */
+export const RefreshPolicySchema = v.variant('kind', [
+  v.object({
+    kind: v.literal('interval'),
+    seconds: v.pipe(v.number(), v.integer(), v.minValue(MIN_REFRESH_INTERVAL_SECONDS)),
+  }),
+  v.object({
+    kind: v.literal('expires-in'),
+    stepId: StepIdSchema,
+    captureName: CaptureNameSchema,
+    leadSeconds: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  }),
+  v.object({
+    kind: v.literal('expires-at'),
+    stepId: StepIdSchema,
+    captureName: CaptureNameSchema,
+    leadSeconds: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  }),
+  v.object({
+    kind: v.literal('manual'),
+  }),
+]);
+
+// ── LiveWorkflow ──────────────────────────────────────────────────
+
+export const LiveWorkflowSchema = v.object({
+  schemaVersion: SchemaVersionSchema,
+  /** Phase 10 monotonic write counter (stale-draft detection). */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  uid: UidSchema,
+  path: RelativePathSchema,
+  name: v.pipe(v.string(), v.minLength(1)),
+  description: v.optional(v.string()),
+  steps: v.pipe(v.array(WorkflowStepSchema), v.minLength(1)),
+  refresh: RefreshPolicySchema,
+  enabled: v.boolean(),
+});
+
+// ── LiveVariable ──────────────────────────────────────────────────
+
+/**
+ * Manual-override fixed value — while active, the resolver serves
+ * `value` for `{{live.<name>}}` and the scheduler pauses refresh. If
+ * `until` is set, the override expires at that wall-clock ms; absent
+ * means indefinite.
+ */
+export const LiveVariableOverrideSchema = v.object({
+  value: v.string(),
+  until: v.optional(v.pipe(v.number(), v.minValue(0))),
+});
+
+export const LiveVariableSchema = v.object({
+  schemaVersion: SchemaVersionSchema,
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  uid: UidSchema,
+  path: RelativePathSchema,
+  /** Namespace key: referenced as `{{live.<name>}}`. Unique within the workspace. */
+  name: LiveVariableNameSchema,
+  description: v.optional(v.string()),
+  /** Uid of the owning workflow. */
+  workflowUid: UidSchema,
+  /** Which step of the workflow this LV reads from. */
+  stepId: StepIdSchema,
+  /** Which capture within that step supplies the value. */
+  captureName: CaptureNameSchema,
+  /**
+   * When true, rule compile blocks on the backing workflow's refresh
+   * if its cache is stale (sync-warm path). Default: async-warm.
+   */
+  requireFreshOnRuleBuild: v.optional(v.boolean()),
+  manualOverride: v.optional(LiveVariableOverrideSchema),
+  enabled: v.boolean(),
+});

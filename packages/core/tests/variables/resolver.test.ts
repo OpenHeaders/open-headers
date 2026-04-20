@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Environment, Variable, Vault, WorkspaceVariables } from '../../src/types/v5';
-import { resolveTemplate, VariableResolver } from '../../src/variables';
+import { type ResolvedLiveValue, resolveTemplate, VariableResolver } from '../../src/variables';
 
 // ── Factories ──────────────────────────────────────────────────────
 
@@ -545,6 +545,105 @@ describe('VariableResolver — structured resolution errors', () => {
   it('emits a reserved-namespace error for {{dynamic.uuid}}', () => {
     const { errors } = resolver.resolveTemplate('{{dynamic.uuid}}');
     expect(errors[0]).toMatchObject({ reason: 'reserved-namespace', namespace: 'dynamic' });
+  });
+
+  it('emits an unset-in-scope error for {{live.X}} when no live registry is set', () => {
+    const { errors } = resolver.resolveTemplate('{{live.authToken}}');
+    expect(errors[0]).toMatchObject({
+      reference: 'live.authToken',
+      reason: 'unset-in-scope',
+      namespace: 'live',
+      variableName: 'authToken',
+    });
+    expect(errors[0].hint).toMatch(/Live Variable/);
+  });
+
+  it('resolves {{live.X}} against the registered LiveRegistry', () => {
+    const registry = new Map<string, ResolvedLiveValue>([
+      ['authToken', { value: 'token-42', workflowUid: 'wf-abc12345' }],
+    ]);
+    resolver.setLiveRegistry(registry);
+    const { result, errors, variables } = resolver.resolveTemplate('Bearer {{live.authToken}}');
+    expect(result).toBe('Bearer token-42');
+    expect(errors).toEqual([]);
+    expect(variables[0]).toMatchObject({
+      name: 'live.authToken',
+      resolved: true,
+      value: 'token-42',
+      scope: 'live',
+      // Default sensitive=true — live values are typically tokens.
+      isSensitive: true,
+    });
+  });
+
+  it('honors registry-level isSensitive override for {{live.X}}', () => {
+    resolver.setLiveRegistry(
+      new Map([['buildId', { value: 'abc-123', workflowUid: 'wf-xyz98765', isSensitive: false }]]),
+    );
+    const { variables } = resolver.resolveTemplate('{{live.buildId}}');
+    expect(variables[0]).toMatchObject({ value: 'abc-123', isSensitive: false });
+  });
+
+  it('{{live.X}} does NOT participate in the flat {{X}} walk', () => {
+    // A live registry entry named "API_URL" must not leak into flat
+    // `{{X}}` lookups — the explicit `{{live.X}}` form is the only
+    // route to live values (same discipline as `{{file.X}}`).
+    resolver.setLiveRegistry(new Map([['API_URL', { value: 'from-live', workflowUid: 'wf-11111111' }]]));
+    expect(resolver.resolve('API_URL')).toBeNull();
+  });
+
+  it('emits step-out-of-context for {{step.X.Y}} without an installed context', () => {
+    const { errors } = resolver.resolveTemplate('{{step.login.sessionId}}');
+    expect(errors[0]).toMatchObject({
+      reference: 'step.login.sessionId',
+      reason: 'step-out-of-context',
+      namespace: 'step',
+    });
+    expect(errors[0].hint).toMatch(/only valid inside a Live Workflow step/);
+  });
+
+  it('resolves {{step.X.Y}} when a step-capture context is installed', () => {
+    resolver.setStepCaptures(new Map([['login', new Map([['sessionId', 'sess-1234']])]]));
+    const { result, errors } = resolver.resolveTemplate('sid={{step.login.sessionId}}');
+    expect(result).toBe('sid=sess-1234');
+    expect(errors).toEqual([]);
+  });
+
+  it('emits unset-in-scope for {{step.X.Y}} when the stepId is missing from the context', () => {
+    resolver.setStepCaptures(new Map()); // context installed but empty
+    const { errors } = resolver.resolveTemplate('{{step.login.sessionId}}');
+    expect(errors[0]).toMatchObject({
+      reason: 'unset-in-scope',
+      namespace: 'step',
+    });
+    expect(errors[0].hint).toMatch(/workflow step/);
+  });
+
+  it('emits unset-in-scope for {{step.X.Y}} when the captureName is missing', () => {
+    resolver.setStepCaptures(new Map([['login', new Map([['otherCapture', 'x']])]]));
+    const { errors } = resolver.resolveTemplate('{{step.login.sessionId}}');
+    expect(errors[0]).toMatchObject({
+      reason: 'unset-in-scope',
+      namespace: 'step',
+    });
+  });
+
+  it('emits unset-in-scope for malformed step refs like {{step.login}} (no capture name)', () => {
+    // `parseStepRefName` rejects single-segment names — the resolver's
+    // `step` branch returns null (unset-in-scope), not a parse error,
+    // because the outer parser already accepted the ref.
+    resolver.setStepCaptures(new Map());
+    const { errors } = resolver.resolveTemplate('{{step.login}}');
+    expect(errors[0]).toMatchObject({ reason: 'unset-in-scope', namespace: 'step' });
+  });
+
+  it('setStepCaptures(null) toggles back to step-out-of-context', () => {
+    resolver.setStepCaptures(new Map([['login', new Map([['sessionId', 'x']])]]));
+    expect(resolver.resolveTemplate('{{step.login.sessionId}}').errors).toEqual([]);
+    resolver.setStepCaptures(null);
+    expect(resolver.resolveTemplate('{{step.login.sessionId}}').errors[0]).toMatchObject({
+      reason: 'step-out-of-context',
+    });
   });
 
   it('emits an empty error for whitespace-only {{   }}', () => {

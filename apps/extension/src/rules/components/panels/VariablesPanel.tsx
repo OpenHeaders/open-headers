@@ -429,6 +429,7 @@ const REASON_TAG_COLOR: Record<ResolutionError['reason'], string> = {
   'unset-in-scope': 'warning',
   'unknown-namespace': 'magenta',
   'reserved-namespace': 'geekblue',
+  'step-out-of-context': 'volcano',
   empty: 'default',
 };
 
@@ -437,6 +438,7 @@ const REASON_TAG_LABEL: Record<ResolutionError['reason'], string> = {
   'unset-in-scope': 'not in scope',
   'unknown-namespace': 'unknown namespace',
   'reserved-namespace': 'reserved',
+  'step-out-of-context': 'step ref out of scope',
   empty: 'empty',
 };
 

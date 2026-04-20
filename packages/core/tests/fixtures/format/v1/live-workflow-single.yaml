@@ -1,0 +1,26 @@
+schemaVersion: 5
+version: 1
+uid: wflow001
+name: Debug Auth Token
+description: Single-request LV — fetch a short-lived debug-auth token.
+enabled: true
+refresh:
+  kind: expires-in
+  stepId: fetch-token
+  captureName: expires_in
+  leadSeconds: 60
+steps:
+  - id: fetch-token
+    description: POST /debug-auth with a static client secret.
+    requestUid: reqdbg01
+    captures:
+      - name: access_token
+        description: Bearer token the DNR rule injects.
+        extractor:
+          kind: json-path
+          path: $.access_token
+      - name: expires_in
+        description: Seconds until the token expires.
+        extractor:
+          kind: json-path
+          path: $.expires_in

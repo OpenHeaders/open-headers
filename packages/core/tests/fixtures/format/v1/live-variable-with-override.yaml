@@ -1,0 +1,13 @@
+schemaVersion: 5
+version: 4
+uid: livvar02
+name: finalAuthToken
+description: Referenced as {{live.finalAuthToken}} — pins a fixed value for bug-repro until 2026-05-01T00:00:00Z.
+enabled: true
+workflowUid: wflow002
+stepId: finalize
+captureName: access_token
+requireFreshOnRuleBuild: true
+manualOverride:
+  value: repro-token-for-issue-4242
+  until: 1780272000000

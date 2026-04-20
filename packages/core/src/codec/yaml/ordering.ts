@@ -85,3 +85,38 @@ export const REQUEST_FIELD_ORDER = [
  * what path the document came from).
  */
 export const RUNTIME_ONLY_FIELDS = ['path'] as const;
+
+/**
+ * Live Workflow manifest (`workflow.yaml`): metadata top, payload nested.
+ * `steps` is a structured array — the codec carries it inline rather
+ * than splitting each step into its own sibling file (kept simple for
+ * v1; the typical workflow has 1–5 steps).
+ */
+export const LIVE_WORKFLOW_FIELD_ORDER = [
+  'schemaVersion',
+  'version',
+  'uid',
+  'name',
+  'description',
+  'enabled',
+  'refresh',
+  'steps',
+] as const;
+
+/**
+ * Live Variable manifest (`variable.yaml`): thin binding to one
+ * workflow step capture.
+ */
+export const LIVE_VARIABLE_FIELD_ORDER = [
+  'schemaVersion',
+  'version',
+  'uid',
+  'name',
+  'description',
+  'enabled',
+  'workflowUid',
+  'stepId',
+  'captureName',
+  'requireFreshOnRuleBuild',
+  'manualOverride',
+] as const;

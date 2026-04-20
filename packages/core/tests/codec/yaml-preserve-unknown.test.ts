@@ -14,6 +14,8 @@ import {
   parseCollection,
   parseEnvironment,
   parseFolder,
+  parseLiveVariable,
+  parseLiveWorkflow,
   parseRequest,
   parseRule,
   parseTemplate,
@@ -23,6 +25,8 @@ import {
   serializeCollection,
   serializeEnvironment,
   serializeFolder,
+  serializeLiveVariable,
+  serializeLiveWorkflow,
   serializeRequest,
   serializeRule,
   serializeTemplate,
@@ -173,6 +177,45 @@ futureMeta: retain
     const write = mergePatch(parsed, () => {});
     const out = serializeEnvironment(write);
     expect(out.default).toBe(defaultRaw);
+  });
+
+  it('live-workflow.yaml retains unknown top-level key', () => {
+    const raw = `schemaVersion: 5
+version: 1
+uid: wflow003
+name: Example
+enabled: true
+refresh:
+  kind: interval
+  seconds: 300
+steps:
+  - id: only
+    requestUid: reqonly1
+    captures:
+      - name: value
+        extractor:
+          kind: whole-body
+ownerTeam: platform
+`;
+    const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/example-wflow003' });
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveWorkflow(write)).toBe(raw);
+  });
+
+  it('live-variable.yaml retains unknown top-level key', () => {
+    const raw = `schemaVersion: 5
+version: 1
+uid: livvar03
+name: exampleValue
+enabled: true
+workflowUid: wflow003
+stepId: only
+captureName: value
+futureTag: keep-me
+`;
+    const parsed = parseLiveVariable(raw, { path: 'live-variables/example-livvar03' });
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveVariable(write)).toBe(raw);
   });
 
   it('request.yaml retains unknown top-level key', () => {

@@ -17,6 +17,8 @@ import {
   parseCollection,
   parseEnvironment,
   parseFolder,
+  parseLiveVariable,
+  parseLiveWorkflow,
   parseRequest,
   parseRule,
   parseTemplate,
@@ -26,6 +28,8 @@ import {
   serializeCollection,
   serializeEnvironment,
   serializeFolder,
+  serializeLiveVariable,
+  serializeLiveWorkflow,
   serializeRequest,
   serializeRule,
   serializeTemplate,
@@ -113,6 +117,49 @@ describe('yaml codec — round-trip parity', () => {
     expect(out.default).toBe(defaultYaml);
     expect(out.secret).toBe(secretYaml);
     expect(out.template).toContain('value: ""'); // template has blanked values
+  });
+
+  it('live-workflow-single.yaml', () => {
+    const raw = loadFixture('live-workflow-single.yaml');
+    const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/debug-auth-wflow001' });
+    expect(parsed.value.uid).toBe('wflow001');
+    expect(parsed.value.steps).toHaveLength(1);
+    expect(parsed.value.refresh.kind).toBe('expires-in');
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveWorkflow(write)).toBe(raw);
+  });
+
+  it('live-workflow-chain.yaml', () => {
+    const raw = loadFixture('live-workflow-chain.yaml');
+    const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/csrf-chain-wflow002' });
+    expect(parsed.value.uid).toBe('wflow002');
+    expect(parsed.value.steps).toHaveLength(3);
+    expect(parsed.value.steps.map((s) => s.id)).toEqual(['login', 'csrf', 'finalize']);
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveWorkflow(write)).toBe(raw);
+  });
+
+  it('live-variable-primary.yaml (bound to single-step workflow)', () => {
+    const raw = loadFixture('live-variable-primary.yaml');
+    const parsed = parseLiveVariable(raw, { path: 'live-variables/debug-auth-livvar01' });
+    expect(parsed.value.uid).toBe('livvar01');
+    expect(parsed.value.name).toBe('debugAuth');
+    expect(parsed.value.workflowUid).toBe('wflow001');
+    expect(parsed.value.stepId).toBe('fetch-token');
+    expect(parsed.value.captureName).toBe('access_token');
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveVariable(write)).toBe(raw);
+  });
+
+  it('live-variable-with-override.yaml (sync-warm + manual override)', () => {
+    const raw = loadFixture('live-variable-with-override.yaml');
+    const parsed = parseLiveVariable(raw, { path: 'live-variables/final-auth-livvar02' });
+    expect(parsed.value.uid).toBe('livvar02');
+    expect(parsed.value.requireFreshOnRuleBuild).toBe(true);
+    expect(parsed.value.manualOverride?.value).toBe('repro-token-for-issue-4242');
+    expect(parsed.value.manualOverride?.until).toBe(1780272000000);
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveVariable(write)).toBe(raw);
   });
 
   it('request.yaml + body.json + pre-request.js + post-response.js', () => {

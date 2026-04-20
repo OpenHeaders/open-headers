@@ -23,7 +23,48 @@ import type {
   Vault,
   WorkspaceVariables,
 } from '../types/v5';
-import { parseReference, type VariableNamespace } from './namespaces';
+import { parseReference, parseStepRefName, type VariableNamespace } from './namespaces';
+
+// ── Live / step scope helpers ──────────────────────────────────────
+
+/**
+ * A snapshot of Live Variables currently available to the resolver.
+ *
+ * Keys are Live Variable names (referenced as `{{live.<name>}}`);
+ * values carry the most recent cached extraction. Callers build this
+ * once per compile pass from the live-cache-store + live-variable-store;
+ * staleness + async-warm rebuild semantics live in the caller, not here.
+ *
+ * `isSensitive` defaults to `true` in {@link resolveScopedLive} because
+ * live values are overwhelmingly auth tokens / session ids — masking in
+ * UI previews is the safer default.
+ */
+export interface ResolvedLiveValue {
+  value: string;
+  /** Backing workflow uid — lets UI link back for navigation + ref-counting. */
+  workflowUid: string;
+  /** When true, the value is past its expiry but still served (async-warm). */
+  stale?: boolean;
+  /** Override the default `true` sensitivity. Rare — most LVs are tokens. */
+  isSensitive?: boolean;
+}
+
+export type LiveRegistry = ReadonlyMap<string, ResolvedLiveValue>;
+
+/** An empty {@link LiveRegistry} used as the default when callers haven't wired live vars. */
+export const EMPTY_LIVE_REGISTRY: LiveRegistry = new Map();
+
+/**
+ * Step-capture context — installed by the chain runner ONLY while a
+ * Live Workflow step is being resolved. Keys are step ids; values are
+ * the step's name → extracted-value map.
+ *
+ * Presence is the signal: `null` means "no chain context" and
+ * `{{step.X.Y}}` surfaces a `step-out-of-context` error; a non-null
+ * (even if empty) map means "chain context active" and a missing
+ * stepId / captureName falls through to `unset-in-scope`.
+ */
+export type StepCaptureContext = ReadonlyMap<string, ReadonlyMap<string, string>> | null;
 
 // ── Regex for {{VAR}} matching ─────────────────────────────────────
 
@@ -36,6 +77,8 @@ const NAMESPACE_TO_SCOPE: Partial<Record<VariableNamespace, VariableScope>> = {
   collection: 'collection',
   workspace: 'workspace',
   file: 'file',
+  live: 'live',
+  step: 'step',
 };
 
 // ── Resolution errors ──────────────────────────────────────────────
@@ -50,7 +93,20 @@ export type ResolutionErrorReason =
   | 'unknown-namespace' // `{{foo.X}}` — foo is not a registered namespace
   | 'reserved-namespace' // `{{dynamic.X}}` — reserved for features not yet shipped
   | 'unset-in-scope' // `{{env.X}}` but X not in active env (and no default fallback)
+  | 'step-out-of-context' // `{{step.X.Y}}` outside an active Live Workflow step
   | 'unresolved'; // `{{X}}` — nowhere in the 4-scope chain
+
+/**
+ * Return shape of the diagnostic scoped-resolver. `failureReason` is
+ * set when resolution failed for a reason richer than "not in scope"
+ * — today only `step-out-of-context`, but the field exists so future
+ * namespaces can surface their own structured failures without
+ * changing the callsite.
+ */
+export interface ScopedResolution {
+  resolved: ResolvedVariable | null;
+  failureReason?: ResolutionErrorReason;
+}
 
 export interface ResolutionError {
   /** The raw text between the braces, trimmed. E.g. "env.API_URL" or "foo.X". */
@@ -81,9 +137,8 @@ function buildHint(
     case 'empty':
       return 'Reference is empty. Use {{name}} or {{namespace.name}}.';
     case 'unknown-namespace':
-      return 'Unknown namespace. Valid namespaces: env, vault, collection, workspace, dynamic, file.';
+      return 'Unknown namespace. Valid namespaces: env, vault, collection, workspace, file, live, step, dynamic.';
     case 'reserved-namespace':
-      if (namespace === 'file') return 'File references are coming in v2.';
       if (namespace === 'dynamic') return 'Dynamic variables ($timestamp, $guid, …) are coming soon.';
       return 'This namespace is reserved.';
     case 'unset-in-scope':
@@ -96,7 +151,13 @@ function buildHint(
       if (namespace === 'collection') return 'Set this variable in the current collection.';
       if (namespace === 'workspace') return 'Set this variable in Workspace Variables.';
       if (namespace === 'file') return 'Upload this file in Settings → Files (or reference it by its sha256 hash).';
+      if (namespace === 'live')
+        return 'No Live Variable by that name. Create one in Live Variables, or wait for its first refresh to populate.';
+      if (namespace === 'step')
+        return 'Step id or capture name not found in this workflow run. Check the workflow step configuration.';
       return 'Not set in this scope.';
+    case 'step-out-of-context':
+      return 'Step references ({{step.<stepId>.<captureName>}}) are only valid inside a Live Workflow step.';
     case 'unresolved':
       return 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
   }
@@ -116,6 +177,8 @@ export class VariableResolver {
   private collectionVariables: Map<string, Variable[]>;
   private workspaceVariables: WorkspaceVariables;
   private fileRegistry: FileRegistry;
+  private liveRegistry: LiveRegistry;
+  private stepCaptures: StepCaptureContext;
 
   constructor() {
     this.vault = { schemaVersion: 5, version: 1, secrets: [] };
@@ -125,6 +188,8 @@ export class VariableResolver {
     this.collectionVariables = new Map();
     this.workspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
     this.fileRegistry = EMPTY_FILE_REGISTRY;
+    this.liveRegistry = EMPTY_LIVE_REGISTRY;
+    this.stepCaptures = null;
   }
 
   // ── Scope setters ────────────────────────────────────────────────
@@ -180,6 +245,30 @@ export class VariableResolver {
     } else {
       this.fileRegistry = refsOrRegistry as FileRegistry;
     }
+  }
+
+  /**
+   * Install the Live Variables registry — a snapshot of `{{live.X}}` →
+   * {@link ResolvedLiveValue}. Pass an empty map (or
+   * {@link EMPTY_LIVE_REGISTRY}) to clear.
+   */
+  setLiveRegistry(registry: LiveRegistry): void {
+    this.liveRegistry = registry;
+  }
+
+  /**
+   * Install (or clear) the step-capture context for the duration of a
+   * Live Workflow step's template resolution. Callers set this
+   * immediately before resolving templates in a step's request, then
+   * clear it with `setStepCaptures(null)` when the step finishes.
+   *
+   * `null` means "no chain context active" — resolution of
+   * `{{step.X.Y}}` surfaces a `step-out-of-context` error instead of
+   * `unset-in-scope`, so the hint can tell the user exactly what's
+   * wrong.
+   */
+  setStepCaptures(ctx: StepCaptureContext): void {
+    this.stepCaptures = ctx;
   }
 
   // ── Internal helpers ─────────────────────────────────────────────
@@ -262,57 +351,76 @@ export class VariableResolver {
    * Flat `{{X}}` callers should use {@link resolve}; this is the
    * explicit-namespace (`{{env.X}}`, `{{vault.X}}`, etc.) path.
    *
-   * `dynamic` and `file` namespaces are reserved for other resolvers —
-   * this method returns `null` for them so the caller can emit the
-   * appropriate message (e.g. "file refs coming in v2").
+   * Returns `null` for any miss — the `resolveTemplate` caller decides
+   * whether the miss is "unset in scope" or the more specific
+   * `step-out-of-context`. For callers that need that distinction, use
+   * {@link resolveScopedWithDiagnostics} instead.
    */
   resolveScoped(name: string, namespace: VariableNamespace, context?: ResolutionContext): ResolvedVariable | null {
+    return this.resolveScopedWithDiagnostics(name, namespace, context).resolved;
+  }
+
+  /**
+   * Variant of {@link resolveScoped} that returns a diagnostic failure
+   * reason when resolution fails. Enables callers (notably
+   * `resolveTemplate`) to distinguish "namespace reserved / not
+   * available in this context" from a plain "unset-in-scope" miss.
+   */
+  resolveScopedWithDiagnostics(
+    name: string,
+    namespace: VariableNamespace,
+    context?: ResolutionContext,
+  ): ScopedResolution {
     const scope = NAMESPACE_TO_SCOPE[namespace];
-    if (!scope) return null;
+    if (!scope) return { resolved: null };
 
     switch (scope) {
       case 'vault': {
         const secret = this.vault.secrets.find((s) => s.name === name);
         if (secret?.value) {
-          return { name, value: secret.value, scope: 'vault', isSensitive: true };
+          return { resolved: { name, value: secret.value, scope: 'vault', isSensitive: true } };
         }
-        return null;
+        return { resolved: null };
       }
       case 'environment': {
         const activeEnvId = context?.environmentId ?? this.activeEnvironmentId;
         const fromActive = this.tryResolveFromEnv(activeEnvId, name);
-        if (fromActive) return fromActive;
+        if (fromActive) return { resolved: fromActive };
         if (this.defaultEnvironmentId && this.defaultEnvironmentId !== activeEnvId) {
-          return this.tryResolveFromEnv(this.defaultEnvironmentId, name);
+          return { resolved: this.tryResolveFromEnv(this.defaultEnvironmentId, name) };
         }
-        return null;
+        return { resolved: null };
       }
       case 'collection': {
-        if (!context?.collectionId) return null;
+        if (!context?.collectionId) return { resolved: null };
         const collVars = this.collectionVariables.get(context.collectionId);
-        if (!collVars) return null;
+        if (!collVars) return { resolved: null };
         const collVar = collVars.find((v) => v.name === name);
         if (collVar && collVar.value !== '') {
           return {
-            name,
-            value: collVar.value,
-            scope: 'collection',
-            isSensitive: collVar.type === 'secret',
+            resolved: {
+              name,
+              value: collVar.value,
+              scope: 'collection',
+              isSensitive: collVar.type === 'secret',
+            },
           };
         }
-        return null;
+        return { resolved: null };
       }
       case 'workspace': {
         const wsVar = this.workspaceVariables.variables.find((v) => v.name === name);
         if (wsVar && wsVar.value !== '') {
           return {
-            name,
-            value: wsVar.value,
-            scope: 'workspace',
-            isSensitive: wsVar.type === 'secret',
+            resolved: {
+              name,
+              value: wsVar.value,
+              scope: 'workspace',
+              isSensitive: wsVar.type === 'secret',
+            },
           };
         }
-        return null;
+        return { resolved: null };
       }
       case 'file': {
         // `{{file.X}}` resolves by filename OR explicit `sha256:<hex>`.
@@ -321,16 +429,57 @@ export class VariableResolver {
         // the resolver string-only preserves its synchronous-pure
         // contract; binary attachment is the executor's concern.
         const fileRef = resolveFileRef(this.fileRegistry, name);
-        if (!fileRef) return null;
+        if (!fileRef) return { resolved: null };
         return {
-          name,
-          value: fileRef.hash,
-          scope: 'file',
-          // File refs are not sensitive in the secret sense — the
-          // hash is content-derived and doesn't reveal bytes. A
-          // later tier might mark blobs uploaded from the vault
-          // scope as sensitive; v1 treats them as plain data.
-          isSensitive: false,
+          resolved: {
+            name,
+            value: fileRef.hash,
+            scope: 'file',
+            // File refs are not sensitive in the secret sense — the
+            // hash is content-derived and doesn't reveal bytes. A
+            // later tier might mark blobs uploaded from the vault
+            // scope as sensitive; v1 treats them as plain data.
+            isSensitive: false,
+          },
+        };
+      }
+      case 'live': {
+        const entry = this.liveRegistry.get(name);
+        if (!entry) return { resolved: null };
+        return {
+          resolved: {
+            name,
+            value: entry.value,
+            scope: 'live',
+            // Default to masked — live values are overwhelmingly tokens.
+            isSensitive: entry.isSensitive ?? true,
+          },
+        };
+      }
+      case 'step': {
+        // Two distinct failure modes: no chain context at all (fires
+        // a `step-out-of-context` error so the hint explains the fix),
+        // or chain context exists but the specific stepId / capture
+        // isn't available (plain `unset-in-scope`).
+        if (this.stepCaptures == null) {
+          return { resolved: null, failureReason: 'step-out-of-context' };
+        }
+        const parts = parseStepRefName(name);
+        if (!parts) return { resolved: null };
+        const step = this.stepCaptures.get(parts.stepId);
+        if (!step) return { resolved: null };
+        const value = step.get(parts.captureName);
+        if (value === undefined) return { resolved: null };
+        return {
+          resolved: {
+            name,
+            value,
+            scope: 'step',
+            // Treat step values as sensitive by default — they often
+            // carry intermediate auth tokens that feed into later
+            // steps. Masking in UI previews is the safer default.
+            isSensitive: true,
+          },
         };
       }
     }
@@ -353,7 +502,7 @@ export class VariableResolver {
     return resolveTemplate(
       template,
       (name) => this.resolve(name, context),
-      (name, ns) => this.resolveScoped(name, ns, context),
+      (name, ns) => this.resolveScopedWithDiagnostics(name, ns, context),
       {
         activeEnvironmentId: context?.environmentId ?? this.activeEnvironmentId,
         defaultEnvironmentId: this.defaultEnvironmentId,
@@ -432,6 +581,23 @@ export interface ResolutionEnvSnapshot {
 }
 
 /**
+ * Scoped-lookup function shape accepted by {@link resolveTemplate}.
+ *
+ * Callers may return either a bare `ResolvedVariable | null` (simple
+ * path — a miss surfaces as `unset-in-scope`) or a {@link ScopedResolution}
+ * carrying a richer `failureReason` (so `{{step.X.Y}}` without context
+ * can surface as `step-out-of-context`). The standalone function
+ * detects which shape the return carries; callers don't have to pick.
+ */
+export type ScopedLookupFn = (name: string, namespace: VariableNamespace) => ResolvedVariable | null | ScopedResolution;
+
+function toScopedResolution(ret: ResolvedVariable | null | ScopedResolution): ScopedResolution {
+  if (ret == null) return { resolved: null };
+  if ('resolved' in ret) return ret;
+  return { resolved: ret };
+}
+
+/**
  * Resolve all `{{...}}` references in a template string.
  *
  * Accepts two lookup functions so the same implementation handles flat
@@ -441,14 +607,13 @@ export interface ResolutionEnvSnapshot {
  * callers who haven't wired namespace support yet.
  *
  * Unresolved references are left literal in the output. Unknown namespaces
- * and reserved namespaces (`dynamic`, `file`) also leave the reference
- * literal — the caller walks the returned `errors` list to surface issues
- * in the UI.
+ * and reserved namespaces (`dynamic`) also leave the reference literal —
+ * the caller walks the returned `errors` list to surface issues in the UI.
  */
 export function resolveTemplate(
   template: string,
   lookup: (name: string) => ResolvedVariable | null,
-  scopedLookup?: (name: string, namespace: VariableNamespace) => ResolvedVariable | null,
+  scopedLookup?: ScopedLookupFn,
   env?: ResolutionEnvSnapshot,
 ): { result: string; variables: TemplateVariable[]; errors: ResolutionError[] } {
   const variables: TemplateVariable[] = [];
@@ -496,17 +661,19 @@ export function resolveTemplate(
     const { ref } = parsed;
     const key = ref.namespace ? `${ref.namespace}.${ref.name}` : ref.name;
 
-    let resolved: ResolvedVariable | null;
+    let resolution: ScopedResolution;
     if (ref.namespace === null) {
-      resolved = lookup(ref.name);
+      resolution = { resolved: lookup(ref.name) };
     } else if (scopedLookup) {
-      resolved = scopedLookup(ref.name, ref.namespace);
+      resolution = toScopedResolution(scopedLookup(ref.name, ref.namespace));
     } else {
       // Caller didn't wire namespace support — treat as flat for backward
       // compat. Semantic: `{{env.X}}` behaves like `{{X}}` until the
       // caller opts into scoped lookup.
-      resolved = lookup(ref.name);
+      resolution = { resolved: lookup(ref.name) };
     }
+
+    const resolved = resolution.resolved;
 
     if (!seen.has(key)) {
       seen.add(key);
@@ -531,6 +698,16 @@ export function resolveTemplate(
             activeEnvironmentId,
             defaultEnvironmentId,
             hint: buildHint('reserved-namespace', ref.namespace, activeEnvironmentId),
+          });
+        } else if (resolution.failureReason === 'step-out-of-context') {
+          errors.push({
+            reference: ref.raw,
+            reason: 'step-out-of-context',
+            namespace: ref.namespace,
+            variableName: ref.name,
+            activeEnvironmentId,
+            defaultEnvironmentId,
+            hint: buildHint('step-out-of-context', ref.namespace, activeEnvironmentId),
           });
         } else if (ref.namespace) {
           errors.push({

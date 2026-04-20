@@ -51,6 +51,10 @@
       "import": "./src/files/index.ts",
       "default": "./dist/files/index.js"
     },
+    "./live": {
+      "import": "./src/live/index.ts",
+      "default": "./dist/live/index.js"
+    },
     "./oauth": {
       "import": "./src/oauth/index.ts",
       "default": "./dist/oauth/index.js"

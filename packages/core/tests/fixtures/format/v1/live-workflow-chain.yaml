@@ -1,0 +1,40 @@
+schemaVersion: 5
+version: 3
+uid: wflow002
+name: CSRF-Protected Auth Chain
+description: Three-step dance — login sets session cookie, /csrf returns a token, /finalize exchanges both for an access token.
+enabled: true
+refresh:
+  kind: expires-in
+  stepId: finalize
+  captureName: expires_in
+  leadSeconds: 120
+steps:
+  - id: login
+    description: Issue session cookie via POST /login.
+    requestUid: reqlog01
+    captures:
+      - name: sessionId
+        extractor:
+          kind: json-path
+          path: $.session_id
+  - id: csrf
+    description: Fetch CSRF token with the session cookie attached.
+    requestUid: reqcsr01
+    captures:
+      - name: token
+        extractor:
+          kind: header
+          name: X-CSRF-Token
+  - id: finalize
+    description: Exchange session + csrf for the final access token.
+    requestUid: reqfin01
+    captures:
+      - name: access_token
+        extractor:
+          kind: json-path
+          path: $.access_token
+      - name: expires_in
+        extractor:
+          kind: json-path
+          path: $.expires_in

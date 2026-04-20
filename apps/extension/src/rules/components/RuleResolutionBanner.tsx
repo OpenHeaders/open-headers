@@ -39,6 +39,7 @@ const REASON_LABEL: Record<ResolutionError['reason'], string> = {
   'unset-in-scope': 'not in scope',
   'unknown-namespace': 'unknown namespace',
   'reserved-namespace': 'reserved',
+  'step-out-of-context': 'step ref out of scope',
   empty: 'empty',
 };
 
