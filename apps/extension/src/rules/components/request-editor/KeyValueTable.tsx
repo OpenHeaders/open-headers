@@ -11,11 +11,13 @@
  *   • Three text inputs (Key, Value, Description).
  *   • A trailing delete button (hidden on the placeholder row).
  *
- * `readOnlyRows` renders above the user-editable ones and carries
- * auto-managed entries (browser-supplied headers). They show the same
- * three-column layout but without checkboxes or delete affordance;
- * an `info` tooltip surfaces the per-entry rationale when the user
- * hovers the key cell.
+ * `suggestionRows` renders above the user-editable rows. Suggestions
+ * are read-only informational entries (e.g. the browser-managed
+ * auto-generated headers) that carry an enable checkbox the user
+ * can un-check + an info-icon right-aligned on the Key cell with a
+ * tooltip explaining the row. Key + Value display as static text —
+ * suggestion values can't be edited from here; the user authors
+ * their own override in the editable rows below.
  */
 
 import { DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
@@ -31,11 +33,14 @@ export interface KeyValueRow {
   enabled: boolean;
 }
 
-export interface ReadOnlyKeyValueRow {
+export interface SuggestionRow {
   key: string;
   value: string;
-  /** Shown in the info-tooltip on hover. */
+  /** Tooltip body shown under the info icon on the Key cell. */
   hint?: string;
+  /** Current enable state — toggled by the row's checkbox. */
+  enabled: boolean;
+  onToggle: (next: boolean) => void;
 }
 
 interface KeyValueTableProps {
@@ -43,7 +48,12 @@ interface KeyValueTableProps {
   onChange: (rows: KeyValueRow[]) => void;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
-  readOnlyRows?: ReadOnlyKeyValueRow[];
+  /**
+   * Suggestion rows rendered above the user-editable ones. Read-only
+   * keys/values with a toggleable checkbox + info tooltip on the Key
+   * cell. Useful for surfacing browser-managed auto-generated headers.
+   */
+  suggestionRows?: SuggestionRow[];
   /** When true, hides the leading checkbox column. */
   hideEnabled?: boolean;
 }
@@ -65,14 +75,12 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   onChange,
   keyPlaceholder = 'Key',
   valuePlaceholder = 'Value',
-  readOnlyRows = [],
+  suggestionRows = [],
   hideEnabled = false,
 }) => {
   const { token } = theme.useToken();
 
   const effectiveRows = useMemo(() => {
-    // Ensure there is always exactly one trailing empty row so the
-    // user can add without hunting for a button.
     const last = rows[rows.length - 1];
     if (!last || last.key || last.value || last.description) {
       return [...rows, makeKvRow()];
@@ -82,8 +90,6 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
 
   const update = (uid: string, patch: Partial<KeyValueRow>) => {
     const next = effectiveRows.map((r) => (r.uid === uid ? { ...r, ...patch } : r));
-    // Strip the trailing placeholder so the stored `rows` array stays
-    // tight — the derived render re-appends one.
     const tail = next[next.length - 1];
     const tidy = tail && !tail.key && !tail.value && !tail.description ? next.slice(0, -1) : next;
     onChange(tidy);
@@ -110,10 +116,12 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       style={{
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 4,
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
-      {/* Header row */}
+      {/* Header row — sticky to the parent scroll container so Key /
+          Value / Description labels stay visible while the table body
+          scrolls under them. */}
       <div
         style={{
           display: 'grid',
@@ -124,6 +132,10 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
           fontSize: 12,
           fontWeight: 500,
           color: token.colorTextSecondary,
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
+          boxShadow: `0 1px 0 ${token.colorBorderSecondary}`,
         }}
       >
         {!hideEnabled && <span />}
@@ -133,48 +145,77 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
         <span />
       </div>
 
-      {/* Read-only auto-managed rows */}
-      {readOnlyRows.map((r) => (
+      {/* Suggestion rows (read-only, toggleable) */}
+      {suggestionRows.map((s) => (
         <div
-          key={`readonly:${r.key}`}
+          key={`suggestion:${s.key}`}
           style={{
             display: 'grid',
             gridTemplateColumns: gridTemplate,
             alignItems: 'center',
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
-            background: token.colorBgContainerDisabled,
-            color: token.colorTextTertiary,
+            background: token.colorFillAlter,
           }}
         >
           {!hideEnabled && (
             <span style={{ textAlign: 'center' }}>
-              <Tooltip title="Managed by the browser — cannot be edited">
-                <InfoCircleOutlined style={{ color: token.colorTextTertiary }} />
-              </Tooltip>
+              <input
+                type="checkbox"
+                checked={s.enabled}
+                onChange={(e) => s.onToggle(e.target.checked)}
+                style={{ width: 14, height: 14, cursor: 'pointer' }}
+              />
             </span>
           )}
-          <span style={{ ...cellFont, padding: '6px 10px' }}>{r.key}</span>
+          <span
+            style={{
+              ...cellFont,
+              padding: '6px 10px',
+              color: s.enabled ? token.colorText : token.colorTextQuaternary,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
+            <span
+              style={{
+                flex: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {s.key}
+            </span>
+            {s.hint && (
+              <Tooltip title={s.hint}>
+                <InfoCircleOutlined style={{ color: token.colorTextTertiary, fontSize: 12, cursor: 'help' }} />
+              </Tooltip>
+            )}
+          </span>
           <span
             style={{
               ...cellFont,
               padding: '6px 10px',
               borderLeft: `1px solid ${token.colorBorderSecondary}`,
-              color: token.colorTextTertiary,
+              color: s.enabled ? token.colorTextSecondary : token.colorTextQuaternary,
               fontStyle: 'italic',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
-            {r.value}
+            {s.value}
           </span>
           <span
             style={{
               padding: '6px 10px',
-              fontSize: 11,
+              fontSize: 12,
               borderLeft: `1px solid ${token.colorBorderSecondary}`,
               color: token.colorTextTertiary,
             }}
-          >
-            {r.hint ?? ''}
-          </span>
+          />
           <span />
         </div>
       ))}

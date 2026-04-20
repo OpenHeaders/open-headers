@@ -380,7 +380,17 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
           {grantType.fields.callbackUrl && (
             <>
-              <LabeledRow label="Callback URL">
+              <LabeledRow
+                label="Callback URL"
+                description={
+                  <>
+                    Register this URL at your OAuth provider. It looks different from the{' '}
+                    <code>chrome-extension://…</code> URL in your address bar because Chrome exposes a dedicated{' '}
+                    <code>chromiumapp.org</code> redirect host for <code>chrome.identity.launchWebAuthFlow</code>. The
+                    extension ID is the same; only the host + scheme differ.
+                  </>
+                }
+              >
                 <Input
                   size="small"
                   readOnly
@@ -602,7 +612,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
 const LabeledRow: React.FC<{
   label: string;
-  description?: string;
+  description?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ label, description, children }) => (
   <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', alignItems: 'start', gap: 16 }}>

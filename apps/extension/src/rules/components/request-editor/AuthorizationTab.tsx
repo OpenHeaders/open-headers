@@ -64,8 +64,22 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 300px) 1fr', gap: 32, minHeight: 320 }}>
-      {/* Left rail */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Left rail — sticks to the top of the parent scroll container so
+          the auth-type picker stays visible while the right pane's long
+          OAuth 2.0 form scrolls past it. `align-self: start` keeps the
+          rail content-sized so `position: sticky` has something to
+          anchor against; without it the grid cell stretches to the
+          row's full height and sticky collapses to a no-op. */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          position: 'sticky',
+          top: 0,
+          alignSelf: 'start',
+        }}
+      >
         <Text strong style={{ fontSize: 12 }}>
           Auth Type
         </Text>

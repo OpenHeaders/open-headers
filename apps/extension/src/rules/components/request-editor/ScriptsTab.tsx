@@ -1,8 +1,13 @@
 /**
  * ScriptsTab — lift the previous Pre-request / Post-response sibling
  * tabs into ONE tab with a left-rail picker + shared Monaco editor.
- * Matches the layout of a dedicated "Scripts" surface while keeping
- * both scripts editable in a single click.
+ *
+ * The editor starts empty. A single-line ghost hint ("Use JavaScript
+ * to write tests, visualize response, and more.") floats over the
+ * blank buffer so new authors aren't left staring at a raw line 1
+ * marker, but the hint is NOT actual script content — the draft's
+ * script stays empty until the user types, so the dirty fingerprint
+ * and the Save path don't have to treat example code as meaningful.
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
@@ -14,19 +19,8 @@ import ScriptEditor from '../script-editor/ScriptEditor';
 const { Text } = Typography;
 
 const SCRIPT_PLACEHOLDER: Record<ScriptKind, string> = {
-  'pre-request':
-    '// Runs before the request is sent.\n' +
-    '// Use oh.setHeader, oh.setUrl, oh.setBody, etc. to mutate the outgoing request.\n' +
-    '//\n' +
-    "// await oh.variables.set('timestamp', String(Date.now()));\n" +
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: the ${...} inside the example is literal user code, not a JS placeholder
-    "// oh.setHeader('Authorization', `Bearer ${await oh.vault.get('api_token')}`);\n",
-  'post-response':
-    '// Use JavaScript to write tests, visualize response, and more.\n' +
-    '//\n' +
-    "// oh.test('status is 200', () => {\n" +
-    '//   oh.expect(oh.response).toHaveStatus(200);\n' +
-    '// });\n',
+  'pre-request': 'Use JavaScript to mutate the outgoing request via oh.setHeader / oh.setUrl / oh.setBody.',
+  'post-response': 'Use JavaScript to write tests, visualize response, and more.',
 };
 
 interface ScriptsTabProps {
@@ -47,11 +41,8 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
 
   const value = active === 'pre-request' ? preRequestScript : postResponseScript;
   const onChange = (v: string) => {
-    // Treat the placeholder-only buffer as empty so the dirty
-    // fingerprint doesn't flip on mount.
-    const normalized = v === SCRIPT_PLACEHOLDER[active] ? '' : v;
-    if (active === 'pre-request') onPreRequestChange(normalized);
-    else onPostResponseChange(normalized);
+    if (active === 'pre-request') onPreRequestChange(v);
+    else onPostResponseChange(v);
   };
 
   const Rail: React.FC<{ kind: ScriptKind; label: string }> = ({ kind, label }) => {
@@ -101,6 +92,9 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           width: 180,
           paddingRight: 12,
           borderRight: `1px solid ${token.colorBorderSecondary}`,
+          position: 'sticky',
+          top: 0,
+          alignSelf: 'start',
         }}
       >
         <Rail kind="pre-request" label="Pre-request" />
@@ -113,7 +107,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             : 'Runs in a sandboxed iframe after the response arrives. Register assertions with oh.test(name, fn).'}
         </Text>
         <div style={{ flex: 1, minHeight: 280 }}>
-          <ScriptEditor kind={active} value={value || SCRIPT_PLACEHOLDER[active]} onChange={onChange} />
+          <ScriptEditor kind={active} value={value} onChange={onChange} placeholder={SCRIPT_PLACEHOLDER[active]} />
         </div>
       </div>
     </div>
