@@ -5,24 +5,15 @@
  *
  * ARCHITECTURE §18 + Phase 14 §20.
  *
- * Design:
- *   • `chrome.alarms` is the only cross-SW-wake timer primitive. Each
- *     credential gets one alarm named `oauth-refresh:<b64url>` where
- *     the payload encodes `{ workspaceId, credentialRef }` — alarm
- *     names survive across SW eviction, so the refresh keeps firing
- *     even when the app hasn't been opened for hours.
- *   • The sidecar in `oauth-token-store` holds everything the alarm
- *     handler needs to rebuild the token-endpoint POST (`configs` map)
- *     and the per-credential failure state (`refreshErrors` map) so
- *     exponential backoff survives SW wakes too.
- *   • Reconciliation on wake — `reconcileOAuthSchedules()` runs once
- *     during `initializeExtension` and walks every workspace's tokens,
- *     adding any missing alarms and clearing any orphaned ones (e.g.
- *     user deleted a credential while the SW was asleep).
- *   • Change-driven reconcile — every `putTokenBundle` / `deleteTokenBundle`
- *     / `recordRefreshError` triggers `onOAuthStoreChange`, which we
- *     subscribe to so rescheduling after a successful refresh or a
- *     failure happens without the handler having to do it explicitly.
+ * Implementation: thin provider over the shared
+ * `RefreshScheduler` (`./refresh-scheduler`). OAuth owns the cadence
+ * math (`computeNextFireAt` — fire `REFRESH_LEAD_MS` before expiry;
+ * exponential backoff on failures), the gate (`canSilentRefresh` —
+ * must have a refresh_token OR be a client-credentials flow), and the
+ * refresh work (`refreshCredential(config, workspaceId)`). Everything
+ * else — alarm-name codec, reconcile-on-wake, orphan sweep, store-
+ * change subscription, handleAlarm dispatch — is shared with the Live
+ * workflow scheduler through the generic `RefreshScheduler` class.
  *
  * What is NOT scheduled:
  *   • Credentials without a refresh capability — `authorization-code`
@@ -48,8 +39,6 @@
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
-import { alarms } from '@utils/browser-api';
-import { logger } from '@utils/logger';
 import { refreshCredential } from './oauth-flow';
 import type { OAuthRefreshErrorState, WorkspaceCredentialEntry } from './oauth-token-store';
 import {
@@ -60,6 +49,7 @@ import {
   recordRefreshError,
 } from './oauth-token-store';
 import { recordLog } from './observability-log';
+import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -75,17 +65,31 @@ export const REFRESH_LEAD_MS = 60_000;
 /** Cap for exponential backoff in seconds. */
 export const MAX_BACKOFF_SECONDS = 3600;
 
-// ── Alarm name codec ──────────────────────────────────────────────
+// ── Alarm name codec (shared primitive) ───────────────────────────
+
+interface OAuthAlarmPayload {
+  /** workspaceId */
+  w: string;
+  /** credentialRef */
+  r: string;
+}
+
+const codec = createAlarmNameCodec<OAuthAlarmPayload>(
+  OAUTH_ALARM_PREFIX,
+  (p): p is OAuthAlarmPayload =>
+    !!p &&
+    typeof p === 'object' &&
+    typeof (p as { w?: unknown }).w === 'string' &&
+    typeof (p as { r?: unknown }).r === 'string',
+);
 
 /**
  * Encode `{ workspaceId, credentialRef }` into an alarm name. Uses
  * base64url over JSON so arbitrary credentialRef contents (colons,
- * spaces, …) survive unambiguously. Callers never parse the payload
- * themselves — use {@link parseAlarmName}.
+ * spaces, …) survive unambiguously.
  */
 export function buildAlarmName(workspaceId: string, credentialRef: string): string {
-  const json = JSON.stringify({ w: workspaceId, r: credentialRef });
-  return `${OAUTH_ALARM_PREFIX}${base64UrlEncode(json)}`;
+  return codec.encode({ w: workspaceId, r: credentialRef });
 }
 
 /**
@@ -94,28 +98,14 @@ export function buildAlarmName(workspaceId: string, credentialRef: string): stri
  * malformed — callers treat that as "not ours, ignore."
  */
 export function parseAlarmName(name: string): { workspaceId: string; credentialRef: string } | null {
-  if (!name.startsWith(OAUTH_ALARM_PREFIX)) return null;
-  try {
-    const json = base64UrlDecode(name.slice(OAUTH_ALARM_PREFIX.length));
-    const parsed = JSON.parse(json) as unknown;
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      typeof (parsed as { w?: unknown }).w === 'string' &&
-      typeof (parsed as { r?: unknown }).r === 'string'
-    ) {
-      const obj = parsed as { w: string; r: string };
-      return { workspaceId: obj.w, credentialRef: obj.r };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  const parsed = codec.decode(name);
+  if (!parsed) return null;
+  return { workspaceId: parsed.w, credentialRef: parsed.r };
 }
 
 /** True when the alarm belongs to the OAuth scheduler. */
 export function isOAuthRefreshAlarm(alarm: chrome.alarms.Alarm): boolean {
-  return typeof alarm?.name === 'string' && alarm.name.startsWith(OAUTH_ALARM_PREFIX);
+  return codec.matches(alarm?.name);
 }
 
 // ── Refresh-capability + cadence calculations (pure) ──────────────
@@ -152,40 +142,113 @@ export function computeNextFireAt(
   return Math.max(bundle.expiresAt - REFRESH_LEAD_MS, nowMs + MIN_ALARM_DELAY_MS);
 }
 
-// ── Scheduling ────────────────────────────────────────────────────
+// ── Provider — fills in the subsystem-specific bits ───────────────
+
+const provider: RefreshProvider<OAuthAlarmPayload, WorkspaceCredentialEntry, OAuthRefreshErrorState> = {
+  alarmPrefix: OAUTH_ALARM_PREFIX,
+  decodeAlarm: (name) => codec.decode(name),
+  encodeAlarm: (entry) => codec.encode({ w: entry.workspaceId, r: entry.credentialRef }),
+  encodeAlarmFromPayload: (payload) => codec.encode(payload),
+  listAll: () => listAllWorkspaceCredentials(),
+  async getByAlarm(payload) {
+    // Reconstruct the entry the scheduler passes to `refresh` /
+    // `canSchedule`. `listAllWorkspaceCredentials` batches across
+    // workspaces but for a single-alarm lookup we read the two blobs
+    // directly — avoids a full-workspace scan per fire.
+    const [config, bundle] = await Promise.all([
+      getRefreshConfig(payload.r, payload.w),
+      getTokenBundle(payload.r, payload.w),
+    ]);
+    if (!config || !bundle) return null;
+    return {
+      workspaceId: payload.w,
+      credentialRef: payload.r,
+      config,
+      bundle,
+      errorState: null,
+    };
+  },
+  computeNextFireAt: (entry, nowMs) => computeNextFireAt(entry.bundle, entry.errorState, nowMs),
+  canSchedule: (entry) => canSilentRefresh(entry.bundle, entry.config),
+  async refresh(entry) {
+    // `canSchedule` already gated on `entry.config` being non-null
+    // (via `canSilentRefresh`); the scheduler checks it before every
+    // refresh. The narrow isn't visible to TS through the provider
+    // boundary, so assert here.
+    if (!entry.config) throw new Error(`Missing config for ${entry.credentialRef}`);
+    await refreshCredential(entry.config, entry.workspaceId);
+    // `putTokenBundle` inside `refreshCredential` cleared
+    // `refreshErrors` and fired `onOAuthStoreChange`, which triggers
+    // reconcile to compute the next alarm from the fresh `expiresAt`.
+  },
+  async recordFailure(payload, err) {
+    const message = err.message ?? 'refresh failed';
+    return recordRefreshError(payload.r, message, payload.w);
+  },
+  onStoreChange: (callback) =>
+    onOAuthStoreChange(() => {
+      // Reconcile runs across every workspace. The per-workspace
+      // signal isn't worth a narrower path today — total credential
+      // counts in practice are small (one-digit to low-tens), and the
+      // idempotent create/clear calls are cheap.
+      callback();
+    }),
+  onFired(payload) {
+    recordLog({
+      subsystem: 'oauth',
+      op: 'refresh-fired',
+      level: 'info',
+      message: `Alarm fired for credential ${payload.r}`,
+      context: { credentialRef: payload.r, workspaceId: payload.w },
+    });
+  },
+  onSucceeded(payload) {
+    recordLog({
+      subsystem: 'oauth',
+      op: 'refresh-succeeded',
+      level: 'info',
+      message: `Refreshed credential ${payload.r}`,
+      context: { credentialRef: payload.r, workspaceId: payload.w },
+    });
+  },
+  onFailed(payload, err, state) {
+    // Elevate to `error` once the failure run has crossed the 3-strike
+    // threshold — the first-two-failure band stays `warn` so flaky
+    // upstreams don't overwhelm the log.
+    const level = state.consecutiveFailures >= 3 ? 'error' : 'warn';
+    recordLog({
+      subsystem: 'oauth',
+      op: 'refresh-failed',
+      level,
+      message: `Refresh failed for ${payload.r} (attempt ${state.consecutiveFailures}): ${err.message}`,
+      context: {
+        credentialRef: payload.r,
+        workspaceId: payload.w,
+        errorClass: err.name,
+      },
+    });
+  },
+};
+
+const scheduler = new RefreshScheduler(provider, 'OAuthScheduler');
+
+// ── Public API (preserved for external callers + tests) ───────────
 
 /**
  * Create (or update) the alarm for one credential. Safe to call
- * repeatedly — `chrome.alarms.create` overwrites any existing alarm
- * with the same name, so `reconcile → scheduleOAuthRefresh` is
- * idempotent.
- *
- * Returns `true` when an alarm was scheduled, `false` when the entry
- * was skipped (non-refreshable, missing expiry, or no bundle).
+ * repeatedly — idempotent by alarm name. Returns `true` when scheduled,
+ * `false` when skipped (non-refreshable, missing expiry, or no bundle).
  */
 export async function scheduleOAuthRefresh(
   entry: WorkspaceCredentialEntry,
   nowMs: number = Date.now(),
 ): Promise<boolean> {
-  if (!alarms) return false;
-  if (!canSilentRefresh(entry.bundle, entry.config)) return false;
-
-  const when = computeNextFireAt(entry.bundle, entry.errorState, nowMs);
-  if (when == null) return false;
-
-  const name = buildAlarmName(entry.workspaceId, entry.credentialRef);
-  alarms.create(name, { when });
-  logger.debug(
-    'OAuthScheduler',
-    `Scheduled refresh for ${entry.credentialRef} (ws=${entry.workspaceId}) at ${new Date(when).toISOString()}`,
-  );
-  return true;
+  return scheduler.schedule(entry, nowMs);
 }
 
 /** Cancel the alarm for one credential. No-op when no alarm exists. */
 export async function cancelOAuthRefresh(workspaceId: string, credentialRef: string): Promise<void> {
-  if (!alarms) return;
-  alarms.clear(buildAlarmName(workspaceId, credentialRef));
+  await scheduler.cancelByPayload({ w: workspaceId, r: credentialRef });
 }
 
 /**
@@ -195,145 +258,24 @@ export async function cancelOAuthRefresh(workspaceId: string, credentialRef: str
  * longer exists.
  */
 export async function reconcileOAuthSchedules(nowMs: number = Date.now()): Promise<void> {
-  if (!alarms) return;
-
-  const entries = await listAllWorkspaceCredentials();
-  const desiredNames = new Set<string>();
-
-  for (const entry of entries) {
-    if (!canSilentRefresh(entry.bundle, entry.config)) continue;
-    const scheduled = await scheduleOAuthRefresh(entry, nowMs);
-    if (scheduled) {
-      desiredNames.add(buildAlarmName(entry.workspaceId, entry.credentialRef));
-    }
-  }
-
-  // Clear any orphan alarms — credentials deleted while the SW was
-  // asleep won't appear in `entries` anymore, but their alarms persist
-  // until we explicitly clear them.
-  const existing = await alarms.getAll();
-  for (const alarm of existing) {
-    if (!isOAuthRefreshAlarm(alarm)) continue;
-    if (!desiredNames.has(alarm.name)) {
-      alarms.clear(alarm.name);
-      logger.debug('OAuthScheduler', `Cleared orphan alarm ${alarm.name}`);
-    }
-  }
+  return scheduler.reconcile(nowMs);
 }
 
-// ── Alarm dispatch ────────────────────────────────────────────────
-
 /**
- * Handle an `oauth-refresh:*` alarm. Parses the payload, attempts the
- * refresh, and records observability + error state. Rescheduling is
- * delegated to `onOAuthStoreChange` → `reconcileOAuthSchedules` so
- * every write path converges on the same cadence computation.
+ * Handle an `oauth-refresh:*` alarm. Delegates to the shared
+ * scheduler, which decodes + loads + gates + refreshes + routes
+ * observability + records failure.
  */
 export async function handleOAuthAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
-  const parsed = parseAlarmName(alarm.name);
-  if (!parsed) return;
-  const { workspaceId, credentialRef } = parsed;
-
-  recordLog({
-    subsystem: 'oauth',
-    op: 'refresh-fired',
-    level: 'info',
-    message: `Alarm fired for credential ${credentialRef}`,
-    context: { credentialRef, workspaceId },
-  });
-
-  const [config, bundle] = await Promise.all([
-    getRefreshConfig(credentialRef, workspaceId),
-    getTokenBundle(credentialRef, workspaceId),
-  ]);
-  if (!config || !bundle) {
-    // Credential was deleted between scheduling and firing. Clear the
-    // alarm so it doesn't fire again.
-    await cancelOAuthRefresh(workspaceId, credentialRef);
-    return;
-  }
-  if (!canSilentRefresh(bundle, config)) {
-    // Config changed since scheduling (e.g., refresh_token revoked
-    // server-side and stripped by a partial write). Nothing to do.
-    await cancelOAuthRefresh(workspaceId, credentialRef);
-    return;
-  }
-
-  try {
-    await refreshCredential(config, workspaceId);
-    recordLog({
-      subsystem: 'oauth',
-      op: 'refresh-succeeded',
-      level: 'info',
-      message: `Refreshed credential ${credentialRef}`,
-      context: { credentialRef, workspaceId },
-    });
-    // `putTokenBundle` inside `refreshCredential` cleared `refreshErrors`
-    // and fired `onOAuthStoreChange`, which triggers `reconcileOAuthSchedules`
-    // to compute the next alarm from the fresh `expiresAt`. No explicit
-    // reschedule needed here.
-  } catch (err) {
-    const message = (err as Error)?.message ?? 'refresh failed';
-    const state = await recordRefreshError(credentialRef, message, workspaceId);
-    recordLog({
-      subsystem: 'oauth',
-      op: 'refresh-failed',
-      level: state.consecutiveFailures >= 3 ? 'error' : 'warn',
-      message: `Refresh failed for ${credentialRef} (attempt ${state.consecutiveFailures}): ${message}`,
-      context: {
-        credentialRef,
-        workspaceId,
-        errorClass: (err as Error)?.name,
-      },
-    });
-    // `recordRefreshError` also fired `onOAuthStoreChange`, which
-    // triggers reconcile → scheduleOAuthRefresh → backoff alarm.
-  }
+  return scheduler.handleAlarm(alarm);
 }
 
-// ── Lifecycle ─────────────────────────────────────────────────────
-
-let storeSubscription: (() => void) | null = null;
-
-/**
- * Subscribe the scheduler to oauth-store changes. Idempotent — safe to
- * call repeatedly; later calls are no-ops until `stopOAuthScheduler`.
- */
+/** Subscribe the scheduler to oauth-store changes. Idempotent. */
 export function startOAuthScheduler(): void {
-  if (storeSubscription) return;
-  storeSubscription = onOAuthStoreChange((_workspaceId) => {
-    // Reconcile runs across every workspace. The per-workspace signal
-    // isn't worth a narrower path today — total credential counts in
-    // practice are small (one-digit to low-tens), and the idempotent
-    // create/clear calls are cheap.
-    void reconcileOAuthSchedules().catch((err: unknown) => {
-      logger.warn('OAuthScheduler', 'Reconcile after store change failed', err);
-    });
-  });
+  scheduler.start();
 }
 
 /** Tear down the scheduler. Test cleanup path. */
 export function stopOAuthScheduler(): void {
-  if (storeSubscription) {
-    storeSubscription();
-    storeSubscription = null;
-  }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────
-
-function base64UrlEncode(input: string): string {
-  const bytes = new TextEncoder().encode(input);
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(bytes).toString('base64');
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64UrlDecode(input: string): string {
-  const b64 = input.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (input.length % 4)) % 4);
-  const binary = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
+  scheduler.stop();
 }
