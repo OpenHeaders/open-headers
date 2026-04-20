@@ -559,7 +559,7 @@ function ShellLayoutInner<T extends string>({
   // `dock-layout.css`. The drop-zone math subtracts two activity bars
   // from the viewport to compute the draggable tool-window rects, so
   // any CSS change here ripples into the blue overlay alignment.
-  const ACTIVITY_BAR_WIDTH = 68;
+  const ACTIVITY_BAR_WIDTH = 96;
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(() => {
     if (!dragging) return null;
     const fullW = shellSize.width;
