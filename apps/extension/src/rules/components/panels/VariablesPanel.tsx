@@ -69,7 +69,11 @@ interface DisplayVariable {
 
 const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) => {
   const { token } = theme.useToken();
-  const [mode, setMode] = useState<'in-request' | 'all'>('in-request');
+  // Default to the broader "All scopes" view so a first-open user sees
+  // every resolvable variable without needing an active rule tab. The
+  // narrower "In request" view is the opt-in used while drilling into
+  // a specific rule's referenced set.
+  const [mode, setMode] = useState<'in-request' | 'all'>('all');
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
   const { rules, localCollections, localCollectionTrees } = useRules();

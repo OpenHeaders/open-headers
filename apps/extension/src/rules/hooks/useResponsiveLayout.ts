@@ -115,11 +115,15 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
   }
 
   // First-open defaults: proportional to viewport
-  // Sidebar 17%: gives tree labels ~245px on a 1440px MacBook Air (vs 216px at 15%)
+  // Sidebar 20%: gives tree labels ~288px on a 1440px MacBook Air —
+  // enough breathing room for rule / request names without truncating,
+  // without eating too much editor width. The left-bottom pane (API
+  // Requests) shares the same width, so widening the sidebar widens
+  // both stacked tool windows.
   // Inspector 20%: docs panel doesn't need more; keeps editor wider
   return {
     sidebar: {
-      preferred: clamp(Math.round(vw * 0.17), SIDEBAR_MIN, SIDEBAR_MAX),
+      preferred: clamp(Math.round(vw * 0.2), SIDEBAR_MIN, SIDEBAR_MAX),
       min: SIDEBAR_MIN,
       max: SIDEBAR_MAX,
     },

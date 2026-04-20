@@ -17,17 +17,21 @@ import type { ToolWindowId } from '../types';
 export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
 
 /**
- * Fresh-profile seed. `http-rules` is activated on mount so the user
- * lands on the rules list; the shared normalizer re-seats the rest of
- * the registry (`api-requests`, `variables`, `docs`, `var-scope`,
- * `page-traffic`, `test-runs`) into their declared `defaultSlot`.
+ * Fresh-profile seed. Three panels are visible on first open:
+ *   - `http-rules` in `left-top` (rules list + templates + environments).
+ *   - `api-requests` in `left-bottom` with `variables` as the sibling tab
+ *     — the activity bar's bottom group exposes both; requests is 1st.
+ *   - `var-scope` in `right-bottom` — the right-side Variables inspector
+ *     showing resolved scopes for the active rule / request.
+ * The shared normalizer fills in the remaining `defaultSlot` registry
+ * entries (`docs`, `page-traffic`, `test-runs`) without activating them.
  */
 const WORKSPACE_FRESH_LAYOUT: Partial<ToolLayoutState<ToolWindowId>> = {
   docks: {
     'left-top': { windows: ['http-rules'], active: 'http-rules' },
-    'left-bottom': { windows: [], active: null },
+    'left-bottom': { windows: ['api-requests', 'variables'], active: 'api-requests' },
     'right-top': { windows: [], active: null },
-    'right-bottom': { windows: [], active: null },
+    'right-bottom': { windows: ['var-scope'], active: 'var-scope' },
     'bottom-left': { windows: [], active: null },
     'bottom-right': { windows: [], active: null },
   },

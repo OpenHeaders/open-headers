@@ -24,10 +24,12 @@ import type { ToolWindowId } from './types';
 export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
 
 /**
- * The three left-top management panels (`http-rules`, `api-requests`,
- * `variables`) share `left-top` so the dock renders them as tabs.
- * `http-rules` is `core: true` — it's the landing surface, always
- * available. The others are user-toggleable via the activity bar.
+ * Left-side management panels split across two slots:
+ *   - `http-rules` (core) lives in `left-top` — the rules landing surface.
+ *   - `api-requests` + `variables` live in `left-bottom` so a first-open
+ *     user sees rules + requests stacked simultaneously without manually
+ *     splitting the sidebar. `api-requests` is first in the tab order
+ *     (reflected in the activity-bar icon ordering below).
  *
  * `var-scope` is the right-pane inspector that shows variables
  * referenced in the active rule + all scopes resolved against current
@@ -38,8 +40,8 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'http-rules', label: 'HTTP Rules', icon: <FileTextOutlined />, core: true, defaultSlot: 'left-top' },
-  { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'left-top' },
-  { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'left-top' },
+  { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'left-bottom' },
+  { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'var-scope', label: 'Variables', icon: <ScanOutlined />, core: false, defaultSlot: 'right-bottom' },
   { id: 'page-traffic', label: 'Page Traffic', icon: <FundViewOutlined />, core: false, defaultSlot: 'bottom-right' },
