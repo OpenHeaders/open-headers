@@ -20,7 +20,7 @@
  */
 
 import type * as monaco from 'monaco-editor';
-import { isPrettierLanguage, formatWithPrettier } from '../../languages/prettier';
+import { formatWithPrettier, isPrettierLanguage } from '../../languages/prettier';
 import type { LanguageId } from '../../languages/registry';
 
 /** Languages that get a Prettier-backed provider. Must be Monaco

@@ -60,7 +60,10 @@ function classifyBody(body: V5.RequestBody): { radio: RadioValue; raw: RawFormat
       // (text / javascript / html). Without it, the classifier would
       // collapse every save back to 'text' and the dropdown would
       // reset on reload.
-      return { radio: 'raw', raw: body.rawFormat === 'javascript' || body.rawFormat === 'html' ? body.rawFormat : 'text' };
+      return {
+        radio: 'raw',
+        raw: body.rawFormat === 'javascript' || body.rawFormat === 'html' ? body.rawFormat : 'text',
+      };
   }
 }
 

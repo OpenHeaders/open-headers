@@ -23,8 +23,8 @@ import { useFiles } from '@hooks/useFiles';
 import type { FileRef } from '@openheaders/core/files';
 import { isPlaceholderFileRef, placeholderFileRef } from '@openheaders/core/files';
 import type { V5 } from '@openheaders/core/types';
-import { Dropdown, Input, Select, Tag, theme } from 'antd';
 import type { MenuProps } from 'antd';
+import { Dropdown, Input, Select, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 import { EditableGridTable, type EditableRowAdapter } from './request-editor/EditableGridTable';
@@ -409,12 +409,7 @@ const FileValueCell: React.FC<FileValueCellProps> = ({
           }
         />
       ))}
-      <Dropdown
-        menu={{ items: menuItems }}
-        trigger={['click']}
-        disabled={disabled}
-        overlayStyle={{ minWidth: 260 }}
-      >
+      <Dropdown menu={{ items: menuItems }} trigger={['click']} disabled={disabled} overlayStyle={{ minWidth: 260 }}>
         <button
           type="button"
           disabled={disabled}
@@ -526,9 +521,7 @@ function parseMultipartFromText(
   currentRows: IdentifiedPart[],
   workspaceFiles: FileRef[],
 ): IdentifiedPart[] {
-  const currentFileParts = currentRows.filter(
-    (p): p is IdentifiedFilePart => p.kind === 'file',
-  );
+  const currentFileParts = currentRows.filter((p): p is IdentifiedFilePart => p.kind === 'file');
   // Flatten every FileRef on the current draft so `@filename` lookups
   // can match any ref in any row — lets users freely move file refs
   // between rows by editing text.
@@ -556,7 +549,10 @@ function parseMultipartFromText(
       // Split `@a.log,@b.log` — each entry resolved independently.
       const refs: FileRef[] = [];
       if (valueRaw.length > 0) {
-        const entries = valueRaw.split(',').map((s) => s.trim()).filter((s) => s.startsWith('@'));
+        const entries = valueRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.startsWith('@'));
         for (const entry of entries) {
           const declared = entry.slice(1).trim();
           if (!declared) continue;

@@ -848,9 +848,10 @@ function buildBody(
           // Emit one placeholder FileRef per entry; empty `src` falls
           // back to a single unnamed placeholder.
           const srcArr = Array.isArray(p.src) ? p.src : typeof p.src === 'string' ? [p.src] : [];
-          const fileRefs = srcArr.length > 0
-            ? srcArr.map((s) => placeholderFileRef({ filename: basenameFromPath(s ?? '') || 'unnamed' }))
-            : [placeholderFileRef({ filename: (typeof p.value === 'string' ? p.value : name) || 'unnamed' })];
+          const fileRefs =
+            srcArr.length > 0
+              ? srcArr.map((s) => placeholderFileRef({ filename: basenameFromPath(s ?? '') || 'unnamed' }))
+              : [placeholderFileRef({ filename: (typeof p.value === 'string' ? p.value : name) || 'unnamed' })];
           parts.push({ kind: 'file', name, fileRefs });
           filePlaceholderCount += fileRefs.length;
           continue;

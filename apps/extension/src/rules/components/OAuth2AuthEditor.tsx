@@ -30,7 +30,7 @@ import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import KeyValueTable, { type KeyValueRow } from './request-editor/KeyValueTable';
 
 const { Text, Link } = Typography;
@@ -664,11 +664,7 @@ const ParamsBlock: React.FC<{
           // Strip uid + the placeholder description/enabled metadata
           // before commit — the OAuth2Auth schema persists only
           // `{key, value}` entries.
-          onChange(
-            next
-              .filter((r) => r.key.trim() || r.value.trim())
-              .map(({ key, value }) => ({ key, value })),
-          );
+          onChange(next.filter((r) => r.key.trim() || r.value.trim()).map(({ key, value }) => ({ key, value })));
         }}
         keyPlaceholder="Key"
         valuePlaceholder="Value"

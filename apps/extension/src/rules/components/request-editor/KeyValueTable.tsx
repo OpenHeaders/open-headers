@@ -11,6 +11,7 @@
  * HeadersTab) don't have to change.
  */
 
+import { Input, theme } from 'antd';
 import type React from 'react';
 import {
   type BulkEditConfig,
@@ -18,7 +19,6 @@ import {
   type EditableRowAdapter,
   type SuggestionRow,
 } from './EditableGridTable';
-import { Input, theme } from 'antd';
 
 export type { SuggestionRow };
 
