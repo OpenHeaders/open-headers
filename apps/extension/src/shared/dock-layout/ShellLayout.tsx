@@ -116,7 +116,7 @@ function SideRegion<T extends string>({ region, tl, renderToolWindow, topSize, b
       tabIndex={-1}
       style={{ height: '100%', background: token.colorBgLayout }}
     >
-      <Allotment vertical proportionalLayout={false}>
+      <Allotment vertical proportionalLayout>
         <Allotment.Pane preferredSize={topSize.preferred} minSize={topSize.min} visible={topActive !== null} snap>
           {topActive && (
             <div className="rules-dock-body" data-dock-slot={topSlot}>
@@ -452,8 +452,13 @@ function ShellLayoutInner<T extends string>({
 
   const topBottomHalves = useMemo(
     () => ({
-      top: { preferred: Math.round(window.innerHeight * 0.35), min: 120 },
-      bottom: { preferred: Math.round(window.innerHeight * 0.35), min: 120 },
+      // Equal ratios (both = half of viewport) paired with
+      // `proportionalLayout` on the side-region Allotment produce a
+      // 50/50 split on first open that stays balanced on window resize.
+      // Previously 0.35 each left ~30% slack, which the first pane
+      // absorbed — making the top pane visibly taller than the bottom.
+      top: { preferred: Math.round(window.innerHeight * 0.5), min: 120 },
+      bottom: { preferred: Math.round(window.innerHeight * 0.5), min: 120 },
     }),
     [],
   );
@@ -550,7 +555,11 @@ function ShellLayoutInner<T extends string>({
     return null;
   }, [preview, draggingId]);
 
-  const ACTIVITY_BAR_WIDTH = 52;
+  // Must stay in sync with `.rules-activity-bar { width }` in
+  // `dock-layout.css`. The drop-zone math subtracts two activity bars
+  // from the viewport to compute the draggable tool-window rects, so
+  // any CSS change here ripples into the blue overlay alignment.
+  const ACTIVITY_BAR_WIDTH = 68;
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(() => {
     if (!dragging) return null;
     const fullW = shellSize.width;
