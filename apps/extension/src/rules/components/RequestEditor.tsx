@@ -29,7 +29,7 @@ import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-sc
 import AuthorizationTab from './request-editor/AuthorizationTab';
 import BodyTab from './request-editor/BodyTab';
 import DocsTab from './request-editor/DocsTab';
-import HeadersTab, { AUTO_GENERATED_HEADERS } from './request-editor/HeadersTab';
+import HeadersTab from './request-editor/HeadersTab';
 import { type KeyValueRow, makeKvRow } from './request-editor/KeyValueTable';
 import ParamsTab from './request-editor/ParamsTab';
 import ScriptsTab from './request-editor/ScriptsTab';
@@ -371,9 +371,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   const methodColor = METHOD_COLORS[draft.method] ?? '#999';
 
-  // Counters
+  // Counters. Auto-gen header count is body-aware (Content-Type +
+  // Content-Length fall off when the body is `none`), so we derive it
+  // from the same predicate `HeadersTab` uses rather than hard-coding.
   const paramCount = draft.params.filter((p) => p.enabled && p.key.trim()).length;
-  const headerCount = AUTO_GENERATED_HEADERS.length + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
+  const autoHeaderCount = draft.body.type === 'none' ? 6 : 8;
+  const headerCount = autoHeaderCount + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
   const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
 
   // Settings is "dirty" if any wired knob differs from default
@@ -541,7 +544,13 @@ const TabContent: React.FC<{
     case 'authorization':
       return <AuthorizationTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />;
     case 'headers':
-      return <HeadersTab rows={draft.headers} onChange={(headers) => setDraft((d) => ({ ...d, headers }))} />;
+      return (
+        <HeadersTab
+          rows={draft.headers}
+          onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
+          body={draft.body}
+        />
+      );
     case 'body':
       return <BodyTab body={draft.body} onChange={(body) => setDraft((d) => ({ ...d, body }))} />;
     case 'scripts':
