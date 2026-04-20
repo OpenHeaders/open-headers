@@ -28,7 +28,7 @@ import React from 'react';
 import { useStatus } from '@/hooks/useStatus';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 
-export const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 'permissions', 'secrets'];
+export const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 'permissions', 'secrets', 'live'];
 
 /**
  * Fixed tag width shared by every row in the Status popover —

@@ -59,6 +59,7 @@ import {
 import type { V5 } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { report as reportStatus } from '@/shared/status';
 import { extensionStorage, OH, wsKeys } from '@/shared/storage';
 import {
   listCachesForWorkflow,
@@ -456,6 +457,97 @@ export async function handleLiveAlarm(alarm: chrome.alarms.Alarm): Promise<void>
   }
 }
 
+// ── Status reporting ─────────────────────────────────────────────
+//
+// Single aggregation pass across every cached run for every workspace
+// drives the `live` Status pill per the plan (§Observability → Status
+// pill color rules):
+//
+//   green  — no cached runs with failures + no stale-beyond-2×-cadence
+//            + lastExtractorOk on every run that has run at least once
+//   yellow — any stale beyond 2× cadence OR lastExtractorOk=false OR
+//            consecutiveFailures in 1..4
+//   red    — any consecutiveFailures >= 5
+//
+// Values never appear in Status messages — only counts + the "first
+// failing workflow" for a hint. Host-permission red (from §12) routes
+// through the existing `permissions` pill; surfacing permissions state
+// on the live pill would double-report and confuse the triage story.
+
+const RED_FAILURE_THRESHOLD = 5;
+
+async function recomputeLiveStatus(): Promise<void> {
+  let runs: WorkflowRunCache[];
+  try {
+    runs = await listWorkflowRunCaches();
+  } catch {
+    // Storage read failure — leave the pill alone rather than flipping
+    // to a misleading red. The scheduler still fires alarms; a real
+    // failure surfaces on the next refresh dispatch.
+    return;
+  }
+  if (runs.length === 0) {
+    reportStatus({
+      subsystem: 'live',
+      state: 'green',
+      message: 'No workflows configured',
+    });
+    return;
+  }
+  let red = 0;
+  let yellow = 0;
+  let firstRed: string | undefined;
+  let firstYellow: string | undefined;
+  const now = Date.now();
+  for (const run of runs) {
+    if (run.consecutiveFailures >= RED_FAILURE_THRESHOLD) {
+      red++;
+      firstRed ??= run.workflowUid;
+      continue;
+    }
+    if (run.consecutiveFailures > 0 || !run.lastExtractorOk) {
+      yellow++;
+      firstYellow ??= run.workflowUid;
+      continue;
+    }
+    // Stale-beyond-2x-cadence check uses `expiresAt` as the cadence
+    // proxy: `extractedAt..expiresAt` is one healthy interval, so
+    // `now - extractedAt > 2*(expiresAt - extractedAt)` means we're
+    // past two windows without a refresh landing — yellow.
+    if (run.expiresAt != null && run.extractedAt > 0) {
+      const window = run.expiresAt - run.extractedAt;
+      if (window > 0 && now - run.extractedAt > 2 * window) {
+        yellow++;
+        firstYellow ??= run.workflowUid;
+      }
+    }
+  }
+  if (red > 0) {
+    reportStatus({
+      subsystem: 'live',
+      state: 'red',
+      message: `${red} workflow${red === 1 ? '' : 's'} failing (${RED_FAILURE_THRESHOLD}+ consecutive)`,
+      context: { red, yellow, firstRed },
+    });
+    return;
+  }
+  if (yellow > 0) {
+    reportStatus({
+      subsystem: 'live',
+      state: 'yellow',
+      message: `${yellow} workflow${yellow === 1 ? '' : 's'} stale or failing`,
+      context: { yellow, firstYellow },
+    });
+    return;
+  }
+  reportStatus({
+    subsystem: 'live',
+    state: 'green',
+    message: `${runs.length} workflow${runs.length === 1 ? '' : 's'} fresh`,
+    context: { fresh: runs.length },
+  });
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────
 
 let unsubWorkflow: (() => void) | null = null;
@@ -475,10 +567,17 @@ export function startLiveScheduler(): void {
     void reconcileLiveSchedules().catch((err: unknown) => {
       logger.warn('LiveScheduler', 'Reconcile after store change failed', err);
     });
+    // Status pill is a function of cache state — recompute after every
+    // store change so the pill reflects the latest refresh outcome
+    // without a separate timer.
+    void recomputeLiveStatus().catch(() => {});
   };
   unsubWorkflow = onLiveWorkflowStoreChange(tickReconcile);
   unsubVariable = onLiveVariableStoreChange(tickReconcile);
   unsubCache = onLiveCacheStoreChange(tickReconcile);
+  // Prime the pill from the hydrated cache so the footer isn't blank
+  // on first render.
+  void recomputeLiveStatus().catch(() => {});
 }
 
 export function stopLiveScheduler(): void {

@@ -13,7 +13,8 @@ export type StatusSubsystem =
   | 'rules' // DNR compile + refresh state
   | 'requests' // executor telemetry
   | 'permissions' // host-permission grants for active rules
-  | 'secrets'; // vault / cipher state
+  | 'secrets' // vault / cipher state
+  | 'live'; // Live Variable workflow refresh state
 
 /** Traffic-light state. Worst-state subsystem drives the compact pill. */
 export type StatusLevel = 'green' | 'yellow' | 'red';
@@ -48,6 +49,7 @@ export const SUBSYSTEM_LABELS: Record<StatusSubsystem, string> = {
   requests: 'Requests',
   permissions: 'Permissions',
   secrets: 'Secrets',
+  live: 'Live',
 };
 
 /** Worst-state aggregator (red > yellow > green). Used for the compact
