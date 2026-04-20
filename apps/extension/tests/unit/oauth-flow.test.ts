@@ -98,6 +98,7 @@ describe('launchAuthorizationCodeFlow', () => {
     expect(putTokenBundleMock).toHaveBeenCalledWith(
       'oauth2-cred-test',
       expect.objectContaining({ accessToken: 'at-new' }),
+      expect.objectContaining({ type: 'oauth2', credentialRef: 'oauth2-cred-test' }),
     );
 
     // Verify the token-endpoint POST carried the PKCE verifier.
@@ -155,6 +156,8 @@ describe('performClientCredentialsFlow', () => {
     expect(putTokenBundleMock).toHaveBeenCalledWith(
       'oauth2-cred-test',
       expect.objectContaining({ accessToken: 'at-new' }),
+      expect.objectContaining({ type: 'oauth2', flow: 'client-credentials' }),
+      undefined,
     );
     const [, init] = fetchMock.mock.calls[0];
     const body = (init as RequestInit).body as URLSearchParams;
@@ -207,6 +210,8 @@ describe('performRefresh', () => {
     expect(putTokenBundleMock).toHaveBeenCalledWith(
       'oauth2-cred-test',
       expect.objectContaining({ refreshToken: 'rf-persist' }),
+      expect.objectContaining({ type: 'oauth2' }),
+      undefined,
     );
   });
 

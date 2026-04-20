@@ -22,7 +22,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { formatCode } from '../languages/formatter';
-import { getLanguage, type LanguageId } from '../languages/registry';
+import { getLanguage, type LanguageId, toMonacoLanguage } from '../languages/registry';
 import { useSettingValue } from '../settings/hooks';
 // Side-effect import: kicks the Monaco bootstrap (loader.config + worker
 // wiring + TS language-service setup) at module-load time so it wins
@@ -125,8 +125,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     >
       <Editor
         height={minHeight}
-        defaultLanguage={language}
-        language={language}
+        defaultLanguage={toMonacoLanguage(language)}
+        language={toMonacoLanguage(language)}
         theme={isDarkMode ? 'vs-dark' : 'vs'}
         value={value}
         onMount={(ed, m) => {

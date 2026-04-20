@@ -32,7 +32,7 @@
  * to compile until the new entry is added, which is the whole point of
  * a type-level registry.
  */
-export type LanguageId = 'javascript' | 'css' | 'json';
+export type LanguageId = 'javascript' | 'css' | 'json' | 'xml' | 'html' | 'text' | 'graphql';
 
 /**
  * Prettier's `format()` signature needs a concrete plugin value, which
@@ -108,11 +108,40 @@ const jsonDef: LanguageDef = {
   },
 };
 
+/**
+ * Read/write body encodings that don't currently get a Prettier
+ * formatter — we lean on Monaco's built-in tokenizer for highlighting.
+ * `text` maps to Monaco's `plaintext` internally; `graphql` has no
+ * first-class Monaco language today so we tokenize it as plaintext
+ * (swap to `monaco-graphql` whenever we ship GraphQL tooling).
+ */
+const xmlDef: LanguageDef = { id: 'xml', label: 'XML' };
+const htmlDef: LanguageDef = { id: 'html', label: 'HTML' };
+const textDef: LanguageDef = { id: 'text', label: 'Text' };
+const graphqlDef: LanguageDef = { id: 'graphql', label: 'GraphQL' };
+
 export const LANGUAGES: Record<LanguageId, LanguageDef> = {
   javascript: javascriptDef,
   css: cssDef,
   json: jsonDef,
+  xml: xmlDef,
+  html: htmlDef,
+  text: textDef,
+  graphql: graphqlDef,
 };
+
+/**
+ * Map a registry id to the Monaco language id Monaco internally
+ * registers. For most languages the id is identical, but `text` needs
+ * to be mapped to Monaco's built-in `plaintext` and `graphql` has no
+ * native Monaco grammar so we fall back to plaintext until the
+ * GraphQL plugin is wired.
+ */
+export function toMonacoLanguage(id: LanguageId): string {
+  if (id === 'text') return 'plaintext';
+  if (id === 'graphql') return 'plaintext';
+  return id;
+}
 
 export function getLanguage(id: LanguageId): LanguageDef {
   return LANGUAGES[id];

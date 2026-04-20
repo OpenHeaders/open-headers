@@ -113,12 +113,16 @@ export const AuthConfigSchema = v.variant('type', [
 export const RequestHeaderSchema = v.object({
   key: v.string(),
   value: v.string(),
+  /** Optional free-form per-row note rendered in the Description column. */
+  description: v.optional(v.string()),
   enabled: v.optional(v.boolean()),
 });
 
 export const QueryParamSchema = v.object({
   key: v.string(),
   value: v.string(),
+  /** Optional free-form per-row note rendered in the Description column. */
+  description: v.optional(v.string()),
   enabled: v.optional(v.boolean()),
 });
 

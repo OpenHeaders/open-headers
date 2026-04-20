@@ -2,21 +2,23 @@
  * RequestEditor — V5 HTTP request editor tab.
  *
  * Full-fidelity editor that matches what the SW's `executeRequest`
- * runner can actually send:
- *   - Method + URL + Send
- *   - Headers tab   (key/value/enabled rows)
- *   - Params tab    (querystring rows — appended to URL on send)
- *   - Body tab      (none / json / xml / text / form-urlencoded)
- *   - Auth tab      (none / inherit / basic / bearer / api-key)
- *   - Response pane (status + headers + body)
+ * runner can actually send. The tab layout:
+ *   - Docs (reserved — free-form description)
+ *   - Params (query params with description column)
+ *   - Authorization (auth-type picker + OAuth 2.0 configure-new-token)
+ *   - Headers (key/value/description, with auto-generated browser-
+ *     controlled headers surfaced behind a Show/Hide toggle)
+ *   - Body (none / form-data / x-www-form-urlencoded / raw / GraphQL)
+ *   - Scripts (Pre-request + Post-response — left-rail selector)
+ *   - Settings (per-request HTTP knobs)
  *
  * Unsaved changes are tracked via a structural fingerprint — clicking
  * Save commits the whole request shape to the store. Send operates on
  * the LOCAL draft, so users can test-fire without persisting first
- * (matches Postman's tab UX).
+ * (matches the industry-standard API-client tab UX).
  */
 
-import { CaretRightOutlined, DeleteOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useRequests } from '@hooks/useRequests';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
@@ -24,39 +26,28 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
-import MultipartEditor from './MultipartEditor';
-import OAuth2AuthEditor from './OAuth2AuthEditor';
+import AuthorizationTab from './request-editor/AuthorizationTab';
+import BodyTab from './request-editor/BodyTab';
+import DocsTab from './request-editor/DocsTab';
+import HeadersTab, { AUTO_GENERATED_HEADERS } from './request-editor/HeadersTab';
+import { type KeyValueRow, makeKvRow } from './request-editor/KeyValueTable';
+import ParamsTab from './request-editor/ParamsTab';
+import ScriptsTab from './request-editor/ScriptsTab';
+import SettingsTab, { type RequestSettingsDraft } from './request-editor/SettingsTab';
 import StaleDraftBanner from './StaleDraftBanner';
-import ScriptEditor from './script-editor/ScriptEditor';
 
 const { Text } = Typography;
 
 // ── Types ──────────────────────────────────────────────────────────
 
-/**
- * Two modes share the same editor:
- *   - `edit` (mode 'request-edit')   — a persisted request. `requestUid`
- *     identifies it; Save calls `updateRequest`.
- *   - `create` (mode 'request-create') — an unsaved draft. No uid;
- *     Save hands the draft shape to `onSaveDraft` which either
- *     persists to a preferred destination or opens a picker modal.
- */
 interface RequestEditorProps {
   mode: 'request-edit' | 'request-create';
   requestUid?: string;
   draftName?: string;
-  /**
-   * Create-mode only: the request collection the draft will land in
-   * when saved. The editor threads this into Send so variable
-   * resolution sees the correct collection-scoped variables BEFORE
-   * persistence — otherwise a draft's Send would silently miss the
-   * collection scope even though its Save target would use it.
-   */
   preferredCollectionId?: string;
   preferredFolderPath?: string;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
-  /** Create-mode only: called with the draft shape on Save. */
   onSaveDraft?: (draftData: import('../hooks/useSaveRequestFlow').DraftData) => void;
 }
 
@@ -80,77 +71,59 @@ const METHOD_COLORS: Record<V5.HttpMethod, string> = {
   OPTIONS: '#0d5aa7',
 };
 
-const BODY_TYPE_OPTIONS: { value: V5.BodyType; label: string; disabled?: boolean }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'json', label: 'JSON' },
-  { value: 'xml', label: 'XML' },
-  { value: 'text', label: 'Text' },
-  { value: 'form', label: 'Form urlencoded' },
-  { value: 'graphql', label: 'GraphQL' },
-  { value: 'multipart', label: 'Multipart form-data' },
-];
-
-type AuthKind = V5.AuthConfig['type'];
-const AUTH_OPTIONS: { value: AuthKind; label: string }[] = [
-  { value: 'inherit', label: 'Inherit' },
-  { value: 'none', label: 'No Auth' },
-  { value: 'basic', label: 'Basic' },
-  { value: 'bearer', label: 'Bearer Token' },
-  { value: 'api-key', label: 'API Key' },
-  { value: 'oauth2', label: 'OAuth 2.0 / OIDC' },
-];
-
-interface Row {
-  uid: string;
-  key: string;
-  value: string;
-  enabled: boolean;
-}
-
-let rowIdCounter = 0;
-const makeRow = (overrides: Partial<Row> = {}): Row => ({
-  uid: `row-${++rowIdCounter}`,
-  key: '',
-  value: '',
-  enabled: true,
-  ...overrides,
-});
-
-// ── Draft shape (the whole persisted request except uid/path) ──────
+// ── Draft shape ───────────────────────────────────────────────────
 
 interface Draft {
   method: V5.HttpMethod;
   url: string;
-  headers: Row[];
-  params: Row[];
+  description: string;
+  headers: KeyValueRow[];
+  params: KeyValueRow[];
   auth: V5.AuthConfig;
   body: V5.RequestBody;
-  /** Wire-level cookie policy. Omitted → executor's 'omit' default. */
   credentialsMode?: V5.CredentialsMode;
-  /** Pre-request script source — runs before the wire fetch (ARCHITECTURE §19). */
+  followRedirects?: boolean;
+  maxRedirects?: number;
   preRequestScript?: string;
-  /** Post-response script source — runs after the response arrives. */
   postResponseScript?: string;
 }
 
-function headersFromV5(list: V5.RequestHeader[]): Row[] {
-  if (list.length === 0) return [makeRow()];
-  return list.map((h) => makeRow({ key: h.key, value: h.value, enabled: h.enabled !== false }));
+function headersFromV5(list: V5.RequestHeader[]): KeyValueRow[] {
+  return list.map((h) =>
+    makeKvRow({ key: h.key, value: h.value, description: h.description, enabled: h.enabled !== false }),
+  );
 }
-function paramsFromV5(list: V5.QueryParam[]): Row[] {
-  if (list.length === 0) return [makeRow()];
-  return list.map((p) => makeRow({ key: p.key, value: p.value, enabled: p.enabled !== false }));
+function paramsFromV5(list: V5.QueryParam[]): KeyValueRow[] {
+  return list.map((p) =>
+    makeKvRow({ key: p.key, value: p.value, description: p.description, enabled: p.enabled !== false }),
+  );
 }
-function rowsToV5<T extends { key: string; value: string; enabled?: boolean }>(rows: Row[]): T[] {
+function rowsToHeaders(rows: KeyValueRow[]): V5.RequestHeader[] {
   return rows
     .filter((r) => r.key.trim())
-    .map((r) => ({ key: r.key, value: r.value, enabled: r.enabled }) as unknown as T);
+    .map((r) => ({
+      key: r.key,
+      value: r.value,
+      description: r.description?.trim() ? r.description : undefined,
+      enabled: r.enabled,
+    }));
+}
+function rowsToParams(rows: KeyValueRow[]): V5.QueryParam[] {
+  return rows
+    .filter((r) => r.key.trim())
+    .map((r) => ({
+      key: r.key,
+      value: r.value,
+      description: r.description?.trim() ? r.description : undefined,
+      enabled: r.enabled,
+    }));
 }
 
 function draftFromRequest(req: V5.Request): Draft {
   return {
     method: req.method,
     url: req.url,
+    description: '',
     headers: headersFromV5(req.headers),
     params: paramsFromV5(req.params),
     auth: req.auth,
@@ -165,8 +138,9 @@ function emptyDraft(): Draft {
   return {
     method: 'GET',
     url: '',
-    headers: [makeRow()],
-    params: [makeRow()],
+    description: '',
+    headers: [],
+    params: [],
     auth: { type: 'inherit' },
     body: { type: 'none' },
   };
@@ -176,15 +150,20 @@ function fingerprint(d: Draft): string {
   return JSON.stringify({
     method: d.method,
     url: d.url,
-    headers: d.headers.filter((h) => h.key.trim()).map((h) => [h.key, h.value, h.enabled]),
-    params: d.params.filter((p) => p.key.trim()).map((p) => [p.key, p.value, p.enabled]),
+    description: d.description ?? '',
+    headers: d.headers.filter((h) => h.key.trim()).map((h) => [h.key, h.value, h.description ?? '', h.enabled]),
+    params: d.params.filter((p) => p.key.trim()).map((p) => [p.key, p.value, p.description ?? '', p.enabled]),
     auth: d.auth,
     body: d.body,
     credentialsMode: d.credentialsMode ?? 'omit',
+    followRedirects: d.followRedirects ?? true,
+    maxRedirects: d.maxRedirects ?? 10,
     preRequestScript: d.preRequestScript ?? '',
     postResponseScript: d.postResponseScript ?? '',
   });
 }
+
+type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings';
 
 // ── Component ──────────────────────────────────────────────────────
 
@@ -203,6 +182,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
 
   const isCreateMode = mode === 'request-create';
+  const [activeTab, setActiveTab] = useState<TabKey>('params');
 
   const summary = useMemo(
     () => (requestUid ? (requests.find((r) => r.uid === requestUid) ?? null) : null),
@@ -210,22 +190,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
-  // Create-mode has nothing to load — skip the loading state entirely
-  // so the draft editor is interactive on first paint.
   const [loading, setLoading] = useState(!isCreateMode);
-  // Create-mode is dirty from the start (matches the rule-create
-  // contract); edit-mode starts clean and flips to dirty on edit.
   const persistedFpRef = useRef<string>(isCreateMode ? '' : fingerprint(emptyDraft()));
 
-  // ── Phase 10 stale-draft tracking ─────────────────────────────────
-  //
-  // Snapshot `version` when the full request loads; send it as
-  // `expectedVersion` on save so a concurrent-edit race surfaces
-  // `reason: 'stale-draft'` and we render the banner.
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
 
-  // Sending + response state — independent from persistence lifecycle.
   const [sending, setSending] = useState(false);
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
 
@@ -241,17 +211,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         const d = draftFromRequest(full);
         setDraft(d);
         persistedFpRef.current = fingerprint(d);
-        // Snapshot the version the user is editing against. Only set
-        // once per uid; subsequent broadcast refreshes don't bump it
-        // (that would defeat stale-draft detection).
         setLoadedVersion(full.version);
       }
       setLoading(false);
     });
   }, [isCreateMode, requestUid, summary, getRequest]);
 
-  // Dirty tracking. Create-mode is always dirty until save replaces
-  // the tab with an edit-mode tab.
   const isDirty = useMemo(() => {
     if (isCreateMode) return true;
     return fingerprint(draft) !== persistedFpRef.current;
@@ -260,18 +225,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  // Save handler. Create-mode hands the draft to the save flow (which
-  // either persists directly or opens a picker); edit-mode writes
-  // straight through to `updateRequest`, consuming the full Phase 10
-  // result and rendering the stale-draft banner on race rejection.
   const handleSave = useCallback(async () => {
     if (isCreateMode) {
       onSaveDraft?.({
         name: draftName ?? 'New Request',
         method: draft.method,
         url: draft.url,
-        headers: rowsToV5<V5.RequestHeader>(draft.headers),
-        params: rowsToV5<V5.QueryParam>(draft.params),
+        headers: rowsToHeaders(draft.headers),
+        params: rowsToParams(draft.params),
         auth: draft.auth,
         body: draft.body,
         credentialsMode: draft.credentialsMode,
@@ -284,8 +245,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     const updates = {
       method: draft.method,
       url: draft.url,
-      headers: rowsToV5<V5.RequestHeader>(draft.headers),
-      params: rowsToV5<V5.QueryParam>(draft.params),
+      headers: rowsToHeaders(draft.headers),
+      params: rowsToParams(draft.params),
       auth: draft.auth,
       body: draft.body,
       credentialsMode: draft.credentialsMode,
@@ -332,16 +293,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   }, [requestUid, getRequest, onDirtyChange]);
 
   const handleStaleDraftKeepEditing = useCallback(async () => {
-    // Snap loadedVersion forward to the server's current value so the
-    // next save's expectedVersion matches and isn't rejected.
     if (!requestUid) return;
     const full = await getRequest(requestUid);
     if (full) setLoadedVersion(full.version);
     setStaleDraft(null);
   }, [requestUid, getRequest]);
 
-  // registerSaveRef takes a sync callback; wrap the async handler so
-  // the breadcrumb Save button kicks off the save without awaiting.
   const handleSaveSync = useCallback(() => {
     void handleSave();
   }, [handleSave]);
@@ -350,11 +307,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     registerSaveRef?.(handleSaveSync);
   }, [registerSaveRef, handleSaveSync]);
 
-  // Send handler. Works in both modes — create-mode synthesizes a
-  // path under the preferred collection (preferred > folder > root) so
-  // the executor's `collectionIdForRequest` lookup resolves to the
-  // same collection the draft would land in on Save. Without this,
-  // Send-before-Save would silently miss collection-scoped variables.
   const handleSend = useCallback(async () => {
     if (sending) return;
     setSending(true);
@@ -371,16 +323,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
     const draftRequest: V5.Request = {
       schemaVersion: 5,
-      // In-memory ad-hoc draft executed via Send — never persisted
-      // under this uid so the version is a placeholder.
       version: loadedVersion ?? 1,
       uid: summary?.uid ?? 'draft',
       path,
       name: summary?.name ?? draftName ?? 'Draft',
       method: draft.method,
       url: draft.url,
-      headers: rowsToV5<V5.RequestHeader>(draft.headers),
-      params: rowsToV5<V5.QueryParam>(draft.params),
+      headers: rowsToHeaders(draft.headers),
+      params: rowsToParams(draft.params),
       auth: draft.auth,
       body: draft.body,
       credentialsMode: draft.credentialsMode,
@@ -400,7 +350,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     loadedVersion,
   ]);
 
-  // Edit mode with missing summary — request was deleted elsewhere.
   if (!isCreateMode && !summary) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
@@ -422,6 +371,55 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   const methodColor = METHOD_COLORS[draft.method] ?? '#999';
 
+  // Counters
+  const paramCount = draft.params.filter((p) => p.enabled && p.key.trim()).length;
+  const headerCount = AUTO_GENERATED_HEADERS.length + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
+  const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
+
+  // Settings is "dirty" if any wired knob differs from default
+  const settingsDirty =
+    draft.credentialsMode === 'include' ||
+    (draft.followRedirects !== undefined && draft.followRedirects !== true) ||
+    (draft.maxRedirects !== undefined && draft.maxRedirects !== 10);
+
+  const tabItems = [
+    {
+      key: 'docs' as const,
+      label: 'Docs',
+    },
+    {
+      key: 'params' as const,
+      label: <span>Params {paramCount > 0 && <TabCount n={paramCount} />}</span>,
+    },
+    { key: 'authorization' as const, label: 'Authorization' },
+    {
+      key: 'headers' as const,
+      label: (
+        <span>
+          Headers <TabCount n={headerCount} />
+        </span>
+      ),
+    },
+    {
+      key: 'body' as const,
+      label: <span>Body {draft.body.type !== 'none' && <TabDot />}</span>,
+    },
+    {
+      key: 'scripts' as const,
+      label: <span>Scripts {scriptsMark > 0 && <TabDot />}</span>,
+    },
+    {
+      key: 'settings' as const,
+      label: <span>Settings {settingsDirty && <TabDot />}</span>,
+    },
+  ];
+
+  const settingsValue: RequestSettingsDraft = {
+    credentialsMode: draft.credentialsMode,
+    followRedirects: draft.followRedirects,
+    maxRedirects: draft.maxRedirects,
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {staleDraft && (
@@ -435,6 +433,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           />
         </div>
       )}
+
       {/* URL bar */}
       <div
         style={{
@@ -460,17 +459,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           <Input
             value={draft.url}
             onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
-            placeholder="https://api.openheaders.io/v1/..."
+            placeholder="Enter URL or paste text"
             size="middle"
             style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 13 }}
             onPressEnter={() => void handleSend()}
             onBlur={() => {
-              // Normalize on blur so the stored value matches what will
-              // actually be fetched. Prevents a silent mismatch between
-              // what the user sees in the URL bar and what hits the
-              // network. In-flight typing keeps the user's verbatim
-              // input (so they can edit the host without being fought
-              // by auto-prefix on every keystroke).
               const trimmed = draft.url.trim();
               if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
                 const normalized = ensureScheme(trimmed);
@@ -490,12 +483,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             {sending ? 'Sending…' : 'Send'}
           </Button>
         </div>
-        {/*
-         * Ghost preview — when the user's URL has no scheme, show the
-         * normalized form so the wire-level rewrite (ensureScheme) isn't
-         * invisible. Rendering only when we'd actually rewrite keeps
-         * the UI quiet for the common case of a fully-qualified URL.
-         */}
         {needsSchemeNormalization(draft.url) && (
           <Tooltip
             title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
@@ -518,75 +505,18 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
       {/* Editor / response split */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div style={{ flex: response ? '0 0 45%' : 1, overflow: 'auto', padding: '8px 16px' }}>
+        <div style={{ flex: response ? '0 0 55%' : 1, overflow: 'auto', padding: '8px 16px' }}>
           <Tabs
             size="small"
-            defaultActiveKey="headers"
-            items={[
-              {
-                key: 'params',
-                label: `Params${countLabel(draft.params)}`,
-                children: (
-                  <KeyValueRows
-                    rows={draft.params}
-                    setRows={(rows) => setDraft((d) => ({ ...d, params: rows }))}
-                    keyPlaceholder="Param name"
-                    valuePlaceholder="Value"
-                  />
-                ),
-              },
-              {
-                key: 'headers',
-                label: `Headers${countLabel(draft.headers)}`,
-                children: (
-                  <KeyValueRows
-                    rows={draft.headers}
-                    setRows={(rows) => setDraft((d) => ({ ...d, headers: rows }))}
-                    keyPlaceholder="Header"
-                    valuePlaceholder="Value"
-                  />
-                ),
-              },
-              {
-                key: 'body',
-                label: `Body${draft.body.type !== 'none' ? ` · ${draft.body.type}` : ''}`,
-                children: <BodyEditor body={draft.body} onChange={(body) => setDraft((d) => ({ ...d, body }))} />,
-              },
-              {
-                key: 'auth',
-                label: `Auth · ${draft.auth.type}${draft.credentialsMode === 'include' ? ' · cookies' : ''}`,
-                children: (
-                  <AuthEditor
-                    auth={draft.auth}
-                    onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
-                    credentialsMode={draft.credentialsMode}
-                    onCredentialsModeChange={(credentialsMode) => setDraft((d) => ({ ...d, credentialsMode }))}
-                  />
-                ),
-              },
-              {
-                key: 'pre-request',
-                label: `Pre-request${draft.preRequestScript?.trim() ? ' •' : ''}`,
-                children: (
-                  <ScriptPane
-                    kind="pre-request"
-                    value={draft.preRequestScript ?? ''}
-                    onChange={(v) => setDraft((d) => ({ ...d, preRequestScript: v }))}
-                  />
-                ),
-              },
-              {
-                key: 'post-response',
-                label: `Post-response${draft.postResponseScript?.trim() ? ' •' : ''}`,
-                children: (
-                  <ScriptPane
-                    kind="post-response"
-                    value={draft.postResponseScript ?? ''}
-                    onChange={(v) => setDraft((d) => ({ ...d, postResponseScript: v }))}
-                  />
-                ),
-              },
-            ]}
+            activeKey={activeTab}
+            onChange={(k) => setActiveTab(k as TabKey)}
+            items={tabItems.map((item) => ({
+              key: item.key,
+              label: item.label,
+              children: <TabContent tab={item.key} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />,
+            }))}
+            className="rules-request-tabs"
+            tabBarStyle={{ marginBottom: 10 }}
           />
         </div>
         {response && <ResponsePanel response={response} onClear={() => setResponse(null)} />}
@@ -595,397 +525,88 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
 };
 
-// ── Key/value row editor (shared by Headers + Params) ─────────────
+// ── Tab content renderer ──────────────────────────────────────────
 
-interface KeyValueRowsProps {
-  rows: Row[];
-  setRows: (rows: Row[]) => void;
-  keyPlaceholder: string;
-  valuePlaceholder: string;
-}
-
-const KeyValueRows: React.FC<KeyValueRowsProps> = ({ rows, setRows, keyPlaceholder, valuePlaceholder }) => {
-  const { token } = theme.useToken();
-
-  const updateRow = (uid: string, patch: Partial<Row>) => {
-    const next = rows.map((r) => (r.uid === uid ? { ...r, ...patch } : r));
-    // Materialize the placeholder row into a real one + append a
-    // fresh blank so there's always an empty slot at the bottom.
-    const last = next[next.length - 1];
-    if (last && (last.key || last.value)) {
-      next.push(makeRow());
-    }
-    setRows(next);
-  };
-
-  const removeRow = (uid: string) => {
-    const next = rows.filter((r) => r.uid !== uid);
-    // Keep at least one placeholder row so users can always add.
-    if (next.length === 0 || next[next.length - 1].key || next[next.length - 1].value) {
-      next.push(makeRow());
-    }
-    setRows(next);
-  };
-
-  const addRow = () => {
-    setRows([...rows, makeRow()]);
-  };
-
-  return (
-    <div>
-      {rows.map((r, i) => {
-        const isLast = i === rows.length - 1;
-        const isPlaceholder = isLast && !r.key && !r.value;
-        return (
-          <div key={r.uid} style={{ display: 'flex', gap: 4, marginBottom: 4, alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={r.enabled}
-              onChange={(e) => updateRow(r.uid, { enabled: e.target.checked })}
-              disabled={isPlaceholder}
-              style={{ width: 14, height: 14 }}
-            />
-            <Input
-              value={r.key}
-              onChange={(e) => updateRow(r.uid, { key: e.target.value })}
-              placeholder={keyPlaceholder}
-              size="small"
-              style={{
-                flex: 1,
-                fontFamily: "'SF Mono', monospace",
-                fontSize: 11,
-                color: r.enabled ? token.colorText : token.colorTextQuaternary,
-              }}
-            />
-            <Input
-              value={r.value}
-              onChange={(e) => updateRow(r.uid, { value: e.target.value })}
-              placeholder={valuePlaceholder}
-              size="small"
-              style={{
-                flex: 2,
-                fontFamily: "'SF Mono', monospace",
-                fontSize: 11,
-                color: r.enabled ? token.colorText : token.colorTextQuaternary,
-              }}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => removeRow(r.uid)}
-              disabled={isPlaceholder}
-            />
-          </div>
-        );
-      })}
-      <Button type="text" size="small" icon={<PlusOutlined />} onClick={addRow}>
-        Add row
-      </Button>
-    </div>
-  );
-};
-
-// ── Body editor ────────────────────────────────────────────────────
-
-interface BodyEditorProps {
-  body: V5.RequestBody;
-  onChange: (body: V5.RequestBody) => void;
-}
-
-const BodyEditor: React.FC<BodyEditorProps> = ({ body, onChange }) => {
-  const { token } = theme.useToken();
-
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Text strong style={{ fontSize: 11 }}>
-          Type
-        </Text>
-        <Select
-          value={body.type}
-          onChange={(type) => {
-            // When crossing body.type boundaries, reset fields that don't
-            // apply to the new type so stale content doesn't linger on a
-            // hidden field and re-surface if the user flips back. The
-            // codec already guards against persistence of irrelevant
-            // fields, but this keeps the draft shape honest in-memory.
-            if (type === 'multipart') {
-              onChange({ type, multipartParts: body.multipartParts ?? [] });
-            } else if (type === 'none') {
-              onChange({ type });
-            } else {
-              onChange({ type, content: body.content ?? '' });
-            }
-          }}
-          options={BODY_TYPE_OPTIONS}
-          size="small"
-          style={{ width: 180 }}
+const TabContent: React.FC<{
+  tab: TabKey;
+  draft: Draft;
+  setDraft: React.Dispatch<React.SetStateAction<Draft>>;
+  settingsValue: RequestSettingsDraft;
+}> = ({ tab, draft, setDraft, settingsValue }) => {
+  switch (tab) {
+    case 'docs':
+      return <DocsTab value={draft.description} onChange={(description) => setDraft((d) => ({ ...d, description }))} />;
+    case 'params':
+      return <ParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />;
+    case 'authorization':
+      return <AuthorizationTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />;
+    case 'headers':
+      return <HeadersTab rows={draft.headers} onChange={(headers) => setDraft((d) => ({ ...d, headers }))} />;
+    case 'body':
+      return <BodyTab body={draft.body} onChange={(body) => setDraft((d) => ({ ...d, body }))} />;
+    case 'scripts':
+      return (
+        <ScriptsTab
+          preRequestScript={draft.preRequestScript ?? ''}
+          postResponseScript={draft.postResponseScript ?? ''}
+          onPreRequestChange={(preRequestScript) => setDraft((d) => ({ ...d, preRequestScript }))}
+          onPostResponseChange={(postResponseScript) => setDraft((d) => ({ ...d, postResponseScript }))}
         />
-      </div>
-      {body.type === 'multipart' ? (
-        <MultipartEditor
-          parts={body.multipartParts ?? []}
-          onChange={(parts) => onChange({ type: 'multipart', multipartParts: parts })}
+      );
+    case 'settings':
+      return (
+        <SettingsTab
+          value={settingsValue}
+          onChange={(next) =>
+            setDraft((d) => ({
+              ...d,
+              credentialsMode: next.credentialsMode,
+              followRedirects: next.followRedirects,
+              maxRedirects: next.maxRedirects,
+            }))
+          }
         />
-      ) : (
-        body.type !== 'none' && (
-          <Input.TextArea
-            value={body.content ?? ''}
-            onChange={(e) => onChange({ ...body, content: e.target.value })}
-            placeholder={bodyPlaceholder(body.type)}
-            autoSize={{ minRows: 8, maxRows: 24 }}
-            style={{
-              fontFamily: "'SF Mono', 'Fira Code', monospace",
-              fontSize: 12,
-              background: token.colorBgContainer,
-            }}
-          />
-        )
-      )}
-    </div>
-  );
-};
-
-function bodyPlaceholder(type: V5.BodyType): string {
-  switch (type) {
-    case 'json':
-      return '{\n  "key": "value"\n}';
-    case 'xml':
-      return '<?xml version="1.0"?>\n<root />';
-    case 'form':
-      return 'key1=value1&key2=value2';
-    case 'text':
-      return 'Plain text body';
-    case 'graphql':
-      return 'query { field }';
-    default:
-      return '';
+      );
   }
-}
-
-// ── Auth editor ────────────────────────────────────────────────────
-
-interface AuthEditorProps {
-  auth: V5.AuthConfig;
-  onChange: (auth: V5.AuthConfig) => void;
-  /** Wire-level cookie policy. `undefined` treated as `'omit'`. */
-  credentialsMode: V5.CredentialsMode | undefined;
-  onCredentialsModeChange: (next: V5.CredentialsMode | undefined) => void;
-}
-
-const AuthEditor: React.FC<AuthEditorProps> = ({ auth, onChange, credentialsMode, onCredentialsModeChange }) => {
-  const handleTypeChange = (type: AuthKind) => {
-    // Switch to defaults for each auth type rather than carrying
-    // fields across — avoids a type-mismatch mess if the user
-    // toggles repeatedly.
-    if (type === 'none' || type === 'inherit') {
-      onChange({ type });
-    } else if (type === 'basic') {
-      onChange({ type: 'basic', username: '', password: '' });
-    } else if (type === 'bearer') {
-      onChange({ type: 'bearer', token: '' });
-    } else if (type === 'api-key') {
-      onChange({ type: 'api-key', key: '', value: '', in: 'header' });
-    } else if (type === 'oauth2') {
-      // Fresh OAuth config with a freshly-minted credentialRef. Using
-      // crypto.randomUUID keeps the renderer-side creation path free
-      // of the core helper (the core path is for desktop + SW callers).
-      const credentialRef = `oauth2-cred-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
-      onChange({
-        type: 'oauth2',
-        credentialRef,
-        flow: 'authorization-code-pkce',
-        tokenEndpoint: '',
-        clientId: '',
-        scopes: [],
-      });
-    }
-  };
-
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <Text strong style={{ fontSize: 11 }}>
-          Type
-        </Text>
-        <Select
-          value={auth.type}
-          onChange={handleTypeChange}
-          options={AUTH_OPTIONS}
-          size="small"
-          style={{ width: 180 }}
-        />
-      </div>
-      {auth.type === 'basic' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 520 }}>
-          <LabeledInput
-            label="Username"
-            value={auth.username}
-            onChange={(username) => onChange({ ...auth, username })}
-          />
-          <LabeledInput
-            label="Password"
-            value={auth.password}
-            onChange={(password) => onChange({ ...auth, password })}
-            password
-          />
-        </div>
-      )}
-      {auth.type === 'bearer' && (
-        <div style={{ maxWidth: 520 }}>
-          <LabeledInput label="Token" value={auth.token} onChange={(token) => onChange({ ...auth, token })} />
-        </div>
-      )}
-      {auth.type === 'api-key' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 520 }}>
-          <LabeledInput label="Key" value={auth.key} onChange={(key) => onChange({ ...auth, key })} />
-          <LabeledInput label="Value" value={auth.value} onChange={(value) => onChange({ ...auth, value })} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 11, width: 90 }}>Send in</Text>
-            <Select
-              value={auth.in}
-              onChange={(location: 'header' | 'query') => onChange({ ...auth, in: location })}
-              options={[
-                { value: 'header', label: 'Header' },
-                { value: 'query', label: 'Query param' },
-              ]}
-              size="small"
-              style={{ width: 160 }}
-            />
-          </div>
-        </div>
-      )}
-      {auth.type === 'oauth2' && <OAuth2AuthEditor auth={auth} onChange={onChange} />}
-      {(auth.type === 'none' || auth.type === 'inherit') && (
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          {auth.type === 'none'
-            ? 'Requests will send without an Authorization header.'
-            : 'Auth inherits from the parent collection (reserved — inheritance lands with request scripts).'}
-        </Text>
-      )}
-
-      <CookiePolicySection value={credentialsMode} onChange={onCredentialsModeChange} />
-    </div>
-  );
 };
 
-// ── Cookie-jar policy ─────────────────────────────────────────────
+// ── Mini count badges on tab labels ───────────────────────────────
 
-interface CookiePolicySectionProps {
-  value: V5.CredentialsMode | undefined;
-  onChange: (next: V5.CredentialsMode | undefined) => void;
-}
-
-const CookiePolicySection: React.FC<CookiePolicySectionProps> = ({ value, onChange }) => {
+const TabCount: React.FC<{ n: number }> = ({ n }) => {
   const { token } = theme.useToken();
-  const include = value === 'include';
   return (
-    <div
+    <span
       style={{
-        marginTop: 20,
-        paddingTop: 16,
-        borderTop: `1px solid ${token.colorBorderSecondary}`,
+        display: 'inline-block',
+        marginLeft: 4,
+        padding: '0 6px',
+        fontSize: 10,
+        fontWeight: 500,
+        color: token.colorTextSecondary,
+        background: token.colorFillSecondary,
+        borderRadius: 8,
+        lineHeight: '16px',
       }}
     >
-      <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-        COOKIES
-      </Text>
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={include}
-          // Normalize "unchecked" back to `undefined` so the persisted
-          // shape stays minimal (explicit 'omit' is stored only when a
-          // user ever toggled it).
-          onChange={(e) => onChange(e.target.checked ? 'include' : undefined)}
-          style={{ marginTop: 2 }}
-        />
-        <div>
-          <Text style={{ fontSize: 12 }}>Include browser cookies</Text>
-          {include ? (
-            <Tag color="warning" style={{ marginLeft: 8, fontSize: 10 }}>
-              Can leak session cookies
-            </Tag>
-          ) : null}
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-            {include
-              ? "Rides the browser's cookie jar (like a logged-in tab). Use sparingly — any cookie that matches this URL's domain will be attached, including your active session."
-              : "Default. Requests send with no cookies attached. Matches Postman's desktop / API-testing behaviour."}
-          </Text>
-        </div>
-      </label>
-    </div>
+      {n}
+    </span>
   );
 };
 
-const LabeledInput: React.FC<{
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  password?: boolean;
-}> = ({ label, value, onChange, password }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-    <Text style={{ fontSize: 11, width: 90 }}>{label}</Text>
-    {password ? (
-      <Input.Password
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        size="small"
-        style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 11 }}
-      />
-    ) : (
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        size="small"
-        style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 11 }}
-      />
-    )}
-  </div>
-);
-
-// ── Script pane (Pre-request / Post-response) ────────────────────
-
-const SCRIPT_PLACEHOLDER: Record<'pre-request' | 'post-response', string> = {
-  'pre-request':
-    '// Runs before the request is sent.\n' +
-    '// Use oh.setHeader, oh.setUrl, oh.setBody, etc. to mutate the outgoing request.\n' +
-    '//\n' +
-    "// await oh.variables.set('timestamp', String(Date.now()));\n" +
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: the ${...} inside the example is literal user code, not a JS placeholder
-    "// oh.setHeader('Authorization', `Bearer ${await oh.vault.get('api_token')}`);\n",
-  'post-response':
-    '// Runs after the response arrives. Register assertions with oh.test().\n' +
-    '//\n' +
-    "// oh.test('status is 200', () => {\n" +
-    '//   oh.expect(oh.response).toHaveStatus(200);\n' +
-    '// });\n',
-};
-
-const ScriptPane: React.FC<{
-  kind: 'pre-request' | 'post-response';
-  value: string;
-  onChange: (v: string) => void;
-}> = ({ kind, value, onChange }) => {
+const TabDot: React.FC = () => {
+  const { token } = theme.useToken();
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {kind === 'pre-request'
-          ? 'Runs in a sandboxed iframe before the request is sent. Use oh.setHeader / oh.setUrl / oh.setBody to mutate the outgoing request.'
-          : 'Runs in a sandboxed iframe after the response arrives. Register assertions with oh.test(name, fn).'}
-      </Text>
-      <ScriptEditor
-        kind={kind}
-        value={value || SCRIPT_PLACEHOLDER[kind]}
-        onChange={(v) => {
-          // Treat the placeholder-only buffer as an empty script so
-          // the dirty fingerprint doesn't trip on first mount.
-          const normalized = v === SCRIPT_PLACEHOLDER[kind] ? '' : v;
-          onChange(normalized);
-        }}
-      />
-    </div>
+    <span
+      style={{
+        display: 'inline-block',
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: token.colorPrimary,
+        marginLeft: 4,
+        verticalAlign: 'middle',
+      }}
+    />
   );
 };
 
@@ -1244,11 +865,6 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function countLabel(rows: Row[]): string {
-  const active = rows.filter((r) => r.enabled && r.key.trim()).length;
-  return active > 0 ? ` (${active})` : '';
 }
 
 export default RequestEditor;

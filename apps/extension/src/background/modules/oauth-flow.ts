@@ -146,13 +146,16 @@ export async function launchAuthorizationCodeFlow(config: OAuth2Auth): Promise<A
   });
 
   const bundle = await exchangeForTokens(config.tokenEndpoint, body, 'authorization_code');
-  await putTokenBundle(config.credentialRef, bundle);
+  await putTokenBundle(config.credentialRef, bundle, config);
   return { bundle, redirectUri };
 }
 
 // ── Client Credentials ────────────────────────────────────────────
 
-export async function performClientCredentialsFlow(config: OAuth2Auth): Promise<OAuth2TokenBundle> {
+export async function performClientCredentialsFlow(
+  config: OAuth2Auth,
+  workspaceId?: string,
+): Promise<OAuth2TokenBundle> {
   if (config.flow !== 'client-credentials') {
     throw new OAuth2FlowError(
       'precondition',
@@ -161,14 +164,14 @@ export async function performClientCredentialsFlow(config: OAuth2Auth): Promise<
   }
   const body = buildClientCredentialsTokenBody(config);
   const bundle = await exchangeForTokens(config.tokenEndpoint, body, 'client_credentials');
-  await putTokenBundle(config.credentialRef, bundle);
+  await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
 }
 
 // ── Refresh Token ─────────────────────────────────────────────────
 
-export async function performRefresh(config: OAuth2Auth): Promise<OAuth2TokenBundle> {
-  const current = await getTokenBundle(config.credentialRef);
+export async function performRefresh(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
+  const current = await getTokenBundle(config.credentialRef, workspaceId);
   if (!current || !current.refreshToken) {
     throw new OAuth2FlowError('refresh', 'No refresh_token available for this credential');
   }
@@ -179,8 +182,24 @@ export async function performRefresh(config: OAuth2Auth): Promise<OAuth2TokenBun
   if (!bundle.refreshToken && current.refreshToken) {
     bundle.refreshToken = current.refreshToken;
   }
-  await putTokenBundle(config.credentialRef, bundle);
+  await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
+}
+
+// ── Flow-agnostic refresh dispatch (scheduler entry-point) ────────
+
+/**
+ * Refresh a credential regardless of flow. Authorization Code / Device
+ * Code flows use the refresh_token grant; Client Credentials re-runs
+ * the full client_credentials exchange (no refresh token exists for
+ * that flow). The scheduler calls this from its alarm handler without
+ * having to branch on the config shape.
+ */
+export async function refreshCredential(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
+  if (config.flow === 'client-credentials') {
+    return performClientCredentialsFlow(config, workspaceId);
+  }
+  return performRefresh(config, workspaceId);
 }
 
 // ── Shared: POST to the token endpoint ────────────────────────────
