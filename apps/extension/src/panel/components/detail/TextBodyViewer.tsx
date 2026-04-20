@@ -4,24 +4,19 @@
  * for the entire text-rendering pipeline:
  *
  *   - `useSniffedContent` tracks declared-vs-overridden mime
- *   - `detectLanguage` / `canPrettyPrint` drive CodeMirror + Prettier
+ *   - `detectLanguage` / `canPrettyPrint` drive Monaco + Prettier
  *   - Prettier runs asynchronously when pretty-print is on
- *   - CodeMirror handles syntax highlighting, theme, and search
+ *   - `CodeViewer` (Monaco) handles syntax highlighting, theme, + search
  *   - `TextBodyToolbar` shows pretty-print + sniffer + cursor info
- *
- * Before this component existed the logic was duplicated across the
- * two callers — one using Prettier + CodeMirror, the other doing
- * `JSON.stringify` in-line. Now there's one path.
  */
 
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
 import { useSniffedContent } from '../../data/use-sniffed-content';
+import CodeViewer from './CodeViewer';
 import { prettyPrintCode } from './pretty-print';
 import Skeleton from './Skeleton';
 import TextBodyToolbar from './TextBodyToolbar';
-
-const CodeMirrorViewer = lazy(() => import('./CodeMirrorViewer'));
 
 interface TextBodyViewerProps {
   /** Raw body text as the server delivered it. */
@@ -29,7 +24,7 @@ interface TextBodyViewerProps {
   /** MIME the server declared. Used as the starting point for the
    *  sniffer; may be generic (text/plain, octet-stream, empty). */
   declaredMime: string;
-  /** Active search query; passed through to CodeMirror for inline
+  /** Active search query; passed through to the Monaco viewer for inline
    *  highlighting + scroll-to-Nth-match. */
   searchQuery?: string;
   /** 0-based index of the specific match the user clicked. */
@@ -107,15 +102,13 @@ export default function TextBodyViewer({ text, declaredMime, searchQuery, search
   const lineInfo = cursorInfo ?? `${displayText.split('\n').length} lines`;
 
   const content = lang ? (
-    <Suspense fallback={<Skeleton />}>
-      <CodeMirrorViewer
-        value={displayText}
-        language={lang}
-        onCursorChange={handleCursorChange}
-        searchQuery={searchQuery || undefined}
-        searchMatchIndex={searchMatchIndex}
-      />
-    </Suspense>
+    <CodeViewer
+      value={displayText}
+      language={lang}
+      onCursorChange={handleCursorChange}
+      searchQuery={searchQuery || undefined}
+      searchMatchIndex={searchMatchIndex}
+    />
   ) : (
     <pre className="dt-body-pre">{displayText}</pre>
   );

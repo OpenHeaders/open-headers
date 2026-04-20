@@ -1,10 +1,9 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { classifyBodyState } from '../../data/response-body-state';
 import type { InspectorRequest } from '../../data/types';
 import { JsonTree } from '../JsonTree';
+import CodeViewer from './CodeViewer';
 import Skeleton from './Skeleton';
-
-const CodeMirrorViewer = lazy(() => import('./CodeMirrorViewer'));
 
 function isJsonMime(mime: string): boolean {
   return /\bjson\b/i.test(mime);
@@ -219,11 +218,7 @@ export default function PreviewView({ request }: PreviewViewProps) {
           : null;
 
     if (lang && textContent) {
-      content = (
-        <Suspense fallback={<Skeleton />}>
-          <CodeMirrorViewer value={textContent} language={lang} />
-        </Suspense>
-      );
+      content = <CodeViewer value={textContent} language={lang} />;
     } else if (textContent) {
       content = <pre className="dt-body-pre">{textContent}</pre>;
     } else {

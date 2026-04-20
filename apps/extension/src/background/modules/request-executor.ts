@@ -27,6 +27,7 @@
  */
 
 import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
+import type { RequestMutation, RequestSnapshot, ResponseSnapshot, TestAssertion } from '@openheaders/core/scripts';
 import type { V5 } from '@openheaders/core/types';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
@@ -44,6 +45,7 @@ import { getFileBlob, listFiles } from './files-store';
 import { OAuth2FlowError, performRefresh as performOAuthRefresh } from './oauth-flow';
 import { getTokenBundle as getOAuthTokenBundle } from './oauth-token-store';
 import { recordLog } from './observability-log';
+import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
 
@@ -70,6 +72,32 @@ export interface ExecutedRequestSnapshot {
   durationMs: number;
   /** Non-null when the request failed before producing a response. */
   error: string | null;
+  /**
+   * Script outcome — `null` when no scripts ran, otherwise carries the
+   * assertions + console + mutation summary surfaced by the pre-request
+   * and/or post-response scripts. Split into two fields so the UI can
+   * render them independently (pre-request logs vs assertions). See
+   * ARCHITECTURE §19.
+   */
+  scripts?: {
+    preRequest?: {
+      succeeded: boolean;
+      error?: { name: string; message: string };
+      consoleLog: import('@openheaders/core/scripts').ScriptConsoleEntry[];
+      durationMs: number;
+      /** Summary of what the pre-request script mutated — useful for
+       *  the UI to show "1 header added" style hints. Non-authoritative;
+       *  the actual fetch uses the merged snapshot. */
+      mutation?: RequestMutation;
+    };
+    postResponse?: {
+      succeeded: boolean;
+      error?: { name: string; message: string };
+      assertions: TestAssertion[];
+      consoleLog: import('@openheaders/core/scripts').ScriptConsoleEntry[];
+      durationMs: number;
+    };
+  } | null;
 }
 
 export interface ExecuteRequestOptions {
@@ -96,7 +124,100 @@ export async function executeRequestDraft(
   options: ExecuteRequestOptions = {},
 ): Promise<ExecutedRequestSnapshot> {
   const resolved = await resolveRequest(request, options);
-  return executeResolved(resolved);
+
+  // ── Pre-request script hook ────────────────────────────────────
+  // Run BEFORE the wire fetch. Script mutations land on top of the
+  // resolved request (after variable substitution). Missing scripts
+  // / Firefox fallback / empty source are all no-ops.
+  let scriptOutcome: ExecutedRequestSnapshot['scripts'] = null;
+  const finalResolved: ResolvedRequest = { ...resolved };
+
+  if (request.preRequestScript?.trim() && isOffscreenSupported()) {
+    const snapshot = resolvedToSnapshot(finalResolved);
+    const result = await runScript({
+      kind: 'pre-request',
+      source: request.preRequestScript,
+      request: snapshot,
+    });
+    scriptOutcome = {
+      preRequest: {
+        succeeded: result.succeeded,
+        error: result.error ? { name: result.error.name, message: result.error.message } : undefined,
+        consoleLog: result.consoleLog,
+        durationMs: result.durationMs,
+        mutation: result.mutation,
+      },
+    };
+    if (result.succeeded && result.mutation) {
+      applyMutation(finalResolved, result.mutation);
+    }
+  }
+
+  const wireResult = await executeResolved(finalResolved);
+
+  // ── Post-response script hook ──────────────────────────────────
+  if (request.postResponseScript?.trim() && isOffscreenSupported() && wireResult.error == null) {
+    const responseSnap: ResponseSnapshot = {
+      status: wireResult.status,
+      statusText: wireResult.statusText,
+      url: wireResult.url,
+      headers: wireResult.headers,
+      body: wireResult.body,
+      durationMs: wireResult.durationMs,
+    };
+    const result = await runScript({
+      kind: 'post-response',
+      source: request.postResponseScript,
+      request: resolvedToSnapshot(finalResolved),
+      response: responseSnap,
+    });
+    scriptOutcome = {
+      ...(scriptOutcome ?? {}),
+      postResponse: {
+        succeeded: result.succeeded,
+        error: result.error ? { name: result.error.name, message: result.error.message } : undefined,
+        assertions: result.assertions,
+        consoleLog: result.consoleLog,
+        durationMs: result.durationMs,
+      },
+    };
+  }
+
+  return scriptOutcome ? { ...wireResult, scripts: scriptOutcome } : wireResult;
+}
+
+// Register the executor with the offscreen host so `oh.sendRequest`
+// calls can route through our resolve + fetch pipeline. Done once at
+// module eval — idempotent if called again.
+__setExecuteRequestDraft(executeRequestDraft);
+
+// ── Script integration helpers ─────────────────────────────────────
+
+function resolvedToSnapshot(req: ResolvedRequest): RequestSnapshot {
+  return {
+    method: req.method,
+    url: req.url,
+    headers: req.headers.map((h) => ({ key: h.key, value: h.value })),
+    params: [],
+    body: {
+      type: req.body.type,
+      content: req.body.content,
+      multipartParts: req.body.multipartParts,
+    },
+  };
+}
+
+function applyMutation(target: ResolvedRequest, mutation: RequestMutation): void {
+  if (mutation.method) target.method = mutation.method;
+  if (mutation.url) target.url = mutation.url;
+  if (mutation.headers) target.headers = mutation.headers.map((h) => ({ key: h.key, value: h.value }));
+  if (mutation.body) {
+    target.body = {
+      type: mutation.body.type,
+      content: mutation.body.content,
+      multipartParts: mutation.body.multipartParts,
+    };
+  }
 }
 
 // ── Variable resolution ────────────────────────────────────────────
@@ -440,6 +561,7 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
       bodyBytes,
       durationMs,
       error: null,
+      scripts: null,
     };
   } catch (err) {
     const durationMs = Math.round(performance.now() - startedAt);
@@ -477,6 +599,7 @@ async function executeResolved(req: ResolvedRequest): Promise<ExecutedRequestSna
       bodyBytes: 0,
       durationMs,
       error: message,
+      scripts: null,
     };
   }
 }
@@ -522,5 +645,6 @@ function errorSnapshot(message: string): ExecutedRequestSnapshot {
     bodyBytes: 0,
     durationMs: 0,
     error: message,
+    scripts: null,
   };
 }

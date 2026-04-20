@@ -21,7 +21,9 @@ export type LogSubsystem =
   | 'environment'
   | 'vault'
   | 'permissions'
-  | 'extension';
+  | 'extension'
+  | 'scripts'
+  | 'oauth';
 
 export interface LogEntryContext {
   /** Rule uid when the event relates to a specific rule. */
@@ -40,6 +42,12 @@ export interface LogEntryContext {
   tabId?: number;
   /** Count of tracked entities (workspace tabs, etc.) at record time. */
   count?: number;
+  /** Script kind (`pre-request` | `post-response`) when the event is scripts-scoped. */
+  scriptKind?: 'pre-request' | 'post-response';
+  /** Script execution id when the event is tied to a specific run. */
+  executionId?: string;
+  /** OAuth credential reference when the event is auth-scoped. */
+  credentialRef?: string;
 }
 
 export interface LogEntry {

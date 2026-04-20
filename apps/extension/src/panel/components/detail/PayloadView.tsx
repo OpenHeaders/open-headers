@@ -74,7 +74,7 @@ export default function PayloadView({ har, searchHighlight, searchSection }: Pay
   // Structured post data (form params) renders as a key/value table.
   // Unstructured post data (raw text body) routes through the unified
   // `TextBodyViewer` — same pipeline as the response body: Prettier +
-  // CodeMirror + theme + sniffer pill for misdeclared Content-Types.
+  // Monaco viewer + theme + sniffer pill for misdeclared Content-Types.
   const hasStructuredPostData = postData?.params && postData.params.length > 0;
 
   return (

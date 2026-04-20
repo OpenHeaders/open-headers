@@ -115,30 +115,30 @@ describe('yaml codec — round-trip parity', () => {
     expect(out.template).toContain('value: ""'); // template has blanked values
   });
 
-  it('request.yaml + body.json + pre-request.js + test.js', () => {
+  it('request.yaml + body.json + pre-request.js + post-response.js', () => {
     const raw = loadFixture('request.yaml');
     const bodyJson = loadFixture('request-body.json');
     const preScript = loadFixture('request-pre-request.js');
-    const testScript = loadFixture('request-test.js');
+    const postResponseScript = loadFixture('request-post-response.js');
     const parsed = parseRequest(raw, {
       path: 'requests/auth-c0ll1111/login-reqlogin',
       siblings: [
         { fileName: 'body.json', content: bodyJson },
         { fileName: 'pre-request.js', content: preScript },
-        { fileName: 'test.js', content: testScript },
+        { fileName: 'post-response.js', content: postResponseScript },
       ],
     });
     expect(parsed.value.body.type).toBe('json');
     expect(parsed.value.body.content).toBe(bodyJson);
     expect(parsed.value.preRequestScript).toBe(preScript);
-    expect(parsed.value.testScript).toBe(testScript);
+    expect(parsed.value.postResponseScript).toBe(postResponseScript);
 
     const write = mergePatch(parsed, () => {});
     const out = serializeRequest(write);
     expect(out.requestYaml).toBe(raw);
     expect(out.bodyFile).toEqual({ fileName: 'body.json', content: bodyJson });
     expect(out.preRequestScript).toEqual({ fileName: 'pre-request.js', content: preScript });
-    expect(out.testScript).toEqual({ fileName: 'test.js', content: testScript });
+    expect(out.postResponseScript).toEqual({ fileName: 'post-response.js', content: postResponseScript });
     expect(out.variablesFile).toBeNull();
   });
 });

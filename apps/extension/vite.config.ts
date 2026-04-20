@@ -303,6 +303,14 @@ export default defineConfig({
         delay: path.resolve(__dirname, 'delay.html'),
         devtools: path.resolve(__dirname, 'devtools.html'),
         panel: path.resolve(__dirname, 'panel.html'),
+        // Offscreen document + sandboxed script runner (ARCHITECTURE §19).
+        // `sandbox.html` is declared in manifest.json > `sandbox.pages`,
+        // which serves it with a unique origin and a relaxed CSP so
+        // user-provided pre-request / test scripts can compile via
+        // `new Function(...)` without undermining the rest of the
+        // extension's `script-src 'self'`.
+        offscreen: path.resolve(__dirname, 'offscreen.html'),
+        sandbox: path.resolve(__dirname, 'sandbox.html'),
         background: path.resolve(__dirname, 'src/background/index.ts'),
       },
       output: {
@@ -315,22 +323,24 @@ export default defineConfig({
           return 'assets/[name][extname]';
         },
         // Keep every node_module in a single `vendor` chunk — splitting
-        // antd/react/codemirror into separate chunks creates circular
-        // dependencies (antd → react → antd etc.) without any byte
-        // savings.
+        // antd/react into separate chunks creates circular dependencies
+        // (antd → react → antd etc.) without any byte savings.
         //
-        // Exceptions: packages that every entry accesses through a
-        // dynamic `() => import(...)` boundary MUST stay outside the
-        // vendor bucket so rollup can keep them as separate lazy chunks.
-        // Prettier (+ its plugins) and the CodeMirror language packs are
-        // both loaded on demand via `rules/languages/registry.ts` and
-        // `rules/languages/formatter.ts`; pulling them into vendor would
-        // merge them back into the workspace's first-paint payload and
-        // defeat the lazy load.
+        // Exceptions:
+        //   • Prettier (+ its plugins) is lazy-loaded on first Format
+        //     call via `rules/languages/formatter.ts`; keep it out of
+        //     vendor so rollup can emit it as its own lazy chunk.
+        //   • `monaco-editor` is huge (~5 MB parsed) and shared across
+        //     CodeEditor / ScriptEditor / CodeViewer. Pinning it to a
+        //     dedicated `monaco` chunk means incremental rebuilds don't
+        //     re-inline Monaco into every consumer chunk (otherwise the
+        //     side-effect import graph drags Monaco into RuleContext,
+        //     turning that chunk into a 7 MB payload that regenerates
+        //     on every edit).
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('/prettier/')) return undefined;
-          if (id.includes('@codemirror/lang-')) return undefined;
+          if (id.includes('/monaco-editor/') || id.includes('/@monaco-editor/')) return 'monaco';
           return 'vendor';
         },
       },

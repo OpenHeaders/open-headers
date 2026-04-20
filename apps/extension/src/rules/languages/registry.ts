@@ -2,37 +2,29 @@
  * Language registry — the single source of truth for every editable
  * language surface in the extension.
  *
- * Every entry maps a `LanguageId` to:
+ * Monaco provides syntax highlighting, tokenization, and (for JS / TS /
+ * JSON / CSS / HTML) a full language service out of the box. This
+ * registry therefore only carries:
  *
- *   1. A label shown in the editor tab strip, language dropdowns, etc.
- *   2. A lazy loader for the CodeMirror language extension. CodeMirror
- *      language packs are individual npm packages, so the loader is a
- *      `() => import('@codemirror/lang-*')`. Vite splits each one into
- *      its own chunk — the main workspace bundle never ships code for
- *      languages the user hasn't opened.
- *   3. An optional formatter descriptor (parser name + lazy plugin
- *      loader). JSON uses the native `JSON.parse`/`JSON.stringify`
- *      path and leaves `formatter` undefined so no Prettier code is
- *      downloaded just to indent JSON. Every other language loads
- *      `prettier/standalone` plus its parser the first time a user
- *      clicks Format or saves with `formatOnSave` on.
+ *   1. A label shown in dropdowns + tab strips.
+ *   2. An optional formatter descriptor (Prettier parser + lazy plugin
+ *      loader). JSON uses the native `JSON.parse`/`JSON.stringify` path
+ *      sentinel (`parser === 'json-native'`) so Prettier doesn't ship
+ *      unless JS/CSS actually ask for it.
  *
  * Adding a language:
  *
- *   1. `pnpm --filter @openheaders/extension add @codemirror/lang-<name>`
- *   2. For formatter support: make sure Prettier has a parser (see
- *      https://prettier.io/docs/en/plugins). `@prettier/plugin-xml` is
- *      community-maintained and needs a separate install.
- *   3. Add one entry to `LANGUAGES` below.
- *   4. The Format button, keyboard shortcut, `editor.formatOnSave`, and
- *      per-language syntax highlighting all start working automatically.
+ *   1. Add one entry to `LANGUAGES` below.
+ *   2. Monaco resolves built-in languages automatically — use the same
+ *      id Monaco uses internally (`'javascript'`, `'css'`, `'json'`,
+ *      `'html'`, `'xml'`, …).
+ *   3. For formatter support: install the Prettier parser plugin and
+ *      wire its lazy import under `formatter.loadPlugins`.
  *
  * This file is intentionally UI-free — it's pure data + loaders, so
  * both the editor and the formatter can consume it without pulling in
  * React.
  */
-
-import type { Extension } from '@codemirror/state';
 
 /**
  * Every language the extension can currently edit. Expand this union as
@@ -68,27 +60,17 @@ export interface FormatterDescriptor {
 export interface LanguageDef {
   id: LanguageId;
   label: string;
-  /** Lazy loader for the CodeMirror language extension. */
-  loadExtension: () => Promise<Extension>;
   /**
    * Optional formatter. Languages with `formatter === undefined` are
    * editable but not formattable — the Format button is disabled and
-   * `editor.formatOnSave` is a no-op for that buffer. Today every
-   * registered language is formattable (JSON via native code, JS/CSS
-   * via Prettier).
+   * `editor.formatOnSave` is a no-op for that buffer.
    */
   formatter?: FormatterDescriptor;
 }
 
-// ── JavaScript ───────────────────────────────────────────────────────
-
 const javascriptDef: LanguageDef = {
   id: 'javascript',
   label: 'JavaScript',
-  loadExtension: async () => {
-    const mod = await import('@codemirror/lang-javascript');
-    return mod.javascript();
-  },
   formatter: {
     parser: 'babel',
     loadPlugins: async () => {
@@ -98,15 +80,9 @@ const javascriptDef: LanguageDef = {
   },
 };
 
-// ── CSS ──────────────────────────────────────────────────────────────
-
 const cssDef: LanguageDef = {
   id: 'css',
   label: 'CSS',
-  loadExtension: async () => {
-    const mod = await import('@codemirror/lang-css');
-    return mod.css();
-  },
   formatter: {
     parser: 'css',
     loadPlugins: async () => {
@@ -116,28 +92,21 @@ const cssDef: LanguageDef = {
   },
 };
 
-// ── JSON ─────────────────────────────────────────────────────────────
-//
-// JSON's formatter descriptor is a sentinel — `parser === 'json-native'`
-// tells the formatter module to skip Prettier entirely and use the
-// built-in `JSON.parse(x); JSON.stringify(parsed, null, indent)` path.
-// This keeps Prettier out of the bundle for the single most common
-// language in the API-request roadmap.
-
+/**
+ * JSON's formatter descriptor is a sentinel — `parser === 'json-native'`
+ * tells the formatter module to skip Prettier entirely and use the
+ * built-in `JSON.parse(x); JSON.stringify(parsed, null, indent)` path.
+ * This keeps Prettier out of the bundle for the single most common
+ * language in the API-request roadmap.
+ */
 const jsonDef: LanguageDef = {
   id: 'json',
   label: 'JSON',
-  loadExtension: async () => {
-    const mod = await import('@codemirror/lang-json');
-    return mod.json();
-  },
   formatter: {
     parser: 'json-native',
     loadPlugins: async () => [],
   },
 };
-
-// ── Registry ─────────────────────────────────────────────────────────
 
 export const LANGUAGES: Record<LanguageId, LanguageDef> = {
   javascript: javascriptDef,

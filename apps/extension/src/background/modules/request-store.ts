@@ -258,7 +258,7 @@ export function addRequest(
     auth: seed?.auth ?? { type: 'inherit' },
     body: seed?.body ?? { type: 'none' },
     ...(seed?.preRequestScript ? { preRequestScript: seed.preRequestScript } : {}),
-    ...(seed?.testScript ? { testScript: seed.testScript } : {}),
+    ...(seed?.postResponseScript ? { postResponseScript: seed.postResponseScript } : {}),
   };
   requests = [...requests, created];
   void persistRequests();

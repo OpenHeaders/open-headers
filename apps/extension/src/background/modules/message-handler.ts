@@ -54,6 +54,7 @@ import {
 } from './oauth-flow';
 import { deleteTokenBundle, listTokenBundles } from './oauth-token-store';
 import { clearObservabilityLog, getObservabilityLog } from './observability-log';
+import { handleScriptHostRequest } from './offscreen-host';
 import { replaceMarkers as replacePauseMarkers } from './pause-markers-store';
 import { executeRequest, executeRequestDraft } from './request-executor';
 import {
@@ -205,6 +206,24 @@ export function handleGeneralMessage(
     ctx;
 
   try {
+    // ── Script sandbox host RPC (from offscreen doc) ───────────
+    // Tagged with `target: 'background'` so we route them here instead
+    // of letting the offscreen doc's broker handle its own messages.
+    if (message.target === 'background' && message.type === 'script.host-request') {
+      const request = message.request as import('@openheaders/core/scripts').ScriptHostRequest;
+      handleScriptHostRequest(request)
+        .then((response) => safeResponse(response))
+        .catch((err: Error) =>
+          safeResponse({
+            executionId: request.executionId,
+            rpcId: request.rpcId,
+            ok: false,
+            error: err.message,
+          }),
+        );
+      return true;
+    }
+
     // ── Connection / presence ──────────────────────────────────
     if (message.type === 'popupOpen') {
       safeResponse({

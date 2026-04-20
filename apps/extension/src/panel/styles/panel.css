@@ -2566,6 +2566,15 @@ body.dt-resizing-col {
   min-height: 0;
   overflow: auto;
   padding: 4px 8px;
+  /*
+   * Flex column so a single Monaco viewer child (`.dt-codemirror-wrap`)
+   * can fill the pane via `flex: 1`. Monaco's `<Editor height="100%">`
+   * collapses to 0 inside a plain block container, which rendered as a
+   * 1px strip before this rule. Block children (`<pre>`) still stack
+   * naturally and the outer `overflow: auto` keeps long-body scroll.
+   */
+  display: flex;
+  flex-direction: column;
 }
 
 .dt-response-toolbar,
@@ -2616,20 +2625,22 @@ body.dt-resizing-col {
   border-color: var(--dt-link);
 }
 
-/* ── CodeMirror wrapper ──────────────────────────────────── */
+/* ── Monaco viewer wrapper ───────────────────────────────── */
 .dt-codemirror-wrap {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
 }
-.dt-codemirror-wrap .cm-editor {
-  height: 100%;
+.dt-codemirror-wrap > * {
+  flex: 1;
+  min-height: 0;
 }
-.cm-searchMatch {
+.dt-monaco-search {
   background: rgba(255, 200, 0, 0.35);
   border-radius: 2px;
 }
-.cm-searchMatch-active {
+.dt-monaco-search-active {
   background: rgba(255, 150, 0, 0.6);
   outline: 1px solid rgba(255, 150, 0, 0.8);
 }

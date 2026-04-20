@@ -46,6 +46,8 @@ export interface DraftData {
   auth: V5.AuthConfig;
   body: V5.RequestBody;
   credentialsMode?: V5.CredentialsMode;
+  preRequestScript?: string;
+  postResponseScript?: string;
 }
 
 function buildEditTab(
@@ -94,6 +96,8 @@ export function useSaveRequestFlow({
             auth: draftData.auth,
             body: draftData.body,
             credentialsMode: draftData.credentialsMode,
+            preRequestScript: draftData.preRequestScript,
+            postResponseScript: draftData.postResponseScript,
           },
         }).then((created) => {
           if (created) buildEditTab(tabId, created, replaceTab);
@@ -125,6 +129,8 @@ export function useSaveRequestFlow({
           auth: saveModalDraftData.auth,
           body: saveModalDraftData.body,
           credentialsMode: saveModalDraftData.credentialsMode,
+          preRequestScript: saveModalDraftData.preRequestScript,
+          postResponseScript: saveModalDraftData.postResponseScript,
         },
       });
       if (created) buildEditTab(saveModalTabId, created, replaceTab);

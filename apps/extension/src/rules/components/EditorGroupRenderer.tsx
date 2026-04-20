@@ -115,7 +115,7 @@ function previewStyleFor(zone: LeafDropZone): React.CSSProperties {
 //
 // Each tab gets its own scroll container. Inactive panels are
 // `display: none` so they take no layout or paint cost — important
-// because some child components (antd Tabs, Allotment, CodeMirror)
+// because some child components (antd Tabs, Allotment, Monaco)
 // run layout effects with ResizeObservers that would otherwise fire
 // for every hidden leaf, cascading into a setState-in-layout-effect
 // loop when multiple tabs are open at once.

@@ -27,6 +27,7 @@ import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-sc
 import MultipartEditor from './MultipartEditor';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import StaleDraftBanner from './StaleDraftBanner';
+import ScriptEditor from './script-editor/ScriptEditor';
 
 const { Text } = Typography;
 
@@ -126,6 +127,10 @@ interface Draft {
   body: V5.RequestBody;
   /** Wire-level cookie policy. Omitted → executor's 'omit' default. */
   credentialsMode?: V5.CredentialsMode;
+  /** Pre-request script source — runs before the wire fetch (ARCHITECTURE §19). */
+  preRequestScript?: string;
+  /** Post-response script source — runs after the response arrives. */
+  postResponseScript?: string;
 }
 
 function headersFromV5(list: V5.RequestHeader[]): Row[] {
@@ -151,6 +156,8 @@ function draftFromRequest(req: V5.Request): Draft {
     auth: req.auth,
     body: req.body,
     credentialsMode: req.credentialsMode,
+    preRequestScript: req.preRequestScript,
+    postResponseScript: req.postResponseScript,
   };
 }
 
@@ -174,6 +181,8 @@ function fingerprint(d: Draft): string {
     auth: d.auth,
     body: d.body,
     credentialsMode: d.credentialsMode ?? 'omit',
+    preRequestScript: d.preRequestScript ?? '',
+    postResponseScript: d.postResponseScript ?? '',
   });
 }
 
@@ -266,6 +275,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         auth: draft.auth,
         body: draft.body,
         credentialsMode: draft.credentialsMode,
+        preRequestScript: draft.preRequestScript,
+        postResponseScript: draft.postResponseScript,
       });
       return;
     }
@@ -278,6 +289,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       auth: draft.auth,
       body: draft.body,
       credentialsMode: draft.credentialsMode,
+      preRequestScript: draft.preRequestScript,
+      postResponseScript: draft.postResponseScript,
     };
     const result = await updateRequest(requestUid, updates, loadedVersion ?? undefined);
     if (result.ok) {
@@ -548,6 +561,28 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                     onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
                     credentialsMode={draft.credentialsMode}
                     onCredentialsModeChange={(credentialsMode) => setDraft((d) => ({ ...d, credentialsMode }))}
+                  />
+                ),
+              },
+              {
+                key: 'pre-request',
+                label: `Pre-request${draft.preRequestScript?.trim() ? ' •' : ''}`,
+                children: (
+                  <ScriptPane
+                    kind="pre-request"
+                    value={draft.preRequestScript ?? ''}
+                    onChange={(v) => setDraft((d) => ({ ...d, preRequestScript: v }))}
+                  />
+                ),
+              },
+              {
+                key: 'post-response',
+                label: `Post-response${draft.postResponseScript?.trim() ? ' •' : ''}`,
+                children: (
+                  <ScriptPane
+                    kind="post-response"
+                    value={draft.postResponseScript ?? ''}
+                    onChange={(v) => setDraft((d) => ({ ...d, postResponseScript: v }))}
                   />
                 ),
               },
@@ -910,14 +945,67 @@ const LabeledInput: React.FC<{
   </div>
 );
 
+// ── Script pane (Pre-request / Post-response) ────────────────────
+
+const SCRIPT_PLACEHOLDER: Record<'pre-request' | 'post-response', string> = {
+  'pre-request':
+    '// Runs before the request is sent.\n' +
+    '// Use oh.setHeader, oh.setUrl, oh.setBody, etc. to mutate the outgoing request.\n' +
+    '//\n' +
+    "// await oh.variables.set('timestamp', String(Date.now()));\n" +
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the ${...} inside the example is literal user code, not a JS placeholder
+    "// oh.setHeader('Authorization', `Bearer ${await oh.vault.get('api_token')}`);\n",
+  'post-response':
+    '// Runs after the response arrives. Register assertions with oh.test().\n' +
+    '//\n' +
+    "// oh.test('status is 200', () => {\n" +
+    '//   oh.expect(oh.response).toHaveStatus(200);\n' +
+    '// });\n',
+};
+
+const ScriptPane: React.FC<{
+  kind: 'pre-request' | 'post-response';
+  value: string;
+  onChange: (v: string) => void;
+}> = ({ kind, value, onChange }) => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        {kind === 'pre-request'
+          ? 'Runs in a sandboxed iframe before the request is sent. Use oh.setHeader / oh.setUrl / oh.setBody to mutate the outgoing request.'
+          : 'Runs in a sandboxed iframe after the response arrives. Register assertions with oh.test(name, fn).'}
+      </Text>
+      <ScriptEditor
+        kind={kind}
+        value={value || SCRIPT_PLACEHOLDER[kind]}
+        onChange={(v) => {
+          // Treat the placeholder-only buffer as an empty script so
+          // the dirty fingerprint doesn't trip on first mount.
+          const normalized = v === SCRIPT_PLACEHOLDER[kind] ? '' : v;
+          onChange(normalized);
+        }}
+      />
+    </div>
+  );
+};
+
 // ── Response panel ────────────────────────────────────────────────
+
+type ResponseTabKey = 'body' | 'headers' | 'assertions' | 'script-log';
 
 const ResponsePanel: React.FC<{
   response: ExecutedRequestSnapshot;
   onClear: () => void;
 }> = ({ response, onClear }) => {
   const { token } = theme.useToken();
-  const [activeTab, setActiveTab] = useState<'body' | 'headers'>('body');
+  const scripts = response.scripts ?? null;
+  const assertions = scripts?.postResponse?.assertions ?? [];
+  const assertionsPassed = assertions.filter((a) => a.passed).length;
+  const assertionsFailed = assertions.length - assertionsPassed;
+  const preLog = scripts?.preRequest?.consoleLog ?? [];
+  const postLog = scripts?.postResponse?.consoleLog ?? [];
+  const hasScriptLog = preLog.length > 0 || postLog.length > 0;
+  const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
 
   const statusColor =
     response.error !== null
@@ -973,7 +1061,7 @@ const ResponsePanel: React.FC<{
       <Tabs
         size="small"
         activeKey={activeTab}
-        onChange={(k) => setActiveTab(k as 'body' | 'headers')}
+        onChange={(k) => setActiveTab(k as ResponseTabKey)}
         className="rules-response-tabs"
         style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
         items={[
@@ -1027,8 +1115,114 @@ const ResponsePanel: React.FC<{
               </div>
             ),
           },
+          ...(assertions.length > 0
+            ? [
+                {
+                  key: 'assertions' as ResponseTabKey,
+                  label: `Assertions${assertionsFailed > 0 ? ` (${assertionsFailed} failed)` : assertionsPassed > 0 ? ` (${assertionsPassed} passed)` : ''}`,
+                  children: (
+                    <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingTop: 4 }}>
+                      {assertions.map((a, idx) => (
+                        <div
+                          key={`${a.name}:${idx}`}
+                          style={{
+                            display: 'flex',
+                            gap: 8,
+                            fontSize: 12,
+                            padding: '4px 0',
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          <Tag color={a.passed ? 'success' : 'error'} style={{ marginInlineEnd: 0 }}>
+                            {a.passed ? 'PASS' : 'FAIL'}
+                          </Tag>
+                          <div style={{ flex: 1 }}>
+                            <Text>{a.name}</Text>
+                            {!a.passed && a.message && (
+                              <div>
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                  {a.message}
+                                </Text>
+                              </div>
+                            )}
+                          </div>
+                          {typeof a.durationMs === 'number' && (
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              {a.durationMs} ms
+                            </Text>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+          ...(hasScriptLog
+            ? [
+                {
+                  key: 'script-log' as ResponseTabKey,
+                  label: `Console (${preLog.length + postLog.length})`,
+                  children: (
+                    <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingTop: 4 }}>
+                      {preLog.length > 0 && (
+                        <>
+                          <Text strong style={{ fontSize: 11 }}>
+                            Pre-request
+                          </Text>
+                          <ScriptLogList entries={preLog} />
+                        </>
+                      )}
+                      {postLog.length > 0 && (
+                        <>
+                          <Text strong style={{ fontSize: 11 }}>
+                            Post-response
+                          </Text>
+                          <ScriptLogList entries={postLog} />
+                        </>
+                      )}
+                    </div>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
+    </div>
+  );
+};
+
+const ScriptLogList: React.FC<{ entries: import('@openheaders/core/scripts').ScriptConsoleEntry[] }> = ({
+  entries,
+}) => {
+  const { token } = theme.useToken();
+  const color = (level: string): string =>
+    level === 'error'
+      ? token.colorError
+      : level === 'warn'
+        ? token.colorWarning
+        : level === 'debug'
+          ? token.colorTextTertiary
+          : token.colorTextSecondary;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {entries.map((e, idx) => (
+        <div
+          key={`${e.timeMs}:${idx}`}
+          style={{
+            display: 'flex',
+            gap: 8,
+            fontFamily: "'SF Mono', monospace",
+            fontSize: 11,
+            padding: '2px 0',
+            alignItems: 'flex-start',
+          }}
+        >
+          <Text style={{ color: token.colorTextTertiary, minWidth: 48 }}>{e.timeMs}ms</Text>
+          <Text style={{ color: color(e.level), minWidth: 44, textTransform: 'uppercase' }}>{e.level}</Text>
+          <Text style={{ color: token.colorText, wordBreak: 'break-all' }}>{e.args.join(' ')}</Text>
+        </div>
+      ))}
     </div>
   );
 };

@@ -30,7 +30,8 @@
     "system.display",
     "windows",
     "sidePanel",
-    "identity"
+    "identity",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -81,6 +82,10 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src 'self' http: https: ws: wss: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; img-src 'self' data: blob:"
+    "extension_pages": "default-src 'self'; connect-src 'self' http: https: ws: wss: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; img-src 'self' data: blob:",
+    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; child-src 'self'"
+  },
+  "sandbox": {
+    "pages": ["sandbox.html"]
   }
 }

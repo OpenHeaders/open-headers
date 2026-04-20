@@ -54,6 +54,10 @@
     "./oauth": {
       "import": "./src/oauth/index.ts",
       "default": "./dist/oauth/index.js"
+    },
+    "./scripts": {
+      "import": "./src/scripts/index.ts",
+      "default": "./dist/scripts/index.js"
     }
   },
   "scripts": {

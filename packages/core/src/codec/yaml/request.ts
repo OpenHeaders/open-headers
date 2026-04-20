@@ -91,7 +91,7 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
   const rawBody = (raw.body && typeof raw.body === 'object' ? raw.body : { type: 'none' }) as RequestBody;
   let body: RequestBody = { ...rawBody };
   let preRequestScript: string | undefined;
-  let testScript: string | undefined;
+  let postResponseScript: string | undefined;
   let graphqlVariables: string | undefined;
 
   for (const sibling of context.siblings ?? []) {
@@ -102,8 +102,8 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
       graphqlVariables = sibling.content;
     } else if (sibling.fileName === 'pre-request.js') {
       preRequestScript = sibling.content;
-    } else if (sibling.fileName === 'test.js') {
-      testScript = sibling.content;
+    } else if (sibling.fileName === 'post-response.js') {
+      postResponseScript = sibling.content;
     }
   }
 
@@ -117,7 +117,7 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
     body,
   };
   if (preRequestScript !== undefined) merged.preRequestScript = preRequestScript;
-  if (testScript !== undefined) merged.testScript = testScript;
+  if (postResponseScript !== undefined) merged.postResponseScript = postResponseScript;
 
   const value = v.parse(RequestSchema, merged);
   return makeParsed(value, doc);
@@ -134,8 +134,8 @@ export interface RequestSerializeOutput {
   variablesFile: RequestSiblingFile | null;
   /** `pre-request.js` when the request has a pre-request script. */
   preRequestScript: RequestSiblingFile | null;
-  /** `test.js` when the request has a test script. */
-  testScript: RequestSiblingFile | null;
+  /** `post-response.js` when the request has a post-response script. */
+  postResponseScript: RequestSiblingFile | null;
 }
 
 export function serializeRequest(write: WriteableDocument<Request>): RequestSerializeOutput {
@@ -152,7 +152,7 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
     ...write.value,
     body: manifestBody,
     preRequestScript: undefined,
-    testScript: undefined,
+    postResponseScript: undefined,
   } as unknown as Request;
 
   const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(manifestView, REQUEST_FIELD_ORDER);
@@ -174,8 +174,10 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
       ? { fileName: 'pre-request.js', content: write.value.preRequestScript }
       : null;
 
-  const testScript: RequestSiblingFile | null =
-    write.value.testScript !== undefined ? { fileName: 'test.js', content: write.value.testScript } : null;
+  const postResponseScript: RequestSiblingFile | null =
+    write.value.postResponseScript !== undefined
+      ? { fileName: 'post-response.js', content: write.value.postResponseScript }
+      : null;
 
-  return { requestYaml, bodyFile, variablesFile, preRequestScript, testScript };
+  return { requestYaml, bodyFile, variablesFile, preRequestScript, postResponseScript };
 }

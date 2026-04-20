@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Open Headers — script sandbox</title>
+    <!--
+      This page is declared in manifest.json under `sandbox.pages`, which
+      (a) serves it with a unique opaque origin so it cannot touch the
+      extension's chrome.* APIs or other extension pages, and (b) relaxes
+      the default script-src to allow `'unsafe-eval'` so user-provided
+      pre-request / test scripts can be compiled via `new Function(...)`.
+    -->
+</head>
+<body>
+    <script type="module" src="./src/offscreen/sandbox.ts"></script>
+</body>
+</html>

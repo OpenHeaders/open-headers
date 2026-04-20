@@ -209,5 +209,5 @@ export const RequestSchema = v.object({
   credentialsMode: v.optional(CredentialsModeSchema),
   body: RequestBodySchema,
   preRequestScript: v.optional(v.string()),
-  testScript: v.optional(v.string()),
+  postResponseScript: v.optional(v.string()),
 });

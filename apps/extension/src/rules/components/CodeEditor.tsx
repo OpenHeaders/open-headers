@@ -1,40 +1,33 @@
 /**
- * CodeEditor — CodeMirror 6 host, driven entirely by the editor.*
+ * CodeEditor — Monaco-backed editor host, driven by the `editor.*`
  * settings and the language registry.
  *
- * Language packs are loaded via `languages/registry.ts` with dynamic
- * imports, so each `@codemirror/lang-*` package lands in its own Vite
- * chunk and the main workspace bundle only pays for CodeMirror core
- * plus whatever language the first-opened tab asks for. The formatter
- * is similarly lazy via `languages/formatter.ts`.
+ * Monaco ships Linux-lite syntax highlighting + tokenization out of
+ * the box for every language we care about (javascript / css / json /
+ * html / xml / typescript). For formatting we wire Prettier in as a
+ * `DocumentFormattingEditProvider` so `Shift-Alt-F` and the overlay
+ * button both trigger the same pipeline.
  *
- * The Format affordance:
- *   - A top-right overlay button (visible on hover/focus) that calls
- *     `formatCode()` for the current language. Disabled when the
- *     editor is read-only or the language has no formatter.
- *   - Keymap binding: `Shift-Alt-f` runs the same command.
- *   - On parse failure, the error surfaces via antd `message.error`
- *     and the buffer is left untouched.
- *
- * Host callers stay unchanged: `language` is still a string prop.
- * Internally we route it through the registry.
+ * Host callers stay unchanged: `language` is still a string prop, same
+ * `value` / `onChange` / `readOnly` / `placeholder` / `minHeight`.
  */
 
 import { AlignLeftOutlined } from '@ant-design/icons';
-import { indentUnit } from '@codemirror/language';
-import { EditorState, type Extension } from '@codemirror/state';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { EditorView, highlightWhitespace } from '@codemirror/view';
 import { useTheme } from '@context/ThemeContext';
-import CodeMirror, { type BasicSetupOptions, type ReactCodeMirrorRef } from '@uiw/react-codemirror';
+import Editor from '@monaco-editor/react';
 import { Alert, Button, Tooltip, theme } from 'antd';
+import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { buildChordsFromEvent, useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { formatCode } from '../languages/formatter';
 import { getLanguage, type LanguageId } from '../languages/registry';
 import { useSettingValue } from '../settings/hooks';
+// Side-effect import: kicks the Monaco bootstrap (loader.config + worker
+// wiring + TS language-service setup) at module-load time so it wins
+// the race against `<Editor>`'s own `loader.init`.
+import './monaco/bootstrap';
 
 interface CodeEditorProps {
   value?: string;
@@ -55,15 +48,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { isDarkMode } = useTheme();
-  const cmRef = useRef<ReactCodeMirrorRef>(null);
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
 
   // Inline formatter error banner — populated when a Format call fails
   // with a parse error, cleared the moment the user edits the buffer
-  // or runs Format successfully. Kept out of the toast layer because
-  // parser errors are multi-line with code snippets and the user
-  // needs them visible while they fix the input.
+  // or runs Format successfully.
   const [formatError, setFormatError] = useState<string | null>(null);
 
   const fontFamily = useSettingValue('editor.fontFamily');
@@ -71,39 +62,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const tabSize = useSettingValue('editor.tabSize');
   const insertSpaces = useSettingValue('editor.insertSpaces');
   const wordWrap = useSettingValue('editor.wordWrap');
-  const wordWrapColumn = useSettingValue('editor.wordWrapColumn');
   const lineNumbers = useSettingValue('editor.lineNumbers');
   const renderWhitespace = useSettingValue('editor.renderWhitespace');
   const bracketPairColorization = useSettingValue('editor.bracketPairColorization');
-  const formatCodeChord = useSettingValue('keyboard.formatCode');
   const formatShortcutLabel = useShortcutLabel('format-code');
-  // Keep the chord in a ref so the DOM-level keydown handler always
-  // reads the latest value without forcing the extensions array to
-  // rebuild. Rebinding in Settings takes effect on the next keystroke.
-  const formatCodeChordRef = useRef(formatCodeChord);
-  formatCodeChordRef.current = formatCodeChord;
-
-  // Dynamically load the language extension. Each CodeMirror
-  // `@codemirror/lang-*` package is its own chunk; this hook only
-  // pays the download cost the first time a given language is opened
-  // in the current session.
-  const [languageExtension, setLanguageExtension] = useState<Extension | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    setLanguageExtension(null);
-    void getLanguage(language)
-      .loadExtension()
-      .then((ext) => {
-        if (!cancelled) setLanguageExtension(ext);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [language]);
 
   const formattable = getLanguage(language).formatter !== undefined;
 
-  // ── Format command (wired to both the button and the keymap) ──
   const runFormat = useCallback(async () => {
     if (readOnly || !formattable) return;
     const current = valueRef.current;
@@ -118,107 +83,25 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [readOnly, formattable, language, onChange]);
 
-  // Hold the latest runFormat in a ref so the DOM keydown handler
-  // installed once as a CodeMirror extension doesn't need to rebuild
-  // when `runFormat` identity changes.
   const runFormatRef = useRef(runFormat);
   runFormatRef.current = runFormat;
 
-  // ── CodeMirror basic setup ────────────────────────────────────
-  const basicSetup: BasicSetupOptions = useMemo(
-    () => ({
-      lineNumbers,
-      highlightActiveLineGutter: lineNumbers,
-      foldGutter: lineNumbers,
-      bracketMatching: bracketPairColorization,
-      closeBrackets: true,
-      autocompletion: true,
-      tabSize,
-    }),
-    [lineNumbers, bracketPairColorization, tabSize],
-  );
-
-  const extensions = useMemo<Extension[]>(() => {
-    const list: Extension[] = [];
-    if (languageExtension) list.push(languageExtension);
-
-    list.push(indentUnit.of(insertSpaces ? ' '.repeat(tabSize) : '\t'));
-    list.push(EditorState.tabSize.of(tabSize));
-
-    if (wordWrap === 'on' || wordWrap === 'bounded') {
-      list.push(EditorView.lineWrapping);
-    }
-    if (wordWrap === 'bounded') {
-      list.push(
-        EditorView.theme({
-          '.cm-content': {
-            maxWidth: `${wordWrapColumn}ch`,
-          },
-        }),
-      );
-    }
-
-    if (renderWhitespace === 'all' || renderWhitespace === 'boundary') {
-      list.push(highlightWhitespace());
-    }
-
-    if (isDarkMode) list.push(oneDark);
-
-    // Format-code keymap — installed as a DOM-level keydown handler
-    // on the editor container instead of CodeMirror's built-in
-    // `keymap` facet. Rationale: on macOS, `Option+letter` combos
-    // produce dead-key composition (`Option+Shift+F` → `Ï`), so
-    // CodeMirror's `event.key` based matcher never sees the base
-    // letter. `buildChordsFromEvent` is the shared helper that also
-    // backs `useWorkspaceShortcuts` and normalizes the event via
-    // `event.code`, which is layout-independent and immune to dead
-    // keys.
-    //
-    // Both the chord and the command are read from refs so changing
-    // either doesn't force the extensions array to rebuild — rebinding
-    // in Settings takes effect on the next keystroke without thrashing
-    // CodeMirror.
-    list.push(
-      EditorView.domEventHandlers({
-        keydown: (event) => {
-          const chord = formatCodeChordRef.current;
-          if (!chord) return false;
-          const eventChords = buildChordsFromEvent(event);
-          if (!eventChords.includes(chord)) return false;
-          event.preventDefault();
-          event.stopPropagation();
-          void runFormatRef.current();
-          return true;
-        },
-      }),
-    );
-
-    list.push(
-      EditorView.theme({
-        '&': {
-          fontFamily,
-          fontSize: `${fontSize}px`,
-        },
-        '.cm-scroller': {
-          fontFamily,
-          minHeight: `${minHeight}px`,
-        },
-      }),
-    );
-
-    return list;
-  }, [
-    languageExtension,
-    insertSpaces,
-    tabSize,
-    wordWrap,
-    wordWrapColumn,
-    renderWhitespace,
-    isDarkMode,
+  const options: monaco.editor.IStandaloneEditorConstructionOptions = {
+    minimap: { enabled: false },
     fontFamily,
     fontSize,
-    minHeight,
-  ]);
+    lineNumbers: lineNumbers ? 'on' : 'off',
+    tabSize,
+    insertSpaces,
+    wordWrap: wordWrap === 'off' ? 'off' : wordWrap === 'bounded' ? 'bounded' : 'on',
+    automaticLayout: true,
+    readOnly,
+    scrollBeyondLastLine: false,
+    padding: { top: 8, bottom: 8 },
+    bracketPairColorization: { enabled: bracketPairColorization },
+    renderWhitespace: renderWhitespace === 'all' ? 'all' : renderWhitespace === 'boundary' ? 'boundary' : 'none',
+    // Monaco's "fake" placeholder isn't native; we render our own overlay below.
+  };
 
   const formatTooltip: React.ReactNode = readOnly ? (
     'Read-only'
@@ -227,6 +110,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   ) : (
     <ShortcutHintTitle label={formatShortcutLabel}>Format</ShortcutHintTitle>
   );
+
+  const showPlaceholder = !readOnly && placeholder && !value;
 
   return (
     <div
@@ -238,22 +123,48 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }}
       className="rules-code-editor"
     >
-      <CodeMirror
-        ref={cmRef}
+      <Editor
+        height={minHeight}
+        defaultLanguage={language}
+        language={language}
+        theme={isDarkMode ? 'vs-dark' : 'vs'}
         value={value}
-        onChange={(next) => {
-          // Any user edit invalidates the displayed format error —
-          // they're about to (or already have) fixed the input.
-          if (formatError) setFormatError(null);
-          onChange?.(next);
+        onMount={(ed, m) => {
+          editorRef.current = ed;
+          // Keybinding: Shift+Alt+F invokes the overlay format action
+          // so the shortcut matches Monaco's own convention AND the
+          // button both route through Prettier.
+          ed.addAction({
+            id: 'oh-format-code',
+            label: 'Format (Prettier)',
+            keybindings: [m.KeyMod.Shift | m.KeyMod.Alt | m.KeyCode.KeyF],
+            contextMenuGroupId: '1_modification',
+            run: () => {
+              void runFormatRef.current();
+            },
+          });
         }}
-        readOnly={readOnly}
-        placeholder={placeholder}
-        basicSetup={basicSetup}
-        extensions={extensions}
-        theme={isDarkMode ? 'dark' : 'light'}
-        minHeight={`${minHeight}px`}
+        onChange={(next) => {
+          if (formatError) setFormatError(null);
+          onChange?.(next ?? '');
+        }}
+        options={options}
       />
+      {showPlaceholder && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            left: 52,
+            color: token.colorTextTertiary,
+            fontFamily,
+            fontSize,
+            pointerEvents: 'none',
+          }}
+        >
+          {placeholder}
+        </div>
+      )}
       {formatError && (
         <Alert
           type="error"
@@ -286,15 +197,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         />
       )}
       {!readOnly && formattable && (
-        <div
-          className="rules-code-editor-format"
-          style={{
-            position: 'absolute',
-            top: 6,
-            right: 8,
-            zIndex: 2,
-          }}
-        >
+        <div className="rules-code-editor-format" style={{ position: 'absolute', top: 6, right: 14, zIndex: 2 }}>
           <Tooltip title={formatTooltip} placement="left">
             <Button
               size="small"

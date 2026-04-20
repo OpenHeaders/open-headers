@@ -86,8 +86,8 @@ type HandlerRef =
   /**
    * Editor-scoped shortcut. The window event loop NEVER dispatches
    * these — they're handled inside the focused editor instance (e.g.
-   * CodeMirror's own keymap for Format Code). The entry exists so
-   * Settings → Keyboard and the InspectorDocs cheatsheet can render
+   * Monaco's own command bindings for Format Code). The entry exists
+   * so Settings → Keyboard and the InspectorDocs cheatsheet can render
    * the binding and let the user rebind it.
    */
   | { kind: 'editor' };

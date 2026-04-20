@@ -19,15 +19,17 @@ import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
 import { computeBreadcrumbs } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import BreadcrumbBar from './components/BreadcrumbBar';
 import CollectionOverview from './components/CollectionOverview';
+import CollectionVariablesEditor from './components/CollectionVariablesEditor';
 import CommandPalette from './components/CommandPalette';
 import EditorGroupRenderer from './components/EditorGroupRenderer';
 import EmptyState from './components/EmptyState';
+import EnvironmentEditor from './components/EnvironmentEditor';
 import FolderOverview from './components/FolderOverview';
 import ImportCurlModal from './components/ImportCurlModal';
 import ImportHarModal from './components/ImportHarModal';
@@ -35,35 +37,20 @@ import ImportPostmanModal from './components/ImportPostmanModal';
 import LandingScreen from './components/LandingScreen';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
+import RequestEditor from './components/RequestEditor';
 import RuleEditor from './components/RuleEditor';
-
-// Rare tab-body components are lazy-loaded so they don't bloat the
-// workspace entry chunk. Each opens into its own Vite chunk the first
-// time the user lands on one of these modes; the Suspense boundary
-// around `renderTabBody` swallows the one-frame flash during load.
-const RuleFlow = lazy(() => import('./components/RuleFlow'));
-const RunReportView = lazy(() => import('./components/RunReportView'));
-const TemplateEditor = lazy(() => import('./components/TemplateEditor'));
-// Variable-related editors — each small, but shown from deep links
-// (env selector, inspector banner) rather than the landing flow. Lazy
-// keeps the workspace entry chunk lean while the user is in
-// rule-editing mode.
-const EnvironmentEditor = lazy(() => import('./components/EnvironmentEditor'));
-const WorkspaceVariablesEditor = lazy(() => import('./components/WorkspaceVariablesEditor'));
-const CollectionVariablesEditor = lazy(() => import('./components/CollectionVariablesEditor'));
-const VaultEditor = lazy(() => import('./components/VaultEditor'));
-const RequestEditor = lazy(() => import('./components/RequestEditor'));
-
+import RuleFlow from './components/RuleFlow';
+import RunReportView from './components/RunReportView';
 import SaveToCollectionModal from './components/SaveToCollectionModal';
 import ShellLayout from './components/ShellLayout';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import { renderTabLabel, tabIcon } from './components/TabBar';
+import TemplateEditor from './components/TemplateEditor';
 import TopBar from './components/TopBar';
-// WorkspaceManager stays synchronous — it's small, its data (`useWorkspaces`)
-// is already resolved at shell-mount time, and lazy-loading it costs a
-// blank-screen flash when users open the tab from `#/workspaces`.
+import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
+import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
 import { findLeaf } from './editor-groups';
 import { createShellEventBus, ShellEventBusContext } from './events/shell-event-bus';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
@@ -650,13 +637,6 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   );
 
   // ── Per-tab body renderer ─────────────────────────────────────
-  //
-  // `RuleFlow`, `RunReportView`, and `TemplateEditor` are React.lazy —
-  // each becomes its own chunk fetched on first use. Wrap every lazy
-  // result in its own Suspense boundary so one suspending tab can't
-  // block the whole editor body (each tab panel is independently
-  // display:none / block via the keep-mounted pattern in
-  // EditorGroupRenderer, so an inner Suspense is the correct scope).
   const renderTabBody = useCallback(
     ({ tab }: { tab: RulesTab }): React.ReactNode => {
       if (tab.mode === 'create' || tab.mode === 'edit') {
@@ -704,37 +684,31 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       }
       if (tab.mode === 'template-edit' && tab.templateUid) {
         return (
-          <Suspense fallback={null}>
-            <TemplateEditor
-              templateUid={tab.templateUid}
-              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            />
-          </Suspense>
+          <TemplateEditor
+            templateUid={tab.templateUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
         );
       }
       if (tab.mode === 'rule-flow') {
         return (
-          <Suspense fallback={null}>
-            <RuleFlow
-              scope={tab.flowScope ?? 'all-active'}
-              entityId={tab.entityId}
-              initialTabUrl={tab.flowTabUrl}
-              onSelectRule={openEditTab}
-              onCreateRule={openCreateTab}
-            />
-          </Suspense>
+          <RuleFlow
+            scope={tab.flowScope ?? 'all-active'}
+            entityId={tab.entityId}
+            initialTabUrl={tab.flowTabUrl}
+            onSelectRule={openEditTab}
+            onCreateRule={openCreateTab}
+          />
         );
       }
       if (tab.mode === 'run-report' && tab.testRunId) {
         return (
-          <Suspense fallback={null}>
-            <RunReportView
-              runId={tab.testRunId}
-              onSelectRule={openEditTab}
-              onAfterDelete={() => handleRunReportDeleted(tab.id)}
-            />
-          </Suspense>
+          <RunReportView
+            runId={tab.testRunId}
+            onSelectRule={openEditTab}
+            onAfterDelete={() => handleRunReportDeleted(tab.id)}
+          />
         );
       }
       if (tab.mode === 'settings') {
@@ -743,79 +717,63 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         );
       }
       if (tab.mode === 'workspace-manager') {
-        return (
-          <Suspense fallback={null}>
-            <WorkspaceManager api={workspacesApi} />
-          </Suspense>
-        );
+        return <WorkspaceManager api={workspacesApi} />;
       }
       if (tab.mode === 'env-edit' && tab.environmentUid) {
         return (
-          <Suspense fallback={null}>
-            <EnvironmentEditor
-              environmentUid={tab.environmentUid}
-              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            />
-          </Suspense>
+          <EnvironmentEditor
+            environmentUid={tab.environmentUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
         );
       }
       if (tab.mode === 'workspace-vars') {
         return (
-          <Suspense fallback={null}>
-            <WorkspaceVariablesEditor
-              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            />
-          </Suspense>
+          <WorkspaceVariablesEditor
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
         );
       }
       if (tab.mode === 'vault') {
         return (
-          <Suspense fallback={null}>
-            <VaultEditor
-              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            />
-          </Suspense>
+          <VaultEditor
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
         );
       }
       if (tab.mode === 'collection-vars' && tab.collectionUid) {
         return (
-          <Suspense fallback={null}>
-            <CollectionVariablesEditor
-              collectionUid={tab.collectionUid}
-              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            />
-          </Suspense>
+          <CollectionVariablesEditor
+            collectionUid={tab.collectionUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
         );
       }
       if (tab.mode === 'request-edit' && tab.requestUid) {
         return (
-          <Suspense fallback={null}>
-            <RequestEditor
-              mode="request-edit"
-              requestUid={tab.requestUid}
-              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            />
-          </Suspense>
+          <RequestEditor
+            mode="request-edit"
+            requestUid={tab.requestUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
         );
       }
       if (tab.mode === 'request-create') {
         return (
-          <Suspense fallback={null}>
-            <RequestEditor
-              mode="request-create"
-              draftName={tab.draftName ?? tab.label}
-              preferredCollectionId={tab.preferredCollectionId}
-              preferredFolderPath={tab.preferredFolderPath}
-              onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-              registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-              onSaveDraft={(draftData) => requestSaveFlow.handleSaveDraft(tab.id, draftData)}
-            />
-          </Suspense>
+          <RequestEditor
+            mode="request-create"
+            draftName={tab.draftName ?? tab.label}
+            preferredCollectionId={tab.preferredCollectionId}
+            preferredFolderPath={tab.preferredFolderPath}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            onSaveDraft={(draftData) => requestSaveFlow.handleSaveDraft(tab.id, draftData)}
+          />
         );
       }
       if (tab.mode === 'landing') {

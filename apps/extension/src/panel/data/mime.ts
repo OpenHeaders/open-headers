@@ -2,7 +2,7 @@
  * Shared MIME-type classification used by every body-rendering view.
  *
  * Extracted from `ResponseBodyView` so `TextBodyViewer` can reuse the
- * same decisions — both "what language does CodeMirror highlight as?"
+ * same decisions — both "what language should Monaco highlight as?"
  * and "is it worth showing a pretty-print toggle?" need to agree
  * across request and response bodies.
  */
@@ -34,7 +34,7 @@ export function isTextMime(mime: string): boolean {
   return /^text\//i.test(mime) || isJsonMime(mime) || isXmlMime(mime);
 }
 
-/** Map a MIME to the CodeMirror language we should drive the viewer with. */
+/** Map a MIME to the Monaco language we should drive the viewer with. */
 export function detectLanguage(mime: string): BodyLanguage | null {
   if (isJsonMime(mime)) return 'json';
   if (isCssMime(mime)) return 'css';
