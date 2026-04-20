@@ -253,6 +253,70 @@ describe('buildRefreshTokenBody', () => {
     });
     expect(body.get('scope')).toBe('read write');
   });
+
+  it('folds extraRefreshParams into the body so per-refresh knobs survive', () => {
+    const body = buildRefreshTokenBody({
+      config: makeConfig({ extraRefreshParams: [{ key: 'audience', value: 'api.openheaders.io' }] }),
+      refreshToken: 'rf',
+    });
+    expect(body.get('audience')).toBe('api.openheaders.io');
+  });
+});
+
+// ── Client authentication mode ────────────────────────────────────
+
+describe('clientAuthentication = basic-header', () => {
+  it('drops client_id + client_secret from the authorization-code body', () => {
+    const body = buildAuthorizationCodeTokenBody({
+      config: makeConfig({ clientSecret: 'shh', clientAuthentication: 'basic-header' }),
+      code: 'auth',
+      codeVerifier: 'cv',
+      redirectUri: 'https://cb',
+    });
+    expect(body.has('client_id')).toBe(false);
+    expect(body.has('client_secret')).toBe(false);
+    expect(body.get('grant_type')).toBe('authorization_code');
+  });
+
+  it('drops client_id + client_secret from the refresh body', () => {
+    const body = buildRefreshTokenBody({
+      config: makeConfig({ clientSecret: 'shh', clientAuthentication: 'basic-header' }),
+      refreshToken: 'rf',
+    });
+    expect(body.has('client_id')).toBe(false);
+    expect(body.has('client_secret')).toBe(false);
+    expect(body.get('refresh_token')).toBe('rf');
+  });
+
+  it('drops client_id + client_secret from the client-credentials body', () => {
+    const body = buildClientCredentialsTokenBody(
+      makeConfig({ flow: 'client-credentials', clientSecret: 'shh', clientAuthentication: 'basic-header' }),
+    );
+    expect(body.has('client_id')).toBe(false);
+    expect(body.has('client_secret')).toBe(false);
+    expect(body.get('grant_type')).toBe('client_credentials');
+  });
+});
+
+describe('buildClientAuthHeader', () => {
+  it('returns null when clientAuthentication is body (the default)', async () => {
+    const { buildClientAuthHeader } = await import('@openheaders/core/oauth');
+    expect(buildClientAuthHeader(makeConfig({ clientSecret: 'shh' }))).toBeNull();
+  });
+
+  it('returns null when basic-header is selected but clientSecret is missing', async () => {
+    const { buildClientAuthHeader } = await import('@openheaders/core/oauth');
+    expect(buildClientAuthHeader(makeConfig({ clientAuthentication: 'basic-header' }))).toBeNull();
+  });
+
+  it('emits RFC 6749 §2.3.1 Basic header when basic-header is selected + secret exists', async () => {
+    const { buildClientAuthHeader } = await import('@openheaders/core/oauth');
+    const header = buildClientAuthHeader(
+      makeConfig({ clientSecret: 'super-secret', clientAuthentication: 'basic-header' }),
+    );
+    // base64("client-123:super-secret") = Y2xpZW50LTEyMzpzdXBlci1zZWNyZXQ=
+    expect(header).toBe('Basic Y2xpZW50LTEyMzpzdXBlci1zZWNyZXQ=');
+  });
 });
 
 // ── Token response parsing ────────────────────────────────────────

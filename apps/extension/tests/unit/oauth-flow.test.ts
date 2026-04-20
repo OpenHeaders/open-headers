@@ -226,4 +226,41 @@ describe('performRefresh', () => {
     const { performRefresh } = await import('@/background/modules/oauth-flow');
     await expect(performRefresh(makeConfig())).rejects.toThrow(/No refresh_token available/);
   });
+
+  it('POSTs to refreshEndpoint when the config overrides it (Okta-style distinct endpoint)', async () => {
+    const current: OAuth2TokenBundle = {
+      accessToken: 'at-old',
+      refreshToken: 'rf-old',
+      tokenType: 'Bearer',
+      scope: 'read',
+      issuedAt: 1,
+      expiresAt: 2,
+    };
+    getTokenBundleMock.mockResolvedValue(current);
+    const { performRefresh } = await import('@/background/modules/oauth-flow');
+    await performRefresh(makeConfig({ refreshEndpoint: 'https://auth.openheaders.io/oauth/refresh' }));
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://auth.openheaders.io/oauth/refresh');
+  });
+
+  it('attaches Authorization: Basic header when clientAuthentication = basic-header', async () => {
+    const current: OAuth2TokenBundle = {
+      accessToken: 'at-old',
+      refreshToken: 'rf-old',
+      tokenType: 'Bearer',
+      scope: 'read',
+      issuedAt: 1,
+      expiresAt: 2,
+    };
+    getTokenBundleMock.mockResolvedValue(current);
+    const { performRefresh } = await import('@/background/modules/oauth-flow');
+    await performRefresh(makeConfig({ clientAuthentication: 'basic-header', clientSecret: 'shh' }));
+    const [, init] = fetchMock.mock.calls[0];
+    const authHeader = (init as RequestInit).headers as Record<string, string>;
+    // base64("client-123:shh") = Y2xpZW50LTEyMzpzaGg=
+    expect(authHeader.Authorization).toBe('Basic Y2xpZW50LTEyMzpzaGg=');
+    const body = (init as RequestInit).body as URLSearchParams;
+    expect(body.has('client_id')).toBe(false);
+    expect(body.has('client_secret')).toBe(false);
+  });
 });

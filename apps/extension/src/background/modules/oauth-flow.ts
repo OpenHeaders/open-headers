@@ -19,6 +19,7 @@
 import {
   buildAuthorizationCodeTokenBody,
   buildAuthorizationUrl,
+  buildClientAuthHeader,
   buildClientCredentialsTokenBody,
   buildRefreshTokenBody,
   computeCodeChallenge,
@@ -145,7 +146,12 @@ export async function launchAuthorizationCodeFlow(config: OAuth2Auth): Promise<A
     redirectUri,
   });
 
-  const bundle = await exchangeForTokens(config.tokenEndpoint, body, 'authorization_code');
+  const bundle = await exchangeForTokens(
+    config.tokenEndpoint,
+    body,
+    'authorization_code',
+    buildClientAuthHeader(config),
+  );
   await putTokenBundle(config.credentialRef, bundle, config);
   return { bundle, redirectUri };
 }
@@ -163,7 +169,12 @@ export async function performClientCredentialsFlow(
     );
   }
   const body = buildClientCredentialsTokenBody(config);
-  const bundle = await exchangeForTokens(config.tokenEndpoint, body, 'client_credentials');
+  const bundle = await exchangeForTokens(
+    config.tokenEndpoint,
+    body,
+    'client_credentials',
+    buildClientAuthHeader(config),
+  );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
 }
@@ -176,7 +187,11 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
     throw new OAuth2FlowError('refresh', 'No refresh_token available for this credential');
   }
   const body = buildRefreshTokenBody({ config, refreshToken: current.refreshToken });
-  const bundle = await exchangeForTokens(config.tokenEndpoint, body, 'refresh_token');
+  // Some providers (notably legacy Okta tenants) expose a separate
+  // refresh endpoint; fall back to the primary token endpoint when
+  // the config doesn't override.
+  const refreshEndpoint = config.refreshEndpoint?.trim() ? config.refreshEndpoint : config.tokenEndpoint;
+  const bundle = await exchangeForTokens(refreshEndpoint, body, 'refresh_token', buildClientAuthHeader(config));
   // Providers sometimes omit refresh_token on refresh — carry the prior
   // one forward so the next refresh still works.
   if (!bundle.refreshToken && current.refreshToken) {
@@ -208,16 +223,19 @@ async function exchangeForTokens(
   tokenEndpoint: string,
   body: URLSearchParams,
   step: string,
+  clientAuthHeader: string | null = null,
 ): Promise<OAuth2TokenBundle> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    // Accept JSON explicitly — GitHub returns urlencoded otherwise.
+    Accept: 'application/json',
+  };
+  if (clientAuthHeader) headers.Authorization = clientAuthHeader;
   const response = await withHostAccess(tokenEndpoint, () =>
     fetch(tokenEndpoint, {
       method: 'POST',
       credentials: 'omit',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        // Accept JSON explicitly — GitHub returns urlencoded otherwise.
-        Accept: 'application/json',
-      },
+      headers,
       body,
     }),
   );

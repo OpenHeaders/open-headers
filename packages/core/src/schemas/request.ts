@@ -118,6 +118,31 @@ export const OAuth2AuthSchema = v.object({
   /** Space-joined on the wire; stored as an array for per-scope UI editing. */
   scopes: v.array(v.string()),
   /**
+   * Human-readable name the user gave this credential. Reserved for
+   * display only — the token store keys by `credentialRef`, not `label`.
+   * Useful when one workspace has multiple OAuth2 credentials against
+   * the same provider (e.g. two Google projects).
+   */
+  label: v.optional(v.string()),
+  /**
+   * Separate refresh endpoint. Most providers collapse the
+   * refresh-token POST onto the same `tokenEndpoint`, but RFC 6749 §6
+   * allows distinct endpoints; some providers (notably legacy Okta
+   * tenants) use a separate path. When absent, `tokenEndpoint` is
+   * used for refresh too.
+   */
+  refreshEndpoint: v.optional(v.string()),
+  /**
+   * How the client credentials are carried on token-endpoint POSTs.
+   * `'body'` (the default) embeds `client_id` / `client_secret` in the
+   * form-urlencoded body — the path that works with the widest set of
+   * providers. `'basic-header'` moves them into an `Authorization:
+   * Basic <base64(client_id:client_secret)>` header per RFC 6749 §2.3.1
+   * — some providers (Auth0, Keycloak) only accept this form. Affects
+   * authorization-code, client-credentials, and refresh POSTs alike.
+   */
+  clientAuthentication: v.optional(v.picklist(['body', 'basic-header'])),
+  /**
    * Where the token response's `access_token` is applied on outgoing
    * requests. `'header'` adds `Authorization: Bearer <token>` (the
    * default + overwhelming majority of providers). `'query'` appends
@@ -129,6 +154,12 @@ export const OAuth2AuthSchema = v.object({
   extraAuthParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
   /** Optional extra params appended to the token POST body. */
   extraTokenParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
+  /**
+   * Optional extra params appended to the refresh-token POST body.
+   * Mirrors `extraTokenParams` — some providers require additional
+   * knobs on refresh that don't belong on the initial exchange.
+   */
+  extraRefreshParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
 });
 
 export const AuthConfigSchema = v.variant('type', [

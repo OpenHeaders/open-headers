@@ -178,7 +178,6 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
   const { tokens, redirectUri, authorize, clientCredentials, refresh, revoke } = useOAuth();
   const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke'>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [tokenName, setTokenName] = useState('');
 
   const bundle = tokens[auth.credentialRef] ?? null;
   const expired = bundle ? isExpired(bundle) : false;
@@ -320,12 +319,18 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           Configure New Token
         </Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <LabeledRow label="Token Name">
+          <LabeledRow
+            label="Token Name"
+            description="Free-form label, surfaced in the credentials list when a workspace has several tokens against the same provider."
+          >
             <Input
               size="small"
               placeholder="Enter a token name…"
-              value={tokenName}
-              onChange={(e) => setTokenName(e.target.value)}
+              value={auth.label ?? ''}
+              onChange={(e) => {
+                const label = e.target.value;
+                onChange({ ...auth, label: label ? label : undefined });
+              }}
             />
           </LabeledRow>
 
@@ -473,13 +478,19 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             </LabeledRow>
           )}
 
-          <LabeledRow label="Client Authentication">
+          <LabeledRow
+            label="Client Authentication"
+            description="Where client_id / client_secret ride on token POSTs. Providers vary — Auth0 / Keycloak typically require the Basic header form."
+          >
             <Select
               size="small"
-              value="basic-header"
+              value={auth.clientAuthentication ?? 'body'}
+              onChange={(next: 'body' | 'basic-header') =>
+                onChange({ ...auth, clientAuthentication: next === 'body' ? undefined : next })
+              }
               options={[
+                { value: 'body', label: 'Send client credentials in body' },
                 { value: 'basic-header', label: 'Send as Basic Auth header' },
-                { value: 'form-body', label: 'Send client credentials in body' },
               ]}
               style={{ width: '100%' }}
             />
@@ -519,12 +530,18 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                   <Link>Learn more about configuration</Link>.
                 </Text>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
-                  <LabeledRow label="Refresh Token URL">
+                  <LabeledRow
+                    label="Refresh Token URL"
+                    description="Most providers reuse the Access Token URL for refresh; supply an override only when the provider exposes a distinct path."
+                  >
                     <Input
                       size="small"
-                      placeholder="https://example.com/login/oauth/refresh_token"
-                      value={auth.tokenEndpoint}
-                      onChange={(e) => onChange({ ...auth, tokenEndpoint: e.target.value })}
+                      placeholder={auth.tokenEndpoint || 'https://example.com/login/oauth/refresh_token'}
+                      value={auth.refreshEndpoint ?? ''}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        onChange({ ...auth, refreshEndpoint: next ? next : undefined });
+                      }}
                     />
                   </LabeledRow>
                   <ParamsBlock
@@ -543,11 +560,10 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                   />
                   <ParamsBlock
                     title="Refresh Request"
-                    entries={[]}
-                    onChange={() => {
-                      /* Reserved — wires to a dedicated refreshExtraParams field next. */
-                    }}
-                    disabled
+                    entries={auth.extraRefreshParams ?? []}
+                    onChange={(entries) =>
+                      onChange({ ...auth, extraRefreshParams: entries.length === 0 ? undefined : entries })
+                    }
                   />
                 </div>
               </div>
@@ -626,8 +642,7 @@ const ParamsBlock: React.FC<{
   title: string;
   entries: ParamEntry[];
   onChange: (entries: ParamEntry[]) => void;
-  disabled?: boolean;
-}> = ({ title, entries, onChange, disabled }) => {
+}> = ({ title, entries, onChange }) => {
   // Hydrate transient uids for the shared table; KeyValueRow carries
   // them so drag reorder + in-place edits stay stable across renders.
   const rowsWithUid = entries.map((e) => ({
@@ -637,21 +652,6 @@ const ParamsBlock: React.FC<{
     description: '',
     enabled: true,
   }));
-
-  if (disabled) {
-    // Read-only mirror: render the shared table with input rows but
-    // pointer-events off; the schema doesn't expose a "reserved /
-    // disabled" state yet and the wrapping `disabled` flag is only
-    // set by the Refresh Request reserved placeholder.
-    return (
-      <div style={{ opacity: 0.55, pointerEvents: 'none' }}>
-        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          {title}
-        </Text>
-        <KeyValueTable rows={rowsWithUid} onChange={() => undefined} keyPlaceholder="Key" valuePlaceholder="Value" />
-      </div>
-    );
-  }
 
   return (
     <div>

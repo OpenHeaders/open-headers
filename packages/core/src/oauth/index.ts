@@ -273,6 +273,11 @@ export function buildAuthorizationUrl(input: {
  * successful authorization-code redirect. RFC 6749 §4.1.3 plus PKCE
  * §4.5. Most providers reject the request if `code_verifier` is
  * missing, even for public clients.
+ *
+ * When `clientAuthentication === 'basic-header'`, the `client_id` +
+ * `client_secret` are dropped from the body so the caller can attach
+ * them as an `Authorization: Basic` header instead (see
+ * {@link buildClientAuthHeader}).
  */
 export function buildAuthorizationCodeTokenBody(input: {
   config: OAuth2Auth;
@@ -285,24 +290,31 @@ export function buildAuthorizationCodeTokenBody(input: {
   body.set('grant_type', 'authorization_code');
   body.set('code', code);
   body.set('redirect_uri', redirectUri);
-  body.set('client_id', config.clientId);
   body.set('code_verifier', codeVerifier);
-  if (config.clientSecret) body.set('client_secret', config.clientSecret);
+  if (config.clientAuthentication !== 'basic-header') {
+    body.set('client_id', config.clientId);
+    if (config.clientSecret) body.set('client_secret', config.clientSecret);
+  }
   for (const { key, value } of config.extraTokenParams ?? []) {
     body.set(key, value);
   }
   return body;
 }
 
-/** Client Credentials token POST — RFC 6749 §4.4. */
+/**
+ * Client Credentials token POST — RFC 6749 §4.4. Same
+ * `clientAuthentication` switch as the authorization-code body.
+ */
 export function buildClientCredentialsTokenBody(config: OAuth2Auth): URLSearchParams {
   if (!config.clientSecret) {
     throw new Error('client-credentials flow requires clientSecret');
   }
   const body = new URLSearchParams();
   body.set('grant_type', 'client_credentials');
-  body.set('client_id', config.clientId);
-  body.set('client_secret', config.clientSecret);
+  if (config.clientAuthentication !== 'basic-header') {
+    body.set('client_id', config.clientId);
+    body.set('client_secret', config.clientSecret);
+  }
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
   for (const { key, value } of config.extraTokenParams ?? []) {
     body.set(key, value);
@@ -329,16 +341,46 @@ export function buildDeviceCodeTokenBody(input: { config: OAuth2Auth; deviceCode
   return body;
 }
 
-/** Refresh token POST — RFC 6749 §6. */
+/**
+ * Refresh token POST — RFC 6749 §6. Honors `clientAuthentication` for
+ * parity with the initial exchange + folds `extraRefreshParams` in so
+ * providers that require per-refresh knobs (e.g. `audience` rotation)
+ * can be accommodated without a schema churn.
+ */
 export function buildRefreshTokenBody(input: { config: OAuth2Auth; refreshToken: string }): URLSearchParams {
   const { config, refreshToken } = input;
   const body = new URLSearchParams();
   body.set('grant_type', 'refresh_token');
   body.set('refresh_token', refreshToken);
-  body.set('client_id', config.clientId);
-  if (config.clientSecret) body.set('client_secret', config.clientSecret);
+  if (config.clientAuthentication !== 'basic-header') {
+    body.set('client_id', config.clientId);
+    if (config.clientSecret) body.set('client_secret', config.clientSecret);
+  }
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
+  for (const { key, value } of config.extraRefreshParams ?? []) {
+    body.set(key, value);
+  }
   return body;
+}
+
+/**
+ * Build the `Authorization: Basic <base64(client_id:client_secret)>`
+ * header value when the config opts into `clientAuthentication:
+ * 'basic-header'`. Returns `null` when the header shouldn't be
+ * attached (body-auth, or missing client secret).
+ */
+export function buildClientAuthHeader(config: OAuth2Auth): string | null {
+  if (config.clientAuthentication !== 'basic-header') return null;
+  if (!config.clientSecret) return null;
+  const encoded = base64UrlSafeBasic(`${config.clientId}:${config.clientSecret}`);
+  return `Basic ${encoded}`;
+}
+
+function base64UrlSafeBasic(input: string): string {
+  // Basic auth uses STANDARD base64 (with `+/=`), not url-safe. We still
+  // use platform primitives — btoa in browsers, Buffer on node.
+  if (typeof btoa === 'function') return btoa(input);
+  return Buffer.from(input, 'utf-8').toString('base64');
 }
 
 // ── Token response parsing ────────────────────────────────────────
