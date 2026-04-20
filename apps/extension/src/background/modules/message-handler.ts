@@ -45,6 +45,22 @@ import {
   recordImportReport,
 } from './import-reports-store';
 import { setPanelLayout } from './layout-store';
+import { clearWorkflowRunCache, listCachesForWorkflow as listLiveCacheForWorkflow } from './live-cache-store';
+import {
+  createLiveVariable,
+  deleteLiveVariable,
+  getLiveVariable,
+  getLiveVariables,
+  setLiveVariableOverride,
+  updateLiveVariable,
+} from './live-variable-store';
+import {
+  createLiveWorkflow,
+  deleteLiveWorkflow,
+  getLiveWorkflow,
+  getLiveWorkflows,
+  updateLiveWorkflow,
+} from './live-workflow-store';
 import {
   getOAuthRedirectUri,
   launchAuthorizationCodeFlow,
@@ -1027,6 +1043,151 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'oauthGetRedirectUri') {
       safeResponse({ redirectUri: getOAuthRedirectUri() });
+      return true;
+
+      // ── Live Variables + Workflows (Phase B) ─────────────────────
+    } else if (message.type === 'listLiveWorkflows') {
+      safeResponse({ workflows: getLiveWorkflows() });
+      return true;
+    } else if (message.type === 'getLiveWorkflow') {
+      safeResponse({ workflow: getLiveWorkflow(message.uid as string) });
+      return true;
+    } else if (message.type === 'createLiveWorkflow') {
+      try {
+        const workflow = createLiveWorkflow({
+          name: message.name as string,
+          description: message.description as string | undefined,
+          steps: message.steps as import('@openheaders/core/types').V5.WorkflowStep[] | undefined,
+          refresh: message.refresh as import('@openheaders/core/types').V5.RefreshPolicy | undefined,
+          enabled: message.enabled as boolean | undefined,
+        });
+        safeResponse({ success: true, workflow });
+      } catch (err) {
+        safeResponse({ success: false, error: (err as Error).message });
+      }
+      return true;
+    } else if (message.type === 'updateLiveWorkflow') {
+      const req = message as {
+        uid: string;
+        updates: Partial<
+          Omit<import('@openheaders/core/types').V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion' | 'version'>
+        >;
+        expectedVersion?: number;
+      };
+      updateLiveWorkflow(req.uid, req.updates, { expectedVersion: req.expectedVersion })
+        .then((result) => {
+          if (result.ok) {
+            safeResponse({ success: true, workflow: result.workflow, version: result.version });
+          } else if (result.reason === 'stale-draft') {
+            safeResponse({
+              success: false,
+              reason: 'stale-draft',
+              serverVersion: result.serverVersion,
+              serverWorkflow: result.serverWorkflow,
+            });
+          } else {
+            safeResponse({ success: false, reason: result.reason });
+          }
+        })
+        .catch((err: Error) => safeResponse({ success: false, reason: 'not-found', error: err.message }));
+      return true;
+    } else if (message.type === 'deleteLiveWorkflow') {
+      deleteLiveWorkflow(message.uid as string)
+        .then((removed) => {
+          if (removed) {
+            // Cache entries for the deleted workflow are now orphaned — purge
+            // them so the scheduler + resolver never serve values from a
+            // workflow that no longer exists.
+            void clearWorkflowRunCache(message.uid as string);
+          }
+          safeResponse({ success: removed });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
+    } else if (message.type === 'listLiveVariables') {
+      safeResponse({ variables: getLiveVariables() });
+      return true;
+    } else if (message.type === 'getLiveVariable') {
+      safeResponse({ variable: getLiveVariable(message.uid as string) });
+      return true;
+    } else if (message.type === 'createLiveVariable') {
+      try {
+        const variable = createLiveVariable({
+          name: message.name as string,
+          workflowUid: message.workflowUid as string,
+          stepId: message.stepId as string,
+          captureName: message.captureName as string,
+          description: message.description as string | undefined,
+          requireFreshOnRuleBuild: message.requireFreshOnRuleBuild as boolean | undefined,
+          enabled: message.enabled as boolean | undefined,
+        });
+        safeResponse({ success: true, variable });
+      } catch (err) {
+        safeResponse({ success: false, error: (err as Error).message });
+      }
+      return true;
+    } else if (message.type === 'updateLiveVariable') {
+      const req = message as {
+        uid: string;
+        updates: Partial<
+          Omit<import('@openheaders/core/types').V5.LiveVariable, 'uid' | 'path' | 'schemaVersion' | 'version'>
+        >;
+        expectedVersion?: number;
+      };
+      updateLiveVariable(req.uid, req.updates, { expectedVersion: req.expectedVersion })
+        .then((result) => {
+          if (result.ok) {
+            safeResponse({ success: true, variable: result.variable, version: result.version });
+          } else if (result.reason === 'stale-draft') {
+            safeResponse({
+              success: false,
+              reason: 'stale-draft',
+              serverVersion: result.serverVersion,
+              serverVariable: result.serverVariable,
+            });
+          } else {
+            safeResponse({ success: false, reason: result.reason });
+          }
+        })
+        .catch((err: Error) => safeResponse({ success: false, reason: 'not-found', error: err.message }));
+      return true;
+    } else if (message.type === 'deleteLiveVariable') {
+      deleteLiveVariable(message.uid as string)
+        .then((removed) => safeResponse({ success: removed }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
+    } else if (message.type === 'setLiveVariableOverride') {
+      const req = message as {
+        uid: string;
+        override: import('@openheaders/core/types').V5.LiveVariableOverride | null;
+        expectedVersion?: number;
+      };
+      setLiveVariableOverride(req.uid, req.override, { expectedVersion: req.expectedVersion })
+        .then((result) => {
+          if (result.ok) {
+            safeResponse({ success: true, variable: result.variable, version: result.version });
+          } else if (result.reason === 'stale-draft') {
+            safeResponse({
+              success: false,
+              reason: 'stale-draft',
+              serverVersion: result.serverVersion,
+              serverVariable: result.serverVariable,
+            });
+          } else {
+            safeResponse({ success: false, reason: result.reason });
+          }
+        })
+        .catch((err: Error) => safeResponse({ success: false, reason: 'not-found', error: err.message }));
+      return true;
+    } else if (message.type === 'getLiveCacheForWorkflow') {
+      listLiveCacheForWorkflow(message.workflowUid as string)
+        .then((runs) => safeResponse({ runs }))
+        .catch((err: Error) => safeResponse({ runs: [], error: err.message }));
+      return true;
+    } else if (message.type === 'refreshLiveWorkflowNow') {
+      // Phase C wires this to the chain runner; Phase B ships a stub
+      // so UI can plumb the call today without crashing on undefined.
+      safeResponse({ success: false, error: 'scheduler-not-ready' });
       return true;
 
       // ── Status snapshot ──────────────────────────────────────────

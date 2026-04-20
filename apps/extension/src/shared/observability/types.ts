@@ -23,7 +23,8 @@ export type LogSubsystem =
   | 'permissions'
   | 'extension'
   | 'scripts'
-  | 'oauth';
+  | 'oauth'
+  | 'live';
 
 export interface LogEntryContext {
   /** Rule uid when the event relates to a specific rule. */

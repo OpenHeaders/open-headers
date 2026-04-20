@@ -24,6 +24,7 @@ import type { ImportReport } from '@openheaders/core/import';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
+import type { WorkflowRunCache } from '@/background/modules/live-cache-store';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
@@ -41,6 +42,13 @@ export interface WorkspaceSnapshot {
   workspaces: V5.ExtensionWorkspace[];
   activeWorkspaceId: string;
 }
+
+/**
+ * Wire shape of one cached workflow run. Named alias over the SW-side
+ * `WorkflowRunCache` so the bridge surface doesn't depend on the
+ * extension-internal module path during renderer-side type checks.
+ */
+export type LiveWorkflowRunSnapshot = WorkflowRunCache;
 
 /** Shared shape for a folder descriptor returned by create-folder RPCs. */
 export interface FolderDescriptor {
@@ -908,6 +916,118 @@ export interface BridgeRpcContract {
     res: { redirectUri: string };
   };
 
+  // ── Live Variables + Workflows (Phase B — docs/LIVE_VARIABLES_PLAN.md) ──
+  /**
+   * List every Live Workflow definition for the active workspace.
+   * Workflows own the step list + refresh schedule; `{{live.X}}`
+   * namespace bindings live on `listLiveVariables`.
+   */
+  listLiveWorkflows: {
+    req: Record<string, never>;
+    res: { workflows: V5.LiveWorkflow[] };
+  };
+  getLiveWorkflow: {
+    req: { uid: string };
+    res: { workflow: V5.LiveWorkflow | null };
+  };
+  createLiveWorkflow: {
+    req: {
+      name: string;
+      description?: string;
+      steps?: V5.WorkflowStep[];
+      refresh?: V5.RefreshPolicy;
+      enabled?: boolean;
+    };
+    res: { success: boolean; workflow?: V5.LiveWorkflow; error?: string };
+  };
+  /**
+   * Update a workflow. Returns the Phase 10 write result so editors
+   * can surface `stale-draft` on concurrent-edit races. Callers that
+   * don't track `expectedVersion` opt into last-write-wins.
+   */
+  updateLiveWorkflow: {
+    req: {
+      uid: string;
+      updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
+      expectedVersion?: number;
+    };
+    res:
+      | { success: true; workflow: V5.LiveWorkflow; version: number }
+      | { success: false; reason: 'stale-draft'; serverVersion: number; serverWorkflow: V5.LiveWorkflow }
+      | { success: false; reason: 'not-found' };
+  };
+  deleteLiveWorkflow: {
+    req: { uid: string };
+    res: { success: boolean };
+  };
+
+  listLiveVariables: {
+    req: Record<string, never>;
+    res: { variables: V5.LiveVariable[] };
+  };
+  getLiveVariable: {
+    req: { uid: string };
+    res: { variable: V5.LiveVariable | null };
+  };
+  createLiveVariable: {
+    req: {
+      name: string;
+      workflowUid: string;
+      stepId: string;
+      captureName: string;
+      description?: string;
+      requireFreshOnRuleBuild?: boolean;
+      enabled?: boolean;
+    };
+    res: { success: boolean; variable?: V5.LiveVariable; error?: string };
+  };
+  updateLiveVariable: {
+    req: {
+      uid: string;
+      updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
+      expectedVersion?: number;
+    };
+    res:
+      | { success: true; variable: V5.LiveVariable; version: number }
+      | { success: false; reason: 'stale-draft'; serverVersion: number; serverVariable: V5.LiveVariable }
+      | { success: false; reason: 'not-found' };
+  };
+  deleteLiveVariable: {
+    req: { uid: string };
+    res: { success: boolean };
+  };
+  /**
+   * Pin an LV to a fixed value (debug override) or clear an existing
+   * override. Pass `null` to clear. Same stale-draft semantics as
+   * `updateLiveVariable`.
+   */
+  setLiveVariableOverride: {
+    req: { uid: string; override: V5.LiveVariableOverride | null; expectedVersion?: number };
+    res:
+      | { success: true; variable: V5.LiveVariable; version: number }
+      | { success: false; reason: 'stale-draft'; serverVersion: number; serverVariable: V5.LiveVariable }
+      | { success: false; reason: 'not-found' };
+  };
+  /**
+   * Every cached run for a workflow — one entry per active environment
+   * that has ever produced a cache. Callers use this to render the
+   * countdown + last-error state in the LV editor.
+   */
+  getLiveCacheForWorkflow: {
+    req: { workflowUid: string };
+    res: { runs: LiveWorkflowRunSnapshot[] };
+  };
+  /**
+   * Manual "refresh now" from the UI. Phase B ships a stub that
+   * returns a `scheduler-not-ready` error — Phase C wires it to the
+   * chain runner. Signature is stable across both phases so UI can
+   * plumb it today.
+   */
+  refreshLiveWorkflowNow: {
+    req: { workflowUid: string; environmentId?: string | null };
+    res: { success: true; run: LiveWorkflowRunSnapshot } | { success: false; error: string };
+  };
+
   // ── Status snapshot ──────────────────────────────────────────────
   getStatusSnapshot: {
     req: Record<string, never>;
@@ -1039,6 +1159,29 @@ export interface BridgeBroadcastContract {
    * stay in lockstep without per-credential subscriptions.
    */
   oauthTokensChanged: { tokens: Record<string, OAuth2TokenBundle> };
+
+  /**
+   * Fires on every Live Workflow definition mutation. Carries the full
+   * workflow list so consumers (sidebar, editor, rule-editor picker)
+   * stay in sync without per-workflow subscriptions.
+   */
+  liveWorkflowsChanged: { workflows: V5.LiveWorkflow[] };
+
+  /**
+   * Fires on every Live Variable definition mutation. Carries the full
+   * LV list so the sidebar + variable picker + resolver update
+   * together.
+   */
+  liveVariablesChanged: { variables: V5.LiveVariable[] };
+
+  /**
+   * Fires on every live-cache mutation (successful refresh, recorded
+   * error, clear, purge). `workflowUid === null` signals a bulk
+   * mutation (workspace purge). Consumers that care about a specific
+   * workflow's countdown filter on the uid; broader consumers (Status
+   * pill, observability) refetch on every event.
+   */
+  liveCacheChanged: { workflowUid: string | null };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

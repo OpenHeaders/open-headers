@@ -36,6 +36,9 @@ import {
   onEnvironmentStoreChange,
 } from './modules/environment-store';
 import { listFiles, onFilesStoreChange } from './modules/files-store';
+import { onLiveCacheStoreChange } from './modules/live-cache-store';
+import { getLiveVariables, onLiveVariableStoreChange } from './modules/live-variable-store';
+import { getLiveWorkflows, onLiveWorkflowStoreChange } from './modules/live-workflow-store';
 import { handleGeneralMessage } from './modules/message-handler';
 import {
   handleOAuthAlarm,
@@ -324,6 +327,21 @@ async function initializeExtension(): Promise<void> {
       const tokens = await listTokenBundles().catch(() => ({}));
       broadcast('oauthTokensChanged', { tokens });
     })();
+  });
+
+  // Live Variables + Workflows (Phase B) — broadcast after every
+  // definition mutation so the sidebar + editors + rule-editor variable
+  // picker stay in sync. Cache broadcasts carry the workflowUid so
+  // consumers can filter to a single workflow's countdown without
+  // re-reading every cached run.
+  onLiveWorkflowStoreChange(() => {
+    broadcast('liveWorkflowsChanged', { workflows: getLiveWorkflows() });
+  });
+  onLiveVariableStoreChange(() => {
+    broadcast('liveVariablesChanged', { variables: getLiveVariables() });
+  });
+  onLiveCacheStoreChange((_workspaceId, workflowUid) => {
+    broadcast('liveCacheChanged', { workflowUid });
   });
 
   // Alarm-driven OAuth refresh (Phase 14 §20). Subscribe to store

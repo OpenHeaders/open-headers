@@ -32,6 +32,17 @@ import {
   switchToWorkspace as switchEnvToWorkspace,
 } from './environment-store';
 import { purgeFilesForWorkspace } from './files-store';
+import { purgeLiveCacheForWorkspace } from './live-cache-store';
+import {
+  hydrateFromStorage as hydrateLiveVariablesFromStorage,
+  purgeLiveVariablesForWorkspace,
+  switchToWorkspace as switchLiveVariablesToWorkspace,
+} from './live-variable-store';
+import {
+  hydrateFromStorage as hydrateLiveWorkflowsFromStorage,
+  purgeLiveWorkflowsForWorkspace,
+  switchToWorkspace as switchLiveWorkflowsToWorkspace,
+} from './live-workflow-store';
 import { purgeOAuthForWorkspace } from './oauth-token-store';
 import { recordLog } from './observability-log';
 import {
@@ -69,8 +80,9 @@ import {
 
 /**
  * Per-workspace keys the orchestrator clears on delete. Environments /
- * vault / testRuns have their own purge paths (environment-store,
- * test-run-store) so they stay encapsulated and we don't list them here.
+ * vault / testRuns / files / oauth / live-* each have their own purge
+ * paths (called explicitly below in `deleteWorkspaceWithData`) so they
+ * stay encapsulated and we don't list them here.
  */
 function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
   const k = wsKeys(workspaceId);
@@ -106,6 +118,8 @@ export async function hydrateActiveWorkspaceStores(): Promise<void> {
     hydrateTemplatesFromStorage(),
     hydrateRulesFromStorage(),
     hydrateRequestsFromStorage(),
+    hydrateLiveWorkflowsFromStorage(),
+    hydrateLiveVariablesFromStorage(),
   ]);
   // Seed a default "User Templates" collection so the Templates
   // section has a ready destination for user-authored templates on
@@ -140,6 +154,8 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
     switchPauseMarkersToWorkspace(targetId),
     switchEnvToWorkspace(targetId),
     switchRequestsToWorkspace(targetId),
+    switchLiveWorkflowsToWorkspace(targetId),
+    switchLiveVariablesToWorkspace(targetId),
   ]);
 
   // One broad cache-invalidation baseline reset — the union of
@@ -291,6 +307,9 @@ export async function deleteWorkspaceWithData(id: string): Promise<string | null
   await purgeWorkspaceTestRuns(id);
   await purgeFilesForWorkspace(id);
   await purgeOAuthForWorkspace(id);
+  await purgeLiveWorkflowsForWorkspace(id);
+  await purgeLiveVariablesForWorkspace(id);
+  await purgeLiveCacheForWorkspace(id);
 
   // If we deleted the active workspace, swap the per-workspace stores
   // to the new active now — workspace-store already flipped the pointer
@@ -303,6 +322,8 @@ export async function deleteWorkspaceWithData(id: string): Promise<string | null
       switchPauseMarkersToWorkspace(newActive),
       switchEnvToWorkspace(newActive),
       switchRequestsToWorkspace(newActive),
+      switchLiveWorkflowsToWorkspace(newActive),
+      switchLiveVariablesToWorkspace(newActive),
     ]);
     seedFromWorkspaceSwitch(getRules(), getPauseMarkers(), getRulesPaused());
     scheduleUpdate('workspace', { immediate: true });

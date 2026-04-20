@@ -170,6 +170,25 @@ export interface WorkspaceKeys {
    * drops its OAuth material alongside environments + files.
    */
   oauth: StorageKey<unknown>;
+  /**
+   * Live Workflow definitions (see docs/LIVE_VARIABLES_PLAN.md).
+   * Refreshable multi-step data sources — each workflow owns its
+   * steps + refresh schedule; the workflow-run cache lives under
+   * {@link liveCache}.
+   */
+  liveWorkflows: StorageKey<V5.LiveWorkflow[]>;
+  /**
+   * Live Variable definitions — `{{live.<name>}}` bindings. Thin
+   * namespace projections referencing one workflow step capture.
+   */
+  liveVariables: StorageKey<V5.LiveVariable[]>;
+  /**
+   * Live workflow-run cache. Blob keyed by `(workflowUid, environmentId)`
+   * holds the most recent extraction per workflow per active env.
+   * Opaque at storage layer — shape in `live-cache-store.ts`.
+   * Ephemeral: never committed to git, purged on workspace delete.
+   */
+  liveCache: StorageKey<unknown>;
 }
 
 export function wsKeys(workspaceId: string): WorkspaceKeys {
@@ -197,5 +216,8 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     settingsCollection: storageKey<Record<string, unknown>>(`${p}.settings.collection`),
     importReports: storageKey<unknown[]>(`${p}.importReports`),
     oauth: storageKey<unknown>(`${p}.oauth`),
+    liveWorkflows: storageKey<V5.LiveWorkflow[]>(`${p}.liveWorkflows`),
+    liveVariables: storageKey<V5.LiveVariable[]>(`${p}.liveVariables`),
+    liveCache: storageKey<unknown>(`${p}.liveCache`),
   };
 }
