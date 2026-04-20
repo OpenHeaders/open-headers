@@ -310,6 +310,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     openCollectionVariables,
     openRequestEditTab,
     openCreateRequestTab,
+    openLiveVariableEdit,
+    openLiveWorkflowEdit,
+    openCreateLiveVariable,
   } = openers;
 
   // Create-then-edit flow for the env selector. New envs are created
@@ -432,6 +435,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     openVault,
     openCollectionVariables,
     openRequestEditTab,
+    openLiveVariableEdit,
+    openLiveWorkflowEdit,
+    openCreateLiveVariable,
   });
 
   // ── Initial landing (openTo = home/rules/collections) ─────────

@@ -26,6 +26,10 @@
  *   #/test/<runId>           → open-run-report
  *   #/flow/<scope>           → open-rule-flow
  *   #/flow/<scope>/<...url>  → open-rule-flow with url
+ *   #/live-variable/<uid>    → edit-live-variable
+ *   #/live-workflow/<uid>    → edit-live-workflow
+ *   #/create-live-variable   → create-live-variable (no seed)
+ *   #/create-live-variable/<reqUid> → create-live-variable with seed request
  *
  * Unknown hashes return `null`, not a throw — callers decide whether
  * to treat that as "nothing to dispatch" (valid on any page load) or
@@ -143,6 +147,19 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
       return buildIntent(base);
     }
 
+    case 'live-variable':
+      if (!rest[0]) return null;
+      return buildIntent({ kind: 'edit-live-variable', uid: rest[0] });
+
+    case 'live-workflow':
+      if (!rest[0]) return null;
+      return buildIntent({ kind: 'edit-live-workflow', uid: rest[0] });
+
+    case 'create-live-variable': {
+      if (rest.length === 0) return buildIntent({ kind: 'create-live-variable' });
+      return buildIntent({ kind: 'create-live-variable', seedRequestUid: rest[0] });
+    }
+
     default:
       return null;
   }
@@ -222,6 +239,17 @@ export function intentToHash(intent: WorkspaceIntent): string {
       }
       return `#/${parts.join('/')}`;
     }
+
+    case 'edit-live-variable':
+      return `#/live-variable/${encodeSegment(intent.uid)}`;
+
+    case 'edit-live-workflow':
+      return `#/live-workflow/${encodeSegment(intent.uid)}`;
+
+    case 'create-live-variable':
+      return intent.seedRequestUid
+        ? `#/create-live-variable/${encodeSegment(intent.seedRequestUid)}`
+        : '#/create-live-variable';
   }
 }
 

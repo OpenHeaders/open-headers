@@ -58,6 +58,9 @@ interface UseWorkspaceIntentRouterOptions {
   openVault: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
+  openLiveVariableEdit: (uid: string, name: string) => void;
+  openLiveWorkflowEdit: (uid: string, name: string) => void;
+  openCreateLiveVariable: (seedRequestUid?: string) => void;
 }
 
 /** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault` */
@@ -179,6 +182,18 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
             })
             .catch(() => o.openRunReport(intent.runId));
           return;
+        case 'edit-live-variable':
+          // Placeholder label; once the LV store broadcast resolves the
+          // actual `name`, `useTabSyncEffects` rewrites the label (same
+          // pattern as `edit-environment`).
+          o.openLiveVariableEdit(intent.uid, 'Live Variable');
+          return;
+        case 'edit-live-workflow':
+          o.openLiveWorkflowEdit(intent.uid, 'Workflow');
+          return;
+        case 'create-live-variable':
+          o.openCreateLiveVariable(intent.seedRequestUid);
+          return;
         default:
           assertNever(intent);
       }
@@ -264,6 +279,15 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
             o.openRunReport(pending.runId, owner, run?.ownerNameAtRun);
           })
           .catch(() => o.openRunReport(pending.runId));
+        return;
+      case 'edit-live-variable':
+        o.openLiveVariableEdit(pending.uid, 'Live Variable');
+        return;
+      case 'edit-live-workflow':
+        o.openLiveWorkflowEdit(pending.uid, 'Workflow');
+        return;
+      case 'create-live-variable':
+        o.openCreateLiveVariable(pending.seedRequestUid);
         return;
       default:
         assertNever(pending);

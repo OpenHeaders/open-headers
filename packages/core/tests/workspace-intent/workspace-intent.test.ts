@@ -126,6 +126,9 @@ describe('WORKSPACE_INTENT_KINDS', () => {
       'open-vault': { kind: 'open-vault' },
       'open-run-report': { kind: 'open-run-report', runId: UID_A },
       'open-rule-flow': { kind: 'open-rule-flow', scope: 'all-active' },
+      'edit-live-variable': { kind: 'edit-live-variable', uid: UID_A },
+      'edit-live-workflow': { kind: 'edit-live-workflow', uid: UID_A },
+      'create-live-variable': { kind: 'create-live-variable' },
     };
     for (const kind of WORKSPACE_INTENT_KINDS) {
       expect(minimal[kind], `missing minimal-case fixture for kind ${kind}`).toBeDefined();
@@ -169,6 +172,10 @@ describe('intentToHash / hashToIntent — round-trip', () => {
       scope: 'this-page',
       url: 'https://api.openheaders.io/v1/resource?q=1',
     },
+    { kind: 'edit-live-variable', uid: UID_A },
+    { kind: 'edit-live-workflow', uid: UID_B },
+    { kind: 'create-live-variable' },
+    { kind: 'create-live-variable', seedRequestUid: UID_A },
   ];
 
   it.each(roundTripCases)('round-trips %j', (intent) => {

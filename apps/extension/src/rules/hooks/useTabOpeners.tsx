@@ -77,6 +77,12 @@ export interface UseTabOpenersApi {
    * fills in when no context is available.
    */
   openCreateRequestTab: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /** Open an existing Live Variable in a dedicated edit tab. */
+  openLiveVariableEdit: (uid: string, name: string) => void;
+  /** Open the workflow backing an LV in a dedicated chain editor tab. */
+  openLiveWorkflowEdit: (uid: string, name: string) => void;
+  /** Open an unsaved Live Variable draft with an optional seed request for the first step. */
+  openCreateLiveVariable: (seedRequestUid?: string) => void;
 }
 
 export function useTabOpeners({
@@ -467,6 +473,62 @@ export function useTabOpeners({
     [allTabs, addTab, switchTab],
   );
 
+  const openLiveVariableEdit = useCallback(
+    (uid: string, name: string) => {
+      const id = `live-var-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        ruleType: '',
+        dirty: false,
+        mode: 'live-variable-edit',
+        liveVariableUid: uid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openLiveWorkflowEdit = useCallback(
+    (uid: string, name: string) => {
+      const id = `live-wf-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: `${name} · Workflow`,
+        ruleType: '',
+        dirty: false,
+        mode: 'live-workflow-edit',
+        liveWorkflowUid: uid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openCreateLiveVariable = useCallback(
+    (seedRequestUid?: string) => {
+      // Draft ids are timestamp-keyed so multiple new-LV tabs can
+      // coexist — same pattern as `openCreateRequestTab`.
+      const tabId = `live-var-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      addTab({
+        id: tabId,
+        label: 'New Live Variable',
+        ruleType: '',
+        dirty: true,
+        mode: 'live-variable-create',
+        liveSeedRequestUid: seedRequestUid,
+      });
+      setPendingRenameTabId(tabId);
+    },
+    [addTab],
+  );
+
   const openCreateRequestTab = useCallback(
     (context?: { collectionId?: string; folderPath?: string }) => {
       // Generate a unique-per-workspace draft name so two "New Request"
@@ -523,5 +585,8 @@ export function useTabOpeners({
     openCollectionVariables,
     openRequestEditTab,
     openCreateRequestTab,
+    openLiveVariableEdit,
+    openLiveWorkflowEdit,
+    openCreateLiveVariable,
   };
 }

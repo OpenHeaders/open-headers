@@ -20,7 +20,10 @@ export type TabMode =
   | 'vault'
   | 'collection-vars'
   | 'request-edit'
-  | 'request-create';
+  | 'request-create'
+  | 'live-variable-edit'
+  | 'live-variable-create'
+  | 'live-workflow-edit';
 
 /** Variant of the startup landing tab — drives which view `LandingScreen` renders. */
 export type LandingView = 'home' | 'rules' | 'collections';
@@ -100,6 +103,12 @@ export interface RulesTab {
   collectionUid?: string;
   /** For request-edit tabs: the V5.Request uid being edited. */
   requestUid?: string;
+  /** For live-variable-edit tabs: the LV uid being edited. */
+  liveVariableUid?: string;
+  /** For live-workflow-edit tabs: the workflow uid being edited. */
+  liveWorkflowUid?: string;
+  /** For live-variable-create tabs: optional seed request uid for the first step. */
+  liveSeedRequestUid?: string;
   /**
    * For request-create (draft) tabs opened from a specific collection
    * or folder in the sidebar. When set, Save persists directly there;

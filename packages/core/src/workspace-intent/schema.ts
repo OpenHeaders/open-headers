@@ -124,6 +124,30 @@ export const OpenRuleFlowIntentSchema = v.object({
   entityId: v.optional(UidSchema),
 });
 
+// ── Live Variables (Phase F) ───────────────────────────────────────
+
+export const EditLiveVariableIntentSchema = v.object({
+  kind: v.literal('edit-live-variable'),
+  uid: UidSchema,
+});
+
+export const EditLiveWorkflowIntentSchema = v.object({
+  kind: v.literal('edit-live-workflow'),
+  uid: UidSchema,
+});
+
+export const CreateLiveVariableIntentSchema = v.object({
+  kind: v.literal('create-live-variable'),
+  /**
+   * Optional pre-fill carrying a seed request for the workflow's first
+   * step. Populated by the Response panel's "Capture response to live
+   * variable" action so the LV editor opens with the current request
+   * already bound, letting the user pick an extractor against the
+   * displayed response without re-running it.
+   */
+  seedRequestUid: v.optional(UidSchema),
+});
+
 // ── Union + kind picklist ───────────────────────────────────────────
 
 export const WorkspaceIntentSchema = v.variant('kind', [
@@ -140,6 +164,9 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   OpenVaultIntentSchema,
   OpenRunReportIntentSchema,
   OpenRuleFlowIntentSchema,
+  EditLiveVariableIntentSchema,
+  EditLiveWorkflowIntentSchema,
+  CreateLiveVariableIntentSchema,
 ]);
 
 export type WorkspaceIntent = v.InferOutput<typeof WorkspaceIntentSchema>;
@@ -163,6 +190,9 @@ export const WORKSPACE_INTENT_KINDS = [
   'open-vault',
   'open-run-report',
   'open-rule-flow',
+  'edit-live-variable',
+  'edit-live-workflow',
+  'create-live-variable',
 ] as const;
 
 export type WorkspaceIntentKind = (typeof WORKSPACE_INTENT_KINDS)[number];
