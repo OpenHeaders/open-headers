@@ -20,6 +20,7 @@
  */
 
 import type { LiveWorkflow } from '../types/v5/live';
+import type { RequestIncompleteReason } from '../utils/request-validation';
 import { scanTemplateReferences } from './template-scan';
 
 // ── Error shape ────────────────────────────────────────────────────
@@ -31,7 +32,9 @@ export type StructuralIssue =
   | 'refresh-unknown-capture'
   | 'step-forward-reference'
   | 'step-unknown-step-id'
-  | 'step-unknown-capture';
+  | 'step-unknown-capture'
+  | 'step-request-missing'
+  | 'step-request-incomplete';
 
 export interface StructuralError {
   issue: StructuralIssue;
@@ -41,6 +44,11 @@ export interface StructuralError {
   referencedStepId?: string;
   /** Referenced capture name when relevant. */
   referencedCaptureName?: string;
+  /**
+   * Sub-reason for `step-request-incomplete` errors — lets the UI pick
+   * a specific hint ("Set a URL" vs "Set a username" etc.).
+   */
+  incompleteReason?: RequestIncompleteReason;
   /** Human-readable message; used for structured error surfacing in UI. */
   message: string;
 }
@@ -100,25 +108,43 @@ export function validateWorkflowShape(workflow: LiveWorkflow): StructuralError[]
   return errors;
 }
 
-// ── Step-reference validator ──────────────────────────────────────
+// ── Step-request provider ─────────────────────────────────────────
 
 /**
- * Function the caller provides to pull template strings out of a
- * request by uid. The extension implementation grabs `request.url`,
- * `request.headers[].value`, body content, and auth field strings —
- * anything that goes through the variable resolver at execute time.
- * Tests pass a mock.
+ * Snapshot of one persisted request, from the validator's perspective.
  *
- * Returning `null` means "request not found" — the validator surfaces
- * a dedicated error for the step so the editor can highlight the
- * broken link.
+ *   - `templates` — every string the executor would run through the
+ *     variable resolver (URL, header values, param values, body
+ *     content, auth fields). The validator scans these for
+ *     `{{step.<id>.<capture>}}` refs.
+ *   - `incompleteReason` — set when the request is missing fields
+ *     the executor needs (see `isRequestComplete`). The validator
+ *     surfaces it as `step-request-incomplete` so the workflow
+ *     editor can badge the step.
  */
-export type RequestTemplateProvider = (requestUid: string) => readonly string[] | null;
+export interface StepRequestInfo {
+  templates: readonly string[];
+  /**
+   * `null` when the request is complete. Any other value marks the
+   *  step as incomplete and carries a machine-readable hint for the UI.
+   */
+  incompleteReason: RequestIncompleteReason | null;
+}
 
-export function validateStepReferences(
-  workflow: LiveWorkflow,
-  requestTemplates: RequestTemplateProvider,
-): StructuralError[] {
+/**
+ * Function the caller provides to look up the persisted request
+ * backing a step. Returning `null` means "request not found" — the
+ * validator surfaces a dedicated `step-request-missing` error for the
+ * step so the editor can highlight the broken link.
+ *
+ * The extension's adapter resolves the uid via `request-store.getRequest`,
+ * runs `isRequestComplete` + `requestIncompleteReason` on the result,
+ * and collects the executor-relevant template strings. Tests pass a
+ * mock implementation.
+ */
+export type RequestInfoProvider = (requestUid: string) => StepRequestInfo | null;
+
+export function validateStepReferences(workflow: LiveWorkflow, requestInfo: RequestInfoProvider): StructuralError[] {
   const errors: StructuralError[] = [];
 
   // Walk steps in declaration order. A step at index i can reference
@@ -131,23 +157,36 @@ export function validateStepReferences(
 
   for (let i = 0; i < workflow.steps.length; i++) {
     const step = workflow.steps[i];
-    const templates = requestTemplates(step.requestUid);
-    if (templates == null) {
-      // Request not found — surface a dedicated issue so the editor
-      // can highlight the broken step-request link. Treated as an
-      // unknown-step-id-style error for now; a distinct kind can be
-      // added when the editor UX needs to distinguish.
+    const info = requestInfo(step.requestUid);
+    if (info == null) {
       errors.push({
-        issue: 'step-unknown-step-id',
+        issue: 'step-request-missing',
         stepId: step.id,
         referencedStepId: step.requestUid,
         message: `Step "${step.id}" references a request that no longer exists (uid "${step.requestUid}").`,
       });
       continue;
     }
-    if (templates.length === 0) continue;
 
-    for (const template of templates) {
+    // Request-completeness check — mirrors `isRuleComplete` in
+    // role-and-discipline. Incomplete requests can't be executed as
+    // workflow steps; the editor should badge them red until fixed.
+    if (info.incompleteReason) {
+      errors.push({
+        issue: 'step-request-incomplete',
+        stepId: step.id,
+        referencedStepId: step.requestUid,
+        incompleteReason: info.incompleteReason,
+        message: `Step "${step.id}" points at an incomplete request (${info.incompleteReason}). Fix the request before this workflow can run.`,
+      });
+      // Continue cross-request template scanning — missing URL doesn't
+      // block us from surfacing an unrelated forward-reference error,
+      // and the editor benefits from seeing every problem at once.
+    }
+
+    if (info.templates.length === 0) continue;
+
+    for (const template of info.templates) {
       const refs = scanTemplateReferences(template).step;
       for (const ref of refs) {
         const idx = idToIndex.get(ref.stepId);

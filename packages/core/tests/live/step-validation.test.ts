@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RequestTemplateProvider } from '../../src/live/step-validation';
+import type { RequestInfoProvider, StepRequestInfo } from '../../src/live/step-validation';
 import { validateStepReferences, validateWorkflowShape } from '../../src/live/step-validation';
 import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '../../src/types/v5/live';
 
@@ -21,6 +21,18 @@ function step(id: string, requestUid: string, captureNames: string[] = []): Work
     id,
     requestUid,
     captures: captureNames.map((n) => ({ name: n, extractor: { kind: 'whole-body' } as const })),
+  };
+}
+
+/** Convenience: build a provider from a static map of uid → info. */
+function infoProvider(entries: Record<string, Partial<StepRequestInfo>>): RequestInfoProvider {
+  return (uid: string) => {
+    const hit = entries[uid];
+    if (!hit) return null;
+    return {
+      templates: hit.templates ?? [],
+      incompleteReason: hit.incompleteReason ?? null,
+    };
   };
 }
 
@@ -69,65 +81,114 @@ describe('validateWorkflowShape', () => {
   });
 });
 
-describe('validateStepReferences', () => {
+describe('validateStepReferences — step refs', () => {
   it('returns [] when templates reference nothing', () => {
-    const provider: RequestTemplateProvider = () => ['GET /x'];
+    const provider = infoProvider({ reqonly01: { templates: ['GET /x'] } });
     expect(validateStepReferences(wf([step('only', 'reqonly01', ['v'])]), provider)).toEqual([]);
   });
 
   it('flags forward references (step 1 → step 2)', () => {
     const wflow = wf([step('a', 'reqa0001', ['x']), step('b', 'reqb0001', [])]);
-    const provider: RequestTemplateProvider = (uid) => {
-      if (uid === 'reqa0001') return ['{{step.b.x}}']; // a references later step b
-      return [];
-    };
+    const provider = infoProvider({
+      reqa0001: { templates: ['{{step.b.x}}'] },
+      reqb0001: { templates: [] },
+    });
     const errors = validateStepReferences(wflow, provider);
     expect(errors.some((e) => e.issue === 'step-forward-reference')).toBe(true);
   });
 
   it('flags self references', () => {
     const wflow = wf([step('a', 'reqa0001', ['x'])]);
-    const provider: RequestTemplateProvider = () => ['{{step.a.x}}'];
+    const provider = infoProvider({ reqa0001: { templates: ['{{step.a.x}}'] } });
     const errors = validateStepReferences(wflow, provider);
     expect(errors[0].issue).toBe('step-forward-reference');
   });
 
   it('flags unknown step ids', () => {
     const wflow = wf([step('a', 'reqa0001', []), step('b', 'reqb0001', [])]);
-    const provider: RequestTemplateProvider = (uid) => (uid === 'reqb0001' ? ['{{step.ghost.something}}'] : []);
+    const provider = infoProvider({
+      reqa0001: { templates: [] },
+      reqb0001: { templates: ['{{step.ghost.something}}'] },
+    });
     const errors = validateStepReferences(wflow, provider);
     expect(errors[0]).toMatchObject({ issue: 'step-unknown-step-id', referencedStepId: 'ghost' });
   });
 
   it('flags unknown capture names on an otherwise-valid step ref', () => {
     const wflow = wf([step('a', 'reqa0001', ['only-this']), step('b', 'reqb0001', [])]);
-    const provider: RequestTemplateProvider = (uid) => (uid === 'reqb0001' ? ['{{step.a.missing}}'] : []);
+    const provider = infoProvider({
+      reqa0001: { templates: [] },
+      reqb0001: { templates: ['{{step.a.missing}}'] },
+    });
     const errors = validateStepReferences(wflow, provider);
     expect(errors[0]).toMatchObject({ issue: 'step-unknown-capture', referencedCaptureName: 'missing' });
   });
 
   it('accepts valid backward references (step 2 → step 1)', () => {
     const wflow = wf([step('a', 'reqa0001', ['sessionId']), step('b', 'reqb0001', [])]);
-    const provider: RequestTemplateProvider = (uid) =>
-      uid === 'reqb0001' ? ['Cookie: session={{step.a.sessionId}}'] : [];
+    const provider = infoProvider({
+      reqa0001: { templates: [] },
+      reqb0001: { templates: ['Cookie: session={{step.a.sessionId}}'] },
+    });
     expect(validateStepReferences(wflow, provider)).toEqual([]);
-  });
-
-  it('reports a missing request (provider returns null)', () => {
-    const wflow = wf([step('a', 'reqghost0', [])]);
-    const provider: RequestTemplateProvider = () => null;
-    const errors = validateStepReferences(wflow, provider);
-    expect(errors[0]).toMatchObject({ issue: 'step-unknown-step-id', referencedStepId: 'reqghost0' });
   });
 
   it('collects errors across multiple step templates', () => {
     const wflow = wf([step('a', 'reqa0001', ['x']), step('b', 'reqb0001', []), step('c', 'reqc0001', [])]);
-    const provider: RequestTemplateProvider = (uid) => {
-      if (uid === 'reqb0001') return ['{{step.ghost.z}}'];
-      if (uid === 'reqc0001') return ['{{step.a.missing}}'];
-      return [];
-    };
+    const provider = infoProvider({
+      reqa0001: { templates: [] },
+      reqb0001: { templates: ['{{step.ghost.z}}'] },
+      reqc0001: { templates: ['{{step.a.missing}}'] },
+    });
     const errors = validateStepReferences(wflow, provider);
     expect(errors).toHaveLength(2);
+  });
+});
+
+describe('validateStepReferences — request existence + completeness', () => {
+  it('reports a missing request (provider returns null) as step-request-missing', () => {
+    const wflow = wf([step('a', 'reqghost0', [])]);
+    const provider: RequestInfoProvider = () => null;
+    const errors = validateStepReferences(wflow, provider);
+    expect(errors[0]).toMatchObject({ issue: 'step-request-missing', referencedStepId: 'reqghost0' });
+  });
+
+  it('reports an incomplete request as step-request-incomplete', () => {
+    const wflow = wf([step('a', 'reqincomp', [])]);
+    const provider = infoProvider({
+      reqincomp: { templates: [], incompleteReason: 'missing-url' },
+    });
+    const errors = validateStepReferences(wflow, provider);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      issue: 'step-request-incomplete',
+      stepId: 'a',
+      referencedStepId: 'reqincomp',
+      incompleteReason: 'missing-url',
+    });
+  });
+
+  it('surfaces both incompleteness AND step-ref issues so editor sees every problem at once', () => {
+    const wflow = wf([step('a', 'reqa0001', ['x']), step('b', 'reqbadly1', [])]);
+    const provider = infoProvider({
+      reqa0001: { templates: [] },
+      reqbadly1: {
+        templates: ['{{step.ghost.z}}'],
+        incompleteReason: 'bearer-missing-token',
+      },
+    });
+    const errors = validateStepReferences(wflow, provider);
+    expect(errors).toHaveLength(2);
+    const issues = errors.map((e) => e.issue).sort();
+    expect(issues).toEqual(['step-request-incomplete', 'step-unknown-step-id']);
+  });
+
+  it('returns [] when every step has a complete backing request + clean templates', () => {
+    const wflow = wf([step('a', 'reqa0001', []), step('b', 'reqb0001', [])]);
+    const provider = infoProvider({
+      reqa0001: { templates: [], incompleteReason: null },
+      reqb0001: { templates: [], incompleteReason: null },
+    });
+    expect(validateStepReferences(wflow, provider)).toEqual([]);
   });
 });

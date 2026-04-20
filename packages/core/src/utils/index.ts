@@ -18,6 +18,8 @@ export {
 } from './headers';
 export type { PauseMarker, PauseMarkers } from './pause';
 export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './pause';
+export type { RequestIncompleteReason } from './request-validation';
+export { isRequestComplete, requestIncompleteReason } from './request-validation';
 export type { ActionDetail } from './rule-display';
 export { DNR_PRIORITY, getActionDetail } from './rule-display';
 export type { DraftUrlStrategy } from './rule-draft';

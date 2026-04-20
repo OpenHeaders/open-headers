@@ -20,7 +20,7 @@ export type { ExtractorFailureKind, ExtractorResult, StepResponse, StepResponseH
 export { applyExtractor } from './extractor';
 export type { CacheSummary } from './refresh-cadence';
 export { computeNextFireAt, DEFAULT_REFRESH_LEAD_MS, MAX_BACKOFF_SECONDS, MIN_ALARM_DELAY_MS } from './refresh-cadence';
-export type { RequestTemplateProvider, StructuralError, StructuralIssue } from './step-validation';
+export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralIssue } from './step-validation';
 export { validateStepReferences, validateWorkflowShape } from './step-validation';
 export type { StepRef, TemplateScanResult } from './template-scan';
 export { scanTemplateReferences, scanTemplateReferencesMany } from './template-scan';
