@@ -37,6 +37,12 @@ import {
 } from './modules/environment-store';
 import { listFiles, onFilesStoreChange } from './modules/files-store';
 import { onLiveCacheStoreChange } from './modules/live-cache-store';
+import {
+  handleLiveAlarm,
+  isLiveRefreshAlarm,
+  reconcileLiveSchedules,
+  startLiveScheduler,
+} from './modules/live-refresh-scheduler';
 import { getLiveVariables, onLiveVariableStoreChange } from './modules/live-variable-store';
 import { getLiveWorkflows, onLiveWorkflowStoreChange } from './modules/live-workflow-store';
 import { handleGeneralMessage } from './modules/message-handler';
@@ -353,6 +359,16 @@ async function initializeExtension(): Promise<void> {
     logger.warn('Background', 'OAuth scheduler reconcile failed', err);
   });
 
+  // Alarm-driven Live Workflow refresh (Phase C — LIVE_VARIABLES_PLAN.md).
+  // Same subscribe-then-reconcile pattern as OAuth. The refresh work
+  // itself is delegated to an adapter installed by Phase D; until
+  // that adapter lands, alarm firings record a `scheduler-not-ready`
+  // error against the cache and the backoff widens — no hot-loop.
+  startLiveScheduler();
+  void reconcileLiveSchedules().catch((err: unknown) => {
+    logger.warn('Background', 'Live scheduler reconcile failed', err);
+  });
+
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 
   // Hydrate the active workspace's per-workspace stores from storage.
@@ -447,6 +463,8 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     void updateBadgeForCurrentTab();
   } else if (isOAuthRefreshAlarm(alarm)) {
     await handleOAuthAlarm(alarm);
+  } else if (isLiveRefreshAlarm(alarm)) {
+    await handleLiveAlarm(alarm);
   }
 });
 

@@ -45,7 +45,15 @@ import {
   recordImportReport,
 } from './import-reports-store';
 import { setPanelLayout } from './layout-store';
-import { clearWorkflowRunCache, listCachesForWorkflow as listLiveCacheForWorkflow } from './live-cache-store';
+import {
+  clearWorkflowRunCache,
+  getWorkflowRunCache,
+  listCachesForWorkflow as listLiveCacheForWorkflow,
+} from './live-cache-store';
+import {
+  buildAlarmName as buildLiveAlarmName,
+  handleLiveAlarm as refreshLiveWorkflowByAlarm,
+} from './live-refresh-scheduler';
 import {
   createLiveVariable,
   deleteLiveVariable,
@@ -1185,9 +1193,29 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ runs: [], error: err.message }));
       return true;
     } else if (message.type === 'refreshLiveWorkflowNow') {
-      // Phase C wires this to the chain runner; Phase B ships a stub
-      // so UI can plumb the call today without crashing on undefined.
-      safeResponse({ success: false, error: 'scheduler-not-ready' });
+      // Phase C: route the manual refresh through the same
+      // `handleLiveAlarm` path as a scheduled fire so the adapter +
+      // observability + cache-write contract stay identical. Phase D's
+      // adapter fills in the real work; without one, the cache picks
+      // up a `scheduler-not-ready` error and we return that to the UI.
+      const req = message as { workflowUid: string; environmentId?: string | null };
+      void (async () => {
+        const wsId = getActiveWorkspaceId();
+        const envId = req.environmentId ?? null;
+        await refreshLiveWorkflowByAlarm({
+          name: buildLiveAlarmName(wsId, req.workflowUid, envId),
+          scheduledTime: Date.now(),
+        } as chrome.alarms.Alarm);
+        const run = await getWorkflowRunCache(req.workflowUid, envId, wsId);
+        if (run && run.consecutiveFailures === 0 && run.lastExtractorOk) {
+          safeResponse({ success: true, run });
+        } else {
+          safeResponse({
+            success: false,
+            error: run?.lastErrorMessage ?? 'scheduler-not-ready',
+          });
+        }
+      })();
       return true;
 
       // ── Status snapshot ──────────────────────────────────────────

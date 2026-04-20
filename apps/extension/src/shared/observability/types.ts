@@ -49,6 +49,10 @@ export interface LogEntryContext {
   executionId?: string;
   /** OAuth credential reference when the event is auth-scoped. */
   credentialRef?: string;
+  /** Live Workflow uid when the event is live-refresh scoped. */
+  workflowUid?: string;
+  /** Environment uid when the event is env-scoped (live scheduler / resolver). */
+  environmentId?: string | null;
 }
 
 export interface LogEntry {
