@@ -227,10 +227,9 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
             key={index}
             style={{
               display: 'flex',
-              alignItems: 'flex-start',
+              alignItems: 'center',
               gap: 6,
               padding: '8px 10px',
-              flexWrap: 'wrap',
               borderBottom: index < value.length - 1 ? `1px solid ${token.colorBorderSecondary}` : undefined,
             }}
           >
@@ -243,7 +242,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                   fontWeight: 700,
                   letterSpacing: 1,
                   lineHeight: '18px',
-                  margin: '3px 0 0 0',
+                  margin: 0,
                   padding: '0 4px',
                   flexShrink: 0,
                 }}
@@ -260,7 +259,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                   fontSize: 9,
                   fontWeight: 700,
                   lineHeight: '18px',
-                  margin: '3px 0 0 0',
+                  margin: 0,
                   padding: '0 4px',
                   flexShrink: 0,
                 }}
@@ -301,7 +300,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 mode="multiple"
                 value={condition.values}
                 onChange={(vals) => updateCondition(index, { values: vals })}
-                style={{ flex: 1, minWidth: 140 }}
+                style={{ flex: 1, minWidth: 0 }}
                 options={HTTP_METHODS.map((v) => ({ value: v, label: v }))}
                 placeholder="Select methods"
                 maxTagCount="responsive"
@@ -312,7 +311,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 mode="multiple"
                 value={condition.values}
                 onChange={(vals) => updateCondition(index, { values: vals })}
-                style={{ flex: 1, minWidth: 140 }}
+                style={{ flex: 1, minWidth: 0 }}
                 options={RESOURCE_TYPES.map((v) => ({ value: v, label: v }))}
                 placeholder="Select types"
                 maxTagCount="responsive"
@@ -332,7 +331,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 placeholder={def?.placeholder ?? 'value'}
                 value={condition.values.join(', ')}
                 onChange={(next) => handleValuesText(index, next)}
-                style={{ flex: 1, minWidth: 140 }}
+                style={{ flex: 1, minWidth: 0 }}
               />
             )}
 
@@ -342,7 +341,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               size="small"
               icon={<CloseOutlined style={{ fontSize: 10 }} />}
               onClick={() => removeCondition(index)}
-              style={{ color: token.colorTextTertiary, flexShrink: 0, marginTop: 2 }}
+              style={{ color: token.colorTextTertiary, flexShrink: 0 }}
             />
           </div>
         );

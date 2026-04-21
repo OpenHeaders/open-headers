@@ -52,7 +52,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
         <>
           {fields.map((field) => (
             <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <Form.Item
                   {...field}
                   name={[field.name, 'operation']}
@@ -98,7 +98,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                       <Form.Item
                         {...field}
                         name={[field.name, 'headerName']}
-                        style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
+                        style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                         validateStatus={showWarning ? 'warning' : undefined}
                       >
                         <AutoComplete
@@ -108,7 +108,6 @@ function ModificationList({ name, direction }: ModificationListProps) {
                           filterOption={(input, option) =>
                             (option?.value ?? '').toString().toLowerCase().includes(input.toLowerCase())
                           }
-                          allowClear
                         />
                       </Form.Item>
                     );
@@ -148,7 +147,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                           <Form.Item
                             {...field}
                             name={[field.name, 'value']}
-                            style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
+                            style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                           >
                             <TemplateInput size="small" placeholder="Value to append" />
                           </Form.Item>
@@ -159,7 +158,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                       <Form.Item
                         {...field}
                         name={[field.name, 'value']}
-                        style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
+                        style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                       >
                         <TemplateInput size="small" placeholder="Header Value" />
                       </Form.Item>
