@@ -46,6 +46,10 @@ interface SortableDockTabProps<T extends string> {
   focused: boolean;
   showLabels: boolean;
   def: ToolWindowDef<T>;
+  /** When false, the sortable is disabled as a drop target — prevents
+   *  tool-window strips from reacting to non-tool-window drags (e.g. an
+   *  editor tab being dragged over the activity bar). */
+  sortableEnabled: boolean;
   onActivate: () => void;
   contextMenu: ItemType[];
 }
@@ -58,6 +62,7 @@ function SortableDockTab<T extends string>({
   focused,
   showLabels,
   def,
+  sortableEnabled,
   onActivate,
   contextMenu,
 }: SortableDockTabProps<T>) {
@@ -66,6 +71,10 @@ function SortableDockTab<T extends string>({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `tw:${id}`,
     data: { kind: 'tool-window' as const, toolWindowId: id, fromSlot: slot },
+    // Keep the draggable handle live so the user can always initiate a
+    // tool-window drag; disable the droppable side so an in-flight
+    // editor-tab drag can't reorder tool-window tabs.
+    disabled: { draggable: false, droppable: !sortableEnabled },
   });
 
   const isFocused = active && focused && !isDragging;
@@ -164,6 +173,7 @@ function DockTabStripInner<T extends string>({
   const { setNodeRef: setStripRef, isOver: isStripOver } = useDroppable({
     id: `dock:${slot}`,
     data: { slot },
+    disabled: !dragging,
   });
 
   if (windows.length === 0 && !dragging) return null;
@@ -261,6 +271,7 @@ function DockTabStripInner<T extends string>({
               focused={isFocused}
               showLabels={showLabels}
               def={windowMap[id]}
+              sortableEnabled={dragging}
               onActivate={() => onActivate(id)}
               contextMenu={buildMenu(id)}
             />

@@ -3,6 +3,7 @@ export { default as DockSlotIcon } from './DockSlotIcon';
 export type { DockTabStripProps } from './DockTabStrip';
 export { default as DockTabStrip } from './DockTabStrip';
 export { default as DropZoneOverlay } from './DropZoneOverlay';
+export { makeEditorTabCollisionDetection } from './editor-tab-collision';
 export type { FocusStore } from './focus-store';
 export { createFocusStore } from './focus-store';
 export type { LayoutMenuIconKind } from './LayoutMenuIcon';

@@ -15,7 +15,7 @@ import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type DragIntent, DragIntentContext } from '../data/drag-intent';
-import { allLeaves, type EditorLeaf, type EditorNode, findLeaf } from '../data/editor-groups';
+import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../data/editor-groups';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
 import type { UseInspectorEditorGroupsApi } from '../data/use-inspector-editor-groups';
 import InspectorTabBar from './InspectorTabBar';
@@ -178,7 +178,10 @@ export const InspectorEditorGroupRenderer: React.FC<InspectorEditorGroupRenderer
   const rootRef = useRef(groups.root);
   rootRef.current = groups.root;
 
-  // Cursor tracking
+  // Cursor tracking. When the cursor leaves all leaves (e.g. drifts into
+  // the activity bar or a tool-window sidebar), we keep the last-known
+  // hover so the user can still commit an edge-split without pixel-perfect
+  // aim — pulling the cursor back to the leaf would re-assert the match.
   useEffect(() => {
     if (!dragActive) {
       setHover(null);
@@ -194,8 +197,11 @@ export const InspectorEditorGroupRenderer: React.FC<InspectorEditorGroupRenderer
         }
       }
       setHover((prev) => {
-        if (prev && match && prev.leafId === match.leafId && prev.zone === match.zone) return prev;
-        return match;
+        if (match) {
+          if (prev && prev.leafId === match.leafId && prev.zone === match.zone) return prev;
+          return match;
+        }
+        return prev;
       });
     };
     window.addEventListener('pointermove', onMove);
@@ -332,6 +338,13 @@ export const InspectorEditorGroupRenderer: React.FC<InspectorEditorGroupRenderer
           onSplitAndMoveDown={(tabId) => groups.splitAndMoveDown(leaf.id, tabId)}
           onSplitAndMoveUp={(tabId) => groups.splitAndMoveUp(leaf.id, tabId)}
           onMoveToOppositeGroup={(tabId) => groups.moveToOppositeGroup(leaf.id, tabId)}
+          oppositeDirection={(() => {
+            const link = findParentSplitLink(groups.root, leaf.id);
+            if (!link) return null;
+            if (link.parent.orientation === 'horizontal') return link.side === 'a' ? 'right' : 'left';
+            return link.side === 'a' ? 'down' : 'up';
+          })()}
+          parentOrientation={findParentSplitLink(groups.root, leaf.id)?.parent.orientation ?? null}
           onChangeSplitterOrientation={() => groups.changeSplitterOrientation(leaf.id)}
           onUnsplit={() => groups.unsplit(leaf.id)}
           onUnsplitAll={groups.unsplitAll}

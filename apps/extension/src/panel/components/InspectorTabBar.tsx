@@ -1,10 +1,12 @@
 /**
  * InspectorTabBar — IDE-style tab strip for the DevTools panel.
- * Same pattern as the workspace TabBar but with native CSS (no antd).
+ * Same pattern as the workspace TabBar, sharing its antd Dropdown +
+ * LayoutMenuIcon context-menu so the two surfaces stay visually aligned.
  *
  * Features:
  *   - dnd-kit drag-to-reorder via SortableContext
- *   - Right-click native context menu (Close, Close Other, Split, etc.)
+ *   - Right-click context menu (Close, Close Other, Split, etc.) with
+ *     layout-aware icons from `@/shared/dock-layout/LayoutMenuIcon`
  *   - Tab search dropdown with keyboard nav
  *   - Horizontal wheel scroll + auto-scroll active tab into view
  *   - Cross-leaf insertion markers via DragIntentContext
@@ -12,8 +14,11 @@
 
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Dropdown } from 'antd';
+import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LayoutMenuIcon } from '@/shared/dock-layout';
 import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
 
@@ -48,127 +53,33 @@ const TAB_LABEL_MAX = 24;
 function truncateMiddle(text: string, max: number): string {
   if (text.length <= max) return text;
   const half = Math.floor((max - 1) / 2);
-  return `${text.slice(0, half)}\u2026${text.slice(text.length - half)}`;
+  return `${text.slice(0, half)}…${text.slice(text.length - half)}`;
 }
 
-// ── Context menu ────────────────────────────────────────────────
+// ── Menu icon wrapper ───────────────────────────────────────────
+// Tighter than the workspace equivalent — DevTools panels traditionally
+// use an 11px compact type scale, so the icons and row gutter shrink to
+// match. `MENU_ICON_SIZE` pairs with the padding/font-size tokens on
+// `.dt-tab-ctx-menu` in panel.css so the end result reads like Chrome
+// DevTools' own context menus rather than a full-app antd menu.
 
-interface ContextMenuState {
-  x: number;
-  y: number;
-  tabId: string;
-  tabIndex: number;
-}
+const MENU_ICON_SIZE = 13;
 
-interface ContextMenuProps {
-  state: ContextMenuState;
-  tabCount: number;
-  canUnsplit: boolean;
-  canUnsplitAll: boolean;
-  onClose: () => void;
-  onCloseTab: (tabId: string) => void;
-  onCloseOther: (tabId: string) => void;
-  onCloseAll: () => void;
-  onCloseToLeft: (tabId: string) => void;
-  onCloseToRight: (tabId: string) => void;
-  onSplitRight: (tabId: string) => void;
-  onSplitLeft: (tabId: string) => void;
-  onSplitDown: (tabId: string) => void;
-  onSplitUp: (tabId: string) => void;
-  onMoveOpposite?: (tabId: string) => void;
-  onChangeOrientation?: () => void;
-  onUnsplit?: () => void;
-  onUnsplitAll?: () => void;
-}
-
-const ContextMenu: React.FC<ContextMenuProps> = ({
-  state,
-  tabCount,
-  canUnsplit,
-  canUnsplitAll,
-  onClose,
-  onCloseTab,
-  onCloseOther,
-  onCloseAll,
-  onCloseToLeft,
-  onCloseToRight,
-  onSplitRight,
-  onSplitLeft,
-  onSplitDown,
-  onSplitUp,
-  onMoveOpposite,
-  onChangeOrientation,
-  onUnsplit,
-  onUnsplitAll,
-}) => {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [splitOpen, setSplitOpen] = useState(false);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', handleClick, true);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick, true);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [onClose]);
-
-  const item = (label: string, action: () => void, disabled = false) => (
-    <button
-      type="button"
-      className={`dt-ctx-item${disabled ? ' disabled' : ''}`}
-      onClick={() => {
-        if (!disabled) {
-          action();
-          onClose();
-        }
-      }}
-      disabled={disabled}
-    >
-      {label}
-    </button>
-  );
-
-  const splitDisabled = tabCount < 2;
-
+function menuIconWrap(node: React.ReactNode): React.ReactNode {
   return (
-    <div ref={menuRef} className="dt-ctx-menu" style={{ left: state.x, top: state.y }}>
-      {item('Close', () => onCloseTab(state.tabId))}
-      {item('Close Other Tabs', () => onCloseOther(state.tabId), tabCount <= 1)}
-      {item('Close All Tabs', () => onCloseAll())}
-      <div className="dt-ctx-sep" />
-      {item('Close Tabs to the Left', () => onCloseToLeft(state.tabId), state.tabIndex === 0)}
-      {item('Close Tabs to the Right', () => onCloseToRight(state.tabId), state.tabIndex === tabCount - 1)}
-      <div className="dt-ctx-sep" />
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: hover submenu */}
-      <div
-        className={`dt-ctx-item dt-ctx-sub${splitDisabled ? ' disabled' : ''}`}
-        onMouseEnter={() => !splitDisabled && setSplitOpen(true)}
-        onMouseLeave={() => setSplitOpen(false)}
-      >
-        Split and Move {'\u25B8'}
-        {splitOpen && !splitDisabled && (
-          <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Right', () => onSplitRight(state.tabId))}
-            {item('Left', () => onSplitLeft(state.tabId))}
-            {item('Down', () => onSplitDown(state.tabId))}
-            {item('Up', () => onSplitUp(state.tabId))}
-          </div>
-        )}
-      </div>
-      {onMoveOpposite && item('Move to Opposite Group', () => onMoveOpposite(state.tabId))}
-      {item('Change Splitter Orientation', () => onChangeOrientation?.(), !canUnsplit)}
-      {item('Unsplit', () => onUnsplit?.(), !canUnsplit)}
-      {canUnsplitAll && item('Unsplit All', () => onUnsplitAll?.())}
-    </div>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 14,
+      }}
+    >
+      {node}
+    </span>
   );
-};
+}
 
 // ── Sortable tab pill ──────────────────────────────────────────
 
@@ -177,10 +88,9 @@ interface SortableTabProps {
   isFocusedLeaf: boolean;
   tab: InspectorTab;
   isActive: boolean;
+  contextMenu: { items: ItemType[] };
   onSwitch: (id: string) => void;
   onClose: (id: string) => void;
-  onContextMenu: (e: React.MouseEvent, tabId: string, index: number) => void;
-  tabIndex: number;
 }
 
 const SortableTab: React.FC<SortableTabProps> = ({
@@ -188,10 +98,9 @@ const SortableTab: React.FC<SortableTabProps> = ({
   isFocusedLeaf,
   tab,
   isActive,
+  contextMenu,
   onSwitch,
   onClose,
-  onContextMenu,
-  tabIndex,
 }) => {
   const dragIntent = useDragIntent();
   const data: EditorTabDragData = { kind: 'editor-tab', leafId, tabId: tab.id };
@@ -219,7 +128,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  return (
+  const content = (
     <div
       ref={setNodeRef}
       {...attributes}
@@ -232,10 +141,6 @@ const SortableTab: React.FC<SortableTabProps> = ({
       aria-selected={isActive}
       title={tab.url}
       onClick={() => onSwitch(tab.id)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onContextMenu(e, tab.id, tabIndex);
-      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') onSwitch(tab.id);
       }}
@@ -257,9 +162,19 @@ const SortableTab: React.FC<SortableTabProps> = ({
         }}
         aria-label="Close tab"
       >
-        {'\u00d7'}
+        {'×'}
       </button>
     </div>
+  );
+
+  // While dragging, skip the Dropdown wrapper — it would steal pointer
+  // capture from dnd-kit's overlay portal.
+  if (isDragging) return content;
+
+  return (
+    <Dropdown menu={contextMenu} trigger={['contextMenu']} overlayClassName="dt-tab-ctx-menu">
+      {content}
+    </Dropdown>
   );
 };
 
@@ -361,7 +276,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
             ref={inputRef}
             type="text"
             className="dt-tab-search-input"
-            placeholder={`Search tabs\u2026`}
+            placeholder={`Search tabs…`}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -393,7 +308,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
               {/* biome-ignore lint/a11y/useKeyWithClickEvents: toggle */}
               {/* biome-ignore lint/a11y/noStaticElementInteractions: toggle */}
               <div className="dt-tab-search-section" onClick={() => setClosedExpanded((v) => !v)}>
-                {closedExpanded ? '\u25BC' : '\u25B6'} Recently Closed ({recentlyClosed.length})
+                {closedExpanded ? '▼' : '▶'} Recently Closed ({recentlyClosed.length})
               </div>
               {closedExpanded &&
                 filteredClosed.map((closed, idx) => {
@@ -451,6 +366,12 @@ interface InspectorTabBarProps {
   onChangeSplitterOrientation?: () => void;
   onUnsplit?: () => void;
   onUnsplitAll?: () => void;
+  /** Direction the parent split would travel when "Move to Opposite
+   *  Group" fires — drives the direction icon on that menu item. */
+  oppositeDirection?: 'right' | 'left' | 'up' | 'down' | null;
+  /** Current parent-split orientation — drives the orientation/unsplit
+   *  icons so they reflect what the click actually does. */
+  parentOrientation?: 'horizontal' | 'vertical' | null;
   canUnsplit?: boolean;
   canUnsplitAll?: boolean;
 }
@@ -478,12 +399,13 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
   onChangeSplitterOrientation,
   onUnsplit,
   onUnsplitAll,
+  oppositeDirection,
+  parentOrientation,
   canUnsplit = false,
   canUnsplitAll = false,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabSearchOpen, setTabSearchOpen] = useState(false);
-  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
 
   // Auto-scroll active tab into view
   useEffect(() => {
@@ -502,11 +424,158 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
     if (scrollRef.current) scrollRef.current.scrollLeft += e.deltaY;
   }, []);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, tabId: string, tabIndex: number) => {
-    setCtxMenu({ x: e.clientX, y: e.clientY, tabId, tabIndex });
-  }, []);
+  const buildContextMenu = useCallback(
+    (tab: InspectorTab, tabIndex: number): { items: ItemType[] } => {
+      const splitDisabled = tabs.length < 2;
+      return {
+        items: [
+          { key: 'close', label: 'Close', onClick: () => onClose(tab.id) },
+          {
+            key: 'close-other',
+            label: 'Close Other Tabs',
+            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-other" size={MENU_ICON_SIZE} />),
+            disabled: tabs.length <= 1,
+            onClick: () => onCloseOther(tab.id),
+          },
+          { key: 'close-all', label: 'Close All Tabs', onClick: () => onCloseAll() },
+          { type: 'divider' as const, key: 'div-1' },
+          {
+            key: 'close-left',
+            label: 'Close Tabs to the Left',
+            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-left" size={MENU_ICON_SIZE} />),
+            disabled: tabIndex === 0,
+            onClick: () => onCloseToLeft(tab.id),
+          },
+          {
+            key: 'close-right',
+            label: 'Close Tabs to the Right',
+            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-right" size={MENU_ICON_SIZE} />),
+            disabled: tabIndex === tabs.length - 1,
+            onClick: () => onCloseToRight(tab.id),
+          },
+          { type: 'divider' as const, key: 'div-2' },
+          {
+            key: 'split-and-move',
+            label: 'Split and Move',
+            disabled: splitDisabled,
+            children: [
+              {
+                key: 'split-move-right',
+                label: 'Right',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-right" size={MENU_ICON_SIZE} />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveRight?.(tab.id),
+              },
+              {
+                key: 'split-move-left',
+                label: 'Left',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-left" size={MENU_ICON_SIZE} />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveLeft?.(tab.id),
+              },
+              {
+                key: 'split-move-down',
+                label: 'Down',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-down" size={MENU_ICON_SIZE} />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveDown?.(tab.id),
+              },
+              {
+                key: 'split-move-up',
+                label: 'Up',
+                icon: menuIconWrap(<LayoutMenuIcon kind="split-up" size={MENU_ICON_SIZE} />),
+                disabled: splitDisabled,
+                onClick: () => onSplitAndMoveUp?.(tab.id),
+              },
+            ],
+          },
+          ...(oppositeDirection
+            ? ([
+                {
+                  key: 'move-opposite',
+                  label: 'Move To Opposite Group',
+                  icon: menuIconWrap(
+                    <LayoutMenuIcon
+                      kind={
+                        oppositeDirection === 'right'
+                          ? 'split-right'
+                          : oppositeDirection === 'left'
+                            ? 'split-left'
+                            : oppositeDirection === 'down'
+                              ? 'split-down'
+                              : 'split-up'
+                      }
+                      size={MENU_ICON_SIZE}
+                    />,
+                  ),
+                  onClick: () => onMoveToOppositeGroup?.(tab.id),
+                },
+              ] satisfies ItemType[])
+            : []),
+          {
+            key: 'flip-orientation',
+            label: 'Change Splitter Orientation',
+            icon: parentOrientation
+              ? menuIconWrap(
+                  <LayoutMenuIcon
+                    kind={parentOrientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'}
+                    size={MENU_ICON_SIZE}
+                  />,
+                )
+              : undefined,
+            disabled: !canUnsplit,
+            onClick: () => onChangeSplitterOrientation?.(),
+          },
+          {
+            key: 'unsplit',
+            label: 'Unsplit',
+            icon: parentOrientation
+              ? menuIconWrap(
+                  <LayoutMenuIcon
+                    kind={parentOrientation === 'horizontal' ? 'unsplit-horizontal' : 'unsplit-vertical'}
+                    size={MENU_ICON_SIZE}
+                  />,
+                )
+              : undefined,
+            disabled: !canUnsplit,
+            onClick: () => onUnsplit?.(),
+          },
+          ...(canUnsplitAll
+            ? ([
+                {
+                  key: 'unsplit-all',
+                  label: 'Unsplit All',
+                  icon: menuIconWrap(<LayoutMenuIcon kind="unsplit-all" size={MENU_ICON_SIZE} />),
+                  onClick: () => onUnsplitAll?.(),
+                },
+              ] satisfies ItemType[])
+            : []),
+        ],
+      };
+    },
+    [
+      tabs.length,
+      onClose,
+      onCloseOther,
+      onCloseAll,
+      onCloseToLeft,
+      onCloseToRight,
+      onSplitAndMoveRight,
+      onSplitAndMoveLeft,
+      onSplitAndMoveDown,
+      onSplitAndMoveUp,
+      onMoveToOppositeGroup,
+      oppositeDirection,
+      parentOrientation,
+      onChangeSplitterOrientation,
+      onUnsplit,
+      onUnsplitAll,
+      canUnsplit,
+      canUnsplitAll,
+    ],
+  );
 
-  const sortableIds = tabs.map((t) => `${leafId}::${t.id}`);
+  const sortableIds = useMemo(() => tabs.map((t) => `${leafId}::${t.id}`), [tabs, leafId]);
 
   const dragIntentForBar = useDragIntent();
   const insertionIndex = dragIntentForBar.insertion?.leafId === leafId ? dragIntentForBar.insertion.index : null;
@@ -524,10 +593,9 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
                 isFocusedLeaf={isFocusedLeaf}
                 tab={tab}
                 isActive={tab.id === activeTabId}
+                contextMenu={buildContextMenu(tab, index)}
                 onSwitch={onSwitch}
                 onClose={onClose}
-                onContextMenu={handleContextMenu}
-                tabIndex={index}
               />
             </Fragment>
           ))}
@@ -544,7 +612,7 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
           aria-label="Search tabs"
           title="Search tabs"
         >
-          {'\u25BE'}
+          {'▾'}
         </button>
         <TabSearchDropdown
           open={tabSearchOpen}
@@ -556,30 +624,6 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
           onReopen={onReopenTab}
         />
       </div>
-
-      {/* Context menu portal */}
-      {ctxMenu && (
-        <ContextMenu
-          state={ctxMenu}
-          tabCount={tabs.length}
-          canUnsplit={canUnsplit}
-          canUnsplitAll={canUnsplitAll}
-          onClose={() => setCtxMenu(null)}
-          onCloseTab={onClose}
-          onCloseOther={onCloseOther}
-          onCloseAll={onCloseAll}
-          onCloseToLeft={onCloseToLeft}
-          onCloseToRight={onCloseToRight}
-          onSplitRight={(id) => onSplitAndMoveRight?.(id)}
-          onSplitLeft={(id) => onSplitAndMoveLeft?.(id)}
-          onSplitDown={(id) => onSplitAndMoveDown?.(id)}
-          onSplitUp={(id) => onSplitAndMoveUp?.(id)}
-          onMoveOpposite={onMoveToOppositeGroup}
-          onChangeOrientation={onChangeSplitterOrientation}
-          onUnsplit={onUnsplit}
-          onUnsplitAll={onUnsplitAll}
-        />
-      )}
     </div>
   );
 };

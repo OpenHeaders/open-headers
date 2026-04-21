@@ -1,0 +1,236 @@
+/*
+ * panel-editor.css — split editor-group tree and its tab strip.
+ *
+ * Mirrors the workspace's editor-group surface: the recursive leaf tree
+ * (with Allotment splitters), the horizontal tab strip (pill, active +
+ * focused accent, cross-leaf insertion marker), method-badge label,
+ * per-tab close button, the chevron tab-search trigger, and the
+ * absolutely-positioned drop-preview overlay rendered while an editor
+ * tab is being dragged. Also hosts the editor empty state and the
+ * Allotment child override needed for the split views.
+ */
+
+/* ══════════════════════════════════════════════════════════════
+   Editor Groups — split-tab system (same pattern as workspace)
+   ══════════════════════════════════════════════════════════════ */
+
+.dt-editor-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dt-editor-leaf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+}
+
+.dt-editor-leaf.focused {
+  outline-color: var(--dt-border);
+}
+
+.dt-editor-leaf-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.dt-editor-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-editor-tab-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────── */
+.dt-editor-tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: 28px;
+  min-height: 28px;
+  background: var(--dt-bg-alt);
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-editor-tabs-scroll {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.dt-editor-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Tab pill ─────────────────────────────────────────────── */
+.dt-editor-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  height: 100%;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  flex-shrink: 0;
+  user-select: none;
+  outline: none;
+  transition: background 0.08s, color 0.08s;
+}
+
+.dt-editor-tab:hover {
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+}
+
+.dt-editor-tab.active {
+  color: var(--dt-text);
+  background: var(--dt-bg);
+  border-bottom-color: var(--dt-border);
+}
+
+.dt-editor-tab.active.focused {
+  color: var(--dt-link);
+  border-bottom-color: var(--dt-link);
+}
+
+.dt-editor-tab.dragging {
+  background: var(--dt-pill-active-bg);
+  outline: 1px dashed var(--dt-link);
+  outline-offset: -2px;
+  border-bottom-color: transparent;
+}
+
+/* Insertion marker for cross-leaf drops */
+.dt-editor-tab-insertion {
+  background: var(--dt-pill-active-bg);
+  outline: 1px dashed var(--dt-link);
+  outline-offset: -2px;
+  border-bottom-color: transparent;
+}
+
+.dt-method-badge {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.dt-editor-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-editor-tab-status {
+  font-size: 9px;
+  color: var(--dt-status-green);
+  flex-shrink: 0;
+}
+
+.dt-editor-tab-status.error {
+  color: var(--dt-status-red);
+}
+
+.dt-editor-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.dt-editor-tab:hover .dt-editor-tab-close,
+.dt-editor-tab.active .dt-editor-tab-close {
+  opacity: 1;
+}
+
+.dt-editor-tab-close:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+/* ── Tab bar action button (chevron) ─────────────────────── */
+.dt-editor-tab-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+}
+
+.dt-editor-tab-action:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+/* ── Drop preview overlay ────────────────────────────────── */
+.dt-editor-drop-preview {
+  position: absolute;
+  pointer-events: none;
+  z-index: 40;
+  background: color-mix(in srgb, var(--dt-link) 14%, transparent);
+  border: 2px solid var(--dt-link);
+  border-radius: 4px;
+  transition: all 0.08s ease;
+}
+
+/* ── Editor empty state ──────────────────────────────────── */
+.dt-editor-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--dt-text-muted);
+  font-size: 12px;
+}
+
+/* ── Allotment overrides for panel ────────────────────────── */
+.dt-editor-tree .split-view-view {
+  overflow: hidden;
+}

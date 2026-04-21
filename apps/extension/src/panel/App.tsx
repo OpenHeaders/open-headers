@@ -2,7 +2,13 @@ import 'allotment/dist/style.css';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSetting } from '@/rules/settings/hooks';
 import type { DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
-import { createShellEventBus, ShellEventBusContext, ShellLayout, useFocusRegion } from '@/shared/dock-layout';
+import {
+  createShellEventBus,
+  makeEditorTabCollisionDetection,
+  ShellEventBusContext,
+  ShellLayout,
+  useFocusRegion,
+} from '@/shared/dock-layout';
 import { FilterDocs } from './components/FilterDocs';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';
@@ -79,6 +85,10 @@ function formatFinishTime(entries: readonly { duration?: number }[]): string {
 // ── Shell event bus (created once, stable across renders) ────────────
 
 const busHandle = createShellEventBus();
+
+// Scope editor-tab collisions to the devpanel's tab-bar selector so an
+// in-flight tab drag doesn't light up activity bars / tool-window sidebars.
+const editorTabCollisionDetection = makeEditorTabCollisionDetection('.dt-editor-tab-bar');
 
 // ── Panel sizes ──────────────────────────────────────────────────────
 
@@ -489,6 +499,7 @@ function PanelContent() {
         sidebarLayout={sidebarLayout as SidebarLayoutVariant}
         onToggleLabels={toggleLabels}
         sizes={panelSizes}
+        collisionDetection={editorTabCollisionDetection}
         focusStore={focusStore}
       />
 

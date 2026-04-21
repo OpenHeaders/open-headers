@@ -1,0 +1,352 @@
+/*
+ * panel-traffic.css — network traffic surface.
+ *
+ * The split between the request list and the detail pane, the request
+ * table itself (header, rows, columns, sortable headers, resizable
+ * grips), per-state row styling (blocked / pending / redirect / cached),
+ * resource-type icon colors, and the waterfall bar column.
+ */
+
+/* ── Content split (traffic list + detail pane) ─────────── */
+.dt-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dt-traffic-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dt-traffic-pane--full {
+  flex: 1;
+}
+
+.dt-detail-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Table ──────────────────────────────────────────────── */
+.dt-table {
+  flex: 1;
+  overflow: auto;
+}
+
+.dt-table-header {
+  display: grid;
+  padding: 0 4px;
+  height: 22px;
+  align-items: center;
+  background: var(--dt-header-bg);
+  border-bottom: 1px solid var(--dt-border);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  user-select: none;
+}
+
+.dt-table-header span {
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-row {
+  display: grid;
+  padding: 0 4px;
+  height: 20px;
+  align-items: center;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.dt-row:nth-child(even) {
+  background: var(--dt-row-zebra);
+}
+
+.dt-row:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-row[data-selected='true'] {
+  background: var(--dt-row-selected);
+}
+
+.dt-row span {
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-col-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.dt-col-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-col-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.dt-fire-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dt-fire-dot--auth {
+  background: var(--dt-fire-auth);
+}
+
+.dt-fire-dot--inferred {
+  background: var(--dt-fire-inferred);
+}
+
+.dt-col-status--2xx {
+  color: var(--dt-status-green);
+}
+
+.dt-col-status--3xx {
+  color: var(--dt-status-orange);
+}
+
+.dt-col-status--4xx,
+.dt-col-status--5xx,
+.dt-col-status--error {
+  color: var(--dt-status-red);
+}
+
+/* Early hints (103) — informational, muted. */
+.dt-col-status--1xx {
+  color: var(--dt-text-muted);
+}
+
+/* Pending status text — muted + italic to distinguish from numeric
+ * statuses. */
+.dt-col-status--pending {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
+.dt-col-muted {
+  color: var(--dt-text-muted);
+}
+
+.dt-col-right {
+  text-align: right;
+}
+
+/* ── Resource type icons ─────────────────────────────────── */
+.dt-resource-icon {
+  flex-shrink: 0;
+  color: var(--dt-text-muted);
+}
+.dt-resource-icon--document,
+.dt-resource-icon--main_frame,
+.dt-resource-icon--sub_frame { color: #1a73e8; }
+.dt-resource-icon--script,
+.dt-resource-icon--js { color: #e8a317; }
+.dt-resource-icon--stylesheet,
+.dt-resource-icon--css { color: #7b1fa2; }
+.dt-resource-icon--image,
+.dt-resource-icon--img { color: #0d904f; }
+.dt-resource-icon--font { color: #c62828; }
+.dt-resource-icon--media { color: #00838f; }
+.dt-resource-icon--fetch,
+.dt-resource-icon--xmlhttprequest,
+.dt-resource-icon--xhr { color: #1a73e8; }
+.dt-resource-icon--websocket,
+.dt-resource-icon--ws { color: #6d4c41; }
+.dt-resource-icon--wasm { color: #654ff0; }
+.dt-resource-icon--preflight { color: #8e44ad; }
+
+/* ── Blocked request rows (red, like Chrome DevTools) ───── */
+.dt-row--blocked,
+.dt-row--failed {
+  color: var(--dt-status-red);
+}
+.dt-row--blocked .dt-col-muted,
+.dt-row--failed .dt-col-muted {
+  color: var(--dt-status-red);
+  opacity: 0.7;
+}
+.dt-row--blocked .dt-resource-icon,
+.dt-row--failed .dt-resource-icon {
+  color: var(--dt-status-red);
+}
+
+/* ── Pending rows (italic, muted) ──────────────────────────
+ * Chrome animates a spinner; we keep it static to avoid the CPU
+ * tax of a live-painting indicator per row. The italic + muted
+ * text is still an unmistakeable "this hasn't finished" signal. */
+.dt-row--pending {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
+/* ── Redirect rows (no special row styling today) ──────────
+ * Chrome renders 3xx with the same colour as 2xx; the status
+ * column's `dt-col-status--3xx` class already applies the olive
+ * tint so the row-level class currently just identifies the
+ * redirect for future "follow redirect chain" UX to latch onto. */
+.dt-row--redirect {
+}
+
+/* ── Cached rows (grey, like Chrome DevTools) ──────────────
+ * When the response was served from disk or memory cache, the
+ * network stack didn't hit the wire. Match Chrome's convention:
+ * mute the entire row so the user can scan the list and tell
+ * "this was a cache hit" at a glance. The Size column already
+ * shows `(disk cache)` / `(memory cache)` as a second signal. */
+.dt-row--cached {
+  color: var(--dt-text-muted);
+}
+.dt-row--cached .dt-col-muted {
+  opacity: 0.75;
+}
+.dt-row--cached .dt-resource-icon {
+  opacity: 0.6;
+}
+/* The size-column label uses italic-muted so it reads as metadata
+ * rather than a number — mirrors DevTools' `(disk cache)` styling. */
+.dt-col-cache {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
+/* Column template — overridden inline by TrafficList to match the
+ * active visible-columns set. The fallback below matches the default
+ * visible set (dot, #, then user columns) so static-rendered rows
+ * before first paint still align. */
+.dt-cols {
+  grid-template-columns: 14px 32px 100px 72px minmax(140px, 2fr) 56px 72px minmax(52px, 0.5fr) 72px 64px minmax(140px, 2fr);
+}
+
+/* Sortable column header button */
+.dt-col-sort {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0 4px;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dt-col-sort:hover {
+  background: var(--dt-row-hover);
+}
+
+/* Narrow variant for the leading `#` header — right-aligned to match
+ * the numeric cell body, sized flush with the 32px track. */
+.dt-col-sort--hash {
+  text-align: right;
+  padding: 0 4px;
+}
+
+/* Column header cell = sort button + resize grip. Positioned relative
+ * so the grip can overflow the cell's right edge slightly (gives a
+ * wider hit target without affecting the grid-column's pixel width). */
+.dt-col-header-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: visible;
+}
+
+.dt-col-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 7px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 3;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.dt-col-resizer:hover::after,
+.dt-resizing-col .dt-col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 3px;
+  width: 1px;
+  background: var(--dt-link);
+}
+
+/* While a column resize is in progress, freeze the cursor + prevent
+ * text selection across the whole panel so the drag feels solid. */
+body.dt-resizing-col {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+/* ── Waterfall column ────────────────────────────────────── */
+.dt-waterfall-track {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  background: var(--dt-bg-alt);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dt-waterfall-bar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  display: flex;
+  min-width: 2px;
+  background: var(--dt-text-muted);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dt-waterfall-segment {
+  height: 100%;
+  display: inline-block;
+}

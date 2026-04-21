@@ -14,10 +14,13 @@
  * shared component — this wrapper just plumbs domain inputs in.
  */
 
-import { type CollisionDetection, closestCenter } from '@dnd-kit/core';
 import type React from 'react';
 import { useCallback } from 'react';
-import { ShellLayout as SharedShellLayout, type SidebarLayoutVariant } from '@/shared/dock-layout';
+import {
+  makeEditorTabCollisionDetection,
+  ShellLayout as SharedShellLayout,
+  type SidebarLayoutVariant,
+} from '@/shared/dock-layout';
 import type { ResponsiveLayout } from '../hooks/useResponsiveLayout';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
 import { useSetting, useSettingValue } from '../settings/hooks';
@@ -41,43 +44,7 @@ export interface ShellLayoutProps {
   renderEditorTabDragPreview?: (tabId: string) => React.ReactNode;
 }
 
-// ── Custom collision detection ────────────────────────────────────────
-//
-// Editor-tab drags should only fire dnd-kit's sortable reorder animation
-// when the pointer is inside a leaf's `.rules-tabs-bar`. Returning no
-// collisions when the pointer is elsewhere prevents unwanted transform
-// animations. Tool-window drags use the library default (closestCenter).
-
-const editorTabCollisionDetection: CollisionDetection = (args) => {
-  const activeKind = (args.active.data.current as { kind?: unknown } | undefined)?.kind;
-  if (activeKind !== 'editor-tab') return closestCenter(args);
-  const ptr = args.pointerCoordinates;
-  if (!ptr) return [];
-
-  let hoveredTabBar: HTMLElement | null = null;
-  for (const container of args.droppableContainers) {
-    const data = container.data.current as { kind?: unknown } | undefined;
-    if (data?.kind !== 'editor-tab') continue;
-    const node = container.node.current;
-    if (!node) continue;
-    const tabBar = node.closest('.rules-tabs-bar');
-    if (!(tabBar instanceof HTMLElement)) continue;
-    const r = tabBar.getBoundingClientRect();
-    if (ptr.x >= r.left && ptr.x <= r.right && ptr.y >= r.top && ptr.y <= r.bottom) {
-      hoveredTabBar = tabBar;
-      break;
-    }
-  }
-  if (!hoveredTabBar) return [];
-
-  const scoped = args.droppableContainers.filter((container) => {
-    const data = container.data.current as { kind?: unknown } | undefined;
-    if (data?.kind !== 'editor-tab') return false;
-    const node = container.node.current;
-    return node != null && hoveredTabBar.contains(node);
-  });
-  return closestCenter({ ...args, droppableContainers: scoped });
-};
+const editorTabCollisionDetection = makeEditorTabCollisionDetection('.rules-tabs-bar');
 
 // ── Workspace shell ───────────────────────────────────────────────────
 

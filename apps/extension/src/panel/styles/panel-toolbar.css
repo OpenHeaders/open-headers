@@ -1,0 +1,477 @@
+/*
+ * panel-toolbar.css — toolbar row, filter bar, buttons, checkboxes,
+ * "More filters" popover, filter syntax docs, and the Export menu.
+ *
+ * Everything that lives in the two rows under the brand header — icons,
+ * inputs, filter pills, action buttons — plus the compact popovers they
+ * open.
+ */
+
+/* ── Toolbar (top row — icons + checkboxes) ─────────────── */
+.dt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+}
+
+/* Brand column + right spacer — widths mirror the shared activity-bar
+ * widths (`.rules-activity-bar` 96px, `.rules-activity-bar--compact`
+ * 36px in dock-layout.css) so the vertical borders between the header
+ * columns and the activity bars below align pixel-perfect. Any change
+ * to the activity-bar width in dock-layout.css must be mirrored here. */
+.dt-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 96px;
+  min-width: 96px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+  user-select: none;
+  border-right: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  transition: width 0.12s ease;
+  box-sizing: border-box;
+}
+
+.dt-brand--compact {
+  width: 36px;
+  min-width: 36px;
+  gap: 0;
+  padding: 4px;
+}
+
+.dt-brand-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.dt-brand--compact .dt-brand-logo {
+  width: 16px;
+  height: 16px;
+}
+
+.dt-brand-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--dt-text);
+  letter-spacing: 0;
+}
+
+.dt-brand-title-line {
+  display: block;
+}
+
+.dt-brand-spacer {
+  width: 96px;
+  min-width: 96px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  transition: width 0.12s ease;
+}
+
+.dt-brand-spacer--compact {
+  width: 36px;
+  min-width: 36px;
+}
+
+.dt-toolbar-separator {
+  width: 1px;
+  height: 16px;
+  background: var(--dt-border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.dt-toolbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dt-toolbar-icon:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+.dt-toolbar-icon[data-active='true'] {
+  color: var(--dt-link);
+}
+
+.dt-toolbar-icon--record {
+  color: #888;
+}
+
+.dt-toolbar-icon--record[data-active='true'] {
+  color: #e53935;
+}
+
+.dt-toolbar-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* ── "More filters" dropdown button + popover ────────────────────
+ * Mirrors Chrome's Network-panel convention — a compact text
+ * trigger with a caret, opening a vertical list of checkbox filters.
+ * The button dims when no filter is active and picks up the accent
+ * colour + an inline `N` badge when one or more are on. */
+.dt-toolbar-dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dt-toolbar-dropdown:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+.dt-toolbar-dropdown--active {
+  color: var(--dt-link);
+}
+
+.dt-toolbar-dropdown-caret {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.dt-toolbar-dropdown-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: var(--dt-link);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.dt-morefilters-popover .ant-popover-inner {
+  padding: 4px 0;
+}
+
+.dt-morefilters-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.dt-morefilters-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--dt-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dt-morefilters-item:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-morefilters-item--disabled {
+  color: var(--dt-text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.dt-morefilters-item input[type='checkbox'] {
+  margin: 0;
+}
+
+/* Group separator between `Hide *` and `Only *` filter groups —
+ * matches Chrome's visual pattern. */
+.dt-morefilters-divider {
+  height: 1px;
+  background: var(--dt-border);
+  margin: 4px 0;
+}
+
+/* ── Filter bar (second row — input + pills) ────────────── */
+.dt-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.dt-filter-input {
+  border: 1px solid var(--dt-input-border);
+  border-radius: 2px;
+  background: var(--dt-input-bg);
+  color: var(--dt-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 4px;
+  height: 20px;
+  width: 140px;
+  outline: none;
+}
+
+.dt-filter-input--grow {
+  flex: 1;
+  min-width: 80px;
+  width: auto;
+}
+
+.dt-filter-input:focus {
+  border-color: var(--dt-link);
+}
+
+.dt-filter-input--error {
+  border-color: var(--dt-status-red) !important;
+}
+
+/* ── Filter input with inline toggles ─────────────────── */
+.dt-filter-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+}
+
+.dt-filter-input-wrap .dt-filter-input {
+  width: 100%;
+  padding-right: 58px;
+}
+
+.dt-filter-input-toggles {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 1px;
+  align-items: center;
+}
+
+.dt-filter-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.dt-filter-toggle:hover {
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+}
+
+.dt-filter-toggle[data-active='true'] {
+  color: var(--dt-pill-active-text);
+  background: var(--dt-pill-active-bg);
+  border-color: var(--dt-pill-active-text);
+}
+
+.dt-filter-input::placeholder {
+  color: var(--dt-text-muted);
+}
+
+.dt-filter-separator {
+  width: 1px;
+  height: 14px;
+  background: var(--dt-border);
+  flex-shrink: 0;
+}
+
+.dt-filter-pills {
+  display: flex;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.dt-filter-pill {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 5px;
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.dt-filter-pill:hover {
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+}
+
+.dt-filter-pill[data-active='true'] {
+  color: var(--dt-pill-active-text);
+  background: var(--dt-pill-active-bg);
+  font-weight: 600;
+}
+
+.dt-filter-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dt-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-checkbox input {
+  margin: 0;
+}
+
+.dt-btn {
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 6px;
+  height: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-btn:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-btn-primary {
+  background: var(--dt-link);
+  color: #fff;
+  border-color: var(--dt-link);
+}
+
+.dt-btn-primary:hover {
+  opacity: 0.85;
+}
+
+.dt-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dt-btn-link {
+  border: none;
+  background: transparent;
+  color: var(--dt-link);
+  padding: 0;
+  height: auto;
+  cursor: pointer;
+  font: inherit;
+  font-size: inherit;
+}
+
+.dt-btn-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Filter docs panel ──────────────────────────────────── */
+.dt-filter-docs {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.dt-filter-docs-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0 2px 12px;
+  align-items: baseline;
+}
+
+.dt-filter-docs-row code {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  padding: 0 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dt-filter-docs-row span {
+  color: var(--dt-text-muted);
+}
+
+/* ── Export menu (toolbar) ───────────────────────────────── */
+.dt-export-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.dt-export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 2px;
+  min-width: 180px;
+  z-index: 1000;
+}
+
+.dt-checkbox--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

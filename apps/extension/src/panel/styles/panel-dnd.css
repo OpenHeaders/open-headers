@@ -1,0 +1,99 @@
+/*
+ * panel-dnd.css — dock slot wrapper, tool-window drop-zone overlay, and
+ * the floating drag preview pill rendered inside dnd-kit's DragOverlay
+ * while a tool-window tab is being dragged.
+ *
+ * Also hosts the dock-content header suppression rules — when a tool
+ * window (Search / detail pane) is rendered inside a dock slot, its own
+ * internal header is hidden because the dock slot supplies an equivalent
+ * chrome of its own.
+ */
+
+/* ══════════════════════════════════════════════════════════════
+   Dock Tab Strip — dockable tool-window system
+   ══════════════════════════════════════════════════════════════ */
+
+.dt-dock-slot {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--dt-bg);
+}
+
+.dt-dock-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dock tab strip styles removed — strips now render as activity-bar
+   icons inside the sidebar, not as horizontal headers on content panels. */
+
+/* Hide internal headers when tool window is inside a dock */
+.dt-dock-content > .dt-search-panel > .dt-search-panel-header {
+  display: none;
+}
+
+.dt-dock-content > .dt-detail-pane > .dt-tabs {
+  display: none;
+}
+
+/* ── Drop zone overlay (shown during dock tab drags) ──────── */
+.dt-drop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.dt-drop-zone {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed color-mix(in srgb, var(--dt-link) 50%, transparent);
+  background: color-mix(in srgb, var(--dt-link) 5%, transparent);
+  transition: background 0.12s, border 0.12s;
+}
+
+.dt-drop-zone--active {
+  background: color-mix(in srgb, var(--dt-link) 20%, transparent);
+  border: 2px solid var(--dt-link);
+}
+
+.dt-drop-zone-label {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--dt-bg);
+  color: var(--dt-link);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Drag preview (DragOverlay pill) ─────────────────────── */
+.dt-drag-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--dt-link);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.dt-drag-preview svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+  stroke: currentColor;
+}
