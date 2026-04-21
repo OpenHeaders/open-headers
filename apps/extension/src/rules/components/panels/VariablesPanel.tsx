@@ -339,7 +339,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
       >
         <Text strong style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <CodeOutlined />
-          Variables
+          Scope
         </Text>
         <CloseOutlined
           style={{ color: token.colorTextTertiary, cursor: 'pointer', fontSize: 12 }}
@@ -349,7 +349,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') onClose();
           }}
-          aria-label="Close Variables panel"
+          aria-label="Close Scope panel"
         />
       </div>
 

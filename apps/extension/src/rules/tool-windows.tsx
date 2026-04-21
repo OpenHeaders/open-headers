@@ -33,17 +33,16 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  *
  * `var-scope` is the right-pane inspector that shows variables
  * referenced in the active rule + all scopes resolved against current
- * env/workspace/vault state. Historically IDed as `variables`;
- * renamed here because the left-pane management surface claimed the
- * `variables` id (both still surface a "Variables" label — position
- * disambiguates).
+ * env/workspace/vault state. Surfaced as "Scope" to disambiguate from
+ * the left-pane "Variables" management surface — left is the library
+ * (what exists); right is what's in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'http-rules', label: 'HTTP Rules', icon: <FileTextOutlined />, core: true, defaultSlot: 'left-top' },
   { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'var-scope', label: 'Variables', icon: <ScanOutlined />, core: false, defaultSlot: 'right-bottom' },
+  { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-bottom' },
   { id: 'page-traffic', label: 'Page Traffic', icon: <FundViewOutlined />, core: false, defaultSlot: 'bottom-right' },
   { id: 'test-runs', label: 'Test Runs', icon: <ExperimentOutlined />, core: false, defaultSlot: 'bottom-left' },
 ];
