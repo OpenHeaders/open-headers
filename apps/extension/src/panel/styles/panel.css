@@ -8,6 +8,14 @@
  * theme-init.js script for first-paint correctness.
  */
 
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../assets/fonts/PressStart2P-Regular.woff2') format('woff2');
+}
+
 /* ── Light palette (default) ────────────────────────────── */
 :root,
 [data-theme='light'] {
@@ -115,6 +123,15 @@ body {
   flex-shrink: 0;
   border-bottom: 1px solid var(--dt-border);
   background: var(--dt-bg);
+  display: flex;
+  align-items: stretch;
+}
+
+.dt-header-rows {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .dt-panel {
@@ -319,6 +336,74 @@ body {
   min-height: 26px;
   border-bottom: 1px solid var(--dt-border);
   background: var(--dt-bg);
+}
+
+/* Brand column + right spacer — widths mirror the shared activity-bar
+ * widths (`.rules-activity-bar` 96px, `.rules-activity-bar--compact`
+ * 36px in dock-layout.css) so the vertical borders between the header
+ * columns and the activity bars below align pixel-perfect. Any change
+ * to the activity-bar width in dock-layout.css must be mirrored here. */
+.dt-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 96px;
+  min-width: 96px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+  user-select: none;
+  border-right: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  transition: width 0.12s ease;
+  box-sizing: border-box;
+}
+
+.dt-brand--compact {
+  width: 36px;
+  min-width: 36px;
+  gap: 0;
+  padding: 4px;
+}
+
+.dt-brand-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.dt-brand--compact .dt-brand-logo {
+  width: 16px;
+  height: 16px;
+}
+
+.dt-brand-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--dt-text);
+  letter-spacing: 0;
+}
+
+.dt-brand-title-line {
+  display: block;
+}
+
+.dt-brand-spacer {
+  width: 96px;
+  min-width: 96px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  transition: width 0.12s ease;
+}
+
+.dt-brand-spacer--compact {
+  width: 36px;
+  min-width: 36px;
 }
 
 .dt-toolbar-separator {

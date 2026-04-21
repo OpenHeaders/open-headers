@@ -138,12 +138,12 @@ function PanelContent() {
   }, [clearStore, groups]);
 
   // ── Layout settings (persisted via settings store) ────────────
-  // The panel defaults to compact activity bars (no labels) since the
-  // devtools panel is narrower than the workspace. The user can toggle
-  // labels on via the layout menu or activity-bar right-click.
-  const [activityLabels, setActivityLabels] = useSetting('workspaceLayout.showToolWindowLabels');
-  const [bottomFullWidth] = useSetting('workspaceLayout.bottomPanelFullWidth');
-  const [sidebarLayout] = useSetting('workspaceLayout.sidebarLayout');
+  // The panel has its own namespace (`devpanelLayout.*`) so the user
+  // can keep the workspace's wider defaults while the narrower DevTools
+  // surface stays compact. Labels default to off here for that reason.
+  const [activityLabels, setActivityLabels] = useSetting('devpanelLayout.showToolWindowLabels');
+  const [bottomFullWidth] = useSetting('devpanelLayout.bottomPanelFullWidth');
+  const [sidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
   const toggleLabels = useCallback(() => setActivityLabels(!activityLabels), [activityLabels, setActivityLabels]);
 
   // ── Panel-level state ──────────────────────────────────────
@@ -473,6 +473,7 @@ function PanelContent() {
         canExport={entries.length > 0}
         cacheBypassEnabled={cacheBypass.enabled}
         onToggleCacheBypass={cacheBypass.toggle}
+        showToolWindowLabels={activityLabels}
       />
 
       <ShellLayout<PanelToolWindowId>

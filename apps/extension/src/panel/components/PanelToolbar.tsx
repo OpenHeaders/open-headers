@@ -1,6 +1,7 @@
 import { Popover } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { getBrowserAPI } from '@/types/browser';
 import type { FilterConfig } from '../data/filter-engine';
 import { FilterInput } from './FilterInput';
 import { ResourceFilter } from './ResourceFilter';
@@ -249,6 +250,10 @@ export interface PanelToolbarProps {
    *  See `use-cache-bypass.ts` for lifecycle. */
   cacheBypassEnabled: boolean;
   onToggleCacheBypass: () => void;
+  /** Whether the activity bar renders labels. When false, the brand
+   *  column collapses to icon-only so its right border aligns with
+   *  the compact activity bar below it. */
+  showToolWindowLabels: boolean;
 }
 
 export const PanelToolbar: React.FC<PanelToolbarProps> = ({
@@ -276,95 +281,108 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   canExport,
   cacheBypassEnabled,
   onToggleCacheBypass,
+  showToolWindowLabels,
 }) => (
   <div className="dt-header">
-    <div className="dt-toolbar">
-      <button
-        type="button"
-        className="dt-toolbar-icon dt-toolbar-icon--record"
-        data-active={recording}
-        onClick={onToggleRecording}
-        title={recording ? 'Stop recording' : 'Record network log'}
-      >
-        <IconRecord active={recording} />
-      </button>
-      <button type="button" className="dt-toolbar-icon" onClick={onClear} title="Clear network log">
-        <IconClear />
-      </button>
-      <div className="dt-toolbar-separator" />
-      <button
-        type="button"
-        className="dt-toolbar-icon"
-        data-active={showFilter}
-        onClick={onToggleFilter}
-        title="Filter"
-      >
-        <IconFilter />
-      </button>
-      <button
-        type="button"
-        className="dt-toolbar-icon"
-        data-active={searchActive}
-        onClick={onToggleSearch}
-        title="Search"
-      >
-        <IconSearch />
-      </button>
-      <div className="dt-toolbar-separator" />
-      <label className="dt-checkbox">
-        <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
-        Preserve log
-      </label>
-      <MoreFiltersMenu
-        filterConfig={filterConfig}
-        onFilterConfigChange={onFilterConfigChange}
-        cacheBypassEnabled={cacheBypassEnabled}
-        onToggleCacheBypass={onToggleCacheBypass}
-      />
-      <div className="dt-toolbar-separator" />
-      <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />
-      {rulesVisible && (
-        <>
-          <div className="dt-toolbar-separator" />
-          <RuleExecutionsHint />
-        </>
+    <div className={`dt-brand${showToolWindowLabels ? '' : ' dt-brand--compact'}`}>
+      <img src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')} alt="Open Headers" className="dt-brand-logo" />
+      {showToolWindowLabels && (
+        <span className="dt-brand-title">
+          <span className="dt-brand-title-line">Open</span>
+          <span className="dt-brand-title-line">Headers</span>
+        </span>
       )}
     </div>
-    {showFilter && (
-      <div className="dt-filter-bar">
-        <FilterInput
-          value={urlFilter}
-          onChange={onUrlFilterChange}
-          config={filterConfig}
-          onConfigChange={onFilterConfigChange}
-          hasError={filterError}
-          placeholder="Filter"
-        />
+    <div className="dt-header-rows">
+      <div className="dt-toolbar">
+        <button
+          type="button"
+          className="dt-toolbar-icon dt-toolbar-icon--record"
+          data-active={recording}
+          onClick={onToggleRecording}
+          title={recording ? 'Stop recording' : 'Record network log'}
+        >
+          <IconRecord active={recording} />
+        </button>
+        <button type="button" className="dt-toolbar-icon" onClick={onClear} title="Clear network log">
+          <IconClear />
+        </button>
+        <div className="dt-toolbar-separator" />
         <button
           type="button"
           className="dt-toolbar-icon"
-          data-state={docsState}
-          onClick={onToggleDocs}
-          title="Filter syntax help"
+          data-active={showFilter}
+          onClick={onToggleFilter}
+          title="Filter"
         >
-          <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-            <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            <text
-              x="8"
-              y="12"
-              textAnchor="middle"
-              fill="currentColor"
-              fontSize="10"
-              fontFamily="serif"
-              fontStyle="italic"
-            >
-              i
-            </text>
-          </svg>
+          <IconFilter />
         </button>
-        <div className="dt-filter-separator" />
-        <ResourceFilter value={filter} onChange={onFilterChange} />
+        <button
+          type="button"
+          className="dt-toolbar-icon"
+          data-active={searchActive}
+          onClick={onToggleSearch}
+          title="Search"
+        >
+          <IconSearch />
+        </button>
+        <div className="dt-toolbar-separator" />
+        <label className="dt-checkbox">
+          <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
+          Preserve log
+        </label>
+        <MoreFiltersMenu
+          filterConfig={filterConfig}
+          onFilterConfigChange={onFilterConfigChange}
+          cacheBypassEnabled={cacheBypassEnabled}
+          onToggleCacheBypass={onToggleCacheBypass}
+        />
+        <div className="dt-toolbar-separator" />
+        <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />
+        {rulesVisible && (
+          <>
+            <div className="dt-toolbar-separator" />
+            <RuleExecutionsHint />
+          </>
+        )}
       </div>
-    )}
+      {showFilter && (
+        <div className="dt-filter-bar">
+          <FilterInput
+            value={urlFilter}
+            onChange={onUrlFilterChange}
+            config={filterConfig}
+            onConfigChange={onFilterConfigChange}
+            hasError={filterError}
+            placeholder="Filter"
+          />
+          <button
+            type="button"
+            className="dt-toolbar-icon"
+            data-state={docsState}
+            onClick={onToggleDocs}
+            title="Filter syntax help"
+          >
+            <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+              <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <text
+                x="8"
+                y="12"
+                textAnchor="middle"
+                fill="currentColor"
+                fontSize="10"
+                fontFamily="serif"
+                fontStyle="italic"
+              >
+                i
+              </text>
+            </svg>
+          </button>
+          <div className="dt-filter-separator" />
+          <ResourceFilter value={filter} onChange={onFilterChange} />
+        </div>
+      )}
+    </div>
+    <div className={`dt-brand-spacer${showToolWindowLabels ? '' : ' dt-brand-spacer--compact'}`} aria-hidden="true" />
   </div>
 );

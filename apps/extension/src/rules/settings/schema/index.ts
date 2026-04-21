@@ -13,6 +13,7 @@ import '../categories';
 import './general';
 import './appearance';
 import './workspace-layout';
+import './devpanel-layout';
 import './editor';
 import './rules-engine';
 import './recording';

@@ -8,6 +8,7 @@
  */
 
 import {
+  ApiOutlined,
   BgColorsOutlined,
   DatabaseOutlined,
   DesktopOutlined,
@@ -43,6 +44,14 @@ registerCategory({
   icon: <LayoutOutlined />,
   order: 15,
   description: 'Footer affordances and tool-window shell behavior.',
+});
+
+registerCategory({
+  id: 'devpanelLayout',
+  label: 'DevTools Panel Layout',
+  icon: <ApiOutlined />,
+  order: 16,
+  description: 'Tool-window shell behavior for the browser DevTools panel.',
 });
 
 registerCategory({

@@ -3,7 +3,7 @@ import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
-import { useSetting } from '@/rules/settings/hooks';
+import { useSetting, useSettingValue } from '@/rules/settings/hooks';
 import type { DockLayoutApi } from '@/shared/dock-layout';
 import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
@@ -13,7 +13,7 @@ type ThemeMode = 'light' | 'dark' | 'auto';
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
   light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light', color: '#faad14' },
   dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark', color: '#722ed1' },
-  auto: { icon: <span style={{ fontSize: 12 }}>{'\u25D0'}</span>, text: 'Auto', color: '#1890ff' },
+  auto: { icon: <span style={{ fontSize: 12 }}>{'◐'}</span>, text: 'Auto', color: '#1890ff' },
 };
 
 interface PanelStatusBarProps {
@@ -46,9 +46,12 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
 
-  const [bottomFullWidth, setBottomFullWidth] = useSetting('workspaceLayout.bottomPanelFullWidth');
-  const [showLabels, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
-  const [sidebarLayout, setSidebarLayout] = useSetting('workspaceLayout.sidebarLayout');
+  const showThemeSwitcher = useSettingValue('devpanelLayout.footerShowThemeSwitcher');
+  const showPanelToggles = useSettingValue('devpanelLayout.footerShowPanelToggles');
+  const showLayoutMenu = useSettingValue('devpanelLayout.footerShowLayoutMenu');
+  const [bottomFullWidth, setBottomFullWidth] = useSetting('devpanelLayout.bottomPanelFullWidth');
+  const [showLabels, setShowLabels] = useSetting('devpanelLayout.showToolWindowLabels');
+  const [sidebarLayout, setSidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
   const toggleLabels = useCallback(() => setShowLabels(!showLabels), [showLabels, setShowLabels]);
 
   const menuIconWrap = (node: React.ReactNode) => (
@@ -59,7 +62,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
 
   const menuLabel = (checked: boolean, text: React.ReactNode) => (
     <Space size={6}>
-      <span style={{ width: 12, display: 'inline-block' }}>{checked ? '\u2713' : ''}</span>
+      <span style={{ width: 12, display: 'inline-block' }}>{checked ? '✓' : ''}</span>
       {text}
     </Space>
   );
@@ -114,7 +117,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
                   <Space size={6}>
                     <span>{def.label}</span>
                     <span style={{ color: token.colorTextTertiary, fontSize: 10 }}>
-                      {'\u2192'} {DOCK_LABELS[def.defaultSlot]}
+                      {'→'} {DOCK_LABELS[def.defaultSlot]}
                     </span>
                   </Space>
                 ),
@@ -160,75 +163,89 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
-        <Dropdown
-          menu={{
-            items: (['light', 'dark', 'auto'] as ThemeMode[]).map((mode) => ({
-              key: mode,
-              label: (
-                <Space size={4}>
-                  {THEME_DISPLAY[mode].icon}
-                  <span>{THEME_DISPLAY[mode].text}</span>
-                  {themeMode === mode && <span style={{ marginLeft: 4 }}>{'\u2713'}</span>}
-                </Space>
-              ),
-              onClick: () => setThemeMode(mode),
-            })) as MenuProps['items'],
-          }}
-          placement="topRight"
-          trigger={['click']}
-        >
-          <div
-            className="rules-statusbar-item"
-            role="button"
-            tabIndex={0}
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              color: THEME_DISPLAY[themeMode as ThemeMode]?.color,
-            }}
-          >
-            {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
-            <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
-          </div>
-        </Dropdown>
-        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
-        <div className="rules-panel-toggles">
-          <RegionToggle
-            title="Left sidebar"
-            ariaTitle="Left sidebar"
-            active={tl.isRegionOpen('left')}
-            position="left"
-            onClick={() => tl.toggleRegion('left')}
-          />
-          <RegionToggle
-            title="Bottom panel"
-            ariaTitle="Bottom panel"
-            active={tl.isRegionOpen('bottom')}
-            position="bottom"
-            onClick={() => tl.toggleRegion('bottom')}
-          />
-          <RegionToggle
-            title="Right sidebar"
-            ariaTitle="Right sidebar"
-            active={tl.isRegionOpen('right')}
-            position="right"
-            onClick={() => tl.toggleRegion('right')}
-          />
-        </div>
-        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
-        <Dropdown menu={{ items: layoutMenu }} placement="topRight" trigger={['click']}>
-          <div
-            className="rules-statusbar-item rules-layout-toggle"
-            role="button"
-            tabIndex={0}
-            aria-label="Layout options"
-            style={{ cursor: 'pointer', padding: '0 4px' }}
-          >
-            <LayoutOutlined style={{ fontSize: 13 }} />
-          </div>
-        </Dropdown>
+        {showThemeSwitcher && (
+          <>
+            <Dropdown
+              menu={{
+                items: (['light', 'dark', 'auto'] as ThemeMode[]).map((mode) => ({
+                  key: mode,
+                  label: (
+                    <Space size={4}>
+                      {THEME_DISPLAY[mode].icon}
+                      <span>{THEME_DISPLAY[mode].text}</span>
+                      {themeMode === mode && <span style={{ marginLeft: 4 }}>{'✓'}</span>}
+                    </Space>
+                  ),
+                  onClick: () => setThemeMode(mode),
+                })) as MenuProps['items'],
+              }}
+              placement="topRight"
+              trigger={['click']}
+            >
+              <div
+                className="rules-statusbar-item"
+                role="button"
+                tabIndex={0}
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  color: THEME_DISPLAY[themeMode as ThemeMode]?.color,
+                }}
+              >
+                {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
+                <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
+              </div>
+            </Dropdown>
+            {(showPanelToggles || showLayoutMenu) && (
+              <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            )}
+          </>
+        )}
+        {showPanelToggles && (
+          <>
+            <div className="rules-panel-toggles">
+              <RegionToggle
+                title="Left sidebar"
+                ariaTitle="Left sidebar"
+                active={tl.isRegionOpen('left')}
+                position="left"
+                onClick={() => tl.toggleRegion('left')}
+              />
+              <RegionToggle
+                title="Bottom panel"
+                ariaTitle="Bottom panel"
+                active={tl.isRegionOpen('bottom')}
+                position="bottom"
+                onClick={() => tl.toggleRegion('bottom')}
+              />
+              <RegionToggle
+                title="Right sidebar"
+                ariaTitle="Right sidebar"
+                active={tl.isRegionOpen('right')}
+                position="right"
+                onClick={() => tl.toggleRegion('right')}
+              />
+            </div>
+            {showLayoutMenu && (
+              <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            )}
+          </>
+        )}
+        {showLayoutMenu && (
+          <Dropdown menu={{ items: layoutMenu }} placement="topRight" trigger={['click']}>
+            <div
+              className="rules-statusbar-item rules-layout-toggle"
+              role="button"
+              tabIndex={0}
+              aria-label="Layout options"
+              style={{ cursor: 'pointer', padding: '0 4px' }}
+            >
+              <LayoutOutlined style={{ fontSize: 13 }} />
+            </div>
+          </Dropdown>
+        )}
       </div>
     </div>
   );
