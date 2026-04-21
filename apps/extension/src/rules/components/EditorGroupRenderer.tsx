@@ -205,6 +205,11 @@ export interface EditorGroupRendererProps {
   templates: V5.Template[];
   requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
+  /** Rules/Requests whose `{{...}}` references don't resolve against
+   *  the current scope — forwarded to TabBar so the method tag greys
+   *  out, matching the sidebar/draft treatment. */
+  unresolvableRuleUids?: ReadonlySet<string>;
+  unresolvableRequestUids?: ReadonlySet<string>;
   renderTabBody: (ctx: RenderLeafContext) => React.ReactNode;
   renderLeafHeader: (ctx: RenderLeafHeaderContext) => React.ReactNode;
   renderEmpty: () => React.ReactNode;
@@ -231,6 +236,8 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   templates,
   requests,
   pausedUids,
+  unresolvableRuleUids,
+  unresolvableRequestUids,
   renderTabBody,
   renderLeafHeader,
   renderEmpty,
@@ -436,6 +443,8 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           templates={templates}
           requests={requests}
           pausedUids={pausedUids}
+          unresolvableRuleUids={unresolvableRuleUids}
+          unresolvableRequestUids={unresolvableRequestUids}
           onSwitch={groups.switchTab}
           onClose={onCloseTab}
           onTabDoubleClick={onTabDoubleClick}

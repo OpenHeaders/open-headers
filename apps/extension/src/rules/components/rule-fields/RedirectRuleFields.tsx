@@ -3,10 +3,11 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Form, Input, Radio, Tooltip, Typography } from 'antd';
+import { Form, Radio, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
+import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -47,7 +48,7 @@ const RedirectRuleFields: React.FC = () => {
       </div>
 
       <Form.Item name="redirectTo" style={{ marginBottom: 0 }}>
-        <Input placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
+        <TemplateInput placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
       </Form.Item>
     </div>
   );

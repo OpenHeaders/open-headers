@@ -17,7 +17,8 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -40,17 +41,29 @@ function fromVars(vars: V5.Variable[]): V5.Vault {
     secrets: vars.filter((v) => v.name.trim()).map((v) => ({ name: v.name, value: v.value })),
   };
 }
-function fingerprint(vault: V5.Vault): string {
-  return JSON.stringify(vault.secrets.map((s) => [s.name, s.value]));
+// Module-level — `useDirtyDraft` requires a stable fingerprint reference.
+// Signature is `(V5.Variable[]) => string` so the hook can fingerprint
+// the draft directly without needing the `fromVars` transform.
+function fingerprintVars(vars: V5.Variable[]): string {
+  return JSON.stringify(vars.filter((v) => v.name.trim()).map((v) => [v.name, v.value]));
 }
+const EMPTY_VARS: V5.Variable[] = [];
 
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { vault, setVault } = useEnvironments();
 
-  const [draft, setDraft] = useState<V5.Variable[]>(() => toVars(vault));
-  const persistedFpRef = useRef<string>(fingerprint(vault));
+  // Server-side Vault is transformed to draft shape before the hook
+  // sees it. Fingerprint is also in draft shape for symmetry — blank
+  // rows are filtered by `fingerprintVars` so an unsubmitted blank
+  // doesn't falsely mark the draft dirty.
+  const serverDraft = useMemo(() => toVars(vault), [vault]);
+  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.Variable[]>({
+    serverDraft,
+    fingerprint: fingerprintVars,
+    empty: EMPTY_VARS,
+  });
 
   // Phase 10 — snapshot loaded version once; only our own successful
   // saves advance it. See `RuleEditor` for the full contract.
@@ -63,16 +76,6 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   }, [vault.version, loadedVersion]);
 
   useEffect(() => {
-    const fp = fingerprint(vault);
-    if (fp !== persistedFpRef.current) {
-      persistedFpRef.current = fp;
-      setDraft(toVars(vault));
-    }
-  }, [vault]);
-
-  const isDirty = useMemo(() => fingerprint(fromVars(draft)) !== persistedFpRef.current, [draft]);
-
-  useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
@@ -81,7 +84,9 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     const next = fromVars(draft);
     const result = await setVault(next, loadedVersion ?? undefined);
     if (result.ok) {
-      persistedFpRef.current = fingerprint(next);
+      // Persisted shape drops blank-name rows — pass the filtered
+      // draft so the hook's "clean baseline" matches what's on disk.
+      markPersisted(toVars(next));
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
@@ -90,17 +95,16 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     } else {
       message.error(`Failed to save vault${'message' in result ? `: ${result.message}` : ''}`);
     }
-  }, [isDirty, draft, setVault, onDirtyChange, loadedVersion, message]);
+  }, [isDirty, draft, setVault, onDirtyChange, loadedVersion, message, markPersisted]);
 
   const handleStaleDraftReload = useCallback(() => {
     // Discard this tab's edits; re-hydrate from the broadcast-fresh
     // vault + snap loadedVersion forward.
-    persistedFpRef.current = fingerprint(vault);
-    setDraft(toVars(vault));
+    resetToServer();
     setLoadedVersion(vault.version);
     setStaleDraft(null);
     onDirtyChange?.(false);
-  }, [vault, onDirtyChange]);
+  }, [vault.version, onDirtyChange, resetToServer]);
 
   const handleStaleDraftKeepEditing = useCallback(() => {
     setLoadedVersion(vault.version);

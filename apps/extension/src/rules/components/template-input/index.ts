@@ -1,0 +1,16 @@
+export {
+  COMPLETION_LANGUAGES,
+  type RegisterOptions as MonacoCompletionOptions,
+  registerVariableCompletionProvider,
+} from './monaco-completion';
+export { addRecent, listRecents, pruneRecents, RECENTS_CAP, type VariableRecents } from './recents';
+export {
+  type AutoSuggestionContextValue,
+  SuggestionContextProvider,
+  type SuggestionContextProviderProps,
+  useAutoSuggestionContext,
+} from './SuggestionContextProvider';
+export { default as SuggestionRow } from './SuggestionRow';
+export type { TemplateInputProps } from './TemplateInput';
+export { default as TemplateInput } from './TemplateInput';
+export { useMonacoVariableCompletions } from './useMonacoVariableCompletions';

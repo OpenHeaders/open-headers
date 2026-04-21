@@ -15,7 +15,9 @@ import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
+import { useVariableResolver } from '@hooks/useVariableResolver';
 import { useWorkspaces } from '@hooks/useWorkspaces';
+import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -153,6 +155,45 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
   const liveWorkflowsApi = useLiveWorkflows();
   const { modal, message } = AntApp.useApp();
 
+  // Unresolvable-reference sets — used to grey the method tag on
+  // tab strip + drag preview. Derived once at the shell level so we
+  // don't re-walk rules/requests per pill render. Matches the DNR
+  // compile gate's discipline — rules/requests with unresolved refs
+  // can't run, so the UI treats them like draft/paused.
+  const variableResolver = useVariableResolver();
+  const unresolvableRuleUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const rule of rules) {
+      const collectionId = localCollections.find((c) => rule.path.startsWith(`${c.path}/`))?.uid;
+      const context = collectionId ? { collectionId } : undefined;
+      if (
+        !isRuleResolvable(
+          rule,
+          (name) => variableResolver.resolve(name, context),
+          (name, ns) => variableResolver.resolveScopedWithDiagnostics(name, ns, context),
+        )
+      )
+        out.add(rule.uid);
+    }
+    return out;
+  }, [rules, localCollections, variableResolver]);
+  const unresolvableRequestUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const request of requestsApi.requests) {
+      const owner = requestsApi.collections.find((c) => request.path.startsWith(`${c.path}/`));
+      const context = owner ? { collectionId: owner.uid } : undefined;
+      if (
+        !isRequestResolvable(
+          request,
+          (name) => variableResolver.resolve(name, context),
+          (name, ns) => variableResolver.resolveScopedWithDiagnostics(name, ns, context),
+        )
+      )
+        out.add(request.uid);
+    }
+    return out;
+  }, [requestsApi.requests, requestsApi.collections, variableResolver]);
+
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups();
   const {
@@ -176,6 +217,27 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     [groups],
   );
   const getFocusedLeafTabs = useCallback(() => groups.focusedLeaf.tabs, [groups.focusedLeaf]);
+
+  // Project tab-level dirty state down to per-entity sets so the
+  // sidebar can mirror the tab-bar dirty dot. The tab is the source
+  // of truth (`tab.dirty` is maintained by the editor via
+  // `onDirtyChange`); deriving sets here keeps the Sidebar from
+  // having to know tab shape. Create-mode tabs are skipped — they
+  // don't map to an existing sidebar row yet.
+  const dirtyRuleUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const tab of allTabs) {
+      if (tab.mode === 'edit' && tab.dirty && tab.ruleUid) out.add(tab.ruleUid);
+    }
+    return out;
+  }, [allTabs]);
+  const dirtyRequestUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const tab of allTabs) {
+      if (tab.mode === 'request-edit' && tab.dirty && tab.requestUid) out.add(tab.requestUid);
+    }
+    return out;
+  }, [allTabs]);
 
   // ── Tab lifecycle (dirty confirmation, leaf-scoped batch ops) ──
   const {
@@ -984,6 +1046,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
               }}
               onImportPostman={() => setImportPostmanOpen(true)}
               filterRef={sidebarFilterRef}
+              dirtyRuleUids={dirtyRuleUids}
+              dirtyRequestUids={dirtyRequestUids}
             />
           );
         case 'docs':
@@ -1029,6 +1093,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       openLiveVariableEdit,
       openLiveWorkflowEdit,
       openCreateLiveVariable,
+      dirtyRuleUids,
+      dirtyRequestUids,
     ],
   );
 
@@ -1069,6 +1135,8 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
             templates={templates}
             requests={requestsApi.requests}
             pausedUids={pausedUids}
+            unresolvableRuleUids={unresolvableRuleUids}
+            unresolvableRequestUids={unresolvableRequestUids}
             renderTabBody={renderTabBody}
             renderLeafHeader={renderLeafHeader}
             renderEmpty={renderEmpty}
@@ -1094,7 +1162,15 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
           return (
             <div className="rules-drag-preview">
               <span className="rules-drag-preview-icon">
-                {tabIcon(tab, rules, templates, pausedUids, requestsApi.requests)}
+                {tabIcon(
+                  tab,
+                  rules,
+                  templates,
+                  pausedUids,
+                  requestsApi.requests,
+                  unresolvableRequestUids,
+                  unresolvableRuleUids,
+                )}
               </span>
               <span className="rules-drag-preview-label">{renderTabLabel(tab)}</span>
             </div>

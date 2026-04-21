@@ -47,8 +47,15 @@ import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
+import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
-import { hasNestedPauseMarkers, isRequestComplete, isRuleComplete } from '@openheaders/core/utils';
+import {
+  hasNestedPauseMarkers,
+  isRequestComplete,
+  isRequestResolvable,
+  isRuleComplete,
+  isRuleResolvable,
+} from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
@@ -89,15 +96,17 @@ function methodTag(method: string, muted = false): React.ReactNode {
   return createElement(
     'span',
     {
+      key: 'method',
       style: {
         display: 'inline-block',
-        minWidth: 36,
+        minWidth: 44,
         fontSize: 9,
         fontWeight: 700,
         color,
         fontFamily: "'SF Mono', monospace",
-        textAlign: 'left',
+        textAlign: 'right',
         opacity: muted ? 0.7 : 1,
+        flexShrink: 0,
       },
     },
     method,
@@ -267,6 +276,37 @@ function SectionHeader({
   );
 }
 
+// ── Badge composition ──────────────────────────────────────────────
+
+/** Small orange dot — visual twin of the tab-bar dirty indicator.
+ *  `flexShrink: 0` guards against truncation when the sidebar is
+ *  narrow; `aria-label` surfaces the semantic to screen readers. */
+function dirtyDot(): React.ReactNode {
+  return createElement('span', {
+    key: 'dirty-dot',
+    style: { width: 6, height: 6, borderRadius: '50%', background: '#ff7875', flexShrink: 0 },
+    'aria-label': 'unsaved changes',
+  });
+}
+
+/** Build a sidebar row badge that combines an optional text label
+ *  (paused / draft / unresolved / off) with an optional dirty dot.
+ *  One wrapper owns the right-alignment so the two children stay
+ *  side-by-side when both are present. */
+function composeBadge(text: { label: string; color: string } | null, isDirty: boolean): React.ReactNode {
+  if (!text && !isDirty) return undefined;
+  const children: React.ReactNode[] = [];
+  if (text) {
+    children.push(createElement('span', { key: 'text', style: { fontSize: 9, color: text.color } }, text.label));
+  }
+  if (isDirty) children.push(dirtyDot());
+  return createElement(
+    'span',
+    { style: { marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' } },
+    ...children,
+  );
+}
+
 // ── Props ──────────────────────────────────────────────────────────
 
 /**
@@ -325,6 +365,12 @@ interface SidebarProps {
   onImportPostman?: () => void;
   /** Ref to the filter input for keyboard shortcut focus. */
   filterRef?: React.Ref<InputRef>;
+  /** Rule uids with an open edit tab in a dirty (unsaved) state.
+   *  Renders a small orange dot on the matching sidebar row so users
+   *  can see unsaved work from the sidebar AND the tab bar. */
+  dirtyRuleUids?: ReadonlySet<string>;
+  /** Request uids with an open edit tab in a dirty state. */
+  dirtyRequestUids?: ReadonlySet<string>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -350,10 +396,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   onImportHar,
   onImportPostman,
   filterRef,
+  dirtyRuleUids,
+  dirtyRequestUids,
 }) => {
   const { token } = theme.useToken();
   const {
     rules,
+    localCollections,
     localCollectionTrees,
     pauseMarkers,
     pausedUids,
@@ -377,6 +426,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     renameTemplateFolder,
     deleteTemplateFolder,
   } = useRules();
+  // Derive resolvability per rule — same discipline the DNR compile
+  // uses (rules with unresolved refs never ship to Chrome). Sidebar
+  // surfaces an `unresolved` badge distinct from `draft` (structural)
+  // so the user knows the fix is "define the variable", not "edit
+  // this rule". Cheap even at hundreds of rules: regex scan + map
+  // lookup per templatable string.
+  const resolver = useVariableResolver();
+  const unresolvableRuleUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const rule of rules) {
+      const collectionId = localCollections.find((c) => rule.path.startsWith(`${c.path}/`))?.uid;
+      const context = collectionId ? { collectionId } : undefined;
+      const resolvable = isRuleResolvable(
+        rule,
+        (name) => resolver.resolve(name, context),
+        (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
+      );
+      if (!resolvable) out.add(rule.uid);
+    }
+    return out;
+  }, [rules, localCollections, resolver]);
   const {
     environments,
     activeEnvironmentId,
@@ -397,6 +467,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
   const {
     requests: allRequests,
+    collections: requestCollections,
     collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
     deleteRequest,
@@ -659,31 +730,34 @@ const Sidebar: React.FC<SidebarProps> = ({
           const fullRule = rules.find((r) => r.uid === node.uid);
           const complete = fullRule ? isRuleComplete(fullRule) : true;
           const rulePaused = pausedUids.has(node.uid);
-          const isActive = node.enabled && complete && !rulePaused;
+          const isUnresolved = complete && unresolvableRuleUids.has(node.uid);
+          const isActive = node.enabled && complete && !rulePaused && !isUnresolved;
 
-          // Badge: paused (yellow) takes precedence over draft/off (gray).
-          // Paused communicates "ancestor is paused" — the most actionable
-          // status — so we surface it ahead of incomplete or disabled.
-          let badge: React.ReactNode;
+          // Badge precedence (most → least actionable):
+          //   paused (ancestor pause)  → yellow
+          //   draft (structural hole)  → gray — user edits here
+          //   unresolved (missing var) → red — user defines a var
+          //   off (user toggled)       → gray
+          // Paused + draft beat unresolved so the UX guides the user to
+          // the local fix first. A dirty-dot (orange) is always
+          // composed onto the end when the rule has an open unsaved
+          // edit tab — it's orthogonal to the precedence ladder.
+          let textBadge: { label: string; color: string } | null = null;
           if (rulePaused) {
-            badge = createElement(
-              'span',
-              { style: { fontSize: 9, color: 'var(--ant-color-warning, #faad14)', marginLeft: 'auto' } },
-              'paused',
-            );
+            textBadge = { label: 'paused', color: 'var(--ant-color-warning, #faad14)' };
           } else if (!complete) {
-            badge = createElement(
-              'span',
-              { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } },
-              'draft',
-            );
+            textBadge = { label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' };
+          } else if (isUnresolved) {
+            // Red, not orange — orange is reserved for the "unsaved"
+            // (dirty) state in the breadcrumb Save button + tab dot.
+            // Unresolved is structurally a "this won't run" error,
+            // not a pending-work signal; match the inline mirror's
+            // red dashed highlight on the ref itself.
+            textBadge = { label: 'unresolved', color: 'var(--ant-color-error, #ff4d4f)' };
           } else if (!node.enabled) {
-            badge = createElement(
-              'span',
-              { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } },
-              'off',
-            );
+            textBadge = { label: 'off', color: 'var(--ant-color-text-tertiary, #999)' };
           }
+          const badge = composeBadge(textBadge, dirtyRuleUids?.has(node.uid) ?? false);
 
           items.push({
             id: rid,
@@ -744,6 +818,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       deleteLocalFolder,
       confirmDelete,
       onOpenFolderOverview,
+      unresolvableRuleUids,
+      dirtyRuleUids,
     ],
   );
 
@@ -1267,15 +1343,33 @@ const Sidebar: React.FC<SidebarProps> = ({
           // `isRequestComplete` reports false (missing URL, missing
           // auth field, …). The method tag greys out and we append a
           // `draft` badge identical to the rule sidebar treatment.
+          // Then check resolvability — a structurally complete request
+          // with unresolved `{{vars}}` gets a yellow `unresolved`
+          // badge so the user knows the fix is "define the variable",
+          // not "edit this request".
           const fullRequest = allRequests.find((r) => r.uid === node.uid);
           const complete = fullRequest ? isRequestComplete(fullRequest) : true;
-          const badge: React.ReactNode = complete
-            ? undefined
-            : createElement(
-                'span',
-                { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)', marginLeft: 'auto' } },
-                'draft',
-              );
+          let requestResolvable = true;
+          if (fullRequest && complete) {
+            const ownerCollection = requestCollections.find((c) => fullRequest.path.startsWith(`${c.path}/`));
+            const context = ownerCollection ? { collectionId: ownerCollection.uid } : undefined;
+            requestResolvable = isRequestResolvable(
+              fullRequest,
+              (name) => resolver.resolve(name, context),
+              (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
+            );
+          }
+          // Red, not orange — orange signals "unsaved changes" in the
+          // breadcrumb Save button + tab dot. Unresolved is a "this
+          // won't run" error. Dirty-dot is composed at the end so
+          // both can coexist on the same row (e.g. an unsaved edit
+          // that also references a missing var).
+          const textBadge: { label: string; color: string } | null = !complete
+            ? { label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }
+            : !requestResolvable
+              ? { label: 'unresolved', color: 'var(--ant-color-error, #ff4d4f)' }
+              : null;
+          const badge = composeBadge(textBadge, dirtyRequestUids?.has(node.uid) ?? false);
           items.push({
             id: rid,
             kind: 'leaf',
@@ -1283,7 +1377,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             depth,
             expandable: false,
             parentId,
-            icon: methodTag(node.method, !complete),
+            // Mute the method tag for BOTH draft (structural hole) and
+            // unresolved (var references don't resolve) — the request
+            // can't fire in either case, so iconography treats them
+            // identically. Badge below distinguishes the two causes.
+            icon: methodTag(node.method, !complete || !requestResolvable),
             badge,
             canRename: true,
             canDelete: true,
@@ -1303,6 +1401,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
     [
       allRequests,
+      requestCollections,
+      resolver,
       expandedKeys,
       lowerFilter,
       toggleExpand,
@@ -1314,6 +1414,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       confirmDelete,
       onSelectRequest,
       onCreateRequest,
+      dirtyRequestUids,
     ],
   );
 

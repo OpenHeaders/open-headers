@@ -22,7 +22,7 @@ import { tabs } from '@utils/browser-api';
 import { computeVerdict } from '@/shared/verdict';
 import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
 import { getRules as getRawRules } from './rule-store';
-import { getResolvedRules } from './variables-resolver';
+import { getResolvedRules, getUnresolvableRuleUids } from './variables-resolver';
 
 /** Read the current rule list in resolved form, falling back to the
  *  raw rule-store view before the first compile has populated the
@@ -101,8 +101,10 @@ export function precompileRulePatterns(): void {
  */
 export function checkIfUrlMatchesAnyRule(url: string): boolean {
   const normalizedUrl = normalizeUrlForTracking(url);
+  const unresolvable = getUnresolvableRuleUids();
   for (const rule of getRules()) {
     if (!isRuleComplete(rule)) continue;
+    if (unresolvable.has(rule.uid)) continue;
     for (const entry of getRuleMatchPatterns(rule)) {
       if (doesUrlMatchEntry(normalizedUrl, entry)) {
         return true;
@@ -228,9 +230,16 @@ function extractHeaderOps(rule: V5.HeaderRule): MatchingRuleHeaderOp[] {
  */
 export function matchRulesToRequest(url: string): MatchingRule[] {
   const normalizedUrl = normalizeUrlForTracking(url);
+  const unresolvable = getUnresolvableRuleUids();
   const out: MatchingRule[] = [];
   for (const rule of getRules()) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
+    // Rules with unresolved `{{ref}}`s aren't in Chrome's DNR set
+    // (see `dnr-manager.rebuildAll`), so they don't participate in
+    // arbitration either. Skipping here means shadow-warnings stay
+    // honest — we don't report a "shadowed by X" conflict against a
+    // rule that isn't actually active on the wire.
+    if (unresolvable.has(rule.uid)) continue;
     for (const entry of getRuleMatchPatterns(rule)) {
       if (doesUrlMatchEntry(normalizedUrl, entry)) {
         const matching: MatchingRule = {
@@ -290,6 +299,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
 
   const activeRules: ActiveRule[] = [];
   const rules = getRules();
+  const unresolvable = getUnresolvableRuleUids();
 
   const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'mock']);
 
@@ -298,6 +308,10 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   for (const rule of rules) {
     if (!extensionTypes.has(rule.type)) continue;
     if (!isRuleComplete(rule)) continue;
+    // Skip unresolved rules — they never compile to DNR so they
+    // can't be "active" on a tab. The sidebar's `unresolved` badge
+    // explains their absence to the user.
+    if (unresolvable.has(rule.uid)) continue;
 
     const patterns = getRuleMatchPatterns(rule);
     const result = computeVerdict({

@@ -10,6 +10,7 @@ import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
+import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -113,7 +114,7 @@ const QueryParamRuleFields: React.FC = () => {
                         </Form.Item>
                         {op !== 'remove' && (
                           <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
-                            <Input size="small" placeholder="Param Value" />
+                            <TemplateInput size="small" placeholder="Param Value" />
                           </Form.Item>
                         )}
                       </>

@@ -29,6 +29,7 @@
 import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { RequestMutation, RequestSnapshot, ResponseSnapshot, TestAssertion } from '@openheaders/core/scripts';
 import type { V5 } from '@openheaders/core/types';
+import { appendQueryParams, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
 import { ensureScheme } from '@/shared/fetch/ensure-scheme';
@@ -147,7 +148,17 @@ export async function executeRequestDraft(
   request: V5.Request,
   options: ExecuteRequestOptions = {},
 ): Promise<ExecutedRequestSnapshot> {
-  const resolved = await resolveRequest(request, options);
+  let resolved: ResolvedRequest;
+  try {
+    resolved = await resolveRequest(request, options);
+  } catch (err) {
+    // The resolvability gate is the only throwing path we surface as a
+    // structured snapshot today. Other exceptions (file-registry load
+    // failure, unexpected resolver throw) bubble up to the caller's
+    // try/catch, which is where they belong.
+    if (err instanceof UnresolvedRequestError) return errorSnapshot(err.message);
+    throw err;
+  }
 
   // ── Pre-request script hook ────────────────────────────────────
   // Run BEFORE the wire fetch. Script mutations land on top of the
@@ -406,12 +417,42 @@ interface ResolvedRequest {
   // auth and params are folded into `url` + `headers` below.
 }
 
+/** Tagged error thrown from {@link resolveRequest} when any `{{ref}}`
+ *  in the draft can't be resolved against the current scopes. Caught
+ *  by {@link executeRequestDraft} and turned into an `errorSnapshot`
+ *  with a stable `error` message the UI matches on. Same architectural
+ *  discipline as the DNR compile gate — we refuse to ship literal
+ *  `{{env.var}}` strings on the wire. */
+export class UnresolvedRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnresolvedRequestError';
+  }
+}
+
 async function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Promise<ResolvedRequest> {
   const resolver = await buildResolver(options.stepCaptures);
   const context = {
     collectionId: collectionIdForRequest(request),
     environmentId: options.environmentId,
   };
+
+  // Architectural gate: refuse to dispatch when any `{{ref}}` in the
+  // draft can't be resolved. Mirrors the DNR compile pipeline's
+  // `getUnresolvableRuleUids` filter — shipping literal `{{env.var}}`
+  // on the wire is almost never the user's intent. `isRequestResolvable`
+  // excludes reserved-namespace errors (`{{file.X}}` / `{{dynamic.X}}`)
+  // so those don't block until their features ship.
+  const resolvable = isRequestResolvable(
+    request,
+    (name) => resolver.resolve(name, context),
+    (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
+  );
+  if (!resolvable) {
+    throw new UnresolvedRequestError(
+      'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.',
+    );
+  }
 
   const resolveStr = (s: string): string => resolveTemplate(s, (name) => resolver.resolve(name, context)).result;
 
@@ -568,16 +609,6 @@ async function applyAuth(
 // normalization. Re-exported here so the request-executor unit
 // test keeps importing from one place.
 export { ensureScheme } from '@/shared/fetch/ensure-scheme';
-
-function appendQueryParams(url: string, params: Array<{ key: string; value: string }>): string {
-  if (params.length === 0) return url;
-  // URL() would normalize in surprising ways (lowercasing the host,
-  // collapsing percent-encoding). Do the query-string dance ourselves
-  // so we only touch what we intend to touch.
-  const qs = params.map(({ key, value }) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
-  const sep = url.includes('?') ? '&' : '?';
-  return `${url}${sep}${qs}`;
-}
 
 function defaultContentType(type: V5.BodyType): string | null {
   switch (type) {

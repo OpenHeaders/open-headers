@@ -57,6 +57,10 @@ vi.mock('@/background/modules/variables-resolver', () => ({
   resolveRulesForCompile: vi.fn((rules: V5.Rule[]) => rules),
   getLastAggregatedResolutionErrors: vi.fn(() => []),
   getLastResolutionErrors: vi.fn(() => new Map<string, unknown>()),
+  // Compile pipeline drops rules whose `uid` is in this set before
+  // handing to Chrome DNR. Status tests don't exercise the unresolved
+  // gate — default to "none unresolved" so every rule compiles.
+  getUnresolvableRuleUids: vi.fn(() => new Set<string>()),
   // DNR compile pipeline now consults this for live-bypass exclusion;
   // status tests don't touch Live Variables so the default is "no
   // workflow uids referenced" — no excludedRequestHeaders attached.

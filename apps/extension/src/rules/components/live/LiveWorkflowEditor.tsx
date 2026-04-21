@@ -16,7 +16,7 @@ import { useRequests } from '@hooks/useRequests';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, Space, Switch, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import StaleDraftBanner from '../StaleDraftBanner';
 import { classifyRun, describeRefreshPolicy, formatRelativeMs, pickActiveRun, statusColor } from './live-display';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
@@ -71,7 +71,12 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow) : null));
-  const persistedFpRef = useRef<string>(workflow ? fingerprint(draftFromWorkflow(workflow)) : '');
+  // State, not a ref — `isDirty` reads it as a memo dep so save's new
+  // baseline invalidates the cached value. Ref version left isDirty
+  // stuck at `true` when the parent re-rendered with a fresh inline
+  // `onDirtyChange` arrow. Same fix as RequestEditor; the
+  // `useDirtyDraft` hook file-header comment documents the trap.
+  const [persistedFp, setPersistedFp] = useState<string>(workflow ? fingerprint(draftFromWorkflow(workflow)) : '');
 
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
@@ -82,16 +87,16 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
     if (draft === null) {
       const seeded = draftFromWorkflow(workflow);
       setDraft(seeded);
-      persistedFpRef.current = fingerprint(seeded);
+      setPersistedFp(fingerprint(seeded));
       return;
     }
     const persisted = draftFromWorkflow(workflow);
     const fp = fingerprint(persisted);
-    if (fp !== persistedFpRef.current) {
-      persistedFpRef.current = fp;
+    if (fp !== persistedFp) {
+      setPersistedFp(fp);
       setDraft(persisted);
     }
-  }, [workflow, draft]);
+  }, [workflow, draft, persistedFp]);
 
   useEffect(() => {
     if (loadedVersion !== null) return;
@@ -99,7 +104,7 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
     setLoadedVersion(workflow.version);
   }, [workflow, loadedVersion]);
 
-  const isDirty = useMemo(() => (draft ? fingerprint(draft) !== persistedFpRef.current : false), [draft]);
+  const isDirty = useMemo(() => (draft ? fingerprint(draft) !== persistedFp : false), [draft, persistedFp]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -119,7 +124,7 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
       loadedVersion ?? undefined,
     );
     if (result.success) {
-      persistedFpRef.current = fingerprint(draft);
+      setPersistedFp(fingerprint(draft));
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
@@ -144,7 +149,7 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
   const handleStaleReload = useCallback(() => {
     if (!workflow) return;
     const seeded = draftFromWorkflow(workflow);
-    persistedFpRef.current = fingerprint(seeded);
+    setPersistedFp(fingerprint(seeded));
     setDraft(seeded);
     setLoadedVersion(workflow.version);
     setStaleDraft(null);

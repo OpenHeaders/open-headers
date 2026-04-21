@@ -82,7 +82,7 @@ import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } 
 import { getTemplates, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
-import { __setSyncWarmRunner, hydrateLiveCacheMirror } from './modules/variables-resolver';
+import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from './modules/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
@@ -165,12 +165,18 @@ async function updateBadgeForCurrentTab(): Promise<void> {
 
     const markers = getPauseMarkers();
     // Currently-effective rules: enabled + complete + not paused at any
-    // level + engine not paused — the single canonical filter that every
-    // consumer (DNR compile loop, rule-state observer, this badge filter)
-    // must share. NOT filtered by tab URL: a rule targeting a subresource
-    // domain (e.g. api.example.com) still counts when the tab is on
-    // example.com — its counter increments via the subresource request.
-    const effectiveRules = getRules().filter((r) => isRuleEffective(r, markers, isPaused));
+    // level + engine not paused + refs resolve — the single canonical
+    // filter that every consumer (DNR compile loop, rule-state
+    // observer, this badge filter) must share. NOT filtered by tab
+    // URL: a rule targeting a subresource domain (e.g.
+    // api.example.com) still counts when the tab is on example.com —
+    // its counter increments via the subresource request.
+    //
+    // `getUnresolvableRuleUids` mirrors the DNR compile's hard gate:
+    // rules with unresolved `{{ref}}`s aren't shipped to Chrome, so
+    // they shouldn't inflate the badge either.
+    const unresolvable = getUnresolvableRuleUids();
+    const effectiveRules = getRules().filter((r) => isRuleEffective(r, markers, isPaused) && !unresolvable.has(r.uid));
     const effectiveUids = new Set(effectiveRules.map((r) => r.uid));
 
     // Badge count = rules pointed at this tab with a concrete signal.

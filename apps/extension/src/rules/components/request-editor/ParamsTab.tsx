@@ -48,6 +48,15 @@ function textToRows(text: string): KeyValueRow[] {
 
 const PARAMS_BULK_PLACEHOLDER = 'param1:value1\nparam2:value2 # description\n//disabled:value';
 
+/** Any row the user has given a value to gets `hasEquals: true` so
+ *  the URL field renders `?key=` instead of `?key` — if they later
+ *  clear the value, the `=` stays (matches intuition: "I made a k/v
+ *  pair, the `=` belongs here"). Headers / form tabs don't need this
+ *  so the annotation lives here, not in the shared `KeyValueTable`. */
+function annotateHasEquals(rows: KeyValueRow[]): KeyValueRow[] {
+  return rows.map((r) => (r.value !== '' && !r.hasEquals ? { ...r, hasEquals: true } : r));
+}
+
 const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -56,7 +65,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange }) => {
       </Text>
       <KeyValueTable
         rows={rows}
-        onChange={onChange}
+        onChange={(next) => onChange(annotateHasEquals(next))}
         keyPlaceholder="Key"
         valuePlaceholder="Value"
         bulkEdit={{

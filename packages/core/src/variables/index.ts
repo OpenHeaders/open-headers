@@ -29,5 +29,18 @@ export { EMPTY_LIVE_REGISTRY, resolveTemplate, resolveVariable, VariableResolver
 export type { RuleResolution } from './rule-resolver';
 export { resolveRule, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
 export { collectRuleTemplateStrings } from './rule-templates';
+export type {
+  CollectionEntry,
+  EnvironmentEntry,
+  LiveSuggestionEntry,
+  SuggestionContext,
+  SuggestionPreview,
+  SuggestionRegistries,
+  SuggestionScope,
+  VariableEntry,
+  VariableSuggestion,
+  VaultSecretEntry,
+} from './suggest';
+export { buildSuggestions, filterSuggestions } from './suggest';
 export type { SystemVariable } from './system-variables';
 export { SYSTEM_VARIABLES } from './system-variables';

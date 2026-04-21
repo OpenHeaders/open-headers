@@ -1318,6 +1318,114 @@ html, body, #root {
   font-size: 10px;
 }
 
+// ── TemplateInput wrapper ─────────────────────────────────────────
+//
+// Layout: a positioned `<span>` wraps a single contentEditable `<div>`
+// that is both the input surface AND the highlight renderer (each
+// `{{ref}}` lives inside a classified `<span>` child). No mirror
+// overlay — whatever padding / font the caller sets applies to the
+// only element that exists.
+.oh-template-input-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.oh-template-input-editable {
+  // Placeholder via a pseudo element — shown only when the editable
+  // is empty. `data-placeholder` is populated from the `placeholder`
+  // prop; when there's no value the contenteditable has no text
+  // children, so the `:empty` selector matches.
+  &:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ant-color-text-placeholder);
+    pointer-events: none;
+  }
+}
+
+.oh-template-ref {
+  display: inline;
+  padding: 0 2px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+
+.oh-template-ref-resolved {
+  color: var(--ant-color-primary, #1677ff);
+  background: var(--ant-color-primary-bg, rgba(22, 119, 255, 0.08));
+  border-color: var(--ant-color-primary-border, rgba(22, 119, 255, 0.3));
+}
+
+.oh-template-ref-unresolved {
+  color: var(--ant-color-error, #ff4d4f);
+  background: var(--ant-color-error-bg, rgba(255, 77, 79, 0.08));
+  border: 1px dashed var(--ant-color-error-border, rgba(255, 77, 79, 0.5));
+}
+
+.oh-template-ref-reserved {
+  color: var(--ant-color-warning, #faad14);
+  background: var(--ant-color-warning-bg, rgba(250, 173, 20, 0.08));
+  border: 1px dashed var(--ant-color-warning-border, rgba(250, 173, 20, 0.4));
+}
+
+// Neutral state applied while the caret sits inside a ref's braces.
+// `color: inherit` picks up the editable's inline `colorText` so no
+// visual classification paints until the user commits by moving the
+// caret out.
+.oh-template-ref-editing {
+  color: inherit;
+  background: transparent;
+  border-color: transparent;
+}
+
+// ── TemplateInput popover ─────────────────────────────────────────
+//
+// Our own popover — rendered as a positioned `<div>` beneath the
+// textarea. Mirrors the command palette's chrome (rounded panel,
+// scrollable list, sticky footer with keyboard hints).
+.oh-template-popover-anchor {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 1050;
+}
+
+.oh-template-popover-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.oh-template-popover-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.oh-template-popover-row {
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.oh-template-popover-row-disabled {
+  cursor: default;
+}
+
+.oh-template-popover-empty {
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.oh-template-popover-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  font-size: 10px;
+  user-select: none;
+}
+
 // ── Wider allotment sash hit targets ──────────────────────────────
 
 :root {

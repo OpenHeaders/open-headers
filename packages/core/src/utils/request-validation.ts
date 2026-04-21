@@ -31,7 +31,10 @@
  *                                        request-completeness concern.
  */
 
+import { collectRequestTemplateStrings } from '../live/request-scan';
 import type { Request } from '../types/v5/request';
+import type { ResolvedVariable } from '../types/v5/variable';
+import { type ResolutionEnvSnapshot, resolveTemplate, type ScopedLookupFn } from '../variables';
 
 /**
  * Returns `true` when the request has the minimum fields the executor
@@ -41,7 +44,7 @@ import type { Request } from '../types/v5/request';
 export function isRequestComplete(
   request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
 ): boolean {
-  if (!request.url || !request.url.trim()) return false;
+  if (!request.url?.trim()) return false;
 
   const auth = request.auth;
   switch (auth.type) {
@@ -79,10 +82,48 @@ export type RequestIncompleteReason =
   | 'api-key-missing-key'
   | 'api-key-missing-value';
 
+// ── Variable-resolution gating ─────────────────────────────────────
+
+/**
+ * Does every `{{...}}` reference in this request resolve against the
+ * supplied lookups? Mirrors `isRuleResolvable` in `rule-validation` —
+ * the executor refuses to dispatch when false, so literal `{{env.X}}`
+ * never hits the wire.
+ *
+ * Reserved-namespace errors (`{{file.X}}` / `{{dynamic.X}}`) are
+ * excluded from gating — those references are intentionally
+ * unresolved until those features ship.
+ *
+ * Pure — no resolver instance required. Callers supply the same
+ * lookup shape `resolveTemplate` takes; the helper can be used from
+ * the extension background (request-executor, live-chain-adapter) and
+ * the renderer (Send button gate, inline error) without coupling.
+ */
+export function isRequestResolvable(
+  request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+  lookup: (name: string) => ResolvedVariable | null,
+  scopedLookup?: ScopedLookupFn,
+  env?: ResolutionEnvSnapshot,
+): boolean {
+  // `collectRequestTemplateStrings` types on the uid/path-bearing Request;
+  // safe for drafts since the walker only reads `url` + `params` + `headers`
+  // + `auth.*` + `body.*`.
+  const strings = collectRequestTemplateStrings(request as Request);
+  for (const s of strings) {
+    if (!s) continue;
+    const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
+    for (const e of errors) {
+      if (e.reason === 'reserved-namespace') continue;
+      return false;
+    }
+  }
+  return true;
+}
+
 export function requestIncompleteReason(
   request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
 ): RequestIncompleteReason | null {
-  if (!request.url || !request.url.trim()) return 'missing-url';
+  if (!request.url?.trim()) return 'missing-url';
 
   const auth = request.auth;
   switch (auth.type) {

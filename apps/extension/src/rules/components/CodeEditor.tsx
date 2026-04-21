@@ -30,6 +30,7 @@ import { useSettingValue } from '../settings/hooks';
 // at module-load time so it wins the race against `<Editor>`'s own
 // `loader.init`.
 import './monaco/bootstrap';
+import { useMonacoVariableCompletions } from './template-input';
 
 /** Monaco language ids that have a registered formatter — either
  *  Monaco's built-in LSP (JSON / CSS / HTML) or our Prettier provider
@@ -45,6 +46,12 @@ interface CodeEditorProps {
   placeholder?: string;
   minHeight?: number;
   readOnly?: boolean;
+  /** When true, register the cross-scope `{{VAR}}` completion
+   *  provider on mount (docs/VARIABLE_AUTOCOMPLETE_PLAN.md Phase D).
+   *  Defaults to true for every host that doesn't opt out — callers
+   *  that embed user scripts or SQL editors where `{{VAR}}` shouldn't
+   *  expand can pass `variableAutoComplete={false}`. */
+  variableAutoComplete?: boolean;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -54,7 +61,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   placeholder,
   minHeight = 200,
   readOnly = false,
+  variableAutoComplete = true,
 }) => {
+  const registerCompletions = useMonacoVariableCompletions();
   const { token } = theme.useToken();
   const { isDarkMode } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -165,13 +174,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         language={toMonacoLanguage(language)}
         theme={isDarkMode ? 'oh-dark' : 'oh-light'}
         value={value}
-        onMount={(ed) => {
+        onMount={(ed, monacoApi) => {
           editorRef.current = ed;
           // Shift+Alt+F is Monaco's default keybinding for
           // `editor.action.formatDocument`. Since both the Format
           // button and the shortcut go through the same action, no
           // custom keybinding registration is needed — Monaco dispatches
           // to the language's formatter provider on its own.
+          if (variableAutoComplete) registerCompletions(monacoApi);
         }}
         onChange={(next) => {
           if (formatError) setFormatError(null);

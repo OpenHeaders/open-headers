@@ -189,6 +189,15 @@ export interface WorkspaceKeys {
    * Ephemeral: never committed to git, purged on workspace delete.
    */
   liveCache: StorageKey<unknown>;
+  /**
+   * Recently-inserted `{{scope.name}}` references from the TemplateInput
+   * autocomplete popover. LRU-capped at 8 per workspace; surfaced at the
+   * top of the suggestion list when the user opens the popover with an
+   * empty query. Opaque at storage layer — shape is `VariableRecents`
+   * from `rules/components/template-input/recents.ts`.
+   * Ephemeral: never committed to git, purged on workspace delete.
+   */
+  variableRecents: StorageKey<unknown>;
 }
 
 export function wsKeys(workspaceId: string): WorkspaceKeys {
@@ -219,5 +228,6 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveWorkflows: storageKey<V5.LiveWorkflow[]>(`${p}.liveWorkflows`),
     liveVariables: storageKey<V5.LiveVariable[]>(`${p}.liveVariables`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
+    variableRecents: storageKey<unknown>(`${p}.variableRecents`),
   };
 }

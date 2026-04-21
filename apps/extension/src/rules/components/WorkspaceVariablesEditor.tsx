@@ -12,7 +12,8 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -23,17 +24,22 @@ interface WorkspaceVariablesEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
+// Module-level — `useDirtyDraft` requires a stable fingerprint reference.
 function fingerprint(vars: V5.Variable[]): string {
   return JSON.stringify(vars.map((v) => [v.name, v.value, v.type]));
 }
+const EMPTY_VARS: V5.Variable[] = [];
 
 const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workspaceVariables, setWorkspaceVariables } = useEnvironments();
 
-  const [draft, setDraft] = useState<V5.Variable[]>(() => workspaceVariables.variables);
-  const persistedFpRef = useRef<string>(fingerprint(workspaceVariables.variables));
+  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.Variable[]>({
+    serverDraft: workspaceVariables.variables,
+    fingerprint,
+    empty: EMPTY_VARS,
+  });
 
   // Phase 10 — same tracking shape as the other singleton editors.
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
@@ -43,16 +49,6 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     if (loadedVersion !== null) return;
     setLoadedVersion(workspaceVariables.version);
   }, [workspaceVariables.version, loadedVersion]);
-
-  useEffect(() => {
-    const fp = fingerprint(workspaceVariables.variables);
-    if (fp !== persistedFpRef.current) {
-      persistedFpRef.current = fp;
-      setDraft(workspaceVariables.variables);
-    }
-  }, [workspaceVariables]);
-
-  const isDirty = useMemo(() => fingerprint(draft) !== persistedFpRef.current, [draft]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -65,7 +61,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
       loadedVersion ?? undefined,
     );
     if (result.ok) {
-      persistedFpRef.current = fingerprint(draft);
+      markPersisted(draft);
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
@@ -74,15 +70,14 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     } else {
       message.error(`Failed to save workspace variables${'message' in result ? `: ${result.message}` : ''}`);
     }
-  }, [isDirty, draft, setWorkspaceVariables, onDirtyChange, loadedVersion, message]);
+  }, [isDirty, draft, setWorkspaceVariables, onDirtyChange, loadedVersion, message, markPersisted]);
 
   const handleStaleDraftReload = useCallback(() => {
-    persistedFpRef.current = fingerprint(workspaceVariables.variables);
-    setDraft(workspaceVariables.variables);
+    resetToServer();
     setLoadedVersion(workspaceVariables.version);
     setStaleDraft(null);
     onDirtyChange?.(false);
-  }, [workspaceVariables, onDirtyChange]);
+  }, [workspaceVariables.version, onDirtyChange, resetToServer]);
 
   const handleStaleDraftKeepEditing = useCallback(() => {
     setLoadedVersion(workspaceVariables.version);

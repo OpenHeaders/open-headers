@@ -61,6 +61,7 @@ declare module '../types' {
     'rulesEngine.draftUrlStrategy': DraftUrlStrategy;
     'rulesEngine.liveRulesMode': boolean;
     'rulesEngine.bypassHttpCache': boolean;
+    'rulesEngine.variableAutocomplete': boolean;
   }
 }
 
@@ -212,6 +213,19 @@ registerSetting({
     "Adds Cache-Control: no-cache to every request on the inspected tab — forces revalidation with the server. Scope is the HTTP cache only; Chrome's own Disable Cache (Network tab) also bypasses the renderer memory cache. Rule-matched requests are always kept fresh automatically by Live Rules Mode.",
   category: 'rulesEngine',
   tags: ['cache', 'bypass', 'devtools', 'http', 'debugging'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'rulesEngine.variableAutocomplete',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Variable Autocomplete',
+  description:
+    'Suggest `{{env.X}}` / `{{vault.X}}` / `{{live.X}}` / `{{workspace.X}}` / `{{collection.X}}` / `{{step.X.Y}}` references as you type. Opens on `{{` in any rule-field value input and in JSON/GraphQL/XML/plaintext body editors. Disable if you prefer plain-text editing.',
+  category: 'rulesEngine',
+  tags: ['autocomplete', 'variables', 'suggestions', 'template', 'picker'],
   scope: 'user',
 });
 

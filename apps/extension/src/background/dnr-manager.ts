@@ -50,6 +50,7 @@ import {
   computeRuleLiveBypass,
   getLastAggregatedResolutionErrors,
   getLastResolutionErrors,
+  getUnresolvableRuleUids,
   kickSyncWarmRefreshes,
   resolveRulesForCompile,
 } from './modules/variables-resolver';
@@ -304,7 +305,18 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   // and every observer diff must see the same resolved shape — otherwise
   // a variable edit can change effective patterns without the observer
   // noticing, or the DNR layer can receive literal "{{VAR}}" strings.
-  const rules = resolveRulesForCompile(rawRules);
+  const resolvedRules = resolveRulesForCompile(rawRules);
+
+  // Drop rules whose templates contain unresolved references. Shipping
+  // a rule with a literal `{{wat}}` header value to Chrome would set
+  // the header to the literal placeholder on the wire — almost never
+  // the user's intent. The rule stays saved (visible to the sidebar,
+  // reflected in the resolution-errors map) and re-activates on the
+  // next rebuild once the var is defined in some scope. Reserved
+  // namespaces (`{{file.X}}` / `{{dynamic.X}}`) don't contribute to
+  // `getUnresolvableRuleUids` so those references don't gate rules.
+  const unresolvable = getUnresolvableRuleUids();
+  const rules = unresolvable.size > 0 ? resolvedRules.filter((r) => !unresolvable.has(r.uid)) : resolvedRules;
 
   // Diff the effective-active rule set against the previous snapshot
   // and enqueue any necessary cache eviction. Runs on every rebuild
@@ -417,9 +429,14 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
     // Test-run scope snapshots predate the active env/vars and therefore
     // carry raw `{{VAR}}` templates. Resolve against the CURRENT scopes
     // so a test run reflects the live environment — same contract as
-    // the outer rule set above.
+    // the outer rule set above, including the unresolvable filter so a
+    // test run can't silently apply a rule with literal `{{VAR}}` on
+    // the wire either.
     const resolvedScope = resolveRulesForCompile(scopeForCompile);
-    const { dynamic: runDynamic, session: runSession } = compileRuleSet(resolvedScope, sessionIdCounter);
+    const scopeUnresolvable = getUnresolvableRuleUids();
+    const effectiveScope =
+      scopeUnresolvable.size > 0 ? resolvedScope.filter((r) => !scopeUnresolvable.has(r.uid)) : resolvedScope;
+    const { dynamic: runDynamic, session: runSession } = compileRuleSet(effectiveScope, sessionIdCounter);
     // Both the "dynamic" and "session" outputs from a test scope end up
     // in the session layer with tabIds stamped — within a test run,
     // everything is per-tab.

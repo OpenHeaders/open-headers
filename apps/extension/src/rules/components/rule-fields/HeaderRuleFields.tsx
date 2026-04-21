@@ -24,6 +24,7 @@ import { Alert, AutoComplete, Badge, Button, Form, Input, Select, Tabs, Tooltip,
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
+import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -149,7 +150,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                             name={[field.name, 'value']}
                             style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
                           >
-                            <Input size="small" placeholder="Value to append" />
+                            <TemplateInput size="small" placeholder="Value to append" />
                           </Form.Item>
                         </>
                       );
@@ -160,7 +161,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                         name={[field.name, 'value']}
                         style={{ marginBottom: 0, flex: 1, minWidth: 120 }}
                       >
-                        <Input size="small" placeholder="Header Value" />
+                        <TemplateInput size="small" placeholder="Header Value" />
                       </Form.Item>
                     );
                   }}

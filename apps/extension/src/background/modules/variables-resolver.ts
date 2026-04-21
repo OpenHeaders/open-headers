@@ -120,6 +120,26 @@ export function getLastAggregatedResolutionErrors(): ResolutionError[] {
   return out;
 }
 
+/**
+ * Set of rule uids whose most recent resolution pass produced at
+ * least one BLOCKING error (anything except `reserved-namespace`).
+ * These rules are not shipped to DNR — a rule with `{{wat2}}` that
+ * doesn't exist in any scope would otherwise set a header to the
+ * literal string `{{wat2}}` on the wire, which is almost never the
+ * user's intent. Re-exposed for the rule-state observer + sidebar so
+ * the UI can surface the "unresolved" state distinct from draft.
+ *
+ * Returns an empty set until the first `resolveRulesForCompile` run.
+ */
+export function getUnresolvableRuleUids(): ReadonlySet<string> {
+  const out = new Set<string>();
+  for (const [uid, errors] of lastResolutionErrors) {
+    const hasBlocker = errors.some((e) => e.reason !== 'reserved-namespace');
+    if (hasBlocker) out.add(uid);
+  }
+  return out;
+}
+
 // ── Live-cache sync mirror ─────────────────────────────────────────
 //
 // The resolver's `live` scope needs a sync snapshot of

@@ -20,7 +20,8 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -32,9 +33,11 @@ interface CollectionVariablesEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
+// Module-level — `useDirtyDraft` requires a stable fingerprint reference.
 function fingerprint(vars: V5.Variable[]): string {
   return JSON.stringify(vars.map((v) => [v.name, v.value, v.type]));
 }
+const EMPTY_VARS: V5.Variable[] = [];
 
 const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   collectionUid,
@@ -51,9 +54,11 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     [localCollections, collectionUid],
   );
 
-  const initialVars = collection?.variables ?? [];
-  const [draft, setDraft] = useState<V5.Variable[]>(() => initialVars);
-  const persistedFpRef = useRef<string>(fingerprint(initialVars));
+  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.Variable[]>({
+    serverDraft: collection?.variables ?? null,
+    fingerprint,
+    empty: EMPTY_VARS,
+  });
 
   // Phase 10 stale-draft tracking — see RuleEditor for the full
   // rationale. `loadedVersion` is snapped once on first arrival and
@@ -63,21 +68,10 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
 
   useEffect(() => {
-    if (!collection) return;
-    const fp = fingerprint(collection.variables);
-    if (fp !== persistedFpRef.current) {
-      persistedFpRef.current = fp;
-      setDraft(collection.variables);
-    }
-  }, [collection]);
-
-  useEffect(() => {
     if (loadedVersion !== null) return;
     if (typeof collection?.version !== 'number') return;
     setLoadedVersion(collection.version);
   }, [collection?.version, loadedVersion]);
-
-  const isDirty = useMemo(() => fingerprint(draft) !== persistedFpRef.current, [draft]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -87,7 +81,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     if (!collection || !isDirty) return;
     void updateCollectionVariables(collection.uid, draft, loadedVersion ?? undefined).then((result) => {
       if (result.ok) {
-        persistedFpRef.current = fingerprint(draft);
+        markPersisted(draft);
         setLoadedVersion(result.version);
         setStaleDraft(null);
         onDirtyChange?.(false);
@@ -105,7 +99,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
       }
       message.error(`Failed to save collection variables: ${result.message}`);
     });
-  }, [collection, isDirty, draft, updateCollectionVariables, onDirtyChange, loadedVersion, message]);
+  }, [collection, isDirty, draft, updateCollectionVariables, onDirtyChange, loadedVersion, message, markPersisted]);
 
   useEffect(() => {
     registerSaveRef?.(handleSave);
@@ -114,17 +108,14 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   const handleStaleReload = useCallback(() => {
     // Discard local edits; snap loadedVersion forward to the server's
     // current version. The collection reference from context has
-    // already been broadcast-refreshed so `initialVars` reflects the
+    // already been broadcast-refreshed so `resetToServer` picks up the
     // winning save.
     const current = collection?.version ?? loadedVersion ?? 0;
     setLoadedVersion(current);
     setStaleDraft(null);
-    if (collection) {
-      persistedFpRef.current = fingerprint(collection.variables);
-      setDraft(collection.variables);
-      onDirtyChange?.(false);
-    }
-  }, [collection, loadedVersion, onDirtyChange]);
+    resetToServer();
+    onDirtyChange?.(false);
+  }, [collection, loadedVersion, onDirtyChange, resetToServer]);
 
   const handleStaleKeepEditing = useCallback(() => {
     // Snap loadedVersion forward so the next save's expectedVersion

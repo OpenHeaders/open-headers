@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RuleCondition } from '../../src/types/v5/rule';
-import { isRuleComplete } from '../../src/utils/rule-validation';
+import type { ResolvedVariable } from '../../src/types/v5/variable';
+import { isRuleComplete, isRuleResolvable } from '../../src/utils/rule-validation';
 
 const hostCondition: RuleCondition = { type: 'request-domains', values: ['openheaders.io'] };
 const base = {
@@ -213,5 +214,103 @@ describe('isRuleComplete', () => {
     expect(isRuleComplete({ ...base, conditions: [headerCondition], type: 'block', action: { statusCode: 403 } })).toBe(
       true,
     );
+  });
+});
+
+// ── isRuleResolvable — reference-gating ──────────────────────────
+
+describe('isRuleResolvable', () => {
+  // Lookup that returns a value for every name in a given map.
+  const lookupFromMap = (values: Record<string, string>) => {
+    return (name: string): ResolvedVariable | null => {
+      const v = values[name];
+      if (v === undefined) return null;
+      return { name, value: v, scope: 'workspace', isSensitive: false };
+    };
+  };
+
+  // Header rule fixture with a `{{VAR}}` in a header value.
+  const headerWithValue = (value: string) => ({
+    ...base,
+    type: 'header' as const,
+    action: {
+      requestHeaders: [{ operation: 'override' as const, headerName: 'X-Auth', value }],
+      responseHeaders: [],
+    },
+  });
+
+  it('returns true when the rule has no templates', () => {
+    expect(isRuleResolvable(headerWithValue('static-value'), () => null)).toBe(true);
+  });
+
+  it('returns true when every reference resolves', () => {
+    expect(isRuleResolvable(headerWithValue('{{TOKEN}}'), lookupFromMap({ TOKEN: 'abc' }))).toBe(true);
+  });
+
+  it('returns false when a reference is unresolved', () => {
+    expect(isRuleResolvable(headerWithValue('{{MISSING}}'), () => null)).toBe(false);
+  });
+
+  it('returns false when any of multiple references is unresolved', () => {
+    const value = '{{HOST}}/{{PATH}}';
+    // HOST resolves, PATH doesn't.
+    expect(isRuleResolvable(headerWithValue(value), lookupFromMap({ HOST: 'openheaders.io' }))).toBe(false);
+  });
+
+  it('allows reserved-namespace references (`{{file.X}}` / `{{dynamic.X}}`)', () => {
+    // These are intentionally unresolved until the feature ships;
+    // they must not block the rule from taking effect.
+    expect(
+      isRuleResolvable(
+        headerWithValue('{{file.fixture.json}}'),
+        () => null,
+        // No scoped lookup → resolver surfaces `reserved-namespace`
+        // for `dynamic.*`. `file.*` is a scope, not reserved, so the
+        // lookup returning null would normally produce `unset-in-scope`.
+        // Here we simulate the resolver's behavior without a scoped
+        // lookup — falls back to flat lookup; since no value found,
+        // emits `unresolved`. So for `file.X` specifically without a
+        // scoped lookup this returns false.
+      ),
+    ).toBe(false);
+
+    // Dynamic namespace WITH the scoped-lookup wiring returns
+    // `reserved-namespace` which isRuleResolvable filters out.
+    expect(
+      isRuleResolvable(
+        headerWithValue('{{dynamic.$timestamp}}'),
+        () => null,
+        // Scoped lookup that returns null for every namespace —
+        // `resolveTemplate` detects `dynamic` as reserved and emits
+        // the specific error.
+        () => null,
+      ),
+    ).toBe(true);
+  });
+
+  it('walks condition values + header rule action fields', () => {
+    const rule = {
+      ...base,
+      conditions: [{ type: 'request-domains' as const, values: ['{{HOST}}'] }],
+      type: 'header' as const,
+      action: {
+        requestHeaders: [{ operation: 'override' as const, headerName: 'X-Auth', value: '{{TOKEN}}' }],
+        responseHeaders: [],
+      },
+    };
+    // Only HOST defined → rule isn't resolvable because TOKEN misses.
+    expect(isRuleResolvable(rule, lookupFromMap({ HOST: 'openheaders.io' }))).toBe(false);
+    // Both defined → resolvable.
+    expect(isRuleResolvable(rule, lookupFromMap({ HOST: 'openheaders.io', TOKEN: 'abc' }))).toBe(true);
+  });
+
+  it('handles redirect rule templates (matchPattern + redirectTo)', () => {
+    const rule = {
+      ...base,
+      type: 'redirect' as const,
+      action: { matchPattern: '(.*)', redirectTo: 'https://{{HOST}}/r' },
+    };
+    expect(isRuleResolvable(rule, lookupFromMap({ HOST: 'openheaders.io' }))).toBe(true);
+    expect(isRuleResolvable(rule, () => null)).toBe(false);
   });
 });

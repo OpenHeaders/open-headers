@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Request } from '../../src/types/v5/request';
-import { isRequestComplete, requestIncompleteReason } from '../../src/utils/request-validation';
+import type { ResolvedVariable } from '../../src/types/v5/variable';
+import { isRequestComplete, isRequestResolvable, requestIncompleteReason } from '../../src/utils/request-validation';
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -128,5 +129,89 @@ describe('requestIncompleteReason', () => {
     expect(requestIncompleteReason(makeRequest({ auth: { type: 'api-key', key: 'X', value: '', in: 'header' } }))).toBe(
       'api-key-missing-value',
     );
+  });
+});
+
+// ── isRequestResolvable — reference-gating ─────────────────────────
+
+describe('isRequestResolvable', () => {
+  const lookupFromMap = (values: Record<string, string>) => {
+    return (name: string): ResolvedVariable | null => {
+      const v = values[name];
+      if (v === undefined) return null;
+      return { name, value: v, scope: 'workspace', isSensitive: false };
+    };
+  };
+
+  it('returns true when the request has no templates', () => {
+    expect(isRequestResolvable(makeRequest({ url: 'https://api.openheaders.io/ping' }), () => null)).toBe(true);
+  });
+
+  it('returns true when every URL reference resolves', () => {
+    const req = makeRequest({ url: 'https://{{HOST}}/ping' });
+    expect(isRequestResolvable(req, lookupFromMap({ HOST: 'api.openheaders.io' }))).toBe(true);
+  });
+
+  it('returns false when a URL reference is unresolved — the executor refuses to ship `{{HOST}}` literally', () => {
+    const req = makeRequest({ url: 'https://{{HOST}}/ping' });
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+
+  it('walks enabled headers (key + value) but skips disabled ones', () => {
+    const req = makeRequest({
+      headers: [
+        { key: 'X-Disabled', value: '{{NEVER}}', enabled: false },
+        { key: 'X-Auth', value: '{{TOKEN}}', enabled: true },
+      ],
+    });
+    // Disabled header's unresolved ref doesn't block the request.
+    expect(isRequestResolvable(req, lookupFromMap({ TOKEN: 'abc' }))).toBe(true);
+    // Enabled header's unresolved ref does.
+    expect(isRequestResolvable(req, lookupFromMap({ NEVER: 'x' }))).toBe(false);
+  });
+
+  it('walks enabled query params but skips disabled ones', () => {
+    const req = makeRequest({
+      params: [
+        { key: 'tz', value: '{{TZ}}', enabled: false },
+        { key: 'user', value: '{{USER}}', enabled: true },
+      ],
+    });
+    expect(isRequestResolvable(req, lookupFromMap({ USER: 'alice' }))).toBe(true);
+    expect(isRequestResolvable(req, lookupFromMap({ TZ: 'UTC' }))).toBe(false);
+  });
+
+  it('walks basic auth fields (username + password)', () => {
+    const req = makeRequest({ auth: { type: 'basic', username: '{{USER}}', password: '{{PASS}}' } });
+    expect(isRequestResolvable(req, lookupFromMap({ USER: 'alice', PASS: 'secret' }))).toBe(true);
+    expect(isRequestResolvable(req, lookupFromMap({ USER: 'alice' }))).toBe(false);
+  });
+
+  it('walks bearer auth token', () => {
+    const req = makeRequest({ auth: { type: 'bearer', token: '{{TOKEN}}' } });
+    expect(isRequestResolvable(req, lookupFromMap({ TOKEN: 'abc' }))).toBe(true);
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+
+  it('walks body content when the body has a string payload', () => {
+    const req = makeRequest({
+      body: { type: 'json', content: '{"user":"{{USER}}"}' },
+    });
+    expect(isRequestResolvable(req, lookupFromMap({ USER: 'alice' }))).toBe(true);
+    expect(isRequestResolvable(req, () => null)).toBe(false);
+  });
+
+  it('accepts reserved-namespace references (`{{dynamic.X}}`) — intentionally unresolved until feature ships', () => {
+    const req = makeRequest({ url: 'https://api.openheaders.io/t/{{dynamic.$timestamp}}' });
+    // Pass a scoped lookup that returns null — `resolveTemplate` will
+    // emit `reserved-namespace` for `dynamic.*`, which
+    // `isRequestResolvable` filters out of the gate.
+    expect(
+      isRequestResolvable(
+        req,
+        () => null,
+        () => null,
+      ),
+    ).toBe(true);
   });
 });

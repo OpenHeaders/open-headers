@@ -11,8 +11,9 @@
  * HeadersTab) don't have to change.
  */
 
-import { Input, theme } from 'antd';
+import { theme } from 'antd';
 import type React from 'react';
+import { TemplateInput } from '../template-input';
 import {
   type BulkEditConfig,
   EditableGridTable,
@@ -28,6 +29,11 @@ export interface KeyValueRow {
   value: string;
   description?: string;
   enabled: boolean;
+  /** Carries the `?key=` vs `?key` distinction when this row came
+   *  from URL parsing. See `@openheaders/core/utils/url` —
+   *  `QueryParam.hasEquals` — for the semantics. Unused by rows that
+   *  aren't URL-derived (headers, form fields). */
+  hasEquals?: boolean;
 }
 
 interface KeyValueTableProps {
@@ -94,11 +100,11 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       suggestionRows={suggestionRows}
       bulkEdit={bulkEdit}
       renderValueCell={(row, update, ctx) => (
-        <Input
+        <TemplateInput
           variant="borderless"
           value={row.value}
           placeholder={valuePlaceholder}
-          onChange={(e) => update({ ...row, value: e.target.value })}
+          onChange={(next) => update({ ...row, value: next })}
           style={{
             ...cellFont,
             flex: 1,

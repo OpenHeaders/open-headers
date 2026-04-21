@@ -34,7 +34,6 @@ import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYP
 import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
-import RuleResolutionBanner from './RuleResolutionBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -46,6 +45,7 @@ import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
 import StaleDraftBanner from './StaleDraftBanner';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
+import { SuggestionContextProvider } from './template-input';
 
 const { Text } = Typography;
 
@@ -844,163 +844,171 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   return (
     <div className="rules-rule-editor">
-      <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
-        {/* Hidden: rule type (set at creation, can't change) */}
-        <Form.Item name="ruleType" hidden>
-          <input type="hidden" />
-        </Form.Item>
+      <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
+        <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
+          {/* Hidden: rule type (set at creation, can't change) */}
+          <Form.Item name="ruleType" hidden>
+            <input type="hidden" />
+          </Form.Item>
 
-        <RuleResolutionBanner collectionId={bannerCollectionId} />
+          {/* Unresolved-variable feedback lives in the inline mirror
+           *  (red-dashed `{{ref}}` at the source) + the Variables
+           *  panel's "Resolution issues" section, both of which show
+           *  the same state without reflowing the editor on every
+           *  keystroke. An always-on banner here duplicated that
+           *  information and nudged scroll as counts changed. */}
+          {staleDraft && (
+            <StaleDraftBanner
+              entityLabel="rule"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={handleStaleDraftReload}
+              onKeepEditing={handleStaleDraftKeepEditing}
+            />
+          )}
 
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="rule"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleDraftReload}
-            onKeepEditing={handleStaleDraftKeepEditing}
-          />
-        )}
-
-        {/* ── Templates ── */}
-        <div style={{ marginBottom: 16 }}>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 8,
-              alignItems: 'center',
-            }}
-          >
-            <Button
-              size="small"
-              type={activeSource === 'blank' ? 'primary' : 'default'}
-              icon={<FileOutlined />}
-              onClick={() => applyTemplate('empty')}
+          {/* ── Templates ── */}
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8,
+                alignItems: 'center',
+              }}
             >
-              Blank
-            </Button>
-
-            <Dropdown menu={{ items: systemMenuItems }} trigger={['click']} disabled={systemMenuItems.length === 0}>
-              <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <FolderOpenOutlined style={{ fontSize: 13 }} />
-                  <span>System Templates</span>
-                  {activeSystemTemplate && (
-                    <span
-                      style={{
-                        fontWeight: 400,
-                        opacity: 0.85,
-                      }}
-                    >
-                      : {activeSystemTemplate.icon} {activeSystemTemplate.name}
-                    </span>
-                  )}
-                  <DownOutlined style={{ fontSize: 9 }} />
-                </span>
+              <Button
+                size="small"
+                type={activeSource === 'blank' ? 'primary' : 'default'}
+                icon={<FileOutlined />}
+                onClick={() => applyTemplate('empty')}
+              >
+                Blank
               </Button>
-            </Dropdown>
 
-            <Tooltip
-              title={
-                userMenuItems.length === 0 ? 'No user templates yet for this rule type — save one first' : undefined
-              }
-            >
-              <Dropdown menu={{ items: userMenuItems }} trigger={['click']} disabled={userMenuItems.length === 0}>
-                <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
+              <Dropdown menu={{ items: systemMenuItems }} trigger={['click']} disabled={systemMenuItems.length === 0}>
+                <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <FolderOpenTwoTone style={{ fontSize: 13 }} />
-                    <span>User Templates</span>
-                    {activeUserTemplate && (
-                      <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
-                        :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
-                        {activeUserTemplate.name}
+                    <FolderOpenOutlined style={{ fontSize: 13 }} />
+                    <span>System Templates</span>
+                    {activeSystemTemplate && (
+                      <span
+                        style={{
+                          fontWeight: 400,
+                          opacity: 0.85,
+                        }}
+                      >
+                        : {activeSystemTemplate.icon} {activeSystemTemplate.name}
                       </span>
                     )}
                     <DownOutlined style={{ fontSize: 9 }} />
                   </span>
                 </Button>
               </Dropdown>
-            </Tooltip>
-          </div>
 
-          {selectedDescription && (
-            <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>{selectedDescription}</div>
-          )}
-        </div>
+              <Tooltip
+                title={
+                  userMenuItems.length === 0 ? 'No user templates yet for this rule type — save one first' : undefined
+                }
+              >
+                <Dropdown menu={{ items: userMenuItems }} trigger={['click']} disabled={userMenuItems.length === 0}>
+                  <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <FolderOpenTwoTone style={{ fontSize: 13 }} />
+                      <span>User Templates</span>
+                      {activeUserTemplate && (
+                        <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
+                          :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
+                          {activeUserTemplate.name}
+                        </span>
+                      )}
+                      <DownOutlined style={{ fontSize: 9 }} />
+                    </span>
+                  </Button>
+                </Dropdown>
+              </Tooltip>
+            </div>
 
-        {/* ── Title + Enabled ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-          <Text strong style={{ fontSize: 15 }}>
-            {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
-          </Text>
-          <Switch
-            size="small"
-            checked={isEnabled}
-            onChange={handleToggleEnabled}
-            checkedChildren="Enabled"
-            unCheckedChildren="Disabled"
-          />
-        </div>
-
-        {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
-        <div className="rules-rule-editor-columns">
-          {/* ── Per-type fields ── */}
-          <div>
-            {selectedType === 'header' && (
-              <HeaderRuleFields
-                activeTab={headerActiveTab}
-                onTabChange={setHeaderActiveTab}
-                reqCount={headerReqCount}
-                resCount={headerResCount}
-              />
+            {selectedDescription && (
+              <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>{selectedDescription}</div>
             )}
-            {selectedType === 'block' && <BlockRuleFields />}
-            {selectedType === 'redirect' && <RedirectRuleFields />}
-            {selectedType === 'query-param' && <QueryParamRuleFields />}
-            {selectedType === 'inject' && <InjectRuleFields />}
-            {selectedType === 'delay' && <DelayRuleFields />}
-            {selectedType === 'body' && <BodyRuleFields />}
-            {selectedType === 'mock' && <MockRuleFields />}
           </div>
 
-          {/* ── Conditions section ── */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <Text strong style={{ fontSize: 13 }}>
-                Conditions
-              </Text>
-              <InfoCircleOutlined
-                style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                onClick={() => openDocs('conditions')}
-              />
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}>
-              All conditions must match for this rule to fire (AND logic). Add at least one condition.
-            </div>
-            <Form.Item name="conditions" style={{ marginBottom: 0 }}>
-              <ConditionEditor />
-            </Form.Item>
+          {/* ── Title + Enabled ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <Text strong style={{ fontSize: 15 }}>
+              {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
+            </Text>
+            <Switch
+              size="small"
+              checked={isEnabled}
+              onChange={handleToggleEnabled}
+              checkedChildren="Enabled"
+              unCheckedChildren="Disabled"
+            />
           </div>
-        </div>
-      </Form>
 
-      <SaveAsTemplateModal
-        open={saveAsTemplateOpen}
-        ruleType={selectedType ?? 'header'}
-        conditions={form.getFieldValue('conditions') ?? []}
-        formValues={(() => {
-          if (!saveAsTemplateOpen) return {};
-          const all = form.getFieldsValue();
-          const metaKeys = new Set(['ruleType', 'conditions']);
-          const fv: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(all)) {
-            if (!metaKeys.has(k)) fv[k] = v;
-          }
-          return fv;
-        })()}
-        onCancel={() => setSaveAsTemplateOpen(false)}
-      />
+          {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
+          <div className="rules-rule-editor-columns">
+            {/* ── Per-type fields ── */}
+            <div>
+              {selectedType === 'header' && (
+                <HeaderRuleFields
+                  activeTab={headerActiveTab}
+                  onTabChange={setHeaderActiveTab}
+                  reqCount={headerReqCount}
+                  resCount={headerResCount}
+                />
+              )}
+              {selectedType === 'block' && <BlockRuleFields />}
+              {selectedType === 'redirect' && <RedirectRuleFields />}
+              {selectedType === 'query-param' && <QueryParamRuleFields />}
+              {selectedType === 'inject' && <InjectRuleFields />}
+              {selectedType === 'delay' && <DelayRuleFields />}
+              {selectedType === 'body' && <BodyRuleFields />}
+              {selectedType === 'mock' && <MockRuleFields />}
+            </div>
+
+            {/* ── Conditions section ── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <Text strong style={{ fontSize: 13 }}>
+                  Conditions
+                </Text>
+                <InfoCircleOutlined
+                  style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                  onClick={() => openDocs('conditions')}
+                />
+              </div>
+              <div
+                style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}
+              >
+                All conditions must match for this rule to fire (AND logic). Add at least one condition.
+              </div>
+              <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+                <ConditionEditor />
+              </Form.Item>
+            </div>
+          </div>
+        </Form>
+
+        <SaveAsTemplateModal
+          open={saveAsTemplateOpen}
+          ruleType={selectedType ?? 'header'}
+          conditions={form.getFieldValue('conditions') ?? []}
+          formValues={(() => {
+            if (!saveAsTemplateOpen) return {};
+            const all = form.getFieldsValue();
+            const metaKeys = new Set(['ruleType', 'conditions']);
+            const fv: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(all)) {
+              if (!metaKeys.has(k)) fv[k] = v;
+            }
+            return fv;
+          })()}
+          onCancel={() => setSaveAsTemplateOpen(false)}
+        />
+      </SuggestionContextProvider>
     </div>
   );
 };

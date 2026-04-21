@@ -24,10 +24,11 @@ import type { FileRef } from '@openheaders/core/files';
 import { isPlaceholderFileRef, placeholderFileRef } from '@openheaders/core/files';
 import type { V5 } from '@openheaders/core/types';
 import type { MenuProps } from 'antd';
-import { Dropdown, Input, Select, Tag, theme } from 'antd';
+import { Dropdown, Select, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 import { EditableGridTable, type EditableRowAdapter } from './request-editor/EditableGridTable';
+import { TemplateInput } from './template-input';
 
 const FORM_DATA_COLUMN_WIDTHS = { value: 'minmax(280px, 1.6fr)' };
 
@@ -197,11 +198,11 @@ const ValueCell: React.FC<ValueCellProps> = ({
         popupMatchSelectWidth={false}
       />
       {row.kind === 'text' ? (
-        <Input
+        <TemplateInput
           variant="borderless"
           value={row.value}
           placeholder="Value"
-          onChange={(e) => update({ ...row, value: e.target.value })}
+          onChange={(next) => update({ ...row, value: next })}
           style={{ ...cellFont, flex: 1, padding: '4px 6px', color: dim ? token.colorTextQuaternary : token.colorText }}
         />
       ) : (

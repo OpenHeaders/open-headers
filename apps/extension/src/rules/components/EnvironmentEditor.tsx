@@ -12,7 +12,8 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -24,9 +25,13 @@ interface EnvironmentEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
+// Module-level — `useDirtyDraft` requires a stable fingerprint reference.
 function fingerprint(vars: V5.Variable[]): string {
   return JSON.stringify(vars.map((v) => [v.name, v.value, v.type]));
 }
+// Shared empty-fallback — ensures identity stability so the hook's
+// initial-state factory never sees a fresh `[]` per render.
+const EMPTY_VARS: V5.Variable[] = [];
 
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
@@ -42,8 +47,11 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
 
-  const [draft, setDraft] = useState<V5.Variable[]>(() => env?.variables ?? []);
-  const persistedFpRef = useRef<string>(fingerprint(env?.variables ?? []));
+  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.Variable[]>({
+    serverDraft: env?.variables ?? null,
+    fingerprint,
+    empty: EMPTY_VARS,
+  });
 
   // ── Phase 10 stale-draft tracking ─────────────────────────────────
   //
@@ -59,20 +67,6 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     setLoadedVersion(env.version);
   }, [env?.version, loadedVersion]);
 
-  // Re-sync local draft when the environment identity or persisted
-  // content changes externally (save round-trip, other-workspace load,
-  // concurrent tab edit).
-  useEffect(() => {
-    if (!env) return;
-    const fp = fingerprint(env.variables);
-    if (fp !== persistedFpRef.current) {
-      persistedFpRef.current = fp;
-      setDraft(env.variables);
-    }
-  }, [env]);
-
-  const isDirty = useMemo(() => fingerprint(draft) !== persistedFpRef.current, [draft]);
-
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
@@ -81,7 +75,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     if (!env || !isDirty) return;
     const result = await updateEnvironmentVariables(env.uid, draft, loadedVersion ?? undefined);
     if (result.ok) {
-      persistedFpRef.current = fingerprint(draft);
+      markPersisted(draft);
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
@@ -92,19 +86,18 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     } else {
       message.error(`Failed to update environment${'message' in result ? `: ${result.message}` : ''}`);
     }
-  }, [env, isDirty, draft, updateEnvironmentVariables, onDirtyChange, loadedVersion, message]);
+  }, [env, isDirty, draft, updateEnvironmentVariables, onDirtyChange, loadedVersion, message, markPersisted]);
 
   const handleStaleDraftReload = useCallback(() => {
     // Discard this tab's in-memory edits; snap loadedVersion to the
     // server's current version (the live `env` is broadcast-refreshed
     // by the winning save's `environmentsChanged` event).
     if (!env) return;
-    persistedFpRef.current = fingerprint(env.variables);
-    setDraft(env.variables);
+    resetToServer();
     setLoadedVersion(env.version);
     setStaleDraft(null);
     onDirtyChange?.(false);
-  }, [env, onDirtyChange]);
+  }, [env, onDirtyChange, resetToServer]);
 
   const handleStaleDraftKeepEditing = useCallback(() => {
     // Snap loadedVersion forward so the next save's expectedVersion

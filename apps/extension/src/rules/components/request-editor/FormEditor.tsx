@@ -14,9 +14,10 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { Input, theme } from 'antd';
+import { theme } from 'antd';
 import type React from 'react';
 import { useRef } from 'react';
+import { TemplateInput } from '../template-input';
 import { EditableGridTable, type EditableRowAdapter } from './EditableGridTable';
 
 interface FormEditorProps {
@@ -111,11 +112,11 @@ const FormEditor: React.FC<FormEditorProps> = ({ fields, onChange }) => {
         placeholder: 'key1=value1\nkey2=value2 # description\n//disabled=value',
       }}
       renderValueCell={(row, update, ctx) => (
-        <Input
+        <TemplateInput
           variant="borderless"
           value={row.value}
           placeholder="Value"
-          onChange={(e) => update({ ...row, value: e.target.value })}
+          onChange={(next) => update({ ...row, value: next })}
           style={{
             ...cellFont,
             flex: 1,

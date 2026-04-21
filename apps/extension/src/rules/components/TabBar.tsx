@@ -61,12 +61,19 @@ export interface EditorTabDragData {
 const TAB_ICON_GRAY = '#999';
 const TAB_ICON_YELLOW = 'var(--ant-color-warning, #faad14)';
 
+/** Stable empty-set for the default arg of `tabIcon` — prevents a
+ *  new Set identity per render when callers haven't wired the
+ *  unresolved state yet (tests, transient call sites). */
+const EMPTY_SET: ReadonlySet<string> = new Set<string>();
+
 export function tabIcon(
   tab: RulesTab,
   rules: V5.Rule[],
   templates: V5.Template[],
   pausedUids: ReadonlySet<string>,
   requests: V5.Request[] = [],
+  unresolvableRequestUids: ReadonlySet<string> = EMPTY_SET,
+  unresolvableRuleUids: ReadonlySet<string> = EMPTY_SET,
 ): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
@@ -101,7 +108,13 @@ export function tabIcon(
     const request =
       tab.mode === 'request-edit' && tab.requestUid ? requests.find((r) => r.uid === tab.requestUid) : undefined;
     const incomplete = request ? !isRequestComplete(request) : false;
-    const color = incomplete ? TAB_ICON_GRAY : (REQUEST_METHOD_COLORS[method] ?? '#999');
+    // Request won't send when structurally incomplete OR when refs
+    // don't resolve — the DNR discipline mirrored to the request
+    // executor. Grey the method in both cases (same iconography); the
+    // sidebar badge + Send-button tooltip distinguish the two causes.
+    const unresolved = request ? unresolvableRequestUids.has(request.uid) : false;
+    const muted = incomplete || unresolved;
+    const color = muted ? TAB_ICON_GRAY : (REQUEST_METHOD_COLORS[method] ?? '#999');
     return (
       <span
         style={{
@@ -111,7 +124,7 @@ export function tabIcon(
           fontFamily: "'SF Mono', monospace",
           minWidth: 36,
           display: 'inline-block',
-          opacity: incomplete ? 0.7 : 1,
+          opacity: muted ? 0.7 : 1,
         }}
       >
         {method}
@@ -121,7 +134,12 @@ export function tabIcon(
   // Rule tabs — use the same rich icon as the sidebar
   const rule = tab.ruleUid ? rules.find((r) => r.uid === tab.ruleUid) : undefined;
   const paused = tab.ruleUid ? pausedUids.has(tab.ruleUid) : false;
-  const isActive = rule ? rule.enabled && isRuleComplete(rule) && !paused : false;
+  // Unresolved rules get the same "can't run" treatment as paused/
+  // incomplete: `isActive = false` → the sidebar/tab icon renders in
+  // the greyed-out palette. Badge (sidebar) + tooltip (tab) carry the
+  // reason so the user knows to fix the variable, not the rule.
+  const unresolved = tab.ruleUid ? unresolvableRuleUids.has(tab.ruleUid) : false;
+  const isActive = rule ? rule.enabled && isRuleComplete(rule) && !paused && !unresolved : false;
   return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive, paused });
 }
 
@@ -181,6 +199,14 @@ interface TabBarProps {
   /** Effective paused uids — drives the yellow tab icon for paused
    *  rules, collection-overviews, and folder-overviews. */
   pausedUids: ReadonlySet<string>;
+  /** Rule uids whose templates have unresolved refs — drives greyed
+   *  method tag on rule tabs, same treatment as `paused`. Defaults to
+   *  an empty set so older callers (and `tabIcon`'s stand-alone
+   *  invocation from the drag preview) stay source-compatible. */
+  unresolvableRuleUids?: ReadonlySet<string>;
+  /** Request uids whose templates have unresolved refs — drives
+   *  greyed method tag on request tabs. */
+  unresolvableRequestUids?: ReadonlySet<string>;
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
   /** Double-click on any tab — App wires this to zen-mode toggle. */
@@ -245,6 +271,8 @@ interface TabPillContentProps {
   templates: V5.Template[];
   requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
+  unresolvableRuleUids: ReadonlySet<string>;
+  unresolvableRequestUids: ReadonlySet<string>;
   onClose?: (id: string) => void;
   closeIconColor: string;
   hidden?: boolean;
@@ -256,13 +284,17 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   templates,
   requests,
   pausedUids,
+  unresolvableRuleUids,
+  unresolvableRequestUids,
   onClose,
   closeIconColor,
   hidden,
 }) => {
   const inner = (
     <>
-      <span className="rules-type-badge">{tabIcon(tab, rules, templates, pausedUids, requests)}</span>
+      <span className="rules-type-badge">
+        {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids)}
+      </span>
       <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab)}
       </span>
@@ -321,6 +353,8 @@ interface CrossLeafInsertionMarkerProps {
   templates: V5.Template[];
   requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
+  unresolvableRuleUids: ReadonlySet<string>;
+  unresolvableRequestUids: ReadonlySet<string>;
   token: ReturnType<typeof theme.useToken>['token'];
 }
 
@@ -330,6 +364,8 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
   templates,
   requests,
   pausedUids,
+  unresolvableRuleUids,
+  unresolvableRequestUids,
   token,
 }) => (
   <div
@@ -343,6 +379,8 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
       templates={templates}
       requests={requests}
       pausedUids={pausedUids}
+      unresolvableRuleUids={unresolvableRuleUids}
+      unresolvableRequestUids={unresolvableRequestUids}
       closeIconColor={token.colorTextTertiary}
       hidden
     />
@@ -360,6 +398,8 @@ interface SortableTabProps {
   templates: V5.Template[];
   requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
+  unresolvableRuleUids: ReadonlySet<string>;
+  unresolvableRequestUids: ReadonlySet<string>;
   contextMenu: { items: ItemType[] };
   onSwitch: (id: string) => void;
   onClose: (id: string) => void;
@@ -375,6 +415,8 @@ const SortableTab: React.FC<SortableTabProps> = ({
   templates,
   requests,
   pausedUids,
+  unresolvableRuleUids,
+  unresolvableRequestUids,
   contextMenu,
   onSwitch,
   onClose,
@@ -459,6 +501,8 @@ const SortableTab: React.FC<SortableTabProps> = ({
         templates={templates}
         requests={requests}
         pausedUids={pausedUids}
+        unresolvableRuleUids={unresolvableRuleUids}
+        unresolvableRequestUids={unresolvableRequestUids}
         onClose={onClose}
         closeIconColor={token.colorTextTertiary}
         hidden={isDragging}
@@ -492,6 +536,8 @@ interface TabSearchProps {
   templates: V5.Template[];
   requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
+  unresolvableRuleUids: ReadonlySet<string>;
+  unresolvableRequestUids: ReadonlySet<string>;
   onSwitch: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopen: (closed: ClosedTab) => void;
@@ -506,6 +552,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   templates,
   requests,
   pausedUids,
+  unresolvableRuleUids,
+  unresolvableRequestUids,
   onSwitch,
   recentlyClosed,
   onReopen,
@@ -609,7 +657,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 }}
               >
                 <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                  {tabIcon(tab, rules, templates, pausedUids, requests)}
+                  {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids)}
                 </span>
                 <span
                   style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
@@ -661,7 +709,15 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                       }}
                     >
                       <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                        {tabIcon(closed.tab, rules, templates, pausedUids, requests)}
+                        {tabIcon(
+                          closed.tab,
+                          rules,
+                          templates,
+                          pausedUids,
+                          requests,
+                          unresolvableRequestUids,
+                          unresolvableRuleUids,
+                        )}
                       </span>
                       <span
                         style={{
@@ -702,6 +758,8 @@ const TabBar: React.FC<TabBarProps> = ({
   templates,
   requests,
   pausedUids,
+  unresolvableRuleUids = EMPTY_SET,
+  unresolvableRequestUids = EMPTY_SET,
   onSwitch,
   onClose,
   onTabDoubleClick,
@@ -964,6 +1022,8 @@ const TabBar: React.FC<TabBarProps> = ({
                   templates={templates}
                   requests={requests}
                   pausedUids={pausedUids}
+                  unresolvableRuleUids={unresolvableRuleUids}
+                  unresolvableRequestUids={unresolvableRequestUids}
                   token={token}
                 />
               )}
@@ -976,6 +1036,8 @@ const TabBar: React.FC<TabBarProps> = ({
                 templates={templates}
                 requests={requests}
                 pausedUids={pausedUids}
+                unresolvableRuleUids={unresolvableRuleUids}
+                unresolvableRequestUids={unresolvableRequestUids}
                 contextMenu={buildContextMenu(tab, index)}
                 onSwitch={onSwitch}
                 onClose={onClose}
@@ -990,6 +1052,8 @@ const TabBar: React.FC<TabBarProps> = ({
               templates={templates}
               requests={requests}
               pausedUids={pausedUids}
+              unresolvableRuleUids={unresolvableRuleUids}
+              unresolvableRequestUids={unresolvableRequestUids}
               token={token}
             />
           )}
@@ -1036,6 +1100,8 @@ const TabBar: React.FC<TabBarProps> = ({
           templates={templates}
           requests={requests}
           pausedUids={pausedUids}
+          unresolvableRuleUids={unresolvableRuleUids}
+          unresolvableRequestUids={unresolvableRequestUids}
           onSwitch={onSwitch}
           recentlyClosed={recentlyClosed}
           onReopen={onReopenTab}

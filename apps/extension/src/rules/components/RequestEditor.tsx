@@ -20,7 +20,10 @@
 
 import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useRequests } from '@hooks/useRequests';
+import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
+import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
+import { resolveTemplate } from '@openheaders/core/variables';
 import { App, Button, Input, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -100,7 +103,13 @@ function headersFromV5(list: V5.RequestHeader[]): KeyValueRow[] {
 }
 function paramsFromV5(list: V5.QueryParam[]): KeyValueRow[] {
   return list.map((p) =>
-    makeKvRow({ key: p.key, value: p.value, description: p.description, enabled: p.enabled !== false }),
+    makeKvRow({
+      key: p.key,
+      value: p.value,
+      description: p.description,
+      enabled: p.enabled !== false,
+      hasEquals: p.hasEquals,
+    }),
   );
 }
 function rowsToHeaders(rows: KeyValueRow[]): V5.RequestHeader[] {
@@ -121,16 +130,62 @@ function rowsToParams(rows: KeyValueRow[]): V5.QueryParam[] {
       value: r.value,
       description: r.description?.trim() ? r.description : undefined,
       enabled: r.enabled,
+      hasEquals: r.hasEquals,
     }));
 }
 
+/** Shed KeyValueTable's transient fields (uid, description) so the
+ *  pure `buildUrlDisplay` utility sees only the fields it cares
+ *  about — key, value, enabled, hasEquals. */
+function draftParamsToQueryParams(
+  rows: KeyValueRow[],
+): Array<{ key: string; value: string; enabled?: boolean; hasEquals?: boolean }> {
+  return rows.map((r) => ({ key: r.key, value: r.value, enabled: r.enabled, hasEquals: r.hasEquals }));
+}
+
+/** Merge parsed-from-URL params with the existing draft rows so
+ *  metadata (description + enabled + uid) rides along for any row
+ *  whose key still matches. Duplicate keys are handled via a
+ *  consume-from-pool pattern: each parsed row claims the first
+ *  existing row with a matching key and removes it from the pool,
+ *  so `?a=1&a=2` against `[{a,1,descX},{a,2,descY}]` preserves both
+ *  descriptions on the correct rows. Unmatched parsed rows come in
+ *  fresh (enabled, no description); unmatched existing rows drop. */
+function mergeParamsFromUrl(
+  parsed: ReadonlyArray<{ key: string; value: string; hasEquals?: boolean }>,
+  existing: KeyValueRow[],
+): KeyValueRow[] {
+  const pool = existing.slice();
+  return parsed.map((p) => {
+    const idx = pool.findIndex((r) => r.key === p.key);
+    const match = idx >= 0 ? pool[idx] : undefined;
+    if (idx >= 0) pool.splice(idx, 1);
+    return makeKvRow({
+      key: p.key,
+      value: p.value,
+      description: match?.description ?? '',
+      enabled: match?.enabled ?? true,
+      hasEquals: p.hasEquals,
+    });
+  });
+}
+
 function draftFromRequest(req: V5.Request): Draft {
+  // Split any legacy `?…` suffix off of `req.url` into structured
+  // params so the editor's bidirectional URL↔Params sync has a clean
+  // base URL to work with. Existing `req.params` entries keep their
+  // metadata and are appended AFTER the URL-derived ones, preserving
+  // the visual order a user would expect (URL first, table after).
+  const parsed = parseUrlQuery(req.url);
+  const urlParams: KeyValueRow[] = parsed.params.map((p) =>
+    makeKvRow({ key: p.key, value: p.value, description: '', enabled: true, hasEquals: p.hasEquals }),
+  );
   return {
     method: req.method,
-    url: req.url,
+    url: parsed.base,
     description: req.description ?? '',
     headers: headersFromV5(req.headers),
-    params: paramsFromV5(req.params),
+    params: [...urlParams, ...paramsFromV5(req.params)],
     auth: req.auth,
     body: req.body,
     credentialsMode: req.credentialsMode,
@@ -157,8 +212,18 @@ function fingerprint(d: Draft): string {
     method: d.method,
     url: d.url,
     description: d.description ?? '',
-    headers: d.headers.filter((h) => h.key.trim()).map((h) => [h.key, h.value, h.description ?? '', h.enabled]),
-    params: d.params.filter((p) => p.key.trim()).map((p) => [p.key, p.value, p.description ?? '', p.enabled]),
+    // Every row contributes, including key-less drafts: typing a
+    // value without a key (or a bare `?`, which produces an empty
+    // placeholder pair) is still a change the user made and Save
+    // must register it. Save's downstream strip of empty-key rows
+    // is fine — it snapshots the pre-strip draft into `persistedFp`,
+    // so typing ⇒ dirty, save ⇒ clean even though the placeholder
+    // may disappear from the stored shape.
+    headers: d.headers.map((h) => [h.key, h.value, h.description ?? '', h.enabled]),
+    // `hasEquals` as a 5th tuple slot preserves the `?ok` vs `?ok=`
+    // distinction through the fingerprint so adding `=` after an
+    // existing key is detected as dirty on its own.
+    params: d.params.map((p) => [p.key, p.value, p.description ?? '', p.enabled, !!p.hasEquals]),
     auth: d.auth,
     body: d.body,
     credentialsMode: d.credentialsMode ?? 'omit',
@@ -197,13 +262,109 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [loading, setLoading] = useState(!isCreateMode);
-  const persistedFpRef = useRef<string>(isCreateMode ? '' : fingerprint(emptyDraft()));
+  // State, not a ref — the `isDirty` memo reads this as a dep, so the
+  // memo recomputes when a save snapshots a new baseline. A `useRef`
+  // here would leave the memo returning its stale cached `true` on the
+  // next render and the tab dot would snap back. See the parallel fix
+  // in `useDirtyDraft` (its file-header comment documents the trap).
+  const [persistedFp, setPersistedFp] = useState<string>(() => (isCreateMode ? '' : fingerprint(emptyDraft())));
 
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
 
   const [sending, setSending] = useState(false);
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
+
+  // Resolvability gate for the Send button — mirrors the DNR compile
+  // gate for rules. The executor ALSO enforces this (returns an error
+  // snapshot when a resolve fails), but disabling the Send button up
+  // front is better UX: the user sees exactly which refs are broken
+  // (inline red-dashed mirror + Variables panel) and fixes them
+  // before clicking. Reserved namespaces (`{{file.X}}` / `{{dynamic.X}}`)
+  // are excluded from blocking per `isRequestResolvable`'s contract.
+  const requestResolver = useVariableResolver();
+  const draftCollectionId = useMemo(() => {
+    const path = summary?.path;
+    if (!path) return undefined;
+    const hit = requestCollections.find((c) => path.startsWith(`${c.path}/`));
+    return hit?.uid;
+  }, [summary?.path, requestCollections]);
+  // Per-section resolvability — one resolver walk per tab so the
+  // inline tab dots can flag exactly which section needs attention.
+  // Each entry returns `true` when at least one `{{ref}}` in that
+  // tab's strings fails to resolve (excluding reserved-namespace
+  // refs, which are always intentionally unresolved until those
+  // features ship).
+  const sectionUnresolved = useMemo(() => {
+    const context = draftCollectionId ? { collectionId: draftCollectionId } : undefined;
+    const flat = (name: string) => requestResolver.resolve(name, context);
+    const scoped = (name: string, ns: Parameters<typeof requestResolver.resolveScopedWithDiagnostics>[1]) =>
+      requestResolver.resolveScopedWithDiagnostics(name, ns, context);
+    const anyUnresolved = (strings: readonly string[]): boolean => {
+      for (const s of strings) {
+        if (!s) continue;
+        const { errors } = resolveTemplate(s, flat, scoped);
+        if (errors.some((e) => e.reason !== 'reserved-namespace')) return true;
+      }
+      return false;
+    };
+    const urlStrings = [draft.url];
+    const paramStrings: string[] = [];
+    for (const r of draft.params) {
+      if (r.enabled === false) continue;
+      if (r.key) paramStrings.push(r.key);
+      if (r.value) paramStrings.push(r.value);
+    }
+    const headerStrings: string[] = [];
+    for (const r of draft.headers) {
+      if (r.enabled === false) continue;
+      if (r.key) headerStrings.push(r.key);
+      if (r.value) headerStrings.push(r.value);
+    }
+    const authStrings: string[] = [];
+    const auth = draft.auth;
+    switch (auth.type) {
+      case 'basic':
+        if (auth.username) authStrings.push(auth.username);
+        if (auth.password) authStrings.push(auth.password);
+        break;
+      case 'bearer':
+        if (auth.token) authStrings.push(auth.token);
+        break;
+      case 'api-key':
+        if (auth.key) authStrings.push(auth.key);
+        if (auth.value) authStrings.push(auth.value);
+        break;
+    }
+    const bodyStrings: string[] = [];
+    const body = draft.body;
+    if (body.type === 'multipart') {
+      for (const part of body.multipartParts ?? []) {
+        if (part.enabled === false) continue;
+        if (part.name) bodyStrings.push(part.name);
+        if (part.kind === 'text' && part.value) bodyStrings.push(part.value);
+      }
+    } else if (body.type !== 'none' && body.content) {
+      bodyStrings.push(body.content);
+    }
+    return {
+      url: anyUnresolved(urlStrings),
+      params: anyUnresolved(paramStrings),
+      headers: anyUnresolved(headerStrings),
+      auth: anyUnresolved(authStrings),
+      body: anyUnresolved(bodyStrings),
+    };
+  }, [draft, draftCollectionId, requestResolver]);
+
+  // Aggregate flag — drives the Send button + tab-bar method greying.
+  // Equivalent to walking every string via `isRequestResolvable`;
+  // since `sectionUnresolved` already pays that cost, we just OR.
+  const hasUnresolvedRefs =
+    sectionUnresolved.url ||
+    sectionUnresolved.params ||
+    sectionUnresolved.headers ||
+    sectionUnresolved.auth ||
+    sectionUnresolved.body;
 
   // Edit mode: load full request from SW. Create mode: nothing to load.
   const initializedUidRef = useRef<string | null>(null);
@@ -216,7 +377,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       if (full) {
         const d = draftFromRequest(full);
         setDraft(d);
-        persistedFpRef.current = fingerprint(d);
+        setPersistedFp(fingerprint(d));
         setLoadedVersion(full.version);
       }
       setLoading(false);
@@ -225,8 +386,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   const isDirty = useMemo(() => {
     if (isCreateMode) return true;
-    return fingerprint(draft) !== persistedFpRef.current;
-  }, [isCreateMode, draft]);
+    return fingerprint(draft) !== persistedFp;
+  }, [isCreateMode, draft, persistedFp]);
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
@@ -265,7 +426,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     };
     const result = await updateRequest(requestUid, updates, loadedVersion ?? undefined);
     if (result.ok) {
-      persistedFpRef.current = fingerprint(draft);
+      setPersistedFp(fingerprint(draft));
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
@@ -295,7 +456,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     if (full) {
       const d = draftFromRequest(full);
       setDraft(d);
-      persistedFpRef.current = fingerprint(d);
+      setPersistedFp(fingerprint(d));
       setLoadedVersion(full.version);
     }
     setStaleDraft(null);
@@ -402,20 +563,38 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     },
     {
       key: 'params' as const,
-      label: <span>Params {paramCount > 0 && <TabCount n={paramCount} />}</span>,
+      label: (
+        <span>
+          Params {paramCount > 0 && <TabCount n={paramCount} />}
+          {sectionUnresolved.params && <TabDot tone="error" />}
+        </span>
+      ),
     },
-    { key: 'authorization' as const, label: 'Authorization' },
+    {
+      key: 'authorization' as const,
+      label: (
+        <span>
+          Authorization
+          {sectionUnresolved.auth && <TabDot tone="error" />}
+        </span>
+      ),
+    },
     {
       key: 'headers' as const,
       label: (
         <span>
           Headers <TabCount n={headerCount} />
+          {sectionUnresolved.headers && <TabDot tone="error" />}
         </span>
       ),
     },
     {
       key: 'body' as const,
-      label: <span>Body {draft.body.type !== 'none' && <TabDot />}</span>,
+      label: (
+        <span>
+          Body {sectionUnresolved.body ? <TabDot tone="error" /> : draft.body.type !== 'none' ? <TabDot /> : null}
+        </span>
+      ),
     },
     {
       key: 'scripts' as const,
@@ -469,10 +648,28 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             )}
           />
           <Input
-            value={draft.url}
-            onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
+            // The URL field is a projection of `draft.url` (base) +
+            // `draft.params` (structured query). Edits parse back
+            // into both fields so the Params tab stays in sync with
+            // whatever the user types here. See `mergeParamsFromUrl`
+            // for the metadata-preserving merge (enabled state and
+            // descriptions ride along for rows whose key stayed).
+            value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
+            onChange={(e) => {
+              const parsed = parseUrlQuery(e.target.value);
+              setDraft((d) => ({
+                ...d,
+                url: parsed.base,
+                params: mergeParamsFromUrl(parsed.params, d.params),
+              }));
+            }}
             placeholder="Enter URL or paste text"
             size="middle"
+            // Red `status` outlines the URL input when its `{{refs}}`
+            // don't resolve. Same visual language as the inline mirror
+            // + tab dot + sidebar badge; replaces the need for a
+            // banner at the top of the editor.
+            status={sectionUnresolved.url ? 'error' : undefined}
             style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 13 }}
             onPressEnter={() => void handleSend()}
             onBlur={() => {
@@ -485,15 +682,26 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
               }
             }}
           />
-          <Button
-            type="primary"
-            icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
-            size="middle"
-            onClick={() => void handleSend()}
-            disabled={sending}
+          <Tooltip
+            title={
+              hasUnresolvedRefs
+                ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
+                : undefined
+            }
           >
-            {sending ? 'Sending…' : 'Send'}
-          </Button>
+            <Button
+              type="primary"
+              icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
+              size="middle"
+              onClick={() => void handleSend()}
+              // Disable on unresolved refs — the executor would return
+              // an error snapshot anyway; blocking up front gives the
+              // user a clearer "fix these first" signal.
+              disabled={sending || hasUnresolvedRefs}
+            >
+              {sending ? 'Sending…' : 'Send'}
+            </Button>
+          </Tooltip>
         </div>
         {needsSchemeNormalization(draft.url) && (
           <Tooltip
@@ -628,7 +836,11 @@ const TabCount: React.FC<{ n: number }> = ({ n }) => {
   );
 };
 
-const TabDot: React.FC = () => {
+/** Small colored dot shown on a tab label to flag that the section
+ *  has content OR an unresolved `{{ref}}`. `tone='error'` renders in
+ *  red to match the inline mirror + sidebar badge — orange is
+ *  reserved for the unsaved/dirty state on the Save button. */
+const TabDot: React.FC<{ tone?: 'default' | 'error' }> = ({ tone = 'default' }) => {
   const { token } = theme.useToken();
   return (
     <span
@@ -637,7 +849,7 @@ const TabDot: React.FC = () => {
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: token.colorPrimary,
+        background: tone === 'error' ? token.colorError : token.colorPrimary,
         marginLeft: 4,
         verticalAlign: 'middle',
       }}

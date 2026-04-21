@@ -197,6 +197,16 @@ export const QueryParamSchema = v.object({
   /** Optional free-form per-row note rendered in the Description column. */
   description: v.optional(v.string()),
   enabled: v.optional(v.boolean()),
+  /**
+   * Marks the `=` separator as present even when `value` is empty —
+   * preserves the distinction between `?key` (key-only form) and
+   * `?key=` (key-with-empty-value form) through the URL round-trip.
+   * Without this, controlled URL inputs would snap back to the
+   * canonical form every time the user typed `=` after an existing
+   * key, swallowing their keystroke. `undefined` / `false` means
+   * key-only form; `true` means emit `key=`.
+   */
+  hasEquals: v.optional(v.boolean()),
 });
 
 /**

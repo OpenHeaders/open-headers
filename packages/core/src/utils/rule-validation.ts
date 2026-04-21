@@ -9,6 +9,13 @@
  */
 
 import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule, RuleBase } from '../types/v5/rule';
+import type { ResolutionContext, ResolvedVariable } from '../types/v5/variable';
+import {
+  collectRuleTemplateStrings,
+  type ResolutionEnvSnapshot,
+  resolveTemplate,
+  type ScopedLookupFn,
+} from '../variables';
 import { getHeaderOperationCapability } from './headers';
 import { type PauseMarkers, resolvePauseState } from './pause';
 
@@ -93,6 +100,56 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
     default:
       return false;
   }
+}
+
+// ── Variable-resolution gating ─────────────────────────────────────
+
+/**
+ * Does every `{{...}}` reference in this rule resolve against the
+ * supplied lookups? Returns true iff the rule's templates would
+ * produce zero blocking resolution errors in
+ * {@link resolveTemplate}.
+ *
+ * "Blocking" excludes the `reserved-namespace` error class —
+ * references like `{{file.X}}` / `{{dynamic.X}}` are intentionally
+ * unresolved until those features ship and should not prevent a rule
+ * from taking effect. Every other failure class
+ * (`unresolved`, `unset-in-scope`, `unknown-namespace`,
+ * `step-out-of-context`, `empty`) indicates a rule the user probably
+ * didn't want to execute — injecting the literal `{{env.URL}}` string
+ * onto the wire is almost never the intent.
+ *
+ * Pure — no resolver instance required. Callers supply the same
+ * lookup shape `resolveTemplate` takes, so the core fn can be used
+ * from any layer (extension DNR compile, desktop rule evaluation,
+ * CLI validation).
+ */
+export function isRuleResolvable(
+  rule: Rule | Omit<Rule, 'uid' | 'path'>,
+  lookup: (name: string) => ResolvedVariable | null,
+  scopedLookup?: ScopedLookupFn,
+  env?: ResolutionEnvSnapshot,
+  context?: ResolutionContext,
+): boolean {
+  // `collectRuleTemplateStrings` currently needs the uid/path-bearing
+  // `Rule` shape in its type; safe because the walker only reads
+  // `conditions` + `action.*`. Draft rules (no uid) call the same
+  // walker by casting — matches how `isRuleComplete` handles drafts.
+  const strings = collectRuleTemplateStrings(rule as Rule);
+  // `context` isn't consumed by `resolveTemplate` directly — the
+  // lookups are expected to already be bound to the relevant context
+  // (collection id, env id). We pass it through for future extension
+  // where callers prefer context-aware lookups without pre-binding.
+  void context;
+  for (const s of strings) {
+    if (!s) continue;
+    const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
+    for (const e of errors) {
+      if (e.reason === 'reserved-namespace') continue;
+      return false;
+    }
+  }
+  return true;
 }
 
 /**

@@ -26,7 +26,7 @@ import { useRequests } from '@hooks/useRequests';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Radio, Select, Space, Switch, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import StaleDraftBanner from '../StaleDraftBanner';
 import ExtractorEditor, { defaultExtractorFor } from './ExtractorEditor';
 import {
@@ -510,7 +510,12 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const { runs } = useLiveWorkflowCache(lv?.workflowUid);
 
   const [draft, setDraft] = useState<EditDraft | null>(() => (lv ? editDraftFromVariable(lv) : null));
-  const persistedFpRef = useRef<string>(lv ? fingerprintEdit(editDraftFromVariable(lv)) : '');
+  // State, not a ref — `isDirty` reads it as a memo dep so save's new
+  // baseline invalidates the cached value. Ref version left `isDirty`
+  // stuck at `true` when the parent re-rendered with a fresh inline
+  // `onDirtyChange` arrow. Same fix as RequestEditor; the
+  // `useDirtyDraft` hook file-header comment documents the trap.
+  const [persistedFp, setPersistedFp] = useState<string>(lv ? fingerprintEdit(editDraftFromVariable(lv)) : '');
 
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
@@ -522,16 +527,16 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     if (draft === null) {
       const seeded = editDraftFromVariable(lv);
       setDraft(seeded);
-      persistedFpRef.current = fingerprintEdit(seeded);
+      setPersistedFp(fingerprintEdit(seeded));
       return;
     }
     const persisted = editDraftFromVariable(lv);
     const fp = fingerprintEdit(persisted);
-    if (fp !== persistedFpRef.current) {
-      persistedFpRef.current = fp;
+    if (fp !== persistedFp) {
+      setPersistedFp(fp);
       setDraft(persisted);
     }
-  }, [lv, draft]);
+  }, [lv, draft, persistedFp]);
 
   useEffect(() => {
     if (loadedVersion !== null) return;
@@ -539,7 +544,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     setLoadedVersion(lv.version);
   }, [lv, loadedVersion]);
 
-  const isDirty = useMemo(() => (draft ? fingerprintEdit(draft) !== persistedFpRef.current : false), [draft]);
+  const isDirty = useMemo(() => (draft ? fingerprintEdit(draft) !== persistedFp : false), [draft, persistedFp]);
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
@@ -560,7 +565,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       loadedVersion ?? undefined,
     );
     if (result.success) {
-      persistedFpRef.current = fingerprintEdit(draft);
+      setPersistedFp(fingerprintEdit(draft));
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
@@ -585,7 +590,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const handleStaleReload = useCallback(() => {
     if (!lv) return;
     const seeded = editDraftFromVariable(lv);
-    persistedFpRef.current = fingerprintEdit(seeded);
+    setPersistedFp(fingerprintEdit(seeded));
     setDraft(seeded);
     setLoadedVersion(lv.version);
     setStaleDraft(null);

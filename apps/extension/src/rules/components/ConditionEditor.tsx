@@ -13,11 +13,12 @@
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Input, Select, Tag, theme } from 'antd';
+import { Button, Select, Tag, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { getDocId } from './InspectorDocs';
+import { TemplateInput } from './template-input';
 
 // ── Condition type definitions ───────────────────────────────────
 
@@ -284,11 +285,11 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
 
             {/* Header name (before value for header types) */}
             {def?.inputType === 'header' && (
-              <Input
+              <TemplateInput
                 size="small"
                 placeholder="Header name equals..."
                 value={condition.headerName ?? ''}
-                onChange={(e) => updateCondition(index, { headerName: e.target.value })}
+                onChange={(next) => updateCondition(index, { headerName: next })}
                 style={{ width: 180, flexShrink: 0 }}
               />
             )}
@@ -326,11 +327,11 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 placeholder="Select type"
               />
             ) : (
-              <Input
+              <TemplateInput
                 size="small"
                 placeholder={def?.placeholder ?? 'value'}
                 value={condition.values.join(', ')}
-                onChange={(e) => handleValuesText(index, e.target.value)}
+                onChange={(next) => handleValuesText(index, next)}
                 style={{ flex: 1, minWidth: 140 }}
               />
             )}

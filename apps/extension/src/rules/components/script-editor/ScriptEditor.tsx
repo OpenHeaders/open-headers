@@ -32,6 +32,7 @@ import { useSettingValue } from '../../settings/hooks';
 // `CodeEditor` when `language === 'javascript'` — gets `oh.*`
 // completions for free.
 import '../monaco/bootstrap';
+import { useMonacoVariableCompletions } from '../template-input';
 
 // ── Component ─────────────────────────────────────────────────────
 
@@ -70,6 +71,11 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
   const lineNumbers = useSettingValue('editor.lineNumbers');
   const monacoInstance = useMonaco();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  // Registers the `{{VAR}}` completion provider against this Monaco
+  // instance on mount. Scripts resolve template references before the
+  // sandbox runs, so `{{env.X}}` inside a string literal is expanded
+  // the same way as in body editors — same popover, same scope set.
+  const registerVariableCompletions = useMonacoVariableCompletions();
 
   const options: monaco.editor.IStandaloneEditorConstructionOptions = {
     minimap: { enabled: false },
@@ -109,8 +115,9 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
         defaultLanguage="javascript"
         theme={isDarkMode ? 'oh-dark' : 'oh-light'}
         value={value}
-        onMount={(ed) => {
+        onMount={(ed, monacoApi) => {
           editorRef.current = ed;
+          registerVariableCompletions(monacoApi);
         }}
         onChange={(next) => onChange?.(next ?? '')}
         options={options}
