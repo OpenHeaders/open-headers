@@ -18,7 +18,7 @@
  *      (the request never reaches the network).
  *
  *   2. **redirect-retarget** — a redirect (or query-param) rule sends the
- *      request to a different URL. Lower-priority modify rules (header,
+ *      request to a different URL. Lower-priority modify workbench (header,
  *      body, mock, delay) that matched the pre-redirect URL are shadowed
  *      because the user-visible response comes from the REDIRECT target,
  *      not the matched URL. Chrome does technically run modifyHeaders on
@@ -26,12 +26,12 @@
  *      the user's perspective "my header rule did nothing."
  *
  *   3. **mock-intercept** — a scriptable mock rule fabricates the response.
- *      Response-side header modifications and body rules in the same
+ *      Response-side header modifications and body workbench in the same
  *      matching set operate on fabricated bytes (or on a real response
  *      the user will never see). Marked so the test view can explain
  *      "this ran, but the response was replaced by a mock."
  *
- *   4. **header-stacking-ambiguous** — two or more header rules touch the
+ *   4. **header-stacking-ambiguous** — two or more header workbench touch the
  *      same header name on the same side (request/response) and their
  *      operations conflict in a way that depends on insertion order. DNR
  *      priority doesn't disambiguate this within a single priority tier,
@@ -39,7 +39,7 @@
  *      the user can pick one rule as the source of truth.
  *
  *   5. **delay-page-intercept** — a delay rule rewrites the main-frame
- *      navigation to chrome-extension://delay.html. Inject rules in the
+ *      navigation to chrome-extension://delay.html. Inject workbench in the
  *      matching set are conditioned on the *real* user URL, so they
  *      never get a chance to mount on delay.html. Detected statically:
  *      delay + inject in the same matching set → inject is shadowed.
@@ -54,7 +54,7 @@
  * ── Design notes ───────────────────────────────────────────────────
  *
  * - Arbitration is a pure function over the matching set, decorated per
- *   rule with priority + action class + (for header rules) header ops.
+ *   rule with priority + action class + (for header workbench) header ops.
  *   It never reads global state, which keeps every consumer call-site
  *   trivially testable.
  * - The arbitration result is always computed, regardless of whether
@@ -62,7 +62,7 @@
  *   `RequestRecord.shadowedBy`; the UI gates rendering of the amber
  *   warning on the setting, so enabling the flag just "lights up"
  *   data that was already there for debugging.
- * - `inject` rules strip CSP via modifyHeaders on the RESPONSE and also
+ * - `inject` workbench strip CSP via modifyHeaders on the RESPONSE and also
  *   mount content scripts on the committed document. They don't compete
  *   with block's request-terminal semantics (the response never comes if
  *   a block cancels), and they're not retargeted by redirects in a
@@ -148,7 +148,7 @@ export interface ArbitratedRule extends MatchingRule {
 
 /**
  * Decorate every matching rule with priority + action class + (for header
- * rules) header ops, then walk the shadow detectors in precedence order.
+ * workbench) header ops, then walk the shadow detectors in precedence order.
  * Input order is preserved so the caller can iterate in match-order
  * without re-sorting.
  */
@@ -246,7 +246,7 @@ function applyBlockShadow(decorated: ArbitratedRule[]): void {
 // ── Phase 2: redirect / query-param retarget ───────────────────────
 
 /**
- * Redirect and query-param rules rewrite the request URL. Lower-priority
+ * Redirect and query-param workbench rewrite the request URL. Lower-priority
  * *modify* classes (header, body, mock, delay) that matched the
  * pre-redirect URL are semantically shadowed: Chrome does run their
  * modifications on the pre-redirect request, but that request is
@@ -280,7 +280,7 @@ function applyRedirectShadow(decorated: ArbitratedRule[]): void {
     // Block is not shadowed by retargeting — if block is present the block
     // phase already ran and the retargeter itself would be shadowed first.
     if (r.actionClass === 'block') continue;
-    // Only modify-class rules at strictly lower priority than the retargeter.
+    // Only modify-class workbench at strictly lower priority than the retargeter.
     if (r.priority >= topRetarget.priority) continue;
     r.shadowedBy = { uid: topRetarget.uid, name: topRetarget.name, kind };
   }
@@ -292,14 +292,14 @@ function applyRedirectShadow(decorated: ArbitratedRule[]): void {
  * A mock rule fabricates the response bytes. Any other rule whose effect
  * targets the response is moot from the user's perspective:
  *
- *   - Body rules run on the response body → mocked.
- *   - Header rules with response-side modifications run on the response
- *     headers → mocked. Header rules with only request-side modifications
+ *   - Body workbench run on the response body → mocked.
+ *   - Header workbench with response-side modifications run on the response
+ *     headers → mocked. Header workbench with only request-side modifications
  *     are NOT shadowed (their effect on the outgoing request is real;
  *     what comes back just happens to be a mock).
  *
  * If multiple mocks match, the first is attribution-source (Chrome's
- * interception-wins-race semantics for scriptable rules).
+ * interception-wins-race semantics for scriptable workbench).
  */
 function applyMockIntercept(decorated: ArbitratedRule[]): void {
   const mock = decorated.find((r) => r.actionClass === 'mock');
@@ -328,12 +328,12 @@ function hasResponseSideOp(r: ArbitratedRule): boolean {
 /**
  * A delay rule rewrites main-frame / sub-frame navigations to
  * chrome-extension://delay.html (see dnr-builders/delay-builder.ts).
- * Inject rules mount content scripts on the *committed* document, so if
+ * Inject workbench mount content scripts on the *committed* document, so if
  * the document commits to delay.html the user's inject conditioned on
  * the real URL never runs — even though from the DNR priority ladder
  * they don't "conflict" (inject is priority 2000, delay is 2).
  *
- * This is the one phase where inject participates. Mark inject rules
+ * This is the one phase where inject participates. Mark inject workbench
  * in the matching set as shadowed by the delay rule when both match
  * the same URL. The arbitrator can't be 100% certain the delay page
  * will commit — the delay might redirect instantly, or the sub-resource
@@ -357,7 +357,7 @@ function applyDelayPageShadow(decorated: ArbitratedRule[]): void {
 // ── Phase 4: header-stacking ambiguity ─────────────────────────────
 
 /**
- * Two or more header rules touching the same header name on the same side
+ * Two or more header workbench touching the same header name on the same side
  * (request/response) produce a non-deterministic effective value: Chrome
  * runs them in priority order, and within a priority tier the order is
  * undefined (insertion order on our side, but not a contract users should
@@ -378,8 +378,8 @@ function applyDelayPageShadow(decorated: ArbitratedRule[]): void {
  *     on which one Chrome applies first)
  *
  * We flag every rule involved in an ambiguous clash. Attribution points
- * at one of the OTHER rules in the clash so the UI can show "conflicts
- * with <that rule>" — if there are 3+ rules in a clash, the first other
+ * at one of the OTHER workbench in the clash so the UI can show "conflicts
+ * with <that rule>" — if there are 3+ workbench in a clash, the first other
  * rule is used.
  */
 function applyHeaderStacking(decorated: ArbitratedRule[]): void {

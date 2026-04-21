@@ -7,17 +7,17 @@
  * modifications applied by the extension via `declarativeNetRequest`
  * (or merge-by-content-script) may or may not appear there. Since our
  * panel owns both the HAR and the rule registry, we can merge the two
- * and show users exactly what their rules did to this request — which
+ * and show users exactly what their workbench did to this request — which
  * Chrome's Network tab physically cannot do for all cases.
  *
  * The result is a flat list of `AnnotatedHeader`s in a stable order:
  *   1. Server-origin headers, in their original order.
- *   2. Headers our rules added (not present in the HAR at all), one
+ *   2. Headers our workbench added (not present in the HAR at all), one
  *      row per unique name (last-fire-wins for attribution).
- *   3. Headers our rules appended via `add`, one row per firing rule
+ *   3. Headers our workbench appended via `add`, one row per firing rule
  *      (duplicates are intentional — that's DNR's append semantic).
  *
- * ## Dedup rules
+ * ## Dedup workbench
  *
  * The same rule sometimes appears twice in `fires` (once confirmed by
  * Chrome's `onRuleMatchedDebug`, once inferred from URL matching) —
@@ -25,7 +25,7 @@
  * by `ruleUid` before processing so the UI doesn't render the same
  * injection twice.
  *
- * Across *different* rules touching the same header, the later-arriving
+ * Across *different* workbench touching the same header, the later-arriving
  * fire wins (matches DNR's same-priority-last-registered semantics).
  * The user sees one row per unique header name.
  *

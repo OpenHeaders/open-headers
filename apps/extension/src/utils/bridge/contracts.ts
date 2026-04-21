@@ -339,7 +339,7 @@ export interface BridgeRpcContract {
     res: { success: boolean };
   };
 
-  // ── Per-tab telemetry + active rules ───────────────────────────
+  // ── Per-tab telemetry + active workbench ───────────────────────────
   getActiveRulesForTab: {
     req: { tabId: number | undefined; tabUrl: string | undefined };
     res: { activeRules: ActiveRule[] };
@@ -1091,7 +1091,7 @@ export interface BridgeBroadcastContract {
   trackedUrlsUpdated: { tabId?: number };
   /**
    * Fires on any workspace list mutation (create/rename/delete/reorder)
-   * AND on active-workspace switch. UI surfaces re-read rules, templates,
+   * AND on active-workspace switch. UI surfaces re-read workbench, templates,
    * environments, and pause markers on this event — one atomic refetch
    * instead of four separate broadcasts.
    */

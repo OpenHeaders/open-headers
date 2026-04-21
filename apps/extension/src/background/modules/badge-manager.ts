@@ -1,18 +1,18 @@
 /**
  * Badge Manager — extension badge rendering.
  *
- * Badge number semantics: **count of your currently-active rules that
+ * Badge number semantics: **count of your currently-active workbench that
  * have matched at least one request on the current tab's current page**.
  * Active = enabled + not paused at any level (rule/folder/collection/
- * engine) + rule-complete. Drafts and paused rules are excluded.
+ * engine) + rule-complete. Drafts and paused workbench are excluded.
  *
- * When rules exist for the site but none have matched yet (page quiet
+ * When workbench exist for the site but none have matched yet (page quiet
  * or still loading), the badge stays empty. Non-numeric states
  * (paused, disconnected) override and are shown with their own glyph.
  */
 
 import { logger } from '@utils/logger';
-import { get as getSetting } from '@/rules/settings/store';
+import { get as getSetting } from '@/workbench/settings/store';
 import type { BadgeState } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
@@ -31,10 +31,10 @@ export interface BadgeUpdateInput {
   isPaused: boolean;
   recordingService: IRecordingService | null;
   reconnectAttempts?: number;
-  /** Currently-active rules that have matched at least one request on
+  /** Currently-active workbench that have matched at least one request on
    *  the current page. Drives the badge number. */
   matchedRuleCount: number;
-  /** Count of rules configured (active + complete) for the current
+  /** Count of workbench configured (active + complete) for the current
    *  tab's site. Used only for the tooltip — NOT the badge number. */
   configuredRuleCount: number;
 }
@@ -80,7 +80,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
     getSetting('desktop.connection.autoConnect');
 
   // Priority: paused > disconnected > active > none. "Active" means at
-  // least one of the user's active rules has matched a request on this tab.
+  // least one of the user's active workbench has matched a request on this tab.
   if (isPaused) {
     badgeState = 'paused';
   } else if (showDisconnected) {
@@ -90,7 +90,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
   }
 
   // State key includes the matched count so the badge redraws as new
-  // rules start firing on the page.
+  // workbench start firing on the page.
   const currentStateKey = `${badgeState}-${matchedRuleCount}-${configuredRuleCount}-${isPaused}-${connected}`;
 
   // Only update if state or count changed
@@ -101,7 +101,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
   lastBadgeState = currentStateKey;
 
   if (badgeState === 'paused') {
-    // Show a gray dash when rules execution is paused
+    // Show a gray dash when workbench execution is paused
     actionAPI.setBadgeText({ text: '\u2212' }, () => {
       if (browserAPI.runtime.lastError) {
         logger.debug('BadgeManager', 'Badge text error:', browserAPI.runtime.lastError);
@@ -136,7 +136,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
       });
     }
   } else if (badgeState === 'active') {
-    // Show the count of currently-active rules that have matched.
+    // Show the count of currently-active workbench that have matched.
     actionAPI.setBadgeText({ text: matchedRuleCount.toString() }, () => {
       if (browserAPI.runtime.lastError) {
         logger.debug('BadgeManager', 'Badge text error:', browserAPI.runtime.lastError);
@@ -148,7 +148,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
       }
     });
 
-    // Tooltip: "3 of your 5 rules matched requests on this page".
+    // Tooltip: "3 of your 5 workbench matched requests on this page".
     if (actionAPI.setTitle) {
       const ruleText = configuredRuleCount === 1 ? 'rule' : 'rules';
       actionAPI.setTitle({
@@ -156,7 +156,7 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
       });
     }
   } else {
-    // Clear the badge when connected but no active rules
+    // Clear the badge when connected but no active workbench
     actionAPI.setBadgeText({ text: '' });
 
     // Reset the tooltip to default

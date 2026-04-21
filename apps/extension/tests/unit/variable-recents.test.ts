@@ -11,7 +11,7 @@ import {
   RECENTS_CAP,
   RECENTS_SCHEMA_VERSION,
   type VariableRecents,
-} from '@/rules/components/template-input/recents';
+} from '@/workbench/components/template-input/recents';
 
 // ── chrome.storage.local backed by an in-memory map ────────────────
 

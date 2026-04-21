@@ -3,7 +3,7 @@
  * still granted, with a Status pill fallback if the user has narrowed
  * host permissions via `chrome://extensions`.
  *
- * Covers ARCHITECTURE.md §12's silent-failure edge case: DNR rules on
+ * Covers ARCHITECTURE.md §12's silent-failure edge case: DNR workbench on
  * a revoked host silently no-op. Without this audit, a user whose
  * permissions were narrowed would never get a hint.
  *
@@ -42,7 +42,7 @@ export async function auditHostPermissions(): Promise<void> {
     reportStatus({
       subsystem: 'permissions',
       state: 'red',
-      message: 'Host permissions narrowed — some rules will silently no-op on revoked hosts',
+      message: 'Host permissions narrowed — some workbench will silently no-op on revoked hosts',
     });
     recordLog({
       subsystem: 'permissions',

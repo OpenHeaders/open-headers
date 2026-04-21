@@ -17,7 +17,7 @@
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { setSettingValue, useSettingValue } from '@/rules/settings';
+import { setSettingValue, useSettingValue } from '@/workbench/settings';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 

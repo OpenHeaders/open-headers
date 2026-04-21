@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   COMPLETION_LANGUAGES,
   registerVariableCompletionProvider,
-} from '@/rules/components/template-input/monaco-completion';
+} from '@/workbench/components/template-input/monaco-completion';
 
 // ── Fake Monaco shim ──────────────────────────────────────────────
 

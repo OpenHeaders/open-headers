@@ -126,7 +126,7 @@ export function classifyRequestState(entry: InspectorRequest): RequestState {
 // ── UX helpers ──────────────────────────────────────────────────
 
 /** Derive a stable CSS-class modifier for the row. UI picks the
- *  colour / opacity from this — keeps style rules and state in
+ *  colour / opacity from this — keeps style workbench and state in
  *  lockstep. */
 export function rowStateClass(state: RequestState): string | null {
   switch (state.kind) {

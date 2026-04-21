@@ -3,7 +3,7 @@
  * and `chrome.webRequest.handlerBehaviorChanged`.
  *
  * One responsibility: evict HTTP cache entries when the rule-state
- * observer says something transitioned. Knows nothing about rules,
+ * observer says something transitioned. Knows nothing about workbench,
  * origins extraction, or when to fire — the observer decides that and
  * calls in with an already-resolved origin set.
  *

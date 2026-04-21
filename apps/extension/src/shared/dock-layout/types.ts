@@ -1,7 +1,7 @@
 /**
  * Shared types for the dockable tool-window layout system.
  *
- * Both workspace.html and the DevTools Inspector panel share the same
+ * Both workbench.html and the DevTools Inspector panel share the same
  * six-dock architecture. The types here are generic over the tool-window
  * ID type so each surface can define its own window registry while
  * reusing all layout logic.

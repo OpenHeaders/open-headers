@@ -27,7 +27,7 @@ vi.mock('@utils/bridge', () => ({
   tabCall: vi.fn(),
 }));
 
-import { composeTitle, useWorkspaceTabTitle } from '@/rules/hooks/useWorkspaceTabTitle';
+import { composeTitle, useWorkspaceTabTitle } from '@/workbench/hooks/useWorkspaceTabTitle';
 
 let broadcastHandler: BroadcastHandler | null = null;
 let unsubscribeMock: ReturnType<typeof vi.fn>;

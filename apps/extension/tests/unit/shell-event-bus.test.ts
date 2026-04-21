@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createShellEventBus } from '@/rules/events/shell-event-bus';
+import { createShellEventBus } from '@/workbench/events/shell-event-bus';
 
 describe('shell-event-bus', () => {
   let root: HTMLElement;

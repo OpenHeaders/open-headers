@@ -14,7 +14,7 @@
 
 import { call } from '@utils/bridge';
 import { useCallback, useEffect } from 'react';
-import { useSetting } from '@/rules/settings/hooks';
+import { useSetting } from '@/workbench/settings/hooks';
 
 /**
  * Inspected-tab id. Available inside a DevTools panel context only;

@@ -148,8 +148,8 @@ body {
    * "header name + action buttons". Secondary chrome disappears so
    * the table itself dominates the viewport. */
 
-  /* Header: keep the rules-execution toggle (it's a critical action —
-   * pausing/resuming rules globally) but shrink it: drop the "Rules"
+  /* Header: keep the workbench-execution toggle (it's a critical action —
+   * pausing/resuming workbench globally) but shrink it: drop the "Rules"
    * label and the divider so just the icon + switch remain. The switch
    * keeps its Active/Paused children since they fit in ~70px. */
   .header-rules-toggle {
@@ -207,7 +207,7 @@ body {
 }
 
 @container oh-shell (max-width: 320px) {
-  /* xs: extreme narrow — drop the rules-toggle icon too, keep only
+  /* xs: extreme narrow — drop the workbench-toggle icon too, keep only
    * the switch. Below ~320px every pixel matters; users can identify
    * the standalone switch by its position next to the view-mode and
    * settings icons. */

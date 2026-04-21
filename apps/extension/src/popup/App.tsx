@@ -65,15 +65,15 @@ const AppContent: React.FC = () => {
 
   // Load persisted tab on mount
   useEffect(() => {
-    void extensionStorage.get(UI.activeRulesTab).then((saved) => {
-      setActiveTab(saved ?? 'all-rules');
+    void extensionStorage.get(UI.activePopupTab).then((saved) => {
+      setActiveTab(saved ?? 'all-workbench');
     });
   }, []);
 
   // Persist tab changes
   const handleTabChange = useCallback((key: string) => {
     setActiveTab(key);
-    void extensionStorage.set(UI.activeRulesTab, key);
+    void extensionStorage.set(UI.activePopupTab, key);
   }, []);
 
   useEffect(() => {

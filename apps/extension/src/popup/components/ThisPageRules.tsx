@@ -38,8 +38,8 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
-import { useSetting, useSettingValue } from '@/rules/settings/hooks';
-import type { TrackedResourceType } from '@/rules/settings/schema/rules-engine';
+import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
+import type { TrackedResourceType } from '@/workbench/settings/schema/rules-engine';
 import { useSurface } from '@/shared/surface';
 import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@/shared/verdict';
 import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
@@ -334,11 +334,11 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
    * Full telemetry snapshot for the active tab, polled every 500ms from the
    * background tab-telemetry service. Single source of truth for per-rule
    * fire counts, unique URL records, and the page-wide unique request total.
-   * The popup joins this with the applicable-rules list at render time.
+   * The popup joins this with the applicable-workbench list at render time.
    */
   const [snapshot, setSnapshot] = useState<TelemetrySnapshot>(EMPTY_SNAPSHOT);
   /**
-   * Experimental shadow-detection setting — when true, rules whose records
+   * Experimental shadow-detection setting — when true, workbench whose records
    * have a `shadowedBy` attribution render with an amber warning tag and
    * the nested table's Evidence column calls out the shadower by name. The
    * data is always computed in the background; this flag just lights up
@@ -405,7 +405,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
           setActiveRules(response.activeRules || []);
         }
       } catch (error) {
-        console.error(new Date().toISOString(), 'ERROR', '[ThisPageRules]', 'Error getting active rules:', error);
+        console.error(new Date().toISOString(), 'ERROR', '[ThisPageRules]', 'Error getting active workbench:', error);
         setActiveRules([]);
       } finally {
         setLoading(false);
@@ -481,7 +481,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   // biome-ignore lint/correctness/useExhaustiveDependencies: expandedRowKey intentionally resets scroll on re-expand
   useEffect(() => {
     if (nestedFocusIndex < 0) return;
-    // Wait a frame for the new nested table to mount when switching rules
+    // Wait a frame for the new nested table to mount when switching workbench
     const cancel = scheduleFrame(() => {
       if (nestedTableRef.current) {
         nestedTableRef.current.scrollTo({ index: nestedFocusIndex });
@@ -579,7 +579,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       })
     : activeRules;
 
-  // Sort: rules with URL matches first (most relevant), then by name
+  // Sort: workbench with URL matches first (most relevant), then by name
   const sortedFilteredRules = searchText
     ? [...filteredRules].sort((a, b) => {
         const aUrlMatches = urlMatchCountMap.get(a.id || '') || 0;
@@ -875,9 +875,9 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       width: 110,
       align: 'center',
       sorter: (a, b) => {
-        // Sort by rule type label — the Match column's dominant tag. Two rules
+        // Sort by rule type label — the Match column's dominant tag. Two workbench
         // of the same type with different resource-type histories end up
-        // adjacent, which matches how users scan for "all my header rules".
+        // adjacent, which matches how users scan for "all my header workbench".
         const labelA = RULE_TYPE_LABEL[a.ruleType] ?? a.ruleType;
         const labelB = RULE_TYPE_LABEL[b.ruleType] ?? b.ruleType;
         return labelA.localeCompare(labelB);

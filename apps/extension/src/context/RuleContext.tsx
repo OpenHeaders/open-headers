@@ -1,6 +1,6 @@
 /**
- * RuleContext — provides the active workspace's V5 rules to the popup,
- * sidepanel, and workspace.html surfaces.
+ * RuleContext — provides the active workspace's V5 workbench to the popup,
+ * sidepanel, and workbench.html surfaces.
  *
  * Data is owned by the background service worker. This context:
  *   1. Fetches the active-workspace snapshot once on mount (popupOpen RPC).
@@ -32,7 +32,7 @@ export interface UiState {
 }
 
 export interface RuleContextValue {
-  /** All rules from the background (desktop + local). */
+  /** All workbench from the background (desktop + local). */
   rules: V5.Rule[];
   /** Whether the desktop app is connected via WebSocket. */
   isConnected: boolean;
@@ -63,7 +63,7 @@ export interface RuleContextValue {
   clearPauseOverride: (path: string) => void;
   /** Remove every marker strictly below `path` — power-user cleanup. */
   clearNestedPauseOverrides: (path: string) => void;
-  /** Force-refresh rules from the background. */
+  /** Force-refresh workbench from the background. */
   refreshRules: () => void;
   /** Update persisted UI state. */
   updateUiState: (updates: Partial<UiState>) => void;
@@ -270,7 +270,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
     const unsubWorkspace = subscribe('workspaceChanged', (payload) => {
       activeWorkspaceIdRef.current = payload.activeWorkspaceId;
       setActiveWorkspaceId(payload.activeWorkspaceId);
-      // Full refetch — rules/collections/templates/pauseMarkers all
+      // Full refetch — workbench/collections/templates/pauseMarkers all
       // change atomically on workspace switch.
       refreshRules();
     });
@@ -426,7 +426,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   // ── Local CRUD ─────────────────────────────────────────────────
   // Every successful mutation calls refreshRules() which reloads both
-  // rules and collections. This is the single consistent pattern —
+  // workbench and collections. This is the single consistent pattern —
   // no per-function guessing about which subset to reload.
 
   const createLocalRule = useCallback(

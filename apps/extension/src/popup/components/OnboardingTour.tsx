@@ -312,7 +312,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
             </div>
           </StepDescription>
         ),
-        target: () => getTarget('.header-rules-tabs .ant-tabs-nav')!,
+        target: () => getTarget('.header-workbench-tabs .ant-tabs-nav')!,
         placement: 'bottom' as const,
         ...sharedStepProps,
       },
@@ -362,7 +362,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
             </div>
           </StepDescription>
         ),
-        target: () => getTarget('.ant-tabs-tabpane-active .header-rules-table')!,
+        target: () => getTarget('.ant-tabs-tabpane-active .header-workbench-table')!,
         placement: 'top' as const,
         scrollIntoViewOptions: false,
         ...sharedStepProps,

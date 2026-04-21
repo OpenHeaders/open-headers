@@ -10,7 +10,7 @@ import { extractOriginsFromRules, extractRuleOrigins, originsFromUrlFilter } fro
 function rule(conditions: V5.RuleCondition[]): V5.Rule {
   return {
     uid: 'r1',
-    path: 'rules/test',
+    path: 'workbench/test',
     name: 'Test',
     type: 'block',
     enabled: true,
@@ -109,7 +109,7 @@ describe('extractRuleOrigins', () => {
 });
 
 describe('extractOriginsFromRules', () => {
-  it('folds origins across multiple rules, dedupes', () => {
+  it('folds origins across multiple workbench, dedupes', () => {
     const rules = [
       rule([{ type: 'request-domains', values: ['api.openheaders.io'] }]),
       rule([{ type: 'request-domains', values: ['cdn.openheaders.io'] }]),

@@ -2,7 +2,7 @@ import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
 import type { ActionDetail } from '@openheaders/core/utils';
 import { Space, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
-import { buildRuleIcon } from '../../../rules/components/shared/rule-icon';
+import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
 
 const { Text } = Typography;
 

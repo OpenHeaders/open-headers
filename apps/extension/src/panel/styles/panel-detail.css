@@ -154,13 +154,13 @@
  * A request/response header that Open Headers added, modified, or
  * removed gets a coloured left indicator + glyph + tinted row
  * background so the user can scan a long header list and instantly
- * tell which rows came from their own rules.
+ * tell which rows came from their own workbench.
  *
  *   Blue  → user rule added/modified the header
  *   Gray  → user rule removed a server-sent header
  *   Yellow → a system feature (Disable Cache toggle, future cache-
  *            bust, etc.) injected the header. Distinct from user
- *            rules so power users can tell "this came from the toolbar,
+ *            workbench so power users can tell "this came from the toolbar,
  *            not from my ruleset".
  *
  * Search-highlight yellow still wins when both apply. */

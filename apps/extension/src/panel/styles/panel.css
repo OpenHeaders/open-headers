@@ -12,7 +12,7 @@
  * first-paint correctness, and every module below consumes the CSS
  * custom properties declared here.
  *
- * `@import` rules are required to appear before any other rules in a
+ * `@import` workbench are required to appear before any other workbench in a
  * stylesheet — so the module imports live here, above `@font-face`,
  * variables, and the reset.
  */

@@ -104,7 +104,7 @@ describe('forgetCacheBypassForTab', () => {
 
     await forgetCacheBypassForTab(42);
 
-    // Must actually call Chrome to drop the rule — session rules are
+    // Must actually call Chrome to drop the rule — session workbench are
     // NOT auto-evicted on tab close, so explicit removal is required.
     expect(updateSessionRulesSpy).toHaveBeenCalledTimes(1);
     const call = firstCallArg();
@@ -132,7 +132,7 @@ describe('rehydrateCacheBypassFromSessionRules', () => {
     expect(new Set(getActiveCacheBypassTabIds())).toEqual(new Set([42, 7]));
   });
 
-  it('is a no-op when no matching session rules exist', async () => {
+  it('is a no-op when no matching session workbench exist', async () => {
     getSessionRulesSpy.mockResolvedValueOnce([]);
     await rehydrateCacheBypassFromSessionRules();
     expect(getActiveCacheBypassTabIds()).toEqual([]);

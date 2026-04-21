@@ -16,8 +16,8 @@ import type { V5 } from '@openheaders/core/types';
 import { Empty, Input, Modal, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TEMPLATES_BY_TYPE } from '@/rules/rule-templates';
-import { ALL_RULE_TYPES } from '@/rules/rule-type-menu';
+import { TEMPLATES_BY_TYPE } from '@/workbench/rule-templates';
+import { ALL_RULE_TYPES } from '@/workbench/rule-type-menu';
 
 const { Text } = Typography;
 

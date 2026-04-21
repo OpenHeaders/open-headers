@@ -6,7 +6,7 @@
  *
  * Three densities:
  *   - `row`     (default workspace footer): five always-visible pills,
- *     one per subsystem — `sync` / `rules` / `requests` / `permissions`
+ *     one per subsystem — `sync` / `workbench` / `requests` / `permissions`
  *     / `secrets`. Each pill carries its label + a colored dot; the
  *     color reflects that subsystem's current state (green / yellow /
  *     red / grey-for-no-data). Clicking any pill opens the shared
@@ -52,7 +52,7 @@ export type StatusPillDensity = 'row' | 'full' | 'compact';
 export interface StatusPillProps {
   density?: StatusPillDensity;
   /** Extra class to forward to the outer span — lets the workspace
-   *  footer keep its `rules-statusbar-item` hit target styling. */
+   *  footer keep its `workbench-statusbar-item` hit target styling. */
   className?: string;
   /**
    * Override the popover placement. Density-specific defaults:
@@ -82,7 +82,7 @@ export interface StatusPillProps {
    * If provided, the popover title shows an (i) button that calls this
    * with `STATUS_DOCS_SECTION_ID`. Surfaces that have a docs panel
    * (workspace) wire it to `useInspectorNav().openDocs`; surfaces that
-   * don't (popup / sidepanel) open `workspace.html#/docs/<id>` in a
+   * don't (popup / sidepanel) open `workbench.html#/docs/<id>` in a
    * new tab. Omit the prop to hide the (i) button entirely.
    */
   onOpenDocs?: (sectionId: string) => void;
@@ -152,7 +152,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
     return (
       <Popover placement={effectivePlacement} trigger={['click']} content={body} title={titleNode}>
         <span
-          className={className ?? 'rules-statusbar-item'}
+          className={className ?? 'workbench-statusbar-item'}
           role="status"
           aria-label={ariaLabel}
           style={{ cursor: hasEntries ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 8 }}
@@ -195,7 +195,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   return (
     <Popover placement={effectivePlacement} trigger={['click', 'hover']} content={body} title={titleNode}>
       <span
-        className={className ?? 'rules-statusbar-item'}
+        className={className ?? 'workbench-statusbar-item'}
         role="status"
         style={{ cursor: hasEntries ? 'pointer' : 'default' }}
         aria-label={ariaLabel}

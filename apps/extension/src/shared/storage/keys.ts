@@ -120,8 +120,8 @@ export const OH = {
 export const UI = {
   /** Popup filter/sort UI state. Kept global because it's a per-user view pref. */
   popupState: storageKey<PersistedPopupState>('popupState'),
-  /** Active tab key in the popup ("all-rules", "this-page", etc.). */
-  activeRulesTab: storageKey<string>('activeRulesTab'),
+  /** Active tab key in the popup ("all-workbench", "this-page", etc.). */
+  activePopupTab: storageKey<string>('activePopupTab'),
   /** Boolean flag set once the onboarding tour has been completed. */
   onboardingCompleted: storageKey<boolean>('onboardingCompleted'),
   /** Dock layout for the devtools panel — kept global; devtools is a single surface. */
@@ -194,7 +194,7 @@ export interface WorkspaceKeys {
    * autocomplete popover. LRU-capped at 8 per workspace; surfaced at the
    * top of the suggestion list when the user opens the popover with an
    * empty query. Opaque at storage layer — shape is `VariableRecents`
-   * from `rules/components/template-input/recents.ts`.
+   * from `workbench/components/template-input/recents.ts`.
    * Ephemeral: never committed to git, purged on workspace delete.
    */
   variableRecents: StorageKey<unknown>;

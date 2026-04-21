@@ -1,6 +1,6 @@
 import 'allotment/dist/style.css';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useSetting } from '@/rules/settings/hooks';
+import { useSetting } from '@/workbench/settings/hooks';
 import type { DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
 import {
   createShellEventBus,

@@ -84,7 +84,7 @@ let writeTimer: ReturnType<typeof setTimeout> | null = null;
 /**
  * Diff the current rule set against the last observed snapshot and
  * enqueue an appropriate cache invalidation for any transitions. Call
- * AFTER `rebuildAll` has pushed the new DNR rules to Chrome — the
+ * AFTER `rebuildAll` has pushed the new DNR workbench to Chrome — the
  * eviction itself is async and decoupled.
  */
 export function observeRuleState(
@@ -151,7 +151,7 @@ export async function rehydrateFromStorage(): Promise<void> {
  *
  * One broad wipe is almost always cheaper and safer than emitting a
  * transition per rule uid — a workspace switch changes dozens or hundreds
- * of rules at once, and per-rule diffs fan out into many small evictions
+ * of workbench at once, and per-rule diffs fan out into many small evictions
  * the cache invalidator then has to coalesce anyway.
  */
 export function seedFromWorkspaceSwitch(

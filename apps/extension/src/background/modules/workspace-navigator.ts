@@ -31,7 +31,7 @@ import { recordLog } from './observability-log';
 import { ordinalForTab } from './workspace-tab-registry';
 
 /** Path of the workspace HTML file in the packed extension. */
-const WORKSPACE_HTML = 'workspace.html';
+const WORKBENCH_HTML = 'workbench.html';
 
 /** How long to wait before retrying sendMessage once. */
 const SEND_MESSAGE_RETRY_MS = 150;
@@ -128,12 +128,12 @@ export async function openWorkspaceIntent(raw: unknown, context: IntentCallerCon
     return { ok: false, reason: 'invalid-intent' };
   }
 
-  const workspaceUrl = getBrowserAPI().runtime.getURL(WORKSPACE_HTML);
+  const workspaceUrl = getBrowserAPI().runtime.getURL(WORKBENCH_HTML);
 
   let candidates: chrome.tabs.Tab[];
   try {
     // `query` matches substrings with `*` at the end, so this catches
-    // both `workspace.html` and `workspace.html#/...` variants.
+    // both `workbench.html` and `workbench.html#/...` variants.
     candidates = await queryTabs({ url: `${workspaceUrl}*` });
   } catch (err) {
     return failLogged(intent, 'query-failed', err);

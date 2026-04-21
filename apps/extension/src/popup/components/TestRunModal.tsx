@@ -32,7 +32,7 @@ interface TestRunModalProps {
   ruleUids: string[];
   /** Optional default URL — e.g., the last URL used, or the tab url. */
   defaultUrl?: string;
-  /** All V5 rules — kept in props for symmetry with other launchers. */
+  /** All V5 workbench — kept in props for symmetry with other launchers. */
   allRules: V5.Rule[];
 }
 

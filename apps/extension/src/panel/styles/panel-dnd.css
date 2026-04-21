@@ -3,7 +3,7 @@
  * the floating drag preview pill rendered inside dnd-kit's DragOverlay
  * while a tool-window tab is being dragged.
  *
- * Also hosts the dock-content header suppression rules — when a tool
+ * Also hosts the dock-content header suppression workbench — when a tool
  * window (Search / detail pane) is rendered inside a dock slot, its own
  * internal header is hidden because the dock slot supplies an equivalent
  * chrome of its own.

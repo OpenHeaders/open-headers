@@ -2,7 +2,7 @@
  * WorkspacePill — compact popup/sidepanel workspace indicator.
  *
  * Read-only switcher: lists all workspaces with active-state marker
- * and a "Manage workspaces…" link that opens workspace.html to the
+ * and a "Manage workspaces…" link that opens workbench.html to the
  * manager tab. CRUD is intentionally absent from the popup — the
  * popup is too narrow (800px) to host management UI cleanly.
  */
@@ -13,7 +13,7 @@ import { Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { renderWorkspacePrefix } from '@/rules/components/workspace-prefix';
+import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { useSurface } from '@/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
 

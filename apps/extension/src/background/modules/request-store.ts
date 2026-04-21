@@ -12,7 +12,7 @@
  *   - requestCollections  → `oh.ws.<id>.requestCollections`
  *   - requestFolders      → `oh.ws.<id>.requestFolders`
  *
- * Paths live under `requests/` (vs. `rules/` for rule-store) so the
+ * Paths live under `requests/` (vs. `workbench/` for rule-store) so the
  * two entity trees never collide in on-disk format used by team
  * workspaces in v2.
  */

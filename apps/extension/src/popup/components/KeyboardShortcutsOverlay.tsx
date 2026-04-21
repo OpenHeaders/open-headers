@@ -129,7 +129,7 @@ function useOverlayColumns(): OverlayColumns {
   // any popup chord from Settings → Keyboard, the underlying store
   // replaces the snapshot and every overlay row repaints on the next
   // tick. No per-key hook call, so adding shortcuts can't trip React's
-  // rules of hooks.
+  // workbench of hooks.
   const chords = usePopupShortcutChords();
 
   return useMemo<OverlayColumns>(() => {

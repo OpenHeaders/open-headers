@@ -2,7 +2,7 @@
  * useWorkspaces — single source of workspace state for UI surfaces.
  *
  * Subscribes to `workspaceChanged` broadcasts so every popup / sidepanel
- * / workspace.html mount stays in sync automatically. Mutations
+ * / workbench.html mount stays in sync automatically. Mutations
  * (create / rename / delete / duplicate / setActive / reorder) are
  * thin wrappers over the bridge RPCs; they don't await the broadcast
  * round-trip because the background fires it synchronously from the

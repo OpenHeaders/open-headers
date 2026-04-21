@@ -128,7 +128,7 @@ function AttributedHeaderRow({
   const { name, value, attribution } = row;
   const kind = attribution.kind;
 
-  // Chrome / Firefox / Edge reject DNR rules that target protected
+  // Chrome / Firefox / Edge reject DNR workbench that target protected
   // headers (`sec-ch-ua`, `host`, `content-length`, etc.) at apply
   // time. We silently skip the "click to override" CTA for these —
   // no lock icon, no special tooltip, no visual weirdness — the row

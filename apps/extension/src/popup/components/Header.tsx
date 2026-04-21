@@ -2,7 +2,7 @@ import { NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
 import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { useSetting } from '@/rules/settings/hooks';
+import { useSetting } from '@/workbench/settings/hooks';
 import type { StatusPillProps } from '@/shared/status';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useSurface } from '@/shared/surface';
@@ -130,8 +130,8 @@ const Header: React.FC = () => {
             title={
               <ShortcutHintTitle label={togglePauseLabel}>
                 {isRulesExecutionPaused
-                  ? 'Resume rules execution'
-                  : 'Pause all rules (preserves individual rule settings)'}
+                  ? 'Resume workbench execution'
+                  : 'Pause all workbench (preserves individual rule settings)'}
               </ShortcutHintTitle>
             }
           >

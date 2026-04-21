@@ -2,7 +2,7 @@
  * Workspace Orchestrator — cross-module composition layer.
  *
  * The workspace-store holds only workspace metadata (list + active id).
- * The per-workspace data stores (rules, templates, environments, pause
+ * The per-workspace data stores (workbench, templates, environments, pause
  * markers, test runs) each own their own CRUD + persistence. This file
  * sequences them together for operations that cut across concerns:
  *
@@ -160,7 +160,7 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
 
   // One broad cache-invalidation baseline reset — the union of
   // outgoing + incoming effective origins. Cheaper than per-rule diffs
-  // when workspace swaps can change dozens of rules at once.
+  // when workspace swaps can change dozens of workbench at once.
   seedFromWorkspaceSwitch(getRules(), getPauseMarkers(), getRulesPaused());
 
   scheduleUpdate('workspace', { immediate: true });
@@ -234,7 +234,7 @@ export async function duplicateWorkspace(
   );
 
   // ── Requests side: parallel structure under `requests/`. Uses the
-  // same deep-copy logic as rules, just a different on-disk prefix.
+  // same deep-copy logic as workbench, just a different on-disk prefix.
   // Exposes `requestUidRemap` so the live-entities copy below can
   // rebind workflow-step `requestUid`s to the cloned tree.
   const { remappedRequests, remappedRequestCollections, remappedRequestFolders, requestUidRemap } =
@@ -353,7 +353,7 @@ interface RuleHierarchyCopy {
   remappedRules: V5.Rule[];
   remappedCollections: V5.Collection[];
   remappedFolders: LocalFolder[];
-  /** Old path → new path for every collection + folder (NOT rules).
+  /** Old path → new path for every collection + folder (NOT workbench).
    *  Used by the outer caller to remap pause markers, which are keyed
    *  only by container paths. */
   containerPathRemap: Map<string, string>;

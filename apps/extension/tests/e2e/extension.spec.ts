@@ -2,7 +2,7 @@
  * E2E Tests for OpenHeaders Browser Extension (standalone — no desktop app required)
  *
  * Tests popup UI structure, disconnected state, theme, and static pages.
- * For connected-state tests (rules sync, recording, sources), see extension-connected.spec.ts.
+ * For connected-state tests (workbench sync, recording, sources), see extension-connected.spec.ts.
  */
 
 import path from 'node:path';
@@ -160,7 +160,7 @@ test.describe('Disconnected State', () => {
     expect(text).toBeTruthy();
   });
 
-  test('rules list area is present', async () => {
+  test('workbench list area is present', async () => {
     const entriesList = page.locator('.entries-list');
     await expect(entriesList).toBeVisible();
   });

@@ -6,7 +6,7 @@
  * Extracted from request-tracker so it can be:
  *   - Unit-tested in isolation (no tab-telemetry / rule-store mocks needed).
  *   - Reused by the DevTools inspector panel and any future workspace
- *     "rules-on-this-page" view without duplicating the ranking logic.
+ *     "workbench-on-this-page" view without duplicating the ranking logic.
  *
  * Input is fully explicit: callers pass the rule, its compiled match
  * patterns, the tab URL, the observed resources, and the "did this rule
@@ -36,7 +36,7 @@ import type { RuleVerdict, SilentMatchRecord, TrackedResource } from '@/types/br
  *
  * Returning `null` means the rule is idle with no signal to surface —
  * callers typically filter these out of the popup (future UIs may
- * choose to list idle rules explicitly).
+ * choose to list idle workbench explicitly).
  */
 export interface VerdictResult {
   verdict: RuleVerdict;
@@ -106,7 +106,7 @@ export interface VerdictInput {
  *
  * Returns `null` instead of `{ verdict: 'idle' }` to keep the "nothing
  * to surface" decision at the call site — the popup omits, but a
- * debug view may want to render idle rules explicitly.
+ * debug view may want to render idle workbench explicitly.
  */
 export function computeVerdict(input: VerdictInput): VerdictResult | null {
   const { rule, patterns, normalizedTabUrl, trackedResources, firing, normalizeUrl } = input;
@@ -183,7 +183,7 @@ export function computeVerdict(input: VerdictInput): VerdictResult | null {
   }
 
   // Weakest signal — rule's registrable domain matches the tab's but
-  // no specific URL match. Useful for power users with many rules
+  // no specific URL match. Useful for power users with many workbench
   // targeting the same site.
   const tabDomain = registrableDomainOf(normalizedTabUrl);
   if (tabDomain) {

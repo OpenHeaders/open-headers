@@ -15,7 +15,7 @@
  *     `#2` + `#3` (ordinals stable within lifetime, no renumber).
  *
  * We open workspace tabs by navigating fresh pages directly to
- * `chrome-extension://<id>/workspace.html` — that mirrors both the
+ * `chrome-extension://<id>/workbench.html` — that mirrors both the
  * navigator's `chrome.tabs.create` cold path (fresh tab, no hash) and
  * the user's URL-paste path the registry's `onUpdated` branch covers.
  * We avoid the popup → intent-dispatch flow here because the intent
@@ -54,7 +54,7 @@ test.afterAll(async () => {
 
 async function openWorkspace(): Promise<Page> {
   const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/workspace.html`);
+  await page.goto(`chrome-extension://${extensionId}/workbench.html`);
   // Wait for the workspace shell to mount (the root has children).
   // The title hook runs after the first RPC resolves; we wait for the
   // registry-confirmed title below in waitForTitle.
@@ -200,7 +200,7 @@ test.describe('Workspace tab title — route composition', () => {
       // title into `#2 <label> — Open Headers`. We avoid `open-docs`
       // here because docs is a right-side panel, not an editor tab —
       // it would not move `activeTab.label`.
-      await deliverIntent(`chrome-extension://${extensionId}/workspace.html`, {
+      await deliverIntent(`chrome-extension://${extensionId}/workbench.html`, {
         kind: 'create-rule',
         ruleType: 'header',
       });

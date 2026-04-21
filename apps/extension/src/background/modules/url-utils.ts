@@ -22,7 +22,7 @@ import { compilePatternToRegexSource } from '@openheaders/core/utils';
 const compiledPatternCache = new Map<string, RegExp | null>();
 
 /**
- * Clear pattern caches — call when rules change
+ * Clear pattern caches — call when workbench change
  */
 export function clearPatternCache(): void {
   compiledPatternCache.clear();
@@ -30,7 +30,7 @@ export function clearPatternCache(): void {
 
 /**
  * Pre-compile a pattern and store it in the cache.
- * Call this when rules are loaded to avoid regex compilation in hot paths.
+ * Call this when workbench are loaded to avoid regex compilation in hot paths.
  */
 export function precompilePattern(pattern: string): void {
   if (compiledPatternCache.has(pattern)) return;

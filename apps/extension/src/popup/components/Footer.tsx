@@ -19,7 +19,7 @@ import { App, Button, Dropdown, Space, Switch, Tag, Tooltip, Typography, theme }
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { useSetting } from '@/rules/settings/hooks';
+import { useSetting } from '@/workbench/settings/hooks';
 import { useSurface } from '@/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';

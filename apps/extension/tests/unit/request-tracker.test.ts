@@ -47,7 +47,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     schemaVersion: 5,
     version: 1,
     uid: `rule-${Math.random().toString(36).slice(2, 6)}`,
-    path: 'rules/test',
+    path: 'workbench/test',
     name: 'Test Rule',
     type: 'header',
     enabled: true,
@@ -84,7 +84,7 @@ describe('getActiveRulesForTab', () => {
     expect(result).toEqual([]);
   });
 
-  it('returns rules whose URL conditions match the tab URL', () => {
+  it('returns workbench whose URL conditions match the tab URL', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
@@ -104,7 +104,7 @@ describe('getActiveRulesForTab', () => {
     expect(result[0]!.id).toBe('rule-1');
   });
 
-  it('returns disabled matching rules (popup still shows them for toggling)', () => {
+  it('returns disabled matching workbench (popup still shows them for toggling)', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
@@ -130,7 +130,7 @@ describe('getActiveRulesForTab', () => {
     expect(disabled?.isEnabled).toBe(false);
   });
 
-  it('does not return rules that do not match the domain', () => {
+  it('does not return workbench that do not match the domain', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
@@ -151,7 +151,7 @@ describe('getActiveRulesForTab', () => {
     expect(result[0]!.name).toBe('Test Rule');
   });
 
-  it('returns rules with wildcard domain for any tab URL', () => {
+  it('returns workbench with wildcard domain for any tab URL', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
@@ -168,7 +168,7 @@ describe('getActiveRulesForTab', () => {
     expect(result[0]!.id).toBe('rule-1');
   });
 
-  it('skips incomplete (draft) rules', () => {
+  it('skips incomplete (draft) workbench', () => {
     seedRules([
       makeHeaderRule({
         uid: 'draft-rule',
@@ -268,7 +268,7 @@ describe('checkIfUrlMatchesAnyRule', () => {
     expect(checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2')).toBe(true);
   });
 
-  it('returns false when URL matches no rules', () => {
+  it('returns false when URL matches no workbench', () => {
     seedRules([
       makeHeaderRule({
         conditions: hostConditions(['*.example.com']),
@@ -277,7 +277,7 @@ describe('checkIfUrlMatchesAnyRule', () => {
     expect(checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2')).toBe(false);
   });
 
-  it('returns false when no rules exist', () => {
+  it('returns false when no workbench exist', () => {
     seedRules([]);
     expect(checkIfUrlMatchesAnyRule('https://api.openheaders.io/v2')).toBe(false);
   });
@@ -326,7 +326,7 @@ describe('matchRulesToRequest', () => {
     });
   });
 
-  it('marks header rules with a request-header merge operation as deferred', () => {
+  it('marks header workbench with a request-header merge operation as deferred', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
@@ -348,7 +348,7 @@ describe('matchRulesToRequest', () => {
     expect(result[0]!.deferred).toBe(true);
   });
 
-  it('marks header rules with a response-header merge operation as deferred', () => {
+  it('marks header workbench with a response-header merge operation as deferred', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',
@@ -370,7 +370,7 @@ describe('matchRulesToRequest', () => {
     expect(result[0]!.deferred).toBe(true);
   });
 
-  it('excludes disabled rules from matchRulesToRequest', () => {
+  it('excludes disabled workbench from matchRulesToRequest', () => {
     seedRules([
       makeHeaderRule({
         uid: 'rule-1',

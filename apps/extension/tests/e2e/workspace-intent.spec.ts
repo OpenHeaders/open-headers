@@ -4,7 +4,7 @@
  * existing openers (docs scroll, rule editor, etc.).
  *
  * Scenarios from V5_FOUNDATION_PLAN.md §Phase 9 verification:
- *   • Cold start — navigate to `workspace.html#/docs/doc-system-status`
+ *   • Cold start — navigate to `workbench.html#/docs/doc-system-status`
  *     → docs panel opens + auto-scrolls to the section.
  *   • Warm start — with a workspace tab already open, dispatch
  *     `{ type: 'workspace-intent', intent }` from the SW via
@@ -44,7 +44,7 @@ test.afterAll(async () => {
 
 async function openWorkspace(hash = ''): Promise<Page> {
   const page = await context.newPage();
-  await page.goto(`chrome-extension://${extensionId}/workspace.html${hash}`);
+  await page.goto(`chrome-extension://${extensionId}/workbench.html${hash}`);
   await page.waitForFunction(
     () => {
       const root = document.getElementById('root');
@@ -56,7 +56,7 @@ async function openWorkspace(hash = ''): Promise<Page> {
 }
 
 async function expectDocsPanelVisible(page: Page): Promise<void> {
-  const docsPanel = page.locator('.rules-right-panel--docs');
+  const docsPanel = page.locator('.workbench-right-panel--docs');
   await expect(docsPanel).toBeVisible({ timeout: 10000 });
 }
 
@@ -171,7 +171,7 @@ test.describe('Workspace Intent — warm path', () => {
             // Ignore — the listener still received the message.
           }
         },
-        { workspaceUrl: `chrome-extension://${extensionId}/workspace.html` },
+        { workspaceUrl: `chrome-extension://${extensionId}/workbench.html` },
       );
 
       // Step 3: the renderer's intent router received the message,
@@ -199,7 +199,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
     const page1 = await openWorkspace();
 
     // Window 2 — spawned via chrome.windows.create from the SW. The
-    // workspace.html URL seeds the tab into the navigator's query.
+    // workbench.html URL seeds the tab into the navigator's query.
     const { win2Id, win1Id } = await serviceWorker.evaluate(
       async ({ workspaceUrl }: { workspaceUrl: string }) => {
         const created = await chrome.windows.create({ url: workspaceUrl, focused: false });
@@ -210,7 +210,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
         const others = all.filter((w) => w.id !== win2Id).map((w) => w.id as number);
         return { win2Id, win1Id: others[0] };
       },
-      { workspaceUrl: `chrome-extension://${extensionId}/workspace.html` },
+      { workspaceUrl: `chrome-extension://${extensionId}/workbench.html` },
     );
 
     // Wait for window 2's workspace renderer to mount too — both tabs
@@ -278,7 +278,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
       // should not have been scrolled into view. The strict check:
       // the panel is not in the visible DOM.
       const page2DocsVisible = await page2
-        .locator('.rules-right-panel--docs')
+        .locator('.workbench-right-panel--docs')
         .isVisible()
         .catch(() => false);
       expect(page2DocsVisible).toBe(false);
@@ -327,7 +327,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
           workspaceTabIdInWin2: wsTabs[0]?.id as number | undefined,
         };
       },
-      { workspaceUrl: `chrome-extension://${extensionId}/workspace.html` },
+      { workspaceUrl: `chrome-extension://${extensionId}/workbench.html` },
     );
 
     try {
@@ -393,7 +393,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
               }
             }
           },
-          { workspaceUrl: `chrome-extension://${extensionId}/workspace.html` },
+          { workspaceUrl: `chrome-extension://${extensionId}/workbench.html` },
         )
         .catch(() => {});
     }

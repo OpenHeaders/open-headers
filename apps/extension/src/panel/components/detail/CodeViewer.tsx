@@ -15,7 +15,7 @@ import Editor from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useEffect, useRef } from 'react';
 // Side-effect import: kicks Monaco's bootstrap at module load.
-import '../../../rules/components/monaco/bootstrap';
+import '@/workbench/components/monaco/bootstrap';
 
 interface CodeViewerProps {
   value: string;

@@ -20,7 +20,7 @@
 }
 
 /* Brand column + right spacer — widths mirror the shared activity-bar
- * widths (`.rules-activity-bar` 96px, `.rules-activity-bar--compact`
+ * widths (`.workbench-activity-bar` 96px, `.workbench-activity-bar--compact`
  * 36px in dock-layout.css) so the vertical borders between the header
  * columns and the activity bars below align pixel-perfect. Any change
  * to the activity-bar width in dock-layout.css must be mirrored here. */

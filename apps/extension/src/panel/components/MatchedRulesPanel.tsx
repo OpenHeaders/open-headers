@@ -4,9 +4,9 @@
  *
  * Complements the inline per-header badges in the Headers tab:
  *   - Headers tab shows *what changed* about each individual header.
- *   - This panel shows *which rules* fired, each with its type, target
+ *   - This panel shows *which workbench* fired, each with its type, target
  *     headers, and match evidence. A rule may fire without changing
- *     any visible header (block / delay / pure-match rules), in which
+ *     any visible header (block / delay / pure-match workbench), in which
  *     case it only shows up here.
  */
 

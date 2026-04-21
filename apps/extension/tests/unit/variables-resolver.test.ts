@@ -93,7 +93,7 @@ describe('VariablesResolver (extension)', () => {
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
     const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer ws-token');
@@ -110,7 +110,7 @@ describe('VariablesResolver (extension)', () => {
     ]);
     mockActiveEnvId.mockReturnValue('e-staging');
 
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
     const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer staging-token');
@@ -125,18 +125,18 @@ describe('VariablesResolver (extension)', () => {
       secrets: [{ name: 'TOKEN', value: 'vault-token' }],
     });
 
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
     const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer vault-token');
   });
 
-  it('resolves collection-scoped variables for rules inside that collection', () => {
+  it('resolves collection-scoped variables for workbench inside that collection', () => {
     const collection: V5.Collection = {
       schemaVersion: 5,
       version: 1,
       uid: 'c-1',
-      path: 'rules/my-coll-abcd',
+      path: 'workbench/my-coll-abcd',
       name: 'My Coll',
       variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
     };
@@ -147,18 +147,18 @@ describe('VariablesResolver (extension)', () => {
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
     const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer coll-token');
   });
 
-  it('falls back to workspace scope for rules outside any collection', () => {
+  it('falls back to workspace scope for workbench outside any collection', () => {
     const collection: V5.Collection = {
       schemaVersion: 5,
       version: 1,
       uid: 'c-1',
-      path: 'rules/my-coll-abcd',
+      path: 'workbench/my-coll-abcd',
       name: 'My Coll',
       variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
     };
@@ -169,7 +169,7 @@ describe('VariablesResolver (extension)', () => {
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
-    const orphan = makeHeaderRule({ uid: 'r1', path: 'rules/other-coll-wxyz/r1' });
+    const orphan = makeHeaderRule({ uid: 'r1', path: 'workbench/other-coll-wxyz/r1' });
     const [resolved] = resolveRulesForCompile([orphan]) as V5.HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer ws-token');
@@ -186,26 +186,26 @@ describe('VariablesResolver (extension)', () => {
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
     const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer ws-token');
   });
 
   it('leaves unresolved variables as-is', () => {
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
     const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer {{TOKEN}}');
   });
 
-  it('does not mutate input rules', () => {
+  it('does not mutate input workbench', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
       variables: [{ name: 'TOKEN', value: 'ws', type: 'default' }],
     });
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
     const originalValue = rule.action.requestHeaders?.[0].value;
 
     resolveRulesForCompile([rule]);
@@ -218,7 +218,7 @@ describe('VariablesResolver (extension)', () => {
     const prodEnv = env('prod', [{ name: 'TOKEN', value: 'prod', type: 'default' }], 'e-prod');
     mockEnvs.mockReturnValue([stagingEnv, prodEnv]);
 
-    const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
+    const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/my-coll-abcd/r1' });
 
     mockActiveEnvId.mockReturnValue('e-staging');
     const [first] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
@@ -238,7 +238,7 @@ describe('VariablesResolver (extension)', () => {
 
     const rule = makeHeaderRule({
       uid: 'r1',
-      path: 'rules/my-coll-abcd/r1',
+      path: 'workbench/my-coll-abcd/r1',
       conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
     });
 
@@ -255,7 +255,7 @@ describe('VariablesResolver (extension)', () => {
     });
     const rule = makeHeaderRule({
       uid: 'r1',
-      path: 'rules/my-coll-abcd/r1',
+      path: 'workbench/my-coll-abcd/r1',
       conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
     });
     mockStoreRules.mockReturnValue([rule]);
@@ -277,12 +277,12 @@ describe('VariablesResolver (extension)', () => {
     });
     const r1 = makeHeaderRule({
       uid: 'r1',
-      path: 'rules/my-coll-abcd/r1',
+      path: 'workbench/my-coll-abcd/r1',
       conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
     });
     const r2 = makeHeaderRule({
       uid: 'r2',
-      path: 'rules/my-coll-abcd/r2',
+      path: 'workbench/my-coll-abcd/r2',
       conditions: [{ type: 'request-domains', values: ['other.openheaders.io'] }],
     });
     mockStoreRules.mockReturnValue([r1, r2]);
@@ -298,7 +298,7 @@ describe('VariablesResolver (extension)', () => {
 
   describe('resolution error diagnostics', () => {
     it('records per-rule errors when a reference is unresolved', () => {
-      const rule = makeHeaderRule({ uid: 'r1', path: 'rules/test' });
+      const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/test' });
       mockStoreRules.mockReturnValue([rule]);
       resolveRulesForCompile([rule]);
       const errors = getLastResolutionErrors();
@@ -312,15 +312,15 @@ describe('VariablesResolver (extension)', () => {
         version: 1,
         variables: [{ name: 'TOKEN', value: 'x', type: 'default' }],
       });
-      const rule = makeHeaderRule({ uid: 'r1', path: 'rules/test' });
+      const rule = makeHeaderRule({ uid: 'r1', path: 'workbench/test' });
       mockStoreRules.mockReturnValue([rule]);
       resolveRulesForCompile([rule]);
       expect(getLastResolutionErrors().size).toBe(0);
     });
 
-    it('getLastAggregatedResolutionErrors dedupes references across rules', () => {
-      const r1 = makeHeaderRule({ uid: 'r1', path: 'rules/a' });
-      const r2 = makeHeaderRule({ uid: 'r2', path: 'rules/b' });
+    it('getLastAggregatedResolutionErrors dedupes references across workbench', () => {
+      const r1 = makeHeaderRule({ uid: 'r1', path: 'workbench/a' });
+      const r2 = makeHeaderRule({ uid: 'r2', path: 'workbench/b' });
       mockStoreRules.mockReturnValue([r1, r2]);
       resolveRulesForCompile([r1, r2]);
       const agg = getLastAggregatedResolutionErrors();
@@ -330,7 +330,7 @@ describe('VariablesResolver (extension)', () => {
     it('getLastAggregatedResolutionErrors filters out reserved-namespace references', () => {
       const rule = makeHeaderRule({
         uid: 'r1',
-        path: 'rules/test',
+        path: 'workbench/test',
         action: {
           requestHeaders: [{ operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
           responseHeaders: [],
@@ -343,8 +343,8 @@ describe('VariablesResolver (extension)', () => {
     });
 
     it('test-run subset compile does NOT overwrite persisted errors', () => {
-      const r1 = makeHeaderRule({ uid: 'r1', path: 'rules/a' });
-      const r2 = makeHeaderRule({ uid: 'r2', path: 'rules/b' });
+      const r1 = makeHeaderRule({ uid: 'r1', path: 'workbench/a' });
+      const r2 = makeHeaderRule({ uid: 'r2', path: 'workbench/b' });
       mockStoreRules.mockReturnValue([r1, r2]);
       resolveRulesForCompile([r1, r2]);
       expect(getLastResolutionErrors().size).toBe(2);

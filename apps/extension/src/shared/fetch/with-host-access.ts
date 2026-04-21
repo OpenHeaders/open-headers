@@ -12,7 +12,7 @@
  * module. Request-executor, rule-refresh, future OAuth token refresh,
  * and any other user-facing HTTP path MUST route through here.
  *
- * Why a wrapper instead of a lint rule? Lint rules are easy to silence
+ * Why a wrapper instead of a lint rule? Lint workbench are easy to silence
  * and hard to enforce in multi-workspace monorepos. A typed function
  * with a dedicated module provides the single grep surface ("where do
  * user-fetches live?") and lets us inject cross-cutting behavior

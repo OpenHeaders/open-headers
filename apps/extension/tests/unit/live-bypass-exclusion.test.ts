@@ -62,7 +62,7 @@ function makeHeaderRule(value: string): V5.HeaderRule {
     schemaVersion: 5,
     version: 1,
     uid: 'hr000001',
-    path: 'rules/header-rule',
+    path: 'workbench/header-rule',
     name: 'Auth',
     type: 'header',
     enabled: true,

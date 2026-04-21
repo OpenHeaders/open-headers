@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // to the default instead of throwing. Individual tests override the
 // mock via vi.mocked(get).mockImplementationOnce(...) when they want a
 // specific setting value.
-vi.mock('@/rules/settings/store', () => ({
+vi.mock('@/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     switch (key) {
       case 'desktop.connection.showBadgeWhenDisconnected':

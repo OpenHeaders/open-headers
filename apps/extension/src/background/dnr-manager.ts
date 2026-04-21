@@ -5,20 +5,20 @@
  *
  *   - Each rule type has a `RuleCompiler` in `dnr-builders/` that turns a
  *     V5.Rule into a `CompilationPlan { dynamicRules?, sessionRules? }`.
- *   - `rebuildAll` iterates enabled rules, compiles each, and fans out the
- *     resulting DNR rules to Chrome's two rule layers:
- *       - Dynamic layer (updateDynamicRules): rules that don't need per-tab
+ *   - `rebuildAll` iterates enabled workbench, compiles each, and fans out the
+ *     resulting DNR workbench to Chrome's two rule layers:
+ *       - Dynamic layer (updateDynamicRules): workbench that don't need per-tab
  *         scoping. This is where almost everything lives.
- *       - Session layer (updateSessionRules): rules that need `tabIds` or
+ *       - Session layer (updateSessionRules): workbench that need `tabIds` or
  *         `excludedTabIds` — Chrome only allows those fields on session
- *         rules. Delay redirect rules live here so the delay-page bypass
- *         can exclude a single tab at a time without touching user rules.
- *   - While any test session is active, each session's scope rules are
+ *         workbench. Delay redirect workbench live here so the delay-page bypass
+ *         can exclude a single tab at a time without touching user workbench.
+ *   - While any test session is active, each session's scope workbench are
  *     ALSO compiled and stamped with `tabIds: [testTabId]`, so test-
- *     scoped rules only fire on their own tab.
+ *     scoped workbench only fire on their own tab.
  *
  * Scriptable injections are NOT handled here. `inject-manager` consumes
- * V5 rules directly from the rule store and installs its MAIN-world
+ * V5 workbench directly from the rule store and installs its MAIN-world
  * injections per main-frame commit. The two concerns have different
  * lifecycles and stay cleanly decoupled.
  */
@@ -27,7 +27,7 @@ import type { V5 } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { get as getSetting } from '@/rules/settings/store';
+import { get as getSetting } from '@/workbench/settings/store';
 import { report as reportStatus } from '@/shared/status';
 import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
 import {
@@ -92,7 +92,7 @@ export function getRulesPaused(): boolean {
 // ── Compiler registry ────────────────────────────────────────────
 
 /**
- * Single source of truth for "how does each rule type become DNR rules?".
+ * Single source of truth for "how does each rule type become DNR workbench?".
  * Adding a rule type means writing a compiler and registering it here —
  * nothing else needs to know.
  */
@@ -167,8 +167,8 @@ function getActiveBypassTabIds(): number[] {
 }
 
 /**
- * Mark a tab as temporarily exempt from delay redirect rules. Returns a
- * promise that resolves once the updated DNR rules are live in Chrome. The
+ * Mark a tab as temporarily exempt from delay redirect workbench. Returns a
+ * promise that resolves once the updated DNR workbench are live in Chrome. The
  * delay page awaits this before navigating to the real target, so the
  * follow-up navigation doesn't race the rule update and re-trigger the delay.
  */
@@ -242,8 +242,8 @@ interface RebuildOutput {
 }
 
 /**
- * Compile every enabled rule into DNR rules plus a scriptable passthrough
- * for inject-manager. Returns TAGGED rules (with their source V5 uid) so
+ * Compile every enabled rule into DNR workbench plus a scriptable passthrough
+ * for inject-manager. Returns TAGGED workbench (with their source V5 uid) so
  * callers can build id→uid maps for telemetry lookups.
  */
 function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
@@ -261,7 +261,7 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
     if (!isRuleEffective(rule, getPauseMarkers(), false)) continue;
 
     // inject-manager wants every rule that has any in-page side effect,
-    // regardless of whether it ALSO produces DNR rules. Passed by value.
+    // regardless of whether it ALSO produces DNR workbench. Passed by value.
     if (SCRIPTABLE_TYPES.has(rule.type)) {
       scriptables.push(rule);
     }
@@ -289,7 +289,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
 
   // Live-bypass map: `ruleUid → Set<workflowUid>` so each emitted DnrRule
   // carries an `excludedRequestHeaders` clause matching the bypass tag its
-  // chain fetches stamp. Computed from RAW rules because the `{{live.X}}`
+  // chain fetches stamp. Computed from RAW workbench because the `{{live.X}}`
   // references are what we need to see — after resolve those literals have
   // been substituted with the cached values. Memoized so test-run scope
   // recompiles (which share source uids with the global rule set) don't
@@ -301,20 +301,20 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   }
 
   // Resolve {{VAR}} templates against the current env/vars/vault/collection
-  // scopes BEFORE any downstream consumer sees the rules. Every compile
+  // scopes BEFORE any downstream consumer sees the workbench. Every compile
   // and every observer diff must see the same resolved shape — otherwise
   // a variable edit can change effective patterns without the observer
   // noticing, or the DNR layer can receive literal "{{VAR}}" strings.
   const resolvedRules = resolveRulesForCompile(rawRules);
 
-  // Drop rules whose templates contain unresolved references. Shipping
+  // Drop workbench whose templates contain unresolved references. Shipping
   // a rule with a literal `{{wat}}` header value to Chrome would set
   // the header to the literal placeholder on the wire — almost never
   // the user's intent. The rule stays saved (visible to the sidebar,
   // reflected in the resolution-errors map) and re-activates on the
   // next rebuild once the var is defined in some scope. Reserved
   // namespaces (`{{file.X}}` / `{{dynamic.X}}`) don't contribute to
-  // `getUnresolvableRuleUids` so those references don't gate rules.
+  // `getUnresolvableRuleUids` so those references don't gate workbench.
   const unresolvable = getUnresolvableRuleUids();
   const rules = unresolvable.size > 0 ? resolvedRules.filter((r) => !unresolvable.has(r.uid)) : resolvedRules;
 
@@ -325,7 +325,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   observeRuleState(rules, getPauseMarkers(), isPaused);
 
   if (isPaused) {
-    logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
+    logger.info('DnrManager', 'Rules execution is paused, clearing all active workbench');
     clearAllDynamicRules();
     clearAllSessionRules();
     updateScriptableRules([]);
@@ -340,9 +340,9 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   const testTabIds = getActiveTestTabIds();
   const runs = getActiveRunSnapshots();
 
-  // ── Layer 1: dynamic rules (global, not per-tab) ──
-  // Compile all enabled rules. Dynamic DNR rules go out globally; session
-  // DNR rules will be tagged with excludedTabIds below to keep delay-bypass
+  // ── Layer 1: dynamic workbench (global, not per-tab) ──
+  // Compile all enabled workbench. Dynamic DNR workbench go out globally; session
+  // DNR workbench will be tagged with excludedTabIds below to keep delay-bypass
   // loop prevention correct.
   const { dynamic: globalDynamic, session: globalSessionUntagged, scriptables } = compileRuleSet(rules, 1);
 
@@ -351,7 +351,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   // `rulesEngine.maxActiveRules` is the hard cap on the dynamic layer —
   // Chrome's own dynamic-rule ceiling is 30000 (MAX_DYNAMIC), but users
   // hit performance cliffs well before that. Past the cap we log and
-  // truncate in match-order: rules at the top of the list win a slot,
+  // truncate in match-order: workbench at the top of the list win a slot,
   // the overflow gets dropped. Truncation is logged so the user can
   // reason about why a rule that's enabled isn't live.
   const cap = getSetting('rulesEngine.maxActiveRules');
@@ -364,7 +364,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   }
 
   // ── Large rule-set warning ────────────────────────────────────
-  // Reported through the Status API (`rules` subsystem) after both DNR
+  // Reported through the Status API (`workbench` subsystem) after both DNR
   // layers commit — see the tail of rebuildAll for the single-point
   // reporting pass.
   let largeRuleSet = false;
@@ -388,14 +388,14 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   const dynamicPromise = applyDynamicRules(dynamicToApply);
   updateScriptableRules(scriptables);
 
-  // ── Layer 2: session rules ──
+  // ── Layer 2: session workbench ──
   // Three subcategories:
   //
-  //   (a) Test-run rules: scope-snapshot rules from each active test
+  //   (a) Test-run workbench: scope-snapshot workbench from each active test
   //       run, stamped with tabIds: [testTabId] so they only fire on
   //       that run's tab.
-  //   (b) Delay redirect rules: emitted by compileRuleSet as `session`
-  //       rules. Stamped with excludedTabIds for test tabs (so they don't
+  //   (b) Delay redirect workbench: emitted by compileRuleSet as `session`
+  //       workbench. Stamped with excludedTabIds for test tabs (so they don't
   //       collide with test isolation) AND for any tabs currently in the
   //       delay-bypass set (so the delay page's follow-up navigation
   //       passes through without re-triggering the delay).
@@ -416,7 +416,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
 
     // Delay-loop guard: when this run's test tab is in the delay-bypass
     // window (the delay page is about to navigate back to the real target),
-    // the delay rule under test would re-fire and loop. Drop delay rules
+    // the delay rule under test would re-fire and loop. Drop delay workbench
     // from the scope for the duration of the bypass window — every other
     // rule type in the run continues to apply normally. Once the bypass
     // entry clears (resolveDelayBypass on commit), the next applyAllRules
@@ -451,12 +451,12 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
     }
   }
 
-  // (b) Delay rules (and any other global session rules). Stamp with
+  // (b) Delay workbench (and any other global session workbench). Stamp with
   // excludedTabIds so test tabs and bypass tabs are skipped.
   const bypassTabs = getActiveBypassTabIds();
   const excludedForGlobal = [...new Set<number>([...testTabIds, ...bypassTabs])];
   for (const { rule, uid } of globalSessionUntagged) {
-    dynamicDnrIdToUid.set(rule.id, uid); // global session rules are part of the "live for this tab" lookup
+    dynamicDnrIdToUid.set(rule.id, uid); // global session workbench are part of the "live for this tab" lookup
     const bypass = liveBypassByUid.get(uid);
     if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass);
     if (excludedForGlobal.length > 0) {
@@ -467,7 +467,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
 
   const sessionPromise = applySessionRules(sessionToApply);
   return Promise.all([dynamicPromise, sessionPromise]).then(([dyn, ses]) => {
-    // Single reporting point for the `rules` Status subsystem. Layered
+    // Single reporting point for the `workbench` Status subsystem. Layered
     // so the worst condition wins: transport failure > unresolved
     // references > cap breach > large-rule-set warning > healthy.
     if (!dyn.ok || !ses.ok) {
@@ -563,7 +563,7 @@ function applyDynamicRules(newRules: DnrRule[]): Promise<ApplyResult> {
     })
     .catch((e: Error): ApplyResult => {
       const error = e.message || 'Unknown error';
-      logger.error('DnrManager', 'Error updating dynamic rules:', error);
+      logger.error('DnrManager', 'Error updating dynamic workbench:', error);
       return { ok: false, error };
     });
 }
@@ -572,18 +572,18 @@ function applySessionRules(newRules: DnrRule[]): Promise<ApplyResult> {
   const dnr = declarativeNetRequest;
   if (!dnr?.updateSessionRules || !dnr.getSessionRules) {
     if (newRules.length > 0) {
-      logger.info('DnrManager', 'updateSessionRules unavailable — session rules will not be applied');
+      logger.info('DnrManager', 'updateSessionRules unavailable — session workbench will not be applied');
     }
     // Absent API is not a failure — treat as no-op success so the
     // Status pill doesn't show red on Firefox's session-rule-less
-    // codepath. Users on browsers without session rules never expect
+    // codepath. Users on browsers without session workbench never expect
     // delay-tab scoping to work anyway.
     return Promise.resolve({ ok: true });
   }
   return dnr
     .getSessionRules()
     .then((existing) => {
-      // Preserve cache-bypass session rules (installed by the inspector
+      // Preserve cache-bypass session workbench (installed by the inspector
       // panel's "Disable Cache" toggle) — they have their own lifecycle
       // and shouldn't be nuked by a user-rule rebuild. See
       // `modules/cache-bypass.ts`.
@@ -599,7 +599,7 @@ function applySessionRules(newRules: DnrRule[]): Promise<ApplyResult> {
     })
     .catch((e: Error): ApplyResult => {
       const error = e.message || 'Unknown error';
-      logger.error('DnrManager', 'Error updating session rules:', error);
+      logger.error('DnrManager', 'Error updating session workbench:', error);
       return { ok: false, error };
     });
 }
@@ -612,7 +612,7 @@ function clearAllDynamicRules(): void {
       return declarativeNetRequest!.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
     })
     .then(() => {
-      logger.debug('DnrManager', 'All dynamic rules cleared');
+      logger.debug('DnrManager', 'All dynamic workbench cleared');
     });
 }
 
@@ -626,6 +626,6 @@ function clearAllSessionRules(): void {
       return dnr.updateSessionRules!({ removeRuleIds: removeIds, addRules: [] });
     })
     .then(() => {
-      logger.debug('DnrManager', 'All session rules cleared');
+      logger.debug('DnrManager', 'All session workbench cleared');
     });
 }

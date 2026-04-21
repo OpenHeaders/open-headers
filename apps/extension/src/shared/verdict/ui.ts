@@ -14,7 +14,7 @@ import type { RuleVerdict } from '@/types/browser';
 
 /**
  * Sort rank — lower = stronger signal. Used by the popup's primary
- * sort so firing rules rank above silent, which rank above page, etc.,
+ * sort so firing workbench rank above silent, which rank above page, etc.,
  * regardless of the secondary sort mode the user picked.
  */
 export const VERDICT_RANK: Record<RuleVerdict, number> = {

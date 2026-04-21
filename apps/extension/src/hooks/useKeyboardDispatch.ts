@@ -186,12 +186,12 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       // Tab switching
       if (matchesPopupShortcut(e, 'tab-this-page')) {
         e.preventDefault();
-        onTabChange('active-rules');
+        onTabChange('active-workbench');
         return;
       }
       if (matchesPopupShortcut(e, 'tab-all-rules')) {
         e.preventDefault();
-        onTabChange('all-rules');
+        onTabChange('all-workbench');
         return;
       }
       if (matchesPopupShortcut(e, 'tab-collections')) {

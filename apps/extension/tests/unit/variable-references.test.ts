@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectTemplateStrings, TEMPLATE_RX } from '@/rules/variable-references';
+import { collectTemplateStrings, TEMPLATE_RX } from '@/workbench/variable-references';
 
 describe('variable-references / TEMPLATE_RX', () => {
   it('matches a basic template reference', () => {

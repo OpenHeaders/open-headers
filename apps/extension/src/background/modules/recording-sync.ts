@@ -1,5 +1,5 @@
 import { logger } from '@utils/logger';
-import { get as getSetting, set as setSetting, subscribeKey } from '@/rules/settings/store';
+import { get as getSetting, set as setSetting, subscribeKey } from '@/workbench/settings/store';
 import { isWebSocketConnected, sendViaWebSocket } from '../websocket';
 
 let syncingFromDesktop = 0;

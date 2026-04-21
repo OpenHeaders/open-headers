@@ -17,28 +17,28 @@ const RulesList: React.FC = () => {
 
   const items = [
     {
-      key: 'active-rules',
+      key: 'active-workbench',
       label: <span className="oh-tab-label">This Page</span>,
       children: (
         <ThisPageRules
-          isActive={activeTab === 'active-rules'}
-          focusedRowIndex={activeTab === 'active-rules' ? focusedRowIndex : -1}
-          pendingDeleteIndex={activeTab === 'active-rules' ? pendingDeleteIndex : -1}
-          onPageInfoChange={activeTab === 'active-rules' ? setPageInfo : undefined}
-          onRowActionsChange={activeTab === 'active-rules' ? setRowActions : undefined}
+          isActive={activeTab === 'active-workbench'}
+          focusedRowIndex={activeTab === 'active-workbench' ? focusedRowIndex : -1}
+          pendingDeleteIndex={activeTab === 'active-workbench' ? pendingDeleteIndex : -1}
+          onPageInfoChange={activeTab === 'active-workbench' ? setPageInfo : undefined}
+          onRowActionsChange={activeTab === 'active-workbench' ? setRowActions : undefined}
         />
       ),
       icon: <ThunderboltTwoTone />,
     },
     {
-      key: 'all-rules',
+      key: 'all-workbench',
       label: <span className="oh-tab-label">All Rules</span>,
       children: (
         <RulesTable
-          focusedRowIndex={activeTab === 'all-rules' ? focusedRowIndex : -1}
-          pendingDeleteIndex={activeTab === 'all-rules' ? pendingDeleteIndex : -1}
-          onPageInfoChange={activeTab === 'all-rules' ? setPageInfo : undefined}
-          onRowActionsChange={activeTab === 'all-rules' ? setRowActions : undefined}
+          focusedRowIndex={activeTab === 'all-workbench' ? focusedRowIndex : -1}
+          pendingDeleteIndex={activeTab === 'all-workbench' ? pendingDeleteIndex : -1}
+          onPageInfoChange={activeTab === 'all-workbench' ? setPageInfo : undefined}
+          onRowActionsChange={activeTab === 'all-workbench' ? setRowActions : undefined}
         />
       ),
       icon: <AppstoreTwoTone />,

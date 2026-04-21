@@ -1,6 +1,6 @@
 /**
  * Message Handler — handles non-recording RPCs from every extension
- * surface (popup, sidepanel, workspace.html, devtools panel).
+ * surface (popup, sidepanel, workbench.html, devtools panel).
  *
  * Every handler is a pure dispatch: parse the request, delegate to the
  * appropriate per-workspace store, emit the broadcast side-effects
@@ -273,7 +273,7 @@ export function handleGeneralMessage(
           safeResponse({ success: true });
         })
         .catch((error: Error) => {
-          logger.info('MessageHandler', 'Error updating rules:', error.message);
+          logger.info('MessageHandler', 'Error updating workbench:', error.message);
           safeResponse({ success: false, error: error.message });
         });
       return true;
@@ -778,7 +778,7 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
 
-      // ── Per-tab telemetry + active rules ──────────────────────
+      // ── Per-tab telemetry + active workbench ──────────────────────
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);
       safeResponse({ activeRules: result.activeRules });

@@ -32,10 +32,10 @@ import {
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
-/** Open the full-page rules editor in a new tab. */
+/** Open the full-page workbench editor in a new tab. */
 /**
  * Dispatch an intent to the workspace via the SW navigator. Captures
- * the caller surface so cross-window focus-steal rules apply.
+ * the caller surface so cross-window focus-steal workbench apply.
  */
 function useOpenRulesIntent(): (intent: WorkspaceIntent) => void {
   const surface = useSurface();
@@ -130,19 +130,19 @@ const RulesTable: React.FC<RulesTableProps> = ({
   const handleTestAll = useCallback(() => {
     const allUids = rules.map((r) => r.uid);
     if (allUids.length === 0) {
-      message.info('No rules to test');
+      message.info('No workbench to test');
       return;
     }
     setTestState({
       open: true,
       ownerType: 'workspace',
       ownerId: 'all',
-      scopeLabel: 'All rules',
+      scopeLabel: 'All workbench',
       ruleUids: allUids,
     });
   }, [rules, message]);
 
-  // Build table records from all V5 rules, sorted by status group then name
+  // Build table records from all V5 workbench, sorted by status group then name
   const dataSource: TableRecord[] = rules
     .map((rule) => {
       const isEnabled = rule.enabled;

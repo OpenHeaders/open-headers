@@ -11,9 +11,9 @@ import {
   registerCategory,
   registerSetting,
   requireDef,
-} from '@/rules/settings/registry';
+} from '@/workbench/settings/registry';
 
-declare module '@/rules/settings/types' {
+declare module '@/workbench/settings/types' {
   interface SettingsMap {
     'test.one': string;
     'test.two': number;

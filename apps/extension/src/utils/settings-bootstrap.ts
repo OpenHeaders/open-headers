@@ -2,7 +2,7 @@
  * Non-React settings bootstrap.
  *
  * The settings store is a plain module — it works in every extension
- * context (background service worker, rules renderer, popup renderer).
+ * context (background service worker, workbench renderer, popup renderer).
  * This file is the one entry point that imports the schema barrel and
  * kicks off store init, plus wires non-React consumers (the logger).
  *
@@ -11,8 +11,8 @@
  */
 
 import { isValidLogLevel, logger } from './logger';
-import '@/rules/settings/schema';
-import { get as getSetting, initSettingsStore, subscribeKey } from '@/rules/settings/store';
+import '@/workbench/settings/schema';
+import { get as getSetting, initSettingsStore, subscribeKey } from '@/workbench/settings/store';
 
 let bootstrapPromise: Promise<void> | null = null;
 let loggerWired = false;

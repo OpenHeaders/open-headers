@@ -25,7 +25,7 @@ function headerRule(uid: string, ops: MatchingRuleHeaderOp[], name = uid): Match
 describe('shadow-arbitration', () => {
   // ── Baseline: decoration-only ──────────────────────────────────
 
-  it('leaves rules unchanged when no shadower is present', () => {
+  it('leaves workbench unchanged when no shadower is present', () => {
     const matching = [rule({ uid: 'r1', type: 'header' }), rule({ uid: 'r2', type: 'inject' })];
     const result = arbitrate(matching);
 
@@ -90,7 +90,7 @@ describe('shadow-arbitration', () => {
 
   // ── redirect-retarget ─────────────────────────────────────────
 
-  it('redirect retargets lower-priority modify rules (header, body, mock, delay)', () => {
+  it('redirect retargets lower-priority modify workbench (header, body, mock, delay)', () => {
     const matching = [
       rule({ uid: 'redirect-1', name: 'Rewrite /v1 to /v2', type: 'redirect' }),
       rule({ uid: 'header-1', type: 'header' }),
@@ -111,7 +111,7 @@ describe('shadow-arbitration', () => {
     }
   });
 
-  it('query-param retargets lower-priority modify rules with query-param-retarget kind', () => {
+  it('query-param retargets lower-priority modify workbench with query-param-retarget kind', () => {
     const matching = [
       rule({ uid: 'qp-1', name: 'Strip debug', type: 'query-param' }),
       rule({ uid: 'header-1', type: 'header' }),
@@ -164,7 +164,7 @@ describe('shadow-arbitration', () => {
 
   // ── mock-intercept ────────────────────────────────────────────
 
-  it('mock intercepts body rules and response-side header rules', () => {
+  it('mock intercepts body workbench and response-side header workbench', () => {
     const matching = [
       rule({ uid: 'mock-1', name: 'Mock api', type: 'mock' }),
       rule({ uid: 'body-1', type: 'body' }),
@@ -189,7 +189,7 @@ describe('shadow-arbitration', () => {
 
   // ── header-stacking-ambiguous ─────────────────────────────────
 
-  it('flags two header rules touching the same header + same side as ambiguous', () => {
+  it('flags two header workbench touching the same header + same side as ambiguous', () => {
     const matching = [
       headerRule('h1', [{ side: 'request', operation: 'set', name: 'x-custom' }]),
       headerRule('h2', [{ side: 'request', operation: 'append', name: 'x-custom' }]),
@@ -200,7 +200,7 @@ describe('shadow-arbitration', () => {
     expect(result.find((r) => r.uid === 'h2')!.shadowedBy?.kind).toBe('header-stacking-ambiguous');
   });
 
-  it('does not flag header stacking when rules touch different header names', () => {
+  it('does not flag header stacking when workbench touch different header names', () => {
     const matching = [
       headerRule('h1', [{ side: 'request', operation: 'set', name: 'x-custom' }]),
       headerRule('h2', [{ side: 'request', operation: 'set', name: 'authorization' }]),
@@ -209,7 +209,7 @@ describe('shadow-arbitration', () => {
     for (const r of result) expect(r.shadowedBy).toBeUndefined();
   });
 
-  it('does not flag header stacking when rules touch different sides', () => {
+  it('does not flag header stacking when workbench touch different sides', () => {
     const matching = [
       headerRule('h1', [{ side: 'request', operation: 'set', name: 'x-custom' }]),
       headerRule('h2', [{ side: 'response', operation: 'set', name: 'x-custom' }]),
@@ -226,7 +226,7 @@ describe('shadow-arbitration', () => {
     ];
     const result = arbitrate(matching);
 
-    // Both header rules already shadowed by block; header-stacking phase
+    // Both header workbench already shadowed by block; header-stacking phase
     // has nothing active to flag.
     expect(result.find((r) => r.uid === 'h1')!.shadowedBy?.kind).toBe('block-terminal');
     expect(result.find((r) => r.uid === 'h2')!.shadowedBy?.kind).toBe('block-terminal');
@@ -234,7 +234,7 @@ describe('shadow-arbitration', () => {
 
   // ── delay-page-intercept ──────────────────────────────────────
 
-  it('delay shadows inject rules in the same matching set', () => {
+  it('delay shadows inject workbench in the same matching set', () => {
     const matching = [
       rule({ uid: 'delay-1', name: 'Slow api', type: 'delay' }),
       rule({ uid: 'inject-1', type: 'inject' }),
@@ -248,7 +248,7 @@ describe('shadow-arbitration', () => {
     });
   });
 
-  it('delay-page phase does not touch non-inject rules (they have other phases)', () => {
+  it('delay-page phase does not touch non-inject workbench (they have other phases)', () => {
     const matching = [rule({ uid: 'delay-1', type: 'delay' }), rule({ uid: 'header-1', type: 'header' })];
     const result = arbitrate(matching);
     // header rule is not shadowed by delay — delay priority is 2, below header's 100.

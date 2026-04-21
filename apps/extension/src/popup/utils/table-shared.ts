@@ -26,7 +26,7 @@ export interface RowActions {
    * Pause or resume the focused row. Distinct from `onToggleRow`: in
    * CollectionManager `Space` flips rule `enabled` vs collection pause
    * depending on node type, whereas `onPauseRow` is always pause-only
-   * and applies to rules, folders, and collections alike. Only the
+   * and applies to workbench, folders, and collections alike. Only the
    * Collections tab wires this in today.
    */
   onPauseRow?: (index: number) => void;
@@ -49,7 +49,7 @@ interface Sortable {
    * because non-tab-scoped tables (e.g. the full RulesList /
    * RulesTable) don't have verdicts — they always pass undefined and
    * land on the existing sort paths. When set, it acts as the PRIMARY
-   * sort key so firing rules always top silent always top page etc.,
+   * sort key so firing workbench always top silent always top page etc.,
    * regardless of which secondary sort mode the user picked. See
    * `VERDICT_RANK` in `@/shared/verdict` for the canonical ordering.
    */
@@ -63,7 +63,7 @@ interface Sortable {
  * - manual: preserve original order
  *
  * When both items expose a `verdictRank`, that becomes the primary key
- * — keeping firing rules above silent above page above related
+ * — keeping firing workbench above silent above page above related
  * regardless of the secondary mode. This matches how users read the
  * popup: "what's actively affecting this page?" is always the first
  * question; name / status / priority are tiebreakers.

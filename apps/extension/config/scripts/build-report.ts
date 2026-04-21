@@ -66,7 +66,7 @@ function getFiles(dir: string, prefix = ''): FileInfo[] {
  * dynamic `import()` (those load on demand). Static imports look like
  * `import"../chunks/x.js"` or `from"../chunks/x.js"`; dynamic imports
  * have a `(` between `import` and the string literal, which the
- * negative lookahead rules out.
+ * negative lookahead workbench out.
  */
 function extractChunkRefs(code: string): string[] {
   const refs = new Set<string>();

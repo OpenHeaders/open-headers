@@ -15,7 +15,7 @@ vi.mock('@utils/messaging', () => ({
   sendMessageWithCallback: vi.fn(),
 }));
 
-vi.mock('@/rules/settings/store', () => ({
+vi.mock('@/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     switch (key) {
       case 'rulesEngine.maxActiveRules':
@@ -84,7 +84,7 @@ vi.mock('@/background/inject-manager', () => ({
 import { declarativeNetRequest } from '@utils/browser-api';
 import { applyAllRulesAsync, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
 import { getLastAggregatedResolutionErrors, getLastResolutionErrors } from '@/background/modules/variables-resolver';
-import { get as getSetting } from '@/rules/settings/store';
+import { get as getSetting } from '@/workbench/settings/store';
 import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@/shared/status';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;

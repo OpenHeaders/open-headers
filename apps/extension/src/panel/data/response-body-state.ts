@@ -111,7 +111,7 @@ export function classifyBodyState(request: InspectorRequest): BodyState {
   const status = request.statusCode;
   const resourceType = (request.resourceType ?? '').toLowerCase();
 
-  // ── Per-protocol "no body" rules ─────────────────────────
+  // ── Per-protocol "no body" workbench ─────────────────────────
   if (resourceType === 'preflight') {
     return { kind: 'not-applicable', reason: 'preflight', message: NOT_APPLICABLE_COPY.preflight };
   }

@@ -1,10 +1,10 @@
 /**
- * Request Tracker — tracks which tabs have requests matching V5 rules.
+ * Request Tracker — tracks which tabs have requests matching V5 workbench.
  *
  * Used for badge display and the Active tab in the popup.
- * Reads rules from the in-memory rule store (no storage reads in hot
+ * Reads workbench from the in-memory rule store (no storage reads in hot
  * paths). Pattern matching always uses the resolved-rule snapshot from
- * `variables-resolver` — rules with `{{VAR}}` in URL conditions only
+ * `variables-resolver` — workbench with `{{VAR}}` in URL conditions only
  * match against the real, interpolated value. Falls back to the raw
  * rule-store view until the first DNR compile populates the snapshot.
  */
@@ -71,8 +71,8 @@ export const tabsWithActiveRules: Map<number, Map<string, TrackedResource>> = ne
 // ── Pattern precompilation ────────────────────────────────────────
 
 /**
- * Precompile URL patterns from all rules for fast matching.
- * Called when rules change.
+ * Precompile URL patterns from all workbench for fast matching.
+ * Called when workbench change.
  */
 export function precompileRulePatterns(): void {
   clearPatternCache();
@@ -96,7 +96,7 @@ export function precompileRulePatterns(): void {
 /**
  * Check if a URL matches any rule's URL conditions (request-domains,
  * url-filter, url-regex). A complete rule without any URL conditions
- * is never considered a match — rules that don't declare where they
+ * is never considered a match — workbench that don't declare where they
  * apply don't fire anywhere.
  */
 export function checkIfUrlMatchesAnyRule(url: string): boolean {
@@ -147,14 +147,14 @@ export interface MatchingRule {
   /**
    * True when the rule has a scriptable channel that *might* emit a fire
    * via the in-page fire-bridge. Gates the 500ms fallback buffer in
-   * tab-telemetry. See `computeDeferred` below for the per-type rules —
-   * notably, header rules are only deferred when they have `merge`
+   * tab-telemetry. See `computeDeferred` below for the per-type workbench —
+   * notably, header workbench are only deferred when they have `merge`
    * operations, because plain override/set/remove operations run through
    * pure DNR and never emit a scriptable fire.
    */
   deferred: boolean;
   /**
-   * Populated only for `header` rules. Used by shadow arbitration to
+   * Populated only for `header` workbench. Used by shadow arbitration to
    * detect header-stacking ambiguity and mock-intercept on response-side
    * modifications. Normalized away from the V5 wire shape.
    */
@@ -163,10 +163,10 @@ export interface MatchingRule {
 
 /**
  * Decide whether a specific rule instance can emit a scriptable fire. This
- * is per-rule, not per-type, because `header` rules are split: merge-type
+ * is per-rule, not per-type, because `header` workbench are split: merge-type
  * operations flow through the MAIN-world fire-bridge, but plain
  * override/set/remove operations stay pure DNR. Passing the wrong flag
- * would strand plain header rules in the fallback buffer and surface them
+ * would strand plain header workbench in the fallback buffer and surface them
  * as `matched-fallback` evidence, which is factually wrong.
  */
 function computeDeferred(rule: V5.Rule): boolean {
@@ -225,7 +225,7 @@ function extractHeaderOps(rule: V5.HeaderRule): MatchingRuleHeaderOp[] {
  * condition — callers pass it through to tab-telemetry so the expand panel
  * can highlight which condition matched. `name` is included so shadow
  * arbitration can surface the shadowing rule's name in tooltips. `deferred`
- * is computed per-rule so header rules without merge operations don't end
+ * is computed per-rule so header workbench without merge operations don't end
  * up stranded in the scriptable fallback buffer.
  */
 export function matchRulesToRequest(url: string): MatchingRule[] {
@@ -266,14 +266,14 @@ export interface ActiveRulesResult {
 }
 
 /**
- * Get all rules applicable to a specific tab — rules whose URL conditions
+ * Get all workbench applicable to a specific tab — workbench whose URL conditions
  * match either the tab URL itself or a previously-tracked sub-resource URL.
- * Returns both enabled and disabled rules so the popup can show toggles.
+ * Returns both enabled and disabled workbench so the popup can show toggles.
  *
  * Per-request firing data (counts, unique URLs, evidence tier) is NOT
  * returned here — the popup reads it separately from tab-telemetry via
  * `getTabTelemetry`. This module is only responsible for deciding which
- * rules are applicable to a given page.
+ * workbench are applicable to a given page.
  */
 export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string): ActiveRulesResult {
   if (!tabUrl || !isTrackableUrl(tabUrl)) {
@@ -308,7 +308,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   for (const rule of rules) {
     if (!extensionTypes.has(rule.type)) continue;
     if (!isRuleComplete(rule)) continue;
-    // Skip unresolved rules — they never compile to DNR so they
+    // Skip unresolved workbench — they never compile to DNR so they
     // can't be "active" on a tab. The sidebar's `unresolved` badge
     // explains their absence to the user.
     if (unresolvable.has(rule.uid)) continue;
@@ -348,7 +348,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
       verdict: result.verdict,
       verdictReason: result.reason,
       // Only include when non-empty so the serialized payload stays
-      // lean for the 99% of rules that have no silent matches.
+      // lean for the 99% of workbench that have no silent matches.
       ...(result.silentRecords.length > 0 ? { silentRecords: result.silentRecords } : {}),
     });
   }
@@ -359,7 +359,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
 // ── Revalidation ──────────────────────────────────────────────────
 
 /**
- * Re-evaluate tracked requests when rules change.
+ * Re-evaluate tracked requests when workbench change.
  */
 export async function revalidateTrackedRequests(): Promise<void> {
   if (isRevalidating) {
@@ -499,7 +499,7 @@ export function clearAllTracking(): void {
 // MV3 terminates the service worker after ~30s of inactivity. The
 // `tabsWithActiveRules` Map lives in module-level state that dies with
 // the worker, so every wake would drop the subresource attribution we
-// built up on prior requests — rules targeting cached subresources
+// built up on prior requests — workbench targeting cached subresources
 // would disappear from the popup until the user reloaded the page.
 //
 // We persist to `chrome.storage.session` (scoped to the browser

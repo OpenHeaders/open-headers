@@ -3,7 +3,7 @@
  * active workspace id.
  *
  * Single responsibility: CRUD over `ExtensionWorkspace[]` + the active
- * pointer. Does NOT touch per-workspace data (rules, templates, test
+ * pointer. Does NOT touch per-workspace data (workbench, templates, test
  * runs, etc.) — that's owned by the respective stores, which the
  * orchestrator in background.ts flushes and swaps when `setActive` is
  * called.
@@ -38,7 +38,7 @@ const DEFAULT_WORKSPACE_COLOR = 'neutral';
 /**
  * Starting two-tone icon for the seeded default workspace. Kept in
  * sync with `DEFAULT_WORKSPACE_ICON` in
- * `rules/components/workspace-colors.ts` — the UI reads the TwoTone
+ * `workbench/components/workspace-colors.ts` — the UI reads the TwoTone
  * registry key directly from the workspace entity, so this constant
  * only needs to match one of the registered icons.
  */

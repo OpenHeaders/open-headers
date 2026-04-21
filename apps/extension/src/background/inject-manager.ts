@@ -1,5 +1,5 @@
 /**
- * Inject Manager — applies rules that require chrome.scripting API.
+ * Inject Manager — applies workbench that require chrome.scripting API.
  *
  * Handles 4 rule types that can't use declarativeNetRequest:
  *   - inject: user-authored JS/CSS injection
@@ -8,11 +8,11 @@
  *   - mock: monkey-patches fetch/XHR to return fake responses
  *
  * Architecture:
- * - Keeps the current set of scriptable rules in memory
+ * - Keeps the current set of scriptable workbench in memory
  * - Listens to webNavigation.onCommitted for main frame navigations
  * - For each navigation, checks URL matches and injects appropriate scripts
  * - delay/body/mock inject at document_start (before page JS runs)
- * - inject rules respect their configured position
+ * - inject workbench respect their configured position
  */
 
 declare const browser: typeof chrome | undefined;
@@ -31,7 +31,7 @@ import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-/** Rules inject-manager can act on. Header rules are here for their `merge` operations. */
+/** Rules inject-manager can act on. Header workbench are here for their `merge` operations. */
 type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule | V5.HeaderRule;
 
 /** A header merge operation extracted from a HeaderRule. */
@@ -83,10 +83,10 @@ function extractHeaderMergeEntry(rule: V5.HeaderRule): HeaderMergeEntry | null {
 // ── Public API ───────────────────────────────────────────────────
 
 /**
- * Update the set of active scriptable rules. Called by dnr-manager whenever
- * rules change. Accepts every V5 rule with any in-page side effect (inject,
+ * Update the set of active scriptable workbench. Called by dnr-manager whenever
+ * workbench change. Accepts every V5 rule with any in-page side effect (inject,
  * delay, body, mock, header); header-merge entries are derived from header
- * rules internally so dnr-manager doesn't have to know about them.
+ * workbench internally so dnr-manager doesn't have to know about them.
  */
 export function updateScriptableRules(rules: V5.Rule[]): void {
   const scriptable: ScriptableRule[] = [];
@@ -115,7 +115,7 @@ export function updateScriptableRules(rules: V5.Rule[]): void {
       `Updated scriptable rules: ${scriptable.length} active (${scriptable.map((r) => `${r.type}:${r.name}`).join(', ')}), ${headerMerges.length} header merges`,
     );
   } else {
-    logger.debug('InjectManager', 'Updated scriptable rules: 0 active');
+    logger.debug('InjectManager', 'Updated scriptable workbench: 0 active');
   }
 }
 
@@ -125,7 +125,7 @@ export function updateScriptableRules(rules: V5.Rule[]): void {
  */
 export function setupInjectListener(): void {
   if (!browserAPI.webNavigation?.onCommitted) {
-    logger.info('InjectManager', 'webNavigation API not available — inject rules disabled');
+    logger.info('InjectManager', 'webNavigation API not available — inject workbench disabled');
     return;
   }
 
@@ -171,19 +171,19 @@ function headerMergeMatches(entry: HeaderMergeEntry, url: string): boolean {
 // ── Injection logic ──────────────────────────────────────────────
 
 async function injectForUrl(tabId: number, url: string): Promise<void> {
-  // Test isolation: if this is a test tab, only inject rules in that session's
+  // Test isolation: if this is a test tab, only inject workbench in that session's
   // scope. If it is NOT a test tab, skip any rule currently under test in some
   // other session so the test doesn't leak into unrelated tabs.
   const testScope = getTestScopeForTab(tabId);
 
   for (const rule of activeScriptableRules) {
-    // Header rules are tracked in this list only so dnr-manager can pass a
-    // single set of scriptable-capable rules over; their merge injections
+    // Header workbench are tracked in this list only so dnr-manager can pass a
+    // single set of scriptable-capable workbench over; their merge injections
     // are driven separately from `activeHeaderMerges` below.
     if (rule.type === 'header') continue;
 
     // A rule with no URL-matching conditions never matches any URL —
-    // incomplete rules are already filtered upstream by isRuleComplete.
+    // incomplete workbench are already filtered upstream by isRuleComplete.
     if (!doesUrlMatchRule(url, rule)) continue;
     if (testScope) {
       if (!testScope.has(rule.uid)) continue;
@@ -258,7 +258,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
  *   never creates an inline <script> tag, so it bypasses the page's CSP.
  * - `inline-script` injections use the legacy `<script>` tag approach, which
  *   is subject to the page's CSP and may be blocked on strict-CSP sites. This
- *   path is only used for dynamic body/mock rules that embed user JavaScript.
+ *   path is only used for dynamic body/mock workbench that embed user JavaScript.
  */
 async function applyInjection(tabId: number, injection: Injection, ruleName: string): Promise<void> {
   if (injection.kind === 'func') {
@@ -275,7 +275,7 @@ async function applyInjection(tabId: number, injection: Injection, ruleName: str
     logger.info('InjectManager', `Injected ${ruleName} func into tab ${tabId}`);
     return;
   }
-  // Legacy inline-<script> path for dynamic rules with user JS.
+  // Legacy inline-<script> path for dynamic workbench with user JS.
   await browserAPI.scripting.executeScript({
     target: { tabId },
     func: (injectedCode: string) => {

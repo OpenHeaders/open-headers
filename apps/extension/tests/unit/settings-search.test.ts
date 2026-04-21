@@ -1,16 +1,16 @@
 import * as v from 'valibot';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { __resetRegistryForTests, registerCategory, registerSetting } from '@/rules/settings/registry';
-import { searchSettings } from '@/rules/settings/search';
-import type { DictStorage, SettingScope } from '@/rules/settings/storage/adapter';
+import { __resetRegistryForTests, registerCategory, registerSetting } from '@/workbench/settings/registry';
+import { searchSettings } from '@/workbench/settings/search';
+import type { DictStorage, SettingScope } from '@/workbench/settings/storage/adapter';
 import {
   __resetStoreForTests,
   configureSettingsStorage,
   initSettingsStore,
   set as storeSet,
-} from '@/rules/settings/store';
+} from '@/workbench/settings/store';
 
-declare module '@/rules/settings/types' {
+declare module '@/workbench/settings/types' {
   interface SettingsMap {
     'search.theme': 'light' | 'dark';
     'search.density': 'compact' | 'cozy';

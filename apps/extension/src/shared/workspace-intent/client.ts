@@ -5,7 +5,7 @@
  *
  * Enforces the Appendix-C invariant that there is ONE way to reach the
  * workspace from another surface: through this module. No surface
- * should call `chrome.tabs.create('workspace.html#/...')` directly. A
+ * should call `chrome.tabs.create('workbench.html#/...')` directly. A
  * grep guard in CI keeps that honest.
  */
 

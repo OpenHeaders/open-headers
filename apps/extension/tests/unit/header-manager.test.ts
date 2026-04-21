@@ -18,7 +18,7 @@ vi.mock('@utils/messaging', () => ({
 // Mock the settings store so dnr-manager's `getSetting` reads resolve to
 // stable defaults instead of throwing "no definition registered". The
 // unit under test is the rule compiler, not the settings layer.
-vi.mock('@/rules/settings/store', () => ({
+vi.mock('@/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     switch (key) {
       case 'rulesEngine.maxActiveRules':

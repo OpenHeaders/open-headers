@@ -12,7 +12,7 @@
  * `label` is the already-formatted platform-specific chord string
  * (e.g. `⌘S` on Mac, `Ctrl+S` elsewhere). The helpers in
  * `popup/shortcuts/popup-shortcuts.ts` and
- * `rules/hooks/useWorkspaceShortcuts.ts` both return that format.
+ * `workbench/hooks/useWorkspaceShortcuts.ts` both return that format.
  */
 
 import type React from 'react';

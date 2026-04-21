@@ -199,7 +199,7 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
     if (recordingService) {
       recordingService.cleanupTab(tabId);
     }
-    // If a test session was watching this tab, finish it so DNR session rules
+    // If a test session was watching this tab, finish it so DNR session workbench
     // clear and the pending promise resolves instead of waiting for ceiling.
     testRunnerOnTabRemoved(tabId);
     logger.info('TabListeners', `Cleaned up tracking for closed tab ${tabId}`);

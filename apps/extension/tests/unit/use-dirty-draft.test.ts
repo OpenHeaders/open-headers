@@ -11,7 +11,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useDirtyDraft } from '@/rules/hooks/useDirtyDraft';
+import { useDirtyDraft } from '@/workbench/hooks/useDirtyDraft';
 
 // Module-level fingerprint — stable reference as the hook contract requires.
 const fingerprint = (arr: ReadonlyArray<{ name: string; value: string }>): string =>

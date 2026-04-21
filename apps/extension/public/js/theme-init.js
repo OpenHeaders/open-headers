@@ -1,7 +1,7 @@
 /**
  * Pre-mount theme initializer.
  *
- * Loaded as a classic (non-module) script in popup.html / workspace.html
+ * Loaded as a classic (non-module) script in popup.html / workbench.html
  * BEFORE the React bundle so it runs during HTML parsing — beating the
  * first paint. Reads `oh:theme` from localStorage (mirrored by
  * ThemeContext) and sets `data-theme`, `color-scheme`, and a background

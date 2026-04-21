@@ -24,10 +24,10 @@ vi.mock('@utils/logger', () => ({
 // Importing the schema barrel registers every setting — including
 // `rulesEngine.liveRulesMode` with its default `true` — so the header
 // compiler's `getSetting` call resolves without having to init the store.
-import '@/rules/settings/schema';
+import '@/workbench/settings/schema';
 import { headerCompiler } from '@/background/dnr-builders/header-builder';
 import type { CompilerContext } from '@/background/dnr-builders/types';
-import { set as setSetting } from '@/rules/settings/store';
+import { set as setSetting } from '@/workbench/settings/store';
 
 function makeCtx(start = 1): CompilerContext {
   let id = start;
@@ -39,7 +39,7 @@ function baseRule(action: V5.HeaderRule['action']): V5.HeaderRule {
     schemaVersion: 5,
     version: 1,
     uid: 'h1',
-    path: 'rules/header',
+    path: 'workbench/header',
     name: 'Rule',
     type: 'header',
     enabled: true,
@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 describe('Live Rules Mode — Layer 1 injection', () => {
-  it('prepends Cache-Control + Pragma on request-only rules', () => {
+  it('prepends Cache-Control + Pragma on request-only workbench', () => {
     const plan = headerCompiler.compile(
       baseRule({
         requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
@@ -76,7 +76,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
     expect(reqMods[2]!.header).toBe('Authorization');
   });
 
-  it('triggers on response-only rules too (cache-bypass on request side)', () => {
+  it('triggers on response-only workbench too (cache-bypass on request side)', () => {
     const plan = headerCompiler.compile(
       baseRule({
         requestHeaders: [],

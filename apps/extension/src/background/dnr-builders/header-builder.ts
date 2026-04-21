@@ -1,11 +1,11 @@
 /**
  * Header compiler — converts V5.HeaderRule into a CompilationPlan.
  *
- * Header rules are the most versatile: a single rule can combine DNR
+ * Header workbench are the most versatile: a single rule can combine DNR
  * modifyHeaders operations (set/append/remove) with scriptable merge
  * operations that can't be expressed as DNR modifyHeaders.
  *
- *   - set / append / remove → `modifyHeaders` DNR rules. One DNR rule per
+ *   - set / append / remove → `modifyHeaders` DNR workbench. One DNR rule per
  *     domain, split into a main_frame (priority 1000) + sub-resources
  *     (priority 950) pair for response modifications so both coverage
  *     classes are explicit.
@@ -21,7 +21,7 @@ import { formatUrlPattern, getHeaderOperationCapability } from '@openheaders/cor
 import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
 import { normalizeHeaderName } from '@utils/utils';
-import { get as getSetting } from '@/rules/settings/store';
+import { get as getSetting } from '@/workbench/settings/store';
 import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import type {
   CompilationPlan,
@@ -82,7 +82,7 @@ export const headerCompiler: RuleCompiler<V5.HeaderRule> = {
     // For any rule that touches headers (request or response), ensure the
     // request bypasses the HTTP cache so the rule's effect is visible on
     // every fire — not just on the first load. Non-matched requests are
-    // untouched; only rules the user explicitly wrote revalidate. Scope:
+    // untouched; only workbench the user explicitly wrote revalidate. Scope:
     //
     //   - Precedence: if the user's rule already targets `Cache-Control`
     //     in ANY way (set/append/remove), skip injection entirely — their
@@ -203,7 +203,7 @@ function buildMod(mod: V5.HeaderModification, isResponse: boolean, ruleName: str
 
   const headerName = validation.sanitized || normalizeHeaderName(mod.headerName);
 
-  // Defensive capability check. `isRuleComplete` already gates rules with
+  // Defensive capability check. `isRuleComplete` already gates workbench with
   // invalid combinations (append on a non-allowlisted header, etc.) and the
   // dnr-manager skips them entirely — this second check exists so that a
   // direct programmatic rule-store write (bypassing the editor) can't put

@@ -1,7 +1,7 @@
 /**
  * dock-layout.css — shared CSS for the dockable tool-window shell.
  *
- * Imported by both workspace (rules.less) and the devtools panel
+ * Imported by both workspace (workbench.less) and the devtools panel
  * (panel.css) so the six-dock layout, activity bars, tab strips,
  * drop zones, and drag previews look identical in both surfaces.
  */

@@ -2,7 +2,7 @@
  * Pause Markers Store — per-workspace map of path → pause marker.
  *
  * Pause markers are user-set flags on collection/folder paths:
- *   - 'paused'   — the subtree is paused (its rules don't fire).
+ *   - 'paused'   — the subtree is paused (its workbench don't fire).
  *   - 'unpaused' — explicit override that keeps the subtree active
  *                  even if an ancestor is paused.
  *

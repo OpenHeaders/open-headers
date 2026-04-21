@@ -1,0 +1,1462 @@
+/**
+ * Rules page styles — full-browser-tab rule management.
+ * Mirrors the desktop V5 shell visual patterns (v5-shell.less).
+ */
+
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../assets/fonts/PressStart2P-Regular.woff2') format('woff2');
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+// ── Shell layout ───────────────────────────────────────────────────
+
+.rules-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.rules-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+// ── Top Bar ────────────────────────────────────────────────────────
+
+.rules-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 36px;
+}
+
+.rules-topbar-left,
+.rules-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rules-topbar-logo {
+  width: 24px;
+  height: 24px;
+}
+
+.rules-topbar-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.rules-topbar-chip {
+  font-size: 11px;
+}
+
+.rules-topbar-search {
+  flex: 1;
+  max-width: 320px;
+  height: 26px !important;
+  padding: 2px 10px !important;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+// ── Activity Bar ───────────────────────────────────────────────────
+//
+// Vertical icon strip mounted on either edge of the shell. Internal
+// structure uses three groups:
+//
+//   .workbench-activity-group--top        pinned to the top
+//   .workbench-activity-group--bottom     pushed above the trailing slot
+//   .workbench-activity-group--trailing   stuck to the bottom (e.g. Settings)
+//
+// The top group expands (flex: 1) so the bottom/trailing groups are
+// locked against the bottom edge.
+
+.rules-activity-bar {
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  // Breathing room between the last activity icon and the status bar.
+  padding-bottom: 12px;
+  // The bar is a flex item of `.workbench-main` (row). Cross-axis stretch
+  // already sizes it to the parent's height — explicit `height: 100%`
+  // is redundant and, combined with padding under content-box, can
+  // push the bar 12px past its parent and into the status bar.
+  //
+  // We DO want the bar to shrink in constrained viewports rather than
+  // overflow: min-height: 0 unlocks shrinking, overflow-y: auto makes
+  // the icons scroll gracefully when the 6-icon stack exceeds available
+  // height. In normal viewports there's no scrollbar.
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  flex-shrink: 0;
+  outline: none;
+  transition: width 0.12s ease;
+
+  // Icons-only compact mode — right-click menu on the bar toggles the
+  // label visibility preference which drives this modifier.
+  &.rules-activity-bar--compact {
+    width: 36px;
+  }
+
+  &.rules-activity-bar--layout-compact {
+    .rules-activity-group--top {
+      flex: 0 0 auto;
+    }
+    .rules-activity-subslot {
+      flex: 0 0 auto;
+    }
+    .rules-activity-group--bottom {
+      margin-top: auto;
+    }
+  }
+
+  &.rules-activity-bar--layout-stacked {
+    .rules-activity-group--top {
+      flex: 0 0 auto;
+    }
+    .rules-activity-subslot {
+      flex: 0 0 auto;
+    }
+    .rules-activity-group--bottom {
+      flex: 0 0 auto;
+      margin-top: 0;
+    }
+  }
+}
+
+.rules-activity-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 2px;
+}
+
+.rules-activity-group--top {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+// Every sub-slot / bottom group reserves at least one icon row so empty
+// sections still read as a valid drop target regardless of layout
+// variant. The compact (icons-only) activity bar uses smaller tab tiles
+// and gets a smaller floor.
+@rules-subslot-min: 44px;
+@rules-subslot-min-compact: 32px;
+
+.rules-activity-subslot {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: @rules-subslot-min;
+  overflow: hidden;
+}
+
+.rules-activity-subslot--second {
+  border-top: 1px dashed rgba(128, 128, 128, 0.32);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
+.rules-activity-subslot .rules-dock-strip--vertical {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.rules-activity-group--bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(128, 128, 128, 0.34);
+  padding-top: 6px;
+  margin-top: 6px;
+  width: 100%;
+  min-height: @rules-subslot-min;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rules-activity-bar--compact .rules-activity-subslot,
+.rules-activity-bar--compact .rules-activity-group--bottom {
+  min-height: @rules-subslot-min-compact;
+}
+
+.rules-activity-group--trailing {
+  margin-top: 2px;
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.rules-activity-icon {
+  width: 56px;
+  padding: 6px 0 4px;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.12s;
+  border: 1px solid transparent;
+
+  // In compact mode every icon shrinks with the bar.
+  .rules-activity-bar--compact & {
+    width: 32px;
+    padding: 6px 0;
+  }
+
+  &:hover:not(.disabled) {
+    background: rgba(128, 128, 128, 0.1);
+  }
+
+  // Active — panel is open for this icon, but the region doesn't have
+  // keyboard focus. Renders as a "selected but unfocused" grey tint.
+  &.active:not(.focused):not(.disabled) {
+    background: rgba(128, 128, 128, 0.18);
+  }
+
+  // Focused — panel is open AND the region owns keyboard focus. The
+  // parent injects the blue primary accent via inline style; this class
+  // is still useful for CSS selectors downstream.
+  &.focused {
+    // inline style sets background / border — this keeps the class
+    // available as a styling hook.
+  }
+
+  &.disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.rules-activity-label {
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 56px;
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────
+
+.rules-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.rules-sidebar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+}
+
+.rules-sidebar-toolbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.12s, background 0.12s;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.1);
+  }
+}
+
+.rules-sidebar-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  font-size: 12px;
+  min-height: 0;
+}
+
+.rules-sidebar-section {
+  padding: 10px 10px 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rules-sidebar-section-title {
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+// ── Sidebar tree nodes (mirrors desktop v5-sidebar-item) ───────────
+
+.rules-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0 4px;
+  outline: none;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+
+  &.selected {
+    background: rgba(24, 144, 255, 0.08);
+  }
+
+  &.focused {
+    background: rgba(24, 144, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.35);
+  }
+
+  &.selected.focused {
+    background: rgba(24, 144, 255, 0.12);
+  }
+
+  &:hover .rules-sidebar-item-menu,
+  &.focused .rules-sidebar-item-menu,
+  &.selected .rules-sidebar-item-menu,
+  &:hover .rules-sidebar-item-hover-action,
+  &:hover .rules-sidebar-collection-actions,
+  &.focused .rules-sidebar-collection-actions,
+  &.selected .rules-sidebar-collection-actions {
+    opacity: 1;
+  }
+}
+
+.rules-sidebar-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rules-sidebar-item-hover-action {
+  opacity: 0;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: auto;
+  cursor: pointer;
+  transition: opacity 0.12s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+.rules-sidebar-item-menu {
+  opacity: 0;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: opacity 0.12s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+.rules-sidebar-collection-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+
+.rules-sidebar-action-icon {
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+}
+
+.rules-sidebar-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 1px 4px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  outline: none;
+
+  &:focus {
+    border-color: var(--ant-color-primary, #1677ff);
+  }
+}
+
+.rules-sidebar-empty {
+  padding: 8px 14px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rules-sidebar-placeholder {
+  padding: 8px 14px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rules-sidebar-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.rules-sidebar-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+    border-color: rgba(128, 128, 128, 0.6);
+  }
+}
+
+// ── Editor Area ────────────────────────────────────────────────────
+
+.rules-editor-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+// ── Editor tree (recursive split groups) ──────────────────────────
+
+.rules-editor-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rules-editor-leaf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+// The outlined "focused" leaf hint is rendered inline via the antd
+// token-aware color in EditorGroupRenderer — keeping the rule here
+// purely as a documentation anchor for future tweaks.
+
+// ── Tab Bar ────────────────────────────────────────────────────────
+
+.rules-tabs-bar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 34px;
+  position: relative;
+}
+
+.rules-tabs-scroll {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.rules-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  flex-shrink: 0;
+  position: relative;
+  user-select: none;
+  border-right: 1px solid rgba(128, 128, 128, 0.15);
+
+  &:last-child {
+    border-right: none;
+  }
+
+  &.active {
+    font-weight: 500;
+  }
+
+  &:hover .rules-tab-close {
+    opacity: 1;
+  }
+}
+
+.rules-tab-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 100%;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.12s;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.rules-tab-label {
+  white-space: nowrap;
+}
+
+.rules-tab-unsaved {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.rules-tab-close {
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-left: 2px;
+
+  &:hover {
+    opacity: 1 !important;
+  }
+}
+
+// ── Drag-to-reorder (dnd-kit) ──────────────────────────────────────
+// Editor tabs subscribe to the shell's shared DndContext via
+// SortableContext + useSortable. While dragging, the source tab keeps
+// its box (outline + background are applied inline in TabBar.tsx) but
+// its children must be hidden — icons carry hardcoded fills so the
+// `color: transparent` trick alone isn't enough.
+
+.rules-tab.dragging {
+  cursor: grabbing;
+
+  > .rules-type-badge,
+  > .rules-tab-label,
+  > .rules-tab-unsaved,
+  > .rules-tab-close {
+    visibility: hidden;
+  }
+}
+
+// ── Tab Search Dropdown ────────────────────────────────────────────
+
+.rules-tab-search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+}
+
+.rules-tab-search-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 300px;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  z-index: 99;
+  animation: rules-tab-search-in 0.15s ease-out;
+}
+
+@keyframes rules-tab-search-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rules-tab-search-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.08);
+  }
+}
+
+.rules-type-badge {
+  font-size: 11px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+// ── Breadcrumbs ────────────────────────────────────────────────────
+
+.rules-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 14px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.rules-breadcrumb {
+  padding: 1px 3px;
+  border-radius: 3px;
+
+  &.editable:hover {
+    background: rgba(128, 128, 128, 0.1);
+    cursor: text;
+  }
+}
+
+// ── Editor content ─────────────────────────────────────────────────
+
+.rules-editor-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// Per-tab panel — each open tab gets its own scroll container and its
+// own container-query context. Inactive panels use `display: none` so
+// they take no layout / paint cost and don't run resize observers. The
+// TabPanel component in EditorGroupRenderer restores scrollTop on
+// activation from a per-instance ref, so switching tabs preserves
+// scroll position even though the browser resets scrollTop when a
+// scroll container goes from display: none → block.
+.rules-editor-tab-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  container-type: inline-size;
+  container-name: editor;
+}
+
+.rules-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+// ── Rule Editor ────────────────────────────────────────────────────
+
+.rules-rule-editor {
+  padding: 24px 32px 48px;
+  max-width: clamp(600px, 70%, 1100px);
+  margin: 0 auto;
+
+  .ant-form-item-label > label {
+    font-size: 12px;
+  }
+
+  .ant-divider {
+    border-color: var(--ant-color-border-secondary, #f0f0f0);
+  }
+
+  // Muted non-selected segments in edit mode
+  .ant-segmented-item-disabled {
+    opacity: 0.35;
+  }
+}
+
+// Two-column layout when editor pane is wide enough
+@container editor (min-width: 1000px) {
+  .rules-rule-editor {
+    max-width: 100%;
+    padding: 24px 48px 48px;
+  }
+
+  .rules-rule-editor-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+}
+
+// ── Request response Tabs ──────────────────────────────────────────
+//
+// Ant Design's <Tabs> renders the children inside
+// `.ant-tabs-content-holder` → `.ant-tabs-content` → `.ant-tabs-tabpane`.
+// The outermost style we set (`flex: 1, min-height: 0`) only lands on
+// the OUTER `.ant-tabs` wrapper — the inner holder stays at its
+// intrinsic height, so the children's `overflow: auto` container has
+// nothing to clip against and the body/headers pane grows to fit the
+// content instead of scrolling. Same pattern as the popup's
+// `.header-workbench-tabs` block (`popup.less:316`).
+.rules-response-tabs {
+  .ant-tabs-content-holder {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .ant-tabs-content {
+    flex: 1;
+    min-height: 0;
+  }
+  .ant-tabs-tabpane-active {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .ant-tabs-tabpane:focus,
+  .ant-tabs-tabpane:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+// ── Status Bar ─────────────────────────────────────────────────────
+
+.rules-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 12px;
+  font-size: 11px;
+  flex-shrink: 0;
+  height: 24px;
+}
+
+.rules-statusbar-left,
+.rules-statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rules-statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+
+.rules-statusbar-divider {
+  width: 1px;
+  height: 14px;
+}
+
+.rules-panel-toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rules-panel-toggle {
+  width: 22px;
+  height: 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.rules-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.rules-dot-blink {
+  animation: rules-blink 1.5s infinite;
+}
+
+@keyframes rules-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+// ── Tool-window docks (ShellLayout) ───────────────────────────────
+//
+// Each dock is a rectangular region hosting a single tool window at a
+// time. The "strip" is a tab control — vertical inside the left/right
+// activity bars, horizontal at the top of each bottom sub-pane. Tabs
+// are drag sources (dnd-kit); dropping on a DropZoneOverlay rectangle
+// relocates the tool window.
+
+.rules-main-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+
+.rules-main-horizontal {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.rules-dock-strip {
+  display: flex;
+  gap: 2px;
+
+  &.rules-dock-strip--vertical {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  &.rules-dock-strip--horizontal {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    min-height: 28px;
+  }
+
+  &.rules-dock-strip--empty-drop {
+    min-height: 36px;
+    min-width: 36px;
+    outline: 1px dashed rgba(22, 119, 255, 0.35);
+    outline-offset: -3px;
+    border-radius: 4px;
+  }
+
+  .rules-dock-strip-tabs {
+    display: flex;
+    flex-direction: inherit;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.rules-dock-strip--horizontal .rules-dock-strip-tabs {
+  flex-direction: row;
+}
+
+.rules-dock-strip-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.12s, background 0.12s;
+  font-size: 10px;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.12);
+  }
+}
+
+.rules-dock-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.12s;
+
+  &.rules-dock-tab--vertical {
+    width: 56px;
+    padding: 6px 0 4px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    font-size: 15px;
+
+    .rules-activity-bar--compact & {
+      width: 32px;
+      padding: 6px 0;
+    }
+  }
+
+  &.rules-dock-tab--horizontal {
+    padding: 3px 8px;
+    font-size: 12px;
+    border-radius: 3px;
+  }
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.1);
+  }
+
+  &.active:not(.focused) {
+    background: rgba(128, 128, 128, 0.18);
+  }
+
+  &.dragging {
+    cursor: grabbing;
+    opacity: 1;
+
+    > .rules-dock-tab-icon,
+    > .rules-dock-tab-label {
+      visibility: hidden;
+    }
+  }
+}
+
+.rules-dock-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rules-dock-tab-label {
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 56px;
+
+  .rules-dock-tab--horizontal & {
+    font-size: 11px;
+    max-width: none;
+  }
+}
+
+.rules-dock-body {
+  height: 100%;
+  overflow: hidden;
+
+  &.rules-dock-body--bottom {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.rules-dock-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+// ── Drop-zone overlay (shown during drag) ─────────────────────────
+
+.rules-drop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.rules-drop-zone {
+  position: absolute;
+  border-radius: 6px;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border 0.12s;
+}
+
+.rules-drop-zone-label {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rules-drop-zone-label-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// ── Drag preview (DragOverlay) ────────────────────────────────────
+
+.rules-drag-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(22, 119, 255, 0.92);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.rules-drag-preview-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+// ── Layout toggle button in StatusBar ────────────────────────────
+
+.rules-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+// ── Bottom Panel ───────────────────────────────────────────────────
+
+.rules-bottom-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.rules-bottom-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  flex-shrink: 0;
+}
+
+.rules-bottom-tab {
+  font-size: 12px;
+  padding: 3px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+
+  &.active {
+    font-weight: 500;
+  }
+}
+
+.rules-live-indicator {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.rules-bottom-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  min-height: 0;
+
+  // Variant used by the Test Runs tab — the child is a full-width
+  // virtual Table, so we swap the flex-centered "placeholder text"
+  // layout for a block layout that fills the content area.
+  &.is-table {
+    display: block;
+    padding: 0;
+  }
+}
+
+// Highlight for the row in the Test Runs table whose run is currently
+// open in the main panel. Left-border accent + subtle tint so the row
+// stays readable in both light and dark themes. We target both the row
+// element itself AND its child cells because antd's Table renders rows
+// as <tr>/<td> in standard mode but as divs (role="row"/"cell") in
+// `virtual` mode — this bottom panel uses virtual, so the non-td
+// selector is the one that actually matches at runtime.
+.rules-bottom-row-active {
+  background: var(--oh-row-active-bg, rgba(22, 119, 255, 0.08)) !important;
+  box-shadow: inset 2px 0 0 0 var(--oh-row-active-border, #1677ff);
+
+  > td,
+  > div {
+    background: var(--oh-row-active-bg, rgba(22, 119, 255, 0.08)) !important;
+  }
+}
+
+[data-theme='dark'] .rules-bottom-row-active {
+  background: rgba(22, 119, 255, 0.18) !important;
+
+  > td,
+  > div {
+    background: rgba(22, 119, 255, 0.18) !important;
+  }
+}
+
+// ── Right-pane panels (Docs / Variables) ──────────────────────────
+//
+// Each right panel is a top-level view — no internal tab UI. Selection
+// lives on the RightActivityBar to the right of the allotment pane.
+
+.rules-right-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+// ── Regions (focus-aware containers) ──────────────────────────────
+//
+// Each shell region — left, editor, bottom, right — wraps its content
+// in a .workbench-region div carrying a data-region attribute. The focus
+// tracker hook reads the attribute to determine which region owns
+// keyboard focus. Styling hooks live on this class so we can layer on
+// a subtle focus outline if desired later without changing component
+// code.
+
+.rules-region {
+  position: relative;
+  outline: none;
+}
+
+// ── Command Palette ───────────────────────────────────────────────
+
+.rules-cmd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.rules-cmd-palette {
+  position: fixed;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, 90vw);
+  border-radius: 10px;
+  z-index: 1000;
+  animation: rules-cmd-in 0.12s ease-out;
+  overflow: hidden;
+}
+
+@keyframes rules-cmd-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.rules-cmd-input {
+  font-size: 14px !important;
+  padding: 10px 14px !important;
+}
+
+.rules-cmd-results {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.rules-cmd-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.08s;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.06);
+  }
+}
+
+.rules-cmd-divider {
+  padding: 6px 14px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.rules-cmd-empty {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.rules-cmd-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.08s;
+
+  &.selected {
+    // background set inline via token
+  }
+}
+
+.rules-cmd-result-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rules-cmd-result-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rules-cmd-result-scope {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.rules-cmd-result-shortcut {
+  font-size: 10px;
+  font-family: system-ui, sans-serif;
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.rules-cmd-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  font-size: 10px;
+}
+
+// ── TemplateInput wrapper ─────────────────────────────────────────
+//
+// Layout: a positioned `<span>` wraps a single contentEditable `<div>`
+// that is both the input surface AND the highlight renderer (each
+// `{{ref}}` lives inside a classified `<span>` child). No mirror
+// overlay — whatever padding / font the caller sets applies to the
+// only element that exists.
+.oh-template-input-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+  // Needed inside flex parents with `min-width: 0` on the item — the
+  // span must participate in the same shrinking so the inner
+  // contentEditable doesn't grow past its flex-allocated width when a
+  // single long value (e.g. an Accept header) is pasted in, which
+  // would push the whole row wide enough to force a page-level
+  // horizontal scrollbar. `white-space: pre` + `overflow-x: auto` on
+  // the editable then scrolls the long value internally.
+  min-width: 0;
+  max-width: 100%;
+}
+
+.oh-template-input-editable {
+  // Placeholder via a pseudo element — shown only when the editable
+  // is empty. `data-placeholder` is populated from the `placeholder`
+  // prop; when there's no value the contenteditable has no text
+  // children, so the `:empty` selector matches.
+  &:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ant-color-text-placeholder);
+    pointer-events: none;
+  }
+}
+
+.oh-template-ref {
+  display: inline;
+  padding: 0 2px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+
+.oh-template-ref-resolved {
+  color: var(--ant-color-primary, #1677ff);
+  background: var(--ant-color-primary-bg, rgba(22, 119, 255, 0.08));
+  border-color: var(--ant-color-primary-border, rgba(22, 119, 255, 0.3));
+}
+
+.oh-template-ref-unresolved {
+  color: var(--ant-color-error, #ff4d4f);
+  background: var(--ant-color-error-bg, rgba(255, 77, 79, 0.08));
+  border: 1px dashed var(--ant-color-error-border, rgba(255, 77, 79, 0.5));
+}
+
+.oh-template-ref-reserved {
+  color: var(--ant-color-warning, #faad14);
+  background: var(--ant-color-warning-bg, rgba(250, 173, 20, 0.08));
+  border: 1px dashed var(--ant-color-warning-border, rgba(250, 173, 20, 0.4));
+}
+
+// Neutral state applied while the caret sits inside a ref's braces.
+// `color: inherit` picks up the editable's inline `colorText` so no
+// visual classification paints until the user commits by moving the
+// caret out.
+.oh-template-ref-editing {
+  color: inherit;
+  background: transparent;
+  border-color: transparent;
+}
+
+// ── TemplateInput popover ─────────────────────────────────────────
+//
+// Our own popover — rendered as a positioned `<div>` beneath the
+// textarea. Mirrors the command palette's chrome (rounded panel,
+// scrollable list, sticky footer with keyboard hints).
+.oh-template-popover-anchor {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 1050;
+}
+
+.oh-template-popover-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.oh-template-popover-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.oh-template-popover-row {
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.oh-template-popover-row-disabled {
+  cursor: default;
+}
+
+.oh-template-popover-empty {
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.oh-template-popover-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  font-size: 10px;
+  user-select: none;
+}
+
+// ── Wider allotment sash hit targets ──────────────────────────────
+
+:root {
+  --sash-size: 16px;
+}
+
+// ── Code editor format overlay ────────────────────────────────────
+//
+// Fades the Format action in only when the editor is hovered or
+// focused so it stays out of the way during reading and pops when
+// the user is about to act. Focus-within covers keyboard users.
+
+.rules-code-editor {
+  .rules-code-editor-format {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+    pointer-events: none;
+  }
+
+  &:hover .rules-code-editor-format,
+  &:focus-within .rules-code-editor-format {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

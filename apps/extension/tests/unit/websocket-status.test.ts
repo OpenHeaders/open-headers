@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let settingsStore: Record<string, unknown> = {};
 
-vi.mock('@/rules/settings/store', () => ({
+vi.mock('@/workbench/settings/store', () => ({
   get: vi.fn((key: string) => settingsStore[key]),
   subscribeKey: vi.fn(() => () => undefined),
 }));

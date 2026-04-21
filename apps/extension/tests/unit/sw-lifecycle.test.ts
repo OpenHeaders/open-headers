@@ -156,13 +156,13 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
   // ── rule-store ─────────────────────────────────────────────────────
 
-  it('rule-store: rules/collections/folders round-trip across SW kill', async () => {
-    const activeWs = 'ws-rules';
+  it('rule-store: workbench/collections/folders round-trip across SW kill', async () => {
+    const activeWs = 'ws-workbench';
     const rule = {
       schemaVersion: 5,
       version: 1,
       uid: makeUid('r1a2b3c4'),
-      path: 'rules/coll-abcd1234/r1a2b3c4',
+      path: 'workbench/coll-abcd1234/r1a2b3c4',
       name: 'R',
       type: 'header',
       enabled: true,
@@ -245,7 +245,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       schemaVersion: 5,
       version: 1,
       uid: makeUid('eecc1234'),
-      path: 'rules/coll-eecc1234',
+      path: 'workbench/coll-eecc1234',
       name: 'c',
       variables: [],
     };

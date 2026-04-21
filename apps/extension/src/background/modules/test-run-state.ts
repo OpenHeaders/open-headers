@@ -16,8 +16,8 @@
  *     `excludedTabIds: [...getActiveTestTabIds()]`.
  *   getActiveRunSnapshots() → dnr-manager builds a session ruleset
  *     per active run, each with `tabIds: [run.tabId]`.
- *   getTestScopeForTab(tabId) → inject-manager filters scriptable rules
- *     so only rules in the run's scope inject on the test tab.
+ *   getTestScopeForTab(tabId) → inject-manager filters scriptable workbench
+ *     so only workbench in the run's scope inject on the test tab.
  *   isRuleUnderTest(ruleUid) → inject-manager suppresses the rule on
  *     non-test tabs so the run doesn't leak outside its sandbox.
  */
@@ -53,7 +53,7 @@ export function hasActiveRuns(): boolean {
   return activeRuns.size > 0;
 }
 
-/** Public snapshot of an active run — what dnr-manager needs to build session rules. */
+/** Public snapshot of an active run — what dnr-manager needs to build session workbench. */
 export interface ActiveRunSnapshot {
   id: string;
   tabId: number;
@@ -88,7 +88,7 @@ export function getActiveTestTabIds(): number[] {
 
 /**
  * If `tabId` is a test tab, return the Set of rule uids allowed to run on it.
- * If not, return null. Used by inject-manager to filter scriptable rules.
+ * If not, return null. Used by inject-manager to filter scriptable workbench.
  */
 export function getTestScopeForTab(tabId: number): Set<string> | null {
   for (const entry of activeRuns.values()) {

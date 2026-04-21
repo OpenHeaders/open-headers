@@ -30,7 +30,7 @@
  *   - `request.type`        — resource type
  *   - `request.requestId`   — webRequest request id (join key)
  *
- * The extension's own rules are DNR-compiled with deterministic numeric
+ * The extension's own workbench are DNR-compiled with deterministic numeric
  * ids derived from the rule uid — `dnr-manager` maintains the
  * bidirectional mapping. This module translates `rule.ruleId` back to a
  * V5 uid via that mapping and builds a `RequestRecord` that matches
@@ -40,8 +40,8 @@
  * ## Silent gates
  *
  *   - Unknown ruleId (no entry in the dnr-manager map): silently
- *     ignored. Happens for DNR rules the extension didn't author
- *     (Chrome's own internal rules, other extensions — should not
+ *     ignored. Happens for DNR workbench the extension didn't author
+ *     (Chrome's own internal workbench, other extensions — should not
  *     occur but defense-in-depth).
  *   - No open inspector port for the tab: silently ignored. The
  *     global listener is always on because the chrome API doesn't

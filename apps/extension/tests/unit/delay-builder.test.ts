@@ -18,7 +18,7 @@ function makeDelayRule(overrides: Partial<V5.DelayRule> = {}): V5.DelayRule {
     schemaVersion: 5,
     version: 1,
     uid: 'd1',
-    path: 'rules/delay',
+    path: 'workbench/delay',
     name: 'Slow openheaders.io',
     type: 'delay',
     enabled: true,
@@ -87,13 +87,13 @@ describe('delayCompiler', () => {
     expect(plan.sessionRules![0]!.action.redirect?.regexSubstitution).toContain('ms=30000');
   });
 
-  it('skips rules with no URL condition', () => {
+  it('skips workbench with no URL condition', () => {
     const plan = delayCompiler.compile(makeDelayRule({ conditions: [] }), makeCtx());
     expect(plan.dynamicRules ?? []).toEqual([]);
     expect(plan.sessionRules ?? []).toEqual([]);
   });
 
-  it('skips rules with zero delay', () => {
+  it('skips workbench with zero delay', () => {
     const plan = delayCompiler.compile(makeDelayRule({ action: { delayMs: 0 } }), makeCtx());
     expect(plan.dynamicRules ?? []).toEqual([]);
     expect(plan.sessionRules ?? []).toEqual([]);

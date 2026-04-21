@@ -1,6 +1,6 @@
 /**
  * Workspace Tab Registry — SW-owned `Map<tabId, ordinal>` tracking every
- * open `workspace.html` tab in the current browser profile. Powers the
+ * open `workbench.html` tab in the current browser profile. Powers the
  * `#<n> Open Headers` multi-tab title convention (Phase 9 §5).
  *
  * Two-part contract:
@@ -12,7 +12,7 @@
  *   • {@link setupWorkspaceTabRegistry} — wires `chrome.tabs.on{Created,
  *     Updated, Replaced, Removed}` so the registry captures every
  *     transition. `onUpdated` covers the URL-paste case (address-bar
- *     navigation INTO `workspace.html`); `onReplaced` preserves the
+ *     navigation INTO `workbench.html`); `onReplaced` preserves the
  *     ordinal across Chrome's tab-discard + restore cycle
  *     (`onRemoved` does NOT fire for discard). A one-shot bootstrap
  *     queries existing workspace tabs on SW wake so the registry
@@ -30,7 +30,7 @@ import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
 import { recordLog } from './observability-log';
 
-const WORKSPACE_HTML = 'workspace.html';
+const WORKBENCH_HTML = 'workbench.html';
 
 const ordinalByTab: Map<number, number> = new Map();
 
@@ -38,7 +38,7 @@ let cachedWorkspaceUrl: string | null = null;
 
 function getWorkspaceUrlPrefix(): string {
   if (cachedWorkspaceUrl === null) {
-    cachedWorkspaceUrl = getBrowserAPI().runtime.getURL(WORKSPACE_HTML);
+    cachedWorkspaceUrl = getBrowserAPI().runtime.getURL(WORKBENCH_HTML);
   }
   return cachedWorkspaceUrl;
 }
@@ -137,7 +137,7 @@ function emitChange(op: 'assigned' | 'released' | 'replaced', tabId: number, ord
 let wired = false;
 
 /**
- * Install chrome.tabs listeners so every workspace.html tab is tracked
+ * Install chrome.tabs listeners so every workbench.html tab is tracked
  * from the moment it enters the namespace. Idempotent per SW lifetime
  * — re-wiring would double-count onCreated fires.
  */
@@ -161,8 +161,8 @@ export function setupWorkspaceTabRegistry(): void {
   // onUpdated with `changeInfo.url` covers two transitions that
   // onCreated cannot:
   //   (1) A tab created for a different URL navigates INTO
-  //       `workspace.html` (address-bar paste, `location.href =`).
-  //   (2) A tracked workspace tab navigates AWAY from workspace.html,
+  //       `workbench.html` (address-bar paste, `location.href =`).
+  //   (2) A tracked workspace tab navigates AWAY from workbench.html,
   //       effectively leaving the namespace — release the ordinal so
   //       `count` stays accurate.
   api.tabs.onUpdated.addListener((tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => {

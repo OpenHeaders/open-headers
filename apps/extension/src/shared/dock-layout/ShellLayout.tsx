@@ -1,5 +1,5 @@
 /**
- * ShellLayout — generic tool-window shell shared between workspace.html
+ * ShellLayout — generic tool-window shell shared between workbench.html
  * and the DevTools Inspector panel.
  *
  * Renders the six tool-window docks across three visual regions (left
@@ -555,7 +555,7 @@ function ShellLayoutInner<T extends string>({
     return null;
   }, [preview, draggingId]);
 
-  // Must stay in sync with `.rules-activity-bar { width }` in
+  // Must stay in sync with `.workbench-activity-bar { width }` in
   // `dock-layout.css`. The drop-zone math subtracts two activity bars
   // from the viewport to compute the draggable tool-window rects, so
   // any CSS change here ripples into the blue overlay alignment.

@@ -6,7 +6,7 @@
  * deciding whether a keypress matches an action. The shortcuts overlay
  * (`KeyboardShortcutsOverlay`) renders its label column from the same
  * registry so the two can't drift apart. Settings → Keyboard
- * (`rules/settings/schema/keyboard-popup.ts`) defines each chord
+ * (`workbench/settings/schema/keyboard-popup.ts`) defines each chord
  * setting and exposes the rebinding UI.
  *
  * A shortcut entry defines:
@@ -24,9 +24,9 @@
  */
 
 import { useSyncExternalStore } from 'react';
-import { buildChordsFromEvent } from '@/rules/hooks/useWorkspaceShortcuts';
-import { get as getSetting, subscribeKey } from '@/rules/settings/store';
-import type { SettingKey } from '@/rules/settings/types';
+import { buildChordsFromEvent } from '@/workbench/hooks/useWorkspaceShortcuts';
+import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
+import type { SettingKey } from '@/workbench/settings/types';
 
 export type PopupShortcutId =
   | 'toggle-shortcuts-help'
@@ -137,7 +137,7 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
   {
     id: 'toggle-rules-pause',
     settingKey: 'keyboard.popup.toggleRulesPause',
-    description: 'Pause / resume all rules',
+    description: 'Pause / resume all workbench',
     group: 'actions',
   },
   {
@@ -279,7 +279,7 @@ export function popupShortcutChord(id: PopupShortcutId): string {
  * Live chord snapshot for every popup shortcut, keyed by id. The
  * overlay consumes this via `useSyncExternalStore` so it repaints when
  * any popup chord is rebound in Settings → Keyboard, without needing
- * one `useSetting` call per entry (which would fight React's rules of
+ * one `useSetting` call per entry (which would fight React's workbench of
  * hooks when the registry grows).
  */
 export type PopupShortcutChords = Readonly<Record<PopupShortcutId, string>>;

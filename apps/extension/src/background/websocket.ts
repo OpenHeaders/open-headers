@@ -1,13 +1,13 @@
 /**
  * WebSocket connection management — connects to the desktop app
- * and receives V5 resolved rules.
+ * and receives V5 resolved workbench.
  */
 
 import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
 import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { get as getSetting, subscribeKey } from '@/rules/settings/store';
+import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { report as reportStatus } from '@/shared/status';
 import { handleRecordingInboundMessage, requestInitialRecordingSync } from './modules/recording-sync';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
@@ -156,10 +156,10 @@ function reportSyncStatus(): void {
 // ── Message handling ──────────────────────────────────────────────
 //
 // Inbound messages today are limited to recording sync and recording
-// hotkey signals. Team-workspace data sync (rules/collections/vars)
+// hotkey signals. Team-workspace data sync (workbench/collections/vars)
 // lands in v2 — when it does, it'll go through a workspace-scoped
 // channel that writes to the per-workspace stores, not a global
-// rules-push like the pre-v5 "desktop pushes rules" flow.
+// workbench-push like the pre-v5 "desktop pushes workbench" flow.
 
 function handleOtherMessages(parsed: Record<string, unknown>): void {
   if (handleRecordingInboundMessage(parsed)) return;

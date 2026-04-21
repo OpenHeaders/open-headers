@@ -32,7 +32,7 @@ function makeTab(partial: Partial<chrome.tabs.Tab> & { id: number; windowId: num
     highlighted: false,
     active: false,
     pinned: false,
-    url: 'chrome-extension://test-id/workspace.html',
+    url: 'chrome-extension://test-id/workbench.html',
     incognito: false,
     discarded: false,
     autoDiscardable: true,
@@ -105,7 +105,7 @@ describe('selectTargetTab', () => {
 // ── openWorkspaceIntent — full dispatch paths ───────────────────────
 
 const DOCS_INTENT: WorkspaceIntent = { kind: 'open-docs', section: 'doc-system-status' };
-const WORKSPACE_URL = 'chrome-extension://test-id/workspace.html';
+const WORKSPACE_URL = 'chrome-extension://test-id/workbench.html';
 
 interface ChromeMocks {
   query: ReturnType<typeof vi.fn>;

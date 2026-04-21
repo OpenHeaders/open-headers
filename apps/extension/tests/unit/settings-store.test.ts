@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetRegistryForTests, registerSetting } from '@/rules/settings/registry';
-import type { DictStorage, SettingScope } from '@/rules/settings/storage/adapter';
+import { __resetRegistryForTests, registerSetting } from '@/workbench/settings/registry';
+import type { DictStorage, SettingScope } from '@/workbench/settings/storage/adapter';
 import {
   __resetStoreForTests,
   configureSettingsStorage,
@@ -11,9 +11,9 @@ import {
   reset as storeReset,
   set as storeSet,
   subscribeKey,
-} from '@/rules/settings/store';
+} from '@/workbench/settings/store';
 
-declare module '@/rules/settings/types' {
+declare module '@/workbench/settings/types' {
   interface SettingsMap {
     'store.name': string;
     'store.count': number;

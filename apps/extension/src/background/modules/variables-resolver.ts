@@ -68,7 +68,7 @@ let lastResolvedRules: V5.Rule[] = [];
 /**
  * Per-rule resolution errors collected during the most recent
  * `resolveRulesForCompile`. Keyed by rule uid so callers can line up
- * errors against specific rules without re-walking the set. Errors for
+ * errors against specific workbench without re-walking the set. Errors for
  * a rule with no unresolved references are not stored — `has` → false.
  *
  * Cleared (reset to an empty map) at the start of every resolve pass
@@ -104,7 +104,7 @@ export function getLastResolutionErrors(): ReadonlyMap<string, readonly Resoluti
  * Reserved-namespace errors (`{{file.X}}` / `{{dynamic.X}}`) are
  * filtered out — those references are intentionally unresolved until
  * those features ship in v2, so they should not yellow-pill the
- * `rules` subsystem.
+ * `workbench` subsystem.
  */
 export function getLastAggregatedResolutionErrors(): ResolutionError[] {
   const seen = new Set<string>();
@@ -123,7 +123,7 @@ export function getLastAggregatedResolutionErrors(): ResolutionError[] {
 /**
  * Set of rule uids whose most recent resolution pass produced at
  * least one BLOCKING error (anything except `reserved-namespace`).
- * These rules are not shipped to DNR — a rule with `{{wat2}}` that
+ * These workbench are not shipped to DNR — a rule with `{{wat2}}` that
  * doesn't exist in any scope would otherwise set a header to the
  * literal string `{{wat2}}` on the wire, which is almost never the
  * user's intent. Re-exposed for the rule-state observer + sidebar so
@@ -477,7 +477,7 @@ function buildRuleToCollectionContext(collections: readonly V5.Collection[]) {
  * Resolve every {{VAR}} template in a rule set using the current env /
  * vars / vault / collection scopes. Returns a new rule array — inputs
  * are never mutated. Safe to call every rebuild; cheap even for hundreds
- * of rules.
+ * of workbench.
  */
 export function resolveRulesForCompile(rules: V5.Rule[]): V5.Rule[] {
   syncResolverFromStores();

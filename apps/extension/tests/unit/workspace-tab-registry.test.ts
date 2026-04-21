@@ -102,7 +102,7 @@ function makeTab(partial: Partial<chrome.tabs.Tab> & { id: number }): chrome.tab
     active: false,
     pinned: false,
     windowId: 1,
-    url: 'chrome-extension://test-id/workspace.html',
+    url: 'chrome-extension://test-id/workbench.html',
     incognito: false,
     discarded: false,
     autoDiscardable: true,
@@ -180,7 +180,7 @@ describe('setupWorkspaceTabRegistry — onCreated', () => {
     );
   });
 
-  it('ignores tabs whose URL is not workspace.html', async () => {
+  it('ignores tabs whose URL is not workbench.html', async () => {
     const { listeners } = installChromeWithListenerCapture();
     const { setupWorkspaceTabRegistry, workspaceTabCount } = await loadRegistry();
     setupWorkspaceTabRegistry();
@@ -200,7 +200,7 @@ describe('setupWorkspaceTabRegistry — onCreated', () => {
 
     const tab = {
       ...makeTab({ id: 200, url: '' }),
-      pendingUrl: 'chrome-extension://test-id/workspace.html#/docs/x',
+      pendingUrl: 'chrome-extension://test-id/workbench.html#/docs/x',
     } as chrome.tabs.Tab;
     listeners.onCreated[0](tab);
 
@@ -289,7 +289,7 @@ describe('setupWorkspaceTabRegistry — stability within lifetime', () => {
 });
 
 describe('setupWorkspaceTabRegistry — onUpdated', () => {
-  it('assigns an ordinal when an existing tab navigates INTO workspace.html', async () => {
+  it('assigns an ordinal when an existing tab navigates INTO workbench.html', async () => {
     const { listeners } = installChromeWithListenerCapture();
     const { setupWorkspaceTabRegistry, ordinalForTab } = await loadRegistry();
     setupWorkspaceTabRegistry();
@@ -298,8 +298,8 @@ describe('setupWorkspaceTabRegistry — onUpdated', () => {
     // Never tracked before — tab was some other URL, user pastes workspace URL.
     listeners.onUpdated[0](
       42,
-      { url: 'chrome-extension://test-id/workspace.html#/' },
-      makeTab({ id: 42, url: 'chrome-extension://test-id/workspace.html#/' }),
+      { url: 'chrome-extension://test-id/workbench.html#/' },
+      makeTab({ id: 42, url: 'chrome-extension://test-id/workbench.html#/' }),
     );
     expect(ordinalForTab(42)).toBe(1);
   });

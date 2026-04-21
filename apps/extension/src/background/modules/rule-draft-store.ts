@@ -9,7 +9,7 @@
  *      the draft through the core valibot schema, mints a random nonce,
  *      stores `{ draft, createdAt }` under the nonce, arms a 60-second
  *      eviction timer, and returns the nonce to the panel.
- *   3. Panel opens `workspace.html#/create/<type>/draft-<nonce>`.
+ *   3. Panel opens `workbench.html#/create/<type>/draft-<nonce>`.
  *   4. The workspace's hash router calls `takeRuleDraft` with the nonce.
  *      This module re-validates (defense-in-depth: store could have been
  *      corrupted if a future feature wrote straight into the Map),

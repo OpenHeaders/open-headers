@@ -17,7 +17,7 @@ import { broadcast } from '@utils/bridge';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-import { get as getSetting, subscribeKey } from '@/rules/settings/store';
+import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { subscribe as subscribeStatus } from '@/shared/status';
 import { extensionStorage, UI } from '@/shared/storage';
 import type { HotkeyCommand } from '@/types/browser';
@@ -164,7 +164,7 @@ async function updateBadgeForCurrentTab(): Promise<void> {
     if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
     const markers = getPauseMarkers();
-    // Currently-effective rules: enabled + complete + not paused at any
+    // Currently-effective workbench: enabled + complete + not paused at any
     // level + engine not paused + refs resolve — the single canonical
     // filter that every consumer (DNR compile loop, rule-state
     // observer, this badge filter) must share. NOT filtered by tab
@@ -173,19 +173,19 @@ async function updateBadgeForCurrentTab(): Promise<void> {
     // its counter increments via the subresource request.
     //
     // `getUnresolvableRuleUids` mirrors the DNR compile's hard gate:
-    // rules with unresolved `{{ref}}`s aren't shipped to Chrome, so
+    // workbench with unresolved `{{ref}}`s aren't shipped to Chrome, so
     // they shouldn't inflate the badge either.
     const unresolvable = getUnresolvableRuleUids();
     const effectiveRules = getRules().filter((r) => isRuleEffective(r, markers, isPaused) && !unresolvable.has(r.uid));
     const effectiveUids = new Set(effectiveRules.map((r) => r.uid));
 
-    // Badge count = rules pointed at this tab with a concrete signal.
+    // Badge count = workbench pointed at this tab with a concrete signal.
     // Delegates to the verdict engine for consistency with the popup:
     // anything the engine labels `firing`, `silent`, or `page` counts
     // (firing = action ran; silent = matched but cache-suppressed;
     // page = pattern matches the tab URL, will fire on next request).
     // `related` (sibling-domain heuristic) is excluded — it's too weak
-    // a signal to turn into a badge number that reads "N rules active
+    // a signal to turn into a badge number that reads "N workbench active
     // on this page."
     let matchedRuleCount = 0;
     if (currentTab?.id != null && currentTab.url) {
@@ -245,7 +245,7 @@ async function initializeExtension(): Promise<void> {
     context: {},
   });
   // Audit host permissions once on wake. Doesn't block init — if
-  // permissions are narrowed, the Status pill flips red but rules
+  // permissions are narrowed, the Status pill flips red but workbench
   // and requests still run on whatever hosts are still granted.
   void auditHostPermissions();
 
@@ -281,7 +281,7 @@ async function initializeExtension(): Promise<void> {
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
   // and prune any orphaned test-run owner buckets. The prune covers the
-  // WebSocket-driven path where the desktop deletes rules/folders without
+  // WebSocket-driven path where the desktop deletes workbench/folders without
   // going through message-handler's local CRUD handlers.
   onStoreChange(() => {
     broadcast('rulesUpdated', { rules: getRules() });
@@ -437,8 +437,8 @@ async function initializeExtension(): Promise<void> {
     logger.info('Background', 'desktop.connection.autoConnect is off — skipping initial connect');
   }
 
-  // Fallback: when storage had no rules AND the WebSocket didn't connect,
-  // flush any stale DNR state from a previous run so we don't leak rules
+  // Fallback: when storage had no workbench AND the WebSocket didn't connect,
+  // flush any stale DNR state from a previous run so we don't leak workbench
   // across sessions. Skipped if the hydrate path already applied an
   // initial snapshot — otherwise we'd double-log the same "init" update.
   setTimeout(() => {
@@ -566,7 +566,7 @@ runtime.onMessage.addListener(
     // Delay-page bypass: the delay page finished its countdown and is about
     // to navigate to the real target. Mark the tab so the delay DNR rule is
     // suppressed for it, then respond only AFTER Chrome has committed the
-    // updated DNR rules so the follow-up navigation cannot race the rule
+    // updated DNR workbench so the follow-up navigation cannot race the rule
     // update and re-enter the delay loop. The target URL is stashed so the
     // bypass only clears when THAT specific navigation commits — not on an
     // unrelated Back-button or sibling navigation in the same tab.

@@ -1,18 +1,18 @@
 /**
  * Inject compiler — converts V5.InjectRule into a CompilationPlan.
  *
- * Inject rules primarily run as a scriptable injection (JS or CSS into the
+ * Inject workbench primarily run as a scriptable injection (JS or CSS into the
  * page). When the user enables `bypassCSP`, we additionally emit DNR
- * modifyHeaders rules that strip Content-Security-Policy response headers
+ * modifyHeaders workbench that strip Content-Security-Policy response headers
  * before the page loads, so the injected script/CSS isn't blocked on
  * strict-CSP sites like GitHub.
  *
  * The actual injection code is not built here — inject-manager handles
  * user-authored code via chrome.scripting on main-frame commits. What this
- * compiler emits is only the CSP-bypass DNR rules and a marker scriptable
+ * compiler emits is only the CSP-bypass DNR workbench and a marker scriptable
  * so the rule shows up in `scriptables` alongside the other types. The
  * marker is a no-op `{kind: 'func', func: noop, args:[null]}` — inject
- * rules deliberately don't go through the func injection path in the
+ * workbench deliberately don't go through the func injection path in the
  * plan because their code is driven from inject-manager's onCommitted
  * listener, not from a pre-compiled plan.
  *
@@ -29,7 +29,7 @@ import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResou
 export const injectCompiler: RuleCompiler<V5.InjectRule> = {
   ruleType: 'inject',
   compile(rule: V5.InjectRule, ctx: CompilerContext): CompilationPlan {
-    // Inject rules don't need their code path reflected in the plan —
+    // Inject workbench don't need their code path reflected in the plan —
     // inject-manager hooks webNavigation.onCommitted directly and consumes
     // the rule from the rule store. The only DNR output we generate is
     // CSP bypass, and only when explicitly enabled on the rule.
