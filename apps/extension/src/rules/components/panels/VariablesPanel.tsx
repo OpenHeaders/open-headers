@@ -1,19 +1,26 @@
 /**
- * VariablesPanel — right-pane live view of variable scopes.
+ * VariablesPanel — right-pane live view of variable scopes (surfaced
+ * to users as "Scope").
  *
- * Two modes:
- *   - "In request" — only variables referenced in the active rule /
- *     collection-overview tab, resolved against every scope with the
- *     active-tab's collection context so the user sees the exact
- *     value that will hit DNR.
- *   - "All"        — every scope's variables grouped by priority, so
- *     users can understand what's available workspace-wide.
+ * Two modes, gated by the active tab's kind:
+ *   - "In Rule" / "In Request" — only variables referenced in the
+ *     focused entity, resolved against every scope with the tab's
+ *     collection context so the user sees the exact value that will
+ *     hit DNR / the executor. The filter button label changes with
+ *     the tab kind so it always names what it filters to.
+ *   - "All"                    — every scope's variables grouped by
+ *     priority. This is the default and the only option on tabs that
+ *     don't reference variables (landing, settings, env editor, etc.).
+ *
+ * When no variable-referencing tab is active, the filter toggle is
+ * hidden and the panel renders the "All" view — there's no second
+ * option to offer, so we don't pretend there is.
  *
  * Data source: `useEnvironments` for vault / environment / workspace
- * vars, `useRules` for collection variables. Resolution runs in the
- * renderer — the SW already ships a snapshot of every scope via
- * `environmentsChanged`, so a second resolver instance here stays in
- * sync without extra RPCs.
+ * vars, `useRules` for collection variables, `useRequests` for the
+ * focused request. Resolution runs in the renderer — the SW already
+ * ships a snapshot of every scope via `environmentsChanged`, so a
+ * second resolver instance here stays in sync without extra RPCs.
  */
 
 import {
@@ -28,15 +35,38 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';
 import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
-import type { RulesTab } from '../../types';
+import { useEffect, useMemo, useState } from 'react';
+import type { RulesTab, TabMode } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
+
+// ── Scope kind (context classification of the focused tab) ─────────
+
+/** What the focused tab references, if anything the Scope panel can filter to. */
+type ScopeKind = 'rule' | 'request' | 'none';
+
+const RULE_TAB_MODES: ReadonlySet<TabMode> = new Set(['edit', 'create']);
+const REQUEST_TAB_MODES: ReadonlySet<TabMode> = new Set(['request-edit', 'request-create']);
+
+function getScopeKind(tab: RulesTab | null): ScopeKind {
+  if (!tab) return 'none';
+  if (RULE_TAB_MODES.has(tab.mode)) return 'rule';
+  if (REQUEST_TAB_MODES.has(tab.mode)) return 'request';
+  return 'none';
+}
+
+/** Human-facing label for the "filter to this entity" button. */
+function getContextLabel(kind: ScopeKind): string | null {
+  if (kind === 'rule') return 'In Rule';
+  if (kind === 'request') return 'In Request';
+  return null;
+}
 
 const { Text } = Typography;
 
@@ -73,43 +103,55 @@ interface DisplayVariable {
 
 const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) => {
   const { token } = theme.useToken();
-  // Default to the broader "All scopes" view so a first-open user sees
-  // every resolvable variable without needing an active rule tab. The
-  // narrower "In request" view is the opt-in used while drilling into
-  // a specific rule's referenced set.
-  const [mode, setMode] = useState<'in-request' | 'all'>('all');
+  // Default to the broader "All" view so a first-open user sees every
+  // resolvable variable without needing to focus a specific tab. The
+  // narrower "In Rule" / "In Request" view is an opt-in filter
+  // available only when the focused tab actually references variables.
+  const [mode, setMode] = useState<'in-context' | 'all'>('all');
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
   const { rules, localCollections, localCollectionTrees } = useRules();
+  const { requests } = useRequests();
   const { variables: liveVariables } = useLiveVariables();
   const { workflows: liveWorkflows } = useLiveWorkflows();
   const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
   const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
 
-  // Identify the active rule + collection for the current tab. Other
-  // tab modes (landing, settings, run-report, etc.) don't carry a
-  // variable-resolution context, so we render an explanatory empty
-  // state in those cases.
-  const { activeRule, activeCollectionId } = useMemo<{
+  const scopeKind = useMemo(() => getScopeKind(activeTab), [activeTab]);
+  const contextLabel = getContextLabel(scopeKind);
+
+  // Identify the active rule / request / collection / folder for the
+  // current tab. Rule-editor and request-editor tabs carry a concrete
+  // entity whose templates the panel can walk; collection-overview,
+  // collection-vars, and folder-overview tabs only set collectionId
+  // (so the "All" view highlights the right collection's vars); other
+  // modes (landing, settings, run-report, etc.) contribute neither.
+  const { activeRule, activeRequest, activeCollectionId } = useMemo<{
     activeRule: V5.Rule | null;
+    activeRequest: V5.Request | null;
     activeCollectionId: string | null;
   }>(() => {
-    if (!activeTab) return { activeRule: null, activeCollectionId: null };
+    if (!activeTab) return { activeRule: null, activeRequest: null, activeCollectionId: null };
     let rule: V5.Rule | null = null;
-    if (activeTab.mode === 'edit' && activeTab.ruleUid) {
+    let request: V5.Request | null = null;
+    if (scopeKind === 'rule' && activeTab.ruleUid) {
       rule = rules.find((r) => r.uid === activeTab.ruleUid) ?? null;
+    } else if (scopeKind === 'request' && activeTab.requestUid) {
+      request = requests.find((r) => r.uid === activeTab.requestUid) ?? null;
     }
+
     let collId: string | null = null;
     if (activeTab.mode === 'collection-overview' && activeTab.entityId) {
       collId = activeTab.entityId;
     } else if (activeTab.mode === 'collection-vars' && activeTab.collectionUid) {
       collId = activeTab.collectionUid;
     } else if (rule) {
-      // Derive the containing collection from the rule's path.
       const hit = localCollections.find((c) => rule?.path.startsWith(`${c.path}/`));
       collId = hit?.uid ?? null;
+    } else if (request) {
+      const hit = localCollections.find((c) => request?.path.startsWith(`${c.path}/`));
+      collId = hit?.uid ?? null;
     } else if (activeTab.mode === 'folder-overview' && activeTab.entityId) {
-      // Walk the collection trees to find which collection owns this folder.
       for (const col of localCollectionTrees) {
         const stack: V5.TreeNode[] = [...col.tree];
         let found = false;
@@ -126,8 +168,19 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
         if (found) break;
       }
     }
-    return { activeRule: rule, activeCollectionId: collId };
-  }, [activeTab, rules, localCollections, localCollectionTrees]);
+    return { activeRule: rule, activeRequest: request, activeCollectionId: collId };
+  }, [scopeKind, activeTab, rules, requests, localCollections, localCollectionTrees]);
+
+  // When the focused tab stops referencing variables, force the view
+  // back to "All" — the filter toggle is about to disappear and we
+  // don't want the panel stuck on a mode the user can no longer
+  // undo from the UI.
+  useEffect(() => {
+    if (scopeKind === 'none' && mode === 'in-context') setMode('all');
+  }, [scopeKind, mode]);
+
+  const contextEntity: V5.Rule | V5.Request | null = activeRule ?? activeRequest;
+  const contextEntityName = activeRule?.name ?? activeRequest?.name ?? null;
 
   // LiveRegistry mirrors the SW's `buildLiveRegistry`: enabled LVs
   // only; filter cache rows to the active env; honor manual overrides.
@@ -199,18 +252,21 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     ? (localCollections.find((c) => c.uid === activeCollectionId)?.name ?? null)
     : null;
 
-  // ── "In request" — variables referenced by the active rule/scope
-  //    Walks every template-containing string in the rule, resolves
-  //    each through the full resolveTemplate machinery (so namespaces,
+  // ── "In Rule" / "In Request" — variables referenced by the focused
+  //    entity. Walks every template-containing string, resolves each
+  //    through the full resolveTemplate machinery (so namespaces,
   //    default-env fallback, reserved-namespace detection all apply),
   //    then dedupes variables by display name and errors by reference.
-  const { inRequestVars, inRequestErrors } = useMemo<{
-    inRequestVars: DisplayVariable[];
-    inRequestErrors: ResolutionError[];
+  //    The walker is entity-agnostic: rules and requests are both
+  //    plain objects whose templated fields `collectTemplateStrings`
+  //    can harvest.
+  const { inContextVars, inContextErrors } = useMemo<{
+    inContextVars: DisplayVariable[];
+    inContextErrors: ResolutionError[];
   }>(() => {
-    if (!activeRule) return { inRequestVars: [], inRequestErrors: [] };
+    if (!contextEntity) return { inContextVars: [], inContextErrors: [] };
     const templateStrings: string[] = [];
-    collectTemplateStrings(activeRule, templateStrings);
+    collectTemplateStrings(contextEntity, templateStrings);
 
     const ctx = activeCollectionId ? { collectionId: activeCollectionId } : undefined;
     const seenVars = new Map<string, DisplayVariable>();
@@ -246,10 +302,10 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     }
 
     return {
-      inRequestVars: [...seenVars.values()],
-      inRequestErrors: [...seenErrors.values()],
+      inContextVars: [...seenVars.values()],
+      inContextErrors: [...seenErrors.values()],
     };
-  }, [activeRule, activeCollectionId, resolver]);
+  }, [contextEntity, activeCollectionId, resolver]);
 
   // ── "All" — every scope's variables, whatever their referenced state
   const allVars = useMemo(() => {
@@ -354,66 +410,74 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
       </div>
 
       <div style={{ padding: '8px 12px', flex: 1, overflowY: 'auto' }}>
-        {/* Mode toggle */}
+        {/* Mode summary + toggle — toggle only appears when the focused
+            tab has a context to filter to. */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            {mode === 'in-request' && activeRule ? (
+            {mode === 'in-context' && contextEntityName && scopeKind !== 'none' ? (
               <>
-                In:{' '}
+                {scopeKind === 'rule' ? 'In rule: ' : 'In request: '}
                 <Text strong style={{ fontSize: 11 }}>
-                  {activeRule.name}
+                  {contextEntityName}
                 </Text>
               </>
             ) : (
               'All scopes'
             )}
           </Text>
-          <div style={{ display: 'flex', fontSize: 10 }}>
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={() => setMode('in-request')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setMode('in-request');
-              }}
-              style={{
-                padding: '2px 6px',
-                cursor: 'pointer',
-                borderRadius: '3px 0 0 3px',
-                ...(mode === 'in-request'
-                  ? { background: token.colorPrimary, color: token.colorBgContainer }
-                  : {
-                      border: `1px solid ${token.colorBorderSecondary}`,
-                      borderRight: 0,
-                      color: token.colorTextSecondary,
-                    }),
-              }}
-            >
-              In request
-            </span>
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={() => setMode('all')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setMode('all');
-              }}
-              style={{
-                padding: '2px 6px',
-                cursor: 'pointer',
-                borderRadius: '0 3px 3px 0',
-                ...(mode === 'all'
-                  ? { background: token.colorPrimary, color: token.colorBgContainer }
-                  : { border: `1px solid ${token.colorBorderSecondary}`, color: token.colorTextSecondary }),
-              }}
-            >
-              All
-            </span>
-          </div>
+          {contextLabel && (
+            <div style={{ display: 'flex', fontSize: 10 }}>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={() => setMode('in-context')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setMode('in-context');
+                }}
+                style={{
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  borderRadius: '3px 0 0 3px',
+                  ...(mode === 'in-context'
+                    ? { background: token.colorPrimary, color: token.colorBgContainer }
+                    : {
+                        border: `1px solid ${token.colorBorderSecondary}`,
+                        borderRight: 0,
+                        color: token.colorTextSecondary,
+                      }),
+                }}
+              >
+                {contextLabel}
+              </span>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={() => setMode('all')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setMode('all');
+                }}
+                style={{
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  borderRadius: '0 3px 3px 0',
+                  ...(mode === 'all'
+                    ? { background: token.colorPrimary, color: token.colorBgContainer }
+                    : { border: `1px solid ${token.colorBorderSecondary}`, color: token.colorTextSecondary }),
+                }}
+              >
+                All
+              </span>
+            </div>
+          )}
         </div>
 
-        {mode === 'in-request' ? (
-          <InRequestView vars={inRequestVars} errors={inRequestErrors} activeRule={activeRule} />
+        {mode === 'in-context' && scopeKind !== 'none' ? (
+          <InContextView
+            vars={inContextVars}
+            errors={inContextErrors}
+            scopeKind={scopeKind}
+            hasContext={contextEntity !== null}
+          />
         ) : (
           <AllScopesView
             allVars={allVars}
@@ -427,25 +491,28 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
   );
 };
 
-// ── In-request view ───────────────────────────────────────────────
+// ── In-context view ───────────────────────────────────────────────
 
-function InRequestView({
+function InContextView({
   vars,
   errors,
-  activeRule,
+  scopeKind,
+  hasContext,
 }: {
   vars: DisplayVariable[];
   errors: ResolutionError[];
-  activeRule: V5.Rule | null;
+  scopeKind: ScopeKind;
+  hasContext: boolean;
 }) {
   const { token } = theme.useToken();
-  if (!activeRule) {
+  const noun = scopeKind === 'request' ? 'request' : 'rule';
+  if (!hasContext) {
     return (
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Select a rule or collection to see its variables.
+            Open a {noun} to see the variables it references.
           </Text>
         }
       />
@@ -454,7 +521,7 @@ function InRequestView({
   if (vars.length === 0) {
     return (
       <Text type="secondary" style={{ fontSize: 11 }}>
-        No variables referenced in this rule.
+        No variables referenced in this {noun}.
       </Text>
     );
   }
