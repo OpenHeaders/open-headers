@@ -47,6 +47,7 @@ import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
   reconcileLiveSchedules,
+  refreshLiveWorkflowSynchronously,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
 import { getLiveVariables, onLiveVariableStoreChange } from './modules/live-variable-store';
@@ -81,7 +82,7 @@ import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } 
 import { getTemplates, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
-import { hydrateLiveCacheMirror } from './modules/variables-resolver';
+import { __setSyncWarmRunner, hydrateLiveCacheMirror } from './modules/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
@@ -384,6 +385,13 @@ async function initializeExtension(): Promise<void> {
   // that adapter lands, alarm firings record a `scheduler-not-ready`
   // error against the cache and the backoff widens — no hot-loop.
   startLiveScheduler();
+  // Wire the sync-warm entry point into `variables-resolver` so the
+  // DNR compile path's `kickSyncWarmRefreshes` blocks on workflow
+  // refreshes for LVs with `requireFreshOnRuleBuild`. Kept here (not
+  // as a module-load side-effect inside the scheduler) so unit tests
+  // that mount the scheduler in isolation don't transitively load the
+  // resolver's store subscriptions.
+  __setSyncWarmRunner(refreshLiveWorkflowSynchronously);
   void reconcileLiveSchedules().catch((err: unknown) => {
     logger.warn('Background', 'Live scheduler reconcile failed', err);
   });

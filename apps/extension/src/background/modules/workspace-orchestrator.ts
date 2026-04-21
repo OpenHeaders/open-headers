@@ -222,6 +222,8 @@ export async function duplicateWorkspace(
     environments: srcK.environments,
     workspaceVars: srcK.workspaceVars,
     vault: srcK.vault,
+    liveWorkflows: srcK.liveWorkflows,
+    liveVariables: srcK.liveVariables,
   });
 
   // ── Rules side: rebuild uid + path mapping ───────────────────────
@@ -233,17 +235,27 @@ export async function duplicateWorkspace(
 
   // ── Requests side: parallel structure under `requests/`. Uses the
   // same deep-copy logic as rules, just a different on-disk prefix.
-  const { remappedRequests, remappedRequestCollections, remappedRequestFolders } = deepCopyRequestHierarchy(
-    src.requests ?? [],
-    src.requestCollections ?? [],
-    src.requestFolders ?? [],
-  );
+  // Exposes `requestUidRemap` so the live-entities copy below can
+  // rebind workflow-step `requestUid`s to the cloned tree.
+  const { remappedRequests, remappedRequestCollections, remappedRequestFolders, requestUidRemap } =
+    deepCopyRequestHierarchy(src.requests ?? [], src.requestCollections ?? [], src.requestFolders ?? []);
 
   // ── Template side: same treatment with the `templates/` prefix ───
   const { remappedTemplates, remappedTemplateCollections, remappedTemplateFolders } = deepCopyTemplateHierarchy(
     src.templates ?? [],
     src.templateCollections ?? [],
     src.templateFolders ?? [],
+  );
+
+  // ── Live Workflows + Live Variables: fresh uids + paths; step
+  // `requestUid`s rebind through the request remap; LV `workflowUid`
+  // rebinds through the workflow remap built inside the helper. Cache
+  // is not copied — it's a per-install projection of past runs and
+  // rehydrates cleanly on the new workspace's first refresh tick.
+  const { remappedLiveWorkflows, remappedLiveVariables } = deepCopyLiveEntities(
+    src.liveWorkflows ?? [],
+    src.liveVariables ?? [],
+    requestUidRemap,
   );
 
   // ── Environments + workspace vars + vault: fresh uids, same content
@@ -273,6 +285,8 @@ export async function duplicateWorkspace(
     [newK.pauseMarkers, remappedPauseMarkers],
     [newK.environments, newEnvironments],
     [newK.activeEnvironmentId, null],
+    [newK.liveWorkflows, remappedLiveWorkflows],
+    [newK.liveVariables, remappedLiveVariables],
     ...(src.workspaceVars ? [[newK.workspaceVars, src.workspaceVars] as const] : []),
     ...(src.vault ? [[newK.vault, src.vault] as const] : []),
   ];
@@ -281,7 +295,7 @@ export async function duplicateWorkspace(
 
   logger.info(
     'WorkspaceOrchestrator',
-    `Duplicated ${sourceId} → ${newId}: ${remappedRules.length} rules, ${remappedRequests.length} requests, ${remappedTemplates.length} templates, ${newEnvironments.length} envs`,
+    `Duplicated ${sourceId} → ${newId}: ${remappedRules.length} rules, ${remappedRequests.length} requests, ${remappedTemplates.length} templates, ${newEnvironments.length} envs, ${remappedLiveWorkflows.length} live workflows, ${remappedLiveVariables.length} live variables`,
   );
   return newMeta;
 }
@@ -454,6 +468,14 @@ interface RequestHierarchyCopy {
   remappedRequests: V5.Request[];
   remappedRequestCollections: V5.Collection[];
   remappedRequestFolders: LocalFolder[];
+  /**
+   * `sourceRequestUid → newRequestUid` mapping. Consumed by
+   * downstream copies that carry Request pointers — Live Workflow
+   * steps' `requestUid`, future devtools-capture links, etc. —
+   * so those pointers rebind to the cloned requests instead of
+   * dangling back at the source workspace.
+   */
+  requestUidRemap: Map<string, string>;
 }
 
 function deepCopyRequestHierarchy(
@@ -482,13 +504,76 @@ function deepCopyRequestHierarchy(
   }
   const remappedRequestFolders: LocalFolder[] = folders.map((f) => folderByOldPath.get(f.path) ?? f);
 
+  const requestUidRemap = new Map<string, string>();
   const remappedRequests: V5.Request[] = requests.map((r) => {
     const uid = generateUid();
     const parentOldPath = r.path.substring(0, r.path.lastIndexOf('/'));
     const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
     const path = `${parentNewPath}/${toFolderName(r.name, uid)}`;
+    requestUidRemap.set(r.uid, uid);
     return { ...r, uid, path };
   });
 
-  return { remappedRequests, remappedRequestCollections, remappedRequestFolders };
+  return { remappedRequests, remappedRequestCollections, remappedRequestFolders, requestUidRemap };
+}
+
+interface LiveEntitiesCopy {
+  remappedLiveWorkflows: V5.LiveWorkflow[];
+  remappedLiveVariables: V5.LiveVariable[];
+}
+
+/**
+ * Clone live workflows + live-variable bindings with fresh uids and
+ * paths. Rebinds each step's `requestUid` to the cloned request tree
+ * via `requestUidRemap` so the new workspace's workflows don't point
+ * back at the source workspace's requests. LV bindings follow the
+ * workflow uid remap; step ids + capture names stay local to each
+ * workflow and round-trip unchanged.
+ *
+ * Cache (`liveCache`) is deliberately NOT copied — it's an
+ * ephemeral per-install projection of refresh runs that would be
+ * wrong for the duplicated workspace's identity (different
+ * workflow uids, different env ids, different extraction moment).
+ * The duplicated workspace starts with a clean cache and warms up
+ * on its first alarm fire.
+ */
+function deepCopyLiveEntities(
+  workflows: V5.LiveWorkflow[],
+  variables: V5.LiveVariable[],
+  requestUidRemap: Map<string, string>,
+): LiveEntitiesCopy {
+  const workflowUidRemap = new Map<string, string>();
+
+  const remappedLiveWorkflows: V5.LiveWorkflow[] = workflows.map((w) => {
+    const uid = generateUid();
+    workflowUidRemap.set(w.uid, uid);
+    const path = `live-workflows/${toFolderName(w.name, uid)}`;
+    const steps = w.steps.map((s) => ({
+      ...s,
+      // Rebind step requests to the cloned tree. A step whose
+      // source request isn't in the remap (defensive — should not
+      // happen in well-formed data) keeps its original pointer;
+      // the resulting dangling reference surfaces as the usual
+      // `step-request-missing` structural issue in the editor.
+      requestUid: requestUidRemap.get(s.requestUid) ?? s.requestUid,
+    }));
+    return { ...w, uid, path, steps };
+  });
+
+  const remappedLiveVariables: V5.LiveVariable[] = variables.map((lv) => {
+    const uid = generateUid();
+    const path = `live-variables/${toFolderName(lv.name, uid)}`;
+    return {
+      ...lv,
+      uid,
+      path,
+      // Rebind to the cloned workflow. A variable whose source
+      // workflow isn't in the remap keeps its original pointer
+      // (becomes an orphan the user must rebind) — identical to
+      // how a git-pull-deleted workflow surfaces today.
+      workflowUid: workflowUidRemap.get(lv.workflowUid) ?? lv.workflowUid,
+    };
+  });
+
+  return { remappedLiveWorkflows, remappedLiveVariables };
 }

@@ -38,6 +38,15 @@ vi.mock('@/shared/fetch/with-host-access', () => ({
   withHostAccess: (_url: string, fn: () => Promise<Response>) => fn(),
 }));
 
+// The shared refresh rate limiter is module-state; without a reset it
+// leaks its minute-window across every test in this file and the 6th
+// refresh against auth.openheaders.io waits the full 60s for budget.
+// Import the limiter DIRECTLY from its submodule so we don't pull in
+// `scheduler.ts`'s `@utils/browser-api` import chain at test-file load
+// — that chain hits the hoisted mock factory before `launchMock` is
+// bound.
+import { __resetRateLimiterForTests } from '@/background/modules/refresh-scheduler/rate-limiter';
+
 vi.stubGlobal('fetch', fetchMock);
 
 const makeConfig = (overrides: Partial<V5.OAuth2Auth> = {}): V5.OAuth2Auth => ({
@@ -66,6 +75,7 @@ beforeEach(() => {
   launchMock.mockReset();
   putTokenBundleMock.mockReset();
   getTokenBundleMock.mockReset();
+  __resetRateLimiterForTests();
   // Default: return a successful token response.
   fetchMock.mockResolvedValue(
     jsonResponse({ access_token: 'at-new', token_type: 'Bearer', expires_in: 3600, refresh_token: 'rf-new' }),

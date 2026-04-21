@@ -28,5 +28,6 @@ export type {
 export { EMPTY_LIVE_REGISTRY, resolveTemplate, resolveVariable, VariableResolver } from './resolver';
 export type { RuleResolution } from './rule-resolver';
 export { resolveRule, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
+export { collectRuleTemplateStrings } from './rule-templates';
 export type { SystemVariable } from './system-variables';
 export { SYSTEM_VARIABLES } from './system-variables';

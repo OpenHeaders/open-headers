@@ -223,25 +223,38 @@ __setExecuteRequestDraft(executeRequestDraft);
 // ── Live Workflow chain step executor ──────────────────────────────
 
 /**
- * Internal header stamped on every Live Workflow chain fetch. Carries
- * the `<workflowUid>:<stepId>` pair so:
- *   (a) server-side logs can distinguish refresh traffic from user
- *       traffic (rare but cheap),
- *   (b) a future DNR-compile pass can exclude user rules referencing
- *       the workflow's LVs from matching the tagged request (Phase E
- *       territory — requires per-rule `referencedLvUids` tracking).
+ * Bypass tag stamped on every Live Workflow chain fetch. Value is the
+ * owning workflow uid. User rules whose value templates reference any
+ * `{{live.X}}` bound to the SAME workflow exclude that exact value via
+ * `excludedRequestHeaders` at DNR compile time — the rule engine's
+ * `attachLiveBypassExclusions` wraps compiled rules with the filter so
+ * a rule injecting `Authorization: {{live.token}}` never fires on the
+ * chain fetches that PRODUCE `live.token`.
  *
- * Kept as a constant so the scheduler observability + UI picker + any
- * future DNR condition all read the same string.
+ * Chrome DNR's `HeaderInfo.values` uses case-insensitive exact match,
+ * which is why the value is the opaque workflow uid alone — composite
+ * values like `<workflowUid>:<stepId>` couldn't be excluded without
+ * enumerating every step id. The step id stays in the observability
+ * log's `context.stepId`, which is where triage needs it anyway.
  */
 export const LIVE_BYPASS_HEADER = 'X-OH-Live-Bypass';
+
+/**
+ * Compose the header value. Exported so the DNR compile path uses the
+ * exact same string the executor stamps — any codec drift produces
+ * the "rule still fires on its own source" feedback loop this whole
+ * contract exists to prevent.
+ */
+export function liveBypassHeaderValue(workflowUid: string): string {
+  return workflowUid;
+}
 
 export interface LiveChainExecuteOptions {
   /** Active env the chain was scheduled under. `null` = "No environment". */
   environmentId: string | null;
   /** Parent workflow uid — stamped into the bypass header. */
   workflowUid: string;
-  /** Current step id — stamped into the bypass header. */
+  /** Current step id — carried in the executor log context only. */
   stepId: string;
   /**
    * Captures extracted from prior steps of this chain run. Keys are
@@ -260,7 +273,8 @@ export interface LiveChainExecuteOptions {
  *   - skips pre/post script hooks (chain fetches are pure data-source
  *     fetches; running user scripts here would blur "my request" vs
  *     "workflow refresh" and trivially recurse via `oh.sendRequest`),
- *   - stamps the `X-OH-Live-Bypass` header on the outgoing request,
+ *   - stamps the `X-OH-Live-Bypass` header so DNR rules referencing
+ *     the workflow's LVs exclude themselves from this request,
  *   - suppresses the `requests` Status pill (workflow refresh belongs
  *     to the `live` subsystem, not the generic request pill).
  *
@@ -272,14 +286,12 @@ export async function executeForLiveChain(
   request: V5.Request,
   options: LiveChainExecuteOptions,
 ): Promise<ExecutedRequestSnapshot> {
-  // Inject the bypass header into the request BEFORE resolution so it
-  // gets normal templating treatment (no template in the value today,
-  // but staying consistent with the rest of the header pipeline means
-  // any future interpolation "just works").
-  const bypassValue = `${options.workflowUid}:${options.stepId}`;
   const stamped: V5.Request = {
     ...request,
-    headers: [...request.headers, { key: LIVE_BYPASS_HEADER, value: bypassValue, enabled: true }],
+    headers: [
+      ...request.headers,
+      { key: LIVE_BYPASS_HEADER, value: liveBypassHeaderValue(options.workflowUid), enabled: true },
+    ],
   };
   return executeRequestDraft(stamped, {
     environmentId: options.environmentId ?? undefined,

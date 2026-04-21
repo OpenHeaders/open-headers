@@ -18,7 +18,9 @@ export type {
 } from './types';
 export {
   ALL_RESOURCE_TYPES,
+  attachLiveBypassExclusion,
   buildDnrCondition,
+  LIVE_BYPASS_HEADER_NAME,
   resolveResourceTypes,
   SUB_RESOURCE_TYPES,
   stripResourceTypeFields,

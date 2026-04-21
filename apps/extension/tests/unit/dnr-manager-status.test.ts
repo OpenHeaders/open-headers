@@ -57,6 +57,12 @@ vi.mock('@/background/modules/variables-resolver', () => ({
   resolveRulesForCompile: vi.fn((rules: V5.Rule[]) => rules),
   getLastAggregatedResolutionErrors: vi.fn(() => []),
   getLastResolutionErrors: vi.fn(() => new Map<string, unknown>()),
+  // DNR compile pipeline now consults this for live-bypass exclusion;
+  // status tests don't touch Live Variables so the default is "no
+  // workflow uids referenced" — no excludedRequestHeaders attached.
+  computeRuleLiveBypass: vi.fn(() => new Set<string>()),
+  // Sync-warm pre-compile hook — no-op in status tests (no LV opts in).
+  kickSyncWarmRefreshes: vi.fn(async () => {}),
 }));
 
 vi.mock('@/background/modules/observability-log', () => ({

@@ -31,6 +31,7 @@ import { get as getSetting } from '@/rules/settings/store';
 import { report as reportStatus } from '@/shared/status';
 import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
 import {
+  attachLiveBypassExclusion,
   blockCompiler,
   delayCompiler,
   headerCompiler,
@@ -46,8 +47,10 @@ import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from './modules/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
 import {
+  computeRuleLiveBypass,
   getLastAggregatedResolutionErrors,
   getLastResolutionErrors,
+  kickSyncWarmRefreshes,
   resolveRulesForCompile,
 } from './modules/variables-resolver';
 
@@ -272,9 +275,29 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
   return { dynamic, session, scriptables };
 }
 
-function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
+async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   dynamicDnrIdToUid.clear();
   runSessionRuleIdToUid.clear();
+
+  // Sync-warm opt-in LVs drive a blocking refresh of their backing
+  // workflows BEFORE resolve, so the compile below sees fresh values
+  // instead of stale. No-op when no LV is sync-warm opted in; 5s hard
+  // ceiling when any is, then resolve falls back to stale. Live-bypass
+  // + live-ref scan both read from the post-warm registry mirror.
+  await kickSyncWarmRefreshes();
+
+  // Live-bypass map: `ruleUid → Set<workflowUid>` so each emitted DnrRule
+  // carries an `excludedRequestHeaders` clause matching the bypass tag its
+  // chain fetches stamp. Computed from RAW rules because the `{{live.X}}`
+  // references are what we need to see — after resolve those literals have
+  // been substituted with the cached values. Memoized so test-run scope
+  // recompiles (which share source uids with the global rule set) don't
+  // re-walk every rule's templates.
+  const liveBypassByUid = new Map<string, ReadonlySet<string>>();
+  for (const rule of rawRules) {
+    const bypass = computeRuleLiveBypass(rule);
+    if (bypass.size > 0) liveBypassByUid.set(rule.uid, bypass);
+  }
 
   // Resolve {{VAR}} templates against the current env/vars/vault/collection
   // scopes BEFORE any downstream consumer sees the rules. Every compile
@@ -345,6 +368,8 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   const dynamicToApply: DnrRule[] = [];
   for (const { rule, uid } of effectiveDynamic) {
     dynamicDnrIdToUid.set(rule.id, uid);
+    const bypass = liveBypassByUid.get(uid);
+    if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass);
     dynamicToApply.push(rule);
   }
 
@@ -401,6 +426,8 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
     const all = [...runDynamic, ...runSession];
     for (const { rule, uid } of all) {
       perRunMap.set(rule.id, uid);
+      const bypass = liveBypassByUid.get(uid);
+      if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass);
       rule.condition = { ...rule.condition, tabIds: [run.tabId] };
       sessionToApply.push(rule);
       sessionIdCounter = Math.max(sessionIdCounter, rule.id + 1);
@@ -413,6 +440,8 @@ function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   const excludedForGlobal = [...new Set<number>([...testTabIds, ...bypassTabs])];
   for (const { rule, uid } of globalSessionUntagged) {
     dynamicDnrIdToUid.set(rule.id, uid); // global session rules are part of the "live for this tab" lookup
+    const bypass = liveBypassByUid.get(uid);
+    if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass);
     if (excludedForGlobal.length > 0) {
       rule.condition = { ...rule.condition, excludedTabIds: excludedForGlobal };
     }

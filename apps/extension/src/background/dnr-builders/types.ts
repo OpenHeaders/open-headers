@@ -330,6 +330,58 @@ export function stripResourceTypeFields(
   return rest;
 }
 
+// ── Live Variable feedback-loop exclusion ────────────────────────────
+//
+// A rule whose action value references `{{live.token}}` would otherwise
+// fire on the very chain fetch that produces `live.token` — the
+// workflow's step fetch inherits the host the rule was written for, so
+// DNR matches it unless we tell it not to.
+//
+// Chain fetches carry `X-OH-Live-Bypass: <workflowUid>` (stamped by
+// `executeForLiveChain`). The rule-engine attaches an
+// `excludedRequestHeaders` clause to every DnrRule whose source V5 rule
+// references any LV bound to one of the listed workflow uids.
+//
+// Value-exact match is what Chrome's DNR supports (no wildcard), so the
+// bypass header value deliberately carries ONLY the workflow uid — step
+// ids live in the observability log, not on the wire.
+
+/**
+ * Chain-fetch bypass header name — mirrors the constant exported from
+ * `request-executor`'s `LIVE_BYPASS_HEADER`. Duplicated here rather than
+ * imported because `dnr-builders` must stay a leaf module (importable by
+ * tests without pulling in the executor's request pipeline). A drift
+ * check in the rule-engine unit tests asserts the two constants remain
+ * identical.
+ */
+export const LIVE_BYPASS_HEADER_NAME = 'X-OH-Live-Bypass';
+
+/**
+ * Add (or extend) an `excludedRequestHeaders` clause on the rule's
+ * condition so chain fetches carrying a bypass for any of
+ * `workflowUids` are excluded from matching. Idempotent — merges with
+ * any user-authored excluded-request-header condition on the same
+ * header, de-duping values.
+ */
+export function attachLiveBypassExclusion(condition: DnrCondition, workflowUids: ReadonlySet<string>): DnrCondition {
+  if (workflowUids.size === 0) return condition;
+  const header = LIVE_BYPASS_HEADER_NAME;
+  const existing = condition.excludedRequestHeaders ?? [];
+  const match = existing.find((h) => h.header.toLowerCase() === header.toLowerCase());
+  const newValues = [...workflowUids];
+  if (match) {
+    const merged = new Set<string>([...(match.values ?? []), ...newValues]);
+    return {
+      ...condition,
+      excludedRequestHeaders: existing.map((h) => (h === match ? { ...h, values: [...merged] } : h)),
+    };
+  }
+  return {
+    ...condition,
+    excludedRequestHeaders: [...existing, { header, values: newValues }],
+  };
+}
+
 // ── Shared resource type constants ───────────────────────────────
 
 export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [

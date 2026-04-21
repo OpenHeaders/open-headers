@@ -140,7 +140,31 @@ export interface RefreshProvider<TAlarmPayload extends object, TJob, TErrorState
    * reports `error`.
    */
   onFailed(payload: TAlarmPayload, err: Error, errorState: TErrorState): void;
+
+  /**
+   * OPTIONAL dependency graph across the jobs returned by `listAll`.
+   * Keys and values are job identities — the alarm names produced by
+   * `encodeAlarm`. The scheduler's reconcile pass reads this graph to
+   * (a) topologically depth each job, (b) add `depth * 250ms` jitter to
+   * the computed `when` so a downstream refresh fires AFTER its upstream
+   * on the same reconcile wave, and (c) spread simultaneous same-depth
+   * alarms by an extra 0–250ms of random jitter so a 20-workflow cohort
+   * against one origin doesn't race the rate limiter on wake.
+   *
+   * Providers without inter-job dependencies (OAuth) omit this hook;
+   * the scheduler treats every job as depth 0 and applies only the
+   * random fan-out jitter when two jobs would fire at the same `when`.
+   */
+  computeDependencies?(jobs: TJob[]): Map<string, string[]>;
 }
+
+/**
+ * Maximum jitter applied per dependency hop. The value is a trade-off:
+ * bigger than 250ms and downstream refreshes visibly lag their upstream;
+ * smaller and the thundering-herd window (10+ workflows waking at the
+ * same alarm tick) collapses back onto the rate limiter.
+ */
+export const DEPENDENCY_JITTER_MS = 250;
 
 // ── Scheduler ──────────────────────────────────────────────────────
 
@@ -158,8 +182,12 @@ export class RefreshScheduler<TAlarmPayload extends object, TJob, TErrorState> {
    * Returns `true` when an alarm was scheduled, `false` when the job
    * was skipped (gate failed, cadence returned null, alarms shim
    * unavailable).
+   *
+   * `extraDelayMs` is added to the computed `when` so reconcile can
+   * spread a wave of alarms by dependency depth + random jitter. Single
+   * callers (store-change reschedules) pass 0.
    */
-  async schedule(job: TJob, nowMs: number = Date.now()): Promise<boolean> {
+  async schedule(job: TJob, nowMs: number = Date.now(), extraDelayMs = 0): Promise<boolean> {
     if (!alarms) return false;
     if (!this.provider.canSchedule(job)) {
       // A stale alarm from a previous config could still be live —
@@ -174,8 +202,9 @@ export class RefreshScheduler<TAlarmPayload extends object, TJob, TErrorState> {
       return false;
     }
     const name = this.provider.encodeAlarm(job);
-    alarms.create(name, { when });
-    logger.debug(this.tag, `Scheduled alarm ${name} at ${new Date(when).toISOString()}`);
+    const effectiveWhen = extraDelayMs > 0 ? when + extraDelayMs : when;
+    alarms.create(name, { when: effectiveWhen });
+    logger.debug(this.tag, `Scheduled alarm ${name} at ${new Date(effectiveWhen).toISOString()}`);
     return true;
   }
 
@@ -193,14 +222,27 @@ export class RefreshScheduler<TAlarmPayload extends object, TJob, TErrorState> {
    * Walk every job the provider knows about, schedule the eligible
    * ones, and clear any alarms with our prefix whose job no longer
    * exists (orphan sweep).
+   *
+   * Dependency-aware: if the provider implements `computeDependencies`,
+   * each job gets a jitter offset equal to `depth * DEPENDENCY_JITTER_MS`
+   * plus a 0..DEPENDENCY_JITTER_MS random spread. This keeps the topology
+   * honest (downstream fires AFTER upstream on the same reconcile wave)
+   * and prevents a cohort of same-depth jobs from racing the rate
+   * limiter on SW wake. Cycles — detected by DFS-on-revisit — are
+   * assigned depth 0 so the scheduler still fires (correctness wins
+   * over topology when the graph is broken).
    */
   async reconcile(nowMs: number = Date.now()): Promise<void> {
     if (!alarms) return;
     const jobs = await this.provider.listAll();
+    const depthByAlarm = this.computeDepths(jobs);
     const desired = new Set<string>();
     for (const job of jobs) {
-      const scheduled = await this.schedule(job, nowMs);
-      if (scheduled) desired.add(this.provider.encodeAlarm(job));
+      const alarmName = this.provider.encodeAlarm(job);
+      const depth = depthByAlarm.get(alarmName) ?? 0;
+      const extra = depth * DEPENDENCY_JITTER_MS + Math.floor(Math.random() * DEPENDENCY_JITTER_MS);
+      const scheduled = await this.schedule(job, nowMs, extra);
+      if (scheduled) desired.add(alarmName);
     }
     const existing = await alarms.getAll();
     for (const alarm of existing) {
@@ -210,6 +252,35 @@ export class RefreshScheduler<TAlarmPayload extends object, TJob, TErrorState> {
         logger.debug(this.tag, `Cleared orphan alarm ${alarm.name}`);
       }
     }
+  }
+
+  /**
+   * DFS-based depth computation over the provider's dependency graph.
+   * Jobs with no inbound edges are depth 0; otherwise depth is
+   * `1 + max(parent depths)`. Cycles return depth 0 for the edges on
+   * the cycle so the scheduler still fires — the plan's git-merge-cycle
+   * case documents this as the recovery behavior ("reconcile-on-wake
+   * detects via same graph walk, logs + falls back to definition-order
+   * refresh").
+   */
+  private computeDepths(jobs: TJob[]): Map<string, number> {
+    const depths = new Map<string, number>();
+    const deps = this.provider.computeDependencies?.(jobs) ?? new Map<string, string[]>();
+    if (deps.size === 0) return depths;
+    const visiting = new Set<string>();
+    const walk = (id: string): number => {
+      const cached = depths.get(id);
+      if (cached !== undefined) return cached;
+      if (visiting.has(id)) return 0; // cycle — break here
+      visiting.add(id);
+      const parents = deps.get(id) ?? [];
+      const d = parents.length === 0 ? 0 : 1 + Math.max(...parents.map((p) => walk(p)));
+      visiting.delete(id);
+      depths.set(id, d);
+      return d;
+    };
+    for (const job of jobs) walk(this.provider.encodeAlarm(job));
+    return depths;
   }
 
   /**

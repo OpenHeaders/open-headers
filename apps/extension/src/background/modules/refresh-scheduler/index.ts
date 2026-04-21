@@ -5,5 +5,12 @@
  * vocabulary.
  */
 export { base64UrlDecode, base64UrlEncode, createAlarmNameCodec } from './codec';
-export { type RefreshProvider, RefreshScheduler } from './scheduler';
+export {
+  __configureRateLimiterForTests,
+  __resetRateLimiterForTests,
+  inspectRateLimiter,
+  type RateLimiterConfig,
+  withRefreshRateLimit,
+} from './rate-limiter';
+export { DEPENDENCY_JITTER_MS, type RefreshProvider, RefreshScheduler } from './scheduler';
 export type { RefreshJob, WriteTarget } from './types';

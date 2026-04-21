@@ -36,6 +36,7 @@ import { identity } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { getTokenBundle, putTokenBundle } from './oauth-token-store';
+import { withRefreshRateLimit } from './refresh-scheduler';
 
 export class OAuth2FlowError extends Error {
   readonly step: string;
@@ -183,7 +184,7 @@ export async function performClientCredentialsFlow(
 
 export async function performRefresh(config: OAuth2Auth, workspaceId?: string): Promise<OAuth2TokenBundle> {
   const current = await getTokenBundle(config.credentialRef, workspaceId);
-  if (!current || !current.refreshToken) {
+  if (!current?.refreshToken) {
     throw new OAuth2FlowError('refresh', 'No refresh_token available for this credential');
   }
   const body = buildRefreshTokenBody({ config, refreshToken: current.refreshToken });
@@ -231,13 +232,19 @@ async function exchangeForTokens(
     Accept: 'application/json',
   };
   if (clientAuthHeader) headers.Authorization = clientAuthHeader;
-  const response = await withHostAccess(tokenEndpoint, () =>
-    fetch(tokenEndpoint, {
-      method: 'POST',
-      credentials: 'omit',
-      headers,
-      body,
-    }),
+  // Per-origin rate limit shared with Live Workflow chain steps — a
+  // provider that handles both OAuth token endpoints AND a token-
+  // reading LV workflow (common: upstream uses its own OAuth) pays a
+  // single budget across both paths.
+  const response = await withRefreshRateLimit(tokenEndpoint, () =>
+    withHostAccess(tokenEndpoint, () =>
+      fetch(tokenEndpoint, {
+        method: 'POST',
+        credentials: 'omit',
+        headers,
+        body,
+      }),
+    ),
   );
   const text = await response.text();
   if (!response.ok) {

@@ -22,8 +22,10 @@
  * should have one) resolve without a collection scope.
  */
 
+import { scanTemplateReferencesMany } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import {
+  collectRuleTemplateStrings,
   EMPTY_LIVE_REGISTRY,
   type LiveRegistry,
   type ResolutionError,
@@ -41,7 +43,9 @@ import {
 } from './environment-store';
 import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from './live-cache-store';
 import { getLiveVariables, onLiveVariableStoreChange } from './live-variable-store';
+import { recordLog } from './observability-log';
 import { getCollections, getRules } from './rule-store';
+import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Singleton resolver + last resolved snapshot ────────────────────
 
@@ -169,6 +173,160 @@ onLiveVariableStoreChange(() => {
  */
 export function getLiveRegistrySnapshot(): LiveRegistry {
   return buildLiveRegistry();
+}
+
+/**
+ * Collect the set of workflow uids this rule "touches" — i.e., every
+ * workflow whose LV bindings appear in any of the rule's templatable
+ * strings. Driven from the RAW rule (pre-resolve) because the template
+ * literals are what carry `{{live.X}}`; after resolution they've been
+ * substituted with values. Called from the DNR compile pipeline so
+ * each emitted DnrRule can carry an `excludedRequestHeaders` clause
+ * that blocks the rule from firing on its own chain's step requests.
+ *
+ * Returns an empty set when the rule touches no live variables, or
+ * when no matching LV is enabled — disabled bindings don't contribute
+ * to the feedback-loop risk (their workflows won't produce values a
+ * disabled LV's rule consumes).
+ */
+export function computeRuleLiveBypass(rule: V5.Rule): ReadonlySet<string> {
+  const strings = collectRuleTemplateStrings(rule);
+  if (strings.length === 0) return EMPTY_STRING_SET;
+  const { live } = scanTemplateReferencesMany(strings);
+  if (live.length === 0) return EMPTY_STRING_SET;
+  const lvByName = new Map<string, V5.LiveVariable>();
+  for (const lv of getLiveVariables()) {
+    if (lv.enabled) lvByName.set(lv.name, lv);
+  }
+  const out = new Set<string>();
+  for (const name of live) {
+    const lv = lvByName.get(name);
+    if (lv) out.add(lv.workflowUid);
+  }
+  return out.size === 0 ? EMPTY_STRING_SET : out;
+}
+
+const EMPTY_STRING_SET: ReadonlySet<string> = new Set();
+
+// ── Sync-warm refresh hook ─────────────────────────────────────────
+//
+// Per plan §E / locked decision #6: most LVs are async-warm (rule
+// compile uses cached value even if stale and enqueues a refresh in
+// the background). An LV with `requireFreshOnRuleBuild: true` opts
+// into sync-warm — the DNR compile path blocks on a refresh of the
+// backing workflow before it resolves templates, falling back to the
+// stale value if the refresh takes longer than `SYNC_WARM_TIMEOUT_MS`.
+//
+// Opt-in is per-LV because most workflows absorb a stale value fine
+// (the scheduler catches up within one cadence tick), but a rule that
+// must carry a just-rotated staging token on every fire can't; the
+// yellow-pill risk of stale DNR is worse than the second of compile
+// latency.
+//
+// Timeout chosen to match the plan's 5-second budget (§E edge-case
+// table). On hit, a `warn` observability entry lets triage see "we
+// blocked for the full 5 seconds and served stale" after the fact.
+
+export const SYNC_WARM_TIMEOUT_MS = 5_000;
+
+interface SyncWarmTarget {
+  workflowUid: string;
+  environmentId: string | null;
+}
+
+/**
+ * Drive a single workflow refresh to completion for the sync-warm
+ * path. Injected by `live-refresh-scheduler` at SW boot; `null` when
+ * no scheduler is attached (unit tests that exercise pieces of this
+ * module without the scheduler chain stay self-contained).
+ */
+export type SyncWarmRunner = (workspaceId: string, workflowUid: string, environmentId: string | null) => Promise<void>;
+
+let syncWarmRunner: SyncWarmRunner | null = null;
+
+/**
+ * Register the live scheduler's synchronous refresh entry point.
+ * Called once from the scheduler module at SW boot so this module
+ * doesn't need a direct import chain to `live-refresh-scheduler` —
+ * keeping the dependency one-way (scheduler → resolver) and the
+ * DNR compile path's imports lightweight for tests.
+ */
+export function __setSyncWarmRunner(runner: SyncWarmRunner | null): void {
+  syncWarmRunner = runner;
+}
+
+/**
+ * Pick the workflows that need sync-warm refresh RIGHT NOW — enabled
+ * LVs with `requireFreshOnRuleBuild: true` whose cache row for the
+ * active env is absent OR past its `expiresAt`. Returns unique
+ * workflow targets so two LVs pointing at the same workflow drive
+ * one refresh, not two.
+ */
+function collectSyncWarmTargets(activeEnv: string | null, now: number): SyncWarmTarget[] {
+  const lvs = getLiveVariables().filter((v) => v.enabled && v.requireFreshOnRuleBuild === true);
+  if (lvs.length === 0) return [];
+
+  const runByWorkflow = new Map<string, WorkflowRunCache>();
+  for (const run of cachedLiveRuns) {
+    if (run.environmentId === activeEnv) runByWorkflow.set(run.workflowUid, run);
+  }
+
+  const targets = new Map<string, SyncWarmTarget>();
+  for (const lv of lvs) {
+    if (lv.manualOverride) {
+      const expired = lv.manualOverride.until != null && lv.manualOverride.until <= now;
+      if (!expired) continue; // override serves a fixed value — no warm needed
+    }
+    const run = runByWorkflow.get(lv.workflowUid);
+    const stale = !run || (run.expiresAt != null && run.expiresAt <= now) || run.extractedAt === 0;
+    if (!stale) continue;
+    targets.set(lv.workflowUid, { workflowUid: lv.workflowUid, environmentId: activeEnv });
+  }
+  return [...targets.values()];
+}
+
+/**
+ * Block up to `SYNC_WARM_TIMEOUT_MS` while every `requireFreshOnRuleBuild`
+ * LV's backing workflow refreshes. After the timeout the resolver
+ * proceeds with whatever's in the cache — the `stale` flag on the
+ * registry entry still signals to Status / observability that the
+ * value is behind.
+ *
+ * No-op (returns immediately) when no LV is sync-warm opted in — the
+ * common case. The rule engine's `rebuildAll` awaits this
+ * unconditionally because the common-case cost is a single-digit-ms
+ * store read + map walk.
+ */
+export async function kickSyncWarmRefreshes(): Promise<void> {
+  if (!syncWarmRunner) return; // scheduler not attached — SW boot order or test environment
+  const targets = collectSyncWarmTargets(getActiveEnvironmentId(), Date.now());
+  if (targets.length === 0) return;
+
+  const runner = syncWarmRunner;
+  const workspaceId = getActiveWorkspaceId();
+  const deadline = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), SYNC_WARM_TIMEOUT_MS));
+
+  const refreshes = targets.map(async (t) => {
+    try {
+      await runner(workspaceId, t.workflowUid, t.environmentId);
+    } catch (err) {
+      // Adapter swallows cache-write errors via `recordRefreshError`;
+      // anything that bubbles here is unexpected. Log but don't
+      // throw — the rebuild path must make forward progress.
+      logger.info('VariablesResolver', `sync-warm refresh for ${t.workflowUid} threw: ${(err as Error).message}`);
+    }
+  });
+
+  const outcome = await Promise.race([Promise.all(refreshes).then(() => 'done' as const), deadline]);
+  if (outcome === 'timeout') {
+    recordLog({
+      subsystem: 'live',
+      op: 'sync-warm-timeout',
+      level: 'warn',
+      message: `Sync-warm refresh exceeded ${SYNC_WARM_TIMEOUT_MS}ms; serving stale for ${targets.length} workflow(s)`,
+      context: { workspaceId },
+    });
+  }
 }
 
 /**
@@ -356,6 +514,7 @@ export function __resetForTests(): void {
   lastResolvedRules = [];
   lastResolutionErrors = new Map();
   cachedLiveRuns = [];
+  syncWarmRunner = null;
   resolver.setVault({ schemaVersion: 5, version: 1, secrets: [] });
   resolver.setEnvironments([]);
   resolver.setActiveEnvironmentId(null);

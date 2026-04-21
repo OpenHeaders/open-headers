@@ -191,9 +191,10 @@ export const LiveWorkflowSchema = v.object({
 
 /**
  * Manual-override fixed value — while active, the resolver serves
- * `value` for `{{live.<name>}}` and the scheduler pauses refresh. If
- * `until` is set, the override expires at that wall-clock ms; absent
- * means indefinite.
+ * `value` for `{{live.<name>}}`. The scheduler keeps refreshing the
+ * backing workflow regardless, so toggling the override off exposes a
+ * fresh cached value with no warm-up gap. If `until` is set, the
+ * override expires at that wall-clock ms; absent means indefinite.
  */
 export const LiveVariableOverrideSchema = v.object({
   value: v.string(),

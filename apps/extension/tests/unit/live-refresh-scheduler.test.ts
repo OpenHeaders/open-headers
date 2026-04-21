@@ -36,6 +36,7 @@ vi.mock('@/background/modules/observability-log', () => ({
 let storeState: {
   workflows: V5.LiveWorkflow[];
   variables: V5.LiveVariable[];
+  requests: Map<string, V5.Request>;
   caches: Array<{
     workflowUid: string;
     environmentId: string | null;
@@ -53,6 +54,7 @@ let storeState: {
 } = {
   workflows: [],
   variables: [],
+  requests: new Map(),
   caches: [],
   listeners: { workflow: new Set(), variable: new Set(), cache: new Set() },
 };
@@ -66,12 +68,22 @@ vi.mock('@/background/modules/live-workflow-store', () => ({
 }));
 
 vi.mock('@/background/modules/live-variable-store', () => ({
+  getLiveVariables: () => storeState.variables.slice(),
   getLiveVariablesForWorkflow: (workflowUid: string) =>
     storeState.variables.filter((v) => v.workflowUid === workflowUid),
   onLiveVariableStoreChange: (fn: () => void) => {
     storeState.listeners.variable.add(fn);
     return () => storeState.listeners.variable.delete(fn);
   },
+}));
+
+// Stub request-store — the dependency graph builder walks each step's
+// persisted request for `{{live.X}}` refs. Tests that don't assert on
+// the graph can leave the lookup returning `null` (no edges formed;
+// reconcile degrades to a flat list). Cases that need specific refs
+// seed `storeState.requests` explicitly.
+vi.mock('@/background/modules/request-store', () => ({
+  getRequest: (uid: string) => storeState.requests.get(uid) ?? null,
 }));
 
 vi.mock('@/background/modules/live-cache-store', () => ({
@@ -144,6 +156,7 @@ beforeEach(async () => {
   storeState = {
     workflows: [],
     variables: [],
+    requests: new Map(),
     caches: [],
     listeners: { workflow: new Set(), variable: new Set(), cache: new Set() },
   };

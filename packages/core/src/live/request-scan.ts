@@ -1,0 +1,81 @@
+/**
+ * Pure collector for every templatable string in a V5.Request.
+ *
+ * The executor walks these exact fields during variable resolution;
+ * downstream callers (Live Workflow dependency graph, step-reference
+ * validator) need the same set to answer "which variables does THIS
+ * request reference?" without duplicating the walker.
+ *
+ * Keep in lock-step with `request-executor.resolveRequest`. Every
+ * string the executor feeds through `resolveTemplate` is a candidate
+ * for `{{VAR}}` resolution and must be visible here; anything this
+ * collector misses means the dependency graph (Phase C reconcile) +
+ * the step-reference validator (Phase A) silently under-report refs.
+ */
+
+import type { Request } from '../types/v5';
+
+/**
+ * Flat, order-preserving list of every templatable string in `request`.
+ * Disabled headers / params are skipped to match the executor — they
+ * never hit the wire, so their templates never resolve and shouldn't
+ * contribute to the dependency graph either.
+ */
+export function collectRequestTemplateStrings(request: Request): string[] {
+  const out: string[] = [];
+
+  // ── URL ──
+  if (request.url) out.push(request.url);
+
+  // ── Query params (key + value) ──
+  for (const p of request.params) {
+    if (p.enabled === false) continue;
+    if (p.key) out.push(p.key);
+    if (p.value) out.push(p.value);
+  }
+
+  // ── Headers (key + value) ──
+  for (const h of request.headers) {
+    if (h.enabled === false) continue;
+    if (h.key) out.push(h.key);
+    if (h.value) out.push(h.value);
+  }
+
+  // ── Auth ──
+  switch (request.auth.type) {
+    case 'none':
+    case 'inherit':
+      break;
+    case 'basic':
+      if (request.auth.username) out.push(request.auth.username);
+      if (request.auth.password) out.push(request.auth.password);
+      break;
+    case 'bearer':
+      if (request.auth.token) out.push(request.auth.token);
+      break;
+    case 'api-key':
+      if (request.auth.key) out.push(request.auth.key);
+      if (request.auth.value) out.push(request.auth.value);
+      break;
+    case 'oauth2':
+      // OAuth2 config fields are not user-templated — the credential
+      // ref is an opaque handle; the tokens are fetched, not templated.
+      break;
+  }
+
+  // ── Body ──
+  const body = request.body;
+  if (body) {
+    if (body.type === 'multipart') {
+      for (const part of body.multipartParts ?? []) {
+        if (part.enabled === false) continue;
+        if (part.name) out.push(part.name);
+        if (part.kind === 'text' && part.value) out.push(part.value);
+      }
+    } else if (body.type !== 'none' && body.content) {
+      out.push(body.content);
+    }
+  }
+
+  return out;
+}

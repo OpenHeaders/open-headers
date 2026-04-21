@@ -52,6 +52,7 @@ import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { putWorkflowRunCache, recordRefreshError } from './live-cache-store';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
+import { withRefreshRateLimit } from './refresh-scheduler';
 import { type ExecutedRequestSnapshot, executeForLiveChain } from './request-executor';
 import { getRequest } from './request-store';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -79,12 +80,21 @@ function buildFetchAdapter(workflowUid: string, environmentId: string | null): F
         throw new Error(`Step request ${step.requestUid} not found`);
       }
 
-      const snapshot = await executeForLiveChain(request, {
-        environmentId,
-        workflowUid,
-        stepId: step.id,
-        stepCaptures,
-      });
+      // Per-origin rate limit on the step's resolved URL. The request
+      // executor resolves `{{VAR}}` inside the URL string, so for
+      // rate-limiting purposes we key on the pre-resolution URL — it's
+      // good enough as a bucket key (same template → same bucket) and
+      // avoids paying a resolution round-trip just to pick a slot.
+      // Origins that can't be parsed fall through to direct execution
+      // via `withRefreshRateLimit`'s safeOrigin.
+      const snapshot = await withRefreshRateLimit(request.url, () =>
+        executeForLiveChain(request, {
+          environmentId,
+          workflowUid,
+          stepId: step.id,
+          stepCaptures,
+        }),
+      );
 
       if (snapshot.error != null) {
         // Network / DNS / abort — throw so `runChain` classifies this

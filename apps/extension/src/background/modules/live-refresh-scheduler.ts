@@ -40,9 +40,11 @@
 
 import {
   type CacheSummary,
+  collectRequestTemplateStrings,
   computeNextFireAt as computeNextFireAtCore,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
+  scanTemplateReferencesMany,
 } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
@@ -56,10 +58,11 @@ import {
   recordRefreshError,
   type WorkflowRunCache,
 } from './live-cache-store';
-import { getLiveVariablesForWorkflow, onLiveVariableStoreChange } from './live-variable-store';
+import { getLiveVariables, getLiveVariablesForWorkflow, onLiveVariableStoreChange } from './live-variable-store';
 import { getLiveWorkflows, onLiveWorkflowStoreChange } from './live-workflow-store';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
+import { getRequest } from './request-store';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -261,6 +264,72 @@ async function readInactiveWorkspace(workspaceId: string): Promise<{
   };
 }
 
+// ── Dependency graph ─────────────────────────────────────────────
+//
+// Workflow A depends on Workflow B when A's step requests reference a
+// `{{live.X}}` whose LV binds to B. The shared `RefreshScheduler`
+// reconcile uses this graph to depth-sort alarms so downstream
+// refreshes fire AFTER upstream on the same wake wave, and to spread
+// the cohort across the per-host rate limiter's budget.
+//
+// Inactive-workspace entries don't participate — their step requests
+// live in inactive stores the `request-store.getRequest` accessor
+// can't reach synchronously. Missing lookups degrade to "no deps for
+// this entry," which is equivalent to scheduling in definition order
+// (the plan's documented fallback when a graph can't be resolved).
+
+function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  if (entries.length === 0) return out;
+
+  // Build an LV-name → workflow-uid index ONCE per reconcile. Only
+  // enabled LVs produce values that would trigger a rebuild of the
+  // consuming rule set, so a disabled binding doesn't warrant a dep
+  // edge. Active-workspace LVs come from the in-memory store; inactive
+  // workspaces are ignored for the same reason as above (scheduler
+  // executes only the active workspace's chains).
+  const lvNameToWorkflow = new Map<string, string>();
+  for (const lv of getLiveVariables()) {
+    if (lv.enabled) lvNameToWorkflow.set(lv.name, lv.workflowUid);
+  }
+  if (lvNameToWorkflow.size === 0) return out;
+
+  const entryAlarmByWorkflowKey = new Map<string, string>();
+  for (const entry of entries) {
+    const alarm = codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId });
+    // Key by (workspace, workflow) — same workflow in different envs
+    // gets distinct alarms but shares the dependency edges (the step
+    // requests are identical; the cache is what varies).
+    entryAlarmByWorkflowKey.set(`${entry.workspaceId}:${entry.workflow.uid}`, alarm);
+  }
+
+  for (const entry of entries) {
+    const parents: string[] = [];
+    const seen = new Set<string>();
+    for (const step of entry.workflow.steps) {
+      const request = getRequest(step.requestUid);
+      if (!request) continue;
+      const templates = collectRequestTemplateStrings(request);
+      if (templates.length === 0) continue;
+      const { live } = scanTemplateReferencesMany(templates);
+      for (const name of live) {
+        const producerUid = lvNameToWorkflow.get(name);
+        if (!producerUid || producerUid === entry.workflow.uid) continue; // self-ref doesn't form an edge
+        const parentAlarm = entryAlarmByWorkflowKey.get(`${entry.workspaceId}:${producerUid}`);
+        if (parentAlarm && !seen.has(parentAlarm)) {
+          seen.add(parentAlarm);
+          parents.push(parentAlarm);
+        }
+      }
+    }
+    if (parents.length === 0) continue;
+    const selfAlarm = codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId });
+    out.set(selfAlarm, parents);
+  }
+
+  return out;
+}
+
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache> = {
@@ -300,6 +369,7 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache> =
   },
   computeNextFireAt: (entry, nowMs) => computeNextFireAtCore(entry.workflow, toCacheSummary(entry.cache), nowMs),
   canSchedule: (entry) => canScheduleWorkflow(entry.workflow, entry.boundVariables),
+  computeDependencies: (entries) => computeWorkflowDependencies(entries),
   async refresh(entry, payload) {
     if (!refreshAdapter) {
       // Phase C shipped before Phase D. Record a scheduler-not-ready
@@ -454,6 +524,32 @@ export async function reconcileLiveSchedules(nowMs: number = Date.now()): Promis
  */
 export async function handleLiveAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   return scheduler.handleAlarm(alarm);
+}
+
+/**
+ * Synchronously refresh a workflow for the DNR compile path's
+ * sync-warm contract. Drives the same adapter call the alarm path
+ * uses (same cache-write discipline + observability), but exposes a
+ * return-when-done Promise so callers can race it against a timeout.
+ *
+ * Used by `computeRuleLiveBypass`'s sibling, `kickSyncWarmRefreshes`,
+ * in the rule-engine pre-compile step — rules with
+ * `requireFreshOnRuleBuild` on their live dependencies get the
+ * latest cached values before DNR rewrites fire.
+ *
+ * Errors bubble (caller decides whether to swallow). The cache is
+ * written regardless — success writes the new captures; failure
+ * preserves the last-good row and increments the failure counter.
+ */
+export async function refreshLiveWorkflowSynchronously(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+): Promise<void> {
+  return scheduler.handleAlarm({
+    name: buildAlarmName(workspaceId, workflowUid, environmentId),
+    scheduledTime: Date.now(),
+  } as chrome.alarms.Alarm);
 }
 
 // ── Status reporting ─────────────────────────────────────────────

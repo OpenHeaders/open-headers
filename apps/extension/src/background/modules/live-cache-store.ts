@@ -36,7 +36,6 @@
  * decide when to fire.
  */
 
-import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, OH, wsKeys } from '@/shared/storage';
@@ -285,7 +284,6 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
     await writeBlob(wsId, next);
   });
   notifyChange(wsId, input.workflowUid);
-  // biome-ignore lint/style/noNonNullAssertion: assigned inside withCacheLock above.
   return latest!;
 }
 
