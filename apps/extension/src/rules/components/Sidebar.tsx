@@ -345,8 +345,9 @@ interface SidebarProps {
   onOpenWorkspaceVariables?: () => void;
   /** Open the vault editor. */
   onOpenVault?: () => void;
-  /** Open a Live Variable editor tab. */
-  onSelectLiveVariable?: (uid: string, name: string) => void;
+  /** Open the live-variables overview editor (single-row opener in
+   *  the Variables view's LIVE section). */
+  onOpenLiveVariables?: () => void;
   /** Open a Live Workflow editor tab. */
   onSelectLiveWorkflow?: (uid: string, name: string) => void;
   /** Open an unsaved Live Variable draft tab. */
@@ -406,7 +407,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectEnvironment,
   onOpenWorkspaceVariables,
   onOpenVault,
-  onSelectLiveVariable,
+  onOpenLiveVariables,
   onSelectLiveWorkflow,
   onCreateLiveVariable,
   onSelectRequest,
@@ -479,11 +480,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     setActiveEnvironment,
     setDefaultEnvironment,
   } = useEnvironments();
-  const {
-    variables: liveVariables,
-    deleteVariable: deleteLiveVariable,
-    updateVariable: updateLiveVariable,
-  } = useLiveVariables();
+  const { variables: liveVariables } = useLiveVariables();
   const { workflows: liveWorkflows, refreshNow: refreshLiveWorkflow } = useLiveWorkflows();
   const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
   const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
@@ -1716,6 +1713,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     [onOpenWorkspaceVariables],
   );
 
+  // Single-row opener for the live-vars overview editor — parallels
+  // `vaultNode` and `workspaceVarsNode`. Clicking opens the table
+  // editor where every binding is one row; this sidebar row itself
+  // does NOT list individual bindings. Keeps the Variables view's
+  // visual rhythm uniform across the four scope categories.
+  const liveVarsNode = useMemo(
+    (): TreeNode => ({
+      id: 'live-vars-row',
+      kind: 'leaf',
+      label: 'Live Variables',
+      depth: 0,
+      expandable: false,
+      icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'),
+      canRename: false,
+      canDelete: false,
+      canAddChild: false,
+      onOpen: () => onOpenLiveVariables?.(),
+    }),
+    [onOpenLiveVariables],
+  );
+
   // ── Environment nodes ─────────────────────────────────────────
 
   const environmentNodes = useMemo((): TreeNode[] => {
@@ -1806,163 +1824,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       message.error('Failed to create environment');
     }
   }, [createEnvironment, onSelectEnvironment, message]);
-
-  // ── Live variables (Variables view) ───────────────────────────
-  //
-  // Each live variable renders as a leaf in the Variables view's LIVE
-  // section. The row's "value" visually references its Source (the
-  // backing workflow) as a tag — users see the name-to-source binding
-  // at a glance. Default click opens the Source editor (that's the
-  // thing users usually want to tweak: chain, extraction, schedule);
-  // the live-variable binding itself (name, enabled flag, manual
-  // override) is edited via the "Edit binding" context-menu action.
-  // Status dot is derived from the backing workflow's cached run.
-  const liveVariableNodes = useMemo((): TreeNode[] => {
-    const items: TreeNode[] = [];
-    for (const lv of liveVariables) {
-      if (lowerFilter && !lv.name.toLowerCase().includes(lowerFilter)) continue;
-      const workflow = liveWorkflows.find((w) => w.uid === lv.workflowUid) ?? null;
-      const runs = liveCaches[lv.workflowUid] ?? [];
-      const run =
-        runs.find((r) => r.environmentId === activeEnvironmentId) ??
-        runs.find((r) => r.environmentId === null) ??
-        runs[0] ??
-        null;
-      let level: 'green' | 'yellow' | 'red' | 'idle' = 'idle';
-      if (run) {
-        if (run.consecutiveFailures >= 5) level = 'red';
-        else if (run.consecutiveFailures >= 1 || !run.lastExtractorOk) level = 'yellow';
-        else level = 'green';
-      }
-      const dotColor =
-        level === 'green'
-          ? 'var(--ant-color-success, #52c41a)'
-          : level === 'yellow'
-            ? 'var(--ant-color-warning, #faad14)'
-            : level === 'red'
-              ? 'var(--ant-color-error, #ff4d4f)'
-              : 'var(--ant-color-text-tertiary, #999)';
-      const id = `live-var-${lv.uid}`;
-      // Compose a "state badge" (off / override) with a "source
-      // reference badge" (the workflow name) so the row always says
-      // WHERE the value comes from. The source ref is the dominant
-      // signal per the new UX model; state flags are secondary.
-      const stateBadge: React.ReactNode = !lv.enabled
-        ? createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-text-tertiary, #999)' } }, 'off')
-        : lv.manualOverride
-          ? createElement('span', { style: { fontSize: 9, color: 'var(--ant-color-warning, #faad14)' } }, 'override')
-          : null;
-      const sourceBadge: React.ReactNode = workflow
-        ? createElement(
-            'span',
-            {
-              style: {
-                fontSize: 9,
-                color: '#9b59b6',
-                maxWidth: 110,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              },
-              title: `Source: ${workflow.name}`,
-            },
-            `→ ${workflow.name}`,
-          )
-        : null;
-      const badge =
-        stateBadge || sourceBadge
-          ? createElement(
-              'span',
-              { style: { marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' } },
-              stateBadge,
-              sourceBadge,
-            )
-          : undefined;
-      items.push({
-        id,
-        kind: 'leaf',
-        label: lv.name,
-        depth: 0,
-        expandable: false,
-        icon: createElement('span', {
-          style: {
-            display: 'inline-block',
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: dotColor,
-            marginRight: 2,
-          },
-        }),
-        badge,
-        canRename: true,
-        canDelete: true,
-        canAddChild: false,
-        // Default click → the Source (workflow). That's what the user
-        // usually wants. The binding editor is one context-menu item
-        // away.
-        onOpen: () => {
-          if (workflow) onSelectLiveWorkflow?.(workflow.uid, workflow.name);
-          else onSelectLiveVariable?.(lv.uid, lv.name);
-        },
-        onRename: async (name: string) => {
-          await updateLiveVariable(lv.uid, { name });
-        },
-        onDelete: () =>
-          confirmDelete(lv.name, () => {
-            void deleteLiveVariable(lv.uid);
-          }),
-        addMenuItems: [
-          ...(workflow
-            ? [
-                {
-                  key: 'open-source',
-                  icon: createElement(PlayCircleOutlined),
-                  label: 'Open source',
-                  onClick: () => onSelectLiveWorkflow?.(workflow.uid, workflow.name),
-                },
-              ]
-            : []),
-          {
-            key: 'edit-binding',
-            icon: createElement(EditOutlined),
-            label: 'Edit binding',
-            onClick: () => onSelectLiveVariable?.(lv.uid, lv.name),
-          },
-          {
-            key: 'refresh',
-            icon: createElement(ReloadOutlined),
-            label: 'Refresh now',
-            onClick: () => void refreshLiveWorkflow(lv.workflowUid, activeEnvironmentId),
-          },
-          { type: 'divider' as const, key: 'div' },
-          {
-            key: 'delete',
-            icon: createElement(DeleteOutlined),
-            label: 'Delete',
-            danger: true,
-            onClick: () =>
-              confirmDelete(lv.name, () => {
-                void deleteLiveVariable(lv.uid);
-              }),
-          },
-        ],
-      });
-    }
-    return items;
-  }, [
-    liveVariables,
-    liveWorkflows,
-    liveCaches,
-    activeEnvironmentId,
-    lowerFilter,
-    confirmDelete,
-    deleteLiveVariable,
-    updateLiveVariable,
-    refreshLiveWorkflow,
-    onSelectLiveVariable,
-    onSelectLiveWorkflow,
-  ]);
 
   // ── Sources (Sources view) ───────────────────────────────────
   //
@@ -2075,7 +1936,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else {
       if (sectionsExpanded.vault) items.push(vaultNode);
       if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
-      if (sectionsExpanded['live-variables']) items.push(...liveVariableNodes);
+      if (sectionsExpanded['live-variables']) items.push(liveVarsNode);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     }
     return items;
@@ -2086,7 +1947,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     systemTemplateNodes,
     templateNodes,
     environmentNodes,
-    liveVariableNodes,
+    liveVarsNode,
     sourceNodes,
     requestNodes,
     vaultNode,
@@ -2219,6 +2080,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         containerRef.current
           ?.querySelector(`[data-item-id="workspace-vars-row"]`)
           ?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
+    } else if (activeTabId === 'live-vars' && view === 'variables') {
+      setSectionsExpanded((prev) => ({ ...prev, 'live-variables': true }));
+      setFocusedId('live-vars-row');
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="live-vars-row"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
     }
@@ -2748,33 +2616,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
 
             <SectionHeader
-              title="LIVE"
+              title="LIVE VARIABLES"
               expanded={sectionsExpanded['live-variables']}
               onToggle={() => toggleSection('live-variables')}
-              actions={
-                <Tooltip title="New live variable" placement="bottom">
-                  <PlusOutlined
-                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSectionsExpanded((prev) => ({ ...prev, 'live-variables': true }));
-                      onCreateLiveVariable?.();
-                    }}
-                  />
-                </Tooltip>
-              }
             />
             {sectionsExpanded['live-variables'] && (
-              <div style={{ overflowY: 'auto' }}>
-                {liveVariableNodes.length > 0 ? (
-                  renderNodes(liveVariableNodes, () => onCreateLiveVariable?.())
-                ) : (
-                  <div style={{ padding: '8px 16px', fontSize: 11, color: token.colorTextTertiary }}>
-                    <ThunderboltOutlined style={{ marginRight: 4 }} />
-                    No live variables yet — each row binds a name to a capture from a Source.
-                  </div>
-                )}
-              </div>
+              <div style={{ overflowY: 'auto' }}>{renderNodes([liveVarsNode])}</div>
             )}
           </>
         )}

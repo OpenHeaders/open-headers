@@ -39,6 +39,7 @@ import ImportCurlModal from './components/ImportCurlModal';
 import ImportHarModal from './components/ImportHarModal';
 import ImportPostmanModal from './components/ImportPostmanModal';
 import LandingScreen from './components/LandingScreen';
+import LiveVariablesEditor from './components/LiveVariablesEditor';
 import LiveVariableEditor from './components/live/LiveVariableEditor';
 import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
 import DocsPanel from './components/panels/DocsPanel';
@@ -375,6 +376,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openLiveVariables,
     openCollectionVariables,
     openRequestEditTab,
     openCreateRequestTab,
@@ -836,6 +838,15 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
           />
         );
       }
+      if (tab.mode === 'live-vars') {
+        return (
+          <LiveVariablesEditor
+            onOpenSource={openLiveWorkflowEdit}
+            onEditBinding={openLiveVariableEdit}
+            onCreateLiveVariable={() => openCreateLiveVariable()}
+          />
+        );
+      }
       if (tab.mode === 'collection-vars' && tab.collectionUid) {
         return (
           <CollectionVariablesEditor
@@ -941,6 +952,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       openCollectionVariables,
       requestSaveFlow.handleSaveDraft,
       openLiveWorkflowEdit,
+      openLiveVariableEdit,
       openCreateLiveVariable,
       replaceTab,
     ],
@@ -1032,7 +1044,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
               onSelectEnvironment={openEnvironmentEdit}
               onOpenWorkspaceVariables={openWorkspaceVariables}
               onOpenVault={openVault}
-              onSelectLiveVariable={openLiveVariableEdit}
+              onOpenLiveVariables={openLiveVariables}
               onSelectLiveWorkflow={openLiveWorkflowEdit}
               onCreateLiveVariable={openCreateLiveVariable}
               onSelectRequest={openRequestEditTab}
@@ -1092,9 +1104,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       openEnvironmentEdit,
       openVault,
       openWorkspaceVariables,
+      openLiveVariables,
       openRequestEditTab,
       openCreateRequestTab,
-      openLiveVariableEdit,
       openLiveWorkflowEdit,
       openCreateLiveVariable,
       dirtyRuleUids,

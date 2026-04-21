@@ -67,6 +67,7 @@ export interface UseTabOpenersApi {
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
+  openLiveVariables: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   /**
@@ -431,6 +432,21 @@ export function useTabOpeners({
     });
   }, [allTabs, addTab, switchTab]);
 
+  const openLiveVariables = useCallback(() => {
+    const id = 'live-vars';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: 'Live Variables',
+      ruleType: '',
+      dirty: false,
+      mode: 'live-vars',
+    });
+  }, [allTabs, addTab, switchTab]);
+
   const openCollectionVariables = useCallback(
     (uid: string, name: string) => {
       const id = `coll-vars-${uid}`;
@@ -582,6 +598,7 @@ export function useTabOpeners({
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openLiveVariables,
     openCollectionVariables,
     openRequestEditTab,
     openCreateRequestTab,

@@ -18,6 +18,7 @@ export type TabMode =
   | 'env-edit'
   | 'workspace-vars'
   | 'vault'
+  | 'live-vars'
   | 'collection-vars'
   | 'request-edit'
   | 'request-create'
