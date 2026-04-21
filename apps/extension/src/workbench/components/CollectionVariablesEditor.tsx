@@ -3,7 +3,7 @@
  * scoped variables.
  *
  * Collection variables sit between workspace and environment scope in
- * priority; they apply only to workbench inside the collection's subtree.
+ * priority; they apply only to rules inside the collection's subtree.
  * Secrets are NOT supported here — collection vars are synced via Git
  * in team workspaces (v2), and secrets must stay local-per-device.
  * The Vault is the only safe home for sensitive values.

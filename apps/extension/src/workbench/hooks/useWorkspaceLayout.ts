@@ -1,5 +1,5 @@
 /**
- * useWorkspaceLayout — authoritative state machine for the workbench page shell.
+ * useWorkspaceLayout — authoritative state machine for the rules page shell.
  *
  * Replaces the old `PanelVisibility` booleans with a richer model that
  * separates "which icon is active on which activity bar" from "which pane

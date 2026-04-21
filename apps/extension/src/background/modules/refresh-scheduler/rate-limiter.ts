@@ -1,7 +1,7 @@
 /**
  * Per-host token bucket shared across every refresh-subsystem fetch.
  *
- * Why: ARCHITECTURE §20's "workbench engine — live traffic modification
+ * Why: ARCHITECTURE §20's "rules engine — live traffic modification
  * with auto-refresh" + the Live Variables plan §C both call out "token
  * bucket keyed by URL origin across ALL step fetches" so 20 workflows
  * against the same upstream serialize instead of racing to 429-land.

@@ -17,7 +17,7 @@ import type { TrackedResourceType } from './browser';
  *                          ran. Ground truth for scriptable rule types.
  *   - `matched`          — webRequest observed a URL that satisfied the
  *                          rule's conditions. Best evidence for pure-DNR
- *                          workbench (Chrome does not tell extensions which
+ *                          rules (Chrome does not tell extensions which
  *                          rule wins in arbitration).
  *   - `matched-fallback` — observed fire for a deferred rule type
  *                          (could have emitted scriptable) that didn't
@@ -78,6 +78,6 @@ export interface TabTelemetrySnapshot {
   fires: RequestRecord[];
   /** Per-rule unique-URL records, LRU order. */
   byRule: Record<string, RequestRecord[]>;
-  /** Unique normalized URLs across all workbench. */
+  /** Unique normalized URLs across all rules. */
   uniqueRequestCount: number;
 }

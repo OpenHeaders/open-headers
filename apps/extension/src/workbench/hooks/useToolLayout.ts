@@ -18,7 +18,7 @@ export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
 
 /**
  * Fresh-profile seed. Three panels are visible on first open:
- *   - `http-workbench` in `left-top` (workbench list + templates + environments).
+ *   - `http-workbench` in `left-top` (rules list + templates + environments).
  *   - `api-requests` in `left-bottom` with `variables` as the sibling tab
  *     — the activity bar's bottom group exposes both; requests is 1st.
  *   - `var-scope` in `right-bottom` — the right-side Variables inspector

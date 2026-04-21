@@ -24,7 +24,7 @@
  *
  * Rule ID range: `CACHE_BYPASS_ID_BASE + tabId`. Well above the
  * session-rule space used by test runs (1_000_000+) so `rebuildAll`
- * can preserve these workbench across updates — see the carve-out in
+ * can preserve these rules across updates — see the carve-out in
  * `applySessionRules` in `dnr-manager.ts`.
  */
 
@@ -114,11 +114,11 @@ export async function disableCacheBypassForTab(tabId: number): Promise<void> {
 }
 
 /**
- * Tab-close cleanup. Session workbench are NOT tied to tab lifetime — a
+ * Tab-close cleanup. Session rules are NOT tied to tab lifetime — a
  * rule with `tabIds: [closed-tab-id]` simply becomes inert and
  * lingers in the session rule store until the browser closes. Over
  * a long browser session with many tab open/close cycles that's a
- * small DNR leak (capped at 5000 session workbench). Remove the rule
+ * small DNR leak (capped at 5000 session rules). Remove the rule
  * explicitly so the session store stays tidy.
  */
 export async function forgetCacheBypassForTab(tabId: number): Promise<void> {

@@ -276,7 +276,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
 
   // Resolvability gate for the Send button — mirrors the DNR compile
-  // gate for workbench. The executor ALSO enforces this (returns an error
+  // gate for rules. The executor ALSO enforces this (returns an error
   // snapshot when a resolve fails), but disabling the Send button up
   // front is better UX: the user sees exactly which refs are broken
   // (inline red-dashed mirror + Variables panel) and fixes them

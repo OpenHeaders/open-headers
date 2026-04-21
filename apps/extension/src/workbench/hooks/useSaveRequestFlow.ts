@@ -1,7 +1,7 @@
 /**
  * useSaveRequestFlow — save-draft state machine for request drafts.
  *
- * Mirrors `useSaveToCollectionFlow` (workbench). Every request-create tab
+ * Mirrors `useSaveToCollectionFlow` (rules). Every request-create tab
  * opens as an unsaved draft; on Save the editor hands its form values
  * here, which either persists directly to a preferred destination or
  * opens `SaveToCollectionModal` for the user to pick one. Either way

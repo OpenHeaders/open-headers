@@ -19,7 +19,7 @@ interface UseSourceNodesParams {
 }
 
 /**
- * Each Source is a `LiveWorkflow` — the chain + extraction workbench +
+ * Each Source is a `LiveWorkflow` — the chain + extraction rules +
  * refresh schedule that produces values. Rows get a status dot
  * derived from the run record + a count of bindings this source feeds.
  */

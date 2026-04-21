@@ -17,7 +17,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     schemaVersion: 5,
     version: 1,
     uid: 'r1a2',
-    path: 'workbench/auth/bearer-r1a2',
+    path: 'rules/auth/bearer-r1a2',
     name: 'Bearer Token',
     type: 'header',
     enabled: true,
@@ -78,7 +78,7 @@ describe('normalizeHeaderName', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateRulesHash', () => {
-  it('returns consistent hash for same workbench', () => {
+  it('returns consistent hash for same rules', () => {
     const rules = [makeHeaderRule(), makeHeaderRule({ uid: 'r3b4' })];
     const hash1 = generateRulesHash(rules);
     const hash2 = generateRulesHash(rules);
@@ -104,7 +104,7 @@ describe('generateRulesHash', () => {
         schemaVersion: 5,
         version: 1,
         uid: 'x1y2',
-        path: 'workbench/test',
+        path: 'rules/test',
         name: 'Block Rule',
         type: 'block',
         enabled: true,

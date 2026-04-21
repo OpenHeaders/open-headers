@@ -28,9 +28,9 @@ export interface DnrCondition {
   excludedRequestHeaders?: Array<{ header: string; values?: string[] }>;
   responseHeaders?: Array<{ header: string; values?: string[]; excludedValues?: string[] }>;
   excludedResponseHeaders?: Array<{ header: string; values?: string[] }>;
-  /** Restrict the rule to specific tabs. Used by the test-runner for session workbench. */
+  /** Restrict the rule to specific tabs. Used by the test-runner for session rules. */
   tabIds?: number[];
-  /** Exclude specific tabs. Used by the test-runner to hide dynamic workbench from test tabs. */
+  /** Exclude specific tabs. Used by the test-runner to hide dynamic rules from test tabs. */
   excludedTabIds?: number[];
 }
 
@@ -68,24 +68,24 @@ export interface DnrRedirect {
 
 // ── Compilation plan ─────────────────────────────────────────────
 //
-// Every rule compiles into a plan that tells us what DNR workbench to install
+// Every rule compiles into a plan that tells us what DNR rules to install
 // for it. The plan has two output lists:
 //
-//   - dynamicRules: installed via updateDynamicRules, most workbench
-//   - sessionRules: installed via updateSessionRules, for workbench that need
+//   - dynamicRules: installed via updateDynamicRules, most rules
+//   - sessionRules: installed via updateSessionRules, for rules that need
 //     per-tab scoping via tabIds/excludedTabIds (Chrome only supports
-//     those fields on session-scoped workbench)
+//     those fields on session-scoped rules)
 //
 // In-page script injections are NOT part of the plan. inject-manager
-// consumes V5 workbench from the rule store directly and handles its own
+// consumes V5 rules from the rule store directly and handles its own
 // per-navigation injection lifecycle — the two concerns have different
 // cadences (DNR: lives for the rule's lifetime; scriptable: runs per
 // page load) and stay cleanly decoupled.
 //
-// A single V5 rule can contribute workbench to both layers. Delay workbench emit
+// A single V5 rule can contribute rules to both layers. Delay rules emit
 // sessionRules (because they need excludedTabIds for loop-prevention
-// bypass). Inject workbench with bypassCSP emit dynamicRules (to strip CSP
-// headers). Header workbench with set/append/remove ops emit dynamicRules.
+// bypass). Inject rules with bypassCSP emit dynamicRules (to strip CSP
+// headers). Header rules with set/append/remove ops emit dynamicRules.
 // The same rule may ALSO run a scriptable injection — inject-manager
 // decides that from the rule itself, independently of this plan.
 //
@@ -102,7 +102,7 @@ export interface DnrRedirect {
 //      CSP-safe because it does NOT create an inline <script> tag.
 //   2. `inline-script` — a string of JavaScript wrapped in a <script> tag
 //      injected into the page's DOM. Subject to the page's CSP — used for
-//      workbench that embed arbitrary user JS (dynamic body/mock) which can't
+//      rules that embed arbitrary user JS (dynamic body/mock) which can't
 //      be embedded inside a closed TypeScript function.
 //
 // The func signature uses `never` as the parameter type because it's
@@ -128,9 +128,9 @@ export type Injection = FuncInjection | InlineScriptInjection;
  * to empty — compilers may return a partial object.
  */
 export interface CompilationPlan {
-  /** DNR workbench installed in the dynamic layer (most common). */
+  /** DNR rules installed in the dynamic layer (most common). */
   dynamicRules?: DnrRule[];
-  /** DNR workbench installed in the session layer (needed for per-tab scope). */
+  /** DNR rules installed in the session layer (needed for per-tab scope). */
   sessionRules?: DnrRule[];
 }
 

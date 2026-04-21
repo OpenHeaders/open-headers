@@ -14,7 +14,7 @@
  * capability check live: if the user authors an invalid combination
  * (e.g. `Append` on `X-Custom-Header`, which Chrome's DNR rejects), the
  * row shows an inline warning and the rule becomes a draft via
- * `isRuleComplete` so it can never leave stale DNR workbench behind.
+ * `isRuleComplete` so it can never leave stale DNR rules behind.
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';

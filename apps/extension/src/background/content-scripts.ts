@@ -1,5 +1,5 @@
 /**
- * Content script generators for workbench that can't use declarativeNetRequest.
+ * Content script generators for rules that can't use declarativeNetRequest.
  *
  * Two injection strategies coexist:
  *
@@ -10,9 +10,9 @@
  *      inline <script> tag, so it is not subject to the page's CSP. This is
  *      the CSP-safe path that works on strict-CSP sites like GitHub.
  *
- *   2. **Inline-script injection** (dynamic body/mock, inject workbench) — returns
+ *   2. **Inline-script injection** (dynamic body/mock, inject rules) — returns
  *      a string of JavaScript that inject-manager wraps in a page-side <script>
- *      tag. Needed because these workbench embed user-authored JS (modifyRequestBody,
+ *      tag. Needed because these rules embed user-authored JS (modifyRequestBody,
  *      modifyResponse, arbitrary inject code) which can't be embedded inside a
  *      closed TypeScript function. On strict-CSP sites the <script> tag is
  *      blocked — this is a pre-existing limitation, not a regression.

@@ -43,16 +43,16 @@ window.safariStorage = {
 window.safariWebRequest = {
     updateDynamicRules: async (options) => {
         try {
-            // If removing workbench, clear them first
+            // If removing rules, clear them first
             if (options.removeRuleIds && options.removeRuleIds.length) {
-                // In Safari we need to remove all workbench and re-add the ones we want to keep
+                // In Safari we need to remove all rules and re-add the ones we want to keep
                 // This is a simplification - a real implementation would be more complex
                 await browser.declarativeNetRequest.updateSessionRules({
                     removeRuleIds: options.removeRuleIds
                 });
             }
 
-            // If adding workbench, add them now
+            // If adding rules, add them now
             if (options.addRules && options.addRules.length) {
                 await browser.declarativeNetRequest.updateSessionRules({
                     addRules: options.addRules

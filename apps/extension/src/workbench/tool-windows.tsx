@@ -26,9 +26,9 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
 
 /**
  * Left-side management panels split across two slots:
- *   - `http-workbench` (core) lives in `left-top` — the workbench landing surface.
+ *   - `http-workbench` (core) lives in `left-top` — the rules landing surface.
  *   - `api-requests` + `variables` live in `left-bottom` so a first-open
- *     user sees workbench + requests stacked simultaneously without manually
+ *     user sees rules + requests stacked simultaneously without manually
  *     splitting the sidebar. `api-requests` is first in the tab order
  *     (reflected in the activity-bar icon ordering below).
  *

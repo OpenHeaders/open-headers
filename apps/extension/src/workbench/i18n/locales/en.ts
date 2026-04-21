@@ -15,7 +15,7 @@ export const en = {
   // Landing — Home
   'landing.home.welcomeTitle': 'Welcome to Open Headers',
   'landing.home.welcomeDescription':
-    'Manage request workbench, collections, and templates from this workspace. Your last session is not restored because Settings → General → Open To is set to Home.',
+    'Manage request rules, collections, and templates from this workspace. Your last session is not restored because Settings → General → Open To is set to Home.',
   'landing.home.stats.rules': 'Rules',
   'landing.home.stats.active': 'Active',
   'landing.home.stats.collections': 'Collections',
@@ -25,14 +25,14 @@ export const en = {
   'landing.home.newRedirectRule': 'New Redirect Rule',
   'landing.home.newBlockRule': 'New Block Rule',
   'landing.home.openSettings': 'Open Settings',
-  'landing.home.recentRules': 'Recent workbench',
-  'landing.home.noRules': 'No workbench yet',
+  'landing.home.recentRules': 'Recent rules',
+  'landing.home.noRules': 'No rules yet',
   'landing.home.collections': 'Collections',
   'landing.home.ruleCount_one': '{count} rule',
-  'landing.home.ruleCount_other': '{count} workbench',
+  'landing.home.ruleCount_other': '{count} rules',
 
   // Landing — Rules
-  'landing.rules.title': 'All workbench',
+  'landing.rules.title': 'All rules',
   'landing.rules.newRule': 'New Rule',
   'landing.rules.column.name': 'Name',
   'landing.rules.column.type': 'Type',

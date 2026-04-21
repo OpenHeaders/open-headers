@@ -7,7 +7,7 @@
  *
  * Workspace switch: workspace-store fires `workspaceChanged` which
  * triggers a fresh list fetch — requests are per-workspace, just like
- * workbench and templates.
+ * rules and templates.
  */
 
 import type { V5 } from '@openheaders/core/types';

@@ -2,7 +2,7 @@
  * Non-React settings bootstrap.
  *
  * The settings store is a plain module — it works in every extension
- * context (background service worker, workbench renderer, popup renderer).
+ * context (background service worker, rules renderer, popup renderer).
  * This file is the one entry point that imports the schema barrel and
  * kicks off store init, plus wires non-React consumers (the logger).
  *

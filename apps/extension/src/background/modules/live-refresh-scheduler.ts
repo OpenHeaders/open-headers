@@ -533,7 +533,7 @@ export async function handleLiveAlarm(alarm: chrome.alarms.Alarm): Promise<void>
  * return-when-done Promise so callers can race it against a timeout.
  *
  * Used by `computeRuleLiveBypass`'s sibling, `kickSyncWarmRefreshes`,
- * in the rule-engine pre-compile step — workbench with
+ * in the rule-engine pre-compile step — rules with
  * `requireFreshOnRuleBuild` on their live dependencies get the
  * latest cached values before DNR rewrites fire.
  *
@@ -556,7 +556,7 @@ export async function refreshLiveWorkflowSynchronously(
 //
 // Single aggregation pass across every cached run for every workspace
 // drives the `live` Status pill per the plan (§Observability → Status
-// pill color workbench):
+// pill color rules):
 //
 //   green  — no cached runs with failures + no stale-beyond-2×-cadence
 //            + lastExtractorOk on every run that has run at least once

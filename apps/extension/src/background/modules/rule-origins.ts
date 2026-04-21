@@ -90,7 +90,7 @@ export function extractRuleOrigins(rule: V5.Rule): RuleOriginSet {
 }
 
 /**
- * Batch form. Aggregates origins across a list of workbench. A single rule
+ * Batch form. Aggregates origins across a list of rules. A single rule
  * flagged `broad` makes the whole set broad; the caller should treat
  * that as "wipe the HTTP cache globally."
  */

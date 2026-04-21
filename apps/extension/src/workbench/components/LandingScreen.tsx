@@ -1,9 +1,9 @@
 /**
  * LandingScreen — one-tab body for the three `general.openTo` variants
- * that are not "last session". Renders home / workbench / collections.
+ * that are not "last session". Renders home / rules / collections.
  *
  * Every view uses the existing RuleContext as its data source so it
- * stays live when the user creates or deletes workbench in another tab.
+ * stays live when the user creates or deletes rules in another tab.
  */
 
 import {

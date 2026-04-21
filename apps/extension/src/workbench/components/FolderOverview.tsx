@@ -258,7 +258,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
             Add Rule
           </Button>
         </Dropdown>
-        <Tooltip title={isPaused ? 'Resume all workbench in this folder' : 'Pause all workbench in this folder'}>
+        <Tooltip title={isPaused ? 'Resume all rules in this folder' : 'Pause all rules in this folder'}>
           <Button
             size="small"
             icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}

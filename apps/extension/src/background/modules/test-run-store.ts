@@ -327,7 +327,7 @@ export async function pruneOrphanOwners(liveRuleIds: Set<string>, liveEntityIds:
       if (sep < 0) continue;
       const type = key.slice(0, sep) as TestRunOwnerType;
       const id = key.slice(sep + 1);
-      // Workspace bucket is the "all workbench" history for this workspace
+      // Workspace bucket is the "all rules" history for this workspace
       // and is keyed by the active workspace id at write time. Never
       // pruned from here — workspace deletion cascade drops the entire
       // `oh.ws.<id>.testRuns` key instead.

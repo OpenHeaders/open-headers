@@ -99,12 +99,12 @@ export interface TrackedResource {
  *                   sub-resource observation yet. Typical on first paint
  *                   before the page finishes loading.
  *   - `related`   — pattern's registrable domain matches the tab's. No
- *                   direct URL match, but sibling workbench on this domain
+ *                   direct URL match, but sibling rules on this domain
  *                   are useful context for debugging.
  *   - `idle`      — enabled + complete + no verdict signal at all.
  *                   Never returned from `getActiveRulesForTab` today
- *                   (workbench without any signal are omitted); reserved
- *                   for future UIs that show idle workbench explicitly.
+ *                   (rules without any signal are omitted); reserved
+ *                   for future UIs that show idle rules explicitly.
  *
  * Rank order (strongest signal first):
  *   firing > silent > page > related > idle

@@ -47,7 +47,7 @@ function copyAssetsPlugin() {
     { from: 'src/assets/images/companion-app.png', to: 'images/companion-app.png' },
     { from: 'src/assets/images/logo-pixel.svg', to: 'images/logo-pixel.svg' },
     // Fonts — the .woff2 is emitted by Vite through the CSS pipeline
-    // (see the relative url() in popup.less / workbench.less). Only the
+    // (see the relative url() in popup.less / rules.less). Only the
     // license file needs an explicit copy.
     { from: 'src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
     // Recording
@@ -200,7 +200,7 @@ function buildFireBridgePlugin() {
  * `<all_urls>` at document_start. Uses PerformanceObserver to report
  * subresource URLs — including memory-cache hits and bfcache restores
  * that webRequest can't see — to the background as `perfResourceEntries`
- * batch messages. Covers the observability gap that leaves workbench
+ * batch messages. Covers the observability gap that leaves rules
  * appearing "not firing" on cached reloads.
  */
 function buildPerfObserverPlugin() {
@@ -328,7 +328,7 @@ export default defineConfig({
         //
         // Exceptions:
         //   • Prettier (+ its plugins) is lazy-loaded on first Format
-        //     call via `workbench/languages/formatter.ts`; keep it out of
+        //     call via `rules/languages/formatter.ts`; keep it out of
         //     vendor so rollup can emit it as its own lazy chunk.
         //   • `monaco-editor` is huge (~5 MB parsed) and shared across
         //     CodeEditor / ScriptEditor / CodeViewer. Pinning it to a

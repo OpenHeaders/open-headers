@@ -31,7 +31,7 @@ export interface StorageDriftOptions {
    * concern (not user-surfaced).
    */
   statusSubsystem?: StatusSubsystem;
-  /** Fully-qualified storage key (e.g. `oh.ws.<id>.workbench`). */
+  /** Fully-qualified storage key (e.g. `oh.ws.<id>.rules`). */
   storageKey: string;
   /** Workspace id when the key is workspace-scoped. Optional for global keys. */
   workspaceId?: string;

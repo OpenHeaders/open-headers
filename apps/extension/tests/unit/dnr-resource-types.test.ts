@@ -115,7 +115,7 @@ describe('blockCompiler resource-type handling', () => {
     schemaVersion: 5,
     version: 1,
     uid: 'b1',
-    path: 'workbench/block',
+    path: 'rules/block',
     name: 'Block trackers',
     type: 'block',
     enabled: true,
@@ -155,7 +155,7 @@ describe('redirectCompiler resource-type handling', () => {
     schemaVersion: 5,
     version: 1,
     uid: 'r1',
-    path: 'workbench/redirect',
+    path: 'rules/redirect',
     name: 'Redirect',
     type: 'redirect',
     enabled: true,
@@ -181,7 +181,7 @@ describe('queryParamCompiler resource-type handling', () => {
     schemaVersion: 5,
     version: 1,
     uid: 'q1',
-    path: 'workbench/qp',
+    path: 'rules/qp',
     name: 'Add tracking',
     type: 'query-param',
     enabled: true,
@@ -208,7 +208,7 @@ describe('injectCompiler resource-type handling', () => {
     schemaVersion: 5,
     version: 1,
     uid: 'i1',
-    path: 'workbench/inject',
+    path: 'rules/inject',
     name: 'Inject CSS',
     type: 'inject',
     enabled: true,
@@ -225,7 +225,7 @@ describe('injectCompiler resource-type handling', () => {
     },
   };
 
-  it('emits CSP-bypass workbench with resolved resourceTypes (no main_frame conflict)', () => {
+  it('emits CSP-bypass rules with resolved resourceTypes (no main_frame conflict)', () => {
     const plan = injectCompiler.compile(rule, makeCtx());
     const rules = plan.dynamicRules ?? [];
     expect(rules.length).toBeGreaterThan(0);
@@ -241,7 +241,7 @@ describe('headerCompiler resource-type handling', () => {
       schemaVersion: 5,
       version: 1,
       uid: 'h1',
-      path: 'workbench/header',
+      path: 'rules/header',
       name: 'Header',
       type: 'header',
       enabled: true,
@@ -322,7 +322,7 @@ describe('delayCompiler resource-type handling (regression sanity)', () => {
         schemaVersion: 5,
         version: 1,
         uid: 'd1',
-        path: 'workbench/delay',
+        path: 'rules/delay',
         name: 'Delay',
         type: 'delay',
         enabled: true,

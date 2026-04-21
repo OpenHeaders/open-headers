@@ -101,7 +101,7 @@ export function tabIcon(
     // `request-edit` tabs mirror the rule-tab treatment: a persisted
     // request that `isRequestComplete` rejects (empty URL, unfilled
     // auth field, …) renders as a greyed method tag — the same "draft"
-    // visual users already know from workbench. `request-create` tabs
+    // visual users already know from rules. `request-create` tabs
     // stay colored because the user is in the middle of building the
     // request and completeness isn't known until save.
     const method = tab.ruleType || 'GET';
@@ -134,7 +134,7 @@ export function tabIcon(
   // Rule tabs — use the same rich icon as the sidebar
   const rule = tab.ruleUid ? rules.find((r) => r.uid === tab.ruleUid) : undefined;
   const paused = tab.ruleUid ? pausedUids.has(tab.ruleUid) : false;
-  // Unresolved workbench get the same "can't run" treatment as paused/
+  // Unresolved rules get the same "can't run" treatment as paused/
   // incomplete: `isActive = false` → the sidebar/tab icon renders in
   // the greyed-out palette. Badge (sidebar) + tooltip (tab) carry the
   // reason so the user knows to fix the variable, not the rule.
@@ -197,7 +197,7 @@ interface TabBarProps {
    *  the rule-draft treatment). */
   requests: V5.Request[];
   /** Effective paused uids — drives the yellow tab icon for paused
-   *  workbench, collection-overviews, and folder-overviews. */
+   *  rules, collection-overviews, and folder-overviews. */
   pausedUids: ReadonlySet<string>;
   /** Rule uids whose templates have unresolved refs — drives greyed
    *  method tag on rule tabs, same treatment as `paused`. Defaults to

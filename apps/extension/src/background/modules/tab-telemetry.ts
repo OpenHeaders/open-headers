@@ -37,7 +37,7 @@
  *   - `confirmed`       — fire-bridge reported from the in-page MAIN world.
  *                         Ground truth for the scriptable action having run.
  *   - `matched`         — webRequest observed a URL that satisfies the rule's
- *                         conditions. For pure DNR workbench this is the best
+ *                         conditions. For pure DNR rules this is the best
  *                         evidence available (Chrome does not tell extensions
  *                         which rule wins arbitration in production).
  *   - `matched-fallback` — same as `matched`, but for a rule type that *could*
@@ -149,7 +149,7 @@ interface TabState {
    * Every normalized URL observed on this tab since tracking started —
    * main-frame navigations, redirects, sub-resources, XHRs, everything
    * request-monitor sees. Used at test-session-finish time to re-run
-   * arbitration against the full observed-URL set, so no-fire workbench can
+   * arbitration against the full observed-URL set, so no-fire rules can
    * be promoted to shadowed when a sibling rule (delay / redirect / block)
    * would have shadowed them on any URL the tab actually hit. This is
    * the static "arbitrate-against-everything-observed" pass that catches
@@ -577,7 +577,7 @@ export function recordObservedUrl(tabId: number, normalizedUrl: string): void {
 /**
  * Read every URL the tab has seen since tracking started. Used by
  * test-runner at session finish to run static arbitration against
- * each observed URL and promote no-fire workbench to shadowed where a
+ * each observed URL and promote no-fire rules to shadowed where a
  * sibling rule would have shadowed them on ANY hit URL (even ones
  * whose fire records were dropped at commit time by the pending-fires
  * pipeline — e.g. the delay → delay.html case).

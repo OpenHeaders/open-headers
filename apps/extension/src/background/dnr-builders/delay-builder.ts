@@ -16,7 +16,7 @@
  *      which shows a branded countdown and then navigates to the real
  *      target via location.replace. This lives in the SESSION layer
  *      because it needs `excludedTabIds` for loop-prevention bypass, and
- *      Chrome only allows that field on session-scoped workbench.
+ *      Chrome only allows that field on session-scoped rules.
  *
  * Sub-resources (CSS/JS/images/fonts) are not delayed at all in the
  * standalone extension — delaying them would need a real local proxy
@@ -34,8 +34,8 @@ import { buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 // Priority is deliberately LOW (below user's own header, redirect, block
-// workbench). Redirect is terminal, but modifyHeaders workbench stack regardless
-// of priority, so users' header workbench keep applying to the redelivered
+// rules). Redirect is terminal, but modifyHeaders rules stack regardless
+// of priority, so users' header rules keep applying to the redelivered
 // URL. Explicit user redirect/block at higher priority wins over our
 // delay redirect — if the user blocks a domain, the block fires and we
 // never delay.
@@ -100,11 +100,11 @@ export const delayCompiler: RuleCompiler<V5.DelayRule> = {
     }
 
     // Note: the scriptable monkey-patch for JS-initiated XHR/fetch is
-    // NOT emitted here — inject-manager reads delay workbench directly from
+    // NOT emitted here — inject-manager reads delay rules directly from
     // the rule store and installs the MAIN-world monkey-patch on each
     // main-frame commit, independent of this compilation plan.
 
-    // Delay DNR workbench can only meaningfully act on main_frame and sub_frame —
+    // Delay DNR rules can only meaningfully act on main_frame and sub_frame —
     // sub-resources need a real proxy that can hold the connection open, not
     // an extension-page redirect. The resolver folds that capability set with
     // any user resource-type filters. If nothing supported survives, skip the

@@ -41,7 +41,7 @@ function byUid(...rules: V5.Rule[]): ReadonlyMap<string, V5.Rule> {
 }
 
 describe('attributeHeaders', () => {
-  it('passes server headers through unchanged when no workbench fired', () => {
+  it('passes server headers through unchanged when no rules fired', () => {
     const result = attributeHeaders(
       [
         { name: 'Content-Type', value: 'application/json' },
@@ -222,8 +222,8 @@ describe('attributeHeaders', () => {
     expect(result[1].name).toBe('X-Debug');
   });
 
-  it('collapses `override` from two distinct workbench adding the same header into one row (last wins)', () => {
-    // Two workbench both inject X-Foo with override. In DNR this is
+  it('collapses `override` from two distinct rules adding the same header into one row (last wins)', () => {
+    // Two rules both inject X-Foo with override. In DNR this is
     // "last registered / highest priority wins" — we show one row
     // attributed to the later fire, not two duplicates.
     const a = headerRule('r1', 'A', [{ operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
@@ -237,7 +237,7 @@ describe('attributeHeaders', () => {
   });
 
   it('preserves the server original value across multiple overrides', () => {
-    // Two workbench both override an existing server header. The
+    // Two rules both override an existing server header. The
     // `originalValue` must stay the *server* value — not whatever the
     // previous override wrote.
     const a = headerRule('r1', 'A', [{ operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
@@ -263,7 +263,7 @@ describe('attributeHeaders', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('later fires win when multiple workbench touch the same header', () => {
+  it('later fires win when multiple rules touch the same header', () => {
     const first = headerRule(
       'r1',
       'First',
@@ -299,7 +299,7 @@ describe('attributeHeaders', () => {
     expect(result[0].attribution.kind).toBe('server');
   });
 
-  it('ignores non-header workbench (redirect/mock/block) — they do not produce header attributions', () => {
+  it('ignores non-header rules (redirect/mock/block) — they do not produce header attributions', () => {
     const nonHeader: V5.Rule = {
       uid: 'r1',
       type: 'redirect',

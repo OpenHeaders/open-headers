@@ -39,7 +39,7 @@ function baseRule(action: V5.HeaderRule['action']): V5.HeaderRule {
     schemaVersion: 5,
     version: 1,
     uid: 'h1',
-    path: 'workbench/header',
+    path: 'rules/header',
     name: 'Rule',
     type: 'header',
     enabled: true,
@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 describe('Live Rules Mode — Layer 1 injection', () => {
-  it('prepends Cache-Control + Pragma on request-only workbench', () => {
+  it('prepends Cache-Control + Pragma on request-only rules', () => {
     const plan = headerCompiler.compile(
       baseRule({
         requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
@@ -76,7 +76,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
     expect(reqMods[2]!.header).toBe('Authorization');
   });
 
-  it('triggers on response-only workbench too (cache-bypass on request side)', () => {
+  it('triggers on response-only rules too (cache-bypass on request side)', () => {
     const plan = headerCompiler.compile(
       baseRule({
         requestHeaders: [],

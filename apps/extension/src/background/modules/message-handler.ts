@@ -273,7 +273,7 @@ export function handleGeneralMessage(
           safeResponse({ success: true });
         })
         .catch((error: Error) => {
-          logger.info('MessageHandler', 'Error updating workbench:', error.message);
+          logger.info('MessageHandler', 'Error updating rules:', error.message);
           safeResponse({ success: false, error: error.message });
         });
       return true;
@@ -778,7 +778,7 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
 
-      // ── Per-tab telemetry + active workbench ──────────────────────
+      // ── Per-tab telemetry + active rules ──────────────────────
     } else if (message.type === 'getActiveRulesForTab') {
       const result = getActiveRulesForTab(message.tabId as number, message.tabUrl as string);
       safeResponse({ activeRules: result.activeRules });

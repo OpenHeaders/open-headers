@@ -1,6 +1,6 @@
 /**
  * Rules Engine category — behavior of the background rule engine that
- * compiles workbench into declarativeNetRequest entries and arbitrates
+ * compiles rules into declarativeNetRequest entries and arbitrates
  * shadowed matches.
  */
 
@@ -71,7 +71,7 @@ registerSetting({
   default: false,
   schema: v.boolean(),
   label: 'Pause Rule Execution',
-  description: 'Stop applying workbench to live network requests. Rules remain editable.',
+  description: 'Stop applying rules to live network requests. Rules remain editable.',
   category: 'rulesEngine',
   tags: ['pause', 'disable', 'kill switch', 'global'],
   scope: 'user',
@@ -83,7 +83,7 @@ registerSetting({
   default: 'closest-match',
   schema: evaluationStrategySchema,
   label: 'Evaluation Strategy',
-  description: 'How the engine chooses between workbench when several match the same request.',
+  description: 'How the engine chooses between rules when several match the same request.',
   category: 'rulesEngine',
   tags: ['match', 'priority', 'arbitration'],
   scope: 'user',
@@ -117,7 +117,7 @@ registerSetting({
   default: 5000,
   schema: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(30000)),
   label: 'Max Active Rules',
-  description: 'Maximum number of workbench compiled into the dynamic rule set at once.',
+  description: 'Maximum number of rules compiled into the dynamic rule set at once.',
   category: 'rulesEngine',
   tags: ['limit', 'dnr', 'capacity'],
   scope: 'user',
@@ -157,7 +157,7 @@ registerSetting({
   schema: v.boolean(),
   label: 'Show Shadow Warnings',
   description:
-    'Highlight workbench whose effect is shadowed by a higher-priority rule (block, redirect, mock, delay, or header stacking conflict).',
+    'Highlight rules whose effect is shadowed by a higher-priority rule (block, redirect, mock, delay, or header stacking conflict).',
   category: 'rulesEngine',
   tags: ['shadow', 'conflict', 'priority', 'warning'],
   scope: 'user',
@@ -197,7 +197,7 @@ registerSetting({
   schema: v.boolean(),
   label: 'Live Rules Mode',
   description:
-    "Injects Cache-Control: no-cache on every request that matches one of your workbench, forcing revalidation with the server so the rule's effect is always applied fresh. Prevents stale cached responses from hiding a rule — useful when a rule's value changes (like an auth token) but the page keeps serving the old response from cache.",
+    "Injects Cache-Control: no-cache on every request that matches one of your rules, forcing revalidation with the server so the rule's effect is always applied fresh. Prevents stale cached responses from hiding a rule — useful when a rule's value changes (like an auth token) but the page keeps serving the old response from cache.",
   category: 'rulesEngine',
   tags: ['cache', 'freshness', 'no-cache', 'live', 'token'],
   scope: 'user',
@@ -236,7 +236,7 @@ registerSetting({
   schema: draftUrlStrategySchema,
   label: 'Draft URL Strategy',
   description:
-    'How pre-filled workbench from the DevTools Inspector turn a captured URL into a url-filter pattern. Path wildcard (default) replaces the last path segment with * so sibling resources match. Host-only widens to the whole domain. Exact/raw keep the URL verbatim.',
+    'How pre-filled rules from the DevTools Inspector turn a captured URL into a url-filter pattern. Path wildcard (default) replaces the last path segment with * so sibling resources match. Host-only widens to the whole domain. Exact/raw keep the URL verbatim.',
   category: 'rulesEngine',
   tags: ['draft', 'devtools', 'inspector', 'url', 'pattern'],
   scope: 'user',

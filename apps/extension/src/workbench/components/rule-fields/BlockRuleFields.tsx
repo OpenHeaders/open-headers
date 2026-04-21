@@ -1,6 +1,6 @@
 /**
- * BlockRuleFields — info panel for block workbench.
- * Block workbench only need conditions — no action configuration.
+ * BlockRuleFields — info panel for block rules.
+ * Block rules only need conditions — no action configuration.
  */
 
 import { InfoCircleOutlined, StopOutlined } from '@ant-design/icons';

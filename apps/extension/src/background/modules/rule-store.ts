@@ -1,14 +1,14 @@
 /**
- * Rule Store — single source of truth for V5 workbench in the active
+ * Rule Store — single source of truth for V5 rules in the active
  * workspace.
  *
- * The store holds the CURRENT active workspace's workbench/collections/
+ * The store holds the CURRENT active workspace's rules/collections/
  * folders in memory. Switching workspaces flushes any pending writes,
  * loads the target workspace's persisted data, and replaces the
  * singletons atomically.
  *
  * Persistence — every key scoped under the active workspace id:
- *   - workbench       → `oh.ws.<id>.workbench`
+ *   - rules       → `oh.ws.<id>.rules`
  *   - collections → `oh.ws.<id>.collections`
  *   - folders     → `oh.ws.<id>.folders`
  *
@@ -71,7 +71,7 @@ export function getFolders(): LocalFolder[] {
 }
 
 /**
- * Build CollectionTree[] from flat collections + folders + workbench.
+ * Build CollectionTree[] from flat collections + folders + rules.
  * Same structure the desktop derives from the filesystem.
  */
 export function getCollectionTrees(): V5.CollectionTree[] {

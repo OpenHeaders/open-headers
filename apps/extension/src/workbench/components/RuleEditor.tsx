@@ -3,7 +3,7 @@
  *
  * Ownership model (separation of concerns):
  *   - **Form** owns content fields: domains and per-type fields (headerName, staticValue, etc.)
- *   - **Rule store** (via context) owns `enabled` and `name` for persisted workbench
+ *   - **Rule store** (via context) owns `enabled` and `name` for persisted rules
  *   - **Local state** owns `enabled` for draft (create) tabs
  *   - **Tab label** (via props) owns `name` for draft tabs
  *

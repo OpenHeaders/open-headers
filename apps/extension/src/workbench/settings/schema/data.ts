@@ -183,7 +183,7 @@ registerSetting({
   default: '',
   schema: actionSchema,
   label: 'Clear Diagnostic Log',
-  description: 'Drop every buffered event. Does not affect workbench, requests, or any workspace data.',
+  description: 'Drop every buffered event. Does not affect rules, requests, or any workspace data.',
   category: 'data',
   tags: ['clear', 'log', 'diagnostic', 'observability', 'reset'],
   scope: 'user',

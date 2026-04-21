@@ -2,7 +2,7 @@
  * RuleResolutionBanner — live unresolved-variable feedback inside the
  * rule editor.
  *
- * Mirrors the `workbench` Status subsystem's yellow-pill semantics at the
+ * Mirrors the `rules` Status subsystem's yellow-pill semantics at the
  * editing surface: when the draft's conditions or action contain a
  * `{{VAR}}` that doesn't resolve against the active env / vault /
  * collection / workspace scope, show an Ant `Alert` above the form
@@ -10,7 +10,7 @@
  * `hint` text.
  *
  * Why client-side (not bridge RPC over `getLastResolutionErrors`):
- *   - `getLastResolutionErrors` only tracks *saved* workbench — drafts
+ *   - `getLastResolutionErrors` only tracks *saved* rules — drafts
  *     haven't reached the compile pipeline yet.
  *   - The user wants feedback while typing, not after a save round-
  *     trip. Building a local `VariableResolver` from the existing

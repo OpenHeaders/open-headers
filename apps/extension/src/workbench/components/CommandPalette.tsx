@@ -239,7 +239,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
           ref={inputRef}
           className="rules-cmd-input"
           placeholder={
-            drillGroup ? `Search in ${drillGroup.label}...` : 'Search workbench, collections, or type > for commands...'
+            drillGroup ? `Search in ${drillGroup.label}...` : 'Search rules, collections, or type > for commands...'
           }
           value={query}
           onChange={(e) => {

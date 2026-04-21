@@ -2,7 +2,7 @@
  * Request Monitor — sets up webRequest monitoring to drive telemetry and
  * the badge. Two responsibilities:
  *
- *   1. Pattern-match observed requests against enabled V5 workbench for badge /
+ *   1. Pattern-match observed requests against enabled V5 rules for badge /
  *      active-tab display (via request-tracker).
  *   2. Feed tab-telemetry's `recordObservedFire` so popup counters reflect
  *      every observed match. Every enabled rule whose URL conditions match
@@ -65,7 +65,7 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
 
       const normalizedUrl = normalizeUrlForTracking(details.url);
 
-      // Check if this request URL matches any of our workbench
+      // Check if this request URL matches any of our rules
       const matchesRule = checkIfUrlMatchesAnyRule(normalizedUrl);
 
       // Tab-telemetry ingestion for tracked tabs. Two separate concerns:
@@ -81,7 +81,7 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
       //      contributes a probable fire.
       if (isTabTracked(details.tabId)) {
         // Log every observed URL regardless of match so session-finish
-        // arbitration can re-check no-fire workbench against the full set.
+        // arbitration can re-check no-fire rules against the full set.
         recordObservedUrl(details.tabId, normalizedUrl);
         if (details.type === 'main_frame') {
           onMainFrameRequest(details.tabId, details.requestId, normalizedUrl);
@@ -125,7 +125,7 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
       // `rulesEngine.visibleResourceTypes`, which lets users toggle
       // which types show without losing the underlying data.
       if (matchesRule) {
-        // Track this tab as having active workbench
+        // Track this tab as having active rules
         addTrackedUrl(details.tabId, normalizedUrl, details.type as TrackedResourceType);
 
         // Update badge if this is the active tab

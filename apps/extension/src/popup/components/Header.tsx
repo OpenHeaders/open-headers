@@ -130,8 +130,8 @@ const Header: React.FC = () => {
             title={
               <ShortcutHintTitle label={togglePauseLabel}>
                 {isRulesExecutionPaused
-                  ? 'Resume workbench execution'
-                  : 'Pause all workbench (preserves individual rule settings)'}
+                  ? 'Resume rules execution'
+                  : 'Pause all rules (preserves individual rule settings)'}
               </ShortcutHintTitle>
             }
           >

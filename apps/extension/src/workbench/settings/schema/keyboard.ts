@@ -7,7 +7,7 @@
  *   - examples: `mod+b`, `mod+shift+a`, `alt+n`, `mod+,`, `mod+\`, `/`
  *
  * Defaults mirror the hardcoded SHORTCUTS table in
- * `workbench/hooks/useWorkspaceShortcuts.ts` so that rebinding is purely
+ * `rules/hooks/useWorkspaceShortcuts.ts` so that rebinding is purely
  * additive — a fresh install produces the exact bindings the app
  * already ships with. Consumer wiring that reads these settings can
  * replace the hardcoded table without changing user-visible behavior.

@@ -71,7 +71,7 @@ export interface UseTabOpenersApi {
   openCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   /**
-   * Open an unsaved request draft. Mirrors `openCreateTab` for workbench —
+   * Open an unsaved request draft. Mirrors `openCreateTab` for rules —
    * the tab starts dirty, nothing is persisted until the user clicks
    * Save. `context` carries the destination the user picked (sidebar
    * "Add Request" inside a collection/folder); the SaveToCollectionModal
@@ -127,7 +127,7 @@ export function useTabOpeners({
    * Before this refactor the function wrote an empty enabled rule to
    * the user's ruleset immediately and opened an edit tab on top —
    * the draft layer was dead code. That behavior silently activated
-   * workbench users hadn't confirmed, which was especially jarring from
+   * rules users hadn't confirmed, which was especially jarring from
    * the inspector panel's "click to override" CTA.
    */
   const openCreateTab = useCallback(

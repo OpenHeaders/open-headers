@@ -62,7 +62,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api }) => {
       modal.confirm({
         title: `Delete "${workspace.name}"?`,
         content:
-          'This permanently deletes the workspace and all its workbench, collections, folders, templates, variables, and test run history. This action cannot be undone.',
+          'This permanently deletes the workspace and all its rules, collections, folders, templates, variables, and test run history. This action cannot be undone.',
         okText: 'Delete',
         okButtonProps: { danger: true },
         onOk: async () => {

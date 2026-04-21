@@ -1,7 +1,7 @@
 /**
  * RuleFlow — vertical pipeline visualization of rule execution order.
  *
- * Shows how Chrome processes workbench: Block → Redirect → Headers → Script-based.
+ * Shows how Chrome processes rules: Block → Redirect → Headers → Script-based.
  * Scope selector: This Page | Collection | Folder | All Active.
  * Supports inline rule management: toggle, reorder, add, delete, open editor.
  */
@@ -42,7 +42,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
   const [showDrafts, setShowDrafts] = useState(false);
   const [showEnabled, setShowEnabled] = useState(true);
   const [compact, setCompact] = useState(true);
-  // Hide tiers that have no workbench. Default follows compact mode — compact = hide empty.
+  // Hide tiers that have no rules. Default follows compact mode — compact = hide empty.
   const [hideEmptyTiers, setHideEmptyTiers] = useState(true);
 
   // When compact mode toggles, reset hideEmptyTiers to match (user can still override after).
@@ -63,13 +63,13 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     }
   }, [initialTabUrl]);
 
-  // Ask the background for which workbench match the tab URL.
+  // Ask the background for which rules match the tab URL.
   // This uses the same matching engine as the popup and badge — no client-side reimplementation.
-  // Re-query when workbench change. Build a fingerprint from rule uids+enabled state
+  // Re-query when rules change. Build a fingerprint from rule uids+enabled state
   // so the effect re-runs when any rule is added/removed/toggled.
   const rulesFingerprint = useMemo(() => rules.map((r) => `${r.uid}:${r.enabled}`).join(), [rules]);
   useEffect(() => {
-    // rulesFingerprint is read to trigger re-query when workbench change
+    // rulesFingerprint is read to trigger re-query when rules change
     void rulesFingerprint;
     if (!tabUrl) {
       setThisPageRuleIds(null);
@@ -77,9 +77,9 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     }
     call('getActiveRulesForTab', { tabId: undefined, tabUrl })
       .then((data) => {
-        // Keep strict semantics here: "This Page" means workbench whose
+        // Keep strict semantics here: "This Page" means rules whose
         // pattern actually matches this page or an observed subresource,
-        // NOT sibling workbench on the same registrable domain. Filter out
+        // NOT sibling rules on the same registrable domain. Filter out
         // `related` verdicts — the verdict engine returns them for
         // debugging context elsewhere but they'd over-highlight here.
         setThisPageRuleIds(new Set((data.activeRules ?? []).filter((r) => r.verdict !== 'related').map((r) => r.id)));
@@ -138,7 +138,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     return undefined;
   }, [entityId, localCollectionTrees]);
 
-  // Get workbench for the current scope
+  // Get rules for the current scope
   const scopedRules = useMemo(() => {
     let filtered: V5.Rule[];
 
@@ -212,7 +212,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     });
   }, [scopedRules, showDrafts, showEnabled]);
 
-  // Group workbench by priority tier
+  // Group rules by priority tier
   const rulesByTier = useMemo(() => {
     const map = new Map<string, V5.Rule[]>();
     for (const tier of PRIORITY_TIERS) {
@@ -249,7 +249,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
         const newIndex = tierRules.findIndex((r) => r.uid === over.id);
         if (oldIndex !== -1 && newIndex !== -1) {
           // TODO: persist reorder — for now this is visual only
-          // Would need a sortOrder field on workbench or a separate ordering store
+          // Would need a sortOrder field on rules or a separate ordering store
           break;
         }
       }
@@ -326,9 +326,9 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
             description={
               scope === 'this-page'
                 ? tabUrl
-                  ? 'No workbench match this page'
-                  : 'Open a page to see matching workbench'
-                : 'No workbench in this scope'
+                  ? 'No rules match this page'
+                  : 'Open a page to see matching rules'
+                : 'No rules in this scope'
             }
             style={{ marginTop: 48 }}
           />

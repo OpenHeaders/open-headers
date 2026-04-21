@@ -119,14 +119,14 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     key: 'keyboard.popup.prevPage',
     default: '[',
     label: 'Popup — Previous Page',
-    description: 'Jump to the previous page of workbench in the active tab.',
+    description: 'Jump to the previous page of rules in the active tab.',
     tags: ['popup', 'pagination'],
   },
   {
     key: 'keyboard.popup.nextPage',
     default: ']',
     label: 'Popup — Next Page',
-    description: 'Jump to the next page of workbench in the active tab.',
+    description: 'Jump to the next page of rules in the active tab.',
     tags: ['popup', 'pagination'],
   },
   {
@@ -218,7 +218,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     default: 'p',
     label: 'Popup — Toggle Pause (focused collection/folder)',
     description:
-      'Pause or resume the focused collection or folder in the Collections tab. Has no effect on individual rule rows — workbench use the enabled toggle (Space) instead.',
+      'Pause or resume the focused collection or folder in the Collections tab. Has no effect on individual rule rows — rules use the enabled toggle (Space) instead.',
     tags: ['popup', 'pause', 'collection', 'folder'],
   },
   {
@@ -253,7 +253,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     key: 'keyboard.popup.tabThisPage',
     default: '1',
     label: 'Popup — This Page Tab',
-    description: 'Activate the "This Page" workbench tab.',
+    description: 'Activate the "This Page" rules tab.',
     tags: ['popup', 'tab'],
   },
   {

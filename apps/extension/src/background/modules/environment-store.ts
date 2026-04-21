@@ -4,7 +4,7 @@
  *
  * Separate from rule-store to keep concerns clean: environments drive
  * variable resolution at DNR compile time and only loosely depend on
- * workbench (a rule references variables by name, not by environment).
+ * rules (a rule references variables by name, not by environment).
  *
  * Storage keys (scoped to active workspace):
  *   - `oh.ws.<id>.environments`          → Environment[]

@@ -5,12 +5,12 @@
  * Design:
  *   - Variables resolve against the same 4-scope chain the DNR pipeline
  *     uses (vault > environment > collection > workspace) so requests
- *     see the same values the workbench would. Collection scope is derived
+ *     see the same values the rules would. Collection scope is derived
  *     from the request's path.
  *   - Fetch runs inside the SW, which holds `<all_urls>` host
- *     permission — no CORS gating. User-defined DNR workbench DO apply to
+ *     permission — no CORS gating. User-defined DNR rules DO apply to
  *     SW fetches (they hit webRequest like any other request), which
- *     is intentional: users can test their own workbench end-to-end.
+ *     is intentional: users can test their own rules end-to-end.
  *   - Body types: `none`, `json`, `xml`, `text`, `form` (urlencoded).
  *     `graphql` and `multipart` land in a later phase — the shape
  *     variant is declared in `V5.BodyType` but the executor falls back
@@ -235,10 +235,10 @@ __setExecuteRequestDraft(executeRequestDraft);
 
 /**
  * Bypass tag stamped on every Live Workflow chain fetch. Value is the
- * owning workflow uid. User workbench whose value templates reference any
+ * owning workflow uid. User rules whose value templates reference any
  * `{{live.X}}` bound to the SAME workflow exclude that exact value via
  * `excludedRequestHeaders` at DNR compile time — the rule engine's
- * `attachLiveBypassExclusions` wraps compiled workbench with the filter so
+ * `attachLiveBypassExclusions` wraps compiled rules with the filter so
  * a rule injecting `Authorization: {{live.token}}` never fires on the
  * chain fetches that PRODUCE `live.token`.
  *
@@ -284,7 +284,7 @@ export interface LiveChainExecuteOptions {
  *   - skips pre/post script hooks (chain fetches are pure data-source
  *     fetches; running user scripts here would blur "my request" vs
  *     "workflow refresh" and trivially recurse via `oh.sendRequest`),
- *   - stamps the `X-OH-Live-Bypass` header so DNR workbench referencing
+ *   - stamps the `X-OH-Live-Bypass` header so DNR rules referencing
  *     the workflow's LVs exclude themselves from this request,
  *   - suppresses the `requests` Status pill (workflow refresh belongs
  *     to the `live` subsystem, not the generic request pill).
@@ -391,7 +391,7 @@ async function buildResolver(
 /**
  * Find the collection a request belongs to. Requests live under
  * `requests/<coll-name-uid>/...`, so we look in the REQUEST collection
- * tree — not the rule tree (paths under `workbench/` never prefix a
+ * tree — not the rule tree (paths under `rules/` never prefix a
  * request path). Returns `undefined` for orphaned requests (defensive —
  * every persisted request should have an owning collection).
  */

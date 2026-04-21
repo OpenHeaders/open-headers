@@ -31,17 +31,17 @@
  *
  * ## Isolation
  *
- *   - Dynamic workbench are rewritten with `excludedTabIds: [...testTabIds]` while
- *     any run is active, so normal workbench keep firing on every non-test
+ *   - Dynamic rules are rewritten with `excludedTabIds: [...testTabIds]` while
+ *     any run is active, so normal rules keep firing on every non-test
  *     tab but skip the test tabs.
  *   - Each active run installs its own **run ruleset** built from its
  *     scope snapshot, with `tabIds: [testTabId]` on every condition, applied
- *     via `chrome.declarativeNetRequest.updateRunRules`. Delay workbench are
+ *     via `chrome.declarativeNetRequest.updateRunRules`. Delay rules are
  *     dropped from the per-run compile while the test tab sits in
  *     `pendingDelayBypass` so the delay page's follow-up navigation can't
  *     loop on the rule it's currently testing.
- *   - inject-manager filters scriptable workbench per-tab via
- *     `getTestScopeForTab`, so scriptable workbench under test only run on their
+ *   - inject-manager filters scriptable rules per-tab via
+ *     `getTestScopeForTab`, so scriptable rules under test only run on their
  *     run's tab and don't leak into unrelated tabs.
  *
  * ## Telemetry
@@ -111,7 +111,7 @@ interface ActiveRun {
   id: string;
   owner: TestRunOwner;
   scopeLabel: string;
-  /** V5 workbench snapshotted at run start — the scope under test. */
+  /** V5 rules snapshotted at run start — the scope under test. */
   scopeRules: V5.Rule[];
   ruleUids: Set<string>;
   /**
@@ -237,7 +237,7 @@ export interface StartRunOptions {
  *
  * Setup sequence:
  *
- *   1. Snapshot scope workbench and partition them into "will execute" vs
+ *   1. Snapshot scope rules and partition them into "will execute" vs
  *      "skipped" (disabled / incomplete / paused-by-ancestor) so the result
  *      can label them honestly instead of all-or-nothing "no-fire".
  *   2. Create the tab with about:blank in the **foreground** so the user
@@ -248,10 +248,10 @@ export interface StartRunOptions {
  *      starts counting as soon as the page begins to load.
  *   4. Subscribe to tab-telemetry's fire stream filtered to scope uids, so
  *      every in-scope fire pushes a live count into the in-page widget.
- *   5. **Await** `applyAllRulesAsync()` — dynamic workbench gain
- *      `excludedTabIds:[testTabId]` and run workbench with `tabIds:[testTabId]`
+ *   5. **Await** `applyAllRulesAsync()` — dynamic rules gain
+ *      `excludedTabIds:[testTabId]` and run rules with `tabIds:[testTabId]`
  *      are installed. The await is critical: a fire-and-forget `applyAllRules`
- *      can race the navigation and let non-scope workbench fire on the test tab.
+ *      can race the navigation and let non-scope rules fire on the test tab.
  *   6. Navigate the tab to the target URL via `tabs.update`.
  *   7. Arm a hard-ceiling watchdog tuned to `waitSeconds + slack` so a hung
  *      tab can't pin the run forever, but a legitimate slow load doesn't
@@ -283,7 +283,7 @@ export function startRun(opts: StartRunOptions): Promise<TestRun> {
     const wanted = new Set(opts.ruleUids);
     const scopeRules = allRules.filter((r) => wanted.has(r.uid));
 
-    // Step 1: identify workbench in scope that simply cannot fire — they're
+    // Step 1: identify rules in scope that simply cannot fire — they're
     // marked 'skipped' in the result so the user understands the difference
     // between "DNR ran the rule but no request matched" and "we never tried".
     const pauseMarkers = getPauseMarkers();
@@ -339,7 +339,7 @@ export function startRun(opts: StartRunOptions): Promise<TestRun> {
  * Second half of `startRun` — async because we need to **await**
  * `applyAllRulesAsync()` before navigating, otherwise the first request can
  * hit the test tab before its DNR isolation has been committed by Chrome
- * (which would let unrelated user workbench fire on the test tab — exactly what
+ * (which would let unrelated user rules fire on the test tab — exactly what
  * the scope under test should be insulated from).
  */
 async function launchAfterTabCreated(run: ActiveRun, tab: chrome.tabs.Tab, targetUrl: string): Promise<void> {
@@ -388,7 +388,7 @@ async function launchAfterTabCreated(run: ActiveRun, tab: chrome.tabs.Tab, targe
   // Step 6: install DNR isolation and WAIT for it to be live in Chrome
   // before kicking off the navigation. Audit bug #1 fix — without the
   // await, the first request on the test tab can race the rule install
-  // and let non-scope workbench fire on the test tab.
+  // and let non-scope rules fire on the test tab.
   try {
     await applyAllRulesAsync();
   } catch (err) {
@@ -547,7 +547,7 @@ export function setupTestRunnerPorts(): void {
 /**
  * Called from tab-listeners when a tab is closed (manually by the user, by
  * extension crash, or by our own teardown). Finishes any run watching
- * that tab so DNR run workbench are cleared and the promise resolves.
+ * that tab so DNR run rules are cleared and the promise resolves.
  */
 export function onTabRemoved(tabId: number): void {
   for (const run of activeRuns.values()) {
@@ -657,7 +657,7 @@ function finishRun(id: string): void {
   unregisterRun(id);
 
   // Re-apply the DNR state now that this run is gone — clears its
-  // run workbench and removes this tabId from dynamic workbench' excludedTabIds.
+  // run rules and removes this tabId from dynamic rules' excludedTabIds.
   applyAllRules();
 
   logger.info(
@@ -727,7 +727,7 @@ function buildRun(run: ActiveRun): TestRun {
   const snapshotFires = run.tabId != null ? getTabSnapshotForScope(run.tabId, run.ruleUids).fires : [];
   // RequestRecord has extra fields (pattern, resourceType) that TestFireEvent
   // doesn't care about; project to the stable run-result shape. Carry
-  // `shadowedBy` through so the workspace can render shadowed workbench with
+  // `shadowedBy` through so the workspace can render shadowed rules with
   // their amber outcome instead of an unqualified "executed" badge.
   const fires: TestFireEvent[] = snapshotFires.map((r) => ({
     ruleUid: r.ruleUid,
@@ -821,7 +821,7 @@ function buildEmptyRun(run: ActiveRun): TestRun {
  * Build a synthetic empty result for a run that was rejected at the
  * gate (currently only: invalid URL). No tab is opened, no telemetry is
  * captured, no DNR isolation is installed — we just want a well-formed
- * result so the caller's promise resolves cleanly. All scope workbench are
+ * result so the caller's promise resolves cleanly. All scope rules are
  * marked `no-fire` (or `skipped` if disabled / incomplete from the
  * outset). The reason text is logged but not surfaced through the result
  * shape; surfacing it would require a new field on `TestRun`,

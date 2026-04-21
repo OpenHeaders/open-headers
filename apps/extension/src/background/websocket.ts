@@ -1,6 +1,6 @@
 /**
  * WebSocket connection management — connects to the desktop app
- * and receives V5 resolved workbench.
+ * and receives V5 resolved rules.
  */
 
 import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
@@ -156,10 +156,10 @@ function reportSyncStatus(): void {
 // ── Message handling ──────────────────────────────────────────────
 //
 // Inbound messages today are limited to recording sync and recording
-// hotkey signals. Team-workspace data sync (workbench/collections/vars)
+// hotkey signals. Team-workspace data sync (rules/collections/vars)
 // lands in v2 — when it does, it'll go through a workspace-scoped
 // channel that writes to the per-workspace stores, not a global
-// workbench-push like the pre-v5 "desktop pushes workbench" flow.
+// workbench-push like the pre-v5 "desktop pushes rules" flow.
 
 function handleOtherMessages(parsed: Record<string, unknown>): void {
   if (handleRecordingInboundMessage(parsed)) return;

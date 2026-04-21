@@ -4,7 +4,7 @@
  *
  * MV3's webRequest API doesn't fire for responses served from the
  * renderer's in-process memory cache, Service-Worker-intercepted fetches
- * that reuse a cached Response, or bfcache restores. That means workbench
+ * that reuse a cached Response, or bfcache restores. That means rules
  * targeting a subresource domain (e.g. github.githubassets.com) can
  * appear "not firing" on cached reloads even when they would have fired
  * had the request gone to the network. The Resource Timing API sees

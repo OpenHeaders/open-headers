@@ -37,7 +37,7 @@ export interface WorkbenchTab {
   id: string;
   /** Display label. */
   label: string;
-  /** The rule type for icon display (workbench only). */
+  /** The rule type for icon display (rules only). */
   ruleType: string;
   /** Whether the editor has unsaved changes. */
   dirty: boolean;
@@ -91,7 +91,7 @@ export interface WorkbenchTab {
   settingsInitialKey?: string;
   /** For settings tabs: optional deep-link target category to scroll to on mount. */
   settingsInitialCategory?: string;
-  /** For landing tabs: which top-level view is rendered (home, workbench, collections). */
+  /** For landing tabs: which top-level view is rendered (home, rules, collections). */
   landingView?: LandingView;
   /**
    * For env-edit tabs: the environment uid being edited. For
@@ -139,7 +139,7 @@ export interface PanelVisibility {
  * time (dockable tool-window model).
  *
  * Three left-top tool windows share the same slot and stack as tabs:
- *   - `http-workbench`   — workbench + templates + environment quick-reference
+ *   - `http-workbench`   — rules + templates + environment quick-reference
  *   - `api-requests` — api-request collections + environment quick-reference
  *   - `variables`    — full variable management (vault, workspace-vars, envs)
  */

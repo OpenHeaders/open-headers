@@ -6,7 +6,7 @@
  *
  * Three densities:
  *   - `row`     (default workspace footer): five always-visible pills,
- *     one per subsystem — `sync` / `workbench` / `requests` / `permissions`
+ *     one per subsystem — `sync` / `rules` / `requests` / `permissions`
  *     / `secrets`. Each pill carries its label + a colored dot; the
  *     color reflects that subsystem's current state (green / yellow /
  *     red / grey-for-no-data). Clicking any pill opens the shared

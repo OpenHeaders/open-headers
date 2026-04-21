@@ -254,9 +254,9 @@ export const declarativeNetRequest = browserAPI.declarativeNetRequest
         }
       },
       /**
-       * Updates session-scoped DNR workbench — ephemeral workbench that live only for
+       * Updates session-scoped DNR rules — ephemeral rules that live only for
        * the current browser session. Used by the test-runner to apply
-       * tab-scoped test workbench alongside the user's normal dynamic workbench.
+       * tab-scoped test rules alongside the user's normal dynamic rules.
        */
       updateSessionRules: (options: chrome.declarativeNetRequest.UpdateRuleOptions): Promise<void> => {
         const dnr = browserAPI.declarativeNetRequest as typeof chrome.declarativeNetRequest & {
@@ -312,9 +312,9 @@ export const declarativeNetRequest = browserAPI.declarativeNetRequest
         });
       },
       /**
-       * Returns workbench matched by the declarativeNetRequest API for a given tab.
+       * Returns rules matched by the declarativeNetRequest API for a given tab.
        * Requires the `declarativeNetRequestFeedback` permission. Used by the
-       * test-runner to verify which workbench actually fired during a test session.
+       * test-runner to verify which rules actually fired during a test session.
        * Not all browsers implement this — returns an empty result shape when
        * the underlying API is missing so callers can degrade gracefully.
        */

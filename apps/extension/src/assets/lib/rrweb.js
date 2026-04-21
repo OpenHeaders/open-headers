@@ -295,7 +295,7 @@ function stringifyRule(rule2, sheetHref) {
     let importStringified;
     try {
       importStringified = // for same-origin stylesheets,
-      // we can access the imported stylesheet workbench directly
+      // we can access the imported stylesheet rules directly
       stringifyStylesheet(rule2.styleSheet) || // work around browser issues with the raw string `@import url(...)` statement
       escapeImportStatement(rule2);
     } catch (error) {

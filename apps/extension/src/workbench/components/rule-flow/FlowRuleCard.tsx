@@ -57,7 +57,7 @@ export interface RuleStatusOverlay {
    * - `executed`: at least one fire was recorded for this rule and at least
    *   one of those fires was NOT marked as shadowed by the arbitrator.
    * - `shadowed`: every recorded fire was marked as shadowed by another
-   *   rule in the matching set, OR (for no-fire workbench) the session's
+   *   rule in the matching set, OR (for no-fire rules) the session's
    *   static arbitration pass over the observed-URL set determined that
    *   a sibling rule would have shadowed this rule on at least one URL.
    *   The attribution's `kind` classifies the reason — block cancellation,
@@ -263,7 +263,7 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
 
       {/* Actions — only the "open in editor" button survives in read-only
           (test-results) mode. Toggle/delete are hidden because mutating
-          workbench from a finished test result would be a foot-gun. */}
+          rules from a finished test result would be a foot-gun. */}
       <div className="flow-rule-card-actions">
         {!readOnly && (
           <Tooltip title={rule.enabled ? 'Disable' : 'Enable'}>

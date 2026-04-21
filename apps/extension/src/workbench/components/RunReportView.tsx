@@ -4,7 +4,7 @@
  *
  * Layout mirrors `RuleFlow` (same start/end terminus, same priority-tier
  * groups, same `FlowRuleCard` for each rule) so the user reads run reports
- * in the same visual language they edit workbench in. Every card carries a
+ * in the same visual language they edit rules in. Every card carries a
  * `RuleStatusOverlay` that colors its border / background and adds a
  * status tag:
  *
@@ -177,7 +177,7 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
       .catch(() => message.error('Failed to delete test run'));
   }, [runId, message, onAfterDelete]);
 
-  // Resolve scoped workbench from the live rule store. Rules can change between
+  // Resolve scoped rules from the live rule store. Rules can change between
   // when the test ran and when the user opens the report — we render
   // whatever the rule still looks like now, falling back gracefully if a
   // rule was deleted (it just disappears from the flow).
@@ -242,7 +242,7 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
     return map;
   }, [run]);
 
-  // Group scoped workbench by tier — same ordering as RuleFlow.
+  // Group scoped rules by tier — same ordering as RuleFlow.
   const rulesByTier = useMemo(() => {
     const map = new Map<string, V5.Rule[]>();
     for (const tier of PRIORITY_TIERS) map.set(tier.key, []);

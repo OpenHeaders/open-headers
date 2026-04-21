@@ -37,7 +37,7 @@ import { logger } from '@utils/logger';
  * bindings + cache bundle). Error-state type is whatever
  * `recordFailure` returns; the scheduler carries it as opaque context
  * to the provider's `onFailed` log hook so per-subsystem escalation
- * workbench (OAuth elevates to `error` at `consecutiveFailures >= 3`)
+ * rules (OAuth elevates to `error` at `consecutiveFailures >= 3`)
  * live with the provider, not in the scheduler.
  */
 export interface RefreshProvider<TAlarmPayload extends object, TJob, TErrorState = unknown> {
@@ -111,7 +111,7 @@ export interface RefreshProvider<TAlarmPayload extends object, TJob, TErrorState
    * Persist the failure state + return its post-increment snapshot
    * (typically `{ consecutiveFailures, lastErrorAt }`). The scheduler
    * passes this snapshot to `onFailed` so per-subsystem log-level
-   * escalation workbench stay with the provider.
+   * escalation rules stay with the provider.
    */
   recordFailure(payload: TAlarmPayload, err: Error, job: TJob | null): Promise<TErrorState>;
 

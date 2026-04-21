@@ -33,7 +33,7 @@ export function useRulesLookup(): RulesByUid {
     let cancelled = false;
 
     // Initial fetch. `popupOpen` also returns `connected`, pause
-    // markers, etc. — we only want the workbench.
+    // markers, etc. — we only want the rules.
     call('popupOpen')
       .then((resp) => {
         if (cancelled) return;

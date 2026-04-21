@@ -67,7 +67,7 @@ registerCategory({
   label: 'Rules Engine',
   icon: <FunctionOutlined />,
   order: 30,
-  description: 'How workbench are evaluated, compiled, and arbitrated.',
+  description: 'How rules are evaluated, compiled, and arbitrated.',
 });
 
 registerCategory({

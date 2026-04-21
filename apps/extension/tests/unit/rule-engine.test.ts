@@ -42,7 +42,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     schemaVersion: 5,
     version: 1,
     uid: 'r1a2',
-    path: 'workbench/test',
+    path: 'rules/test',
     name: 'Test Rule',
     type: 'header',
     enabled: true,
@@ -132,7 +132,7 @@ describe('RuleEngine', () => {
   });
 
   describe('hash deduplication', () => {
-    it('skips update when workbench hash is unchanged for non-forced reasons', () => {
+    it('skips update when rules hash is unchanged for non-forced reasons', () => {
       const rules = [makeHeaderRule()];
       mockGetRules.mockReturnValue(rules);
 
@@ -140,7 +140,7 @@ describe('RuleEngine', () => {
       scheduleUpdate('rulesUpdated', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
 
-      // Second call with same workbench — skipped (rulesUpdated is a forced reason,
+      // Second call with same rules — skipped (rulesUpdated is a forced reason,
       // so use a non-forced reason to test dedup)
       scheduleUpdate('other', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
@@ -170,7 +170,7 @@ describe('RuleEngine', () => {
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(6);
     });
 
-    it('updates when workbench actually change', () => {
+    it('updates when rules actually change', () => {
       mockGetRules.mockReturnValue([makeHeaderRule({ uid: 'r1a2' })]);
       scheduleUpdate('init', { immediate: true });
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
@@ -182,7 +182,7 @@ describe('RuleEngine', () => {
   });
 
   describe('hash tracking', () => {
-    it('tracks workbench hash after update', () => {
+    it('tracks rules hash after update', () => {
       mockGetRules.mockReturnValue([makeHeaderRule()]);
 
       scheduleUpdate('init', { immediate: true });

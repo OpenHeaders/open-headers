@@ -31,10 +31,10 @@
  *   - Decide when to fire — the scheduler drives.
  *   - Record observability log entries — `handleLiveAlarm` wraps the
  *     adapter call and does that on both sides of the await.
- *   - Install DNR bypass workbench. The chain stamps `X-OH-Live-Bypass`
+ *   - Install DNR bypass rules. The chain stamps `X-OH-Live-Bypass`
  *     so a future DNR compile pass (Phase E ref-counting + rule
- *     recompile on cache change) can exclude LV-referencing workbench
- *     from matching the tagged request. v1 accepts that user workbench
+ *     recompile on cache change) can exclude LV-referencing rules
+ *     from matching the tagged request. v1 accepts that user rules
  *     DO fire on chain fetches; the consequence is well-contained
  *     (only users configuring their own auth-endpoint rewrite hit
  *     the feedback loop, and the plan explicitly calls out a toggle

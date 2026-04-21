@@ -491,7 +491,7 @@ const InspectorDocs: React.FC = () => {
               tag: 'Font',
               code: 'font',
               color: 'volcano',
-              desc: 'Web fonts loaded via @font-face workbench.',
+              desc: 'Web fonts loaded via @font-face rules.',
               examples: ['@font-face { src: url("/fonts/Inter.woff2") }', 'fonts.gstatic.com/s/roboto/v30/...woff2'],
             },
             {

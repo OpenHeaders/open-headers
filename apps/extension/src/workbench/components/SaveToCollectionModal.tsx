@@ -1,7 +1,7 @@
 /**
- * SaveToCollectionModal — "Save to Collection" modal for draft workbench.
+ * SaveToCollectionModal — "Save to Collection" modal for draft rules.
  *
- * Shows a browsable tree of collections with folders and existing workbench,
+ * Shows a browsable tree of collections with folders and existing rules,
  * inline collection and folder creation, and a search bar.
  *
  * Tree navigation uses shared utilities from @openheaders/core/utils.
@@ -388,7 +388,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
           </>
         )}
 
-        {/* Browse: inside a collection (folders + existing workbench) */}
+        {/* Browse: inside a collection (folders + existing rules) */}
         {selectedCollectionId && (
           <>
             {/* Inline new folder */}

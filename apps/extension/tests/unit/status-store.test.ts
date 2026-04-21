@@ -15,7 +15,7 @@ beforeEach(() => {
 
 describe('status/report', () => {
   it('records the latest entry per subsystem', () => {
-    report({ subsystem: 'rules', state: 'green', message: 'All workbench compiled' });
+    report({ subsystem: 'rules', state: 'green', message: 'All rules compiled' });
     report({ subsystem: 'rules', state: 'red', message: 'DNR compile failed' });
     const snap = getStatusSnapshot();
     expect(snap.rules?.state).toBe('red');

@@ -12,7 +12,7 @@ export type StatusSubsystem =
   | 'sync' // desktop connection / team workspace sync
   | 'rules' // DNR compile + refresh state
   | 'requests' // executor telemetry
-  | 'permissions' // host-permission grants for active workbench
+  | 'permissions' // host-permission grants for active rules
   | 'secrets' // vault / cipher state
   | 'live'; // Live Variable workflow refresh state
 

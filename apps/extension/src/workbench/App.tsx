@@ -1,7 +1,7 @@
 /**
  * Rules App — full-page rule management in its own browser tab.
  *
- * App.tsx is a thin wiring layer: data hooks (tabs, workbench, templates)
+ * App.tsx is a thin wiring layer: data hooks (tabs, rules, templates)
  * flow into extracted module-hooks (useTabOpeners, useWorkspaceIntentRouter,
  * useTabSyncEffects, useCommandPaletteData, useSaveToCollectionFlow),
  * and the shell is rendered via ShellLayout + EditorGroupRenderer with

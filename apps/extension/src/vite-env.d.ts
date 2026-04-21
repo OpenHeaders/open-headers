@@ -4,7 +4,7 @@
 declare const __APP_VERSION__: string;
 
 // Monaco submodule imports we use to keep the bundle lean (see
-// `workbench/components/monaco/bootstrap.ts`). Monaco's `package.json`
+// `rules/components/monaco/bootstrap.ts`). Monaco's `package.json`
 // `exports` field maps `./*` but only ships types for the default
 // `editor.main` entry, so TypeScript can't resolve the submodule
 // paths without these declarations. All of them re-export the same

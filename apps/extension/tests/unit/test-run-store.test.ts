@@ -72,7 +72,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     schemaVersion: 5,
     version: 1,
     uid: 'rule-1',
-    path: 'workbench/col-1/rule-1',
+    path: 'rules/col-1/rule-1',
     name: 'Auth header',
     type: 'header',
     enabled: true,
@@ -207,7 +207,7 @@ describe('test-run-store', () => {
         type: 'rule',
         uid: 'rule-a',
         name: 'A',
-        path: 'workbench/col-1/a',
+        path: 'rules/col-1/a',
         ruleType: 'header',
         enabled: true,
       };
@@ -230,7 +230,7 @@ describe('test-run-store', () => {
         type: 'rule',
         uid: 'rule-b',
         name: 'B',
-        path: 'workbench/col-1/b',
+        path: 'rules/col-1/b',
         ruleType: 'header',
         enabled: true,
       };
@@ -266,7 +266,7 @@ describe('test-run-store', () => {
       await persistTestRun(makeRun({ id: 's-ws', ownerType: 'workspace', ownerId: 'all' }));
 
       // Live ids: rule-1 kept, folder-gone gone, col-keep kept. Workspace
-      // is the singleton "all workbench" history — must always survive a prune.
+      // is the singleton "all rules" history — must always survive a prune.
       await pruneOrphanOwners(new Set(['rule-1']), new Set(['col-keep']));
 
       const ruleRuns = await listTestRunsForOwner({ type: 'rule', id: 'rule-1' });

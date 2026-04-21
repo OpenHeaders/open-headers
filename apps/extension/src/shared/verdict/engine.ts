@@ -36,7 +36,7 @@ import type { RuleVerdict, SilentMatchRecord, TrackedResource } from '@/types/br
  *
  * Returning `null` means the rule is idle with no signal to surface —
  * callers typically filter these out of the popup (future UIs may
- * choose to list idle workbench explicitly).
+ * choose to list idle rules explicitly).
  */
 export interface VerdictResult {
   verdict: RuleVerdict;
@@ -106,7 +106,7 @@ export interface VerdictInput {
  *
  * Returns `null` instead of `{ verdict: 'idle' }` to keep the "nothing
  * to surface" decision at the call site — the popup omits, but a
- * debug view may want to render idle workbench explicitly.
+ * debug view may want to render idle rules explicitly.
  */
 export function computeVerdict(input: VerdictInput): VerdictResult | null {
   const { rule, patterns, normalizedTabUrl, trackedResources, firing, normalizeUrl } = input;
@@ -183,7 +183,7 @@ export function computeVerdict(input: VerdictInput): VerdictResult | null {
   }
 
   // Weakest signal — rule's registrable domain matches the tab's but
-  // no specific URL match. Useful for power users with many workbench
+  // no specific URL match. Useful for power users with many rules
   // targeting the same site.
   const tabDomain = registrableDomainOf(normalizedTabUrl);
   if (tabDomain) {

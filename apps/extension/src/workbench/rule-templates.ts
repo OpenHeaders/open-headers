@@ -1,5 +1,5 @@
 /**
- * Rule templates — prefilled workbench organized into a folder tree per rule type.
+ * Rule templates — prefilled rules organized into a folder tree per rule type.
  *
  * System templates mirror the user template storage model: each rule type
  * owns a tree of folders and templates (folders can nest). This lets the

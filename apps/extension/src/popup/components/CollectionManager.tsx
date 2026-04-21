@@ -313,12 +313,12 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
 
   const handleVisualize = useCallback(
     (record: CollectionTreeRecord) => {
-      // Visualize the collection's workbench as a flow diagram in the
+      // Visualize the collection's rules as a flow diagram in the
       // workspace. `folder` records aren't supported as top-level
       // flow scopes today (the flow view expects a collection root);
       // the rule-flow view will scope to the collection ancestor if
       // a folder uid lands on this path — same fallback the workspace
-      // already applies for tree-nodes above leaf workbench.
+      // already applies for tree-nodes above leaf rules.
       const scope = record.nodeType === 'folder' ? 'folder' : 'collection';
       void openWorkspace({ kind: 'open-rule-flow', scope, entityId: record.uid }, surface.mode);
     },
@@ -392,7 +392,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       }
       const ruleUids = collectRuleUidsUnder(record);
       if (ruleUids.length === 0) {
-        message.info('This group has no workbench to test');
+        message.info('This group has no rules to test');
         return;
       }
       setTestState({

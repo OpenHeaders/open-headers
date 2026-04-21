@@ -136,7 +136,7 @@ describe('pause-markers-store — lock serialization', () => {
     // never a half-merged blob.
     const [_a, _b] = await Promise.all([
       store.replaceMarkers({ 'rules/base-c0ll0000': 'paused' }),
-      store.setMarker('workbench/added-c0ll9999', 'unpaused'),
+      store.setMarker('rules/added-c0ll9999', 'unpaused'),
     ]);
     const final = store.getPauseMarkers();
     // At least one of the two calls' changes is present; the lock
@@ -149,9 +149,9 @@ describe('pause-markers-store — lock serialization', () => {
   });
 
   it('clearMarker of a missing key is a silent no-op (no extra storage write)', async () => {
-    await store.setMarker('workbench/keep-c0ll1111', 'paused');
+    await store.setMarker('rules/keep-c0ll1111', 'paused');
     const before = blobs.get('oh.ws.ws-pause001.pauseMarkers');
-    await store.clearMarker('workbench/missing-c0ll9999');
+    await store.clearMarker('rules/missing-c0ll9999');
     expect(blobs.get('oh.ws.ws-pause001.pauseMarkers')).toEqual(before);
   });
 });

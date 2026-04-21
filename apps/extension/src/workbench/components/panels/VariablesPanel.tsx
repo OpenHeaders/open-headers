@@ -273,7 +273,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
   //    through the full resolveTemplate machinery (so namespaces,
   //    default-env fallback, reserved-namespace detection all apply),
   //    then dedupes variables by display name and errors by reference.
-  //    The walker is entity-agnostic: workbench and requests are both
+  //    The walker is entity-agnostic: rules and requests are both
   //    plain objects whose templated fields `collectTemplateStrings`
   //    can harvest.
   const { inContextVars, inContextErrors } = useMemo<{

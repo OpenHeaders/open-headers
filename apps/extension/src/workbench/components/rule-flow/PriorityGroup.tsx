@@ -1,5 +1,5 @@
 /**
- * PriorityGroup — container for workbench in a Chrome execution priority tier.
+ * PriorityGroup — container for rules in a Chrome execution priority tier.
  *
  * Shows tier label, color accent, and contains sortable FlowRuleCards.
  * Rules within a tier can be reordered with dnd-kit.
@@ -92,7 +92,7 @@ interface PriorityGroupProps {
   /**
    * Per-rule status overlay for the test-results flow. When set, every card
    * in this group renders with its outcome color, and the "Add Rule" button
-   * is hidden because adding workbench from a finished test result is nonsense.
+   * is hidden because adding rules from a finished test result is nonsense.
    */
   statusOverlays?: Map<string, RuleStatusOverlay>;
   /** Currently-selected rule uid in test-results mode (highlights the card). */

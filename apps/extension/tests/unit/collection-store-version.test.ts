@@ -195,7 +195,7 @@ describe('rule-store — collection lock serializes mixed mutations', () => {
     expect(final?.version).toBe(3);
   });
 
-  it('deleteCollection removes the collection and cascades child workbench', async () => {
+  it('deleteCollection removes the collection and cascades child rules', async () => {
     const coll = ruleStore.createCollection('Doomed');
     ruleStore.addRuleToCollection(
       {
@@ -218,12 +218,12 @@ describe('rule-store — collection lock serializes mixed mutations', () => {
 
 describe('rule-store — folder version stamping + lock', () => {
   it('createFolder stamps version: 1', () => {
-    const folder = ruleStore.createFolder('F', 'workbench/root');
+    const folder = ruleStore.createFolder('F', 'rules/root');
     expect(folder.version).toBe(1);
   });
 
   it('renameFolder bumps version', async () => {
-    const folder = ruleStore.createFolder('Before', 'workbench/root');
+    const folder = ruleStore.createFolder('Before', 'rules/root');
     const ok = await ruleStore.renameFolder(folder.uid, 'After');
     expect(ok).toBe(true);
     const updated = ruleStore.getFolders().find((f) => f.uid === folder.uid);
@@ -232,7 +232,7 @@ describe('rule-store — folder version stamping + lock', () => {
   });
 
   it('concurrent renameFolder calls serialize through the folder lock', async () => {
-    const folder = ruleStore.createFolder('Before', 'workbench/root');
+    const folder = ruleStore.createFolder('Before', 'rules/root');
     const [a, b] = await Promise.all([
       ruleStore.renameFolder(folder.uid, 'A'),
       ruleStore.renameFolder(folder.uid, 'B'),
@@ -251,7 +251,7 @@ describe('rule-store — folder version stamping + lock', () => {
   });
 
   it('deleteFolder removes the folder and cascades children', async () => {
-    const parent = ruleStore.createFolder('parent', 'workbench/root');
+    const parent = ruleStore.createFolder('parent', 'rules/root');
     const ok = await ruleStore.deleteFolder(parent.uid);
     expect(ok).toBe(true);
     expect(ruleStore.getFolders().find((f) => f.uid === parent.uid)).toBeUndefined();

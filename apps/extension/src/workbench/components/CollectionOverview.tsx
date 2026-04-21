@@ -239,7 +239,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
             Add Rule
           </Button>
         </Dropdown>
-        <Tooltip title={isPaused ? 'Resume all workbench in this collection' : 'Pause all workbench in this collection'}>
+        <Tooltip title={isPaused ? 'Resume all rules in this collection' : 'Pause all rules in this collection'}>
           <Button
             size="small"
             icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
