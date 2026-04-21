@@ -121,7 +121,7 @@ export function TreeNodeRow({
     );
   }
 
-  const className = ['workbench-sidebar-item', isSelected ? 'selected' : '', isFocused ? 'focused' : '']
+  const className = ['rules-sidebar-item', isSelected ? 'selected' : '', isFocused ? 'focused' : '']
     .filter(Boolean)
     .join(' ');
 

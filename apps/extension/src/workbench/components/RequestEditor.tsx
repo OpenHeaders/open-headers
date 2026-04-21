@@ -24,11 +24,12 @@ import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { App, Button, Input, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
+import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
 import AuthorizationTab from './request-editor/AuthorizationTab';
 import BodyTab from './request-editor/BodyTab';
 import DocsTab from './request-editor/DocsTab';
@@ -38,6 +39,8 @@ import ParamsTab from './request-editor/ParamsTab';
 import ScriptsTab from './request-editor/ScriptsTab';
 import SettingsTab, { type RequestSettingsDraft } from './request-editor/SettingsTab';
 import StaleDraftBanner from './StaleDraftBanner';
+import type { AutoSuggestionContextValue } from './template-input';
+import { SuggestionContextProvider, TemplateInput } from './template-input';
 
 const { Text } = Typography;
 
@@ -289,6 +292,16 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     const hit = requestCollections.find((c) => path.startsWith(`${c.path}/`));
     return hit?.uid;
   }, [summary?.path, requestCollections]);
+
+  // When this request is referenced by a single workflow step, surface
+  // `{{step.X.Y}}` captures from strictly-earlier steps. Unique-binding
+  // only: see `useRequestWorkflowStepContext` for why multi-binding
+  // stays silent.
+  const workflowStepCtx = useRequestWorkflowStepContext(requestUid);
+  const suggestionContext = useMemo<AutoSuggestionContextValue>(
+    () => ({ collectionId: draftCollectionId, workflowStep: workflowStepCtx }),
+    [draftCollectionId, workflowStepCtx],
+  );
   // Per-section resolvability — one resolver walk per tab so the
   // inline tab dots can flag exactly which section needs attention.
   // Each entry returns `true` when at least one `{{ref}}` in that
@@ -612,118 +625,119 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {staleDraft && (
-        <div style={{ padding: '8px 16px 0' }}>
-          <StaleDraftBanner
-            entityLabel="request"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={() => void handleStaleDraftReload()}
-            onKeepEditing={() => void handleStaleDraftKeepEditing()}
-          />
-        </div>
-      )}
-
-      {/* URL bar */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: '10px 16px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Select
-            value={draft.method}
-            onChange={(method) => setDraft((d) => ({ ...d, method }))}
-            options={METHOD_OPTIONS}
-            size="middle"
-            style={{ width: 110 }}
-            popupMatchSelectWidth={false}
-            labelRender={({ label }) => (
-              <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
-            )}
-          />
-          <Input
-            // The URL field is a projection of `draft.url` (base) +
-            // `draft.params` (structured query). Edits parse back
-            // into both fields so the Params tab stays in sync with
-            // whatever the user types here. See `mergeParamsFromUrl`
-            // for the metadata-preserving merge (enabled state and
-            // descriptions ride along for rows whose key stayed).
-            value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
-            onChange={(e) => {
-              const parsed = parseUrlQuery(e.target.value);
-              setDraft((d) => ({
-                ...d,
-                url: parsed.base,
-                params: mergeParamsFromUrl(parsed.params, d.params),
-              }));
-            }}
-            placeholder="Enter URL or paste text"
-            size="middle"
-            // Red `status` outlines the URL input when its `{{refs}}`
-            // don't resolve. Same visual language as the inline mirror
-            // + tab dot + sidebar badge; replaces the need for a
-            // banner at the top of the editor.
-            status={sectionUnresolved.url ? 'error' : undefined}
-            style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 13 }}
-            onPressEnter={() => void handleSend()}
-            onBlur={() => {
-              const trimmed = draft.url.trim();
-              if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
-                const normalized = ensureScheme(trimmed);
-                if (normalized !== draft.url) {
-                  setDraft((d) => ({ ...d, url: normalized }));
-                }
-              }
-            }}
-          />
-          <Tooltip
-            title={
-              hasUnresolvedRefs
-                ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
-                : undefined
-            }
-          >
-            <Button
-              type="primary"
-              icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
-              size="middle"
-              onClick={() => void handleSend()}
-              // Disable on unresolved refs — the executor would return
-              // an error snapshot anyway; blocking up front gives the
-              // user a clearer "fix these first" signal.
-              disabled={sending || hasUnresolvedRefs}
-            >
-              {sending ? 'Sending…' : 'Send'}
-            </Button>
-          </Tooltip>
-        </div>
-        {needsSchemeNormalization(draft.url) && (
-          <Tooltip
-            title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
-            placement="bottomLeft"
-          >
-            <span
-              style={{
-                marginLeft: 118,
-                fontSize: 11,
-                color: token.colorTextTertiary,
-                fontFamily: "'SF Mono', monospace",
-                cursor: 'help',
-              }}
-            >
-              → {ensureScheme(draft.url.trim())}
-            </span>
-          </Tooltip>
+    <SuggestionContextProvider value={suggestionContext}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        {staleDraft && (
+          <div style={{ padding: '8px 16px 0' }}>
+            <StaleDraftBanner
+              entityLabel="request"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={() => void handleStaleDraftReload()}
+              onKeepEditing={() => void handleStaleDraftKeepEditing()}
+            />
+          </div>
         )}
-      </div>
 
-      {/* Editor / response split. The sub-tab bar (Docs · Params · …)
+        {/* URL bar */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            padding: '10px 16px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Select
+              value={draft.method}
+              onChange={(method) => setDraft((d) => ({ ...d, method }))}
+              options={METHOD_OPTIONS}
+              size="middle"
+              style={{ width: 110 }}
+              popupMatchSelectWidth={false}
+              labelRender={({ label }) => (
+                <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
+              )}
+            />
+            <TemplateInput
+              // The URL field is a projection of `draft.url` (base) +
+              // `draft.params` (structured query). Edits parse back
+              // into both fields so the Params tab stays in sync with
+              // whatever the user types here. See `mergeParamsFromUrl`
+              // for the metadata-preserving merge (enabled state and
+              // descriptions ride along for rows whose key stayed).
+              value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
+              onChange={(next) => {
+                const parsed = parseUrlQuery(next);
+                setDraft((d) => ({
+                  ...d,
+                  url: parsed.base,
+                  params: mergeParamsFromUrl(parsed.params, d.params),
+                }));
+              }}
+              placeholder="Enter URL or paste text"
+              size="middle"
+              // Red `status` outlines the URL input when its `{{refs}}`
+              // don't resolve. Same visual language as the inline mirror
+              // + tab dot + sidebar badge; replaces the need for a
+              // banner at the top of the editor.
+              status={sectionUnresolved.url ? 'error' : undefined}
+              style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 13 }}
+              onPressEnter={() => void handleSend()}
+              onBlur={() => {
+                const trimmed = draft.url.trim();
+                if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
+                  const normalized = ensureScheme(trimmed);
+                  if (normalized !== draft.url) {
+                    setDraft((d) => ({ ...d, url: normalized }));
+                  }
+                }
+              }}
+            />
+            <Tooltip
+              title={
+                hasUnresolvedRefs
+                  ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
+                  : undefined
+              }
+            >
+              <Button
+                type="primary"
+                icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
+                size="middle"
+                onClick={() => void handleSend()}
+                // Disable on unresolved refs — the executor would return
+                // an error snapshot anyway; blocking up front gives the
+                // user a clearer "fix these first" signal.
+                disabled={sending || hasUnresolvedRefs}
+              >
+                {sending ? 'Sending…' : 'Send'}
+              </Button>
+            </Tooltip>
+          </div>
+          {needsSchemeNormalization(draft.url) && (
+            <Tooltip
+              title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
+              placement="bottomLeft"
+            >
+              <span
+                style={{
+                  marginLeft: 118,
+                  fontSize: 11,
+                  color: token.colorTextTertiary,
+                  fontFamily: "'SF Mono', monospace",
+                  cursor: 'help',
+                }}
+              >
+                → {ensureScheme(draft.url.trim())}
+              </span>
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Editor / response split. The sub-tab bar (Docs · Params · …)
           renders OUTSIDE the scroll container so it never participates
           in scrolling — simpler + more robust than `position: sticky`,
           and leaves child panes free to mount their own sticky rails
@@ -731,35 +745,36 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           colliding with an outer sticky header. We pass empty `items`
           to AntD Tabs so only the bar renders; the active pane is
           rendered manually below inside its own scroller. */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div style={{ flex: response ? '0 0 55%' : 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ padding: '8px 16px 0' }}>
-            <Tabs
-              size="small"
-              activeKey={activeTab}
-              onChange={(k) => setActiveTab(k as TabKey)}
-              items={tabItems.map((item) => ({ key: item.key, label: item.label }))}
-              className="rules-request-tabs"
-              tabBarStyle={{ marginBottom: 0 }}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ flex: response ? '0 0 55%' : 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ padding: '8px 16px 0' }}>
+              <Tabs
+                size="small"
+                activeKey={activeTab}
+                onChange={(k) => setActiveTab(k as TabKey)}
+                items={tabItems.map((item) => ({ key: item.key, label: item.label }))}
+                className="rules-request-tabs"
+                tabBarStyle={{ marginBottom: 0 }}
+              />
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
+              <TabContent tab={activeTab} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />
+            </div>
+          </div>
+          {response && (
+            <ResponsePanel
+              response={response}
+              onClear={() => setResponse(null)}
+              onCaptureToLive={
+                mode === 'request-edit' && requestUid && onCaptureResponseToLive
+                  ? () => onCaptureResponseToLive(requestUid)
+                  : undefined
+              }
             />
-          </div>
-          <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
-            <TabContent tab={activeTab} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />
-          </div>
+          )}
         </div>
-        {response && (
-          <ResponsePanel
-            response={response}
-            onClear={() => setResponse(null)}
-            onCaptureToLive={
-              mode === 'request-edit' && requestUid && onCaptureResponseToLive
-                ? () => onCaptureResponseToLive(requestUid)
-                : undefined
-            }
-          />
-        )}
       </div>
-    </div>
+    </SuggestionContextProvider>
   );
 };
 

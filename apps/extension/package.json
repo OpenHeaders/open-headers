@@ -9,9 +9,9 @@
     "src/background/**",
     "src/offscreen/**",
     "src/devtools/**",
-    "src/rules/settings/schema/**",
-    "src/rules/settings/categories.tsx",
-    "src/rules/components/monaco/**"
+    "src/workbench/settings/schema/**",
+    "src/workbench/settings/categories.tsx",
+    "src/workbench/components/monaco/**"
   ],
   "scripts": {
     "build": "pnpm run build:chrome && pnpm run build:firefox && pnpm run build:edge && pnpm run build:safari",

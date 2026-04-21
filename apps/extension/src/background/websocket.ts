@@ -159,7 +159,7 @@ function reportSyncStatus(): void {
 // hotkey signals. Team-workspace data sync (rules/collections/vars)
 // lands in v2 — when it does, it'll go through a workspace-scoped
 // channel that writes to the per-workspace stores, not a global
-// workbench-push like the pre-v5 "desktop pushes rules" flow.
+// rules-push like the pre-v5 "desktop pushes rules" flow.
 
 function handleOtherMessages(parsed: Record<string, unknown>): void {
   if (handleRecordingInboundMessage(parsed)) return;

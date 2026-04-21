@@ -8,7 +8,7 @@
  *   - workspace `focusStore` instance
  *   - workspace layout settings (`workspaceLayout.*`)
  *   - `responsive.sizes` from `useResponsiveLayout`
- *   - editor-tab collision detection scoped to `.workbench-tabs-bar`
+ *   - editor-tab collision detection scoped to `.rules-tabs-bar`
  *
  * All drag-and-drop, regions, zen mode, drop zones, etc. live in the
  * shared component — this wrapper just plumbs domain inputs in.
@@ -44,7 +44,7 @@ export interface ShellLayoutProps {
   renderEditorTabDragPreview?: (tabId: string) => React.ReactNode;
 }
 
-const editorTabCollisionDetection = makeEditorTabCollisionDetection('.workbench-tabs-bar');
+const editorTabCollisionDetection = makeEditorTabCollisionDetection('.rules-tabs-bar');
 
 // ── Workspace shell ───────────────────────────────────────────────────
 

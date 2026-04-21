@@ -51,7 +51,7 @@ const REGION_FOCUS_SELECTORS: Record<Exclude<FocusRegion, null>, string> = {
   right: '[data-region="right"] button, [data-region="right"] [tabindex="0"], [data-region="right"] a',
   bottom: '[data-region="bottom"] [role="tab"], [data-region="bottom"] button, [data-region="bottom"] [tabindex="0"]',
   editor:
-    '[data-region="editor"] .workbench-tab.active, [data-region="editor"] .workbench-tab, [data-region="editor"] input, [data-region="editor"] textarea, [data-region="editor"] button',
+    '[data-region="editor"] .rules-tab.active, [data-region="editor"] .rules-tab, [data-region="editor"] input, [data-region="editor"] textarea, [data-region="editor"] button',
 };
 
 export interface UseFocusRegionOptions {

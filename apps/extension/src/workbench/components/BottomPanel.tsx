@@ -322,7 +322,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
                   onClick: () => onOpenTestRun(row.id, { type: row.ownerType, id: row.ownerId }, row.ownerNameAtRun),
                   style: { cursor: 'pointer' },
                 })}
-                rowClassName={(row) => (row.id === activeRunId ? 'workbench-bottom-row-active' : '')}
+                rowClassName={(row) => (row.id === activeRunId ? 'rules-bottom-row-active' : '')}
               />
             )}
           </div>

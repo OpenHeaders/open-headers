@@ -300,7 +300,7 @@ export function shortcutLabel(id: string): string {
  */
 export function useShortcutLabel(id: string): string {
   const def = SHORTCUTS.find((s) => s.id === id);
-  // Always pass a real setting key to the hook so React's workbench-of-hooks
+  // Always pass a real setting key to the hook so React's rules-of-hooks
   // stay satisfied when `id` is unknown — fall back to any keyboard key.
   const fallback: SettingKey = 'keyboard.commandPalette';
   const chord = useSettingValue((def?.settingKey ?? fallback) as SettingKey);

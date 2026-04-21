@@ -1387,6 +1387,22 @@ html, body, #root {
   border-color: transparent;
 }
 
+// Secret mode — literal characters render as discs while `{{ref}}`
+// spans stay readable. The user still sees WHICH variable they
+// picked (and that it resolves / doesn't), but typed-in secrets
+// don't leak via screen-share. Paired with the TemplateInput's
+// `secret` prop; set by AuthorizationTab for password / token /
+// api-key-value fields.
+.oh-template-input-editable.oh-template-input-secret {
+  -webkit-text-security: disc;
+  text-security: disc;
+
+  .oh-template-ref {
+    -webkit-text-security: none;
+    text-security: none;
+  }
+}
+
 // ── TemplateInput popover ─────────────────────────────────────────
 //
 // Our own popover — rendered as a positioned `<div>` beneath the

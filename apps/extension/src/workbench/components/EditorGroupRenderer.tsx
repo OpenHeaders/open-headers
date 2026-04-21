@@ -70,13 +70,13 @@ function computeZoneForLeaf(leafEl: HTMLElement, clientX: number, clientY: numbe
     return null;
   }
 
-  const tabBar = leafEl.querySelector<HTMLElement>('.workbench-tabs-bar');
+  const tabBar = leafEl.querySelector<HTMLElement>('.rules-tabs-bar');
   if (tabBar) {
     const r = tabBar.getBoundingClientRect();
     if (clientY >= r.top && clientY <= r.bottom) return null;
   }
 
-  const content = leafEl.querySelector<HTMLElement>('.workbench-editor-content');
+  const content = leafEl.querySelector<HTMLElement>('.rules-editor-content');
   if (content) {
     const c = content.getBoundingClientRect();
     if (clientX >= c.left && clientX <= c.right && clientY >= c.top && clientY <= c.bottom) {

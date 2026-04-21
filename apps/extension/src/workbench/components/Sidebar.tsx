@@ -1,7 +1,7 @@
 /**
  * Sidebar — IDE-style tree panel, rendered as one of four view modes:
  *
- *   - `http-workbench`   — RULES, TEMPLATES, ENVIRONMENTS
+ *   - `http-rules`   — RULES, TEMPLATES, ENVIRONMENTS
  *   - `api-requests` — API REQUESTS, ENVIRONMENTS
  *   - `variables`    — VAULT, WORKSPACE VARIABLES, LIVE VARIABLES, ENVIRONMENTS
  *   - `sources`      — SOURCES

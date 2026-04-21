@@ -153,7 +153,7 @@ const ActivityBar = forwardRef<HTMLDivElement, ActivityBarProps>(
       <Dropdown menu={{ items: contextMenuItems }} trigger={['contextMenu']}>
         <div
           ref={ref}
-          className={`rules-activity-bar ${side === 'right' ? 'workbench-activity-bar--right' : ''} ${labelsVisible ? '' : 'rules-activity-bar--compact'}`}
+          className={`rules-activity-bar ${side === 'right' ? 'rules-activity-bar--right' : ''} ${labelsVisible ? '' : 'rules-activity-bar--compact'}`}
           style={barStyle}
           tabIndex={-1}
           data-side={side}

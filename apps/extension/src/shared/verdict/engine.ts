@@ -6,7 +6,7 @@
  * Extracted from request-tracker so it can be:
  *   - Unit-tested in isolation (no tab-telemetry / rule-store mocks needed).
  *   - Reused by the DevTools inspector panel and any future workspace
- *     "workbench-on-this-page" view without duplicating the ranking logic.
+ *     "rules-on-this-page" view without duplicating the ranking logic.
  *
  * Input is fully explicit: callers pass the rule, its compiled match
  * patterns, the tab URL, the observed resources, and the "did this rule

@@ -84,6 +84,14 @@ export interface TemplateInputProps {
   id?: string;
   /** Forwarded to the editable. */
   'aria-label'?: string;
+  /** AntD-compatible status override. `'error'` paints the border red
+   *  regardless of focus state — use for unresolved-ref signalling. */
+  status?: 'error';
+  /** When true, literal characters render masked (disc) while
+   *  `{{ref}}` spans stay visible. Use for password / token fields
+   *  where users still need to read which variable they picked but
+   *  typed-in secrets should not be drive-by-readable. */
+  secret?: boolean;
 }
 
 const PREFIX = '{{';
@@ -216,6 +224,8 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       autoFocus,
       id,
       'aria-label': ariaLabel,
+      status,
+      secret = false,
     },
     ref,
   ) => {
@@ -514,6 +524,13 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const sizePadding = size === 'small' ? '0 7px' : size === 'large' ? '6.5px 11px' : '4px 11px';
     const sizeMinHeight = size === 'small' ? 24 : size === 'large' ? 40 : 32;
 
+    // `status === 'error'` wins regardless of focus so the error
+    // colour doesn't flicker back to primary-blue when the field is
+    // active — matches AntD Input's behaviour.
+    const borderColor = status === 'error' ? token.colorError : isFocused ? token.colorPrimary : token.colorBorder;
+    const focusShadow =
+      status === 'error' ? `0 0 0 2px ${token.colorErrorBorderHover}` : `0 0 0 2px ${token.controlOutline}`;
+
     const editableStyle: React.CSSProperties = {
       minHeight: sizeMinHeight,
       padding: sizePadding,
@@ -522,7 +539,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       fontFamily: 'inherit',
       color: token.colorText,
       background: variant === 'borderless' ? 'transparent' : token.colorBgContainer,
-      border: variant === 'borderless' ? 'none' : `1px solid ${isFocused ? token.colorPrimary : token.colorBorder}`,
+      border: variant === 'borderless' ? 'none' : `1px solid ${borderColor}`,
       borderRadius: variant === 'borderless' ? 0 : token.borderRadius,
       outline: 'none',
       cursor: 'text',
@@ -533,7 +550,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       overflowY: multiline ? 'auto' : 'hidden',
       wordBreak: multiline ? 'break-word' : 'normal',
       transition: 'border-color 0.2s, box-shadow 0.2s',
-      boxShadow: isFocused && variant !== 'borderless' ? `0 0 0 2px ${token.controlOutline}` : undefined,
+      boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
       ...style,
     };
 
@@ -541,7 +558,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       <span className={`oh-template-input-wrapper${className ? ` ${className}` : ''}`}>
         <div
           ref={mergedRef}
-          className="oh-template-input-editable"
+          className={`oh-template-input-editable${secret ? ' oh-template-input-secret' : ''}`}
           contentEditable
           suppressContentEditableWarning
           role="combobox"

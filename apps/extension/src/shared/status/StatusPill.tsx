@@ -52,7 +52,7 @@ export type StatusPillDensity = 'row' | 'full' | 'compact';
 export interface StatusPillProps {
   density?: StatusPillDensity;
   /** Extra class to forward to the outer span — lets the workspace
-   *  footer keep its `workbench-statusbar-item` hit target styling. */
+   *  footer keep its `rules-statusbar-item` hit target styling. */
   className?: string;
   /**
    * Override the popover placement. Density-specific defaults:
@@ -152,7 +152,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
     return (
       <Popover placement={effectivePlacement} trigger={['click']} content={body} title={titleNode}>
         <span
-          className={className ?? 'workbench-statusbar-item'}
+          className={className ?? 'rules-statusbar-item'}
           role="status"
           aria-label={ariaLabel}
           style={{ cursor: hasEntries ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 8 }}
@@ -195,7 +195,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   return (
     <Popover placement={effectivePlacement} trigger={['click', 'hover']} content={body} title={titleNode}>
       <span
-        className={className ?? 'workbench-statusbar-item'}
+        className={className ?? 'rules-statusbar-item'}
         role="status"
         style={{ cursor: hasEntries ? 'pointer' : 'default' }}
         aria-label={ariaLabel}

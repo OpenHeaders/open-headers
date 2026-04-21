@@ -9,10 +9,11 @@
 
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
-import { Input, Select, Typography, theme } from 'antd';
+import { Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 import OAuth2AuthEditor from '../OAuth2AuthEditor';
+import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -172,18 +173,19 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         {auth.type === 'basic' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540 }}>
             <LabeledRow label="Username">
-              <Input
+              <TemplateInput
                 size="small"
                 value={auth.username}
-                onChange={(e) => onChange({ ...auth, username: e.target.value })}
+                onChange={(next) => onChange({ ...auth, username: next })}
                 placeholder="username"
               />
             </LabeledRow>
             <LabeledRow label="Password">
-              <Input.Password
+              <TemplateInput
                 size="small"
+                secret
                 value={auth.password}
-                onChange={(e) => onChange({ ...auth, password: e.target.value })}
+                onChange={(next) => onChange({ ...auth, password: next })}
                 placeholder="password"
               />
             </LabeledRow>
@@ -193,10 +195,11 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         {auth.type === 'bearer' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540 }}>
             <LabeledRow label="Token">
-              <Input
+              <TemplateInput
                 size="small"
+                secret
                 value={auth.token}
-                onChange={(e) => onChange({ ...auth, token: e.target.value })}
+                onChange={(next) => onChange({ ...auth, token: next })}
                 placeholder="bearer token"
               />
             </LabeledRow>
@@ -206,18 +209,19 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
         {auth.type === 'api-key' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540 }}>
             <LabeledRow label="Key">
-              <Input
+              <TemplateInput
                 size="small"
                 value={auth.key}
-                onChange={(e) => onChange({ ...auth, key: e.target.value })}
+                onChange={(next) => onChange({ ...auth, key: next })}
                 placeholder="e.g. X-API-Key"
               />
             </LabeledRow>
             <LabeledRow label="Value">
-              <Input
+              <TemplateInput
                 size="small"
+                secret
                 value={auth.value}
-                onChange={(e) => onChange({ ...auth, value: e.target.value })}
+                onChange={(next) => onChange({ ...auth, value: next })}
                 placeholder="api key value"
               />
             </LabeledRow>
