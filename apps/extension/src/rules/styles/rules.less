@@ -1327,8 +1327,17 @@ html, body, #root {
 // only element that exists.
 .oh-template-input-wrapper {
   position: relative;
-  display: inline-block;
+  display: block;
   width: 100%;
+  // Needed inside flex parents with `min-width: 0` on the item — the
+  // span must participate in the same shrinking so the inner
+  // contentEditable doesn't grow past its flex-allocated width when a
+  // single long value (e.g. an Accept header) is pasted in, which
+  // would push the whole row wide enough to force a page-level
+  // horizontal scrollbar. `white-space: pre` + `overflow-x: auto` on
+  // the editable then scrolls the long value internally.
+  min-width: 0;
+  max-width: 100%;
 }
 
 .oh-template-input-editable {
