@@ -42,7 +42,7 @@ import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';
 import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RulesTab, TabMode } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
 
@@ -103,11 +103,14 @@ interface DisplayVariable {
 
 const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) => {
   const { token } = theme.useToken();
-  // Default to the broader "All" view so a first-open user sees every
-  // resolvable variable without needing to focus a specific tab. The
-  // narrower "In Rule" / "In Request" view is an opt-in filter
-  // available only when the focused tab actually references variables.
-  const [mode, setMode] = useState<'in-context' | 'all'>('all');
+  // Initialize mode to match the currently-focused tab: if it
+  // references variables (rule / request), start contextual so the
+  // first thing the user sees is their rule/request's own variables;
+  // otherwise fall back to the broader "All" view. The user can
+  // switch to "All" at any time — see the tab-change effect below.
+  const [mode, setMode] = useState<'in-context' | 'all'>(() =>
+    getScopeKind(activeTab) === 'none' ? 'all' : 'in-context',
+  );
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
   const { rules, localCollections, localCollectionTrees } = useRules();
@@ -171,13 +174,26 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     return { activeRule: rule, activeRequest: request, activeCollectionId: collId };
   }, [scopeKind, activeTab, rules, requests, localCollections, localCollectionTrees]);
 
-  // When the focused tab stops referencing variables, force the view
-  // back to "All" — the filter toggle is about to disappear and we
-  // don't want the panel stuck on a mode the user can no longer
-  // undo from the UI.
+  // Auto-apply the "natural" mode whenever the focused tab changes:
+  // a rule/request tab starts in "In Rule" / "In Request" (because
+  // that's what the user is working on and almost always wants to see
+  // first); anything else starts in "All". The user's manual toggle
+  // choice is per-tab — switching to a different tab resets to the
+  // new tab's default. This matches how users read the panel ("what
+  // does this tab reference?") while still honoring the toggle.
+  const lastTabIdRef = useRef<string | null>(activeTab?.id ?? null);
   useEffect(() => {
+    const tabId = activeTab?.id ?? null;
+    if (lastTabIdRef.current !== tabId) {
+      lastTabIdRef.current = tabId;
+      setMode(scopeKind === 'none' ? 'all' : 'in-context');
+      return;
+    }
+    // Same tab id but its scope kind dropped to 'none' (a rare mode
+    // transition on the same tab): force 'all' so the panel can't
+    // get stuck showing a context view whose toggle is now hidden.
     if (scopeKind === 'none' && mode === 'in-context') setMode('all');
-  }, [scopeKind, mode]);
+  }, [activeTab, scopeKind, mode]);
 
   const contextEntity: V5.Rule | V5.Request | null = activeRule ?? activeRequest;
   const contextEntityName = activeRule?.name ?? activeRequest?.name ?? null;
