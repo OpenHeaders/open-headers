@@ -74,9 +74,9 @@ import { useToolLayout } from './hooks/useToolLayout';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
-import { SettingsModal, SettingsTab } from './settings';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
+import { SettingsModal, SettingsTab } from './settings/ui';
 import { getFocusedRegion } from './stores/focus-region-store';
 import type { DockSlot, RulesTab, ToolWindowId } from './types';
 

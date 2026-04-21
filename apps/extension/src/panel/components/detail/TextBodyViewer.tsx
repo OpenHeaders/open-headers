@@ -10,13 +10,17 @@
  *   - `TextBodyToolbar` shows pretty-print + sniffer + cursor info
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
 import { useSniffedContent } from '../../data/use-sniffed-content';
-import CodeViewer from './CodeViewer';
 import { prettyPrintCode } from './pretty-print';
 import Skeleton from './Skeleton';
 import TextBodyToolbar from './TextBodyToolbar';
+
+// Lazy-loaded so Monaco (~4 MB) stays out of the panel's initial chunk
+// graph. The panel's first paint is the request list; Monaco only
+// matters when the user opens a text body, so it loads on demand.
+const CodeViewer = lazy(() => import('./CodeViewer'));
 
 interface TextBodyViewerProps {
   /** Raw body text as the server delivered it. */
@@ -102,13 +106,15 @@ export default function TextBodyViewer({ text, declaredMime, searchQuery, search
   const lineInfo = cursorInfo ?? `${displayText.split('\n').length} lines`;
 
   const content = lang ? (
-    <CodeViewer
-      value={displayText}
-      language={lang}
-      onCursorChange={handleCursorChange}
-      searchQuery={searchQuery || undefined}
-      searchMatchIndex={searchMatchIndex}
-    />
+    <Suspense fallback={<Skeleton />}>
+      <CodeViewer
+        value={displayText}
+        language={lang}
+        onCursorChange={handleCursorChange}
+        searchQuery={searchQuery || undefined}
+        searchMatchIndex={searchMatchIndex}
+      />
+    </Suspense>
   ) : (
     <pre className="dt-body-pre">{displayText}</pre>
   );

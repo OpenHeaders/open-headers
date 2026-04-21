@@ -140,7 +140,20 @@ typescriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
 // provider owns the model's language.
 registerPrettierFormatters(monacoEdCore as unknown as typeof import('monaco-editor'));
 
-// ── Phase 2: async worker + loader wiring ────────────────────────
+// ── Phase 2: synchronous loader configuration ────────────────────
+//
+// This MUST run at module-load time — before any `<Editor>` has a
+// chance to mount. `@monaco-editor/react`'s default loader fetches
+// `loader.js` from jsdelivr CDN; our CSP (`script-src 'self'`) blocks
+// that, and the editor hangs on a skeleton / "Loading..." forever.
+// Handing the loader the pre-imported `monacoEdCore` singleton here
+// tells it "use this, don't fetch anything". The call is synchronous,
+// so every Editor rendered after this module is imported is safe —
+// even when the whole bootstrap is reached via `React.lazy` and the
+// first Editor paints milliseconds after the dynamic import resolves.
+loader.config({ monaco: monacoEdCore as unknown as Parameters<typeof loader.config>[0]['monaco'] });
+
+// ── Phase 3: async worker wiring ─────────────────────────────────
 
 let bootstrapPromise: Promise<void> | null = null;
 
@@ -172,14 +185,13 @@ function kickBootstrap(): Promise<void> {
       },
     };
 
-    loader.config({ monaco: monacoEdCore as unknown as Parameters<typeof loader.config>[0]['monaco'] });
     await loader.init();
   })();
 
   return bootstrapPromise;
 }
 
-// Module-load side effect: start the async bootstrap immediately so
-// `loader.config({ monaco })` wins the race against `<Editor>`'s
-// internal `loader.init()`.
+// Module-load side effect: start the async worker bootstrap immediately
+// so `<Editor>`'s internal `await loader.init()` resolves against our
+// pre-configured loader (workers ready, CDN fetch avoided).
 export const ohMonacoReady: Promise<void> = kickBootstrap();

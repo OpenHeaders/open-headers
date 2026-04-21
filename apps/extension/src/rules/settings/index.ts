@@ -1,14 +1,14 @@
 /**
- * Settings public API barrel — the only import surface for callers
- * outside the settings/ directory.
+ * Settings public API barrel — the core (headless) surface.
  *
- * The shell, modal, and provider live here. Concrete schemas load as
- * a side effect of importing SettingsProvider (via ./schema).
+ * This file exposes only the provider, hooks, store, registry, and
+ * types — everything lightweight surfaces (popup, sidepanel, panel,
+ * ThemeContext) need. Heavy UI components (Modal, Shell, Tab) live in
+ * ./ui so tree-shaking can keep them out of surfaces that never render
+ * the settings screen. Concrete schemas load as a side effect of
+ * importing SettingsProvider (via ./schema).
  */
 
-export { default as SettingsModal } from './components/SettingsModal';
-export { default as SettingsShell } from './components/SettingsShell';
-export { default as SettingsTab } from './components/SettingsTab';
 export { useIsModified, useResetSetting, useSetting, useSettingsReady, useSettingValue } from './hooks';
 export { allCategories, allDefs, byCategory, getDef } from './registry';
 export { SettingsProvider } from './SettingsProvider';

@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { classifyBodyState } from '../../data/response-body-state';
 import type { InspectorRequest } from '../../data/types';
 import { JsonTree } from '../JsonTree';
-import CodeViewer from './CodeViewer';
 import Skeleton from './Skeleton';
+
+// Lazy-loaded — keeps Monaco out of the panel's initial chunk graph.
+// See TextBodyViewer for the same pattern.
+const CodeViewer = lazy(() => import('./CodeViewer'));
 
 function isJsonMime(mime: string): boolean {
   return /\bjson\b/i.test(mime);
@@ -218,7 +221,11 @@ export default function PreviewView({ request }: PreviewViewProps) {
           : null;
 
     if (lang && textContent) {
-      content = <CodeViewer value={textContent} language={lang} />;
+      content = (
+        <Suspense fallback={<Skeleton />}>
+          <CodeViewer value={textContent} language={lang} />
+        </Suspense>
+      );
     } else if (textContent) {
       content = <pre className="dt-body-pre">{textContent}</pre>;
     } else {

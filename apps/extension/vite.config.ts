@@ -338,6 +338,19 @@ export default defineConfig({
         //     turning that chunk into a 7 MB payload that regenerates
         //     on every edit).
         manualChunks(id) {
+          // Vite emits a `__vitePreload` runtime helper at a virtual
+          // module id so every dynamic `import()` can go through one
+          // path (dep preload, CSS link injection, CSP nonce handling).
+          // Rollup's default is to bundle this helper into the largest
+          // shared chunk — which ends up being `monaco`. Any surface
+          // that uses dynamic imports (prettier in the panel, React.lazy
+          // in the request detail views) then statically imports monaco
+          // just to reach the helper, forcing Monaco's 4 MB of top-level
+          // code to evaluate on surfaces that never render an editor.
+          // Pinning the helper to `vendor` — already loaded by every
+          // entry — keeps monaco reachable only from surfaces that
+          // actually touch the editor.
+          if (id.includes('vite/preload-helper')) return 'vendor';
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('/prettier/')) return undefined;
           if (id.includes('/monaco-editor/') || id.includes('/@monaco-editor/')) return 'monaco';
