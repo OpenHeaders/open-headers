@@ -42,8 +42,8 @@ const SCOPE_LABEL: Record<VariableSuggestion['scope'], string> = {
   env: 'Environment',
   collection: 'Collection',
   workspace: 'Workspace',
-  live: 'Live Variable',
-  step: 'Workflow step capture',
+  live: 'Source',
+  step: 'Source flow step capture',
   file: 'File reference',
   dynamic: 'Dynamic generator',
 };

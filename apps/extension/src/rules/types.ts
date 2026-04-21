@@ -142,7 +142,7 @@ export interface PanelVisibility {
  *   - `api-requests` — api-request collections + environment quick-reference
  *   - `variables`    — full variable management (vault, workspace-vars, envs)
  */
-export type LeftPanelKey = 'http-rules' | 'api-requests' | 'variables' | 'page-traffic' | 'test-runs';
+export type LeftPanelKey = 'http-rules' | 'api-requests' | 'variables' | 'sources' | 'page-traffic' | 'test-runs';
 
 /**
  * Right-side panel keys — all shown in the right Allotment pane.
@@ -199,6 +199,7 @@ export type ToolWindowId =
   | 'http-rules'
   | 'api-requests'
   | 'variables'
+  | 'sources'
   | 'docs'
   | 'var-scope'
   | 'page-traffic'

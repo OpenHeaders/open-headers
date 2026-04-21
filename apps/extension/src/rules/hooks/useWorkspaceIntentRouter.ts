@@ -186,7 +186,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // Placeholder label; once the LV store broadcast resolves the
           // actual `name`, `useTabSyncEffects` rewrites the label (same
           // pattern as `edit-environment`).
-          o.openLiveVariableEdit(intent.uid, 'Live Variable');
+          o.openLiveVariableEdit(intent.uid, 'Source');
           return;
         case 'edit-live-workflow':
           o.openLiveWorkflowEdit(intent.uid, 'Workflow');
@@ -281,7 +281,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           .catch(() => o.openRunReport(pending.runId));
         return;
       case 'edit-live-variable':
-        o.openLiveVariableEdit(pending.uid, 'Live Variable');
+        o.openLiveVariableEdit(pending.uid, 'Source');
         return;
       case 'edit-live-workflow':
         o.openLiveWorkflowEdit(pending.uid, 'Workflow');

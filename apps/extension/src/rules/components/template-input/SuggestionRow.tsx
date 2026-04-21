@@ -32,8 +32,8 @@ const SCOPE_PILL: Record<SuggestionScope, ScopePillStyle> = {
   env: { letter: 'E', color: '#3498db', label: 'Environment variable' },
   collection: { letter: 'C', color: '#2ecc71', label: 'Collection variable' },
   workspace: { letter: 'W', color: '#f39c12', label: 'Workspace variable' },
-  live: { letter: '↻', color: '#9b59b6', label: 'Live variable' },
-  step: { letter: 'S', color: '#16a085', label: 'Workflow step capture' },
+  live: { letter: '↻', color: '#9b59b6', label: 'Source' },
+  step: { letter: 'S', color: '#16a085', label: 'Source flow step capture' },
   file: { letter: 'F', color: '#95a5a6', label: 'File reference' },
   dynamic: { letter: '$', color: '#95a5a6', label: 'Dynamic generator' },
 };

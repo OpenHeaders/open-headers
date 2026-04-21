@@ -518,7 +518,7 @@ export function useTabOpeners({
       const tabId = `live-var-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       addTab({
         id: tabId,
-        label: 'New Live Variable',
+        label: 'New Source',
         ruleType: '',
         dirty: true,
         mode: 'live-variable-create',

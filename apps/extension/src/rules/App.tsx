@@ -1016,6 +1016,7 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
         case 'http-rules':
         case 'api-requests':
         case 'variables':
+        case 'sources':
           return (
             <Sidebar
               view={id}

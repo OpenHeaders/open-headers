@@ -281,7 +281,7 @@ const CreateMode: React.FC<CreateProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <PlusOutlined style={{ fontSize: 18, color: token.colorPrimary }} />
           <Title level={4} style={{ margin: 0 }}>
-            New Live Variable
+            New Source
           </Title>
         </div>
 
@@ -485,7 +485,7 @@ const CreateMode: React.FC<CreateProps> = ({
           </div>
 
           <Button type="primary" onClick={() => void handleSave()} disabled={!draft.name.trim()}>
-            Create Live Variable
+            Create Source
           </Button>
         </Space>
       </div>
@@ -576,7 +576,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       return;
     }
     if (result.reason === 'not-found') {
-      message.error('Live variable was deleted from another tab');
+      message.error('Source was deleted from another tab');
       return;
     }
     message.error('Failed to save live variable');
@@ -634,7 +634,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   if (!lv) {
     return (
       <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">Live variable not found.</Text>
+        <Text type="secondary">Source not found.</Text>
       </div>
     );
   }
@@ -768,7 +768,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                   </Text>
                   {openWorkflowTab && (
                     <Button size="small" type="link" onClick={() => openWorkflowTab(workflow.uid, workflow.name)}>
-                      Open workflow
+                      Open source flow
                     </Button>
                   )}
                 </>

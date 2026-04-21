@@ -323,7 +323,7 @@ function composeBadge(text: { label: string; color: string } | null, isDirty: bo
  * is a quick-reference / switcher for the active env — full CRUD for
  * vault and workspace-vars lives in the dedicated `variables` view.
  */
-export type SidebarView = 'http-rules' | 'api-requests' | 'variables';
+export type SidebarView = 'http-rules' | 'api-requests' | 'variables' | 'sources';
 
 interface SidebarProps {
   view: SidebarView;
@@ -524,7 +524,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       base.vault = true;
       base['workspace-vars'] = true;
       base.environments = true;
-      base['live-variables'] = true;
+    } else if (view === 'sources') {
+      base.sources = true;
     } else {
       // `http-rules` view: rules + templates (and the System Templates
       // → Header drill-down) expanded on first open so the user can
@@ -566,8 +567,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         vault: true,
         'workspace-vars': true,
         environments: true,
-        'live-variables': true,
       });
+    } else if (view === 'sources') {
+      setSectionsExpanded({ sources: true });
     } else {
       setSectionsExpanded({ rules: true, templates: true, environments: true });
     }
@@ -599,8 +601,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         vault: false,
         'workspace-vars': false,
         environments: false,
-        'live-variables': false,
       });
+    } else if (view === 'sources') {
+      setSectionsExpanded({ sources: false });
     } else {
       setSectionsExpanded({ rules: false, templates: false, environments: false });
     }
@@ -1890,7 +1893,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {
             key: 'refresh',
             icon: createElement(ReloadOutlined),
-            label: 'Refresh workflow now',
+            label: 'Refresh now',
             onClick: () => void refreshLiveWorkflow(lv.workflowUid, activeEnvironmentId),
           },
           ...(workflow
@@ -1898,7 +1901,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {
                   key: 'open-workflow',
                   icon: createElement(PlayCircleOutlined),
-                  label: 'Open workflow',
+                  label: 'Open source flow',
                   onClick: () => onSelectLiveWorkflow?.(workflow.uid, workflow.name),
                 },
               ]
@@ -1946,10 +1949,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else if (view === 'api-requests') {
       if (sectionsExpanded['api-requests']) items.push(...requestNodes);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
+    } else if (view === 'sources') {
+      if (sectionsExpanded.sources) items.push(...liveVariableNodes);
+      if (sectionsExpanded.environments) items.push(...environmentNodes);
     } else {
       if (sectionsExpanded.vault) items.push(vaultNode);
       if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
-      if (sectionsExpanded['live-variables']) items.push(...liveVariableNodes);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     }
     return items;
@@ -2392,6 +2397,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </Tooltip>
         )}
+        {view === 'sources' && (
+          <Tooltip title="New source" placement="bottom">
+            <button
+              type="button"
+              className="rules-sidebar-toolbar-icon"
+              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={() => onCreateLiveVariable?.()}
+            >
+              <PlusOutlined />
+            </button>
+          </Tooltip>
+        )}
         <Tooltip title="Select Opened Tab" placement="bottom">
           <button
             type="button"
@@ -2607,32 +2624,36 @@ const Sidebar: React.FC<SidebarProps> = ({
             {sectionsExpanded['workspace-vars'] && (
               <div style={{ overflowY: 'auto' }}>{renderNodes([workspaceVarsNode])}</div>
             )}
+          </>
+        )}
 
+        {view === 'sources' && (
+          <>
             <SectionHeader
-              title="LIVE VARIABLES"
-              expanded={sectionsExpanded['live-variables']}
-              onToggle={() => toggleSection('live-variables')}
+              title="SOURCES"
+              expanded={sectionsExpanded.sources}
+              onToggle={() => toggleSection('sources')}
               actions={
-                <Tooltip title="New live variable" placement="bottom">
+                <Tooltip title="New source" placement="bottom">
                   <PlusOutlined
                     style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSectionsExpanded((prev) => ({ ...prev, 'live-variables': true }));
+                      setSectionsExpanded((prev) => ({ ...prev, sources: true }));
                       onCreateLiveVariable?.();
                     }}
                   />
                 </Tooltip>
               }
             />
-            {sectionsExpanded['live-variables'] && (
+            {sectionsExpanded.sources && (
               <div style={{ overflowY: 'auto' }}>
                 {liveVariableNodes.length > 0 ? (
                   renderNodes(liveVariableNodes, () => onCreateLiveVariable?.())
                 ) : (
                   <div style={{ padding: '8px 16px', fontSize: 11, color: token.colorTextTertiary }}>
                     <ThunderboltOutlined style={{ marginRight: 4 }} />
-                    No live variables yet — capture response values on a cadence via the + button.
+                    No sources yet — capture response values on a cadence via the + button.
                   </div>
                 )}
               </div>
