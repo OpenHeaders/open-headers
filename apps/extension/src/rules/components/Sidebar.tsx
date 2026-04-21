@@ -65,6 +65,7 @@ import { createElement, useCallback, useEffect, useMemo, useRef, useState } from
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import { buildRuleTypeMenuItems, buildRuleTypeMenuItemsCE } from '../rule-type-menu';
 import { useSettingValue } from '../settings/hooks';
+import type { RulesTab } from '../types';
 import { buildRuleIcon } from './shared/rule-icon';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { TreeNode } from './sidebar/types';
@@ -371,6 +372,24 @@ interface SidebarProps {
   dirtyRuleUids?: ReadonlySet<string>;
   /** Request uids with an open edit tab in a dirty state. */
   dirtyRequestUids?: ReadonlySet<string>;
+  /** All open editor tabs. Used to overlay `create` / `request-create`
+   *  drafts into the sidebar tree under the collection / folder the
+   *  user targeted when opening the draft — the action→effect pointer
+   *  is visible where the action originated, matching the IDE pattern
+   *  for "new file under folder X" that shows the pending file
+   *  immediately. Drafts without a preferred destination
+   *  (popup / sidepanel / devpanel CTAs) are intentionally skipped —
+   *  the Save modal picks the destination for those, so the sidebar
+   *  has nowhere to render them yet. */
+  allTabs?: RulesTab[];
+  /** Activate an editor tab by id. Invoked when a draft sidebar row
+   *  is clicked — the draft's editor state lives on the tab, so
+   *  opening the draft means switching to that tab. */
+  onSwitchTab?: (tabId: string) => void;
+  /** Discard an open draft tab. Invoked from the draft row's delete
+   *  action. `force: true` — drafts have no backing entity to prompt
+   *  over; the row's existence IS the "are you sure?". */
+  onCloseDraftTab?: (tabId: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -398,6 +417,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   filterRef,
   dirtyRuleUids,
   dirtyRequestUids,
+  allTabs,
+  onSwitchTab,
+  onCloseDraftTab,
 }) => {
   const { token } = theme.useToken();
   const {
@@ -624,6 +646,81 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const lowerFilter = filterText.toLowerCase();
 
+  // ── Draft overlay ────────────────────────────────────────────
+  //
+  // Index every `create` / `request-create` tab by its user-chosen
+  // destination so the tree builders below can splice draft rows in
+  // under the right collection / folder. Key shape: `${collectionId}|
+  // ${folderPath}` — `folderPath: ''` means collection root. Drafts
+  // without a `preferredCollectionId` (created from popup /
+  // sidepanel / devpanel; destination pending via Save modal) are
+  // skipped on purpose: there's nowhere to render them yet.
+  const draftsByLocation = useMemo(() => {
+    const rule = new Map<string, RulesTab[]>();
+    const request = new Map<string, RulesTab[]>();
+    if (!allTabs) return { rule, request };
+    for (const tab of allTabs) {
+      if (!tab.preferredCollectionId) continue;
+      const key = `${tab.preferredCollectionId}|${tab.preferredFolderPath ?? ''}`;
+      if (tab.mode === 'create') {
+        const list = rule.get(key);
+        if (list) list.push(tab);
+        else rule.set(key, [tab]);
+      } else if (tab.mode === 'request-create') {
+        const list = request.get(key);
+        if (list) list.push(tab);
+        else request.set(key, [tab]);
+      }
+    }
+    return { rule, request };
+  }, [allTabs]);
+
+  // Draft nodes reuse the existing leaf shape — the visual distinction
+  // is badge ('draft' grey text + orange dirty-dot via composeBadge)
+  // plus muted icon. Name/method track what the draft tab was seeded
+  // with; we intentionally do NOT try to mirror in-editor changes
+  // (method flip, rename) into the sidebar — that would require
+  // wiring draft editor state up through a broadcast, and the tab
+  // transition at Save flushes everything correctly. Users who want a
+  // live reflection use the tab.
+  const buildRuleDraftNode = useCallback(
+    (tab: RulesTab, depth: number, parentId: string): TreeNode => ({
+      id: `draft-${tab.id}`,
+      kind: 'leaf',
+      label: tab.draftName ?? tab.label,
+      depth,
+      expandable: false,
+      parentId,
+      icon: buildRuleIcon({ ruleType: tab.ruleType, isActive: false, paused: false }),
+      badge: composeBadge({ label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }, true),
+      canRename: false,
+      canDelete: true,
+      canAddChild: false,
+      onOpen: () => onSwitchTab?.(tab.id),
+      onDelete: () => onCloseDraftTab?.(tab.id),
+    }),
+    [onSwitchTab, onCloseDraftTab],
+  );
+
+  const buildRequestDraftNode = useCallback(
+    (tab: RulesTab, depth: number, parentId: string): TreeNode => ({
+      id: `draft-${tab.id}`,
+      kind: 'leaf',
+      label: tab.draftName ?? tab.label,
+      depth,
+      expandable: false,
+      parentId,
+      icon: methodTag(tab.ruleType, true),
+      badge: composeBadge({ label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }, true),
+      canRename: false,
+      canDelete: true,
+      canAddChild: false,
+      onOpen: () => onSwitchTab?.(tab.id),
+      onDelete: () => onCloseDraftTab?.(tab.id),
+    }),
+    [onSwitchTab, onCloseDraftTab],
+  );
+
   /** Walk V5.TreeNode[] (folder/rule) and produce sidebar TreeNode[] */
   const walkV5Tree = useCallback(
     (v5Nodes: V5.TreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
@@ -694,8 +791,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           });
           if (isExpanded) {
             const children = walkV5Tree(node.children, depth + 1, fid, collectionId);
-            if (children.length > 0) {
-              items.push(...children);
+            const folderDrafts = draftsByLocation.rule.get(`${collectionId}|${node.path}`) ?? [];
+            const folderDraftNodes = folderDrafts.map((d) => buildRuleDraftNode(d, depth + 1, fid));
+            if (children.length > 0 || folderDraftNodes.length > 0) {
+              items.push(...children, ...folderDraftNodes);
             } else {
               items.push({
                 id: `${fid}-empty`,
@@ -820,6 +919,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       onOpenFolderOverview,
       unresolvableRuleUids,
       dirtyRuleUids,
+      draftsByLocation.rule,
+      buildRuleDraftNode,
     ],
   );
 
@@ -896,8 +997,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       if (isExpanded) {
         const children = walkV5Tree(collection.tree, 1, colId, collection.uid);
-        if (children.length > 0) {
-          items.push(...children);
+        const rootDrafts = draftsByLocation.rule.get(`${collection.uid}|`) ?? [];
+        const rootDraftNodes = rootDrafts.map((d) => buildRuleDraftNode(d, 1, colId));
+        if (children.length > 0 || rootDraftNodes.length > 0) {
+          items.push(...children, ...rootDraftNodes);
         } else {
           items.push({
             id: `${colId}-empty`,
@@ -947,6 +1050,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     confirmDelete,
     onOpenCollectionOverview,
     onOpenFolderOverview,
+    draftsByLocation.rule,
+    buildRuleDraftNode,
   ]);
 
   // ── Flat items for keyboard nav ──────────────────────────────
@@ -1334,7 +1439,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           });
           if (isExpanded) {
             const children = walkRequestTree(node.children, depth + 1, fid, collectionId);
-            items.push(...children);
+            const folderDrafts = draftsByLocation.request.get(`${collectionId}|${node.path}`) ?? [];
+            const folderDraftNodes = folderDrafts.map((d) => buildRequestDraftNode(d, depth + 1, fid));
+            items.push(...children, ...folderDraftNodes);
           }
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
@@ -1415,6 +1522,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       onSelectRequest,
       onCreateRequest,
       dirtyRequestUids,
+      draftsByLocation.request,
+      buildRequestDraftNode,
     ],
   );
 
@@ -1499,8 +1608,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       if (isExpanded) {
         const children = walkRequestTree(collection.tree, 1, colId, collection.uid);
-        if (children.length > 0) {
-          items.push(...children);
+        const rootDrafts = draftsByLocation.request.get(`${collection.uid}|`) ?? [];
+        const rootDraftNodes = rootDrafts.map((d) => buildRequestDraftNode(d, 1, colId));
+        if (children.length > 0 || rootDraftNodes.length > 0) {
+          items.push(...children, ...rootDraftNodes);
         } else {
           items.push({
             id: `${colId}-empty`,
@@ -1543,6 +1654,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteRequestCollectionRpc,
     confirmDelete,
     onCreateRequest,
+    draftsByLocation.request,
+    buildRequestDraftNode,
   ]);
 
   const createNewRequestCollection = useCallback(async () => {

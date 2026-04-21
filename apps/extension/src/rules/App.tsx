@@ -1048,6 +1048,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
               filterRef={sidebarFilterRef}
               dirtyRuleUids={dirtyRuleUids}
               dirtyRequestUids={dirtyRequestUids}
+              allTabs={allTabs}
+              onSwitchTab={switchTab}
+              onCloseDraftTab={handleCloseTab}
             />
           );
         case 'docs':
@@ -1095,6 +1098,9 @@ const RulesAppWorkspaceContent: React.FC<RulesAppWorkspaceContentProps> = ({ lay
       openCreateLiveVariable,
       dirtyRuleUids,
       dirtyRequestUids,
+      allTabs,
+      switchTab,
+      handleCloseTab,
     ],
   );
 
