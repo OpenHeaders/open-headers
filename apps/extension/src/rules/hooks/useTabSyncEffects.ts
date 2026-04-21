@@ -5,10 +5,17 @@
  *   1) Label/type mirroring — when a rule or template is renamed or
  *      retyped, update the corresponding tab's displayed label/type.
  *
- *   2) Deletion cleanup — when a rule, collection, or folder disappears
- *      from the current snapshot, force-close every tab whose backing
- *      id is no longer present. A seeded `prevEntityIds` ref makes the
- *      very first render a no-op so we don't mass-close tabs on mount.
+ *   2) Deletion cleanup — when a rule, collection, folder, request,
+ *      etc. disappears between two snapshots, force-close every tab
+ *      whose backing id was present last render and is absent now.
+ *      The check is a TRANSITION (prev had it, current doesn't), not a
+ *      snapshot absence, because entity-list caches are briefly stale
+ *      after a creation in another code path: a just-created entity's
+ *      uid is in a tab (via replaceTab's draft→edit swap) but may not
+ *      yet be in the cache that this hook subscribes to, and closing a
+ *      tab for an entity-that-was-just-created-but-not-yet-reloaded
+ *      would be a data-destroying user-facing bug. Transition-based
+ *      close only fires for actual disappearances.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -114,7 +121,13 @@ export function useTabSyncEffects({
           tab.requestUid ??
           tab.liveVariableUid ??
           tab.liveWorkflowUid;
-        if (entityId && !currentIds.has(entityId)) closeTab(tab.id, true);
+        // Transition check: only close when we saw the entity before
+        // AND it's gone now. See the hook docstring for why plain
+        // absence (`!currentIds.has(entityId)`) is wrong — it races
+        // with creations whose broadcast-driven reload hasn't landed.
+        if (entityId && prevEntityIds.current.has(entityId) && !currentIds.has(entityId)) {
+          closeTab(tab.id, true);
+        }
       }
     }
 
