@@ -212,3 +212,236 @@ describe('runChain — failure semantics (atomic)', () => {
     }
   });
 });
+
+// ── Phase I — DAG execution ──────────────────────────────────────
+
+function dagStep(
+  id: string,
+  opts: {
+    requestUid?: string;
+    captures?: Array<[string, unknown]>;
+    dependsOn?: string[];
+    runIf?: WorkflowStep['runIf'];
+    priorityFrom?: WorkflowStep['priorityFrom'];
+  } = {},
+): WorkflowStep {
+  return {
+    id,
+    requestUid: opts.requestUid ?? `req${id.slice(0, 5).padEnd(5, 'x')}`,
+    captures: (opts.captures ?? []).map(([name, extractor]) => ({
+      name,
+      extractor: extractor as WorkflowStep['captures'][number]['extractor'],
+    })),
+    dependsOn: opts.dependsOn,
+    runIf: opts.runIf,
+    priorityFrom: opts.priorityFrom,
+  };
+}
+
+describe('runChain — DAG (Phase I)', () => {
+  it('linear chain with explicit dependsOn matches implicit-prior-dep behavior', async () => {
+    const wf = workflow([
+      dagStep('a', { captures: [['v', { kind: 'json-path', path: '$.x' }]] }),
+      dagStep('b', { dependsOn: ['a'], captures: [['v', { kind: 'json-path', path: '$.x' }]] }),
+      dagStep('c', { dependsOn: ['b'], captures: [['v', { kind: 'json-path', path: '$.x' }]] }),
+    ]);
+    const order: string[] = [];
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        order.push(step.id);
+        return jsonResponse({ x: step.id });
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    expect(order).toEqual(['a', 'b', 'c']);
+    if (outcome.ok) {
+      expect(outcome.skippedStepIds).toEqual([]);
+      expect(outcome.stepCaptures.size).toBe(3);
+    }
+  });
+
+  it('branching — only the gate-passing sibling runs', async () => {
+    const wf = workflow([
+      dagStep('probe', { captures: [['flag', { kind: 'json-path', path: '$.flag' }]] }),
+      dagStep('pathA', {
+        dependsOn: ['probe'],
+        runIf: { all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }] },
+        captures: [['result', { kind: 'whole-body' }]],
+      }),
+      dagStep('pathB', {
+        dependsOn: ['probe'],
+        runIf: { all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'b' }] },
+        captures: [['result', { kind: 'whole-body' }]],
+      }),
+    ]);
+    const executed: string[] = [];
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        executed.push(step.id);
+        if (step.id === 'probe') return jsonResponse({ flag: 'a' });
+        return jsonResponse({});
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    expect(executed).toEqual(['probe', 'pathA']);
+    if (outcome.ok) {
+      expect(outcome.skippedStepIds).toEqual(['pathB']);
+      expect(outcome.stepCaptures.has('pathA')).toBe(true);
+      expect(outcome.stepCaptures.has('pathB')).toBe(false);
+    }
+  });
+
+  it('status-gate — pathA runs on 2xx, pathB runs on 5xx', async () => {
+    const wf = workflow([
+      dagStep('probe', { captures: [['status', { kind: 'status-code' }]] }),
+      dagStep('pathOk', {
+        dependsOn: ['probe'],
+        runIf: { all: [{ kind: 'status', stepId: 'probe', match: '2xx' }] },
+      }),
+      dagStep('pathErr', {
+        dependsOn: ['probe'],
+        runIf: { all: [{ kind: 'status', stepId: 'probe', match: '5xx' }] },
+      }),
+    ]);
+    const executed: string[] = [];
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        executed.push(step.id);
+        return jsonResponse({});
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    expect(executed).toEqual(['probe', 'pathOk']);
+    if (outcome.ok) expect(outcome.skippedStepIds).toEqual(['pathErr']);
+  });
+
+  it('priorityFrom reorders ready-set (lower value runs first)', async () => {
+    const wf = workflow([
+      dagStep('manifest', {
+        captures: [
+          ['pa', { kind: 'json-path', path: '$.pa' }],
+          ['pb', { kind: 'json-path', path: '$.pb' }],
+        ],
+      }),
+      // Declared order [a, b] — priorities 5 vs 1 force b-first.
+      dagStep('a', {
+        dependsOn: ['manifest'],
+        priorityFrom: { stepId: 'manifest', captureName: 'pa', sort: 'numeric' },
+      }),
+      dagStep('b', {
+        dependsOn: ['manifest'],
+        priorityFrom: { stepId: 'manifest', captureName: 'pb', sort: 'numeric' },
+      }),
+    ]);
+    const order: string[] = [];
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        order.push(step.id);
+        if (step.id === 'manifest') return jsonResponse({ pa: 5, pb: 1 });
+        return jsonResponse({});
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    expect(order).toEqual(['manifest', 'b', 'a']);
+  });
+
+  it('fan-in — descendant runs after both parents complete', async () => {
+    const wf = workflow([
+      dagStep('p1', { dependsOn: [], captures: [['v', { kind: 'whole-body' }]] }),
+      dagStep('p2', { dependsOn: [], captures: [['v', { kind: 'whole-body' }]] }),
+      dagStep('child', { dependsOn: ['p1', 'p2'], captures: [['v', { kind: 'whole-body' }]] }),
+    ]);
+    const order: string[] = [];
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        order.push(step.id);
+        return { status: 200, statusText: 'OK', url: '', headers: [], body: step.id };
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    expect(order.indexOf('child')).toBe(2); // child last
+    expect(order.indexOf('p1')).toBeLessThan(order.indexOf('child'));
+    expect(order.indexOf('p2')).toBeLessThan(order.indexOf('child'));
+  });
+
+  it('skip cascade — descendant gated on skipped ancestor capture skips too', async () => {
+    const wf = workflow([
+      dagStep('probe', { captures: [['flag', { kind: 'json-path', path: '$.flag' }]] }),
+      dagStep('middle', {
+        dependsOn: ['probe'],
+        runIf: { all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }] },
+        captures: [['v', { kind: 'whole-body' }]],
+      }),
+      dagStep('tail', {
+        dependsOn: ['middle'],
+        runIf: { all: [{ kind: 'capture-exists', stepId: 'middle', captureName: 'v' }] },
+      }),
+    ]);
+    const executed: string[] = [];
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        executed.push(step.id);
+        return jsonResponse({ flag: 'not-a' });
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(true);
+    expect(executed).toEqual(['probe']);
+    if (outcome.ok) expect(outcome.skippedStepIds).toEqual(['middle', 'tail']);
+  });
+
+  it('atomic abort — late-step failure reports zero captures from this run', async () => {
+    const wf = workflow([
+      dagStep('p1', { dependsOn: [], captures: [['v', { kind: 'whole-body' }]] }),
+      dagStep('p2', { dependsOn: ['p1'], captures: [['bad', { kind: 'json-path', path: '$.missing' }]] }),
+    ]);
+    const adapter: FetchAdapter = {
+      async executeStep(step) {
+        if (step.id === 'p1') return { status: 200, statusText: 'OK', url: '', headers: [], body: 'ok' };
+        return jsonResponse({ other: 'x' });
+      },
+    };
+    const outcome = await runChain({
+      workflow: wf,
+      adapter,
+      context: { workflowUid: wf.uid, workspaceId: 'ws', environmentId: null },
+    });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.failedStepId).toBe('p2');
+      expect(outcome.failedPhase).toBe('extract');
+      // p1 ran and extracted successfully; its captures appear in the
+      // partial trail (observability-only — NOT committed to cache).
+      expect(outcome.partialStepCaptures.get('p1')?.get('v')).toBe('ok');
+    }
+  });
+});

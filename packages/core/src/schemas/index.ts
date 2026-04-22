@@ -11,7 +11,13 @@ export {
   LiveVariableSchema,
   LiveWorkflowSchema,
   MIN_REFRESH_INTERVAL_SECONDS,
+  PriorityRefSchema,
+  PrioritySortModeSchema,
   RefreshPolicySchema,
+  StatusClassSchema,
+  StatusMatchSchema,
+  StepGateClauseSchema,
+  StepGateSchema,
   StepIdSchema,
   WorkflowStepSchema,
 } from './live';

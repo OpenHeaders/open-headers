@@ -23,8 +23,15 @@ export type {
   LiveVariable,
   LiveVariableOverride,
   LiveWorkflow,
+  PriorityRef,
+  PrioritySortMode,
   RefreshPolicy,
   RefreshPolicyKind,
+  StatusClass,
+  StatusMatch,
+  StepGate,
+  StepGateClause,
+  StepGateClauseKind,
   WorkflowStep,
 } from './live';
 // ── Request ────────────────────────────────────────────────────────

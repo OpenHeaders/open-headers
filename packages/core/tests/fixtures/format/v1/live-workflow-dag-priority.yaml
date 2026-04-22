@@ -1,0 +1,47 @@
+schemaVersion: 5
+version: 1
+uid: wfdagprt
+name: Priority-Ordered Refresh
+description: Probe returns staleness values for two independent refresh targets. Both refresh steps depend on probe but neither depends on the other. priorityFrom reads the staleness numeric from probe to order the ready-set ascending — the more-stale target refreshes first. Ties fall back to declared-list position.
+enabled: true
+refresh:
+  kind: interval
+  seconds: 300
+steps:
+  - id: manifest
+    requestUid: reqmanf1
+    captures:
+      - name: tokenStaleness
+        extractor:
+          kind: json-path
+          path: $.tokens.stalenessSeconds
+      - name: sessionStaleness
+        extractor:
+          kind: json-path
+          path: $.sessions.stalenessSeconds
+  - id: refreshTokens
+    requestUid: reqrtok1
+    captures:
+      - name: accessToken
+        extractor:
+          kind: json-path
+          path: $.access_token
+    dependsOn:
+      - manifest
+    priorityFrom:
+      stepId: manifest
+      captureName: tokenStaleness
+      sort: numeric
+  - id: refreshSessions
+    requestUid: reqrses1
+    captures:
+      - name: sessionId
+        extractor:
+          kind: json-path
+          path: $.session_id
+    dependsOn:
+      - manifest
+    priorityFrom:
+      stepId: manifest
+      captureName: sessionStaleness
+      sort: numeric

@@ -91,6 +91,12 @@ export const RUNTIME_ONLY_FIELDS = ['path'] as const;
  * `steps` is a structured array — the codec carries it inline rather
  * than splitting each step into its own sibling file (kept simple for
  * v1; the typical workflow has 1–5 steps).
+ *
+ * Phase I — `parallelExecution` reserved field is serialized AFTER
+ * `enabled` and BEFORE `refresh` so the orchestration flags cluster
+ * together visually. Within each `WorkflowStep`, the step-level field
+ * order is controlled by valibot's shape output and codec round-trip
+ * preserves insertion; we don't re-order nested step fields.
  */
 export const LIVE_WORKFLOW_FIELD_ORDER = [
   'schemaVersion',
@@ -99,6 +105,7 @@ export const LIVE_WORKFLOW_FIELD_ORDER = [
   'name',
   'description',
   'enabled',
+  'parallelExecution',
   'refresh',
   'steps',
 ] as const;

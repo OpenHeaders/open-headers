@@ -187,6 +187,20 @@ async function commitSuccess(
   // Round-tripping through plain records is deliberate — the cache
   // lives in `chrome.storage.local` which serializes JSON, not Map
   // instances; crossing the boundary here keeps the store naive.
+  //
+  // Phase I: `outcome.stepCaptures` contains only COMPLETED steps.
+  // Skipped steps (listed in `outcome.skippedStepIds`) are
+  // intentionally absent — their prior cache entries survive the
+  // atomic commit and stay resolvable by `{{live.X}}`. Phase I-C will
+  // stream the skip list into the observability log so the Run
+  // summary can show which branches were taken.
+  if (outcome.skippedStepIds.length > 0) {
+    logger.info(
+      'LiveChainAdapter',
+      `Workflow ${workflow.uid} refresh skipped ${outcome.skippedStepIds.length} step(s): ${outcome.skippedStepIds.join(', ')}`,
+    );
+  }
+
   const stepCaptures: Record<string, Record<string, string>> = {};
   for (const [stepId, captures] of outcome.stepCaptures) {
     stepCaptures[stepId] = Object.fromEntries(captures);
@@ -212,6 +226,11 @@ async function commitFailure(
   environmentId: string | null,
   outcome: ChainRunFailure,
 ): Promise<void> {
+  // `'extract'` failures point at a user misconfiguration (JSON path /
+  // regex wrong against the real response) — surface as extractor-not-ok
+  // for the Status yellow path. `'fetch'` and `'graph'` are both
+  // upstream / structural failures; mark extractor-ok so Status uses
+  // its red path when failures compound.
   const extractorOk = outcome.failedPhase !== 'extract';
   const message = outcome.failedReason;
   logger.warn(
@@ -243,11 +262,22 @@ async function commitFailure(
  * Structured refresh failure carried back to the scheduler. `name`
  * sets up a stable `errorClass` for the observability log; `cause`
  * carries the chain's phase + step metadata for Phase G aggregation.
+ *
+ * Phases:
+ *   - `'fetch'`  — step's HTTP request errored (network / DNS / abort).
+ *   - `'extract'` — extractor couldn't produce a value from a successful
+ *                   response (misconfigured json-path / regex / etc.).
+ *   - `'graph'`  — runtime DAG walk found an orphaned pending set
+ *                   (cycle / unknown dep slipped past save-time
+ *                   validation). Defensive — save-time validators
+ *                   should catch this.
  */
+export type ChainRefreshPhase = 'fetch' | 'extract' | 'graph';
+
 export class ChainRefreshError extends Error {
   readonly failedStepId: string;
-  readonly failedPhase: 'fetch' | 'extract';
-  constructor(message: string, context: { failedStepId: string; failedPhase: 'fetch' | 'extract' }) {
+  readonly failedPhase: ChainRefreshPhase;
+  constructor(message: string, context: { failedStepId: string; failedPhase: ChainRefreshPhase }) {
     super(message);
     this.name = 'ChainRefreshError';
     this.failedStepId = context.failedStepId;

@@ -1,11 +1,37 @@
 /**
  * Pure chain execution engine for Live Workflows.
  *
- * Runs the workflow's steps in declared order, builds step-local
- * capture context between hops, applies each step's extractors, and
- * returns a single atomic outcome: either all steps succeeded and the
- * full `stepCaptures` map is ready to write to cache, or some step
- * failed and nothing is written.
+ * Phase I — DAG walker. The workflow's steps form a directed graph via
+ * optional `dependsOn` edges. On each loop pass the runner:
+ *
+ *   1. Collects the ready set (steps whose `dependsOn` ancestors are
+ *      all `complete` OR `skipped`).
+ *   2. Evaluates each ready step's optional `runIf` gate against the
+ *      in-memory capture + status maps. Failing gates mark the step
+ *      `skipped` (no cache write) and loop.
+ *   3. Sorts the eligible set (gate passed) by `priorityFrom` value,
+ *      breaking ties with declared-list position.
+ *   4. Executes the first eligible step via the `FetchAdapter`,
+ *      extracts its captures, records status + byte count, loops.
+ *
+ * Atomic refresh discipline (locked decision #14 + Phase I locked
+ * decision #3): any step's fetch or extraction failure aborts the
+ * whole run — zero captures written. A *skipped* step is NOT a
+ * partial write; it's an explicit non-update. Skipped steps are
+ * reported via `skippedStepIds` so the adapter's cache-write path
+ * can leave those entries untouched while committing the successful
+ * ones atomically.
+ *
+ * Backwards compatibility with Phase A–H linear workflows:
+ *   - A step with `dependsOn` undefined implicitly depends on the
+ *     PREVIOUS step in declared order (the first step is still a
+ *     root). Existing fixtures round-trip + execute identically.
+ *   - A step with `dependsOn: []` (explicit empty array) is a root
+ *     step — used when power users want multiple independent roots.
+ *   - Sequential execution: one step runs at a time even when the
+ *     ready-set has multiple eligible members. Parallel execution is
+ *     a future feature; the workflow-level `parallelExecution` flag
+ *     is validated as "coming soon" today.
  *
  * The runner is platform-agnostic — it takes a `FetchAdapter` that
  * the host (extension SW, tests with a mock) provides. The adapter is
@@ -20,6 +46,8 @@
 
 import type { LiveWorkflow, WorkflowStep } from '../types/v5/live';
 import { applyExtractor, type StepResponse } from './extractor';
+import { evaluateGate } from './gate-evaluator';
+import { comparePriority, priorityValue } from './priority-evaluator';
 
 // ── Fetch adapter contract ────────────────────────────────────────
 
@@ -56,11 +84,19 @@ export interface FetchAdapter {
 
 export interface ChainRunSuccess {
   ok: true;
-  /** `stepId → captureName → extractedValue` across ALL steps (fresh run). */
+  /** `stepId → captureName → extractedValue` across all COMPLETED steps. */
   stepCaptures: Map<string, Map<string, string>>;
-  /** Per-step response body byte count, for observability only. */
+  /** Per-step response body byte count for completed steps (observability). */
   stepResponseBytes: Map<string, number>;
-  /** Wall-clock ms when the chain finished extracting the last step. */
+  /** Per-step HTTP status for completed steps (observability + gate re-check if needed). */
+  stepStatuses: Map<string, number>;
+  /**
+   * Phase I — stepIds of gate-skipped steps. Not in `stepCaptures`
+   * (skipped = no write). Adapters leave skipped-step cache entries
+   * untouched so prior-run values remain resolvable.
+   */
+  skippedStepIds: string[];
+  /** Wall-clock ms when the chain finished resolving the last step. */
   completedAt: number;
 }
 
@@ -69,7 +105,7 @@ export interface ChainRunFailure {
   /** `stepId` where execution halted. */
   failedStepId: string;
   /** Which phase broke — helpful for the observability log's `errorClass`. */
-  failedPhase: 'fetch' | 'extract';
+  failedPhase: 'fetch' | 'extract' | 'graph';
   /** Human-readable failure message. */
   failedReason: string;
   /** Extractor failure detail when `failedPhase === 'extract'`. */
@@ -86,9 +122,28 @@ export interface ChainRunFailure {
    */
   partialStepCaptures: Map<string, Map<string, string>>;
   partialStepResponseBytes: Map<string, number>;
+  partialStepStatuses: Map<string, number>;
+  /** Phase I — steps skipped before the failure. Observability only. */
+  skippedStepIds: string[];
 }
 
 export type ChainRunOutcome = ChainRunSuccess | ChainRunFailure;
+
+// ── Internal state ────────────────────────────────────────────────
+
+type StepState = 'pending' | 'complete' | 'skipped' | 'failed';
+
+/**
+ * Resolve a step's effective `dependsOn` list. Absent = implicit
+ * prior-step dep (backwards compat with linear chains); empty array =
+ * explicit root; populated = explicit DAG edges.
+ */
+export function effectiveDependsOn(step: WorkflowStep, declaredIndex: number, workflow: LiveWorkflow): string[] {
+  if (step.dependsOn !== undefined) return step.dependsOn;
+  // Implicit: depend on the previous step in declared order.
+  if (declaredIndex === 0) return [];
+  return [workflow.steps[declaredIndex - 1].id];
+}
 
 // ── runChain ──────────────────────────────────────────────────────
 
@@ -100,14 +155,96 @@ export async function runChain(args: {
   now?: () => number;
 }): Promise<ChainRunOutcome> {
   const { workflow, adapter, context, now = () => Date.now() } = args;
+
   const stepCaptures = new Map<string, Map<string, string>>();
   const stepResponseBytes = new Map<string, number>();
+  const stepStatuses = new Map<string, number>();
+  const state = new Map<string, StepState>();
+  const skippedStepIds: string[] = [];
 
-  for (const step of workflow.steps) {
+  // Index steps by id for O(1) lookup; cache declared position for
+  // priority-tiebreak + effectiveDependsOn computation.
+  const declaredIndex = new Map<string, number>();
+  workflow.steps.forEach((step, i) => {
+    declaredIndex.set(step.id, i);
+    state.set(step.id, 'pending');
+  });
+
+  // Pre-compute effective deps per step so the main loop is tight.
+  const deps = new Map<string, string[]>();
+  workflow.steps.forEach((step, i) => {
+    deps.set(step.id, effectiveDependsOn(step, i, workflow));
+  });
+
+  // Main loop. Terminates when every step has a terminal state.
+  while (Array.from(state.values()).some((s) => s === 'pending')) {
+    // Ready set = pending steps whose deps are all {complete, skipped}.
+    // Failed deps would have aborted the run already, so we only check
+    // for terminal-non-failed states here.
+    const ready: WorkflowStep[] = [];
+    for (const step of workflow.steps) {
+      if (state.get(step.id) !== 'pending') continue;
+      const stepDeps = deps.get(step.id) ?? [];
+      const allResolved = stepDeps.every((dep) => {
+        const s = state.get(dep);
+        return s === 'complete' || s === 'skipped';
+      });
+      if (allResolved) ready.push(step);
+    }
+
+    if (ready.length === 0) {
+      // Defensive — save-time cycle + unknown-dep validation should
+      // have caught this. If we land here at runtime, it means the
+      // graph has an unresolvable dep (cycle or reference to a
+      // non-existent step). Fail fast with a structured error.
+      const stranded = workflow.steps.filter((s) => state.get(s.id) === 'pending').map((s) => s.id);
+      return {
+        ok: false,
+        failedStepId: stranded[0] ?? '',
+        failedPhase: 'graph',
+        failedReason: `Orphaned pending steps with unresolvable dependsOn: ${stranded.join(', ')}. Likely a cycle or unknown stepId.`,
+        partialStepCaptures: stepCaptures,
+        partialStepResponseBytes: stepResponseBytes,
+        partialStepStatuses: stepStatuses,
+        skippedStepIds,
+      };
+    }
+
+    // Evaluate gates; split ready into skipped + eligible.
+    const eligible: WorkflowStep[] = [];
+    for (const step of ready) {
+      const gate = step.runIf;
+      const passes = gate === undefined || evaluateGate(gate, stepCaptures, stepStatuses);
+      if (!passes) {
+        state.set(step.id, 'skipped');
+        skippedStepIds.push(step.id);
+        continue;
+      }
+      eligible.push(step);
+    }
+
+    if (eligible.length === 0) {
+      // All newly-ready steps got skipped. Loop — newly-skipped steps
+      // may have unblocked others (their descendants with runIf that
+      // guard against the skipped ancestor's absence can now evaluate).
+      continue;
+    }
+
+    // Sort eligible by priority value (ascending) + declared index.
+    const sortKeys = eligible.map((step) => ({
+      step,
+      value: priorityValue(step, stepCaptures),
+      declaredIndex: declaredIndex.get(step.id) ?? 0,
+    }));
+    sortKeys.sort(comparePriority);
+
+    // Execute the first eligible step.
+    const step = sortKeys[0].step;
     let response: StepResponse;
     try {
       response = await adapter.executeStep(step, stepCaptures, context);
     } catch (err) {
+      state.set(step.id, 'failed');
       return {
         ok: false,
         failedStepId: step.id,
@@ -115,6 +252,8 @@ export async function runChain(args: {
         failedReason: err instanceof Error ? err.message : String(err),
         partialStepCaptures: stepCaptures,
         partialStepResponseBytes: stepResponseBytes,
+        partialStepStatuses: stepStatuses,
+        skippedStepIds,
       };
     }
 
@@ -122,6 +261,7 @@ export async function runChain(args: {
     // supported runtime). Approximate for multi-byte UTF-8 in the
     // body, which matches the extension's `MAX_BODY_BYTES` semantics.
     stepResponseBytes.set(step.id, new TextEncoder().encode(response.body).byteLength);
+    stepStatuses.set(step.id, response.status);
 
     // Apply this step's captures in declaration order. Any failure
     // halts the chain with atomic-refresh semantics — the cache is
@@ -130,6 +270,7 @@ export async function runChain(args: {
     for (const capture of step.captures) {
       const result = applyExtractor(capture.extractor, response);
       if (!result.ok) {
+        state.set(step.id, 'failed');
         return {
           ok: false,
           failedStepId: step.id,
@@ -138,12 +279,22 @@ export async function runChain(args: {
           extractorFailure: { captureName: capture.name, kind: result.kind, message: result.message },
           partialStepCaptures: stepCaptures,
           partialStepResponseBytes: stepResponseBytes,
+          partialStepStatuses: stepStatuses,
+          skippedStepIds,
         };
       }
       captures.set(capture.name, result.value);
     }
     stepCaptures.set(step.id, captures);
+    state.set(step.id, 'complete');
   }
 
-  return { ok: true, stepCaptures, stepResponseBytes, completedAt: now() };
+  return {
+    ok: true,
+    stepCaptures,
+    stepResponseBytes,
+    stepStatuses,
+    skippedStepIds,
+    completedAt: now(),
+  };
 }

@@ -139,6 +139,53 @@ describe('yaml codec — round-trip parity', () => {
     expect(serializeLiveWorkflow(write)).toBe(raw);
   });
 
+  // ── Phase I — DAG fixtures ───────────────────────────────────────
+  it('live-workflow-dag-linear.yaml (explicit dependsOn reproduces linear semantics)', () => {
+    const raw = loadFixture('live-workflow-dag-linear.yaml');
+    const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/explicit-linear-wfdaglin' });
+    expect(parsed.value.uid).toBe('wfdaglin');
+    expect(parsed.value.steps).toHaveLength(3);
+    expect(parsed.value.steps[1].dependsOn).toEqual(['probe']);
+    expect(parsed.value.steps[2].dependsOn).toEqual(['introspect']);
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveWorkflow(write)).toBe(raw);
+  });
+
+  it('live-workflow-dag-branching.yaml (probe + two conditional siblings)', () => {
+    const raw = loadFixture('live-workflow-dag-branching.yaml');
+    const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/probe-branching-wfdagbrn' });
+    expect(parsed.value.uid).toBe('wfdagbrn');
+    expect(parsed.value.steps).toHaveLength(3);
+    expect(parsed.value.steps[1].runIf?.all).toHaveLength(2);
+    expect(parsed.value.steps[1].runIf?.all[0].kind).toBe('status');
+    expect(parsed.value.steps[2].runIf?.all[1].kind).toBe('capture-equals');
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveWorkflow(write)).toBe(raw);
+  });
+
+  it('live-workflow-dag-priority.yaml (priorityFrom reorders ready-set)', () => {
+    const raw = loadFixture('live-workflow-dag-priority.yaml');
+    const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/priority-refresh-wfdagprt' });
+    expect(parsed.value.uid).toBe('wfdagprt');
+    expect(parsed.value.steps).toHaveLength(3);
+    expect(parsed.value.steps[1].priorityFrom?.captureName).toBe('tokenStaleness');
+    expect(parsed.value.steps[2].priorityFrom?.captureName).toBe('sessionStaleness');
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveWorkflow(write)).toBe(raw);
+  });
+
+  it('live-workflow-dag-fan-in.yaml (two roots + one descendant)', () => {
+    const raw = loadFixture('live-workflow-dag-fan-in.yaml');
+    const parsed = parseLiveWorkflow(raw, { path: 'live-workflows/fan-in-wfdagfan' });
+    expect(parsed.value.uid).toBe('wfdagfan');
+    expect(parsed.value.steps).toHaveLength(3);
+    expect(parsed.value.steps[0].dependsOn).toEqual([]);
+    expect(parsed.value.steps[1].dependsOn).toEqual([]);
+    expect(parsed.value.steps[2].dependsOn).toEqual(['fetchUser', 'fetchTeam']);
+    const write = mergePatch(parsed, () => {});
+    expect(serializeLiveWorkflow(write)).toBe(raw);
+  });
+
   it('live-variable-primary.yaml (bound to single-step workflow)', () => {
     const raw = loadFixture('live-variable-primary.yaml');
     const parsed = parseLiveVariable(raw, { path: 'live-variables/debug-auth-livvar01' });

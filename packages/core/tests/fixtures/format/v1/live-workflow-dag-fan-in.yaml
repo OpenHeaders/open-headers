@@ -1,0 +1,35 @@
+schemaVersion: 5
+version: 1
+uid: wfdagfan
+name: Two-Parent Fan-In
+description: Two independent root steps (explicit dependsOn [] declares them as parallel roots) both feed a single descendant. The descendant's request template references both parents' captures via {{step.X.Y}} — exercises transitive-ancestor reachability for template validation. Sequential execution still applies in v1 (roots run in declared order; descendant runs after both).
+enabled: true
+refresh:
+  kind: manual
+steps:
+  - id: fetchUser
+    requestUid: requser1
+    captures:
+      - name: userId
+        extractor:
+          kind: json-path
+          path: $.id
+    dependsOn: []
+  - id: fetchTeam
+    requestUid: reqteam1
+    captures:
+      - name: teamId
+        extractor:
+          kind: json-path
+          path: $.team_id
+    dependsOn: []
+  - id: aggregate
+    requestUid: reqaggr1
+    captures:
+      - name: combinedKey
+        extractor:
+          kind: json-path
+          path: $.key
+    dependsOn:
+      - fetchUser
+      - fetchTeam

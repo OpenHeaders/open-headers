@@ -119,6 +119,87 @@ export const CaptureSchema = v.object({
   extractor: ExtractorSchema,
 });
 
+// ── Step gate clauses (Phase I — conditional execution) ───────────
+
+/**
+ * HTTP status range — accepted by `status` gate clauses in either
+ * class-literal form (`'2xx'`, `'4xx'`) or tuple form for exact /
+ * negated / in-list matches. Tuple form serializes cleanly in YAML
+ * (`match: [eq, 200]`) and the discriminating `'eq'` / `'ne'` / `'in'`
+ * literal keeps the union unambiguous.
+ */
+export const StatusClassSchema = v.picklist(['2xx', '3xx', '4xx', '5xx'] as const);
+
+const HttpStatusNumberSchema = v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(599));
+
+export const StatusMatchSchema = v.union([
+  StatusClassSchema,
+  v.tuple([v.literal('eq'), HttpStatusNumberSchema]),
+  v.tuple([v.literal('ne'), HttpStatusNumberSchema]),
+  v.tuple([v.literal('in'), v.pipe(v.array(HttpStatusNumberSchema), v.minLength(1))]),
+]);
+
+/**
+ * One clause inside a {@link StepGateSchema}. v1 ships four kinds;
+ * future kinds (`capture-numeric-compare`, `capture-in-list`,
+ * `header-contains`) land with their own schema variants later.
+ *
+ * Every clause references a `stepId` that must be a transitive
+ * `dependsOn` ancestor of the gated step. Validator enforces this;
+ * schema only enforces shape.
+ */
+export const StepGateClauseSchema = v.variant('kind', [
+  v.object({
+    kind: v.literal('status'),
+    stepId: StepIdSchema,
+    match: StatusMatchSchema,
+  }),
+  v.object({
+    kind: v.literal('capture-exists'),
+    stepId: StepIdSchema,
+    captureName: CaptureNameSchema,
+  }),
+  v.object({
+    kind: v.literal('capture-equals'),
+    stepId: StepIdSchema,
+    captureName: CaptureNameSchema,
+    value: v.string(),
+  }),
+  v.object({
+    kind: v.literal('capture-matches'),
+    stepId: StepIdSchema,
+    captureName: CaptureNameSchema,
+    /** JavaScript `RegExp` source. Compiled at evaluation time. */
+    pattern: v.pipe(v.string(), v.minLength(1)),
+  }),
+]);
+
+/**
+ * Step gate — an AND-of-clauses predicate. Empty list matches
+ * everything (equivalent to no gate). `any: [...]` for OR semantics is
+ * reserved for a future phase; the UI surfaces it as disabled.
+ */
+export const StepGateSchema = v.object({
+  all: v.array(StepGateClauseSchema),
+});
+
+// ── Priority reference (Phase I — runtime ordering tiebreak) ──────
+
+export const PrioritySortModeSchema = v.picklist(['numeric', 'lexicographic'] as const);
+
+/**
+ * Reads a value from an ancestor step's capture to decide ordering
+ * among multiple ready-set steps. Missing capture at runtime → sorted
+ * last; non-parseable under `numeric` → falls back to lexicographic
+ * comparison. Both degradations are explicit non-errors — the runner
+ * prefers "keep going" over "abort for metadata."
+ */
+export const PriorityRefSchema = v.object({
+  stepId: StepIdSchema,
+  captureName: CaptureNameSchema,
+  sort: v.optional(PrioritySortModeSchema),
+});
+
 // ── Workflow step ─────────────────────────────────────────────────
 
 export const WorkflowStepSchema = v.object({
@@ -127,6 +208,25 @@ export const WorkflowStepSchema = v.object({
   /** Uid of the persisted `V5.Request` this step invokes. */
   requestUid: UidSchema,
   captures: v.array(CaptureSchema),
+  /**
+   * Phase I — ordered DAG edges. stepIds of direct ancestors whose
+   * completion this step waits on. Empty / absent = root step.
+   * Validator rejects cycles + unknown stepIds; runner walks the
+   * graph topologically. Declared array order is the canonical
+   * serialization; execution order is determined by deps + priority.
+   */
+  dependsOn: v.optional(v.array(StepIdSchema)),
+  /**
+   * Phase I — conditional gate. AND-of-clauses predicate over prior
+   * step captures / statuses. Absent = always run. Gate references
+   * must resolve to transitive ancestors (validator enforces).
+   */
+  runIf: v.optional(StepGateSchema),
+  /**
+   * Phase I — runtime ordering tiebreak among ready-set steps.
+   * Absent = declared-list position breaks ties.
+   */
+  priorityFrom: v.optional(PriorityRefSchema),
 });
 
 // ── Refresh policy ────────────────────────────────────────────────
@@ -185,6 +285,14 @@ export const LiveWorkflowSchema = v.object({
   steps: v.pipe(v.array(WorkflowStepSchema), v.minLength(1)),
   refresh: RefreshPolicySchema,
   enabled: v.boolean(),
+  /**
+   * Phase I — reserved for a future parallel-execution runner.
+   * Accepted in the schema so UI-side YAML edits round-trip, but the
+   * v1 validator (`validateWorkflowShape`) rejects `true` with a
+   * structured `parallel-not-yet-implemented` error. Absent / false =
+   * sequential execution (today's behavior).
+   */
+  parallelExecution: v.optional(v.boolean()),
 });
 
 // ── LiveVariable ──────────────────────────────────────────────────

@@ -14,7 +14,13 @@ import type {
   LiveVariableOverrideSchema,
   LiveVariableSchema,
   LiveWorkflowSchema,
+  PriorityRefSchema,
+  PrioritySortModeSchema,
   RefreshPolicySchema,
+  StatusClassSchema,
+  StatusMatchSchema,
+  StepGateClauseSchema,
+  StepGateSchema,
   WorkflowStepSchema,
 } from '../../schemas/live';
 
@@ -29,6 +35,27 @@ export type Capture = v.InferOutput<typeof CaptureSchema>;
 
 /** One ordered step in a Live Workflow. */
 export type WorkflowStep = v.InferOutput<typeof WorkflowStepSchema>;
+
+/** HTTP status-class literal accepted by `status` gate clauses. */
+export type StatusClass = v.InferOutput<typeof StatusClassSchema>;
+
+/** Match expression for a `status` gate clause — class literal or tuple. */
+export type StatusMatch = v.InferOutput<typeof StatusMatchSchema>;
+
+/** One clause inside a {@link StepGate}. */
+export type StepGateClause = v.InferOutput<typeof StepGateClauseSchema>;
+
+/** Discriminator for {@link StepGateClause}. */
+export type StepGateClauseKind = StepGateClause['kind'];
+
+/** AND-of-clauses predicate that gates whether a step runs. */
+export type StepGate = v.InferOutput<typeof StepGateSchema>;
+
+/** Sort mode for {@link PriorityRef} — defaults to `'numeric'`. */
+export type PrioritySortMode = v.InferOutput<typeof PrioritySortModeSchema>;
+
+/** Reference to an ancestor step's capture, used for runtime ordering tiebreak. */
+export type PriorityRef = v.InferOutput<typeof PriorityRefSchema>;
 
 /** How often (and by what trigger) a workflow re-runs. */
 export type RefreshPolicy = v.InferOutput<typeof RefreshPolicySchema>;

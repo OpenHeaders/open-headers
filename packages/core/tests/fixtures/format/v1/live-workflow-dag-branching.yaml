@@ -1,0 +1,55 @@
+schemaVersion: 5
+version: 1
+uid: wfdagbrn
+name: Probe-Driven Branching
+description: Probe step decides which of two paths runs. pathA runs when the probe's flag capture equals "a"; pathB runs when it equals "b". Mutually exclusive gates are the v1 OR-workaround until the Any-of-clauses toggle ships. Both paths depend on probe but are siblings — neither depends on the other.
+enabled: true
+refresh:
+  kind: manual
+steps:
+  - id: probe
+    requestUid: reqprob2
+    captures:
+      - name: flag
+        extractor:
+          kind: json-path
+          path: $.flag
+      - name: httpStatus
+        extractor:
+          kind: status-code
+  - id: pathA
+    requestUid: reqpatha
+    captures:
+      - name: resultA
+        extractor:
+          kind: json-path
+          path: $.result
+    dependsOn:
+      - probe
+    runIf:
+      all:
+        - kind: status
+          stepId: probe
+          match: 2xx
+        - kind: capture-equals
+          stepId: probe
+          captureName: flag
+          value: a
+  - id: pathB
+    requestUid: reqpathb
+    captures:
+      - name: resultB
+        extractor:
+          kind: json-path
+          path: $.result
+    dependsOn:
+      - probe
+    runIf:
+      all:
+        - kind: status
+          stepId: probe
+          match: 2xx
+        - kind: capture-equals
+          stepId: probe
+          captureName: flag
+          value: b

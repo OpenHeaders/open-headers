@@ -1,0 +1,35 @@
+schemaVersion: 5
+version: 1
+uid: wfdaglin
+name: Explicit Linear Chain
+description: Three-step chain with explicit dependsOn declarations. Verifies that explicit dependsOn reproduces the implicit prior-step semantics — this workflow runs identically to the backwards-compat live-workflow-chain.yaml fixture.
+enabled: true
+refresh:
+  kind: interval
+  seconds: 300
+steps:
+  - id: probe
+    requestUid: reqprob1
+    captures:
+      - name: token
+        extractor:
+          kind: json-path
+          path: $.token
+  - id: introspect
+    requestUid: reqintr1
+    captures:
+      - name: expiresIn
+        extractor:
+          kind: json-path
+          path: $.expires_in
+    dependsOn:
+      - probe
+  - id: finalize
+    requestUid: reqfin01
+    captures:
+      - name: accessToken
+        extractor:
+          kind: json-path
+          path: $.access_token
+    dependsOn:
+      - introspect
