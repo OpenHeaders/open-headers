@@ -38,7 +38,11 @@ export interface SaveToCollectionFlowApi {
 }
 
 /** Swap the draft tab for its post-save `edit` counterpart. */
-function buildEditTab(oldTabId: string, created: V5.Rule, replaceTab: (oldId: string, newTab: WorkbenchTab) => void): void {
+function buildEditTab(
+  oldTabId: string,
+  created: V5.Rule,
+  replaceTab: (oldId: string, newTab: WorkbenchTab) => void,
+): void {
   const editId = `edit-${created.uid}`;
   replaceTab(oldTabId, {
     id: editId,

@@ -13,9 +13,9 @@ import { Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { useSurface } from '@/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
+import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 
 const { Text } = Typography;
 

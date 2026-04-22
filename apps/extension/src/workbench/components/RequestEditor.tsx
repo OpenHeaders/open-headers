@@ -18,13 +18,14 @@
  * (matches the industry-standard API-client tab UX).
  */
 
-import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, DownOutlined, LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { App, Button, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Dropdown, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
@@ -56,11 +57,21 @@ interface RequestEditorProps {
   registerSaveRef?: (save: () => void) => void;
   onSaveDraft?: (draftData: import('../hooks/useSaveRequestFlow').DraftData) => void;
   /**
-   * "Capture response to live variable" action — available only in
-   * request-edit mode where the request has a stable uid the LV editor
-   * can seed a 1-step workflow against.
+   * "Use response in workflow" action — available only in request-edit
+   * mode where the request has a stable uid. `target` picks where the
+   * seeded step lands: a fresh draft workflow (`'new'`) or an existing
+   * workflow identified by uid. Either way the host opens the workflow
+   * editor with the request pre-seeded as a step so the user can wire
+   * the response's values into `{{live.*}}` captures.
    */
-  onCaptureResponseToLive?: (requestUid: string) => void;
+  onExtractToWorkflow?: (target: 'new' | { workflowUid: string }, seedStep: ExtractSeedStep) => void;
+}
+
+/** Payload the request editor hands the extract action. */
+export interface ExtractSeedStep {
+  requestUid: string;
+  requestName: string;
+  method: string;
 }
 
 const METHOD_OPTIONS: { value: V5.HttpMethod; label: string }[] = [
@@ -249,7 +260,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   onDirtyChange,
   registerSaveRef,
   onSaveDraft,
-  onCaptureResponseToLive,
+  onExtractToWorkflow,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -765,9 +776,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             <ResponsePanel
               response={response}
               onClear={() => setResponse(null)}
-              onCaptureToLive={
-                mode === 'request-edit' && requestUid && onCaptureResponseToLive
-                  ? () => onCaptureResponseToLive(requestUid)
+              onExtractToWorkflow={
+                mode === 'request-edit' && requestUid && onExtractToWorkflow
+                  ? (target) =>
+                      onExtractToWorkflow(target, {
+                        requestUid,
+                        requestName: summary?.name ?? 'Request',
+                        method: draft.method,
+                      })
                   : undefined
               }
             />
@@ -879,10 +895,20 @@ type ResponseTabKey = 'body' | 'headers' | 'assertions' | 'script-log';
 const ResponsePanel: React.FC<{
   response: ExecutedRequestSnapshot;
   onClear: () => void;
-  /** Show the "Capture to live variable" affordance when provided. */
-  onCaptureToLive?: () => void;
-}> = ({ response, onClear, onCaptureToLive }) => {
+  /**
+   * "Use response in workflow" action — when provided, renders a
+   * dropdown letting the user either create a new workflow draft with
+   * this request seeded as step 1, or attach this request as a new step
+   * to an existing workflow. Undefined when the request isn't yet
+   * saved (no stable uid to reference).
+   */
+  onExtractToWorkflow?: (target: 'new' | { workflowUid: string }) => void;
+}> = ({ response, onClear, onExtractToWorkflow }) => {
   const { token } = theme.useToken();
+  // Pull the list of existing workflows so the Extract dropdown can
+  // offer "Attach to …" with a submenu of current workflows. Lightweight
+  // — the hook already reads the same listener the sidebar uses.
+  const { workflows: liveWorkflows } = useLiveWorkflows();
   const scripts = response.scripts ?? null;
   const assertions = scripts?.postResponse?.assertions ?? [];
   const assertionsPassed = assertions.filter((a) => a.passed).length;
@@ -939,12 +965,38 @@ const ResponsePanel: React.FC<{
           </>
         )}
         <div style={{ flex: 1 }} />
-        {onCaptureToLive && !response.error && (
-          <Tooltip title="Create a Live Variable bound to this request + a capture from this response.">
-            <Button size="small" onClick={onCaptureToLive}>
-              Capture to live variable
+        {onExtractToWorkflow && !response.error && (
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                {
+                  key: 'new',
+                  icon: <ThunderboltOutlined />,
+                  label: 'Create new workflow',
+                  onClick: () => onExtractToWorkflow('new'),
+                },
+                {
+                  key: 'attach',
+                  icon: <ThunderboltOutlined />,
+                  label: 'Attach to existing workflow',
+                  disabled: liveWorkflows.length === 0,
+                  children:
+                    liveWorkflows.length === 0
+                      ? undefined
+                      : liveWorkflows.map((w) => ({
+                          key: `attach-${w.uid}`,
+                          label: w.name,
+                          onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
+                        })),
+                },
+              ],
+            }}
+          >
+            <Button size="small">
+              Use response in workflow <DownOutlined style={{ fontSize: 10 }} />
             </Button>
-          </Tooltip>
+          </Dropdown>
         )}
         <Button size="small" type="text" onClick={onClear}>
           Clear

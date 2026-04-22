@@ -79,7 +79,7 @@ import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
 import { getFocusedRegion } from './stores/focus-region-store';
-import type { DockSlot, WorkbenchTab, ToolWindowId } from './types';
+import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
 // ── Shell loader ────────────────────────────────────────────────────
 
@@ -239,6 +239,30 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     }
     return out;
   }, [allTabs]);
+  const dirtyWorkflowUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const tab of allTabs) {
+      if (tab.mode === 'live-workflow-edit' && tab.dirty && tab.liveWorkflowUid) out.add(tab.liveWorkflowUid);
+    }
+    return out;
+  }, [allTabs]);
+  // A workflow is "unresolved" if any of its step requests has
+  // unresolvable template refs in the active scope chain — reuses the
+  // per-request resolvability set already computed above. Structural
+  // errors (cycles, unknown step refs, etc.) are NOT mixed in here;
+  // those go through `isWorkflowComplete` and show as "draft".
+  const unresolvableWorkflowUids = useMemo(() => {
+    const out = new Set<string>();
+    for (const wf of liveWorkflowsApi.workflows) {
+      for (const step of wf.steps) {
+        if (step.requestUid && unresolvableRequestUids.has(step.requestUid)) {
+          out.add(wf.uid);
+          break;
+        }
+      }
+    }
+    return out;
+  }, [liveWorkflowsApi.workflows, unresolvableRequestUids]);
 
   // ── Tab lifecycle (dirty confirmation, leaf-scoped batch ops) ──
   const {
@@ -383,6 +407,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
+    openCreateLiveWorkflow,
   } = openers;
 
   // Create-then-edit flow for the env selector. New envs are created
@@ -841,9 +866,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       if (tab.mode === 'live-vars') {
         return (
           <LiveVariablesEditor
-            onOpenSource={openLiveWorkflowEdit}
+            onOpenWorkflow={openLiveWorkflowEdit}
             onEditBinding={openLiveVariableEdit}
-            onCreateLiveVariable={() => openCreateLiveVariable()}
+            onCreateLiveVariable={openCreateLiveVariable}
           />
         );
       }
@@ -863,7 +888,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             requestUid={tab.requestUid}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            onCaptureResponseToLive={(uid) => openCreateLiveVariable(uid)}
+            onExtractToWorkflow={(target, seedStep) => {
+              if (target === 'new') {
+                openCreateLiveWorkflow({ seedStep });
+                return;
+              }
+              const wf = liveWorkflowsApi.workflows.find((w) => w.uid === target.workflowUid);
+              openLiveWorkflowEdit(target.workflowUid, wf?.name ?? 'Workflow', seedStep);
+            }}
           />
         );
       }
@@ -906,10 +938,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         return (
           <LiveVariableEditor
             mode="create"
-            seedRequestUid={tab.liveSeedRequestUid}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            openWorkflowTab={openLiveWorkflowEdit}
             onCreated={(lv) =>
               replaceTab(tab.id, {
                 id: `live-var-${lv.uid}`,
@@ -926,9 +956,32 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
         return (
           <LiveWorkflowEditor
+            mode="edit"
             workflowUid={tab.liveWorkflowUid}
+            seedStep={tab.liveWorkflowSeedStep}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
+        );
+      }
+      if (tab.mode === 'live-workflow-create') {
+        return (
+          <LiveWorkflowEditor
+            mode="create"
+            draftName={tab.draftName ?? tab.label}
+            seedStep={tab.liveWorkflowSeedStep}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            onCreated={(wf) =>
+              replaceTab(tab.id, {
+                id: `live-workflow-${wf.uid}`,
+                label: wf.name,
+                ruleType: '',
+                dirty: false,
+                mode: 'live-workflow-edit',
+                liveWorkflowUid: wf.uid,
+              })
+            }
           />
         );
       }
@@ -954,6 +1007,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       openLiveWorkflowEdit,
       openLiveVariableEdit,
       openCreateLiveVariable,
+      openCreateLiveWorkflow,
+      liveWorkflowsApi.workflows,
       replaceTab,
     ],
   );
@@ -980,7 +1035,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         leafActiveTab.mode === 'request-create' ||
         leafActiveTab.mode === 'live-variable-edit' ||
         leafActiveTab.mode === 'live-variable-create' ||
-        leafActiveTab.mode === 'live-workflow-edit';
+        leafActiveTab.mode === 'live-workflow-edit' ||
+        leafActiveTab.mode === 'live-workflow-create';
       // "Save as template" only applies to rule editors — variables /
       // vault aren't rule-shaped and can't be templated.
       const supportsSaveAsTemplate = leafActiveTab.mode === 'create' || leafActiveTab.mode === 'edit';
@@ -997,7 +1053,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         leafActiveTab.mode === 'request-edit' ||
         leafActiveTab.mode === 'request-create' ||
         leafActiveTab.mode === 'live-variable-edit' ||
-        leafActiveTab.mode === 'live-workflow-edit';
+        leafActiveTab.mode === 'live-workflow-edit' ||
+        leafActiveTab.mode === 'live-workflow-create';
       return (
         <BreadcrumbBar
           segments={segments}
@@ -1028,7 +1085,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         case 'http-rules':
         case 'api-requests':
         case 'variables':
-        case 'sources':
+        case 'workflows':
           return (
             <Sidebar
               view={id}
@@ -1046,7 +1103,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onOpenVault={openVault}
               onOpenLiveVariables={openLiveVariables}
               onSelectLiveWorkflow={openLiveWorkflowEdit}
-              onCreateLiveVariable={openCreateLiveVariable}
+              onCreateWorkflow={(seedStep) => openCreateLiveWorkflow(seedStep ? { seedStep } : undefined)}
               onSelectRequest={openRequestEditTab}
               onCreateRequest={openCreateRequestTab}
               onImportCurl={(ctx) => {
@@ -1061,6 +1118,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               filterRef={sidebarFilterRef}
               dirtyRuleUids={dirtyRuleUids}
               dirtyRequestUids={dirtyRequestUids}
+              dirtyWorkflowUids={dirtyWorkflowUids}
+              unresolvableWorkflowUids={unresolvableWorkflowUids}
               allTabs={allTabs}
               onSwitchTab={switchTab}
               onCloseDraftTab={handleCloseTab}
@@ -1108,9 +1167,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       openRequestEditTab,
       openCreateRequestTab,
       openLiveWorkflowEdit,
-      openCreateLiveVariable,
+      openCreateLiveWorkflow,
       dirtyRuleUids,
       dirtyRequestUids,
+      dirtyWorkflowUids,
+      unresolvableWorkflowUids,
       allTabs,
       switchTab,
       handleCloseTab,

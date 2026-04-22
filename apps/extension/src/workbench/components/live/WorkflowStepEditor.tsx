@@ -21,6 +21,8 @@ import {
   ClockCircleOutlined,
   DeleteOutlined,
   DownOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
   InfoCircleOutlined,
   ReloadOutlined,
   UpOutlined,
@@ -30,6 +32,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Collapse, Input, InputNumber, Select, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import { METHOD_COLORS } from '../sidebar/icons';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor, { defaultExtractorFor } from './ExtractorEditor';
 import StepGateEditor from './StepGateEditor';
@@ -40,7 +43,20 @@ interface Props {
   step: V5.WorkflowStep;
   index: number;
   totalSteps: number;
-  availableRequests: { uid: string; name: string; method: string }[];
+  /**
+   * Requests the step's Request picker can choose from. The structured
+   * `collectionName` + `folderTrail` feed the option label's rich
+   * breadcrumb render (folder icons + colored method). `null`
+   * `collectionName` means the request isn't associated with any
+   * collection — the option falls back to `<method> <name>`.
+   */
+  availableRequests: {
+    uid: string;
+    name: string;
+    method: string;
+    collectionName: string | null;
+    folderTrail: string[];
+  }[];
   onChange: (next: V5.WorkflowStep) => void;
   onRemove?: () => void;
   onMoveUp?: () => void;
@@ -314,28 +330,79 @@ const WorkflowStepEditor: React.FC<Props> = ({
       </div>
 
       <Space direction="vertical" size={8} style={{ width: '100%' }}>
-        <div>
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-            REQUEST
-          </Text>
+        {/* Request picker + optional description — inlined on one row.
+         *  Request gets ~60% width, description ~40%. Both `size="small"`
+         *  so they render at identical heights (the Select's option label
+         *  is single-line). Option label is a structured breadcrumb:
+         *
+         *    [📂] <Collection>  ›  [📁] <Folder>  ›  [METHOD] <Request>
+         *
+         *  Method is colored via the shared `METHOD_COLORS` so it matches
+         *  the sidebar + tab-bar method tags. Search filters on the full
+         *  text breadcrumb via `filterOption` against the option `title`. */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <Select
-            style={{ width: '100%' }}
+            size="small"
+            style={{ flex: '1 1 60%', minWidth: 0 }}
             showSearch
-            optionFilterProp="label"
+            filterOption={(input, option) => {
+              if (!option) return true;
+              const haystack = String(option.title ?? '').toLowerCase();
+              return haystack.includes(input.toLowerCase());
+            }}
             placeholder="Select a request"
             value={step.requestUid || undefined}
             onChange={(uid) => onChange({ ...step, requestUid: uid })}
-            options={availableRequests.map((r) => ({
-              value: r.uid,
-              label: `${r.method} ${r.name}`,
-            }))}
+            options={availableRequests.map((r) => {
+              const methodColor = METHOD_COLORS[r.method] ?? token.colorTextSecondary;
+              // String for filterOption + accessibility; stays consistent
+              // with the JSX the user sees (same segments, same order).
+              const titleSegments = [r.collectionName, ...r.folderTrail, `${r.method} ${r.name}`].filter(
+                (s): s is string => s !== null,
+              );
+              const title = titleSegments.join(' > ');
+              const separator = <span style={{ color: token.colorTextQuaternary, margin: '0 4px' }}>›</span>;
+              const iconStyle = { color: token.colorTextTertiary, fontSize: 11, marginRight: 4 };
+              return {
+                value: r.uid,
+                title,
+                label: (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'nowrap' }}>
+                    {r.collectionName !== null && (
+                      <>
+                        <FolderOpenOutlined style={iconStyle} />
+                        <span>{r.collectionName}</span>
+                        {separator}
+                      </>
+                    )}
+                    {r.folderTrail.map((f) => (
+                      <span key={f} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <FolderOutlined style={iconStyle} />
+                        <span>{f}</span>
+                        {separator}
+                      </span>
+                    ))}
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: methodColor,
+                        fontFamily: "'SF Mono', monospace",
+                        fontSize: 10,
+                        marginRight: 4,
+                      }}
+                    >
+                      {r.method}
+                    </span>
+                    <span>{r.name}</span>
+                  </span>
+                ),
+              };
+            })}
           />
-        </div>
-
-        <div>
-          <Input.TextArea
+          <Input
+            size="small"
+            style={{ flex: '1 1 40%' }}
             placeholder="Optional step description"
-            autoSize={{ minRows: 1, maxRows: 3 }}
             value={step.description ?? ''}
             onChange={(e) => onChange({ ...step, description: e.target.value || undefined })}
           />
@@ -362,27 +429,35 @@ const WorkflowStepEditor: React.FC<Props> = ({
               // short-lived list.
               key={`${c.name}-${idx}`}
               style={{
+                display: 'flex',
+                gap: 6,
+                alignItems: 'center',
+                flexWrap: 'wrap',
                 border: `1px dashed ${token.colorBorderSecondary}`,
                 borderRadius: 4,
                 padding: 8,
                 marginBottom: 6,
               }}
             >
-              <Space wrap size={6} style={{ width: '100%', marginBottom: 6 }}>
-                <Input
-                  size="small"
-                  style={{ width: 200 }}
-                  prefix={<Text type="secondary">name</Text>}
-                  value={c.name}
-                  onChange={(e) => updateCapture(idx, { ...c, name: e.target.value })}
-                />
-                <div style={{ flex: 1 }} />
-                <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => removeCapture(idx)} />
-              </Space>
+              <Input
+                size="small"
+                style={{ width: 160, flexShrink: 0 }}
+                prefix={<Text type="secondary">name</Text>}
+                value={c.name}
+                onChange={(e) => updateCapture(idx, { ...c, name: e.target.value })}
+              />
               <ExtractorEditor
                 compact
                 value={c.extractor}
                 onChange={(extractor) => updateCapture(idx, { ...c, extractor })}
+              />
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => removeCapture(idx)}
+                aria-label={`Remove capture ${c.name || idx + 1}`}
               />
             </div>
           ))}

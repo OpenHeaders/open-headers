@@ -19,9 +19,9 @@ import { App, Button, Dropdown, Space, Switch, Tag, Tooltip, Typography, theme }
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { useSetting } from '@/workbench/settings/hooks';
 import { useSurface } from '@/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
+import { useSetting } from '@/workbench/settings/hooks';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import RecordingButton from './RecordingButton';
 
@@ -77,11 +77,11 @@ const Footer: React.FC = () => {
 
   const handleOpenRecordViewer = async () => {
     if (!isConnected) {
-      message.warning('Please connect to the desktop app to view workflows');
+      message.warning('Please connect to the desktop app to view recordings');
       return;
     }
     await appLauncher.launchOrFocus({ tab: 'record-viewer' });
-    message.info('Switch to OpenHeaders app to view workflows');
+    message.info('Switch to OpenHeaders app to view recordings');
   };
 
   const handleVideoRecordingToggle = (checked: boolean): void => {
@@ -345,7 +345,7 @@ const Footer: React.FC = () => {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <RecordingButton useWidget={useWidget} />
-        <Tooltip title={!isConnected ? 'App not connected' : 'View and manage recorded workflows in desktop app'}>
+        <Tooltip title={!isConnected ? 'App not connected' : 'View and manage recordings in desktop app'}>
           <Button
             icon={<PlaySquareOutlined />}
             onClick={handleOpenRecordViewer}
@@ -353,7 +353,7 @@ const Footer: React.FC = () => {
             disabled={!isConnected}
             style={{ height: '36px', padding: '0 20px', fontWeight: 500, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
           >
-            <span className="oh-collapse-label">View Workflows</span>
+            <span className="oh-collapse-label">View recordings</span>
           </Button>
         </Tooltip>
         <Dropdown

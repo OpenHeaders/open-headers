@@ -42,12 +42,12 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'http-rules', label: 'HTTP Rules', icon: <FileTextOutlined />, core: true, defaultSlot: 'left-top' },
   { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'left-bottom' },
-  // `sources` is the scheduled-refresh variable producer (v4 carryover
-  // noun). A Source authors a request chain + extraction rule; its
-  // output surfaces as a `{{live.X}}` reference in the Scope panel's
-  // Live category. Kept in its own left-bottom tab so users see it as
-  // a first-class feature instead of as a Variables sub-section.
-  { id: 'sources', label: 'Sources', icon: <ThunderboltOutlined />, core: false, defaultSlot: 'left-bottom' },
+  // A Workflow is the scheduled-refresh variable producer: a request
+  // chain + extraction rule. Its output surfaces as a `{{live.X}}`
+  // reference in the Scope panel's Live category via a Live Variable
+  // binding. First-class left-bottom tab so users see it as a feature
+  // rather than a Variables sub-section.
+  { id: 'workflows', label: 'Workflows', icon: <ThunderboltOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-bottom' },
   { id: 'page-traffic', label: 'Page Traffic', icon: <FundViewOutlined />, core: false, defaultSlot: 'bottom-right' },

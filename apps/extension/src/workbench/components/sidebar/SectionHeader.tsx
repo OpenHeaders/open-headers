@@ -1,5 +1,5 @@
-import type React from 'react';
 import { theme } from 'antd';
+import type React from 'react';
 
 export function SectionHeader({
   title,

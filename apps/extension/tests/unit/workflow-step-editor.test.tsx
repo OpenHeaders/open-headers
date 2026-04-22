@@ -59,7 +59,9 @@ function renderStep(
       step={step}
       index={1}
       totalSteps={2}
-      availableRequests={[{ uid: 'reqrefrsh', name: 'refresh', method: 'POST' }]}
+      availableRequests={[
+        { uid: 'reqrefrsh', name: 'refresh', method: 'POST', collectionName: 'auth', folderTrail: ['oauth'] },
+      ]}
       onChange={onChange}
       allStepIds={[{ id: 'introspect', label: 'introspect' }]}
       reachableSteps={[{ id: 'introspect', label: 'introspect' }]}

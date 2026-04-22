@@ -44,7 +44,7 @@ const RecordingButton: React.FC<RecordingButtonProps> = ({ useWidget = false }) 
         await stopRecording();
         setIsRecording(false);
         message.success({
-          content: 'Workflow saved! Open desktop app -> Workflows tab',
+          content: 'Recording saved! Open desktop app -> Recordings tab',
           duration: 7,
           style: {
             marginTop: '16px',
@@ -65,7 +65,7 @@ const RecordingButton: React.FC<RecordingButtonProps> = ({ useWidget = false }) 
       }
     } catch (error) {
       console.error(new Date().toISOString(), 'ERROR', '[RecordingButton]', 'Recording error:', error);
-      message.error((error as Error).message || 'Failed to start workflow');
+      message.error((error as Error).message || 'Failed to start recording');
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +97,7 @@ const RecordingButton: React.FC<RecordingButtonProps> = ({ useWidget = false }) 
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
         }}
       >
-        {isRecording ? 'Stop Workflow' : 'Record Workflow'}
+        {isRecording ? 'Stop recording' : 'Record'}
       </Button>
     </Tooltip>
   );

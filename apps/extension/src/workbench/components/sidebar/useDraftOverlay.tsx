@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { createElement, useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { composeBadge, methodTag } from './icons';
@@ -16,6 +16,11 @@ interface UseDraftOverlayParams {
  * right collection / folder. Key shape: `${collectionId}|${folderPath}` —
  * `folderPath: ''` means collection root. Drafts without a
  * `preferredCollectionId` are skipped: there's nowhere to render them yet.
+ *
+ * Workflow drafts (`live-workflow-create`) are collected in a flat list
+ * rather than a by-location map — the Sources view is a flat list of
+ * workflows, no collections/folders to nest under, so drafts simply
+ * render at the top of the list with a "draft" badge.
  */
 export function useDraftOverlay({ allTabs, onSwitchTab, onCloseDraftTab }: UseDraftOverlayParams) {
   const draftsByLocation = useMemo(() => {
@@ -36,6 +41,11 @@ export function useDraftOverlay({ allTabs, onSwitchTab, onCloseDraftTab }: UseDr
       }
     }
     return { rule, request };
+  }, [allTabs]);
+
+  const workflowDrafts = useMemo(() => {
+    if (!allTabs) return [] as WorkbenchTab[];
+    return allTabs.filter((tab) => tab.mode === 'live-workflow-create');
   }, [allTabs]);
 
   const buildRuleDraftNode = useCallback(
@@ -76,5 +86,35 @@ export function useDraftOverlay({ allTabs, onSwitchTab, onCloseDraftTab }: UseDr
     [onSwitchTab, onCloseDraftTab],
   );
 
-  return { draftsByLocation, buildRuleDraftNode, buildRequestDraftNode };
+  const buildWorkflowDraftNode = useCallback(
+    (tab: WorkbenchTab): TreeNode => ({
+      id: `draft-${tab.id}`,
+      kind: 'leaf',
+      label: tab.draftName ?? tab.label,
+      depth: 0,
+      expandable: false,
+      // Grey-dot icon matches the "never refreshed" state of freshly-
+      // persisted workflows, so draft ↔ new-workflow sits at the same
+      // rung visually. Differentiation is the "draft" badge, not the icon.
+      icon: createElement('span', {
+        style: {
+          display: 'inline-block',
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: 'var(--ant-color-text-tertiary, #999)',
+          marginRight: 2,
+        },
+      }),
+      badge: composeBadge({ label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }, true),
+      canRename: false,
+      canDelete: true,
+      canAddChild: false,
+      onOpen: () => onSwitchTab?.(tab.id),
+      onDelete: () => onCloseDraftTab?.(tab.id),
+    }),
+    [onSwitchTab, onCloseDraftTab],
+  );
+
+  return { draftsByLocation, workflowDrafts, buildRuleDraftNode, buildRequestDraftNode, buildWorkflowDraftNode };
 }

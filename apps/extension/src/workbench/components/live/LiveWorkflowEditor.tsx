@@ -1,12 +1,23 @@
 /**
- * LiveWorkflowEditor — tab body for editing one LiveWorkflow.
+ * LiveWorkflowEditor — tab body for editing one LiveWorkflow OR drafting
+ * a new one.
  *
- * Controlled by a local draft; commits via `updateLiveWorkflow`. Same
- * Phase 10 stale-draft discipline as every other editor: snapshots
- * `version` on first arrival, sends it as `expectedVersion` on save,
- * surfaces `StaleDraftBanner` on rejection.
+ * Edit mode (`mode: 'edit'`):
+ *   Controlled by a local draft; commits via `updateLiveWorkflow`. Same
+ *   Phase 10 stale-draft discipline as every other editor: snapshots
+ *   `version` on first arrival, sends it as `expectedVersion` on save,
+ *   surfaces `StaleDraftBanner` on rejection. Shows a status bar with
+ *   the last refresh / expiry / policy summary + a Refresh-now button.
  *
- * Phase I responsibilities, in addition to existing Phase A editing:
+ * Create mode (`mode: 'create'`):
+ *   No `workflowUid` until save. Local-only draft; Save creates the
+ *   workflow via `createLiveWorkflow` and calls `onCreated` so the host
+ *   can replace the draft tab with a fresh edit tab. Optional `seedStep`
+ *   preseeds step 1 with a request (used by the Request editor's
+ *   "Use response in workflow" action). No status bar, no
+ *   Refresh-now button (nothing to refresh before first save).
+ *
+ * Phase I responsibilities (both modes):
  *   - Runs `validateWorkflowShape` against the draft on every change
  *     so per-step inline errors (cycle, unknown dep, unreachable
  *     gate/priority ref, unknown capture) render without a save attempt.
@@ -18,7 +29,7 @@
  *     per the show-but-disable catalog.
  */
 
-import { InfoCircleOutlined, PlayCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
@@ -26,22 +37,20 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { validateWorkflowShape } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
-import { Alert, App, Button, Input, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { computeRequestTrail } from '../../breadcrumbs';
 import StaleDraftBanner from '../StaleDraftBanner';
 import { buildDependencyRows } from './dependencies-view';
+import { InlineNameDescription, Section } from './layout';
 import { classifyRun, describeRefreshPolicy, formatRelativeMs, pickActiveRun, statusColor } from './live-display';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
 import WorkflowStepEditor from './WorkflowStepEditor';
 
 const { Text, Title } = Typography;
 
-interface LiveWorkflowEditorProps {
-  workflowUid: string;
-  onDirtyChange?: (dirty: boolean) => void;
-  registerSaveRef?: (save: () => void) => void;
-}
+// ── Shared draft shape + helpers ───────────────────────────────────
 
 interface Draft {
   name: string;
@@ -71,12 +80,64 @@ function fingerprint(d: Draft): string {
   });
 }
 
-const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, onDirtyChange, registerSaveRef }) => {
+function emptyDraft(seedStep?: { requestUid: string; requestName: string; method: string } | undefined): Draft {
+  const steps: V5.WorkflowStep[] = seedStep ? [{ id: 'step1', requestUid: seedStep.requestUid, captures: [] }] : [];
+  return {
+    name: '',
+    description: '',
+    steps,
+    refresh: { kind: 'manual' },
+    enabled: true,
+  };
+}
+
+// ── Props (discriminated union) ────────────────────────────────────
+
+interface EditProps {
+  mode: 'edit';
+  workflowUid: string;
+  /**
+   * Optional pending seed step — applied once to the initial draft
+   * (after the workflow loads) so the editor opens with the request
+   * staged as a new step. The persisted fingerprint is computed from
+   * the unmodified workflow so `isDirty` flips true immediately and
+   * the user can review + Save. Consumed exactly once per tab mount.
+   */
+  seedStep?: { requestUid: string; requestName: string; method: string };
+  onDirtyChange?: (dirty: boolean) => void;
+  registerSaveRef?: (save: () => void) => void;
+}
+
+interface CreateProps {
+  mode: 'create';
+  /** Draft label shown in the header when the name is still blank. */
+  draftName?: string;
+  /** Optional preseeded step 1 from the Request editor's Extract flow. */
+  seedStep?: { requestUid: string; requestName: string; method: string };
+  onDirtyChange?: (dirty: boolean) => void;
+  registerSaveRef?: (save: () => void) => void;
+  /** Called when the draft persists. Host replaces the tab with an edit tab. */
+  onCreated: (wf: V5.LiveWorkflow) => void;
+}
+
+type Props = EditProps | CreateProps;
+
+// ── Unified dispatcher ─────────────────────────────────────────────
+
+const LiveWorkflowEditor: React.FC<Props> = (props) => {
+  if (props.mode === 'edit') return <EditMode {...props} />;
+  return <CreateMode {...props} />;
+};
+
+export default LiveWorkflowEditor;
+
+// ── Edit mode ──────────────────────────────────────────────────────
+
+const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workflows, updateWorkflow, refreshNow } = useLiveWorkflows();
   const { variables } = useLiveVariables();
-  const { requests } = useRequests();
   const { activeEnvironmentId } = useEnvironments();
   const { runs } = useLiveWorkflowCache(workflowUid);
 
@@ -87,8 +148,7 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
   // State, not a ref — `isDirty` reads it as a memo dep so save's new
   // baseline invalidates the cached value. Ref version left isDirty
   // stuck at `true` when the parent re-rendered with a fresh inline
-  // `onDirtyChange` arrow. Same fix as RequestEditor; the
-  // `useDirtyDraft` hook file-header comment documents the trap.
+  // `onDirtyChange` arrow.
   const [persistedFp, setPersistedFp] = useState<string>(workflow ? fingerprint(draftFromWorkflow(workflow)) : '');
 
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
@@ -98,9 +158,25 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
   useEffect(() => {
     if (!workflow) return;
     if (draft === null) {
-      const seeded = draftFromWorkflow(workflow);
-      setDraft(seeded);
-      setPersistedFp(fingerprint(seeded));
+      const pristine = draftFromWorkflow(workflow);
+      // Persisted fingerprint always reflects the unmodified workflow
+      // so an appended seed step flips `isDirty` immediately.
+      setPersistedFp(fingerprint(pristine));
+      if (seedStep) {
+        const existingIds = new Set(pristine.steps.map((s) => s.id));
+        let candidate = `step${pristine.steps.length + 1}`;
+        let n = pristine.steps.length + 1;
+        while (existingIds.has(candidate)) {
+          n += 1;
+          candidate = `step${n}`;
+        }
+        setDraft({
+          ...pristine,
+          steps: [...pristine.steps, { id: candidate, requestUid: seedStep.requestUid, captures: [] }],
+        });
+      } else {
+        setDraft(pristine);
+      }
       return;
     }
     const persisted = draftFromWorkflow(workflow);
@@ -109,7 +185,7 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
       setPersistedFp(fp);
       setDraft(persisted);
     }
-  }, [workflow, draft, persistedFp]);
+  }, [workflow, draft, persistedFp, seedStep]);
 
   useEffect(() => {
     if (loadedVersion !== null) return;
@@ -122,54 +198,6 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
-
-  // ── Draft-as-workflow for validation + dependency layout ────────
-  //
-  // `validateWorkflowShape` + `buildDependencyRows` need a complete
-  // `LiveWorkflow` shape; our draft drops the fields they don't touch
-  // (`uid`, `path`, `schemaVersion`, `version`). We splice them in
-  // from the persisted workflow so the validator sees a coherent whole
-  // without plumbing a narrower "shape snapshot" type.
-  const draftWorkflow: V5.LiveWorkflow | null = useMemo(() => {
-    if (!workflow || !draft) return null;
-    return {
-      ...workflow,
-      name: draft.name,
-      description: draft.description.trim() ? draft.description : undefined,
-      steps: draft.steps,
-      refresh: draft.refresh,
-      enabled: draft.enabled,
-    };
-  }, [workflow, draft]);
-
-  const validationErrors = useMemo(() => (draftWorkflow ? validateWorkflowShape(draftWorkflow) : []), [draftWorkflow]);
-
-  const errorsByStepId = useMemo(() => {
-    const map = new Map<string, typeof validationErrors>();
-    for (const err of validationErrors) {
-      if (err.stepId === null) continue;
-      const bucket = map.get(err.stepId) ?? [];
-      bucket.push(err);
-      map.set(err.stepId, bucket);
-    }
-    return map;
-  }, [validationErrors]);
-
-  const workflowLevelErrors = useMemo(() => validationErrors.filter((e) => e.stepId === null), [validationErrors]);
-
-  const dependencyRows = useMemo(() => (draftWorkflow ? buildDependencyRows(draftWorkflow) : []), [draftWorkflow]);
-
-  const capturesByStepId = useMemo(() => {
-    const map = new Map<string, string[]>();
-    if (!draftWorkflow) return map;
-    for (const step of draftWorkflow.steps) {
-      map.set(
-        step.id,
-        step.captures.map((c) => c.name),
-      );
-    }
-    return map;
-  }, [draftWorkflow]);
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
@@ -235,30 +263,267 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
     }
   }, [workflow, refreshNow, activeEnvironmentId, message]);
 
-  const availableCaptures = useMemo(() => {
-    if (!draft) return [];
-    return draft.steps.flatMap((s) =>
-      s.captures.map((c) => ({ stepId: s.id, captureName: c.name, label: `${s.id}.${c.name}` })),
-    );
-  }, [draft]);
-
-  const availableRequests = useMemo(
-    () => requests.map((r) => ({ uid: r.uid, name: r.name, method: r.method })),
-    [requests],
-  );
-
   const run = useMemo(() => pickActiveRun(runs, activeEnvironmentId ?? null), [runs, activeEnvironmentId]);
   const level = classifyRun(run);
 
+  if (!workflow) {
+    return (
+      <div style={{ padding: 24, background: token.colorBgContainer }}>
+        <Text type="secondary">Workflow not found.</Text>
+      </div>
+    );
+  }
+
+  if (!draft) return null;
+
+  return (
+    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
+      <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        {staleDraft && (
+          <StaleDraftBanner
+            entityLabel="workflow"
+            serverVersion={staleDraft.serverVersion}
+            loadedVersion={staleDraft.loadedVersion}
+            onReload={handleStaleReload}
+            onKeepEditing={handleStaleKeepEditing}
+          />
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: statusColor(level),
+              display: 'inline-block',
+            }}
+          />
+          <Title level={5} style={{ margin: 0 }}>
+            {workflow.name}
+          </Title>
+          <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+            Workflow
+          </Tag>
+          {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
+          <div style={{ flex: 1 }} />
+          <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
+            Refresh
+          </Button>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            padding: '6px 10px',
+            background: token.colorFillAlter,
+            borderRadius: 4,
+            marginBottom: 14,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            fontSize: 11,
+          }}
+        >
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {level === 'idle' ? 'never refreshed' : level}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            · last {run ? formatRelativeMs(run.extractedAt) : 'never'}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            · expires {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            · {describeRefreshPolicy(draft.refresh)}
+          </Text>
+          {run?.lastErrorMessage && (
+            <Text type="danger" style={{ fontSize: 11 }}>
+              · {run.lastErrorMessage}
+              {run.lastErrorStepId ? ` (${run.lastErrorStepId})` : ''}
+            </Text>
+          )}
+          <div style={{ flex: 1 }} />
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            bound: {boundVars.length} variable{boundVars.length === 1 ? '' : 's'}
+          </Text>
+        </div>
+
+        <WorkflowFormBody draft={draft} setDraft={setDraft} />
+      </div>
+    </div>
+  );
+};
+
+// ── Create mode ────────────────────────────────────────────────────
+
+const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange, registerSaveRef, onCreated }) => {
+  const { token } = theme.useToken();
+  const { message } = App.useApp();
+  const { createWorkflow } = useLiveWorkflows();
+
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedStep));
+
+  // Dirty the moment the user touches anything. Comparing against the
+  // initial seed-derived fingerprint keeps empty drafts from being
+  // dirty unless the user actually edits.
+  const seedFp = useMemo(() => fingerprint(emptyDraft(seedStep)), [seedStep]);
+  const isDirty = useMemo(() => fingerprint(draft) !== seedFp, [draft, seedFp]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  const handleSave = useCallback(async () => {
+    const name = draft.name.trim() || draftName?.trim() || 'Workflow';
+    const wf = await createWorkflow({
+      name,
+      description: draft.description.trim() ? draft.description : undefined,
+      steps: draft.steps,
+      refresh: draft.refresh,
+      enabled: draft.enabled,
+    });
+    if (!wf) {
+      message.error('Failed to create workflow');
+      return;
+    }
+    onCreated(wf);
+  }, [draft, draftName, createWorkflow, message, onCreated]);
+
+  const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
+  useEffect(() => {
+    registerSaveRef?.(handleSaveSync);
+  }, [registerSaveRef, handleSaveSync]);
+
+  const displayName = draft.name.trim() || draftName || 'New Workflow';
+
+  return (
+    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
+      <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: token.colorTextTertiary,
+              display: 'inline-block',
+            }}
+          />
+          <Title level={5} style={{ margin: 0 }}>
+            {displayName}
+          </Title>
+          <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+            Workflow
+          </Tag>
+          <Tag style={{ marginInlineEnd: 0 }}>Draft</Tag>
+        </div>
+
+        <WorkflowFormBody draft={draft} setDraft={setDraft} />
+      </div>
+    </div>
+  );
+};
+
+// ── Shared form body ───────────────────────────────────────────────
+//
+// Name + Description + Steps + Refresh policy + Enabled footer. Used
+// by both Edit and Create modes. Validation + dependency-row
+// computation live here so neither mode duplicates them.
+
+interface WorkflowFormBodyProps {
+  draft: Draft;
+  setDraft: (next: Draft) => void;
+}
+
+const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) => {
+  const { token } = theme.useToken();
+  const { requests, collectionTrees: requestCollectionTrees } = useRequests();
+
+  // Construct a full LiveWorkflow shape so the validator + layout
+  // helper see a coherent object. Synthetic `uid` / `path` /
+  // `schemaVersion` / `version` don't affect validation semantics —
+  // they're only inspected for cross-reference shape.
+  const draftWorkflow = useMemo<V5.LiveWorkflow>(
+    () => ({
+      schemaVersion: 5,
+      version: 1,
+      uid: '________',
+      path: 'live-workflows/draft',
+      name: draft.name,
+      description: draft.description.trim() ? draft.description : undefined,
+      enabled: draft.enabled,
+      steps: draft.steps,
+      refresh: draft.refresh,
+    }),
+    [draft],
+  );
+
+  const validationErrors = useMemo(() => validateWorkflowShape(draftWorkflow), [draftWorkflow]);
+
+  const errorsByStepId = useMemo(() => {
+    const map = new Map<string, typeof validationErrors>();
+    for (const err of validationErrors) {
+      if (err.stepId === null) continue;
+      const bucket = map.get(err.stepId) ?? [];
+      bucket.push(err);
+      map.set(err.stepId, bucket);
+    }
+    return map;
+  }, [validationErrors]);
+
+  const workflowLevelErrors = useMemo(() => validationErrors.filter((e) => e.stepId === null), [validationErrors]);
+
+  const dependencyRows = useMemo(() => buildDependencyRows(draftWorkflow), [draftWorkflow]);
+
+  const capturesByStepId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const step of draft.steps) {
+      map.set(
+        step.id,
+        step.captures.map((c) => c.name),
+      );
+    }
+    return map;
+  }, [draft.steps]);
+
+  const availableCaptures = useMemo(
+    () =>
+      draft.steps.flatMap((s) =>
+        s.captures.map((c) => ({ stepId: s.id, captureName: c.name, label: `${s.id}.${c.name}` })),
+      ),
+    [draft.steps],
+  );
+
+  // Decorate requests with their structured `Collection > Folder[...]`
+  // trail so the step editor's Select can render a rich option label —
+  // folder-icon + collection name, folder-icon + each folder, then a
+  // colored method tag + request name. Structured (not pre-joined)
+  // because the Select builds JSX: icons per segment, method colored
+  // per METHOD_COLORS. `title` (string) stays on the option for
+  // showSearch filtering.
+  const availableRequests = useMemo(
+    () =>
+      requests.map((r) => {
+        const trail = computeRequestTrail(r.uid, requestCollectionTrees);
+        return {
+          uid: r.uid,
+          name: r.name,
+          method: r.method,
+          collectionName: trail?.collectionName ?? null,
+          folderTrail: trail?.folderTrail ?? [],
+        };
+      }),
+    [requests, requestCollectionTrees],
+  );
+
   const updateStep = (idx: number, next: V5.WorkflowStep) => {
-    if (!draft) return;
     const nextSteps = draft.steps.slice();
     nextSteps[idx] = next;
     setDraft({ ...draft, steps: nextSteps });
   };
 
   const addStep = () => {
-    if (!draft) return;
     const existingIds = new Set(draft.steps.map((s) => s.id));
     let candidate = `step${draft.steps.length + 1}`;
     let n = draft.steps.length + 1;
@@ -275,12 +540,11 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
   };
 
   const removeStep = (idx: number) => {
-    if (!draft || draft.steps.length <= 1) return;
+    if (draft.steps.length <= 1) return;
     setDraft({ ...draft, steps: draft.steps.filter((_, i) => i !== idx) });
   };
 
   const moveStep = (idx: number, delta: -1 | 1) => {
-    if (!draft) return;
     const target = idx + delta;
     if (target < 0 || target >= draft.steps.length) return;
     const next = draft.steps.slice();
@@ -288,207 +552,119 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
     setDraft({ ...draft, steps: next });
   };
 
-  if (!workflow) {
-    return (
-      <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">Workflow not found.</Text>
-      </div>
-    );
-  }
-
-  if (!draft) return null;
-
   return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="workflow"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleReload}
-            onKeepEditing={handleStaleKeepEditing}
-          />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <InlineNameDescription
+        name={draft.name}
+        description={draft.description}
+        onChangeName={(name) => setDraft({ ...draft, name })}
+        onChangeDescription={(description) => setDraft({ ...draft, description })}
+        namePlaceholder="Workflow name"
+      />
+
+      {workflowLevelErrors.length > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          message="Workflow has structural issues"
+          description={
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {workflowLevelErrors.map((err) => (
+                <li key={`${err.issue}:${err.stepId ?? ''}:${err.referencedStepId ?? ''}`} style={{ fontSize: 12 }}>
+                  {err.message}
+                </li>
+              ))}
+            </ul>
+          }
+        />
+      )}
+
+      <Section
+        title={
+          <>
+            <span style={{ flex: 1 }}>Steps ({draft.steps.length})</span>
+            <Button size="small" icon={<PlusOutlined />} onClick={addStep}>
+              Step
+            </Button>
+          </>
+        }
+      >
+        {draft.steps.length === 0 && (
+          <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
+            No steps yet — add one to wire a request + extraction into this workflow.
+          </Text>
         )}
+        {draft.steps.map((step, idx) => {
+          const row = dependencyRows[idx];
+          // Other step ids for the dependsOn multi-select — excluding
+          // self (a step can't depend on itself; validator would flag).
+          const allStepIds = draft.steps
+            .filter((s) => s.id !== step.id && s.id.length > 0)
+            .map((s) => ({ id: s.id, label: s.id }));
+          // Reachable ancestors — only these can be referenced from
+          // runIf / priorityFrom. The transitive set is computed by
+          // `buildDependencyRows` via the core validator's helper.
+          const reachableSteps = Array.from(row?.reachable ?? []).map((id) => ({ id, label: id }));
+          const stepErrors = errorsByStepId.get(step.id) ?? [];
+          return (
+            <WorkflowStepEditor
+              key={step.id || `step-${idx}`}
+              step={step}
+              index={idx}
+              totalSteps={draft.steps.length}
+              availableRequests={availableRequests}
+              onChange={(next) => updateStep(idx, next)}
+              onRemove={() => removeStep(idx)}
+              onMoveUp={() => moveStep(idx, -1)}
+              onMoveDown={() => moveStep(idx, 1)}
+              allStepIds={allStepIds}
+              reachableSteps={reachableSteps}
+              capturesByStepId={capturesByStepId}
+              errors={stepErrors}
+              dependencyRow={row}
+            />
+          );
+        })}
+      </Section>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <PlayCircleOutlined style={{ fontSize: 18, color: token.colorPrimary }} />
-          <Title level={4} style={{ margin: 0 }}>
-            {workflow.name}
-          </Title>
-          <Tag color="blue">Workflow</Tag>
-          <div style={{ flex: 1 }} />
-          <Button icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-            Refresh now
-          </Button>
+      <Section title="Refresh policy">
+        <RefreshPolicyEditor
+          value={draft.refresh}
+          onChange={(refresh) => setDraft({ ...draft, refresh })}
+          availableCaptures={availableCaptures}
+        />
+      </Section>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 20,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginTop: 4,
+          paddingTop: 10,
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Switch
+            size="small"
+            aria-label="Workflow enabled"
+            checked={draft.enabled}
+            onChange={(enabled) => setDraft({ ...draft, enabled })}
+          />
+          <Text style={{ fontSize: 12 }}>{draft.enabled ? 'Enabled' : 'Disabled'}</Text>
         </div>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: 16,
-            padding: 10,
-            background: token.colorFillAlter,
-            borderRadius: 6,
-            marginBottom: 16,
-            flexWrap: 'wrap',
-          }}
-        >
+        <Tooltip title="Sequential only in v1. Parallel execution coming in a future release.">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: statusColor(level),
-                display: 'inline-block',
-              }}
-            />
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {level === 'idle' ? 'never refreshed' : level}
+            <Switch aria-label="Run independent steps in parallel" size="small" checked={false} disabled />
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Run independent steps in parallel
             </Text>
+            <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
           </div>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            last: {run ? formatRelativeMs(run.extractedAt) : 'never'}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            expires: {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {describeRefreshPolicy(draft.refresh)}
-          </Text>
-          {run?.lastErrorMessage && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              error: {run.lastErrorMessage}
-              {run.lastErrorStepId ? ` (${run.lastErrorStepId})` : ''}
-            </Text>
-          )}
-          <div style={{ flex: 1 }} />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            bound: {boundVars.length} variable{boundVars.length === 1 ? '' : 's'}
-          </Text>
-        </div>
-
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
-          <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              NAME
-            </Text>
-            <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-          </div>
-          <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              DESCRIPTION
-            </Text>
-            <Input.TextArea
-              autoSize={{ minRows: 1, maxRows: 4 }}
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Switch
-              aria-label="Workflow enabled"
-              checked={draft.enabled}
-              onChange={(enabled) => setDraft({ ...draft, enabled })}
-            />
-            <Text>{draft.enabled ? 'Enabled' : 'Disabled'}</Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              — disabled workflows skip the refresh scheduler entirely.
-            </Text>
-            <div style={{ flex: 1 }} />
-            <Tooltip title="Sequential only in v1. Parallel execution coming in a future release.">
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  opacity: 0.6,
-                  cursor: 'not-allowed',
-                }}
-              >
-                <Switch aria-label="Run independent steps in parallel" size="small" checked={false} disabled />
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Run independent steps in parallel
-                </Text>
-                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              </div>
-            </Tooltip>
-          </div>
-
-          {workflowLevelErrors.length > 0 && (
-            <Alert
-              type="error"
-              showIcon
-              message="Workflow has structural issues"
-              description={
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
-                  {workflowLevelErrors.map((err) => (
-                    <li key={`${err.issue}:${err.stepId ?? ''}:${err.referencedStepId ?? ''}`} style={{ fontSize: 12 }}>
-                      {err.message}
-                    </li>
-                  ))}
-                </ul>
-              }
-            />
-          )}
-
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                STEPS ({draft.steps.length})
-              </Text>
-              <Button size="small" icon={<PlusOutlined />} onClick={addStep}>
-                Step
-              </Button>
-            </div>
-            {draft.steps.map((step, idx) => {
-              const row = dependencyRows[idx];
-              // Other step ids for the dependsOn multi-select — excluding
-              // self (a step can't depend on itself; validator would flag).
-              const allStepIds = draft.steps
-                .filter((s) => s.id !== step.id && s.id.length > 0)
-                .map((s) => ({ id: s.id, label: s.id }));
-              // Reachable ancestors — only these can be referenced from
-              // runIf / priorityFrom. The transitive set is computed by
-              // `buildDependencyRows` via the core validator's helper.
-              const reachableSteps = Array.from(row?.reachable ?? []).map((id) => ({ id, label: id }));
-              const stepErrors = errorsByStepId.get(step.id) ?? [];
-              return (
-                <WorkflowStepEditor
-                  key={step.id || `step-${idx}`}
-                  step={step}
-                  index={idx}
-                  totalSteps={draft.steps.length}
-                  availableRequests={availableRequests}
-                  onChange={(next) => updateStep(idx, next)}
-                  onRemove={() => removeStep(idx)}
-                  onMoveUp={() => moveStep(idx, -1)}
-                  onMoveDown={() => moveStep(idx, 1)}
-                  allStepIds={allStepIds}
-                  reachableSteps={reachableSteps}
-                  capturesByStepId={capturesByStepId}
-                  errors={stepErrors}
-                  dependencyRow={row}
-                />
-              );
-            })}
-          </div>
-
-          <div>
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-              REFRESH POLICY
-            </Text>
-            <RefreshPolicyEditor
-              value={draft.refresh}
-              onChange={(refresh) => setDraft({ ...draft, refresh })}
-              availableCaptures={availableCaptures}
-            />
-          </div>
-        </Space>
+        </Tooltip>
       </div>
     </div>
   );
 };
-
-export default LiveWorkflowEditor;

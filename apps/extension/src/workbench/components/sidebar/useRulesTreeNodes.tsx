@@ -29,10 +29,7 @@ interface UseRulesTreeNodesParams {
   clearPauseOverride: (path: string) => void;
   clearNestedPauseOverrides: (path: string) => void;
   updateLocalRule: (uid: string, patch: Partial<V5.Rule>) => Promise<unknown> | unknown;
-  createLocalFolder: (
-    name: string,
-    parentPath: string,
-  ) => Promise<{ uid: string; path: string; name: string } | null>;
+  createLocalFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string; name: string } | null>;
   renameLocalFolder: (uid: string, name: string) => Promise<unknown> | unknown;
   deleteLocalFolder: (uid: string) => Promise<unknown> | unknown;
   renameLocalCollection: (uid: string, name: string) => Promise<unknown> | unknown;

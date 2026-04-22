@@ -371,7 +371,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         title: (
           <Space size={8}>
             <VideoCameraTwoTone />
-            <span>Record Browser Workflows</span>
+            <span>Record Browser Activity</span>
           </Space>
         ),
         description: (

@@ -28,3 +28,4 @@ export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralI
 export { computeTransitiveAncestors, validateStepReferences, validateWorkflowShape } from './step-validation';
 export type { StepRef, TemplateScanResult } from './template-scan';
 export { scanTemplateReferences, scanTemplateReferencesMany } from './template-scan';
+export { isWorkflowComplete, isWorkflowEffective } from './workflow-state';

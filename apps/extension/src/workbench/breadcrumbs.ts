@@ -29,6 +29,12 @@ export function computeBreadcrumbs(
   if (tab.mode === 'request-edit') return ['API Requests', tab.label];
   if (tab.mode === 'request-create') return ['API Requests', tab.draftName ?? tab.label];
 
+  if (tab.mode === 'live-workflow-edit') return ['Workflows', tab.label];
+  if (tab.mode === 'live-workflow-create') return ['Workflows', tab.draftName ?? tab.label];
+  if (tab.mode === 'live-variable-edit') return ['Live Variables', tab.label];
+  if (tab.mode === 'live-variable-create') return ['Live Variables', tab.draftName ?? tab.label];
+  if (tab.mode === 'live-vars') return ['Live Variables'];
+
   if (tab.mode === 'collection-overview') return ['Rules', tab.label];
 
   if (tab.mode === 'folder-overview' && tab.entityId) {
@@ -153,4 +159,36 @@ export function computeBreadcrumbs(
   }
 
   return ['Rules', tab.label];
+}
+
+/**
+ * Resolve the collection + folder trail for a single request uid against
+ * a list of request collection trees. Returns `null` when the request
+ * isn't found (deleted, or viewer looking at a stale snapshot).
+ *
+ * Shape is intentionally structured (`{ collectionName, folderTrail }`)
+ * rather than a pre-joined string so callers decide how to render —
+ * e.g., the Workflow step editor builds a Select option showing
+ * `<method> <name>` on one line and `collection / folder` on the next.
+ */
+export function computeRequestTrail(
+  requestUid: string,
+  collectionTrees: V5.CollectionTree[],
+): { collectionName: string; folderTrail: string[] } | null {
+  for (const col of collectionTrees) {
+    const folderTrail: string[] = [];
+    const find = (nodes: V5.TreeNode[]): boolean => {
+      for (const n of nodes) {
+        if (n.type === 'request' && n.uid === requestUid) return true;
+        if (n.type === 'folder') {
+          folderTrail.push(n.name);
+          if (find(n.children)) return true;
+          folderTrail.pop();
+        }
+      }
+      return false;
+    };
+    if (find(col.tree)) return { collectionName: col.name, folderTrail };
+  }
+  return null;
 }

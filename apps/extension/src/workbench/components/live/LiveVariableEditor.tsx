@@ -2,33 +2,41 @@
  * LiveVariableEditor — tab body for editing one LiveVariable OR
  * creating a new one.
  *
- * The LV is a thin namespace projection (`{{live.<name>}}` →
- * `workflow.<stepId>.<captureName>`), so this editor owns the binding
- * form. Create mode supports three source shapes:
- *   - Single request  — seed a 1-step workflow from a request + one capture.
- *   - New workflow    — create an empty workflow and open its editor.
- *   - Existing bind   — point at an existing workflow's step capture.
+ * An LV is a thin namespace projection: `{{live.<name>}}` →
+ * `workflow.<stepId>.<captureName>`. The two surfaces users have are:
  *
- * Edit mode is the rebind-or-tweak surface: change the LV's name,
- * point it at a different (step, capture) inside the same or a
- * different workflow, toggle `requireFreshOnRuleBuild`, set a manual
- * override.
+ *   - **Create workflows** via the Workflows sidebar (or via the
+ *     Request editor's "Use response in workflow" action). That flow
+ *     creates the workflow + its steps + captures.
+ *   - **Bind a capture as `{{live.X}}`** via this editor's Create mode,
+ *     reachable from the Live Variables list page's "+ New live
+ *     variable" button. The user picks an existing workflow + step +
+ *     capture and names the binding.
+ *
+ * Edit mode covers: rename, rebind (different workflow / step /
+ * capture), toggle `enabled`, toggle `requireFreshOnRuleBuild`, set a
+ * manual override.
  *
  * Phase 10 stale-draft discipline matches every other editor tab.
  */
 
-import { EyeInvisibleOutlined, EyeOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  InfoCircleOutlined,
+  ReloadOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
 import type { V5 } from '@openheaders/core/types';
-import { App, Button, Input, InputNumber, Radio, Select, Switch, Tag, Typography, theme } from 'antd';
+import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import StaleDraftBanner from '../StaleDraftBanner';
-import ExtractorEditor, { defaultExtractorFor } from './ExtractorEditor';
+import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
 import {
   classifyRun,
   describeRefreshPolicy,
@@ -37,92 +45,32 @@ import {
   readCapture,
   statusColor,
 } from './live-display';
-import RefreshPolicyEditor from './RefreshPolicyEditor';
 
 const { Text, Title } = Typography;
 
-// ── Shared compact layout primitives ───────────────────────────────
+// ── Shared labels for the Enabled + Wait-for-fresh toggles ──────────
 //
-// Label-left two-column grid; single source of truth for row rhythm
-// so Create + Edit stay visually aligned and tight. The label column
-// is fixed width so every input starts on the same vertical rule —
-// cheaper to scan than stacked CAPS labels above full-width fields.
-
-const ROW_LABEL_WIDTH = 108;
-const ROW_GAP = 12;
-
-const FieldRow: React.FC<{
-  label: string;
-  /** Tiny text shown under the label — e.g. reference syntax hint. */
-  hint?: React.ReactNode;
-  /** Vertically center the input against the label (default). Set to
-   *  `false` when the input is multi-line and should start-align. */
-  center?: boolean;
-  children: React.ReactNode;
-}> = ({ label, hint, center = true, children }) => {
-  const { token } = theme.useToken();
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `${ROW_LABEL_WIDTH}px 1fr`,
-        gap: ROW_GAP,
-        alignItems: center ? 'center' : 'start',
-        minHeight: 28,
-      }}
-    >
-      <div style={{ paddingTop: center ? 0 : 6 }}>
-        <Text style={{ fontSize: 12 }}>{label}</Text>
-        {hint && (
-          <div style={{ fontSize: 10, color: token.colorTextTertiary, lineHeight: 1.3, marginTop: 1 }}>{hint}</div>
-        )}
-      </div>
-      <div style={{ minWidth: 0 }}>{children}</div>
-    </div>
-  );
-};
-
-/** Section group — a titled rule with a labelled child stack. Replaces
- *  the prior bordered boxes; the title sits inline with a thin bottom
- *  divider instead of a full 1px border, which cuts ~12px padding and
- *  still visually groups the rows. */
-const Section: React.FC<{ title: React.ReactNode; children: React.ReactNode }> = ({ title, children }) => {
-  const { token } = theme.useToken();
-  return (
-    <div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          paddingBottom: 6,
-          marginBottom: 8,
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          fontSize: 11,
-          fontWeight: 500,
-          color: token.colorTextSecondary,
-          textTransform: 'uppercase',
-          letterSpacing: 0.4,
-        }}
-      >
-        {title}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{children}</div>
-    </div>
-  );
-};
+// "Enabled" = when off, `{{live.<name>}}` stops resolving (the resolver
+// filter skips disabled LVs). The binding stays in storage so toggling
+// back on is a one-click restore.
+//
+// "Wait for fresh value" (persisted as `requireFreshOnRuleBuild`) — when
+// on, the DNR rule-compile path BLOCKS on a workflow refresh (up to ~5s)
+// so rules always pick up a freshly-fetched value. Off (default) =
+// async-warm: rules use the last cached value and a background refresh
+// runs. The tradeoff is latency vs staleness on cold start.
+const ENABLED_TOOLTIP = 'When off, {{live.NAME}} references stop resolving in rules and requests.';
+const FRESH_TOOLTIP =
+  'Before applying rules, wait for the backing workflow to finish a refresh (up to ~5s). Off: rules use the last cached value and refresh in the background — faster but can be briefly stale after the extension wakes.';
 
 // ── Create mode ─────────────────────────────────────────────────────
 
 interface CreateProps {
   mode: 'create';
-  seedRequestUid?: string;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
   /** Called when a new LV lands — host replaces the create tab with an edit tab. */
   onCreated: (lv: V5.LiveVariable) => void;
-  /** Host-supplied way to open the workflow editor after a "New workflow" seed. */
-  openWorkflowTab?: (uid: string, name: string) => void;
 }
 
 interface EditProps {
@@ -136,40 +84,25 @@ interface EditProps {
 
 type Props = CreateProps | EditProps;
 
-type SourceMode = 'single-request' | 'new-workflow' | 'bind-existing';
-
 interface CreateDraft {
   name: string;
   description: string;
   enabled: boolean;
   requireFreshOnRuleBuild: boolean;
-  source: SourceMode;
-  // single-request shape
-  singleRequestUid: string;
-  singleExtractor: V5.Extractor;
-  singleRefresh: V5.RefreshPolicy;
-  // new-workflow shape
-  newWorkflowName: string;
-  // bind-existing shape
-  bindWorkflowUid: string;
-  bindStepId: string;
-  bindCaptureName: string;
+  workflowUid: string;
+  stepId: string;
+  captureName: string;
 }
 
-function emptyCreateDraft(seedRequestUid?: string): CreateDraft {
+function emptyCreateDraft(): CreateDraft {
   return {
     name: '',
     description: '',
     enabled: true,
     requireFreshOnRuleBuild: false,
-    source: seedRequestUid ? 'single-request' : 'bind-existing',
-    singleRequestUid: seedRequestUid ?? '',
-    singleExtractor: defaultExtractorFor('json-path'),
-    singleRefresh: { kind: 'manual' },
-    newWorkflowName: '',
-    bindWorkflowUid: '',
-    bindStepId: '',
-    bindCaptureName: '',
+    workflowUid: '',
+    stepId: '',
+    captureName: '',
   };
 }
 
@@ -219,32 +152,22 @@ export default LiveVariableEditor;
 
 // ── Create mode ─────────────────────────────────────────────────────
 
-const CreateMode: React.FC<CreateProps> = ({
-  seedRequestUid,
-  onDirtyChange,
-  registerSaveRef,
-  onCreated,
-  openWorkflowTab,
-}) => {
+const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onCreated }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { workflows, createWorkflow } = useLiveWorkflows();
+  const { workflows } = useLiveWorkflows();
   const { createVariable } = useLiveVariables();
-  const { requests } = useRequests();
 
-  const [draft, setDraft] = useState<CreateDraft>(() => emptyCreateDraft(seedRequestUid));
+  const [draft, setDraft] = useState<CreateDraft>(() => emptyCreateDraft());
 
   const isDirty = useMemo(() => {
     return (
       draft.name.trim().length > 0 ||
       draft.description.trim().length > 0 ||
-      draft.source !== (seedRequestUid ? 'single-request' : 'bind-existing') ||
-      draft.singleRequestUid !== (seedRequestUid ?? '') ||
-      draft.bindWorkflowUid !== '' ||
-      draft.bindCaptureName !== '' ||
-      draft.newWorkflowName !== ''
+      draft.workflowUid !== '' ||
+      draft.captureName !== ''
     );
-  }, [draft, seedRequestUid]);
+  }, [draft]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -256,70 +179,15 @@ const CreateMode: React.FC<CreateProps> = ({
       message.error('Name is required');
       return;
     }
-
-    if (draft.source === 'single-request') {
-      if (!draft.singleRequestUid) {
-        message.error('Pick a request first');
-        return;
-      }
-      const captureName = name; // reuse the LV name as the capture name
-      const wf = await createWorkflow({
-        name: `${name} source`,
-        steps: [
-          {
-            id: 'step1',
-            requestUid: draft.singleRequestUid,
-            captures: [{ name: captureName, extractor: draft.singleExtractor }],
-          },
-        ],
-        refresh: draft.singleRefresh,
-        enabled: true,
-      });
-      if (!wf) {
-        message.error('Failed to create workflow');
-        return;
-      }
-      const lv = await createVariable({
-        name,
-        workflowUid: wf.uid,
-        stepId: 'step1',
-        captureName,
-        description: draft.description.trim() ? draft.description : undefined,
-        requireFreshOnRuleBuild: draft.requireFreshOnRuleBuild,
-        enabled: draft.enabled,
-      });
-      if (!lv) {
-        message.error('Failed to create live variable');
-        return;
-      }
-      onCreated(lv);
-      return;
-    }
-
-    if (draft.source === 'new-workflow') {
-      const workflowName = draft.newWorkflowName.trim() || `${name} workflow`;
-      const wf = await createWorkflow({ name: workflowName, enabled: true });
-      if (!wf) {
-        message.error('Failed to create workflow');
-        return;
-      }
-      // Open the workflow editor so the user can add steps + captures; no LV
-      // is created yet — the user binds after the workflow has captures.
-      message.info('Workflow created — add steps + a capture, then re-open the LV editor to bind.');
-      openWorkflowTab?.(wf.uid, wf.name);
-      return;
-    }
-
-    // bind-existing
-    if (!draft.bindWorkflowUid || !draft.bindStepId || !draft.bindCaptureName) {
+    if (!draft.workflowUid || !draft.stepId || !draft.captureName) {
       message.error('Select a workflow, step, and capture');
       return;
     }
     const lv = await createVariable({
       name,
-      workflowUid: draft.bindWorkflowUid,
-      stepId: draft.bindStepId,
-      captureName: draft.bindCaptureName,
+      workflowUid: draft.workflowUid,
+      stepId: draft.stepId,
+      captureName: draft.captureName,
       description: draft.description.trim() ? draft.description : undefined,
       requireFreshOnRuleBuild: draft.requireFreshOnRuleBuild,
       enabled: draft.enabled,
@@ -329,22 +197,17 @@ const CreateMode: React.FC<CreateProps> = ({
       return;
     }
     onCreated(lv);
-  }, [draft, createWorkflow, createVariable, message, onCreated, openWorkflowTab]);
+  }, [draft, createVariable, message, onCreated]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
   useEffect(() => {
     registerSaveRef?.(handleSaveSync);
   }, [registerSaveRef, handleSaveSync]);
 
-  const availableRequests = useMemo(
-    () => requests.map((r) => ({ uid: r.uid, name: r.name, method: r.method })),
-    [requests],
-  );
-
-  const bindWorkflow = workflows.find((w) => w.uid === draft.bindWorkflowUid) ?? null;
-  const bindSteps = bindWorkflow?.steps ?? [];
-  const bindStep = bindSteps.find((s) => s.id === draft.bindStepId) ?? null;
-  const bindCaptures = bindStep?.captures ?? [];
+  const selectedWorkflow = workflows.find((w) => w.uid === draft.workflowUid) ?? null;
+  const selectedSteps = selectedWorkflow?.steps ?? [];
+  const selectedStep = selectedSteps.find((s) => s.id === draft.stepId) ?? null;
+  const selectedCaptures = selectedStep?.captures ?? [];
 
   return (
     <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
@@ -352,159 +215,67 @@ const CreateMode: React.FC<CreateProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <ThunderboltOutlined style={{ fontSize: 14, color: token.colorPrimary }} />
           <Title level={5} style={{ margin: 0 }}>
-            New Source
+            New Live Variable
           </Title>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <FieldRow
-            label="Name"
-            hint={
-              <>
-                Reference as {'{{'}live.NAME{'}}'}
-              </>
-            }
-          >
-            <Input
-              size="small"
-              placeholder="e.g. accessToken"
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-          </FieldRow>
+          <InlineNameDescription
+            name={draft.name}
+            description={draft.description}
+            onChangeName={(name) => setDraft({ ...draft, name })}
+            onChangeDescription={(description) => setDraft({ ...draft, description })}
+            namePlaceholder="Name (e.g. accessToken)"
+          />
+          <Text type="secondary" style={{ fontSize: 10, marginTop: -4 }}>
+            Reference as {'{{'}live.{draft.name.trim() || 'NAME'}
+            {'}}'}
+          </Text>
 
-          <FieldRow label="Description" center={false}>
-            <Input.TextArea
-              size="small"
-              autoSize={{ minRows: 1, maxRows: 3 }}
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            />
-          </FieldRow>
-
-          <FieldRow label="Source">
-            <Radio.Group
-              size="small"
-              value={draft.source}
-              onChange={(e) => setDraft({ ...draft, source: e.target.value as SourceMode })}
-              optionType="button"
-              buttonStyle="solid"
-              options={[
-                { value: 'single-request', label: 'Single request' },
-                { value: 'new-workflow', label: 'New workflow' },
-                { value: 'bind-existing', label: 'Bind existing' },
-              ]}
-            />
-          </FieldRow>
-
-          {draft.source === 'single-request' && (
-            <>
-              <FieldRow label="Request">
-                <Select
-                  size="small"
-                  style={{ width: '100%' }}
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder="Select a request"
-                  value={draft.singleRequestUid || undefined}
-                  onChange={(singleRequestUid) => setDraft({ ...draft, singleRequestUid })}
-                  options={availableRequests.map((r) => ({
-                    value: r.uid,
-                    label: `${r.method} ${r.name}`,
-                  }))}
-                />
-              </FieldRow>
-              <FieldRow label="Extractor" center={false}>
-                <ExtractorEditor
-                  compact
-                  value={draft.singleExtractor}
-                  onChange={(singleExtractor) => setDraft({ ...draft, singleExtractor })}
-                />
-              </FieldRow>
-              <FieldRow label="Refresh" center={false}>
-                <RefreshPolicyEditor
-                  value={draft.singleRefresh}
-                  onChange={(singleRefresh) => setDraft({ ...draft, singleRefresh })}
-                  availableCaptures={[
-                    {
-                      stepId: 'step1',
-                      captureName: draft.name || 'capture1',
-                      label: `step1.${draft.name || 'capture1'}`,
-                    },
-                  ]}
-                />
-              </FieldRow>
-              <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  A 1-step workflow is created behind the scenes — edit it later via the sidebar.
-                </Text>
-              </div>
-            </>
-          )}
-
-          {draft.source === 'new-workflow' && (
-            <>
-              <FieldRow label="Workflow name">
-                <Input
-                  size="small"
-                  placeholder="e.g. auth-chain"
-                  value={draft.newWorkflowName}
-                  onChange={(e) => setDraft({ ...draft, newWorkflowName: e.target.value })}
-                />
-              </FieldRow>
-              <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Creates an empty workflow and opens its editor. Add steps + captures, then re-open this editor with
-                  "Bind existing" to finish the binding.
-                </Text>
-              </div>
-            </>
-          )}
-
-          {draft.source === 'bind-existing' && (
-            <>
-              <FieldRow label="Workflow">
-                <Select
-                  size="small"
-                  style={{ width: '100%' }}
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder="Select a workflow"
-                  value={draft.bindWorkflowUid || undefined}
-                  onChange={(bindWorkflowUid) =>
-                    setDraft({ ...draft, bindWorkflowUid, bindStepId: '', bindCaptureName: '' })
-                  }
-                  options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                  notFoundContent={<Text type="secondary">No workflows yet.</Text>}
-                />
-              </FieldRow>
-              <FieldRow label="Step">
-                <Select
-                  size="small"
-                  style={{ width: '100%' }}
-                  placeholder="Select a step"
-                  disabled={!bindWorkflow}
-                  value={draft.bindStepId || undefined}
-                  onChange={(bindStepId) => setDraft({ ...draft, bindStepId, bindCaptureName: '' })}
-                  options={bindSteps.map((s) => ({ value: s.id, label: `${s.id} (${s.captures.length} captures)` }))}
-                />
-              </FieldRow>
-              <FieldRow label="Capture">
-                <Select
-                  size="small"
-                  style={{ width: '100%' }}
-                  placeholder="Select a capture"
-                  disabled={!bindStep}
-                  value={draft.bindCaptureName || undefined}
-                  onChange={(bindCaptureName) => setDraft({ ...draft, bindCaptureName })}
-                  options={bindCaptures.map((c) => ({
-                    value: c.name,
-                    label: `${c.name} — ${c.extractor.kind}`,
-                  }))}
-                />
-              </FieldRow>
-            </>
-          )}
+          <Section title="Binding">
+            <FieldRow label="Workflow">
+              <Select
+                size="small"
+                style={{ width: '100%' }}
+                showSearch
+                optionFilterProp="label"
+                placeholder={
+                  workflows.length === 0
+                    ? 'No workflows yet — create one from the Workflows sidebar'
+                    : 'Select a workflow'
+                }
+                value={draft.workflowUid || undefined}
+                onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
+                options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
+                notFoundContent={<Text type="secondary">No workflows yet.</Text>}
+              />
+            </FieldRow>
+            <FieldRow label="Step">
+              <Select
+                size="small"
+                style={{ width: '100%' }}
+                placeholder="Select a step"
+                disabled={!selectedWorkflow}
+                value={draft.stepId || undefined}
+                onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
+                options={selectedSteps.map((s) => ({
+                  value: s.id,
+                  label: `${s.id} (${s.captures.length} captures)`,
+                }))}
+              />
+            </FieldRow>
+            <FieldRow label="Capture">
+              <Select
+                size="small"
+                style={{ width: '100%' }}
+                placeholder="Select a capture"
+                disabled={!selectedStep}
+                value={draft.captureName || undefined}
+                onChange={(captureName) => setDraft({ ...draft, captureName })}
+                options={selectedCaptures.map((c) => ({ value: c.name, label: c.name }))}
+              />
+            </FieldRow>
+          </Section>
 
           <div
             style={{
@@ -520,6 +291,9 @@ const CreateMode: React.FC<CreateProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
               <Text style={{ fontSize: 12 }}>Enabled</Text>
+              <Tooltip title={ENABLED_TOOLTIP}>
+                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+              </Tooltip>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Switch
@@ -528,13 +302,12 @@ const CreateMode: React.FC<CreateProps> = ({
                 onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
               />
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Sync-warm
+                Wait for fresh value
               </Text>
+              <Tooltip title={FRESH_TOOLTIP}>
+                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+              </Tooltip>
             </div>
-            <div style={{ flex: 1 }} />
-            <Button type="primary" size="small" onClick={() => void handleSave()} disabled={!draft.name.trim()}>
-              Create Source
-            </Button>
           </div>
         </div>
       </div>
@@ -911,7 +684,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                     }
                   />
                 </FieldRow>
-                <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP, display: 'flex', gap: 8 }}>
+                <div style={{ paddingLeft: LIVE_ROW_LABEL_WIDTH + LIVE_ROW_GAP, display: 'flex', gap: 8 }}>
                   <Button size="small" onClick={() => void handleSetOverride(draft.manualOverride)}>
                     Apply override
                   </Button>
@@ -931,7 +704,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                 </div>
               </>
             ) : (
-              <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP }}>
+              <div style={{ paddingLeft: LIVE_ROW_LABEL_WIDTH + LIVE_ROW_GAP }}>
                 <Button size="small" onClick={() => setDraft({ ...draft, manualOverride: { value: '', until: null } })}>
                   Set manual override
                 </Button>
@@ -953,6 +726,9 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
               <Text style={{ fontSize: 12 }}>Enabled</Text>
+              <Tooltip title={ENABLED_TOOLTIP}>
+                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+              </Tooltip>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Switch
@@ -961,8 +737,11 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                 onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
               />
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Sync-warm
+                Wait for fresh value
               </Text>
+              <Tooltip title={FRESH_TOOLTIP}>
+                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+              </Tooltip>
             </div>
           </div>
         </div>

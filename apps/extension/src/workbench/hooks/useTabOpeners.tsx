@@ -80,10 +80,31 @@ export interface UseTabOpenersApi {
   openCreateRequestTab: (context?: { collectionId?: string; folderPath?: string }) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
-  /** Open the workflow backing an LV in a dedicated chain editor tab. */
-  openLiveWorkflowEdit: (uid: string, name: string) => void;
-  /** Open an unsaved Live Variable draft with an optional seed request for the first step. */
-  openCreateLiveVariable: (seedRequestUid?: string) => void;
+  /**
+   * Open a Live Workflow in its dedicated edit tab. Optional `seedStep`
+   * preseeds a pending append — the editor stages (but does not persist)
+   * a new step built from the given request; the user reviews and saves
+   * as usual. Ignored when the tab is already open (the existing draft
+   * wins — reopening doesn't overwrite in-flight state).
+   */
+  openLiveWorkflowEdit: (
+    uid: string,
+    name: string,
+    seedStep?: { requestUid: string; requestName: string; method: string },
+  ) => void;
+  /** Open an unsaved Live Variable binding draft — reachable from the Live Variables list page. */
+  openCreateLiveVariable: () => void;
+  /**
+   * Open an unsaved Live Workflow draft. Mirrors `openCreateRequestTab`
+   * for requests: the tab starts dirty, nothing is persisted until the
+   * user clicks Save. `seedStep` preseeds step 1 with a request so the
+   * "Use response in workflow → New workflow" action from the
+   * Request editor lands inside the draft with the source request
+   * already wired in.
+   */
+  openCreateLiveWorkflow: (context?: {
+    seedStep?: { requestUid: string; requestName: string; method: string };
+  }) => void;
 }
 
 export function useTabOpeners({
@@ -509,7 +530,7 @@ export function useTabOpeners({
   );
 
   const openLiveWorkflowEdit = useCallback(
-    (uid: string, name: string) => {
+    (uid: string, name: string, seedStep?: { requestUid: string; requestName: string; method: string }) => {
       const id = `live-wf-${uid}`;
       if (allTabs.some((t) => t.id === id)) {
         switchTab(id);
@@ -519,31 +540,28 @@ export function useTabOpeners({
         id,
         label: `${name} · Workflow`,
         ruleType: '',
-        dirty: false,
+        dirty: seedStep !== undefined,
         mode: 'live-workflow-edit',
         liveWorkflowUid: uid,
+        liveWorkflowSeedStep: seedStep,
       });
     },
     [allTabs, addTab, switchTab],
   );
 
-  const openCreateLiveVariable = useCallback(
-    (seedRequestUid?: string) => {
-      // Draft ids are timestamp-keyed so multiple new-LV tabs can
-      // coexist — same pattern as `openCreateRequestTab`.
-      const tabId = `live-var-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      addTab({
-        id: tabId,
-        label: 'New Source',
-        ruleType: '',
-        dirty: true,
-        mode: 'live-variable-create',
-        liveSeedRequestUid: seedRequestUid,
-      });
-      setPendingRenameTabId(tabId);
-    },
-    [addTab],
-  );
+  const openCreateLiveVariable = useCallback(() => {
+    // Draft ids are timestamp-keyed so multiple new-LV tabs can
+    // coexist — same pattern as `openCreateRequestTab`.
+    const tabId = `live-var-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    addTab({
+      id: tabId,
+      label: 'New Live Variable',
+      ruleType: '',
+      dirty: true,
+      mode: 'live-variable-create',
+    });
+    setPendingRenameTabId(tabId);
+  }, [addTab]);
 
   const openCreateRequestTab = useCallback(
     (context?: { collectionId?: string; folderPath?: string }) => {
@@ -579,6 +597,35 @@ export function useTabOpeners({
     [allTabs, addTab],
   );
 
+  const openCreateLiveWorkflow = useCallback(
+    (context?: { seedStep?: { requestUid: string; requestName: string; method: string } }) => {
+      // Pick a unique draft name so multiple "New Workflow" drafts can
+      // coexist. Name drafts with a leading base + (2)/(3)/… suffix —
+      // same approach as `openCreateRequestTab`.
+      const baseName = 'New Workflow';
+      const existingNames = new Set<string>();
+      for (const tab of allTabs) existingNames.add(tab.label);
+      let draftName = baseName;
+      let counter = 2;
+      while (existingNames.has(draftName)) {
+        draftName = `${baseName} (${counter++})`;
+      }
+
+      const tabId = `live-wf-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      addTab({
+        id: tabId,
+        label: draftName,
+        ruleType: '',
+        dirty: true,
+        mode: 'live-workflow-create',
+        draftName,
+        liveWorkflowSeedStep: context?.seedStep,
+      });
+      setPendingRenameTabId(tabId);
+    },
+    [allTabs, addTab],
+  );
+
   return {
     pendingRenameTabId,
     setPendingRenameTabId,
@@ -605,5 +652,6 @@ export function useTabOpeners({
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
+    openCreateLiveWorkflow,
   };
 }

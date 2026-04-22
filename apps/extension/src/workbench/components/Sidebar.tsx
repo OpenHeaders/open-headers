@@ -4,7 +4,7 @@
  *   - `http-rules`   — RULES, TEMPLATES, ENVIRONMENTS
  *   - `api-requests` — API REQUESTS, ENVIRONMENTS
  *   - `variables`    — VAULT, WORKSPACE VARIABLES, LIVE VARIABLES, ENVIRONMENTS
- *   - `sources`      — SOURCES
+ *   - `workflows`    — WORKFLOWS (scheduled-refresh value producers)
  *
  * All views share one component so chrome (filter input, +add toolbar
  * action, expand/collapse all, keyboard navigation, options menu)
@@ -44,15 +44,15 @@ import { useSettingValue } from '../settings/hooks';
 import type { WorkbenchTab } from '../types';
 import { SectionHeader } from './sidebar/SectionHeader';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
+import type { SidebarView, TreeNode } from './sidebar/types';
 import { useDraftOverlay } from './sidebar/useDraftOverlay';
 import { useEnvironmentNodes } from './sidebar/useEnvironmentNodes';
 import { useRequestTreeNodes } from './sidebar/useRequestTreeNodes';
 import { useRulesTreeNodes } from './sidebar/useRulesTreeNodes';
 import { useSelectOpenedTab } from './sidebar/useSelectOpenedTab';
-import { useSourceNodes } from './sidebar/useSourceNodes';
 import { useTemplateTreeNodes } from './sidebar/useTemplateTreeNodes';
 import { useVariableSingletonNodes } from './sidebar/useVariableSingletonNodes';
-import type { SidebarView, TreeNode } from './sidebar/types';
+import { useWorkflowNodes } from './sidebar/useWorkflowNodes';
 
 export type { SidebarView };
 
@@ -72,7 +72,8 @@ interface SidebarProps {
   onOpenVault?: () => void;
   onOpenLiveVariables?: () => void;
   onSelectLiveWorkflow?: (uid: string, name: string) => void;
-  onCreateLiveVariable?: (seedRequestUid?: string) => void;
+  /** Open a new unsaved Live Workflow draft — drives the Workflows sidebar's `+` buttons. */
+  onCreateWorkflow?: (seedStep?: { requestUid: string; requestName: string; method: string }) => void;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
   onImportCurl?: (context?: { collectionId?: string }) => void;
@@ -81,6 +82,8 @@ interface SidebarProps {
   filterRef?: React.Ref<InputRef>;
   dirtyRuleUids?: ReadonlySet<string>;
   dirtyRequestUids?: ReadonlySet<string>;
+  dirtyWorkflowUids?: ReadonlySet<string>;
+  unresolvableWorkflowUids?: ReadonlySet<string>;
   allTabs?: WorkbenchTab[];
   onSwitchTab?: (tabId: string) => void;
   onCloseDraftTab?: (tabId: string) => void;
@@ -102,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenVault,
   onOpenLiveVariables,
   onSelectLiveWorkflow,
-  onCreateLiveVariable,
+  onCreateWorkflow,
   onSelectRequest,
   onCreateRequest,
   onImportCurl,
@@ -111,6 +114,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   filterRef,
   dirtyRuleUids,
   dirtyRequestUids,
+  dirtyWorkflowUids,
+  unresolvableWorkflowUids,
   allTabs,
   onSwitchTab,
   onCloseDraftTab,
@@ -171,7 +176,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   } = useEnvironments();
 
   const { variables: liveVariables } = useLiveVariables();
-  const { workflows: liveWorkflows, refreshNow: refreshLiveWorkflow } = useLiveWorkflows();
+  const {
+    workflows: liveWorkflows,
+    refreshNow: refreshLiveWorkflow,
+    updateWorkflow: updateLiveWorkflow,
+    deleteWorkflow: deleteLiveWorkflow,
+  } = useLiveWorkflows();
   const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
   const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
 
@@ -205,8 +215,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       base['workspace-vars'] = true;
       base.environments = true;
       base['live-variables'] = true;
-    } else if (view === 'sources') {
-      base.sources = true;
+    } else if (view === 'workflows') {
+      base.workflows = true;
     } else {
       base.rules = true;
       base.templates = true;
@@ -244,8 +254,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         environments: true,
         'live-variables': true,
       });
-    } else if (view === 'sources') {
-      setSectionsExpanded({ sources: true });
+    } else if (view === 'workflows') {
+      setSectionsExpanded({ workflows: true });
     } else {
       setSectionsExpanded({ rules: true, templates: true, environments: true });
     }
@@ -279,8 +289,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         environments: false,
         'live-variables': false,
       });
-    } else if (view === 'sources') {
-      setSectionsExpanded({ sources: false });
+    } else if (view === 'workflows') {
+      setSectionsExpanded({ workflows: false });
     } else {
       setSectionsExpanded({ rules: false, templates: false, environments: false });
     }
@@ -324,11 +334,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // ── Section nodes via hooks ────────────────────────────────────
 
-  const { draftsByLocation, buildRuleDraftNode, buildRequestDraftNode } = useDraftOverlay({
-    allTabs,
-    onSwitchTab,
-    onCloseDraftTab,
-  });
+  const { draftsByLocation, workflowDrafts, buildRuleDraftNode, buildRequestDraftNode, buildWorkflowDraftNode } =
+    useDraftOverlay({
+      allTabs,
+      onSwitchTab,
+      onCloseDraftTab,
+    });
 
   const rulesNodes = useRulesTreeNodes({
     rules,
@@ -423,7 +434,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onSelectEnvironment,
   });
 
-  const sourceNodes = useSourceNodes({
+  const workflowNodes = useWorkflowNodes({
     liveWorkflows,
     liveVariables,
     liveCaches,
@@ -431,6 +442,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     filterText,
     refreshLiveWorkflow,
     onSelectLiveWorkflow,
+    renameWorkflow: (uid, name) => updateLiveWorkflow(uid, { name }),
+    deleteWorkflow: deleteLiveWorkflow,
+    confirmDelete,
+    workflowDrafts,
+    buildWorkflowDraftNode,
+    dirtyWorkflowUids,
+    unresolvableWorkflowUids,
   });
 
   const { vaultNode, workspaceVarsNode, liveVarsNode } = useVariableSingletonNodes({
@@ -485,8 +503,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else if (view === 'api-requests') {
       if (sectionsExpanded['api-requests']) items.push(...requestNodes);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
-    } else if (view === 'sources') {
-      if (sectionsExpanded.sources) items.push(...sourceNodes);
+    } else if (view === 'workflows') {
+      if (sectionsExpanded.workflows) items.push(...workflowNodes);
     } else {
       if (sectionsExpanded.vault) items.push(vaultNode);
       if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
@@ -502,7 +520,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     templateNodes,
     environmentNodes,
     liveVarsNode,
-    sourceNodes,
+    workflowNodes,
     requestNodes,
     vaultNode,
     workspaceVarsNode,
@@ -771,13 +789,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </Tooltip>
         )}
-        {view === 'sources' && (
-          <Tooltip title="New source" placement="bottom">
+        {view === 'workflows' && (
+          <Tooltip title="New workflow" placement="bottom">
             <button
               type="button"
               className="rules-sidebar-toolbar-icon"
               style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-              onClick={() => onCreateLiveVariable?.()}
+              onClick={() => onCreateWorkflow?.()}
             >
               <PlusOutlined />
             </button>
@@ -964,33 +982,33 @@ const Sidebar: React.FC<SidebarProps> = ({
           </>
         )}
 
-        {view === 'sources' && (
+        {view === 'workflows' && (
           <>
             <SectionHeader
-              title="SOURCES"
-              expanded={sectionsExpanded.sources}
-              onToggle={() => toggleSection('sources')}
+              title="WORKFLOWS"
+              expanded={sectionsExpanded.workflows}
+              onToggle={() => toggleSection('workflows')}
               actions={
-                <Tooltip title="New source" placement="bottom">
+                <Tooltip title="New workflow" placement="bottom">
                   <PlusOutlined
                     style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSectionsExpanded((prev) => ({ ...prev, sources: true }));
-                      onCreateLiveVariable?.();
+                      setSectionsExpanded((prev) => ({ ...prev, workflows: true }));
+                      onCreateWorkflow?.();
                     }}
                   />
                 </Tooltip>
               }
             />
-            {sectionsExpanded.sources && (
+            {sectionsExpanded.workflows && (
               <div style={{ overflowY: 'auto' }}>
-                {sourceNodes.length > 0 ? (
-                  renderNodes(sourceNodes, () => onCreateLiveVariable?.())
+                {workflowNodes.length > 0 ? (
+                  renderNodes(workflowNodes, () => onCreateWorkflow?.())
                 ) : (
                   <div style={{ padding: '8px 16px', fontSize: 11, color: token.colorTextTertiary }}>
                     <ThunderboltOutlined style={{ marginRight: 4 }} />
-                    No sources yet — author one by clicking + to capture values on a schedule.
+                    No workflows yet — author one by clicking + to schedule a request chain.
                   </div>
                 )}
               </div>

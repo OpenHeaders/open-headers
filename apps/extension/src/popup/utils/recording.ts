@@ -77,14 +77,14 @@ export async function startRecording(useWidget = false): Promise<StartRecordingR
       useWidget,
     });
     if (!response.success) {
-      throw new Error(response.error ?? 'Failed to start workflow in background');
+      throw new Error(response.error ?? 'Failed to start recording in background');
     }
     return { success: true, recordId: response.recordId ?? recordId, preNavigation: true };
   }
 
   const response = await call('START_RECORDING', { tabId: tab.id, useWidget });
   if (!response.success) {
-    throw new Error(response.error ?? 'Failed to start workflow in background');
+    throw new Error(response.error ?? 'Failed to start recording in background');
   }
   return { success: true, recordId: response.recordId ?? makeRecordId() };
 }

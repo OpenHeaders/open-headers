@@ -5,11 +5,11 @@
  * Matches the visual language of VariableTable (the shared editor used
  * by WorkspaceVariablesEditor / CollectionVariablesEditor / EnvironmentEditor)
  * so live variables read as "just another variable scope" to the user.
- * Each row is one binding: NAME | VALUE | SOURCE. Values are captured
- * at runtime by the backing Source (workflow), not entered here — the
- * cell is read-only and masked by default. The SOURCE column is a
- * clickable chip that opens the Source editor, answering the user's
- * natural question: *"where does this value come from?"*
+ * Each row is one binding: NAME | VALUE | WORKFLOW. Values are captured
+ * at runtime by the backing Workflow, not entered here — the cell is
+ * read-only and masked by default. The WORKFLOW column is a clickable
+ * chip that opens the Workflow editor, answering the user's natural
+ * question: *"where does this value come from?"*
  *
  * Name renames go through a context-menu entry ("Edit binding") on the
  * sidebar row — not inline in this table — because the binding has
@@ -19,6 +19,7 @@
 
 import {
   DeleteOutlined,
+  EditOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
   LinkOutlined,
@@ -37,18 +38,18 @@ import { useCallback, useMemo, useState } from 'react';
 const { Text, Title } = Typography;
 
 interface LiveVariablesEditorProps {
-  /** Open the Source editor for a specific workflow uid. */
-  onOpenSource?: (workflowUid: string, name: string) => void;
+  /** Open the Workflow editor for a specific workflow uid. */
+  onOpenWorkflow?: (workflowUid: string, name: string) => void;
   /** Open the LiveVariableEditor (full binding editor) for one uid. */
   onEditBinding?: (uid: string, name: string) => void;
   /** Spawn a new live variable draft. */
   onCreateLiveVariable?: () => void;
 }
 
-const GRID_COLS = '1fr 1fr 200px 28px';
+const GRID_COLS = '1fr 1fr 200px 80px';
 
 const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
-  onOpenSource,
+  onOpenWorkflow,
   onEditBinding,
   onCreateLiveVariable,
 }) => {
@@ -97,7 +98,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
         </div>
 
         <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          Each binding maps a name to a capture from a Source (a scheduled request chain). Referenced in rules and
+          Each binding maps a name to a capture from a Workflow (a scheduled request chain). Referenced in rules and
           requests as <code>{'{{live.NAME}}'}</code>.
         </Text>
 
@@ -152,7 +153,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                 borderLeft: `1px solid ${token.colorBorderSecondary}`,
               }}
             >
-              Source
+              Workflow
             </div>
             <div style={{ padding: '6px 8px' }} />
           </div>
@@ -163,7 +164,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
                   <span style={{ fontSize: 12 }}>
-                    No live variables yet. Create one to bind a name to a Source's captured value.
+                    No live variables yet. Create one to bind a name to a workflow's captured value.
                   </span>
                 }
               />
@@ -268,7 +269,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                     )}
                   </div>
 
-                  {/* Source cell — click opens the Source editor */}
+                  {/* Workflow cell — click opens the Workflow editor */}
                   <div
                     style={{
                       padding: '6px 10px',
@@ -284,7 +285,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                         type="link"
                         size="small"
                         icon={<LinkOutlined />}
-                        onClick={() => onOpenSource?.(workflow.uid, workflow.name)}
+                        onClick={() => onOpenWorkflow?.(workflow.uid, workflow.name)}
                         style={{
                           padding: 0,
                           height: 'auto',
@@ -300,24 +301,20 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                       </Button>
                     ) : (
                       <span style={{ fontSize: 11, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
-                        missing source
+                        missing workflow
                       </span>
                     )}
                   </div>
 
                   {/* Actions cell */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                    <Tooltip title="Refresh source now">
-                      <ReloadOutlined
-                        style={{ fontSize: 12, color: token.colorTextTertiary, cursor: 'pointer' }}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                    <Tooltip title="Refresh workflow now">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<ReloadOutlined />}
                         onClick={() => void handleRefresh(lv.workflowUid)}
-                      />
-                    </Tooltip>
-                    <Tooltip title="Edit binding">
-                      <LinkOutlined
-                        style={{
-                          display: 'none',
-                        }}
+                        aria-label={`Refresh ${lv.name}`}
                       />
                     </Tooltip>
                     {onEditBinding && (
@@ -325,17 +322,20 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                         <Button
                           type="text"
                           size="small"
+                          icon={<EditOutlined />}
                           onClick={() => onEditBinding(lv.uid, lv.name)}
-                          style={{ padding: 0, width: 20, height: 20, fontSize: 11 }}
-                        >
-                          …
-                        </Button>
+                          aria-label={`Edit ${lv.name}`}
+                        />
                       </Tooltip>
                     )}
                     <Tooltip title="Delete">
-                      <DeleteOutlined
-                        style={{ fontSize: 12, color: token.colorErrorText, cursor: 'pointer' }}
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
                         onClick={() => void handleDelete(lv.uid, lv.name)}
+                        aria-label={`Delete ${lv.name}`}
                       />
                     </Tooltip>
                   </div>

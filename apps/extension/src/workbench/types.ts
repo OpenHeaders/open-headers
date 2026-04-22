@@ -24,7 +24,8 @@ export type TabMode =
   | 'request-create'
   | 'live-variable-edit'
   | 'live-variable-create'
-  | 'live-workflow-edit';
+  | 'live-workflow-edit'
+  | 'live-workflow-create';
 
 /** Variant of the startup landing tab — drives which view `LandingScreen` renders. */
 export type LandingView = 'home' | 'rules' | 'collections';
@@ -108,8 +109,14 @@ export interface WorkbenchTab {
   liveVariableUid?: string;
   /** For live-workflow-edit tabs: the workflow uid being edited. */
   liveWorkflowUid?: string;
-  /** For live-variable-create tabs: optional seed request uid for the first step. */
-  liveSeedRequestUid?: string;
+  /**
+   * For live-workflow-create tabs opened from a Request's "Extract
+   * variables to workflow → New workflow" action, and for
+   * live-workflow-edit tabs opened from "Extract → Attach to <workflow>"
+   * (the editor stages but does not persist a step built from this
+   * request; the user reviews + Saves as usual).
+   */
+  liveWorkflowSeedStep?: { requestUid: string; requestName: string; method: string };
   /**
    * For request-create (draft) tabs opened from a specific collection
    * or folder in the sidebar. When set, Save persists directly there;
@@ -143,7 +150,7 @@ export interface PanelVisibility {
  *   - `api-requests` — api-request collections + environment quick-reference
  *   - `variables`    — full variable management (vault, workspace-vars, envs)
  */
-export type LeftPanelKey = 'http-rules' | 'api-requests' | 'variables' | 'sources' | 'page-traffic' | 'test-runs';
+export type LeftPanelKey = 'http-rules' | 'api-requests' | 'variables' | 'workflows' | 'page-traffic' | 'test-runs';
 
 /**
  * Right-side panel keys — all shown in the right Allotment pane.
@@ -200,7 +207,7 @@ export type ToolWindowId =
   | 'http-rules'
   | 'api-requests'
   | 'variables'
-  | 'sources'
+  | 'workflows'
   | 'docs'
   | 'var-scope'
   | 'page-traffic'

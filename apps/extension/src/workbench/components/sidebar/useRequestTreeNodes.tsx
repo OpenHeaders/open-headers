@@ -1,8 +1,8 @@
 import { DeleteOutlined, EditOutlined, FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import type { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { createElement, useCallback, useMemo } from 'react';
-import type { useVariableResolver } from '@hooks/useVariableResolver';
 import type { WorkbenchTab } from '../../types';
 import { composeBadge, iconEl, methodTag } from './icons';
 import type { TreeNode } from './types';

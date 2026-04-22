@@ -13,7 +13,7 @@ import type { ItemType } from 'antd/es/menu/interface';
  * different subset of sections but shares the chrome (filter, toolbar,
  * keyboard nav, options menu).
  */
-export type SidebarView = 'http-rules' | 'api-requests' | 'variables' | 'sources';
+export type SidebarView = 'http-rules' | 'api-requests' | 'variables' | 'workflows';
 
 export type NodeKind = 'group' | 'folder' | 'leaf' | 'placeholder';
 

@@ -38,12 +38,12 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useTablePagination } from '@/hooks/useTablePagination';
-import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
-import type { TrackedResourceType } from '@/workbench/settings/schema/rules-engine';
 import { useSurface } from '@/shared/surface';
 import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@/shared/verdict';
 import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
 import type { SilentMatchRecord } from '@/types/browser';
+import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
+import type { TrackedResourceType } from '@/workbench/settings/schema/rules-engine';
 import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
 import {
   renderActionDetails,

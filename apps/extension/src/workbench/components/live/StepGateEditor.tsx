@@ -221,17 +221,21 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
           value="all"
           options={[
             { value: 'all', label: 'All (AND)' },
-            {
-              value: 'any',
-              label: (
-                <Tooltip title="OR logic coming in a future release. Use multiple steps with mutually-exclusive gates for now.">
-                  <span>Any (OR)</span>
-                </Tooltip>
-              ),
-              disabled: true,
-            },
+            { value: 'any', label: 'Any (OR)', disabled: true },
           ]}
         />
+        {/* Tooltip on an adjacent info icon rather than on the disabled option
+         *  itself — AntD applies `pointer-events: none` to disabled Segmented
+         *  items which can swallow hover on the option's inner tooltip trigger.
+         *  A sibling trigger is keyboard-discoverable (Tab → focus-shown
+         *  tooltip) and never relies on the disabled-option hover working. */}
+        <Tooltip title="OR logic coming in a future release. Use multiple steps with mutually-exclusive gates for now.">
+          <InfoCircleOutlined
+            tabIndex={0}
+            aria-label="About match modes"
+            style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }}
+          />
+        </Tooltip>
         <span style={{ fontSize: 11, color: token.colorTextTertiary }}>
           {clauses.length === 0
             ? 'No conditions — step runs whenever its dependencies complete.'

@@ -90,7 +90,7 @@ describe('LiveWorkflowEditor — show-but-disable', () => {
   it('renders the "Run independent steps in parallel" Switch as disabled + unchecked', () => {
     render(
       <App>
-        <LiveWorkflowEditor workflowUid={workflowFixture.uid} />
+        <LiveWorkflowEditor mode="edit" workflowUid={workflowFixture.uid} />
       </App>,
     );
 

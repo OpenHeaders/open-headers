@@ -60,7 +60,7 @@ interface UseWorkspaceIntentRouterOptions {
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   openLiveVariableEdit: (uid: string, name: string) => void;
   openLiveWorkflowEdit: (uid: string, name: string) => void;
-  openCreateLiveVariable: (seedRequestUid?: string) => void;
+  openCreateLiveVariable: () => void;
 }
 
 /** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault` */
@@ -192,7 +192,11 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           o.openLiveWorkflowEdit(intent.uid, 'Workflow');
           return;
         case 'create-live-variable':
-          o.openCreateLiveVariable(intent.seedRequestUid);
+          // intent.seedRequestUid is reserved in the schema but ignored
+          // here — the Create LV form is bind-to-existing only, and the
+          // "use this request as a workflow step" flow now lives on the
+          // Request editor's "Use response in workflow" dropdown.
+          o.openCreateLiveVariable();
           return;
         default:
           assertNever(intent);
@@ -287,7 +291,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         o.openLiveWorkflowEdit(pending.uid, 'Workflow');
         return;
       case 'create-live-variable':
-        o.openCreateLiveVariable(pending.seedRequestUid);
+        o.openCreateLiveVariable();
         return;
       default:
         assertNever(pending);
