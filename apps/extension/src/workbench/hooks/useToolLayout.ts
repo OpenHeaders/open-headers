@@ -17,21 +17,24 @@ import type { ToolWindowId } from '../types';
 export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
 
 /**
- * Fresh-profile seed. Three panels are visible on first open:
- *   - `http-workbench` in `left-top` (rules list + templates + environments).
- *   - `api-requests` in `left-bottom` with `variables` as the sibling tab
- *     — the activity bar's bottom group exposes both; requests is 1st.
- *   - `var-scope` in `right-bottom` — the right-side Variables inspector
- *     showing resolved scopes for the active rule / request.
+ * Fresh-profile seed. Three panels are active on first open:
+ *   - `http-rules` in `left-top` (rules list + templates + environments).
+ *   - `api-requests` in `left-bottom` (workflows joins as a sibling tab
+ *     via the normalizer).
+ *   - `var-scope` in `right-top` (docs joins as a sibling tab via the
+ *     normalizer) — the tab-scoped variable inspector.
  * The shared normalizer fills in the remaining `defaultSlot` registry
- * entries (`docs`, `page-traffic`, `test-runs`) without activating them.
+ * entries (`workflows`, `docs`, `variables`, `page-traffic`, `test-runs`)
+ * without activating them — `variables` lands as a `right-bottom` tab
+ * but the pane stays collapsed so the right inspector starts focused on
+ * Scope only.
  */
 const WORKSPACE_FRESH_LAYOUT: Partial<ToolLayoutState<ToolWindowId>> = {
   docks: {
     'left-top': { windows: ['http-rules'], active: 'http-rules' },
-    'left-bottom': { windows: ['api-requests', 'variables'], active: 'api-requests' },
-    'right-top': { windows: [], active: null },
-    'right-bottom': { windows: ['var-scope'], active: 'var-scope' },
+    'left-bottom': { windows: ['api-requests'], active: 'api-requests' },
+    'right-top': { windows: ['var-scope'], active: 'var-scope' },
+    'right-bottom': { windows: [], active: null },
     'bottom-left': { windows: [], active: null },
     'bottom-right': { windows: [], active: null },
   },

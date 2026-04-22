@@ -1,5 +1,6 @@
 import {
   AppstoreOutlined,
+  BugOutlined,
   EditOutlined,
   FileTextOutlined,
   GlobalOutlined,
@@ -23,6 +24,7 @@ import { useSurface } from '@/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
 import { useSetting } from '@/workbench/settings/hooks';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
+import DebugNetworkPanel from './DebugNetworkPanel';
 import RecordingButton from './RecordingButton';
 
 const { Text } = Typography;
@@ -47,6 +49,7 @@ const Footer: React.FC = () => {
   const [recordingHotkeyEnabled, setRecordingHotkeyEnabled] = useSetting('recording.hotkeyEnabled');
   const [optionsTooltipOpen, setOptionsTooltipOpen] = useState(false);
   const [optionsDropdownOpen, setOptionsDropdownOpen] = useState(false);
+  const [debugNetworkOpen, setDebugNetworkOpen] = useState(false);
   const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
   const { message } = App.useApp();
   const appLauncher = getAppLauncher();
@@ -190,10 +193,10 @@ const Footer: React.FC = () => {
 
   const optionsMenuItems = [
     {
-      key: 'general-label',
+      key: 'recording-settings-label',
       label: (
         <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-          GENERAL
+          RECORDING SETTINGS
         </Text>
       ),
       disabled: true,
@@ -376,31 +379,51 @@ const Footer: React.FC = () => {
             <Button
               icon={<SettingOutlined />}
               size="middle"
-              style={{ height: '36px', padding: '0 10px', fontWeight: 500, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
-            >
-              <span className="oh-collapse-label">Options</span>
-            </Button>
+              aria-label="Recording options"
+              style={{
+                height: '36px',
+                padding: '0 10px',
+                fontWeight: 500,
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              }}
+            />
           </Tooltip>
         </Dropdown>
 
-        <Tooltip title={<ShortcutHintTitle label={helpLabel}>Keyboard shortcuts</ShortcutHintTitle>}>
-          <span
-            className="kbd-key oh-help-shortcut"
-            role="button"
-            tabIndex={0}
-            onClick={() => setIsShortcutsOverlayVisible((prev: boolean) => !prev)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') setIsShortcutsOverlayVisible((prev: boolean) => !prev);
-            }}
-            style={{ cursor: 'pointer', marginLeft: '4px' }}
+        <Tooltip title="Open the DevTools Network panel for supercharged debugging">
+          <Button
+            icon={<BugOutlined />}
+            size="middle"
+            onClick={() => setDebugNetworkOpen(true)}
+            className="debug-network-button"
+            style={{ height: '36px', padding: '0 14px', fontWeight: 500, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
           >
-            ?
-          </span>
+            <span className="oh-collapse-label">
+              <span style={{ fontSize: 13 }}>Debug Network.</span>{' '}
+              <span style={{ fontSize: 10, fontStyle: 'italic', color: token.colorTextSecondary }}>
+                Like it should be
+              </span>
+            </span>
+          </Button>
         </Tooltip>
       </div>
 
       <div>
         <Space size={8} align="center">
+          <Tooltip title={<ShortcutHintTitle label={helpLabel}>Keyboard shortcuts</ShortcutHintTitle>}>
+            <span
+              className="kbd-key oh-help-shortcut"
+              role="button"
+              tabIndex={0}
+              onClick={() => setIsShortcutsOverlayVisible((prev: boolean) => !prev)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setIsShortcutsOverlayVisible((prev: boolean) => !prev);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              ?
+            </span>
+          </Tooltip>
           <Text className="oh-version" style={{ fontSize: '11px', color: token.colorTextTertiary }}>
             v{version}
           </Text>
@@ -428,6 +451,7 @@ const Footer: React.FC = () => {
           </Tooltip>
         </Space>
       </div>
+      <DebugNetworkPanel open={debugNetworkOpen} onClose={() => setDebugNetworkOpen(false)} />
     </div>
   );
 };

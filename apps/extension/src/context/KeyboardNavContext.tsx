@@ -1,12 +1,12 @@
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
-import { type FooterActions, useKeyboardDispatch } from '@/hooks/useKeyboardDispatch';
+import { type FooterActions, type HeaderActions, useKeyboardDispatch } from '@/hooks/useKeyboardDispatch';
 import { useKeyboardFocus } from '@/hooks/useKeyboardFocus';
 import { useKeyboardScrollAndHighlight } from '@/hooks/useKeyboardScrollAndHighlight';
 import type { PageInfo, RowActions } from '@/popup/utils/table-shared';
 
-export type { FooterActions };
+export type { FooterActions, HeaderActions };
 
 export interface KeyboardNavContextValue {
   activeTab: string | null;
@@ -25,6 +25,7 @@ export interface KeyboardNavContextValue {
   setPageInfo: (info: PageInfo) => void;
   setRowActions: (actions: RowActions) => void;
   setFooterActions: (actions: FooterActions) => void;
+  setHeaderActions: (actions: HeaderActions) => void;
   setNestedRowCount: (count: number) => void;
   toggleExpandedRow: (key: string | number, rowIndex?: number) => void;
 }
@@ -58,6 +59,7 @@ export const KeyboardNavProvider: React.FC<KeyboardNavProviderProps> = ({
   });
   const [rowActions, setRowActions] = useState<RowActions>({});
   const [footerActions, setFooterActions] = useState<FooterActions>({});
+  const [headerActions, setHeaderActions] = useState<HeaderActions>({});
   const [expandedRowKey, setExpandedRowKey] = useState<string | number | null>(null);
   const [nestedRowCount, setNestedRowCount] = useState(0);
 
@@ -92,6 +94,7 @@ export const KeyboardNavProvider: React.FC<KeyboardNavProviderProps> = ({
     onPrevPage: pageInfo.onPrevPage,
     rowActions,
     footerActions,
+    headerActions,
     onCycleTheme,
     onToggleCompactMode,
     focusLastRowOnPageChange: focus.focusLastRowOnPageChange,
@@ -118,6 +121,7 @@ export const KeyboardNavProvider: React.FC<KeyboardNavProviderProps> = ({
   const setPageInfoStable = useCallback((info: PageInfo) => setPageInfo(info), []);
   const setRowActionsStable = useCallback((actions: RowActions) => setRowActions(actions), []);
   const setFooterActionsStable = useCallback((actions: FooterActions) => setFooterActions(actions), []);
+  const setHeaderActionsStable = useCallback((actions: HeaderActions) => setHeaderActions(actions), []);
   const setNestedRowCountStable = useCallback((count: number) => setNestedRowCount(count), []);
   const toggleExpandedRow = useCallback(
     (key: string | number, rowIndex?: number) => {
@@ -154,6 +158,7 @@ export const KeyboardNavProvider: React.FC<KeyboardNavProviderProps> = ({
     setPageInfo: setPageInfoStable,
     setRowActions: setRowActionsStable,
     setFooterActions: setFooterActionsStable,
+    setHeaderActions: setHeaderActionsStable,
     setNestedRowCount: setNestedRowCountStable,
     toggleExpandedRow,
   };

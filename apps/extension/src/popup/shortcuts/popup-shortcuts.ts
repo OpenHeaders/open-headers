@@ -52,7 +52,8 @@ export type PopupShortcutId =
   | 'open-settings'
   | 'tab-this-page'
   | 'tab-all-rules'
-  | 'tab-collections';
+  | 'tab-collections'
+  | 'toggle-surface';
 
 export type PopupShortcutGroup = 'navigation' | 'actions' | 'row' | 'browser';
 
@@ -126,6 +127,12 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
     id: 'open-settings',
     settingKey: 'keyboard.popup.openSettings',
     description: 'Open settings',
+    group: 'actions',
+  },
+  {
+    id: 'toggle-surface',
+    settingKey: 'keyboard.popup.toggleSurface',
+    description: 'Toggle popup / side panel',
     group: 'actions',
   },
   {

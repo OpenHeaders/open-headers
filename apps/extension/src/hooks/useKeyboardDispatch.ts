@@ -11,6 +11,10 @@ export interface FooterActions {
   onOpenSettings?: () => void;
 }
 
+export interface HeaderActions {
+  onToggleSurface?: () => void;
+}
+
 interface UseKeyboardDispatchOptions {
   focusedRowIndex: number;
   setFocusedRowIndex: (index: number | ((prev: number) => number)) => void;
@@ -34,6 +38,7 @@ interface UseKeyboardDispatchOptions {
   onPrevPage?: () => void;
   rowActions: RowActions;
   footerActions: FooterActions;
+  headerActions: HeaderActions;
   onCycleTheme?: () => void;
   onToggleCompactMode?: () => void;
   focusLastRowOnPageChange: RefObject<boolean>;
@@ -78,6 +83,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
     onPrevPage,
     rowActions,
     footerActions,
+    headerActions,
     onCycleTheme,
     onToggleCompactMode,
     focusLastRowOnPageChange,
@@ -87,6 +93,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
     rowActions;
 
   const { onToggleRecording, onToggleRulesPause, onToggleOptions, onOpenWorkspace, onOpenSettings } = footerActions;
+  const { onToggleSurface } = headerActions;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -135,6 +142,16 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       if (!isInputFocused() && onOpenSettings && matchesPopupShortcut(e, 'open-settings')) {
         e.preventDefault();
         onOpenSettings();
+        return;
+      }
+
+      // Toggle surface (popup ↔ side panel). Handled alongside the
+      // other modifier-carrying chrome actions so it fires from any
+      // context — the user shouldn't have to leave row focus to flip
+      // the surface.
+      if (!isInputFocused() && onToggleSurface && matchesPopupShortcut(e, 'toggle-surface')) {
+        e.preventDefault();
+        onToggleSurface();
         return;
       }
 
@@ -454,6 +471,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       focusLastRowOnPageChange,
       onOpenSettings,
       onPauseRow,
+      onToggleSurface,
     ],
   );
 

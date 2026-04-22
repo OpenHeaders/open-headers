@@ -86,6 +86,13 @@ export interface StatusPillProps {
    * new tab. Omit the prop to hide the (i) button entirely.
    */
   onOpenDocs?: (sectionId: string) => void;
+  /**
+   * Override the auto-generated summary text in `full` density. Surfaces
+   * that want a static caption (e.g. "System status") pass this instead
+   * of letting the worst-state summary bleed into the surrounding
+   * footer.
+   */
+  label?: React.ReactNode;
 }
 
 const DEFAULT_PLACEMENT: Record<StatusPillDensity, TooltipPlacement> = {
@@ -100,6 +107,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   placement,
   renderSubsystemExtras,
   onOpenDocs,
+  label,
 }) => {
   const { token } = theme.useToken();
   const { snapshot, worst } = useStatus();
@@ -201,7 +209,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
         aria-label={ariaLabel}
       >
         <span className="rules-dot" style={{ background: color }} />
-        {summary}
+        {label ?? summary}
       </span>
     </Popover>
   );

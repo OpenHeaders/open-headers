@@ -41,7 +41,7 @@ const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; co
 
 const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
   const { token } = theme.useToken();
-  const { isConnected, isStatusLoaded, rules } = useRules();
+  const { rules } = useRules();
   const { themeMode, setThemeMode } = useTheme();
   const { openDocs } = useInspectorNav();
   const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
@@ -152,22 +152,14 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
     >
       <div className="rules-statusbar-left">
         <span className="rules-statusbar-item">
-          <span
-            className="rules-dot"
-            style={{
-              background: !isStatusLoaded
-                ? token.colorTextTertiary
-                : isConnected
-                  ? token.colorSuccess
-                  : token.colorWarning,
-            }}
-          />
-          {!isStatusLoaded ? 'Loading...' : isConnected ? 'Connected' : 'Offline'}
-        </span>
-        <span className="rules-statusbar-item">
           {enabledCount}/{rules.length} rule{rules.length !== 1 ? 's' : ''} active
         </span>
-        <StatusPill renderSubsystemExtras={productStatusExtras} onOpenDocs={openDocs} />
+        <StatusPill
+          density="full"
+          label="System status"
+          renderSubsystemExtras={productStatusExtras}
+          onOpenDocs={openDocs}
+        />
       </div>
 
       <div className="rules-statusbar-right">

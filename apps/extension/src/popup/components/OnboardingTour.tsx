@@ -1,6 +1,7 @@
 import {
   ApiTwoTone,
   ControlTwoTone,
+  DashboardTwoTone,
   EditTwoTone,
   EyeTwoTone,
   LayoutTwoTone,
@@ -245,14 +246,14 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
       {
         title: (
           <Space size={8}>
-            <ApiTwoTone />
-            <span>Connection Status</span>
+            <DashboardTwoTone />
+            <span>System Status</span>
           </Space>
         ),
         description: (
           <StepDescription>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Shows whether the desktop app is connected.
+              Click the dot for a health breakdown across Sync, Rules, Requests, Permissions, Secrets, and Live.
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -260,7 +261,15 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                   style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#52c41a' }}
                 />
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>Connected</Text> — live sync, create & edit rules
+                  <Text strong>Green</Text> — everything is healthy
+                </Text>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#faad14' }}
+                />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>Yellow</Text> — a subsystem is reporting a warning
                 </Text>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -268,13 +277,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                   style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#ff4d4f' }}
                 />
                 <Text style={{ fontSize: 12 }}>
-                  <Text strong>Disconnected</Text> — cached rules still active
+                  <Text strong>Red</Text> — a subsystem has failed
                 </Text>
               </div>
             </div>
           </StepDescription>
         ),
-        target: () => getTarget('.connection-status')!,
+        target: () => getTarget('.header-system-status')!,
         placement: 'bottom' as const,
         ...sharedStepProps,
       },

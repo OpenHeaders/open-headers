@@ -54,6 +54,7 @@ declare module '../types' {
     'keyboard.popup.tabThisPage': string;
     'keyboard.popup.tabAllRules': string;
     'keyboard.popup.tabCollections': string;
+    'keyboard.popup.toggleSurface': string;
   }
 }
 
@@ -82,7 +83,8 @@ interface PopupKeySpec {
     | 'keyboard.popup.openSettings'
     | 'keyboard.popup.tabThisPage'
     | 'keyboard.popup.tabAllRules'
-    | 'keyboard.popup.tabCollections';
+    | 'keyboard.popup.tabCollections'
+    | 'keyboard.popup.toggleSurface';
   default: string;
   label: string;
   description: string;
@@ -269,6 +271,15 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Collections Tab',
     description: 'Activate the "Collections" tab.',
     tags: ['popup', 'tab'],
+  },
+  {
+    key: 'keyboard.popup.toggleSurface',
+    // Shift-modified so the bare `l` remains the tree-expand alias in
+    // the row-navigation mode.
+    default: 'shift+l',
+    label: 'Popup — Toggle Surface (popup ↔ side panel)',
+    description: 'Switch between popup and side panel layouts from the popup header.',
+    tags: ['popup', 'surface', 'sidepanel', 'layout'],
   },
 ];
 

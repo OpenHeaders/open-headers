@@ -1,6 +1,8 @@
 import { NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
+import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
+import { useCallback, useEffect } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import type { StatusPillProps } from '@/shared/status';
 import { productStatusExtras, StatusPill } from '@/shared/status';
@@ -19,11 +21,13 @@ const Header: React.FC = () => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const surface = useSurface();
+  const { setHeaderActions } = useKeyboardNav();
   const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
   const openSettingsLabel = usePopupShortcutLabel('open-settings');
   const togglePauseLabel = usePopupShortcutLabel('toggle-rules-pause');
+  const toggleSurfaceLabel = usePopupShortcutLabel('toggle-surface');
 
-  const handleSwitchSurface = async (): Promise<void> => {
+  const handleSwitchSurface = useCallback(async (): Promise<void> => {
     const next = surface.mode === 'popup' ? 'sidepanel' : 'popup';
     let result: { opened: boolean };
     try {
@@ -45,7 +49,15 @@ const Header: React.FC = () => {
     if (!result.opened) {
       message.info('Popup mode active. Pin the extension and click the toolbar icon to open it.');
     }
-  };
+  }, [surface.mode, message]);
+
+  useEffect(() => {
+    setHeaderActions({
+      onToggleSurface: () => {
+        void handleSwitchSurface();
+      },
+    });
+  }, [setHeaderActions, handleSwitchSurface]);
 
   const switchTooltip =
     surface.mode === 'popup'
@@ -94,6 +106,7 @@ const Header: React.FC = () => {
           </>
         )}
         <StatusPill
+          className="header-system-status"
           density="compact"
           placement={isSidepanel ? 'right' : 'bottom'}
           renderSubsystemExtras={productStatusExtras}
@@ -144,7 +157,7 @@ const Header: React.FC = () => {
             />
           </Tooltip>
         </div>
-        <Tooltip title={switchTooltip}>
+        <Tooltip title={<ShortcutHintTitle label={toggleSurfaceLabel}>{switchTooltip}</ShortcutHintTitle>}>
           <Button
             type="text"
             size="small"

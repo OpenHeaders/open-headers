@@ -88,16 +88,13 @@ const RecordingButton: React.FC<RecordingButtonProps> = ({ useWidget = false }) 
         onClick={handleToggleRecording}
         className="recording-button"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
           height: '36px',
           padding: '0 20px',
           fontWeight: 500,
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
         }}
       >
-        {isRecording ? 'Stop recording' : 'Record'}
+        <span className="oh-collapse-label">{isRecording ? 'Stop recording' : 'Record'}</span>
       </Button>
     </Tooltip>
   );
