@@ -337,18 +337,23 @@ describe('live-cache-store', () => {
     expect(snapshotStorage()['oh.ws.ws-live.liveCache']).toBeUndefined();
   });
 
-  it('fires onLiveCacheStoreChange after mutation, carrying the workflowUid', async () => {
+  it('fires onLiveCacheStoreChange after mutation, carrying the workflowUid + post-write runs', async () => {
     const spy = vi.fn();
     const unsub = cacheStore.onLiveCacheStoreChange(spy);
     await cacheStore.putWorkflowRunCache({
       workflowUid: 'wflow001',
       environmentId: null,
-      stepCaptures: {},
-      stepResponseBytes: {},
+      stepCaptures: { step1: { name: 'cloudflare' } },
+      stepResponseBytes: { step1: 42 },
       extractedAt: EXTRACTED_AT,
       expiresAt: null,
     });
-    expect(spy).toHaveBeenCalledWith('ws-live', 'wflow001');
+    expect(spy).toHaveBeenCalledOnce();
+    const [ws, workflowUid, runs] = spy.mock.calls[0];
+    expect(ws).toBe('ws-live');
+    expect(workflowUid).toBe('wflow001');
+    expect(runs).toHaveLength(1);
+    expect(runs[0].stepCaptures.step1.name).toBe('cloudflare');
     unsub();
   });
 

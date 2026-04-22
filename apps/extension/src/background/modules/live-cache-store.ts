@@ -142,12 +142,24 @@ function truncate(s: string, max: number): string {
 // ── Change listeners ────────────────────────────────────────────────
 
 /**
- * Listeners receive `(workspaceId, workflowUid)` so subscribers scoped
- * to the active workspace + to specific workflows can filter without
- * re-reading the full blob on every mutation. `workflowUid === null`
- * signals a full-workspace mutation (workspace purge, bulk clear).
+ * Listeners receive `(workspaceId, workflowUid, runs)` so subscribers
+ * can update their own mirrors synchronously from the `runs` snapshot
+ * instead of racing an async re-read of `chrome.storage.local`.
+ *
+ * - `workflowUid === null` signals a full-workspace mutation
+ *   (workspace purge, bulk clear).
+ * - `runs` is the complete post-write run list for the workspace;
+ *   subscribers that only care about a subset (e.g. the resolver's
+ *   active-workspace mirror) should filter by `workspaceId`.
+ *
+ * The earlier signature omitted `runs`, forcing the resolver's mirror
+ * to refresh via a separate async `listWorkflowRunCaches` call. That
+ * kicked off in parallel with the background listener's DNR rebuild,
+ * and the rebuild usually won the race — so a freshly-cached capture
+ * would reach the UI via broadcast while DNR kept shipping the
+ * previous value.
  */
-type ChangeListener = (workspaceId: string, workflowUid: string | null) => void;
+type ChangeListener = (workspaceId: string, workflowUid: string | null, runs: readonly WorkflowRunCache[]) => void;
 const listeners: Set<ChangeListener> = new Set();
 
 export function onLiveCacheStoreChange(listener: ChangeListener): () => void {
@@ -155,8 +167,8 @@ export function onLiveCacheStoreChange(listener: ChangeListener): () => void {
   return () => listeners.delete(listener);
 }
 
-function notifyChange(workspaceId: string, workflowUid: string | null): void {
-  for (const fn of listeners) fn(workspaceId, workflowUid);
+function notifyChange(workspaceId: string, workflowUid: string | null, runs: readonly WorkflowRunCache[]): void {
+  for (const fn of listeners) fn(workspaceId, workflowUid, runs);
 }
 
 // ── Reads ──────────────────────────────────────────────────────────
@@ -222,6 +234,7 @@ export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId
     consecutiveFailures: 0,
     lastExtractorOk: true,
   };
+  let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
     const next: LiveCacheBlob = {
@@ -230,12 +243,13 @@ export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId
       runs: { ...current.runs, [key]: entry },
     };
     await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
     logger.debug(
       'LiveCacheStore',
       `Stored run for ${input.workflowUid} (env=${envKey(input.environmentId)}, ws=${wsId})`,
     );
   });
-  notifyChange(wsId, input.workflowUid);
+  notifyChange(wsId, input.workflowUid, postWriteRuns);
   return entry;
 }
 
@@ -260,6 +274,7 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
   const wsId = resolveWorkspaceId(workspaceId);
   const key = runKey(input.workflowUid, input.environmentId);
   let latest: WorkflowRunCache;
+  let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
     const previous: WorkflowRunCache | undefined = current.runs[key];
@@ -282,8 +297,9 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       runs: { ...current.runs, [key]: latest },
     };
     await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
   });
-  notifyChange(wsId, input.workflowUid);
+  notifyChange(wsId, input.workflowUid, postWriteRuns);
   return latest!;
 }
 
@@ -295,6 +311,7 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
 export async function clearWorkflowRunCache(workflowUid: string, workspaceId?: string): Promise<number> {
   const wsId = resolveWorkspaceId(workspaceId);
   let removed = 0;
+  let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
     const nextRuns: Record<string, WorkflowRunCache> = {};
@@ -312,9 +329,10 @@ export async function clearWorkflowRunCache(workflowUid: string, workspaceId?: s
       runs: nextRuns,
     };
     await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
     logger.debug('LiveCacheStore', `Cleared ${removed} cache entry(ies) for workflow ${workflowUid}`);
   });
-  if (removed > 0) notifyChange(wsId, workflowUid);
+  if (removed > 0) notifyChange(wsId, workflowUid, postWriteRuns);
   return removed;
 }
 
@@ -325,7 +343,7 @@ export async function purgeLiveCacheForWorkspace(workspaceId: string): Promise<v
     await extensionStorage.remove(wsKeys(workspaceId).liveCache);
     logger.info('LiveCacheStore', `Purged all workflow-run caches for workspace ${workspaceId}`);
   });
-  notifyChange(workspaceId, null);
+  notifyChange(workspaceId, null, []);
 }
 
 // ── Scheduler snapshot ──────────────────────────────────────────────

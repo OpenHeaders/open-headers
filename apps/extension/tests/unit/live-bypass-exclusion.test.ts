@@ -5,19 +5,25 @@
  *   - `computeRuleLiveBypass(rule)` walks every templatable string in a
  *     V5.Rule, finds `{{live.X}}` references, and returns the set of
  *     workflow uids those LVs bind to. Disabled LVs don't contribute.
- *   - `attachLiveBypassExclusion(condition, workflowUids)` adds
- *     `excludedRequestHeaders: [{ header: 'X-OH-Live-Bypass', values: [...] }]`
- *     to the condition. Idempotent: merges with existing excluded-header
- *     clauses on the same header, de-duping values.
+ *   - `attachLiveBypassExclusion(condition, workflowUids)` is a no-op
+ *     today: Chrome MV3 DNR does not expose `requestHeaders` /
+ *     `excludedRequestHeaders` on `RuleCondition` (only the
+ *     response-side counterparts exist, Chrome 128+). A future
+ *     bypass mechanism (e.g. initiator-domain exclusion for the
+ *     extension origin) will plug into this function; the rule-engine
+ *     compile path already calls it for every rule so no caller-side
+ *     change will be needed.
  *   - Constant drift check: the DNR builder's `LIVE_BYPASS_HEADER_NAME`
- *     matches the executor's `LIVE_BYPASS_HEADER`.
+ *     matches the executor's `LIVE_BYPASS_HEADER` — chain fetches still
+ *     stamp the header as an observability marker even though DNR
+ *     cannot (yet) filter on it.
  *
- * Feedback-loop elimination: a header rule injecting
- * `Authorization: {{live.token}}` must emit a DNR rule whose condition
- * excludes requests carrying `X-OH-Live-Bypass: <tokenWorkflowUid>` —
- * otherwise the workflow's own step fetch (which stamps that header)
- * matches the rule and DNR rewrites the request on top of the step's
- * own Authorization, breaking the chain that produces `live.token`.
+ * Feedback-loop note: without DNR-level exclusion, a header rule
+ * injecting `Authorization: {{live.token}}` whose URL pattern overlaps
+ * the workflow that produces `live.token` can loop on the chain fetch.
+ * Known limitation — `computeRuleLiveBypass` still computes the correct
+ * workflow-uid set so the future exclusion mechanism can drop in
+ * without a rule-walk refactor.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -84,40 +90,27 @@ describe('bypass header constant drift', () => {
 });
 
 describe('attachLiveBypassExclusion', () => {
-  it('is a no-op when workflowUids is empty', () => {
-    const out = attachLiveBypassExclusion({ urlFilter: 'openheaders.io' }, new Set());
-    expect(out).toEqual({ urlFilter: 'openheaders.io' });
+  // Current implementation is a no-op because Chrome MV3 DNR does not
+  // support `excludedRequestHeaders` on `RuleCondition` — the original
+  // mechanism was infeasible. The function stays as the single
+  // attach-point for a future mechanism (likely
+  // `excludedInitiatorDomains: [chrome.runtime.id]`); when that lands
+  // these tests switch to asserting on the new field without touching
+  // the call sites in `dnr-manager.ts`.
+
+  it('returns the condition unchanged when workflowUids is empty', () => {
+    const input = { urlFilter: 'openheaders.io' };
+    expect(attachLiveBypassExclusion(input, new Set())).toEqual(input);
   });
 
-  it('adds excludedRequestHeaders for the bypass header', () => {
-    const out = attachLiveBypassExclusion({ urlFilter: 'openheaders.io' }, new Set(['wflowaa1']));
-    expect(out.excludedRequestHeaders).toEqual([{ header: LIVE_BYPASS_HEADER_NAME, values: ['wflowaa1'] }]);
+  it('returns the condition unchanged when workflowUids is non-empty (no-op today)', () => {
+    const input = { urlFilter: 'openheaders.io' };
+    expect(attachLiveBypassExclusion(input, new Set(['wflowaa1']))).toEqual(input);
   });
 
-  it('merges into an existing excluded-header clause for the same header (de-duped)', () => {
-    const out = attachLiveBypassExclusion(
-      {
-        excludedRequestHeaders: [{ header: LIVE_BYPASS_HEADER_NAME, values: ['wflowaa1'] }],
-      },
-      new Set(['wflowaa1', 'wflowbb2']),
-    );
-    expect(out.excludedRequestHeaders).toHaveLength(1);
-    expect(new Set(out.excludedRequestHeaders![0].values)).toEqual(new Set(['wflowaa1', 'wflowbb2']));
-  });
-
-  it('preserves unrelated excluded-header clauses', () => {
-    const out = attachLiveBypassExclusion(
-      {
-        excludedRequestHeaders: [{ header: 'Authorization', values: ['foo'] }],
-      },
-      new Set(['wflowaa1']),
-    );
-    expect(out.excludedRequestHeaders).toHaveLength(2);
-    expect(out.excludedRequestHeaders).toContainEqual({ header: 'Authorization', values: ['foo'] });
-    expect(out.excludedRequestHeaders).toContainEqual({
-      header: LIVE_BYPASS_HEADER_NAME,
-      values: ['wflowaa1'],
-    });
+  it('does not emit the unsupported excludedRequestHeaders property', () => {
+    const out = attachLiveBypassExclusion({ urlFilter: 'openheaders.io' }, new Set(['wflowaa1', 'wflowbb2']));
+    expect(out).not.toHaveProperty('excludedRequestHeaders');
   });
 });
 

@@ -17,11 +17,11 @@ import { broadcast } from '@utils/bridge';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { subscribe as subscribeStatus } from '@/shared/status';
 import { extensionStorage, UI } from '@/shared/storage';
 import type { HotkeyCommand } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
+import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
@@ -365,13 +365,16 @@ async function initializeExtension(): Promise<void> {
     scheduleUpdate('live-vars', { immediate: true });
     broadcast('liveVariablesChanged', { variables: getLiveVariables() });
   });
-  onLiveCacheStoreChange((_workspaceId, workflowUid) => {
+  onLiveCacheStoreChange((_workspaceId, workflowUid, _runs) => {
     // New cached captures land in the LiveRegistry on the next
     // compile. Rebuild now so DNR values follow the workflow's
     // refresh cadence (Phase C fires the alarm → Phase D adapter
     // writes captures → this listener rebuilds DNR → the user's
     // `Authorization: {{live.token}}` rule picks up the new token
-    // within one debounce cycle).
+    // within one debounce cycle). The resolver's own listener fires
+    // earlier in this same synchronous loop and installs `runs` into
+    // `cachedLiveRuns` before the rebuild below reads it, so the
+    // compile always sees the post-write snapshot.
     scheduleUpdate('live-cache', { immediate: true });
     broadcast('liveCacheChanged', { workflowUid });
   });

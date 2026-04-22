@@ -10,7 +10,18 @@ import type { V5 } from '@openheaders/core/types';
 
 // ── DNR rule shape ───────────────────────────────────────────────
 
-/** Chrome DNR condition — maps to chrome.declarativeNetRequest.RuleCondition. */
+/**
+ * Chrome DNR condition — maps to chrome.declarativeNetRequest.RuleCondition.
+ *
+ * Note: Chrome's DNR intentionally does NOT expose `requestHeaders` /
+ * `excludedRequestHeaders` on conditions — request-side header matching
+ * was never shipped. Only the response-side fields exist (Chrome 128+).
+ * Earlier revisions of this interface declared the request-side fields;
+ * they silently produced rules Chrome rejected with
+ * "Unexpected property: 'excludedRequestHeaders'", which atomically
+ * rolled back the whole `updateDynamicRules` call and left the prior
+ * compiled ruleset stuck in place.
+ */
 export interface DnrCondition {
   urlFilter?: string;
   regexFilter?: string;
@@ -24,8 +35,6 @@ export interface DnrCondition {
   requestMethods?: string[];
   excludedRequestMethods?: string[];
   domainType?: 'firstParty' | 'thirdParty';
-  requestHeaders?: Array<{ header: string; values?: string[]; excludedValues?: string[] }>;
-  excludedRequestHeaders?: Array<{ header: string; values?: string[] }>;
   responseHeaders?: Array<{ header: string; values?: string[]; excludedValues?: string[] }>;
   excludedResponseHeaders?: Array<{ header: string; values?: string[] }>;
   /** Restrict the rule to specific tabs. Used by the test-runner for session rules. */
@@ -235,22 +244,17 @@ export function buildDnrCondition(conditions: V5.RuleCondition[]): {
         if (vals[0]) base.domainType = vals[0] as 'firstParty' | 'thirdParty';
         break;
 
-      // ── Header matching (Chrome 128+) ──
+      // ── Response header matching (Chrome 128+) ──
+      //
+      // Chrome DNR only supports response-header matching on
+      // `RuleCondition`. `request-header` / `exclude-request-header`
+      // conditions stay in the V5 authoring model (the editor still
+      // accepts them) but are silently dropped from the compiled DNR
+      // rule — emitting them would trip Chrome's
+      // "Unexpected property: 'requestHeaders'" rejection and wipe
+      // out the whole `updateDynamicRules` call.
       case 'request-header':
-        if (cond.headerName) {
-          base.requestHeaders = [
-            ...(base.requestHeaders ?? []),
-            { header: cond.headerName, values: vals.length > 0 ? vals : undefined },
-          ];
-        }
-        break;
       case 'exclude-request-header':
-        if (cond.headerName) {
-          base.excludedRequestHeaders = [
-            ...(base.excludedRequestHeaders ?? []),
-            { header: cond.headerName, values: vals.length > 0 ? vals : undefined },
-          ];
-        }
         break;
       case 'response-header':
         if (cond.headerName) {
@@ -332,19 +336,21 @@ export function stripResourceTypeFields(
 
 // ── Live Variable feedback-loop exclusion ────────────────────────────
 //
-// A rule whose action value references `{{live.token}}` would otherwise
-// fire on the very chain fetch that produces `live.token` — the
-// workflow's step fetch inherits the host the rule was written for, so
-// DNR matches it unless we tell it not to.
-//
+// A rule whose action value references `{{live.token}}` can fire on the
+// very chain fetch that produces `live.token` — the workflow's step
+// fetch inherits the host the rule was written for, so DNR matches it.
 // Chain fetches carry `X-OH-Live-Bypass: <workflowUid>` (stamped by
-// `executeForLiveChain`). The rule-engine attaches an
-// `excludedRequestHeaders` clause to every DnrRule whose source V5 rule
-// references any LV bound to one of the listed workflow uids.
+// `executeForLiveChain`) as an intended marker for DNR to exclude.
 //
-// Value-exact match is what Chrome's DNR supports (no wildcard), so the
-// bypass header value deliberately carries ONLY the workflow uid — step
-// ids live in the observability log, not on the wire.
+// LIMITATION: Chrome MV3 DNR does not support request-header matching on
+// rule conditions. Only `responseHeaders` / `excludedResponseHeaders`
+// exist (Chrome 128+); the request-side counterparts were never shipped.
+// Until an alternative bypass mechanism lands (candidates: initiator-
+// domain exclusion for the extension origin, or routing chain fetches
+// through a context DNR ignores), `attachLiveBypassExclusion` is a
+// no-op that returns the condition unchanged. The bypass header is still
+// stamped on chain fetches so observability + a future bypass can pick
+// it up without another round-trip.
 
 /**
  * Chain-fetch bypass header name — mirrors the constant exported from
@@ -357,29 +363,13 @@ export function stripResourceTypeFields(
 export const LIVE_BYPASS_HEADER_NAME = 'X-OH-Live-Bypass';
 
 /**
- * Add (or extend) an `excludedRequestHeaders` clause on the rule's
- * condition so chain fetches carrying a bypass for any of
- * `workflowUids` are excluded from matching. Idempotent — merges with
- * any user-authored excluded-request-header condition on the same
- * header, de-duping values.
+ * Return the condition unchanged. The function exists so the rule-engine
+ * compile path keeps a single attachment point for an eventual
+ * replacement mechanism — when we wire a working bypass we only touch
+ * this function, not every caller.
  */
-export function attachLiveBypassExclusion(condition: DnrCondition, workflowUids: ReadonlySet<string>): DnrCondition {
-  if (workflowUids.size === 0) return condition;
-  const header = LIVE_BYPASS_HEADER_NAME;
-  const existing = condition.excludedRequestHeaders ?? [];
-  const match = existing.find((h) => h.header.toLowerCase() === header.toLowerCase());
-  const newValues = [...workflowUids];
-  if (match) {
-    const merged = new Set<string>([...(match.values ?? []), ...newValues]);
-    return {
-      ...condition,
-      excludedRequestHeaders: existing.map((h) => (h === match ? { ...h, values: [...merged] } : h)),
-    };
-  }
-  return {
-    ...condition,
-    excludedRequestHeaders: [...existing, { header, values: newValues }],
-  };
+export function attachLiveBypassExclusion(condition: DnrCondition, _workflowUids: ReadonlySet<string>): DnrCondition {
+  return condition;
 }
 
 // ── Shared resource type constants ───────────────────────────────

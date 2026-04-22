@@ -167,15 +167,20 @@ export async function hydrateLiveCacheMirror(): Promise<void> {
   }
 }
 
-// Keep the mirror warm. Both handlers re-pull the full list — the
-// blob is tiny (one entry per workflow+env, a handful of captures
-// each) so the cost is negligible and the code is trivially correct.
-onLiveCacheStoreChange(() => {
-  void listWorkflowRunCaches()
-    .then((runs) => {
-      cachedLiveRuns = runs;
-    })
-    .catch(() => {});
+// Keep the mirror warm. The store's notify now carries the post-write
+// run list so the mirror update is synchronous — landing before any
+// other listener on the same event can read `cachedLiveRuns`. An
+// earlier revision re-read `chrome.storage.local` here via
+// `listWorkflowRunCaches()`, which raced against background.ts's
+// `scheduleUpdate('live-cache')` listener; the DNR rebuild usually
+// won the race and shipped the pre-edit capture value even after the
+// workflow refresh had landed fresh captures in storage.
+onLiveCacheStoreChange((workspaceId, _workflowUid, runs) => {
+  // Runs from a non-active workspace can't feed the active resolver —
+  // ignore them so switching workspaces mid-refresh doesn't leak
+  // foreign captures into the mirror.
+  if (workspaceId !== getActiveWorkspaceId()) return;
+  cachedLiveRuns = [...runs];
 });
 onLiveVariableStoreChange(() => {
   // LV definition changes don't alter the cache, but they alter the
