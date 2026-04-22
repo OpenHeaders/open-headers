@@ -3,9 +3,9 @@ import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
-import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import type { DockLayoutApi } from '@/shared/dock-layout';
 import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
+import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 
 type ThemeMode = 'light' | 'dark' | 'auto';

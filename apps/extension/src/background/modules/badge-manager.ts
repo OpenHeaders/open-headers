@@ -12,10 +12,10 @@
  */
 
 import { logger } from '@utils/logger';
-import { get as getSetting } from '@/workbench/settings/store';
 import type { BadgeState } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
 import type { IRecordingService } from '@/types/recording';
+import { get as getSetting } from '@/workbench/settings/store';
 
 const browserAPI = getBrowserAPI();
 

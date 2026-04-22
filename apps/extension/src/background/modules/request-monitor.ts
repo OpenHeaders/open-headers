@@ -18,9 +18,9 @@
 
 import { tabs } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
-import { get as getSetting } from '@/workbench/settings/store';
 import type { ObservationSource, PendingRequest, TrackedResourceType } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
+import { get as getSetting } from '@/workbench/settings/store';
 import { addTrackedUrl, checkIfUrlMatchesAnyRule, matchRulesToRequest, tabsWithActiveRules } from './request-tracker';
 import { arbitrateWithStrategy } from './shadow-arbitration';
 import {

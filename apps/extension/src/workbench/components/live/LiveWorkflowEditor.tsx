@@ -35,7 +35,14 @@ import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
-import { validateWorkflowShape } from '@openheaders/core/live';
+import {
+  type DraftStep,
+  type DraftWorkflow,
+  draftFromWorkflow as draftFromWorkflowCore,
+  planLiveVariableReconcile,
+  stripDraftSteps,
+  validateWorkflowShape,
+} from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -50,38 +57,25 @@ import WorkflowStepEditor from './WorkflowStepEditor';
 
 const { Text, Title } = Typography;
 
-// ── Shared draft shape + helpers ───────────────────────────────────
+// ── Draft shape + helpers ──────────────────────────────────────────
+//
+// Draft types + reconcile planner live in `@openheaders/core/live/
+// editor-draft.ts` (platform-agnostic, unit-tested). Here we just
+// alias the core `DraftWorkflow` → `Draft` to match the existing
+// component-local variable names, and keep local `fingerprint` /
+// `emptyDraft` thin wrappers.
 
-interface Draft {
-  name: string;
-  description: string;
-  steps: V5.WorkflowStep[];
-  refresh: V5.RefreshPolicy;
-  enabled: boolean;
-}
-
-function draftFromWorkflow(wf: V5.LiveWorkflow): Draft {
-  return {
-    name: wf.name,
-    description: wf.description ?? '',
-    steps: wf.steps,
-    refresh: wf.refresh,
-    enabled: wf.enabled,
-  };
-}
+type Draft = DraftWorkflow;
 
 function fingerprint(d: Draft): string {
-  return JSON.stringify({
-    name: d.name,
-    description: d.description,
-    steps: d.steps,
-    refresh: d.refresh,
-    enabled: d.enabled,
-  });
+  // Include exposure fields so editing the switch or the live-name
+  // flips isDirty correctly. Everything in the draft is user-editable
+  // state, so a full JSON dump is the simplest correct fingerprint.
+  return JSON.stringify(d);
 }
 
 function emptyDraft(seedStep?: { requestUid: string; requestName: string; method: string } | undefined): Draft {
-  const steps: V5.WorkflowStep[] = seedStep ? [{ id: 'step1', requestUid: seedStep.requestUid, captures: [] }] : [];
+  const steps: DraftStep[] = seedStep ? [{ id: 'step1', requestUid: seedStep.requestUid, captures: [] }] : [];
   return {
     name: '',
     description: '',
@@ -90,6 +84,9 @@ function emptyDraft(seedStep?: { requestUid: string; requestName: string; method
     enabled: true,
   };
 }
+
+// Re-aliased to match existing component call sites.
+const draftFromWorkflow = draftFromWorkflowCore;
 
 // ── Props (discriminated union) ────────────────────────────────────
 
@@ -137,19 +134,21 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workflows, updateWorkflow, refreshNow } = useLiveWorkflows();
-  const { variables } = useLiveVariables();
+  const { variables, createVariable, updateVariable, deleteVariable } = useLiveVariables();
   const { activeEnvironmentId } = useEnvironments();
   const { runs } = useLiveWorkflowCache(workflowUid);
 
   const workflow = useMemo(() => workflows.find((w) => w.uid === workflowUid) ?? null, [workflows, workflowUid]);
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
-  const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow) : null));
+  const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
   // State, not a ref — `isDirty` reads it as a memo dep so save's new
   // baseline invalidates the cached value. Ref version left isDirty
   // stuck at `true` when the parent re-rendered with a fresh inline
   // `onDirtyChange` arrow.
-  const [persistedFp, setPersistedFp] = useState<string>(workflow ? fingerprint(draftFromWorkflow(workflow)) : '');
+  const [persistedFp, setPersistedFp] = useState<string>(
+    workflow ? fingerprint(draftFromWorkflow(workflow, variables)) : '',
+  );
 
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
@@ -158,7 +157,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   useEffect(() => {
     if (!workflow) return;
     if (draft === null) {
-      const pristine = draftFromWorkflow(workflow);
+      const pristine = draftFromWorkflow(workflow, variables);
       // Persisted fingerprint always reflects the unmodified workflow
       // so an appended seed step flips `isDirty` immediately.
       setPersistedFp(fingerprint(pristine));
@@ -179,13 +178,13 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       }
       return;
     }
-    const persisted = draftFromWorkflow(workflow);
+    const persisted = draftFromWorkflow(workflow, variables);
     const fp = fingerprint(persisted);
     if (fp !== persistedFp) {
       setPersistedFp(fp);
       setDraft(persisted);
     }
-  }, [workflow, draft, persistedFp, seedStep]);
+  }, [workflow, variables, draft, persistedFp, seedStep]);
 
   useEffect(() => {
     if (loadedVersion !== null) return;
@@ -201,18 +200,46 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
+    // 1. Persist the workflow itself. Captures are stripped of their
+    //    draft-only exposure overlay — the workflow schema doesn't
+    //    include `exposed` / `liveName` / `liveUid`.
     const result = await updateWorkflow(
       workflow.uid,
       {
         name: draft.name,
         description: draft.description.trim() ? draft.description : undefined,
-        steps: draft.steps,
+        steps: stripDraftSteps(draft.steps),
         refresh: draft.refresh,
         enabled: draft.enabled,
       },
       loadedVersion ?? undefined,
     );
     if (result.success) {
+      // 2. Apply the LV reconcile plan the pure core helper computed
+      //    from the draft's exposure state. Aliases (LVs pointing at
+      //    this workflow's captures but NOT tracked by the draft's
+      //    liveUid set) are intentionally left alone — the LV list
+      //    page is the surface that owns those.
+      const plan = planLiveVariableReconcile(workflow.uid, draft, variables);
+      for (const op of plan.creates) {
+        await createVariable({
+          name: op.liveName,
+          workflowUid: workflow.uid,
+          stepId: op.stepId,
+          captureName: op.captureName,
+          enabled: true,
+        });
+      }
+      for (const op of plan.updates) {
+        await updateVariable(op.liveUid, {
+          name: op.liveName,
+          stepId: op.stepId,
+          captureName: op.captureName,
+        });
+      }
+      for (const uid of plan.deletes) {
+        await deleteVariable(uid);
+      }
       setPersistedFp(fingerprint(draft));
       setLoadedVersion(result.version);
       setStaleDraft(null);
@@ -228,7 +255,18 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       return;
     }
     message.error('Failed to save workflow');
-  }, [workflow, draft, updateWorkflow, loadedVersion, onDirtyChange, message]);
+  }, [
+    workflow,
+    draft,
+    updateWorkflow,
+    loadedVersion,
+    onDirtyChange,
+    message,
+    variables,
+    createVariable,
+    updateVariable,
+    deleteVariable,
+  ]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
   useEffect(() => {
@@ -237,13 +275,13 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
   const handleStaleReload = useCallback(() => {
     if (!workflow) return;
-    const seeded = draftFromWorkflow(workflow);
+    const seeded = draftFromWorkflow(workflow, variables);
     setPersistedFp(fingerprint(seeded));
     setDraft(seeded);
     setLoadedVersion(workflow.version);
     setStaleDraft(null);
     onDirtyChange?.(false);
-  }, [workflow, onDirtyChange]);
+  }, [workflow, variables, onDirtyChange]);
 
   const handleStaleKeepEditing = useCallback(() => {
     if (!workflow) return;
@@ -361,6 +399,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { createWorkflow } = useLiveWorkflows();
+  const { createVariable } = useLiveVariables();
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedStep));
 
@@ -379,7 +418,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
     const wf = await createWorkflow({
       name,
       description: draft.description.trim() ? draft.description : undefined,
-      steps: draft.steps,
+      steps: stripDraftSteps(draft.steps),
       refresh: draft.refresh,
       enabled: draft.enabled,
     });
@@ -387,8 +426,22 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
       message.error('Failed to create workflow');
       return;
     }
+    // New workflow — no existing LVs. Every exposed capture becomes
+    // a fresh LV. Reuse the core plan helper even though `deletes` +
+    // `updates` are always empty for a brand-new workflow — keeps
+    // the create + edit save paths aligned on the same contract.
+    const plan = planLiveVariableReconcile(wf.uid, draft, []);
+    for (const op of plan.creates) {
+      await createVariable({
+        name: op.liveName,
+        workflowUid: wf.uid,
+        stepId: op.stepId,
+        captureName: op.captureName,
+        enabled: true,
+      });
+    }
     onCreated(wf);
-  }, [draft, draftName, createWorkflow, message, onCreated]);
+  }, [draft, draftName, createWorkflow, createVariable, message, onCreated]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
   useEffect(() => {
@@ -517,7 +570,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
     [requests, requestCollectionTrees],
   );
 
-  const updateStep = (idx: number, next: V5.WorkflowStep) => {
+  const updateStep = (idx: number, next: DraftStep) => {
     const nextSteps = draft.steps.slice();
     nextSteps[idx] = next;
     setDraft({ ...draft, steps: nextSteps });
@@ -531,7 +584,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
       n += 1;
       candidate = `step${n}`;
     }
-    const next: V5.WorkflowStep = {
+    const next: DraftStep = {
       id: candidate,
       requestUid: '',
       captures: [],

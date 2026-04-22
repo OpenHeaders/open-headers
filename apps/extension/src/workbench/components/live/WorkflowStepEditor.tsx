@@ -27,20 +27,21 @@ import {
   ReloadOutlined,
   UpOutlined,
 } from '@ant-design/icons';
-import type { StructuralError } from '@openheaders/core/live';
+import type { DraftCapture, DraftStep, StructuralError } from '@openheaders/core/live';
+import { newDraftCapture } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Collapse, Input, InputNumber, Select, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Collapse, Input, InputNumber, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { METHOD_COLORS } from '../sidebar/icons';
 import type { DependencyRow } from './dependencies-view';
-import ExtractorEditor, { defaultExtractorFor } from './ExtractorEditor';
+import ExtractorEditor from './ExtractorEditor';
 import StepGateEditor from './StepGateEditor';
 
 const { Text } = Typography;
 
 interface Props {
-  step: V5.WorkflowStep;
+  step: DraftStep;
   index: number;
   totalSteps: number;
   /**
@@ -57,7 +58,7 @@ interface Props {
     collectionName: string | null;
     folderTrail: string[];
   }[];
-  onChange: (next: V5.WorkflowStep) => void;
+  onChange: (next: DraftStep) => void;
   onRemove?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -97,17 +98,12 @@ const WorkflowStepEditor: React.FC<Props> = ({
   const { token } = theme.useToken();
 
   const addCapture = () => {
-    const nextCaptures: V5.Capture[] = [
-      ...step.captures,
-      {
-        name: `capture${step.captures.length + 1}`,
-        extractor: defaultExtractorFor('json-path'),
-      },
-    ];
+    const name = `capture${step.captures.length + 1}`;
+    const nextCaptures: DraftCapture[] = [...step.captures, newDraftCapture(name, { kind: 'json-path', path: '$.' })];
     onChange({ ...step, captures: nextCaptures });
   };
 
-  const updateCapture = (idx: number, next: V5.Capture) => {
+  const updateCapture = (idx: number, next: DraftCapture) => {
     const nextCaptures = step.captures.slice();
     nextCaptures[idx] = next;
     onChange({ ...step, captures: nextCaptures });
@@ -361,7 +357,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
                 (s): s is string => s !== null,
               );
               const title = titleSegments.join(' > ');
-              const separator = <span style={{ color: token.colorTextQuaternary, margin: '0 4px' }}>›</span>;
+              const separatorStyle = { color: token.colorTextQuaternary, margin: '0 4px' };
               const iconStyle = { color: token.colorTextTertiary, fontSize: 11, marginRight: 4 };
               return {
                 value: r.uid,
@@ -372,14 +368,14 @@ const WorkflowStepEditor: React.FC<Props> = ({
                       <>
                         <FolderOpenOutlined style={iconStyle} />
                         <span>{r.collectionName}</span>
-                        {separator}
+                        <span style={separatorStyle}>›</span>
                       </>
                     )}
                     {r.folderTrail.map((f) => (
                       <span key={f} style={{ display: 'inline-flex', alignItems: 'center' }}>
                         <FolderOutlined style={iconStyle} />
                         <span>{f}</span>
-                        {separator}
+                        <span style={separatorStyle}>›</span>
                       </span>
                     ))}
                     <span
@@ -424,41 +420,86 @@ const WorkflowStepEditor: React.FC<Props> = ({
           )}
           {step.captures.map((c, idx) => (
             <div
-              // Key on capture name + idx — capture names are local to
-              // the step and the combination is stable enough for this
-              // short-lived list.
-              key={`${c.name}-${idx}`}
+              // Key on idx ALONE — not idx + name. Including the name
+              // (which is the editable field) changes the key on every
+              // keystroke, which unmounts/remounts the row and steals
+              // focus from the name Input mid-type. Captures have no
+              // stable uid today and the list is short + non-reorderable,
+              // so idx is the right primary key.
+              // biome-ignore lint/suspicious/noArrayIndexKey: see above
+              key={idx}
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 gap: 6,
-                alignItems: 'center',
-                flexWrap: 'wrap',
                 border: `1px dashed ${token.colorBorderSecondary}`,
                 borderRadius: 4,
                 padding: 8,
                 marginBottom: 6,
               }}
             >
-              <Input
-                size="small"
-                style={{ width: 160, flexShrink: 0 }}
-                prefix={<Text type="secondary">name</Text>}
-                value={c.name}
-                onChange={(e) => updateCapture(idx, { ...c, name: e.target.value })}
-              />
-              <ExtractorEditor
-                compact
-                value={c.extractor}
-                onChange={(extractor) => updateCapture(idx, { ...c, extractor })}
-              />
-              <Button
-                size="small"
-                type="text"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => removeCapture(idx)}
-                aria-label={`Remove capture ${c.name || idx + 1}`}
-              />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Input
+                  size="small"
+                  style={{ width: 160, flexShrink: 0 }}
+                  prefix={<Text type="secondary">name</Text>}
+                  value={c.name}
+                  onChange={(e) => updateCapture(idx, { ...c, name: e.target.value })}
+                />
+                <ExtractorEditor
+                  compact
+                  value={c.extractor}
+                  onChange={(extractor) => updateCapture(idx, { ...c, extractor })}
+                />
+                <Button
+                  size="small"
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => removeCapture(idx)}
+                  aria-label={`Remove capture ${c.name || idx + 1}`}
+                />
+              </div>
+              {/* Expose switch — flipping on creates a Live Variable
+               *  (on save) that resolves `{{live.<liveName>}}` from
+               *  this capture. Off by default for pre-existing captures
+               *  without an LV; on by default for newly-added captures.
+               *  The live-name defaults to the capture name but can be
+               *  overridden inline for alias-style renames. */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Switch
+                  size="small"
+                  checked={c.exposed}
+                  onChange={(exposed) => {
+                    const next: DraftCapture = { ...c, exposed };
+                    // First-time expose seeds liveName from capture
+                    // name so the user sees a sensible default.
+                    if (exposed && !c.liveName.trim()) next.liveName = c.name;
+                    updateCapture(idx, next);
+                  }}
+                  aria-label={`Expose capture ${c.name || idx + 1} as live variable`}
+                />
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  Expose as
+                </Text>
+                <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
+                  {'{{'}live.
+                </span>
+                <Input
+                  size="small"
+                  disabled={!c.exposed}
+                  style={{ width: 180 }}
+                  placeholder={c.name || 'name'}
+                  value={c.liveName}
+                  onChange={(e) => updateCapture(idx, { ...c, liveName: e.target.value })}
+                />
+                <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
+                  {'}}'}
+                </span>
+                <Tooltip title="When on, saving the workflow creates a Live Variable that resolves `{{live.<name>}}` from this capture. Turn off to use the capture only inside this workflow (e.g. via {{step.<stepId>.<captureName>}}).">
+                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+                </Tooltip>
+              </div>
             </div>
           ))}
         </div>

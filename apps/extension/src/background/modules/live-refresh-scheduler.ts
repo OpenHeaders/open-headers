@@ -552,6 +552,43 @@ export async function refreshLiveWorkflowSynchronously(
   } as chrome.alarms.Alarm);
 }
 
+/**
+ * Run a workflow once on an explicit user request (the "Refresh now"
+ * button in the Live Workflow editor + Live Variable list), bypassing
+ * the `canScheduleWorkflow` binding gate.
+ *
+ * The alarm path intentionally declines to run workflows with zero
+ * enabled LV bindings — a scheduled fire on an orphan workflow would
+ * burn MV3 alarm quota for no observable effect. But manual refresh
+ * is the opposite shape: the user is often diagnosing a workflow
+ * BEFORE binding an LV (run it once, inspect the captures, decide
+ * which to expose as `{{live.X}}`). So we duplicate just the essential
+ * path — load entry, call adapter, write cache on failure — without
+ * the gate.
+ *
+ * Errors bubble so the caller (message-handler) can report a real
+ * message to the user instead of the `scheduler-not-ready` fallback.
+ */
+export async function refreshLiveWorkflowByUser(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+): Promise<void> {
+  const payload: LiveAlarmPayload = { w: workspaceId, u: workflowUid, e: environmentId };
+  const job = await provider.getByAlarm(payload);
+  if (!job) throw new Error(`Workflow ${workflowUid} not found in workspace ${workspaceId}`);
+  provider.onFired?.(payload);
+  try {
+    await provider.refresh(job, payload);
+    provider.onSucceeded?.(payload);
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    const state = await provider.recordFailure(payload, error, job);
+    provider.onFailed?.(payload, error, state);
+    throw error;
+  }
+}
+
 // ── Status reporting ─────────────────────────────────────────────
 //
 // Single aggregation pass across every cached run for every workspace

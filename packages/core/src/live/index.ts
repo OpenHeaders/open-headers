@@ -16,6 +16,15 @@ export type {
 export { effectiveDependsOn, runChain } from './chain-runner';
 export type { CycleEdge, CycleReport, RequestTemplateProvider as CycleRequestTemplateProvider } from './cycle-detect';
 export { detectCycles } from './cycle-detect';
+export type { DraftCapture, DraftStep, DraftWorkflow, LvCreateOp, LvReconcilePlan, LvUpdateOp } from './editor-draft';
+export {
+  draftFromWorkflow,
+  newDraftCapture,
+  pickPrimaryLv,
+  planLiveVariableReconcile,
+  stripDraftSteps,
+  toDraftCapture,
+} from './editor-draft';
 export type { ExtractorFailureKind, ExtractorResult, StepResponse, StepResponseHeader } from './extractor';
 export { applyExtractor } from './extractor';
 export { evaluateClause, evaluateGate, matchStatus } from './gate-evaluator';

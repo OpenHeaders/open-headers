@@ -50,10 +50,7 @@ import {
   getWorkflowRunCache,
   listCachesForWorkflow as listLiveCacheForWorkflow,
 } from './live-cache-store';
-import {
-  buildAlarmName as buildLiveAlarmName,
-  handleLiveAlarm as refreshLiveWorkflowByAlarm,
-} from './live-refresh-scheduler';
+import { refreshLiveWorkflowByUser } from './live-refresh-scheduler';
 import {
   createLiveVariable,
   deleteLiveVariable,
@@ -1193,27 +1190,26 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ runs: [], error: err.message }));
       return true;
     } else if (message.type === 'refreshLiveWorkflowNow') {
-      // Phase C: route the manual refresh through the same
-      // `handleLiveAlarm` path as a scheduled fire so the adapter +
-      // observability + cache-write contract stay identical. Phase D's
-      // adapter fills in the real work; without one, the cache picks
-      // up a `scheduler-not-ready` error and we return that to the UI.
+      // Manual refresh from the "Refresh now" button — route through
+      // `refreshLiveWorkflowByUser` which bypasses the canSchedule
+      // binding gate (the alarm path keeps the gate to avoid burning
+      // quota on orphan workflows, but a user-initiated refresh should
+      // work even before any LV is bound — common diagnostic flow).
+      // Thrown errors are the source of truth for success/failure;
+      // the cache row carries extra context (step uid on chain
+      // failures) when available.
       const req = message as { workflowUid: string; environmentId?: string | null };
       void (async () => {
         const wsId = getActiveWorkspaceId();
         const envId = req.environmentId ?? null;
-        await refreshLiveWorkflowByAlarm({
-          name: buildLiveAlarmName(wsId, req.workflowUid, envId),
-          scheduledTime: Date.now(),
-        } as chrome.alarms.Alarm);
-        const run = await getWorkflowRunCache(req.workflowUid, envId, wsId);
-        if (run && run.consecutiveFailures === 0 && run.lastExtractorOk) {
+        try {
+          await refreshLiveWorkflowByUser(wsId, req.workflowUid, envId);
+          const run = await getWorkflowRunCache(req.workflowUid, envId, wsId);
           safeResponse({ success: true, run });
-        } else {
-          safeResponse({
-            success: false,
-            error: run?.lastErrorMessage ?? 'scheduler-not-ready',
-          });
+        } catch (err) {
+          const run = await getWorkflowRunCache(req.workflowUid, envId, wsId);
+          const thrownMessage = err instanceof Error ? err.message : String(err);
+          safeResponse({ success: false, error: run?.lastErrorMessage ?? thrownMessage });
         }
       })();
       return true;

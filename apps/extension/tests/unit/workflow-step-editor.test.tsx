@@ -20,7 +20,7 @@
  * (aria-disabled is an ARIA state) without touching AntD's class names.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { DraftStep } from '@openheaders/core/live';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -45,14 +45,11 @@ afterEach(() => {
   cleanup();
 });
 
-function mkStep(overrides: Partial<V5.WorkflowStep> = {}): V5.WorkflowStep {
+function mkStep(overrides: Partial<DraftStep> = {}): DraftStep {
   return { id: 'refresh', requestUid: 'reqrefrsh', captures: [], ...overrides };
 }
 
-function renderStep(
-  step: V5.WorkflowStep,
-  propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {},
-) {
+function renderStep(step: DraftStep, propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {}) {
   const onChange = vi.fn();
   render(
     <WorkflowStepEditor

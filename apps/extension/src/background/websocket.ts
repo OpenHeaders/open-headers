@@ -7,8 +7,8 @@ import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
 import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { report as reportStatus } from '@/shared/status';
+import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { handleRecordingInboundMessage, requestInitialRecordingSync } from './modules/recording-sync';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 

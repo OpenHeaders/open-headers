@@ -1,6 +1,5 @@
 import 'allotment/dist/style.css';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useSetting } from '@/workbench/settings/hooks';
 import type { DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
 import {
   createShellEventBus,
@@ -9,6 +8,7 @@ import {
   ShellLayout,
   useFocusRegion,
 } from '@/shared/dock-layout';
+import { useSetting } from '@/workbench/settings/hooks';
 import { FilterDocs } from './components/FilterDocs';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';
