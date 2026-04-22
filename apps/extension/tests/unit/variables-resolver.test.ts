@@ -122,7 +122,7 @@ describe('VariablesResolver (extension)', () => {
     mockVault.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      secrets: [{ name: 'TOKEN', value: 'vault-token' }],
+      secrets: [{ kind: 'string', name: 'TOKEN', value: 'vault-token' }],
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });

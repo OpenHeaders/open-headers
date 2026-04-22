@@ -1,15 +1,18 @@
 /**
  * VaultEditor — tab body for the per-workspace secrets vault.
  *
- * Highest priority in the 4-scope resolution chain and
- * local-per-device: secrets never leave this browser profile. Team
- * workspace sync (v2) explicitly excludes the vault keyspace. The
- * banner makes this contract visible to the user.
+ * Highest priority in the resolution chain and local-per-device:
+ * secrets never leave this browser profile. Team workspace sync (v2)
+ * explicitly excludes the vault keyspace. The banner makes this
+ * contract visible to the user.
  *
- * Vault secrets have no `type` discriminator (they're all sensitive),
- * but we reuse the shared `VariableTable` by mapping to/from a
- * `V5.Variable`-shaped list with `type: 'secret'`. Keeps the UX
- * consistent with the other editors.
+ * Each entry carries a `kind` discriminator:
+ *   - `string` rows hold a literal value returned verbatim by `{{vault.X}}`.
+ *   - `totp`   rows hold a base32 seed + RFC 6238 parameters; `{{vault.X}}`
+ *              resolves to the freshly-computed code at request time.
+ *
+ * The shared `VariableTable` (mode="vault") handles both kinds inline;
+ * this component owns the dirty-draft + stale-draft + save plumbing.
  */
 
 import { LockOutlined } from '@ant-design/icons';
@@ -29,44 +32,32 @@ interface VaultEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-function toVars(vault: V5.Vault): V5.Variable[] {
-  return vault.secrets.map((s) => ({ name: s.name, value: s.value, type: 'secret' as const }));
+const EMPTY_SECRETS: V5.VaultSecret[] = [];
+
+function fingerprintSecrets(secrets: V5.VaultSecret[]): string {
+  return JSON.stringify(
+    secrets
+      .filter((s) => s.name.trim())
+      .map((s) =>
+        s.kind === 'totp'
+          ? ['totp', s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? '']
+          : ['string', s.name, s.value],
+      ),
+  );
 }
-function fromVars(vars: V5.Variable[]): V5.Vault {
-  return {
-    schemaVersion: 5,
-    // Placeholder — the SW stamps the real version on write. Only the
-    // `secrets` field feeds `setVault`.
-    version: 1,
-    secrets: vars.filter((v) => v.name.trim()).map((v) => ({ name: v.name, value: v.value })),
-  };
-}
-// Module-level — `useDirtyDraft` requires a stable fingerprint reference.
-// Signature is `(V5.Variable[]) => string` so the hook can fingerprint
-// the draft directly without needing the `fromVars` transform.
-function fingerprintVars(vars: V5.Variable[]): string {
-  return JSON.stringify(vars.filter((v) => v.name.trim()).map((v) => [v.name, v.value]));
-}
-const EMPTY_VARS: V5.Variable[] = [];
 
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { vault, setVault } = useEnvironments();
 
-  // Server-side Vault is transformed to draft shape before the hook
-  // sees it. Fingerprint is also in draft shape for symmetry — blank
-  // rows are filtered by `fingerprintVars` so an unsubmitted blank
-  // doesn't falsely mark the draft dirty.
-  const serverDraft = useMemo(() => toVars(vault), [vault]);
-  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.Variable[]>({
+  const serverDraft = useMemo<V5.VaultSecret[]>(() => [...vault.secrets], [vault]);
+  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.VaultSecret[]>({
     serverDraft,
-    fingerprint: fingerprintVars,
-    empty: EMPTY_VARS,
+    fingerprint: fingerprintSecrets,
+    empty: EMPTY_SECRETS,
   });
 
-  // Phase 10 — snapshot loaded version once; only our own successful
-  // saves advance it. See `RuleEditor` for the full contract.
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
 
@@ -81,12 +72,14 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
-    const next = fromVars(draft);
+    const next: V5.Vault = {
+      schemaVersion: 5,
+      version: 1,
+      secrets: draft,
+    };
     const result = await setVault(next, loadedVersion ?? undefined);
     if (result.ok) {
-      // Persisted shape drops blank-name rows — pass the filtered
-      // draft so the hook's "clean baseline" matches what's on disk.
-      markPersisted(toVars(next));
+      markPersisted([...next.secrets]);
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
@@ -98,8 +91,6 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   }, [isDirty, draft, setVault, onDirtyChange, loadedVersion, message, markPersisted]);
 
   const handleStaleDraftReload = useCallback(() => {
-    // Discard this tab's edits; re-hydrate from the broadcast-fresh
-    // vault + snap loadedVersion forward.
     resetToServer();
     setLoadedVersion(vault.version);
     setStaleDraft(null);
@@ -119,12 +110,15 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     registerSaveRef?.(handleSaveSync);
   }, [registerSaveRef, handleSaveSync]);
 
-  // Force every row to be treated as secret by the table. Table's
-  // `allowSecrets` governs whether the user can toggle; passing false
-  // here keeps values masked with no toggle.
-  const secretDraft = useMemo<V5.Variable[]>(() => draft.map((v) => ({ ...v, type: 'secret' as const })), [draft]);
-
-  const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
+  const counts = useMemo(() => {
+    let strings = 0;
+    let totps = 0;
+    for (const s of draft) {
+      if (s.kind === 'totp') totps++;
+      else strings++;
+    }
+    return { strings, totps };
+  }, [draft]);
 
   return (
     <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
@@ -150,18 +144,14 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
           showIcon
           style={{ marginBottom: 16 }}
           message="Local-per-device"
-          description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket."
+          description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket. Add a TOTP entry to reference its current 6-digit code as {{vault.NAME}} from any request."
         />
 
         <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-          SECRETS ({nonEmptyCount})
+          SECRETS ({counts.strings} string · {counts.totps} TOTP)
         </Text>
 
-        <VariableTable
-          variables={secretDraft}
-          onChange={(next) => setDraft(next.map((v) => ({ ...v, type: 'secret' })))}
-          allowSecrets={false}
-        />
+        <VariableTable mode="vault" secrets={draft} onChange={setDraft} />
       </div>
     </div>
   );

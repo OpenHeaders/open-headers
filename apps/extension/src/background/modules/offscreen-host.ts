@@ -353,7 +353,10 @@ async function resolveVaultRef(ref: string): Promise<string | null> {
   // an outbound ad-hoc request).
   const vault = getVault();
   const named = vault.secrets?.find((s) => s.name === ref);
-  if (named) return named.value;
+  // String-kind only — `oh.vault(name)` returns a literal credential.
+  // TOTP-kind entries are request-time, not script-time; surface as
+  // null so script authors fall back to OAuth bundle resolution.
+  if (named && named.kind === 'string') return named.value;
   const bundle = await getOAuthTokenBundle(ref);
   return bundle?.accessToken ?? null;
 }

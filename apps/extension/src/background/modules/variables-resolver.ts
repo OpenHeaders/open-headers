@@ -45,6 +45,7 @@ import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } 
 import { getLiveVariables, onLiveVariableStoreChange } from './live-variable-store';
 import { recordLog } from './observability-log';
 import { getCollections, getRules } from './rule-store';
+import { getCachedTotpCodes } from './totp-scheduler';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Singleton resolver + last resolved snapshot ────────────────────
@@ -432,6 +433,11 @@ function syncResolverFromStores(): void {
   // (manual override > cached capture; skips disabled LVs + envs that
   // don't match the current active env's cache row).
   resolver.setLiveRegistry(buildLiveRegistry());
+  // TOTP scope — `totp-scheduler` keeps a mirror of currently-valid
+  // codes warm by ticking on each window-flip and refreshing on vault
+  // edits. Reading the mirror is sync; the actual crypto runs on the
+  // scheduler's tick so the compile path stays fast.
+  resolver.setTotpRegistry(getCachedTotpCodes());
 
   // Collection scope: reset then re-populate from rule-store. Using
   // set/remove on a Map inside VariableResolver means we don't need to

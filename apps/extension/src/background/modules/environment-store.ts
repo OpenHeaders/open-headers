@@ -350,10 +350,15 @@ export async function putVaultSecret(key: string, value: string): Promise<VaultW
     async () => {
       const nextVersion = vault.version + 1;
       const idx = vault.secrets.findIndex((s) => s.name === key);
+      // Per-key writers (OAuth refresh, API-key flows) only ever
+      // produce string-kind entries — TOTP entries are managed via
+      // the bulk `setVault` editor path. If a TOTP entry of the same
+      // name already exists, the put OVERWRITES it with a string
+      // entry; that's a deliberate, name-collision contract since
+      // there is one namespace per vault.
+      const next: V5.VaultSecret = { kind: 'string', name: key, value };
       const nextSecrets =
-        idx >= 0
-          ? [...vault.secrets.slice(0, idx), { name: key, value }, ...vault.secrets.slice(idx + 1)]
-          : [...vault.secrets, { name: key, value }];
+        idx >= 0 ? [...vault.secrets.slice(0, idx), next, ...vault.secrets.slice(idx + 1)] : [...vault.secrets, next];
       vault = { schemaVersion: 5, version: nextVersion, secrets: nextSecrets };
       await persistVault();
       return { ok: true, version: nextVersion, vault } as VaultWriteResult;
@@ -389,11 +394,15 @@ export async function deleteVaultSecret(key: string): Promise<VaultWriteResult> 
  * Read a single secret by name from the SW's in-memory snapshot. No
  * lock needed — reads are consistent by default (JS is single-
  * threaded inside the SW, and the SW's vault snapshot is the write
- * target). Returns null if the key isn't present.
+ * target). Returns null if the key isn't present, or if the entry is
+ * a TOTP-kind secret — per-key callers (OAuth refresh, generic API)
+ * read literal strings only; TOTP codes go through the request
+ * executor's TotpRegistry instead.
  */
 export function getVaultSecret(key: string): string | null {
   const found = vault.secrets.find((s) => s.name === key);
-  return found?.value ?? null;
+  if (!found || found.kind !== 'string') return null;
+  return found.value;
 }
 
 /** Read all secret names from the SW's in-memory snapshot. */

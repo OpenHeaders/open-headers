@@ -45,6 +45,7 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TabMode, WorkbenchTab } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
+import TotpPreview from '../totp/TotpPreview';
 
 // ── Scope kind (context classification of the focused tab) ─────────
 
@@ -94,6 +95,15 @@ interface DisplayVariable {
   scope: DisplayScope;
   isSensitive: boolean;
   resolved: boolean;
+  /** Present only on TOTP-kind vault rows — the renderer uses these
+   *  to mount a live `TotpPreview` instead of the masked-string cell.
+   *  Codes refresh on a 1Hz tick from the seed; never persisted. */
+  totp?: {
+    seed: string;
+    algorithm: V5.TotpAlgorithm;
+    digits: number;
+    period: number;
+  };
 }
 
 // `TEMPLATE_RX` + `collectTemplateStrings` live in `../../variable-references`
@@ -325,13 +335,30 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
 
   // ── "All" — every scope's variables, whatever their referenced state
   const allVars = useMemo(() => {
-    const vaultList: DisplayVariable[] = vault.secrets.map((s) => ({
-      name: s.name,
-      value: s.value,
-      scope: 'vault',
-      isSensitive: true,
-      resolved: s.value !== '',
-    }));
+    const vaultList: DisplayVariable[] = vault.secrets.map((s) => {
+      // TOTP entries surface a live `TotpPreview` (rendered by
+      // VariableRow when `totp` is present); the literal `value` field
+      // is empty because the code is dynamic. "resolved" stays true so
+      // the row doesn't render as unresolved — cooldown is enforced
+      // one layer down at the executor, not visualized here.
+      if (s.kind === 'totp') {
+        return {
+          name: s.name,
+          value: '',
+          scope: 'vault',
+          isSensitive: true,
+          resolved: true,
+          totp: { seed: s.seed, algorithm: s.algorithm, digits: s.digits, period: s.period },
+        };
+      }
+      return {
+        name: s.name,
+        value: s.value,
+        scope: 'vault',
+        isSensitive: true,
+        resolved: s.value !== '',
+      };
+    });
     const envList: V5.Variable[] = activeEnvironmentId
       ? (environments.find((e) => e.uid === activeEnvironmentId)?.variables ?? [])
       : [];
@@ -761,18 +788,28 @@ function VariableRow({ variable, compact = false }: { variable: DisplayVariable;
     return (
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 11 }}>
         <Text style={{ fontFamily: "'SF Mono', monospace", fontSize: 10 }}>{variable.name}</Text>
-        <Text
-          type="secondary"
-          style={{
-            fontSize: 10,
-            maxWidth: 140,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {variable.isSensitive ? '••••••••' : variable.value || '(empty)'}
-        </Text>
+        {variable.totp ? (
+          <TotpPreview
+            seed={variable.totp.seed}
+            algorithm={variable.totp.algorithm}
+            digits={variable.totp.digits}
+            period={variable.totp.period}
+            density="compact"
+          />
+        ) : (
+          <Text
+            type="secondary"
+            style={{
+              fontSize: 10,
+              maxWidth: 140,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {variable.isSensitive ? '••••••••' : variable.value || '(empty)'}
+          </Text>
+        )}
       </div>
     );
   }
@@ -791,34 +828,44 @@ function VariableRow({ variable, compact = false }: { variable: DisplayVariable;
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {variable.resolved ? (
-            <Text
-              style={{
-                fontSize: 10,
-                color: variable.isSensitive ? token.colorTextTertiary : token.colorTextSecondary,
-                maxWidth: 140,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {displayValue}
-            </Text>
+          {variable.totp ? (
+            <TotpPreview
+              seed={variable.totp.seed}
+              algorithm={variable.totp.algorithm}
+              digits={variable.totp.digits}
+              period={variable.totp.period}
+              density="compact"
+            />
+          ) : variable.resolved ? (
+            <>
+              <Text
+                style={{
+                  fontSize: 10,
+                  color: variable.isSensitive ? token.colorTextTertiary : token.colorTextSecondary,
+                  maxWidth: 140,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {displayValue}
+              </Text>
+              {variable.isSensitive && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setRevealed((r) => !r)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setRevealed((r) => !r);
+                  }}
+                  style={{ cursor: 'pointer', fontSize: 10, color: token.colorTextTertiary }}
+                >
+                  {revealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                </span>
+              )}
+            </>
           ) : (
             <Text style={{ fontSize: 10, color: token.colorError }}>unresolved</Text>
-          )}
-          {variable.isSensitive && variable.resolved && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={() => setRevealed((r) => !r)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setRevealed((r) => !r);
-              }}
-              style={{ cursor: 'pointer', fontSize: 10, color: token.colorTextTertiary }}
-            >
-              {revealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-            </span>
           )}
         </div>
         <Tag color={scopeConfig.color} style={{ fontSize: 9, marginRight: 0 }}>

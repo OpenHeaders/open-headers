@@ -68,6 +68,7 @@ import {
   switchToWorkspace as switchTemplatesToWorkspace,
 } from './template-store';
 import { purgeWorkspaceTestRuns } from './test-run-store';
+import { purgeWorkspaceCooldowns } from './totp-cooldown-store';
 import {
   createWorkspace as createWorkspaceMeta,
   deleteWorkspace as deleteWorkspaceMeta,
@@ -324,6 +325,7 @@ export async function deleteWorkspaceWithData(id: string): Promise<string | null
   await purgeLiveWorkflowsForWorkspace(id);
   await purgeLiveVariablesForWorkspace(id);
   await purgeLiveCacheForWorkspace(id);
+  purgeWorkspaceCooldowns(id);
 
   // If we deleted the active workspace, swap the per-workspace stores
   // to the new active now — workspace-store already flipped the pointer

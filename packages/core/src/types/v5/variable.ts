@@ -20,10 +20,14 @@
 import type * as v from 'valibot';
 import type {
   EnvironmentSchema,
+  TotpAlgorithmSchema,
   VariableSchema,
   VariableTypeSchema,
   VaultSchema,
+  VaultSecretKindSchema,
   VaultSecretSchema,
+  VaultSecretStringSchema,
+  VaultSecretTotpSchema,
   WorkspaceVariablesSchema,
 } from '../../schemas/variable';
 
@@ -55,6 +59,21 @@ export type Variable = v.InferOutput<typeof VariableSchema>;
 
 // ── Vault ──────────────────────────────────────────────────────────
 
+/**
+ * Vault entries are kind-discriminated:
+ *   - `string` — literal value returned verbatim by `{{vault.X}}`.
+ *   - `totp`   — base32 seed + RFC 6238 parameters; `{{vault.X}}` resolves
+ *                to the current code, never the seed.
+ *
+ * Both kinds are local-per-device (highest scope priority, never synced).
+ * The discriminated union keeps the storage shape, the suggester, the
+ * resolver, and the editor in lockstep — adding a future kind (HOTP,
+ * etc.) is one schema variant + one resolver arm + one row renderer.
+ */
+export type VaultSecretKind = v.InferOutput<typeof VaultSecretKindSchema>;
+export type TotpAlgorithm = v.InferOutput<typeof TotpAlgorithmSchema>;
+export type VaultSecretString = v.InferOutput<typeof VaultSecretStringSchema>;
+export type VaultSecretTotp = v.InferOutput<typeof VaultSecretTotpSchema>;
 export type VaultSecret = v.InferOutput<typeof VaultSecretSchema>;
 export type Vault = v.InferOutput<typeof VaultSchema>;
 
@@ -74,6 +93,16 @@ export interface ResolvedVariable {
   value: string;
   scope: VariableScope;
   isSensitive: boolean;
+  /**
+   * Set on a resolved-but-deferred vault TOTP entry — the entry exists
+   * but its code wasn't precomputed in this resolver pass. Callers that
+   * SERIALIZE the value (DNR compile, request executor) must treat this
+   * as unresolved; callers that only need an existence check (renderer
+   * syntax highlighting, Inspector) treat it as resolved. Only emitted
+   * when the resolver's `DeferredVaultMode` is `'defer'`; the default
+   * `'reject'` returns `null` instead of a deferred entry.
+   */
+  deferred?: boolean;
 }
 
 /** Resolution context — determines which scopes to check. */

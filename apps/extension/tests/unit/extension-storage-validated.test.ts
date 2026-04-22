@@ -44,13 +44,13 @@ describe('extensionStorage.getValidated', () => {
     await extensionStorage.set(spec, {
       schemaVersion: 5,
       version: 1,
-      secrets: [{ name: 'TOKEN', value: 'abc' }],
+      secrets: [{ kind: 'string', name: 'TOKEN', value: 'abc' }],
     });
     const parsed = await extensionStorage.getValidated(spec, VaultSchema);
     expect(parsed).toEqual({
       schemaVersion: 5,
       version: 1,
-      secrets: [{ name: 'TOKEN', value: 'abc' }],
+      secrets: [{ kind: 'string', name: 'TOKEN', value: 'abc' }],
     });
   });
 

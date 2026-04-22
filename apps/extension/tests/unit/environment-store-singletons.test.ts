@@ -132,14 +132,14 @@ describe('vault — version stamping + stale-draft', () => {
   });
 
   it('setVault increments version', async () => {
-    const r = await store.setVault({ secrets: [{ name: 'TOKEN', value: 'abc' }] });
+    const r = await store.setVault({ secrets: [{ kind: 'string', name: 'TOKEN', value: 'abc' }] });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.version).toBe(2);
   });
 
   it('rejects stale expectedVersion with server copy', async () => {
-    await store.setVault({ secrets: [{ name: 'A', value: '1' }] });
-    const r = await store.setVault({ secrets: [{ name: 'B', value: '2' }] }, { expectedVersion: 1 });
+    await store.setVault({ secrets: [{ kind: 'string', name: 'A', value: '1' }] });
+    const r = await store.setVault({ secrets: [{ kind: 'string', name: 'B', value: '2' }] }, { expectedVersion: 1 });
     expect(r.ok).toBe(false);
     if (!r.ok && r.reason === 'stale-draft') {
       expect(r.serverVersion).toBe(2);
@@ -156,7 +156,7 @@ describe('vault — per-secret mutators share the setVault lock', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.version).toBe(2);
-      expect(r.vault.secrets).toEqual([{ name: 'TOKEN', value: 'abc' }]);
+      expect(r.vault.secrets).toEqual([{ kind: 'string', name: 'TOKEN', value: 'abc' }]);
     }
     expect(store.getVaultSecret('TOKEN')).toBe('abc');
   });
@@ -167,7 +167,7 @@ describe('vault — per-secret mutators share the setVault lock', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.vault.secrets).toHaveLength(1);
-      expect(r.vault.secrets[0]?.value).toBe('second');
+      expect(r.vault.secrets[0]?.kind === 'string' && r.vault.secrets[0]?.value).toBe('second');
       // First put took 1→2, second put took 2→3.
       expect(r.version).toBe(3);
     }
@@ -203,7 +203,7 @@ describe('vault — per-secret mutators share the setVault lock', () => {
     // should stomp the other because they share the `vault:singleton`
     // lock name.
     const [a, b] = await Promise.all([
-      store.setVault({ secrets: [{ name: 'EXISTING', value: 'editor' }] }),
+      store.setVault({ secrets: [{ kind: 'string', name: 'EXISTING', value: 'editor' }] }),
       store.putVaultSecret('REFRESH', 'token'),
     ]);
     expect(a.ok).toBe(true);

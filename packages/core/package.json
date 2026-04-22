@@ -62,6 +62,10 @@
     "./scripts": {
       "import": "./src/scripts/index.ts",
       "default": "./dist/scripts/index.js"
+    },
+    "./totp": {
+      "import": "./src/totp/index.ts",
+      "default": "./dist/totp/index.js"
     }
   },
   "scripts": {

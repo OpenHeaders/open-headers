@@ -75,10 +75,20 @@ export interface VariableEntry {
   type?: 'default' | 'secret';
 }
 
-export interface VaultSecretEntry {
-  name: string;
-  value: string;
-}
+/**
+ * Vault entries supplied to the suggester. Mirrors the discriminated
+ * union on `V5.VaultSecret` — `string` rows preview their value (masked),
+ * `totp` rows preview a "TOTP code" badge so users see at a glance that
+ * `{{vault.X}}` will resolve to a freshly-computed code each fire.
+ *
+ * The TOTP seed is intentionally absent from this surface. The
+ * suggester runs in renderer contexts (popovers, Monaco) that should
+ * never see seed material; the resolver produces codes from the seed
+ * one layer down where the precomputed `TotpRegistry` lives.
+ */
+export type VaultSecretEntry =
+  | { kind: 'string'; name: string; value: string }
+  | { kind: 'totp'; name: string; algorithm: string; digits: number; period: number; issuer?: string };
 
 export interface EnvironmentEntry {
   uid: string;
@@ -137,7 +147,10 @@ export type SuggestionPreview =
   | { kind: 'value'; value: string; masked: boolean }
   | { kind: 'stale'; value: string; masked: boolean }
   | { kind: 'reserved'; subtitle: string }
-  | { kind: 'step-runtime' };
+  | { kind: 'step-runtime' }
+  /** Vault TOTP entry — UI shows "TOTP" badge + algorithm/digits/period
+   *  hint. No `value` because the code is computed at request time. */
+  | { kind: 'totp'; algorithm: string; digits: number; period: number; issuer?: string };
 
 /**
  * One candidate for the popover. `reference` is the exact text the UI
@@ -255,11 +268,21 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
   if (scopeAllowed('vault', context)) {
     let order = 0;
     for (const secret of registries.vault) {
+      const preview: SuggestionPreview =
+        secret.kind === 'totp'
+          ? {
+              kind: 'totp',
+              algorithm: secret.algorithm,
+              digits: secret.digits,
+              period: secret.period,
+              ...(secret.issuer ? { issuer: secret.issuer } : {}),
+            }
+          : valuePreview(secret.value, maskForScope('vault', null, maskAll), false);
       out.push({
         reference: `vault.${secret.name}`,
         scope: 'vault',
         name: secret.name,
-        preview: valuePreview(secret.value, maskForScope('vault', null, maskAll), false),
+        preview,
         priority: BASE_PRIORITY - order,
       });
       order++;

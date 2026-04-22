@@ -60,6 +60,12 @@ function renderPreview(suggestion: VariableSuggestion, reveal: boolean): React.R
           Captured at runtime
         </Text>
       );
+    case 'totp':
+      return (
+        <Text type="secondary" italic style={{ fontSize: 11 }}>
+          TOTP {preview.digits}-digit · {preview.period}s{preview.issuer ? ` · ${preview.issuer}` : ''}
+        </Text>
+      );
     case 'stale':
     case 'value': {
       if (!preview.value) {

@@ -72,10 +72,14 @@ export { RuleDraftSchema } from './rule-draft';
 export { TemplateIncludesSchema, TemplateSchema } from './template';
 export {
   EnvironmentSchema,
+  TotpAlgorithmSchema,
   VariableSchema,
   VariableTypeSchema,
   VaultSchema,
+  VaultSecretKindSchema,
   VaultSecretSchema,
+  VaultSecretStringSchema,
+  VaultSecretTotpSchema,
   WorkspaceVariablesSchema,
 } from './variable';
 export {

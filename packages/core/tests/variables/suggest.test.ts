@@ -36,7 +36,7 @@ function v(name: string, value: string, type?: 'default' | 'secret'): VariableEn
 }
 
 function vault(name: string, value: string): VaultSecretEntry {
-  return { name, value };
+  return { kind: 'string', name, value };
 }
 
 function live(value: string, opts: { stale?: boolean; workflowUid?: string } = {}): LiveSuggestionEntry {

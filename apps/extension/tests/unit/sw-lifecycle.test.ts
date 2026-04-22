@@ -132,7 +132,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       [`oh.ws.${activeWs}.vault`]: {
         schemaVersion: 5,
         version: 1,
-        secrets: [{ name: 'TOKEN', value: 'abc' }],
+        secrets: [{ kind: 'string', name: 'TOKEN', value: 'abc' }],
       },
     });
 
@@ -151,7 +151,9 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     expect(env.getEnvironments()).toEqual([]);
     await env.hydrateEnvironmentsFromStorage();
     expect(env.getEnvironments()).toHaveLength(2);
-    expect(env.getVault().secrets[0].value).toBe('abc');
+    const secret0 = env.getVault().secrets[0];
+    expect(secret0?.kind).toBe('string');
+    expect(secret0?.kind === 'string' && secret0.value).toBe('abc');
   });
 
   // ── rule-store ─────────────────────────────────────────────────────

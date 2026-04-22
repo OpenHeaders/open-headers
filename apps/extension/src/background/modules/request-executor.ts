@@ -28,9 +28,10 @@
 
 import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { RequestMutation, RequestSnapshot, ResponseSnapshot, TestAssertion } from '@openheaders/core/scripts';
+import { generateTotp } from '@openheaders/core/totp';
 import type { V5 } from '@openheaders/core/types';
 import { appendQueryParams, isRequestResolvable } from '@openheaders/core/utils';
-import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
+import { resolveTemplate, type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
 import { ensureScheme } from '@/shared/fetch/ensure-scheme';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
@@ -49,7 +50,9 @@ import { recordLog } from './observability-log';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
+import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from './totp-cooldown-store';
 import { getLiveRegistrySnapshot } from './variables-resolver';
+import { getActiveWorkspaceId } from './workspace-store';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -148,9 +151,9 @@ export async function executeRequestDraft(
   request: V5.Request,
   options: ExecuteRequestOptions = {},
 ): Promise<ExecutedRequestSnapshot> {
-  let resolved: ResolvedRequest;
+  let outcome: ResolvedRequestOutcome;
   try {
-    resolved = await resolveRequest(request, options);
+    outcome = await resolveRequest(request, options);
   } catch (err) {
     // The resolvability gate is the only throwing path we surface as a
     // structured snapshot today. Other exceptions (file-registry load
@@ -160,12 +163,30 @@ export async function executeRequestDraft(
     throw err;
   }
 
+  // ── TOTP cooldown gate ─────────────────────────────────────────
+  // If the resolved request reuses a TOTP code that was already used
+  // inside the same window, refuse to send. Most providers reject the
+  // reuse with a 401 anyway; surfacing this here gives the user an
+  // actionable message ("wait Ns") instead of a confusing provider
+  // error after a wasted round-trip.
+  if (outcome.totpUsed.length > 0) {
+    const workspaceId = getActiveWorkspaceId();
+    for (const usage of outcome.totpUsed) {
+      const status = checkTotpCooldown(workspaceId, usage.name, usage.code);
+      if (status.inCooldown) {
+        return errorSnapshot(
+          `TOTP '${usage.name}' code can't be reused — wait ${status.remainingSeconds}s for the next window.`,
+        );
+      }
+    }
+  }
+
   // ── Pre-request script hook ────────────────────────────────────
   // Run BEFORE the wire fetch. Script mutations land on top of the
   // resolved request (after variable substitution). Missing scripts
   // / Firefox fallback / empty source are all no-ops.
   let scriptOutcome: ExecutedRequestSnapshot['scripts'] = null;
-  const finalResolved: ResolvedRequest = { ...resolved };
+  const finalResolved: ResolvedRequest = { ...outcome.resolved };
 
   if (!options.skipScripts && request.preRequestScript?.trim() && isOffscreenSupported()) {
     const snapshot = resolvedToSnapshot(finalResolved);
@@ -189,6 +210,18 @@ export async function executeRequestDraft(
   }
 
   const wireResult = await executeResolved(finalResolved, { silentStatus: options.silentStatus });
+
+  // ── TOTP cooldown record ───────────────────────────────────────
+  // Only record on a successful round-trip — a fetch that never
+  // reached the wire (DNS failure, CORS reject) didn't actually
+  // burn the code with the provider. Recording too eagerly would
+  // turn a transient network blip into an avoidable Ns wait.
+  if (wireResult.error == null && outcome.totpUsed.length > 0) {
+    const workspaceId = getActiveWorkspaceId();
+    for (const usage of outcome.totpUsed) {
+      recordTotpUsage(workspaceId, usage.name, usage.code, usage.period);
+    }
+  }
 
   // ── Post-response script hook ──────────────────────────────────
   if (
@@ -347,11 +380,21 @@ async function buildResolver(
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>,
 ): Promise<VariableResolver> {
   const resolver = new VariableResolver();
-  resolver.setVault(getVault());
+  const vault = getVault();
+  resolver.setVault(vault);
   resolver.setEnvironments(getEnvironments());
   resolver.setActiveEnvironmentId(getActiveEnvironmentId());
   resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
   resolver.setWorkspaceVariables(getWorkspaceVariables());
+  // TOTP scope — precompute the current code for every kind:'totp'
+  // vault entry so the resolver's `vault` arm can return them
+  // synchronously. Codes have ~30s lifetime; we compute fresh on every
+  // request execution so the user never sees a stale code. The DNR
+  // compile pipeline does NOT precompute (no TotpRegistry installed
+  // there) — TOTP-kind entries surface as unresolved at compile time
+  // and the rule is dropped, which is the architectural gate keeping
+  // 30s-codes out of static rule values.
+  resolver.setTotpRegistry(await buildTotpRegistry(vault));
   // Live scope — same snapshot the DNR compile pipeline uses, so a
   // request that references `{{live.token}}` sees the same value as
   // a DNR rule would. Empty until the first workflow refresh lands;
@@ -430,7 +473,27 @@ export class UnresolvedRequestError extends Error {
   }
 }
 
-async function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Promise<ResolvedRequest> {
+/**
+ * One TOTP vault entry the resolved request used. Carries the code
+ * (so the cooldown gate can match against the recently-used code) and
+ * the entry's `period` (so {@link recordTotpUsage} can compute the
+ * window-end deadline). `name` doubles as the cooldown-store key
+ * partition.
+ */
+interface TotpUsage {
+  name: string;
+  code: string;
+  period: number;
+}
+
+interface ResolvedRequestOutcome {
+  resolved: ResolvedRequest;
+  /** Every TOTP vault entry referenced by the resolved request. Empty
+   *  when no `{{vault.X}}` template hit a kind:'totp' entry. */
+  totpUsed: ReadonlyArray<TotpUsage>;
+}
+
+async function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Promise<ResolvedRequestOutcome> {
   const resolver = await buildResolver(options.stepCaptures);
   const context = {
     collectionId: collectionIdForRequest(request),
@@ -454,7 +517,34 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
     );
   }
 
-  const resolveStr = (s: string): string => resolveTemplate(s, (name) => resolver.resolve(name, context)).result;
+  // Track every kind:'totp' vault entry referenced during this resolve.
+  // Index TOTP entries by name once so the per-template scan is O(1).
+  const totpEntries = new Map<string, V5.VaultSecretTotp>();
+  for (const s of getVault().secrets) {
+    if (s.kind === 'totp') totpEntries.set(s.name, s);
+  }
+  const totpUsed = new Map<string, TotpUsage>();
+
+  const resolveStr = (s: string): string => {
+    const result = resolveTemplate(
+      s,
+      (name) => resolver.resolve(name, context),
+      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
+    );
+    if (totpEntries.size > 0) {
+      for (const v of result.variables) {
+        if (!v.resolved || v.scope !== 'vault' || !v.value) continue;
+        // Template-variable names carry the namespace prefix when the
+        // user wrote `{{vault.X}}`; strip it before matching the bare
+        // entry name. Flat `{{X}}` resolves the same way but the name
+        // arrives unprefixed.
+        const bareName = v.name.startsWith('vault.') ? v.name.slice('vault.'.length) : v.name;
+        const entry = totpEntries.get(bareName);
+        if (entry) totpUsed.set(bareName, { name: bareName, code: v.value, period: entry.period });
+      }
+    }
+    return result.result;
+  };
 
   // ── URL with query params ───────────────────────────────────────
   let resolvedUrl = resolveStr(request.url);
@@ -488,16 +578,53 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
   }
 
   return {
-    method: request.method,
-    url: resolvedUrl,
-    headers,
-    body: resolvedBody,
-    // Cookie-jar policy. `'omit'` is the safe default when the request
-    // doesn't explicitly opt in — even with `<all_urls>` granted, we
-    // never ride the browser's cookie jar by accident. See ARCHITECTURE.md §14.
-    credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
-    followRedirects: request.followRedirects,
+    resolved: {
+      method: request.method,
+      url: resolvedUrl,
+      headers,
+      body: resolvedBody,
+      // Cookie-jar policy. `'omit'` is the safe default when the request
+      // doesn't explicitly opt in — even with `<all_urls>` granted, we
+      // never ride the browser's cookie jar by accident. See ARCHITECTURE.md §14.
+      credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
+      followRedirects: request.followRedirects,
+    },
+    totpUsed: [...totpUsed.values()],
   };
+}
+
+/**
+ * Build the precomputed TOTP code map for every kind:'totp' vault entry.
+ * Awaited concurrently so a vault with N TOTP entries pays one
+ * `Promise.all` round-trip rather than N serial waits. Entries whose
+ * seed fails to decode (malformed base32) are skipped; the resolver
+ * surfaces them as `unset-in-scope` and the request gate rejects the
+ * send with a structured error.
+ */
+async function buildTotpRegistry(vault: V5.Vault): Promise<TotpRegistry> {
+  const totpEntries = vault.secrets.filter((s): s is V5.VaultSecretTotp => s.kind === 'totp');
+  if (totpEntries.length === 0) return new Map();
+  const codes = await Promise.all(
+    totpEntries.map(async (e) => {
+      try {
+        const code = await generateTotp({
+          seed: e.seed,
+          algorithm: e.algorithm,
+          digits: e.digits,
+          period: e.period,
+        });
+        return [e.name, code] as const;
+      } catch (err) {
+        logger.info('RequestExecutor', `TOTP code generation failed for '${e.name}': ${(err as Error).message}`);
+        return null;
+      }
+    }),
+  );
+  const out = new Map<string, string>();
+  for (const entry of codes) {
+    if (entry) out.set(entry[0], entry[1]);
+  }
+  return out;
 }
 
 /**

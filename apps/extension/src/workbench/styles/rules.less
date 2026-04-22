@@ -1412,7 +1412,9 @@ html, body, #root {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  // No `right: 0` — the panel sets its own width so the popover can
+  // extend past a narrow input (e.g. a header-table value cell)
+  // instead of being clamped to the input's width.
   z-index: 1050;
 }
 
@@ -1420,7 +1422,8 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-width: 100%;
+  min-width: 380px;
+  max-width: min(560px, 90vw);
 }
 
 .oh-template-popover-list {

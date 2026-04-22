@@ -19,10 +19,36 @@ export const VariableSchema = v.object({
   type: VariableTypeSchema,
 });
 
-export const VaultSecretSchema = v.object({
+// ── Vault secrets (discriminated on `kind`) ────────────────────────
+// `string` — literal value returned verbatim by `{{vault.X}}`.
+// `totp`   — base32 seed plus RFC 6238 parameters. `{{vault.X}}`
+//            resolves to the CURRENT 6/8-digit code; the seed itself is
+//            never exposed through the resolver. Stored plaintext in
+//            chrome.storage.local today (noop cipher tier); the v2
+//            AES-GCM cipher upgrade encrypts the whole vault payload,
+//            including the seed, transparently.
+
+export const VaultSecretKindSchema = v.picklist(['string', 'totp']);
+
+export const TotpAlgorithmSchema = v.picklist(['SHA1', 'SHA256', 'SHA512']);
+
+export const VaultSecretStringSchema = v.object({
+  kind: v.literal('string'),
   name: v.string(),
   value: v.string(),
 });
+
+export const VaultSecretTotpSchema = v.object({
+  kind: v.literal('totp'),
+  name: v.string(),
+  seed: v.string(),
+  algorithm: TotpAlgorithmSchema,
+  digits: v.pipe(v.number(), v.integer(), v.minValue(6), v.maxValue(10)),
+  period: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  issuer: v.optional(v.string()),
+});
+
+export const VaultSecretSchema = v.variant('kind', [VaultSecretStringSchema, VaultSecretTotpSchema]);
 
 export const VaultSchema = v.object({
   schemaVersion: SchemaVersionSchema,

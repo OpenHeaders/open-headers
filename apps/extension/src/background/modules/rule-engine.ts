@@ -32,6 +32,12 @@ const FORCED_REASONS = new Set([
   // than structural.
   'live-cache',
   'live-vars',
+  // TOTP — same reasoning. The raw rule text is unchanged across
+  // window-flip ticks (`{{vault.X}}` doesn't mutate), but the
+  // resolved value rotates every `period` seconds. Without the force
+  // flag, the hash guard would skip every alarm-driven recompile and
+  // DNR would keep firing the stale code from boot time.
+  'totp',
 ]);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;

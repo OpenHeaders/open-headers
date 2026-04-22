@@ -112,10 +112,14 @@ export type {
   Environment,
   ResolutionContext,
   ResolvedVariable,
+  TotpAlgorithm,
   Variable,
   VariableScope,
   Vault,
   VaultSecret,
+  VaultSecretKind,
+  VaultSecretString,
+  VaultSecretTotp,
   WorkspaceVariables,
 } from './variable';
 // ── Workspace ──────────────────────────────────────────────────────

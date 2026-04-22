@@ -71,6 +71,15 @@ export function useVariableResolver(): VariableResolver {
     r.setWorkspaceVariables(workspaceVariables);
     for (const c of localCollections) r.setCollectionVariables(c.uid, c.variables ?? []);
     r.setLiveRegistry(liveRegistry);
+    // Renderer surfaces (template-input syntax highlighting, Inspector)
+    // only need to know whether a `{{vault.X}}` reference is resolvable;
+    // the actual TOTP code is computed at request execution time in the
+    // SW. Opt into deferred resolution so kind:'totp' entries that exist
+    // in the vault report as resolved without inventing a fake code
+    // here. The DNR-compile path keeps the default `'reject'` mode and
+    // remains architecturally protected from baking 30s codes into
+    // static rules.
+    r.setDeferredVaultMode('defer');
     return r;
   }, [
     vault,

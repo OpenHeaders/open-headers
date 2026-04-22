@@ -82,6 +82,7 @@ import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } 
 import { getTemplates, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
+import { bootstrapTotpScheduler, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
 import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from './modules/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
@@ -414,6 +415,13 @@ async function initializeExtension(): Promise<void> {
   // captures rather than an empty registry. The mirror auto-refreshes
   // via `onLiveCacheStoreChange` after this point.
   await hydrateLiveCacheMirror();
+  // Bootstrap the TOTP scheduler — keeps a `TotpRegistry` mirror warm
+  // so the DNR compile resolves `{{vault.X}}` for kind:'totp' entries
+  // against current codes, and ticks the rule engine at each
+  // window-flip so baked codes never go stale. Vault edits (add /
+  // rotate / delete a TOTP entry) re-trigger refresh + reschedule
+  // through the same internal `onEnvironmentStoreChange` listener.
+  await bootstrapTotpScheduler(() => scheduleUpdate('totp', { immediate: true }));
   const restoredRules = getRules();
   // Rehydrate the rule-state-observer snapshot BEFORE the first
   // rebuildAll fires, so rule changes that happened while the SW was
@@ -506,6 +514,8 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     await handleOAuthAlarm(alarm);
   } else if (isLiveRefreshAlarm(alarm)) {
     await handleLiveAlarm(alarm);
+  } else if (isTotpAlarm(alarm)) {
+    await handleTotpAlarm();
   }
 });
 

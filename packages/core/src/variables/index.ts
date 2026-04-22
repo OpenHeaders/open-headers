@@ -15,6 +15,7 @@ export {
   SCOPE_NAMESPACES,
 } from './namespaces';
 export type {
+  DeferredVaultMode,
   LiveRegistry,
   ResolutionEnvSnapshot,
   ResolutionError,
@@ -24,8 +25,15 @@ export type {
   ScopedResolution,
   StepCaptureContext,
   TemplateVariable,
+  TotpRegistry,
 } from './resolver';
-export { EMPTY_LIVE_REGISTRY, resolveTemplate, resolveVariable, VariableResolver } from './resolver';
+export {
+  EMPTY_LIVE_REGISTRY,
+  EMPTY_TOTP_REGISTRY,
+  resolveTemplate,
+  resolveVariable,
+  VariableResolver,
+} from './resolver';
 export type { RuleResolution } from './rule-resolver';
 export { resolveRule, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
 export { collectRuleTemplateStrings } from './rule-templates';

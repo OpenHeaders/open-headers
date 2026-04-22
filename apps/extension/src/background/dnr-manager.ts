@@ -27,8 +27,8 @@ import type { V5 } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { get as getSetting } from '@/workbench/settings/store';
 import { report as reportStatus } from '@/shared/status';
+import { get as getSetting } from '@/workbench/settings/store';
 import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
 import {
   attachLiveBypassExclusion,
@@ -46,6 +46,7 @@ import { getPauseMarkers } from './modules/pause-markers-store';
 import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from './modules/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
+import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 import {
   computeRuleLiveBypass,
   getLastAggregatedResolutionErrors,
@@ -286,6 +287,14 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   // ceiling when any is, then resolve falls back to stale. Live-bypass
   // + live-ref scan both read from the post-warm registry mirror.
   await kickSyncWarmRefreshes();
+
+  // Recompute TOTP codes against the current vault BEFORE resolve so
+  // every compile bakes the current-window code into DNR. Same slot
+  // as `kickSyncWarmRefreshes` above — without it, the compile would
+  // race the totp-scheduler's listener-driven refresh and ship stale
+  // codes to Chrome's static rule store. No-op when the vault holds
+  // zero kind:'totp' entries.
+  await refreshCachedTotpCodes();
 
   // Live-bypass map: `ruleUid → Set<workflowUid>` so each emitted DnrRule
   // carries an `excludedRequestHeaders` clause matching the bypass tag its

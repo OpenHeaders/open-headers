@@ -151,6 +151,8 @@ function scopeDetail(s: VariableSuggestion): string {
       return `${SCOPE_LABEL[s.scope]} — coming soon`;
     case 'step-runtime':
       return `${SCOPE_LABEL[s.scope]} — captured at runtime`;
+    case 'totp':
+      return `${SCOPE_LABEL[s.scope]} — TOTP code (${s.preview.digits} digits, ${s.preview.period}s)`;
   }
 }
 
@@ -167,5 +169,9 @@ function previewDocumentation(s: VariableSuggestion): string | null {
       return s.preview.subtitle;
     case 'step-runtime':
       return 'Captured when the workflow runs.';
+    case 'totp': {
+      const issuer = s.preview.issuer ? ` for **${s.preview.issuer}**` : '';
+      return `**TOTP code**${issuer} — ${s.preview.algorithm}, ${s.preview.digits} digits, refreshes every ${s.preview.period}s.`;
+    }
   }
 }

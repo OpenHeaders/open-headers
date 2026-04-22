@@ -21,6 +21,7 @@ import type {
   Variable,
   VariableScope,
   Vault,
+  VaultSecret,
   WorkspaceVariables,
 } from '../types/v5';
 import { parseReference, parseStepRefName, type VariableNamespace } from './namespaces';
@@ -53,6 +54,47 @@ export type LiveRegistry = ReadonlyMap<string, ResolvedLiveValue>;
 
 /** An empty {@link LiveRegistry} used as the default when callers haven't wired live vars. */
 export const EMPTY_LIVE_REGISTRY: LiveRegistry = new Map();
+
+// ── TOTP registry ──────────────────────────────────────────────────
+
+/**
+ * Snapshot of currently-valid TOTP codes, keyed by the vault entry's
+ * `name`. Built once per request execution from every `kind: 'totp'`
+ * vault entry; resolution looks the code up here instead of computing
+ * synchronously (the resolver is sync, RFC-6238 needs async WebCrypto).
+ *
+ * Critically, callers that don't precompute (DNR rule compile) leave
+ * the registry empty — TOTP-kind vault entries then surface as
+ * `unset-in-scope` and the rule is dropped from DNR. This is the
+ * architectural gate that prevents 30s-lifetime codes from being
+ * baked into static rules.
+ */
+export type TotpRegistry = ReadonlyMap<string, string>;
+
+/** An empty {@link TotpRegistry} — the DNR-compile default. */
+export const EMPTY_TOTP_REGISTRY: TotpRegistry = new Map();
+
+/**
+ * How the resolver treats a `kind: 'totp'` vault entry whose code is
+ * not in the {@link TotpRegistry}.
+ *
+ *   - `reject` (default) — return `null`. The reference surfaces as
+ *     `unset-in-scope`. This is the DNR-compile contract: codes have
+ *     ~30s lifetime, they can't be baked into static rules that live
+ *     for hours.
+ *   - `defer`             — return a {@link ResolvedVariable} with
+ *     `deferred: true` and an empty `value`. Renderer-only contexts
+ *     (template syntax highlighting, Inspector "exists?" check) opt
+ *     into this so a TOTP reference that EXISTS in the vault renders
+ *     as "resolvable" (the actual code is computed at request time
+ *     in the SW's request-executor, not here).
+ *
+ * Switching modes is purely a caller policy — the resolver still
+ * walks the same data structure. The default `reject` keeps the DNR
+ * pipeline architecturally safe by construction; renderer surfaces
+ * have to opt in explicitly.
+ */
+export type DeferredVaultMode = 'reject' | 'defer';
 
 /**
  * Step-capture context — installed by the chain runner ONLY while a
@@ -178,6 +220,8 @@ export class VariableResolver {
   private workspaceVariables: WorkspaceVariables;
   private fileRegistry: FileRegistry;
   private liveRegistry: LiveRegistry;
+  private totpRegistry: TotpRegistry;
+  private deferredVaultMode: DeferredVaultMode;
   private stepCaptures: StepCaptureContext;
 
   constructor() {
@@ -189,6 +233,8 @@ export class VariableResolver {
     this.workspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
     this.fileRegistry = EMPTY_FILE_REGISTRY;
     this.liveRegistry = EMPTY_LIVE_REGISTRY;
+    this.totpRegistry = EMPTY_TOTP_REGISTRY;
+    this.deferredVaultMode = 'reject';
     this.stepCaptures = null;
   }
 
@@ -257,6 +303,27 @@ export class VariableResolver {
   }
 
   /**
+   * Install the TOTP registry — a precomputed snapshot of `name → code`
+   * for every `kind: 'totp'` vault entry. Pass {@link EMPTY_TOTP_REGISTRY}
+   * (the default) on the DNR compile path — TOTP-kind entries then
+   * surface as `unset-in-scope` and the rule is dropped from DNR, which
+   * is the correct semantics for codes whose validity is bounded by
+   * `period` seconds.
+   */
+  setTotpRegistry(registry: TotpRegistry): void {
+    this.totpRegistry = registry;
+  }
+
+  /**
+   * Pick how to handle a `kind: 'totp'` vault entry whose code is not
+   * in the registry. See {@link DeferredVaultMode} for the contract.
+   * Defaults to `'reject'` — keeps DNR safe.
+   */
+  setDeferredVaultMode(mode: DeferredVaultMode): void {
+    this.deferredVaultMode = mode;
+  }
+
+  /**
    * Install (or clear) the step-capture context for the duration of a
    * Live Workflow step's template resolution. Callers set this
    * immediately before resolving templates in a step's request, then
@@ -272,6 +339,36 @@ export class VariableResolver {
   }
 
   // ── Internal helpers ─────────────────────────────────────────────
+
+  /**
+   * Project a `VaultSecret` to a {@link ResolvedVariable} for the
+   * caller's resolution pass.
+   *
+   * `string` kind returns its stored value verbatim.
+   *
+   * `totp` kind first tries the precomputed code in the TOTP registry.
+   * On miss, the behavior depends on {@link deferredVaultMode}:
+   *   - `reject` (DNR-compile default) — return `null` so the entry
+   *     surfaces as `unset-in-scope` and the rule is dropped before
+   *     reaching Chrome's static rule store.
+   *   - `defer` (renderer opt-in) — return a `ResolvedVariable` with
+   *     `deferred: true` and an empty value. Renderer surfaces use
+   *     this for "is the reference valid?" checks without needing
+   *     a real code (the SW computes the actual code at request time).
+   */
+  private projectVaultValue(secret: VaultSecret, name: string): ResolvedVariable | null {
+    if (secret.kind === 'string') {
+      return { name, value: secret.value, scope: 'vault', isSensitive: true };
+    }
+    const code = this.totpRegistry.get(secret.name);
+    if (code !== undefined) {
+      return { name, value: code, scope: 'vault', isSensitive: true };
+    }
+    if (this.deferredVaultMode === 'defer') {
+      return { name, value: '', scope: 'vault', isSensitive: true, deferred: true };
+    }
+    return null;
+  }
 
   /**
    * Try to resolve `name` from a single environment by uid. Returns null
@@ -300,8 +397,16 @@ export class VariableResolver {
   resolve(name: string, context?: ResolutionContext): ResolvedVariable | null {
     // 1. Vault (highest priority)
     const vaultSecret = this.vault.secrets.find((s) => s.name === name);
-    if (vaultSecret?.value) {
-      return { name, value: vaultSecret.value, scope: 'vault', isSensitive: true };
+    if (vaultSecret) {
+      const projected = this.projectVaultValue(vaultSecret, name);
+      // String-kind: only fall through on empty string (preserves the
+      //   pre-discriminator behavior of "empty = look further down").
+      // TOTP-kind: a deferred entry is an explicit "yes, exists" — do
+      //   NOT fall through. A null projection means the registry is
+      //   empty AND mode='reject' — fall through is correct.
+      if (projected !== null && (projected.deferred || projected.value !== '')) {
+        return projected;
+      }
     }
 
     // 2. Active environment (context-override first, then configured active).
@@ -377,10 +482,15 @@ export class VariableResolver {
     switch (scope) {
       case 'vault': {
         const secret = this.vault.secrets.find((s) => s.name === name);
-        if (secret?.value) {
-          return { resolved: { name, value: secret.value, scope: 'vault', isSensitive: true } };
-        }
-        return { resolved: null };
+        if (!secret) return { resolved: null };
+        const projected = this.projectVaultValue(secret, name);
+        if (projected === null) return { resolved: null };
+        // Empty string-kind value falls through to `unset-in-scope` so
+        // the user fixes the underlying empty entry. Deferred TOTP
+        // entries report as resolved — the actual code lands at
+        // request execution.
+        if (!projected.deferred && projected.value === '') return { resolved: null };
+        return { resolved: projected };
       }
       case 'environment': {
         const activeEnvId = context?.environmentId ?? this.activeEnvironmentId;
