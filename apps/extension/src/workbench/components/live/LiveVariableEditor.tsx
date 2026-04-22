@@ -17,14 +17,14 @@
  * Phase 10 stale-draft discipline matches every other editor tab.
  */
 
-import { EyeInvisibleOutlined, EyeOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { EyeInvisibleOutlined, EyeOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import type { V5 } from '@openheaders/core/types';
-import { App, Button, Input, InputNumber, Radio, Select, Space, Switch, Tag, Typography, theme } from 'antd';
+import { App, Button, Input, InputNumber, Radio, Select, Switch, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import StaleDraftBanner from '../StaleDraftBanner';
@@ -40,6 +40,77 @@ import {
 import RefreshPolicyEditor from './RefreshPolicyEditor';
 
 const { Text, Title } = Typography;
+
+// ── Shared compact layout primitives ───────────────────────────────
+//
+// Label-left two-column grid; single source of truth for row rhythm
+// so Create + Edit stay visually aligned and tight. The label column
+// is fixed width so every input starts on the same vertical rule —
+// cheaper to scan than stacked CAPS labels above full-width fields.
+
+const ROW_LABEL_WIDTH = 108;
+const ROW_GAP = 12;
+
+const FieldRow: React.FC<{
+  label: string;
+  /** Tiny text shown under the label — e.g. reference syntax hint. */
+  hint?: React.ReactNode;
+  /** Vertically center the input against the label (default). Set to
+   *  `false` when the input is multi-line and should start-align. */
+  center?: boolean;
+  children: React.ReactNode;
+}> = ({ label, hint, center = true, children }) => {
+  const { token } = theme.useToken();
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `${ROW_LABEL_WIDTH}px 1fr`,
+        gap: ROW_GAP,
+        alignItems: center ? 'center' : 'start',
+        minHeight: 28,
+      }}
+    >
+      <div style={{ paddingTop: center ? 0 : 6 }}>
+        <Text style={{ fontSize: 12 }}>{label}</Text>
+        {hint && (
+          <div style={{ fontSize: 10, color: token.colorTextTertiary, lineHeight: 1.3, marginTop: 1 }}>{hint}</div>
+        )}
+      </div>
+      <div style={{ minWidth: 0 }}>{children}</div>
+    </div>
+  );
+};
+
+/** Section group — a titled rule with a labelled child stack. Replaces
+ *  the prior bordered boxes; the title sits inline with a thin bottom
+ *  divider instead of a full 1px border, which cuts ~12px padding and
+ *  still visually groups the rows. */
+const Section: React.FC<{ title: React.ReactNode; children: React.ReactNode }> = ({ title, children }) => {
+  const { token } = theme.useToken();
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          paddingBottom: 6,
+          marginBottom: 8,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          fontSize: 11,
+          fontWeight: 500,
+          color: token.colorTextSecondary,
+          textTransform: 'uppercase',
+          letterSpacing: 0.4,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{children}</div>
+    </div>
+  );
+};
 
 // ── Create mode ─────────────────────────────────────────────────────
 
@@ -276,218 +347,196 @@ const CreateMode: React.FC<CreateProps> = ({
   const bindCaptures = bindStep?.captures ?? [];
 
   return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 820, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <PlusOutlined style={{ fontSize: 18, color: token.colorPrimary }} />
-          <Title level={4} style={{ margin: 0 }}>
+    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
+      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <ThunderboltOutlined style={{ fontSize: 14, color: token.colorPrimary }} />
+          <Title level={5} style={{ margin: 0 }}>
             New Source
           </Title>
         </div>
 
-        <Space direction="vertical" size={14} style={{ width: '100%' }}>
-          <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              NAME (referenced as {'{{'}live.NAME{'}}'})
-            </Text>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <FieldRow
+            label="Name"
+            hint={
+              <>
+                Reference as {'{{'}live.NAME{'}}'}
+              </>
+            }
+          >
             <Input
+              size="small"
               placeholder="e.g. accessToken"
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             />
-          </div>
-          <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              DESCRIPTION
-            </Text>
+          </FieldRow>
+
+          <FieldRow label="Description" center={false}>
             <Input.TextArea
+              size="small"
               autoSize={{ minRows: 1, maxRows: 3 }}
               value={draft.description}
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             />
-          </div>
+          </FieldRow>
 
-          <div>
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-              SOURCE
-            </Text>
+          <FieldRow label="Source">
             <Radio.Group
+              size="small"
               value={draft.source}
               onChange={(e) => setDraft({ ...draft, source: e.target.value as SourceMode })}
               optionType="button"
               buttonStyle="solid"
               options={[
                 { value: 'single-request', label: 'Single request' },
-                { value: 'new-workflow', label: 'New multi-step workflow' },
-                { value: 'bind-existing', label: 'Bind to existing workflow' },
+                { value: 'new-workflow', label: 'New workflow' },
+                { value: 'bind-existing', label: 'Bind existing' },
               ]}
             />
-          </div>
+          </FieldRow>
 
           {draft.source === 'single-request' && (
-            <div
-              style={{
-                border: `1px solid ${token.colorBorderSecondary}`,
-                borderRadius: 6,
-                padding: 12,
-              }}
-            >
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    REQUEST
-                  </Text>
-                  <Select
-                    style={{ width: '100%' }}
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder="Select a request"
-                    value={draft.singleRequestUid || undefined}
-                    onChange={(singleRequestUid) => setDraft({ ...draft, singleRequestUid })}
-                    options={availableRequests.map((r) => ({
-                      value: r.uid,
-                      label: `${r.method} ${r.name}`,
-                    }))}
-                  />
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-                    EXTRACTOR
-                  </Text>
-                  <ExtractorEditor
-                    value={draft.singleExtractor}
-                    onChange={(singleExtractor) => setDraft({ ...draft, singleExtractor })}
-                  />
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-                    REFRESH POLICY
-                  </Text>
-                  <RefreshPolicyEditor
-                    value={draft.singleRefresh}
-                    onChange={(singleRefresh) => setDraft({ ...draft, singleRefresh })}
-                    availableCaptures={[
-                      {
-                        stepId: 'step1',
-                        captureName: draft.name || 'capture1',
-                        label: `step1.${draft.name || 'capture1'}`,
-                      },
-                    ]}
-                  />
-                </div>
+            <>
+              <FieldRow label="Request">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Select a request"
+                  value={draft.singleRequestUid || undefined}
+                  onChange={(singleRequestUid) => setDraft({ ...draft, singleRequestUid })}
+                  options={availableRequests.map((r) => ({
+                    value: r.uid,
+                    label: `${r.method} ${r.name}`,
+                  }))}
+                />
+              </FieldRow>
+              <FieldRow label="Extractor" center={false}>
+                <ExtractorEditor
+                  compact
+                  value={draft.singleExtractor}
+                  onChange={(singleExtractor) => setDraft({ ...draft, singleExtractor })}
+                />
+              </FieldRow>
+              <FieldRow label="Refresh" center={false}>
+                <RefreshPolicyEditor
+                  value={draft.singleRefresh}
+                  onChange={(singleRefresh) => setDraft({ ...draft, singleRefresh })}
+                  availableCaptures={[
+                    {
+                      stepId: 'step1',
+                      captureName: draft.name || 'capture1',
+                      label: `step1.${draft.name || 'capture1'}`,
+                    },
+                  ]}
+                />
+              </FieldRow>
+              <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP }}>
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   A 1-step workflow is created behind the scenes — edit it later via the sidebar.
                 </Text>
-              </Space>
-            </div>
+              </div>
+            </>
           )}
 
           {draft.source === 'new-workflow' && (
-            <div
-              style={{
-                border: `1px solid ${token.colorBorderSecondary}`,
-                borderRadius: 6,
-                padding: 12,
-              }}
-            >
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    WORKFLOW NAME
-                  </Text>
-                  <Input
-                    placeholder="e.g. auth-chain"
-                    value={draft.newWorkflowName}
-                    onChange={(e) => setDraft({ ...draft, newWorkflowName: e.target.value })}
-                  />
-                </div>
+            <>
+              <FieldRow label="Workflow name">
+                <Input
+                  size="small"
+                  placeholder="e.g. auth-chain"
+                  value={draft.newWorkflowName}
+                  onChange={(e) => setDraft({ ...draft, newWorkflowName: e.target.value })}
+                />
+              </FieldRow>
+              <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP }}>
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Creates an empty workflow and opens its editor. Add steps + captures, then re-open this editor with
-                  "Bind to existing workflow" to finish the LV.
+                  "Bind existing" to finish the binding.
                 </Text>
-              </Space>
-            </div>
+              </div>
+            </>
           )}
 
           {draft.source === 'bind-existing' && (
-            <div
-              style={{
-                border: `1px solid ${token.colorBorderSecondary}`,
-                borderRadius: 6,
-                padding: 12,
-              }}
-            >
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    WORKFLOW
-                  </Text>
-                  <Select
-                    style={{ width: '100%' }}
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder="Select a workflow"
-                    value={draft.bindWorkflowUid || undefined}
-                    onChange={(bindWorkflowUid) =>
-                      setDraft({ ...draft, bindWorkflowUid, bindStepId: '', bindCaptureName: '' })
-                    }
-                    options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                    notFoundContent={<Text type="secondary">No workflows yet.</Text>}
-                  />
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    STEP
-                  </Text>
-                  <Select
-                    style={{ width: '100%' }}
-                    placeholder="Select a step"
-                    disabled={!bindWorkflow}
-                    value={draft.bindStepId || undefined}
-                    onChange={(bindStepId) => setDraft({ ...draft, bindStepId, bindCaptureName: '' })}
-                    options={bindSteps.map((s) => ({ value: s.id, label: `${s.id} (${s.captures.length} captures)` }))}
-                  />
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    CAPTURE
-                  </Text>
-                  <Select
-                    style={{ width: '100%' }}
-                    placeholder="Select a capture"
-                    disabled={!bindStep}
-                    value={draft.bindCaptureName || undefined}
-                    onChange={(bindCaptureName) => setDraft({ ...draft, bindCaptureName })}
-                    options={bindCaptures.map((c) => ({
-                      value: c.name,
-                      label: `${c.name} — ${c.extractor.kind}`,
-                    }))}
-                  />
-                </div>
-              </Space>
-            </div>
+            <>
+              <FieldRow label="Workflow">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Select a workflow"
+                  value={draft.bindWorkflowUid || undefined}
+                  onChange={(bindWorkflowUid) =>
+                    setDraft({ ...draft, bindWorkflowUid, bindStepId: '', bindCaptureName: '' })
+                  }
+                  options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
+                  notFoundContent={<Text type="secondary">No workflows yet.</Text>}
+                />
+              </FieldRow>
+              <FieldRow label="Step">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  placeholder="Select a step"
+                  disabled={!bindWorkflow}
+                  value={draft.bindStepId || undefined}
+                  onChange={(bindStepId) => setDraft({ ...draft, bindStepId, bindCaptureName: '' })}
+                  options={bindSteps.map((s) => ({ value: s.id, label: `${s.id} (${s.captures.length} captures)` }))}
+                />
+              </FieldRow>
+              <FieldRow label="Capture">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  placeholder="Select a capture"
+                  disabled={!bindStep}
+                  value={draft.bindCaptureName || undefined}
+                  onChange={(bindCaptureName) => setDraft({ ...draft, bindCaptureName })}
+                  options={bindCaptures.map((c) => ({
+                    value: c.name,
+                    label: `${c.name} — ${c.extractor.kind}`,
+                  }))}
+                />
+              </FieldRow>
+            </>
           )}
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Switch checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
-              <Text>{draft.enabled ? 'Enabled' : 'Disabled'}</Text>
+          <div
+            style={{
+              display: 'flex',
+              gap: 20,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              marginTop: 6,
+              paddingTop: 10,
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
+              <Text style={{ fontSize: 12 }}>Enabled</Text>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Switch
+                size="small"
                 checked={draft.requireFreshOnRuleBuild}
                 onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
               />
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Block rule compile on stale cache (sync-warm)
+                Sync-warm
               </Text>
             </div>
+            <div style={{ flex: 1 }} />
+            <Button type="primary" size="small" onClick={() => void handleSave()} disabled={!draft.name.trim()}>
+              Create Source
+            </Button>
           </div>
-
-          <Button type="primary" onClick={() => void handleSave()} disabled={!draft.name.trim()}>
-            Create Source
-          </Button>
-        </Space>
+        </div>
       </div>
     </div>
   );
@@ -649,8 +698,8 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const level = classifyRun(run);
 
   return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 820, margin: '0 auto' }}>
+    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
+      <div style={{ maxWidth: 720, margin: '0 auto' }}>
         {staleDraft && (
           <StaleDraftBanner
             entityLabel="live variable"
@@ -661,50 +710,57 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
           />
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <span
             style={{
-              width: 10,
-              height: 10,
+              width: 8,
+              height: 8,
               borderRadius: '50%',
               background: statusColor(level),
               display: 'inline-block',
             }}
           />
-          <Title level={4} style={{ margin: 0 }}>
+          <Title level={5} style={{ margin: 0, fontFamily: "'SF Mono', monospace" }}>
             {`{{live.${lv.name}}}`}
           </Title>
-          <Tag color="purple">Live</Tag>
-          {!draft.enabled && <Tag>Disabled</Tag>}
-          {lv.manualOverride && <Tag color="orange">override</Tag>}
+          <Tag color="purple" style={{ marginInlineEnd: 0 }}>
+            Live
+          </Tag>
+          {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
+          {lv.manualOverride && (
+            <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+              override
+            </Tag>
+          )}
           <div style={{ flex: 1 }} />
-          <Button icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-            Refresh now
+          <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
+            Refresh
           </Button>
         </div>
 
-        {/* Current value */}
+        {/* Current value — single compact row */}
         <div
           style={{
             display: 'flex',
-            gap: 12,
-            padding: 10,
+            gap: 10,
+            padding: '6px 10px',
             background: token.colorFillAlter,
-            borderRadius: 6,
+            borderRadius: 4,
             marginBottom: 14,
             alignItems: 'center',
             flexWrap: 'wrap',
+            fontSize: 11,
           }}
         >
           <Text type="secondary" style={{ fontSize: 11 }}>
-            CURRENT VALUE
+            Value
           </Text>
           <Text
             style={{
               fontFamily: "'SF Mono', monospace",
               fontSize: 12,
               wordBreak: 'break-all',
-              maxWidth: 420,
+              maxWidth: 320,
             }}
           >
             {liveValue === null ? (
@@ -725,64 +781,77 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
           )}
           <div style={{ flex: 1 }} />
           <Text type="secondary" style={{ fontSize: 11 }}>
-            last: {run ? formatRelativeMs(run.extractedAt) : 'never'}
+            last {run ? formatRelativeMs(run.extractedAt) : 'never'}
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            expires: {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
+            · expires {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
           </Text>
           {run?.lastErrorMessage && (
             <Text type="danger" style={{ fontSize: 11 }}>
-              error: {run.lastErrorMessage}
+              · {run.lastErrorMessage}
               {run.lastErrorStepId ? ` (${run.lastErrorStepId})` : ''}
             </Text>
           )}
         </div>
 
-        <Space direction="vertical" size={14} style={{ width: '100%' }}>
-          <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              NAME (referenced as {'{{'}live.NAME{'}}'})
-            </Text>
-            <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-          </div>
-          <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              DESCRIPTION
-            </Text>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <FieldRow
+            label="Name"
+            hint={
+              <>
+                Reference as {'{{'}live.NAME{'}}'}
+              </>
+            }
+          >
+            <Input size="small" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+          </FieldRow>
+
+          <FieldRow label="Description" center={false}>
             <Input.TextArea
+              size="small"
               autoSize={{ minRows: 1, maxRows: 3 }}
               value={draft.description}
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             />
-          </div>
+          </FieldRow>
 
-          <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                BINDING
-              </Text>
-              {workflow && (
-                <>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    · {describeRefreshPolicy(workflow.refresh)}
-                  </Text>
-                  {openWorkflowTab && (
-                    <Button size="small" type="link" onClick={() => openWorkflowTab(workflow.uid, workflow.name)}>
-                      Open source flow
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Section
+            title={
+              <>
+                <span style={{ flex: 1 }}>Binding</span>
+                {workflow && (
+                  <>
+                    <Text type="secondary" style={{ fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>
+                      {describeRefreshPolicy(workflow.refresh)}
+                    </Text>
+                    {openWorkflowTab && (
+                      <Button
+                        size="small"
+                        type="link"
+                        style={{ padding: 0, fontSize: 11, height: 'auto' }}
+                        onClick={() => openWorkflowTab(workflow.uid, workflow.name)}
+                      >
+                        Open flow
+                      </Button>
+                    )}
+                  </>
+                )}
+              </>
+            }
+          >
+            <FieldRow label="Workflow">
               <Select
+                size="small"
                 style={{ width: '100%' }}
                 value={draft.workflowUid || undefined}
                 onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
                 options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
                 placeholder="Select a workflow"
               />
+            </FieldRow>
+            <FieldRow label="Step">
               <Select
+                size="small"
                 style={{ width: '100%' }}
                 value={draft.stepId || undefined}
                 onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
@@ -793,7 +862,10 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                 placeholder="Select a step"
                 disabled={!selectedWorkflow}
               />
+            </FieldRow>
+            <FieldRow label="Capture">
               <Select
+                size="small"
                 style={{ width: '100%' }}
                 value={draft.captureName || undefined}
                 onChange={(captureName) => setDraft({ ...draft, captureName })}
@@ -804,54 +876,29 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                 placeholder="Select a capture"
                 disabled={!selectedStep}
               />
-            </Space>
-          </div>
+            </FieldRow>
+          </Section>
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Switch checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
-              <Text>{draft.enabled ? 'Enabled' : 'Disabled'}</Text>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Switch
-                checked={draft.requireFreshOnRuleBuild}
-                onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
-              />
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Sync-warm (block rule compile on stale cache)
-              </Text>
-            </div>
-          </div>
-
-          {/* Manual override */}
-          <div
-            style={{
-              border: `1px solid ${token.colorBorderSecondary}`,
-              borderRadius: 6,
-              padding: 12,
-            }}
-          >
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
-              MANUAL OVERRIDE
-            </Text>
+          <Section title="Manual override">
             {draft.manualOverride ? (
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                <Input
-                  value={draft.manualOverride.value}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      manualOverride: { ...draft.manualOverride!, value: e.target.value },
-                    })
-                  }
-                  placeholder="Fixed override value"
-                />
-                <Space>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    Expires (wall-clock ms)
-                  </Text>
+              <>
+                <FieldRow label="Value">
+                  <Input
+                    size="small"
+                    value={draft.manualOverride.value}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        manualOverride: { ...draft.manualOverride!, value: e.target.value },
+                      })
+                    }
+                    placeholder="Fixed override value"
+                  />
+                </FieldRow>
+                <FieldRow label="Expires (ms)" hint="Wall-clock epoch ms — leave blank for permanent override">
                   <InputNumber
-                    style={{ width: 200 }}
+                    size="small"
+                    style={{ width: 220 }}
                     value={draft.manualOverride.until ?? null}
                     onChange={(until) =>
                       setDraft({
@@ -863,31 +910,62 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                       })
                     }
                   />
-                </Space>
-                <Space>
-                  <Button onClick={() => void handleSetOverride(draft.manualOverride)}>Apply override</Button>
+                </FieldRow>
+                <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP, display: 'flex', gap: 8 }}>
+                  <Button size="small" onClick={() => void handleSetOverride(draft.manualOverride)}>
+                    Apply override
+                  </Button>
                   <Button
+                    size="small"
                     danger
                     onClick={() => {
                       setDraft({ ...draft, manualOverride: null });
                       void handleSetOverride(null);
                     }}
                   >
-                    Clear override
+                    Clear
                   </Button>
-                </Space>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  While an override is active, the resolver serves the pinned value and the scheduler still refreshes
-                  the underlying workflow.
-                </Text>
-              </Space>
+                  <Text type="secondary" style={{ fontSize: 11, alignSelf: 'center' }}>
+                    Resolver serves the pinned value; scheduler still refreshes the underlying workflow.
+                  </Text>
+                </div>
+              </>
             ) : (
-              <Button onClick={() => setDraft({ ...draft, manualOverride: { value: '', until: null } })}>
-                Set manual override
-              </Button>
+              <div style={{ paddingLeft: ROW_LABEL_WIDTH + ROW_GAP }}>
+                <Button size="small" onClick={() => setDraft({ ...draft, manualOverride: { value: '', until: null } })}>
+                  Set manual override
+                </Button>
+              </div>
             )}
+          </Section>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: 20,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              marginTop: 4,
+              paddingTop: 10,
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
+              <Text style={{ fontSize: 12 }}>Enabled</Text>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Switch
+                size="small"
+                checked={draft.requireFreshOnRuleBuild}
+                onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
+              />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Sync-warm
+              </Text>
+            </div>
           </div>
-        </Space>
+        </div>
       </div>
     </div>
   );
