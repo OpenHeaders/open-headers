@@ -52,6 +52,7 @@ import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { putWorkflowRunCache, recordRefreshError } from './live-cache-store';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
+import { recordLog } from './observability-log';
 import { withRefreshRateLimit } from './refresh-scheduler';
 import { type ExecutedRequestSnapshot, executeForLiveChain } from './request-executor';
 import { getRequest } from './request-store';
@@ -191,14 +192,15 @@ async function commitSuccess(
   // Phase I: `outcome.stepCaptures` contains only COMPLETED steps.
   // Skipped steps (listed in `outcome.skippedStepIds`) are
   // intentionally absent — their prior cache entries survive the
-  // atomic commit and stay resolvable by `{{live.X}}`. Phase I-C will
-  // stream the skip list into the observability log so the Run
-  // summary can show which branches were taken.
+  // atomic commit and stay resolvable by `{{live.X}}`. Per-step skip
+  // entries land on the observability log below so exports carry the
+  // full branch-taken picture.
   if (outcome.skippedStepIds.length > 0) {
     logger.info(
       'LiveChainAdapter',
       `Workflow ${workflow.uid} refresh skipped ${outcome.skippedStepIds.length} step(s): ${outcome.skippedStepIds.join(', ')}`,
     );
+    emitSkipEntries(workspaceId, workflow, environmentId, outcome.skippedStepIds);
   }
 
   const stepCaptures: Record<string, Record<string, string>> = {};
@@ -218,6 +220,65 @@ async function commitSuccess(
     },
     workspaceId,
   );
+}
+
+/**
+ * Emit one `step-skipped` entry per skipped step, classifying the cause:
+ *
+ *   - `gate`     — the step's own `runIf` evaluated to false because a
+ *                  completed ancestor's captures/status didn't match.
+ *                  Expected, design-intended non-run.
+ *   - `cascade`  — a clause referenced an ancestor that was itself
+ *                  skipped. The skip propagates through absence.
+ *
+ * Classification is post-hoc but deterministic: we walk each skipped
+ * step's gate clauses and check whether any reference another skipped
+ * step. That's the only way a clause can evaluate false WITHOUT the
+ * ancestor completing (completed ancestors produce captures/status that
+ * either match or don't — both count as `gate`). The runner doesn't
+ * carry a reason field on the outcome; doing the classification here
+ * keeps the core return shape narrow.
+ *
+ * Values never appear in the emitted message — only step ids + counts +
+ * the cascade upstream id (itself a step id, not a captured value).
+ */
+function emitSkipEntries(
+  workspaceId: string,
+  workflow: V5.LiveWorkflow,
+  environmentId: string | null,
+  skippedStepIds: readonly string[],
+): void {
+  const skippedSet = new Set(skippedStepIds);
+  const stepIndex = new Map(workflow.steps.map((s) => [s.id, s]));
+  for (const stepId of skippedStepIds) {
+    const step = stepIndex.get(stepId);
+    const gate = step?.runIf;
+    let reason: 'gate' | 'cascade' = 'gate';
+    let upstream: string | undefined;
+    if (gate) {
+      for (const clause of gate.all) {
+        if (skippedSet.has(clause.stepId)) {
+          reason = 'cascade';
+          upstream = clause.stepId;
+          break;
+        }
+      }
+    }
+    recordLog({
+      subsystem: 'live',
+      op: 'step-skipped',
+      level: 'info',
+      message:
+        reason === 'cascade'
+          ? `Workflow ${workflow.uid} step "${stepId}" skipped (cascade from "${upstream}")`
+          : `Workflow ${workflow.uid} step "${stepId}" skipped (gate)`,
+      context: {
+        workspaceId,
+        workflowUid: workflow.uid,
+        environmentId,
+      },
+    });
+  }
 }
 
 async function commitFailure(

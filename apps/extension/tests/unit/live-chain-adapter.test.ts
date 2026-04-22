@@ -30,6 +30,7 @@ const putWorkflowRunCacheMock = vi.fn();
 const recordRefreshErrorMock = vi.fn();
 const setLiveRefreshAdapterMock = vi.fn();
 const getActiveWorkspaceIdMock = vi.fn<() => string>(() => 'ws-1');
+const recordLogMock = vi.fn();
 
 vi.mock('@utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -54,6 +55,10 @@ vi.mock('@/background/modules/live-refresh-scheduler', () => ({
 
 vi.mock('@/background/modules/workspace-store', () => ({
   getActiveWorkspaceId: () => getActiveWorkspaceIdMock(),
+}));
+
+vi.mock('@/background/modules/observability-log', () => ({
+  recordLog: (entry: unknown) => recordLogMock(entry),
 }));
 
 // ── Fixtures ──────────────────────────────────────────────────────
@@ -127,6 +132,7 @@ beforeEach(async () => {
   setLiveRefreshAdapterMock.mockReset();
   getActiveWorkspaceIdMock.mockReset();
   getActiveWorkspaceIdMock.mockReturnValue('ws-1');
+  recordLogMock.mockReset();
   adapterModule = await import('@/background/modules/live-chain-adapter');
 });
 
@@ -446,5 +452,168 @@ describe('expiresAt derivation', () => {
     });
     const [input] = putWorkflowRunCacheMock.mock.calls[0];
     expect(input.expiresAt).toBeNull();
+  });
+});
+
+// ── 8. Phase I skipped-step observability ────────────────────────
+
+describe('skipped-step observability (Phase I)', () => {
+  function findSkipEntries() {
+    return recordLogMock.mock.calls
+      .map(([entry]) => entry as { op: string; message: string; context: Record<string, unknown> })
+      .filter((entry) => entry.op === 'step-skipped');
+  }
+
+  it('emits no step-skipped entries when every step runs', async () => {
+    getRequestMock.mockImplementation((uid: string) => makeRequest({ uid }));
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot(JSON.stringify({ access_token: 'T' })));
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow(),
+      environmentId: null,
+    });
+
+    expect(findSkipEntries()).toHaveLength(0);
+  });
+
+  it('emits a `gate` reason when a runIf clause cites a completed ancestor', async () => {
+    getRequestMock.mockImplementation((uid: string) => makeRequest({ uid }));
+    // Ancestor returns `active: true` → refresh's gate wants
+    // `active == 'false'` → gate fails with reason `gate` (not cascade:
+    // the ancestor completed, its capture just didn't match).
+    executeForLiveChainMock.mockResolvedValueOnce(makeSnapshot(JSON.stringify({ active: true })));
+
+    const workflow = makeWorkflow({
+      steps: [
+        makeStep({
+          id: 'introspect',
+          requestUid: 'reqintro01',
+          captures: [{ name: 'active', extractor: { kind: 'json-path', path: '$.active' } }],
+        }),
+        makeStep({
+          id: 'refresh',
+          requestUid: 'reqrefrsh',
+          dependsOn: ['introspect'],
+          runIf: {
+            all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+          },
+          captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+        }),
+      ],
+    });
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow,
+      environmentId: 'env-prod',
+    });
+
+    const skipEntries = findSkipEntries();
+    expect(skipEntries).toHaveLength(1);
+    expect(skipEntries[0].message).toContain('refresh');
+    expect(skipEntries[0].message).toContain('gate');
+    expect(skipEntries[0].message).not.toContain('cascade');
+    expect(skipEntries[0].context.workflowUid).toBe('wflowxxx');
+    expect(skipEntries[0].context.environmentId).toBe('env-prod');
+  });
+
+  it('classifies cascade skips by referencing a skipped ancestor', async () => {
+    getRequestMock.mockImplementation((uid: string) => makeRequest({ uid }));
+    // Probe returns a value that makes `mid` skip. `final` depends on
+    // `mid` AND has a runIf clause that cites `mid.X` — mid was skipped
+    // so the clause returns false-by-absence → final also skips,
+    // classified as `cascade` with upstream='mid'.
+    executeForLiveChainMock.mockResolvedValueOnce(makeSnapshot(JSON.stringify({ flag: 'no' })));
+
+    const workflow = makeWorkflow({
+      steps: [
+        makeStep({
+          id: 'probe',
+          requestUid: 'reqprobe0',
+          captures: [{ name: 'flag', extractor: { kind: 'json-path', path: '$.flag' } }],
+        }),
+        makeStep({
+          id: 'mid',
+          requestUid: 'reqmid000',
+          dependsOn: ['probe'],
+          runIf: {
+            all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'yes' }],
+          },
+          captures: [{ name: 'midval', extractor: { kind: 'whole-body' } }],
+        }),
+        makeStep({
+          id: 'final',
+          requestUid: 'reqfinal0',
+          dependsOn: ['mid'],
+          runIf: {
+            all: [{ kind: 'capture-exists', stepId: 'mid', captureName: 'midval' }],
+          },
+          captures: [{ name: 'out', extractor: { kind: 'whole-body' } }],
+        }),
+      ],
+    });
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow,
+      environmentId: null,
+    });
+
+    const skipEntries = findSkipEntries();
+    expect(skipEntries).toHaveLength(2);
+    const midEntry = skipEntries.find((e) => e.message.includes('"mid"'));
+    const finalEntry = skipEntries.find((e) => e.message.includes('"final"'));
+    expect(midEntry).toBeTruthy();
+    // `mid`'s gate references `probe` (which completed) — reason=gate.
+    expect(midEntry!.message).toContain('gate');
+    expect(midEntry!.message).not.toContain('cascade');
+    // `final`'s gate references `mid` (which was skipped) → cascade.
+    expect(finalEntry).toBeTruthy();
+    expect(finalEntry!.message).toContain('cascade');
+    expect(finalEntry!.message).toContain('"mid"');
+  });
+
+  it('does not leak captured values into the log message', async () => {
+    getRequestMock.mockImplementation((uid: string) => makeRequest({ uid }));
+    executeForLiveChainMock.mockResolvedValueOnce(
+      makeSnapshot(JSON.stringify({ secret: 'sk-live-abc123', active: true })),
+    );
+
+    const workflow = makeWorkflow({
+      steps: [
+        makeStep({
+          id: 'introspect',
+          requestUid: 'reqintro01',
+          captures: [
+            { name: 'active', extractor: { kind: 'json-path', path: '$.active' } },
+            { name: 'secret', extractor: { kind: 'json-path', path: '$.secret' } },
+          ],
+        }),
+        makeStep({
+          id: 'refresh',
+          requestUid: 'reqrefrsh',
+          dependsOn: ['introspect'],
+          runIf: {
+            all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+          },
+          captures: [{ name: 'token', extractor: { kind: 'whole-body' } }],
+        }),
+      ],
+    });
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow,
+      environmentId: null,
+    });
+
+    const skipEntries = findSkipEntries();
+    expect(skipEntries).toHaveLength(1);
+    // Captured values must never appear in the exportable log — the
+    // message only names step ids + reason.
+    expect(skipEntries[0].message).not.toContain('sk-live-abc123');
+    expect(skipEntries[0].message).not.toContain('true');
+    expect(skipEntries[0].message).not.toMatch(/secret/i);
   });
 });

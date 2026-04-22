@@ -5,19 +5,32 @@
  * Phase 10 stale-draft discipline as every other editor: snapshots
  * `version` on first arrival, sends it as `expectedVersion` on save,
  * surfaces `StaleDraftBanner` on rejection.
+ *
+ * Phase I responsibilities, in addition to existing Phase A editing:
+ *   - Runs `validateWorkflowShape` against the draft on every change
+ *     so per-step inline errors (cycle, unknown dep, unreachable
+ *     gate/priority ref, unknown capture) render without a save attempt.
+ *   - Threads dependency-layout metadata (`buildDependencyRows`) into
+ *     each step editor for indented-tree visualization.
+ *   - Surfaces workflow-level structural errors (no-root-step,
+ *     depends-on-cycle) as a dedicated alert near the step list.
+ *   - Renders the disabled "Run independent steps in parallel" toggle
+ *     per the show-but-disable catalog.
  */
 
-import { PlayCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, PlayCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
+import { validateWorkflowShape } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
-import { App, Button, Input, Space, Switch, Tag, Typography, theme } from 'antd';
+import { Alert, App, Button, Input, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import StaleDraftBanner from '../StaleDraftBanner';
+import { buildDependencyRows } from './dependencies-view';
 import { classifyRun, describeRefreshPolicy, formatRelativeMs, pickActiveRun, statusColor } from './live-display';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
 import WorkflowStepEditor from './WorkflowStepEditor';
@@ -109,6 +122,54 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  // ── Draft-as-workflow for validation + dependency layout ────────
+  //
+  // `validateWorkflowShape` + `buildDependencyRows` need a complete
+  // `LiveWorkflow` shape; our draft drops the fields they don't touch
+  // (`uid`, `path`, `schemaVersion`, `version`). We splice them in
+  // from the persisted workflow so the validator sees a coherent whole
+  // without plumbing a narrower "shape snapshot" type.
+  const draftWorkflow: V5.LiveWorkflow | null = useMemo(() => {
+    if (!workflow || !draft) return null;
+    return {
+      ...workflow,
+      name: draft.name,
+      description: draft.description.trim() ? draft.description : undefined,
+      steps: draft.steps,
+      refresh: draft.refresh,
+      enabled: draft.enabled,
+    };
+  }, [workflow, draft]);
+
+  const validationErrors = useMemo(() => (draftWorkflow ? validateWorkflowShape(draftWorkflow) : []), [draftWorkflow]);
+
+  const errorsByStepId = useMemo(() => {
+    const map = new Map<string, typeof validationErrors>();
+    for (const err of validationErrors) {
+      if (err.stepId === null) continue;
+      const bucket = map.get(err.stepId) ?? [];
+      bucket.push(err);
+      map.set(err.stepId, bucket);
+    }
+    return map;
+  }, [validationErrors]);
+
+  const workflowLevelErrors = useMemo(() => validationErrors.filter((e) => e.stepId === null), [validationErrors]);
+
+  const dependencyRows = useMemo(() => (draftWorkflow ? buildDependencyRows(draftWorkflow) : []), [draftWorkflow]);
+
+  const capturesByStepId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!draftWorkflow) return map;
+    for (const step of draftWorkflow.steps) {
+      map.set(
+        step.id,
+        step.captures.map((c) => c.name),
+      );
+    }
+    return map;
+  }, [draftWorkflow]);
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
@@ -325,13 +386,52 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Switch checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Switch
+              aria-label="Workflow enabled"
+              checked={draft.enabled}
+              onChange={(enabled) => setDraft({ ...draft, enabled })}
+            />
             <Text>{draft.enabled ? 'Enabled' : 'Disabled'}</Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
               — disabled workflows skip the refresh scheduler entirely.
             </Text>
+            <div style={{ flex: 1 }} />
+            <Tooltip title="Sequential only in v1. Parallel execution coming in a future release.">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  opacity: 0.6,
+                  cursor: 'not-allowed',
+                }}
+              >
+                <Switch aria-label="Run independent steps in parallel" size="small" checked={false} disabled />
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  Run independent steps in parallel
+                </Text>
+                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
+              </div>
+            </Tooltip>
           </div>
+
+          {workflowLevelErrors.length > 0 && (
+            <Alert
+              type="error"
+              showIcon
+              message="Workflow has structural issues"
+              description={
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {workflowLevelErrors.map((err) => (
+                    <li key={`${err.issue}:${err.stepId ?? ''}:${err.referencedStepId ?? ''}`} style={{ fontSize: 12 }}>
+                      {err.message}
+                    </li>
+                  ))}
+                </ul>
+              }
+            />
+          )}
 
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -342,19 +442,37 @@ const LiveWorkflowEditor: React.FC<LiveWorkflowEditorProps> = ({ workflowUid, on
                 Step
               </Button>
             </div>
-            {draft.steps.map((step, idx) => (
-              <WorkflowStepEditor
-                key={step.id || `step-${idx}`}
-                step={step}
-                index={idx}
-                totalSteps={draft.steps.length}
-                availableRequests={availableRequests}
-                onChange={(next) => updateStep(idx, next)}
-                onRemove={() => removeStep(idx)}
-                onMoveUp={() => moveStep(idx, -1)}
-                onMoveDown={() => moveStep(idx, 1)}
-              />
-            ))}
+            {draft.steps.map((step, idx) => {
+              const row = dependencyRows[idx];
+              // Other step ids for the dependsOn multi-select — excluding
+              // self (a step can't depend on itself; validator would flag).
+              const allStepIds = draft.steps
+                .filter((s) => s.id !== step.id && s.id.length > 0)
+                .map((s) => ({ id: s.id, label: s.id }));
+              // Reachable ancestors — only these can be referenced from
+              // runIf / priorityFrom. The transitive set is computed by
+              // `buildDependencyRows` via the core validator's helper.
+              const reachableSteps = Array.from(row?.reachable ?? []).map((id) => ({ id, label: id }));
+              const stepErrors = errorsByStepId.get(step.id) ?? [];
+              return (
+                <WorkflowStepEditor
+                  key={step.id || `step-${idx}`}
+                  step={step}
+                  index={idx}
+                  totalSteps={draft.steps.length}
+                  availableRequests={availableRequests}
+                  onChange={(next) => updateStep(idx, next)}
+                  onRemove={() => removeStep(idx)}
+                  onMoveUp={() => moveStep(idx, -1)}
+                  onMoveDown={() => moveStep(idx, 1)}
+                  allStepIds={allStepIds}
+                  reachableSteps={reachableSteps}
+                  capturesByStepId={capturesByStepId}
+                  errors={stepErrors}
+                  dependencyRow={row}
+                />
+              );
+            })}
           </div>
 
           <div>
