@@ -31,19 +31,22 @@ export type ScriptKind = 'pre-request' | 'post-response';
  * Lightweight view of the outgoing request the script can read in
  * pre-request mode and read-only inspect in test mode. Headers + params
  * are carried as ordered tuples to preserve the user's edit intent.
+ *
+ * `body` mirrors the persistence-layer `V5.RequestBody` discriminated
+ * union — same variants, same field names — so a pre-request script
+ * can return `{ type: 'form', formParts: [...] }` and the host can
+ * apply the mutation without re-shaping. File parts are surfaced by
+ * their `FileRef` metadata only; raw bytes don't cross the sandbox
+ * boundary (scripts can't read or modify the wire blobs).
  */
+export type RequestSnapshotBody = V5.RequestBody;
+
 export interface RequestSnapshot {
   method: V5.HttpMethod;
   url: string;
   headers: Array<{ key: string; value: string }>;
   params: Array<{ key: string; value: string }>;
-  body: {
-    type: V5.BodyType;
-    /** Text content for json / xml / text / form / graphql bodies. */
-    content?: string;
-    /** Structured multipart parts — file-part bytes are not surfaced to scripts. */
-    multipartParts?: V5.MultipartPart[];
-  };
+  body: RequestSnapshotBody;
 }
 
 /**
@@ -89,8 +92,9 @@ export interface RequestMutation {
   headers?: Array<{ key: string; value: string }>;
   /** Full replacement for the request's param list. */
   params?: Array<{ key: string; value: string }>;
-  /** New body shape. Omit to leave the body untouched. */
-  body?: RequestSnapshot['body'];
+  /** New body shape — same discriminated union as `RequestSnapshot.body`.
+   *  Omit to leave the body untouched. */
+  body?: RequestSnapshotBody;
 }
 
 /**

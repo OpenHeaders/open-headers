@@ -360,16 +360,42 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         if (auth.value) authStrings.push(auth.value);
         break;
     }
+    // Body walk — exhaustive over the discriminated union so an
+    // unresolved `{{ref}}` in a form / graphql variant is reflected
+    // in the section badge, not silently dropped. Mirrors the
+    // collector in `core/live/request-scan.ts`.
     const bodyStrings: string[] = [];
     const body = draft.body;
-    if (body.type === 'multipart') {
-      for (const part of body.multipartParts ?? []) {
-        if (part.enabled === false) continue;
-        if (part.name) bodyStrings.push(part.name);
-        if (part.kind === 'text' && part.value) bodyStrings.push(part.value);
+    switch (body.type) {
+      case 'none':
+        break;
+      case 'json':
+      case 'xml':
+      case 'text':
+        if (body.content) bodyStrings.push(body.content);
+        break;
+      case 'graphql':
+        if (body.content) bodyStrings.push(body.content);
+        if (body.graphqlVariables) bodyStrings.push(body.graphqlVariables);
+        break;
+      case 'form':
+        for (const part of body.formParts) {
+          if (part.enabled === false) continue;
+          if (part.key) bodyStrings.push(part.key);
+          if (part.value) bodyStrings.push(part.value);
+        }
+        break;
+      case 'multipart':
+        for (const part of body.multipartParts) {
+          if (part.enabled === false) continue;
+          if (part.name) bodyStrings.push(part.name);
+          if (part.kind === 'text' && part.value) bodyStrings.push(part.value);
+        }
+        break;
+      default: {
+        const _exhaustive: never = body;
+        void _exhaustive;
       }
-    } else if (body.type !== 'none' && body.content) {
-      bodyStrings.push(body.content);
     }
     return {
       url: anyUnresolved(urlStrings),

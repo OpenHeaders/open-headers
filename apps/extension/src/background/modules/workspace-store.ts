@@ -63,6 +63,39 @@ function notifyChange(): void {
   for (const fn of listeners) fn();
 }
 
+/**
+ * Active-workspace-pointer listeners. Distinct from the generic
+ * `onWorkspaceStoreChange` because the latter fires on EVERY mutation
+ * (workspace renames, list reorders, vault edits), and reactive
+ * subscribers — the live-refresh scheduler's switch-warm pass in
+ * particular — care only about the active-pointer flip. Subscribing
+ * to the generic event would refresh on every keystroke that touches
+ * a workspace name; this typed event fires once per real switch.
+ *
+ * Listener receives `(newId, prevId)` so a subscriber that needs to
+ * unwind state for the outgoing workspace can do so with one
+ * subscription (no shadowed prev-id state in user-land).
+ */
+type ActiveWorkspaceListener = (newId: string, prevId: string | null) => void;
+const activeListeners: Set<ActiveWorkspaceListener> = new Set();
+
+export function onActiveWorkspaceChange(listener: ActiveWorkspaceListener): () => void {
+  activeListeners.add(listener);
+  return () => activeListeners.delete(listener);
+}
+
+function notifyActiveChange(newId: string, prevId: string | null): void {
+  for (const fn of activeListeners) {
+    try {
+      fn(newId, prevId);
+    } catch {
+      // Subscriber failures don't unwind the switch — the active
+      // pointer is already flipped. Errors here would be in the
+      // subscriber's own handler; let them surface there.
+    }
+  }
+}
+
 // ── Reads ─────────────────────────────────────────────────────────────
 
 /** Current workspace list, sorted by sortIndex (ascending), then createdAt. */
@@ -239,6 +272,7 @@ export async function deleteWorkspace(id: string): Promise<string | null> {
       if (idx === -1) return activeWorkspaceId;
 
       const wasActive = activeWorkspaceId === id;
+      const prevActiveId = activeWorkspaceId;
       workspaces = [...workspaces.slice(0, idx), ...workspaces.slice(idx + 1)];
 
       if (wasActive) {
@@ -249,6 +283,15 @@ export async function deleteWorkspace(id: string): Promise<string | null> {
       }
       await persistWorkspaces();
       await persistActiveId();
+      // Auto-promotion after deleting the active workspace IS a switch
+      // — reactive subscribers (live-refresh scheduler's switch-warm
+      // pass) must see it as one. Without this notify the scheduler
+      // would keep firing alarms against the deleted workspace until
+      // the next reconcile, and the new active workspace's stale LVs
+      // wouldn't get a warm pass.
+      if (wasActive && activeWorkspaceId && activeWorkspaceId !== prevActiveId) {
+        notifyActiveChange(activeWorkspaceId, prevActiveId);
+      }
       return activeWorkspaceId;
     },
     { op: 'workspace-delete' },
@@ -298,8 +341,10 @@ export async function setActiveWorkspaceId(id: string): Promise<boolean> {
   const target = workspaces.find((w) => w.id === id);
   if (!target) return false;
   if (activeWorkspaceId === id) return true;
+  const prevId = activeWorkspaceId;
   activeWorkspaceId = id;
   await persistActiveId();
+  notifyActiveChange(id, prevId);
   return true;
 }
 

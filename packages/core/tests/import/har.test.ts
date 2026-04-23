@@ -255,7 +255,13 @@ describe('parseHar — body', () => {
         }),
       ]),
     );
-    expect(entries[0].request.body).toEqual({ type: 'form', content: 'a=1&b=2' });
+    expect(entries[0].request.body).toEqual({
+      type: 'form',
+      formParts: [
+        { key: 'a', value: '1' },
+        { key: 'b', value: '2' },
+      ],
+    });
   });
 
   it('synthesizes body.form from postData.params when text is missing', () => {
@@ -275,7 +281,13 @@ describe('parseHar — body', () => {
         }),
       ]),
     );
-    expect(entries[0].request.body).toEqual({ type: 'form', content: 'a=1&b=hello%20world' });
+    expect(entries[0].request.body).toEqual({
+      type: 'form',
+      formParts: [
+        { key: 'a', value: '1' },
+        { key: 'b', value: 'hello world' },
+      ],
+    });
   });
 
   it('reconciles multipart bodies into placeholder-file parts', () => {
@@ -297,6 +309,7 @@ describe('parseHar — body', () => {
     );
     const body = entries[0].request.body;
     expect(body.type).toBe('multipart');
+    if (body.type !== 'multipart') throw new Error('expected multipart body');
     expect(body.multipartParts).toEqual([
       { kind: 'text', name: 'title', value: 'my photo' },
       {

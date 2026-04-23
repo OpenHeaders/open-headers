@@ -167,7 +167,10 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
   scheduleUpdate('workspace', { immediate: true });
 
   // Flip the active pointer last. workspace-store's listener in
-  // background.ts broadcasts `workspaceChanged` automatically.
+  // background.ts broadcasts `workspaceChanged` automatically; the
+  // typed `onActiveWorkspaceChange` event also fires here so reactive
+  // subscribers (live-refresh scheduler's switch-warm pass) reschedule
+  // without the orchestrator having to know about them.
   await setActiveWorkspaceId(targetId);
   logger.info('WorkspaceOrchestrator', `Switched to workspace ${targetId}`);
   recordLog({

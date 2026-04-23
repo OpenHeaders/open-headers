@@ -817,16 +817,31 @@ function buildBody(
       const contentType = contentTypeOf(headers) ?? '';
       if (/application\/json/i.test(contentType)) return { type: 'json', content };
       if (/application\/xml|text\/xml/i.test(contentType)) return { type: 'xml', content };
-      if (/application\/x-www-form-urlencoded/i.test(contentType)) return { type: 'form', content };
+      if (/application\/x-www-form-urlencoded/i.test(contentType)) {
+        // Promote the raw text to structured form fields so the editor's
+        // form-urlencoded tab renders them. Importers seeing a `raw`
+        // body with a urlencoded Content-Type usually mean the user
+        // copy-pasted `key=value&key2=value2` into the raw box.
+        return { type: 'form', formParts: parseUrlEncodedToFormFields(content) };
+      }
       return { type: 'text', content };
     }
     case 'urlencoded': {
       const items = Array.isArray(body.urlencoded) ? body.urlencoded : [];
-      const encoded = items
-        .filter((p) => !p.disabled && p.key)
-        .map((p) => `${encodeURIComponent(p.key ?? '')}=${encodeURIComponent(p.value ?? '')}`)
-        .join('&');
-      return { type: 'form', content: encoded };
+      // Postman's urlencoded mode is structured already — preserve the
+      // per-row enabled flag + description so importing a Postman
+      // collection round-trips through our editor without losing any
+      // metadata. Disabled rows persist; description goes into the per
+      // row note column.
+      const formParts = items
+        .filter((p) => p.key)
+        .map((p) => ({
+          key: p.key ?? '',
+          value: typeof p.value === 'string' ? p.value : '',
+          enabled: p.disabled ? false : undefined,
+          description: typeof p.description === 'string' && p.description ? p.description : undefined,
+        }));
+      return { type: 'form', formParts };
     }
     case 'graphql': {
       const gql = body.graphql ?? {};
@@ -920,6 +935,35 @@ function contentTypeOf(headers: readonly RequestHeader[]): string | null {
     if (h.key.toLowerCase() === 'content-type') return h.value;
   }
   return null;
+}
+
+/**
+ * Split a `key=value&key2=value2` string into structured form fields.
+ * URL-decoding of both key and value matches what the wire decoder
+ * does, so what the user sees in the editor is what the executor will
+ * send. Empty `=` keys (`=value`, `key=`) are kept — the executor
+ * preserves them too. A bare `?` row with no `=` becomes a key-only
+ * field with empty value.
+ */
+function parseUrlEncodedToFormFields(encoded: string): Array<{ key: string; value: string }> {
+  if (!encoded) return [];
+  const out: Array<{ key: string; value: string }> = [];
+  for (const segment of encoded.split('&')) {
+    if (segment.length === 0) continue;
+    const eq = segment.indexOf('=');
+    const rawKey = eq < 0 ? segment : segment.slice(0, eq);
+    const rawValue = eq < 0 ? '' : segment.slice(eq + 1);
+    out.push({ key: safeUrlDecode(rawKey), value: safeUrlDecode(rawValue) });
+  }
+  return out;
+}
+
+function safeUrlDecode(s: string): string {
+  try {
+    return decodeURIComponent(s.replace(/\+/g, ' '));
+  } catch {
+    return s;
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────

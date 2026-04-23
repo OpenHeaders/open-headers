@@ -50,7 +50,8 @@ import type { V5 } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
-import { extensionStorage, OH, wsKeys } from '@/shared/storage';
+import { extensionStorage, OH } from '@/shared/storage';
+import { getActiveEnvironmentId, onActiveEnvironmentChange } from './environment-store';
 import {
   listCachesForWorkflow,
   listWorkflowRunCaches,
@@ -63,6 +64,7 @@ import { getLiveWorkflows, onLiveWorkflowStoreChange } from './live-workflow-sto
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 import { getRequest } from './request-store';
+import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -198,70 +200,46 @@ interface LiveEntry {
 }
 
 // ── Reconcile data collection ─────────────────────────────────────
+//
+// Active-workspace-only: the scheduler ONLY refreshes workflows that
+// belong to the workspace the user is currently using. Inactive
+// workspaces' workflows go quiet on disk — their cache rows survive
+// (so switching back finds them still-fresh within the cadence
+// window) but no alarms fire for them. This is by design:
+//   • OAuth refresh tokens for unused workspaces stop rotating
+//     server-side, shrinking the always-live attack surface.
+//   • Battery + network costs scale with what the user actually
+//     touches, not with how many workspaces exist on disk.
+//   • Refresh failures (rotated creds, locked accounts, network
+//     blips) only generate noise for workspaces the user can
+//     observe + fix.
+//
+// On workspace switch, `kickActiveContextRefresh` (below) drives a
+// best-effort warm pass for the new context's missing/stale rows so
+// the user doesn't see a silent "no cache for env X" gap on a
+// workspace they actively work in.
 
 async function collectEntries(): Promise<LiveEntry[]> {
-  const out: LiveEntry[] = [];
-
-  // ── Active workspace (in-memory snapshot) ────────────────────
   const activeWorkflows = getLiveWorkflows();
   const activeId = (await extensionStorage.get(OH.activeWorkspaceId)) ?? '';
-  if (activeWorkflows.length > 0 && typeof activeId === 'string' && activeId.length > 0) {
-    for (const workflow of activeWorkflows) {
-      const runs = await listCachesForWorkflow(workflow.uid, activeId);
-      const envs: Array<string | null> = runs.length > 0 ? runs.map((r) => r.environmentId) : [null];
-      const boundVariables = getLiveVariablesForWorkflow(workflow.uid);
-      for (const envId of envs) {
-        out.push({
-          workspaceId: activeId,
-          workflow,
-          boundVariables,
-          cache: runs.find((r) => r.environmentId === envId) ?? null,
-          environmentId: envId,
-        });
-      }
+  if (activeWorkflows.length === 0 || typeof activeId !== 'string' || activeId.length === 0) return [];
+
+  const out: LiveEntry[] = [];
+  for (const workflow of activeWorkflows) {
+    const runs = await listCachesForWorkflow(workflow.uid, activeId);
+    const envs: Array<string | null> = runs.length > 0 ? runs.map((r) => r.environmentId) : [null];
+    const boundVariables = getLiveVariablesForWorkflow(workflow.uid);
+    for (const envId of envs) {
+      out.push({
+        workspaceId: activeId,
+        workflow,
+        boundVariables,
+        cache: runs.find((r) => r.environmentId === envId) ?? null,
+        environmentId: envId,
+      });
     }
   }
-
-  // ── Inactive workspaces (read directly from storage) ─────────
-  const workspaces = (await extensionStorage.get(OH.workspaces)) ?? [];
-  for (const ws of workspaces) {
-    if (ws.id === activeId) continue; // already handled via in-memory path
-    const stored = await readInactiveWorkspace(ws.id);
-    for (const workflow of stored.workflows) {
-      const runs = stored.runs.filter((r) => r.workflowUid === workflow.uid);
-      const envs: Array<string | null> = runs.length > 0 ? runs.map((r) => r.environmentId) : [null];
-      const boundVariables = stored.variables.filter((v) => v.workflowUid === workflow.uid);
-      for (const envId of envs) {
-        out.push({
-          workspaceId: ws.id,
-          workflow,
-          boundVariables,
-          cache: runs.find((r) => r.environmentId === envId) ?? null,
-          environmentId: envId,
-        });
-      }
-    }
-  }
-
   return out;
-}
-
-async function readInactiveWorkspace(workspaceId: string): Promise<{
-  workflows: V5.LiveWorkflow[];
-  variables: V5.LiveVariable[];
-  runs: WorkflowRunCache[];
-}> {
-  const k = wsKeys(workspaceId);
-  const [workflows, variables, runs] = await Promise.all([
-    extensionStorage.get(k.liveWorkflows),
-    extensionStorage.get(k.liveVariables),
-    listWorkflowRunCaches(workspaceId),
-  ]);
-  return {
-    workflows: Array.isArray(workflows) ? workflows : [],
-    variables: Array.isArray(variables) ? variables : [],
-    runs,
-  };
 }
 
 // ── Dependency graph ─────────────────────────────────────────────
@@ -272,11 +250,12 @@ async function readInactiveWorkspace(workspaceId: string): Promise<{
 // refreshes fire AFTER upstream on the same wake wave, and to spread
 // the cohort across the per-host rate limiter's budget.
 //
-// Inactive-workspace entries don't participate — their step requests
-// live in inactive stores the `request-store.getRequest` accessor
-// can't reach synchronously. Missing lookups degrade to "no deps for
-// this entry," which is equivalent to scheduling in definition order
-// (the plan's documented fallback when a graph can't be resolved).
+// All entries belong to the active workspace (active-workspace-only
+// scheduling — see `collectEntries`). Step requests resolve through
+// `request-store.getRequest`'s synchronous active-workspace view; a
+// missing lookup degrades to "no deps for this entry," equivalent to
+// scheduling in definition order (the plan's documented fallback when
+// a graph can't be resolved).
 
 function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]> {
   const out = new Map<string, string[]>();
@@ -285,9 +264,7 @@ function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]
   // Build an LV-name → workflow-uid index ONCE per reconcile. Only
   // enabled LVs produce values that would trigger a rebuild of the
   // consuming rule set, so a disabled binding doesn't warrant a dep
-  // edge. Active-workspace LVs come from the in-memory store; inactive
-  // workspaces are ignored for the same reason as above (scheduler
-  // executes only the active workspace's chains).
+  // edge.
   const lvNameToWorkflow = new Map<string, string>();
   for (const lv of getLiveVariables()) {
     if (lv.enabled) lvNameToWorkflow.set(lv.name, lv.workflowUid);
@@ -339,26 +316,19 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache> =
   encodeAlarmFromPayload: (payload) => codec.encode(payload),
   listAll: () => collectEntries(),
   async getByAlarm(payload) {
-    // Lookup: first try the active workspace's in-memory store, then
-    // fall back to on-disk blobs for an inactive workspace. Mirrors
-    // `collectEntries` so a single-alarm dispatch sees the same job
-    // shape reconcile saw when scheduling.
-    let workflow: V5.LiveWorkflow | undefined = getLiveWorkflows().find((w) => w.uid === payload.u);
-    let boundVariables: V5.LiveVariable[] = [];
-    let cache: WorkflowRunCache | null = null;
-    if (workflow) {
-      boundVariables = getLiveVariablesForWorkflow(payload.u);
-      const runs = await listCachesForWorkflow(payload.u, payload.w);
-      cache = runs.find((r) => r.environmentId === payload.e) ?? null;
-    } else {
-      const stored = await readInactiveWorkspace(payload.w);
-      workflow = stored.workflows.find((w) => w.uid === payload.u);
-      if (workflow) {
-        boundVariables = stored.variables.filter((v) => v.workflowUid === payload.u);
-        cache = stored.runs.find((r) => r.workflowUid === payload.u && r.environmentId === payload.e) ?? null;
-      }
-    }
+    // Active-workspace-only: an alarm whose workspace id no longer
+    // matches the active workspace returns null. The shared
+    // RefreshScheduler treats null as "orphan — cancel this alarm",
+    // which is the right behavior on a workspace switch (alarms
+    // scheduled under the previous workspace get garbage-collected
+    // on the next reconcile).
+    const activeId = (await extensionStorage.get(OH.activeWorkspaceId)) ?? '';
+    if (payload.w !== activeId) return null;
+    const workflow = getLiveWorkflows().find((w) => w.uid === payload.u);
     if (!workflow) return null;
+    const boundVariables = getLiveVariablesForWorkflow(payload.u);
+    const runs = await listCachesForWorkflow(payload.u, payload.w);
+    const cache = runs.find((r) => r.environmentId === payload.e) ?? null;
     return {
       workspaceId: payload.w,
       workflow,
@@ -553,6 +523,69 @@ export async function refreshLiveWorkflowSynchronously(
 }
 
 /**
+ * Drive an opportunistic warm pass for the active (workspace, env)
+ * context. Called when the user switches workspaces or environments.
+ *
+ * Walks the active workspace's enabled live variables; for each one
+ * whose backing workflow has NO cache row (or a stale one) for the
+ * new active env, enqueues a refresh via the alarm path. The alarm
+ * path fires immediately when scheduled with a 0-delay window, then
+ * the standard cadence resumes from the new extractedAt.
+ *
+ * Intentionally fire-and-forget — the caller (workspace/env switch)
+ * shouldn't block UI on N OAuth round-trips. Sync-warm LVs
+ * (`requireFreshOnRuleBuild: true`) get a separate blocking path
+ * inside the DNR compile pipeline; this hook covers the async-warm
+ * majority who should see fresh values "soon" after a switch without
+ * blocking the switch itself.
+ *
+ * Throttling: the underlying RefreshScheduler honors the per-host
+ * rate limiter, so kicking 10 refreshes for the same provider host
+ * spreads them across the budget rather than slamming the endpoint.
+ */
+export async function kickActiveContextRefresh(
+  activeWorkspaceId: string,
+  activeEnvironmentId: string | null,
+  nowMs: number = Date.now(),
+): Promise<void> {
+  const workflows = getLiveWorkflows();
+  if (workflows.length === 0) return;
+  const lvs = getLiveVariables().filter((v) => v.enabled);
+  if (lvs.length === 0) return;
+
+  // De-dupe targets: many LVs may bind the same workflow, but one
+  // workflow run produces every binding's value. Map lookup by uid.
+  const targetWorkflowUids = new Set<string>();
+  for (const lv of lvs) targetWorkflowUids.add(lv.workflowUid);
+
+  for (const workflow of workflows) {
+    if (!targetWorkflowUids.has(workflow.uid)) continue;
+    const runs = await listCachesForWorkflow(workflow.uid, activeWorkspaceId);
+    const cache = runs.find((r) => r.environmentId === activeEnvironmentId) ?? null;
+    if (cache != null) {
+      // Existing row — let the cadence math decide whether it needs
+      // a refresh now (expired / stale). `scheduleLiveWorkflowRefresh`
+      // is a no-op when the next-fire time is far in the future.
+      const summary = toCacheSummary(cache);
+      const nextAt = computeNextFireAtCore(workflow, summary, nowMs);
+      // Already fresh + scheduled — nothing to do.
+      if (nextAt != null && nextAt - nowMs > MIN_ALARM_DELAY_MS * 2) continue;
+    }
+    const boundVariables = getLiveVariablesForWorkflow(workflow.uid);
+    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
+    // Fire-and-forget: we want the switch to feel snappy, not block
+    // on chains that may take seconds. Failures land in observability
+    // through the normal alarm-failure path.
+    void refreshLiveWorkflowSynchronously(activeWorkspaceId, workflow.uid, activeEnvironmentId).catch((err) => {
+      logger.info(
+        'LiveScheduler',
+        `kickActiveContextRefresh failed for ${workflow.uid} env=${activeEnvironmentId ?? '__none__'}: ${(err as Error).message}`,
+      );
+    });
+  }
+}
+
+/**
  * Run a workflow once on an explicit user request (the "Refresh now"
  * button in the Live Workflow editor + Live Variable list), bypassing
  * the `canScheduleWorkflow` binding gate.
@@ -591,15 +624,19 @@ export async function refreshLiveWorkflowByUser(
 
 // ── Status reporting ─────────────────────────────────────────────
 //
-// Single aggregation pass across every cached run for every workspace
-// drives the `live` Status pill per the plan (§Observability → Status
-// pill color rules):
+// Active-workspace-only aggregation drives the `live` Status pill per
+// the plan (§Observability → Status pill color rules):
 //
 //   green  — no cached runs with failures + no stale-beyond-2×-cadence
 //            + lastExtractorOk on every run that has run at least once
 //   yellow — any stale beyond 2× cadence OR lastExtractorOk=false OR
 //            consecutiveFailures in 1..4
 //   red    — any consecutiveFailures >= 5
+//
+// Inactive workspaces are deliberately excluded — the user can't see
+// or act on those rules, so reporting on them yellow-pills the footer
+// for state the user can't reach. When the user switches workspaces,
+// the pill recomputes against the new active workspace.
 //
 // Values never appear in Status messages — only counts + the "first
 // failing workflow" for a hint. Host-permission red (from §12) routes
@@ -611,6 +648,8 @@ const RED_FAILURE_THRESHOLD = 5;
 async function recomputeLiveStatus(): Promise<void> {
   let runs: WorkflowRunCache[];
   try {
+    // Active workspace only — `listWorkflowRunCaches()` with no arg
+    // defaults to the active workspace's cache row set.
     runs = await listWorkflowRunCaches();
   } catch {
     // Storage read failure — leave the pill alone rather than flipping
@@ -685,16 +724,69 @@ async function recomputeLiveStatus(): Promise<void> {
  * mutation (see the provider above). `start()` is idempotent; calling
  * it twice is a no-op.
  *
+ * Also subscribes to `onActiveWorkspaceChange` and
+ * `onActiveEnvironmentChange` so a switch in either pointer
+ * automatically kicks an opportunistic warm pass for the new context.
+ * Subscriptions live in the scheduler module (not at the call site of
+ * the switch) so the orchestrator + RPC layers don't need to know
+ * about scheduler internals — the source-of-truth stores emit events,
+ * the scheduler reacts. Pure SoC.
+ *
  * On call, primes the Status pill once from the hydrated cache so the
  * footer isn't blank on first render.
  */
 export function startLiveScheduler(): void {
   scheduler.start();
+  installSwitchWarmSubscriptions();
   void recomputeLiveStatus().catch(() => {});
 }
 
 export function stopLiveScheduler(): void {
   scheduler.stop();
+  removeSwitchWarmSubscriptions();
+}
+
+// ── Switch-warm subscriptions ─────────────────────────────────────
+//
+// One listener each for active-workspace + active-env changes. Both
+// trigger `kickActiveContextRefresh` for the new (workspace, env)
+// pair. Subscriptions are torn down in `stopLiveScheduler` for test
+// hygiene — the production SW never stops the scheduler, but tests
+// that exercise start/stop pairs need clean teardown.
+
+let switchWarmTeardown: Array<() => void> = [];
+
+function installSwitchWarmSubscriptions(): void {
+  if (switchWarmTeardown.length > 0) return; // idempotent
+  const onWs = onActiveWorkspaceChange((newWsId) => {
+    void kickActiveContextRefresh(newWsId, getActiveEnvironmentId()).catch((err) => {
+      logger.info('LiveScheduler', `kickActiveContextRefresh after workspace switch failed: ${(err as Error).message}`);
+    });
+  });
+  const onEnv = onActiveEnvironmentChange((newEnvId) => {
+    // Workspace doesn't change on an env switch — read the current
+    // active workspace synchronously from workspace-store. The earlier
+    // async storage read introduced a microtask delay between the
+    // switch and the warm pass for no benefit (workspace-store has a
+    // sync accessor for the same value).
+    let wsId: string;
+    try {
+      wsId = getActiveWorkspaceId();
+    } catch {
+      // Bootstrap race — workspace pointer not yet hydrated. The
+      // initial reconcile-on-wake handles seeding; nothing to warm.
+      return;
+    }
+    void kickActiveContextRefresh(wsId, newEnvId).catch((err) => {
+      logger.info('LiveScheduler', `kickActiveContextRefresh after env switch failed: ${(err as Error).message}`);
+    });
+  });
+  switchWarmTeardown = [onWs, onEnv];
+}
+
+function removeSwitchWarmSubscriptions(): void {
+  for (const unsub of switchWarmTeardown) unsub();
+  switchWarmTeardown = [];
 }
 
 // Debug log when `chrome.alarms` is unavailable — the shared scheduler

@@ -353,11 +353,9 @@ function resolvedToSnapshot(req: ResolvedRequest): RequestSnapshot {
     url: req.url,
     headers: req.headers.map((h) => ({ key: h.key, value: h.value })),
     params: [],
-    body: {
-      type: req.body.type,
-      content: req.body.content,
-      multipartParts: req.body.multipartParts,
-    },
+    // The body is already a discriminated-union value; pass it through
+    // verbatim so the script sandbox sees the same shape we'll send.
+    body: req.body,
   };
 }
 
@@ -365,13 +363,10 @@ function applyMutation(target: ResolvedRequest, mutation: RequestMutation): void
   if (mutation.method) target.method = mutation.method;
   if (mutation.url) target.url = mutation.url;
   if (mutation.headers) target.headers = mutation.headers.map((h) => ({ key: h.key, value: h.value }));
-  if (mutation.body) {
-    target.body = {
-      type: mutation.body.type,
-      content: mutation.body.content,
-      multipartParts: mutation.body.multipartParts,
-    };
-  }
+  // Body mutations are discriminated unions in their own right — assign
+  // the whole new shape rather than cherry-picking fields. Any field
+  // not on the chosen variant simply doesn't exist on the new value.
+  if (mutation.body) target.body = mutation.body;
 }
 
 // ── Variable resolution ────────────────────────────────────────────
@@ -565,15 +560,19 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
   // ── Body ────────────────────────────────────────────────────────
-  const bodyType: V5.BodyType = request.body?.type ?? 'none';
-  const resolvedBody = buildResolvedBody(request.body, bodyType, resolveStr);
+  const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
-  // Ensure Content-Type header matches the body type if the user
-  // didn't set one. Skipped for `none` (no body), `form` (set by
-  // the URLSearchParams path below), and `multipart` (set by the
-  // browser with a generated boundary).
-  if (bodyType !== 'none' && bodyType !== 'multipart' && !headers.some((h) => h.key.toLowerCase() === 'content-type')) {
-    const ct = defaultContentType(bodyType);
+  // Ensure a Content-Type header matches the body shape if the user
+  // didn't set one. Skipped for `none` (no body), `form` (set by the
+  // URLSearchParams path below), and `multipart` (set by the browser
+  // with a generated boundary that we MUST NOT override).
+  if (
+    resolvedBody.type !== 'none' &&
+    resolvedBody.type !== 'form' &&
+    resolvedBody.type !== 'multipart' &&
+    !headers.some((h) => h.key.toLowerCase() === 'content-type')
+  ) {
+    const ct = defaultContentType(resolvedBody);
     if (ct) headers.push({ key: 'Content-Type', value: ct });
   }
 
@@ -629,37 +628,85 @@ async function buildTotpRegistry(vault: V5.Vault): Promise<TotpRegistry> {
 
 /**
  * Build the resolved body payload the executor will attach to the
- * fetch. String bodies get template resolution applied to their
- * content; multipart bodies have their TEXT-part names + values run
- * through template resolution so `{{env.API_USER}}` and friends work
- * the same way across body types. File-part bytes themselves are
- * resolved later by `buildMultipartForm` via the BlobStore; the
- * `fileRefs` list passes through unchanged.
+ * fetch. Exhaustive over the discriminated union — every variant
+ * runs its templatable fields through `resolveStr` so the wire body
+ * never carries a literal `{{ref}}`. File-part bytes are read later
+ * by `buildMultipartForm` via the BlobStore; the `fileRefs` list
+ * passes through unchanged because file paths/hashes aren't
+ * user-templated.
+ *
+ * Disabled rows on form / multipart bodies are NOT skipped here —
+ * they're carried with `enabled: false` so `executeResolved` can
+ * filter them at the wire boundary. Centralizing the filter there
+ * keeps the resolved shape a faithful map of the input shape and
+ * avoids re-introducing a "did the resolved body keep the disabled
+ * row?" question in any downstream consumer (snapshot, mutation,
+ * scripts).
  */
-function buildResolvedBody(
-  body: V5.RequestBody | undefined,
-  type: V5.BodyType,
-  resolveStr: (s: string) => string,
-): V5.RequestBody {
-  if (type === 'multipart') {
-    const parts = body?.multipartParts ?? [];
-    const resolvedParts: V5.MultipartPart[] = parts.map((part) => {
-      const name = resolveStr(part.name);
-      if (part.kind === 'text') {
-        return { kind: 'text', name, value: resolveStr(part.value), enabled: part.enabled };
-      }
-      return {
-        kind: 'file',
-        name,
-        fileRefs: part.fileRefs,
-        enabled: part.enabled,
-      };
-    });
-    return { type: 'multipart', multipartParts: resolvedParts };
+function buildResolvedBody(body: V5.RequestBody, resolveStr: (s: string) => string): V5.RequestBody {
+  switch (body.type) {
+    case 'none':
+      return { type: 'none' };
+    case 'json':
+      return { type: 'json', content: resolveStr(body.content) };
+    case 'xml':
+      return { type: 'xml', content: resolveStr(body.content) };
+    case 'text':
+      return body.rawFormat !== undefined
+        ? { type: 'text', content: resolveStr(body.content), rawFormat: body.rawFormat }
+        : { type: 'text', content: resolveStr(body.content) };
+    case 'graphql': {
+      // GraphQL variables are JSON text the user typed — resolve
+      // templates inside it the same way as the query string. The
+      // wire-side JSON wrap happens in `executeResolved`.
+      const variables = body.graphqlVariables !== undefined ? resolveStr(body.graphqlVariables) : undefined;
+      return variables !== undefined
+        ? { type: 'graphql', content: resolveStr(body.content), graphqlVariables: variables }
+        : { type: 'graphql', content: resolveStr(body.content) };
+    }
+    case 'form': {
+      const resolvedParts: V5.FormField[] = body.formParts.map((part) => {
+        // Skip resolveStr for disabled rows — they aren't sent, so
+        // their `{{ref}}` references shouldn't burn TOTP cooldown or
+        // contribute to the resolver's variable-usage tracking. The
+        // structural fields (description, enabled flag) round-trip
+        // verbatim.
+        if (part.enabled === false) return { ...part };
+        return {
+          ...part,
+          key: resolveStr(part.key),
+          value: resolveStr(part.value),
+        };
+      });
+      return { type: 'form', formParts: resolvedParts };
+    }
+    case 'multipart': {
+      const resolvedParts: V5.MultipartPart[] = body.multipartParts.map((part) => {
+        if (part.enabled === false) {
+          // Same disabled-row contract as form — skip resolveStr so
+          // disabled parts can't leak vault TOTP usage into the
+          // cooldown tracker for codes that won't be sent.
+          return part;
+        }
+        const name = resolveStr(part.name);
+        if (part.kind === 'text') {
+          return { kind: 'text', name, value: resolveStr(part.value), enabled: part.enabled };
+        }
+        return {
+          kind: 'file',
+          name,
+          fileRefs: part.fileRefs,
+          enabled: part.enabled,
+        };
+      });
+      return { type: 'multipart', multipartParts: resolvedParts };
+    }
+    default: {
+      const _exhaustive: never = body;
+      void _exhaustive;
+      return { type: 'none' };
+    }
   }
-  if (type === 'none') return { type: 'none' };
-  const rawBody = body?.content ?? '';
-  return { type, content: resolveStr(rawBody) };
 }
 
 async function applyAuth(
@@ -737,13 +784,26 @@ async function applyAuth(
 // test keeps importing from one place.
 export { ensureScheme } from '@/shared/fetch/ensure-scheme';
 
-function defaultContentType(type: V5.BodyType): string | null {
-  switch (type) {
+/**
+ * Default Content-Type for the resolved body shape. `null` for
+ * variants whose Content-Type is set elsewhere (`form` builds the
+ * URLSearchParams Content-Type from the encoder; `multipart` lets the
+ * browser pick one with a boundary; `none` has no body to type).
+ *
+ * For `text` bodies the rawFormat hint is honored so the user's
+ * "JavaScript" / "HTML" dropdown choice picks `text/javascript` or
+ * `text/html` instead of plain `text/plain`. The user can always
+ * override by setting an explicit Content-Type header.
+ */
+function defaultContentType(body: V5.RequestBody): string | null {
+  switch (body.type) {
     case 'json':
       return 'application/json';
     case 'xml':
       return 'application/xml';
     case 'text':
+      if (body.rawFormat === 'javascript') return 'text/javascript';
+      if (body.rawFormat === 'html') return 'text/html';
       return 'text/plain';
     case 'graphql':
       return 'application/json';
@@ -800,42 +860,78 @@ async function executeResolved(
   // combination we let the TypeError flow through to the catch below —
   // the user sees the actual error in the response panel rather than
   // wondering why their body was silently dropped.
-  if (req.body.type === 'form') {
-    // Structured `formParts` is the source of truth when present —
-    // each enabled entry becomes a URLSearchParams field. Disabled
-    // rows stay on disk for later re-enable but are skipped on the
-    // wire. Legacy importers that only have the raw encoded string
-    // populate `content` instead; we fall back to parsing it.
-    const parts = req.body.formParts;
-    if (parts && parts.length > 0) {
+  //
+  // Exhaustive over the resolved-body union — every variant attaches
+  // its wire payload here. `none` attaches nothing; `form` produces a
+  // URLSearchParams (browser-set Content-Type); `multipart` produces
+  // FormData (browser-set Content-Type with boundary); JSON / XML /
+  // text / graphql produce raw strings using the resolved content.
+  switch (req.body.type) {
+    case 'none':
+      break;
+    case 'json':
+    case 'xml':
+    case 'text':
+      init.body = req.body.content;
+      break;
+    case 'graphql': {
+      // GraphQL HTTP transport (https://graphql.org/learn/serving-over-http/):
+      // the wire body is `{"query": "...", "variables": {...}}` —
+      // application/json. Sending the raw query string verbatim is what
+      // the executor used to do; no GraphQL server accepts that.
+      // `graphqlVariables` is JSON text the user typed; embed it as
+      // parsed JSON when valid so the wire body has a real `variables`
+      // object, falling back to omitting the field on parse failure
+      // (better to send `{query}` than a malformed wire body that
+      // crashes the server JSON parser).
+      const wire: { query: string; variables?: unknown } = { query: req.body.content };
+      const variablesText = req.body.graphqlVariables?.trim();
+      if (variablesText) {
+        try {
+          wire.variables = JSON.parse(variablesText);
+        } catch {
+          // Leave `variables` unset; the server sees `{query}` which
+          // most accept as "no variables" rather than 400.
+        }
+      }
+      init.body = JSON.stringify(wire);
+      break;
+    }
+    case 'form': {
+      // Structured `formParts` is the source of truth — each enabled
+      // entry becomes a URLSearchParams field. Disabled rows stay on
+      // disk for later re-enable but are skipped on the wire.
       const params = new URLSearchParams();
-      for (const p of parts) {
+      for (const p of req.body.formParts) {
         if (p.enabled === false) continue;
         params.append(p.key, p.value);
       }
       init.body = params;
-    } else {
-      init.body = new URLSearchParams(req.body.content);
+      break;
     }
-  } else if (req.body.type === 'multipart') {
-    // Build FormData from the structured part list. For file parts
-    // we resolve `fileRef.hash` to bytes via the BlobStore; dropped
-    // parts (missing blob) land as a report entry in the response
-    // snapshot so the user sees exactly what slipped through.
-    const form = await buildMultipartForm(req.body.multipartParts ?? []);
-    init.body = form;
-    // IMPORTANT: clear any user-set `Content-Type: multipart/form-data`
-    // header. The browser MUST set its own Content-Type with the
-    // generated boundary; a manually-set header omits the boundary
-    // and every server rejects the request with "malformed multipart".
-    if (fetchHeaders.has('Content-Type')) {
-      const ct = (fetchHeaders.get('Content-Type') ?? '').toLowerCase();
-      if (ct.startsWith('multipart/form-data')) {
-        fetchHeaders.delete('Content-Type');
+    case 'multipart': {
+      // Build FormData from the structured part list. For file parts
+      // we resolve `fileRef.hash` to bytes via the BlobStore; dropped
+      // parts (missing blob) land as a report entry in the response
+      // snapshot so the user sees exactly what slipped through.
+      const form = await buildMultipartForm(req.body.multipartParts);
+      init.body = form;
+      // IMPORTANT: clear any user-set `Content-Type: multipart/form-data`
+      // header. The browser MUST set its own Content-Type with the
+      // generated boundary; a manually-set header omits the boundary
+      // and every server rejects the request with "malformed multipart".
+      if (fetchHeaders.has('Content-Type')) {
+        const ct = (fetchHeaders.get('Content-Type') ?? '').toLowerCase();
+        if (ct.startsWith('multipart/form-data')) {
+          fetchHeaders.delete('Content-Type');
+        }
       }
+      break;
     }
-  } else if (req.body.type !== 'none') {
-    init.body = req.body.content;
+    default: {
+      const _exhaustive: never = req.body;
+      void _exhaustive;
+    }
   }
 
   const startedAt = performance.now();

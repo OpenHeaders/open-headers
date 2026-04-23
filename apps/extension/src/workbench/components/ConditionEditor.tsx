@@ -11,9 +11,10 @@
  *   Header Matching: request-header, exclude-request-header, response-header, exclude-response-header
  */
 
-import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningFilled } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Select, Tag, theme } from 'antd';
+import { applyDomainValueCleanup, type DomainValueIssue, validateDomainValues } from '@openheaders/core/utils';
+import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
@@ -221,128 +222,142 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
       {value.map((condition, index) => {
         const def = getTypeDef(condition.type);
         const isExclude = condition.type.startsWith('exclude-');
+        // Domain-typed conditions (request/initiator-domains and their
+        // exclude variants) get inline validation — Chrome rejects
+        // wildcards / ports / schemes / uppercase atomically, which
+        // otherwise leaves the user staring at a non-applying rule
+        // with zero feedback.
+        const domainIssues = validateDomainValues(condition);
 
         return (
           <div
             key={index}
             style={{
               display: 'flex',
-              alignItems: 'center',
+              flexDirection: 'column',
               gap: 6,
               padding: '8px 10px',
               borderBottom: index < value.length - 1 ? `1px solid ${token.colorBorderSecondary}` : undefined,
             }}
           >
-            {/* AND badge */}
-            {index > 0 && (
-              <Tag
-                color="blue"
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  letterSpacing: 1,
-                  lineHeight: '18px',
-                  margin: 0,
-                  padding: '0 4px',
-                  flexShrink: 0,
-                }}
-              >
-                AND
-              </Tag>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* AND badge */}
+              {index > 0 && (
+                <Tag
+                  color="blue"
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: 1,
+                    lineHeight: '18px',
+                    margin: 0,
+                    padding: '0 4px',
+                    flexShrink: 0,
+                  }}
+                >
+                  AND
+                </Tag>
+              )}
 
-            {/* Exclude indicator */}
-            {isExclude && (
-              <Tag
-                color="warning"
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  lineHeight: '18px',
-                  margin: 0,
-                  padding: '0 4px',
-                  flexShrink: 0,
-                }}
-              >
-                NOT
-              </Tag>
-            )}
+              {/* Exclude indicator */}
+              {isExclude && (
+                <Tag
+                  color="warning"
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    lineHeight: '18px',
+                    margin: 0,
+                    padding: '0 4px',
+                    flexShrink: 0,
+                  }}
+                >
+                  NOT
+                </Tag>
+              )}
 
-            {/* Type selector + docs link */}
-            <Select
-              size="small"
-              value={condition.type}
-              onChange={(type) => handleTypeChange(index, type)}
-              style={{ width: 160, flexShrink: 0 }}
-              popupMatchSelectWidth={200}
-              options={TYPE_OPTIONS}
-            />
-            <InfoCircleOutlined
-              style={{ fontSize: 10, color: token.colorTextQuaternary, cursor: 'pointer', flexShrink: 0 }}
-              onClick={() => openDocs(getDocId(condition.type, 'condition'))}
-            />
-
-            {/* Header name (before value for header types) */}
-            {def?.inputType === 'header' && (
-              <TemplateInput
-                size="small"
-                placeholder="Header name equals..."
-                value={condition.headerName ?? ''}
-                onChange={(next) => updateCondition(index, { headerName: next })}
-                style={{ width: 180, flexShrink: 0 }}
-              />
-            )}
-
-            {/* Value input — varies by type */}
-            {def?.inputType === 'multi-select-methods' ? (
+              {/* Type selector + docs link */}
               <Select
                 size="small"
-                mode="multiple"
-                value={condition.values}
-                onChange={(vals) => updateCondition(index, { values: vals })}
-                style={{ flex: 1, minWidth: 0 }}
-                options={HTTP_METHODS.map((v) => ({ value: v, label: v }))}
-                placeholder="Select methods"
-                maxTagCount="responsive"
+                value={condition.type}
+                onChange={(type) => handleTypeChange(index, type)}
+                style={{ width: 160, flexShrink: 0 }}
+                popupMatchSelectWidth={200}
+                options={TYPE_OPTIONS}
               />
-            ) : def?.inputType === 'multi-select-resources' ? (
-              <Select
-                size="small"
-                mode="multiple"
-                value={condition.values}
-                onChange={(vals) => updateCondition(index, { values: vals })}
-                style={{ flex: 1, minWidth: 0 }}
-                options={RESOURCE_TYPES.map((v) => ({ value: v, label: v }))}
-                placeholder="Select types"
-                maxTagCount="responsive"
+              <InfoCircleOutlined
+                style={{ fontSize: 10, color: token.colorTextQuaternary, cursor: 'pointer', flexShrink: 0 }}
+                onClick={() => openDocs(getDocId(condition.type, 'condition'))}
               />
-            ) : def?.inputType === 'single-select-domain-type' ? (
-              <Select
+
+              {/* Header name (before value for header types) */}
+              {def?.inputType === 'header' && (
+                <TemplateInput
+                  size="small"
+                  placeholder="Header name equals..."
+                  value={condition.headerName ?? ''}
+                  onChange={(next) => updateCondition(index, { headerName: next })}
+                  style={{ width: 180, flexShrink: 0 }}
+                />
+              )}
+
+              {/* Value input — varies by type */}
+              {def?.inputType === 'multi-select-methods' ? (
+                <Select
+                  size="small"
+                  mode="multiple"
+                  value={condition.values}
+                  onChange={(vals) => updateCondition(index, { values: vals })}
+                  style={{ flex: 1, minWidth: 0 }}
+                  options={HTTP_METHODS.map((v) => ({ value: v, label: v }))}
+                  placeholder="Select methods"
+                  maxTagCount="responsive"
+                />
+              ) : def?.inputType === 'multi-select-resources' ? (
+                <Select
+                  size="small"
+                  mode="multiple"
+                  value={condition.values}
+                  onChange={(vals) => updateCondition(index, { values: vals })}
+                  style={{ flex: 1, minWidth: 0 }}
+                  options={RESOURCE_TYPES.map((v) => ({ value: v, label: v }))}
+                  placeholder="Select types"
+                  maxTagCount="responsive"
+                />
+              ) : def?.inputType === 'single-select-domain-type' ? (
+                <Select
+                  size="small"
+                  value={condition.values[0]}
+                  onChange={(val) => updateCondition(index, { values: [val] })}
+                  style={{ width: 140, flexShrink: 0 }}
+                  options={DOMAIN_TYPES}
+                  placeholder="Select type"
+                />
+              ) : (
+                <TemplateInput
+                  size="small"
+                  placeholder={def?.placeholder ?? 'value'}
+                  value={condition.values.join(', ')}
+                  onChange={(next) => handleValuesText(index, next)}
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+              )}
+
+              {/* Delete */}
+              <Button
+                type="text"
                 size="small"
-                value={condition.values[0]}
-                onChange={(val) => updateCondition(index, { values: [val] })}
-                style={{ width: 140, flexShrink: 0 }}
-                options={DOMAIN_TYPES}
-                placeholder="Select type"
+                icon={<CloseOutlined style={{ fontSize: 10 }} />}
+                onClick={() => removeCondition(index)}
+                style={{ color: token.colorTextTertiary, flexShrink: 0 }}
               />
-            ) : (
-              <TemplateInput
-                size="small"
-                placeholder={def?.placeholder ?? 'value'}
-                value={condition.values.join(', ')}
-                onChange={(next) => handleValuesText(index, next)}
-                style={{ flex: 1, minWidth: 0 }}
+            </div>
+            {domainIssues.length > 0 && (
+              <DomainIssueBanner
+                issues={domainIssues}
+                onApplyCleanup={() => updateCondition(index, applyDomainValueCleanup(condition, domainIssues))}
               />
             )}
-
-            {/* Delete */}
-            <Button
-              type="text"
-              size="small"
-              icon={<CloseOutlined style={{ fontSize: 10 }} />}
-              onClick={() => removeCondition(index)}
-              style={{ color: token.colorTextTertiary, flexShrink: 0 }}
-            />
           </div>
         );
       })}
@@ -361,5 +376,82 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
     </div>
   );
 };
+
+interface DomainIssueBannerProps {
+  issues: readonly DomainValueIssue[];
+  onApplyCleanup: () => void;
+}
+
+const DomainIssueBanner: React.FC<DomainIssueBannerProps> = ({ issues, onApplyCleanup }) => {
+  const { token } = theme.useToken();
+  // Group consecutive same-kind messages so the banner doesn't
+  // repeat the same advice five times for five entries with the same
+  // mistake (common when bulk-pasting a domain list).
+  const summary = summarizeIssues(issues);
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '6px 8px',
+        marginLeft: 26, // align under the type+input columns
+        background: token.colorWarningBg,
+        border: `1px solid ${token.colorWarningBorder}`,
+        borderRadius: 4,
+        fontSize: 11,
+        lineHeight: 1.4,
+        color: token.colorWarningText,
+      }}
+    >
+      <WarningFilled style={{ color: token.colorWarning, fontSize: 12, marginTop: 1, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {summary.lines.map((line, i) => (
+          <div key={i}>{line}</div>
+        ))}
+        {summary.affectedRaw.length > 0 && (
+          <Tooltip title={summary.affectedRaw.join(', ')}>
+            <span style={{ color: token.colorTextTertiary, cursor: 'help' }}>
+              {summary.affectedRaw.length} affected entr{summary.affectedRaw.length === 1 ? 'y' : 'ies'}
+            </span>
+          </Tooltip>
+        )}
+      </div>
+      {summary.fixable && (
+        <Button
+          size="small"
+          type="link"
+          onClick={onApplyCleanup}
+          style={{ padding: '0 4px', height: 22, fontSize: 11 }}
+        >
+          Clean up
+        </Button>
+      )}
+    </div>
+  );
+};
+
+interface IssueSummary {
+  lines: string[];
+  affectedRaw: string[];
+  fixable: boolean;
+}
+
+function summarizeIssues(issues: readonly DomainValueIssue[]): IssueSummary {
+  const seenMessages = new Set<string>();
+  const lines: string[] = [];
+  const affected: string[] = [];
+  let fixable = false;
+  for (const issue of issues) {
+    if (!seenMessages.has(issue.message)) {
+      seenMessages.add(issue.message);
+      lines.push(issue.message);
+    }
+    affected.push(issue.raw);
+    // `non-ascii` requires manual punycode encoding — no auto-fix.
+    if (issue.kind !== 'non-ascii') fixable = true;
+  }
+  return { lines, affectedRaw: affected, fixable };
+}
 
 export default ConditionEditor;

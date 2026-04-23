@@ -373,10 +373,10 @@ function arraysShallowEqual(
 
 function bodyChanged(a: RequestSnapshot['body'], b: RequestSnapshot['body']): boolean {
   if (a.type !== b.type) return true;
-  if ((a.content ?? '') !== (b.content ?? '')) return true;
-  // multipart parts are structural — a quick JSON compare is accurate
-  // enough for the diff path and avoids duplicating the deep walker.
-  return JSON.stringify(a.multipartParts ?? []) !== JSON.stringify(b.multipartParts ?? []);
+  // Same discriminator: structural compare per variant. JSON compare
+  // is accurate enough — bodies are pure data and the diff path runs
+  // once per script mutation (not in a hot loop).
+  return JSON.stringify(a) !== JSON.stringify(b);
 }
 
 function mergeMutation(prev: RequestMutation | undefined, next: RequestMutation): RequestMutation {

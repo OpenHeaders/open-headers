@@ -25,7 +25,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { RequestSchema } from '../../schemas/request';
-import type { BodyType, Request, RequestBody } from '../../types/v5/request';
+import type { BodyType, FormField, MultipartPart, Request, RequestBody } from '../../types/v5/request';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { REQUEST_FIELD_ORDER } from './ordering';
@@ -82,22 +82,28 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
   const doc = YAML.parseDocument(yaml);
   const raw = doc.toJS() as Record<string, unknown>;
 
-  // Body assembly: start from whatever `body:` the YAML carried
-  // (type, multipartParts for multipart, …), then let the sibling
-  // `body.<ext>` file override `type` + inject `content`. Multiple
-  // body files is a corrupt state — accept the first and ignore the
-  // rest; the desktop storage service is responsible for enforcing
-  // single-body on write.
-  const rawBody = (raw.body && typeof raw.body === 'object' ? raw.body : { type: 'none' }) as RequestBody;
-  let body: RequestBody = { ...rawBody };
+  // Body assembly: pick up structural fields from the manifest's
+  // `body:` block (formParts for form, multipartParts for multipart,
+  // rawFormat for text, type discriminator), then fold sibling files
+  // in:
+  //   • body.<ext>     → overrides `type` (extension is authoritative
+  //                      per invariant #15) and supplies `content`
+  //   • variables.json → graphql `graphqlVariables` (graphql only)
+  //
+  // Multiple body files is a corrupt state — accept the first and
+  // ignore the rest; the storage service enforces single-body on write.
+  const rawBody =
+    raw.body && typeof raw.body === 'object' ? (raw.body as Record<string, unknown>) : { type: 'none' as BodyType };
   let preRequestScript: string | undefined;
   let postResponseScript: string | undefined;
+  let bodyContent: string | undefined;
+  let bodyTypeFromSibling: BodyType | undefined;
   let graphqlVariables: string | undefined;
 
   for (const sibling of context.siblings ?? []) {
-    if (sibling.fileName.startsWith('body.')) {
-      const type = bodyTypeFromFileName(sibling.fileName);
-      body = { ...body, type, content: sibling.content };
+    if (sibling.fileName.startsWith('body.') && bodyTypeFromSibling === undefined) {
+      bodyTypeFromSibling = bodyTypeFromFileName(sibling.fileName);
+      bodyContent = sibling.content;
     } else if (sibling.fileName === 'variables.json') {
       graphqlVariables = sibling.content;
     } else if (sibling.fileName === 'pre-request.js') {
@@ -107,9 +113,10 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
     }
   }
 
-  if (graphqlVariables !== undefined && body.type === 'graphql') {
-    body = { ...body, graphqlVariables };
-  }
+  // Reconstruct the discriminated-union body from the manifest fields
+  // + sibling content. Each variant takes only the fields it owns.
+  const effectiveType: BodyType = bodyTypeFromSibling ?? (rawBody.type as BodyType) ?? 'none';
+  const body = assembleBody(effectiveType, rawBody, bodyContent, graphqlVariables);
 
   const merged: Record<string, unknown> = {
     ...raw,
@@ -121,6 +128,43 @@ export function parseRequest(yaml: string, context: RequestCodecContext): Parsed
 
   const value = v.parse(RequestSchema, merged);
   return makeParsed(value, doc);
+}
+
+function assembleBody(
+  type: BodyType,
+  raw: Record<string, unknown>,
+  content: string | undefined,
+  graphqlVariables: string | undefined,
+): RequestBody {
+  switch (type) {
+    case 'none':
+      return { type: 'none' };
+    case 'json':
+      return { type: 'json', content: content ?? '' };
+    case 'xml':
+      return { type: 'xml', content: content ?? '' };
+    case 'text': {
+      const rawFormat = raw.rawFormat;
+      if (rawFormat === 'javascript' || rawFormat === 'html' || rawFormat === 'text') {
+        return { type: 'text', content: content ?? '', rawFormat };
+      }
+      return { type: 'text', content: content ?? '' };
+    }
+    case 'form':
+      return {
+        type: 'form',
+        formParts: Array.isArray(raw.formParts) ? (raw.formParts as FormField[]) : [],
+      };
+    case 'multipart':
+      return {
+        type: 'multipart',
+        multipartParts: Array.isArray(raw.multipartParts) ? (raw.multipartParts as MultipartPart[]) : [],
+      };
+    case 'graphql':
+      return graphqlVariables !== undefined
+        ? { type: 'graphql', content: content ?? '', graphqlVariables }
+        : { type: 'graphql', content: content ?? '' };
+  }
 }
 
 // ── Serialize ─────────────────────────────────────────────────────
@@ -139,21 +183,14 @@ export interface RequestSerializeOutput {
 }
 
 export function serializeRequest(write: WriteableDocument<Request>): RequestSerializeOutput {
-  // The request.yaml manifest omits body content + script content — those
-  // go to sibling files. Multipart parts STAY in the manifest because they
-  // are structured metadata (part names + file refs by hash), not a blob
-  // of content. The file bytes themselves live in the platform BlobStore
-  // and are looked up at execute time (see ARCHITECTURE.md §6).
-  const manifestBody: RequestBody = { type: write.value.body.type };
-  if (write.value.body.rawFormat !== undefined) {
-    manifestBody.rawFormat = write.value.body.rawFormat;
-  }
-  if (write.value.body.type === 'multipart' && write.value.body.multipartParts) {
-    manifestBody.multipartParts = write.value.body.multipartParts;
-  }
-  if (write.value.body.type === 'form' && write.value.body.formParts) {
-    manifestBody.formParts = write.value.body.formParts;
-  }
+  // The request.yaml manifest carries the body's STRUCTURAL fields
+  // (formParts for form bodies, multipartParts for multipart bodies,
+  // rawFormat hint for text bodies). Bulk content (the JSON / XML / text
+  // / GraphQL body string) and graphql variables fan out into sibling
+  // files so a code reviewer reads them with native syntax highlighting
+  // and the manifest stays scannable.
+  const body = write.value.body;
+  const manifestBody = manifestBodyOf(body);
   const manifestView = {
     ...write.value,
     body: manifestBody,
@@ -165,14 +202,14 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
   mergeKnownFields(doc, manifestView, REQUEST_FIELD_ORDER);
   const requestYaml = doc.toString(CANONICAL_STRINGIFY_OPTIONS);
 
-  const bodyFileName = bodyFileNameFor(write.value.body.type);
-  const bodyContent = write.value.body.content;
+  const bodyFileName = bodyFileNameFor(body.type);
+  const bodyContent = bodyContentOf(body);
   const bodyFile: RequestSiblingFile | null =
     bodyFileName && bodyContent !== undefined ? { fileName: bodyFileName, content: bodyContent } : null;
 
   const variablesFile: RequestSiblingFile | null =
-    write.value.body.type === 'graphql' && write.value.body.graphqlVariables !== undefined
-      ? { fileName: 'variables.json', content: write.value.body.graphqlVariables }
+    body.type === 'graphql' && body.graphqlVariables !== undefined
+      ? { fileName: 'variables.json', content: body.graphqlVariables }
       : null;
 
   const preRequestScript: RequestSiblingFile | null =
@@ -186,4 +223,55 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
       : null;
 
   return { requestYaml, bodyFile, variablesFile, preRequestScript, postResponseScript };
+}
+
+/**
+ * Manifest projection of the body — strips bulk content (which fans
+ * out into sibling files) but keeps the structural fields the YAML
+ * needs to round-trip the body type back through `parseRequest`.
+ *
+ * Returns a loose record (not the runtime `RequestBody` shape) because
+ * the manifest INTENTIONALLY omits per-variant required fields like
+ * `content` — those live in `body.<ext>`. The runtime invariant
+ * (`json` carries `content`) is reconstructed on parse by
+ * `assembleBody` reading the sibling file.
+ *
+ * Exhaustive over the discriminated union; the compiler refuses to
+ * compile a missed variant.
+ */
+function manifestBodyOf(body: RequestBody): Record<string, unknown> {
+  switch (body.type) {
+    case 'none':
+    case 'json':
+    case 'xml':
+      return { type: body.type };
+    case 'text':
+      return body.rawFormat !== undefined ? { type: 'text', rawFormat: body.rawFormat } : { type: 'text' };
+    case 'graphql':
+      // graphqlVariables fans out to variables.json; query fans out to body.graphql.
+      return { type: 'graphql' };
+    case 'form':
+      return { type: 'form', formParts: body.formParts };
+    case 'multipart':
+      return { type: 'multipart', multipartParts: body.multipartParts };
+  }
+}
+
+/**
+ * Bulk content destined for the `body.<ext>` sibling file. `undefined`
+ * for body types that have no fan-out (none / form / multipart — those
+ * carry their wire payload in the manifest itself).
+ */
+function bodyContentOf(body: RequestBody): string | undefined {
+  switch (body.type) {
+    case 'none':
+    case 'form':
+    case 'multipart':
+      return undefined;
+    case 'json':
+    case 'xml':
+    case 'text':
+    case 'graphql':
+      return body.content;
+  }
 }

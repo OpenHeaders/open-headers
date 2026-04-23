@@ -10,22 +10,29 @@
  * changes how the body is SYNTAX-highlighted; the wire bytes are
  * whatever the user typed verbatim.
  *
- * Schema mapping:
+ * Schema mapping (matches the `V5.RequestBody` discriminated union):
  *   - none                  → `{ type: 'none' }`
  *   - form-data             → `{ type: 'multipart', multipartParts }`
- *   - x-www-form-urlencoded → `{ type: 'form', content }`
- *   - raw                   → `{ type: 'json' | 'xml' | 'text', content }`
- *     (`graphql` has its own top-level tab; the raw-format dropdown
- *     mirrors Text / JavaScript / JSON / HTML / XML in UI while the
- *     store-level body.type stays JSON / XML / Text.)
- *   - GraphQL               → `{ type: 'graphql', content, graphqlVariables }`
+ *   - x-www-form-urlencoded → `{ type: 'form', formParts }`
+ *   - raw (Text/JS/HTML)    → `{ type: 'text', content, rawFormat? }`
+ *   - raw (JSON)            → `{ type: 'json', content }`
+ *   - raw (XML)             → `{ type: 'xml', content }`
+ *   - GraphQL               → `{ type: 'graphql', content, graphqlVariables? }`
+ *
+ * Cross-toggle draft preservation: the persisted body only carries the
+ * fields its variant declares (e.g. switching from raw → form drops
+ * `content` from the persisted shape because the form variant doesn't
+ * have a `content` field). To avoid losing the user's unsaved raw text
+ * when they ping-pong between encodings, the editor stashes a snapshot
+ * of each visited variant in component state and replays it on
+ * re-entry — purely local UI state, never persisted.
  */
 
 import { InfoCircleOutlined, ReloadOutlined, WarningFilled } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { Radio, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import CodeEditor from '../CodeEditor';
 import MultipartEditor from '../MultipartEditor';
 import FormEditor from './FormEditor';
@@ -67,16 +74,37 @@ function classifyBody(body: V5.RequestBody): { radio: RadioValue; raw: RawFormat
   }
 }
 
-function rawFormatToBodyType(raw: RawFormat): V5.BodyType {
+/**
+ * Build the initial body for a freshly-picked radio variant. Used
+ * when no draft for that variant has been visited yet during this
+ * editor session.
+ */
+function freshBody(radio: RadioValue, raw: RawFormat): V5.RequestBody {
+  switch (radio) {
+    case 'none':
+      return { type: 'none' };
+    case 'form-data':
+      return { type: 'multipart', multipartParts: [] };
+    case 'form-urlencoded':
+      return { type: 'form', formParts: [] };
+    case 'raw':
+      return rawBodyOf(raw, '');
+    case 'graphql':
+      return { type: 'graphql', content: '' };
+  }
+}
+
+function rawBodyOf(raw: RawFormat, content: string): V5.RequestBody {
   switch (raw) {
     case 'json':
-      return 'json';
+      return { type: 'json', content };
     case 'xml':
-      return 'xml';
-    default:
-      // text / javascript / html share the same wire-level body type;
-      // the dropdown choice is carried separately on `body.rawFormat`.
-      return 'text';
+      return { type: 'xml', content };
+    case 'text':
+      return { type: 'text', content };
+    case 'javascript':
+    case 'html':
+      return { type: 'text', content, rawFormat: raw };
   }
 }
 
@@ -84,34 +112,27 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   const { token } = theme.useToken();
   const { radio, raw } = useMemo(() => classifyBody(body), [body]);
 
-  // Switching body encodings preserves every auxiliary field on the
-  // draft (rawFormat + content + multipartParts + formParts +
-  // graphqlVariables) so the user doesn't lose unsaved work by toggling
-  // the radio. Only the discriminant `type` changes; the executor
-  // reads whichever field matches the active type at send time and
-  // ignores the rest.
+  // Per-radio draft cache: when the user toggles radio A → B → A, the
+  // values they typed under A come back. The persisted shape carries
+  // only the active variant; this ref is the editor-local memory of
+  // the others. Cleared on unmount (component-scoped useRef).
+  const draftCacheRef = useRef<Partial<Record<RadioValue, V5.RequestBody>>>({});
+  // Mirror the live body into the cache on every render so the active
+  // variant's edits are captured for return-trips.
+  draftCacheRef.current[radio] = body;
+
   const switchRadio = (next: RadioValue) => {
     if (next === radio) return;
-    const nextType: V5.BodyType = (() => {
-      switch (next) {
-        case 'none':
-          return 'none';
-        case 'form-data':
-          return 'multipart';
-        case 'form-urlencoded':
-          return 'form';
-        case 'raw':
-          return rawFormatToBodyType(body.rawFormat ?? 'text');
-        case 'graphql':
-          return 'graphql';
-      }
-    })();
-    onChange({ ...body, type: nextType });
+    const cached = draftCacheRef.current[next];
+    onChange(cached ?? freshBody(next, raw));
   };
 
   const switchRawFormat = (next: RawFormat) => {
-    // Same preservation pattern — only `type` + `rawFormat` change.
-    onChange({ ...body, type: rawFormatToBodyType(next), rawFormat: next });
+    // Always emit a freshly-shaped raw body — switching json↔xml↔text
+    // changes the discriminant so we can't `{...body, type}` here
+    // without producing an invalid variant.
+    const currentContent = body.type === 'json' || body.type === 'xml' || body.type === 'text' ? body.content : '';
+    onChange(rawBodyOf(next, currentContent));
   };
 
   const rawLangForEditor: 'text' | 'json' | 'xml' | 'html' | 'javascript' = (() => {
@@ -162,7 +183,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
         )}
       </div>
 
-      {radio === 'none' && (
+      {body.type === 'none' && (
         <div
           style={{
             display: 'flex',
@@ -177,32 +198,29 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
         </div>
       )}
 
-      {radio === 'form-data' && (
+      {body.type === 'multipart' && (
         <MultipartEditor
-          parts={body.multipartParts ?? []}
-          onChange={(parts) => onChange({ ...body, type: 'multipart', multipartParts: parts })}
+          parts={body.multipartParts}
+          onChange={(parts) => onChange({ type: 'multipart', multipartParts: parts })}
         />
       )}
 
-      {radio === 'form-urlencoded' && (
-        <FormEditor
-          fields={body.formParts ?? []}
-          onChange={(fields) => onChange({ ...body, type: 'form', formParts: fields })}
-        />
+      {body.type === 'form' && (
+        <FormEditor fields={body.formParts} onChange={(fields) => onChange({ type: 'form', formParts: fields })} />
       )}
 
-      {radio === 'raw' && (
+      {(body.type === 'json' || body.type === 'xml' || body.type === 'text') && (
         <div style={{ minHeight: 240 }}>
           <CodeEditor
-            value={body.content ?? ''}
-            onChange={(content) => onChange({ ...body, type: rawFormatToBodyType(raw), rawFormat: raw, content })}
+            value={body.content}
+            onChange={(content) => onChange(rawBodyOf(raw, content))}
             language={rawLangForEditor}
             minHeight={240}
           />
         </div>
       )}
 
-      {radio === 'graphql' && (
+      {body.type === 'graphql' && (
         <div
           style={{
             display: 'grid',
@@ -220,8 +238,14 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             </Text>
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
-                value={body.content ?? ''}
-                onChange={(content) => onChange({ ...body, type: 'graphql', content })}
+                value={body.content}
+                onChange={(content) =>
+                  onChange(
+                    body.graphqlVariables !== undefined
+                      ? { type: 'graphql', content, graphqlVariables: body.graphqlVariables }
+                      : { type: 'graphql', content },
+                  )
+                }
                 language="graphql"
                 minHeight={300}
               />
@@ -247,7 +271,9 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
                 value={body.graphqlVariables ?? ''}
-                onChange={(variables) => onChange({ ...body, type: 'graphql', graphqlVariables: variables })}
+                onChange={(variables) =>
+                  onChange({ type: 'graphql', content: body.content, graphqlVariables: variables })
+                }
                 language="json"
                 minHeight={300}
               />

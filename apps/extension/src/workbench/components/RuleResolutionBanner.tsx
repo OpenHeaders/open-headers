@@ -89,8 +89,12 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
         }
       }
       const runs = liveCaches[lv.workflowUid] ?? [];
-      const run =
-        runs.find((r) => r.environmentId === activeEnvironmentId) ?? runs.find((r) => r.environmentId === null) ?? null;
+      // Strict env match — same contract as the SW-side
+      // `buildLiveRegistry` in `variables-resolver.ts`. Cross-env
+      // fallback would make the banner more lenient than the actual
+      // compile path and the user would see "no errors here" while
+      // the rule is silently dropped from DNR.
+      const run = runs.find((r) => r.environmentId === activeEnvironmentId);
       if (!run) continue;
       const value = run.stepCaptures[lv.stepId]?.[lv.captureName];
       if (typeof value !== 'string') continue;
@@ -103,6 +107,34 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
     }
     return registry;
   }, [liveVariables, liveCaches, activeEnvironmentId]);
+
+  /**
+   * For each `{{live.X}}` reference in the draft, classify WHY it
+   * failed to resolve. When the LV exists + is enabled + its workflow
+   * has cache rows for OTHER envs but not for the active env, the
+   * actionable diagnosis is "no run for env <X>" — the user can fix
+   * with one click on the Refresh button. The default `unset-in-scope`
+   * hint doesn't tell them which lever to pull.
+   */
+  const liveDiagnostics = useMemo(() => {
+    const out = new Map<string, { kind: 'no-cache-for-env' | 'unknown-lv' | 'disabled-lv'; envName: string }>();
+    const envName =
+      activeEnvironmentId === null
+        ? 'No environment'
+        : (environments.find((e) => e.uid === activeEnvironmentId)?.name ?? 'active env');
+    for (const lv of liveVariables) {
+      const runs = liveCaches[lv.workflowUid] ?? [];
+      const hasActiveEnvRun = runs.some((r) => r.environmentId === activeEnvironmentId);
+      if (hasActiveEnvRun) continue; // resolves cleanly
+      if (!lv.enabled) {
+        out.set(lv.name, { kind: 'disabled-lv', envName });
+        continue;
+      }
+      // LV is enabled, no row for active env — actionable refresh hint.
+      out.set(lv.name, { kind: 'no-cache-for-env', envName });
+    }
+    return out;
+  }, [liveVariables, liveCaches, activeEnvironmentId, environments]);
 
   const resolver = useMemo(() => {
     const r = new VariableResolver();
@@ -156,17 +188,35 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
       }
       description={
         <Space direction="vertical" size={4} style={{ width: '100%' }}>
-          {errors.map((err) => (
-            <div key={err.reference} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-              <Tag color="warning" style={{ fontSize: 10, marginTop: 2, minWidth: 88, textAlign: 'center' }}>
-                {REASON_LABEL[err.reason]}
-              </Tag>
-              <Text style={{ fontSize: 12 }}>
-                <Text code style={{ fontSize: 12 }}>{`{{${err.reference}}}`}</Text>
-                <span style={{ marginLeft: 6 }}>— {err.hint}</span>
-              </Text>
-            </div>
-          ))}
+          {errors.map((err) => {
+            // Live-scope refs get an enriched hint: when the LV exists +
+            // its workflow has runs for OTHER envs but not the active
+            // one, point the user at the actionable fix (refresh under
+            // this env) instead of the generic "not in scope" message.
+            const liveBareName = err.reference.startsWith('live.')
+              ? err.reference.slice('live.'.length)
+              : err.namespace === 'live'
+                ? err.reference
+                : null;
+            const liveDx = liveBareName ? liveDiagnostics.get(liveBareName) : undefined;
+            const enrichedHint =
+              liveDx?.kind === 'no-cache-for-env'
+                ? `no cached run for env "${liveDx.envName}" — open the workflow and click Refresh under this env to populate`
+                : liveDx?.kind === 'disabled-lv'
+                  ? `live variable is disabled — enable it in the Live Variables editor`
+                  : err.hint;
+            return (
+              <div key={err.reference} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <Tag color="warning" style={{ fontSize: 10, marginTop: 2, minWidth: 88, textAlign: 'center' }}>
+                  {REASON_LABEL[err.reason]}
+                </Tag>
+                <Text style={{ fontSize: 12 }}>
+                  <Text code style={{ fontSize: 12 }}>{`{{${err.reference}}}`}</Text>
+                  <span style={{ marginLeft: 6 }}>— {enrichedHint}</span>
+                </Text>
+              </div>
+            );
+          })}
         </Space>
       }
     />

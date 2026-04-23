@@ -116,17 +116,60 @@ function dedupeErrors(errors: ResolutionError[]): ResolutionError[] {
 
 // ── Condition resolution ─────────────────────────────────────────
 
+/**
+ * Condition types whose `values` field is a LIST of independent
+ * entries (one hostname per entry, one method per entry, …). For
+ * these we expand a comma/newline-separated resolved string into
+ * multiple entries so that a template variable carrying a list
+ * (`MC2_DOMAINS = "a.com,b.com,c.com"`) round-trips into the right
+ * shape — Chrome's `requestDomains` is `string[]`, and a single
+ * `'a.com,b.com,c.com'` entry would be rejected as invalid.
+ *
+ * NOT in this set: `url-filter`, `url-regex`, header conditions,
+ * `domain-type`. Those carry a single pattern / single value where
+ * a comma is either nonsensical or could be part of a legitimate
+ * pattern; splitting would silently corrupt the user's input.
+ */
+const LIST_CONDITION_TYPES: ReadonlySet<RuleCondition['type']> = new Set([
+  'request-domains',
+  'exclude-request-domains',
+  'initiator-domains',
+  'exclude-initiator-domains',
+  'request-methods',
+  'exclude-request-methods',
+  'resource-types',
+  'exclude-resource-types',
+]);
+
 function resolveConditions(
   conditions: RuleCondition[],
   resolver: VariableResolver,
   context: ResolutionContext | undefined,
   errors: ResolutionError[] | undefined,
 ): RuleCondition[] {
-  return conditions.map((c) => ({
-    ...c,
-    values: resolveStrings(c.values, resolver, context, errors),
-    ...(c.headerName ? { headerName: resolveString(c.headerName, resolver, context, errors) } : {}),
-  }));
+  return conditions.map((c) => {
+    const resolved = resolveStrings(c.values, resolver, context, errors);
+    // Mirror the editor's `[,\n]` split semantics post-resolution so a
+    // template variable carrying a comma-separated list lands as
+    // multiple entries instead of one literal string.
+    const values = LIST_CONDITION_TYPES.has(c.type) ? expandListEntries(resolved) : resolved;
+    return {
+      ...c,
+      values,
+      ...(c.headerName ? { headerName: resolveString(c.headerName, resolver, context, errors) } : {}),
+    };
+  });
+}
+
+function expandListEntries(values: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const entry of values) {
+    for (const piece of entry.split(/[,\n]/)) {
+      const trimmed = piece.trim();
+      if (trimmed) out.push(trimmed);
+    }
+  }
+  return out;
 }
 
 // ── Per-type resolvers ────────────────────────────────────────────

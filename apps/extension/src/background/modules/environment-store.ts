@@ -55,6 +55,31 @@ function notifyChange(): void {
   for (const fn of listeners) fn();
 }
 
+/**
+ * Active-environment-pointer listeners. Same separation rationale as
+ * `onActiveWorkspaceChange` in `workspace-store.ts` — the generic
+ * `onEnvironmentStoreChange` fires on every variable edit, env rename,
+ * etc., but reactive consumers (the live-refresh scheduler's
+ * switch-warm pass) only care when the active env actually flips.
+ */
+type ActiveEnvironmentListener = (newId: string | null, prevId: string | null) => void;
+const activeListeners: Set<ActiveEnvironmentListener> = new Set();
+
+export function onActiveEnvironmentChange(listener: ActiveEnvironmentListener): () => void {
+  activeListeners.add(listener);
+  return () => activeListeners.delete(listener);
+}
+
+function notifyActiveChange(newId: string | null, prevId: string | null): void {
+  for (const fn of activeListeners) {
+    try {
+      fn(newId, prevId);
+    } catch {
+      // Listener errors don't unwind the switch.
+    }
+  }
+}
+
 // ── Reads ───────────────────────────────────────────────────────────
 
 export function getEnvironments(): V5.Environment[] {
@@ -207,7 +232,9 @@ export async function deleteEnvironment(uid: string): Promise<boolean> {
       const before = environments.length;
       environments = environments.filter((e) => e.uid !== uid);
       if (environments.length === before) return false;
-      if (activeEnvironmentId === uid) {
+      const prevActive = activeEnvironmentId;
+      const wasActive = activeEnvironmentId === uid;
+      if (wasActive) {
         activeEnvironmentId = null;
         await persistActiveEnvironment();
       }
@@ -216,6 +243,14 @@ export async function deleteEnvironment(uid: string): Promise<boolean> {
         await persistDefaultEnvironment();
       }
       await persistEnvironments();
+      // Auto-clearing the active env after deletion IS a switch — the
+      // user's resolution context flipped from `env-X` to "No
+      // environment". Reactive subscribers (live-refresh scheduler's
+      // switch-warm pass) must see it as one so the new context's
+      // missing/stale cache rows get refreshed.
+      if (wasActive) {
+        notifyActiveChange(null, prevActive);
+      }
       return true;
     },
     { op: 'environment-delete' },
@@ -229,8 +264,10 @@ export async function deleteEnvironment(uid: string): Promise<boolean> {
 export async function setActiveEnvironment(uid: string | null): Promise<boolean> {
   if (uid !== null && !environments.some((e) => e.uid === uid)) return false;
   if (activeEnvironmentId === uid) return true;
+  const prevId = activeEnvironmentId;
   activeEnvironmentId = uid;
   await persistActiveEnvironment();
+  notifyActiveChange(uid, prevId);
   return true;
 }
 

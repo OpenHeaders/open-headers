@@ -318,19 +318,42 @@ export async function readRequest(itemDir: string): Promise<V5.Request | null> {
   const uid = extractUid(folderName);
   const relativePath = itemDir; // caller should make this relative
 
-  // Detect and read body file
+  // Detect and read body file. The body shape is a discriminated union
+  // — assemble per-variant rather than mutating a shared object so the
+  // type system catches missed branches. `form` and `multipart` are
+  // structural-only at this layer (their parts live in the manifest
+  // and aren't touched here); the desktop storage path doesn't yet
+  // round-trip those structurally — TODO once it does, mirror the
+  // YAML codec's `assembleBody`.
   let body: V5.RequestBody = { type: 'none' };
   try {
     const files = await fs.promises.readdir(itemDir);
     const { type: bodyType, fileName: bodyFile } = detectBodyType(itemDir, files);
     if (bodyType !== 'none' && bodyFile) {
-      const content = await readTextFile(path.join(itemDir, bodyFile));
-      body = { type: bodyType, content: content ?? undefined };
-
-      // GraphQL variables
-      if (bodyType === 'graphql') {
-        const graphqlVars = await readTextFile(path.join(itemDir, 'variables.json'));
-        if (graphqlVars) body.graphqlVariables = graphqlVars;
+      const content = (await readTextFile(path.join(itemDir, bodyFile))) ?? '';
+      switch (bodyType) {
+        case 'json':
+          body = { type: 'json', content };
+          break;
+        case 'xml':
+          body = { type: 'xml', content };
+          break;
+        case 'text':
+          body = { type: 'text', content };
+          break;
+        case 'graphql': {
+          const graphqlVars = await readTextFile(path.join(itemDir, 'variables.json'));
+          body = graphqlVars
+            ? { type: 'graphql', content, graphqlVariables: graphqlVars }
+            : { type: 'graphql', content };
+          break;
+        }
+        case 'form':
+          body = { type: 'form', formParts: [] };
+          break;
+        case 'multipart':
+          body = { type: 'multipart', multipartParts: [] };
+          break;
       }
     }
   } catch {
@@ -399,17 +422,37 @@ export async function writeRequest(itemDir: string, request: V5.Request): Promis
 
   await writeYaml(path.join(itemDir, 'request.yaml'), yaml);
 
-  // Write body file
-  if (request.body.type !== 'none' && request.body.content) {
-    const ext = BODY_TYPE_TO_EXT[request.body.type];
-    if (ext) {
-      await writeTextFile(path.join(itemDir, `body${ext}`), request.body.content);
-    }
-
-    // GraphQL variables
-    if (request.body.type === 'graphql' && request.body.graphqlVariables) {
-      await writeTextFile(path.join(itemDir, 'variables.json'), request.body.graphqlVariables);
-    }
+  // Write body file. Exhaustive over the discriminated body union so
+  // a future variant doesn't silently slip through. Only json / xml /
+  // text / graphql produce a body.<ext> file; form + multipart carry
+  // their structural shape in the manifest and don't fan out to a
+  // sibling file at this layer (the YAML codec is the authoritative
+  // path for those — TODO consolidate desktop on the codec).
+  const reqBody = request.body;
+  switch (reqBody.type) {
+    case 'none':
+      break;
+    case 'json':
+    case 'xml':
+    case 'text':
+      if (reqBody.content) {
+        const ext = BODY_TYPE_TO_EXT[reqBody.type];
+        if (ext) await writeTextFile(path.join(itemDir, `body${ext}`), reqBody.content);
+      }
+      break;
+    case 'graphql':
+      if (reqBody.content) {
+        const ext = BODY_TYPE_TO_EXT.graphql;
+        if (ext) await writeTextFile(path.join(itemDir, `body${ext}`), reqBody.content);
+      }
+      if (reqBody.graphqlVariables) {
+        await writeTextFile(path.join(itemDir, 'variables.json'), reqBody.graphqlVariables);
+      }
+      break;
+    case 'form':
+    case 'multipart':
+      // No body.<ext> fan-out at this layer — handled by the YAML codec.
+      break;
   }
 
   // Write scripts

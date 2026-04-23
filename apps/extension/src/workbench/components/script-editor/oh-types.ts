@@ -16,16 +16,43 @@
 
 export const OH_AMBIENT_DTS = `
 type OhHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
-type OhBodyType = 'none' | 'json' | 'xml' | 'graphql' | 'form' | 'multipart' | 'text';
 
 interface OhHeader { key: string; value: string; }
 interface OhParam { key: string; value: string; }
 
-interface OhRequestBody {
-  readonly type: OhBodyType;
-  readonly content?: string;
-  readonly multipartParts?: ReadonlyArray<unknown>;
+interface OhFormField {
+  readonly key: string;
+  readonly value: string;
+  readonly description?: string;
+  readonly enabled?: boolean;
 }
+
+interface OhMultipartTextPart {
+  readonly kind: 'text';
+  readonly name: string;
+  readonly value: string;
+  readonly description?: string;
+  readonly enabled?: boolean;
+}
+
+interface OhMultipartFilePart {
+  readonly kind: 'file';
+  readonly name: string;
+  readonly fileRefs: ReadonlyArray<unknown>;
+  readonly description?: string;
+  readonly enabled?: boolean;
+}
+
+type OhMultipartPart = OhMultipartTextPart | OhMultipartFilePart;
+
+type OhRequestBody =
+  | { readonly type: 'none' }
+  | { readonly type: 'json'; readonly content: string }
+  | { readonly type: 'xml'; readonly content: string }
+  | { readonly type: 'text'; readonly content: string; readonly rawFormat?: 'text' | 'javascript' | 'html' }
+  | { readonly type: 'form'; readonly formParts: ReadonlyArray<OhFormField> }
+  | { readonly type: 'multipart'; readonly multipartParts: ReadonlyArray<OhMultipartPart> }
+  | { readonly type: 'graphql'; readonly content: string; readonly graphqlVariables?: string };
 
 /** The outgoing request. Mutable in pre-request scripts via
  *  \`oh.setUrl\` / \`oh.setHeader\` / \`oh.setMethod\` / \`oh.setBody\`;
@@ -82,15 +109,21 @@ interface OhExpectation {
   toHaveStatus(expected: number): void;
 }
 
+type OhAdHocRequestBody =
+  | { type: 'none' }
+  | { type: 'json'; content: string }
+  | { type: 'xml'; content: string }
+  | { type: 'text'; content: string; rawFormat?: 'text' | 'javascript' | 'html' }
+  | { type: 'form'; formParts: Array<OhFormField> }
+  | { type: 'multipart'; multipartParts: Array<OhMultipartPart> }
+  | { type: 'graphql'; content: string; graphqlVariables?: string };
+
 interface OhAdHocRequest {
   method: OhHttpMethod;
   url: string;
   headers?: Array<OhHeader>;
   params?: Array<OhParam>;
-  body?: {
-    type: OhBodyType;
-    content?: string;
-  };
+  body?: OhAdHocRequestBody;
 }
 
 interface OhAdHocResponse {
@@ -102,10 +135,7 @@ interface OhAdHocResponse {
   durationMs: number;
 }
 
-interface OhBodyInit {
-  type: OhBodyType;
-  content?: string;
-}
+type OhBodyInit = OhAdHocRequestBody;
 
 /**
  * The \`oh\` global exposed inside pre-request + post-response scripts.

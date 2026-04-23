@@ -96,6 +96,38 @@ vi.mock('@/background/modules/live-cache-store', () => ({
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
 }));
 
+// Active-pointer change listeners — the scheduler subscribes to these
+// on `startLiveScheduler` so a workspace/env switch automatically
+// triggers `kickActiveContextRefresh`. The mocks expose the listener
+// sets so tests can fire synthetic switches and verify reactivity.
+const activeSwitchState = {
+  workspaceListeners: new Set<(newId: string, prevId: string | null) => void>(),
+  envListeners: new Set<(newId: string | null, prevId: string | null) => void>(),
+  activeEnvId: null as string | null,
+};
+
+const ACTIVE_WORKSPACE_ID = 'ws-live';
+
+vi.mock('@/background/modules/workspace-store', () => ({
+  // The scheduler reads the active workspace synchronously from this
+  // sync accessor when an env-switch event fires (workspace doesn't
+  // change on env-switch but the listener doesn't carry it). Tests
+  // that don't assert env-switch behavior don't need to override.
+  getActiveWorkspaceId: () => ACTIVE_WORKSPACE_ID,
+  onActiveWorkspaceChange: (fn: (newId: string, prevId: string | null) => void) => {
+    activeSwitchState.workspaceListeners.add(fn);
+    return () => activeSwitchState.workspaceListeners.delete(fn);
+  },
+}));
+
+vi.mock('@/background/modules/environment-store', () => ({
+  getActiveEnvironmentId: () => activeSwitchState.activeEnvId,
+  onActiveEnvironmentChange: (fn: (newId: string | null, prevId: string | null) => void) => {
+    activeSwitchState.envListeners.add(fn);
+    return () => activeSwitchState.envListeners.delete(fn);
+  },
+}));
+
 // Storage shim for OH.workspaces / OH.activeWorkspaceId + wsKeys reads
 // on inactive workspaces. Using `installBackingStorage` from the shared
 // helper keeps the semantics identical to the real `extensionStorage`.
@@ -160,6 +192,9 @@ beforeEach(async () => {
     caches: [],
     listeners: { workflow: new Set(), variable: new Set(), cache: new Set() },
   };
+  activeSwitchState.workspaceListeners.clear();
+  activeSwitchState.envListeners.clear();
+  activeSwitchState.activeEnvId = null;
   // Seed an active workspace so `collectEntries` can route the
   // in-memory path.
   seedStorageMany({
@@ -493,5 +528,53 @@ describe('startLiveScheduler', () => {
     scheduler.startLiveScheduler();
     scheduler.startLiveScheduler();
     expect(storeState.listeners.workflow.size).toBe(1);
+  });
+
+  it('subscribes to active-workspace + active-env switch events', () => {
+    scheduler.startLiveScheduler();
+    expect(activeSwitchState.workspaceListeners.size).toBe(1);
+    expect(activeSwitchState.envListeners.size).toBe(1);
+    scheduler.stopLiveScheduler();
+    expect(activeSwitchState.workspaceListeners.size).toBe(0);
+    expect(activeSwitchState.envListeners.size).toBe(0);
+  });
+});
+
+// ── Active-workspace-only contract ────────────────────────────────
+
+describe('active-workspace-only', () => {
+  it('reconcile only schedules workflows from the active workspace', async () => {
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    // Even if storage carries other workspaces' metadata, the scheduler
+    // ignores them — `getLiveWorkflows()` returns the active workspace's
+    // in-memory snapshot only.
+    seedStorageMany({
+      'oh.workspaces': [
+        { id: 'ws-live', name: 'Live', color: '#000', iconMode: 'emoji' },
+        { id: 'ws-other', name: 'Other', color: '#000', iconMode: 'emoji' },
+      ],
+      'oh.activeWorkspaceId': 'ws-live',
+    });
+    await scheduler.reconcileLiveSchedules(NOW);
+    // One alarm for the (active) workspace's single workflow + null env
+    // (no cache row yet).
+    expect(alarmsCreateMock).toHaveBeenCalledTimes(1);
+    const [name] = alarmsCreateMock.mock.calls[0];
+    expect(name.startsWith('live-refresh:')).toBe(true);
+  });
+
+  it('handleAlarm cancels alarms whose workspace id no longer matches active', async () => {
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    // Active is ws-live; the alarm payload references ws-other.
+    const orphanName = scheduler.buildAlarmName('ws-other', 'wflow001', null);
+    await scheduler.handleLiveAlarm({
+      name: orphanName,
+      scheduledTime: Date.now(),
+    } as chrome.alarms.Alarm);
+    // Provider returned null (workspace mismatch) → shared scheduler
+    // routes to alarm cancellation. Adapter never runs.
+    expect(alarmsClearMock).toHaveBeenCalledWith(orphanName);
   });
 });

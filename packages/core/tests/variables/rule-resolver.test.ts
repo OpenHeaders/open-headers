@@ -154,6 +154,63 @@ describe('resolveRuleWithDiagnostics', () => {
     expect(out.conditions[0].values[0]).toBe('{{HOST}}');
   });
 
+  it('list-shaped variable expands across multiple values for request-domains', () => {
+    // Real-world case: env var holds a comma-separated host list. Without
+    // post-resolution split, Chrome receives a single
+    // 'a.com,b.com,c.com' entry in requestDomains and atomically rejects
+    // the whole updateDynamicRules call.
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([
+        makeVariable('CORP_DOMAIN_LIST', 'development.api.openheaders.io,portal.corp,intranet,localhost'),
+      ]),
+    );
+    const rule = makeHeaderRule({
+      conditions: [{ type: 'request-domains', values: ['{{CORP_DOMAIN_LIST}}'] }],
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: 'X-Debug-True', value: 'true' }],
+        responseHeaders: [],
+      },
+    });
+    const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(resolved.conditions[0].values).toEqual([
+      'development.api.openheaders.io',
+      'portal.corp',
+      'intranet',
+      'localhost',
+    ]);
+  });
+
+  it('list expansion handles whitespace + newlines + extra commas', () => {
+    resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOSTS', '  foo.com ,bar.com\n , , baz.com\n ')]));
+    const rule = makeHeaderRule({
+      conditions: [{ type: 'request-domains', values: ['{{HOSTS}}'] }],
+    });
+    const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(resolved.conditions[0].values).toEqual(['foo.com', 'bar.com', 'baz.com']);
+  });
+
+  it('list expansion does NOT split single-value condition types (url-filter)', () => {
+    // url-filter takes a single pattern that may contain commas as part
+    // of the URL — splitting would silently corrupt user input.
+    resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('PAT', 'https://a.com/path,with,commas')]));
+    const rule = makeHeaderRule({
+      conditions: [{ type: 'url-filter', values: ['{{PAT}}'] }],
+    });
+    const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(resolved.conditions[0].values).toEqual(['https://a.com/path,with,commas']);
+  });
+
+  it('list expansion mixes literal entries + template-expanded entries', () => {
+    // The user can have one row with `{{HOSTS}}` AND another row with
+    // a literal hostname; both flow through expansion.
+    resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOSTS', 'a.com,b.com')]));
+    const rule = makeHeaderRule({
+      conditions: [{ type: 'request-domains', values: ['{{HOSTS}}', 'manual.com'] }],
+    });
+    const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(resolved.conditions[0].values).toEqual(['a.com', 'b.com', 'manual.com']);
+  });
+
   it('delay rules carry conditions-only diagnostics (no action resolution needed)', () => {
     const rule = {
       schemaVersion: 5 as const,

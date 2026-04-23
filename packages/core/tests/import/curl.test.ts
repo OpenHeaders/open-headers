@@ -178,11 +178,17 @@ describe('parseCurl — body data', () => {
     expect(request.body).toEqual({ type: 'json', content: '{"a":1}' });
   });
 
-  it('uses body.type=form when Content-Type is application/x-www-form-urlencoded', () => {
+  it('promotes Content-Type=application/x-www-form-urlencoded body to structured form fields', () => {
     const { request } = parseCurl(
-      "curl -H 'Content-Type: application/x-www-form-urlencoded' -d 'a=1' https://api.openheaders.io",
+      "curl -H 'Content-Type: application/x-www-form-urlencoded' -d 'a=1&b=hello%20world' https://api.openheaders.io",
     );
-    expect(request.body).toEqual({ type: 'form', content: 'a=1' });
+    expect(request.body).toEqual({
+      type: 'form',
+      formParts: [
+        { key: 'a', value: '1' },
+        { key: 'b', value: 'hello world' },
+      ],
+    });
   });
 
   it('joins multiple -d parts with &', () => {
@@ -199,8 +205,9 @@ describe('parseCurl — body data', () => {
     const { request } = parseCurl(
       "curl --data-binary '<xml>hi</xml>' -H 'Content-Type: application/xml' https://api.openheaders.io",
     );
-    expect(request.body.type).toBe('text');
-    expect(request.body.content).toBe('<xml>hi</xml>');
+    // curl importer recognizes JSON + form-urlencoded explicitly; XML
+    // falls through to text (the user can switch in the editor).
+    expect(request.body).toEqual({ type: 'text', content: '<xml>hi</xml>' });
   });
 });
 
@@ -251,6 +258,7 @@ describe('parseCurl — drops (logged, not silent)', () => {
       "curl -F 'upload=@file.png' -F 'caption=hello world' https://api.openheaders.io",
     );
     expect(request.body.type).toBe('multipart');
+    if (request.body.type !== 'multipart') throw new Error('expected multipart body');
     expect(request.body.multipartParts).toEqual([
       {
         kind: 'file',

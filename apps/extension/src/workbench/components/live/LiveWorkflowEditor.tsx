@@ -51,7 +51,14 @@ import { computeRequestTrail } from '../../breadcrumbs';
 import StaleDraftBanner from '../StaleDraftBanner';
 import { buildDependencyRows } from './dependencies-view';
 import { InlineNameDescription, Section } from './layout';
-import { classifyRun, describeRefreshPolicy, formatRelativeMs, pickActiveRun, statusColor } from './live-display';
+import {
+  classifyRun,
+  describeRefreshPolicy,
+  formatRelativeMs,
+  pickActiveRun,
+  statusColor,
+  summarizeRunsByEnv,
+} from './live-display';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
 import WorkflowStepEditor from './WorkflowStepEditor';
 
@@ -135,7 +142,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const { message } = App.useApp();
   const { workflows, updateWorkflow, refreshNow } = useLiveWorkflows();
   const { variables, createVariable, updateVariable, deleteVariable } = useLiveVariables();
-  const { activeEnvironmentId } = useEnvironments();
+  const { environments, activeEnvironmentId } = useEnvironments();
   const { runs } = useLiveWorkflowCache(workflowUid);
 
   const workflow = useMemo(() => workflows.find((w) => w.uid === workflowUid) ?? null, [workflows, workflowUid]);
@@ -303,6 +310,14 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
   const run = useMemo(() => pickActiveRun(runs, activeEnvironmentId ?? null), [runs, activeEnvironmentId]);
   const level = classifyRun(run);
+  const perEnvRuns = useMemo(() => summarizeRunsByEnv(runs, activeEnvironmentId ?? null), [runs, activeEnvironmentId]);
+  const envName = useCallback(
+    (environmentId: string | null) => {
+      if (environmentId === null) return 'No environment';
+      return environments.find((e) => e.uid === environmentId)?.name ?? 'Unknown env';
+    },
+    [environments],
+  );
 
   if (!workflow) {
     return (
@@ -353,38 +368,96 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         <div
           style={{
             display: 'flex',
-            gap: 10,
+            flexDirection: 'column',
             padding: '6px 10px',
             background: token.colorFillAlter,
             borderRadius: 4,
             marginBottom: 14,
-            alignItems: 'center',
-            flexWrap: 'wrap',
             fontSize: 11,
           }}
         >
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {level === 'idle' ? 'never refreshed' : level}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            · last {run ? formatRelativeMs(run.extractedAt) : 'never'}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            · expires {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            · {describeRefreshPolicy(draft.refresh)}
-          </Text>
-          {run?.lastErrorMessage && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              · {run.lastErrorMessage}
-              {run.lastErrorStepId ? ` (${run.lastErrorStepId})` : ''}
+          {/* Top row: refresh policy + binding count — workflow-level facts that don't vary by env */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {describeRefreshPolicy(draft.refresh)}
             </Text>
-          )}
-          <div style={{ flex: 1 }} />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            bound: {boundVars.length} variable{boundVars.length === 1 ? '' : 's'}
-          </Text>
+            <div style={{ flex: 1 }} />
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              bound: {boundVars.length} variable{boundVars.length === 1 ? '' : 's'}
+            </Text>
+          </div>
+          {/* Per-env table — one row per env that has a cache, plus the
+              active env row even when no cache exists for it. The active
+              env row is always first + visually highlighted so the user
+              sees "what's resolved RIGHT NOW" at a glance. */}
+          <div
+            style={{
+              marginTop: 6,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
+            {perEnvRuns.map((entry) => {
+              const entryLevel = classifyRun(entry.run);
+              return (
+                <div
+                  key={entry.environmentId ?? '__none__'}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '3px 6px',
+                    borderRadius: 3,
+                    background: entry.isActive ? token.colorBgContainer : 'transparent',
+                    border: entry.isActive ? `1px solid ${token.colorBorderSecondary}` : '1px solid transparent',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: statusColor(entryLevel),
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: entry.isActive ? 600 : 400,
+                      color: entry.isActive ? token.colorText : token.colorTextSecondary,
+                    }}
+                  >
+                    {envName(entry.environmentId)}
+                    {entry.isActive ? ' (active)' : ''}
+                  </Text>
+                  {entry.run ? (
+                    <>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        · last {formatRelativeMs(entry.run.extractedAt)}
+                      </Text>
+                      {entry.run.expiresAt != null && (
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          · expires {formatRelativeMs(entry.run.expiresAt)}
+                        </Text>
+                      )}
+                      {entry.run.lastErrorMessage && (
+                        <Text type="danger" style={{ fontSize: 11 }}>
+                          · {entry.run.lastErrorMessage}
+                          {entry.run.lastErrorStepId ? ` (${entry.run.lastErrorStepId})` : ''}
+                        </Text>
+                      )}
+                    </>
+                  ) : (
+                    <Text type="warning" style={{ fontSize: 11 }}>
+                      · never run for this env — click Refresh to populate
+                    </Text>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <WorkflowFormBody draft={draft} setDraft={setDraft} />

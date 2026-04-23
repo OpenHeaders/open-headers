@@ -275,9 +275,11 @@ describe('executor — multipart bodies', () => {
     expect(headers.get('Content-Type')).toBe('application/json');
   });
 
-  it('produces an empty FormData when multipartParts is absent', async () => {
+  it('produces an empty FormData when multipartParts is empty', async () => {
+    // The multipart variant requires `multipartParts: MultipartPart[]`,
+    // so the absent-array shape is unrepresentable — we test the
+    // empty-array case instead, which is the practical equivalent.
     const req = makeMultipartRequest([]);
-    req.body = { type: 'multipart' }; // multipartParts omitted
     await executeRequestDraft(req);
     const [, init] = fetchMock.mock.calls[0];
     const form = await readFormData(init);

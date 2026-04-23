@@ -624,7 +624,11 @@ describe('request mapping — body', () => {
     );
     expect(result.requests[0]?.request.body).toEqual({
       type: 'form',
-      content: 'a=1&b=two%20words',
+      formParts: [
+        { key: 'a', value: '1', enabled: undefined, description: undefined },
+        { key: 'b', value: 'two words', enabled: undefined, description: undefined },
+        { key: 'c', value: 'disabled', enabled: false, description: undefined },
+      ],
     });
   });
 
@@ -676,7 +680,8 @@ describe('request mapping — body', () => {
     );
     const body = result.requests[0]?.request.body;
     expect(body?.type).toBe('multipart');
-    expect(body?.multipartParts).toEqual([
+    if (body?.type !== 'multipart') throw new Error('expected multipart body');
+    expect(body.multipartParts).toEqual([
       { kind: 'text', name: 'name', value: 'alice' },
       {
         kind: 'file',
@@ -716,7 +721,8 @@ describe('request mapping — body', () => {
     );
     const body = result.requests[0]?.request.body;
     expect(body?.type).toBe('multipart');
-    expect(body?.multipartParts).toEqual([
+    if (body?.type !== 'multipart') throw new Error('expected multipart body');
+    expect(body.multipartParts).toEqual([
       {
         kind: 'file',
         name: 'file',
@@ -1358,7 +1364,10 @@ describe('edge cases', () => {
           ],
         }),
       );
-      expect(result.requests[0]?.request.body).toEqual({ type: 'form', content: 'k=v' });
+      expect(result.requests[0]?.request.body).toEqual({
+        type: 'form',
+        formParts: [{ key: 'k', value: 'v' }],
+      });
     });
 
     it('falls back to text when no hints are present', () => {

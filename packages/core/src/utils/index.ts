@@ -1,3 +1,5 @@
+export type { DomainIssueKind, DomainValueIssue } from './condition-validation';
+export { applyDomainValueCleanup, validateDomainValues } from './condition-validation';
 export type {
   HeaderDirection,
   HeaderNameValidation,

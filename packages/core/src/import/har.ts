@@ -445,14 +445,17 @@ function buildBody(
   }
 
   // No text but params present: url-encoded form rendered as an
-  // array. Synthesize the text form so the user sees their body; we
-  // refuse to guess encodings for more exotic `contentType` fields.
+  // array. HAR captures these structurally — promote each param to a
+  // form field directly so the editor's form-urlencoded tab renders
+  // them as rows (no roundtrip through encoded text).
   if (text.length === 0 && Array.isArray(postData.params) && postData.params.length > 0) {
-    const encoded = postData.params
-      .filter((p) => typeof p.value === 'string')
-      .map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value ?? '')}`)
-      .join('&');
-    return { type: 'form', content: encoded };
+    const formParts = postData.params
+      .filter((p) => typeof p.name === 'string')
+      .map((p) => ({
+        key: p.name,
+        value: typeof p.value === 'string' ? p.value : '',
+      }));
+    return { type: 'form', formParts };
   }
 
   if (text.length === 0) return { type: 'none' };
@@ -463,8 +466,23 @@ function buildBody(
   const contentType = contentTypeOf(headers) ?? mime;
   if (/application\/json/i.test(contentType)) return { type: 'json', content: text };
   if (/application\/xml|text\/xml/i.test(contentType)) return { type: 'xml', content: text };
-  if (/application\/x-www-form-urlencoded/i.test(contentType)) return { type: 'form', content: text };
+  if (/application\/x-www-form-urlencoded/i.test(contentType)) {
+    return { type: 'form', formParts: parseFormFieldsFromUrlEncoded(text) };
+  }
   return { type: 'text', content: text };
+}
+
+function parseFormFieldsFromUrlEncoded(encoded: string): Array<{ key: string; value: string }> {
+  if (!encoded) return [];
+  const out: Array<{ key: string; value: string }> = [];
+  for (const segment of encoded.split('&')) {
+    if (segment.length === 0) continue;
+    const eq = segment.indexOf('=');
+    const rawKey = eq < 0 ? segment : segment.slice(0, eq);
+    const rawValue = eq < 0 ? '' : segment.slice(eq + 1);
+    out.push({ key: safeDecode(rawKey.replace(/\+/g, ' ')), value: safeDecode(rawValue.replace(/\+/g, ' ')) });
+  }
+  return out;
 }
 
 function contentTypeOf(headers: readonly RequestHeader[]): string | null {

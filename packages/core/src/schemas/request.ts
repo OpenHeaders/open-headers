@@ -12,19 +12,6 @@ export const HttpMethodSchema = v.picklist(['GET', 'POST', 'PUT', 'PATCH', 'DELE
 
 export const BodyTypeSchema = v.picklist(['none', 'json', 'xml', 'graphql', 'form', 'multipart', 'text']);
 
-/**
- * Syntax hint for `raw` bodies whose wire-level `BodyType` collapses to
- * `'text'`. Lets the editor remember "user picked JavaScript / HTML"
- * even though neither has a distinct wire-level body type — the bytes
- * are still sent verbatim. Persisted alongside `body.type` so the
- * dropdown choice round-trips through save/reload.
- *
- * `'json'` / `'xml'` are redundant with the corresponding `BodyType`
- * variants but carried anyway so the classifier can be a single source
- * of truth (no split between `body.type` and `body.rawFormat`).
- */
-export const RawFormatSchema = v.picklist(['text', 'javascript', 'json', 'html', 'xml']);
-
 export const CredentialsModeSchema = v.picklist(['omit', 'include']);
 
 /**
@@ -304,33 +291,75 @@ export const FormFieldSchema = v.object({
   enabled: v.optional(v.boolean()),
 });
 
-export const RequestBodySchema = v.object({
-  type: BodyTypeSchema,
-  /**
-   * UI-level syntax hint for `raw` bodies — only consulted when
-   * `type === 'text'` to distinguish JavaScript / HTML / plain Text,
-   * all of which share the same wire-level byte stream. For JSON / XML
-   * the redundant `rawFormat` may be present but `type` is authoritative.
-   */
-  rawFormat: v.optional(RawFormatSchema),
-  content: v.optional(v.string()),
-  graphqlVariables: v.optional(v.string()),
-  /**
-   * Structured multipart part list. Populated when `type === 'multipart'`;
-   * ignored for other body types. Absent → empty multipart body (rare
-   * but valid — some APIs accept this for "kick off" endpoints).
-   */
-  multipartParts: v.optional(v.array(MultipartPartSchema)),
-  /**
-   * Structured `application/x-www-form-urlencoded` field list.
-   * Populated when `type === 'form'`; the executor builds a
-   * `URLSearchParams` from enabled entries (disabled rows stay on
-   * disk but aren't sent). If absent, the executor falls back to
-   * parsing `content` — lets legacy importers that only produce the
-   * raw encoded string still round-trip without data loss.
-   */
-  formParts: v.optional(v.array(FormFieldSchema)),
-});
+/**
+ * Discriminated union of every body shape the executor can ship.
+ *
+ * Each variant declares ONLY the fields it uses — there is no shared
+ * "optional content / optional formParts / optional multipartParts"
+ * bag. Consumers `switch (body.type)` and the compiler refuses to
+ * read a wrong field. This is the source-of-truth that gates the
+ * resolve/execute/snapshot/mutate/persist pipeline; drift in any one
+ * of those is a typecheck error, not a runtime bug.
+ *
+ * Variants:
+ *   - `none`      — no body shipped (Content-Length: 0).
+ *   - `json`      — `content` is JSON text; ships verbatim.
+ *   - `xml`       — `content` is XML text; ships verbatim.
+ *   - `text`      — `content` is plain text; `rawFormat` lets the
+ *                   editor remember whether the user typed Text /
+ *                   JavaScript / HTML (all three share `text/plain`-
+ *                   family wire bytes; the dropdown choice tunes the
+ *                   default Content-Type).
+ *   - `form`      — `formParts` is the structured key/value list
+ *                   serialized as `application/x-www-form-urlencoded`.
+ *                   Disabled rows stay on disk but aren't sent.
+ *   - `multipart` — `multipartParts` carries the multipart segments
+ *                   (text + file refs by hash). The browser sets the
+ *                   boundary at fetch time.
+ *   - `graphql`   — `content` is the query string; `graphqlVariables`
+ *                   is the optional JSON-encoded variables object.
+ *                   The executor JSON-wraps both into a single
+ *                   `application/json` POST body per the GraphQL HTTP
+ *                   transport spec.
+ */
+export const RequestBodySchema = v.variant('type', [
+  v.object({ type: v.literal('none') }),
+  v.object({
+    type: v.literal('json'),
+    content: v.string(),
+  }),
+  v.object({
+    type: v.literal('xml'),
+    content: v.string(),
+  }),
+  v.object({
+    type: v.literal('text'),
+    content: v.string(),
+    /**
+     * Editor-only syntax hint. Persisted so the dropdown choice
+     * (Text / JavaScript / HTML) round-trips through save. For
+     * `text` bodies, the executor consults this to pick a more
+     * specific default Content-Type (`text/javascript` / `text/html`)
+     * when the user didn't set one. The literal `'text'` is allowed
+     * (the default) so the field can be present without forcing the
+     * user into a sub-format choice.
+     */
+    rawFormat: v.optional(v.picklist(['text', 'javascript', 'html'])),
+  }),
+  v.object({
+    type: v.literal('form'),
+    formParts: v.array(FormFieldSchema),
+  }),
+  v.object({
+    type: v.literal('multipart'),
+    multipartParts: v.array(MultipartPartSchema),
+  }),
+  v.object({
+    type: v.literal('graphql'),
+    content: v.string(),
+    graphqlVariables: v.optional(v.string()),
+  }),
+]);
 
 export const RequestSchema = v.object({
   schemaVersion: SchemaVersionSchema,

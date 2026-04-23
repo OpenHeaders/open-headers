@@ -603,12 +603,27 @@ function buildBody(parts: string[], kind: ParserState['dataKind'], headers: Requ
   if (contentType && /\bapplication\/json\b/i.test(contentType)) {
     return { type: 'json', content };
   }
-  // form-urlencoded Content-Type → recognize explicitly so the editor
-  // renders the right tab.
+  // form-urlencoded Content-Type → split into structured form fields
+  // so the editor's form-urlencoded tab renders rows. Sending a curl
+  // request with `-d 'a=1&b=2' -H 'Content-Type: application/x-www-form-urlencoded'`
+  // is the canonical shape we want the user to land on.
   if (contentType && /application\/x-www-form-urlencoded/i.test(contentType)) {
-    return { type: 'form', content };
+    return { type: 'form', formParts: parseFormFields(content) };
   }
   return { type: 'text', content };
+}
+
+function parseFormFields(encoded: string): Array<{ key: string; value: string }> {
+  if (!encoded) return [];
+  const out: Array<{ key: string; value: string }> = [];
+  for (const segment of encoded.split('&')) {
+    if (segment.length === 0) continue;
+    const eq = segment.indexOf('=');
+    const rawKey = eq < 0 ? segment : segment.slice(0, eq);
+    const rawValue = eq < 0 ? '' : segment.slice(eq + 1);
+    out.push({ key: safeDecode(rawKey.replace(/\+/g, ' ')), value: safeDecode(rawValue.replace(/\+/g, ' ')) });
+  }
+  return out;
 }
 
 function contentTypeOf(headers: readonly RequestHeader[]): string | null {

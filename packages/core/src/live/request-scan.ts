@@ -64,16 +64,40 @@ export function collectRequestTemplateStrings(request: Request): string[] {
   }
 
   // ── Body ──
+  // Exhaustive over the discriminated union — anything missed here
+  // silently disappears from the dependency graph + the resolvability
+  // gate. The compiler enforces exhaustion via the `never` assignment
+  // on the default branch.
   const body = request.body;
-  if (body) {
-    if (body.type === 'multipart') {
-      for (const part of body.multipartParts ?? []) {
+  switch (body.type) {
+    case 'none':
+      break;
+    case 'json':
+    case 'xml':
+    case 'text':
+      if (body.content) out.push(body.content);
+      break;
+    case 'graphql':
+      if (body.content) out.push(body.content);
+      if (body.graphqlVariables) out.push(body.graphqlVariables);
+      break;
+    case 'form':
+      for (const part of body.formParts) {
+        if (part.enabled === false) continue;
+        if (part.key) out.push(part.key);
+        if (part.value) out.push(part.value);
+      }
+      break;
+    case 'multipart':
+      for (const part of body.multipartParts) {
         if (part.enabled === false) continue;
         if (part.name) out.push(part.name);
         if (part.kind === 'text' && part.value) out.push(part.value);
       }
-    } else if (body.type !== 'none' && body.content) {
-      out.push(body.content);
+      break;
+    default: {
+      const _exhaustive: never = body;
+      void _exhaustive;
     }
   }
 
