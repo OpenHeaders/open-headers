@@ -205,11 +205,12 @@ export interface EditorGroupRendererProps {
   templates: V5.Template[];
   requests: V5.Request[];
   pausedUids: ReadonlySet<string>;
-  /** Rules/Requests whose `{{...}}` references don't resolve against
-   *  the current scope — forwarded to TabBar so the method tag greys
-   *  out, matching the sidebar/draft treatment. */
+  /** Rules/Requests/Workflows whose `{{...}}` references don't resolve
+   *  against the current scope — forwarded to TabBar for icon coloring. */
   unresolvableRuleUids?: ReadonlySet<string>;
   unresolvableRequestUids?: ReadonlySet<string>;
+  liveWorkflows?: V5.LiveWorkflow[];
+  unresolvableWorkflowUids?: ReadonlySet<string>;
   renderTabBody: (ctx: RenderLeafContext) => React.ReactNode;
   renderLeafHeader: (ctx: RenderLeafHeaderContext) => React.ReactNode;
   renderEmpty: () => React.ReactNode;
@@ -238,6 +239,8 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   pausedUids,
   unresolvableRuleUids,
   unresolvableRequestUids,
+  liveWorkflows,
+  unresolvableWorkflowUids,
   renderTabBody,
   renderLeafHeader,
   renderEmpty,
@@ -445,6 +448,8 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           pausedUids={pausedUids}
           unresolvableRuleUids={unresolvableRuleUids}
           unresolvableRequestUids={unresolvableRequestUids}
+          liveWorkflows={liveWorkflows}
+          unresolvableWorkflowUids={unresolvableWorkflowUids}
           onSwitch={groups.switchTab}
           onClose={onCloseTab}
           onTabDoubleClick={onTabDoubleClick}

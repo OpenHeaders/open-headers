@@ -17,7 +17,7 @@ import {
   FileTextOutlined,
   FundViewOutlined,
   ScanOutlined,
-  ThunderboltOutlined,
+  SisternodeOutlined,
 } from '@ant-design/icons';
 import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@/shared/dock-layout';
 import type { ToolWindowId } from './types';
@@ -49,7 +49,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   // reference in the Scope panel's Live category via a Live Variable
   // binding. First-class left-bottom tab so users see it as a feature
   // rather than a Variables sub-section.
-  { id: 'workflows', label: 'Workflows', icon: <ThunderboltOutlined />, core: false, defaultSlot: 'left-bottom' },
+  { id: 'workflows', label: 'Workflows', icon: <SisternodeOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-bottom' },

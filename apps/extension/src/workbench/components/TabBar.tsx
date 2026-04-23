@@ -16,7 +16,7 @@
 import {
   ApartmentOutlined,
   AppstoreOutlined,
-  BranchesOutlined,
+  SisternodeOutlined,
   CloseOutlined,
   DownOutlined,
   ExperimentOutlined,
@@ -30,6 +30,7 @@ import {
 } from '@ant-design/icons';
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { isWorkflowComplete } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRuleComplete } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
@@ -78,6 +79,8 @@ export function tabIcon(
   requests: V5.Request[] = [],
   unresolvableRequestUids: ReadonlySet<string> = EMPTY_SET,
   unresolvableRuleUids: ReadonlySet<string> = EMPTY_SET,
+  liveWorkflows: V5.LiveWorkflow[] = [],
+  unresolvableWorkflowUids: ReadonlySet<string> = EMPTY_SET,
 ): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
@@ -104,7 +107,13 @@ export function tabIcon(
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');
   if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create') return scopeBadge('live');
-  if (tab.mode === 'live-workflow-edit' || tab.mode === 'live-workflow-create') return <BranchesOutlined style={{ fontSize: 12, color: SCOPE_COLORS.live.color }} />;
+  if (tab.mode === 'live-workflow-edit' || tab.mode === 'live-workflow-create') {
+    const workflow = tab.liveWorkflowUid ? liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid) : undefined;
+    const unresolved = tab.liveWorkflowUid ? unresolvableWorkflowUids.has(tab.liveWorkflowUid) : false;
+    const complete = workflow ? isWorkflowComplete(workflow) : false;
+    const color = tab.mode === 'live-workflow-create' ? TAB_ICON_GRAY : unresolved ? TAB_ICON_YELLOW : complete ? '#1677ff' : TAB_ICON_GRAY;
+    return <SisternodeOutlined style={{ fontSize: 12, color }} />;
+  }
   if (tab.mode === 'collection-vars') return scopeBadge('collection');
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
     // Request tabs carry the HTTP method as their "icon" — compact
@@ -219,6 +228,10 @@ interface TabBarProps {
   /** Request uids whose templates have unresolved refs — drives
    *  greyed method tag on request tabs. */
   unresolvableRequestUids?: ReadonlySet<string>;
+  /** Live workflows — drives state-based icon color on workflow tabs. */
+  liveWorkflows?: V5.LiveWorkflow[];
+  /** Workflow uids whose step requests have unresolved refs. */
+  unresolvableWorkflowUids?: ReadonlySet<string>;
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
   /** Double-click on any tab — App wires this to zen-mode toggle. */
@@ -285,6 +298,8 @@ interface TabPillContentProps {
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
+  liveWorkflows: V5.LiveWorkflow[];
+  unresolvableWorkflowUids: ReadonlySet<string>;
   onClose?: (id: string) => void;
   closeIconColor: string;
   hidden?: boolean;
@@ -298,6 +313,8 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   pausedUids,
   unresolvableRuleUids,
   unresolvableRequestUids,
+  liveWorkflows,
+  unresolvableWorkflowUids,
   onClose,
   closeIconColor,
   hidden,
@@ -305,7 +322,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   const inner = (
     <>
       <span className="rules-type-badge">
-        {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids)}
+        {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids, liveWorkflows, unresolvableWorkflowUids)}
       </span>
       <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab)}
@@ -367,6 +384,8 @@ interface CrossLeafInsertionMarkerProps {
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
+  liveWorkflows: V5.LiveWorkflow[];
+  unresolvableWorkflowUids: ReadonlySet<string>;
   token: ReturnType<typeof theme.useToken>['token'];
 }
 
@@ -378,6 +397,8 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
   pausedUids,
   unresolvableRuleUids,
   unresolvableRequestUids,
+  liveWorkflows,
+  unresolvableWorkflowUids,
   token,
 }) => (
   <div
@@ -393,6 +414,8 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
       pausedUids={pausedUids}
       unresolvableRuleUids={unresolvableRuleUids}
       unresolvableRequestUids={unresolvableRequestUids}
+      liveWorkflows={liveWorkflows}
+      unresolvableWorkflowUids={unresolvableWorkflowUids}
       closeIconColor={token.colorTextTertiary}
       hidden
     />
@@ -412,6 +435,8 @@ interface SortableTabProps {
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
+  liveWorkflows: V5.LiveWorkflow[];
+  unresolvableWorkflowUids: ReadonlySet<string>;
   contextMenu: { items: ItemType[] };
   onSwitch: (id: string) => void;
   onClose: (id: string) => void;
@@ -429,6 +454,8 @@ const SortableTab: React.FC<SortableTabProps> = ({
   pausedUids,
   unresolvableRuleUids,
   unresolvableRequestUids,
+  liveWorkflows,
+  unresolvableWorkflowUids,
   contextMenu,
   onSwitch,
   onClose,
@@ -515,6 +542,8 @@ const SortableTab: React.FC<SortableTabProps> = ({
         pausedUids={pausedUids}
         unresolvableRuleUids={unresolvableRuleUids}
         unresolvableRequestUids={unresolvableRequestUids}
+        liveWorkflows={liveWorkflows}
+        unresolvableWorkflowUids={unresolvableWorkflowUids}
         onClose={onClose}
         closeIconColor={token.colorTextTertiary}
         hidden={isDragging}
@@ -550,6 +579,8 @@ interface TabSearchProps {
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
+  liveWorkflows: V5.LiveWorkflow[];
+  unresolvableWorkflowUids: ReadonlySet<string>;
   onSwitch: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopen: (closed: ClosedTab) => void;
@@ -566,6 +597,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   pausedUids,
   unresolvableRuleUids,
   unresolvableRequestUids,
+  liveWorkflows,
+  unresolvableWorkflowUids,
   onSwitch,
   recentlyClosed,
   onReopen,
@@ -669,7 +702,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 }}
               >
                 <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                  {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids)}
+                  {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids, liveWorkflows, unresolvableWorkflowUids)}
                 </span>
                 <span
                   style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
@@ -729,6 +762,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                           requests,
                           unresolvableRequestUids,
                           unresolvableRuleUids,
+                          liveWorkflows,
+                          unresolvableWorkflowUids,
                         )}
                       </span>
                       <span
@@ -772,6 +807,8 @@ const TabBar: React.FC<TabBarProps> = ({
   pausedUids,
   unresolvableRuleUids = EMPTY_SET,
   unresolvableRequestUids = EMPTY_SET,
+  liveWorkflows = [],
+  unresolvableWorkflowUids = EMPTY_SET,
   onSwitch,
   onClose,
   onTabDoubleClick,
@@ -1036,6 +1073,8 @@ const TabBar: React.FC<TabBarProps> = ({
                   pausedUids={pausedUids}
                   unresolvableRuleUids={unresolvableRuleUids}
                   unresolvableRequestUids={unresolvableRequestUids}
+                  liveWorkflows={liveWorkflows}
+                  unresolvableWorkflowUids={unresolvableWorkflowUids}
                   token={token}
                 />
               )}
@@ -1050,6 +1089,8 @@ const TabBar: React.FC<TabBarProps> = ({
                 pausedUids={pausedUids}
                 unresolvableRuleUids={unresolvableRuleUids}
                 unresolvableRequestUids={unresolvableRequestUids}
+                liveWorkflows={liveWorkflows}
+                unresolvableWorkflowUids={unresolvableWorkflowUids}
                 contextMenu={buildContextMenu(tab, index)}
                 onSwitch={onSwitch}
                 onClose={onClose}
@@ -1066,6 +1107,8 @@ const TabBar: React.FC<TabBarProps> = ({
               pausedUids={pausedUids}
               unresolvableRuleUids={unresolvableRuleUids}
               unresolvableRequestUids={unresolvableRequestUids}
+              liveWorkflows={liveWorkflows}
+              unresolvableWorkflowUids={unresolvableWorkflowUids}
               token={token}
             />
           )}
@@ -1114,6 +1157,8 @@ const TabBar: React.FC<TabBarProps> = ({
           pausedUids={pausedUids}
           unresolvableRuleUids={unresolvableRuleUids}
           unresolvableRequestUids={unresolvableRequestUids}
+          liveWorkflows={liveWorkflows}
+          unresolvableWorkflowUids={unresolvableWorkflowUids}
           onSwitch={onSwitch}
           recentlyClosed={recentlyClosed}
           onReopen={onReopenTab}

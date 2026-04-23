@@ -17,7 +17,7 @@ import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { useWorkspaces } from '@hooks/useWorkspaces';
-import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
+import { isRequestResolvable, isRuleResolvable, resolveCollectionEnv } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -569,6 +569,59 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   const activeTab = useMemo(
     () => groups.focusedLeaf.tabs.find((t) => t.id === groups.focusedLeaf.activeTabId),
     [groups.focusedLeaf],
+  );
+
+  const activeTabCollectionId = useMemo((): string | null => {
+    if (!activeTab) return null;
+    const { mode } = activeTab;
+    if (mode === 'collection-overview' || mode === 'folder-overview') return activeTab.entityId ?? null;
+    if (mode === 'collection-vars') return activeTab.collectionUid ?? null;
+    if (mode === 'edit' && activeTab.ruleUid) {
+      const rule = rules.find((r) => r.uid === activeTab.ruleUid);
+      if (!rule) return null;
+      return localCollections.find((c) => rule.path.startsWith(`${c.path}/`))?.uid ?? null;
+    }
+    if (mode === 'create' && activeTab.preferredCollectionId) return activeTab.preferredCollectionId;
+    if (mode === 'request-edit' && activeTab.requestUid) {
+      const req = requestsApi.requests.find((r) => r.uid === activeTab.requestUid);
+      if (!req) return null;
+      return requestsApi.collections.find((c) => req.path.startsWith(`${c.path}/`))?.uid ?? null;
+    }
+    if (mode === 'request-create' && activeTab.preferredCollectionId) return activeTab.preferredCollectionId;
+    return null;
+  }, [activeTab, rules, localCollections, requestsApi.requests, requestsApi.collections]);
+
+  useEffect(() => {
+    if (!envApi.isReady) return;
+    const knownEnvIds = new Set(envApi.environments.map((e) => e.uid));
+    const allCollections = [...localCollections, ...requestsApi.collections];
+    const resolved = resolveCollectionEnv({
+      collectionId: activeTabCollectionId,
+      collections: allCollections,
+      overrides: envApi.collectionEnvOverrides,
+      globalActiveEnvId: envApi.activeEnvironmentId,
+      knownEnvIds,
+    });
+    if (resolved !== envApi.activeEnvironmentId) {
+      void envApi.setActiveEnvironment(resolved);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab?.id, activeTabCollectionId, envApi.isReady]);
+
+  const handleSwitchEnvironment = useCallback(
+    async (uid: string | null) => {
+      if (activeTabCollectionId) {
+        const col = [...localCollections, ...requestsApi.collections].find((c) => c.uid === activeTabCollectionId);
+        const defaultId = col?.defaultEnvironmentId ?? null;
+        if (uid === defaultId) {
+          await envApi.setCollectionEnvOverride(activeTabCollectionId, undefined);
+        } else {
+          await envApi.setCollectionEnvOverride(activeTabCollectionId, uid);
+        }
+      }
+      await envApi.setActiveEnvironment(uid);
+    },
+    [activeTabCollectionId, localCollections, requestsApi.collections, envApi],
   );
 
   // Thread the active tab label through the shell's single
@@ -1214,7 +1267,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         onOpenWorkspaceManager={openWorkspaceManager}
         environments={envApi.environments}
         activeEnvironmentId={envApi.activeEnvironmentId}
-        onSwitchEnvironment={(uid) => void envApi.setActiveEnvironment(uid)}
+        onSwitchEnvironment={(uid) => void handleSwitchEnvironment(uid)}
         onCreateEnvironment={() => void handleCreateEnvironment()}
         onOpenEnvironment={(uid) => {
           const env = envApi.environments.find((e) => e.uid === uid);
@@ -1222,6 +1275,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         }}
         onOpenWorkspaceVariables={openWorkspaceVariables}
         onOpenVault={openVault}
+        activeCollectionId={activeTabCollectionId}
+        collectionEnvOverrides={envApi.collectionEnvOverrides}
+        allCollections={[...localCollections, ...requestsApi.collections]}
+        onSetCollectionPinnedEnvs={envApi.setCollectionPinnedEnvs}
       />
 
       <ShellLayout
@@ -1237,6 +1294,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             pausedUids={pausedUids}
             unresolvableRuleUids={unresolvableRuleUids}
             unresolvableRequestUids={unresolvableRequestUids}
+            liveWorkflows={liveWorkflowsApi.workflows}
+            unresolvableWorkflowUids={unresolvableWorkflowUids}
             renderTabBody={renderTabBody}
             renderLeafHeader={renderLeafHeader}
             renderEmpty={renderEmpty}
@@ -1270,6 +1329,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
                   requestsApi.requests,
                   unresolvableRequestUids,
                   unresolvableRuleUids,
+                  liveWorkflowsApi.workflows,
+                  unresolvableWorkflowUids,
                 )}
               </span>
               <span className="rules-drag-preview-label">{renderTabLabel(tab)}</span>
