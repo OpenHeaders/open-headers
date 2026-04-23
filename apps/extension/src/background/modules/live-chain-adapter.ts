@@ -50,7 +50,7 @@ import {
 } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
-import { putWorkflowRunCache, recordRefreshError } from './live-cache-store';
+import { putWorkflowRunCache, recordManualBypassFailureForRun, recordRefreshError } from './live-cache-store';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
 import { recordLog } from './observability-log';
 import { withRefreshRateLimit } from './refresh-scheduler';
@@ -133,7 +133,7 @@ function buildFetchAdapter(workflowUid: string, environmentId: string | null): F
  *      so Phase G's aggregation + Status pill have structured input.
  */
 export const liveChainAdapter: LiveRefreshAdapter = {
-  async refreshWorkflow({ workspaceId, workflow, environmentId }) {
+  async refreshWorkflow({ workspaceId, workflow, environmentId, bypass = false }) {
     // Active-workspace guard. The request executor reads from in-memory
     // stores scoped to `getActiveWorkspaceId()`; firing a chain for an
     // inactive workspace would use the wrong env/vault/collection
@@ -174,7 +174,7 @@ export const liveChainAdapter: LiveRefreshAdapter = {
       await commitSuccess(workspaceId, workflow, environmentId, outcome);
       return;
     }
-    await commitFailure(workspaceId, workflow, environmentId, outcome);
+    await commitFailure(workspaceId, workflow, environmentId, outcome, bypass);
   },
 };
 
@@ -286,6 +286,7 @@ async function commitFailure(
   workflow: V5.LiveWorkflow,
   environmentId: string | null,
   outcome: ChainRunFailure,
+  bypass: boolean,
 ): Promise<void> {
   // `'extract'` failures point at a user misconfiguration (JSON path /
   // regex wrong against the real response) — surface as extractor-not-ok
@@ -298,16 +299,23 @@ async function commitFailure(
     'LiveChainAdapter',
     `Workflow ${workflow.uid} refresh failed at step ${outcome.failedStepId} (${outcome.failedPhase}): ${message}`,
   );
-  await recordRefreshError(
-    {
-      workflowUid: workflow.uid,
-      environmentId,
-      message,
-      failedStepId: outcome.failedStepId,
-      extractorOk,
-    },
-    workspaceId,
-  );
+  // Manual-bypass failures MUST NOT advance the circuit state — matches
+  // v4 `AdaptiveCircuitBreaker.executeWithBypass` semantics: the user's
+  // clarifying click shouldn't push `nextAttemptAt` forward or bump
+  // `consecutiveOpenings`. `recordManualBypassFailureForRun` writes
+  // only the error-detail fields; the circuit snapshot is preserved.
+  const errorInput = {
+    workflowUid: workflow.uid,
+    environmentId,
+    message,
+    failedStepId: outcome.failedStepId,
+    extractorOk,
+  };
+  if (bypass) {
+    await recordManualBypassFailureForRun(errorInput, workspaceId);
+  } else {
+    await recordRefreshError(errorInput, workspaceId);
+  }
   // Re-throw so the scheduler's `handleLiveAlarm` records a
   // `refresh-failed` observability entry with the failure message.
   // `recordRefreshError` above is the authoritative cache write; the

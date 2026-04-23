@@ -45,7 +45,7 @@ const FLIP_GUARDBAND_MS = 250;
 
 let cachedCodes: TotpRegistry = EMPTY_TOTP_REGISTRY;
 let onTickRef: (() => void) | null = null;
-let scheduled = false;
+let _scheduled = false;
 
 /**
  * Sync read of the current TOTP code mirror. Returns
@@ -133,7 +133,7 @@ async function scheduleNextFlip(): Promise<void> {
   const nowMs = Date.now();
   const flip = nextFlipMs(nowMs);
   if (flip === Infinity) {
-    scheduled = false;
+    _scheduled = false;
     return;
   }
   // Schedule at the next window-flip + a small guardband so the
@@ -149,7 +149,7 @@ async function scheduleNextFlip(): Promise<void> {
   // window-flip moment without our own code adding artificial floor.
   const fireAt = flip + FLIP_GUARDBAND_MS;
   chrome.alarms.create(ALARM_NAME, { when: fireAt });
-  scheduled = true;
+  _scheduled = true;
 }
 
 /**
@@ -218,5 +218,5 @@ export async function bootstrapTotpScheduler(onTick: () => void): Promise<void> 
 export function __resetForTests(): void {
   cachedCodes = EMPTY_TOTP_REGISTRY;
   onTickRef = null;
-  scheduled = false;
+  _scheduled = false;
 }

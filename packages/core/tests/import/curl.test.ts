@@ -230,7 +230,7 @@ describe('parseCurl — auth', () => {
   });
 
   it('promotes Authorization: Basic base64(user:pass) to auth.basic', () => {
-    const encoded = 'Basic ' + Buffer.from('alice:pw').toString('base64');
+    const encoded = `Basic ${Buffer.from('alice:pw').toString('base64')}`;
     const { request } = parseCurl(`curl -H 'Authorization: ${encoded}' https://api.openheaders.io`);
     expect(request.auth).toEqual({ type: 'basic', username: 'alice', password: 'pw' });
   });

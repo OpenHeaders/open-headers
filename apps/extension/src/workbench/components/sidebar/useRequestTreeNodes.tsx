@@ -167,7 +167,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       }
       return items;
     },
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
     [
       p.allRequests,
       p.requestCollections,
@@ -312,7 +311,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     }
 
     return items;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
   }, [
     p.requestCollectionTrees,
     lowerFilter,

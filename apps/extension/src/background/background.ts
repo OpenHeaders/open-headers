@@ -46,6 +46,7 @@ import { onLiveCacheStoreChange } from './modules/live-cache-store';
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
+  kickActiveContextRefresh,
   reconcileLiveSchedules,
   refreshLiveWorkflowSynchronously,
   startLiveScheduler,
@@ -223,6 +224,18 @@ const debouncedUpdateBadge = (() => {
 // ── Initialization ────────────────────────────────────────────────
 
 let extensionInitialized = false;
+// Hydration barrier — resolves once `initializeExtension` finishes
+// the first (real) init pass for this SW lifetime. The alarm
+// dispatch below awaits this before routing live / OAuth / TOTP
+// alarms so their handlers never read an empty in-memory store on
+// SW cold wake (an overdue live-refresh alarm that fires before
+// hydration would otherwise mis-identify the workflow as "deleted"
+// and cancel the alarm permanently). Non-hydration-dependent alarms
+// (updateBadge, wsReconnect) keep their fast path.
+let resolveBackgroundReady: () => void = () => {};
+const backgroundReady: Promise<void> = new Promise((resolve) => {
+  resolveBackgroundReady = resolve;
+});
 async function initializeExtension(): Promise<void> {
   // All init paths must wait for the settings store so the first DNR
   // compile / websocket connect sees persisted values instead of defaults.
@@ -402,14 +415,50 @@ async function initializeExtension(): Promise<void> {
   // that mount the scheduler in isolation don't transitively load the
   // resolver's store subscriptions.
   __setSyncWarmRunner(refreshLiveWorkflowSynchronously);
-  void reconcileLiveSchedules().catch((err: unknown) => {
-    logger.warn('Background', 'Live scheduler reconcile failed', err);
-  });
+  // Live scheduler reconcile is intentionally deferred until AFTER
+  // `hydrateActiveWorkspaceStores` below — unlike the OAuth scheduler
+  // (which reads tokens directly from chrome.storage on every call),
+  // the live scheduler's `collectEntries` + `getByAlarm` read the
+  // in-memory `live-workflow-store` / `live-variable-store` arrays
+  // populated by hydration. Running reconcile before hydration
+  // produces an empty desired-set and wipes every `live-refresh:*`
+  // alarm as "orphan," silently breaking scheduled refreshes until
+  // the user manually hits Refresh.
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);
 
   // Hydrate the active workspace's per-workspace stores from storage.
   await hydrateActiveWorkspaceStores();
+  // Release the hydration barrier — alarm handlers waiting on
+  // `backgroundReady` can now safely read the in-memory workflow /
+  // variable / rule stores. Fired here (rather than at end-of-init)
+  // because every remaining init step (cache mirror, TOTP bootstrap,
+  // observer rehydrate) either reads storage directly or isn't on
+  // the alarm dispatch path.
+  resolveBackgroundReady();
+  // Now that the live workflow / variable stores are populated, run
+  // the first reconcile so every eligible workflow has an alarm for
+  // its next fire-at. Also re-seeds alarms that were mistakenly
+  // cleared by a prior SW boot that hit the pre-hydration race
+  // (older builds). Fire-and-forget — failures log but don't stall
+  // the rest of init; the store-change subscription installed by
+  // `startLiveScheduler` will re-reconcile on the next mutation.
+  void reconcileLiveSchedules().catch((err: unknown) => {
+    logger.warn('Background', 'Live scheduler reconcile failed', err);
+  });
+  // Opportunistic catch-up for stale workflows in the active context —
+  // on a cold SW wake (laptop open after hours of sleep), reconcile
+  // alone schedules the next alarm at `now + 30s` (MV3 alarm floor).
+  // That's 30s of requests going out with a stale token. `kickActive
+  // ContextRefresh` drives `refreshLiveWorkflowSynchronously` directly
+  // for anything already-overdue, so the cache is repopulated within
+  // one network round-trip of wake-up instead of waiting for the first
+  // alarm tick. No-op when every workflow is still fresh (cadence math
+  // inside the kick decides). Fire-and-forget; errors bubble into the
+  // scheduler's normal failure log + backoff.
+  void kickActiveContextRefresh(getActiveWorkspaceId(), getActiveEnvironmentId()).catch((err: unknown) => {
+    logger.warn('Background', 'Live scheduler wake-up catch-up failed', err);
+  });
   // Warm the live-cache mirror used by `variables-resolver` so the
   // first DNR compile after wake resolves `{{live.X}}` against real
   // captures rather than an empty registry. The mirror auto-refreshes
@@ -481,6 +530,60 @@ function applyWsReconnectAlarm(enabled: boolean): void {
 applyWsReconnectAlarm(getSetting('desktop.connection.autoConnect'));
 alarms!.create('updateBadge', { delayInMinutes: 0.01, periodInMinutes: 0.033 });
 
+// ── Network online/offline recovery ────────────────────────────────
+//
+// The SW global exposes `navigator.onLine` + fires 'online' / 'offline'
+// events when the platform observes a connectivity change (WiFi toggle,
+// Ethernet plug-in, VPN tunnel up/down). These are best-effort signals
+// — navigator.onLine specifically can be "true" while the browser is
+// genuinely offline (the OS only flips it when it's sure) — but the
+// 'online' transition is a reliable lower bound: once we see it, there
+// IS connectivity. Treat it as an opportunistic kick for:
+//   • the live scheduler's reconcile (re-computes nextAttemptAt for
+//     every workflow; circuits with pending backoff stay paused, but
+//     any workflow whose math now says "fire ASAP" gets an alarm at
+//     the MV3 floor),
+//   • kickActiveContextRefresh for the active (ws, env), which runs
+//     `refreshLiveWorkflowSynchronously` inline for stale workflows —
+//     the exact same primitive we use on SW cold-wake after laptop
+//     sleep. Users get a fresh token within one network round-trip
+//     of the connection coming back.
+//
+// Why not wrap the reconcile in its own retry loop after 'online':
+// the scheduler's existing store-change + `backgroundReady` barrier
+// already handle the "SW just woke up" case. 'online' is the
+// complementary signal for "network just came back while SW was
+// already alive." One handler, one kick per transition.
+self.addEventListener('online', () => {
+  logger.info('Background', 'Network online — reconciling live + OAuth schedulers + catching up stale workflows');
+  void backgroundReady.then(async () => {
+    await Promise.all([
+      reconcileLiveSchedules().catch((err: unknown) => {
+        logger.warn('Background', 'Live reconcile after online event failed', err);
+      }),
+      reconcileOAuthSchedules().catch((err: unknown) => {
+        logger.warn('Background', 'OAuth reconcile after online event failed', err);
+      }),
+    ]);
+    // Fire-and-forget — kick is idempotent (no-ops for fresh caches)
+    // and the RefreshScheduler's per-host rate limiter prevents a
+    // thundering herd when many workflows want to refresh at once.
+    await kickActiveContextRefresh(getActiveWorkspaceId(), getActiveEnvironmentId()).catch((err: unknown) => {
+      logger.warn('Background', 'Wake-up catch-up after online event failed', err);
+    });
+  });
+});
+
+self.addEventListener('offline', () => {
+  // Purely informational. Alarms that fire during offline and fail
+  // feed the circuit breaker's failure counter the same as any other
+  // failure — the pre-breaker retry tier (5s ± 5s) covers the common
+  // "DHCP just dropped, back in 2s" case, and the full backoff curve
+  // handles longer outages. The 'online' handler above drives catch-up
+  // when connectivity returns.
+  logger.info('Background', 'Network offline — refreshes in flight will likely fail and enter backoff');
+});
+
 subscribeKey('desktop.connection.autoConnect', () => {
   // Listener is a bare signal; read the fresh value via `getSetting`.
   const enabled = Boolean(getSetting('desktop.connection.autoConnect'));
@@ -494,6 +597,10 @@ subscribeKey('desktop.connection.autoConnect', () => {
 });
 
 alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
+  // Fast path — alarms that don't depend on hydrated in-memory state
+  // run immediately. `updateBadge` + `wsReconnect` keep firing every
+  // few seconds to mask SW eviction; blocking them on init would
+  // turn the barrier into a cold-start latency bomb.
   if (alarm.name === WS_RECONNECT_ALARM) {
     // Guard against a stale alarm firing after autoConnect flipped off
     // between `onAlarm` scheduling and this handler running.
@@ -508,9 +615,26 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
         logger.debug('Background', 'Failed to reconnect:', (error as Error).message);
       }
     }
-  } else if (alarm.name === 'updateBadge') {
+    return;
+  }
+  if (alarm.name === 'updateBadge') {
     void updateBadgeForCurrentTab();
-  } else if (isOAuthRefreshAlarm(alarm)) {
+    return;
+  }
+  // Hydration barrier — live / OAuth / TOTP handlers all read
+  // in-memory stores (workflows, variables, credentials, vault)
+  // that are only populated by `hydrateActiveWorkspaceStores`. On SW
+  // cold wake (e.g. an overdue alarm waking us from eviction) the
+  // listener fires in parallel with `initializeExtension`; without
+  // this await, `handleLiveAlarm` sees an empty `getLiveWorkflows()`,
+  // mis-identifies the workflow as "deleted between scheduling and
+  // firing," and calls `chrome.alarms.clear` — permanently killing
+  // the scheduled refresh until the user manually clicks Refresh.
+  // The await always resolves in the happy path (either init
+  // succeeded, or the finally-handler released the barrier after
+  // init threw).
+  await backgroundReady;
+  if (isOAuthRefreshAlarm(alarm)) {
     await handleOAuthAlarm(alarm);
   } else if (isLiveRefreshAlarm(alarm)) {
     await handleLiveAlarm(alarm);
@@ -690,4 +814,14 @@ function setupDelayBypassCleanup(): void {
 }
 
 logger.info('Background', 'Background script started');
-void initializeExtension();
+// Release the hydration barrier even if init fails — we'd rather
+// dispatch alarms against a partially-hydrated state than stall
+// them forever. Real subsystem errors surface through their own
+// catches (see the `recordRefreshError` path on live alarms).
+void initializeExtension()
+  .catch((err: unknown) => {
+    logger.error('Background', 'Extension initialization failed', err);
+  })
+  .finally(() => {
+    resolveBackgroundReady();
+  });

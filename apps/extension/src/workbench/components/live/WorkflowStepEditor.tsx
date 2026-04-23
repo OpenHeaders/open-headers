@@ -426,7 +426,6 @@ const WorkflowStepEditor: React.FC<Props> = ({
               // focus from the name Input mid-type. Captures have no
               // stable uid today and the list is short + non-reorderable,
               // so idx is the right primary key.
-              // biome-ignore lint/suspicious/noArrayIndexKey: see above
               key={idx}
               style={{
                 display: 'flex',

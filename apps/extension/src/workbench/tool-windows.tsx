@@ -12,14 +12,14 @@ import {
   ApiOutlined,
   BookOutlined,
   CodeOutlined,
+  DashboardOutlined,
   ExperimentOutlined,
   FileTextOutlined,
   FundViewOutlined,
   ScanOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import type { ToolWindowDef as GenericToolWindowDef } from '@/shared/dock-layout';
-import { ALL_DOCK_SLOTS as _ALL, dockRegion as _dockRegion, DOCK_LABELS as _LABELS } from '@/shared/dock-layout';
+import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@/shared/dock-layout';
 import type { ToolWindowId } from './types';
 
 export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
@@ -54,6 +54,23 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-bottom' },
   { id: 'page-traffic', label: 'Page Traffic', icon: <FundViewOutlined />, core: false, defaultSlot: 'bottom-right' },
+  // WF Status — per-workflow circuit-breaker dashboard (state,
+  // consecutive failures, openings, next-attempt countdown, manual
+  // Retry / Reset-circuit actions). Grouped with Test Runs in the
+  // bottom-left slot; listed BEFORE `test-runs` in this array so its
+  // ActivityBar icon renders above the Test Runs icon within the
+  // shared bottom group.
+  {
+    id: 'workflow-status',
+    label: 'WF Status',
+    // Short label ("WF Status") keeps the activity bar compact in the
+    // bottom-left group; the hover tooltip spells out the full name
+    // so users learn the feature even if they miss the abbreviation.
+    tooltip: 'Workflow Status',
+    icon: <DashboardOutlined />,
+    core: false,
+    defaultSlot: 'bottom-left',
+  },
   { id: 'test-runs', label: 'Test Runs', icon: <ExperimentOutlined />, core: false, defaultSlot: 'bottom-left' },
 ];
 
@@ -65,7 +82,8 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
   {} as Record<ToolWindowId, ToolWindowDef>,
 );
 
-// Re-export shared constants so existing imports from this module keep working.
-export const ALL_DOCK_SLOTS = _ALL;
+// Re-export the subset of shared dock-layout constants that workbench
+// surfaces consume directly via `../tool-windows`. Keeping this alias
+// lets `StatusBar.tsx` import `DOCK_LABELS` alongside `TOOL_WINDOW_MAP`
+// without reaching into `@/shared/dock-layout` explicitly.
 export const DOCK_LABELS = _LABELS;
-export const dockRegion = _dockRegion;

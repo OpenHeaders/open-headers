@@ -72,7 +72,7 @@ class CliSetupHandler {
       // 2. Generate workspace ID + unique name (CLI-specific)
       const workspaceId = `team-${crypto.randomBytes(8).toString('hex')}`;
       const baseName = workspaceName || 'Team Workspace';
-      const uniqueName = await this._generateUniqueWorkspaceName(baseName, workspaceSettingsService);
+      const _uniqueName = await this._generateUniqueWorkspaceName(baseName, workspaceSettingsService);
 
       // 3. Git sync — not yet implemented for v5 format
       log.info(`Syncing workspace ${workspaceId}...`);

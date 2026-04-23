@@ -102,7 +102,7 @@ describe('executor — multipart bodies', () => {
           fileRefs: [
             {
               fileId: 'file:apple',
-              hash: 'sha256:' + 'a'.repeat(64),
+              hash: `sha256:${'a'.repeat(64)}`,
               filename: 'apple.txt',
               size: 11,
               mimeType: 'text/plain',
@@ -130,14 +130,14 @@ describe('executor — multipart bodies', () => {
           fileRefs: [
             {
               fileId: 'file:apple',
-              hash: 'sha256:' + 'a'.repeat(64),
+              hash: `sha256:${'a'.repeat(64)}`,
               filename: 'apple.txt',
               size: 11,
               mimeType: 'text/plain',
             },
             {
               fileId: 'file:banana',
-              hash: 'sha256:' + 'b'.repeat(64),
+              hash: `sha256:${'b'.repeat(64)}`,
               filename: 'banana.txt',
               size: 12,
               mimeType: 'text/plain',
@@ -167,14 +167,14 @@ describe('executor — multipart bodies', () => {
           fileRefs: [
             {
               fileId: 'file:apple',
-              hash: 'sha256:' + 'a'.repeat(64),
+              hash: `sha256:${'a'.repeat(64)}`,
               filename: 'console.log',
               size: 11,
               mimeType: 'text/plain',
             },
             {
               fileId: 'file:banana',
-              hash: 'sha256:' + 'a'.repeat(64),
+              hash: `sha256:${'a'.repeat(64)}`,
               filename: 'console_backup.log',
               size: 11,
               mimeType: 'text/plain',
@@ -214,7 +214,7 @@ describe('executor — multipart bodies', () => {
           fileRefs: [
             {
               fileId: 'file:gone',
-              hash: 'sha256:' + 'c'.repeat(64),
+              hash: `sha256:${'c'.repeat(64)}`,
               filename: 'gone.bin',
               size: 0,
             },
@@ -361,7 +361,7 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
           fileRefs: [
             {
               fileId: 'file:apple',
-              hash: 'sha256:' + 'a'.repeat(64),
+              hash: `sha256:${'a'.repeat(64)}`,
               filename: 'apple.txt',
               size: 11,
             },

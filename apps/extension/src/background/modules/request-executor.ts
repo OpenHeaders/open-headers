@@ -827,10 +827,42 @@ async function executeResolved(
   // `chrome-extension://<id>/`, whose asset filesystem returns
   // `ERR_FILE_NOT_FOUND` for unknown paths. That makes "example.com"
   // + GET produce a confusing "Failed to fetch" with no actionable
-  // cause. Postman/Insomnia both assume `https://` when no scheme is
-  // present; we match that. Templated URLs (`{{BASE}}/x`) are left
-  // alone — the template may carry the scheme itself.
+  // cause. Scheme inference picks `http://` for loopback + RFC 1918 +
+  // mDNS + single-label hosts (intranet / hosts-file / dev-server
+  // pattern) and `https://` for everything else. Templated URLs
+  // (`{{BASE}}/x`) are left alone — the template may carry the scheme.
   req = { ...req, url: ensureScheme(trimmed) };
+
+  // Pre-flight URL validation — catch malformed inputs BEFORE fetch
+  // so the user sees "Invalid URL: <reason>" instead of the browser's
+  // generic "Failed to fetch". Matches Postman's "Invalid URI" error
+  // surface. Templated URLs still skip — the template may only resolve
+  // to a valid URL at runtime, and a pre-resolution parse failure on
+  // a raw template string would be a false positive.
+  if (!req.url.startsWith('{{')) {
+    try {
+      const parsed = new URL(req.url);
+      // Chrome accepts URLs with empty hostnames (e.g. `http:///path`)
+      // at `new URL()`, but fetch() will fail with an opaque "Failed
+      // to fetch." Reject here with a specific message.
+      if (!parsed.hostname) {
+        return errorSnapshot(`Invalid URL — missing host: "${req.url}"`);
+      }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      return errorSnapshot(`Invalid URL: ${reason}`);
+    }
+  }
+
+  // Offline gate — browsers report every network error as an opaque
+  // `TypeError: Failed to fetch`, so we can't classify "DNS failure"
+  // vs "connection refused" vs "offline" after the fact. Catching
+  // offline up front produces a clean, actionable message; everything
+  // else falls through to the catch below and surfaces the browser's
+  // raw error.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return errorSnapshot("Can't reach network — device reports offline. Check your connection and try again.");
+  }
 
   const init: RequestInit = {
     method: req.method,
@@ -980,13 +1012,24 @@ async function executeResolved(
     };
   } catch (err) {
     const durationMs = Math.round(performance.now() - startedAt);
-    const message = err instanceof Error ? err.message : String(err);
-    logger.info('RequestExecutor', `fetch failed for ${req.url}: ${message}`);
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    // Chromium's `fetch()` opaques every non-TLS network error — DNS
+    // failure, connection refused, unreachable host, host permission
+    // missing, offline, abort — into the exact same `TypeError:
+    // Failed to fetch`. There is no `err.cause` chain we can unwrap
+    // to get the underlying OS error (unlike Node's `getaddrinfo
+    // ENOTFOUND` / `ECONNREFUSED`). Best we can do is add context the
+    // user can act on: the URL we tried, the fact that it was
+    // `http`/`https`, and a hint about common causes. That's what
+    // Postman (in the browser/SDK variant) also shows.
+    const isGenericFetchFail = err instanceof TypeError && /failed to fetch/i.test(rawMessage);
+    const message = isGenericFetchFail ? classifyFetchFailure(req.url, rawMessage) : rawMessage;
+    logger.info('RequestExecutor', `fetch failed for ${req.url}: ${rawMessage}`);
     recordLog({
       subsystem: 'request-executor',
       op: 'fetch',
       level: 'error',
-      message: `Fetch failed for ${req.url}: ${message}`,
+      message: `Fetch failed for ${req.url}: ${rawMessage}`,
       context: {
         errorClass: err instanceof Error ? err.name : undefined,
         stack: err instanceof Error ? err.stack : undefined,
@@ -1019,6 +1062,44 @@ async function executeResolved(
       scripts: null,
     };
   }
+}
+
+/**
+ * Produce a user-actionable error string for the generic
+ * `TypeError: Failed to fetch` that Chromium's fetch returns for
+ * every non-TLS network failure. The browser deliberately withholds
+ * the underlying OS error (DNS vs. refused vs. unreachable) from
+ * extension code, so we can't reproduce Postman's native-SDK error
+ * strings ("getaddrinfo ENOTFOUND ...") — but we CAN replace the
+ * content-free default with a breakdown of the likely causes so the
+ * user knows where to look.
+ */
+function classifyFetchFailure(url: string, rawMessage: string): string {
+  let hostname = '';
+  let protocol = '';
+  try {
+    const parsed = new URL(url);
+    hostname = parsed.hostname;
+    protocol = parsed.protocol;
+  } catch {
+    return `${rawMessage} — invalid URL "${url}"`;
+  }
+  // Offline is handled by the pre-flight check; if we got here with
+  // navigator.onLine=false it means the signal flipped during the
+  // fetch. Still worth surfacing cleanly.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return `Network offline — could not reach ${hostname}.`;
+  }
+  const looksLocal =
+    /^(localhost|127\.)/.test(hostname) ||
+    hostname === '::1' ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.localhost') ||
+    (!hostname.includes('.') && !hostname.includes(':'));
+  if (looksLocal) {
+    return `Could not reach ${hostname} (${protocol.replace(':', '')}). Is the service running? If it requires HTTPS, enter the full URL with https:// prefix.`;
+  }
+  return `Could not reach ${hostname}. Possible causes: host not found (DNS), connection refused, TLS certificate error, or missing host permission. Check the URL and retry.`;
 }
 
 /**

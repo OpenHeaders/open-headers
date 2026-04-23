@@ -243,7 +243,7 @@ export function V5Shell() {
     if (!activeTab?.entityId) return;
 
     // Pinned environment per collection — deferred to later phase
-  }, [activeTabId, tabs, requests, rules, collections, environments, activeEnvironment, switchEnvironment]);
+  }, [activeTabId, tabs]);
 
   // Entity creation (persisted — for sidebar context actions)
   const {

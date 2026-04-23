@@ -14,6 +14,27 @@ export type {
   FetchAdapter,
 } from './chain-runner';
 export { effectiveDependsOn, runChain } from './chain-runner';
+export type { CircuitSnapshot, CircuitState } from './circuit-breaker';
+export {
+  BACKOFF_MULTIPLIER,
+  BASE_TIMEOUT_MS,
+  CONSECUTIVE_OPENINGS_DECAY_MS,
+  canAttempt,
+  computeBackoffMs,
+  computePreBreakerDelayMs,
+  FAILURE_THRESHOLD,
+  HALF_OPEN_MAX_ATTEMPTS,
+  initialCircuitSnapshot,
+  MAX_TIMEOUT_MS,
+  markManualBypass,
+  onCircuitFailure,
+  onCircuitSuccess,
+  PRE_BREAKER_BASE_MS,
+  PRE_BREAKER_JITTER_MS,
+  resetCircuit,
+  TIMEOUT_JITTER,
+  transitionOpenToHalfOpen,
+} from './circuit-breaker';
 export type { CycleEdge, CycleReport, RequestTemplateProvider as CycleRequestTemplateProvider } from './cycle-detect';
 export { detectCycles } from './cycle-detect';
 export type { DraftCapture, DraftStep, DraftWorkflow, LvCreateOp, LvReconcilePlan, LvUpdateOp } from './editor-draft';

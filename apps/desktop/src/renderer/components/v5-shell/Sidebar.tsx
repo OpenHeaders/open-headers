@@ -626,13 +626,7 @@ export function Sidebar({
 
       {/* Tree content */}
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard navigation requires focus */}
-      <div
-        ref={containerRef}
-        className="v5-sidebar-content"
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        style={{ outline: 'none' }}
-      >
+      <div ref={containerRef} className="v5-sidebar-content" onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
         <Allotment key={sectionKey} vertical proportionalLayout={expandedCount > 1} defaultSizes={computeSizes()}>
           <Allotment.Pane minSize={HEADER_HEIGHT}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

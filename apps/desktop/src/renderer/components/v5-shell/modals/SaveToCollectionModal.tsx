@@ -9,7 +9,6 @@
  */
 
 import {
-  ApiOutlined,
   FolderOpenOutlined,
   FolderOutlined,
   PlusOutlined,

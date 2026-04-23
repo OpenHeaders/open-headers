@@ -8,7 +8,7 @@
 
 import { CaretRightOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Input, Select, Space, Typography, theme } from 'antd';
+import { Button, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRequests } from '@/renderer/hooks/useCentralizedWorkspace';
@@ -183,7 +183,7 @@ export function RequestEditor({
     });
     setUsedVariables(vars);
     return () => clearVariables();
-  }, [url, headers, setUsedVariables, clearVariables]);
+  }, [url, headers, setUsedVariables, clearVariables, params.map]);
 
   // Dirty detection
   const currentFingerprint = buildFingerprint();

@@ -205,7 +205,6 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
 
       return items;
     },
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
     [
       p.expandedKeys,
       lowerFilter,
@@ -342,7 +341,6 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
     }
 
     return items;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
   }, [
     p.localCollectionTrees,
     lowerFilter,

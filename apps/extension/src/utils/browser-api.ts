@@ -503,7 +503,7 @@ interface IdentityApi {
   launchWebAuthFlow: (
     details: IdentityLaunchWebAuthFlowOptions,
     callback?: (responseUrl?: string) => void,
-  ) => Promise<string | undefined> | void;
+  ) => Promise<string | undefined> | undefined;
   getRedirectURL: (path?: string) => string;
 }
 

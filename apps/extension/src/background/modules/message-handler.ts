@@ -50,7 +50,7 @@ import {
   getWorkflowRunCache,
   listCachesForWorkflow as listLiveCacheForWorkflow,
 } from './live-cache-store';
-import { refreshLiveWorkflowByUser } from './live-refresh-scheduler';
+import { refreshLiveWorkflowByUser, resetCircuitForWorkflow } from './live-refresh-scheduler';
 import {
   createLiveVariable,
   deleteLiveVariable,
@@ -1188,6 +1188,25 @@ export function handleGeneralMessage(
       listLiveCacheForWorkflow(message.workflowUid as string)
         .then((runs) => safeResponse({ runs }))
         .catch((err: Error) => safeResponse({ runs: [], error: err.message }));
+      return true;
+    } else if (message.type === 'resetLiveWorkflowCircuit') {
+      // "Reset circuit" action from the Workflow Status sidebar.
+      // Clears consecutiveFailures + consecutiveOpenings + nextAttemptAt
+      // on the target (workflow, env) pair so the next scheduled or
+      // manual refresh starts from a clean slate. Does NOT run a probe
+      // — the user may want to reset + then navigate elsewhere.
+      const req = message as { workflowUid: string; environmentId?: string | null };
+      void (async () => {
+        const wsId = getActiveWorkspaceId();
+        const envId = req.environmentId ?? null;
+        try {
+          await resetCircuitForWorkflow(wsId, req.workflowUid, envId);
+          safeResponse({ success: true });
+        } catch (err) {
+          const thrownMessage = err instanceof Error ? err.message : String(err);
+          safeResponse({ success: false, error: thrownMessage });
+        }
+      })();
       return true;
     } else if (message.type === 'refreshLiveWorkflowNow') {
       // Manual refresh from the "Refresh now" button — route through

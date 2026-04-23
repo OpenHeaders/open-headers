@@ -15,6 +15,16 @@ vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
   );
 });
 
+// jsdom's `navigator.onLine` can default to `false` depending on
+// harness version — force it to `true` so the executor's pre-flight
+// offline guard doesn't short-circuit every test. Individual cases
+// that exercise offline behavior override this explicitly.
+Object.defineProperty(globalThis.navigator, 'onLine', {
+  value: true,
+  configurable: true,
+  writable: true,
+});
+
 vi.mock('@/background/modules/environment-store', () => ({
   getEnvironments: vi.fn(() => [] as V5.Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
@@ -274,22 +284,57 @@ describe('ensureScheme', () => {
     expect(ensureScheme('file:///tmp/x')).toBe('file:///tmp/x');
   });
 
-  it('prepends https:// for scheme-less URLs', () => {
+  it('prepends https:// for scheme-less public hosts', () => {
     expect(ensureScheme('api.openheaders.io')).toBe('https://api.openheaders.io');
     expect(ensureScheme('example.com/path?q=1')).toBe('https://example.com/path?q=1');
   });
 
-  it('treats host:port as host:port, not a scheme (prepends https://)', () => {
-    // Regression: `localhost:3000` is a common dev URL. Without this,
-    // the RFC-3986 scheme regex matched `localhost:` and left the
-    // URL unchanged, so fetch() blew up on an invalid scheme.
-    expect(ensureScheme('localhost:3000')).toBe('https://localhost:3000');
-    expect(ensureScheme('localhost:8080/api')).toBe('https://localhost:8080/api');
-    expect(ensureScheme('127.0.0.1:3000')).toBe('https://127.0.0.1:3000');
+  it('prepends http:// for loopback hosts (localhost, 127.x, ::1)', () => {
+    // Previously forced https:// on localhost, which is wrong — dev
+    // servers almost never run TLS on loopback, so users were getting
+    // "Failed to fetch" from a browser-enforced mixed-content block.
+    expect(ensureScheme('localhost:3000')).toBe('http://localhost:3000');
+    expect(ensureScheme('localhost:8080/api')).toBe('http://localhost:8080/api');
+    expect(ensureScheme('localhost')).toBe('http://localhost');
+    expect(ensureScheme('app.localhost')).toBe('http://app.localhost');
+    expect(ensureScheme('127.0.0.1:3000')).toBe('http://127.0.0.1:3000');
+    expect(ensureScheme('127.1.2.3/health')).toBe('http://127.1.2.3/health');
   });
 
-  it('upgrades protocol-relative URLs to https://', () => {
+  it('prepends http:// for RFC 1918 private IPv4 ranges', () => {
+    // Intranet + Docker bridge networks typically serve plaintext.
+    expect(ensureScheme('10.0.0.1/config')).toBe('http://10.0.0.1/config');
+    expect(ensureScheme('192.168.1.1/admin')).toBe('http://192.168.1.1/admin');
+    expect(ensureScheme('172.16.5.20:22')).toBe('http://172.16.5.20:22');
+    expect(ensureScheme('172.31.255.255')).toBe('http://172.31.255.255');
+    // 172.32.x is PUBLIC — stays https.
+    expect(ensureScheme('172.32.0.1')).toBe('https://172.32.0.1');
+    // Link-local (169.254/16) is also plaintext-by-convention.
+    expect(ensureScheme('169.254.1.1/status')).toBe('http://169.254.1.1/status');
+  });
+
+  it('prepends http:// for mDNS .local hostnames', () => {
+    // Bonjour / zero-config. Used for NAS boxes, printers, dev
+    // machines on the same LAN. Never HTTPS in practice.
+    expect(ensureScheme('mynas.local')).toBe('http://mynas.local');
+    expect(ensureScheme('printer.local/print')).toBe('http://printer.local/print');
+    expect(ensureScheme('devbox.local:8080')).toBe('http://devbox.local:8080');
+  });
+
+  it('prepends http:// for single-label hostnames (hosts file / intranet DNS)', () => {
+    // A label with no dot can't be a public TLD (public TLDs always
+    // have at least one dot). So it's a hosts-file alias or
+    // intranet-DNS name. Mirrors Chrome's own omnibox heuristic.
+    expect(ensureScheme('nas/files')).toBe('http://nas/files');
+    expect(ensureScheme('router/admin')).toBe('http://router/admin');
+    expect(ensureScheme('devbox:8443/health')).toBe('http://devbox:8443/health');
+    expect(ensureScheme('local.dev')).toBe('https://local.dev'); // has a dot → public
+  });
+
+  it('upgrades protocol-relative URLs with the same inference', () => {
     expect(ensureScheme('//example.com/path')).toBe('https://example.com/path');
+    expect(ensureScheme('//localhost:3000/')).toBe('http://localhost:3000/');
+    expect(ensureScheme('//10.0.0.5/api')).toBe('http://10.0.0.5/api');
   });
 
   it('leaves template-only URLs alone', () => {
@@ -327,5 +372,143 @@ describe('needsSchemeNormalization', () => {
   it('returns false for bare-template URLs (template may carry its own scheme)', () => {
     expect(needsSchemeNormalization('{{BASE_URL}}')).toBe(false);
     expect(needsSchemeNormalization('{{BASE_URL}}/x')).toBe(false);
+  });
+});
+
+// ── Pre-flight guards (URL validation + offline) ──────────────────
+//
+// Browsers opaque every non-TLS network error into `TypeError: Failed
+// to fetch`, so we need pre-flight guards to surface actionable
+// messages BEFORE the fetch runs. These tests pin the two guard
+// paths: malformed URLs and `navigator.onLine === false`.
+
+describe('pre-flight URL validation', () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    mockEnvs.mockReturnValue([] as V5.Environment[]);
+    mockActiveEnvId.mockReturnValue(null);
+    mockWsVars.mockReturnValue({ schemaVersion: 5, version: 1, variables: [] } as V5.WorkspaceVariables);
+    mockVault.mockReturnValue({ schemaVersion: 5, version: 1, secrets: [] } as V5.Vault);
+    mockRequestCollections.mockReturnValue([] as V5.Collection[]);
+  });
+
+  it('surfaces "Invalid URL" for malformed inputs without calling fetch', async () => {
+    // `http://` with no host — `new URL()` accepts but fetch would
+    // fail with an opaque TypeError. Our pre-flight check catches
+    // this and produces a clean message.
+    const req = makeRequest({ url: 'http:///' });
+    const res = await executeRequestDraft(req, {});
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.error).toBeTruthy();
+    expect(res.error).toMatch(/Invalid URL/);
+  });
+
+  it('surfaces "Invalid URL" for unparseable inputs', async () => {
+    // Triple-slash after scheme → URL parser rejects.
+    const req = makeRequest({ url: 'http://// /invalid' });
+    const res = await executeRequestDraft(req, {});
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(res.error).toBeTruthy();
+    expect(res.error).toMatch(/Invalid URL/);
+  });
+
+  it('returns a clean offline message when navigator.onLine is false', async () => {
+    const originalOnLine = Object.getOwnPropertyDescriptor(globalThis.navigator, 'onLine');
+    Object.defineProperty(globalThis.navigator, 'onLine', { value: false, configurable: true });
+    try {
+      const req = makeRequest({ url: 'https://api.openheaders.io/v1/ping' });
+      const res = await executeRequestDraft(req, {});
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(res.error).toMatch(/offline/i);
+    } finally {
+      if (originalOnLine) Object.defineProperty(globalThis.navigator, 'onLine', originalOnLine);
+    }
+  });
+});
+
+// ── Generic fetch-failure classification ──────────────────────────
+//
+// Chromium's extension fetch returns `TypeError: Failed to fetch`
+// for every non-TLS network error (DNS fail, connection refused,
+// host unreachable, missing host permission, offline mid-flight).
+// We can't extract the underlying OS error — browser won't expose
+// it — but we CAN replace the content-free default with a hostname
+// + likely-cause breakdown so the user knows where to look. Matches
+// Postman's UX for the SDK/browser variants of the client.
+
+describe('fetch-failure classification', () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    mockEnvs.mockReturnValue([] as V5.Environment[]);
+    mockActiveEnvId.mockReturnValue(null);
+    mockWsVars.mockReturnValue({ schemaVersion: 5, version: 1, variables: [] } as V5.WorkspaceVariables);
+    mockVault.mockReturnValue({ schemaVersion: 5, version: 1, secrets: [] } as V5.Vault);
+    mockRequestCollections.mockReturnValue([] as V5.Collection[]);
+  });
+
+  it('expands "Failed to fetch" for a public host into an actionable message', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    try {
+      const req = makeRequest({ url: 'https://api.openheaders.io/v1/ping' });
+      const res = await executeRequestDraft(req, {});
+      expect(res.status).toBe(0);
+      expect(res.error).toContain('api.openheaders.io');
+      expect(res.error).toMatch(/host not found|connection refused|TLS|permission/i);
+    } finally {
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+        fetchMock(input, init);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      });
+    }
+  });
+
+  it('tailors the message for loopback targets ("Is the service running?")', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    try {
+      const req = makeRequest({ url: 'http://localhost:3000/health' });
+      const res = await executeRequestDraft(req, {});
+      expect(res.error).toContain('localhost');
+      expect(res.error).toMatch(/Is the service running\?/);
+    } finally {
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+        fetchMock(input, init);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      });
+    }
+  });
+
+  it('tailors the message for hosts-file / intranet single-label hostnames', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    try {
+      const req = makeRequest({ url: 'example-local' });
+      const res = await executeRequestDraft(req, {});
+      // `example-local` has a dash but no dot → single-label → http://
+      expect(res.error).toContain('example-local');
+      expect(res.error).toMatch(/Is the service running\?/);
+    } finally {
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+        fetchMock(input, init);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      });
+    }
+  });
+
+  it('passes through non-generic fetch errors verbatim (e.g. AbortError)', async () => {
+    vi.stubGlobal('fetch', () => {
+      const e = new Error('The operation was aborted.');
+      e.name = 'AbortError';
+      return Promise.reject(e);
+    });
+    try {
+      const req = makeRequest({ url: 'https://api.openheaders.io/v1/ping' });
+      const res = await executeRequestDraft(req, {});
+      // Non-"Failed to fetch" messages are preserved verbatim.
+      expect(res.error).toBe('The operation was aborted.');
+    } finally {
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+        fetchMock(input, init);
+        return Promise.resolve(new Response('ok', { status: 200 }));
+      });
+    }
   });
 });

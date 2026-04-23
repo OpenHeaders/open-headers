@@ -7,9 +7,17 @@
  * header lie about freshness when the active env had no row).
  */
 
+import { initialCircuitSnapshot } from '@openheaders/core/live';
+import type { V5 } from '@openheaders/core/types';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
 import { describe, expect, it } from 'vitest';
-import { pickActiveRun, summarizeRunsByEnv } from '@/workbench/components/live/live-display';
+import {
+  describeRunSchedule,
+  formatCountdown,
+  formatRelativeMs,
+  pickActiveRun,
+  summarizeRunsByEnv,
+} from '@/workbench/components/live/live-display';
 
 function makeRun(overrides: Partial<LiveWorkflowRunSnapshot> = {}): LiveWorkflowRunSnapshot {
   return {
@@ -21,6 +29,7 @@ function makeRun(overrides: Partial<LiveWorkflowRunSnapshot> = {}): LiveWorkflow
     stepResponseBytes: {},
     consecutiveFailures: 0,
     lastExtractorOk: true,
+    circuit: initialCircuitSnapshot(),
     ...overrides,
   };
 }
@@ -91,5 +100,184 @@ describe('summarizeRunsByEnv', () => {
     const summary = summarizeRunsByEnv([activeRun], 'env-corp');
     expect(summary).toHaveLength(1);
     expect(summary[0]).toMatchObject({ environmentId: 'env-corp', run: activeRun, isActive: true });
+  });
+});
+
+// ── describeRunSchedule ─────────────────────────────────────────────
+//
+// The cache's `expiresAt` field is written by the chain adapter with
+// policy-specific semantics:
+//   - `interval`    → extractedAt + seconds (next scheduler tick, NOT
+//                     a semantic expiry — value is still valid)
+//   - `expires-in`  → extractedAt + captured_seconds (real token TTL)
+//   - `expires-at`  → captured_absolute_ms (real token expiry)
+//   - `manual`      → always null (no scheduler)
+//
+// Using the same "expires in X" label across all policies confused
+// users on interval workflows — nothing expires there; the value is
+// fresh until the scheduler ticks. These tests pin the policy-aware
+// vocabulary so every surface (editor header, sidebar dashboard,
+// future tooltips) speaks the same language.
+
+describe('describeRunSchedule', () => {
+  const NOW = 1_700_000_000_000;
+
+  it('interval policy — says "auto-refresh" instead of "expires"', () => {
+    const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 240_000 });
+    const policy: V5.RefreshPolicy = { kind: 'interval', seconds: 300 };
+    const chunks = describeRunSchedule(run, policy, NOW);
+    const labels = chunks.map((c) => c.text);
+    expect(labels).toContain('last 1m ago');
+    expect(labels.some((l) => l.startsWith('auto-refresh'))).toBe(true);
+    // No "expires" wording for interval — the cached value doesn't
+    // actually expire; the scheduler just ticks at expiresAt.
+    expect(labels.some((l) => l.startsWith('expires'))).toBe(false);
+  });
+
+  it('expires-in policy — says "expires" and optionally "auto-refresh" when leadSeconds gap is significant', () => {
+    const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 600_000 });
+    const policy: V5.RefreshPolicy = {
+      kind: 'expires-in',
+      stepId: 'step1',
+      captureName: 'expires_in',
+      leadSeconds: 60,
+    };
+    const chunks = describeRunSchedule(run, policy, NOW);
+    const labels = chunks.map((c) => c.text);
+    expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
+    // leadSeconds is 60s and the gap (600s) is large enough to
+    // surface both — real token expiry + refresh window.
+    expect(labels.some((l) => l.startsWith('auto-refresh'))).toBe(true);
+  });
+
+  it('expires-in policy — suppresses the auto-refresh chunk when leadSeconds gap is < 30s', () => {
+    const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 60_000 });
+    const policy: V5.RefreshPolicy = {
+      kind: 'expires-in',
+      stepId: 'step1',
+      captureName: 'expires_in',
+      leadSeconds: 10, // gap between expiry and refresh is only 10s
+    };
+    const chunks = describeRunSchedule(run, policy, NOW);
+    const labels = chunks.map((c) => c.text);
+    expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
+    // Two nearly-identical timestamps would be noise; only expiry shown.
+    expect(labels.some((l) => l.startsWith('auto-refresh'))).toBe(false);
+  });
+
+  it('expires-at policy — treats the captured ms as true expiry', () => {
+    const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 300_000 });
+    const policy: V5.RefreshPolicy = {
+      kind: 'expires-at',
+      stepId: 'step1',
+      captureName: 'exp',
+      leadSeconds: 30,
+    };
+    const chunks = describeRunSchedule(run, policy, NOW);
+    const labels = chunks.map((c) => c.text);
+    expect(labels.some((l) => l.startsWith('expires'))).toBe(true);
+  });
+
+  it('manual policy — says "manual refresh only"', () => {
+    const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: null });
+    const policy: V5.RefreshPolicy = { kind: 'manual' };
+    const chunks = describeRunSchedule(run, policy, NOW);
+    const labels = chunks.map((c) => c.text);
+    expect(labels).toEqual(['last 1m ago', 'manual refresh only']);
+  });
+
+  it('past-expired token — flags the expiry chunk with warning tone', () => {
+    const run = makeRun({ extractedAt: NOW - 3600_000, expiresAt: NOW - 60_000 });
+    const policy: V5.RefreshPolicy = {
+      kind: 'expires-in',
+      stepId: 'step1',
+      captureName: 'expires_in',
+      leadSeconds: 60,
+    };
+    const chunks = describeRunSchedule(run, policy, NOW);
+    const expiresChunk = chunks.find((c) => c.text.startsWith('expires'));
+    expect(expiresChunk).toBeDefined();
+    expect(expiresChunk?.tone).toBe('warning');
+  });
+
+  it('omits the "last ..." chunk when the cache has never been populated', () => {
+    const run = makeRun({ extractedAt: 0, expiresAt: null });
+    const policy: V5.RefreshPolicy = { kind: 'interval', seconds: 300 };
+    const chunks = describeRunSchedule(run, policy, NOW);
+    const labels = chunks.map((c) => c.text);
+    expect(labels.some((l) => l.startsWith('last'))).toBe(false);
+  });
+});
+
+// ── formatRelativeMs + formatCountdown precision ───────────────────
+//
+// Above the 1h boundary both formatters must include the minutes
+// component — a 3h 42m countdown that reads "in 3h" hides 42 minutes
+// of slack and misleads users reading the sidebar at a glance.
+
+describe('formatRelativeMs precision', () => {
+  const NOW = 1_700_000_000_000;
+
+  it('sub-minute targets stay single-unit (seconds)', () => {
+    expect(formatRelativeMs(NOW + 15_000, NOW)).toBe('in 15s');
+    expect(formatRelativeMs(NOW - 15_000, NOW)).toBe('15s ago');
+  });
+
+  it('sub-hour targets stay single-unit (minutes)', () => {
+    expect(formatRelativeMs(NOW + 42 * 60_000, NOW)).toBe('in 42m');
+    expect(formatRelativeMs(NOW - 42 * 60_000, NOW)).toBe('42m ago');
+  });
+
+  it('hour-range targets include the minutes remainder', () => {
+    // 3h 42m
+    const target = NOW + 3 * 3_600_000 + 42 * 60_000;
+    expect(formatRelativeMs(target, NOW)).toBe('in 3h 42m');
+    expect(formatRelativeMs(NOW - (3 * 3_600_000 + 42 * 60_000), NOW)).toBe('3h 42m ago');
+  });
+
+  it('hour-range targets collapse "0m" remainder into plain hours', () => {
+    expect(formatRelativeMs(NOW + 3 * 3_600_000, NOW)).toBe('in 3h');
+  });
+
+  it('day-range targets include the hour remainder', () => {
+    // 2d 4h
+    const target = NOW + 2 * 86_400_000 + 4 * 3_600_000;
+    expect(formatRelativeMs(target, NOW)).toBe('in 2d 4h');
+  });
+
+  it('day-range targets collapse "0h" remainder into plain days', () => {
+    expect(formatRelativeMs(NOW + 2 * 86_400_000, NOW)).toBe('in 2d');
+  });
+
+  it('returns "never" for null/undefined targets', () => {
+    expect(formatRelativeMs(null, NOW)).toBe('never');
+    expect(formatRelativeMs(undefined, NOW)).toBe('never');
+  });
+});
+
+describe('formatCountdown precision', () => {
+  const NOW = 1_700_000_000_000;
+
+  it('says "now" when the target has already passed', () => {
+    expect(formatCountdown(NOW - 1000, NOW)).toBe('now');
+    expect(formatCountdown(NOW, NOW)).toBe('now');
+  });
+
+  it('hour-range countdowns include minutes ("in 3h 42m", not "in 3h")', () => {
+    const target = NOW + 3 * 3_600_000 + 42 * 60_000;
+    expect(formatCountdown(target, NOW)).toBe('in 3h 42m');
+  });
+
+  it('hour-range countdowns collapse "0m" remainder', () => {
+    expect(formatCountdown(NOW + 2 * 3_600_000, NOW)).toBe('in 2h');
+  });
+
+  it('day-range countdowns include hours ("in 1d 6h")', () => {
+    const target = NOW + 86_400_000 + 6 * 3_600_000;
+    expect(formatCountdown(target, NOW)).toBe('in 1d 6h');
+  });
+
+  it('seconds round up — a 100ms countdown shows "in 1s" not "in 0s"', () => {
+    expect(formatCountdown(NOW + 100, NOW)).toBe('in 1s');
   });
 });

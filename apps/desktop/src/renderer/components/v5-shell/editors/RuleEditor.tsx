@@ -6,11 +6,11 @@
  * get their own editor panels when implemented.
  */
 
-import { DeleteOutlined, GlobalOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { GlobalOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Input, Radio, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Input, Radio, Space, Switch, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHeaderRules } from '@/renderer/hooks/useCentralizedWorkspace';
 import { extractRuleVariables, useEditorVariables } from '../contexts/EditorVariablesContext';
 

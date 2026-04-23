@@ -13,6 +13,8 @@
  */
 
 import type { LiveWorkflow } from '../types/v5/live';
+import type { CircuitSnapshot } from './circuit-breaker';
+import { computePreBreakerDelayMs } from './circuit-breaker';
 
 // ── Cache summary ─────────────────────────────────────────────────
 
@@ -32,6 +34,14 @@ export interface CacheSummary {
   consecutiveFailures: number;
   /** Wall-clock ms of the last failure. Required for backoff math when `consecutiveFailures > 0`. */
   lastErrorAt?: number;
+  /**
+   * Circuit-breaker snapshot. When provided, the cadence math defers to
+   * the circuit for failure-state scheduling: `open` states use the
+   * persisted `nextAttemptAt`, pre-breaker `closed` failures use the
+   * 5s±5s tier. Absent/undefined circuit falls back to the legacy
+   * `60·2^(n-1)` curve (kept for tests + callers without circuit state).
+   */
+  circuit?: CircuitSnapshot;
 }
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -69,9 +79,45 @@ export const MAX_BACKOFF_SECONDS = 3600;
  * clearer when the caller doesn't have to re-apply the floor.
  */
 export function computeNextFireAt(workflow: LiveWorkflow, cache: CacheSummary | null, nowMs: number): number | null {
-  // 1. Failure-state backoff wins over everything — never drive the
-  //    provider harder while it's erroring.
-  if (cache && cache.consecutiveFailures > 0 && cache.lastErrorAt !== undefined) {
+  // 1. Circuit-aware failure scheduling. Three tiers, in precedence:
+  //
+  //    a) OPEN — the circuit has a persisted `nextAttemptAt` (set by
+  //       `onCircuitFailure` at backoff time). Fire at exactly that
+  //       moment so the probe happens on schedule; the alarm floor
+  //       still clamps if the target is already past.
+  //    b) HALF-OPEN — probe window is live. Schedule the next probe
+  //       at the MV3 floor so the platform can dispatch as soon as
+  //       Chrome allows. Prevents stuck half-open states.
+  //    c) CLOSED with `consecutiveFailures > 0` — pre-breaker tier.
+  //       Retry at `lastErrorAt + 5s + jitter(0..5s)`. Small + fast so
+  //       a transient blip (5xx, VPN re-negotiation) resolves without
+  //       the user noticing.
+  //
+  // Cadence state (success path below) is only consulted when the
+  // circuit is CLOSED with zero failures — the healthy branch.
+  if (cache?.circuit) {
+    const c = cache.circuit;
+    if (c.state === 'open') {
+      const target = c.nextAttemptAt ?? nowMs + MIN_ALARM_DELAY_MS;
+      return Math.max(target, nowMs + MIN_ALARM_DELAY_MS);
+    }
+    if (c.state === 'half-open') {
+      return nowMs + MIN_ALARM_DELAY_MS;
+    }
+    // c.state === 'closed'
+    if (c.consecutiveFailures > 0 && c.lastErrorAt !== null) {
+      const target = c.lastErrorAt + computePreBreakerDelayMs();
+      return Math.max(target, nowMs + MIN_ALARM_DELAY_MS);
+    }
+    // Zero-failure closed → fall through to the healthy cadence
+    // computation below.
+  } else if (cache && cache.consecutiveFailures > 0 && cache.lastErrorAt !== undefined) {
+    // Legacy path for callers that haven't started persisting the
+    // circuit snapshot yet (tests, future desktop adapter). Same
+    // exponential curve as before, capped at MAX_BACKOFF_SECONDS.
+    //
+    // Once every platform writes `cache.circuit` on every cache put
+    // this branch becomes dead code and can be dropped.
     const seconds = Math.min(60 * 2 ** (cache.consecutiveFailures - 1), MAX_BACKOFF_SECONDS);
     const target = cache.lastErrorAt + seconds * 1000;
     return Math.max(target, nowMs + MIN_ALARM_DELAY_MS);

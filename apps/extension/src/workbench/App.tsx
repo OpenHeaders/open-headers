@@ -42,6 +42,7 @@ import LandingScreen from './components/LandingScreen';
 import LiveVariablesEditor from './components/LiveVariablesEditor';
 import LiveVariableEditor from './components/live/LiveVariableEditor';
 import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
+import WorkflowStatusPanel from './components/live/WorkflowStatusPanel';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
 import RequestEditor from './components/RequestEditor';
@@ -1125,6 +1126,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onCloseDraftTab={handleCloseTab}
             />
           );
+        case 'workflow-status':
+          return (
+            <WorkflowStatusPanel
+              onClose={() => tl.toggleWindow('workflow-status')}
+              // `openLiveWorkflowEdit` expects `(uid, name, seedStep?)`.
+              // The sidebar only knows the uid; look up the name from
+              // the workflow list so the tab title renders correctly.
+              onOpenWorkflow={(uid) => {
+                const wf = liveWorkflowsApi.workflows.find((w) => w.uid === uid);
+                openLiveWorkflowEdit(uid, wf?.name ?? 'Workflow');
+              }}
+            />
+          );
         case 'docs':
           return <DocsPanel onClose={() => tl.toggleWindow('docs')} />;
         case 'var-scope':
@@ -1168,6 +1182,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       openCreateRequestTab,
       openLiveWorkflowEdit,
       openCreateLiveWorkflow,
+      liveWorkflowsApi.workflows,
       dirtyRuleUids,
       dirtyRequestUids,
       dirtyWorkflowUids,

@@ -1028,6 +1028,18 @@ export interface BridgeRpcContract {
     res: { success: true; run: LiveWorkflowRunSnapshot } | { success: false; error: string };
   };
 
+  /**
+   * "Reset circuit" — clears consecutiveFailures / consecutiveOpenings
+   * / nextAttemptAt on the target cache row so the next scheduled or
+   * manual refresh starts from a CLOSED circuit. Does not run a probe;
+   * the user can click Refresh next. Surfaced on the Workflow Status
+   * sidebar per-row action menu.
+   */
+  resetLiveWorkflowCircuit: {
+    req: { workflowUid: string; environmentId?: string | null };
+    res: { success: true } | { success: false; error: string };
+  };
+
   // ── Status snapshot ──────────────────────────────────────────────
   getStatusSnapshot: {
     req: Record<string, never>;

@@ -53,8 +53,10 @@ import { buildDependencyRows } from './dependencies-view';
 import { InlineNameDescription, Section } from './layout';
 import {
   classifyRun,
+  describeCircuit,
   describeRefreshPolicy,
-  formatRelativeMs,
+  describeRunSchedule,
+  formatCountdown,
   pickActiveRun,
   statusColor,
   summarizeRunsByEnv,
@@ -434,14 +436,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
                   </Text>
                   {entry.run ? (
                     <>
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        · last {formatRelativeMs(entry.run.extractedAt)}
-                      </Text>
-                      {entry.run.expiresAt != null && (
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          · expires {formatRelativeMs(entry.run.expiresAt)}
+                      {describeRunSchedule(entry.run, draft.refresh).map((chunk) => (
+                        <Text key={chunk.text} type={chunk.tone} style={{ fontSize: 11 }}>
+                          · {chunk.text}
                         </Text>
-                      )}
+                      ))}
+                      <CircuitInlineStatus run={entry.run} />
                       {entry.run.lastErrorMessage && (
                         <Text type="danger" style={{ fontSize: 11 }}>
                           · {entry.run.lastErrorMessage}
@@ -792,5 +792,50 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
         </Tooltip>
       </div>
     </div>
+  );
+};
+
+// ── CircuitInlineStatus ───────────────────────────────────────────
+//
+// Per-env circuit pill rendered inline with the "last Xm ago · expires
+// Ym" row. Folds four distinct UX states into one small surface:
+//   - green healthy: hidden (no label — the green dot upstream
+//     already says "fine"; we don't want to spam the row).
+//   - yellow pre-breaker: "· retry 2 of 3" + tooltip describing the
+//     two-tier retry.
+//   - yellow probing: "· probing…" (probe in flight; no countdown —
+//     the chain will resolve shortly).
+//   - red paused: "· paused · next attempt in 12m" with a live
+//     ticking countdown, tooltip explaining the backoff window.
+//
+// Ticking uses a 1-second interval only when the circuit is OPEN and
+// `nextAttemptAt` is in the future — no-op for every other state
+// (no React timer, no wasted re-renders on healthy rows).
+
+const CircuitInlineStatus: React.FC<{ run: import('@utils/bridge').LiveWorkflowRunSnapshot }> = ({ run }) => {
+  const [, setNow] = useState(Date.now());
+  const descriptor = describeCircuit(run);
+  const needsTick = descriptor.nextAttemptAt !== null && descriptor.nextAttemptAt > Date.now();
+
+  useEffect(() => {
+    if (!needsTick) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [needsTick]);
+
+  // Healthy — no dedicated pill. The per-env dot already carries the
+  // green signal; adding "· healthy" would just be noise.
+  if (descriptor.level === 'green' || descriptor.level === 'idle') return null;
+
+  const countdown = descriptor.nextAttemptAt !== null ? formatCountdown(descriptor.nextAttemptAt) : '';
+  const labelColor = descriptor.level === 'red' ? 'danger' : descriptor.level === 'yellow' ? 'warning' : 'secondary';
+
+  return (
+    <Tooltip title={descriptor.hint}>
+      <Text type={labelColor} style={{ fontSize: 11 }}>
+        · {descriptor.label}
+        {countdown ? ` · next attempt ${countdown}` : ''}
+      </Text>
+    </Tooltip>
   );
 };

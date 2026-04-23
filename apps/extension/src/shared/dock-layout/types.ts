@@ -50,6 +50,13 @@ export interface ToolWindowDef<TWindowId extends string = string> {
   id: TWindowId;
   label: string;
   icon: React.ReactNode;
+  /**
+   * Optional tooltip text. When omitted, the tab strip uses `label`.
+   * Useful when the label is an abbreviation (e.g. "WF Status") and
+   * the hover copy should spell out the full meaning ("Workflow
+   * Status") for discoverability.
+   */
+  tooltip?: string;
   /** Core tool windows cannot be hidden — the Hide menu entry is disabled. */
   core: boolean;
   /** Initial dock slot on a fresh profile; also the restore target for Hide → Show. */

@@ -527,7 +527,7 @@ describe('VariableResolver — structured resolution errors', () => {
     // explicit via the {{file.X}} form so URL/header values can't
     // accidentally substitute a filename.
     resolver.setFileRegistry([
-      { fileId: 'file:test-api-url', hash: 'sha256:' + 'a'.repeat(64), filename: 'API_URL', size: 10 },
+      { fileId: 'file:test-api-url', hash: `sha256:${'a'.repeat(64)}`, filename: 'API_URL', size: 10 },
     ]);
     const r = resolver.resolve('API_URL');
     expect(r).toBeNull();
@@ -535,9 +535,9 @@ describe('VariableResolver — structured resolution errors', () => {
 
   it('flat {{X}} still resolves from other scopes when a same-named file exists', () => {
     resolver.setEnvironments([makeEnvironment('E', [makeVariable('SHARED_NAME', 'from-env')])]);
-    resolver.setActiveEnvironmentId('env-' + envCounter);
+    resolver.setActiveEnvironmentId(`env-${envCounter}`);
     resolver.setFileRegistry([
-      { fileId: 'file:test-shared', hash: 'sha256:' + 'a'.repeat(64), filename: 'SHARED_NAME', size: 1 },
+      { fileId: 'file:test-shared', hash: `sha256:${'a'.repeat(64)}`, filename: 'SHARED_NAME', size: 1 },
     ]);
     expect(resolver.resolve('SHARED_NAME')?.value).toBe('from-env');
   });

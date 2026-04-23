@@ -116,7 +116,7 @@ async function listSubdirectories(dirPath: string): Promise<string[]> {
 
 // ── Slug + UID helpers (from @openheaders/core) ──────────────────
 
-import { extractUid, generateUid, toFolderName } from '@openheaders/core/utils';
+import { extractUid, toFolderName } from '@openheaders/core/utils';
 
 // ── Body type ↔ file extension mapping ─────────────────────────────
 
@@ -139,7 +139,7 @@ const BODY_TYPE_TO_EXT: Record<V5.BodyType, string> = {
   text: '.txt',
 };
 
-function detectBodyType(dir: string, files: string[]): { type: V5.BodyType; fileName: string | null } {
+function detectBodyType(_dir: string, files: string[]): { type: V5.BodyType; fileName: string | null } {
   for (const file of files) {
     if (!file.startsWith('body')) continue;
     const ext = path.extname(file);

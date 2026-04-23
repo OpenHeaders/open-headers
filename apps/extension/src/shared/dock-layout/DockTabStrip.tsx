@@ -143,7 +143,7 @@ function SortableDockTab<T extends string>({
   return (
     <Dropdown menu={{ items: contextMenu }} trigger={['contextMenu']} onOpenChange={(o) => o && setTooltipOpen(false)}>
       <Tooltip
-        title={def.label}
+        title={def.tooltip ?? def.label}
         open={tooltipOpen}
         onOpenChange={setTooltipOpen}
         placement={orientation === 'vertical' ? (slot.startsWith('left-') ? 'right' : 'left') : 'top'}

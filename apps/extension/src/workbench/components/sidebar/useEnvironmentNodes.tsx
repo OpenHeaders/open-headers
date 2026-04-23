@@ -93,7 +93,6 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
       });
     }
     return items;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
   }, [
     p.environments,
     p.activeEnvironmentId,

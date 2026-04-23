@@ -11,7 +11,7 @@ const { store } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/shared/files/blob-store', () => ({
-  hashBlob: vi.fn(async () => 'sha256:' + 'a'.repeat(64)),
+  hashBlob: vi.fn(async () => `sha256:${'a'.repeat(64)}`),
   putBlob: vi.fn(async (workspaceId: string, input: { blob: Blob; filename: string; mimeType?: string }) => {
     const hash = `sha256:${(store.size + 1).toString().padStart(64, '0')}`;
     store.set(`${workspaceId}:${hash}`, {
@@ -144,7 +144,7 @@ describe('files-store — onFilesStoreChange (Phase 12.4b broadcast)', () => {
   it('does NOT fire the change listener when deleteFile removes nothing', async () => {
     const spy = vi.fn();
     const unsub = filesStore.onFilesStoreChange(spy);
-    await filesStore.deleteFile('sha256:' + 'f'.repeat(64));
+    await filesStore.deleteFile(`sha256:${'f'.repeat(64)}`);
     expect(spy).not.toHaveBeenCalled();
     unsub();
   });

@@ -168,14 +168,12 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
       });
     }
     return items;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
   }, [
     p.liveWorkflows,
     p.liveVariables,
     p.liveCaches,
     p.activeEnvironmentId,
     lowerFilter,
-    p.refreshLiveWorkflow,
     p.onSelectLiveWorkflow,
     p.renameWorkflow,
     p.deleteWorkflow,

@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { PreprocessProgressDetails, RecordingMetadata, WorkflowRecordingFileMetadata } from '@openheaders/core';
-import { errorMessage } from '@openheaders/core';
 import electron from 'electron';
 import windowManager from '@/main/modules/window/windowManager';
 import type { PreprocessorData } from '@/services/websocket/utils/recordingPreprocessor';

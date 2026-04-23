@@ -12,7 +12,7 @@ import atomicWriter from '@/utils/atomicFileWriter';
 import mainLogger from '@/utils/mainLogger';
 
 const { createLogger } = mainLogger;
-const log = createLogger('StatePersistence');
+const _log = createLogger('StatePersistence');
 
 // ── Workspace config (workspaces.json) ───────────────────────────
 

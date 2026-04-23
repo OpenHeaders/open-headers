@@ -40,8 +40,10 @@
 
 import {
   type CacheSummary,
+  canAttempt as canCircuitAttempt,
   collectRequestTemplateStrings,
   computeNextFireAt as computeNextFireAtCore,
+  initialCircuitSnapshot,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
   scanTemplateReferencesMany,
@@ -55,8 +57,10 @@ import { getActiveEnvironmentId, onActiveEnvironmentChange } from './environment
 import {
   listCachesForWorkflow,
   listWorkflowRunCaches,
+  markProbeStartForRun,
   onLiveCacheStoreChange,
   recordRefreshError,
+  resetCircuitForRun,
   type WorkflowRunCache,
 } from './live-cache-store';
 import { getLiveVariables, getLiveVariablesForWorkflow, onLiveVariableStoreChange } from './live-variable-store';
@@ -130,11 +134,19 @@ export interface LiveRefreshAdapter {
    * still caught by the scheduler and folded into `recordRefreshError`,
    * but well-behaved adapters handle the cache write themselves so
    * they can carry richer context (failed step id, extractor fault).
+   *
+   * `bypass: true` signals that the caller is running a manual-bypass
+   * attempt against an OPEN circuit — the adapter MUST route failure
+   * writes through `recordManualBypassFailureForRun` (preserves
+   * `nextAttemptAt` + `consecutiveOpenings`) instead of the normal
+   * `recordRefreshError` path. Success writes go through the usual
+   * `putWorkflowRunCache` either way; success closes the circuit.
    */
   refreshWorkflow(args: {
     workspaceId: string;
     workflow: V5.LiveWorkflow;
     environmentId: string | null;
+    bypass?: boolean;
   }): Promise<void>;
 }
 
@@ -179,6 +191,11 @@ export function toCacheSummary(run: WorkflowRunCache | null | undefined): CacheS
     stepCaptures: run.stepCaptures,
     consecutiveFailures: run.consecutiveFailures,
     lastErrorAt: run.lastErrorAt,
+    // Cadence math consults this first when present — OPEN states
+    // schedule to `circuit.nextAttemptAt`, pre-breaker CLOSED failures
+    // get the 5s±5s tier. The fallback to `initialCircuitSnapshot`
+    // mirrors `normalizeBlob`'s per-row tolerant read.
+    circuit: run.circuit ?? initialCircuitSnapshot(),
   };
 }
 
@@ -309,7 +326,7 @@ function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]
 
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
-const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache> = {
+const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | null> = {
   alarmPrefix: LIVE_ALARM_PREFIX,
   decodeAlarm: (name) => codec.decode(name),
   encodeAlarm: (entry) => codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId }),
@@ -349,13 +366,58 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache> =
         `scheduler-not-ready: no refresh adapter installed for workflow ${payload.u}`,
       );
     }
+    // Offline gate — check BEFORE touching the circuit. Offline blips
+    // must not advance the state machine (see `OfflineError` comment).
+    // The 'online' event handler in `background.ts` re-reconciles +
+    // kicks catch-up when connectivity returns.
+    if (!isNetworkOnline()) {
+      throw new OfflineError(`offline: workflow ${payload.u} refresh skipped (navigator.onLine=false)`);
+    }
+    // Circuit-aware attempt gate. If the cache says the circuit is
+    // OPEN and we haven't reached `nextAttemptAt` yet, bail out of
+    // the dispatch — Chrome alarms can wake us "early" on some
+    // platforms + a races between concurrent reconciles could also
+    // schedule an attempt before the backoff window. Throwing a
+    // neutral error routes through `onFailed` → `recordFailure`; the
+    // provider's `recordFailure` consults the circuit and applies the
+    // right transition without double-counting.
+    const now = Date.now();
+    const cacheCircuit = entry.cache?.circuit ?? null;
+    if (cacheCircuit && !canCircuitAttempt(cacheCircuit, now)) {
+      throw new CircuitBlockedError(
+        `circuit-blocked: workflow ${payload.u} (state=${cacheCircuit.state}, nextAttemptAt=${cacheCircuit.nextAttemptAt})`,
+      );
+    }
+    // Before dispatching an `open`-eligible probe, persist the
+    // `open → half-open` transition so the UI shows "probing..." and
+    // a subsequent `recordRefreshError` correctly lands on the
+    // half-open branch of `onCircuitFailure` (which bumps the
+    // backoff curve). No-op for already-half-open / already-closed
+    // states.
+    if (cacheCircuit?.state === 'open') {
+      await markProbeStartForRun(payload.u, payload.e, now, payload.w);
+    }
     await refreshAdapter.refreshWorkflow({
       workspaceId: entry.workspaceId,
       workflow: entry.workflow,
       environmentId: entry.environmentId,
     });
   },
-  async recordFailure(payload, err) {
+  async recordFailure(payload, err, job) {
+    // `CircuitBlockedError` / `OfflineError` — both sentinels fire
+    // when `provider.refresh` bailed BEFORE the adapter ran. No probe
+    // happened, no counter bump, no cache write. Return the existing
+    // cache row so `onFailed` has something to log; re-arm the alarm
+    // so the next fire lines up with the correct target (cadence for
+    // offline, `nextAttemptAt` for circuit-blocked). Explicit
+    // schedule call because skipping the cache write also skipped
+    // the store-change reconcile loop that normally re-arms alarms.
+    if (err instanceof CircuitBlockedError || err instanceof OfflineError) {
+      if (job) {
+        void scheduler.schedule(job).catch((e) => logger.warn('LiveScheduler', 'Re-schedule after skip failed', e));
+      }
+      return job?.cache ?? null;
+    }
     // `live-chain-adapter` records its own error with richer context
     // (failed step id, extractor phase) before throwing — this
     // defensive write covers the scheduler-not-ready path + any
@@ -411,23 +473,35 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache> =
   },
   onFailed(payload, err) {
     // Phase-C stub (scheduler-not-ready) gets a `warn`; a real
-    // adapter bubble is `error`. Unlike OAuth we don't escalate per
-    // attempt count — Phase G's Status pill already aggregates
-    // consecutive failures into yellow/red, so per-entry log-level
-    // churn would add noise without new signal.
+    // adapter bubble is `error`; a circuit-blocked (early fire) is
+    // `debug` — not a failure, just a no-op we're logging for
+    // traceability. Unlike OAuth we don't escalate per attempt
+    // count — Phase G's Status pill already aggregates consecutive
+    // failures into yellow/red, so per-entry log-level churn would
+    // add noise without new signal.
     const isStub = err instanceof LiveSchedulerNotReadyError;
+    const isBlocked = err instanceof CircuitBlockedError;
+    const isOffline = err instanceof OfflineError;
+    const isNoOp = isBlocked || isOffline;
     recordLog({
       subsystem: 'live',
       op: 'refresh-failed',
-      level: isStub ? 'warn' : 'error',
-      message: isStub
-        ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
-        : `Refresh failed for ${payload.u}: ${err.message}`,
+      // Observability LogLevel is ('info' | 'warn' | 'error') — no
+      // debug tier. No-op skips (circuit-blocked, offline) fold into
+      // 'info'. A real adapter failure stays at 'error'.
+      level: isNoOp ? 'info' : isStub ? 'warn' : 'error',
+      message: isOffline
+        ? `Offline — refresh deferred for workflow ${payload.u}`
+        : isBlocked
+          ? `Circuit open for workflow ${payload.u} — refresh declined`
+          : isStub
+            ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
+            : `Refresh failed for ${payload.u}: ${err.message}`,
       context: {
         workspaceId: payload.w,
         workflowUid: payload.u,
         environmentId: payload.e,
-        errorClass: isStub ? 'SchedulerNotReady' : err.name,
+        errorClass: isOffline ? 'Offline' : isBlocked ? 'CircuitBlocked' : isStub ? 'SchedulerNotReady' : err.name,
       },
     });
   },
@@ -443,6 +517,60 @@ class LiveSchedulerNotReadyError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'SchedulerNotReady';
+  }
+}
+
+/**
+ * Sentinel error the provider throws when `canCircuitAttempt` refuses
+ * a dispatch because the circuit is OPEN and `nextAttemptAt` hasn't
+ * been reached yet. Not a real failure — the state machine is doing
+ * its job. `recordFailure` returns the existing cache row without
+ * mutating; `onFailed` logs at debug level. The error exists as a
+ * class (rather than a magic string match) so TypeScript narrowing
+ * catches every branch that needs to special-case the no-op path.
+ */
+class CircuitBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CircuitBlocked';
+  }
+}
+
+/**
+ * Thrown when an attempt is refused because the platform reports
+ * `navigator.onLine === false`. Not a circuit failure — the provider
+ * is (probably) fine; the client has no way to reach it. Treating
+ * offline blips as circuit failures would race through all three
+ * pre-breaker retries in 90 seconds (the 30s MV3 alarm floor clamps
+ * the intended 5–10s pre-breaker delay) and open the circuit before
+ * the user even notices they're offline. Mirrors v4's behavior where
+ * `NetworkService.on('offline')` paused the refresh scheduler instead
+ * of letting it hammer the circuit.
+ *
+ * The 'online' event handler in `background.ts` explicitly reconciles
+ * + kicks overdue workflows when connectivity returns, so missed
+ * windows get caught up without contributing to backoff state.
+ */
+class OfflineError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'Offline';
+  }
+}
+
+/**
+ * Read the SW's current online/offline signal. Best-effort:
+ * `navigator.onLine` can be stale (the browser only flips it on a
+ * confirmed platform event), and SWs in some test harnesses don't
+ * expose the global at all — fail open (assume online) when absent.
+ */
+function isNetworkOnline(): boolean {
+  try {
+    if (typeof navigator === 'undefined') return true;
+    if (typeof navigator.onLine !== 'boolean') return true;
+    return navigator.onLine;
+  } catch {
+    return true;
   }
 }
 
@@ -587,17 +715,36 @@ export async function kickActiveContextRefresh(
 
 /**
  * Run a workflow once on an explicit user request (the "Refresh now"
- * button in the Live Workflow editor + Live Variable list), bypassing
- * the `canScheduleWorkflow` binding gate.
+ * button in the Live Workflow editor + Live Variable list + the
+ * Workflow Status sidebar). Bypasses BOTH the `canScheduleWorkflow`
+ * binding gate AND the circuit-breaker `canAttempt` gate when the
+ * circuit is OPEN.
  *
- * The alarm path intentionally declines to run workflows with zero
- * enabled LV bindings — a scheduled fire on an orphan workflow would
- * burn MV3 alarm quota for no observable effect. But manual refresh
- * is the opposite shape: the user is often diagnosing a workflow
- * BEFORE binding an LV (run it once, inspect the captures, decide
- * which to expose as `{{live.X}}`). So we duplicate just the essential
- * path — load entry, call adapter, write cache on failure — without
- * the gate.
+ * Gates we bypass:
+ *   • `canScheduleWorkflow` — alarm path declines orphan workflows
+ *     (enabled=false OR no bound LVs) to avoid wasting MV3 alarm
+ *     quota on a dispatch that wouldn't affect any rule. Manual
+ *     refresh is the opposite shape: the user often diagnoses a
+ *     workflow BEFORE binding an LV (run it, inspect captures,
+ *     decide which to expose). So we skip this gate.
+ *   • `canAttempt` — when the user clicks Retry while the circuit is
+ *     OPEN, they're explicitly overriding the backoff window ("I know
+ *     something; try anyway"). Mirrors v4
+ *     `AdaptiveCircuitBreaker.executeWithBypass(bypassIfOpen=true)`.
+ *
+ * Failure handling (the key asymmetry with the alarm path):
+ *   • When the circuit was OPEN at the time of the bypass, a failure
+ *     writes via `recordManualBypassFailureForRun`, which updates the
+ *     error-detail fields but leaves `nextAttemptAt`, `consecutive
+ *     Openings`, and `consecutiveFailures` at their pre-bypass values.
+ *     The user's click doesn't push the next scheduled retry further
+ *     out — the backoff curve stays exactly where it was.
+ *   • When the circuit was CLOSED or HALF-OPEN, the regular failure
+ *     path applies (pre-breaker counter / probe-failure handling).
+ *
+ * Success handling is uniform: `putWorkflowRunCache` → `onCircuitSuccess`
+ * closes the circuit + applies the openings-decay rule regardless of
+ * entry state. So a successful bypass fully recovers the workflow.
  *
  * Errors bubble so the caller (message-handler) can report a real
  * message to the user instead of the `scheduler-not-ready` fallback.
@@ -610,16 +757,91 @@ export async function refreshLiveWorkflowByUser(
   const payload: LiveAlarmPayload = { w: workspaceId, u: workflowUid, e: environmentId };
   const job = await provider.getByAlarm(payload);
   if (!job) throw new Error(`Workflow ${workflowUid} not found in workspace ${workspaceId}`);
+
+  // Offline guard — a manual click with no connectivity can't succeed
+  // and shouldn't advance the circuit. Throw a clean message so the
+  // message-handler can surface "You're offline" in the UI instead of
+  // counting it as a fetch failure.
+  if (!isNetworkOnline()) {
+    throw new Error("You're offline — refresh will resume automatically when connectivity returns.");
+  }
+
+  const now = Date.now();
+  const circuit = job.cache?.circuit ?? null;
+  // "Bypass" semantics kick in ONLY when the circuit would otherwise
+  // refuse the attempt right now (OPEN and `nowMs < nextAttemptAt`).
+  // That's the scenario v4 `executeWithBypass` was designed for:
+  // failure preserves the existing `nextAttemptAt` so the user's
+  // clarifying click doesn't push the next auto-retry further out.
+  //
+  // When `canCircuitAttempt` is true (CLOSED / HALF-OPEN with probes
+  // remaining / OPEN past nextAttemptAt), the retry is semantically
+  // equivalent to a scheduled probe; run the regular adapter path so
+  // state transitions are natural (openings bump on probe failure,
+  // consecutiveFailures accumulates in the pre-breaker tier, etc.).
+  const isBypassingGate = circuit !== null && !canCircuitAttempt(circuit, now);
+
   provider.onFired?.(payload);
+  if (!refreshAdapter) {
+    const err = new LiveSchedulerNotReadyError(`scheduler-not-ready: no refresh adapter for workflow ${workflowUid}`);
+    provider.onFailed?.(payload, err, job.cache ?? null);
+    throw err;
+  }
+
+  // Probe-start transition lives on the non-bypass path: when state
+  // is OPEN + canAttempt=true (alarm-equivalent), transition to
+  // half-open so `onCircuitFailure` lands on the half-open branch
+  // (bumping `consecutiveOpenings`). Bypass path explicitly preserves
+  // the OPEN state — no transition.
+  if (!isBypassingGate && circuit?.state === 'open') {
+    await markProbeStartForRun(workflowUid, environmentId, now, workspaceId);
+  }
+
   try {
-    await provider.refresh(job, payload);
+    await refreshAdapter.refreshWorkflow({
+      workspaceId,
+      workflow: job.workflow,
+      environmentId,
+      bypass: isBypassingGate,
+    });
     provider.onSucceeded?.(payload);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    const state = await provider.recordFailure(payload, error, job);
-    provider.onFailed?.(payload, error, state);
+    // Cache-write side effects already happened inside the adapter —
+    // `bypass: true` routed the adapter's failure through
+    // `recordManualBypassFailureForRun` (circuit preserved); the
+    // normal path wrote via `recordRefreshError`. Either way, we
+    // re-read the post-write cache so `onFailed`'s observability
+    // entry reflects the latest counters.
+    const fresh = await getCurrentCacheForPayload(payload);
+    provider.onFailed?.(payload, error, fresh);
     throw error;
   }
+}
+
+/**
+ * Read the current cache row for an alarm payload — used by the
+ * manual-refresh entry point to pass post-write state into `onFailed`
+ * without duplicating the store read logic from the provider itself.
+ */
+async function getCurrentCacheForPayload(payload: LiveAlarmPayload): Promise<WorkflowRunCache | null> {
+  const runs = await listCachesForWorkflow(payload.u, payload.w);
+  return runs.find((r) => r.environmentId === payload.e) ?? null;
+}
+
+/**
+ * Reset the circuit for one `(workflow, env)` pair in the active
+ * workspace. Surfaced as the Workflow Status sidebar's "Reset circuit"
+ * action — clears failure counts + `consecutiveOpenings` + any
+ * pending `nextAttemptAt` without running a probe. The next scheduled
+ * or manual refresh starts from a clean slate.
+ */
+export async function resetCircuitForWorkflow(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+): Promise<void> {
+  await resetCircuitForRun(workflowUid, environmentId, workspaceId);
 }
 
 // ── Status reporting ─────────────────────────────────────────────

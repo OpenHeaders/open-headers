@@ -152,7 +152,6 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
 
       return items;
     },
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
     [
       p.expandedKeys,
       lowerFilter,
@@ -320,7 +319,6 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     }
 
     return items;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally tracks p object fields
   }, [
     p.templateCollectionTrees,
     lowerFilter,

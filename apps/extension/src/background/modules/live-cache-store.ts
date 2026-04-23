@@ -36,6 +36,14 @@
  * decide when to fire.
  */
 
+import {
+  type CircuitSnapshot,
+  initialCircuitSnapshot,
+  onCircuitFailure,
+  onCircuitSuccess,
+  resetCircuit as resetCircuitSnapshot,
+  transitionOpenToHalfOpen,
+} from '@openheaders/core/live';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, OH, wsKeys } from '@/shared/storage';
@@ -76,6 +84,15 @@ export interface WorkflowRunCache {
    * real; the extractor config is what's wrong.
    */
   lastExtractorOk: boolean;
+  /**
+   * Circuit-breaker snapshot — persisted alongside cache state so the
+   * state machine survives SW eviction. Source of truth for the
+   * scheduler's attempt gate + the UI's "retry 2 of 3 in 5s" /
+   * "paused · next attempt in 12m" signals. State machine itself
+   * lives in `@openheaders/core/live/circuit-breaker`; this field is
+   * pure storage.
+   */
+  circuit: CircuitSnapshot;
 }
 
 interface LiveCacheBlob {
@@ -97,10 +114,25 @@ function normalizeBlob(raw: unknown): LiveCacheBlob {
   ) {
     return DEFAULT_BLOB;
   }
+  // Per-row tolerant read: inject a default circuit snapshot into any
+  // row that predates the circuit-breaker field. This is the ONLY
+  // backwards-compat we do — v5 is pre-release so there's no migration
+  // story, but within a single SW lifetime a read could still encounter
+  // a storage row written before this module shipped. Safer to heal on
+  // read than to crash a scheduler dispatch on `cache.circuit.state`.
+  const rawRuns = blob.runs as Record<string, Partial<WorkflowRunCache>>;
+  const runs: Record<string, WorkflowRunCache> = {};
+  for (const [key, row] of Object.entries(rawRuns)) {
+    if (!row || typeof row !== 'object') continue;
+    runs[key] = {
+      ...(row as WorkflowRunCache),
+      circuit: row.circuit ?? initialCircuitSnapshot(),
+    };
+  }
   return {
     schemaVersion: blob.schemaVersion,
     version: blob.version,
-    runs: blob.runs as Record<string, WorkflowRunCache>,
+    runs,
   };
 }
 
@@ -219,24 +251,32 @@ export interface SuccessfulRunInput {
 /**
  * Atomically write a successful workflow-run extraction. Clears any
  * accumulated failure state — a successful refresh resets the
- * backoff counter. Fires `onLiveCacheStoreChange`.
+ * backoff counter AND applies `onCircuitSuccess` to the persisted
+ * circuit snapshot so the state machine closes the breaker (with
+ * decay of `consecutiveOpenings` where appropriate). Fires
+ * `onLiveCacheStoreChange` with the post-write snapshot.
  */
 export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId?: string): Promise<WorkflowRunCache> {
   const wsId = resolveWorkspaceId(workspaceId);
   const key = runKey(input.workflowUid, input.environmentId);
-  const entry: WorkflowRunCache = {
-    workflowUid: input.workflowUid,
-    environmentId: input.environmentId,
-    stepCaptures: input.stepCaptures,
-    stepResponseBytes: input.stepResponseBytes,
-    extractedAt: input.extractedAt,
-    expiresAt: input.expiresAt,
-    consecutiveFailures: 0,
-    lastExtractorOk: true,
-  };
+  let entry!: WorkflowRunCache;
   let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
+    const previous: WorkflowRunCache | undefined = current.runs[key];
+    const priorCircuit = previous?.circuit ?? initialCircuitSnapshot();
+    const nextCircuit = onCircuitSuccess(priorCircuit, input.extractedAt);
+    entry = {
+      workflowUid: input.workflowUid,
+      environmentId: input.environmentId,
+      stepCaptures: input.stepCaptures,
+      stepResponseBytes: input.stepResponseBytes,
+      extractedAt: input.extractedAt,
+      expiresAt: input.expiresAt,
+      consecutiveFailures: 0,
+      lastExtractorOk: true,
+      circuit: nextCircuit,
+    };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
       version: current.version + 1,
@@ -267,17 +307,24 @@ export interface RefreshErrorInput {
 
 /**
  * Record a failed refresh. Preserves the previous captures (atomic-
- * refresh discipline) and increments the consecutive-failure counter
- * so Phase C's scheduler can widen its backoff.
+ * refresh discipline) and advances the circuit snapshot via
+ * `onCircuitFailure` — same call whether the circuit is currently
+ * CLOSED (pre-breaker tier), HALF-OPEN (probe failed → re-open), or
+ * OPEN (manual-bypass failure → refresh `nextAttemptAt`). The
+ * scheduler reads `circuit.nextAttemptAt` / `consecutiveFailures` to
+ * compute the next alarm.
  */
 export async function recordRefreshError(input: RefreshErrorInput, workspaceId?: string): Promise<WorkflowRunCache> {
   const wsId = resolveWorkspaceId(workspaceId);
   const key = runKey(input.workflowUid, input.environmentId);
+  const now = Date.now();
   let latest: WorkflowRunCache;
   let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
     const previous: WorkflowRunCache | undefined = current.runs[key];
+    const priorCircuit = previous?.circuit ?? initialCircuitSnapshot();
+    const nextCircuit = onCircuitFailure(priorCircuit, now);
     latest = {
       workflowUid: input.workflowUid,
       environmentId: input.environmentId,
@@ -285,11 +332,12 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       stepResponseBytes: previous?.stepResponseBytes ?? {},
       extractedAt: previous?.extractedAt ?? 0,
       expiresAt: previous?.expiresAt ?? null,
-      consecutiveFailures: (previous?.consecutiveFailures ?? 0) + 1,
-      lastErrorAt: Date.now(),
+      consecutiveFailures: nextCircuit.consecutiveFailures,
+      lastErrorAt: now,
       lastErrorMessage: truncate(input.message, 200),
       lastErrorStepId: input.failedStepId,
       lastExtractorOk: input.extractorOk ?? false,
+      circuit: nextCircuit,
     };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
@@ -301,6 +349,142 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
   });
   notifyChange(wsId, input.workflowUid, postWriteRuns);
   return latest!;
+}
+
+/**
+ * Transition the circuit `open → half-open` in persisted state at
+ * the moment a probe attempt is about to dispatch. Called from the
+ * scheduler's alarm path AFTER `canAttempt` says yes and BEFORE the
+ * adapter runs the chain. Idempotent — no-op when state isn't
+ * `open` or when `nextAttemptAt` hasn't been reached yet.
+ *
+ * Why persist before the probe: `onCircuitFailure` has different
+ * semantics for `half-open` (bump openings) vs `open` (preserve
+ * openings — that branch is for manual-bypass failures). If we
+ * didn't transition first, a failed scheduled probe would take the
+ * open-branch and not grow the backoff curve across repeated
+ * outages. Writing through the cache store means the UI's "probing..."
+ * state lights up immediately too.
+ */
+export async function markProbeStartForRun(
+  workflowUid: string,
+  environmentId: string | null,
+  nowMs: number = Date.now(),
+  workspaceId?: string,
+): Promise<WorkflowRunCache | null> {
+  const wsId = resolveWorkspaceId(workspaceId);
+  const key = runKey(workflowUid, environmentId);
+  let latest: WorkflowRunCache | null = null;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(wsId, async () => {
+    const current = await readBlob(wsId);
+    const previous: WorkflowRunCache | undefined = current.runs[key];
+    if (!previous) return;
+    const transitioned = transitionOpenToHalfOpen(previous.circuit, nowMs);
+    if (transitioned === previous.circuit) return; // no-op
+    latest = { ...previous, circuit: transitioned };
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: { ...current.runs, [key]: latest },
+    };
+    await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
+  });
+  if (latest) notifyChange(wsId, workflowUid, postWriteRuns);
+  return latest;
+}
+
+/**
+ * Record a failure from a manual-bypass attempt. Unlike
+ * {@link recordRefreshError}, this path does NOT advance the circuit
+ * state machine — `nextAttemptAt`, `consecutiveOpenings`, and
+ * `consecutiveFailures` all stay at their pre-bypass values. The
+ * only things written are the error-detail fields (`lastErrorAt`,
+ * `lastErrorMessage`, `lastErrorStepId`) + `lastExtractorOk`.
+ *
+ * Rationale matches v4 `AdaptiveCircuitBreaker.executeWithBypass`:
+ * a user clicking "Retry now" while the circuit is paused is not a
+ * natural retry tick. If it fails, the provider is still broken;
+ * the existing backoff curve is already the right answer — pushing
+ * `nextAttemptAt` forward would punish the user for their clarifying
+ * click.
+ */
+export async function recordManualBypassFailureForRun(
+  input: RefreshErrorInput,
+  workspaceId?: string,
+): Promise<WorkflowRunCache | null> {
+  const wsId = resolveWorkspaceId(workspaceId);
+  const key = runKey(input.workflowUid, input.environmentId);
+  let latest: WorkflowRunCache | null = null;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(wsId, async () => {
+    const current = await readBlob(wsId);
+    const previous: WorkflowRunCache | undefined = current.runs[key];
+    if (!previous) return;
+    latest = {
+      ...previous,
+      lastErrorAt: Date.now(),
+      lastErrorMessage: truncate(input.message, 200),
+      lastErrorStepId: input.failedStepId,
+      lastExtractorOk: input.extractorOk ?? false,
+      // Circuit snapshot intentionally unchanged — bypass failures
+      // don't advance the state machine.
+    };
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: { ...current.runs, [key]: latest },
+    };
+    await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
+  });
+  if (latest) notifyChange(wsId, input.workflowUid, postWriteRuns);
+  return latest;
+}
+
+/**
+ * Hard-reset the circuit for one `(workflow, env)` entry. Called
+ * from the Workflow Status sidebar's "Reset circuit" action when
+ * the user is confident the upstream is recovered and wants to
+ * clear the backoff state without waiting for `nextAttemptAt`. Does
+ * NOT touch captures / extractedAt — a manual circuit reset is
+ * purely a gate clear, not an invalidation.
+ */
+export async function resetCircuitForRun(
+  workflowUid: string,
+  environmentId: string | null,
+  workspaceId?: string,
+): Promise<WorkflowRunCache | null> {
+  const wsId = resolveWorkspaceId(workspaceId);
+  const key = runKey(workflowUid, environmentId);
+  let latest: WorkflowRunCache | null = null;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(wsId, async () => {
+    const current = await readBlob(wsId);
+    const previous: WorkflowRunCache | undefined = current.runs[key];
+    if (!previous) return;
+    latest = {
+      ...previous,
+      consecutiveFailures: 0,
+      circuit: resetCircuitSnapshot(),
+      // Clear error residue so the UI flips green immediately — the
+      // user's "Reset" click is an explicit "I'm vouching the upstream
+      // is fine now" signal.
+      lastErrorAt: undefined,
+      lastErrorMessage: undefined,
+      lastErrorStepId: undefined,
+    };
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: { ...current.runs, [key]: latest },
+    };
+    await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
+  });
+  if (latest) notifyChange(wsId, workflowUid, postWriteRuns);
+  return latest;
 }
 
 /**
