@@ -7,7 +7,7 @@
 import {
   CheckOutlined,
   DownOutlined,
-  FolderOpenTwoTone,
+  FolderOpenFilled,
   GlobalOutlined,
   PlusOutlined,
   PushpinFilled,
@@ -16,7 +16,7 @@ import {
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
-import { Button, Divider, Dropdown, Input, Space, Typography, theme } from 'antd';
+import { Button, Divider, Dropdown, Input, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { scopeBadge } from './shared/scope-colors';
@@ -50,13 +50,13 @@ const EnvRow: React.FC<EnvRowProps> = ({
   onSetDefault,
 }) => {
   const { token } = theme.useToken();
-  const [hovered, setHovered] = useState(false);
   const isActive = env.uid === activeEnvironmentId;
   const isDefault = env.uid === activeCollectionDefaultEnvId;
 
   return (
     <div
       role="menuitem"
+      className="oh-env-row"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -65,10 +65,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
         cursor: 'pointer',
         borderRadius: token.borderRadiusSM,
         minWidth: 220,
-        background: hovered ? token.colorBgTextHover : 'transparent',
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
     >
       <span style={{ width: 14, flexShrink: 0 }}>
@@ -89,54 +86,59 @@ const EnvRow: React.FC<EnvRowProps> = ({
           DEFAULT
         </Text>
       )}
-      <Space size={2} style={{ flexShrink: 0, visibility: hovered ? 'visible' : 'hidden' }}>
-        <Button
-          size="small"
-          type="text"
-          icon={<SettingOutlined style={{ fontSize: 11 }} />}
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpen();
-          }}
-          aria-label={`Open ${env.name}`}
-          style={{ padding: '0 2px', height: 20, minWidth: 20 }}
-        />
+      <Space size={2} className="oh-env-row-actions" style={{ flexShrink: 0 }}>
+        <Tooltip title={`Open ${env.name}`} placement="top" mouseEnterDelay={0.5}>
+          <Button
+            size="small"
+            type="text"
+            icon={<SettingOutlined style={{ fontSize: 11 }} />}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+            aria-label={`Open ${env.name}`}
+            style={{ padding: '0 2px', height: 20, minWidth: 20 }}
+          />
+        </Tooltip>
         {activeCollectionId && (
           <>
-            <Button
-              size="small"
-              type="text"
-              icon={
-                pinned ? (
-                  <PushpinFilled style={{ fontSize: 11, color: token.colorPrimary }} />
-                ) : (
-                  <PushpinTwoTone style={{ fontSize: 11 }} />
-                )
-              }
-              onClick={(e) => {
-                e.stopPropagation();
-                onTogglePin();
-              }}
-              aria-label={pinned ? 'Unpin from collection' : 'Pin to collection'}
-              style={{ padding: '0 2px', height: 20, minWidth: 20 }}
-            />
-            {pinned && (
+            <Tooltip title={pinned ? 'Unpin from collection' : 'Pin to collection'} placement="top" mouseEnterDelay={0.5}>
               <Button
                 size="small"
                 type="text"
                 icon={
-                  <FolderOpenTwoTone
-                    style={{ fontSize: 11 }}
-                    twoToneColor={isDefault ? token.colorPrimary : token.colorTextTertiary}
-                  />
+                  pinned ? (
+                    <PushpinFilled style={{ fontSize: 11, color: token.colorPrimary }} />
+                  ) : (
+                    <PushpinTwoTone style={{ fontSize: 11 }} />
+                  )
                 }
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSetDefault();
+                  onTogglePin();
                 }}
-                aria-label={isDefault ? 'Clear collection default' : 'Set as collection default'}
+                aria-label={pinned ? 'Unpin from collection' : 'Pin to collection'}
                 style={{ padding: '0 2px', height: 20, minWidth: 20 }}
               />
+            </Tooltip>
+            {pinned && (
+              <Tooltip title={isDefault ? 'Clear collection default' : 'Set as collection default'} placement="top" mouseEnterDelay={0.5}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={
+                    <FolderOpenFilled
+                      style={{ fontSize: 11, color: isDefault ? token.colorPrimary : token.colorTextTertiary }}
+                    />
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSetDefault();
+                  }}
+                  aria-label={isDefault ? 'Clear collection default' : 'Set as collection default'}
+                  style={{ padding: '0 2px', height: 20, minWidth: 20 }}
+                />
+              </Tooltip>
             )}
           </>
         )}
