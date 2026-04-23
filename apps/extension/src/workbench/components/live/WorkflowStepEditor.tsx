@@ -37,6 +37,7 @@ import { METHOD_COLORS } from '../sidebar/icons';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor from './ExtractorEditor';
 import StepGateEditor from './StepGateEditor';
+import { scopeBadge } from '../shared/scope-colors';
 
 const { Text } = Typography;
 
@@ -478,8 +479,8 @@ const WorkflowStepEditor: React.FC<Props> = ({
                   }}
                   aria-label={`Expose capture ${c.name || idx + 1} as live variable`}
                 />
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Expose as
+                <Text type="secondary" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {scopeBadge('live', 13)} Expose as
                 </Text>
                 <span style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, color: token.colorTextTertiary }}>
                   {'{{'}live.

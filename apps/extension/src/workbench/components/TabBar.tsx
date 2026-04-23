@@ -16,6 +16,7 @@
 import {
   ApartmentOutlined,
   AppstoreOutlined,
+  BranchesOutlined,
   CloseOutlined,
   DownOutlined,
   ExperimentOutlined,
@@ -44,7 +45,7 @@ import type { ClosedTab, WorkbenchTab } from '../types';
 import LayoutMenuIcon from './LayoutMenuIcon';
 import { menuItemLabel } from './MenuItemShortcutLabel';
 import { buildRuleIcon } from './shared/rule-icon';
-import { scopeBadge } from './shared/scope-colors';
+import { SCOPE_COLORS, scopeBadge } from './shared/scope-colors';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 
 // ── Editor tab drag data contract ───────────────────────────────
@@ -102,8 +103,8 @@ export function tabIcon(
   if (tab.mode === 'env-edit') return scopeBadge('environment');
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');
-  if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create' ||
-      tab.mode === 'live-workflow-edit' || tab.mode === 'live-workflow-create') return scopeBadge('live');
+  if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create') return scopeBadge('live');
+  if (tab.mode === 'live-workflow-edit' || tab.mode === 'live-workflow-create') return <BranchesOutlined style={{ fontSize: 12, color: SCOPE_COLORS.live.color }} />;
   if (tab.mode === 'collection-vars') return scopeBadge('collection');
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
     // Request tabs carry the HTTP method as their "icon" — compact

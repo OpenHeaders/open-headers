@@ -613,7 +613,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
         void liveWorkflowsApi.updateWorkflow(tab.liveWorkflowUid, { name: newName });
-        updateTab(tab.id, { label: `${newName} · Workflow` });
+        updateTab(tab.id, { label: newName });
       }
       setPendingRenameTabId(null);
     },

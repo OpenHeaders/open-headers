@@ -538,7 +538,7 @@ export function useTabOpeners({
       }
       addTab({
         id,
-        label: `${name} · Workflow`,
+        label: name,
         ruleType: '',
         dirty: seedStep !== undefined,
         mode: 'live-workflow-edit',

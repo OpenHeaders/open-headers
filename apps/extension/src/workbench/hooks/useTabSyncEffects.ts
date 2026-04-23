@@ -71,7 +71,7 @@ export function useTabSyncEffects({
         if (lv && lv.name !== tab.label) updateTab(tab.id, { label: lv.name });
       } else if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
         const wf = liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid);
-        const expected = wf ? `${wf.name} · Workflow` : null;
+        const expected = wf ? wf.name : null;
         if (expected && expected !== tab.label) updateTab(tab.id, { label: expected });
       }
     }
