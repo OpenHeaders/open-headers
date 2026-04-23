@@ -1,3 +1,5 @@
+export type { CollectionEnvOverride } from './collection-env-resolution';
+export { resolveCollectionEnv } from './collection-env-resolution';
 export type { DomainIssueKind, DomainValueIssue } from './condition-validation';
 export { applyDomainValueCleanup, validateDomainValues } from './condition-validation';
 export type {

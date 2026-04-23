@@ -29,6 +29,7 @@ import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from '.
 import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 import {
   getActiveEnvironmentId,
+  getCollectionEnvOverrides,
   getDefaultEnvironmentId,
   getEnvironments,
   getVault,
@@ -338,6 +339,7 @@ async function initializeExtension(): Promise<void> {
       defaultEnvironmentId: getDefaultEnvironmentId(),
       workspaceVariables: getWorkspaceVariables(),
       vault: getVault(),
+      collectionEnvOverrides: getCollectionEnvOverrides(),
     });
   });
 

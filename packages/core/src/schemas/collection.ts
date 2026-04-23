@@ -25,6 +25,8 @@ export const CollectionSchema = v.object({
   // Explicit child ordering — list of child folder names ("<slug>-<uid>").
   // Absent = alphabetical. See Phase 0 invariant #10.
   order: v.optional(v.array(v.string())),
+  pinnedEnvironmentIds: v.optional(v.array(UidSchema), []),
+  defaultEnvironmentId: v.optional(v.nullable(UidSchema), null),
 });
 
 /**

@@ -198,6 +198,8 @@ export interface WorkspaceKeys {
    * Ephemeral: never committed to git, purged on workspace delete.
    */
   variableRecents: StorageKey<unknown>;
+  /** Per-collection environment overrides: collectionId → envId (null = "No environment"). */
+  collectionEnvOverrides: StorageKey<Record<string, string | null>>;
 }
 
 export function wsKeys(workspaceId: string): WorkspaceKeys {
@@ -229,5 +231,6 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveVariables: storageKey<V5.LiveVariable[]>(`${p}.liveVariables`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),
+    collectionEnvOverrides: storageKey<Record<string, string | null>>(`${p}.collectionEnvOverrides`),
   };
 }

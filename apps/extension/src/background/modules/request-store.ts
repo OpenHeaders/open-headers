@@ -124,6 +124,8 @@ export function ensureDefaultRequestCollection(): V5.Collection {
     path: `requests/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
   };
   collections = [...collections, collection];
   void persistCollections();
@@ -140,6 +142,8 @@ export function createRequestCollection(name: string): V5.Collection {
     path: `requests/${folderName}`,
     name,
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
   };
   collections = [...collections, collection];
   void persistCollections();

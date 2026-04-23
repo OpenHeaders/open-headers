@@ -42,6 +42,7 @@ export interface UseEnvironmentsApi {
   workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
   isReady: boolean;
+  collectionEnvOverrides: Record<string, string | null>;
 
   createEnvironment: (name: string, variables?: V5.Variable[]) => Promise<V5.Environment | null>;
   /**
@@ -61,6 +62,8 @@ export interface UseEnvironmentsApi {
   setActiveEnvironment: (uid: string | null) => Promise<boolean>;
   /** Pass `null` to clear the default-env fallback. */
   setDefaultEnvironment: (uid: string | null) => Promise<boolean>;
+  setCollectionEnvOverride: (collectionId: string, envId: string | null | undefined) => Promise<void>;
+  setCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
 
   /**
    * Replace the workspace-scoped variables blob. Returns the full
@@ -100,6 +103,7 @@ export function useEnvironments(): UseEnvironmentsApi {
   });
   const [vault, setVaultState] = useState<V5.Vault>({ schemaVersion: 5, version: 1, secrets: [] });
   const [isReady, setIsReady] = useState(false);
+  const [collectionEnvOverrides, setCollectionEnvOverrides] = useState<Record<string, string | null>>({});
 
   // Initial snapshot + subscription. Three parallel reads at mount
   // keep the first paint coherent; afterwards, one broadcast channel
@@ -117,6 +121,7 @@ export function useEnvironments(): UseEnvironmentsApi {
         setEnvironments(envResp.environments);
         setActiveEnvironmentId(envResp.activeEnvironmentId);
         setDefaultEnvironmentIdState(envResp.defaultEnvironmentId);
+        setCollectionEnvOverrides(envResp.collectionEnvOverrides);
       }
       if (varsResp) setWorkspaceVariablesState(varsResp.workspaceVariables);
       if (vaultResp) setVaultState(vaultResp.vault);
@@ -129,6 +134,7 @@ export function useEnvironments(): UseEnvironmentsApi {
       setDefaultEnvironmentIdState(payload.defaultEnvironmentId);
       setWorkspaceVariablesState(payload.workspaceVariables);
       setVaultState(payload.vault);
+      setCollectionEnvOverrides(payload.collectionEnvOverrides);
     });
 
     // Workspace switches don't fire environmentsChanged on their own —
@@ -146,6 +152,7 @@ export function useEnvironments(): UseEnvironmentsApi {
           setEnvironments(envResp.environments);
           setActiveEnvironmentId(envResp.activeEnvironmentId);
           setDefaultEnvironmentIdState(envResp.defaultEnvironmentId);
+          setCollectionEnvOverrides(envResp.collectionEnvOverrides);
         }
         if (varsResp) setWorkspaceVariablesState(varsResp.workspaceVariables);
         if (vaultResp) setVaultState(vaultResp.vault);
@@ -225,6 +232,22 @@ export function useEnvironments(): UseEnvironmentsApi {
     [],
   );
 
+  const setCollectionEnvOverride = useCallback(async (collectionId: string, envId: string | null | undefined) => {
+    await call('setCollectionEnvOverride', { collectionId, envId }).catch(() => null);
+  }, []);
+
+  const setCollectionPinnedEnvs = useCallback(
+    async (collectionUid: string, pinnedIds: string[], defaultId: string | null) => {
+      const resp = await call('setCollectionPinnedEnvs', {
+        collectionUid,
+        pinnedEnvironmentIds: pinnedIds,
+        defaultEnvironmentId: defaultId,
+      }).catch(() => null);
+      return Boolean(resp?.success);
+    },
+    [],
+  );
+
   const activeEnvironment = useMemo(
     () => (activeEnvironmentId ? (environments.find((e) => e.uid === activeEnvironmentId) ?? null) : null),
     [environments, activeEnvironmentId],
@@ -244,12 +267,15 @@ export function useEnvironments(): UseEnvironmentsApi {
     workspaceVariables,
     vault,
     isReady,
+    collectionEnvOverrides,
     createEnvironment,
     renameEnvironment,
     updateEnvironmentVariables,
     deleteEnvironment,
     setActiveEnvironment,
     setDefaultEnvironment,
+    setCollectionEnvOverride,
+    setCollectionPinnedEnvs,
     setWorkspaceVariables,
     setVault,
     updateCollectionVariables,

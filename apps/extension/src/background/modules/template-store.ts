@@ -130,6 +130,8 @@ export function ensureDefaultTemplateCollection(): V5.Collection {
     path: `templates/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
   };
   templateCollections = [...templateCollections, collection];
   void persistTemplateCollections();
@@ -146,6 +148,8 @@ export function createTemplateCollection(name: string): V5.Collection {
     path: `templates/${folderName}`,
     name,
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
   };
   templateCollections = [...templateCollections, collection];
   void persistTemplateCollections();

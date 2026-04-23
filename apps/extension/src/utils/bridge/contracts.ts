@@ -464,6 +464,7 @@ export interface BridgeRpcContract {
       environments: V5.Environment[];
       activeEnvironmentId: string | null;
       defaultEnvironmentId: string | null;
+      collectionEnvOverrides: Record<string, string | null>;
     };
   };
   createEnvironment: {
@@ -505,6 +506,14 @@ export interface BridgeRpcContract {
   };
   setDefaultEnvironment: {
     req: { uid: string | null };
+    res: { success: boolean };
+  };
+  setCollectionEnvOverride: {
+    req: { collectionId: string; envId: string | null | undefined };
+    res: { success: boolean };
+  };
+  setCollectionPinnedEnvs: {
+    req: { collectionUid: string; pinnedEnvironmentIds: string[]; defaultEnvironmentId: string | null };
     res: { success: boolean };
   };
   getWorkspaceVariables: {
@@ -1217,6 +1226,7 @@ export interface EnvironmentsSnapshot {
   defaultEnvironmentId: string | null;
   workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
+  collectionEnvOverrides: Record<string, string | null>;
 }
 
 export type BridgeRpcType = keyof BridgeRpcContract;

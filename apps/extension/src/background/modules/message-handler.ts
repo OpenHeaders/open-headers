@@ -23,6 +23,7 @@ import {
   deleteEnvironment,
   deleteVaultSecret,
   getActiveEnvironmentId,
+  getCollectionEnvOverrides,
   getDefaultEnvironmentId,
   getEnvironments,
   getVault,
@@ -32,6 +33,7 @@ import {
   putVaultSecret,
   renameEnvironment,
   setActiveEnvironment,
+  setCollectionEnvOverride,
   setDefaultEnvironment,
   setVault,
   setWorkspaceVariables,
@@ -114,6 +116,7 @@ import {
   renameCollection,
   renameFolder,
   toggleRule,
+  updateCollectionPinnedEnvs,
   updateCollectionVariables,
   updateRule,
 } from './rule-store';
@@ -348,6 +351,7 @@ export function handleGeneralMessage(
         environments: getEnvironments(),
         activeEnvironmentId: getActiveEnvironmentId(),
         defaultEnvironmentId: getDefaultEnvironmentId(),
+        collectionEnvOverrides: getCollectionEnvOverrides(),
       });
     } else if (message.type === 'createEnvironment') {
       const name = message.name as string;
@@ -383,6 +387,21 @@ export function handleGeneralMessage(
     } else if (message.type === 'setDefaultEnvironment') {
       const uid = message.uid as string | null;
       setDefaultEnvironment(uid)
+        .then((ok) => safeResponse({ success: ok }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'setCollectionEnvOverride') {
+      const collectionId = message.collectionId as string;
+      const envId = message.envId as string | null | undefined;
+      setCollectionEnvOverride(collectionId, envId)
+        .then(() => safeResponse({ success: true }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'setCollectionPinnedEnvs') {
+      const collectionUid = message.collectionUid as string;
+      const pinnedEnvironmentIds = message.pinnedEnvironmentIds as string[];
+      const defaultEnvironmentId = message.defaultEnvironmentId as string | null;
+      updateCollectionPinnedEnvs(collectionUid, pinnedEnvironmentIds, defaultEnvironmentId)
         .then((ok) => safeResponse({ success: ok }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;

@@ -16,6 +16,8 @@ export const COLLECTION_FIELD_ORDER = [
   'name',
   'description',
   'order',
+  'pinnedEnvironmentIds',
+  'defaultEnvironmentId',
   'variables',
 ] as const;
 

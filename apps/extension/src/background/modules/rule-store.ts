@@ -146,6 +146,8 @@ export function ensureDefaultCollection(): V5.Collection {
     path: `rules/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
   };
   collections = [...collections, collection];
   void persistCollections();
@@ -162,6 +164,8 @@ export function createCollection(name: string): V5.Collection {
     path: `rules/${folderName}`,
     name,
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
   };
   collections = [...collections, collection];
   void persistCollections();
@@ -277,6 +281,32 @@ export async function updateCollectionVariables(
       return { ok: true, version: nextVersion, collection: updated } as CollectionWriteResult;
     },
     { op: 'collection-variables' },
+  );
+}
+
+export async function updateCollectionPinnedEnvs(
+  collectionUid: string,
+  pinnedEnvironmentIds: string[],
+  defaultEnvironmentId: string | null,
+): Promise<boolean> {
+  const workspaceId = assertLoaded();
+  return withLock(
+    entityLockName(workspaceId, 'collection', collectionUid),
+    async () => {
+      const index = collections.findIndex((c) => c.uid === collectionUid);
+      if (index === -1) return false;
+      const existing = collections[index];
+      const updated: V5.Collection = {
+        ...existing,
+        pinnedEnvironmentIds,
+        defaultEnvironmentId,
+        version: existing.version + 1,
+      };
+      collections = [...collections.slice(0, index), updated, ...collections.slice(index + 1)];
+      await persistCollections();
+      return true;
+    },
+    { op: 'collection-pinned-envs' },
   );
 }
 

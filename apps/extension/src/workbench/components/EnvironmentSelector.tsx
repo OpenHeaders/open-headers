@@ -8,10 +8,11 @@ import {
   CheckOutlined,
   DownOutlined,
   FolderOpenFilled,
+  FolderOpenOutlined,
   GlobalOutlined,
   PlusOutlined,
   PushpinFilled,
-  PushpinTwoTone,
+  PushpinOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
@@ -76,73 +77,85 @@ const EnvRow: React.FC<EnvRowProps> = ({
         {env.name}
       </Text>
       {isDefault && (
-        <Text
-          style={{
-            fontSize: 10,
-            color: token.colorTextTertiary,
-            flexShrink: 0,
-          }}
-        >
-          DEFAULT
-        </Text>
+        <Tooltip title="Default environment is auto-selected while working with the collection." placement="top">
+          <Text
+            style={{
+              fontSize: 10,
+              color: token.colorTextTertiary,
+              flexShrink: 0,
+              cursor: 'help',
+            }}
+          >
+            DEFAULT
+          </Text>
+        </Tooltip>
       )}
-      <Space size={2} className="oh-env-row-actions" style={{ flexShrink: 0 }}>
+      <div className="oh-env-row-actions">
         <Tooltip title={`Open ${env.name}`} placement="top" mouseEnterDelay={0.5}>
-          <Button
-            size="small"
-            type="text"
-            icon={<SettingOutlined style={{ fontSize: 11 }} />}
+          <span
+            role="button"
+            tabIndex={-1}
+            aria-label={`Open ${env.name}`}
+            className="oh-env-row-action"
             onClick={(e) => {
               e.stopPropagation();
               onOpen();
             }}
-            aria-label={`Open ${env.name}`}
-            style={{ padding: '0 2px', height: 20, minWidth: 20 }}
-          />
+          >
+            <SettingOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+          </span>
         </Tooltip>
         {activeCollectionId && (
           <>
-            <Tooltip title={pinned ? 'Unpin from collection' : 'Pin to collection'} placement="top" mouseEnterDelay={0.5}>
-              <Button
-                size="small"
-                type="text"
-                icon={
-                  pinned ? (
-                    <PushpinFilled style={{ fontSize: 11, color: token.colorPrimary }} />
-                  ) : (
-                    <PushpinTwoTone style={{ fontSize: 11 }} />
-                  )
-                }
+            <Tooltip
+              title={pinned ? 'Unpin from collection' : 'Pin to collection'}
+              placement="top"
+              mouseEnterDelay={0.5}
+            >
+              <span
+                role="button"
+                tabIndex={-1}
+                aria-label={pinned ? 'Unpin from collection' : 'Pin to collection'}
+                className="oh-env-row-action"
+                style={pinned ? { opacity: 1 } : undefined}
                 onClick={(e) => {
                   e.stopPropagation();
                   onTogglePin();
                 }}
-                aria-label={pinned ? 'Unpin from collection' : 'Pin to collection'}
-                style={{ padding: '0 2px', height: 20, minWidth: 20 }}
-              />
+              >
+                {pinned ? (
+                  <PushpinFilled style={{ fontSize: 12, color: token.colorPrimary }} />
+                ) : (
+                  <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+                )}
+              </span>
             </Tooltip>
-            {pinned && (
-              <Tooltip title={isDefault ? 'Clear collection default' : 'Set as collection default'} placement="top" mouseEnterDelay={0.5}>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={
-                    <FolderOpenFilled
-                      style={{ fontSize: 11, color: isDefault ? token.colorPrimary : token.colorTextTertiary }}
-                    />
-                  }
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSetDefault();
-                  }}
-                  aria-label={isDefault ? 'Clear collection default' : 'Set as collection default'}
-                  style={{ padding: '0 2px', height: 20, minWidth: 20 }}
-                />
-              </Tooltip>
-            )}
+            <Tooltip
+              title={isDefault ? 'Clear collection default' : 'Set as collection default'}
+              placement="top"
+              mouseEnterDelay={0.5}
+            >
+              <span
+                role="button"
+                tabIndex={-1}
+                aria-label={isDefault ? 'Clear collection default' : 'Set as collection default'}
+                className="oh-env-row-action"
+                style={isDefault ? { opacity: 1 } : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetDefault();
+                }}
+              >
+                {isDefault ? (
+                  <FolderOpenFilled style={{ fontSize: 12, color: token.colorPrimary }} />
+                ) : (
+                  <FolderOpenOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+                )}
+              </span>
+            </Tooltip>
           </>
         )}
-      </Space>
+      </div>
     </div>
   );
 };
@@ -255,7 +268,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
     if (!activeCollectionId) return;
     const isCurrentDefault = activeCollectionDefaultEnvId === env.uid;
     const nextDefault = isCurrentDefault ? null : env.uid;
-    void onSetCollectionPinnedEnvs(activeCollectionId, activeCollectionPinnedEnvIds, nextDefault);
+    const nextPinned =
+      !isCurrentDefault && !activeCollectionPinnedEnvIds.includes(env.uid)
+        ? [...activeCollectionPinnedEnvIds, env.uid]
+        : activeCollectionPinnedEnvIds;
+    void onSetCollectionPinnedEnvs(activeCollectionId, nextPinned, nextDefault);
   }
 
   function handleClose(): void {

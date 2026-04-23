@@ -417,18 +417,44 @@ html, body, #root {
 }
 
 // ── Environment selector rows ────────────────────────────────────────
+// Mirrors .rules-sidebar-item pattern: raw <span> actions with opacity
+// toggled by parent :hover. No AntD Button/Space wrappers (their internal
+// background transitions paint a ghost even when a parent is hidden).
 
 .oh-env-row {
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgba(128, 128, 128, 0.08);
   }
 
   .oh-env-row-actions {
-    visibility: hidden;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
   }
 
-  &:hover .oh-env-row-actions {
-    visibility: visible;
+  .oh-env-row-action {
+    opacity: 0;
+  }
+
+  &:hover .oh-env-row-action {
+    opacity: 1;
+  }
+}
+
+.oh-env-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.15);
   }
 }
 
