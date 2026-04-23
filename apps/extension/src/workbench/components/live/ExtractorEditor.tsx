@@ -1,30 +1,23 @@
-/**
- * ExtractorEditor — inline editor for a single `V5.Extractor`.
- *
- * Used inside `WorkflowStepEditor`'s captures sub-editor. Renders the
- * kind selector + kind-specific fields (json-path path, header name,
- * regex pattern + optional group) as a single horizontal flex row. The
- * whole-body / status-code kinds render the selector alone (no extra
- * field needed); every kind's user-facing label explicitly names the
- * response source (`Response body — JSON path`, `Response status code`,
- * etc.) so no trailing help text is required.
- *
- * The capture row in `WorkflowStepEditor` owns the outer layout (name
- * input + extractor + delete button, all on one row), so this component
- * intentionally does NOT wrap its output in a vertical stack — it
- * returns a flex row that composes cleanly alongside siblings.
- */
-
 import type { V5 } from '@openheaders/core/types';
 import { Input, InputNumber, Select } from 'antd';
 import type React from 'react';
 
-const KIND_OPTIONS: { value: V5.Extractor['kind']; label: string }[] = [
-  { value: 'json-path', label: 'Response body — JSON path' },
-  { value: 'header', label: 'Response header' },
-  { value: 'body-regex', label: 'Response body — regex' },
-  { value: 'whole-body', label: 'Whole response body' },
-  { value: 'status-code', label: 'Response status code' },
+const KIND_OPTIONS = [
+  {
+    label: 'Response body',
+    options: [
+      { value: 'whole-body' as const,  label: 'Whole body' },
+      { value: 'json-path' as const,   label: 'JSON path' },
+      { value: 'body-regex' as const,  label: 'Regex' },
+    ],
+  },
+  {
+    label: 'Response',
+    options: [
+      { value: 'header' as const,      label: 'Header' },
+      { value: 'status-code' as const, label: 'Status code' },
+    ],
+  },
 ];
 
 export function defaultExtractorFor(kind: V5.Extractor['kind']): V5.Extractor {

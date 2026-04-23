@@ -99,7 +99,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
 
   const addCapture = () => {
     const name = `capture${step.captures.length + 1}`;
-    const nextCaptures: DraftCapture[] = [...step.captures, newDraftCapture(name, { kind: 'json-path', path: '$.' })];
+    const nextCaptures: DraftCapture[] = [...step.captures, newDraftCapture(name, { kind: 'whole-body' })];
     onChange({ ...step, captures: nextCaptures });
   };
 
