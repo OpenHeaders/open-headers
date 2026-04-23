@@ -39,6 +39,7 @@ import {
   type DraftStep,
   type DraftWorkflow,
   draftFromWorkflow as draftFromWorkflowCore,
+  newDraftCapture,
   planLiveVariableReconcile,
   stripDraftSteps,
   validateWorkflowShape,
@@ -84,7 +85,10 @@ function fingerprint(d: Draft): string {
 }
 
 function emptyDraft(seedStep?: { requestUid: string; requestName: string; method: string } | undefined): Draft {
-  const steps: DraftStep[] = seedStep ? [{ id: 'step1', requestUid: seedStep.requestUid, captures: [] }] : [];
+  const defaultCapture = newDraftCapture('capture1', { kind: 'whole-body' });
+  const steps: DraftStep[] = seedStep
+    ? [{ id: 'step1', requestUid: seedStep.requestUid, captures: [defaultCapture] }]
+    : [{ id: 'step1', requestUid: '', captures: [defaultCapture] }];
   return {
     name: '',
     description: '',
