@@ -28,6 +28,9 @@ interface TopBarProps {
   onOpenEnvironment: (uid: string) => void;
   onOpenWorkspaceVariables: () => void;
   onOpenVault: () => void;
+  activeCollectionId: string | null;
+  allCollections: V5.Collection[];
+  onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
@@ -44,6 +47,9 @@ const TopBar: React.FC<TopBarProps> = ({
   onOpenEnvironment,
   onOpenWorkspaceVariables,
   onOpenVault,
+  activeCollectionId,
+  allCollections,
+  onSetCollectionPinnedEnvs,
 }) => {
   const { token } = theme.useToken();
   const commandPaletteLabel = useShortcutLabel('command-palette');
@@ -110,6 +116,14 @@ const TopBar: React.FC<TopBarProps> = ({
           onOpenEnvironment={onOpenEnvironment}
           onOpenWorkspaceVariables={onOpenWorkspaceVariables}
           onOpenVault={onOpenVault}
+          activeCollectionId={activeCollectionId}
+          activeCollectionPinnedEnvIds={
+            allCollections.find((c) => c.uid === activeCollectionId)?.pinnedEnvironmentIds ?? []
+          }
+          activeCollectionDefaultEnvId={
+            allCollections.find((c) => c.uid === activeCollectionId)?.defaultEnvironmentId ?? null
+          }
+          onSetCollectionPinnedEnvs={onSetCollectionPinnedEnvs}
         />
         <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Settings</ShortcutHintTitle>}>
           <Button size="small" type="text" icon={<SettingOutlined />} onClick={onOpenSettings} />

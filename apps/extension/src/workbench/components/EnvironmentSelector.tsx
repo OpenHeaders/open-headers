@@ -1,134 +1,443 @@
 /**
  * EnvironmentSelector — TopBar dropdown for switching the active
- * environment. At most one environment is active at a time; "No
- * environment" is a valid choice (variables still resolve from
- * workspace / collection / vault).
- *
- * Business logic lives in `useEnvironments`; this component delegates
- * switch + navigation. Variables/Vault management opens a dedicated
- * tab in workbench.html via the provided opener callbacks.
+ * environment. Supports collection-context pinned envs + override
+ * persistence. "No environment" is a valid choice.
  */
 
 import {
   CheckOutlined,
   DownOutlined,
   GlobalOutlined,
-  LockOutlined,
+  HomeFilled,
+  HomeOutlined,
   PlusOutlined,
+  PushpinFilled,
+  PushpinOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import type { MenuProps } from 'antd';
-import { Button, Dropdown, Space, Typography, theme } from 'antd';
+import type { InputRef } from 'antd';
+import { Button, Divider, Dropdown, Input, Space, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { scopeBadge } from './shared/scope-colors';
 
 const { Text } = Typography;
+
+// ── Row sub-components lifted to module scope so React reconciles
+// them across re-renders without unmounting (fixes hovered-state flicker).
+
+interface EnvRowProps {
+  env: V5.Environment;
+  pinned: boolean;
+  activeEnvironmentId: string | null;
+  activeCollectionId: string | null;
+  activeCollectionDefaultEnvId: string | null;
+  onSelect: () => void;
+  onOpen: () => void;
+  onTogglePin: () => void;
+  onSetDefault: () => void;
+}
+
+const EnvRow: React.FC<EnvRowProps> = ({
+  env,
+  pinned,
+  activeEnvironmentId,
+  activeCollectionId,
+  activeCollectionDefaultEnvId,
+  onSelect,
+  onOpen,
+  onTogglePin,
+  onSetDefault,
+}) => {
+  const { token } = theme.useToken();
+  const [hovered, setHovered] = useState(false);
+  const isActive = env.uid === activeEnvironmentId;
+  const isDefault = env.uid === activeCollectionDefaultEnvId;
+
+  return (
+    <div
+      role="menuitem"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 8px',
+        cursor: 'pointer',
+        borderRadius: token.borderRadiusSM,
+        minWidth: 220,
+        background: hovered ? token.colorBgTextHover : 'transparent',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onSelect}
+    >
+      <span style={{ width: 14, flexShrink: 0 }}>
+        {isActive && <CheckOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+      </span>
+      {scopeBadge('environment', 14)}
+      <Text style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
+        {env.name}
+      </Text>
+      {isDefault && (
+        <Text
+          style={{
+            fontSize: 10,
+            color: token.colorTextTertiary,
+            flexShrink: 0,
+          }}
+        >
+          DEFAULT
+        </Text>
+      )}
+      <Space size={2} style={{ flexShrink: 0, visibility: hovered ? 'visible' : 'hidden' }}>
+        <Button
+          size="small"
+          type="text"
+          icon={<SettingOutlined style={{ fontSize: 11 }} />}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          aria-label={`Open ${env.name}`}
+          style={{ padding: '0 2px', height: 20, minWidth: 20 }}
+        />
+        {activeCollectionId && (
+          <>
+            <Button
+              size="small"
+              type="text"
+              icon={
+                pinned ? (
+                  <PushpinFilled style={{ fontSize: 11, color: token.colorPrimary }} />
+                ) : (
+                  <PushpinOutlined style={{ fontSize: 11 }} />
+                )
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePin();
+              }}
+              aria-label={pinned ? 'Unpin from collection' : 'Pin to collection'}
+              style={{ padding: '0 2px', height: 20, minWidth: 20 }}
+            />
+            {pinned && (
+              <Button
+                size="small"
+                type="text"
+                icon={
+                  isDefault ? (
+                    <HomeFilled style={{ fontSize: 11, color: token.colorPrimary }} />
+                  ) : (
+                    <HomeOutlined style={{ fontSize: 11 }} />
+                  )
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetDefault();
+                }}
+                aria-label={isDefault ? 'Clear collection default' : 'Set as collection default'}
+                style={{ padding: '0 2px', height: 20, minWidth: 20 }}
+              />
+            )}
+          </>
+        )}
+      </Space>
+    </div>
+  );
+};
+
+interface NoEnvRowProps {
+  activeEnvironmentId: string | null;
+  onSelect: () => void;
+}
+
+const NoEnvRow: React.FC<NoEnvRowProps> = ({ activeEnvironmentId, onSelect }) => {
+  const { token } = theme.useToken();
+  const [hovered, setHovered] = useState(false);
+  const isActive = activeEnvironmentId === null;
+
+  return (
+    <div
+      role="menuitem"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 8px',
+        cursor: 'pointer',
+        borderRadius: token.borderRadiusSM,
+        minWidth: 220,
+        background: hovered ? token.colorBgTextHover : 'transparent',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onSelect}
+    >
+      <span style={{ width: 14, flexShrink: 0 }}>
+        {isActive && <CheckOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+      </span>
+      <GlobalOutlined style={{ fontSize: 14, color: token.colorTextQuaternary }} />
+      <Text style={{ flex: 1, color: token.colorTextSecondary, fontSize: 13 }}>No environment</Text>
+    </div>
+  );
+};
+
+// ── Main component ──────────────────────────────────────────────────
 
 interface EnvironmentSelectorProps {
   environments: V5.Environment[];
   activeEnvironmentId: string | null;
+  activeCollectionId: string | null;
+  activeCollectionPinnedEnvIds: string[];
+  activeCollectionDefaultEnvId: string | null;
   onSwitch: (uid: string | null) => void;
   onCreateEnvironment: () => void;
   onOpenEnvironment: (uid: string) => void;
   onOpenWorkspaceVariables: () => void;
   onOpenVault: () => void;
+  onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
 }
 
 const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   environments,
   activeEnvironmentId,
+  activeCollectionId,
+  activeCollectionPinnedEnvIds,
+  activeCollectionDefaultEnvId,
   onSwitch,
   onCreateEnvironment,
   onOpenEnvironment,
   onOpenWorkspaceVariables,
   onOpenVault,
+  onSetCollectionPinnedEnvs,
 }) => {
   const { token } = theme.useToken();
+  const [open, setOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const searchRef = useRef<InputRef>(null);
+
   const active = activeEnvironmentId ? (environments.find((e) => e.uid === activeEnvironmentId) ?? null) : null;
 
-  const items: MenuProps['items'] = useMemo(() => {
-    const envRows: MenuProps['items'] = environments.map((env) => ({
-      key: env.uid,
-      label: (
-        <Space size={8} style={{ minWidth: 200, width: '100%' }}>
-          <GlobalOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-          <Text style={{ flex: 1 }}>{env.name}</Text>
-          {env.uid === activeEnvironmentId ? (
-            <CheckOutlined style={{ color: token.colorPrimary, fontSize: 12 }} />
-          ) : (
-            <span style={{ width: 12, display: 'inline-block' }} />
-          )}
-          <Button
-            size="small"
-            type="text"
-            icon={<SettingOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenEnvironment(env.uid);
-            }}
-            aria-label={`Edit ${env.name}`}
-          />
-        </Space>
-      ),
-      onClick: () => {
-        if (env.uid !== activeEnvironmentId) onSwitch(env.uid);
-      },
-    }));
+  const filteredEnvs = useMemo(() => {
+    const q = searchText.toLowerCase().trim();
+    if (!q) return environments;
+    return environments.filter((e) => e.name.toLowerCase().includes(q));
+  }, [environments, searchText]);
 
-    return [
-      {
-        key: 'no-env',
-        label: (
-          <Space size={8} style={{ minWidth: 200, width: '100%' }}>
-            <GlobalOutlined style={{ fontSize: 12, color: token.colorTextQuaternary }} />
-            <Text style={{ flex: 1, color: token.colorTextSecondary }}>No environment</Text>
-            {activeEnvironmentId === null ? (
-              <CheckOutlined style={{ color: token.colorPrimary, fontSize: 12 }} />
-            ) : (
-              <span style={{ width: 12, display: 'inline-block' }} />
-            )}
-          </Space>
-        ),
-        onClick: () => {
-          if (activeEnvironmentId !== null) onSwitch(null);
-        },
-      },
-      ...(envRows.length > 0 ? [{ type: 'divider' as const, key: 'div-envs' } as const] : []),
-      ...envRows,
-      { type: 'divider' as const, key: 'div-manage' },
-      {
-        key: 'create',
-        icon: <PlusOutlined />,
-        label: 'New environment',
-        onClick: onCreateEnvironment,
-      },
-      {
-        key: 'workspace-vars',
-        icon: <SettingOutlined />,
-        label: 'Workspace variables…',
-        onClick: onOpenWorkspaceVariables,
-      },
-      {
-        key: 'vault',
-        icon: <LockOutlined />,
-        label: 'Vault…',
-        onClick: onOpenVault,
-      },
-    ];
-  }, [
-    environments,
-    activeEnvironmentId,
-    onSwitch,
-    onCreateEnvironment,
-    onOpenEnvironment,
-    onOpenWorkspaceVariables,
-    onOpenVault,
-    token,
-  ]);
+  const pinnedSet = new Set(activeCollectionPinnedEnvIds);
+
+  const pinnedEnvs = useMemo(
+    () => filteredEnvs.filter((e) => pinnedSet.has(e.uid)),
+    [filteredEnvs, activeCollectionPinnedEnvIds],
+  );
+  const otherEnvs = useMemo(
+    () => filteredEnvs.filter((e) => !pinnedSet.has(e.uid)),
+    [filteredEnvs, activeCollectionPinnedEnvIds],
+  );
+
+  const hasPinnedSection = activeCollectionId !== null && pinnedEnvs.length > 0;
+
+  function handleTogglePin(env: V5.Environment, currentlyPinned: boolean): void {
+    if (!activeCollectionId) return;
+    let nextPinned: string[];
+    let nextDefault: string | null = activeCollectionDefaultEnvId;
+    if (currentlyPinned) {
+      nextPinned = activeCollectionPinnedEnvIds.filter((id) => id !== env.uid);
+      if (nextDefault === env.uid) nextDefault = null;
+    } else {
+      nextPinned = [...activeCollectionPinnedEnvIds, env.uid];
+    }
+    void onSetCollectionPinnedEnvs(activeCollectionId, nextPinned, nextDefault);
+  }
+
+  function handleSetDefault(env: V5.Environment): void {
+    if (!activeCollectionId) return;
+    const isCurrentDefault = activeCollectionDefaultEnvId === env.uid;
+    const nextDefault = isCurrentDefault ? null : env.uid;
+    void onSetCollectionPinnedEnvs(activeCollectionId, activeCollectionPinnedEnvIds, nextDefault);
+  }
+
+  function handleClose(): void {
+    setOpen(false);
+    setSearchText('');
+  }
+
+  const rowStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '5px 8px',
+    cursor: 'pointer',
+    borderRadius: token.borderRadiusSM,
+    minWidth: 220,
+  };
+
+  const sectionLabelStyle: React.CSSProperties = {
+    fontSize: 11,
+    color: token.colorTextTertiary,
+    padding: '4px 8px 2px',
+    userSelect: 'none',
+  };
+
+  const dropdownContent = (
+    <div
+      style={{
+        background: token.colorBgElevated,
+        borderRadius: token.borderRadiusLG,
+        boxShadow: token.boxShadowSecondary,
+        padding: '6px 4px',
+        minWidth: 340,
+        maxWidth: 480,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={{ padding: '0 4px 6px' }}>
+        <Input
+          ref={searchRef}
+          size="small"
+          placeholder="Search environments…"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          allowClear
+          style={{ fontSize: 12 }}
+          autoFocus
+        />
+      </div>
+
+      <NoEnvRow
+        activeEnvironmentId={activeEnvironmentId}
+        onSelect={() => {
+          onSwitch(null);
+          handleClose();
+        }}
+      />
+
+      {hasPinnedSection ? (
+        <>
+          <Divider style={{ margin: '4px 0' }} />
+          <div style={sectionLabelStyle}>Pinned to this collection</div>
+          {pinnedEnvs.map((env) => (
+            <EnvRow
+              key={env.uid}
+              env={env}
+              pinned={true}
+              activeEnvironmentId={activeEnvironmentId}
+              activeCollectionId={activeCollectionId}
+              activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+              onSelect={() => {
+                onSwitch(env.uid);
+                handleClose();
+              }}
+              onOpen={() => {
+                onOpenEnvironment(env.uid);
+                handleClose();
+              }}
+              onTogglePin={() => handleTogglePin(env, true)}
+              onSetDefault={() => handleSetDefault(env)}
+            />
+          ))}
+          {otherEnvs.length > 0 && (
+            <>
+              <Divider style={{ margin: '4px 0' }} />
+              <div style={sectionLabelStyle}>Other environments</div>
+              {otherEnvs.map((env) => (
+                <EnvRow
+                  key={env.uid}
+                  env={env}
+                  pinned={false}
+                  activeEnvironmentId={activeEnvironmentId}
+                  activeCollectionId={activeCollectionId}
+                  activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+                  onSelect={() => {
+                    onSwitch(env.uid);
+                    handleClose();
+                  }}
+                  onOpen={() => {
+                    onOpenEnvironment(env.uid);
+                    handleClose();
+                  }}
+                  onTogglePin={() => handleTogglePin(env, false)}
+                  onSetDefault={() => handleSetDefault(env)}
+                />
+              ))}
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {filteredEnvs.length > 0 && <Divider style={{ margin: '4px 0' }} />}
+          {filteredEnvs.map((env) => (
+            <EnvRow
+              key={env.uid}
+              env={env}
+              pinned={false}
+              activeEnvironmentId={activeEnvironmentId}
+              activeCollectionId={activeCollectionId}
+              activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+              onSelect={() => {
+                onSwitch(env.uid);
+                handleClose();
+              }}
+              onOpen={() => {
+                onOpenEnvironment(env.uid);
+                handleClose();
+              }}
+              onTogglePin={() => handleTogglePin(env, false)}
+              onSetDefault={() => handleSetDefault(env)}
+            />
+          ))}
+        </>
+      )}
+
+      <Divider style={{ margin: '4px 0' }} />
+      <div
+        role="menuitem"
+        style={{ ...rowStyle, color: token.colorTextSecondary }}
+        onClick={() => {
+          onCreateEnvironment();
+          handleClose();
+        }}
+      >
+        <PlusOutlined style={{ fontSize: 12 }} />
+        <Text style={{ fontSize: 13 }}>New environment</Text>
+      </div>
+      <div
+        role="menuitem"
+        style={{ ...rowStyle, color: token.colorTextSecondary }}
+        onClick={() => {
+          onOpenWorkspaceVariables();
+          handleClose();
+        }}
+      >
+        {scopeBadge('workspace', 14)}
+        <Text style={{ fontSize: 13 }}>Workspace variables…</Text>
+      </div>
+      <div
+        role="menuitem"
+        style={{ ...rowStyle, color: token.colorTextSecondary }}
+        onClick={() => {
+          onOpenVault();
+          handleClose();
+        }}
+      >
+        {scopeBadge('vault', 14)}
+        <Text style={{ fontSize: 13 }}>Vault…</Text>
+      </div>
+    </div>
+  );
 
   return (
-    <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
+    <Dropdown
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearchText('');
+      }}
+      popupRender={() => dropdownContent}
+      trigger={['click']}
+      placement="bottomRight"
+    >
       <Button
         type="text"
         size="small"
@@ -143,7 +452,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         }}
       >
         <Space size={6}>
-          <GlobalOutlined style={{ fontSize: 12, color: active ? token.colorPrimary : token.colorTextTertiary }} />
+          {active ? (
+            scopeBadge('environment', 12)
+          ) : (
+            <GlobalOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+          )}
           <Text
             style={{
               maxWidth: 140,
@@ -151,6 +464,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               color: active ? token.colorText : token.colorTextSecondary,
+              fontSize: 13,
             }}
           >
             {active?.name ?? 'No environment'}

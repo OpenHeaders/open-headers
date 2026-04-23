@@ -17,7 +17,7 @@ import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { useWorkspaces } from '@hooks/useWorkspaces';
-import { isRequestResolvable, isRuleResolvable, resolveCollectionEnv } from '@openheaders/core/utils';
+import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -593,35 +593,23 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
 
   useEffect(() => {
     if (!envApi.isReady) return;
-    const knownEnvIds = new Set(envApi.environments.map((e) => e.uid));
+    if (envApi.activeEnvironmentId !== null) return;
+    if (!activeTabCollectionId) return;
     const allCollections = [...localCollections, ...requestsApi.collections];
-    const resolved = resolveCollectionEnv({
-      collectionId: activeTabCollectionId,
-      collections: allCollections,
-      overrides: envApi.collectionEnvOverrides,
-      globalActiveEnvId: envApi.activeEnvironmentId,
-      knownEnvIds,
-    });
-    if (resolved !== envApi.activeEnvironmentId) {
-      void envApi.setActiveEnvironment(resolved);
-    }
+    const col = allCollections.find((c) => c.uid === activeTabCollectionId);
+    const defaultId = col?.defaultEnvironmentId ?? null;
+    if (!defaultId) return;
+    const known = new Set(envApi.environments.map((e) => e.uid));
+    if (!known.has(defaultId)) return;
+    void envApi.setActiveEnvironment(defaultId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab?.id, activeTabCollectionId, envApi.isReady]);
 
   const handleSwitchEnvironment = useCallback(
-    async (uid: string | null) => {
-      if (activeTabCollectionId) {
-        const col = [...localCollections, ...requestsApi.collections].find((c) => c.uid === activeTabCollectionId);
-        const defaultId = col?.defaultEnvironmentId ?? null;
-        if (uid === defaultId) {
-          await envApi.setCollectionEnvOverride(activeTabCollectionId, undefined);
-        } else {
-          await envApi.setCollectionEnvOverride(activeTabCollectionId, uid);
-        }
-      }
-      await envApi.setActiveEnvironment(uid);
+    (uid: string | null) => {
+      void envApi.setActiveEnvironment(uid);
     },
-    [activeTabCollectionId, localCollections, requestsApi.collections, envApi],
+    [envApi],
   );
 
   // Thread the active tab label through the shell's single
@@ -1267,7 +1255,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         onOpenWorkspaceManager={openWorkspaceManager}
         environments={envApi.environments}
         activeEnvironmentId={envApi.activeEnvironmentId}
-        onSwitchEnvironment={(uid) => void handleSwitchEnvironment(uid)}
+        onSwitchEnvironment={handleSwitchEnvironment}
         onCreateEnvironment={() => void handleCreateEnvironment()}
         onOpenEnvironment={(uid) => {
           const env = envApi.environments.find((e) => e.uid === uid);
@@ -1276,7 +1264,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         onOpenWorkspaceVariables={openWorkspaceVariables}
         onOpenVault={openVault}
         activeCollectionId={activeTabCollectionId}
-        collectionEnvOverrides={envApi.collectionEnvOverrides}
         allCollections={[...localCollections, ...requestsApi.collections]}
         onSetCollectionPinnedEnvs={envApi.setCollectionPinnedEnvs}
       />
