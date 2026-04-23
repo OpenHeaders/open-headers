@@ -7,12 +7,11 @@
 import {
   CheckOutlined,
   DownOutlined,
+  FolderOpenTwoTone,
   GlobalOutlined,
-  HomeFilled,
-  HomeOutlined,
   PlusOutlined,
   PushpinFilled,
-  PushpinOutlined,
+  PushpinTwoTone,
   SettingOutlined,
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
@@ -111,7 +110,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
                 pinned ? (
                   <PushpinFilled style={{ fontSize: 11, color: token.colorPrimary }} />
                 ) : (
-                  <PushpinOutlined style={{ fontSize: 11 }} />
+                  <PushpinTwoTone style={{ fontSize: 11 }} />
                 )
               }
               onClick={(e) => {
@@ -126,11 +125,10 @@ const EnvRow: React.FC<EnvRowProps> = ({
                 size="small"
                 type="text"
                 icon={
-                  isDefault ? (
-                    <HomeFilled style={{ fontSize: 11, color: token.colorPrimary }} />
-                  ) : (
-                    <HomeOutlined style={{ fontSize: 11 }} />
-                  )
+                  <FolderOpenTwoTone
+                    style={{ fontSize: 11 }}
+                    twoToneColor={isDefault ? token.colorPrimary : token.colorTextTertiary}
+                  />
                 }
                 onClick={(e) => {
                   e.stopPropagation();
