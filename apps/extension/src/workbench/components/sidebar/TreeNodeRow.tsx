@@ -215,22 +215,23 @@ export function TreeNodeRow({
             </div>
           )}
 
-          {/* Hover action for leaf nodes (enable/disable) */}
-          {!node.canAddChild && node.hoverAction && (
-            <Tooltip title={node.hoverAction.tooltip} placement="top">
+          {/* Hover actions for leaf nodes (enable/disable, set active, etc.) */}
+          {!node.canAddChild && node.hoverActions?.map((action, i) => (
+            <Tooltip key={i} title={action.tooltip} placement="top">
               {/* biome-ignore lint/a11y/noStaticElementInteractions: hover-only icon; keyboard path is the row itself */}
               {/* biome-ignore lint/a11y/useKeyWithClickEvents: hover-only icon; keyboard path is the row itself */}
               <span
                 className="rules-sidebar-item-hover-action"
+                style={action.alwaysVisible ? { opacity: 1 } : undefined}
                 onClick={(e) => {
                   e.stopPropagation();
-                  node.hoverAction!.onClick();
+                  action.onClick();
                 }}
               >
-                {node.hoverAction.icon}
+                {action.icon}
               </span>
             </Tooltip>
-          )}
+          ))}
 
           {/* Context menu for leaf nodes */}
           {!node.canAddChild && (node.canRename || node.canDelete) && (

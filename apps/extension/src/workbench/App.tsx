@@ -416,7 +416,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   // updates), then we open the editor in rename mode so the user can
   // name it.
   const handleCreateEnvironment = useCallback(async () => {
-    const env = await envApi.createEnvironment('New Environment');
+    const baseName = 'New Environment';
+    const existingNames = new Set(envApi.environments.map((e) => e.name));
+    let name = baseName;
+    let counter = 2;
+    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
+    const env = await envApi.createEnvironment(name);
     if (!env) {
       message.error('Failed to create environment');
       return;

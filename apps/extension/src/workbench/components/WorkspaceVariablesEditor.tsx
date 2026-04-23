@@ -7,7 +7,7 @@
  * the draft's fingerprint against the last persisted snapshot.
  */
 
-import { AppstoreOutlined } from '@ant-design/icons';
+import { scopeBadge } from './shared/scope-colors';
 import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
@@ -107,7 +107,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
           />
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <AppstoreOutlined style={{ fontSize: 18, color: token.colorTextTertiary }} />
+          {scopeBadge('workspace', 20)}
           <Title level={4} style={{ margin: 0 }}>
             Workspace Variables
           </Title>

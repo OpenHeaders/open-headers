@@ -43,6 +43,7 @@ import { VariableResolver } from '@openheaders/core/variables';
 import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SCOPE_COLORS, scopeBadge } from '../shared/scope-colors';
 import type { TabMode, WorkbenchTab } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
 import TotpPreview from '../totp/TotpPreview';
@@ -80,11 +81,11 @@ interface VariablesPanelProps {
 // ── Scope config ────────────────────────────────────────────────────
 
 const SCOPE_CONFIG = {
-  vault: { label: 'Vault', color: '#e74c3c', priority: 'highest', letter: '🔒' },
-  environment: { label: 'Environment', color: '#3498db', priority: 'high', letter: 'E' },
-  collection: { label: 'Collection', color: '#2ecc71', priority: 'medium', letter: 'C' },
-  workspace: { label: 'Workspace', color: '#f39c12', priority: 'lowest', letter: 'W' },
-  live: { label: 'Live', color: '#9b59b6', priority: 'resolved', letter: '↻' },
+  vault:       { label: 'Vault',       priority: 'highest',  color: SCOPE_COLORS.vault.color },
+  environment: { label: 'Environment', priority: 'high',     color: SCOPE_COLORS.environment.color },
+  collection:  { label: 'Collection',  priority: 'medium',   color: SCOPE_COLORS.collection.color },
+  workspace:   { label: 'Workspace',   priority: 'lowest',   color: SCOPE_COLORS.workspace.color },
+  live:        { label: 'Live',        priority: 'resolved', color: SCOPE_COLORS.live.color },
 } as const;
 
 type DisplayScope = keyof typeof SCOPE_CONFIG;
@@ -737,22 +738,7 @@ function ScopeSection({
   return (
     <div style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, padding: '8px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <span
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: 4,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: scope === 'vault' ? 12 : 10,
-            fontWeight: 700,
-            color: 'white',
-            background: config.color,
-          }}
-        >
-          {config.letter}
-        </span>
+        {scopeBadge(scope, 16)}
         <Text strong style={{ fontSize: 11 }}>
           {config.label}
         </Text>

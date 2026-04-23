@@ -14,7 +14,7 @@
  * SW rejects because another tab landed a newer write.
  */
 
-import { FolderOpenOutlined } from '@ant-design/icons';
+import { scopeBadge } from './shared/scope-colors';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
@@ -139,7 +139,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <FolderOpenOutlined style={{ fontSize: 18, color: token.colorTextTertiary }} />
+          {scopeBadge('collection', 20)}
           <Title level={4} style={{ margin: 0 }}>
             {collection.name} · Variables
           </Title>

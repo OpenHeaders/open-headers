@@ -474,14 +474,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [createRequestCollectionRpc, message]);
 
   const createNewEnvironment = useCallback(async () => {
-    const env = await createEnvironment('New Environment');
+    const baseName = 'New Environment';
+    const existingNames = new Set(environments.map((e) => e.name));
+    let name = baseName;
+    let counter = 2;
+    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
+    const env = await createEnvironment(name);
     if (env) {
       setSectionsExpanded((prev) => ({ ...prev, environments: true }));
       onSelectEnvironment?.(env.uid, env.name, true);
     } else {
       message.error('Failed to create environment');
     }
-  }, [createEnvironment, onSelectEnvironment, message]);
+  }, [createEnvironment, environments, onSelectEnvironment, message]);
 
   const createNewCollection = useCallback(async () => {
     const col = await createLocalCollection('New Collection');

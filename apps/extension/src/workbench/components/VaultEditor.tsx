@@ -15,7 +15,7 @@
  * this component owns the dirty-draft + stale-draft + save plumbing.
  */
 
-import { LockOutlined } from '@ant-design/icons';
+import { scopeBadge } from './shared/scope-colors';
 import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
@@ -133,7 +133,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
           />
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <LockOutlined style={{ fontSize: 18, color: token.colorError }} />
+          {scopeBadge('vault', 20)}
           <Title level={4} style={{ margin: 0 }}>
             Vault
           </Title>

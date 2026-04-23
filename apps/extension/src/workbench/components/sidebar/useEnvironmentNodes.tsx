@@ -1,15 +1,13 @@
 import {
+  CheckCircleFilled,
   CheckCircleOutlined,
-  CheckCircleTwoTone,
   DeleteOutlined,
   EditOutlined,
-  GlobalOutlined,
   StarFilled,
   StarOutlined,
 } from '@ant-design/icons';
-import { Tooltip } from 'antd';
 import { createElement, useMemo } from 'react';
-import { iconEl } from './icons';
+import { scopeBadge } from '../shared/scope-colors';
 import type { TreeNode } from './types';
 
 interface UseEnvironmentNodesParams {
@@ -42,17 +40,8 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
         label: env.name,
         depth: 0,
         expandable: false,
-        icon: iconEl(
-          isActive ? CheckCircleTwoTone : GlobalOutlined,
-          isActive ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #999)',
-        ),
-        badge: isDefault
-          ? createElement(
-              Tooltip,
-              { title: 'Default environment — used as fallback when the active env is missing a variable.' },
-              createElement(StarFilled, { style: { color: 'var(--ant-color-warning, #faad14)', fontSize: 11 } }),
-            )
-          : undefined,
+        icon: scopeBadge('environment'),
+        badge: undefined,
         canRename: true,
         canDelete: true,
         canAddChild: false,
@@ -64,20 +53,27 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
           p.confirmDelete(env.name, () => {
             void p.deleteEnvironment(env.uid);
           }),
-        addMenuItems: [
+        hoverActions: [
           {
-            key: 'set-active',
-            icon: createElement(CheckCircleOutlined),
-            label: isActive ? 'Unset active' : 'Set active',
+            icon: createElement(
+              isActive ? CheckCircleFilled : CheckCircleOutlined,
+              { style: { fontSize: 12, color: isActive ? 'var(--ant-color-primary-hover, #4096ff)' : 'var(--ant-color-text-tertiary, #999)' } },
+            ),
+            tooltip: isActive ? 'Set inactive' : 'Set active',
+            alwaysVisible: isActive,
             onClick: () => void p.setActiveEnvironment(isActive ? null : env.uid),
           },
           {
-            key: 'set-default',
-            icon: createElement(isDefault ? StarFilled : StarOutlined),
-            label: isDefault ? 'Unset default' : 'Set as default',
+            icon: createElement(
+              isDefault ? StarFilled : StarOutlined,
+              { style: { fontSize: 12, color: isDefault ? 'var(--ant-color-warning, #faad14)' : 'var(--ant-color-text-tertiary, #999)' } },
+            ),
+            tooltip: isDefault ? 'Unset default' : 'Set as default',
+            alwaysVisible: isDefault,
             onClick: () => void p.setDefaultEnvironment(isDefault ? null : env.uid),
           },
-          { type: 'divider' as const, key: 'div' },
+        ],
+        addMenuItems: [
           { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: () => p.setRenamingId(id) },
           {
             key: 'delete',

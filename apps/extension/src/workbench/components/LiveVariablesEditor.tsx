@@ -25,7 +25,6 @@ import {
   LinkOutlined,
   PlusOutlined,
   ReloadOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
@@ -34,6 +33,7 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { App, Button, Empty, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
 
@@ -91,7 +91,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
     <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <ThunderboltOutlined style={{ fontSize: 18, color: token.colorTextTertiary }} />
+          {scopeBadge('live', 20)}
           <Title level={4} style={{ margin: 0 }}>
             Live Variables
           </Title>

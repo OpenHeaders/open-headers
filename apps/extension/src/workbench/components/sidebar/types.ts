@@ -40,7 +40,7 @@ export interface TreeNode {
   onDelete?: () => void;
   onAddItem?: () => void;
   addMenuItems?: ItemType[];
-  hoverAction?: { icon: React.ReactNode; tooltip: string; onClick: () => void };
+  hoverActions?: Array<{ icon: React.ReactNode; tooltip: string; onClick: () => void; alwaysVisible?: boolean }>;
 
   // Placeholder empty state
   placeholderTitle?: string;

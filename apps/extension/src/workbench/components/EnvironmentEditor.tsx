@@ -7,7 +7,8 @@
  * the save cue consistently with every other editor tab.
  */
 
-import { CheckCircleTwoTone, GlobalOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons';
+import { scopeBadge } from './shared/scope-colors';
 import { useEnvironments } from '@hooks/useEnvironments';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
@@ -152,7 +153,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <GlobalOutlined style={{ fontSize: 18, color: isActive ? token.colorPrimary : token.colorTextTertiary }} />
+            {scopeBadge('environment', 20)}
             <Title level={4} style={{ margin: 0 }}>
               {env.name}
             </Title>

@@ -1,6 +1,5 @@
-import { FolderOpenOutlined, LockOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
-import { iconEl } from './icons';
+import { scopeBadge } from '../shared/scope-colors';
 import type { TreeNode } from './types';
 
 interface UseVariableSingletonNodesParams {
@@ -21,7 +20,7 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       label: 'Vault',
       depth: 0,
       expandable: false,
-      icon: iconEl(LockOutlined, 'var(--ant-color-error, #ff4d4f)'),
+      icon: scopeBadge('vault'),
       canRename: false,
       canDelete: false,
       canAddChild: false,
@@ -37,7 +36,7 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       label: 'Workspace Variables',
       depth: 0,
       expandable: false,
-      icon: iconEl(FolderOpenOutlined, 'var(--ant-color-text-tertiary, #999)'),
+      icon: scopeBadge('workspace'),
       canRename: false,
       canDelete: false,
       canAddChild: false,
@@ -53,7 +52,7 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
       label: 'Live Variables',
       depth: 0,
       expandable: false,
-      icon: iconEl(ThunderboltOutlined, 'var(--ant-color-text-tertiary, #999)'),
+      icon: scopeBadge('live'),
       canRename: false,
       canDelete: false,
       canAddChild: false,

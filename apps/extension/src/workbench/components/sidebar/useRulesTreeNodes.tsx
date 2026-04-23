@@ -178,17 +178,19 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
             canRename: true,
             canDelete: true,
             canAddChild: false,
-            hoverAction: node.enabled
-              ? {
-                  icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
-                  tooltip: 'Disable rule',
-                  onClick: () => p.handleToggleRule(node.uid, false),
-                }
-              : {
-                  icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
-                  tooltip: 'Enable rule',
-                  onClick: () => p.handleToggleRule(node.uid, true),
-                },
+            hoverActions: [
+              node.enabled
+                ? {
+                    icon: iconEl(StopOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+                    tooltip: 'Disable rule',
+                    onClick: () => p.handleToggleRule(node.uid, false),
+                  }
+                : {
+                    icon: iconEl(CheckCircleOutlined, 'var(--ant-color-text-tertiary, #999)', 11),
+                    tooltip: 'Enable rule',
+                    onClick: () => p.handleToggleRule(node.uid, true),
+                  },
+            ],
             onOpen: () => p.onSelectRule(node.uid),
             onRename: fullRule
               ? async (name: string) => {
