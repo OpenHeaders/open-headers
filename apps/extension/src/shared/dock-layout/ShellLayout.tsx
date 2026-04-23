@@ -96,15 +96,46 @@ function asDragData<T extends string>(current: unknown): DragData<T> | null {
 
 type DockWindowsMap<T extends string> = Record<DockSlot, T[]>;
 
+/**
+ * Dock body wrapper that subscribes to the focus store and adds
+ * `.rules-dock-body--focused` when this slot is the focused dock. The
+ * CSS rule layers on the persistent "actions visible" state — matches
+ * the IDE behavior where clicking into a panel (blue activity-bar
+ * chip) keeps its action row shown even after the mouse leaves.
+ */
+interface FocusAwareDockBodyProps {
+  slot: DockSlot;
+  focusStore: FocusStore;
+  baseClass: string;
+  children?: React.ReactNode;
+}
+
+function FocusAwareDockBody({ slot, focusStore, baseClass, children }: FocusAwareDockBodyProps) {
+  const focused = focusStore.useIsDockFocused(slot);
+  return (
+    <div className={`${baseClass}${focused ? ' rules-dock-body--focused' : ''}`} data-dock-slot={slot}>
+      {children}
+    </div>
+  );
+}
+
 interface SideRegionProps<T extends string> {
   region: 'left' | 'right';
   tl: DockLayoutApi<T>;
   renderToolWindow: (id: T, slot: DockSlot) => React.ReactNode;
   topSize: { preferred: number; min: number };
   bottomSize: { preferred: number; min: number };
+  focusStore: FocusStore;
 }
 
-function SideRegion<T extends string>({ region, tl, renderToolWindow, topSize, bottomSize }: SideRegionProps<T>) {
+function SideRegion<T extends string>({
+  region,
+  tl,
+  renderToolWindow,
+  topSize,
+  bottomSize,
+  focusStore,
+}: SideRegionProps<T>) {
   const { token } = theme.useToken();
   const [topSlot, bottomSlot] = regionDocks(region);
   const topDock = tl.state.docks[topSlot];
@@ -122,9 +153,9 @@ function SideRegion<T extends string>({ region, tl, renderToolWindow, topSize, b
       <Allotment vertical proportionalLayout>
         <Allotment.Pane preferredSize={topSize.preferred} minSize={topSize.min} visible={topActive !== null} snap>
           {topActive && (
-            <div className="rules-dock-body" data-dock-slot={topSlot}>
+            <FocusAwareDockBody slot={topSlot} focusStore={focusStore} baseClass="rules-dock-body">
               {renderToolWindow(topActive, topSlot)}
-            </div>
+            </FocusAwareDockBody>
           )}
         </Allotment.Pane>
         <Allotment.Pane
@@ -134,9 +165,9 @@ function SideRegion<T extends string>({ region, tl, renderToolWindow, topSize, b
           snap
         >
           {bottomActive && (
-            <div className="rules-dock-body" data-dock-slot={bottomSlot}>
+            <FocusAwareDockBody slot={bottomSlot} focusStore={focusStore} baseClass="rules-dock-body">
               {renderToolWindow(bottomActive, bottomSlot)}
-            </div>
+            </FocusAwareDockBody>
           )}
         </Allotment.Pane>
       </Allotment>
@@ -147,9 +178,10 @@ function SideRegion<T extends string>({ region, tl, renderToolWindow, topSize, b
 interface BottomRegionProps<T extends string> {
   tl: DockLayoutApi<T>;
   renderToolWindow: (id: T, slot: DockSlot) => React.ReactNode;
+  focusStore: FocusStore;
 }
 
-function BottomRegion<T extends string>({ tl, renderToolWindow }: BottomRegionProps<T>) {
+function BottomRegion<T extends string>({ tl, renderToolWindow, focusStore }: BottomRegionProps<T>) {
   const leftDock = tl.state.docks['bottom-left'];
   const rightDock = tl.state.docks['bottom-right'];
   const leftActive = leftDock.active;
@@ -160,9 +192,9 @@ function BottomRegion<T extends string>({ tl, renderToolWindow }: BottomRegionPr
     const active = dock.active;
     if (!active) return null;
     return (
-      <div className="rules-dock-body rules-dock-body--bottom" data-dock-slot={slot}>
+      <FocusAwareDockBody slot={slot} focusStore={focusStore} baseClass="rules-dock-body rules-dock-body--bottom">
         <div className="rules-dock-content">{renderToolWindow(active, slot)}</div>
-      </div>
+      </FocusAwareDockBody>
     );
   };
 
@@ -630,6 +662,7 @@ function ShellLayoutInner<T extends string>({
         renderToolWindow={renderToolWindow}
         topSize={topBottomHalves.top}
         bottomSize={topBottomHalves.bottom}
+        focusStore={focusStore}
       />
     </Allotment.Pane>
   );
@@ -648,6 +681,7 @@ function ShellLayoutInner<T extends string>({
         renderToolWindow={renderToolWindow}
         topSize={topBottomHalves.top}
         bottomSize={topBottomHalves.bottom}
+        focusStore={focusStore}
       />
     </Allotment.Pane>
   );
@@ -660,7 +694,7 @@ function ShellLayoutInner<T extends string>({
       visible={bottomOpen}
       snap
     >
-      <BottomRegion tl={tl} renderToolWindow={renderToolWindow} />
+      <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} />
     </Allotment.Pane>
   );
 

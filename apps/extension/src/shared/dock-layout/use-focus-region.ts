@@ -107,6 +107,15 @@ export function useFocusRegion({
 
   const commitFromTarget = useCallback(
     (target: EventTarget | null) => {
+      // Elements inside a `data-focus-skip` subtree are meta-actions
+      // (Hide, Options, …) — they apply TO the panel rather than
+      // indicating "user is working inside it". Skip the focus commit
+      // so clicking Hide on panel B while panel A is focused keeps
+      // A's focused state intact. Parallels the existing `data-region`
+      // and `data-dock-slot` attribute contracts in this hook.
+      if (target instanceof HTMLElement && target.closest('[data-focus-skip]')) {
+        return;
+      }
       const region = regionFromTarget(target);
       if (!region) return;
       setFocusedRegion(region);

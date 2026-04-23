@@ -21,6 +21,7 @@ import {
   EllipsisOutlined,
   FolderOpenOutlined,
   MenuUnfoldOutlined,
+  MinusOutlined,
   PlusOutlined,
   SearchOutlined,
   ThunderboltOutlined,
@@ -87,6 +88,9 @@ interface SidebarProps {
   allTabs?: WorkbenchTab[];
   onSwitchTab?: (tabId: string) => void;
   onCloseDraftTab?: (tabId: string) => void;
+  /** Hide the sidebar dock — bound to the trailing − button in the
+      toolbar. Calls `tl.closeDock(slot)` from the shell wrapper. */
+  onHide?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -119,6 +123,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   allTabs,
   onSwitchTab,
   onCloseDraftTab,
+  onHide,
 }) => {
   const { token } = theme.useToken();
   const {
@@ -765,6 +770,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           style={{ flex: 1, fontSize: 11 }}
           variant="borderless"
         />
+        <div className="rules-panel-header-actions" data-focus-skip>
         {view === 'http-rules' && (
           <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
             <Tooltip title="New rule" placement="bottom">
@@ -878,6 +884,24 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </Tooltip>
         </Dropdown>
+        {onHide && (
+          <Tooltip title="Hide" placement="bottom">
+            <button
+              type="button"
+              className="rules-sidebar-toolbar-icon"
+              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+              // preventDefault on mousedown: don't steal DOM focus from
+              // whatever the user currently has focused. The click still
+              // fires onClick after.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onHide}
+              aria-label="Hide panel"
+            >
+              <MinusOutlined />
+            </button>
+          </Tooltip>
+        )}
+        </div>
       </div>
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation container */}

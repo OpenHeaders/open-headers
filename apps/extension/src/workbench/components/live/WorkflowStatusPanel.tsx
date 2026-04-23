@@ -19,7 +19,8 @@
  * timer runs.
  */
 
-import { CloseOutlined, ReloadOutlined, UndoOutlined } from '@ant-design/icons';
+import { ReloadOutlined, UndoOutlined } from '@ant-design/icons';
+import { PanelHeader } from '@/shared/dock-layout';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -147,32 +148,17 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
     [message],
   );
 
-  // ── Header with close button ────────────────────────────────────
+  // ── Shared panel header (title + summary chip, hide on right) ──
   const header = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '6px 10px',
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-      }}
-    >
-      <Text strong style={{ fontSize: 12 }}>
-        WF Status
-      </Text>
-      <OverallSummary rows={rows} />
-      <div style={{ flex: 1 }} />
-      {onClose && (
-        <Button
-          type="text"
-          size="small"
-          icon={<CloseOutlined style={{ fontSize: 11 }} />}
-          onClick={onClose}
-          aria-label="Close WF Status"
-        />
-      )}
-    </div>
+    <PanelHeader
+      title={
+        <>
+          <strong>WF Status</strong>
+          <OverallSummary rows={rows} />
+        </>
+      }
+      onHide={onClose}
+    />
   );
 
   // ── Body ────────────────────────────────────────────────────────

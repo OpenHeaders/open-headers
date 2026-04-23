@@ -343,12 +343,15 @@
   border-radius: 3px;
 }
 
+/* Hover / active states — using pure-black alphas so the tint is clearly
+   visible on the lighter `#ececec` frame. The previous grey-128 alpha
+   was near-invisible against a neutral-grey bar. */
 .rules-dock-tab:hover {
-  background: rgba(128, 128, 128, 0.1);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .rules-dock-tab.active:not(.focused) {
-  background: rgba(128, 128, 128, 0.18);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .rules-dock-tab.dragging {
@@ -400,7 +403,6 @@
   height: calc(100% - 2px);
   box-sizing: border-box;
   background: var(--ant-color-bg-container, #fff);
-  border: 1px solid var(--ant-color-border, #d9d9d9);
   border-radius: 6px;
   overflow: hidden;
   display: flex;
@@ -420,6 +422,65 @@
   flex-direction: column;
 }
 
+/* ── Panel header ─────────────────────────────────────────────────── */
+/* Shared 32 px header for every tool-window panel. Left slot (title)
+   always visible; right slot (actions + ⋯ + −) fades in on hover OR
+   focus-within so clicking into a panel keeps its actions permanent
+   while hovering away. Matches the editor tab-bar height so the bottom
+   borders align across cards. */
+
+.rules-panel-header {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.rules-panel-header-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rules-panel-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.rules-dock-body:hover .rules-panel-header-actions,
+.rules-dock-body:focus-within .rules-panel-header-actions,
+.rules-dock-body--focused .rules-panel-header-actions {
+  opacity: 1;
+}
+
+.rules-panel-header-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+  font-size: 12px;
+}
+
+.rules-panel-header-action:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
+}
+
 /* ── Region containers ────────────────────────────────────────────── */
 
 .rules-region {
@@ -435,7 +496,6 @@
   height: calc(100% - 2px);
   box-sizing: border-box;
   background: var(--ant-color-bg-container, #fff);
-  border: 1px solid var(--ant-color-border, #d9d9d9);
   border-radius: 6px;
   overflow: hidden;
   display: flex;

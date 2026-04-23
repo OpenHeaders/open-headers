@@ -285,8 +285,13 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px;
+  padding: 0 6px;
   flex-shrink: 0;
+  // Match the editor-leaf tab-bar height so the border-bottom inside the
+  // sidebar cards lands at the same y as the tab-bar's border in the
+  // editor card — reads as one continuous horizontal divider across the
+  // shell.
+  height: 32px;
 }
 
 .rules-sidebar-toolbar-icon {
@@ -563,7 +568,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  height: 34px;
+  height: 32px;
   position: relative;
 }
 

@@ -1157,7 +1157,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   // a `view` prop gates which sections render so keyboard nav,
   // filter, and toolbar stay shared behavior instead of three forks.
   const renderToolWindow = useCallback(
-    (id: ToolWindowId, _slot: DockSlot): React.ReactNode => {
+    (id: ToolWindowId, slot: DockSlot): React.ReactNode => {
       switch (id) {
         case 'http-rules':
         case 'api-requests':
@@ -1200,6 +1200,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               allTabs={allTabs}
               onSwitchTab={switchTab}
               onCloseDraftTab={handleCloseTab}
+              onHide={() => tl.closeDock(slot)}
             />
           );
         case 'workflow-status':
@@ -1230,6 +1231,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               contextOwner={contextOwner}
               onOpenTestRun={openRunReport}
               activeRunId={activeTab?.mode === 'run-report' ? (activeTab.testRunId ?? null) : null}
+              onHide={() => tl.closeDock(slot)}
             />
           );
         default:

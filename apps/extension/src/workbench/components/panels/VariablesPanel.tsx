@@ -24,13 +24,13 @@
  */
 
 import {
-  CloseOutlined,
   CodeOutlined,
   ExclamationCircleOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
   LockOutlined,
 } from '@ant-design/icons';
+import { PanelHeader } from '@/shared/dock-layout';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
@@ -426,31 +426,15 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
         height: '100%',
       }}
     >
-      <div
-        style={{
-          padding: '8px 16px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <Text strong style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <CodeOutlined />
-          Scope
-        </Text>
-        <CloseOutlined
-          style={{ color: token.colorTextTertiary, cursor: 'pointer', fontSize: 12 }}
-          onClick={onClose}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') onClose();
-          }}
-          aria-label="Close Scope panel"
-        />
-      </div>
+      <PanelHeader
+        title={
+          <>
+            <CodeOutlined />
+            <strong>Scope</strong>
+          </>
+        }
+        onHide={onClose}
+      />
 
       <div style={{ padding: '8px 12px', flex: 1, overflowY: 'auto' }}>
         {/* Mode summary + toggle — toggle only appears when the focused

@@ -8,6 +8,8 @@ export type { FocusStore } from './focus-store';
 export { createFocusStore } from './focus-store';
 export type { LayoutMenuIconKind } from './LayoutMenuIcon';
 export { default as LayoutMenuIcon } from './LayoutMenuIcon';
+export type { PanelHeaderProps } from './PanelHeader';
+export { default as PanelHeader } from './PanelHeader';
 export { default as RegionToggle } from './RegionToggle';
 export type { ShellLayoutProps } from './ShellLayout';
 export { default as ShellLayout } from './ShellLayout';

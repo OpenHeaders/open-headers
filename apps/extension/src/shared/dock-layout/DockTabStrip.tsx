@@ -96,7 +96,10 @@ function SortableDockTab<T extends string>({
             : { borderBottom: `2px solid ${token.colorPrimary}` }),
         }
       : active
-        ? { background: token.colorFillTertiary, color: token.colorText }
+        ? // 0.10 alpha lands at ~#d8d8d8 on the `#f0f0f0` frame — a
+          // clearly-visible chip without the heavy look of `colorFill`
+          // (0.15 → ~#ccc). `colorFillTertiary` (0.04) was too faint.
+          { background: 'rgba(0, 0, 0, 0.1)', color: token.colorText }
         : { color: token.colorTextSecondary };
 
   const sortableStyle: React.CSSProperties = {

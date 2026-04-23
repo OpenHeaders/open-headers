@@ -111,7 +111,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       // Dark mode is already fine by default (layout `#000` vs
       // container `#141414`), but we pin it explicitly so the relationship
       // doesn't drift if antd changes its algorithm.
-      colorBgLayout: isDarkMode ? '#1a1a1a' : '#e8e8e8',
+      colorBgLayout: isDarkMode ? '#1a1a1a' : '#f0f0f0',
     },
   };
 

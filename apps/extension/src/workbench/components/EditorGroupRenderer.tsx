@@ -431,8 +431,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
         data-leaf-id={leaf.id}
         style={{
           background: token.colorBgContainer,
-          outline: isFocused ? `1px solid ${token.colorBorderSecondary}` : 'none',
-          outlineOffset: -1,
+          borderRadius: 6,
           position: 'relative',
         }}
         onPointerDownCapture={() => handleLeafPointerDown(leaf.id)}

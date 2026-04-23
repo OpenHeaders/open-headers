@@ -28,6 +28,7 @@ import { App, Button, Empty, Space, Table, Tag, Tooltip, Typography, theme } fro
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PanelHeader } from '@/shared/dock-layout';
 
 const { Text } = Typography;
 
@@ -81,6 +82,8 @@ interface BottomPanelProps {
    * highlighted so the user can see which run they're looking at.
    */
   activeRunId?: string | null;
+  /** Optional hide handler — wired to the shared PanelHeader's − button. */
+  onHide?: () => void;
 }
 
 const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -89,6 +92,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   contextOwner,
   onOpenTestRun,
   activeRunId,
+  onHide,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -281,6 +285,10 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
 
   return (
     <div className="rules-bottom-panel">
+      <PanelHeader
+        title={<strong>{activeTab === 'test-runs' ? 'Test Runs' : 'Page Traffic'}</strong>}
+        onHide={onHide}
+      />
       <div
         className={`rules-bottom-content${activeTab === 'test-runs' ? ' is-table' : ''}`}
         style={{ color: token.colorTextTertiary }}
