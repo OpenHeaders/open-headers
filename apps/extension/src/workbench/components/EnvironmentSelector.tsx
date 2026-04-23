@@ -7,6 +7,7 @@
 import {
   CheckOutlined,
   DownOutlined,
+  EditOutlined,
   FolderOpenFilled,
   FolderOpenOutlined,
   GlobalOutlined,
@@ -17,9 +18,10 @@ import {
 } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
-import { Button, Divider, Dropdown, Input, Space, Tooltip, Typography, theme } from 'antd';
+import { Button, Divider, Dropdown, Input, Popover, Radio, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
+import { useSetting } from '../settings/hooks';
 import { scopeBadge } from './shared/scope-colors';
 
 const { Text } = Typography;
@@ -102,7 +104,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
               onOpen();
             }}
           >
-            <SettingOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+            <EditOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
           </span>
         </Tooltip>
         {activeCollectionId && (
@@ -228,7 +230,9 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const searchRef = useRef<InputRef>(null);
+  const [autoSwitchMode, setAutoSwitchMode] = useSetting('general.collectionEnvAutoSwitch');
 
   const active = activeEnvironmentId ? (environments.find((e) => e.uid === activeEnvironmentId) ?? null) : null;
 
@@ -309,7 +313,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div style={{ padding: '0 4px 6px' }}>
+      <div style={{ padding: '0 4px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
         <Input
           ref={searchRef}
           size="small"
@@ -317,9 +321,121 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           allowClear
-          style={{ fontSize: 12 }}
+          style={{ fontSize: 12, flex: 1 }}
           autoFocus
         />
+        <Text type="secondary" style={{ fontSize: 11, userSelect: 'none' }}>
+          Mode: {autoSwitchMode}
+        </Text>
+        <Popover
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          trigger="click"
+          placement="bottomRight"
+          arrow={false}
+          getPopupContainer={(trigger) => trigger.parentElement ?? document.body}
+          content={
+            <div style={{ padding: 2, width: 220 }} onClick={(e) => e.stopPropagation()}>
+              <Text strong style={{ display: 'block', padding: '4px 8px 6px', fontSize: 12 }}>
+                When switching between collections
+              </Text>
+              <div
+                className="oh-env-row"
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  borderRadius: token.borderRadiusSM,
+                }}
+                onClick={() => {
+                  setAutoSwitchMode('keep-selection');
+                  setSettingsOpen(false);
+                }}
+              >
+                <Radio
+                  checked={autoSwitchMode === 'keep-selection'}
+                  style={{ marginRight: 0, pointerEvents: 'none' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Keep selected environment</div>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}
+                  >
+                    Your selection stays put across collections and everything inside them.
+                  </Text>
+                </div>
+              </div>
+              <div
+                className="oh-env-row"
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  borderRadius: token.borderRadiusSM,
+                }}
+                onClick={() => {
+                  setAutoSwitchMode('apply-defaults');
+                  setSettingsOpen(false);
+                }}
+              >
+                <Radio
+                  checked={autoSwitchMode === 'apply-defaults'}
+                  style={{ marginRight: 0, pointerEvents: 'none' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Apply collection defaults</div>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}
+                  >
+                    Defaults take over while inside. Your last manual pick is restored elsewhere.
+                  </Text>
+                </div>
+              </div>
+              <div
+                className="oh-env-row"
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  borderRadius: token.borderRadiusSM,
+                }}
+                onClick={() => {
+                  setAutoSwitchMode('follow-collection');
+                  setSettingsOpen(false);
+                }}
+              >
+                <Radio
+                  checked={autoSwitchMode === 'follow-collection'}
+                  style={{ marginRight: 0, pointerEvents: 'none' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Follow each collection</div>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}
+                  >
+                    Collections with a default switch to it (and remember your picks). Others don't
+                    switch.
+                  </Text>
+                </div>
+              </div>
+            </div>
+          }
+        >
+          <Tooltip title="Environment switching behavior" placement="top" mouseEnterDelay={0.3}>
+            <Button
+              type="text"
+              size="small"
+              icon={<SettingOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />}
+              aria-label="Environment switching behavior"
+            />
+          </Tooltip>
+        </Popover>
       </div>
 
       <NoEnvRow
@@ -410,6 +526,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       <Divider style={{ margin: '4px 0' }} />
       <div
         role="menuitem"
+        className="oh-env-row"
         style={{ ...rowStyle, color: token.colorTextSecondary }}
         onClick={() => {
           onCreateEnvironment();
@@ -421,6 +538,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       </div>
       <div
         role="menuitem"
+        className="oh-env-row"
         style={{ ...rowStyle, color: token.colorTextSecondary }}
         onClick={() => {
           onOpenWorkspaceVariables();
@@ -432,6 +550,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       </div>
       <div
         role="menuitem"
+        className="oh-env-row"
         style={{ ...rowStyle, color: token.colorTextSecondary }}
         onClick={() => {
           onOpenVault();

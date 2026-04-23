@@ -200,6 +200,13 @@ export interface WorkspaceKeys {
   variableRecents: StorageKey<unknown>;
   /** Per-collection environment overrides: collectionId → envId (null = "No environment"). */
   collectionEnvOverrides: StorageKey<Record<string, string | null>>;
+  /**
+   * Last environment the user manually picked. Used only when the
+   * `general.collectionEnvAutoSwitch` setting is `'apply-defaults'` —
+   * the active env defers to this "base" whenever the current
+   * collection has no default of its own.
+   */
+  manualEnvId: StorageKey<string | null>;
 }
 
 export function wsKeys(workspaceId: string): WorkspaceKeys {
@@ -232,5 +239,6 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),
     collectionEnvOverrides: storageKey<Record<string, string | null>>(`${p}.collectionEnvOverrides`),
+    manualEnvId: storageKey<string | null>(`${p}.manualEnvId`),
   };
 }

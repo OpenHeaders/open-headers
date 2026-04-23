@@ -42,7 +42,24 @@ export function parseCollection(yaml: string, context: CollectionCodecContext): 
 }
 
 export function serializeCollection(write: WriteableDocument<Collection>): string {
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(write.value, COLLECTION_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, COLLECTION_FIELD_ORDER);
+  // Treat schema defaults as absent so a round-trip through the codec
+  // produces byte-identical YAML when the original had no pinned-envs
+  // / default-env keys. Empty list and `null` default mean the same
+  // thing as "key omitted" in our model; the parser refills defaults
+  // on the next read.
+  const normalized = omitCollectionDefaults(write.value);
+  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(normalized, COLLECTION_FIELD_ORDER);
+  if (write.raw) mergeKnownFields(doc, normalized, COLLECTION_FIELD_ORDER);
   return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
+}
+
+function omitCollectionDefaults(value: Collection): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...value };
+  if (Array.isArray(out.pinnedEnvironmentIds) && out.pinnedEnvironmentIds.length === 0) {
+    delete out.pinnedEnvironmentIds;
+  }
+  if (out.defaultEnvironmentId === null) {
+    delete out.defaultEnvironmentId;
+  }
+  return out;
 }

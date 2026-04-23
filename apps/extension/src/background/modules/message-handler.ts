@@ -26,6 +26,7 @@ import {
   getCollectionEnvOverrides,
   getDefaultEnvironmentId,
   getEnvironments,
+  getManualEnvId,
   getVault,
   getVaultSecret,
   getWorkspaceVariables,
@@ -35,6 +36,7 @@ import {
   setActiveEnvironment,
   setCollectionEnvOverride,
   setDefaultEnvironment,
+  setManualEnv,
   setVault,
   setWorkspaceVariables,
   updateEnvironmentVariables,
@@ -352,6 +354,7 @@ export function handleGeneralMessage(
         activeEnvironmentId: getActiveEnvironmentId(),
         defaultEnvironmentId: getDefaultEnvironmentId(),
         collectionEnvOverrides: getCollectionEnvOverrides(),
+        manualEnvId: getManualEnvId(),
       });
     } else if (message.type === 'createEnvironment') {
       const name = message.name as string;
@@ -387,6 +390,12 @@ export function handleGeneralMessage(
     } else if (message.type === 'setDefaultEnvironment') {
       const uid = message.uid as string | null;
       setDefaultEnvironment(uid)
+        .then((ok) => safeResponse({ success: ok }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'setManualEnv') {
+      const uid = message.uid as string | null;
+      setManualEnv(uid)
         .then((ok) => safeResponse({ success: ok }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;

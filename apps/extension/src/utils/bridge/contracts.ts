@@ -465,6 +465,7 @@ export interface BridgeRpcContract {
       activeEnvironmentId: string | null;
       defaultEnvironmentId: string | null;
       collectionEnvOverrides: Record<string, string | null>;
+      manualEnvId: string | null;
     };
   };
   createEnvironment: {
@@ -510,6 +511,10 @@ export interface BridgeRpcContract {
   };
   setCollectionEnvOverride: {
     req: { collectionId: string; envId: string | null | undefined };
+    res: { success: boolean };
+  };
+  setManualEnv: {
+    req: { uid: string | null };
     res: { success: boolean };
   };
   setCollectionPinnedEnvs: {
@@ -1227,6 +1232,8 @@ export interface EnvironmentsSnapshot {
   workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
   collectionEnvOverrides: Record<string, string | null>;
+  /** Last env the user manually picked — consumed by the `apply-defaults` auto-switch mode. */
+  manualEnvId: string | null;
 }
 
 export type BridgeRpcType = keyof BridgeRpcContract;

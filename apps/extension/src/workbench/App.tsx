@@ -17,7 +17,7 @@ import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { useWorkspaces } from '@hooks/useWorkspaces';
-import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
+import { isRequestResolvable, isRuleResolvable, resolveAutoSwitchTarget } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -76,6 +76,7 @@ import { useToolLayout } from './hooks/useToolLayout';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
+import { useSettingValue } from './settings/hooks';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
@@ -591,25 +592,54 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     return null;
   }, [activeTab, rules, localCollections, requestsApi.requests, requestsApi.collections]);
 
+  const collectionEnvAutoSwitch = useSettingValue('general.collectionEnvAutoSwitch');
+
   useEffect(() => {
     if (!envApi.isReady) return;
-    if (envApi.activeEnvironmentId !== null) return;
-    if (!activeTabCollectionId) return;
-    const allCollections = [...localCollections, ...requestsApi.collections];
-    const col = allCollections.find((c) => c.uid === activeTabCollectionId);
-    const defaultId = col?.defaultEnvironmentId ?? null;
-    if (!defaultId) return;
-    const known = new Set(envApi.environments.map((e) => e.uid));
-    if (!known.has(defaultId)) return;
-    void envApi.setActiveEnvironment(defaultId);
+    const target = resolveAutoSwitchTarget({
+      mode: collectionEnvAutoSwitch,
+      collectionId: activeTabCollectionId,
+      collections: [...localCollections, ...requestsApi.collections],
+      overrides: envApi.collectionEnvOverrides,
+      activeEnvId: envApi.activeEnvironmentId,
+      manualEnvId: envApi.manualEnvId,
+      knownEnvIds: new Set(envApi.environments.map((e) => e.uid)),
+    });
+    if (target !== envApi.activeEnvironmentId) {
+      void envApi.setActiveEnvironment(target);
+    }
+    // Deps are navigation-only — `activeEnvironmentId` and `manualEnvId`
+    // are deliberately omitted because the effect sets active env (so
+    // including it would loop) and `handleSwitchEnvironment` directly
+    // writes both active + manual (so re-running would race with the
+    // user's pick and revert it mid-flight). Mode + collection context
+    // are the only signals that require a re-resolution pass.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab?.id, activeTabCollectionId, envApi.isReady]);
+  }, [activeTab?.id, activeTabCollectionId, envApi.isReady, collectionEnvAutoSwitch]);
 
   const handleSwitchEnvironment = useCallback(
     (uid: string | null) => {
+      if (collectionEnvAutoSwitch === 'follow-collection' && activeTabCollectionId) {
+        const allCollections = [...localCollections, ...requestsApi.collections];
+        const col = allCollections.find((c) => c.uid === activeTabCollectionId);
+        const defaultId = col?.defaultEnvironmentId ?? null;
+        // Per-collection memory only kicks in once a default is set —
+        // collections without one just keep the current selection, so
+        // don't record an override for them. Picking the default itself
+        // clears any prior override so the collection reverts to its
+        // "follow default" behavior.
+        if (defaultId !== null) {
+          void envApi.setCollectionEnvOverride(activeTabCollectionId, uid === defaultId ? undefined : uid);
+        }
+      }
+      // Every manual pick updates the "base env" record, regardless of
+      // the current mode — switching to `apply-defaults` later should
+      // restore the user's actual last pick, not whatever an auto-
+      // switch left behind.
+      void envApi.setManualEnv(uid);
       void envApi.setActiveEnvironment(uid);
     },
-    [envApi],
+    [collectionEnvAutoSwitch, activeTabCollectionId, localCollections, requestsApi.collections, envApi],
   );
 
   // Thread the active tab label through the shell's single

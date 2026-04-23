@@ -1,5 +1,9 @@
-export type { CollectionEnvOverride } from './collection-env-resolution';
-export { resolveCollectionEnv } from './collection-env-resolution';
+export type {
+  AutoSwitchParams,
+  CollectionEnvAutoSwitchMode,
+  CollectionEnvOverride,
+} from './collection-env-resolution';
+export { resolveAutoSwitchTarget, resolveCollectionEnv } from './collection-env-resolution';
 export type { DomainIssueKind, DomainValueIssue } from './condition-validation';
 export { applyDomainValueCleanup, validateDomainValues } from './condition-validation';
 export type {

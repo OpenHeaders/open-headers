@@ -32,6 +32,7 @@ import {
   getCollectionEnvOverrides,
   getDefaultEnvironmentId,
   getEnvironments,
+  getManualEnvId,
   getVault,
   getWorkspaceVariables,
   onEnvironmentStoreChange,
@@ -340,6 +341,7 @@ async function initializeExtension(): Promise<void> {
       workspaceVariables: getWorkspaceVariables(),
       vault: getVault(),
       collectionEnvOverrides: getCollectionEnvOverrides(),
+      manualEnvId: getManualEnvId(),
     });
   });
 

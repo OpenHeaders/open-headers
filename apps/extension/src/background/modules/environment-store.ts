@@ -35,6 +35,11 @@ let environments: V5.Environment[] = [];
 let activeEnvironmentId: string | null = null;
 let defaultEnvironmentId: string | null = null;
 let collectionEnvOverrides: Record<string, string | null> = {};
+// Last env the user manually picked (or null if they chose "No env").
+// Feeds the `apply-defaults` auto-switch mode as the base that's
+// restored when a collection has no default of its own. Updated only
+// on manual picks, not by auto-switch flows.
+let manualEnvId: string | null = null;
 // Workspace-scoped singletons — both start at `version: 1` just like a
 // freshly-created persisted entity. The counter advances on every
 // SW-side write (see `setWorkspaceVariables` / `setVault`).
@@ -107,6 +112,10 @@ export function getDefaultEnvironment(): V5.Environment | null {
 
 export function getCollectionEnvOverrides(): Readonly<Record<string, string | null>> {
   return collectionEnvOverrides;
+}
+
+export function getManualEnvId(): string | null {
+  return manualEnvId;
 }
 
 export function getWorkspaceVariables(): V5.WorkspaceVariables {
@@ -247,6 +256,10 @@ export async function deleteEnvironment(uid: string): Promise<boolean> {
         defaultEnvironmentId = null;
         await persistDefaultEnvironment();
       }
+      if (manualEnvId === uid) {
+        manualEnvId = null;
+        await persistManualEnvId();
+      }
       const prevOverrides = collectionEnvOverrides;
       collectionEnvOverrides = reconcileOverrides(collectionEnvOverrides, environments);
       if (JSON.stringify(prevOverrides) !== JSON.stringify(collectionEnvOverrides)) {
@@ -292,6 +305,14 @@ export async function setDefaultEnvironment(uid: string | null): Promise<boolean
   if (defaultEnvironmentId === uid) return true;
   defaultEnvironmentId = uid;
   await persistDefaultEnvironment();
+  return true;
+}
+
+export async function setManualEnv(uid: string | null): Promise<boolean> {
+  if (uid !== null && !environments.some((e) => e.uid === uid)) return false;
+  if (manualEnvId === uid) return true;
+  manualEnvId = uid;
+  await persistManualEnvId();
   return true;
 }
 
@@ -506,6 +527,12 @@ async function persistDefaultEnvironment(): Promise<void> {
   notifyChange();
 }
 
+async function persistManualEnvId(): Promise<void> {
+  const workspaceId = assertLoaded();
+  await extensionStorage.set(wsKeys(workspaceId).manualEnvId, manualEnvId);
+  notifyChange();
+}
+
 async function persistWorkspaceVariables(): Promise<void> {
   const workspaceId = assertLoaded();
   await extensionStorage.set(wsKeys(workspaceId).workspaceVars, workspaceVariables);
@@ -527,6 +554,7 @@ interface WorkspaceSnapshot {
   workspaceVariables: V5.WorkspaceVariables;
   vault: V5.Vault;
   collectionEnvOverrides: Record<string, string | null>;
+  manualEnvId: string | null;
 }
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
@@ -542,7 +570,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     workspaceId,
   });
 
-  const [environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault, rawOverrides] =
+  const [environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault, rawOverrides, manualEnvId] =
     await Promise.all([
       extensionStorage.getValidatedArray(keys.environments, EnvironmentSchema, {
         onError: drift(keys.environments.key),
@@ -554,6 +582,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
       }),
       extensionStorage.getValidated(keys.vault, VaultSchema, { onError: vaultDrift }),
       extensionStorage.get(keys.collectionEnvOverrides),
+      extensionStorage.get(keys.manualEnvId),
     ]);
 
   const parsedOverrides: Record<string, string | null> =
@@ -571,6 +600,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     workspaceVariables: workspaceVariables ?? { schemaVersion: 5, version: 1, variables: [] },
     vault: vault ?? { schemaVersion: 5, version: 1, secrets: [] },
     collectionEnvOverrides: parsedOverrides,
+    manualEnvId: typeof manualEnvId === 'string' ? manualEnvId : null,
   };
 }
 
@@ -591,6 +621,7 @@ export async function hydrateEnvironmentsFromStorage(): Promise<void> {
   workspaceVariables = snapshot.workspaceVariables;
   vault = snapshot.vault;
   collectionEnvOverrides = reconcileOverrides(snapshot.collectionEnvOverrides, environments);
+  manualEnvId = reconcilePointer(snapshot.manualEnvId, environments);
   loadedWorkspaceId = workspaceId;
   logger.info(
     'EnvironmentStore',
@@ -607,6 +638,7 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
   workspaceVariables = snapshot.workspaceVariables;
   vault = snapshot.vault;
   collectionEnvOverrides = reconcileOverrides(snapshot.collectionEnvOverrides, environments);
+  manualEnvId = reconcilePointer(snapshot.manualEnvId, environments);
   loadedWorkspaceId = workspaceId;
   logger.info(
     'EnvironmentStore',
@@ -628,6 +660,7 @@ export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promis
     keys.workspaceVars,
     keys.vault,
     keys.collectionEnvOverrides,
+    keys.manualEnvId,
   ]);
 }
 
@@ -638,6 +671,7 @@ export function __resetForTests(): void {
   activeEnvironmentId = null;
   defaultEnvironmentId = null;
   collectionEnvOverrides = {};
+  manualEnvId = null;
   workspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
   vault = { schemaVersion: 5, version: 1, secrets: [] };
   loadedWorkspaceId = null;

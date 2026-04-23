@@ -106,6 +106,8 @@ describe('RequestExecutor', () => {
         path: 'requests/auth-coll',
         name: 'Auth',
         variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
+        pinnedEnvironmentIds: [],
+        defaultEnvironmentId: null,
       } satisfies V5.Collection,
     ]);
     const req = makeRequest({

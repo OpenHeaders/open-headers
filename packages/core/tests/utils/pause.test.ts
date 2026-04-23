@@ -22,6 +22,8 @@ const trees: CollectionTree[] = [
     name: 'Col A',
     path: 'rules/col-a',
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
     tree: [
       {
         type: 'folder',
@@ -64,6 +66,8 @@ const trees: CollectionTree[] = [
     name: 'Col B',
     path: 'rules/col-b',
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
     tree: [
       {
         type: 'rule',

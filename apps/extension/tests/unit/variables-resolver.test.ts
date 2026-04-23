@@ -139,6 +139,8 @@ describe('VariablesResolver (extension)', () => {
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
       variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
     };
     mockCollections.mockReturnValue([collection]);
     mockWsVars.mockReturnValue({
@@ -161,6 +163,8 @@ describe('VariablesResolver (extension)', () => {
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
       variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
     };
     mockCollections.mockReturnValue([collection]);
     mockWsVars.mockReturnValue({

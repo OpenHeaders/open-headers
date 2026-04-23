@@ -111,6 +111,8 @@ function makeCollectionTree(uid: string, ruleNodes: V5.TreeNode[]): V5.Collectio
     path: `rules/${uid}`,
     name: uid,
     variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
     tree: ruleNodes,
   };
 }

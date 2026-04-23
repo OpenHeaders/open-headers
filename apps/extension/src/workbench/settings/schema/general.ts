@@ -10,10 +10,12 @@ import { registerSetting } from '../registry';
 const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
 const languageSchema = v.picklist(['auto', 'en']);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
+const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
 
 export type OpenTo = v.InferOutput<typeof openToSchema>;
 export type Language = v.InferOutput<typeof languageSchema>;
 export type SettingsOpenMode = v.InferOutput<typeof settingsOpenModeSchema>;
+export type CollectionEnvAutoSwitch = v.InferOutput<typeof collectionEnvAutoSwitchSchema>;
 
 declare module '../types' {
   interface SettingsMap {
@@ -23,6 +25,7 @@ declare module '../types' {
     'general.showEmptyStateHints': boolean;
     'general.restoreTabsOnStartup': boolean;
     'general.settingsOpenMode': SettingsOpenMode;
+    'general.collectionEnvAutoSwitch': CollectionEnvAutoSwitch;
   }
 }
 
@@ -94,6 +97,39 @@ registerSetting({
   category: 'general',
   tags: ['session', 'tabs', 'restore', 'persistence'],
   scope: 'user',
+});
+
+registerSetting({
+  key: 'general.collectionEnvAutoSwitch',
+  type: 'enum',
+  default: 'apply-defaults',
+  schema: collectionEnvAutoSwitchSchema,
+  label: 'Collection Environment Switching',
+  description:
+    'How the active environment changes as you move between collections and the entities inside them (rules, requests, folders). Applies to both rule collections and API request collections. Collections can carry a default environment and pin a short list of recommended environments; this setting controls whether those defaults take over automatically.',
+  category: 'general',
+  tags: ['environment', 'collection', 'auto-switch', 'workflow'],
+  scope: 'user',
+  enumOptions: [
+    {
+      value: 'keep-selection',
+      label: 'Keep selected environment',
+      description:
+        "Whatever you have selected (including no environment) stays selected as you navigate between collections and their subfolders, rules, or requests. A collection's default only applies when no environment is selected.",
+    },
+    {
+      value: 'apply-defaults',
+      label: 'Apply collection defaults',
+      description:
+        "A collection's default takes over while you're inside it (or any subfolder, rule, or request within). Your last manual pick is the base environment — restored whenever you leave a collection or enter one without a default. No per-collection memory.",
+    },
+    {
+      value: 'follow-collection',
+      label: 'Follow each collection',
+      description:
+        "Opening a collection (or any subfolder, rule, or request inside it) with a default environment switches to that default. Picks you make inside a collection are remembered for that collection. Collections without a default don't auto-switch.",
+    },
+  ],
 });
 
 registerSetting({
