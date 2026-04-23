@@ -539,6 +539,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (activeTabId === id) return true;
       if (id.startsWith('rule-') && activeTabId === `edit-${id.replace('rule-', '')}`) return true;
       if (id.startsWith('tpl-') && activeTabId === `tpl-edit-${id.replace('tpl-', '')}`) return true;
+      if (id.startsWith('workflow-') && activeTabId === `live-wf-${id.replace('workflow-', '')}`) return true;
       return (
         (id === 'vault-row' && activeTabId === 'vault') ||
         (id === 'workspace-vars-row' && activeTabId === 'workspace-vars')

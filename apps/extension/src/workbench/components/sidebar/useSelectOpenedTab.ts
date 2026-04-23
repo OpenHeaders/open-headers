@@ -53,6 +53,14 @@ export function useSelectOpenedTab({
         containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
+    } else if (activeTabId.startsWith('live-wf-')) {
+      nodeId = `workflow-${activeTabId.replace('live-wf-', '')}`;
+      setSectionsExpanded((prev) => ({ ...prev, workflows: true }));
+      setFocusedId(nodeId);
+      setTimeout(() => {
+        containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
     } else if (activeTabId.startsWith('request-') && view === 'api-requests') {
       nodeId = activeTabId;
       const targetUid = activeTabId.replace('request-', '');
