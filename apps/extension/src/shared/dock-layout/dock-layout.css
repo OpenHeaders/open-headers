@@ -343,15 +343,25 @@
   border-radius: 3px;
 }
 
-/* Hover / active states — using pure-black alphas so the tint is clearly
-   visible on the lighter `#ececec` frame. The previous grey-128 alpha
-   was near-invisible against a neutral-grey bar. */
+/* Hover / active states — black alphas on the light `#ececec` frame,
+   white alphas on the dark `#1a1a1a` frame. Grey-128 alpha was
+   near-invisible against either. */
 .rules-dock-tab:hover {
   background: rgba(0, 0, 0, 0.06);
 }
 
 .rules-dock-tab.active:not(.focused) {
   background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.88);
+}
+
+[data-theme='dark'] .rules-dock-tab:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme='dark'] .rules-dock-tab.active:not(.focused) {
+  background: rgba(255, 255, 255, 0.45);
+  color: #1a1a1a;
 }
 
 .rules-dock-tab.dragging {
@@ -391,16 +401,16 @@
 /* ── Dock body (content area of an active dock) ───────────────────── */
 
 /* Each dock body paints as a rounded "card" inset from its Allotment.Pane,
-   so the outer `colorBgLayout` shell shows through as a 2px gutter on every
-   side. Between two adjacent cards the two 2px insets meet into a 4px
+   so the outer `colorBgLayout` shell shows through as a 3px gutter on every
+   side. Between two adjacent cards the two 3px insets meet into a 6px
    delimiter — visible without being loud. Using margin + calc (with
    box-sizing: border-box) instead of `position: absolute; inset` so the
    card reliably follows Allotment's pane-size updates during drag and
    pane-collapse (snap/close). */
 .rules-dock-body {
-  margin: 2px;
-  width: calc(100% - 4px);
-  height: calc(100% - 4px);
+  margin: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
   box-sizing: border-box;
   background: var(--ant-color-bg-container, #fff);
   border-radius: 6px;
@@ -491,9 +501,9 @@
    The host renders `renderEditor()` directly inside this div, so the card
    houses the whole tab strip + breadcrumb + editor body. */
 .rules-region-editor {
-  margin: 2px;
-  width: calc(100% - 4px);
-  height: calc(100% - 4px);
+  margin: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
   box-sizing: border-box;
   background: var(--ant-color-bg-container, #fff);
   border-radius: 6px;

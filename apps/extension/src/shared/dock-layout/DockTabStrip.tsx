@@ -96,10 +96,13 @@ function SortableDockTab<T extends string>({
             : { borderBottom: `2px solid ${token.colorPrimary}` }),
         }
       : active
-        ? // 0.10 alpha lands at ~#d8d8d8 on the `#f0f0f0` frame — a
-          // clearly-visible chip without the heavy look of `colorFill`
-          // (0.15 → ~#ccc). `colorFillTertiary` (0.04) was too faint.
-          { background: 'rgba(0, 0, 0, 0.1)', color: token.colorText }
+        ? // Active (non-focused) chip bg/color comes from the
+          // `.rules-dock-tab.active` CSS rules in dock-layout.css —
+          // expressed there so the theme split (light mode: darkened
+          // tint on light frame; dark mode: near-white tile with dark
+          // fg) can be a single `[data-theme='dark']` override rather
+          // than branching on theme detection in this component.
+          {}
         : { color: token.colorTextSecondary };
 
   const sortableStyle: React.CSSProperties = {

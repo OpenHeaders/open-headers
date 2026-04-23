@@ -37,20 +37,39 @@ html, body, #root {
 // ── Top Bar ────────────────────────────────────────────────────────
 
 .rules-topbar {
-  display: flex;
+  // Seven-track grid — leading/trailing tracks are exactly the width
+  // of the activity bars below (driven by `--ab-width` set inline from
+  // the `showToolWindowLabels` setting). The two 1fr spacers on either
+  // side of the search column get equal share of leftover space, which
+  // forces the search to the true viewport center regardless of how
+  // much content sits in the left/right groups.
+  //   [logo] [title+workspace] [spacer] [search] [spacer] [env] [settings]
+  display: grid;
+  grid-template-columns:
+    var(--ab-width, 64px) auto 1fr minmax(0, 420px) 1fr auto var(--ab-width, 64px);
   align-items: center;
-  justify-content: space-between;
-  padding: 4px 12px;
-  gap: 8px;
+  padding: 4px 0;
   flex-shrink: 0;
   height: 36px;
 }
 
-.rules-topbar-left,
+.rules-topbar-left {
+  display: flex;
+  align-items: center;
+  // Generous gap after the product name — breathing room between the
+  // brand and the workspace switcher.
+  gap: 18px;
+  // Match the horizontal padding inside the left dock body so the
+  // product name sits over the dock's content left-edge, not its
+  // outer frame.
+  padding-left: 8px;
+}
+
 .rules-topbar-right {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding-right: 8px;
 }
 
 .rules-topbar-logo {
@@ -239,13 +258,16 @@ html, body, #root {
   }
 
   &:hover:not(.disabled) {
-    background: rgba(128, 128, 128, 0.1);
+    background: rgba(0, 0, 0, 0.06);
   }
 
   // Active — panel is open for this icon, but the region doesn't have
   // keyboard focus. Renders as a "selected but unfocused" grey tint.
+  // Grey-alpha reads as near-invisible against both light `#f0f0f0`
+  // and dark `#1a1a1a` frames, so we split: black alpha for light,
+  // white alpha for dark (see `[data-theme='dark']` overrides below).
   &.active:not(.focused):not(.disabled) {
-    background: rgba(128, 128, 128, 0.18);
+    background: rgba(0, 0, 0, 0.1);
   }
 
   // Focused — panel is open AND the region owns keyboard focus. The
@@ -260,6 +282,18 @@ html, body, #root {
     opacity: 0.35;
     cursor: default;
   }
+}
+
+[data-theme='dark'] .rules-activity-icon:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+// Active tile in dark mode — a near-white bg (light-white tile) with
+// dark foreground so the selected panel's chip reads as an inverted
+// high-contrast marker against the dark frame.
+[data-theme='dark'] .rules-activity-icon.active:not(.focused):not(.disabled) {
+  background: rgba(255, 255, 255, 0.45);
+  color: #1a1a1a;
 }
 
 .rules-activity-label {

@@ -33,16 +33,8 @@ import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, OH } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
 
-const DEFAULT_WORKSPACE_NAME = 'Default Workspace';
+const DEFAULT_WORKSPACE_NAME = 'Workspace';
 const DEFAULT_WORKSPACE_COLOR = 'neutral';
-/**
- * Starting two-tone icon for the seeded default workspace. Kept in
- * sync with `DEFAULT_WORKSPACE_ICON` in
- * `rules/components/workspace-colors.ts` — the UI reads the TwoTone
- * registry key directly from the workspace entity, so this constant
- * only needs to match one of the registered icons.
- */
-const DEFAULT_WORKSPACE_ICON = 'AppstoreTwoTone';
 
 // ── In-memory state ───────────────────────────────────────────────────
 
@@ -402,7 +394,6 @@ export async function bootstrap(): Promise<void> {
     kind: 'personal',
     name: DEFAULT_WORKSPACE_NAME,
     color: DEFAULT_WORKSPACE_COLOR,
-    icon: DEFAULT_WORKSPACE_ICON,
     sortIndex: 0,
     createdAt: now,
     updatedAt: now,

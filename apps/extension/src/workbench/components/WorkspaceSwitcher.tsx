@@ -77,8 +77,10 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
           height: 28,
           display: 'inline-flex',
           alignItems: 'center',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
+          border: 'none',
+          background: 'transparent',
+          boxShadow: 'none',
+          color: token.colorText,
         }}
       >
         <Space size={6}>

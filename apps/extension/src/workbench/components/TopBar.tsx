@@ -11,6 +11,7 @@ import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { getBrowserAPI } from '@/types/browser';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useSettingValue } from '../settings/hooks';
 import EnvironmentSelector from './EnvironmentSelector';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 
@@ -55,20 +56,41 @@ const TopBar: React.FC<TopBarProps> = ({
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const openSettingsLabel = useShortcutLabel('open-settings');
 
+  // Activity-bar width in rules.less: 64px with labels, 36px compact.
+  // We mirror that onto the topbar's outer grid tracks so the logo
+  // centers over the left bar, the product name/workspace starts at
+  // the left dock edge, the env selector ends at the right dock edge,
+  // and the settings icon centers over the right bar — independent of
+  // which docks are open. (NB: dock-layout.css has duplicate 96px rules
+  // that lose to rules.less because it's imported later; if those are
+  // unified, update these numbers too.)
+  const showLabels = useSettingValue('workspaceLayout.showToolWindowLabels');
+  const activityBarWidth = showLabels ? 64 : 36;
+
   return (
     <div
       className="rules-topbar"
-      style={{
-        background: token.colorBgLayout,
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-      }}
+      style={
+        {
+          background: token.colorBgLayout,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          // Drives the grid column widths in rules.less — keeps the
+          // topbar's outer slots exactly aligned with the activity bars.
+          '--ab-width': `${activityBarWidth}px`,
+        } as React.CSSProperties
+      }
     >
-      <div className="rules-topbar-left">
+      <div
+        className="rules-topbar-logo-slot"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
         <img
           src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
           alt="Open Headers"
           className="rules-topbar-logo"
         />
+      </div>
+      <div className="rules-topbar-left">
         <span className="rules-topbar-title">Open Headers</span>
         <WorkspaceSwitcher
           workspaces={workspaces}
@@ -78,7 +100,9 @@ const TopBar: React.FC<TopBarProps> = ({
         />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, maxWidth: 420, justifyContent: 'center' }}>
+      <div aria-hidden />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
         <Button
           className="rules-topbar-search"
           type="text"
@@ -107,6 +131,8 @@ const TopBar: React.FC<TopBarProps> = ({
         </Button>
       </div>
 
+      <div aria-hidden />
+
       <div className="rules-topbar-right">
         <EnvironmentSelector
           environments={environments}
@@ -125,6 +151,11 @@ const TopBar: React.FC<TopBarProps> = ({
           }
           onSetCollectionPinnedEnvs={onSetCollectionPinnedEnvs}
         />
+      </div>
+      <div
+        className="rules-topbar-settings-slot"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
         <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Settings</ShortcutHintTitle>}>
           <Button size="small" type="text" icon={<SettingOutlined />} onClick={onOpenSettings} />
         </Tooltip>
