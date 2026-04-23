@@ -280,7 +280,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   void onTabChange;
 
   return (
-    <div className="rules-bottom-panel" style={{ background: token.colorBgLayout }}>
+    <div className="rules-bottom-panel">
       <div
         className={`rules-bottom-content${activeTab === 'test-runs' ? ' is-table' : ''}`}
         style={{ color: token.colorTextTertiary }}

@@ -103,6 +103,15 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       colorPrimary: accentColor,
       borderRadius: 6,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      // Shell frame tone — sits behind the dock/editor "cards" and shows
+      // through as the gutter between them. antd's default light value
+      // (`#f5f5f5`) is almost indistinguishable from `colorBgContainer`
+      // (`#fff`), so the gutters disappear. A slightly darker neutral
+      // gives us the IDE-style visible frame without loud contrast.
+      // Dark mode is already fine by default (layout `#000` vs
+      // container `#141414`), but we pin it explicitly so the relationship
+      // doesn't drift if antd changes its algorithm.
+      colorBgLayout: isDarkMode ? '#1a1a1a' : '#e8e8e8',
     },
   };
 

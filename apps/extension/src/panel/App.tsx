@@ -1,6 +1,6 @@
 import 'allotment/dist/style.css';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
+import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
 import {
   createShellEventBus,
   makeEditorTabCollisionDetection,
@@ -152,7 +152,7 @@ function PanelContent() {
   // can keep the workspace's wider defaults while the narrower DevTools
   // surface stays compact. Labels default to off here for that reason.
   const [activityLabels, setActivityLabels] = useSetting('devpanelLayout.showToolWindowLabels');
-  const [bottomFullWidth] = useSetting('devpanelLayout.bottomPanelFullWidth');
+  const [bottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
   const [sidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
   const toggleLabels = useCallback(() => setActivityLabels(!activityLabels), [activityLabels, setActivityLabels]);
 
@@ -494,7 +494,7 @@ function PanelContent() {
         onHorizontalResize={noopResize}
         onVerticalResize={noopResize}
         renderEditorTabDragPreview={renderEditorTabDragPreview}
-        bottomPanelFullWidth={bottomFullWidth}
+        bottomPanelAlignment={bottomPanelAlignment as BottomPanelAlignment}
         showToolWindowLabels={activityLabels}
         sidebarLayout={sidebarLayout as SidebarLayoutVariant}
         onToggleLabels={toggleLabels}

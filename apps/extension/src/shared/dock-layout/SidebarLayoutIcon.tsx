@@ -18,6 +18,9 @@ const OCCUPIED: Record<SidebarLayoutVariant, readonly number[]> = {
   proportional: [1, 3, 5],
   compact: [1, 2, 5],
   stacked: [1, 2, 3],
+  // Dynamic mirrors the proportional three-band layout visually; the "D"
+  // glyph drawn on top of the middle band is what differentiates it.
+  dynamic: [1, 3, 5],
 };
 
 const SidebarLayoutIcon: React.FC<SidebarLayoutIconProps> = ({ variant, size = 20 }) => {
@@ -75,6 +78,20 @@ const SidebarLayoutIcon: React.FC<SidebarLayoutIconProps> = ({ variant, size = 2
       {[...dividerYs].map((y) => (
         <line key={`div-${y}`} x1={SIDEBAR_LEFT} y1={y} x2={SIDEBAR_RIGHT} y2={y} stroke={stroke} strokeWidth={0.75} />
       ))}
+      {variant === 'dynamic' && (
+        <text
+          x={(SIDEBAR_RIGHT + 19.5) / 2}
+          y={(SIDEBAR_TOP + SIDEBAR_BOTTOM) / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={9}
+          fontWeight={700}
+          fontFamily="system-ui, sans-serif"
+          fill={fill}
+        >
+          D
+        </text>
+      )}
     </svg>
   );
 };

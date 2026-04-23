@@ -64,7 +64,16 @@ export interface ToolWindowDef<TWindowId extends string = string> {
 }
 
 /** Layout variant for the activity bar. */
-export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked';
+export type SidebarLayoutVariant = 'proportional' | 'compact' | 'stacked' | 'dynamic';
+
+/**
+ * Where the bottom panel sits in the shell. VS Code-style four options:
+ *   - center   → bottom nested inside the middle column only (sidebars run full height)
+ *   - left     → bottom spans [left sidebar + editor]; right sidebar runs full height
+ *   - right    → bottom spans [editor + right sidebar]; left sidebar runs full height
+ *   - justify  → bottom spans the full viewport width (below both sidebars + editor)
+ */
+export type BottomPanelAlignment = 'center' | 'left' | 'right' | 'justify';
 
 export interface DropZoneRect {
   left: number;

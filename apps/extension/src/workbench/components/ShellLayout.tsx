@@ -17,6 +17,7 @@
 import type React from 'react';
 import { useCallback } from 'react';
 import {
+  type BottomPanelAlignment,
   makeEditorTabCollisionDetection,
   ShellLayout as SharedShellLayout,
   type SidebarLayoutVariant,
@@ -58,7 +59,7 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   renderEditorTabDragPreview,
 }) => {
   const [showLabels, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
-  const bottomPanelFullWidth = useSettingValue('workspaceLayout.bottomPanelFullWidth');
+  const bottomPanelAlignment = useSettingValue('workspaceLayout.bottomPanelAlignment') as BottomPanelAlignment;
   const sidebarLayout = useSettingValue('workspaceLayout.sidebarLayout') as SidebarLayoutVariant;
   const toggleLabels = useCallback(() => setShowLabels(!showLabels), [showLabels, setShowLabels]);
 
@@ -71,7 +72,7 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
       onHorizontalResize={onHorizontalResize}
       onVerticalResize={onVerticalResize}
       renderEditorTabDragPreview={renderEditorTabDragPreview}
-      bottomPanelFullWidth={bottomPanelFullWidth}
+      bottomPanelAlignment={bottomPanelAlignment}
       showToolWindowLabels={showLabels}
       sidebarLayout={sidebarLayout}
       onToggleLabels={toggleLabels}

@@ -22,6 +22,7 @@ export {
   useShellKeyDown,
 } from './shell-event-bus';
 export type {
+  BottomPanelAlignment,
   DockSlot,
   DockState,
   DropZoneRect,

@@ -6,6 +6,25 @@
  * drop zones, and drag previews look identical in both surfaces.
  */
 
+/* Allotment draws a 1px `::before` separator between adjacent panes; with
+   the card borders doing the delimiter work, those extra hairlines read as
+   a faint inner grid. Hide them inside the shell. */
+.rules-main .split-view-view::before {
+  display: none !important;
+}
+
+/* Allotment's default sash hover/drag indicator paints a 3–4 px blue bar
+   on top of the pane boundary (`--focus-border`, #007fd4). In our card
+   layout that bar overlaps the cards during drag and reads as a new panel
+   being drawn over the editor. Replace it with a quiet grey that blends
+   into the gutter — resize still works, no visual intrusion. */
+.rules-main .sash::before,
+.rules-main .sash.sash-hover::before,
+.rules-main .sash.sash-active::before,
+.rules-main .split-view-sash-dragging .sash.sash-active::before {
+  background: transparent !important;
+}
+
 /* ── Main row (activity bar | content | activity bar) ─────────────── */
 
 .rules-main {
@@ -139,6 +158,87 @@
 .rules-activity-bar--compact .rules-activity-subslot,
 .rules-activity-bar--compact .rules-activity-group--bottom {
   min-height: 32px;
+}
+
+/* ── Dynamic layout ───────────────────────────────────────────────── */
+/* Dynamic has two behaviors stacked on top of each other:
+   1. Empty-slot migration — when a dock's `active` is null, its subslot
+      collapses to content-size so adjacent live subslots absorb the space
+      via flex-grow. This is purely class-driven below; the host flips
+      `--empty` modifiers from dock state.
+   2. Live height mirroring — upper subslots receive a `--mirror-grow`
+      custom property from JS (useDynamicActivityMirror) that holds each
+      adjacent pane's pixel height. As a flex-grow weight, this makes the
+      subslots size in proportion to their actual content panels. */
+
+/* The bottom group is taken out of flex flow so the top group fills the
+   FULL activity-bar height — otherwise the subslot divider computes
+   against (bar − bottom_group) and falls ~BG_H pixels above the pane
+   divider. With absolute positioning, the subslot divider lands at the
+   exact same y as the pane divider. The bottom-group chips overlay the
+   empty bottom of the last subslot; since chips stack from the top of
+   each strip there's no visible overlap in practice. */
+.rules-activity-bar--layout-dynamic {
+  position: relative;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-group--top {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot {
+  flex: var(--mirror-grow, 1) 1 0;
+  min-height: 44px;
+}
+
+/* Dynamic aligns the subslot divider with the pane divider. The default
+   `margin-top: 6px` on subslot--second pushes the subslot (and its top
+   border) below the flex boundary — fine for the static variants, but
+   in Dynamic it visibly lags behind the pane divider. Drop only the
+   margin-top so the border lands on the flex boundary; keep the
+   `padding-top: 6px` from the base rule so the first chip inside
+   still has breathing room below the dashed line. */
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--second {
+  margin-top: 0;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--empty {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+/* When either upper subslot is empty, the live one drops its flex-grow
+   so both subslots sit content-sized at the top of the top group, with
+   empty space below. Without this, a live upper-first with flex-grow
+   would fill the top group and push the empty upper-second's chips
+   down to the bar bottom, where they'd overlap the absolutely-pinned
+   bottom group. Scoped to the top group to leave the mirroring path
+   intact when both subslots are live. */
+.rules-activity-bar--layout-dynamic
+  .rules-activity-group--top:has(.rules-activity-subslot--empty)
+  .rules-activity-subslot:not(.rules-activity-subslot--empty) {
+  flex: 0 0 auto;
+}
+
+/* Bottom group is absolute-pinned at the bar bottom at all times in
+   Dynamic mode so the top group always fills the full bar height — this
+   is what keeps the subslot divider aligned with the pane divider. We
+   keep this regardless of whether the lower dock has an active tool
+   window; mirroring stays consistent across both sides of the shell. */
+.rules-activity-bar--layout-dynamic .rules-activity-group--bottom {
+  flex: 0 0 auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.rules-activity-bar--compact.rules-activity-bar--layout-dynamic .rules-activity-subslot {
+  min-height: 32px;
+}
+.rules-activity-bar--compact.rules-activity-bar--layout-dynamic .rules-activity-subslot--empty {
+  min-height: 0;
 }
 
 /* ── Dock tab strip ───────────────────────────────────────────────── */
@@ -287,8 +387,21 @@
 
 /* ── Dock body (content area of an active dock) ───────────────────── */
 
+/* Each dock body paints as a rounded "card" inset from its Allotment.Pane,
+   so the outer `colorBgLayout` shell shows through as a 1px gutter on every
+   side. Between two adjacent cards the two 1px insets meet into a 2px
+   gutter — matches the tight IDE spacing. Using margin + calc
+   (with box-sizing: border-box) instead of `position: absolute; inset`
+   so the card reliably follows Allotment's pane-size updates during drag
+   and pane-collapse (snap/close). */
 .rules-dock-body {
-  height: 100%;
+  margin: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  box-sizing: border-box;
+  background: var(--ant-color-bg-container, #fff);
+  border: 1px solid var(--ant-color-border, #d9d9d9);
+  border-radius: 6px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -311,6 +424,22 @@
 
 .rules-region {
   outline: none;
+}
+
+/* The editor pane is its own "card" — same treatment as `.rules-dock-body`.
+   The host renders `renderEditor()` directly inside this div, so the card
+   houses the whole tab strip + breadcrumb + editor body. */
+.rules-region-editor {
+  margin: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  box-sizing: border-box;
+  background: var(--ant-color-bg-container, #fff);
+  border: 1px solid var(--ant-color-border, #d9d9d9);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Drop zone overlay (shown during dock tab drag) ───────────────── */

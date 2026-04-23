@@ -1057,7 +1057,7 @@ const TabBar: React.FC<TabBarProps> = ({
   return (
     <div
       className="rules-tabs-bar"
-      style={{ background: token.colorBgLayout, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+      style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
     >
       {/* Scrollable tabs */}
       <div className="rules-tabs-scroll" ref={scrollRef} onWheel={handleWheel}>

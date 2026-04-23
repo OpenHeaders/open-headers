@@ -25,7 +25,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
   return (
     <div
       className="rules-right-panel rules-right-panel--docs"
-      style={{ background: token.colorBgLayout, display: 'flex', flexDirection: 'column', height: '100%' }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
       <div
         className="rules-right-panel-header"

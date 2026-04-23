@@ -12,9 +12,9 @@
 import { BulbFilled, BulbOutlined, LayoutOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { useRules } from '@hooks/useRules';
-import { Dropdown, type MenuProps, Space, theme } from 'antd';
+import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
 import { productStatusExtras, StatusPill } from '@/shared/status';
@@ -22,7 +22,7 @@ import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { useSetting, useSettingValue } from '../settings/hooks';
-import type { SidebarLayoutVariantSetting } from '../settings/schema/workspace-layout';
+import type { BottomPanelAlignmentSetting, SidebarLayoutVariantSetting } from '../settings/schema/workspace-layout';
 import { DOCK_LABELS, TOOL_WINDOW_MAP } from '../tool-windows';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
@@ -55,10 +55,58 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
   const showThemeSwitcher = useSettingValue('workspaceLayout.footerShowThemeSwitcher');
   const showPanelToggles = useSettingValue('workspaceLayout.footerShowPanelToggles');
   const showLayoutMenu = useSettingValue('workspaceLayout.footerShowLayoutMenu');
-  const [bottomFullWidth, setBottomFullWidth] = useSetting('workspaceLayout.bottomPanelFullWidth');
+  const [bottomPanelAlignment, setBottomPanelAlignment] = useSetting('workspaceLayout.bottomPanelAlignment');
   const [showLabels, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
   const [sidebarLayout, setSidebarLayout] = useSetting('workspaceLayout.sidebarLayout');
   const toggleLabels = useCallback(() => setShowLabels(!showLabels), [showLabels, setShowLabels]);
+
+  // The layout menu stays open across item clicks so the user can A/B
+  // different combinations without reopening. antd's Dropdown signals
+  // menu-item vs trigger clicks via `info.source` — we only close on
+  // trigger / outside-click, never on `menu`.
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  const handleLayoutOpenChange: NonNullable<React.ComponentProps<typeof Dropdown>['onOpenChange']> = (
+    nextOpen,
+    info,
+  ) => {
+    if (info?.source === 'menu') return;
+    setLayoutMenuOpen(nextOpen);
+    // Reset submenu keys when the Dropdown closes so the next open
+    // starts clean (no auto-expanded submenus).
+    if (!nextOpen) setMenuOpenKeys([]);
+  };
+
+  // Submenu open state, controlled so we can keep a submenu expanded
+  // across an item click (antd's default is to collapse on click).
+  // Default [] means hover-to-expand behaves normally.
+  // The footer bottom-panel-alignment dropdown:
+  // - Forces the tooltip closed when open (otherwise both pop up on the
+  //   same click and overlap).
+  // - Stays open when the user clicks a menu item (antd signals that via
+  //   `info.source === 'menu'`) so they can A/B alignments in place,
+  //   matching the main layout dropdown's behavior.
+  const [bottomAlignDropdownOpen, setBottomAlignDropdownOpen] = useState(false);
+  const handleBottomAlignOpenChange: NonNullable<React.ComponentProps<typeof Dropdown>['onOpenChange']> = (
+    nextOpen,
+    info,
+  ) => {
+    if (info?.source === 'menu') return;
+    setBottomAlignDropdownOpen(nextOpen);
+  };
+
+  const [menuOpenKeys, setMenuOpenKeys] = useState<string[]>([]);
+  const handleMenuClick: NonNullable<MenuProps['onClick']> = ({ keyPath }) => {
+    // keyPath is [leafKey, parentSubmenuKey, ...grandparents]. If the
+    // click was inside a submenu, antd will fire onOpenChange right
+    // after to close it — we re-add the parent key on the next frame
+    // so the submenu stays visible for A/B comparison.
+    if (keyPath.length > 1) {
+      const parentKey = keyPath[1];
+      requestAnimationFrame(() => {
+        setMenuOpenKeys((prev) => (prev.includes(parentKey) ? prev : [...prev, parentKey]));
+      });
+    }
+  };
 
   const enabledCount = rules.filter((r) => r.enabled).length;
 
@@ -83,12 +131,35 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
     </Space>
   );
 
+  // Map alignment value → the matching LayoutMenuIcon glyph so both the
+  // submenu and the footer quick-toggle stay visually in sync.
+  const alignmentGlyph = (a: BottomPanelAlignmentSetting) =>
+    a === 'justify'
+      ? 'bottom-full'
+      : a === 'left'
+        ? 'bottom-left'
+        : a === 'right'
+          ? 'bottom-right'
+          : 'bottom-nested';
+
   const layoutMenu: MenuProps['items'] = [
     {
-      key: 'bottom-full',
-      icon: menuIconWrap(<LayoutMenuIcon kind={bottomFullWidth ? 'bottom-full' : 'bottom-nested'} />),
-      label: menuLabel(bottomFullWidth, 'Bottom panel full width'),
-      onClick: () => setBottomFullWidth(!bottomFullWidth),
+      key: 'bottom-alignment',
+      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
+      label: 'Bottom Panel Alignment',
+      children: (
+        [
+          { key: 'center', label: 'Center (nested)' },
+          { key: 'left', label: 'Left' },
+          { key: 'right', label: 'Right' },
+          { key: 'justify', label: 'Justify (full width)' },
+        ] as { key: BottomPanelAlignmentSetting; label: string }[]
+      ).map((opt) => ({
+        key: `bottom-${opt.key}`,
+        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+        onClick: () => setBottomPanelAlignment(opt.key),
+      })),
     },
     {
       key: 'show-labels',
@@ -99,12 +170,13 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
     {
       key: 'sidebar-layout',
       icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
-      label: 'Sidebar Layout',
+      label: 'Activity Bar Layout',
       children: (
         [
           { key: 'proportional', label: 'Proportional (even halves)' },
           { key: 'compact', label: 'Compact (bottom pinned)' },
           { key: 'stacked', label: 'Stacked (all at top)' },
+          { key: 'dynamic', label: 'Dynamic (follows panel heights)' },
         ] as { key: SidebarLayoutVariantSetting; label: string }[]
       ).map((opt) => ({
         key: `sidebar-${opt.key}`,
@@ -117,7 +189,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
     {
       key: 'restore',
       icon: menuIconWrap(<LayoutMenuIcon kind="restore-hidden" />),
-      label: 'Restore Hidden Sidebar Tools',
+      label: 'Restore Hidden Activity Bar Tools',
       disabled: tl.state.hidden.length === 0,
       children:
         tl.state.hidden.length === 0
@@ -145,8 +217,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
     <div
       className="rules-statusbar"
       style={{
-        background: token.colorBgContainer,
-        borderTop: `1px solid ${token.colorBorderSecondary}`,
+        background: token.colorBgLayout,
         color: token.colorTextSecondary,
       }}
     >
@@ -163,14 +234,6 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
       </div>
 
       <div className="rules-statusbar-right">
-        {showVersion && (
-          <>
-            <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
-              v{__APP_VERSION__}
-            </span>
-            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
-          </>
-        )}
         {showThemeSwitcher && (
           <>
             <Dropdown
@@ -233,12 +296,69 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
                 position="right"
                 onClick={() => tl.toggleRegion('right')}
               />
+              <Dropdown
+                placement="topRight"
+                trigger={['click']}
+                open={bottomAlignDropdownOpen}
+                onOpenChange={handleBottomAlignOpenChange}
+                menu={{
+                  items: (
+                    [
+                      { key: 'center', label: 'Center (nested)' },
+                      { key: 'left', label: 'Left' },
+                      { key: 'right', label: 'Right' },
+                      { key: 'justify', label: 'Justify (full width)' },
+                    ] as { key: BottomPanelAlignmentSetting; label: string }[]
+                  ).map((opt) => ({
+                    key: `footer-bottom-${opt.key}`,
+                    icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+                    label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+                    onClick: () => setBottomPanelAlignment(opt.key),
+                  })),
+                }}
+              >
+                <Tooltip
+                  title={
+                    bottomPanelAlignment === 'center'
+                      ? 'Bottom panel: center (nested)'
+                      : bottomPanelAlignment === 'left'
+                        ? 'Bottom panel: left-aligned'
+                        : bottomPanelAlignment === 'right'
+                          ? 'Bottom panel: right-aligned'
+                          : 'Bottom panel: full width'
+                  }
+                  placement="top"
+                  // Force closed while the Dropdown is open; undefined
+                  // lets antd handle hover normally when it isn't.
+                  open={bottomAlignDropdownOpen ? false : undefined}
+                >
+                  <div
+                    className="rules-panel-toggle"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Choose bottom panel alignment"
+                  >
+                    <LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} size={16} />
+                  </div>
+                </Tooltip>
+              </Dropdown>
             </div>
             <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
           </>
         )}
         {showLayoutMenu && (
-          <Dropdown menu={{ items: layoutMenu }} placement="topRight" trigger={['click']}>
+          <Dropdown
+            menu={{
+              items: layoutMenu,
+              openKeys: menuOpenKeys,
+              onOpenChange: setMenuOpenKeys,
+              onClick: handleMenuClick,
+            }}
+            placement="topRight"
+            trigger={['click']}
+            open={layoutMenuOpen}
+            onOpenChange={handleLayoutOpenChange}
+          >
             <div
               className="rules-statusbar-item rules-layout-toggle"
               role="button"
@@ -249,6 +369,14 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
               <LayoutOutlined style={{ fontSize: 13 }} />
             </div>
           </Dropdown>
+        )}
+        {showVersion && (
+          <>
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
+              v{__APP_VERSION__}
+            </span>
+          </>
         )}
       </div>
     </div>

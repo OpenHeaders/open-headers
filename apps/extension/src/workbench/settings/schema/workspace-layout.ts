@@ -13,8 +13,11 @@
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
-const sidebarLayoutSchema = v.picklist(['proportional', 'compact', 'stacked']);
+const sidebarLayoutSchema = v.picklist(['proportional', 'compact', 'stacked', 'dynamic']);
 export type SidebarLayoutVariantSetting = v.InferOutput<typeof sidebarLayoutSchema>;
+
+const bottomPanelAlignmentSchema = v.picklist(['center', 'left', 'right', 'justify']);
+export type BottomPanelAlignmentSetting = v.InferOutput<typeof bottomPanelAlignmentSchema>;
 
 declare module '../types' {
   interface SettingsMap {
@@ -22,7 +25,7 @@ declare module '../types' {
     'workspaceLayout.footerShowThemeSwitcher': boolean;
     'workspaceLayout.footerShowPanelToggles': boolean;
     'workspaceLayout.footerShowLayoutMenu': boolean;
-    'workspaceLayout.bottomPanelFullWidth': boolean;
+    'workspaceLayout.bottomPanelAlignment': BottomPanelAlignmentSetting;
     'workspaceLayout.showToolWindowLabels': boolean;
     'workspaceLayout.sidebarLayout': SidebarLayoutVariantSetting;
   }
@@ -86,17 +89,23 @@ registerSetting({
 // ── Shell behavior ───────────────────────────────────────────────────
 
 registerSetting({
-  key: 'workspaceLayout.bottomPanelFullWidth',
-  type: 'boolean',
-  default: false,
-  schema: v.boolean(),
-  label: 'Bottom Panel Full Width',
+  key: 'workspaceLayout.bottomPanelAlignment',
+  type: 'enum',
+  default: 'center',
+  schema: bottomPanelAlignmentSchema,
+  label: 'Bottom Panel Alignment',
   description:
-    'When enabled, the bottom region spans the full viewport width instead of nesting inside the middle column.',
+    'Where the bottom panel sits in the shell. Left/right aligns it under one sidebar + the editor; center nests it inside the middle column; justify spans the full viewport.',
   category: 'workspaceLayout',
   subcategory: 'Shell',
-  tags: ['bottom', 'panel', 'layout', 'wide'],
+  tags: ['bottom', 'panel', 'layout', 'align', 'wide'],
   scope: 'user',
+  enumOptions: [
+    { value: 'center', label: 'Center', description: 'Bottom panel nested inside the middle column' },
+    { value: 'left', label: 'Left', description: 'Bottom spans left sidebar + editor' },
+    { value: 'right', label: 'Right', description: 'Bottom spans editor + right sidebar' },
+    { value: 'justify', label: 'Justify', description: 'Bottom spans the full viewport width' },
+  ],
 });
 
 registerSetting({
@@ -115,9 +124,9 @@ registerSetting({
 registerSetting({
   key: 'workspaceLayout.sidebarLayout',
   type: 'enum',
-  default: 'proportional',
+  default: 'dynamic',
   schema: sidebarLayoutSchema,
-  label: 'Sidebar Layout',
+  label: 'Activity Bar Layout',
   description: 'How the activity-bar splits the top and bottom tool-window groups.',
   category: 'workspaceLayout',
   subcategory: 'Shell',
@@ -127,5 +136,11 @@ registerSetting({
     { value: 'proportional', label: 'Proportional', description: 'Top and bottom groups split the activity bar 50/50' },
     { value: 'compact', label: 'Compact', description: 'Top group sizes to content; bottom pinned to bottom' },
     { value: 'stacked', label: 'Stacked', description: 'All groups clustered at the top with dividers between' },
+    {
+      value: 'dynamic',
+      label: 'Dynamic',
+      description:
+        'Chip groups mirror their adjacent panel heights. Closed docks collapse to content and live neighbors absorb the space.',
+    },
   ],
 });

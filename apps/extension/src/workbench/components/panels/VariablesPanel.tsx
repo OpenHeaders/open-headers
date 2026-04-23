@@ -421,7 +421,6 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     <div
       className="rules-right-panel rules-right-panel--variables"
       style={{
-        background: token.colorBgLayout,
         display: 'flex',
         flexDirection: 'column',
         height: '100%',

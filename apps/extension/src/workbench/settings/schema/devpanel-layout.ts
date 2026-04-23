@@ -13,15 +13,18 @@
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
-const sidebarLayoutSchema = v.picklist(['proportional', 'compact', 'stacked']);
+const sidebarLayoutSchema = v.picklist(['proportional', 'compact', 'stacked', 'dynamic']);
 export type DevpanelSidebarLayoutVariantSetting = v.InferOutput<typeof sidebarLayoutSchema>;
+
+const bottomPanelAlignmentSchema = v.picklist(['center', 'left', 'right', 'justify']);
+export type DevpanelBottomPanelAlignmentSetting = v.InferOutput<typeof bottomPanelAlignmentSchema>;
 
 declare module '../types' {
   interface SettingsMap {
     'devpanelLayout.footerShowThemeSwitcher': boolean;
     'devpanelLayout.footerShowPanelToggles': boolean;
     'devpanelLayout.footerShowLayoutMenu': boolean;
-    'devpanelLayout.bottomPanelFullWidth': boolean;
+    'devpanelLayout.bottomPanelAlignment': DevpanelBottomPanelAlignmentSetting;
     'devpanelLayout.showToolWindowLabels': boolean;
     'devpanelLayout.sidebarLayout': DevpanelSidebarLayoutVariantSetting;
   }
@@ -72,17 +75,23 @@ registerSetting({
 // ── Shell behavior ───────────────────────────────────────────────────
 
 registerSetting({
-  key: 'devpanelLayout.bottomPanelFullWidth',
-  type: 'boolean',
-  default: false,
-  schema: v.boolean(),
-  label: 'Bottom Panel Full Width',
+  key: 'devpanelLayout.bottomPanelAlignment',
+  type: 'enum',
+  default: 'center',
+  schema: bottomPanelAlignmentSchema,
+  label: 'Bottom Panel Alignment',
   description:
-    'When enabled, the bottom region spans the full DevTools panel width instead of nesting inside the middle column.',
+    'Where the bottom panel sits in the DevTools panel. Left/right aligns it under one sidebar + the editor; center nests it inside the middle column; justify spans the full width.',
   category: 'devpanelLayout',
   subcategory: 'Shell',
-  tags: ['bottom', 'panel', 'layout', 'wide', 'devtools'],
+  tags: ['bottom', 'panel', 'layout', 'align', 'wide', 'devtools'],
   scope: 'user',
+  enumOptions: [
+    { value: 'center', label: 'Center', description: 'Bottom panel nested inside the middle column' },
+    { value: 'left', label: 'Left', description: 'Bottom spans left sidebar + editor' },
+    { value: 'right', label: 'Right', description: 'Bottom spans editor + right sidebar' },
+    { value: 'justify', label: 'Justify', description: 'Bottom spans the full DevTools panel width' },
+  ],
 });
 
 registerSetting({
@@ -102,9 +111,9 @@ registerSetting({
 registerSetting({
   key: 'devpanelLayout.sidebarLayout',
   type: 'enum',
-  default: 'proportional',
+  default: 'dynamic',
   schema: sidebarLayoutSchema,
-  label: 'Sidebar Layout',
+  label: 'Activity Bar Layout',
   description: 'How the activity-bar splits the top and bottom tool-window groups in the DevTools panel.',
   category: 'devpanelLayout',
   subcategory: 'Shell',
@@ -114,5 +123,11 @@ registerSetting({
     { value: 'proportional', label: 'Proportional', description: 'Top and bottom groups split the activity bar 50/50' },
     { value: 'compact', label: 'Compact', description: 'Top group sizes to content; bottom pinned to bottom' },
     { value: 'stacked', label: 'Stacked', description: 'All groups clustered at the top with dividers between' },
+    {
+      value: 'dynamic',
+      label: 'Dynamic',
+      description:
+        'Chip groups mirror their adjacent panel heights. Closed docks collapse to content and live neighbors absorb the space.',
+    },
   ],
 });

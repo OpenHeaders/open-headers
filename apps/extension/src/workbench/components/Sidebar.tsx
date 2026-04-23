@@ -731,7 +731,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="rules-sidebar" style={{ background: token.colorBgLayout }}>
+    <div className="rules-sidebar">
       <div className="rules-sidebar-toolbar" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
         <Input
           ref={filterRef}

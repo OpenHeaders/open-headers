@@ -3,14 +3,17 @@
  * and the DevTools Inspector panel.
  *
  * Renders the six tool-window docks across three visual regions (left
- * column, right column, bottom bar) plus a central editor area. Two
- * layout modes switch at runtime:
+ * column, right column, bottom bar) plus a central editor area. Four
+ * bottom-panel alignments switch at runtime:
  *
- *   - Classic (bottomPanelFullWidth = false): the bottom region lives
- *     inside the middle column, between the editor and the status bar.
- *
- *   - Wide bottom (bottomPanelFullWidth = true): the bottom region spans
- *     the full viewport width, underneath both side columns.
+ *   - center  — bottom nested inside the middle column only (sidebars
+ *               run full height; this is the classic IDE look)
+ *   - left    — bottom spans [left sidebar + editor]; right sidebar
+ *               runs full height
+ *   - right   — bottom spans [editor + right sidebar]; left sidebar
+ *               runs full height
+ *   - justify — bottom spans the full viewport width (below both
+ *               sidebars + editor)
  *
  * Drag-and-drop is wired through dnd-kit: DockTabStrip tabs are draggable,
  * DropZoneOverlay renders six drop targets during a drag, and onDragEnd
@@ -43,7 +46,7 @@ import { ALL_DOCK_SLOTS, regionDocks } from './constants';
 import DockTabStrip from './DockTabStrip';
 import DropZoneOverlay from './DropZoneOverlay';
 import type { FocusStore } from './focus-store';
-import type { DockSlot, DropZoneRect, SidebarLayoutVariant, ToolWindowDef } from './types';
+import type { BottomPanelAlignment, DockSlot, DropZoneRect, SidebarLayoutVariant, ToolWindowDef } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
 // ── Props ─────────────────────────────────────────────────────────────
@@ -61,7 +64,7 @@ export interface ShellLayoutProps<T extends string> {
   /** Render the floating drag preview for an editor tab (owned by the host). */
   renderEditorTabDragPreview?: (tabId: string) => React.ReactNode;
   /** Layout configuration — read from settings store by the host. */
-  bottomPanelFullWidth: boolean;
+  bottomPanelAlignment: BottomPanelAlignment;
   showToolWindowLabels: boolean;
   sidebarLayout: SidebarLayoutVariant;
   onToggleLabels: () => void;
@@ -147,7 +150,6 @@ interface BottomRegionProps<T extends string> {
 }
 
 function BottomRegion<T extends string>({ tl, renderToolWindow }: BottomRegionProps<T>) {
-  const { token } = theme.useToken();
   const leftDock = tl.state.docks['bottom-left'];
   const rightDock = tl.state.docks['bottom-right'];
   const leftActive = leftDock.active;
@@ -158,14 +160,7 @@ function BottomRegion<T extends string>({ tl, renderToolWindow }: BottomRegionPr
     const active = dock.active;
     if (!active) return null;
     return (
-      <div
-        className="rules-dock-body rules-dock-body--bottom"
-        data-dock-slot={slot}
-        style={{
-          background: token.colorBgLayout,
-          borderTop: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
+      <div className="rules-dock-body rules-dock-body--bottom" data-dock-slot={slot}>
         <div className="rules-dock-content">{renderToolWindow(active, slot)}</div>
       </div>
     );
@@ -197,6 +192,10 @@ interface VerticalBarProps<T extends string> {
   sidebarLayout: SidebarLayoutVariant;
   onToggleLabels: () => void;
   focusStore: FocusStore;
+  /** Passed into the Dynamic height-mirror hook so it re-runs — and
+      re-binds its ResizeObserver — whenever the layout restructures and
+      the dock-body DOM nodes remount under a new subtree. */
+  layoutRevision: string;
 }
 
 /**
@@ -212,6 +211,122 @@ function FocusAwareStrip<T extends string>({
   return <DockTabStrip<T> {...props} isFocused={focused} />;
 }
 
+/**
+ * Dynamic mode — mirror the heights of the two adjacent docks on this
+ * side onto the upper subslots' flex-grow weights. Uses ResizeObserver on
+ * the live `.rules-dock-body` elements (located via `data-dock-slot`) so
+ * the mirror tracks Allotment's own drag updates without us having to tap
+ * into Allotment's internals.
+ *
+ * - Only attaches when `enabled` (sidebarLayout === 'dynamic').
+ * - If a dock is closed (`active === null`), there is no dock-body element
+ *   in the DOM; the corresponding subslot carries `--empty` (which flips
+ *   to `flex: 0 0 auto` in CSS) and no grow weight is written.
+ * - Runs on a rAF to coalesce multiple RO callbacks during a drag.
+ */
+function useDynamicActivityMirror(
+  enabled: boolean,
+  side: 'left' | 'right',
+  barRef: React.RefObject<HTMLDivElement | null>,
+  activeSignal: string,
+) {
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+
+    const firstSubslot = bar.querySelector<HTMLElement>('.rules-activity-subslot--first');
+    const secondSubslot = bar.querySelector<HTMLElement>('.rules-activity-subslot--second');
+    const topGroup = bar.querySelector<HTMLElement>('.rules-activity-group--top');
+    const bottomGroup = bar.querySelector<HTMLElement>('.rules-activity-group--bottom');
+
+    const clear = () => {
+      firstSubslot?.style.removeProperty('--mirror-grow');
+      secondSubslot?.style.removeProperty('--mirror-grow');
+      if (topGroup) topGroup.style.flex = '';
+      if (bottomGroup) {
+        bottomGroup.style.top = '';
+        bottomGroup.style.bottom = '';
+      }
+    };
+
+    if (!enabled) {
+      clear();
+      return;
+    }
+
+    const shell = bar.closest('.rules-main') ?? document.body;
+    const topDock = shell.querySelector<HTMLElement>(`.rules-dock-body[data-dock-slot="${side}-top"]`);
+    const bottomDock = shell.querySelector<HTMLElement>(`.rules-dock-body[data-dock-slot="${side}-bottom"]`);
+    // The side region — activity bar total height ≠ region height in
+    // justify / left / right alignments (the bottom panel pushes the
+    // region up). Measuring the region lets us clamp the bar's top group
+    // to match, so subslot dividers align with pane dividers absolutely.
+    const sideRegion = shell.querySelector<HTMLElement>(`.rules-region-${side}`);
+
+    if (!topDock && !bottomDock && !sideRegion) {
+      clear();
+      return;
+    }
+
+    let raf = 0;
+    const sync = () => {
+      raf = 0;
+      if (firstSubslot) {
+        if (topDock) {
+          const h = Math.max(1, Math.round(topDock.getBoundingClientRect().height));
+          firstSubslot.style.setProperty('--mirror-grow', String(h));
+        } else {
+          firstSubslot.style.removeProperty('--mirror-grow');
+        }
+      }
+      if (secondSubslot) {
+        if (bottomDock) {
+          const h = Math.max(1, Math.round(bottomDock.getBoundingClientRect().height));
+          secondSubslot.style.setProperty('--mirror-grow', String(h));
+        } else {
+          secondSubslot.style.removeProperty('--mirror-grow');
+        }
+      }
+
+      // Clamp the top group's height to the side region's height so the
+      // mirroring proportions translate to absolute y-positions that match
+      // the region's pane boundaries. The bottom group is absolute-pinned
+      // (per CSS) at the end of the top group — in center/right-right-bar
+      // cases region==bar so it stays at bar bottom; in justify / the
+      // region-adjacent alignments it shifts up to meet the bottom panel.
+      if (sideRegion && topGroup && bottomGroup) {
+        const regionH = Math.round(sideRegion.getBoundingClientRect().height);
+        if (regionH > 0) {
+          topGroup.style.flex = `0 0 ${regionH}px`;
+          bottomGroup.style.top = `${regionH}px`;
+          bottomGroup.style.bottom = 'auto';
+        } else {
+          topGroup.style.flex = '';
+          bottomGroup.style.top = '';
+          bottomGroup.style.bottom = '';
+        }
+      }
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(sync);
+    };
+
+    sync();
+    const ro = new ResizeObserver(schedule);
+    if (topDock) ro.observe(topDock);
+    if (bottomDock) ro.observe(bottomDock);
+    if (sideRegion) ro.observe(sideRegion);
+
+    return () => {
+      ro.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+      clear();
+    };
+  }, [enabled, side, barRef, activeSignal]);
+}
+
 function VerticalActivityBar<T extends string>({
   side,
   tl,
@@ -222,6 +337,7 @@ function VerticalActivityBar<T extends string>({
   sidebarLayout,
   onToggleLabels,
   focusStore,
+  layoutRevision,
 }: VerticalBarProps<T>) {
   const { token } = theme.useToken();
   const [upperFirstSlot, upperSecondSlot] = regionDocks(side);
@@ -230,6 +346,24 @@ function VerticalActivityBar<T extends string>({
   const upperFirstWindows = getWindows(upperFirstSlot);
   const upperSecondWindows = getWindows(upperSecondSlot);
   const lowerWindows = getWindows(lowerSlot);
+
+  // `--empty` migration: when a dock's `active` is null its content panel
+  // isn't rendered, so its chip cluster should collapse to content-size
+  // and let the live neighbor absorb the space. This is the first half of
+  // Dynamic; the height-mirror hook below adds the second half.
+  const upperFirstEmpty = tl.state.docks[upperFirstSlot].active === null;
+  const upperSecondEmpty = tl.state.docks[upperSecondSlot].active === null;
+  const lowerEmpty = tl.state.docks[lowerSlot].active === null;
+
+  // Encoded dock activity across this side — whenever any of the three
+  // docks opens/closes the mirror hook re-runs and re-binds to the newly
+  // mounted / unmounted `.rules-dock-body` nodes. `layoutRevision` covers
+  // layout restructures (e.g. toggling bottomPanelAlignment) that remount
+  // the dock bodies under a new subtree without changing active ids.
+  const activeSignal = `${tl.state.docks[upperFirstSlot].active ?? ''}|${tl.state.docks[upperSecondSlot].active ?? ''}|${tl.state.docks[lowerSlot].active ?? ''}|${layoutRevision}`;
+
+  const barRef = useRef<HTMLDivElement | null>(null);
+  useDynamicActivityMirror(sidebarLayout === 'dynamic', side, barRef, activeSignal);
 
   const barMenu: ItemType[] = [
     {
@@ -260,22 +394,28 @@ function VerticalActivityBar<T extends string>({
   return (
     <Dropdown menu={{ items: barMenu }} trigger={['contextMenu']}>
       <div
-        className={`rules-activity-bar rules-activity-bar--${side} ${showLabels ? '' : 'rules-activity-bar--compact'} rules-activity-bar--layout-${sidebarLayout}`}
-        style={{
-          background: token.colorBgLayout,
-          [side === 'left' ? 'borderRight' : 'borderLeft']: `1px solid ${token.colorBorderSecondary}`,
-        }}
+        ref={barRef}
+        className={`rules-activity-bar rules-activity-bar--${side} ${showLabels ? '' : 'rules-activity-bar--compact'} rules-activity-bar--layout-${sidebarLayout}${lowerEmpty ? ' rules-activity-bar--lower-empty' : ''}`}
+        style={{ background: token.colorBgLayout }}
         data-side={side}
       >
         <div className="rules-activity-group rules-activity-group--top">
-          <div className="rules-activity-subslot rules-activity-subslot--first">
+          <div
+            className={`rules-activity-subslot rules-activity-subslot--first${upperFirstEmpty ? ' rules-activity-subslot--empty' : ''}`}
+          >
             {renderStrip(upperFirstSlot, upperFirstWindows)}
           </div>
-          <div className="rules-activity-subslot rules-activity-subslot--second">
+          <div
+            className={`rules-activity-subslot rules-activity-subslot--second${upperSecondEmpty ? ' rules-activity-subslot--empty' : ''}`}
+          >
             {renderStrip(upperSecondSlot, upperSecondWindows)}
           </div>
         </div>
-        <div className="rules-activity-group rules-activity-group--bottom">{renderStrip(lowerSlot, lowerWindows)}</div>
+        <div
+          className={`rules-activity-group rules-activity-group--bottom${lowerEmpty ? ' rules-activity-group--bottom-empty' : ''}`}
+        >
+          {renderStrip(lowerSlot, lowerWindows)}
+        </div>
       </div>
     </Dropdown>
   );
@@ -291,7 +431,7 @@ function ShellLayoutInner<T extends string>({
   onHorizontalResize,
   onVerticalResize,
   renderEditorTabDragPreview,
-  bottomPanelFullWidth,
+  bottomPanelAlignment,
   showToolWindowLabels,
   sidebarLayout,
   onToggleLabels,
@@ -466,85 +606,143 @@ function ShellLayoutInner<T extends string>({
   // ── Editor pane ───────────────────────────────────────────────────
 
   const editorPane = (
-    <div className="rules-region rules-region-editor" data-region="editor" tabIndex={-1} style={{ height: '100%' }}>
+    <div className="rules-region rules-region-editor" data-region="editor" tabIndex={-1}>
       {renderEditor()}
     </div>
   );
 
-  const classicMiddle = (
+  // Reusable Allotment.Pane factories so each alignment variant stays
+  // readable. They're plain JSX returns (not components) — Allotment
+  // only inspects React.Children for direct Pane elements, which these
+  // still are.
+  const leftSidebarPane = (
+    <Allotment.Pane
+      preferredSize={sizes.sidebar.preferred}
+      minSize={sizes.sidebar.min}
+      maxSize={sizes.sidebar.max}
+      visible={leftOpen}
+      priority={LayoutPriority.Low}
+      snap
+    >
+      <SideRegion<T>
+        region="left"
+        tl={tl}
+        renderToolWindow={renderToolWindow}
+        topSize={topBottomHalves.top}
+        bottomSize={topBottomHalves.bottom}
+      />
+    </Allotment.Pane>
+  );
+
+  const rightSidebarPane = (
+    <Allotment.Pane
+      preferredSize={sizes.inspector.preferred}
+      minSize={sizes.inspector.min}
+      maxSize={sizes.inspector.max}
+      visible={rightOpen}
+      snap
+    >
+      <SideRegion<T>
+        region="right"
+        tl={tl}
+        renderToolWindow={renderToolWindow}
+        topSize={topBottomHalves.top}
+        bottomSize={topBottomHalves.bottom}
+      />
+    </Allotment.Pane>
+  );
+
+  const bottomPane = (
+    <Allotment.Pane
+      preferredSize={sizes.bottom.preferred}
+      minSize={sizes.bottom.min}
+      maxSize={sizes.bottom.max}
+      visible={bottomOpen}
+      snap
+    >
+      <BottomRegion tl={tl} renderToolWindow={renderToolWindow} />
+    </Allotment.Pane>
+  );
+
+  // Editor stacked over bottom — used by the `center` alignment only.
+  const editorOverBottom = (
     <Allotment vertical proportionalLayout={false} onChange={handleVerticalChange}>
       <Allotment.Pane>{editorPane}</Allotment.Pane>
-      <Allotment.Pane
-        preferredSize={sizes.bottom.preferred}
-        minSize={sizes.bottom.min}
-        maxSize={sizes.bottom.max}
-        visible={bottomOpen}
-        snap
-      >
-        <BottomRegion tl={tl} renderToolWindow={renderToolWindow} />
-      </Allotment.Pane>
+      {bottomPane}
     </Allotment>
   );
 
-  const wideMiddle = editorPane;
-
+  // Three-column row — sidebar | middle | inspector. The `middle` slot
+  // differs per alignment (e.g. center stacks editor+bottom in middle).
   const threeColumnRow = (middle: React.ReactNode) => (
     <Allotment proportionalLayout={false} onChange={handleHorizontalChange}>
-      <Allotment.Pane
-        preferredSize={sizes.sidebar.preferred}
-        minSize={sizes.sidebar.min}
-        maxSize={sizes.sidebar.max}
-        visible={leftOpen}
-        priority={LayoutPriority.Low}
-        snap
-      >
-        <SideRegion<T>
-          region="left"
-          tl={tl}
-          renderToolWindow={renderToolWindow}
-          topSize={topBottomHalves.top}
-          bottomSize={topBottomHalves.bottom}
-        />
-      </Allotment.Pane>
+      {leftSidebarPane}
       <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
         {middle}
       </Allotment.Pane>
-      <Allotment.Pane
-        preferredSize={sizes.inspector.preferred}
-        minSize={sizes.inspector.min}
-        maxSize={sizes.inspector.max}
-        visible={rightOpen}
-        snap
-      >
-        <SideRegion<T>
-          region="right"
-          tl={tl}
-          renderToolWindow={renderToolWindow}
-          topSize={topBottomHalves.top}
-          bottomSize={topBottomHalves.bottom}
-        />
-      </Allotment.Pane>
+      {rightSidebarPane}
     </Allotment>
   );
 
-  const centerContent = bottomPanelFullWidth ? (
-    <Allotment key="wide" vertical proportionalLayout={false} onChange={handleVerticalChange}>
-      <Allotment.Pane>{threeColumnRow(wideMiddle)}</Allotment.Pane>
-      <Allotment.Pane
-        preferredSize={sizes.bottom.preferred}
-        minSize={sizes.bottom.min}
-        maxSize={sizes.bottom.max}
-        visible={bottomOpen}
-        snap
-      >
-        <BottomRegion tl={tl} renderToolWindow={renderToolWindow} />
-      </Allotment.Pane>
-    </Allotment>
-  ) : (
-    <div key="classic" style={{ height: '100%', width: '100%' }}>
-      {threeColumnRow(classicMiddle)}
-    </div>
-  );
+  // Four alignment variants. Each gets its own React key so toggling the
+  // setting cleanly remounts the Allotment tree (sizing state resets).
+  let centerContent: React.ReactNode;
+  if (bottomPanelAlignment === 'center') {
+    // H[ left | V[editor | bottom] | right ]
+    centerContent = (
+      <div key="center" style={{ height: '100%', width: '100%' }}>
+        {threeColumnRow(editorOverBottom)}
+      </div>
+    );
+  } else if (bottomPanelAlignment === 'justify') {
+    // V[ H[left | editor | right] | bottom ]
+    centerContent = (
+      <Allotment key="justify" vertical proportionalLayout={false} onChange={handleVerticalChange}>
+        <Allotment.Pane>{threeColumnRow(editorPane)}</Allotment.Pane>
+        {bottomPane}
+      </Allotment>
+    );
+  } else if (bottomPanelAlignment === 'left') {
+    // H[ V[ H[left | editor] | bottom(left+editor) ] | right ]
+    centerContent = (
+      <Allotment key="left" proportionalLayout={false} onChange={handleHorizontalChange}>
+        <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
+          <Allotment vertical proportionalLayout={false} onChange={handleVerticalChange}>
+            <Allotment.Pane>
+              <Allotment proportionalLayout={false}>
+                {leftSidebarPane}
+                <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
+                  {editorPane}
+                </Allotment.Pane>
+              </Allotment>
+            </Allotment.Pane>
+            {bottomPane}
+          </Allotment>
+        </Allotment.Pane>
+        {rightSidebarPane}
+      </Allotment>
+    );
+  } else {
+    // 'right' — H[ left | V[ H[editor | right] | bottom(editor+right) ] ]
+    centerContent = (
+      <Allotment key="right" proportionalLayout={false} onChange={handleHorizontalChange}>
+        {leftSidebarPane}
+        <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
+          <Allotment vertical proportionalLayout={false} onChange={handleVerticalChange}>
+            <Allotment.Pane>
+              <Allotment proportionalLayout={false}>
+                <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
+                  {editorPane}
+                </Allotment.Pane>
+                {rightSidebarPane}
+              </Allotment>
+            </Allotment.Pane>
+            {bottomPane}
+          </Allotment>
+        </Allotment.Pane>
+      </Allotment>
+    );
+  }
 
   const dragging = draggingId !== null;
   const highlightedSlot = useMemo<DockSlot | null>(() => {
@@ -577,15 +775,16 @@ function ShellLayoutInner<T extends string>({
     const leftRectX = ACTIVITY_BAR_WIDTH;
     const leftRectEnd = leftRectX + displaySidebarW;
     const rightRectX = fullW - ACTIVITY_BAR_WIDTH - displayInspectorW;
-
-    const bottomLeftX = leftRectEnd;
-    const bottomWidth = Math.max(0, rightRectX - leftRectEnd);
+    const editorAreaEnd = rightRectX; // where editor space ends / right sidebar starts
+    const editorAreaStart = leftRectEnd; // where editor space starts / left sidebar ends
 
     let leftRect: DropZoneRect;
     let rightRect: DropZoneRect;
     let bottomRect: DropZoneRect;
 
-    if (bottomPanelFullWidth) {
+    if (bottomPanelAlignment === 'justify') {
+      // Bottom spans the full width between the two activity bars; both
+      // sidebars stop where the bottom begins.
       const topH = Math.max(0, fullH - displayBottomH);
       leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: topH };
       rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: topH };
@@ -595,13 +794,36 @@ function ShellLayoutInner<T extends string>({
         width: Math.max(0, fullW - ACTIVITY_BAR_WIDTH * 2),
         height: displayBottomH,
       };
+    } else if (bottomPanelAlignment === 'left') {
+      // Bottom spans [left sidebar + editor]; right sidebar full height.
+      const topH = Math.max(0, fullH - displayBottomH);
+      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: topH };
+      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: fullH };
+      bottomRect = {
+        left: leftRectX,
+        top: topH,
+        width: Math.max(0, editorAreaEnd - leftRectX),
+        height: displayBottomH,
+      };
+    } else if (bottomPanelAlignment === 'right') {
+      // Bottom spans [editor + right sidebar]; left sidebar full height.
+      const topH = Math.max(0, fullH - displayBottomH);
+      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: fullH };
+      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: topH };
+      bottomRect = {
+        left: editorAreaStart,
+        top: topH,
+        width: Math.max(0, rightRectX + displayInspectorW - editorAreaStart),
+        height: displayBottomH,
+      };
     } else {
+      // 'center' — sidebars run full height, bottom lives between them.
       leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: fullH };
       rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: fullH };
       bottomRect = {
-        left: bottomLeftX,
+        left: editorAreaStart,
         top: Math.max(0, fullH - displayBottomH),
-        width: bottomWidth,
+        width: Math.max(0, editorAreaEnd - editorAreaStart),
         height: displayBottomH,
       };
     }
@@ -633,7 +855,7 @@ function ShellLayoutInner<T extends string>({
     horizontalSizes,
     verticalSizes,
     sizes,
-    bottomPanelFullWidth,
+    bottomPanelAlignment,
     leftOpen,
     rightOpen,
     bottomOpen,
@@ -651,6 +873,7 @@ function ShellLayoutInner<T extends string>({
         sidebarLayout={sidebarLayout}
         onToggleLabels={onToggleLabels}
         focusStore={focusStore}
+        layoutRevision={bottomPanelAlignment}
       />
       <div className="rules-main-horizontal">{centerContent}</div>
       <VerticalActivityBar<T>
@@ -663,6 +886,7 @@ function ShellLayoutInner<T extends string>({
         sidebarLayout={sidebarLayout}
         onToggleLabels={onToggleLabels}
         focusStore={focusStore}
+        layoutRevision={bottomPanelAlignment}
       />
     </div>
   );

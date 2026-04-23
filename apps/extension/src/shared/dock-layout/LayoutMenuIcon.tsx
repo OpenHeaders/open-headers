@@ -4,6 +4,8 @@ import type React from 'react';
 export type LayoutMenuIconKind =
   | 'bottom-full'
   | 'bottom-nested'
+  | 'bottom-left'
+  | 'bottom-right'
   | 'show-labels'
   | 'hide-labels'
   | 'restore-hidden'
@@ -61,6 +63,26 @@ const LayoutMenuIcon: React.FC<LayoutMenuIconProps> = ({ kind, size = 16 }) => {
         <line x1={11} y1={0.5} x2={11} y2={12.5} stroke={stroke} strokeWidth={1} />
         <rect x={5} y={8.5} width={6} height={4} fill={fill} stroke={stroke} strokeWidth={1} fillOpacity={0.15} />
         <line x1={5} y1={8.5} x2={11} y2={8.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'bottom-left') {
+    // Bottom spans [left sidebar + editor]; right sidebar full height.
+    content = (
+      <>
+        <line x1={5} y1={0.5} x2={5} y2={8.5} stroke={stroke} strokeWidth={1} />
+        <line x1={11} y1={0.5} x2={11} y2={12.5} stroke={stroke} strokeWidth={1} />
+        <rect x={0.5} y={8.5} width={10.5} height={4} rx={1.5} fill={fill} stroke={stroke} strokeWidth={1} fillOpacity={0.15} />
+        <line x1={0.5} y1={8.5} x2={11} y2={8.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'bottom-right') {
+    // Bottom spans [editor + right sidebar]; left sidebar full height.
+    content = (
+      <>
+        <line x1={5} y1={0.5} x2={5} y2={12.5} stroke={stroke} strokeWidth={1} />
+        <line x1={11} y1={0.5} x2={11} y2={8.5} stroke={stroke} strokeWidth={1} />
+        <rect x={5} y={8.5} width={10.5} height={4} rx={1.5} fill={fill} stroke={stroke} strokeWidth={1} fillOpacity={0.15} />
+        <line x1={5} y1={8.5} x2={15.5} y2={8.5} stroke={stroke} strokeWidth={1} />
       </>
     );
   } else if (kind === 'show-labels') {

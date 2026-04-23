@@ -2,7 +2,7 @@ import { BulbFilled, BulbOutlined, LayoutOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { DockLayoutApi } from '@/shared/dock-layout';
 import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
@@ -49,10 +49,32 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   const showThemeSwitcher = useSettingValue('devpanelLayout.footerShowThemeSwitcher');
   const showPanelToggles = useSettingValue('devpanelLayout.footerShowPanelToggles');
   const showLayoutMenu = useSettingValue('devpanelLayout.footerShowLayoutMenu');
-  const [bottomFullWidth, setBottomFullWidth] = useSetting('devpanelLayout.bottomPanelFullWidth');
+  const [bottomPanelAlignment, setBottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
   const [showLabels, setShowLabels] = useSetting('devpanelLayout.showToolWindowLabels');
   const [sidebarLayout, setSidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
   const toggleLabels = useCallback(() => setShowLabels(!showLabels), [showLabels, setShowLabels]);
+
+  // Keep the layout Dropdown open across item clicks so the user can A/B
+  // combinations; close only on trigger re-click or outside-click.
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  const handleLayoutOpenChange: NonNullable<React.ComponentProps<typeof Dropdown>['onOpenChange']> = (
+    nextOpen,
+    info,
+  ) => {
+    if (info?.source === 'menu') return;
+    setLayoutMenuOpen(nextOpen);
+    if (!nextOpen) setMenuOpenKeys([]);
+  };
+
+  const [menuOpenKeys, setMenuOpenKeys] = useState<string[]>([]);
+  const handleMenuClick: NonNullable<MenuProps['onClick']> = ({ keyPath }) => {
+    if (keyPath.length > 1) {
+      const parentKey = keyPath[1];
+      requestAnimationFrame(() => {
+        setMenuOpenKeys((prev) => (prev.includes(parentKey) ? prev : [...prev, parentKey]));
+      });
+    }
+  };
 
   const menuIconWrap = (node: React.ReactNode) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18 }}>
@@ -67,14 +89,36 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
     </Space>
   );
 
-  type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked';
+  type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
+  type BottomPanelAlignmentSetting = 'center' | 'left' | 'right' | 'justify';
+
+  const alignmentGlyph = (a: BottomPanelAlignmentSetting) =>
+    a === 'justify'
+      ? 'bottom-full'
+      : a === 'left'
+        ? 'bottom-left'
+        : a === 'right'
+          ? 'bottom-right'
+          : 'bottom-nested';
 
   const layoutMenu: MenuProps['items'] = [
     {
-      key: 'bottom-full',
-      icon: menuIconWrap(<LayoutMenuIcon kind={bottomFullWidth ? 'bottom-full' : 'bottom-nested'} />),
-      label: menuLabel(bottomFullWidth, 'Bottom panel full width'),
-      onClick: () => setBottomFullWidth(!bottomFullWidth),
+      key: 'bottom-alignment',
+      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
+      label: 'Bottom Panel Alignment',
+      children: (
+        [
+          { key: 'center', label: 'Center (nested)' },
+          { key: 'left', label: 'Left' },
+          { key: 'right', label: 'Right' },
+          { key: 'justify', label: 'Justify (full width)' },
+        ] as { key: BottomPanelAlignmentSetting; label: string }[]
+      ).map((opt) => ({
+        key: `bottom-${opt.key}`,
+        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+        onClick: () => setBottomPanelAlignment(opt.key),
+      })),
     },
     {
       key: 'show-labels',
@@ -85,12 +129,13 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
     {
       key: 'sidebar-layout',
       icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
-      label: 'Sidebar Layout',
+      label: 'Activity Bar Layout',
       children: (
         [
           { key: 'proportional', label: 'Proportional (even halves)' },
           { key: 'compact', label: 'Compact (bottom pinned)' },
           { key: 'stacked', label: 'Stacked (all at top)' },
+          { key: 'dynamic', label: 'Dynamic (follows panel heights)' },
         ] as { key: SidebarLayoutVariantSetting; label: string }[]
       ).map((opt) => ({
         key: `sidebar-${opt.key}`,
@@ -103,7 +148,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
     {
       key: 'restore',
       icon: menuIconWrap(<LayoutMenuIcon kind="restore-hidden" />),
-      label: 'Restore Hidden Sidebar Tools',
+      label: 'Restore Hidden Activity Bar Tools',
       disabled: tl.state.hidden.length === 0,
       children:
         tl.state.hidden.length === 0
@@ -234,7 +279,18 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           </>
         )}
         {showLayoutMenu && (
-          <Dropdown menu={{ items: layoutMenu }} placement="topRight" trigger={['click']}>
+          <Dropdown
+            menu={{
+              items: layoutMenu,
+              openKeys: menuOpenKeys,
+              onOpenChange: setMenuOpenKeys,
+              onClick: handleMenuClick,
+            }}
+            placement="topRight"
+            trigger={['click']}
+            open={layoutMenuOpen}
+            onOpenChange={handleLayoutOpenChange}
+          >
             <div
               className="rules-statusbar-item rules-layout-toggle"
               role="button"
