@@ -391,16 +391,16 @@
 /* ── Dock body (content area of an active dock) ───────────────────── */
 
 /* Each dock body paints as a rounded "card" inset from its Allotment.Pane,
-   so the outer `colorBgLayout` shell shows through as a 1px gutter on every
-   side. Between two adjacent cards the two 1px insets meet into a 2px
-   gutter — matches the tight IDE spacing. Using margin + calc
-   (with box-sizing: border-box) instead of `position: absolute; inset`
-   so the card reliably follows Allotment's pane-size updates during drag
-   and pane-collapse (snap/close). */
+   so the outer `colorBgLayout` shell shows through as a 2px gutter on every
+   side. Between two adjacent cards the two 2px insets meet into a 4px
+   delimiter — visible without being loud. Using margin + calc (with
+   box-sizing: border-box) instead of `position: absolute; inset` so the
+   card reliably follows Allotment's pane-size updates during drag and
+   pane-collapse (snap/close). */
 .rules-dock-body {
-  margin: 1px;
-  width: calc(100% - 2px);
-  height: calc(100% - 2px);
+  margin: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
   box-sizing: border-box;
   background: var(--ant-color-bg-container, #fff);
   border-radius: 6px;
@@ -491,9 +491,9 @@
    The host renders `renderEditor()` directly inside this div, so the card
    houses the whole tab strip + breadcrumb + editor body. */
 .rules-region-editor {
-  margin: 1px;
-  width: calc(100% - 2px);
-  height: calc(100% - 2px);
+  margin: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
   box-sizing: border-box;
   background: var(--ant-color-bg-container, #fff);
   border-radius: 6px;

@@ -320,15 +320,20 @@ function useDynamicActivityMirror(
         }
       }
 
-      // Clamp the top group's height to the side region's height so the
-      // mirroring proportions translate to absolute y-positions that match
-      // the region's pane boundaries. The bottom group is absolute-pinned
-      // (per CSS) at the end of the top group — in center/right-right-bar
-      // cases region==bar so it stays at bar bottom; in justify / the
-      // region-adjacent alignments it shifts up to meet the bottom panel.
-      if (sideRegion && topGroup && bottomGroup) {
+      // Clamp the top group to the side region's height so subslot
+      // dividers align with pane dividers absolutely. Only applies when
+      // the region is actually shorter than the bar (justify mode on
+      // either side, and the side adjacent to the bottom panel in
+      // left/right modes). When the region == bar height (center mode,
+      // or the "non-aligned" side in left/right modes), we clear the
+      // inline styles so the default CSS — top group fills bar, bottom
+      // group absolute `bottom: 0` — keeps the lower chip cluster at
+      // the bar's bottom edge instead of pushing it off-screen.
+      if (sideRegion && topGroup && bottomGroup && bar) {
         const regionH = Math.round(sideRegion.getBoundingClientRect().height);
-        if (regionH > 0) {
+        const barH = Math.round(bar.getBoundingClientRect().height);
+        // A few px tolerance to absorb subpixel/border-box rounding.
+        if (regionH > 0 && regionH < barH - 4) {
           topGroup.style.flex = `0 0 ${regionH}px`;
           bottomGroup.style.top = `${regionH}px`;
           bottomGroup.style.bottom = 'auto';
@@ -350,6 +355,9 @@ function useDynamicActivityMirror(
     if (topDock) ro.observe(topDock);
     if (bottomDock) ro.observe(bottomDock);
     if (sideRegion) ro.observe(sideRegion);
+    // Observe the bar itself so the clamp-vs-default decision re-runs
+    // when the shell resizes (e.g. window resize changes barH).
+    ro.observe(bar);
 
     return () => {
       ro.disconnect();
