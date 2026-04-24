@@ -33,6 +33,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { isWorkflowComplete } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRuleComplete } from '@openheaders/core/utils';
+import { scratchLabelForMode } from '../breadcrumbs';
 import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -81,6 +82,13 @@ export function tabIcon(
   unresolvableRuleUids: ReadonlySet<string> = EMPTY_SET,
   liveWorkflows: V5.LiveWorkflow[] = [],
   unresolvableWorkflowUids: ReadonlySet<string> = EMPTY_SET,
+  options?: {
+    /** Drop list-alignment paddings (empty arrow slot on rules, 36px
+     *  method-tag min-width on requests). Tooltips set this so the icon
+     *  hugs neighboring text instead of reserving space for siblings
+     *  that don't exist in the tooltip context. */
+    compact?: boolean;
+  },
 ): React.ReactNode {
   if (tab.mode === 'rule-flow') return <ApartmentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
   if (tab.mode === 'run-report') return <ExperimentOutlined style={{ fontSize: 12, color: '#1677ff' }} />;
@@ -143,7 +151,7 @@ export function tabIcon(
           fontWeight: 700,
           color,
           fontFamily: "'SF Mono', monospace",
-          minWidth: 36,
+          minWidth: options?.compact ? undefined : 36,
           display: 'inline-block',
           opacity: muted ? 0.7 : 1,
         }}
@@ -161,7 +169,7 @@ export function tabIcon(
   // reason so the user knows to fix the variable, not the rule.
   const unresolved = tab.ruleUid ? unresolvableRuleUids.has(tab.ruleUid) : false;
   const isActive = rule ? rule.enabled && isRuleComplete(rule) && !paused && !unresolved : false;
-  return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive, paused });
+  return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive, paused, compactArrow: options?.compact });
 }
 
 const REQUEST_METHOD_COLORS: Record<string, string> = {
@@ -553,15 +561,12 @@ const SortableTab: React.FC<SortableTabProps> = ({
   // Hover tooltip shows the tab's breadcrumb path (workspace excluded).
   // Root segment stays plain text; folders carry a neutral folder glyph;
   // entity segments mirror the tab's own icon so type is always readable.
-  // Draft tabs (create modes before first save) inject a grey "Draft"
-  // segment between root and entity so the user can tell at a glance
-  // the tab hasn't been saved.
-  type TooltipSegmentKind = 'root' | 'folder' | 'draft' | 'entity';
-  const isDraftTab =
-    tab.mode === 'create' ||
-    tab.mode === 'request-create' ||
-    tab.mode === 'live-variable-create' ||
-    tab.mode === 'live-workflow-create';
+  // Scratch tabs (create modes before first save — the entity doesn't
+  // exist in storage yet) inject a grey "Scratch" segment between root
+  // and entity. "Scratch" is chosen over "Draft" because persisted
+  // entities can also carry a draft state and the two would collide.
+  type TooltipSegmentKind = 'root' | 'folder' | 'scratch' | 'entity';
+  const scratchLabel = scratchLabelForMode(tab.mode);
   const tooltipSegments: { label: string; kind: TooltipSegmentKind }[] = [];
   if (tabPath && tabPath.length > 0) {
     tooltipSegments.push({ label: tabPath[0], kind: 'root' });
@@ -569,13 +574,13 @@ const SortableTab: React.FC<SortableTabProps> = ({
       tooltipSegments.push({ label: tabPath[i], kind: 'folder' });
     }
     if (tabPath.length >= 2) {
-      if (isDraftTab) tooltipSegments.push({ label: 'Draft', kind: 'draft' });
+      if (scratchLabel) tooltipSegments.push({ label: scratchLabel, kind: 'scratch' });
       tooltipSegments.push({ label: tabPath[tabPath.length - 1], kind: 'entity' });
     }
   }
   const tooltipTitle =
     tooltipSegments.length > 0 ? (
-      <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', lineHeight: 1.4 }}>
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', lineHeight: 1.4 }}>
         {tooltipSegments.map((s, i) => {
           const icon =
             s.kind === 'folder' ? (
@@ -591,18 +596,24 @@ const SortableTab: React.FC<SortableTabProps> = ({
                 unresolvableRuleUids,
                 liveWorkflows,
                 unresolvableWorkflowUids,
+                { compact: true },
               )
             ) : null;
-          const color = s.kind === 'draft' ? token.colorTextTertiary : token.colorText;
+          const color = s.kind === 'scratch' ? token.colorTextTertiary : token.colorText;
+          // Each segment groups with its leading chevron into a single
+          // nowrap inline-flex so wrap never breaks between a chevron
+          // and the label it precedes — breaks only happen between
+          // whole segments.
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: path segments are inherently positional
-            <Fragment key={`${s.label}-${i}`}>
+            <span
+              key={`${s.label}-${i}`}
+              style={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', color }}
+            >
               {i > 0 && <span style={{ color: token.colorTextTertiary, margin: '0 5px' }}>{'›'}</span>}
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color }}>
-                {icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
-                <span>{s.label}</span>
-              </span>
-            </Fragment>
+              {icon && <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: 4 }}>{icon}</span>}
+              <span>{s.label}</span>
+            </span>
           );
         })}
       </span>
@@ -615,13 +626,16 @@ const SortableTab: React.FC<SortableTabProps> = ({
       <Tooltip
         title={tooltipTitle}
         color={token.colorBgElevated}
+        overlayClassName="rules-tab-path-tooltip"
         overlayInnerStyle={{
           color: token.colorText,
           fontSize: 11,
-          padding: '5px 10px',
-          boxShadow: `0 4px 12px rgba(0, 0, 0, 0.1)`,
+          padding: '3px 8px',
+          border: `1px solid ${token.colorBorderSecondary}`,
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
         }}
-        placement="bottom"
+        placement="bottomLeft"
+        arrow={false}
         mouseEnterDelay={0.5}
         mouseLeaveDelay={0}
         destroyTooltipOnHide
@@ -648,6 +662,9 @@ interface TabSearchProps {
   unresolvableRequestUids: ReadonlySet<string>;
   liveWorkflows: V5.LiveWorkflow[];
   unresolvableWorkflowUids: ReadonlySet<string>;
+  /** Breadcrumb path for a tab (workspace excluded) — rendered as muted
+   *  secondary line so users can disambiguate rows with the same name. */
+  getTabPath?: (tab: WorkbenchTab) => string[];
   onSwitch: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopen: (closed: ClosedTab) => void;
@@ -666,6 +683,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   unresolvableRequestUids,
   liveWorkflows,
   unresolvableWorkflowUids,
+  getTabPath,
   onSwitch,
   recentlyClosed,
   onReopen,
@@ -753,6 +771,10 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
           {filteredTabs.map((tab, idx) => {
             const isActive = tab.id === activeTabId;
             const isFocused = idx === focusedIndex;
+            const path = getTabPath?.(tab) ?? [];
+            // Secondary line = breadcrumb minus the entity (last) segment.
+            // Nothing to show for single-segment paths (Settings, etc.).
+            const secondarySegments = path.length > 1 ? path.slice(0, -1) : [];
             return (
               // biome-ignore lint/a11y/useKeyWithClickEvents: handled by parent onKeyDown
               // biome-ignore lint/a11y/noStaticElementInteractions: tab search item
@@ -760,21 +782,59 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 key={tab.id}
                 className="rules-tab-search-item"
                 style={{
-                  background: isFocused ? token.colorFillSecondary : 'transparent',
+                  ...(isFocused ? { background: token.colorFillSecondary } : null),
                   fontWeight: isActive ? 500 : 400,
+                  alignItems: 'flex-start',
                 }}
                 onClick={() => {
                   onSwitch(tab.id);
                   onClose();
                 }}
               >
-                <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
-                  {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids, liveWorkflows, unresolvableWorkflowUids)}
-                </span>
                 <span
-                  style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontSize: 13, marginTop: 1 }}
                 >
-                  {tab.label}
+                  {tabIcon(
+                    tab,
+                    rules,
+                    templates,
+                    pausedUids,
+                    requests,
+                    unresolvableRequestUids,
+                    unresolvableRuleUids,
+                    liveWorkflows,
+                    unresolvableWorkflowUids,
+                    { compact: true },
+                  )}
+                </span>
+                <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>
+                    {tab.label}
+                  </span>
+                  {secondarySegments.length > 0 && (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap',
+                        fontSize: 10,
+                        color: token.colorTextTertiary,
+                        fontWeight: 400,
+                      }}
+                    >
+                      {secondarySegments.map((seg, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: path segments are inherently positional
+                        <Fragment key={`${seg}-${i}`}>
+                          {i > 0 && <span style={{ margin: '0 4px' }}>{'›'}</span>}
+                          {i > 0 && (
+                            <FolderOpenOutlined style={{ fontSize: 9, marginRight: 3 }} />
+                          )}
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{seg}</span>
+                        </Fragment>
+                      ))}
+                    </span>
+                  )}
                 </span>
                 {(tab.dirty || tab.mode === 'create') && (
                   <span
@@ -808,19 +868,27 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 filteredClosed.map((closed, idx) => {
                   const globalIdx = filteredTabs.length + idx;
                   const isFocused = globalIdx === focusedIndex;
+                  const path = getTabPath?.(closed.tab) ?? [];
+                  const secondarySegments = path.length > 1 ? path.slice(0, -1) : [];
                   return (
                     // biome-ignore lint/a11y/useKeyWithClickEvents: handled by parent onKeyDown
                     // biome-ignore lint/a11y/noStaticElementInteractions: tab search item
                     <div
                       key={`closed-${closed.tab.id}-${closed.closedAt}`}
                       className="rules-tab-search-item"
-                      style={{ background: isFocused ? token.colorFillSecondary : 'transparent', opacity: 0.7 }}
+                      style={{
+                        ...(isFocused ? { background: token.colorFillSecondary } : null),
+                        opacity: 0.7,
+                        alignItems: 'flex-start',
+                      }}
                       onClick={() => {
                         onReopen(closed);
                         onClose();
                       }}
                     >
-                      <span style={{ fontSize: 13, flexShrink: 0, width: 16, textAlign: 'center' }}>
+                      <span
+                        style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontSize: 13, marginTop: 1 }}
+                      >
                         {tabIcon(
                           closed.tab,
                           rules,
@@ -831,18 +899,43 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                           unresolvableRuleUids,
                           liveWorkflows,
                           unresolvableWorkflowUids,
+                          { compact: true },
                         )}
                       </span>
-                      <span
-                        style={{
-                          flex: 1,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontSize: 12,
-                        }}
-                      >
-                        {closed.tab.label}
+                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <span
+                          style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontSize: 12,
+                          }}
+                        >
+                          {closed.tab.label}
+                        </span>
+                        {secondarySegments.length > 0 && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              overflow: 'hidden',
+                              whiteSpace: 'nowrap',
+                              fontSize: 10,
+                              color: token.colorTextTertiary,
+                            }}
+                          >
+                            {secondarySegments.map((seg, i) => (
+                              // biome-ignore lint/suspicious/noArrayIndexKey: path segments are inherently positional
+                              <Fragment key={`${seg}-${i}`}>
+                                {i > 0 && <span style={{ margin: '0 4px' }}>{'›'}</span>}
+                                {i > 0 && (
+                                  <FolderOpenOutlined style={{ fontSize: 9, marginRight: 3 }} />
+                                )}
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{seg}</span>
+                              </Fragment>
+                            ))}
+                          </span>
+                        )}
                       </span>
                     </div>
                   );
@@ -1228,6 +1321,7 @@ const TabBar: React.FC<TabBarProps> = ({
           unresolvableRequestUids={unresolvableRequestUids}
           liveWorkflows={liveWorkflows}
           unresolvableWorkflowUids={unresolvableWorkflowUids}
+          getTabPath={getTabPath}
           onSwitch={onSwitch}
           recentlyClosed={recentlyClosed}
           onReopen={onReopenTab}

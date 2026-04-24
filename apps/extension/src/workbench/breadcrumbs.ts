@@ -9,6 +9,28 @@
 import type { V5 } from '@openheaders/core/types';
 import type { WorkbenchTab } from './types';
 
+/**
+ * Label for the grey "Scratch" breadcrumb segment injected before an
+ * unsaved entity. Entity-typed ("Scratch Rule" vs "Scratch Request") so
+ * the breadcrumb conveys both that the tab is transient AND what kind
+ * of thing it will become once saved. Returns null for modes that
+ * aren't create-modes.
+ */
+export function scratchLabelForMode(mode: WorkbenchTab['mode']): string | null {
+  switch (mode) {
+    case 'create':
+      return 'Scratch Rule';
+    case 'request-create':
+      return 'Scratch Request';
+    case 'live-variable-create':
+      return 'Scratch Variable';
+    case 'live-workflow-create':
+      return 'Scratch Workflow';
+    default:
+      return null;
+  }
+}
+
 export function computeBreadcrumbs(
   tab: WorkbenchTab | undefined,
   rules: V5.Rule[],

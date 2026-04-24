@@ -6,7 +6,7 @@
  *   "Don't save" (discard) / "Cancel" / "Save changes" (red)
  */
 
-import { Modal } from 'antd';
+import { App as AntApp, Button } from 'antd';
 import { useCallback } from 'react';
 import type { WorkbenchTab } from '../types';
 
@@ -32,84 +32,71 @@ export function useTabLifecycle({
   switchTab,
   saveRefMap,
 }: UseTabLifecycleOptions) {
+  // `App.useApp()` yields theme-aware imperative APIs. The global
+  // `Modal.confirm(...)` static method mounts outside the React tree
+  // and therefore never sees the ConfigProvider theme — in dark mode
+  // that leaves you with a white modal over a dark UI. Using the
+  // instance from the surrounding <App> wrapper fixes both colors and
+  // component tokens inside the dialog.
+  const { modal } = AntApp.useApp();
+
   // ── Confirmation modal ──────────────────────────────────────────
 
-  const confirmUnsaved = useCallback((tab: { id: string; label: string }): Promise<'discard' | 'save' | 'cancel'> => {
-    return new Promise((resolve) => {
-      const modal = Modal.confirm({
-        title: <span style={{ fontSize: 13, fontWeight: 600 }}>Save changes?</span>,
-        width: 380,
-        content: (
-          <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.5 }}>
-            <strong>{tab.label}</strong> has unsaved changes. Save these changes to avoid losing your work.
-          </p>
-        ),
-        icon: null,
-        closable: true,
-        onCancel: () => {
-          modal.destroy();
-          resolve('cancel');
-        },
-        footer: (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 0 4px' }}>
-            <button
-              type="button"
-              onClick={() => {
-                modal.destroy();
-                resolve('discard');
-              }}
-              style={{
-                padding: '4px 16px',
-                fontSize: 13,
-                border: '1px solid #d9d9d9',
-                borderRadius: 6,
-                background: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Don&apos;t save
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                modal.destroy();
-                resolve('cancel');
-              }}
-              style={{
-                padding: '4px 16px',
-                fontSize: 13,
-                border: '1px solid #d9d9d9',
-                borderRadius: 6,
-                background: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                modal.destroy();
-                resolve('save');
-              }}
-              style={{
-                padding: '4px 16px',
-                fontSize: 13,
-                border: 'none',
-                borderRadius: 6,
-                background: '#ff7875',
-                color: '#fff',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              Save changes
-            </button>
-          </div>
-        ),
+  const confirmUnsaved = useCallback(
+    (tab: { id: string; label: string }): Promise<'discard' | 'save' | 'cancel'> => {
+      return new Promise((resolve) => {
+        const instance = modal.confirm({
+          title: <span style={{ fontSize: 13, fontWeight: 600 }}>Save changes?</span>,
+          width: 380,
+          content: (
+            <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.5 }}>
+              <strong>{tab.label}</strong> has unsaved changes. Save these changes to avoid losing your work.
+            </p>
+          ),
+          icon: null,
+          closable: true,
+          onCancel: () => {
+            instance.destroy();
+            resolve('cancel');
+          },
+          footer: (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 0 4px' }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  instance.destroy();
+                  resolve('discard');
+                }}
+              >
+                Don&apos;t save
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  instance.destroy();
+                  resolve('cancel');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                danger
+                type="primary"
+                onClick={() => {
+                  instance.destroy();
+                  resolve('save');
+                }}
+              >
+                Save changes
+              </Button>
+            </div>
+          ),
+        });
       });
-    });
-  }, []);
+    },
+    [modal],
+  );
 
   // ── Single tab close with confirmation ──────────────────────────
 

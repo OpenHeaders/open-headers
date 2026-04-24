@@ -57,6 +57,11 @@ interface RuleIconOptions {
   size?: number;
   /** Explicit direction override — use when rule object is not available (e.g. popup). */
   direction?: 'request' | 'response';
+  /** Skip the fixed-width arrow slot when no direction is resolved. Lists
+   *  keep the slot so rules align vertically; inline surfaces (tooltips,
+   *  breadcrumbs) want the empty slot gone so the icon hugs neighboring
+   *  text. Default false — current list behavior preserved. */
+  compactArrow?: boolean;
 }
 
 /**
@@ -69,6 +74,7 @@ export function buildRuleIcon({
   paused = false,
   size = 12,
   direction,
+  compactArrow = false,
 }: RuleIconOptions): React.ReactNode {
   const detail = rule ? getActionDetail(rule) : undefined;
   const dir = direction ?? detail?.direction;
@@ -76,7 +82,8 @@ export function buildRuleIcon({
   const iconColor = paused ? YELLOW : isActive ? BLUE : GRAY;
 
   // Fixed-width container for the arrow area — ensures vertical alignment
-  // whether an arrow is present or not.
+  // whether an arrow is present or not. Skipped entirely when there's no
+  // direction AND the caller opted into compactArrow (e.g. tooltip).
   const arrowSize = Math.round(size * 0.75);
   const arrowWidth = arrowSize + 2;
   const arrowContent = dir
@@ -84,19 +91,22 @@ export function buildRuleIcon({
         style: { fontSize: arrowSize, color: iconColor },
       })
     : null;
-  const arrowSlot = createElement(
-    'span',
-    {
-      style: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: arrowWidth,
-        flexShrink: 0,
-      },
-    },
-    arrowContent,
-  );
+  const arrowSlot =
+    arrowContent || !compactArrow
+      ? createElement(
+          'span',
+          {
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: arrowWidth,
+              flexShrink: 0,
+            },
+          },
+          arrowContent,
+        )
+      : null;
 
   // Fixed-width container for the icon too — different icons (Send, Stop, Code, etc.)
   // have different intrinsic widths; this ensures the content after always starts at the same x.

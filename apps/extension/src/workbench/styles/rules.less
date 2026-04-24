@@ -748,6 +748,21 @@ html, body, #root {
   align-items: center;
 }
 
+// ── Tab path tooltip ───────────────────────────────────────────────
+//
+// AntD's default Tooltip caps .ant-tooltip at 250px, which wraps our
+// breadcrumb path unnecessarily even when the viewport has room. We
+// bump the cap so the path renders on one line in common cases and
+// still wraps gracefully between segments on narrow viewports.
+
+.rules-tab-path-tooltip {
+  max-width: min(520px, 80vw);
+
+  .ant-tooltip-inner {
+    max-width: min(520px, 80vw);
+  }
+}
+
 // ── Breadcrumbs (footer) ───────────────────────────────────────────
 
 .rules-breadcrumbs {

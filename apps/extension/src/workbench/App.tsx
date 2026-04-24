@@ -25,7 +25,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
-import { computeBreadcrumbs } from './breadcrumbs';
+import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
@@ -574,19 +574,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
 
   // Breadcrumb for the focused-leaf active tab — rendered in the footer
   // (split editors still each have their own floating action cluster,
-  // but the footer breadcrumb is single-valued and follows focus). Draft
-  // tabs (create modes) get an extra "Draft" segment injected before the
-  // entity label so the footer matches the tab-tooltip treatment.
+  // but the footer breadcrumb is single-valued and follows focus).
+  // Scratch tabs (create modes before first save — the entity doesn't
+  // exist in storage yet) get an extra "Scratch" segment injected before
+  // the entity label so the footer matches the tab-tooltip treatment.
+  // "Scratch" is chosen over "Draft" because persisted entities can also
+  // hold a draft state, and the two concepts would collide.
   const activeBreadcrumbSegments = useMemo(() => {
     if (!activeTab) return [];
     const base = computeBreadcrumbs(activeTab, rules, localCollectionTrees);
-    const isDraft =
-      activeTab.mode === 'create' ||
-      activeTab.mode === 'request-create' ||
-      activeTab.mode === 'live-variable-create' ||
-      activeTab.mode === 'live-workflow-create';
-    if (isDraft && base.length >= 2) {
-      return [...base.slice(0, -1), 'Draft', base[base.length - 1]];
+    const scratchLabel = scratchLabelForMode(activeTab.mode);
+    if (scratchLabel && base.length >= 2) {
+      return [...base.slice(0, -1), scratchLabel, base[base.length - 1]];
     }
     return base;
   }, [activeTab, rules, localCollectionTrees]);

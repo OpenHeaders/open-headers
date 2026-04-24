@@ -269,7 +269,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl, workspace, segments, onRename
           renderSubsystemExtras={productStatusExtras}
           onOpenDocs={openDocs}
         />
-        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+        <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
         {showThemeSwitcher && (
           <>
             <Dropdown
@@ -305,7 +305,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl, workspace, segments, onRename
                 <span style={{ fontSize: 10 }}>{THEME_DISPLAY[themeMode as ThemeMode]?.text}</span>
               </div>
             </Dropdown>
-            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
           </>
         )}
         {showPanelToggles && (
@@ -379,7 +379,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl, workspace, segments, onRename
                 </Tooltip>
               </Dropdown>
             </div>
-            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
           </>
         )}
         {showLayoutMenu && (
@@ -408,7 +408,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl, workspace, segments, onRename
         )}
         {showVersion && (
           <>
-            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
             <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
               v{__APP_VERSION__}
             </span>
