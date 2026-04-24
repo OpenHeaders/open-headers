@@ -63,18 +63,20 @@
    inside the card; a 1px bottom border does the separation work. */
 .dt-editor-tab-bar {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   height: 32px;
   min-height: 32px;
+  padding: 0 4px;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }
 
 .dt-editor-tabs-scroll {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   flex: 1;
   min-width: 0;
+  gap: 2px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -84,17 +86,18 @@
   display: none;
 }
 
-/* ── Tab pill ─────────────────────────────────────────────── */
+/* ── Tab pill ───────────────────────────────────────────────
+   Matches the workspace TabBar pill treatment: rounded pill,
+   tinted bg for active, neutral grey on hover, no underline. */
 .dt-editor-tab {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 0 6px;
-  height: 100%;
+  padding: 4px 10px;
   cursor: pointer;
   white-space: nowrap;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: var(--dt-text-muted);
   font: inherit;
@@ -102,30 +105,27 @@
   flex-shrink: 0;
   user-select: none;
   outline: none;
-  transition: background 0.08s, color 0.08s;
+  transition: background 0.12s, color 0.12s;
 }
 
-.dt-editor-tab:hover {
+.dt-editor-tab:hover:not(.active):not(.dragging) {
   color: var(--dt-text);
   background: var(--dt-row-hover);
 }
 
 .dt-editor-tab.active {
   color: var(--dt-text);
-  background: var(--dt-bg);
-  border-bottom-color: var(--dt-border);
+  background: var(--dt-pill-active-bg);
 }
 
 .dt-editor-tab.active.focused {
   color: var(--dt-link);
-  border-bottom-color: var(--dt-link);
 }
 
 .dt-editor-tab.dragging {
   background: var(--dt-pill-active-bg);
   outline: 1px dashed var(--dt-link);
   outline-offset: -2px;
-  border-bottom-color: transparent;
 }
 
 /* Insertion marker for cross-leaf drops */
@@ -133,7 +133,7 @@
   background: var(--dt-pill-active-bg);
   outline: 1px dashed var(--dt-link);
   outline-offset: -2px;
-  border-bottom-color: transparent;
+  border-radius: 6px;
 }
 
 .dt-method-badge {
