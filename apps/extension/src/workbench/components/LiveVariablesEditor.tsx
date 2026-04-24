@@ -33,6 +33,7 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { App, Button, Empty, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import EditorHeader from './EditorHeader';
 import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
@@ -87,31 +88,36 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
     [refreshNow, activeEnvironmentId],
   );
 
+  const headerTitle = (
+    <>
+      {scopeBadge('live', 20)}
+      <Title level={5} style={{ margin: 0 }}>
+        Live Variables
+      </Title>
+    </>
+  );
+
+  const headerActions = onCreateLiveVariable ? (
+    <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => onCreateLiveVariable()}>
+      New live variable
+    </Button>
+  ) : null;
+
   return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          {scopeBadge('live', 20)}
-          <Title level={4} style={{ margin: 0 }}>
-            Live Variables
-          </Title>
-        </div>
-
-        <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          Each binding maps a name to a capture from a Workflow (a scheduled request chain). Referenced in rules and
-          requests as <code>{'{{live.NAME}}'}</code>.
-        </Text>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <Text type="secondary" style={{ fontSize: 11, fontWeight: 600 }}>
-            VARIABLES ({liveVariables.length})
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={headerTitle} actions={headerActions} />
+      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+            Each binding maps a name to a capture from a Workflow (a scheduled request chain). Referenced in rules and
+            requests as <code>{'{{live.NAME}}'}</code>.
           </Text>
-          {onCreateLiveVariable && (
-            <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => onCreateLiveVariable()}>
-              New live variable
-            </Button>
-          )}
-        </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+              VARIABLES ({liveVariables.length})
+            </Text>
+          </div>
 
         <div
           style={{
@@ -343,6 +349,7 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
               );
             })
           )}
+        </div>
         </div>
       </div>
     </div>

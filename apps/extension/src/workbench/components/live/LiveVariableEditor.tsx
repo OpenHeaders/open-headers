@@ -35,6 +35,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import EditorHeader from '../EditorHeader';
 import StaleDraftBanner from '../StaleDraftBanner';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
 import {
@@ -209,16 +210,20 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
   const selectedStep = selectedSteps.find((s) => s.id === draft.stepId) ?? null;
   const selectedCaptures = selectedStep?.captures ?? [];
 
-  return (
-    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <ThunderboltOutlined style={{ fontSize: 14, color: token.colorPrimary }} />
-          <Title level={5} style={{ margin: 0 }}>
-            New Live Variable
-          </Title>
-        </div>
+  const createHeaderTitle = (
+    <>
+      <ThunderboltOutlined style={{ fontSize: 14, color: token.colorPrimary }} />
+      <Title level={5} style={{ margin: 0 }}>
+        New Live Variable
+      </Title>
+    </>
+  );
 
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={createHeaderTitle} isDirty={isDirty} onSave={handleSaveSync} />
+      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <InlineNameDescription
             name={draft.name}
@@ -309,6 +314,7 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
               </Tooltip>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -470,46 +476,52 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const liveValue = run ? readCapture(run, lv.stepId, lv.captureName) : null;
   const level = classifyRun(run);
 
-  return (
-    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="live variable"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleReload}
-            onKeepEditing={handleStaleKeepEditing}
-          />
-        )}
+  const editHeaderTitle = (
+    <>
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: statusColor(level),
+          display: 'inline-block',
+        }}
+      />
+      <Title level={5} style={{ margin: 0, fontFamily: "'SF Mono', monospace" }}>
+        {`{{live.${lv.name}}}`}
+      </Title>
+      <Tag color="purple" style={{ marginInlineEnd: 0 }}>
+        Live
+      </Tag>
+      {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
+      {lv.manualOverride && (
+        <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+          override
+        </Tag>
+      )}
+    </>
+  );
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: statusColor(level),
-              display: 'inline-block',
-            }}
-          />
-          <Title level={5} style={{ margin: 0, fontFamily: "'SF Mono', monospace" }}>
-            {`{{live.${lv.name}}}`}
-          </Title>
-          <Tag color="purple" style={{ marginInlineEnd: 0 }}>
-            Live
-          </Tag>
-          {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
-          {lv.manualOverride && (
-            <Tag color="orange" style={{ marginInlineEnd: 0 }}>
-              override
-            </Tag>
+  const editHeaderActions = (
+    <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
+      Refresh
+    </Button>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
+      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          {staleDraft && (
+            <StaleDraftBanner
+              entityLabel="live variable"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={handleStaleReload}
+              onKeepEditing={handleStaleKeepEditing}
+            />
           )}
-          <div style={{ flex: 1 }} />
-          <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-            Refresh
-          </Button>
-        </div>
 
         {/* Current value — single compact row */}
         <div
@@ -744,6 +756,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
               </Tooltip>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

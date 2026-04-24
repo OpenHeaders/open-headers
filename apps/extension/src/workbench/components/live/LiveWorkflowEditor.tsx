@@ -49,6 +49,7 @@ import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'ant
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
+import EditorHeader from '../EditorHeader';
 import StaleDraftBanner from '../StaleDraftBanner';
 import { buildDependencyRows } from './dependencies-view';
 import { InlineNameDescription, Section } from './layout';
@@ -335,41 +336,47 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
   if (!draft) return null;
 
-  return (
-    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="workflow"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleReload}
-            onKeepEditing={handleStaleKeepEditing}
-          />
-        )}
+  const editHeaderTitle = (
+    <>
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: statusColor(level),
+          display: 'inline-block',
+        }}
+      />
+      <Title level={5} style={{ margin: 0 }}>
+        {workflow.name}
+      </Title>
+      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+        Workflow
+      </Tag>
+      {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
+    </>
+  );
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: statusColor(level),
-              display: 'inline-block',
-            }}
-          />
-          <Title level={5} style={{ margin: 0 }}>
-            {workflow.name}
-          </Title>
-          <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-            Workflow
-          </Tag>
-          {!draft.enabled && <Tag style={{ marginInlineEnd: 0 }}>Disabled</Tag>}
-          <div style={{ flex: 1 }} />
-          <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
-            Refresh
-          </Button>
-        </div>
+  const editHeaderActions = (
+    <Button size="small" icon={<ReloadOutlined spin={refreshing} />} onClick={() => void handleRefreshNow()}>
+      Refresh
+    </Button>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
+      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          {staleDraft && (
+            <StaleDraftBanner
+              entityLabel="workflow"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={handleStaleReload}
+              onKeepEditing={handleStaleKeepEditing}
+            />
+          )}
 
         <div
           style={{
@@ -464,7 +471,8 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
           </div>
         </div>
 
-        <WorkflowFormBody draft={draft} setDraft={setDraft} />
+          <WorkflowFormBody draft={draft} setDraft={setDraft} />
+        </div>
       </div>
     </div>
   );
@@ -527,29 +535,34 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
 
   const displayName = draft.name.trim() || draftName || 'New Workflow';
 
-  return (
-    <div style={{ padding: '16px 20px', background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: token.colorTextTertiary,
-              display: 'inline-block',
-            }}
-          />
-          <Title level={5} style={{ margin: 0 }}>
-            {displayName}
-          </Title>
-          <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-            Workflow
-          </Tag>
-          <Tag style={{ marginInlineEnd: 0 }}>Draft</Tag>
-        </div>
+  const createHeaderTitle = (
+    <>
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: token.colorTextTertiary,
+          display: 'inline-block',
+        }}
+      />
+      <Title level={5} style={{ margin: 0 }}>
+        {displayName}
+      </Title>
+      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+        Workflow
+      </Tag>
+      <Tag style={{ marginInlineEnd: 0 }}>Draft</Tag>
+    </>
+  );
 
-        <WorkflowFormBody draft={draft} setDraft={setDraft} />
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={createHeaderTitle} isDirty={isDirty} onSave={handleSaveSync} />
+      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          <WorkflowFormBody draft={draft} setDraft={setDraft} />
+        </div>
       </div>
     </div>
   );

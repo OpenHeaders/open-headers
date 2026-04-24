@@ -30,7 +30,6 @@ import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
 import CommandPalette from './components/CommandPalette';
-import EditorActionCluster from './components/EditorActionCluster';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/EditorGroupRenderer';
 import EmptyState from './components/EmptyState';
 import EnvironmentEditor from './components/EnvironmentEditor';
@@ -1112,41 +1111,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     ],
   );
 
-  // ── Per-leaf floating action cluster ─────────────────────────
-  //
-  // Each editor leaf gets its own Save (+ overflow) cluster pinned top-
-  // right so actions sit at the edit surface instead of in a horizontal
-  // toolbar row. Breadcrumb + rename live in the global footer now.
-  const renderLeafHeader = useCallback(
-    ({ activeTab: leafActiveTab }: RenderLeafHeaderContext): React.ReactNode => {
-      if (!leafActiveTab) return null;
-      const isEditable =
-        leafActiveTab.mode === 'create' ||
-        leafActiveTab.mode === 'edit' ||
-        leafActiveTab.mode === 'env-edit' ||
-        leafActiveTab.mode === 'workspace-vars' ||
-        leafActiveTab.mode === 'vault' ||
-        leafActiveTab.mode === 'collection-vars' ||
-        leafActiveTab.mode === 'request-edit' ||
-        leafActiveTab.mode === 'request-create' ||
-        leafActiveTab.mode === 'live-variable-edit' ||
-        leafActiveTab.mode === 'live-variable-create' ||
-        leafActiveTab.mode === 'live-workflow-edit' ||
-        leafActiveTab.mode === 'live-workflow-create';
-      if (!isEditable) return null;
-      const supportsSaveAsTemplate = leafActiveTab.mode === 'create' || leafActiveTab.mode === 'edit';
-      return (
-        <EditorActionCluster
-          isDirty={leafActiveTab.mode === 'create' || !!leafActiveTab.dirty}
-          onSave={() => saveRefMap.current.get(leafActiveTab.id)?.()}
-          onSaveAsTemplate={
-            supportsSaveAsTemplate ? () => saveAsTemplateRefMap.current.get(leafActiveTab.id)?.() : undefined
-          }
-        />
-      );
-    },
-    [saveRefMap, saveAsTemplateRefMap],
-  );
+  // Per-leaf header is empty by default — each editor renders its own
+  // `EditorHeader` internally so the title slot, panel-specific actions,
+  // Save, and overflow live in a single shared-shape row inside the
+  // editor component.
+  const renderLeafHeader = useCallback((_: RenderLeafHeaderContext): React.ReactNode => null, []);
 
   const renderEmpty = useCallback(() => <EmptyState onCreateRule={openCreateTab} />, [openCreateTab]);
 

@@ -14,6 +14,7 @@ import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -94,35 +95,41 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
 
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
 
+  const headerTitle = (
+    <>
+      {scopeBadge('workspace', 20)}
+      <Title level={5} style={{ margin: 0 }}>
+        Workspace Variables
+      </Title>
+    </>
+  );
+
   return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="workspace variables"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleDraftReload}
-            onKeepEditing={handleStaleDraftKeepEditing}
-          />
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          {scopeBadge('workspace', 20)}
-          <Title level={4} style={{ margin: 0 }}>
-            Workspace Variables
-          </Title>
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          {staleDraft && (
+            <StaleDraftBanner
+              entityLabel="workspace variables"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={handleStaleDraftReload}
+              onKeepEditing={handleStaleDraftKeepEditing}
+            />
+          )}
+
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+            Shared across every environment in this workspace. Lowest priority — overridden by collection, environment,
+            and vault scopes.
+          </Text>
+
+          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+            VARIABLES ({nonEmptyCount})
+          </Text>
+
+          <VariableTable variables={draft} onChange={setDraft} allowSecrets />
         </div>
-
-        <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          Shared across every environment in this workspace. Lowest priority — overridden by collection, environment,
-          and vault scopes.
-        </Text>
-
-        <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-          VARIABLES ({nonEmptyCount})
-        </Text>
-
-        <VariableTable variables={draft} onChange={setDraft} allowSecrets />
       </div>
     </div>
   );

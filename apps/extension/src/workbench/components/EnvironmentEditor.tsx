@@ -15,6 +15,7 @@ import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -131,70 +132,68 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const isDefault = defaultEnvironmentId === env.uid;
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
 
-  return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="environment"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleDraftReload}
-            onKeepEditing={handleStaleDraftKeepEditing}
-          />
-        )}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            marginBottom: 16,
-            justifyContent: 'space-between',
-          }}
+  const headerTitle = (
+    <>
+      {scopeBadge('environment', 20)}
+      <Title level={5} style={{ margin: 0 }}>
+        {env.name}
+      </Title>
+      {isActive && <Tag color="blue">Active</Tag>}
+      {isDefault && (
+        <Tooltip title="Resolver falls back here when the active env is missing a variable.">
+          <Tag color="gold" icon={<StarFilled />}>
+            Default
+          </Tag>
+        </Tooltip>
+      )}
+    </>
+  );
+
+  const headerActions = (
+    <>
+      {!isActive && (
+        <Button size="small" icon={<CheckCircleTwoTone />} onClick={() => void setActiveEnvironment(env.uid)}>
+          Set active
+        </Button>
+      )}
+      <Tooltip
+        title={
+          isDefault
+            ? 'Unset as default — resolver will stop falling back to this env.'
+            : 'Set as default — resolver falls back here when the active env is missing a variable.'
+        }
+      >
+        <Button
+          size="small"
+          icon={isDefault ? <StarFilled style={{ color: token.colorWarning }} /> : <StarOutlined />}
+          onClick={() => void setDefaultEnvironment(isDefault ? null : env.uid)}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {scopeBadge('environment', 20)}
-            <Title level={4} style={{ margin: 0 }}>
-              {env.name}
-            </Title>
-            {isActive && <Tag color="blue">Active</Tag>}
-            {isDefault && (
-              <Tooltip title="Resolver falls back here when the active env is missing a variable.">
-                <Tag color="gold" icon={<StarFilled />}>
-                  Default
-                </Tag>
-              </Tooltip>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {!isActive && (
-              <Button size="small" icon={<CheckCircleTwoTone />} onClick={() => void setActiveEnvironment(env.uid)}>
-                Set active
-              </Button>
-            )}
-            <Tooltip
-              title={
-                isDefault
-                  ? 'Unset as default — resolver will stop falling back to this env.'
-                  : 'Set as default — resolver falls back here when the active env is missing a variable.'
-              }
-            >
-              <Button
-                size="small"
-                icon={isDefault ? <StarFilled style={{ color: token.colorWarning }} /> : <StarOutlined />}
-                onClick={() => void setDefaultEnvironment(isDefault ? null : env.uid)}
-              >
-                {isDefault ? 'Unset default' : 'Set as default'}
-              </Button>
-            </Tooltip>
-          </div>
+          {isDefault ? 'Unset default' : 'Set as default'}
+        </Button>
+      </Tooltip>
+    </>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
+      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          {staleDraft && (
+            <StaleDraftBanner
+              entityLabel="environment"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={handleStaleDraftReload}
+              onKeepEditing={handleStaleDraftKeepEditing}
+            />
+          )}
+          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+            VARIABLES ({nonEmptyCount})
+          </Text>
+
+          <VariableTable variables={draft} onChange={setDraft} allowSecrets />
         </div>
-
-        <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-          VARIABLES ({nonEmptyCount})
-        </Text>
-
-        <VariableTable variables={draft} onChange={setDraft} allowSecrets />
       </div>
     </div>
   );

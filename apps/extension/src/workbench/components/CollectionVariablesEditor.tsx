@@ -22,6 +22,7 @@ import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -135,36 +136,41 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
 
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
 
+  const headerTitle = (
+    <>
+      {scopeBadge('collection', 20)}
+      <Title level={5} style={{ margin: 0 }}>
+        {collection.name} · Variables
+      </Title>
+    </>
+  );
+
   return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          {scopeBadge('collection', 20)}
-          <Title level={4} style={{ margin: 0 }}>
-            {collection.name} · Variables
-          </Title>
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSave} />
+      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          {staleDraft && (
+            <StaleDraftBanner
+              entityLabel="collection"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={handleStaleReload}
+              onKeepEditing={handleStaleKeepEditing}
+            />
+          )}
+
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+            Variables available to every rule inside this collection. Overridden by environment and vault scopes;
+            overrides the workspace scope. Stored in plain text — use the Vault for secrets.
+          </Text>
+
+          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+            VARIABLES ({nonEmptyCount})
+          </Text>
+
+          <VariableTable variables={draft} onChange={setDraft} allowSecrets={false} />
         </div>
-
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="collection"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleReload}
-            onKeepEditing={handleStaleKeepEditing}
-          />
-        )}
-
-        <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          Variables available to every rule inside this collection. Overridden by environment and vault scopes;
-          overrides the workspace scope. Stored in plain text — use the Vault for secrets.
-        </Text>
-
-        <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-          VARIABLES ({nonEmptyCount})
-        </Text>
-
-        <VariableTable variables={draft} onChange={setDraft} allowSecrets={false} />
       </div>
     </div>
   );

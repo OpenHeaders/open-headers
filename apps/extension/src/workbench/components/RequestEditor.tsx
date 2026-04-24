@@ -30,6 +30,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
+import EditorHeader from './EditorHeader';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
 import AuthorizationTab from './request-editor/AuthorizationTab';
 import BodyTab from './request-editor/BodyTab';
@@ -661,9 +662,86 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     followRedirects: draft.followRedirects,
   };
 
+  // Header consolidates the full URL row: method select + URL input
+  // in the title (title has flex:1 so the URL input grows), Send in
+  // the actions slot, Save standardized on the right. No separate URL
+  // bar row below — frees ~40px of vertical space and puts the primary
+  // interaction + save in a single line (request-name label dropped:
+  // the tab pill already carries that identity).
+  const headerTitle = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+      <Select
+        value={draft.method}
+        onChange={(method) => setDraft((d) => ({ ...d, method }))}
+        options={METHOD_OPTIONS}
+        size="small"
+        style={{ width: 96, flexShrink: 0 }}
+        popupMatchSelectWidth={false}
+        labelRender={({ label }) => (
+          <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
+        )}
+      />
+      <TemplateInput
+        value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
+        onChange={(next) => {
+          const parsed = parseUrlQuery(next);
+          setDraft((d) => ({
+            ...d,
+            url: parsed.base,
+            params: mergeParamsFromUrl(parsed.params, d.params),
+          }));
+        }}
+        placeholder="Enter URL or paste text"
+        size="small"
+        status={sectionUnresolved.url ? 'error' : undefined}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontFamily: "'SF Mono', monospace",
+          fontSize: 12,
+          // Fill the 24px min-height so the text sits on the vertical
+          // center. The component's default `lineHeight: 1.5714` combined
+          // with monospace metrics pushes glyphs slightly above center.
+          lineHeight: '22px',
+        }}
+        onPressEnter={() => void handleSend()}
+        onBlur={() => {
+          const trimmed = draft.url.trim();
+          if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
+            const normalized = ensureScheme(trimmed);
+            if (normalized !== draft.url) {
+              setDraft((d) => ({ ...d, url: normalized }));
+            }
+          }
+        }}
+      />
+    </div>
+  );
+
+  const headerActions = (
+    <Tooltip
+      title={
+        hasUnresolvedRefs
+          ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
+          : undefined
+      }
+    >
+      <Button
+        type="primary"
+        icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
+        size="small"
+        onClick={() => void handleSend()}
+        disabled={sending || hasUnresolvedRefs}
+      >
+        {sending ? 'Sending…' : 'Send'}
+      </Button>
+    </Tooltip>
+  );
+
   return (
     <SuggestionContextProvider value={suggestionContext}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
         {staleDraft && (
           <div style={{ padding: '8px 16px 0' }}>
             <StaleDraftBanner
@@ -676,92 +754,19 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           </div>
         )}
 
-        {/* URL bar */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            padding: '10px 16px',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          }}
-        >
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Select
-              value={draft.method}
-              onChange={(method) => setDraft((d) => ({ ...d, method }))}
-              options={METHOD_OPTIONS}
-              size="middle"
-              style={{ width: 110 }}
-              popupMatchSelectWidth={false}
-              labelRender={({ label }) => (
-                <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
-              )}
-            />
-            <TemplateInput
-              // The URL field is a projection of `draft.url` (base) +
-              // `draft.params` (structured query). Edits parse back
-              // into both fields so the Params tab stays in sync with
-              // whatever the user types here. See `mergeParamsFromUrl`
-              // for the metadata-preserving merge (enabled state and
-              // descriptions ride along for rows whose key stayed).
-              value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
-              onChange={(next) => {
-                const parsed = parseUrlQuery(next);
-                setDraft((d) => ({
-                  ...d,
-                  url: parsed.base,
-                  params: mergeParamsFromUrl(parsed.params, d.params),
-                }));
-              }}
-              placeholder="Enter URL or paste text"
-              size="middle"
-              // Red `status` outlines the URL input when its `{{refs}}`
-              // don't resolve. Same visual language as the inline mirror
-              // + tab dot + sidebar badge; replaces the need for a
-              // banner at the top of the editor.
-              status={sectionUnresolved.url ? 'error' : undefined}
-              style={{ flex: 1, fontFamily: "'SF Mono', monospace", fontSize: 13 }}
-              onPressEnter={() => void handleSend()}
-              onBlur={() => {
-                const trimmed = draft.url.trim();
-                if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
-                  const normalized = ensureScheme(trimmed);
-                  if (normalized !== draft.url) {
-                    setDraft((d) => ({ ...d, url: normalized }));
-                  }
-                }
-              }}
-            />
-            <Tooltip
-              title={
-                hasUnresolvedRefs
-                  ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
-                  : undefined
-              }
-            >
-              <Button
-                type="primary"
-                icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
-                size="middle"
-                onClick={() => void handleSend()}
-                // Disable on unresolved refs — the executor would return
-                // an error snapshot anyway; blocking up front gives the
-                // user a clearer "fix these first" signal.
-                disabled={sending || hasUnresolvedRefs}
-              >
-                {sending ? 'Sending…' : 'Send'}
-              </Button>
-            </Tooltip>
-          </div>
-          {needsSchemeNormalization(draft.url) && (
+        {needsSchemeNormalization(draft.url) && (
+          <div
+            style={{
+              padding: '4px 16px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
             <Tooltip
               title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
               placement="bottomLeft"
             >
               <span
                 style={{
-                  marginLeft: 118,
                   fontSize: 11,
                   color: token.colorTextTertiary,
                   fontFamily: "'SF Mono', monospace",
@@ -771,8 +776,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                 → {ensureScheme(draft.url.trim())}
               </span>
             </Tooltip>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Editor / response split. The sub-tab bar (Docs · Params · …)
           renders OUTSIDE the scroll container so it never participates

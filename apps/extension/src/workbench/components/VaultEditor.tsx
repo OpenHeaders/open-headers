@@ -22,6 +22,7 @@ import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
 
@@ -120,38 +121,44 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     return { strings, totps };
   }, [draft]);
 
+  const headerTitle = (
+    <>
+      {scopeBadge('vault', 20)}
+      <Title level={5} style={{ margin: 0 }}>
+        Vault
+      </Title>
+    </>
+  );
+
   return (
-    <div style={{ padding: 24, background: token.colorBgContainer, overflow: 'auto', height: '100%' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        {staleDraft && (
-          <StaleDraftBanner
-            entityLabel="vault"
-            serverVersion={staleDraft.serverVersion}
-            loadedVersion={staleDraft.loadedVersion}
-            onReload={handleStaleDraftReload}
-            onKeepEditing={handleStaleDraftKeepEditing}
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+        <div style={{ maxWidth: 920, margin: '0 auto' }}>
+          {staleDraft && (
+            <StaleDraftBanner
+              entityLabel="vault"
+              serverVersion={staleDraft.serverVersion}
+              loadedVersion={staleDraft.loadedVersion}
+              onReload={handleStaleDraftReload}
+              onKeepEditing={handleStaleDraftKeepEditing}
+            />
+          )}
+
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="Local-per-device"
+            description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket. Add a TOTP entry to reference its current 6-digit code as {{vault.NAME}} from any request."
           />
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          {scopeBadge('vault', 20)}
-          <Title level={4} style={{ margin: 0 }}>
-            Vault
-          </Title>
+
+          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+            SECRETS ({counts.strings} string · {counts.totps} TOTP)
+          </Text>
+
+          <VariableTable mode="vault" secrets={draft} onChange={setDraft} />
         </div>
-
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="Local-per-device"
-          description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket. Add a TOTP entry to reference its current 6-digit code as {{vault.NAME}} from any request."
-        />
-
-        <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-          SECRETS ({counts.strings} string · {counts.totps} TOTP)
-        </Text>
-
-        <VariableTable mode="vault" secrets={draft} onChange={setDraft} />
       </div>
     </div>
   );

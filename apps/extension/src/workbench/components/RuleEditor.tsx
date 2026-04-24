@@ -34,6 +34,7 @@ import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYP
 import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
+import EditorHeader from './EditorHeader';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -43,6 +44,7 @@ import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFie
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
+import { buildRuleIcon } from './shared/rule-icon';
 import StaleDraftBanner from './StaleDraftBanner';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 import { SuggestionContextProvider } from './template-input';
@@ -107,6 +109,18 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
   const initializedRef = useRef(false);
   const isDirtyRef = useRef(false);
+  // Reactive mirror of isDirtyRef so the shared EditorHeader's Save
+  // button can toggle disabled/enabled. Updated alongside every
+  // `onDirtyChange?.(…)` via the helper below.
+  const [isDirty, setIsDirty] = useState(false);
+  const notifyDirty = useCallback(
+    (dirty: boolean) => {
+      isDirtyRef.current = dirty;
+      setIsDirty(dirty);
+      onDirtyChange?.(dirty);
+    },
+    [onDirtyChange],
+  );
 
   // ── Header state (lifted from HeaderRuleFields for reliable timing) ──
   // useWatch has inherent first-render timing issues — parent owns the truth.
@@ -239,12 +253,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         }
       }
 
-      if (!isDirtyRef.current) {
-        isDirtyRef.current = true;
-        onDirtyChange?.(true);
-      }
+      if (!isDirtyRef.current) notifyDirty(true);
     },
-    [selectedType, form, onDirtyChange, userTemplates],
+    [selectedType, form, notifyDirty, userTemplates],
   );
 
   // ── Form initialization (content fields only — no name/enabled) ──
@@ -428,10 +439,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const handleValuesChange = useCallback(
     (changedValues: Record<string, unknown>) => {
-      if (!isDirtyRef.current) {
-        isDirtyRef.current = true;
-        onDirtyChange?.(true);
-      }
+      if (!isDirtyRef.current) notifyDirty(true);
       // Sync header badge counts from live form state during editing
       const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
       const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
@@ -625,8 +633,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         const created = await createLocalRule(rule, localCollections[0]?.uid);
         if (created) {
           message.success('Rule created');
-          isDirtyRef.current = false;
-          onDirtyChange?.(false);
+          notifyDirty(false);
           onSaved(created.uid);
         } else {
           message.error('Failed to create rule');
@@ -648,8 +655,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           message.success('Rule updated');
           setLoadedVersion(result.version);
           setStaleDraft(null);
-          isDirtyRef.current = false;
-          onDirtyChange?.(false);
+          notifyDirty(false);
           onSaved(ruleUid);
         } else if (result.reason === 'stale-draft') {
           // Another tab wrote first. Show the banner; user picks
@@ -691,15 +697,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     const current = liveRule?.version ?? loadedVersion ?? 0;
     setLoadedVersion(current);
     setStaleDraft(null);
-    isDirtyRef.current = false;
-    onDirtyChange?.(false);
+    notifyDirty(false);
     // Re-hydrate form values from the live rule — same hydration
     // effect fires when loadedVersion changes and liveRule's fields
     // are picked up on the next render.
     if (liveRule) {
       form.resetFields();
     }
-  }, [form, liveRule, loadedVersion, onDirtyChange]);
+  }, [form, liveRule, loadedVersion, notifyDirty]);
 
   const handleStaleDraftKeepEditing = useCallback(() => {
     // User chose to overwrite the other tab's changes on next save.
@@ -842,14 +847,49 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     return match?.uid;
   }, [mode, ruleUid, rules, localCollections]);
 
+  const headerTitle = (
+    <>
+      {buildRuleIcon({ ruleType: selectedType ?? 'header', rule: liveRule, isActive: isEnabled, compactArrow: true, size: 14 })}
+      <Typography.Text strong style={{ fontSize: 13 }}>
+        {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
+      </Typography.Text>
+    </>
+  );
+  const headerActions = (
+    <Switch
+      size="small"
+      checked={isEnabled}
+      onChange={handleToggleEnabled}
+      checkedChildren="Enabled"
+      unCheckedChildren="Disabled"
+    />
+  );
+  const overflowItems = [
+    {
+      key: 'save-as-template',
+      icon: <FileOutlined />,
+      label: 'Save as Template',
+      onClick: openSaveAsTemplate,
+    },
+  ];
+
   return (
-    <div className="rules-rule-editor">
-      <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
-        <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
-          {/* Hidden: rule type (set at creation, can't change) */}
-          <Form.Item name="ruleType" hidden>
-            <input type="hidden" />
-          </Form.Item>
+    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+      <EditorHeader
+        title={headerTitle}
+        actions={headerActions}
+        isDirty={isDirty}
+        onSave={() => void handleSubmit()}
+        overflowItems={overflowItems}
+      />
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        <div className="rules-rule-editor">
+          <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
+            <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
+              {/* Hidden: rule type (set at creation, can't change) */}
+              <Form.Item name="ruleType" hidden>
+                <input type="hidden" />
+              </Form.Item>
 
           {/* Unresolved-variable feedback lives in the inline mirror
            *  (red-dashed `{{ref}}` at the source) + the Variables
@@ -934,20 +974,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             )}
           </div>
 
-          {/* ── Title + Enabled ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-            <Text strong style={{ fontSize: 15 }}>
-              {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
-            </Text>
-            <Switch
-              size="small"
-              checked={isEnabled}
-              onChange={handleToggleEnabled}
-              checkedChildren="Enabled"
-              unCheckedChildren="Disabled"
-            />
-          </div>
-
           {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
           <div className="rules-rule-editor-columns">
             {/* ── Per-type fields ── */}
@@ -1008,7 +1034,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           })()}
           onCancel={() => setSaveAsTemplateOpen(false)}
         />
-      </SuggestionContextProvider>
+          </SuggestionContextProvider>
+        </div>
+      </div>
     </div>
   );
 };

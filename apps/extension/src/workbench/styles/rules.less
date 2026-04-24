@@ -785,20 +785,41 @@ html, body, #root {
   }
 }
 
-// ── Floating editor-action cluster ─────────────────────────────────
+// ── Shared editor header ───────────────────────────────────────────
 //
-// Pinned top-right of each editor leaf. Sits above editor content;
-// content's own top padding keeps it from overlapping text at the
-// right edge.
+// Single 40px row at the top of every editor. Mirrors the dock-panel
+// PanelHeader pattern — title on the left, panel-specific actions +
+// Save + kebab on the right. Editors render this themselves (not the
+// shell) so each editor's state (dirty, handlers, custom buttons)
+// wires up with no cross-cutting indirection.
 
-.rules-editor-action-cluster {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  z-index: 5;
+.rules-editor-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 16px;
+}
+
+.rules-editor-header-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  // No `overflow: hidden` here — the title slot hosts the URL input's
+  // `{{…}}` suggestion popover for RequestEditor, and clipping this
+  // container would hide it. Title text children manage their own
+  // ellipsis via inline `overflow/textOverflow/whiteSpace`.
+}
+
+.rules-editor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 // ── Editor content ─────────────────────────────────────────────────
