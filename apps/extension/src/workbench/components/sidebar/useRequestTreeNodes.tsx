@@ -1,10 +1,11 @@
-import { DeleteOutlined, EditOutlined, FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import type { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
-import { createElement, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
 import { composeBadge, iconEl, methodTag } from './icons';
+import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 
 interface UseRequestTreeNodesParams {
@@ -83,37 +84,18 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteRequestFolderRpc(node.uid);
               }),
-            addMenuItems: [
-              {
-                key: 'add-request',
-                icon: createElement(PlusOutlined),
-                label: 'Add Request',
-                onClick: onAddRequest,
-              },
-              {
-                key: 'add-folder',
-                icon: createElement(FolderOutlined),
-                label: 'Add Folder',
-                onClick: onAddFolder,
-              },
-              { type: 'divider' as const, key: 'div' },
-              {
-                key: 'rename',
-                icon: createElement(EditOutlined),
-                label: 'Rename',
-                onClick: () => p.setRenamingId(fid),
-              },
-              {
-                key: 'delete',
-                icon: createElement(DeleteOutlined),
-                label: 'Delete',
-                danger: true,
-                onClick: () =>
-                  p.confirmDelete(node.name, () => {
-                    void p.deleteRequestFolderRpc(node.uid);
-                  }),
-              },
-            ],
+            addMenuItems: containerAddMenuItems({
+              onAddRequest,
+              onAddFolder,
+            }),
+            actionMenuItems: containerActionMenuItems({
+              onRename: () => p.setRenamingId(fid),
+              onDelete: () =>
+                p.confirmDelete(node.name, () => {
+                  void p.deleteRequestFolderRpc(node.uid);
+                }),
+              kind: 'folder',
+            }),
           });
           if (isExpanded) {
             const children = walkRequestTree(node.children, depth + 1, fid, collectionId);
@@ -241,37 +223,18 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           p.confirmDelete(collection.name, () => {
             void p.deleteRequestCollectionRpc(collection.uid);
           }),
-        addMenuItems: [
-          {
-            key: 'add-request',
-            icon: createElement(PlusOutlined),
-            label: 'Add Request',
-            onClick: onAddRequest,
-          },
-          {
-            key: 'add-folder',
-            icon: createElement(FolderOutlined),
-            label: 'Add Folder',
-            onClick: onAddFolder,
-          },
-          { type: 'divider' as const, key: 'div' },
-          {
-            key: 'rename',
-            icon: createElement(EditOutlined),
-            label: 'Rename',
-            onClick: () => p.setRenamingId(colId),
-          },
-          {
-            key: 'delete',
-            icon: createElement(DeleteOutlined),
-            label: 'Delete',
-            danger: true,
-            onClick: () =>
-              p.confirmDelete(collection.name, () => {
-                void p.deleteRequestCollectionRpc(collection.uid);
-              }),
-          },
-        ],
+        addMenuItems: containerAddMenuItems({
+          onAddRequest,
+          onAddFolder,
+        }),
+        actionMenuItems: containerActionMenuItems({
+          onRename: () => p.setRenamingId(colId),
+          onDelete: () =>
+            p.confirmDelete(collection.name, () => {
+              void p.deleteRequestCollectionRpc(collection.uid);
+            }),
+          kind: 'collection',
+        }),
       });
 
       if (isExpanded) {

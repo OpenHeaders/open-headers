@@ -39,7 +39,12 @@ export interface TreeNode {
   onRename?: (newName: string) => Promise<void> | void;
   onDelete?: () => void;
   onAddItem?: () => void;
+  /** Items shown on `+` — create affordances only (Add Rule / Add
+   *  Request / Add Folder). */
   addMenuItems?: ItemType[];
+  /** Items shown on `⋯` — modify affordances only (Rename, Delete,
+   *  Pause toggles, etc.). Never creates. */
+  actionMenuItems?: ItemType[];
   hoverActions?: Array<{ icon: React.ReactNode; tooltip: string; onClick: () => void; alwaysVisible?: boolean }>;
 
   // Placeholder empty state

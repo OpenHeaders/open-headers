@@ -652,18 +652,34 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const createMenuItems = [
-    ...buildRuleTypeMenuItems(onCreateRule),
+    {
+      key: 'collection',
+      icon: <FolderOpenOutlined />,
+      label: 'New Collection',
+      onClick: () => void createNewCollection(),
+    },
     { type: 'divider' as const, key: 'div-collection' },
-    { key: 'collection', icon: <FolderOpenOutlined />, label: 'Collection', onClick: () => void createNewCollection() },
+    ...buildRuleTypeMenuItems(onCreateRule),
   ];
 
   const requestImportMenuItems = [
     {
       key: 'collection',
       icon: <FolderOpenOutlined />,
-      label: 'New Request Collection',
+      label: 'New Collection',
       onClick: () => void createNewRequestCollection(),
     },
+    ...(onCreateRequest
+      ? [
+          { type: 'divider' as const, key: 'div-request' },
+          {
+            key: 'new-request',
+            icon: <PlusOutlined />,
+            label: 'New Request',
+            onClick: () => onCreateRequest(),
+          },
+        ]
+      : []),
     ...(onImportCurl || onImportHar || onImportPostman
       ? ([{ type: 'divider' as const, key: 'div-import' }] as const)
       : []),

@@ -19,79 +19,113 @@ export function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
 }
 
 /**
- * Pause menu for a container (collection or folder). Three actions:
- *   1. Toggle (always shown). Smart toggle that flips effective state by
- *      setting the opposite explicit marker.
- *   2. Reset Override (only when this exact path has its own marker).
- *   3. Clear Nested Overrides (only when descendants carry markers).
+ * Shared contract for tree-row menus:
+ *   `+`   (add)    — only creates. Scoped to the row's container.
+ *   `⋯`   (action) — only modifies the row itself. Never creates.
+ *
+ * Keeping the two sets in separate helpers avoids the old mistake of
+ * filtering a single big list per-button, which let modify actions leak
+ * into `+` and create actions leak into `⋯`.
  */
-export interface ContainerMenuOptions {
-  onAddRule: (type: string) => void;
+export interface ContainerAddMenuOptions {
+  /** Rules side — emits a submenu of rule types. */
+  onAddRule?: (type: string) => void;
+  /** Requests side — single "Add Request" item. */
+  onAddRequest?: () => void;
   onAddFolder: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-  effectivelyPaused: boolean;
-  hasOwnMarker: boolean;
-  hasNestedMarkers: boolean;
-  onTogglePause: () => void;
-  onClearOverride: () => void;
-  onClearNested: () => void;
-  kind: 'collection' | 'folder';
 }
 
-export function containerMenuItems({
+export function containerAddMenuItems({
   onAddRule,
+  onAddRequest,
   onAddFolder,
+}: ContainerAddMenuOptions): ItemType[] {
+  const items: ItemType[] = [];
+  if (onAddRule) {
+    items.push({
+      key: 'add-rule',
+      icon: createElement(PlusOutlined),
+      label: 'Add Rule',
+      children: ruleTypeSubmenu(onAddRule),
+    });
+  }
+  if (onAddRequest) {
+    items.push({
+      key: 'add-request',
+      icon: createElement(PlusOutlined),
+      label: 'Add Request',
+      onClick: onAddRequest,
+    });
+  }
+  items.push({
+    key: 'add-folder',
+    icon: createElement(FolderOutlined),
+    label: 'Add Folder',
+    onClick: onAddFolder,
+  });
+  return items;
+}
+
+export interface ContainerActionMenuOptions {
+  onRename: () => void;
+  onDelete: () => void;
+  kind: 'collection' | 'folder';
+  /** Pause controls — only surfaced when callers wire them (Rules side). */
+  effectivelyPaused?: boolean;
+  hasOwnMarker?: boolean;
+  hasNestedMarkers?: boolean;
+  onTogglePause?: () => void;
+  onClearOverride?: () => void;
+  onClearNested?: () => void;
+}
+
+export function containerActionMenuItems({
   onRename,
   onDelete,
+  kind,
   effectivelyPaused,
   hasOwnMarker,
   hasNestedMarkers,
   onTogglePause,
   onClearOverride,
   onClearNested,
-  kind,
-}: ContainerMenuOptions): ItemType[] {
+}: ContainerActionMenuOptions): ItemType[] {
   const noun = kind === 'collection' ? 'Collection' : 'Folder';
-  return [
-    {
-      key: 'add-item',
-      icon: createElement(PlusOutlined),
-      label: 'Add Rule',
-      children: ruleTypeSubmenu(onAddRule),
-    },
-    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
-    { type: 'divider' as const, key: 'div-pause' },
-    {
+  const items: ItemType[] = [];
+  if (onTogglePause) {
+    items.push({
       key: 'toggle-pause',
       icon: createElement(effectivelyPaused ? PlayCircleOutlined : PauseCircleOutlined),
       label: `${effectivelyPaused ? 'Unpause' : 'Pause'} ${noun}`,
       onClick: onTogglePause,
-    },
-    ...(hasOwnMarker
-      ? [
-          {
-            key: 'clear-override',
-            icon: createElement(RollbackOutlined),
-            label: `Reset ${noun} Pause Override`,
-            onClick: onClearOverride,
-          },
-        ]
-      : []),
-    ...(hasNestedMarkers
-      ? [
-          {
-            key: 'clear-nested',
-            icon: createElement(ClearOutlined),
-            label: `Clear Nested Pause Overrides`,
-            onClick: onClearNested,
-          },
-        ]
-      : []),
-    { type: 'divider' as const, key: 'div' },
-    { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
-    { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
-  ];
+    });
+    if (hasOwnMarker && onClearOverride) {
+      items.push({
+        key: 'clear-override',
+        icon: createElement(RollbackOutlined),
+        label: `Reset ${noun} Pause Override`,
+        onClick: onClearOverride,
+      });
+    }
+    if (hasNestedMarkers && onClearNested) {
+      items.push({
+        key: 'clear-nested',
+        icon: createElement(ClearOutlined),
+        label: 'Clear Nested Pause Overrides',
+        onClick: onClearNested,
+      });
+    }
+    items.push({ type: 'divider' as const, key: 'div-pause' });
+  }
+  items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
+  items.push({
+    key: 'delete',
+    icon: createElement(DeleteOutlined),
+    label: 'Delete',
+    danger: true,
+    onClick: onDelete,
+  });
+  return items;
 }
 
 export function templateCollectionMenuItems(

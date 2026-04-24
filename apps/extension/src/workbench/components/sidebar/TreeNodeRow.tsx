@@ -170,20 +170,19 @@ export function TreeNodeRow({
           {/* Badge */}
           {node.badge}
 
-          {/* Hover actions for container nodes (collection / folder): + and ... */}
+          {/* Hover actions for container nodes (collection / folder):
+              `+` opens addMenuItems (create-only), `⋯` opens actionMenuItems
+              (modify-only). Falls back to a built Rename/Delete menu when
+              no explicit actionMenuItems were provided by the tree builder. */}
           {node.canAddChild && (
             <div className="rules-sidebar-collection-actions">
               {node.addMenuItems && node.addMenuItems.length > 0 && (
-                <Dropdown
-                  menu={{ items: node.addMenuItems.filter((i) => i?.key === 'add-item' || i?.key === 'add-folder') }}
-                  trigger={['click']}
-                  placement="bottomRight"
-                >
+                <Dropdown menu={{ items: node.addMenuItems }} trigger={['click']} placement="bottomRight">
                   <PlusOutlined className="rules-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
                 </Dropdown>
               )}
-              {node.addMenuItems && node.addMenuItems.length > 0 ? (
-                <Dropdown menu={{ items: node.addMenuItems }} trigger={['click']} placement="bottomRight">
+              {node.actionMenuItems && node.actionMenuItems.length > 0 ? (
+                <Dropdown menu={{ items: node.actionMenuItems }} trigger={['click']} placement="bottomRight">
                   <EllipsisOutlined className="rules-sidebar-action-icon" onClick={(e) => e.stopPropagation()} />
                 </Dropdown>
               ) : node.canRename || node.canDelete ? (

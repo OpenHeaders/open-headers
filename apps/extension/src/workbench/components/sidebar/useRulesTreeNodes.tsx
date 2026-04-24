@@ -5,7 +5,7 @@ import { useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { composeBadge, iconEl } from './icons';
-import { containerMenuItems } from './menus';
+import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 
 interface UseRulesTreeNodesParams {
@@ -94,9 +94,11 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteLocalFolder(node.uid);
               }),
-            addMenuItems: containerMenuItems({
+            addMenuItems: containerAddMenuItems({
               onAddRule,
               onAddFolder,
+            }),
+            actionMenuItems: containerActionMenuItems({
               onRename: () => p.setRenamingId(fid),
               onDelete: () =>
                 p.confirmDelete(node.name, () => {
@@ -288,9 +290,11 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
           p.confirmDelete(collection.name, () => {
             void p.deleteLocalCollection(collection.uid);
           }),
-        addMenuItems: containerMenuItems({
+        addMenuItems: containerAddMenuItems({
           onAddRule,
           onAddFolder,
+        }),
+        actionMenuItems: containerActionMenuItems({
           onRename: () => p.setRenamingId(colId),
           onDelete: () =>
             p.confirmDelete(collection.name, () => {
