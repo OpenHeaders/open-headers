@@ -1,6 +1,6 @@
 import { BulbFilled, BulbOutlined, LayoutOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
-import { Dropdown, type MenuProps, Space, theme } from 'antd';
+import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import type { DockLayoutApi } from '@/shared/dock-layout';
@@ -74,6 +74,18 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
         setMenuOpenKeys((prev) => (prev.includes(parentKey) ? prev : [...prev, parentKey]));
       });
     }
+  };
+
+  // Controlled state for the footer's quick alignment picker — mirrors
+  // the workspace footer so users can A/B alignments without the menu
+  // auto-closing on each selection.
+  const [bottomAlignDropdownOpen, setBottomAlignDropdownOpen] = useState(false);
+  const handleBottomAlignOpenChange: NonNullable<React.ComponentProps<typeof Dropdown>['onOpenChange']> = (
+    nextOpen,
+    info,
+  ) => {
+    if (info?.source === 'menu') return;
+    setBottomAlignDropdownOpen(nextOpen);
   };
 
   const menuIconWrap = (node: React.ReactNode) => (
@@ -272,6 +284,50 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
                 position="right"
                 onClick={() => tl.toggleRegion('right')}
               />
+              <Dropdown
+                placement="topRight"
+                trigger={['click']}
+                open={bottomAlignDropdownOpen}
+                onOpenChange={handleBottomAlignOpenChange}
+                menu={{
+                  items: (
+                    [
+                      { key: 'center', label: 'Center (nested)' },
+                      { key: 'left', label: 'Left' },
+                      { key: 'right', label: 'Right' },
+                      { key: 'justify', label: 'Justify (full width)' },
+                    ] as { key: BottomPanelAlignmentSetting; label: string }[]
+                  ).map((opt) => ({
+                    key: `footer-bottom-${opt.key}`,
+                    icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+                    label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+                    onClick: () => setBottomPanelAlignment(opt.key),
+                  })),
+                }}
+              >
+                <Tooltip
+                  title={
+                    bottomPanelAlignment === 'center'
+                      ? 'Bottom panel: center (nested)'
+                      : bottomPanelAlignment === 'left'
+                        ? 'Bottom panel: left-aligned'
+                        : bottomPanelAlignment === 'right'
+                          ? 'Bottom panel: right-aligned'
+                          : 'Bottom panel: full width'
+                  }
+                  placement="top"
+                  open={bottomAlignDropdownOpen ? false : undefined}
+                >
+                  <div
+                    className="rules-panel-toggle"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Choose bottom panel alignment"
+                  >
+                    <LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} size={16} />
+                  </div>
+                </Tooltip>
+              </Dropdown>
             </div>
             {showLayoutMenu && (
               <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
