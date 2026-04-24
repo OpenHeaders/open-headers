@@ -3,11 +3,6 @@
  * panel (panel.html). These parallel workspaceLayout but are namespaced
  * separately so the narrower DevTools surface can keep its own defaults
  * and user overrides independent of the workspace tab.
- *
- * The only workspaceLayout key without a counterpart here is
- * `footerShowVersion`: the DevTools status bar leads with per-session
- * network metrics (request count, transferred bytes, DCL, Load) and
- * has no version readout to gate.
  */
 
 import * as v from 'valibot';
@@ -21,6 +16,7 @@ export type DevpanelBottomPanelAlignmentSetting = v.InferOutput<typeof bottomPan
 
 declare module '../types' {
   interface SettingsMap {
+    'devpanelLayout.footerShowVersion': boolean;
     'devpanelLayout.footerShowThemeSwitcher': boolean;
     'devpanelLayout.footerShowPanelToggles': boolean;
     'devpanelLayout.footerShowLayoutMenu': boolean;
@@ -31,6 +27,19 @@ declare module '../types' {
 }
 
 // ── Footer visibility ────────────────────────────────────────────────
+
+registerSetting({
+  key: 'devpanelLayout.footerShowVersion',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show Version in Footer',
+  description: 'Display the extension version number in the DevTools panel status bar.',
+  category: 'devpanelLayout',
+  subcategory: 'Footer',
+  tags: ['statusbar', 'footer', 'version', 'devtools'],
+  scope: 'user',
+});
 
 registerSetting({
   key: 'devpanelLayout.footerShowThemeSwitcher',

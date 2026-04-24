@@ -37,7 +37,12 @@
  * Must stay small: this file runs every time DevTools opens on any tab.
  */
 
-chrome.devtools.panels.create('Open Headers', 'images/icon16.png', 'panel.html');
+// Chrome's DevTools API was added in MV2 with a 16×16 expectation, but
+// modern Chrome renders the tab icon at device-pixel resolution, so a
+// 16-pixel source is blurred/clipped on hi-DPI displays — often enough
+// that the tab appears as text-only. Passing the 48×48 asset gives
+// Chrome enough resolution to downscale to a crisp tab icon.
+chrome.devtools.panels.create('Open Headers', 'images/icon48.png', 'panel.html');
 
 const tabId = chrome.devtools.inspectedWindow.tabId;
 

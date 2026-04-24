@@ -8,6 +8,8 @@ import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutI
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 
+declare const __APP_VERSION__: string;
+
 type ThemeMode = 'light' | 'dark' | 'auto';
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
@@ -46,6 +48,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
 
+  const showVersion = useSettingValue('devpanelLayout.footerShowVersion');
   const showThemeSwitcher = useSettingValue('devpanelLayout.footerShowThemeSwitcher');
   const showPanelToggles = useSettingValue('devpanelLayout.footerShowPanelToggles');
   const showLayoutMenu = useSettingValue('devpanelLayout.footerShowLayoutMenu');
@@ -357,6 +360,14 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
               <LayoutOutlined style={{ fontSize: 13 }} />
             </div>
           </Dropdown>
+        )}
+        {showVersion && (
+          <>
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+            <span className="rules-statusbar-item" style={{ fontSize: 10, color: token.colorTextTertiary }}>
+              v{__APP_VERSION__}
+            </span>
+          </>
         )}
       </div>
     </div>
