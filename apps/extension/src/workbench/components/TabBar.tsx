@@ -1284,7 +1284,11 @@ const TabBar: React.FC<TabBarProps> = ({
           open={createMenuOpen}
           onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
         >
-          <Tooltip title={<ShortcutHintTitle label={newRuleLabel}>New rule</ShortcutHintTitle>} placement="bottom">
+          <Tooltip
+            title={<ShortcutHintTitle label={newRuleLabel}>New rule</ShortcutHintTitle>}
+            placement="bottom"
+            open={createMenuOpen ? false : undefined}
+          >
             <div className="rules-tab-action" style={{ color: token.colorTextSecondary, flexShrink: 0 }}>
               <PlusOutlined style={{ fontSize: 12 }} />
             </div>
@@ -1294,7 +1298,11 @@ const TabBar: React.FC<TabBarProps> = ({
 
       {/* Tab search chevron (always visible, outside scroll) */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
-        <Tooltip title={<ShortcutHintTitle label={tabSearchLabel}>Search tabs</ShortcutHintTitle>} placement="bottom">
+        <Tooltip
+          title={<ShortcutHintTitle label={tabSearchLabel}>Search tabs</ShortcutHintTitle>}
+          placement="bottom"
+          open={tabSearchOpen ? false : undefined}
+        >
           <div
             className="rules-tab-action"
             style={{ color: token.colorTextSecondary }}

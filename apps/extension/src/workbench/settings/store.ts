@@ -142,7 +142,16 @@ export function initSettingsStore(): Promise<void> {
       for (const def of scopeDefs) {
         if (def.key in raw) {
           const validated = validate(def, raw[def.key]);
-          if (validated !== undefined) applyValue(def, validated);
+          if (validated !== undefined) {
+            applyValue(def, validated);
+            // Per-key listeners subscribed BEFORE init finished (every
+            // `useSettingValue` call during the first render) need an
+            // explicit notify here — they watch key listeners, not the
+            // global ready flag, so without this the UI paints with the
+            // registered default and never re-renders with the stored
+            // value after load.
+            notifyKey(def.key);
+          }
         }
       }
       // Subscribe for cross-context updates on this scope.
@@ -162,6 +171,20 @@ export function initSettingsStore(): Promise<void> {
 
     state.ready = true;
     for (const fn of globalListeners) fn();
+
+    // Popup pages close fast — a 150ms debounce is enough for the
+    // timer to never fire if the user clicks a setting then closes
+    // the popup. Flush any pending scopes on pagehide so cross-
+    // context writes (theme, density, etc.) actually commit.
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pagehide', () => {
+        for (const scope of Array.from(pendingScopes)) {
+          const timer = scopeTimers.get(scope);
+          if (timer) clearTimeout(timer);
+          void flushScope(scope);
+        }
+      });
+    }
   })();
   return initPromise;
 }
