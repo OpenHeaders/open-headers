@@ -610,6 +610,8 @@ html, body, #root {
   display: flex;
   align-items: center;
   flex: 1;
+  gap: 2px;
+  padding: 0 4px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -622,22 +624,22 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 12px;
+  padding: 4px 10px;
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   flex-shrink: 0;
   position: relative;
   user-select: none;
-  border-right: 1px solid rgba(128, 128, 128, 0.15);
-
-  &:last-child {
-    border-right: none;
-  }
+  transition: background 0.12s;
 
   &.active {
     font-weight: 500;
+  }
+
+  &:hover:not(.active):not(.dragging) {
+    background: rgba(128, 128, 128, 0.1);
   }
 
   &:hover .rules-tab-close {
@@ -746,15 +748,16 @@ html, body, #root {
   align-items: center;
 }
 
-// ── Breadcrumbs ────────────────────────────────────────────────────
+// ── Breadcrumbs (footer) ───────────────────────────────────────────
 
 .rules-breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 3px 14px;
+  gap: 0;
   font-size: 11px;
-  flex-shrink: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .rules-breadcrumb {
@@ -765,6 +768,22 @@ html, body, #root {
     background: rgba(128, 128, 128, 0.1);
     cursor: text;
   }
+}
+
+// ── Floating editor-action cluster ─────────────────────────────────
+//
+// Pinned top-right of each editor leaf. Sits above editor content;
+// content's own top padding keeps it from overlapping text at the
+// right edge.
+
+.rules-editor-action-cluster {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 // ── Editor content ─────────────────────────────────────────────────
@@ -876,17 +895,31 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 12px;
+  padding: 2px 0;
   font-size: 11px;
   flex-shrink: 0;
   height: 24px;
 }
 
-.rules-statusbar-left,
+.rules-statusbar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  // Align with the left dock-body content edge so the breadcrumb lines
+  // up with the workspace chip in TopBar above it. `--ab-width` is set
+  // inline by StatusBar to match the current activity-bar width.
+  padding-left: var(--ab-width, 64px);
+}
+
 .rules-statusbar-right {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-shrink: 0;
+  padding-right: 12px;
 }
 
 .rules-statusbar-item {

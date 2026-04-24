@@ -27,11 +27,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import 'allotment/dist/style.css';
 import { computeBreadcrumbs } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
-import BreadcrumbBar from './components/BreadcrumbBar';
 import CollectionOverview from './components/CollectionOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
 import CommandPalette from './components/CommandPalette';
-import EditorGroupRenderer from './components/EditorGroupRenderer';
+import EditorActionCluster from './components/EditorActionCluster';
+import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/EditorGroupRenderer';
 import EmptyState from './components/EmptyState';
 import EnvironmentEditor from './components/EnvironmentEditor';
 import FolderOverview from './components/FolderOverview';
@@ -572,6 +572,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     [groups.focusedLeaf],
   );
 
+  // Breadcrumb for the focused-leaf active tab — rendered in the footer
+  // (split editors still each have their own floating action cluster,
+  // but the footer breadcrumb is single-valued and follows focus).
+  const activeBreadcrumbSegments = useMemo(
+    () => (activeTab ? computeBreadcrumbs(activeTab, rules, localCollectionTrees) : []),
+    [activeTab, rules, localCollectionTrees],
+  );
+  const activeWorkspace = useMemo(
+    () => workspacesApi.workspaces.find((w) => w.id === workspacesApi.activeWorkspaceId),
+    [workspacesApi.workspaces, workspacesApi.activeWorkspaceId],
+  );
+
   const activeTabCollectionId = useMemo((): string | null => {
     if (!activeTab) return null;
     const { mode } = activeTab;
@@ -1090,17 +1102,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     ],
   );
 
-  // ── Per-leaf header (breadcrumb + save/rename) ───────────────
+  // ── Per-leaf floating action cluster ─────────────────────────
+  //
+  // Each editor leaf gets its own Save (+ overflow) cluster pinned top-
+  // right so actions sit at the edit surface instead of in a horizontal
+  // toolbar row. Breadcrumb + rename live in the global footer now.
   const renderLeafHeader = useCallback(
-    ({
-      isFocusedLeaf,
-      activeTab: leafActiveTab,
-    }: {
-      isFocusedLeaf: boolean;
-      activeTab: WorkbenchTab | undefined;
-    }): React.ReactNode => {
+    ({ activeTab: leafActiveTab }: RenderLeafHeaderContext): React.ReactNode => {
       if (!leafActiveTab) return null;
-      const segments = computeBreadcrumbs(leafActiveTab, rules, localCollectionTrees);
       const isEditable =
         leafActiveTab.mode === 'create' ||
         leafActiveTab.mode === 'edit' ||
@@ -1114,38 +1123,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         leafActiveTab.mode === 'live-variable-create' ||
         leafActiveTab.mode === 'live-workflow-edit' ||
         leafActiveTab.mode === 'live-workflow-create';
-      // "Save as template" only applies to rule editors — variables /
-      // vault aren't rule-shaped and can't be templated.
+      if (!isEditable) return null;
       const supportsSaveAsTemplate = leafActiveTab.mode === 'create' || leafActiveTab.mode === 'edit';
-      // Only tab modes whose last breadcrumb segment corresponds to a
-      // renameable entity expose breadcrumb rename. Vault / workspace-vars
-      // / collection-vars have static or derived labels; letting the user
-      // type into them would silently no-op.
-      const isRenameable =
-        leafActiveTab.mode === 'create' ||
-        leafActiveTab.mode === 'edit' ||
-        leafActiveTab.mode === 'collection-overview' ||
-        leafActiveTab.mode === 'folder-overview' ||
-        leafActiveTab.mode === 'env-edit' ||
-        leafActiveTab.mode === 'request-edit' ||
-        leafActiveTab.mode === 'request-create' ||
-        leafActiveTab.mode === 'live-variable-edit' ||
-        leafActiveTab.mode === 'live-workflow-edit' ||
-        leafActiveTab.mode === 'live-workflow-create';
       return (
-        <BreadcrumbBar
-          segments={segments}
-          isDirty={leafActiveTab.mode === 'create' || leafActiveTab.dirty}
-          onSave={isEditable ? () => saveRefMap.current.get(leafActiveTab.id)?.() : undefined}
+        <EditorActionCluster
+          isDirty={leafActiveTab.mode === 'create' || !!leafActiveTab.dirty}
+          onSave={() => saveRefMap.current.get(leafActiveTab.id)?.()}
           onSaveAsTemplate={
             supportsSaveAsTemplate ? () => saveAsTemplateRefMap.current.get(leafActiveTab.id)?.() : undefined
           }
-          onRename={isRenameable ? (newName) => handleBreadcrumbRenameFor(leafActiveTab, newName) : undefined}
-          autoRenameKey={pendingRenameTabId === leafActiveTab.id && isFocusedLeaf ? leafActiveTab.id : null}
         />
       );
     },
-    [rules, localCollectionTrees, saveRefMap, pendingRenameTabId, handleBreadcrumbRenameFor],
+    [saveRefMap, saveAsTemplateRefMap],
   );
 
   const renderEmpty = useCallback(() => <EmptyState onCreateRule={openCreateTab} />, [openCreateTab]);
@@ -1317,6 +1307,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             unresolvableWorkflowUids={unresolvableWorkflowUids}
             renderTabBody={renderTabBody}
             renderLeafHeader={renderLeafHeader}
+            getTabPath={(tab) => computeBreadcrumbs(tab, rules, localCollectionTrees)}
             renderEmpty={renderEmpty}
             onCreateRule={openCreateTab}
             createMenuOpen={createMenuOpen}
@@ -1358,7 +1349,31 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         }}
       />
 
-      <StatusBar tl={tl} />
+      <StatusBar
+        tl={tl}
+        workspace={
+          activeWorkspace
+            ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }
+            : undefined
+        }
+        segments={activeBreadcrumbSegments}
+        onRename={
+          activeTab &&
+          (activeTab.mode === 'create' ||
+            activeTab.mode === 'edit' ||
+            activeTab.mode === 'collection-overview' ||
+            activeTab.mode === 'folder-overview' ||
+            activeTab.mode === 'env-edit' ||
+            activeTab.mode === 'request-edit' ||
+            activeTab.mode === 'request-create' ||
+            activeTab.mode === 'live-variable-edit' ||
+            activeTab.mode === 'live-workflow-edit' ||
+            activeTab.mode === 'live-workflow-create')
+            ? (newName) => handleBreadcrumbRenameFor(activeTab, newName)
+            : undefined
+        }
+        autoRenameKey={activeTab && pendingRenameTabId === activeTab.id ? activeTab.id : null}
+      />
 
       <SaveToCollectionModal
         open={saveFlow.saveModalOpen}

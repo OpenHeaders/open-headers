@@ -11,7 +11,6 @@
 
 import { BulbFilled, BulbOutlined, LayoutOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
-import { useRules } from '@hooks/useRules';
 import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
@@ -24,6 +23,8 @@ import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { useSetting, useSettingValue } from '../settings/hooks';
 import type { BottomPanelAlignmentSetting, SidebarLayoutVariantSetting } from '../settings/schema/workspace-layout';
 import { DOCK_LABELS, TOOL_WINDOW_MAP } from '../tool-windows';
+import BreadcrumbBar from './BreadcrumbBar';
+import { renderWorkspacePrefix } from './workspace-prefix';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
@@ -31,6 +32,12 @@ declare const __APP_VERSION__: string;
 
 interface StatusBarProps {
   tl: ToolLayoutApi;
+  /** Active workspace — renders as the leading breadcrumb chip (icon + name). */
+  workspace?: { name: string; icon?: string; color?: string };
+  /** Breadcrumb path of the focused-leaf active tab (excluding workspace). */
+  segments: string[];
+  onRename?: (newName: string) => void;
+  autoRenameKey?: string | null;
 }
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
@@ -39,10 +46,14 @@ const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; co
   auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, text: 'Auto', color: '#1890ff' },
 };
 
-const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ tl, workspace, segments, onRename, autoRenameKey }) => {
   const { token } = theme.useToken();
-  const { rules } = useRules();
   const { themeMode, setThemeMode } = useTheme();
+  // Mirror TopBar: the footer's left padding expands/contracts with the
+  // activity bar so the breadcrumb starts at the same X as "Open Headers"
+  // above it, regardless of whether tool-window labels are on.
+  const showToolWindowLabels = useSettingValue('workspaceLayout.showToolWindowLabels');
+  const activityBarWidth = showToolWindowLabels ? 64 : 36;
   const { openDocs } = useInspectorNav();
   const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
   const toggleBottomLabel = useShortcutLabel('toggle-bottom');
@@ -107,8 +118,6 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
       });
     }
   };
-
-  const enabledCount = rules.filter((r) => r.enabled).length;
 
   const menuIconWrap = (node: React.ReactNode) => (
     <span
@@ -216,24 +225,51 @@ const StatusBar: React.FC<StatusBarProps> = ({ tl }) => {
   return (
     <div
       className="rules-statusbar"
-      style={{
-        background: token.colorBgLayout,
-        color: token.colorTextSecondary,
-      }}
+      style={
+        {
+          background: token.colorBgLayout,
+          color: token.colorTextSecondary,
+          '--ab-width': `${activityBarWidth}px`,
+        } as React.CSSProperties
+      }
     >
       <div className="rules-statusbar-left">
-        <span className="rules-statusbar-item">
-          {enabledCount}/{rules.length} rule{rules.length !== 1 ? 's' : ''} active
-        </span>
-        <StatusPill
-          density="full"
-          label="System status"
-          renderSubsystemExtras={productStatusExtras}
-          onOpenDocs={openDocs}
+        <BreadcrumbBar
+          leadingNode={
+            workspace ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                {renderWorkspacePrefix(
+                  { icon: workspace.icon, color: workspace.color },
+                  token,
+                  { size: 14 },
+                )}
+                <span
+                  style={{
+                    color: token.colorTextTertiary,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {workspace.name}
+                </span>
+              </span>
+            ) : undefined
+          }
+          segments={segments}
+          onRename={onRename}
+          autoRenameKey={autoRenameKey}
         />
       </div>
 
       <div className="rules-statusbar-right">
+        <StatusPill
+          density="compact"
+          label="System status"
+          renderSubsystemExtras={productStatusExtras}
+          onOpenDocs={openDocs}
+        />
+        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
         {showThemeSwitcher && (
           <>
             <Dropdown

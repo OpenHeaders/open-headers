@@ -232,6 +232,9 @@ interface TabBarProps {
   liveWorkflows?: V5.LiveWorkflow[];
   /** Workflow uids whose step requests have unresolved refs. */
   unresolvableWorkflowUids?: ReadonlySet<string>;
+  /** Breadcrumb path for a tab (workspace excluded) — drives the hover
+   *  tooltip so users see where a tab lives without opening it. */
+  getTabPath?: (tab: WorkbenchTab) => string[];
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
   /** Double-click on any tab — App wires this to zen-mode toggle. */
@@ -364,7 +367,6 @@ function emptyPlaceholderStyle(token: ReturnType<typeof theme.useToken>['token']
     background: token.colorPrimaryBg,
     outline: `1px dashed ${token.colorPrimary}`,
     outlineOffset: -2,
-    borderBottomColor: 'transparent',
   };
 }
 
@@ -437,6 +439,7 @@ interface SortableTabProps {
   unresolvableRequestUids: ReadonlySet<string>;
   liveWorkflows: V5.LiveWorkflow[];
   unresolvableWorkflowUids: ReadonlySet<string>;
+  tabPath?: string[];
   contextMenu: { items: ItemType[] };
   onSwitch: (id: string) => void;
   onClose: (id: string) => void;
@@ -456,6 +459,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
   unresolvableRequestUids,
   liveWorkflows,
   unresolvableWorkflowUids,
+  tabPath,
   contextMenu,
   onSwitch,
   onClose,
@@ -493,29 +497,18 @@ const SortableTab: React.FC<SortableTabProps> = ({
     ...(hidePlaceholder ? { visibility: 'hidden' as const } : null),
   };
 
-  // Every leaf's active tab sits on the container background so it's
-  // clearly distinguishable from inactive siblings. The focused leaf
-  // additionally paints its active tab in the blue accent (text + bottom
-  // border) so you can always tell which group currently owns focus.
+  // Active tabs render as a tinted rounded pill; inactive sit flat on
+  // the bar and gain a neutral grey pill on hover (CSS). Focused-leaf
+  // active tabs use the primary tint so you can tell which editor
+  // group owns focus at a glance; unfocused active tabs use a neutral
+  // fill so two splits don't fight for attention.
   const visualStyle: React.CSSProperties = isDragging
     ? emptyPlaceholderStyle(token)
     : isActive && isFocusedLeaf
-      ? {
-          color: token.colorPrimary,
-          borderBottomColor: token.colorPrimary,
-          background: token.colorBgContainer,
-        }
+      ? { color: token.colorPrimary, background: token.colorPrimaryBg }
       : isActive
-        ? {
-            color: token.colorText,
-            borderBottomColor: token.colorBorder,
-            background: token.colorBgContainer,
-          }
-        : {
-            color: token.colorTextSecondary,
-            borderBottomColor: 'transparent',
-            background: 'transparent',
-          };
+        ? { color: token.colorText, background: token.colorFillSecondary }
+        : { color: token.colorTextSecondary };
 
   const content = (
     <div
@@ -557,9 +550,83 @@ const SortableTab: React.FC<SortableTabProps> = ({
   // interfere with dnd-kit's overlay portal.
   if (isDragging) return content;
 
+  // Hover tooltip shows the tab's breadcrumb path (workspace excluded).
+  // Root segment stays plain text; folders carry a neutral folder glyph;
+  // entity segments mirror the tab's own icon so type is always readable.
+  // Draft tabs (create modes before first save) inject a grey "Draft"
+  // segment between root and entity so the user can tell at a glance
+  // the tab hasn't been saved.
+  type TooltipSegmentKind = 'root' | 'folder' | 'draft' | 'entity';
+  const isDraftTab =
+    tab.mode === 'create' ||
+    tab.mode === 'request-create' ||
+    tab.mode === 'live-variable-create' ||
+    tab.mode === 'live-workflow-create';
+  const tooltipSegments: { label: string; kind: TooltipSegmentKind }[] = [];
+  if (tabPath && tabPath.length > 0) {
+    tooltipSegments.push({ label: tabPath[0], kind: 'root' });
+    for (let i = 1; i < tabPath.length - 1; i++) {
+      tooltipSegments.push({ label: tabPath[i], kind: 'folder' });
+    }
+    if (tabPath.length >= 2) {
+      if (isDraftTab) tooltipSegments.push({ label: 'Draft', kind: 'draft' });
+      tooltipSegments.push({ label: tabPath[tabPath.length - 1], kind: 'entity' });
+    }
+  }
+  const tooltipTitle =
+    tooltipSegments.length > 0 ? (
+      <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', lineHeight: 1.4 }}>
+        {tooltipSegments.map((s, i) => {
+          const icon =
+            s.kind === 'folder' ? (
+              <FolderOpenOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
+            ) : s.kind === 'entity' ? (
+              tabIcon(
+                tab,
+                rules,
+                templates,
+                pausedUids,
+                requests,
+                unresolvableRequestUids,
+                unresolvableRuleUids,
+                liveWorkflows,
+                unresolvableWorkflowUids,
+              )
+            ) : null;
+          const color = s.kind === 'draft' ? token.colorTextTertiary : token.colorText;
+          return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: path segments are inherently positional
+            <Fragment key={`${s.label}-${i}`}>
+              {i > 0 && <span style={{ color: token.colorTextTertiary, margin: '0 5px' }}>{'›'}</span>}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color }}>
+                {icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
+                <span>{s.label}</span>
+              </span>
+            </Fragment>
+          );
+        })}
+      </span>
+    ) : (
+      tab.label
+    );
+
   return (
     <Dropdown menu={contextMenu} trigger={['contextMenu']} onOpenChange={setContextMenuOpen}>
-      <Tooltip title={tab.label} placement="bottom" mouseEnterDelay={0.5} open={contextMenuOpen ? false : undefined}>
+      <Tooltip
+        title={tooltipTitle}
+        color={token.colorBgElevated}
+        overlayInnerStyle={{
+          color: token.colorText,
+          fontSize: 11,
+          padding: '5px 10px',
+          boxShadow: `0 4px 12px rgba(0, 0, 0, 0.1)`,
+        }}
+        placement="bottom"
+        mouseEnterDelay={0.5}
+        mouseLeaveDelay={0}
+        destroyTooltipOnHide
+        open={contextMenuOpen ? false : undefined}
+      >
         {content}
       </Tooltip>
     </Dropdown>
@@ -809,6 +876,7 @@ const TabBar: React.FC<TabBarProps> = ({
   unresolvableRequestUids = EMPTY_SET,
   liveWorkflows = [],
   unresolvableWorkflowUids = EMPTY_SET,
+  getTabPath,
   onSwitch,
   onClose,
   onTabDoubleClick,
@@ -1091,6 +1159,7 @@ const TabBar: React.FC<TabBarProps> = ({
                 unresolvableRequestUids={unresolvableRequestUids}
                 liveWorkflows={liveWorkflows}
                 unresolvableWorkflowUids={unresolvableWorkflowUids}
+                tabPath={getTabPath?.(tab)}
                 contextMenu={buildContextMenu(tab, index)}
                 onSwitch={onSwitch}
                 onClose={onClose}

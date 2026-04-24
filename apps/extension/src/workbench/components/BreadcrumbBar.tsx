@@ -1,55 +1,35 @@
-/**
- * BreadcrumbBar — shows path segments and a Save button when dirty.
- *
- * Mirrors the desktop V5Shell BreadcrumbBar (simplified for extension).
- * The last segment supports inline editing for renaming.
- */
-
-import { FileTextOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
-import { Button, Tooltip, theme } from 'antd';
+import { RightOutlined } from '@ant-design/icons';
+import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 interface BreadcrumbBarProps {
+  /** Optional leading node — rendered before the first segment and followed
+   *  by a separator. Callers pass a workspace chip (icon + name) here. */
+  leadingNode?: React.ReactNode;
   segments: string[];
-  isDirty?: boolean;
-  onSave?: () => void;
-  onSaveAsTemplate?: () => void;
   onRename?: (newName: string) => void;
-  /** Set to a unique value (e.g. tab ID) to auto-enter rename mode. Change the value to re-trigger. */
+  /** Setting to a unique value auto-enters rename mode; changing the value re-triggers. */
   autoRenameKey?: string | null;
 }
 
-const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
-  segments,
-  isDirty,
-  onSave,
-  onSaveAsTemplate,
-  onRename,
-  autoRenameKey,
-}) => {
+const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ leadingNode, segments, onRename, autoRenameKey }) => {
   const { token } = theme.useToken();
-  const saveLabel = useShortcutLabel('save');
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const lastAutoRenameKey = useRef<string | null>(null);
 
-  // Auto-enter rename mode when autoRenameKey changes to a new non-null value
   useEffect(() => {
     if (autoRenameKey && autoRenameKey !== lastAutoRenameKey.current && onRename && segments.length > 0) {
       lastAutoRenameKey.current = autoRenameKey;
-      const label = segments[segments.length - 1];
-      setEditValue(label);
+      setEditValue(segments[segments.length - 1]);
       setEditing(true);
       setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
       }, 50);
     } else if (!autoRenameKey && lastAutoRenameKey.current) {
-      // Tab switched or rename cleared — exit editing mode
       lastAutoRenameKey.current = null;
       setEditing(false);
     }
@@ -76,98 +56,72 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
     }
   }, [editValue, segments, onRename]);
 
-  if (segments.length === 0) return null;
+  if (segments.length === 0 && !leadingNode) return null;
+
+  const separator = (
+    <RightOutlined style={{ fontSize: 7, color: token.colorTextTertiary, margin: '0 4px' }} />
+  );
 
   return (
-    <div
-      className="rules-breadcrumbs"
-      style={{
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorBgContainer,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
-        {segments.map((seg, i) => {
-          const isLast = i === segments.length - 1;
-          return (
-            <span key={`${seg}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-              {isLast && editing ? (
-                <input
-                  ref={inputRef}
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onBlur={commitEdit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitEdit();
-                    if (e.key === 'Escape') setEditing(false);
-                  }}
-                  style={{
-                    fontSize: 11,
-                    padding: '1px 4px',
-                    border: `1px solid ${token.colorPrimary}`,
-                    borderRadius: 3,
-                    outline: 'none',
-                    background: token.colorBgContainer,
-                    color: token.colorText,
-                    minWidth: 80,
-                    maxWidth: 300,
-                  }}
-                />
-              ) : (
-                // biome-ignore lint/a11y/noStaticElementInteractions: role="button" provided conditionally when interactive
-                <span
-                  className={`rules-breadcrumb ${isLast && onRename ? 'editable' : ''}`}
-                  style={{
-                    color: isLast ? token.colorTextSecondary : token.colorTextTertiary,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onClick={isLast && onRename ? () => startEditing(seg) : undefined}
-                  role={isLast && onRename ? 'button' : undefined}
-                  tabIndex={isLast && onRename ? 0 : undefined}
-                  onKeyDown={(e) => {
-                    if (isLast && onRename && e.key === 'Enter') startEditing(seg);
-                  }}
-                >
-                  {seg}
-                </span>
-              )}
-              {!isLast && <RightOutlined style={{ fontSize: 8, color: token.colorTextTertiary, margin: '0 2px' }} />}
-            </span>
-          );
-        })}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {onSaveAsTemplate && (
-          <Tooltip title="Save as Template">
-            <Button size="small" icon={<FileTextOutlined />} onClick={onSaveAsTemplate} style={{ fontSize: 11 }}>
-              Save as Template
-            </Button>
-          </Tooltip>
-        )}
-        {onSave && (
-          <Tooltip title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}>
-            <Button
-              size="small"
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={onSave}
-              disabled={!isDirty}
-              style={{
-                fontSize: 11,
-                ...(isDirty ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
-              }}
-            >
-              Save
-            </Button>
-          </Tooltip>
-        )}
-      </div>
+    <div className="rules-breadcrumbs">
+      {leadingNode && (
+        <>
+          <span className="rules-breadcrumb" style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0 }}>
+            {leadingNode}
+          </span>
+          {segments.length > 0 && separator}
+        </>
+      )}
+      {segments.map((seg, i) => {
+        const isLast = i === segments.length - 1;
+        return (
+          <span key={`${seg}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0 }}>
+            {isLast && editing ? (
+              <input
+                ref={inputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitEdit();
+                  if (e.key === 'Escape') setEditing(false);
+                }}
+                style={{
+                  fontSize: 11,
+                  padding: '0 4px',
+                  border: `1px solid ${token.colorPrimary}`,
+                  borderRadius: 3,
+                  outline: 'none',
+                  background: token.colorBgContainer,
+                  color: token.colorText,
+                  minWidth: 80,
+                  maxWidth: 300,
+                }}
+              />
+            ) : (
+              // biome-ignore lint/a11y/noStaticElementInteractions: role="button" provided conditionally when interactive
+              <span
+                className={`rules-breadcrumb ${isLast && onRename ? 'editable' : ''}`}
+                style={{
+                  color: isLast ? token.colorTextSecondary : token.colorTextTertiary,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                onClick={isLast && onRename ? () => startEditing(seg) : undefined}
+                role={isLast && onRename ? 'button' : undefined}
+                tabIndex={isLast && onRename ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (isLast && onRename && e.key === 'Enter') startEditing(seg);
+                }}
+              >
+                {seg}
+              </span>
+            )}
+            {!isLast && separator}
+          </span>
+        );
+      })}
     </div>
   );
 };
