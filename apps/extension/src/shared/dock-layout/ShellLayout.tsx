@@ -602,6 +602,13 @@ function ShellLayoutInner<T extends string>({
   const [shellSize, setShellSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [horizontalSizes, setHorizontalSizes] = useState<number[] | null>(null);
   const [verticalSizes, setVerticalSizes] = useState<number[] | null>(null);
+  // Measured live from the DOM — the activity bar's effective width
+  // depends on which CSS wins in the host (workspace `rules.less`
+  // declares 64/36, devpanel / shared `dock-layout.css` declares
+  // 96/36), so hardcoding the constant drifts the drop-zone rects off
+  // the real dock edges. Reading it at runtime keeps the overlay in
+  // sync with whatever the host actually renders.
+  const [activityBarWidth, setActivityBarWidth] = useState<number>(64);
 
   useLayoutEffect(() => {
     const el = shellRef.current;
@@ -613,6 +620,20 @@ function ShellLayoutInner<T extends string>({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const bar = shell.querySelector<HTMLElement>('.rules-activity-bar');
+    if (!bar) return;
+    setActivityBarWidth(bar.offsetWidth);
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (typeof w === 'number' && w > 0) setActivityBarWidth(w);
+    });
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [showToolWindowLabels, sidebarLayout]);
 
   const handleHorizontalChange = useCallback(
     (next: number[]) => {
@@ -795,79 +816,106 @@ function ShellLayoutInner<T extends string>({
     return null;
   }, [preview, draggingId]);
 
-  // Must stay in sync with `.workbench-activity-bar { width }` in
-  // `dock-layout.css`. The drop-zone math subtracts two activity bars
-  // from the viewport to compute the draggable tool-window rects, so
-  // any CSS change here ripples into the blue overlay alignment.
-  const ACTIVITY_BAR_WIDTH = 96;
+  // Region rects in shell-local coords, measured from the DOM at drag
+  // start. Using measured bounding boxes instead of Allotment's
+  // `onChange` sizes keeps this correct across all four alignment
+  // variants — the `left` and `right` layouts nest the sidebar inside
+  // the editor column, so the outer Allotment's horizontal sizes are
+  // [middle, rightSidebar] (two panes), not [left, editor, right]. The
+  // measured approach is agnostic to which Allotment tree is mounted.
+  const [regionRects, setRegionRects] = useState<{
+    left: DropZoneRect | null;
+    right: DropZoneRect | null;
+    bottom: DropZoneRect | null;
+    editor: DropZoneRect | null;
+  }>({ left: null, right: null, bottom: null, editor: null });
+
+  useLayoutEffect(() => {
+    if (!dragging) return;
+    const shell = shellRef.current;
+    if (!shell) return;
+    const shellRect = shell.getBoundingClientRect();
+    const measure = (selector: string): DropZoneRect | null => {
+      const el = shell.querySelector<HTMLElement>(selector);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: r.left - shellRect.left, top: r.top - shellRect.top, width: r.width, height: r.height };
+    };
+    setRegionRects({
+      left: measure('[data-region="left"]'),
+      right: measure('[data-region="right"]'),
+      bottom: measure('[data-region="bottom"]'),
+      editor: measure('[data-region="editor"]'),
+    });
+  }, [dragging, shellSize, bottomPanelAlignment, leftOpen, rightOpen, bottomOpen]);
+
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(() => {
     if (!dragging) return null;
     const fullW = shellSize.width;
     const fullH = shellSize.height;
     if (fullW === 0 || fullH === 0) return null;
 
-    const displaySidebarW = leftOpen ? (horizontalSizes?.[0] ?? sizes.sidebar.preferred) : sizes.sidebar.preferred;
-    const displayInspectorW = rightOpen
-      ? (horizontalSizes?.[horizontalSizes.length - 1] ?? sizes.inspector.preferred)
-      : sizes.inspector.preferred;
-    const displayBottomH = bottomOpen
-      ? (verticalSizes?.[verticalSizes.length - 1] ?? sizes.bottom.preferred)
-      : sizes.bottom.preferred;
+    // Editor rect is the anchor for fallback geometry when a dock is
+    // closed — it always exists and tells us the available vertical
+    // band (editor.top..editor.bottom). When it hasn't been measured
+    // yet (first-frame drag), fall back to the full shell bounds so
+    // zones render somewhere sensible.
+    const editorR = regionRects.editor ?? { left: activityBarWidth, top: 0, width: fullW - activityBarWidth * 2, height: fullH };
 
-    const leftRectX = ACTIVITY_BAR_WIDTH;
-    const leftRectEnd = leftRectX + displaySidebarW;
-    const rightRectX = fullW - ACTIVITY_BAR_WIDTH - displayInspectorW;
-    const editorAreaEnd = rightRectX; // where editor space ends / right sidebar starts
-    const editorAreaStart = leftRectEnd; // where editor space starts / left sidebar ends
+    const preferredSidebar = sizes.sidebar.preferred;
+    const preferredInspector = sizes.inspector.preferred;
+    const preferredBottom = sizes.bottom.preferred;
 
-    let leftRect: DropZoneRect;
-    let rightRect: DropZoneRect;
+    const leftRect: DropZoneRect = regionRects.left ?? {
+      left: activityBarWidth,
+      top: editorR.top,
+      width: preferredSidebar,
+      height: editorR.height,
+    };
+    const rightRect: DropZoneRect = regionRects.right ?? {
+      left: fullW - activityBarWidth - preferredInspector,
+      top: editorR.top,
+      width: preferredInspector,
+      height: editorR.height,
+    };
+
+    // Bottom fallback (closed dock) depends on alignment because the
+    // bottom region's width and anchoring differ by variant.
     let bottomRect: DropZoneRect;
-
-    if (bottomPanelAlignment === 'justify') {
-      // Bottom spans the full width between the two activity bars; both
-      // sidebars stop where the bottom begins.
-      const topH = Math.max(0, fullH - displayBottomH);
-      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: topH };
-      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: topH };
-      bottomRect = {
-        left: ACTIVITY_BAR_WIDTH,
-        top: topH,
-        width: Math.max(0, fullW - ACTIVITY_BAR_WIDTH * 2),
-        height: displayBottomH,
-      };
-    } else if (bottomPanelAlignment === 'left') {
-      // Bottom spans [left sidebar + editor]; right sidebar full height.
-      const topH = Math.max(0, fullH - displayBottomH);
-      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: topH };
-      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: fullH };
-      bottomRect = {
-        left: leftRectX,
-        top: topH,
-        width: Math.max(0, editorAreaEnd - leftRectX),
-        height: displayBottomH,
-      };
-    } else if (bottomPanelAlignment === 'right') {
-      // Bottom spans [editor + right sidebar]; left sidebar full height.
-      const topH = Math.max(0, fullH - displayBottomH);
-      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: fullH };
-      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: topH };
-      bottomRect = {
-        left: editorAreaStart,
-        top: topH,
-        width: Math.max(0, rightRectX + displayInspectorW - editorAreaStart),
-        height: displayBottomH,
-      };
+    if (regionRects.bottom) {
+      bottomRect = regionRects.bottom;
     } else {
-      // 'center' — sidebars run full height, bottom lives between them.
-      leftRect = { left: leftRectX, top: 0, width: displaySidebarW, height: fullH };
-      rightRect = { left: rightRectX, top: 0, width: displayInspectorW, height: fullH };
-      bottomRect = {
-        left: editorAreaStart,
-        top: Math.max(0, fullH - displayBottomH),
-        width: Math.max(0, editorAreaEnd - editorAreaStart),
-        height: displayBottomH,
-      };
+      const bottomTop = fullH - preferredBottom;
+      if (bottomPanelAlignment === 'justify') {
+        bottomRect = {
+          left: activityBarWidth,
+          top: bottomTop,
+          width: Math.max(0, fullW - activityBarWidth * 2),
+          height: preferredBottom,
+        };
+      } else if (bottomPanelAlignment === 'left') {
+        bottomRect = {
+          left: activityBarWidth,
+          top: bottomTop,
+          width: Math.max(0, fullW - activityBarWidth - preferredInspector - activityBarWidth),
+          height: preferredBottom,
+        };
+      } else if (bottomPanelAlignment === 'right') {
+        bottomRect = {
+          left: activityBarWidth + preferredSidebar,
+          top: bottomTop,
+          width: Math.max(0, fullW - activityBarWidth * 2 - preferredSidebar),
+          height: preferredBottom,
+        };
+      } else {
+        // 'center' — bottom spans only the editor column.
+        bottomRect = {
+          left: editorR.left,
+          top: bottomTop,
+          width: editorR.width,
+          height: preferredBottom,
+        };
+      }
     }
 
     const halfV = (r: DropZoneRect): [DropZoneRect, DropZoneRect] => [
@@ -894,13 +942,10 @@ function ShellLayoutInner<T extends string>({
   }, [
     dragging,
     shellSize,
-    horizontalSizes,
-    verticalSizes,
+    regionRects,
     sizes,
     bottomPanelAlignment,
-    leftOpen,
-    rightOpen,
-    bottomOpen,
+    activityBarWidth,
   ]);
 
   const mainRow = (
