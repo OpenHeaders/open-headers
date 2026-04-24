@@ -234,7 +234,6 @@
   padding: 0 8px;
   height: 26px;
   min-height: 26px;
-  border-bottom: 1px solid var(--dt-border);
   background: var(--dt-bg);
   flex-wrap: nowrap;
   overflow-x: auto;
