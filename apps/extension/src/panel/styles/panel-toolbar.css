@@ -16,7 +16,7 @@
   height: 26px;
   min-height: 26px;
   border-bottom: 1px solid var(--dt-border);
-  background: var(--dt-bg);
+  background: var(--dt-frame-bg);
 }
 
 /* Brand column + right spacer — widths mirror the shared activity-bar
@@ -35,7 +35,7 @@
   flex-shrink: 0;
   user-select: none;
   border-right: 1px solid var(--dt-border);
-  background: var(--dt-bg);
+  background: var(--dt-frame-bg);
   transition: width 0.12s ease;
   box-sizing: border-box;
 }
@@ -78,7 +78,7 @@
   min-width: 96px;
   flex-shrink: 0;
   border-left: 1px solid var(--dt-border);
-  background: var(--dt-bg);
+  background: var(--dt-frame-bg);
   transition: width 0.12s ease;
 }
 
@@ -234,7 +234,7 @@
   padding: 0 8px;
   height: 26px;
   min-height: 26px;
-  background: var(--dt-bg);
+  background: var(--dt-frame-bg);
   flex-wrap: nowrap;
   overflow-x: auto;
 }

@@ -16,7 +16,7 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
   font-size: 11px;
   line-height: 1.4;
-  background: var(--dt-bg);
+  background: var(--dt-frame-bg);
   color: var(--dt-text);
 }
 
@@ -24,7 +24,7 @@
 .dt-header {
   flex-shrink: 0;
   border-bottom: 1px solid var(--dt-border);
-  background: var(--dt-bg);
+  background: var(--dt-frame-bg);
   display: flex;
   align-items: stretch;
 }

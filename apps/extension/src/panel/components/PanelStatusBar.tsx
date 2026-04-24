@@ -191,7 +191,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
     <div
       className="rules-statusbar"
       style={{
-        background: token.colorBgContainer,
+        background: token.colorBgLayout,
         borderTop: `1px solid ${token.colorBorderSecondary}`,
         color: token.colorTextSecondary,
       }}
