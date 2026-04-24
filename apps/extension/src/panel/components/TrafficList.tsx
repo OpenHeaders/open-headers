@@ -1,5 +1,9 @@
+import { GlobalOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PanelHeader } from '@/shared/dock-layout';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
+import { FilterInput } from './FilterInput';
+import { ResourceFilter } from './ResourceFilter';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';
 import { formatSizeInfo, getSizeInfo, type SizeInfo } from '../data/size-info';
@@ -33,8 +37,18 @@ interface TrafficListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   filter: ReadonlySet<string>;
+  onFilterChange: (next: Set<string>) => void;
   filterTokens: FilterToken[];
   filterConfig: FilterConfig;
+  onFilterConfigChange: (cfg: FilterConfig) => void;
+  urlFilter: string;
+  onUrlFilterChange: (v: string) => void;
+  filterError: boolean;
+  onToggleDocs: () => void;
+  docsActive: boolean;
+  /** Mirrors the filter-toggle icon in the top toolbar — when false,
+   *  the panel header collapses to a plain "Network" title. */
+  showFilter: boolean;
   recording: boolean;
   onStartRecording: () => void;
   onReloadPage: () => void;
@@ -43,6 +57,110 @@ interface TrafficListProps {
   onSaveAsHar: (entry: InspectorRequest) => void;
   onSaveAllAsHar: () => void;
   onCopyAllAsHar: () => void;
+  onHide?: () => void;
+}
+
+interface NetworkPanelHeaderProps {
+  urlFilter: string;
+  onUrlFilterChange: (v: string) => void;
+  filterConfig: FilterConfig;
+  onFilterConfigChange: (cfg: FilterConfig) => void;
+  filterError: boolean;
+  docsActive: boolean;
+  onToggleDocs: () => void;
+  filter: ReadonlySet<string>;
+  onFilterChange: (next: Set<string>) => void;
+  /** When on, the header's action slot hosts the full filter row
+   *  (input + (i) + compact resource pills + More ▾). When off, the
+   *  header falls back to a quiet "Network" title. Toggled by the
+   *  filter icon on the top toolbar. */
+  showFilter: boolean;
+  onHide?: () => void;
+}
+
+/**
+ * Network panel's header row — lives on the card itself (not the
+ * top-level toolbar) so the filter input + resource pills travel with
+ * the panel when it's hidden/shown. Giving the whole 32px band to
+ * the filter controls saves vertical real estate. Actions are pinned
+ * visible (`pinActions`) because the filter is primary UI on this
+ * panel. When the user toggles the filter off on the top toolbar, we
+ * collapse the header to a neutral "Network" title so the card stays
+ * identifiable without occupying the row with controls the user just
+ * chose to hide.
+ */
+function NetworkPanelHeader({
+  urlFilter,
+  onUrlFilterChange,
+  filterConfig,
+  onFilterConfigChange,
+  filterError,
+  docsActive,
+  onToggleDocs,
+  filter,
+  onFilterChange,
+  showFilter,
+  onHide,
+}: NetworkPanelHeaderProps) {
+  if (!showFilter) {
+    return (
+      <PanelHeader
+        title={
+          <>
+            <GlobalOutlined />
+            <strong>Network</strong>
+          </>
+        }
+        onHide={onHide}
+      />
+    );
+  }
+
+  // Render the filter row in the `title` slot rather than the `actions`
+  // slot: the title slot already has `flex: 1` baked into the shared
+  // stylesheet, so a flex-grow input inside it expands predictably.
+  // The actions slot is still used by PanelHeader for the minus button.
+  return (
+    <PanelHeader
+      title={
+        <div className="dt-network-filter-row">
+          <FilterInput
+            value={urlFilter}
+            onChange={onUrlFilterChange}
+            config={filterConfig}
+            onConfigChange={onFilterConfigChange}
+            hasError={filterError}
+            placeholder="Filter"
+          />
+          <button
+            type="button"
+            className="dt-toolbar-icon"
+            data-active={docsActive}
+            onClick={onToggleDocs}
+            title="Filter syntax help"
+          >
+            <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
+              <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <text
+                x="8"
+                y="12"
+                textAnchor="middle"
+                fill="currentColor"
+                fontSize="10"
+                fontFamily="serif"
+                fontStyle="italic"
+              >
+                i
+              </text>
+            </svg>
+          </button>
+          <div className="dt-filter-separator" />
+          <ResourceFilter value={filter} onChange={onFilterChange} compact />
+        </div>
+      }
+      onHide={onHide}
+    />
+  );
 }
 
 function sortIndicator(col: SortTarget, sortKey: SortTarget, sortDir: SortDir): string {
@@ -206,8 +324,16 @@ export function TrafficList({
   selectedId,
   onSelect,
   filter,
+  onFilterChange,
   filterTokens,
   filterConfig,
+  onFilterConfigChange,
+  urlFilter,
+  onUrlFilterChange,
+  filterError,
+  onToggleDocs,
+  docsActive,
+  showFilter,
   recording,
   onStartRecording,
   onReloadPage,
@@ -216,7 +342,21 @@ export function TrafficList({
   onSaveAsHar,
   onSaveAllAsHar,
   onCopyAllAsHar,
+  onHide,
 }: TrafficListProps) {
+  const headerProps = {
+    urlFilter,
+    onUrlFilterChange,
+    filterConfig,
+    onFilterConfigChange,
+    filterError,
+    docsActive,
+    onToggleDocs,
+    filter,
+    onFilterChange,
+    showFilter,
+    onHide,
+  };
   const [sortKey, setSortKey] = useState<SortTarget>('id');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const tableRef = useRef<HTMLDivElement>(null);
@@ -401,70 +541,86 @@ export function TrafficList({
   if (filtered.length === 0) {
     if (entries.length === 0) {
       return (
-        <div className="dt-empty-hero">
-          <strong>{recording ? 'Recording network activity\u2026' : 'No network activity recorded'}</strong>
-          <span className="dt-empty-hero-sub">
-            {recording ? 'Perform a request or reload the page.' : 'Record network log to display network activity.'}
-          </span>
-          <button type="button" className="dt-btn dt-btn-primary" onClick={recording ? onReloadPage : onStartRecording}>
-            {recording ? 'Reload page' : 'Start recording'}
-          </button>
+        <div className="dt-panel">
+          <NetworkPanelHeader {...headerProps} />
+          <div className="dt-empty-hero">
+            <strong>{recording ? 'Recording network activity\u2026' : 'No network activity recorded'}</strong>
+            <span className="dt-empty-hero-sub">
+              {recording ? 'Perform a request or reload the page.' : 'Record network log to display network activity.'}
+            </span>
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary"
+              onClick={recording ? onReloadPage : onStartRecording}
+            >
+              {recording ? 'Reload page' : 'Start recording'}
+            </button>
+          </div>
         </div>
       );
     }
-    return <div className="dt-empty">No matching requests.</div>;
+    return (
+      <div className="dt-panel">
+        <NetworkPanelHeader {...headerProps} />
+        <div className="dt-empty">No matching requests.</div>
+      </div>
+    );
   }
 
   const selectedEntry = rowMenu ? sorted.find((e) => e.id === rowMenu.requestId) : undefined;
 
   return (
-    <>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: header row has a right-click menu but no primary action */}
-      <div
-        className="dt-table-header dt-cols"
-        style={{ gridTemplateColumns: gridTemplate }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setColMenu({ x: e.clientX, y: e.clientY });
-        }}
-      >
-        <span />
-        <button
-          type="button"
-          className="dt-col-sort dt-col-sort--hash"
-          onClick={() => handleSortTarget('id')}
-          title="Sort by arrival order"
-        >
-          #{sortIndicator('id', sortKey, sortDir)}
-        </button>
-        {columns.map((col) => (
-          <div key={col.key} ref={registerCellRef(col.key)} className="dt-col-header-cell">
-            <button
-              type="button"
-              className={`dt-col-sort ${col.align === 'right' ? 'dt-col-right' : ''}`}
-              onClick={() => handleSort(col)}
-              disabled={!col.sortable}
-            >
-              {col.label}
-              {col.sortable && sortIndicator(col.key, sortKey, sortDir)}
-            </button>
-            {/* Resize grip — every column is resizable; double-click
-                restores the registry default width. Modeled as a
-                presentation-role button so it's focusable for keyboard
-                navigation without participating in the header's semantic
-                grid row. */}
-            <button
-              type="button"
-              tabIndex={-1}
-              className="dt-col-resizer"
-              aria-label={`Resize ${col.label} column`}
-              onPointerDown={(e) => beginResize(e, col.key)}
-              onDoubleClick={() => resetColumnWidth(col.key)}
-            />
-          </div>
-        ))}
-      </div>
+    <div className="dt-panel">
+      <NetworkPanelHeader {...headerProps} />
+      {/* Header + rows share one scroll container so horizontal scroll
+          moves them in lockstep — the header uses `position: sticky`
+          on its top edge to stay pinned against vertical scroll. */}
       <div className="dt-table" ref={tableRef}>
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: header row has a right-click menu but no primary action */}
+        <div
+          className="dt-table-header dt-cols"
+          style={{ gridTemplateColumns: gridTemplate }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setColMenu({ x: e.clientX, y: e.clientY });
+          }}
+        >
+          <span />
+          <button
+            type="button"
+            className="dt-col-sort dt-col-sort--hash"
+            onClick={() => handleSortTarget('id')}
+            title="Sort by arrival order"
+          >
+            #{sortIndicator('id', sortKey, sortDir)}
+          </button>
+          {columns.map((col) => (
+            <div key={col.key} ref={registerCellRef(col.key)} className="dt-col-header-cell">
+              <button
+                type="button"
+                className={`dt-col-sort ${col.align === 'right' ? 'dt-col-right' : ''}`}
+                onClick={() => handleSort(col)}
+                disabled={!col.sortable}
+              >
+                {col.label}
+                {col.sortable && sortIndicator(col.key, sortKey, sortDir)}
+              </button>
+              {/* Resize grip — every column is resizable; double-click
+                  restores the registry default width. Modeled as a
+                  presentation-role button so it's focusable for keyboard
+                  navigation without participating in the header's semantic
+                  grid row. */}
+              <button
+                type="button"
+                tabIndex={-1}
+                className="dt-col-resizer"
+                aria-label={`Resize ${col.label} column`}
+                onPointerDown={(e) => beginResize(e, col.key)}
+                onDoubleClick={() => resetColumnWidth(col.key)}
+              />
+            </div>
+          ))}
+        </div>
         {sorted.map((entry) => {
           // One classifier pass per row; cells + row class branch off
           // the same `RequestState` so they can never disagree. Size
@@ -505,7 +661,6 @@ export function TrafficList({
           );
         })}
       </div>
-
       {rowMenu && selectedEntry && (
         <RequestContextMenu
           state={rowMenu}
@@ -528,6 +683,6 @@ export function TrafficList({
           onClose={() => setColMenu(null)}
         />
       )}
-    </>
+    </div>
   );
 }

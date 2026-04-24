@@ -370,7 +370,7 @@ export const InspectorEditorGroupRenderer: React.FC<InspectorEditorGroupRenderer
     if (node.kind === 'leaf') return renderLeaf(node);
     const vertical = node.orientation === 'vertical';
     return (
-      <Allotment key={`${node.id}-${node.orientation}`} vertical={vertical} proportionalLayout>
+      <Allotment key={`${node.id}-${node.orientation}`} vertical={vertical} proportionalLayout separator>
         <Allotment.Pane minSize={160}>{renderNode(node.a)}</Allotment.Pane>
         <Allotment.Pane minSize={160}>{renderNode(node.b)}</Allotment.Pane>
       </Allotment>

@@ -44,56 +44,9 @@
   max-width: 300px;
 }
 
-/* ── Tab bar (detail pane) ──────────────────────────────── */
-.dt-tabs {
-  display: flex;
-  align-items: stretch;
-  height: 26px;
-  min-height: 26px;
-  border-bottom: 1px solid var(--dt-border);
-  background: var(--dt-bg);
-  overflow-x: auto;
-}
-
-.dt-tab {
-  border: none;
-  background: transparent;
-  color: var(--dt-text-muted);
-  font: inherit;
-  font-size: 11px;
-  padding: 0 8px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-
-.dt-tab:hover {
-  color: var(--dt-text);
-}
-
-.dt-tab[aria-selected='true'],
-.dt-tab--active {
-  color: var(--dt-text);
-  border-bottom-color: var(--dt-tab-active-border);
-  font-weight: 600;
-}
-
-.dt-tab-close {
-  border: none;
-  background: transparent;
-  color: var(--dt-text-muted);
-  font-size: 14px;
-  padding: 0 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  line-height: 1;
-}
-
-.dt-tab-close:hover {
-  color: var(--dt-text);
-}
-
+/* Detail-pane tab body — scroll container for the inspector tabs
+   (Headers / Payload / Response). Tab bar itself uses Ant Design's
+   <Tabs /> so only the body wrapper lives here. */
 .dt-tab-body {
   flex: 1;
   overflow: auto;
@@ -774,9 +727,10 @@
   gap: 16px;
   padding: 4px 12px;
   align-items: baseline;
+  border-bottom: 1px solid var(--dt-border);
 }
-.dt-payload-row:nth-child(even) {
-  background: var(--dt-row-zebra);
+.dt-payload-row:last-child {
+  border-bottom: none;
 }
 .dt-payload-key {
   font-weight: 600;
@@ -839,7 +793,7 @@
   font-weight: 600;
   position: sticky;
   top: 0;
-  background: var(--dt-header-bg);
+  background: var(--dt-bg);
 }
 
 .dt-ws-list {
@@ -896,7 +850,7 @@
   font-weight: 600;
   position: sticky;
   top: 0;
-  background: var(--dt-header-bg);
+  background: var(--dt-bg);
 }
 
 .dt-sse-list {

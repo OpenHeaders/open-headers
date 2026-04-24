@@ -1,17 +1,23 @@
+import { BookOutlined } from '@ant-design/icons';
+import { PanelHeader } from '@/shared/dock-layout';
+
 interface FilterDocsProps {
   onClose: () => void;
 }
 
 export function FilterDocs({ onClose }: FilterDocsProps) {
   return (
-    <div className="dt-detail-pane">
-      <div className="dt-tabs">
-        <button type="button" className="dt-tab-close" onClick={onClose} title="Close">
-          {'\u00d7'}
-        </button>
-        <span className="dt-tab dt-tab--active">Filter Syntax</span>
-      </div>
-      <div className="dt-tab-body dt-filter-docs">
+    <div className="dt-panel">
+      <PanelHeader
+        title={
+          <>
+            <BookOutlined />
+            <strong>Filter Syntax</strong>
+          </>
+        }
+        onHide={onClose}
+      />
+      <div className="dt-panel-body dt-filter-docs">
         <details className="dt-section" open>
           <summary>Text Filters</summary>
           <div className="dt-filter-docs-row">

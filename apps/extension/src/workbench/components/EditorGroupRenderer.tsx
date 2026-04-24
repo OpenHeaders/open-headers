@@ -513,7 +513,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
     // split-view keeps the old orientation, producing corrupted layouts.
     // Keying on orientation forces a clean remount on flip.
     return (
-      <Allotment key={`${node.id}-${node.orientation}`} vertical={vertical} proportionalLayout>
+      <Allotment key={`${node.id}-${node.orientation}`} vertical={vertical} proportionalLayout separator>
         <Allotment.Pane minSize={180}>{renderNode(node.a)}</Allotment.Pane>
         <Allotment.Pane minSize={180}>{renderNode(node.b)}</Allotment.Pane>
       </Allotment>

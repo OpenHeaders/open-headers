@@ -3,8 +3,6 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { getBrowserAPI } from '@/types/browser';
 import type { FilterConfig } from '../data/filter-engine';
-import { FilterInput } from './FilterInput';
-import { ResourceFilter } from './ResourceFilter';
 import { RuleExecutionsHint } from './RuleExecutions';
 
 function IconRecord({ active }: { active: boolean }) {
@@ -226,6 +224,9 @@ export interface PanelToolbarProps {
   recording: boolean;
   onToggleRecording: () => void;
   onClear: () => void;
+  /** Toggles the filter strip inside the Network panel's header —
+   *  kept as a global escape hatch so the user can collapse it to
+   *  reclaim the 32px row without closing the Network panel. */
   showFilter: boolean;
   onToggleFilter: () => void;
   searchActive: boolean;
@@ -233,15 +234,8 @@ export interface PanelToolbarProps {
   preserveLog: boolean;
   onPreserveLogChange: (v: boolean) => void;
   rulesVisible: boolean;
-  urlFilter: string;
-  onUrlFilterChange: (v: string) => void;
   filterConfig: FilterConfig;
   onFilterConfigChange: (c: FilterConfig) => void;
-  filterError: boolean;
-  docsState: 'focused' | 'active' | undefined;
-  onToggleDocs: () => void;
-  filter: Set<string>;
-  onFilterChange: (v: Set<string>) => void;
   onExportHar: () => void;
   onCopyAllHar: () => void;
   canExport: boolean;
@@ -267,15 +261,8 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   preserveLog,
   onPreserveLogChange,
   rulesVisible,
-  urlFilter,
-  onUrlFilterChange,
   filterConfig,
   onFilterConfigChange,
-  filterError,
-  docsState,
-  onToggleDocs,
-  filter,
-  onFilterChange,
   onExportHar,
   onCopyAllHar,
   canExport,
@@ -346,42 +333,6 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
           </>
         )}
       </div>
-      {showFilter && (
-        <div className="dt-filter-bar">
-          <FilterInput
-            value={urlFilter}
-            onChange={onUrlFilterChange}
-            config={filterConfig}
-            onConfigChange={onFilterConfigChange}
-            hasError={filterError}
-            placeholder="Filter"
-          />
-          <button
-            type="button"
-            className="dt-toolbar-icon"
-            data-state={docsState}
-            onClick={onToggleDocs}
-            title="Filter syntax help"
-          >
-            <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-              <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <text
-                x="8"
-                y="12"
-                textAnchor="middle"
-                fill="currentColor"
-                fontSize="10"
-                fontFamily="serif"
-                fontStyle="italic"
-              >
-                i
-              </text>
-            </svg>
-          </button>
-          <div className="dt-filter-separator" />
-          <ResourceFilter value={filter} onChange={onFilterChange} />
-        </div>
-      )}
     </div>
     <div className={`dt-brand-spacer${showToolWindowLabels ? '' : ' dt-brand-spacer--compact'}`} aria-hidden="true" />
   </div>

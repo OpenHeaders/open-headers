@@ -1,10 +1,12 @@
 /*
  * panel-shell.css — outer chrome of the DevTools panel.
  *
- * Root + header row, the vertical activity bar (tool-window icons), the
- * main flex column, the status bar, region toggles, the compact theme
- * and layout dropdown menus, and the bottom panel wrapper. Everything
- * that establishes the overall shape of the panel lives here.
+ * Root container + full-width header row shared with PanelToolbar.
+ * The activity bars, dock panel cards, status bar, and region toggles
+ * all render through the shared `.rules-*` classes in
+ * `shared/dock-layout/dock-layout.css` so the devpanel and workspace
+ * share one visual vocabulary: grey frame, white rounded cards with a
+ * 3px gutter between them.
  */
 
 /* ── Root panel ─────────────────────────────────────────── */
@@ -21,9 +23,10 @@
 }
 
 /* ── App header (full-width, above sidebars) ───────────── */
+/* No border-bottom — the 3px grey gutter above the dock-body cards
+   below provides the visual separation, same as the workspace TopBar. */
 .dt-header {
   flex-shrink: 0;
-  border-bottom: 1px solid var(--dt-border);
   background: var(--dt-frame-bg);
   display: flex;
   align-items: stretch;
@@ -36,349 +39,37 @@
   min-width: 0;
 }
 
-.dt-panel {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
+/* Monospace content hook — used inside header/preview viewers for code
+   blocks so they pick up the SF Mono stack without each call-site
+   hand-rolling its own font-family. */
 .dt-panel-mono {
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
-/* ── Activity bar (icon + text, right-click toggles labels) */
-.dt-activity-bar {
-  width: 56px;
-  min-width: 56px;
-  background: var(--dt-sidebar-bg);
-  border-right: 1px solid var(--dt-border);
+/* ── Tool-window panel wrapper ──────────────────────────── */
+/* Every devpanel tool window (Network, Rule Activity, Search, Docs,
+   Matched Rules) wraps its content in `.dt-panel` so the shared
+   `PanelHeader` sits pinned at the top of the `.rules-dock-body` card
+   and the body fills the rest. Mirrors the workspace pattern where
+   each panel is `<PanelHeader /> + scrollable body` inside a dock
+   body. */
+.dt-panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 2px 0;
-  gap: 1px;
-  user-select: none;
-}
-
-.dt-activity-bar--compact {
-  width: 32px;
-  min-width: 32px;
-}
-
-/* Activity bar groups (same 3-group model as workspace) */
-.dt-activity-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  width: 100%;
-}
-
-.dt-activity-group--top {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
+  height: 100%;
   min-height: 0;
-  overflow: hidden;
 }
 
-.dt-activity-group--bottom {
-  flex: 0 0 auto;
-  border-top: 1px solid rgba(128, 128, 128, 0.34);
-  padding-top: 6px;
-  min-height: 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.dt-activity-subslot {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  min-height: 32px;
-  overflow: hidden;
-}
-
-.dt-activity-subslot--second {
-  border-top: 1px dashed rgba(128, 128, 128, 0.32);
-  padding-top: 6px;
-  margin-top: 6px;
-  min-height: 32px;
-}
-
-/* Sidebar layout variants */
-.dt-activity-bar--layout-proportional .dt-activity-group--top {
-  flex: 1 1 auto;
-}
-
-.dt-activity-bar--layout-compact .dt-activity-group--top {
-  flex: 0 0 auto;
-}
-
-.dt-activity-bar--layout-compact .dt-activity-subslot {
-  flex: 0 0 auto;
-}
-
-.dt-activity-bar--layout-compact .dt-activity-group--bottom {
-  margin-top: auto;
-}
-
-.dt-activity-bar--layout-stacked .dt-activity-group--top {
-  flex: 0 0 auto;
-}
-
-.dt-activity-bar--layout-stacked .dt-activity-subslot {
-  flex: 0 0 auto;
-}
-
-.dt-activity-bar--layout-stacked .dt-activity-group--bottom {
-  flex: 0 0 auto;
-  margin-top: 0;
-}
-
-/* Dock strip (used inside activity bar subslots) */
-.dt-dock-strip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  width: 100%;
-}
-
-.dt-dock-strip--drag-over {
-  background: rgba(26, 115, 232, 0.08);
-  border-radius: 4px;
-}
-
-.dt-dock-strip--empty-drop {
-  min-height: 32px;
-  border: 1px dashed rgba(128, 128, 128, 0.3);
-  border-radius: 4px;
-}
-
-.dt-activity-bar--right {
-  border-right: none;
-  border-left: 1px solid var(--dt-border);
-}
-
-.dt-activity-icon {
-  width: 52px;
-  padding: 5px 0 3px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--dt-text-muted);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  font: inherit;
-}
-
-.dt-activity-bar--compact .dt-activity-icon {
-  width: 28px;
-  padding: 5px 0;
-}
-
-.dt-activity-icon:hover {
-  background: rgba(128, 128, 128, 0.1);
-  color: var(--dt-text);
-}
-
-/* Active (unfocused) — panel open, grey selected background */
-.dt-activity-icon[data-state='active'] {
-  background: rgba(128, 128, 128, 0.12);
-  color: var(--dt-text);
-}
-
-/* Focused — panel open + primary interaction, blue accent */
-.dt-activity-icon[data-state='focused'] {
-  background: var(--dt-pill-active-bg);
-  color: var(--dt-link);
-}
-
-.dt-activity-icon svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.dt-activity-label {
-  font-size: 9px;
-  line-height: 1.1;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-/* ── Main content area ──────────────────────────────────── */
-.dt-main {
+.dt-panel-body {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* ── Status bar ─────────────────────────────────────────── */
-.dt-status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  height: 24px;
-  min-height: 24px;
-  border-top: 1px solid var(--dt-border);
-  background: var(--dt-bg);
-  color: var(--dt-text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.dt-status-bar-left,
-.dt-status-bar-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.dt-status-bar-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  padding: 0;
-}
-
-.dt-status-bar-divider {
-  width: 1px;
-  height: 14px;
-  background: var(--dt-border);
-  flex-shrink: 0;
-}
-
-/* ── Region toggles ──────────────────────────────────────── */
-.dt-region-toggles {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.dt-region-toggle {
-  width: 22px;
-  height: 18px;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.7;
-  padding: 0;
-}
-
-.dt-region-toggle:hover {
-  opacity: 1;
-  background: var(--dt-row-hover);
-}
-
-/* ── Theme menu ──────────────────────────────────────────── */
-.dt-theme-menu {
-  background: var(--dt-bg);
-  border: 1px solid var(--dt-border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
-  min-width: 120px;
-}
-
-.dt-theme-menu .dt-ctx-item {
-  display: flex;
-  align-items: center;
-}
-
-/* ── Layout options menu ─────────────────────────────────── */
-.dt-layout-menu {
-  background: var(--dt-bg);
-  border: 1px solid var(--dt-border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
-  min-width: 200px;
-}
-
-.dt-layout-menu .dt-ctx-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.dt-layout-menu-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-/* ── Bottom panel ──────────────────────────────────────── */
-.dt-bottom-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--dt-bg);
-  border-top: 1px solid var(--dt-border);
-}
-
-.dt-bottom-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  height: 26px;
-  min-height: 26px;
-  border-bottom: 1px solid var(--dt-border);
-  background: var(--dt-header-bg);
-}
-
-.dt-bottom-panel-title {
-  font-weight: 600;
-  font-size: 11px;
-}
-
-.dt-bottom-panel-close {
-  border: none;
-  background: transparent;
-  color: var(--dt-text-muted);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-}
-
-.dt-bottom-panel-close:hover {
-  color: var(--dt-text);
-}
-
-.dt-bottom-panel-body {
-  flex: 1;
+  min-height: 0;
   overflow: auto;
-  min-height: 0;
+}
+
+/* Secondary title text inside a PanelHeader (e.g. the request method
+   next to "Matched Rules"). Muted so the primary title still leads. */
+.dt-panel-title-sub {
+  color: var(--dt-text-muted);
+  font-weight: 400;
+  font-size: 11px;
 }

@@ -9,42 +9,14 @@
  * dim treatment.
  */
 
-/* ── Search panel (left drawer) ─────────────────────────── */
-.dt-search-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--dt-bg);
-  border-right: 1px solid var(--dt-border);
-  font-size: 11px;
-  overflow: hidden;
-}
+/* Panel wrappers (`.dt-search-panel`, `.dt-matched-rules-panel`) are
+   escape hatches for per-panel overrides — their flex layout and
+   background come from `.dt-panel` + the enclosing `.rules-dock-body`
+   card. Header rows come from the shared `<PanelHeader>`. */
 
-/* ── Matched Rules panel (bottom-right tool window) ───────────── */
+.dt-search-panel,
 .dt-matched-rules-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--dt-bg);
   font-size: 11px;
-  overflow: hidden;
-}
-
-.dt-matched-rules-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 6px;
-  height: 26px;
-  min-height: 26px;
-  border-bottom: 1px solid var(--dt-border);
-}
-
-.dt-matched-rules-panel-title {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .dt-matched-rules-panel-body {
@@ -99,20 +71,6 @@
   word-break: break-all;
 }
 
-.dt-search-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 6px;
-  height: 26px;
-  min-height: 26px;
-  border-bottom: 1px solid var(--dt-border);
-}
-
-.dt-search-panel-title {
-  font-weight: 600;
-}
-
 .dt-search-panel-input-row {
   display: flex;
   padding: 4px 6px;
@@ -132,7 +90,8 @@
 .dt-search-group > summary {
   cursor: pointer;
   padding: 3px 6px;
-  background: var(--dt-bg-alt);
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
   display: flex;
   gap: 6px;
   align-items: baseline;

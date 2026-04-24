@@ -1,10 +1,27 @@
+import { AuditOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
+import { PanelHeader } from '@/shared/dock-layout';
 import type { DanglingFire, InspectorRequest } from '../data/types';
 
 interface RuleExecutionsProps {
   entries: readonly InspectorRequest[];
   danglingFires: readonly DanglingFire[];
   onRequestClick: (id: string) => void;
+  onHide?: () => void;
+}
+
+function RuleActivityHeader({ onHide }: { onHide?: () => void }) {
+  return (
+    <PanelHeader
+      title={
+        <>
+          <AuditOutlined />
+          <strong>Rule Activity</strong>
+        </>
+      }
+      onHide={onHide}
+    />
+  );
 }
 
 interface RuleGroup {
@@ -15,7 +32,7 @@ interface RuleGroup {
   danglingHits: Array<{ url: string; t: number }>;
 }
 
-export function RuleExecutions({ entries, danglingFires, onRequestClick }: RuleExecutionsProps) {
+export function RuleExecutions({ entries, danglingFires, onRequestClick, onHide }: RuleExecutionsProps) {
   const groups = useMemo<RuleGroup[]>(() => {
     const byRule: Map<string, RuleGroup> = new Map();
     for (const e of entries) {
@@ -48,11 +65,18 @@ export function RuleExecutions({ entries, danglingFires, onRequestClick }: RuleE
   }, [entries, danglingFires]);
 
   if (groups.length === 0) {
-    return <div className="dt-empty">No rule activity on this tab yet.</div>;
+    return (
+      <div className="dt-panel">
+        <RuleActivityHeader onHide={onHide} />
+        <div className="dt-empty">No rule activity on this tab yet.</div>
+      </div>
+    );
   }
 
   return (
-    <div className="dt-executions">
+    <div className="dt-panel">
+      <RuleActivityHeader onHide={onHide} />
+      <div className="dt-executions">
       <div className="dt-executions-hint" style={{ marginBottom: 6 }}>
         <strong>Authoritative</strong> fires come from Chrome&apos;s declarativeNetRequest feedback.{' '}
         <strong>Inferred</strong> fires match your rule patterns against observed requests. <strong>Off-HAR</strong>{' '}
@@ -93,6 +117,7 @@ export function RuleExecutions({ entries, danglingFires, onRequestClick }: RuleE
           ))}
         </details>
       ))}
+      </div>
     </div>
   );
 }

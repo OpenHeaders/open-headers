@@ -10,8 +10,9 @@
  *     case it only shows up here.
  */
 
-import { CloseOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
+import { PanelHeader } from '@/shared/dock-layout';
 import type { InspectorFire, InspectorRequest } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
 
@@ -94,21 +95,17 @@ function FireRow({ fire, rule }: FireRowProps) {
 
 export function MatchedRulesPanel({ request, rulesByUid, onClose }: MatchedRulesPanelProps) {
   return (
-    <div className="dt-matched-rules-panel">
-      <div className="dt-matched-rules-panel-header">
-        <span className="dt-matched-rules-panel-title">
-          Matched Rules{request ? ` · ${request.method} ${request.url}` : ''}
-        </span>
-        <button
-          type="button"
-          className="dt-tab-close"
-          onClick={onClose}
-          title="Close Matched Rules"
-          aria-label="Close Matched Rules"
-        >
-          <CloseOutlined />
-        </button>
-      </div>
+    <div className="dt-panel dt-matched-rules-panel">
+      <PanelHeader
+        title={
+          <>
+            <ThunderboltOutlined />
+            <strong>Matched Rules</strong>
+            {request && <span className="dt-panel-title-sub">· {request.method}</span>}
+          </>
+        }
+        onHide={onClose}
+      />
       <div className="dt-matched-rules-panel-body">
         {!request && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>

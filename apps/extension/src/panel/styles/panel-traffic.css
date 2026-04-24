@@ -41,12 +41,18 @@
   overflow: auto;
 }
 
+/* Column header row — smooth white inside the dock-body card. The only
+   visual separation is a 1px bottom border (matches the workspace card
+   aesthetic: white fills, fine lines between sections). Sticky so it
+   stays pinned when the table body scrolls — we need an explicit
+   background color for that (transparent sticky would show scrolling
+   rows bleeding through), so we paint the container white. */
 .dt-table-header {
   display: grid;
   padding: 0 4px;
   height: 22px;
   align-items: center;
-  background: var(--dt-header-bg);
+  background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
   font-weight: 600;
   position: sticky;
@@ -68,17 +74,12 @@
   height: 20px;
   align-items: center;
   border: none;
-  border-bottom: 1px solid transparent;
   background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
   text-align: left;
   width: 100%;
-}
-
-.dt-row:nth-child(even) {
-  background: var(--dt-row-zebra);
 }
 
 .dt-row:hover {
@@ -281,13 +282,21 @@
 
 /* Column header cell = sort button + resize grip. Positioned relative
  * so the grip can overflow the cell's right edge slightly (gives a
- * wider hit target without affecting the grid-column's pixel width). */
+ * wider hit target without affecting the grid-column's pixel width).
+ * Fine 1px right border gives each column a subtle vertical separator
+ * (IDE-style) without the header row needing a grey fill. */
 .dt-col-header-cell {
   position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
   overflow: visible;
+  border-right: 1px solid var(--dt-border);
+}
+
+/* Trailing column — no dangling right border against the card edge. */
+.dt-col-header-cell:last-child {
+  border-right: none;
 }
 
 .dt-col-resizer {

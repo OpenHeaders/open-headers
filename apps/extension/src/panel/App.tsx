@@ -345,8 +345,16 @@ function PanelContent() {
               selectedId={selectedId}
               onSelect={handleSelect}
               filter={filter}
+              onFilterChange={setFilter}
               filterTokens={filterTokens}
               filterConfig={filterConfig}
+              onFilterConfigChange={setFilterConfig}
+              urlFilter={urlFilter}
+              onUrlFilterChange={setUrlFilter}
+              filterError={filterError}
+              onToggleDocs={() => tl.toggleWindow('docs')}
+              docsActive={iconState('docs') !== undefined}
+              showFilter={showFilter}
               recording={recording}
               onStartRecording={() => setRecording(true)}
               onReloadPage={() => {
@@ -359,10 +367,18 @@ function PanelContent() {
               onSaveAsHar={handleSaveAsHar}
               onSaveAllAsHar={handleSaveAllAsHar}
               onCopyAllAsHar={handleCopyAllAsHar}
+              onHide={() => tl.toggleWindow('network')}
             />
           );
         case 'rules':
-          return <RuleExecutions entries={entries} danglingFires={danglingFires} onRequestClick={handleCrossNav} />;
+          return (
+            <RuleExecutions
+              entries={entries}
+              danglingFires={danglingFires}
+              onRequestClick={handleCrossNav}
+              onHide={() => tl.toggleWindow('rules')}
+            />
+          );
         case 'search':
           return (
             <SearchPanel
@@ -469,15 +485,8 @@ function PanelContent() {
         preserveLog={preserveLog}
         onPreserveLogChange={setPreserveLog}
         rulesVisible={rulesVisible}
-        urlFilter={urlFilter}
-        onUrlFilterChange={setUrlFilter}
         filterConfig={filterConfig}
         onFilterConfigChange={setFilterConfig}
-        filterError={filterError}
-        docsState={iconState('docs')}
-        onToggleDocs={() => tl.toggleWindow('docs')}
-        filter={filter}
-        onFilterChange={setFilter}
         onExportHar={handleSaveAllAsHar}
         onCopyAllHar={handleCopyAllAsHar}
         canExport={entries.length > 0}

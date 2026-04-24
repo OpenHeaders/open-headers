@@ -13,6 +13,17 @@
   display: none !important;
 }
 
+/* Exception: inside the editor card, adjacent split leaves sit flush
+   against each other (no 3px card gutter between them), so we DO want
+   a hairline separator to mark the seam. Re-enable Allotment's own
+   `::before` separator — keyed by the `separator` prop on the inner
+   Allotments in EditorGroupRenderer / InspectorEditorGroupRenderer —
+   and paint it with the same subtle border token used between cards. */
+.rules-region-editor .split-view-view::before {
+  display: block !important;
+  background-color: var(--ant-color-border-secondary, rgba(0, 0, 0, 0.08)) !important;
+}
+
 /* Allotment's default sash hover/drag indicator paints a 3–4 px blue bar
    on top of the pane boundary (`--focus-border`, #007fd4). In our card
    layout that bar overlaps the cards during drag and reads as a new panel
@@ -472,6 +483,20 @@
 .rules-dock-body:focus-within .rules-panel-header-actions,
 .rules-dock-body--focused .rules-panel-header-actions {
   opacity: 1;
+}
+
+/* Pin actions — always visible and grow to fill the header so the
+   slot can host a full-width control strip (filter input + pills).
+   Used by panels where the action row IS the panel's primary UI, so
+   the default fade-on-hover pattern would hide critical controls.
+   The base `display: inline-flex` is swapped to `display: flex` here:
+   inline-flex shrinks the element to its content, which collapses the
+   inner filter input even with `flex: 1` applied. */
+.rules-panel-header--pin-actions .rules-panel-header-actions {
+  display: flex;
+  opacity: 1;
+  flex: 1;
+  min-width: 0;
 }
 
 .rules-panel-header-action {

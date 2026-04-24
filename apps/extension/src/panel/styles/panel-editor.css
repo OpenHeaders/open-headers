@@ -30,12 +30,6 @@
   min-width: 0;
   min-height: 0;
   position: relative;
-  outline: 1px solid transparent;
-  outline-offset: -1px;
-}
-
-.dt-editor-leaf.focused {
-  outline-color: var(--dt-border);
 }
 
 .dt-editor-leaf-body {
@@ -63,12 +57,16 @@
 }
 
 /* ── Tab bar ──────────────────────────────────────────────── */
+/* Matches the shared <PanelHeader> height (32px from dock-layout.css)
+   so every card in the shell — tool windows and the editor — starts
+   with a header row at the same y-position. Background stays white
+   inside the card; a 1px bottom border does the separation work. */
 .dt-editor-tab-bar {
   display: flex;
   align-items: stretch;
-  height: 28px;
-  min-height: 28px;
-  background: var(--dt-bg-alt);
+  height: 32px;
+  min-height: 32px;
+  background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }
 

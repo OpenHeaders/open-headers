@@ -31,16 +31,9 @@
 }
 
 /* Dock tab strip styles removed — strips now render as activity-bar
-   icons inside the sidebar, not as horizontal headers on content panels. */
-
-/* Hide internal headers when tool window is inside a dock */
-.dt-dock-content > .dt-search-panel > .dt-search-panel-header {
-  display: none;
-}
-
-.dt-dock-content > .dt-detail-pane > .dt-tabs {
-  display: none;
-}
+   icons inside the sidebar, not as horizontal headers on content panels.
+   Per-panel internal headers were replaced by the shared <PanelHeader>,
+   so the dock-content overrides that hid them are no longer needed. */
 
 /* ── Drop zone overlay (shown during dock tab drags) ──────── */
 .dt-drop-overlay {

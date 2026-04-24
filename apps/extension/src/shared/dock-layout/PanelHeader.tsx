@@ -28,19 +28,27 @@ export interface PanelHeaderProps {
   optionsMenuItems?: MenuProps['items'];
   /** Handler for the − Hide button. Omit to hide the − button. */
   onHide?: () => void;
+  /** Keep the actions slot permanently visible (skip the default
+      hover/focus-within fade). Reserved for panels whose actions are
+      primary surface — e.g. the Network panel's filter bar. The
+      actions also grow (flex: 1) so they can host a full-width
+      filter row instead of being pushed to the right of a title. */
+  pinActions?: boolean;
 }
 
-const PanelHeader: React.FC<PanelHeaderProps> = ({ title, actions, optionsMenuItems, onHide }) => {
+const PanelHeader: React.FC<PanelHeaderProps> = ({ title, actions, optionsMenuItems, onHide, pinActions }) => {
   const { token } = theme.useToken();
 
   return (
     <div
-      className="rules-panel-header"
+      className={`rules-panel-header${pinActions ? ' rules-panel-header--pin-actions' : ''}`}
       style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
     >
-      <div className="rules-panel-header-title">
-        {typeof title === 'string' ? <strong>{title}</strong> : title}
-      </div>
+      {title !== undefined && (
+        <div className="rules-panel-header-title">
+          {typeof title === 'string' ? <strong>{title}</strong> : title}
+        </div>
+      )}
       <div className="rules-panel-header-actions" data-focus-skip>
         {actions}
         {optionsMenuItems && optionsMenuItems.length > 0 && (

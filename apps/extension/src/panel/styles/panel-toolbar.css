@@ -8,6 +8,9 @@
  */
 
 /* ── Toolbar (top row — icons + checkboxes) ─────────────── */
+/* No border-bottom — the 3px grey gutter above the dock-body cards
+   below separates this row from the card area on its own. Matches
+   the workspace TopBar, which also flows edge-to-edge into the cards. */
 .dt-toolbar {
   display: flex;
   align-items: center;
@@ -15,15 +18,14 @@
   padding: 0 4px;
   height: 26px;
   min-height: 26px;
-  border-bottom: 1px solid var(--dt-border);
   background: var(--dt-frame-bg);
 }
 
 /* Brand column + right spacer — widths mirror the shared activity-bar
- * widths (`.workbench-activity-bar` 96px, `.workbench-activity-bar--compact`
- * 36px in dock-layout.css) so the vertical borders between the header
- * columns and the activity bars below align pixel-perfect. Any change
- * to the activity-bar width in dock-layout.css must be mirrored here. */
+ * widths (96px / 36px from dock-layout.css) so the brand column sits
+ * directly above the left activity bar and the spacer sits above the
+ * right one. Both share the frame bg — no internal dividers — so the
+ * whole header reads as one grey band, matching the workspace TopBar. */
 .dt-brand {
   display: flex;
   align-items: center;
@@ -34,7 +36,6 @@
   padding: 4px 6px;
   flex-shrink: 0;
   user-select: none;
-  border-right: 1px solid var(--dt-border);
   background: var(--dt-frame-bg);
   transition: width 0.12s ease;
   box-sizing: border-box;
@@ -77,7 +78,6 @@
   width: 96px;
   min-width: 96px;
   flex-shrink: 0;
-  border-left: 1px solid var(--dt-border);
   background: var(--dt-frame-bg);
   transition: width 0.12s ease;
 }
@@ -226,17 +226,35 @@
   margin: 4px 0;
 }
 
-/* ── Filter bar (second row — input + pills) ────────────── */
-.dt-filter-bar {
+/* Filter row rendered inside the Network panel's PanelHeader title
+   slot — the input grows to fill, pills sit at the trailing edge
+   with a fine vertical separator between them. No background or
+   explicit height: the PanelHeader (32px) supplies those. The title
+   slot's default text-oriented rules (`overflow: hidden`, `nowrap`)
+   are overridden on the ancestor below so the flex children lay out
+   normally. */
+.dt-network-filter-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px;
-  height: 26px;
-  min-height: 26px;
-  background: var(--dt-frame-bg);
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.dt-network-filter-row .dt-filter-input-wrap {
+  flex: 1 1 0%;
+  min-width: 80px;
+}
+
+/* Hosting the filter row in the title slot: the shared title CSS
+   assumes a text node (truncates with an ellipsis and forbids wrap).
+   Those rules break flex children. When the title is our filter row,
+   drop the text-only overflow + wrap so the child flex layout works. */
+.rules-panel-header-title:has(> .dt-network-filter-row) {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  display: flex;
 }
 
 .dt-filter-input {
@@ -356,6 +374,30 @@
   color: var(--dt-pill-active-text);
   background: var(--dt-pill-active-bg);
   font-weight: 600;
+}
+
+.dt-filter-pill-caret {
+  margin-left: 3px;
+  font-size: 8px;
+  opacity: 0.7;
+}
+
+/* Vertical pill stack inside the More ▾ popover — same pills, just
+   laid out as a menu. */
+.dt-filter-pills--vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 120px;
+}
+
+.dt-filter-pills--vertical .dt-filter-pill {
+  text-align: left;
+  padding: 4px 10px;
+}
+
+.dt-filter-pills-popover .ant-popover-inner {
+  padding: 4px;
 }
 
 .dt-filter-right {
