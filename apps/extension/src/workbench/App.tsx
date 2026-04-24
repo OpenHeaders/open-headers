@@ -574,11 +574,22 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
 
   // Breadcrumb for the focused-leaf active tab — rendered in the footer
   // (split editors still each have their own floating action cluster,
-  // but the footer breadcrumb is single-valued and follows focus).
-  const activeBreadcrumbSegments = useMemo(
-    () => (activeTab ? computeBreadcrumbs(activeTab, rules, localCollectionTrees) : []),
-    [activeTab, rules, localCollectionTrees],
-  );
+  // but the footer breadcrumb is single-valued and follows focus). Draft
+  // tabs (create modes) get an extra "Draft" segment injected before the
+  // entity label so the footer matches the tab-tooltip treatment.
+  const activeBreadcrumbSegments = useMemo(() => {
+    if (!activeTab) return [];
+    const base = computeBreadcrumbs(activeTab, rules, localCollectionTrees);
+    const isDraft =
+      activeTab.mode === 'create' ||
+      activeTab.mode === 'request-create' ||
+      activeTab.mode === 'live-variable-create' ||
+      activeTab.mode === 'live-workflow-create';
+    if (isDraft && base.length >= 2) {
+      return [...base.slice(0, -1), 'Draft', base[base.length - 1]];
+    }
+    return base;
+  }, [activeTab, rules, localCollectionTrees]);
   const activeWorkspace = useMemo(
     () => workspacesApi.workspaces.find((w) => w.id === workspacesApi.activeWorkspaceId),
     [workspacesApi.workspaces, workspacesApi.activeWorkspaceId],
