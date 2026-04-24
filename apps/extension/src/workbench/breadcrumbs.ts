@@ -35,6 +35,8 @@ export function computeBreadcrumbs(
   tab: WorkbenchTab | undefined,
   rules: V5.Rule[],
   localCollectionTrees: V5.CollectionTree[],
+  requestCollectionTrees: readonly V5.CollectionTree[] = [],
+  requests: readonly V5.Request[] = [],
 ): string[] {
   if (!tab) return [];
 
@@ -48,8 +50,36 @@ export function computeBreadcrumbs(
     const col = tab.collectionUid ? localCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
     return col ? ['Rules', col.name, 'Variables'] : ['Variables'];
   }
-  if (tab.mode === 'request-edit') return ['API Requests', tab.label];
-  if (tab.mode === 'request-create') return ['API Requests', tab.draftName ?? tab.label];
+  if (tab.mode === 'request-edit' && tab.requestUid) {
+    const req = requests.find((r) => r.uid === tab.requestUid);
+    if (req) {
+      for (const col of requestCollectionTrees) {
+        const trail: string[] = [];
+        const findRequest = (nodes: V5.TreeNode[]): boolean => {
+          for (const n of nodes) {
+            if (n.type === 'request' && n.uid === req.uid) return true;
+            if (n.type === 'folder') {
+              trail.push(n.name);
+              if (findRequest(n.children)) return true;
+              trail.pop();
+            }
+          }
+          return false;
+        };
+        if (findRequest(col.tree)) return ['API Requests', col.name, ...trail, tab.label];
+      }
+    }
+    return ['API Requests', tab.label];
+  }
+  if (tab.mode === 'request-create') {
+    const colId = tab.preferredCollectionId;
+    const col = colId ? requestCollectionTrees.find((c) => c.uid === colId) : null;
+    const folderTrail = tab.preferredFolderPath
+      ? tab.preferredFolderPath.split('/').filter((seg) => seg.length > 0)
+      : [];
+    if (col) return ['API Requests', col.name, ...folderTrail, tab.draftName ?? tab.label];
+    return ['API Requests', tab.draftName ?? tab.label];
+  }
 
   if (tab.mode === 'live-workflow-edit') return ['Workflows', tab.label];
   if (tab.mode === 'live-workflow-create') return ['Workflows', tab.draftName ?? tab.label];

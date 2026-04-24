@@ -581,13 +581,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   // hold a draft state, and the two concepts would collide.
   const activeBreadcrumbSegments = useMemo(() => {
     if (!activeTab) return [];
-    const base = computeBreadcrumbs(activeTab, rules, localCollectionTrees);
+    const base = computeBreadcrumbs(
+      activeTab,
+      rules,
+      localCollectionTrees,
+      requestsApi.collectionTrees,
+      requestsApi.requests,
+    );
     const scratchLabel = scratchLabelForMode(activeTab.mode);
     if (scratchLabel && base.length >= 2) {
       return [...base.slice(0, -1), scratchLabel, base[base.length - 1]];
     }
     return base;
-  }, [activeTab, rules, localCollectionTrees]);
+  }, [activeTab, rules, localCollectionTrees, requestsApi.collectionTrees, requestsApi.requests]);
   const activeWorkspace = useMemo(
     () => workspacesApi.workspaces.find((w) => w.id === workspacesApi.activeWorkspaceId),
     [workspacesApi.workspaces, workspacesApi.activeWorkspaceId],
@@ -1286,7 +1292,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             unresolvableWorkflowUids={unresolvableWorkflowUids}
             renderTabBody={renderTabBody}
             renderLeafHeader={renderLeafHeader}
-            getTabPath={(tab) => computeBreadcrumbs(tab, rules, localCollectionTrees)}
+            getTabPath={(tab) =>
+              computeBreadcrumbs(tab, rules, localCollectionTrees, requestsApi.collectionTrees, requestsApi.requests)
+            }
             renderEmpty={renderEmpty}
             onCreateRule={openCreateTab}
             createMenuOpen={createMenuOpen}
