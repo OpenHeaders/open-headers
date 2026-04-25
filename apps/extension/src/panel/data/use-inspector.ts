@@ -67,7 +67,7 @@ export function useInspector(): UseInspectorResult {
           store.ingestFire(msg.record, msg.authoritative);
           break;
         case 'har':
-          store.ingestHarEntry(msg.entry);
+          store.ingestHarEntry(msg.entry, msg.chromeRequestId);
           break;
         case 'har-body':
           store.ingestHarBody(msg.body);

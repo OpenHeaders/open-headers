@@ -13,7 +13,7 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { PanelHeader } from '@/shared/dock-layout';
-import type { InspectorFire, InspectorRequest } from '../data/types';
+import { type InspectorFire, type InspectorRequest, isAppliedFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
 
 interface MatchedRulesPanelProps {
@@ -60,22 +60,51 @@ interface FireRowProps {
   rule: V5.Rule | undefined;
 }
 
+/** Power-user evidence label — distinguishes the *source* of the
+ *  applied/inferred verdict for diagnostic readers. */
+function evidenceLabel(fire: InspectorFire): string {
+  if (fire.authoritative) return 'authoritative';
+  switch (fire.evidence) {
+    case 'confirmed':
+      return 'confirmed';
+    case 'matched-fallback':
+      return 'fallback';
+    case 'silent':
+      return 'silent';
+    default:
+      return 'inferred';
+  }
+}
+
+function evidenceTitle(fire: InspectorFire): string {
+  if (fire.authoritative) {
+    return "Confirmed by Chrome's onRuleMatchedDebug — this DNR rule actually executed on the request.";
+  }
+  switch (fire.evidence) {
+    case 'confirmed':
+      return 'Confirmed by the in-page reporter — the scriptable action ran inside the page.';
+    case 'matched-fallback':
+      return 'Inferred from URL matching — a scriptable confirmation was expected but did not arrive.';
+    case 'silent':
+      return 'Pattern matched but the request was served from cache / a service worker — no DNR or scriptable action ran.';
+    default:
+      return 'Inferred from URL matching — the rule would match this request based on its conditions.';
+  }
+}
+
 function FireRow({ fire, rule }: FireRowProps) {
   const label = rule?.name ?? fire.ruleUid;
   const type = rule ? formatRuleType(rule) : '—';
   const actions = rule ? describeHeaderActions(rule) : [];
+  const applied = isAppliedFire(fire);
   return (
     <div className="dt-matched-rule">
       <div className="dt-matched-rule-head">
         <span
-          className={`dt-exec-badge ${fire.authoritative ? 'dt-exec-badge--auth' : 'dt-exec-badge--inferred'}`}
-          title={
-            fire.authoritative
-              ? "Confirmed by Chrome's onRuleMatchedDebug — this rule actually executed on the request."
-              : 'Inferred from URL matching — the rule would match this request based on its conditions.'
-          }
+          className={`dt-exec-badge ${applied ? 'dt-exec-badge--auth' : 'dt-exec-badge--inferred'}`}
+          title={evidenceTitle(fire)}
         >
-          {fire.authoritative ? 'authoritative' : 'inferred'}
+          {evidenceLabel(fire)}
         </span>
         <span className="dt-matched-rule-type">{type}</span>
         <span className="dt-matched-rule-name">{label}</span>

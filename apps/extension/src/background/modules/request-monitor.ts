@@ -30,6 +30,7 @@ import {
   onMainFrameRequest,
   recordObservedFire,
   recordObservedUrl,
+  recordRequestObservation,
   updateRequestDeliveryMode,
 } from './tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
@@ -83,6 +84,20 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
         // Log every observed URL regardless of match so session-finish
         // arbitration can re-check no-fire rules against the full set.
         recordObservedUrl(details.tabId, normalizedUrl);
+        const t = Date.now();
+        // Broadcast the raw observation so consumers that need to join
+        // this request's `requestId` to other request views (e.g. the
+        // DevTools panel correlating fires with HAR entries) can do so
+        // deterministically. Uses the raw `details.url` because HAR
+        // entries from Chrome carry the same canonical form.
+        recordRequestObservation(details.tabId, {
+          requestId: details.requestId,
+          method: details.method,
+          url: details.url,
+          resourceType: details.type as TrackedResourceType,
+          initiator: details.initiator,
+          timestamp: t,
+        });
         if (details.type === 'main_frame') {
           onMainFrameRequest(details.tabId, details.requestId, normalizedUrl);
         }
@@ -91,7 +106,6 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
             matchRulesToRequest(normalizedUrl),
             getSetting('rulesEngine.evaluationStrategy'),
           );
-          const t = Date.now();
           for (const r of arbitrated) {
             recordObservedFire(details.tabId, r.uid, normalizedUrl, details.requestId, t, {
               resourceType: details.type as TrackedResourceType,
@@ -275,9 +289,21 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
         const normalizedRedirectUrl = normalizeUrlForTracking(details.redirectUrl);
 
         // Log every observed URL (including redirect targets) so
-        // session-finish arbitration has the full URL set.
+        // session-finish arbitration has the full URL set. Also push
+        // the redirect target into the request-observation stream so
+        // the panel's HAR ↔ requestId correlator can attach this same
+        // requestId to the redirect-target HAR row when Chrome emits
+        // a separate `onRequestFinished` for that hop.
+        const t = Date.now();
         if (isTabTracked(details.tabId)) {
           recordObservedUrl(details.tabId, normalizedRedirectUrl);
+          recordRequestObservation(details.tabId, {
+            requestId: details.requestId,
+            method: details.method,
+            url: details.redirectUrl,
+            resourceType: details.type as TrackedResourceType,
+            timestamp: t,
+          });
         }
 
         // Extend the main-frame chain so when the final URL commits we can
@@ -295,7 +321,6 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
             matchRulesToRequest(normalizedRedirectUrl),
             getSetting('rulesEngine.evaluationStrategy'),
           );
-          const t = Date.now();
           for (const r of arbitrated) {
             recordObservedFire(details.tabId, r.uid, normalizedRedirectUrl, details.requestId, t, {
               resourceType: details.type as TrackedResourceType,

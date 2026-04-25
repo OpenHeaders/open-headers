@@ -7,7 +7,7 @@ import { ResourceFilter } from './ResourceFilter';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';
 import { formatSizeInfo, getSizeInfo, type SizeInfo } from '../data/size-info';
-import type { InspectorRequest } from '../data/types';
+import { type InspectorRequest, isAppliedFire } from '../data/types';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { COLUMN_DEFS, columnTrack, DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
@@ -645,7 +645,7 @@ export function TrafficList({
               <span className="dt-col-dot">
                 {entry.fires.length > 0 && (
                   <span
-                    className={`dt-fire-dot ${entry.fires.some((f) => f.authoritative) ? 'dt-fire-dot--auth' : 'dt-fire-dot--inferred'}`}
+                    className={`dt-fire-dot ${entry.fires.some(isAppliedFire) ? 'dt-fire-dot--auth' : 'dt-fire-dot--inferred'}`}
                   />
                 )}
               </span>

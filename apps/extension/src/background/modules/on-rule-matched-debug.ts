@@ -122,6 +122,12 @@ export function setupOnRuleMatchedDebugBridge(): void {
       if (typeof tabId !== 'number' || tabId < 0) return;
       const ruleUid = getDnrIdToRuleUid().get(info.rule.ruleId);
       if (!ruleUid) return;
+      // `requestId` is the deterministic join key shared with webRequest's
+      // inferred-fire path. Threading it onto the record lets the panel
+      // store dedupe authoritative + inferred fires for the same request
+      // (and upgrade the row's badge to authoritative regardless of
+      // arrival order). Always present in `MatchedRuleInfoDebug`, but
+      // we read it defensively in case a future Chrome trims the field.
       const record: RequestRecord = {
         ruleUid,
         url: info.request.url,
@@ -129,6 +135,7 @@ export function setupOnRuleMatchedDebugBridge(): void {
         resourceType: normalizeResourceType(info.request.type ?? 'other'),
         t: Date.now(),
         evidence: 'matched',
+        ...(info.request.requestId ? { requestId: info.request.requestId } : {}),
       };
       broadcastAuthoritativeFire(tabId, record);
     } catch (err) {

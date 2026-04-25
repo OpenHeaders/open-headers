@@ -21,14 +21,80 @@ export type { InspectorNavTiming };
  * distinguishes `onRuleMatchedDebug` fires (Chrome/Edge only — Chrome
  * told us this rule actually executed) from tab-telemetry's inferred
  * URL-matching path.
+ *
+ * `requestId` is the chrome.webRequest identifier — present for every
+ * webRequest-observed fire and used as the deterministic join key to
+ * the HAR entry. Absent only for scriptable fires reported from the
+ * in-page fire-bridge.
  */
 export interface InspectorFire {
   ruleUid: string;
   t: number;
   pattern: string;
   authoritative: boolean;
+  requestId?: string;
   shadowedBy?: RequestRecord['shadowedBy'];
   evidence: RequestRecord['evidence'];
+}
+
+/**
+ * "Rule actually ran" predicate. True when we have ground-truth evidence
+ * the action executed — either:
+ *
+ *   - `authoritative`: Chrome's `onRuleMatchedDebug` reported this DNR
+ *     rule executed on the wire.
+ *   - `evidence === 'confirmed'`: the in-page fire-bridge reported the
+ *     scriptable action ran inside the page.
+ *
+ * Both signals are equivalently strong from the user's POV — "yes, my
+ * rule fired." `evidence: 'matched'` and `'matched-fallback'` are
+ * inferred from URL pattern matching alone and don't qualify.
+ *
+ * Use this everywhere the UI answers the user question "did my rule
+ * apply on this row?" so the answer is the same regardless of which
+ * channel (DNR vs scriptable) the rule used.
+ */
+export function isAppliedFire(fire: InspectorFire): boolean {
+  return fire.authoritative || fire.evidence === 'confirmed';
+}
+
+/**
+ * Evidence ranking — higher is stronger. Mirrors `tab-telemetry`'s
+ * internal `upgradeEvidence` so the panel and the popup agree on what
+ * "stronger evidence" means when two records describe the same fire.
+ */
+const EVIDENCE_RANK: Record<RequestRecord['evidence'], number> = {
+  confirmed: 3,
+  matched: 2,
+  'matched-fallback': 1,
+  silent: 0,
+};
+
+/** Pick the stronger of two evidence values. Ties keep the first arg. */
+export function strongerEvidence(
+  a: RequestRecord['evidence'],
+  b: RequestRecord['evidence'],
+): RequestRecord['evidence'] {
+  return EVIDENCE_RANK[a] >= EVIDENCE_RANK[b] ? a : b;
+}
+
+/**
+ * Merge two fire records that describe the same `(ruleUid, requestId)` —
+ * fold the stronger `authoritative` flag and the stronger `evidence`
+ * tier into the existing record. Returns the same reference when no
+ * upgrade is needed so callers can short-circuit equality checks.
+ *
+ * The two channels (Chrome's `onRuleMatchedDebug` and the in-page
+ * fire-bridge) race in dev mode. Whichever arrives first must not
+ * down-grade the row's badge later. Symmetrically — when the second
+ * arrival is the stronger signal, it must overwrite. This helper makes
+ * both cases race-independent.
+ */
+export function mergeFireEvidence<T extends InspectorFire>(existing: T, incoming: InspectorFire): T {
+  const auth = existing.authoritative || incoming.authoritative;
+  const ev = strongerEvidence(existing.evidence, incoming.evidence);
+  if (auth === existing.authoritative && ev === existing.evidence) return existing;
+  return { ...existing, authoritative: auth, evidence: ev };
 }
 
 /**
@@ -56,6 +122,14 @@ export interface InspectorRequest {
   id: string;
   /** Full HAR entry from chrome.devtools.network.onRequestFinished. */
   harEntry: InspectorHarEntry;
+  /**
+   * chrome.webRequest identifier attached by the background after
+   * correlating the HAR with the per-URL FIFO of in-flight observations.
+   * Present whenever the request was observed by webRequest while
+   * tab-telemetry was tracking the tab; absent for HAR rows that
+   * landed before tracking started or for non-webRequest fetches.
+   */
+  chromeRequestId?: string;
   /** Convenience projections off the HAR entry. Read from `harEntry` where possible. */
   method: string;
   url: string;

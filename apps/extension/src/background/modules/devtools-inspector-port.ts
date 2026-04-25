@@ -1,62 +1,81 @@
 /**
- * DevTools Inspector Port Handler — long-lived port between the
- * DevTools Inspector panel and the background service worker.
+ * DevTools Inspector Port Handler — connects the DevTools UI surface to the
+ * panel renderer.
  *
- * ## Port name
+ * ## Two ports per tab
  *
- *   `devtools-inspector:<tabId>`
+ *   - `devtools-har-source:<tabId>` — opened by `devtools_page` (the DevTools
+ *     extension page) the moment any DevTools window opens on the tab,
+ *     regardless of which panel is active. Carries HAR entries, response
+ *     bodies, navigation events, and navigation timing.
+ *   - `devtools-inspector:<tabId>` — opened by the Open Headers panel iframe
+ *     when it is the focused DevTools tab. Receives fire / HAR / nav messages
+ *     so the React store can render the traffic list.
  *
- * The panel reads `chrome.devtools.inspectedWindow.tabId` in the
- * devtools_page context and encodes it into the name so this handler
- * can route events to the right subscriber without a separate
- * subscription message hop.
+ * The panel iframe is loaded lazily by Chrome — it only exists while the
+ * Open Headers tab is the active DevTools panel. The har-source port, by
+ * contrast, is alive for the lifetime of the DevTools window. Tracking and
+ * fire capture must therefore be driven by the har-source port, not the
+ * inspector port; otherwise requests issued before the user clicks the
+ * Open Headers panel would have HAR captured (via the always-on har-source)
+ * but no rule fires (because tab-telemetry tracking would not have started).
  *
- * ## Lifecycle
+ * ## Per-tab session
  *
- *   1. Panel mounts → opens port.
- *   2. This handler accepts the connection, parses the tab id, starts
- *      tab-telemetry tracking for that tab under the
- *      `devtools:<tabId>` reason (so request-monitor begins ingesting
- *      observations), subscribes to the request-event stream and the
- *      inferred fire stream, and registers the port in the per-tab
- *      open-ports map so authoritative fires (from onRuleMatchedDebug
- *      on Chrome/Edge) can target it directly.
- *   3. Every observation / fire is posted over the port as a tagged
- *      message. The panel's data layer correlates request events with
- *      its HAR stream, and fires with its rule-executions view.
- *   4. On disconnect, this handler unsubscribes, removes the tracking
- *      reason (tearing down tab-telemetry state if no other consumer
- *      holds the tab), and drops the port from the map.
+ * `sessions` holds one entry per tab with at least one open port of either
+ * type. The session is ref-counted across both port kinds and owns:
  *
- * Idempotent setup: safe to call `setupDevtoolsInspectorPorts` more
- * than once at extension start.
+ *   - the tab-telemetry tracking reason
+ *   - subscriptions to fire and request-observation streams
+ *   - HAR + fire ring buffers replayed to late-connecting inspector ports
+ *   - per-URL FIFO of in-flight `(requestId, t)` pairs used to attach a
+ *     deterministic join key to outgoing HAR messages
+ *
+ * The first port to open creates the session and primes its subscriptions.
+ * The last port to close tears it down.
+ *
+ * ## Deterministic fire ↔ HAR join
+ *
+ * Chrome's HAR entries do not carry a stable identifier per request. The
+ * panel needs to join rule fires (which carry `requestId` from webRequest)
+ * to HAR rows. We attach the requestId in the background, where both views
+ * are visible:
+ *
+ *   1. Every webRequest `onBeforeRequest` is recorded as a `RequestObservation`
+ *      via `recordRequestObservation`. This module subscribes to that stream
+ *      and pushes `(requestId, t)` into a per-URL FIFO scoped to the tab.
+ *   2. When a HAR entry arrives from devtools_page, we pop the oldest
+ *      in-flight entry for that URL whose timestamp is plausibly close to
+ *      the HAR's `startedDateTime`, and emit the requestId alongside the
+ *      HAR message as `chromeRequestId`.
+ *   3. The panel store joins fires to HAR rows by requestId. URL + window
+ *      matching is kept only as a fallback for HAR entries that arrived
+ *      before tracking was active (e.g. very early requests on a cold tab).
  */
 
 import { logger } from '@utils/logger';
-import { isTracked, type RequestRecord, startTracking, stopTracking, subscribeFires } from './tab-telemetry';
+import {
+  isTracked,
+  type RequestRecord,
+  startTracking,
+  stopTracking,
+  subscribeFires,
+  subscribeRequestEvents,
+} from './tab-telemetry';
 
 /** Prefix for panel-facing devtools-inspector port names. */
 const INSPECTOR_PREFIX = 'devtools-inspector:';
 /** Prefix for devtools_page-facing HAR source port names. */
 const HAR_SOURCE_PREFIX = 'devtools-har-source:';
 
-/** Tab-telemetry tracking reason for a devtools-inspector session. */
+/** Tracking reason owned by this module's per-tab session. */
 function trackingReason(tabId: number): string {
-  return `devtools:${tabId}`;
+  return `devtools-session:${tabId}`;
 }
 
-function parseDevtoolsPortName(name: string): number | null {
-  if (!name.startsWith(INSPECTOR_PREFIX)) return null;
-  const raw = name.slice(INSPECTOR_PREFIX.length);
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return parsed;
-}
-
-function parseHarSourcePortName(name: string): number | null {
-  if (!name.startsWith(HAR_SOURCE_PREFIX)) return null;
-  const raw = name.slice(HAR_SOURCE_PREFIX.length);
-  const parsed = Number.parseInt(raw, 10);
+function parsePortName(name: string, prefix: string): number | null {
+  if (!name.startsWith(prefix)) return null;
+  const parsed = Number.parseInt(name.slice(prefix.length), 10);
   if (!Number.isFinite(parsed) || parsed < 0) return null;
   return parsed;
 }
@@ -162,13 +181,20 @@ export interface InspectorNavTiming {
 }
 
 /**
- * Wire format for messages posted over the port. Discriminated union
- * keyed by `type`. The panel's data layer parses incoming messages
+ * Wire format for messages posted over the inspector port. Discriminated
+ * union keyed by `type`. The panel's data layer parses incoming messages
  * against this shape.
+ *
+ * `chromeRequestId` on the `har` variant is the deterministic join key
+ * the background attaches by correlating the HAR with the per-URL FIFO
+ * of in-flight webRequest observations. Optional because very early
+ * requests on a cold tab may land before the in-flight queue has a
+ * matching entry — the panel falls back to URL + window matching for
+ * those rows.
  */
 export type InspectorPortMessage =
   | { type: 'fire'; record: RequestRecord; authoritative: boolean }
-  | { type: 'har'; entry: InspectorHarEntry }
+  | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
   | { type: 'har-body'; body: InspectorHarBody }
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming }
@@ -194,78 +220,141 @@ export type HarSourceMessage =
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming };
 
-/**
- * Open inspector ports, keyed by inspected tab id. A tab can have at
- * most one active DevTools window in Chrome's UI, but the Map<Set>
- * shape means we gracefully handle edge cases like a second DevTools
- * window being opened on the same tab (devtools-for-devtools).
- */
-const openPorts: Map<number, Set<chrome.runtime.Port>> = new Map();
+// ── Per-tab session ────────────────────────────────────────────────
 
-/**
- * Ring buffer of HAR messages per tab, populated by the devtools_page
- * HAR source port regardless of whether any inspector port is open.
- * When a panel connects, this buffer is flushed onto its port so the
- * user sees the backlog captured between DevTools open and clicking
- * the panel tab. Without this, requests that happen before the
- * inspector port exists are visible as background-only entries
- * (observation fires right away from webRequest) but never graduate
- * to `joined` because the HAR entry was broadcast to zero listeners.
- *
- * Separate ring per tab. Each ring caps at `HAR_BUFFER_MAX` so long
- * idle DevTools sessions don't grow unbounded. Buffered messages are
- * re-broadcast IN ORDER on flush so the store's correlation logic
- * sees them in the same temporal order as live events.
- */
-type BufferedHarMessage = { type: 'har'; entry: InspectorHarEntry } | { type: 'har-body'; body: InspectorHarBody };
+/** Buffered HAR/fire messages, replayed to late-connecting inspector ports. */
+type BufferedHarMessage =
+  | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
+  | { type: 'har-body'; body: InspectorHarBody };
 
+type BufferedFireMessage = { type: 'fire'; record: RequestRecord; authoritative: boolean };
+
+/** Cap on per-tab ring buffers — keeps memory bounded on long DevTools sessions. */
 const HAR_BUFFER_MAX = 500;
-const harBuffer: Map<number, BufferedHarMessage[]> = new Map();
+const FIRE_BUFFER_MAX = 1000;
+/** Max age for an in-flight (requestId, t) entry before we drop it as stale. */
+const IN_FLIGHT_MAX_AGE_MS = 60_000;
+/**
+ * Tolerated clock skew between webRequest's `Date.now()` (in-flight entry's
+ * `t`) and HAR's `Date.parse(startedDateTime)` for the *same* request.
+ * Both clocks are wall-clock in the same process, so they should agree to
+ * within a few ms — a generous 1s window covers any reordering Chrome
+ * might inject without blunting the asymmetric "head is for a newer
+ * request than this HAR" mis-attribution check.
+ */
+const POP_FUTURE_SKEW_MS = 1_000;
+/**
+ * LRU cap on the in-flight URL map. Each entry holds the FIFO of pending
+ * `(requestId, t)` pairs awaiting their HAR row. URLs that produce a HAR
+ * are popped to empty and removed by `popMatchingRequestId`; URLs that
+ * never do (cancelled, served from bfcache, blocked before flight) sit
+ * here until evicted. The cap caps total memory at roughly
+ * `MAX_IN_FLIGHT_URLS * (URL string + a tiny queue) ≈ a couple hundred KB`
+ * even on pathologically noisy tabs. The LRU keeps freshly-active URLs.
+ */
+const MAX_IN_FLIGHT_URLS = 5_000;
 
-function pushHarBuffer(tabId: number, msg: BufferedHarMessage): void {
-  let buffer = harBuffer.get(tabId);
-  if (!buffer) {
-    buffer = [];
-    harBuffer.set(tabId, buffer);
-  }
-  buffer.push(msg);
-  if (buffer.length > HAR_BUFFER_MAX) {
-    buffer.splice(0, buffer.length - HAR_BUFFER_MAX);
-  }
+interface InFlightEntry {
+  requestId: string;
+  /** webRequest `Date.now()` at onBeforeRequest. Used to weed out stale entries
+   *  whose corresponding HAR never showed up (cancelled, served from bfcache). */
+  t: number;
 }
 
-function flushHarBuffer(tabId: number, port: chrome.runtime.Port): void {
-  const buffer = harBuffer.get(tabId);
-  if (!buffer || buffer.length === 0) return;
-  for (const msg of buffer) {
-    try {
-      port.postMessage(msg satisfies InspectorPortMessage);
-    } catch {
-      // Race with disconnect — onDisconnect will clean up.
+interface TabSession {
+  tabId: number;
+  /** Number of open ports (har-source + inspector) tied to this session. */
+  refCount: number;
+  inspectorPorts: Set<chrome.runtime.Port>;
+  harBuffer: BufferedHarMessage[];
+  fireBuffer: BufferedFireMessage[];
+  /** Per-URL FIFO of in-flight webRequest observations, head = oldest. */
+  inFlightByUrl: Map<string, InFlightEntry[]>;
+  unsubscribeFires: () => void;
+  unsubscribeRequestEvents: () => void;
+}
+
+const sessions: Map<number, TabSession> = new Map();
+
+function pushBounded<T>(buffer: T[], msg: T, max: number): void {
+  buffer.push(msg);
+  if (buffer.length > max) buffer.splice(0, buffer.length - max);
+}
+
+function recordInFlight(session: TabSession, url: string, requestId: string, t: number): void {
+  // Sweep stale FIFO entries first, *before* moving the URL to the LRU
+  // tail — so the iteration position reflects actual live in-flight
+  // requests rather than a queue of long-cancelled ones still tying up
+  // the slot. webRequest sometimes reports requests that never produce
+  // a HAR entry (cancelled, BFCache restore, Chrome internal redirects);
+  // without this sweep, stale heads would poison the FIFO and the next
+  // HAR hit on the same URL would mis-attribute.
+  let queue = session.inFlightByUrl.get(url);
+  if (queue) {
+    const cutoff = t - IN_FLIGHT_MAX_AGE_MS;
+    while (queue.length > 0 && queue[0].t < cutoff) queue.shift();
+    // Touch-to-end via delete + re-set. JS Maps preserve insertion
+    // order; re-inserting an existing key is the standard LRU idiom.
+    session.inFlightByUrl.delete(url);
+  } else {
+    queue = [];
+  }
+  session.inFlightByUrl.set(url, queue);
+  queue.push({ requestId, t });
+  // Bound the total URL count. URLs that never produce a HAR entry stay
+  // in the map until evicted here; the iteration-order eviction drops
+  // the least-recently-touched URL first. Eviction is silent in the
+  // happy path (the queue we drop is empty or holds a long-cancelled
+  // request) but logs at debug level so we can tell from a verbose
+  // session whether the cap is ever actually being hit in the wild —
+  // any non-empty eviction means we lost a join key for that request.
+  while (session.inFlightByUrl.size > MAX_IN_FLIGHT_URLS) {
+    const oldest = session.inFlightByUrl.keys().next().value;
+    if (oldest === undefined) break;
+    const evictedQueue = session.inFlightByUrl.get(oldest);
+    session.inFlightByUrl.delete(oldest);
+    if (evictedQueue && evictedQueue.length > 0) {
+      logger.debug(
+        'DevtoolsInspectorPort',
+        `In-flight LRU evicted url=${oldest} with ${evictedQueue.length} pending entries (tab=${session.tabId}) — corresponding HARs will fall back to URL+window matching`,
+      );
     }
   }
 }
 
-function addPort(tabId: number, port: chrome.runtime.Port): void {
-  let set = openPorts.get(tabId);
-  if (!set) {
-    set = new Set();
-    openPorts.set(tabId, set);
-  }
-  set.add(port);
+function popMatchingRequestId(session: TabSession, url: string, harTimestamp: number): string | undefined {
+  const queue = session.inFlightByUrl.get(url);
+  if (!queue || queue.length === 0) return undefined;
+  // Two-sided plausibility window with deliberately asymmetric handling:
+  //
+  //   - `head.t < harTimestamp - IN_FLIGHT_MAX_AGE_MS` — stale entries
+  //     are *dead*. The FIFO head is so old its own HAR was lost
+  //     (cancelled, evicted). Drop it and reconsider the next entry;
+  //     Chrome processes `onBeforeRequest` events in order, so an
+  //     older head with a missing HAR cannot belong to *this* HAR
+  //     either.
+  //
+  //   - `head.t > harTimestamp + POP_FUTURE_SKEW_MS` — future entries
+  //     are *live*. The FIFO head is for a request started *after*
+  //     this HAR's request — i.e. this HAR's own webRequest entry was
+  //     evicted/cancelled before its HAR landed. Popping would mis-
+  //     attribute a future requestId to a past HAR. We leave the head
+  //     in the queue (its real HAR is on its way) and return undefined
+  //     so the panel falls back to URL+window matching for *this* row
+  //     only. Subsequent HARs continue to pop correctly — a single
+  //     mis-ordered HAR degrades, never a cascade.
+  const lower = harTimestamp - IN_FLIGHT_MAX_AGE_MS;
+  while (queue.length > 0 && queue[0].t < lower) queue.shift();
+  const head = queue[0];
+  if (!head) return undefined;
+  if (head.t > harTimestamp + POP_FUTURE_SKEW_MS) return undefined;
+  queue.shift();
+  if (queue.length === 0) session.inFlightByUrl.delete(url);
+  return head.requestId;
 }
 
-function removePort(tabId: number, port: chrome.runtime.Port): void {
-  const set = openPorts.get(tabId);
-  if (!set) return;
-  set.delete(port);
-  if (set.size === 0) openPorts.delete(tabId);
-}
-
-function broadcastToInspectorPorts(tabId: number, message: InspectorPortMessage): void {
-  const set = openPorts.get(tabId);
-  if (!set || set.size === 0) return;
-  for (const port of set) {
+function broadcastToInspectorPorts(session: TabSession, message: InspectorPortMessage): void {
+  for (const port of session.inspectorPorts) {
     try {
       port.postMessage(message);
     } catch {
@@ -274,17 +363,125 @@ function broadcastToInspectorPorts(tabId: number, message: InspectorPortMessage)
   }
 }
 
+function handleFireRecord(session: TabSession, record: RequestRecord, authoritative: boolean): void {
+  const msg: BufferedFireMessage = { type: 'fire', record, authoritative };
+  if (session.inspectorPorts.size > 0) {
+    broadcastToInspectorPorts(session, msg);
+  }
+  pushBounded(session.fireBuffer, msg, FIRE_BUFFER_MAX);
+}
+
+function handleHarMessage(session: TabSession, entry: InspectorHarEntry): void {
+  // Correlate before broadcasting so both live and replay paths carry the
+  // join key. The panel store treats `chromeRequestId` as the primary
+  // join key; we intentionally do NOT mutate the HAR entry itself so the
+  // entry stays as `devtools_page` produced it.
+  //
+  // Timestamp trust asymmetry: HAR's `startedDateTime` is parsed from a
+  // string the devtools_page forwarded — it can be NaN if Chrome ever
+  // emits a malformed value, hence the `Number.isFinite` guard. The
+  // in-flight `t` values come from our own `Date.now()` calls in
+  // `recordRequestObservation` and are always finite by construction.
+  const harUrl = entry.request?.url ?? '';
+  const harTs = Date.parse(entry.startedDateTime);
+  const chromeRequestId = harUrl && Number.isFinite(harTs) ? popMatchingRequestId(session, harUrl, harTs) : undefined;
+  const outgoing: BufferedHarMessage = { type: 'har', entry, chromeRequestId };
+  if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, outgoing);
+  pushBounded(session.harBuffer, outgoing, HAR_BUFFER_MAX);
+}
+
+function handleHarBodyMessage(session: TabSession, body: InspectorHarBody): void {
+  const outgoing: BufferedHarMessage = { type: 'har-body', body };
+  if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, outgoing);
+  pushBounded(session.harBuffer, outgoing, HAR_BUFFER_MAX);
+}
+
+function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
+  // HAR entries first, so a fire that references a request whose HAR was
+  // already buffered finds its row on arrival. Fires carry their own
+  // requestId; the order between the two streams is informational only,
+  // never required for correctness.
+  //
+  // Failure semantics: a `postMessage` throw on a Chrome runtime port is
+  // (in practice) only raised when the port is dead. We treat it as
+  // "abort the rest of the flush" — pushing more messages would also
+  // throw, and `port.onDisconnect` will run next to tear down the
+  // session bookkeeping. Not "skip this message and continue."
+  for (const msg of session.harBuffer) {
+    try {
+      port.postMessage(msg satisfies InspectorPortMessage);
+    } catch {
+      return;
+    }
+  }
+  for (const msg of session.fireBuffer) {
+    try {
+      port.postMessage(msg satisfies InspectorPortMessage);
+    } catch {
+      return;
+    }
+  }
+}
+
+function ensureSession(tabId: number): TabSession {
+  const existing = sessions.get(tabId);
+  if (existing) {
+    existing.refCount++;
+    return existing;
+  }
+  const alreadyTracked = isTracked(tabId);
+  startTracking(tabId, trackingReason(tabId));
+  const session: TabSession = {
+    tabId,
+    refCount: 1,
+    inspectorPorts: new Set(),
+    harBuffer: [],
+    fireBuffer: [],
+    inFlightByUrl: new Map(),
+    unsubscribeFires: () => {},
+    unsubscribeRequestEvents: () => {},
+  };
+  // Subscribe BEFORE returning so any fire/observation that happens between
+  // session creation and the caller's first message is captured.
+  session.unsubscribeFires = subscribeFires(tabId, (record) => {
+    handleFireRecord(session, record, false);
+  });
+  session.unsubscribeRequestEvents = subscribeRequestEvents(tabId, (event) => {
+    recordInFlight(session, event.url, event.requestId, event.timestamp);
+  });
+  sessions.set(tabId, session);
+  logger.debug(
+    'DevtoolsInspectorPort',
+    `Session opened for tab ${tabId} (telemetry already tracked=${alreadyTracked})`,
+  );
+  return session;
+}
+
+function releaseSession(tabId: number): void {
+  const session = sessions.get(tabId);
+  if (!session) return;
+  session.refCount--;
+  if (session.refCount > 0) return;
+  session.unsubscribeFires();
+  session.unsubscribeRequestEvents();
+  stopTracking(tabId, trackingReason(tabId));
+  sessions.delete(tabId);
+  logger.debug('DevtoolsInspectorPort', `Session closed for tab ${tabId}`);
+}
+
 /**
  * Broadcast an authoritative fire record to every open inspector port
  * for the given tab. Called from the onRuleMatchedDebug wiring on
  * Chrome/Edge. Separate from the `subscribeFires` path so the panel
  * can distinguish "Chrome told us this rule actually executed" from
  * "the URL matched the rule's conditions." Silent no-op on tabs with
- * no open port — the onRuleMatchedDebug listener is global and the
+ * no live session — the onRuleMatchedDebug listener is global and the
  * gating lives here.
  */
 export function broadcastAuthoritativeFire(tabId: number, record: RequestRecord): void {
-  broadcastToInspectorPorts(tabId, { type: 'fire', record, authoritative: true });
+  const session = sessions.get(tabId);
+  if (!session) return;
+  handleFireRecord(session, record, true);
 }
 
 let portsSetupDone = false;
@@ -297,97 +494,89 @@ export function setupDevtoolsInspectorPorts(): void {
     return;
   }
   chrome.runtime.onConnect.addListener((port) => {
-    // HAR source (from devtools_page) — relay to live inspector ports
-    // AND stash into the per-tab ring buffer so late-connecting panels
-    // can still see the backlog.
-    const harTabId = parseHarSourcePortName(port.name);
+    const harTabId = parsePortName(port.name, HAR_SOURCE_PREFIX);
     if (harTabId != null) {
-      port.onMessage.addListener((msg: HarSourceMessage) => {
-        if (msg?.type === 'har' && msg.entry) {
-          const outgoing: InspectorPortMessage = { type: 'har', entry: msg.entry };
-          broadcastToInspectorPorts(harTabId, outgoing);
-          pushHarBuffer(harTabId, outgoing);
-          return;
-        }
-        if (
-          msg?.type === 'har-body' &&
-          typeof msg.method === 'string' &&
-          typeof msg.url === 'string' &&
-          typeof msg.startedDateTime === 'string'
-        ) {
-          const outgoing: InspectorPortMessage = {
-            type: 'har-body',
-            body: {
-              method: msg.method,
-              url: msg.url,
-              startedDateTime: msg.startedDateTime,
-              content: msg.content ?? '',
-              encoding: msg.encoding ?? '',
-            },
-          };
-          broadcastToInspectorPorts(harTabId, outgoing);
-          pushHarBuffer(harTabId, outgoing);
-          return;
-        }
-        if (msg?.type === 'nav' && typeof msg.url === 'string') {
-          // Navigation in the inspected window — relay to live
-          // inspector ports so the panel can honor clear-on-nav.
-          // Not buffered: a buffered nav would replay stale clears
-          // on a late-connecting inspector and wipe legitimate
-          // backlog from the HAR buffer. Live-only is correct.
-          broadcastToInspectorPorts(harTabId, { type: 'nav', url: msg.url });
-          return;
-        }
-        if (msg?.type === 'nav-timing' && msg.timing && typeof msg.timing === 'object') {
-          broadcastToInspectorPorts(harTabId, { type: 'nav-timing', timing: msg.timing });
-        }
-      });
-      port.onDisconnect.addListener(() => {
-        // DevTools window closed — drop the buffer to free memory.
-        // A subsequent DevTools-reopen on the same tab will start with
-        // a fresh buffer, which is the expected behavior.
-        harBuffer.delete(harTabId);
+      acceptHarSourcePort(harTabId, port);
+      return;
+    }
+    const inspectorTabId = parsePortName(port.name, INSPECTOR_PREFIX);
+    if (inspectorTabId != null) {
+      acceptInspectorPort(inspectorTabId, port);
+    }
+  });
+}
+
+function acceptHarSourcePort(tabId: number, port: chrome.runtime.Port): void {
+  const session = ensureSession(tabId);
+  port.onMessage.addListener((msg: HarSourceMessage) => {
+    if (msg?.type === 'har' && msg.entry) {
+      handleHarMessage(session, msg.entry);
+      return;
+    }
+    if (
+      msg?.type === 'har-body' &&
+      typeof msg.method === 'string' &&
+      typeof msg.url === 'string' &&
+      typeof msg.startedDateTime === 'string'
+    ) {
+      handleHarBodyMessage(session, {
+        method: msg.method,
+        url: msg.url,
+        startedDateTime: msg.startedDateTime,
+        content: msg.content ?? '',
+        encoding: msg.encoding ?? '',
       });
       return;
     }
-
-    const tabId = parseDevtoolsPortName(port.name);
-    if (tabId == null) return; // Not one of ours.
-
-    const alreadyTracked = isTracked(tabId);
-    startTracking(tabId, trackingReason(tabId));
-    addPort(tabId, port);
-    logger.debug('DevtoolsInspectorPort', `Port opened for tab ${tabId} (already tracked=${alreadyTracked})`);
-
-    const unsubFires = subscribeFires(tabId, (record) => {
-      try {
-        port.postMessage({
-          type: 'fire',
-          record,
-          authoritative: false,
-        } satisfies InspectorPortMessage);
-      } catch {
-        // Port disconnect races are handled by onDisconnect below.
-      }
-    });
-
-    try {
-      port.postMessage({ type: 'ready', tabId } satisfies InspectorPortMessage);
-    } catch {
-      // If posting the handshake already fails, the disconnect handler
-      // will fire next and clean up.
+    if (msg?.type === 'nav' && typeof msg.url === 'string') {
+      // Live-only: a buffered nav would replay on a late-connecting
+      // inspector and wipe legitimate backlog from the HAR buffer.
+      broadcastToInspectorPorts(session, { type: 'nav', url: msg.url });
+      return;
     }
-
-    // Flush any HAR entries that arrived before this inspector port
-    // connected. Ordering is preserved so the store's correlation
-    // window behaves identically to the live path.
-    flushHarBuffer(tabId, port);
-
-    port.onDisconnect.addListener(() => {
-      unsubFires();
-      removePort(tabId, port);
-      stopTracking(tabId, trackingReason(tabId));
-      logger.debug('DevtoolsInspectorPort', `Port closed for tab ${tabId}`);
-    });
+    if (msg?.type === 'nav-timing' && msg.timing && typeof msg.timing === 'object') {
+      broadcastToInspectorPorts(session, { type: 'nav-timing', timing: msg.timing });
+    }
+  });
+  port.onDisconnect.addListener(() => {
+    releaseSession(tabId);
   });
 }
+
+function acceptInspectorPort(tabId: number, port: chrome.runtime.Port): void {
+  const session = ensureSession(tabId);
+  session.inspectorPorts.add(port);
+
+  try {
+    port.postMessage({ type: 'ready', tabId } satisfies InspectorPortMessage);
+  } catch {
+    // If the handshake itself fails, the disconnect handler will fire next
+    // and clean up.
+  }
+
+  flushBuffers(session, port);
+
+  port.onDisconnect.addListener(() => {
+    session.inspectorPorts.delete(port);
+    releaseSession(tabId);
+  });
+}
+
+// ── Test helpers ───────────────────────────────────────────────────
+
+export const __internals = {
+  get sessionCount(): number {
+    return sessions.size;
+  },
+  getSession(tabId: number): TabSession | undefined {
+    return sessions.get(tabId);
+  },
+  reset(): void {
+    for (const session of sessions.values()) {
+      session.unsubscribeFires();
+      session.unsubscribeRequestEvents();
+    }
+    sessions.clear();
+    portsSetupDone = false;
+  },
+};
