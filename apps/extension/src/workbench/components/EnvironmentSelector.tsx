@@ -210,6 +210,7 @@ interface EnvironmentSelectorProps {
   onCreateEnvironment: () => void;
   onOpenEnvironment: (uid: string) => void;
   onOpenWorkspaceVariables: () => void;
+  onOpenCollectionVariables: () => void;
   onOpenVault: () => void;
   onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
 }
@@ -224,6 +225,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   onCreateEnvironment,
   onOpenEnvironment,
   onOpenWorkspaceVariables,
+  onOpenCollectionVariables,
   onOpenVault,
   onSetCollectionPinnedEnvs,
 }) => {
@@ -335,7 +337,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           arrow={false}
           getPopupContainer={(trigger) => trigger.parentElement ?? document.body}
           content={
-            <div style={{ padding: 2, width: 220 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: 2, width: 320 }} onClick={(e) => e.stopPropagation()}>
               <Text strong style={{ display: 'block', padding: '4px 8px 6px', fontSize: 12 }}>
                 When switching between collections
               </Text>
@@ -541,24 +543,38 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         className="oh-env-row"
         style={{ ...rowStyle, color: token.colorTextSecondary }}
         onClick={() => {
-          onOpenWorkspaceVariables();
-          handleClose();
-        }}
-      >
-        {scopeBadge('workspace', 14)}
-        <Text style={{ fontSize: 13 }}>Workspace variables…</Text>
-      </div>
-      <div
-        role="menuitem"
-        className="oh-env-row"
-        style={{ ...rowStyle, color: token.colorTextSecondary }}
-        onClick={() => {
           onOpenVault();
           handleClose();
         }}
       >
         {scopeBadge('vault', 14)}
-        <Text style={{ fontSize: 13 }}>Vault…</Text>
+        <Text style={{ fontSize: 13 }}>Vault</Text>
+      </div>
+      {activeCollectionId && (
+        <div
+          role="menuitem"
+          className="oh-env-row"
+          style={{ ...rowStyle, color: token.colorTextSecondary }}
+          onClick={() => {
+            onOpenCollectionVariables();
+            handleClose();
+          }}
+        >
+          {scopeBadge('collection', 14)}
+          <Text style={{ fontSize: 13 }}>Collection variables</Text>
+        </div>
+      )}
+      <div
+        role="menuitem"
+        className="oh-env-row"
+        style={{ ...rowStyle, color: token.colorTextSecondary }}
+        onClick={() => {
+          onOpenWorkspaceVariables();
+          handleClose();
+        }}
+      >
+        {scopeBadge('workspace', 14)}
+        <Text style={{ fontSize: 13 }}>Workspace variables</Text>
       </div>
     </div>
   );

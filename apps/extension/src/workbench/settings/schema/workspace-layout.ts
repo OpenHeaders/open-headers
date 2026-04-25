@@ -23,8 +23,8 @@ declare module '../types' {
   interface SettingsMap {
     'workspaceLayout.footerShowVersion': boolean;
     'workspaceLayout.footerShowThemeSwitcher': boolean;
-    'workspaceLayout.footerShowPanelToggles': boolean;
-    'workspaceLayout.footerShowLayoutMenu': boolean;
+    'workspaceLayout.topbarShowPanelToggles': boolean;
+    'workspaceLayout.topbarShowLayoutMenu': boolean;
     'workspaceLayout.bottomPanelAlignment': BottomPanelAlignmentSetting;
     'workspaceLayout.showToolWindowLabels': boolean;
     'workspaceLayout.sidebarLayout': SidebarLayoutVariantSetting;
@@ -60,29 +60,29 @@ registerSetting({
 });
 
 registerSetting({
-  key: 'workspaceLayout.footerShowPanelToggles',
+  key: 'workspaceLayout.topbarShowPanelToggles',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Panel Toggles in Footer',
-  description: 'Display the left / bottom / right panel toggle icons in the workspace status bar.',
+  label: 'Show Panel Toggles in Top Bar',
+  description: 'Display the left / bottom / right panel toggle icons in the workspace top bar.',
   category: 'workspaceLayout',
-  subcategory: 'Footer',
-  tags: ['statusbar', 'footer', 'panels', 'toggle'],
+  subcategory: 'Top Bar',
+  tags: ['topbar', 'panels', 'toggle'],
   scope: 'user',
 });
 
 registerSetting({
-  key: 'workspaceLayout.footerShowLayoutMenu',
+  key: 'workspaceLayout.topbarShowLayoutMenu',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Layout Menu in Footer',
+  label: 'Show Layout Menu in Top Bar',
   description:
-    'Display the layout dropdown (bottom full-width, tool-window labels, sidebar layout) in the workspace status bar.',
+    'Display the layout dropdown (bottom full-width, tool-window labels, sidebar layout) in the workspace top bar.',
   category: 'workspaceLayout',
-  subcategory: 'Footer',
-  tags: ['statusbar', 'footer', 'layout', 'menu'],
+  subcategory: 'Top Bar',
+  tags: ['topbar', 'layout', 'menu'],
   scope: 'user',
 });
 

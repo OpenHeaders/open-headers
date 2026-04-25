@@ -25,6 +25,7 @@ import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
+import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
@@ -59,7 +60,6 @@ import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
 import { findLeaf } from './editor-groups';
-import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
@@ -75,8 +75,8 @@ import { useToolLayout } from './hooks/useToolLayout';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
-import { useSettingValue } from './settings/hooks';
 import { ConnectionProvider } from './settings/ConnectionContext';
+import { useSettingValue } from './settings/hooks';
 import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
 import { getFocusedRegion } from './stores/focus-region-store';
@@ -1254,6 +1254,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       style={{ background: token.colorBgLayout }}
     >
       <TopBar
+        tl={tl}
         onCommandPalette={() => setCommandPaletteOpen(true)}
         onOpenSettings={openSettings}
         workspaces={workspacesApi.workspaces}
@@ -1269,6 +1270,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
           openEnvironmentEdit(uid, env?.name ?? 'Environment');
         }}
         onOpenWorkspaceVariables={openWorkspaceVariables}
+        onOpenCollectionVariables={() => {
+          if (!activeTabCollectionId) return;
+          const col = [...localCollections, ...requestsApi.collections].find((c) => c.uid === activeTabCollectionId);
+          if (!col) return;
+          openCollectionVariables(col.uid, col.name);
+        }}
         onOpenVault={openVault}
         activeCollectionId={activeTabCollectionId}
         allCollections={[...localCollections, ...requestsApi.collections]}
@@ -1337,7 +1344,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       />
 
       <StatusBar
-        tl={tl}
         workspace={
           activeWorkspace
             ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }
