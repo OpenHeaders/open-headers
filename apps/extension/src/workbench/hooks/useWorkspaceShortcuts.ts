@@ -18,7 +18,7 @@
  */
 
 import { useCallback } from 'react';
-import { useShellKeyDown } from '../events/shell-event-bus';
+import { useShellKeyDown } from '@/shared/dock-layout';
 import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import type { SettingKey } from '../settings/types';

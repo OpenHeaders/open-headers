@@ -59,7 +59,7 @@ import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
 import { findLeaf } from './editor-groups';
-import { createShellEventBus, ShellEventBusContext } from './events/shell-event-bus';
+import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
