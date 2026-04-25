@@ -7,8 +7,8 @@
  * the draft's fingerprint against the last persisted snapshot.
  */
 
-import { scopeBadge } from './shared/scope-colors';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useVariableMutator } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
@@ -17,6 +17,7 @@ import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
+import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
 
@@ -34,7 +35,8 @@ const EMPTY_VARS: V5.Variable[] = [];
 const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { workspaceVariables, setWorkspaceVariables } = useEnvironments();
+  const { workspaceVariables } = useEnvironments();
+  const { replaceWorkspaceVariables } = useVariableMutator();
 
   const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.Variable[]>({
     serverDraft: workspaceVariables.variables,
@@ -57,10 +59,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
-    const result = await setWorkspaceVariables(
-      { schemaVersion: 5, version: loadedVersion ?? 1, variables: draft },
-      loadedVersion ?? undefined,
-    );
+    const result = await replaceWorkspaceVariables(draft, loadedVersion ?? undefined);
     if (result.ok) {
       markPersisted(draft);
       setLoadedVersion(result.version);
@@ -69,9 +68,9 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     } else if (result.reason === 'stale-draft') {
       setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
     } else {
-      message.error(`Failed to save workspace variables${'message' in result ? `: ${result.message}` : ''}`);
+      message.error(`Failed to save workspace variables${result.message ? `: ${result.message}` : ''}`);
     }
-  }, [isDirty, draft, setWorkspaceVariables, onDirtyChange, loadedVersion, message, markPersisted]);
+  }, [isDirty, draft, replaceWorkspaceVariables, onDirtyChange, loadedVersion, message, markPersisted]);
 
   const handleStaleDraftReload = useCallback(() => {
     resetToServer();

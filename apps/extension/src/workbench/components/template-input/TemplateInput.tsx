@@ -41,6 +41,7 @@ import { useSettingValue } from '../../settings/hooks';
 import { addRecent, listRecents, pruneRecents, type VariableRecents } from './recents';
 import { useAutoSuggestionContext } from './SuggestionContextProvider';
 import SuggestionPopover from './SuggestionPopover';
+import { useVariablePopover } from './VariablePopoverHost';
 
 export interface TemplateInputProps {
   /** Controlled value. Optional so the component composes with AntD
@@ -254,6 +255,9 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const [activeIndex, setActiveIndex] = useState(0);
     const [recents, setRecents] = useState<VariableRecents | null>(null);
     const [isFocused, setIsFocused] = useState(false);
+    // Shared hover-popover host — single instance per app root, owns
+    // open-state + close-grace timer. We just emit hover events.
+    const popoverHost = useVariablePopover();
 
     // Classifier: delegates to the live resolver. Memoised by (resolver,
     // collectionId) so the `renderHighlightedHtml` recompute doesn't
@@ -338,6 +342,15 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       if (!autoFocus) return;
       editableRef.current?.focus();
     }, [autoFocus]);
+
+    // Re-rendering innerHTML on every keystroke replaces span nodes —
+    // a tracked anchor would point to a detached element. Tell the host
+    // to close immediately whenever the value changes or the suggestion
+    // dropdown takes over; the user can re-hover to reopen.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on `value` / `isOpen`.
+    useEffect(() => {
+      popoverHost.closeNow();
+    }, [value, isOpen]);
 
     const updateMeasure = useCallback(
       (text: string, caret: number) => {
@@ -472,6 +485,37 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       [isOpen, suggestions, activeIndex, insertReference, multiline, onPressEnter],
     );
 
+    // Hover-over-{{ref}} → ask the shared popover host to open. Delegated
+    // from the editable; the caret-in-editing case keeps the span's class
+    // as `editing` and we skip emitting hover for that one (mid-compose
+    // would steal focus from the textarea).
+    const handleEditableMouseOver = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const span = target.closest<HTMLElement>('.oh-template-ref');
+        if (!span) return;
+        if (span.classList.contains('oh-template-ref-editing')) return;
+        const ref = span.getAttribute('data-ref') ?? '';
+        if (!ref) return;
+        popoverHost.open({ anchorEl: span, reference: ref, collectionId: effectiveContext.collectionId });
+      },
+      [popoverHost, effectiveContext.collectionId],
+    );
+
+    const handleEditableMouseOut = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const span = target.closest<HTMLElement>('.oh-template-ref');
+        if (!span) return;
+        const related = e.relatedTarget as Node | null;
+        if (related && span.contains(related)) return;
+        popoverHost.scheduleClose();
+      },
+      [popoverHost],
+    );
+
     const handlePaste = useCallback(
       (e: ClipboardEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -577,6 +621,8 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           onPaste={handlePaste}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onMouseOver={handleEditableMouseOver}
+          onMouseOut={handleEditableMouseOut}
         />
         {isOpen && (
           <div className="oh-template-popover-anchor">

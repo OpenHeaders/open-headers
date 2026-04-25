@@ -56,6 +56,7 @@ import StatusBar from './components/StatusBar';
 import { renderTabLabel, tabIcon } from './components/TabBar';
 import TemplateEditor from './components/TemplateEditor';
 import TopBar from './components/TopBar';
+import { VariablePopoverProvider } from './components/template-input/VariablePopoverHost';
 import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
@@ -724,9 +725,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
 
   const handleSwitchEnvironment = useCallback(
     (uid: string | null) => {
-      const col = activeTabCollectionId
-        ? allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId)
-        : undefined;
+      const col = activeTabCollectionId ? allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId) : undefined;
       const defaultId = col?.defaultEnvironmentId ?? null;
 
       if (collectionEnvAutoSwitch === 'follow-collection' && activeTabCollectionId) {
@@ -1582,7 +1581,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
 const Workbench: React.FC = () => (
   <RuleProvider>
     <InspectorNavProvider>
-      <WorkbenchInner />
+      <VariablePopoverProvider>
+        <WorkbenchInner />
+      </VariablePopoverProvider>
     </InspectorNavProvider>
   </RuleProvider>
 );

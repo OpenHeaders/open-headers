@@ -9,6 +9,7 @@ import {
   ShellLayout,
   useFocusRegion,
 } from '@/shared/dock-layout';
+import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { useSetting } from '@/workbench/settings/hooks';
 import { FilterDocs } from './components/FilterDocs';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
@@ -108,7 +109,9 @@ function getPanelSizes() {
 export default function App() {
   return (
     <ShellEventBusContext.Provider value={busHandle.bus}>
-      <PanelContent />
+      <VariablePopoverProvider>
+        <PanelContent />
+      </VariablePopoverProvider>
     </ShellEventBusContext.Provider>
   );
 }
@@ -423,6 +426,9 @@ function PanelContent() {
       filter,
       filterTokens,
       filterConfig,
+      filterError,
+      showFilter,
+      urlFilter,
       recording,
       setRecording,
       danglingFires,

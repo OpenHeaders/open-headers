@@ -14,9 +14,8 @@
  * SW rejects because another tab landed a newer write.
  */
 
-import { scopeBadge } from './shared/scope-colors';
-import { useEnvironments } from '@hooks/useEnvironments';
 import { useRules } from '@hooks/useRules';
+import { useVariableMutator } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
@@ -25,6 +24,7 @@ import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
+import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
 
@@ -48,7 +48,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { localCollections } = useRules();
-  const { updateCollectionVariables } = useEnvironments();
+  const { replaceCollectionVariables } = useVariableMutator();
 
   const collection = useMemo(
     () => localCollections.find((c) => c.uid === collectionUid) ?? null,
@@ -80,7 +80,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
 
   const handleSave = useCallback(() => {
     if (!collection || !isDirty) return;
-    void updateCollectionVariables(collection.uid, draft, loadedVersion ?? undefined).then((result) => {
+    void replaceCollectionVariables(collection.uid, draft, loadedVersion ?? undefined).then((result) => {
       if (result.ok) {
         markPersisted(draft);
         setLoadedVersion(result.version);
@@ -89,8 +89,6 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
         return;
       }
       if (result.reason === 'stale-draft') {
-        // Another tab saved first — prompt the user to reload or keep
-        // editing. No toast; the banner is the interaction surface.
         setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
         return;
       }
@@ -98,9 +96,9 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
         message.error('Collection was deleted from another tab');
         return;
       }
-      message.error(`Failed to save collection variables: ${result.message}`);
+      message.error(`Failed to save collection variables${result.message ? `: ${result.message}` : ''}`);
     });
-  }, [collection, isDirty, draft, updateCollectionVariables, onDirtyChange, loadedVersion, message, markPersisted]);
+  }, [collection, isDirty, draft, replaceCollectionVariables, onDirtyChange, loadedVersion, message, markPersisted]);
 
   useEffect(() => {
     registerSaveRef?.(handleSave);

@@ -9,6 +9,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { extensionStorage, UI } from '@/shared/storage';
 import { useSurface } from '@/shared/surface';
+import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
@@ -109,7 +110,9 @@ const AppContent: React.FC = () => {
           onToggleCompactMode={toggleCompactMode}
           onOpenTour={handleOpenTour}
         >
-          <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+          <VariablePopoverProvider>
+            <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+          </VariablePopoverProvider>
         </KeyboardNavProvider>
       </RuleProvider>
     </ErrorBoundary>

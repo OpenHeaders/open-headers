@@ -1536,6 +1536,11 @@ html, body, #root {
   padding: 0 2px;
   border-radius: 3px;
   border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.oh-template-ref:hover {
+  filter: brightness(1.05);
 }
 
 .oh-template-ref-resolved {
@@ -1648,6 +1653,12 @@ html, body, #root {
   --scope-workspace-bg:      #E7F0FF;
   --scope-live-color:        #531dab;
   --scope-live-bg:           #f5f0ff;
+  --scope-step-color:        #0F766E;
+  --scope-step-bg:           #CCFBF1;
+  --scope-file-color:        #475569;
+  --scope-file-bg:           #E2E8F0;
+  --scope-dynamic-color:     #737373;
+  --scope-dynamic-bg:        #F5F5F4;
 }
 
 [data-theme='dark'] {
@@ -1661,6 +1672,12 @@ html, body, #root {
   --scope-workspace-bg:      #112749;
   --scope-live-color:        #c084fc;
   --scope-live-bg:           #2d1b69;
+  --scope-step-color:        #5EEAD4;
+  --scope-step-bg:           #042F2E;
+  --scope-file-color:        #94A3B8;
+  --scope-file-bg:           #1E293B;
+  --scope-dynamic-color:     #A3A3A3;
+  --scope-dynamic-bg:        #262626;
 }
 
 // ── Code editor format overlay ────────────────────────────────────

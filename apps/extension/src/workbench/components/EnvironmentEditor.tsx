@@ -8,8 +8,8 @@
  */
 
 import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons';
-import { scopeBadge } from './shared/scope-colors';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useVariableMutator } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -18,6 +18,7 @@ import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
+import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
 
@@ -38,14 +39,9 @@ const EMPTY_VARS: V5.Variable[] = [];
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const {
-    environments,
-    activeEnvironmentId,
-    defaultEnvironmentId,
-    updateEnvironmentVariables,
-    setActiveEnvironment,
-    setDefaultEnvironment,
-  } = useEnvironments();
+  const { environments, activeEnvironmentId, defaultEnvironmentId, setActiveEnvironment, setDefaultEnvironment } =
+    useEnvironments();
+  const { replaceEnvironmentVariables } = useVariableMutator();
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
 
@@ -75,7 +71,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
 
   const handleSave = useCallback(async () => {
     if (!env || !isDirty) return;
-    const result = await updateEnvironmentVariables(env.uid, draft, loadedVersion ?? undefined);
+    const result = await replaceEnvironmentVariables(env.uid, draft, loadedVersion ?? undefined);
     if (result.ok) {
       markPersisted(draft);
       setLoadedVersion(result.version);
@@ -86,9 +82,9 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     } else if (result.reason === 'not-found') {
       message.error('Environment was deleted from another tab');
     } else {
-      message.error(`Failed to update environment${'message' in result ? `: ${result.message}` : ''}`);
+      message.error(`Failed to update environment${result.message ? `: ${result.message}` : ''}`);
     }
-  }, [env, isDirty, draft, updateEnvironmentVariables, onDirtyChange, loadedVersion, message, markPersisted]);
+  }, [env, isDirty, draft, replaceEnvironmentVariables, onDirtyChange, loadedVersion, message, markPersisted]);
 
   const handleStaleDraftReload = useCallback(() => {
     // Discard this tab's in-memory edits; snap loadedVersion to the

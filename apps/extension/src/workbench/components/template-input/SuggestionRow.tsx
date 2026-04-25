@@ -12,31 +12,12 @@
  * it plays nicely with virtualized popover lists.
  */
 
-import type { SuggestionScope, VariableSuggestion } from '@openheaders/core/variables';
+import type { VariableSuggestion } from '@openheaders/core/variables';
 import { Typography } from 'antd';
 import type React from 'react';
+import { namespaceToScopeKey, SCOPE_COLORS, scopeBadge } from '../shared/scope-colors';
 
 const { Text } = Typography;
-
-interface ScopePillStyle {
-  letter: string;
-  color: string;
-  label: string;
-}
-
-/** Scope pill palette — parallel to VariablesPanel's SCOPE_CONFIG plus
- *  new rows for step / file / dynamic. When adjusting, keep the two
- *  in visual sync. */
-const SCOPE_PILL: Record<SuggestionScope, ScopePillStyle> = {
-  vault: { letter: 'V', color: '#e74c3c', label: 'Vault secret' },
-  env: { letter: 'E', color: '#3498db', label: 'Environment variable' },
-  collection: { letter: 'C', color: '#2ecc71', label: 'Collection variable' },
-  workspace: { letter: 'W', color: '#f39c12', label: 'Workspace variable' },
-  live: { letter: '↻', color: '#9b59b6', label: 'Live variable (workflow-backed)' },
-  step: { letter: 'S', color: '#16a085', label: 'Workflow step capture' },
-  file: { letter: 'F', color: '#95a5a6', label: 'File reference' },
-  dynamic: { letter: '$', color: '#95a5a6', label: 'Dynamic generator' },
-};
 
 interface SuggestionRowProps {
   suggestion: VariableSuggestion;
@@ -106,12 +87,13 @@ function renderPreview(suggestion: VariableSuggestion, reveal: boolean): React.R
 }
 
 const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => {
-  const pill = SCOPE_PILL[suggestion.scope];
+  const scopeKey = namespaceToScopeKey(suggestion.scope);
+  const label = scopeKey ? SCOPE_COLORS[scopeKey].label : suggestion.scope;
   const isStale = suggestion.preview.kind === 'stale';
   return (
     <div
       role="group"
-      aria-label={`${pill.label}: ${suggestion.reference}`}
+      aria-label={`${label}: ${suggestion.reference}`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -120,24 +102,7 @@ const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => 
         opacity: suggestion.disabled ? 0.5 : 1,
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 18,
-          height: 18,
-          borderRadius: 4,
-          backgroundColor: pill.color,
-          color: '#fff',
-          fontSize: 11,
-          fontWeight: 600,
-          flexShrink: 0,
-        }}
-      >
-        {pill.letter}
-      </span>
+      {scopeKey && scopeBadge(scopeKey, 18)}
       <Text
         strong
         style={{

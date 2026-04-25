@@ -15,8 +15,8 @@
  * this component owns the dirty-draft + stale-draft + save plumbing.
  */
 
-import { scopeBadge } from './shared/scope-colors';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useVariableMutator } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
@@ -25,6 +25,7 @@ import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
+import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
 
@@ -50,7 +51,8 @@ function fingerprintSecrets(secrets: V5.VaultSecret[]): string {
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { vault, setVault } = useEnvironments();
+  const { vault } = useEnvironments();
+  const { replaceVault } = useVariableMutator();
 
   const serverDraft = useMemo<V5.VaultSecret[]>(() => [...vault.secrets], [vault]);
   const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.VaultSecret[]>({
@@ -73,23 +75,18 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
-    const next: V5.Vault = {
-      schemaVersion: 5,
-      version: 1,
-      secrets: draft,
-    };
-    const result = await setVault(next, loadedVersion ?? undefined);
+    const result = await replaceVault(draft, loadedVersion ?? undefined);
     if (result.ok) {
-      markPersisted([...next.secrets]);
+      markPersisted([...draft]);
       setLoadedVersion(result.version);
       setStaleDraft(null);
       onDirtyChange?.(false);
     } else if (result.reason === 'stale-draft') {
       setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
     } else {
-      message.error(`Failed to save vault${'message' in result ? `: ${result.message}` : ''}`);
+      message.error(`Failed to save vault${result.message ? `: ${result.message}` : ''}`);
     }
-  }, [isDirty, draft, setVault, onDirtyChange, loadedVersion, message, markPersisted]);
+  }, [isDirty, draft, replaceVault, onDirtyChange, loadedVersion, message, markPersisted]);
 
   const handleStaleDraftReload = useCallback(() => {
     resetToServer();
