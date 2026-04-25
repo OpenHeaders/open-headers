@@ -123,7 +123,7 @@ describe('resolveAutoSwitchTarget — apply-defaults mode', () => {
     expect(result).toBeNull();
   });
 
-  it('drops a manual base env whose uid no longer exists', () => {
+  it('drops an orphan manual but preserves a valid active env', () => {
     const result = resolveAutoSwitchTarget({
       mode,
       collectionId: null,
@@ -133,7 +133,36 @@ describe('resolveAutoSwitchTarget — apply-defaults mode', () => {
       manualEnvId: 'env-deleted',
       knownEnvIds: new Set(['env-base']),
     });
+    expect(result).toBe('env-base');
+  });
+
+  it('returns null when manual is orphan and active is also orphan', () => {
+    const result = resolveAutoSwitchTarget({
+      mode,
+      collectionId: null,
+      collections: [],
+      overrides: {},
+      activeEnvId: 'env-stale',
+      manualEnvId: 'env-deleted',
+      knownEnvIds: new Set(),
+    });
     expect(result).toBeNull();
+  });
+
+  it('preserves a bootstrapped active env when leaving a default-collection without a manual base', () => {
+    // Fresh-state regression: user got auto-switched to a collection
+    // default, then navigates outside any collection. Without the
+    // active-fallback, the active env would be wiped to null.
+    const result = resolveAutoSwitchTarget({
+      mode,
+      collectionId: null,
+      collections: [],
+      overrides: {},
+      activeEnvId: 'env-default-of-prior-collection',
+      manualEnvId: null,
+      knownEnvIds: new Set(['env-default-of-prior-collection']),
+    });
+    expect(result).toBe('env-default-of-prior-collection');
   });
 });
 

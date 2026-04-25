@@ -52,6 +52,7 @@ export function resolveAutoSwitchTarget(params: AutoSwitchParams): string | null
   const rawDefault = col?.defaultEnvironmentId ?? null;
   const collectionDefaultId = rawDefault && knownEnvIds.has(rawDefault) ? rawDefault : null;
   const validManualId = manualEnvId && knownEnvIds.has(manualEnvId) ? manualEnvId : null;
+  const validActiveId = activeEnvId && knownEnvIds.has(activeEnvId) ? activeEnvId : null;
 
   switch (mode) {
     case 'keep-selection':
@@ -59,20 +60,23 @@ export function resolveAutoSwitchTarget(params: AutoSwitchParams): string | null
       // never auto-switch. The lone exception is the null→default
       // bootstrap: entering a collection with a default while nothing
       // is selected adopts that default.
-      if (activeEnvId !== null) return activeEnvId;
+      if (validActiveId !== null) return validActiveId;
       return collectionDefaultId;
 
     case 'apply-defaults':
       // A collection's default takes over while inside; otherwise
-      // fall back to the user's "base" (last manual pick).
-      return collectionDefaultId ?? validManualId;
+      // fall back to the user's "base" (last manual pick), and as a
+      // last resort keep the current active env so a fresh-state
+      // user (manual=null) doesn't get wiped to "No environment"
+      // when they leave a default-collection.
+      return collectionDefaultId ?? validManualId ?? validActiveId;
 
     case 'follow-collection':
       return resolveCollectionEnv({
         collectionId,
         collections,
         overrides,
-        activeEnvId,
+        activeEnvId: validActiveId,
         knownEnvIds,
       });
   }
@@ -92,7 +96,8 @@ export function resolveCollectionEnv(params: {
   knownEnvIds: ReadonlySet<string>;
 }): string | null {
   const { collectionId, collections, overrides, activeEnvId, knownEnvIds } = params;
-  if (!collectionId) return activeEnvId;
+  const validActive = activeEnvId && knownEnvIds.has(activeEnvId) ? activeEnvId : null;
+  if (!collectionId) return validActive;
 
   if (collectionId in overrides) {
     const ov = overrides[collectionId];
@@ -105,5 +110,5 @@ export function resolveCollectionEnv(params: {
   const defaultId = col?.defaultEnvironmentId ?? null;
   if (defaultId && knownEnvIds.has(defaultId)) return defaultId;
 
-  return activeEnvId;
+  return validActive;
 }

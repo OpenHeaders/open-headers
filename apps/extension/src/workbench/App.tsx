@@ -621,12 +621,67 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
 
   const collectionEnvAutoSwitch = useSettingValue('general.collectionEnvAutoSwitch');
 
+  const allCollectionsForEnv = useMemo(
+    () => [...localCollections, ...requestsApi.collections],
+    [localCollections, requestsApi.collections],
+  );
+
+  // Track the active collection's default env separately so the auto-
+  // switch effect re-runs when the user pins a new default via the
+  // env-selector pin icon (vs only when they navigate).
+  const activeCollectionDefaultEnvId = useMemo(() => {
+    if (!activeTabCollectionId) return null;
+    return allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId)?.defaultEnvironmentId ?? null;
+  }, [activeTabCollectionId, allCollectionsForEnv]);
+
+  // `apply-defaults` semantic: collection defaults take over whenever
+  // the user enters a default-collection. But if the user manually
+  // picks a different env while inside one, snapping straight back to
+  // the default on the next intra-collection navigation feels broken
+  // (the click visibly reverts). The session-override map preserves
+  // the pick for the duration of the visit and is cleared the moment
+  // the user leaves the collection — matching the "no per-collection
+  // memory" half of the spec.
+  const applyDefaultsSessionOverridesRef = useRef<Map<string, string | null>>(new Map());
+  const prevAutoSwitchCollectionIdRef = useRef<string | null>(null);
+
+  // Drop session overrides on mode change so a stale entry doesn't
+  // resurface when the user toggles back into apply-defaults.
+  useEffect(() => {
+    applyDefaultsSessionOverridesRef.current.clear();
+    prevAutoSwitchCollectionIdRef.current = null;
+  }, [collectionEnvAutoSwitch]);
+
   useEffect(() => {
     if (!envApi.isReady) return;
+
+    // Detect collection-leave and clear any session override on the
+    // collection we just left. We compare against the previous
+    // activeTabCollectionId — when it differs, we've moved out of
+    // (or into a different) collection.
+    const prevCollectionId = prevAutoSwitchCollectionIdRef.current;
+    if (prevCollectionId && prevCollectionId !== activeTabCollectionId) {
+      applyDefaultsSessionOverridesRef.current.delete(prevCollectionId);
+    }
+    prevAutoSwitchCollectionIdRef.current = activeTabCollectionId;
+
+    // Inside a collection in apply-defaults mode, an in-session pick
+    // wins over the resolver's "default takes over" rule until the
+    // user leaves the collection.
+    if (collectionEnvAutoSwitch === 'apply-defaults' && activeTabCollectionId) {
+      const sessionOverride = applyDefaultsSessionOverridesRef.current.get(activeTabCollectionId);
+      if (sessionOverride !== undefined) {
+        if (sessionOverride !== envApi.activeEnvironmentId) {
+          void envApi.setActiveEnvironment(sessionOverride);
+        }
+        return;
+      }
+    }
+
     const target = resolveAutoSwitchTarget({
       mode: collectionEnvAutoSwitch,
       collectionId: activeTabCollectionId,
-      collections: [...localCollections, ...requestsApi.collections],
+      collections: allCollectionsForEnv,
       overrides: envApi.collectionEnvOverrides,
       activeEnvId: envApi.activeEnvironmentId,
       manualEnvId: envApi.manualEnvId,
@@ -635,30 +690,51 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     if (target !== envApi.activeEnvironmentId) {
       void envApi.setActiveEnvironment(target);
     }
-    // Deps are navigation-only — `activeEnvironmentId` and `manualEnvId`
-    // are deliberately omitted because the effect sets active env (so
-    // including it would loop) and `handleSwitchEnvironment` directly
-    // writes both active + manual (so re-running would race with the
-    // user's pick and revert it mid-flight). Mode + collection context
-    // are the only signals that require a re-resolution pass.
+    // `activeEnvironmentId` and `manualEnvId` are deliberately omitted —
+    // the effect sets active env (looping otherwise), and
+    // `handleSwitchEnvironment` writes both directly so re-running on
+    // those signals would race with the user's pick. Including
+    // `envApi.environments` (knownEnvIds) and
+    // `envApi.collectionEnvOverrides` so a cross-tab env add/delete
+    // or override change re-resolves; including
+    // `activeCollectionDefaultEnvId` so pinning a new default applies
+    // immediately (no nav required).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab?.id, activeTabCollectionId, envApi.isReady, collectionEnvAutoSwitch]);
+  }, [
+    activeTab?.id,
+    activeTabCollectionId,
+    activeCollectionDefaultEnvId,
+    envApi.isReady,
+    envApi.environments,
+    envApi.collectionEnvOverrides,
+    collectionEnvAutoSwitch,
+    allCollectionsForEnv,
+  ]);
 
   const handleSwitchEnvironment = useCallback(
     (uid: string | null) => {
-      if (collectionEnvAutoSwitch === 'follow-collection' && activeTabCollectionId) {
-        const allCollections = [...localCollections, ...requestsApi.collections];
-        const col = allCollections.find((c) => c.uid === activeTabCollectionId);
-        const defaultId = col?.defaultEnvironmentId ?? null;
+      const col = activeTabCollectionId
+        ? allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId)
+        : undefined;
+      const defaultId = col?.defaultEnvironmentId ?? null;
+
+      if (collectionEnvAutoSwitch === 'follow-collection' && activeTabCollectionId && defaultId !== null) {
         // Per-collection memory only kicks in once a default is set —
         // collections without one just keep the current selection, so
         // don't record an override for them. Picking the default itself
         // clears any prior override so the collection reverts to its
         // "follow default" behavior.
-        if (defaultId !== null) {
-          void envApi.setCollectionEnvOverride(activeTabCollectionId, uid === defaultId ? undefined : uid);
-        }
+        void envApi.setCollectionEnvOverride(activeTabCollectionId, uid === defaultId ? undefined : uid);
       }
+
+      if (collectionEnvAutoSwitch === 'apply-defaults' && activeTabCollectionId) {
+        // Record the pick as a session-scoped override so the auto-
+        // switch effect's next run within this collection respects
+        // the user's choice instead of snapping back to the default.
+        // Cleared on collection-leave (see effect above).
+        applyDefaultsSessionOverridesRef.current.set(activeTabCollectionId, uid);
+      }
+
       // Every manual pick updates the "base env" record, regardless of
       // the current mode — switching to `apply-defaults` later should
       // restore the user's actual last pick, not whatever an auto-
@@ -666,7 +742,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       void envApi.setManualEnv(uid);
       void envApi.setActiveEnvironment(uid);
     },
-    [collectionEnvAutoSwitch, activeTabCollectionId, localCollections, requestsApi.collections, envApi],
+    [collectionEnvAutoSwitch, activeTabCollectionId, allCollectionsForEnv, envApi],
   );
 
   // Thread the active tab label through the shell's single
