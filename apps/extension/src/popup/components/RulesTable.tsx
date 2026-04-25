@@ -12,7 +12,21 @@ import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
-import { App, Button, Dropdown, Empty, Grid, Input, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd';
+import {
+  App,
+  Button,
+  Dropdown,
+  Empty,
+  Grid,
+  Input,
+  Popconfirm,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
@@ -31,6 +45,18 @@ import {
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
+
+const NOT_CONNECTED_TIP = (
+  <>
+    App not connected
+    <div style={{ marginTop: 4 }}>
+      <Tag color="blue" style={{ marginInlineEnd: 4 }}>
+        v5
+      </Tag>
+      coming soon
+    </div>
+  </>
+);
 
 /** Open the full-page rules editor in a new tab. */
 /**
@@ -402,7 +428,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
             <Tooltip title="Test this rule against a URL">
               <Button type="text" icon={<ExperimentOutlined />} size="small" onClick={() => handleTestRule(record)} />
             </Tooltip>
-            <Tooltip title={!canAct ? 'App not connected' : 'Edit rule'}>
+            <Tooltip title={!canAct ? NOT_CONNECTED_TIP : 'Edit rule'}>
               <Button
                 type="text"
                 icon={<EditOutlined />}
@@ -411,7 +437,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 onClick={() => openRulesIntent({ kind: 'edit-rule', uid: record.id })}
               />
             </Tooltip>
-            <Tooltip title={!canAct ? 'App not connected' : 'Delete rule'}>
+            <Tooltip title={!canAct ? NOT_CONNECTED_TIP : 'Delete rule'}>
               <Popconfirm
                 title="Delete rule"
                 description={`Delete "${record.name}"?`}

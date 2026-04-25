@@ -29,6 +29,18 @@ import RecordingButton from './RecordingButton';
 
 const { Text } = Typography;
 
+const NOT_CONNECTED_TIP = (
+  <>
+    App not connected
+    <div style={{ marginTop: 4 }}>
+      <Tag color="blue" style={{ marginInlineEnd: 4 }}>
+        v5
+      </Tag>
+      coming soon
+    </div>
+  </>
+);
+
 const formatHotkeyForDisplay = (hotkey: string): string => {
   if (!hotkey) return 'Not set';
   const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -258,7 +270,7 @@ const Footer: React.FC = () => {
               </Text>
             )}
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <Tooltip title={!isConnected ? 'App not connected' : 'Edit hotkey in settings'}>
+              <Tooltip title={!isConnected ? NOT_CONNECTED_TIP : 'Edit hotkey in settings'}>
                 <Button
                   type="text"
                   icon={<EditOutlined />}
@@ -326,7 +338,7 @@ const Footer: React.FC = () => {
             </Space>
           </Tooltip>
           <Tooltip
-            title={!isConnected ? 'App not connected' : 'Video recording might require additional system permissions'}
+            title={!isConnected ? NOT_CONNECTED_TIP : 'Video recording might require additional system permissions'}
             placement="top"
           >
             <Switch
@@ -348,7 +360,7 @@ const Footer: React.FC = () => {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <RecordingButton useWidget={useWidget} />
-        <Tooltip title={!isConnected ? 'App not connected' : 'View and manage recordings in desktop app'}>
+        <Tooltip title={!isConnected ? NOT_CONNECTED_TIP : 'View and manage recordings in desktop app'}>
           <Button
             icon={<PlaySquareOutlined />}
             onClick={handleOpenRecordViewer}

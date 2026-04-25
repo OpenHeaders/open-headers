@@ -41,6 +41,7 @@ interface UseKeyboardDispatchOptions {
   headerActions: HeaderActions;
   onCycleTheme?: () => void;
   onToggleCompactMode?: () => void;
+  onOpenTour?: () => void;
   focusLastRowOnPageChange: RefObject<boolean>;
 }
 
@@ -86,6 +87,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
     headerActions,
     onCycleTheme,
     onToggleCompactMode,
+    onOpenTour,
     focusLastRowOnPageChange,
   } = options;
 
@@ -152,6 +154,16 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       if (!isInputFocused() && onToggleSurface && matchesPopupShortcut(e, 'toggle-surface')) {
         e.preventDefault();
         onToggleSurface();
+        return;
+      }
+
+      // Replay welcome tour. Modifier-carrying chord, so it goes
+      // alongside the other chrome shortcuts that should fire from any
+      // context — including from inside an open dropdown — without the
+      // user having to leave focus first.
+      if (!isInputFocused() && onOpenTour && matchesPopupShortcut(e, 'open-tour-guide')) {
+        e.preventDefault();
+        onOpenTour();
         return;
       }
 
@@ -462,6 +474,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       onOpenWorkspace,
       onCycleTheme,
       onToggleCompactMode,
+      onOpenTour,
       setFocusedRowIndex,
       setNestedFocusIndex,
       setIsShortcutsOverlayVisible,

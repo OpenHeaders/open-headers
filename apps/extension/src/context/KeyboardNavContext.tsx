@@ -37,6 +37,7 @@ interface KeyboardNavProviderProps {
   onTabChange: (tab: string) => void;
   onCycleTheme?: () => void;
   onToggleCompactMode?: () => void;
+  onOpenTour?: () => void;
   children: React.ReactNode;
 }
 
@@ -45,6 +46,7 @@ export const KeyboardNavProvider: React.FC<KeyboardNavProviderProps> = ({
   onTabChange,
   onCycleTheme,
   onToggleCompactMode,
+  onOpenTour,
   children,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -97,6 +99,7 @@ export const KeyboardNavProvider: React.FC<KeyboardNavProviderProps> = ({
     headerActions,
     onCycleTheme,
     onToggleCompactMode,
+    onOpenTour,
     focusLastRowOnPageChange: focus.focusLastRowOnPageChange,
   });
 

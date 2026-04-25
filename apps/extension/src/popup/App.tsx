@@ -19,12 +19,15 @@ const { Content } = Layout;
 
 const THEME_CYCLE = ['light', 'dark', 'auto'] as const;
 
-const AppInner: React.FC = () => {
+interface AppInnerProps {
+  tourOpen: boolean | null;
+  onTourClose: () => void;
+}
+
+const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
   const { isDarkMode } = useTheme();
   const surface = useSurface();
   const { containerRef, isShortcutsOverlayVisible, setIsShortcutsOverlayVisible } = useKeyboardNav();
-  const [tourOpen, setTourOpen] = useState<boolean | null>(null);
-  const handleTourClose = useCallback(() => setTourOpen(null), []);
 
   return (
     <div
@@ -47,7 +50,7 @@ const AppInner: React.FC = () => {
         visible={isShortcutsOverlayVisible}
         onClose={() => setIsShortcutsOverlayVisible(false)}
       />
-      <OnboardingTour open={tourOpen} onClose={handleTourClose} />
+      <OnboardingTour open={tourOpen} onClose={onTourClose} />
     </div>
   );
 };
@@ -56,6 +59,9 @@ const AppContent: React.FC = () => {
   const { themeMode, setThemeMode, toggleCompactMode } = useTheme();
   const surface = useSurface();
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState<boolean | null>(null);
+  const handleTourClose = useCallback(() => setTourOpen(null), []);
+  const handleOpenTour = useCallback(() => setTourOpen(true), []);
 
   const cycleTheme = useCallback(() => {
     const currentIndex = THEME_CYCLE.indexOf(themeMode as (typeof THEME_CYCLE)[number]);
@@ -101,8 +107,9 @@ const AppContent: React.FC = () => {
           onTabChange={handleTabChange}
           onCycleTheme={cycleTheme}
           onToggleCompactMode={toggleCompactMode}
+          onOpenTour={handleOpenTour}
         >
-          <AppInner />
+          <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
         </KeyboardNavProvider>
       </RuleProvider>
     </ErrorBoundary>

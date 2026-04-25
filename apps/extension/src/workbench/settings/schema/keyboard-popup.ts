@@ -55,6 +55,7 @@ declare module '../types' {
     'keyboard.popup.tabAllRules': string;
     'keyboard.popup.tabCollections': string;
     'keyboard.popup.toggleSurface': string;
+    'keyboard.popup.openTourGuide': string;
   }
 }
 
@@ -84,7 +85,8 @@ interface PopupKeySpec {
     | 'keyboard.popup.tabThisPage'
     | 'keyboard.popup.tabAllRules'
     | 'keyboard.popup.tabCollections'
-    | 'keyboard.popup.toggleSurface';
+    | 'keyboard.popup.toggleSurface'
+    | 'keyboard.popup.openTourGuide';
   default: string;
   label: string;
   description: string;
@@ -280,6 +282,14 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Toggle Surface (popup ↔ side panel)',
     description: 'Switch between popup and side panel layouts from the popup header.',
     tags: ['popup', 'surface', 'sidepanel', 'layout'],
+  },
+  {
+    key: 'keyboard.popup.openTourGuide',
+    // Shift-modified so bare `t` stays free for the cycle-theme binding.
+    default: 'shift+t',
+    label: 'Popup — Open Tour Guide',
+    description: 'Replay the welcome tour from any popup tab.',
+    tags: ['popup', 'tour', 'onboarding', 'help'],
   },
 ];
 

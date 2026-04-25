@@ -951,7 +951,7 @@ body {
   /* Cap at viewport-16 so the overlay never overflows the sidepanel.
    * 620px is the comfortable two-column width for popup / wide panels. */
   width: min(620px, calc(100vw - 16px));
-  max-height: 90vh;
+  max-height: calc(100vh - 12px);
   overflow-y: auto;
   animation: kbd-slide-in 0.15s ease-out;
 }

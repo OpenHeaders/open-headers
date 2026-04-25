@@ -43,9 +43,10 @@ const GROUP_TITLES: Record<PopupShortcutGroup, string> = {
   actions: 'Actions',
   row: 'Table rows',
   browser: 'Browser',
+  tourGuide: 'Tour Guide',
 };
 
-const GROUP_ORDER: readonly PopupShortcutGroup[] = ['navigation', 'actions', 'row', 'browser'];
+const GROUP_ORDER: readonly PopupShortcutGroup[] = ['navigation', 'actions', 'row', 'tourGuide', 'browser'];
 
 const BROWSER_SHORTCUT: ShortcutEntry = {
   keys: isMac ? ['\u2318', '\u21E7', '.'] : ['Ctrl', 'Shift', '.'],
@@ -110,13 +111,32 @@ function displayKey(chord: string): string {
   return isMac ? `${mods.join('')}${label}` : `${mods.join('+')}+${label}`;
 }
 
-function buildEntryKeys(def: PopupShortcutDef, chord: string): string[] {
+/**
+ * Render a chord as separate Kbd-ready parts (`['Shift', 'T']`) so the
+ * overlay can show modifier + key as side-by-side keys joined with `+`,
+ * matching the browser-shortcut row. Returns an empty array for empty
+ * chord strings, leaving the caller to fall back to a placeholder.
+ */
+function displayChordParts(chord: string): string[] {
+  if (!chord) return [];
+  const parts = chord.split('+');
+  const key = parts[parts.length - 1] ?? '';
+  const mods = parts.slice(0, -1).map((m) => MOD_DISPLAY_MAP[m] ?? m);
+  return [...mods, displayKeyToken(key)];
+}
+
+function buildEntryKeys(def: PopupShortcutDef, chord: string): { keys: string[]; combo: boolean } {
+  const hasModifier = chord.includes('+');
+  if (hasModifier) {
+    const parts = displayChordParts(chord);
+    return { keys: parts.length > 0 ? parts : ['—'], combo: true };
+  }
   const primary = displayKey(chord);
   const aliasKeys = (def.hardcodedAliases ?? [])
     .map((alias) => displayKey(alias.toLowerCase()))
     .filter((k) => k && k !== primary);
   const keys = primary ? [primary, ...aliasKeys] : aliasKeys;
-  return keys.length > 0 ? keys : ['—'];
+  return { keys: keys.length > 0 ? keys : ['—'], combo: false };
 }
 
 interface OverlayColumns {
@@ -138,11 +158,14 @@ function useOverlayColumns(): OverlayColumns {
       actions: [],
       row: [],
       browser: [],
+      tourGuide: [],
     };
     for (const def of POPUP_SHORTCUTS) {
+      const entry = buildEntryKeys(def, chords[def.id]);
       grouped[def.group].push({
         id: def.id,
-        keys: buildEntryKeys(def, chords[def.id]),
+        keys: entry.keys,
+        combo: entry.combo,
         description: def.description,
       });
     }
@@ -156,7 +179,9 @@ function useOverlayColumns(): OverlayColumns {
 
     return {
       left: groups.filter((g) => g.title === GROUP_TITLES.navigation || g.title === GROUP_TITLES.actions),
-      right: groups.filter((g) => g.title === GROUP_TITLES.row || g.title === GROUP_TITLES.browser),
+      right: groups.filter(
+        (g) => g.title === GROUP_TITLES.row || g.title === GROUP_TITLES.browser || g.title === GROUP_TITLES.tourGuide,
+      ),
     };
   }, [chords]);
 }

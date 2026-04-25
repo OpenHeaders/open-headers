@@ -53,9 +53,10 @@ export type PopupShortcutId =
   | 'tab-this-page'
   | 'tab-all-rules'
   | 'tab-collections'
-  | 'toggle-surface';
+  | 'toggle-surface'
+  | 'open-tour-guide';
 
-export type PopupShortcutGroup = 'navigation' | 'actions' | 'row' | 'browser';
+export type PopupShortcutGroup = 'navigation' | 'actions' | 'row' | 'browser' | 'tourGuide';
 
 export interface PopupShortcutDef {
   id: PopupShortcutId;
@@ -230,6 +231,14 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
     settingKey: 'keyboard.popup.deleteRow',
     description: 'Delete (press twice)',
     group: 'row',
+  },
+
+  // Tour guide
+  {
+    id: 'open-tour-guide',
+    settingKey: 'keyboard.popup.openTourGuide',
+    description: 'Open tour guide',
+    group: 'tourGuide',
   },
 ];
 

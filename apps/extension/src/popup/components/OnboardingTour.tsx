@@ -1,11 +1,14 @@
 import {
   ApiTwoTone,
+  BugTwoTone,
+  CheckCircleFilled,
   ControlTwoTone,
   DashboardTwoTone,
   EditTwoTone,
   EyeTwoTone,
   LayoutTwoTone,
   LikeTwoTone,
+  SearchOutlined,
   SmileTwoTone,
   StarTwoTone,
   ThunderboltTwoTone,
@@ -15,6 +18,8 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import DockSlotIcon from '@/shared/dock-layout/DockSlotIcon';
+import LayoutMenuIcon from '@/shared/dock-layout/LayoutMenuIcon';
 import { extensionStorage, UI } from '@/shared/storage';
 import { getBrowserAPI } from '@/types/browser';
 
@@ -22,7 +27,7 @@ const logoUrl = getBrowserAPI().runtime.getURL('images/logo-pixel.svg');
 
 const { Text } = Typography;
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 interface OnboardingTourProps {
   open: boolean | null;
@@ -396,6 +401,110 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
           </StepDescription>
         ),
         target: () => getTarget('.recording-button')!,
+        placement: 'top' as const,
+        ...sharedStepProps,
+      },
+      {
+        title: (
+          <Space size={8}>
+            <BugTwoTone />
+            <span>Debug Network in DevTools</span>
+          </Space>
+        ),
+        description: (
+          <StepDescription>
+            <Text style={{ fontSize: 12 }}>
+              Find the{' '}
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  padding: '1px 6px',
+                  borderRadius: 3,
+                  background: 'rgba(22, 119, 255, 0.08)',
+                  color: 'var(--ant-color-primary-text)',
+                  fontWeight: 600,
+                  fontSize: 12,
+                }}
+              >
+                <span style={{ fontSize: 11, lineHeight: 1 }}>🟦</span>
+                Open Headers
+              </span>{' '}
+              tab in DevTools:
+            </Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
+                <Text style={{ fontSize: 12, flex: 1 }}>Modify headers, requests & responses</Text>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 9,
+                    height: 16,
+                    padding: '0 5px',
+                    borderRadius: 3,
+                    background: 'var(--ant-color-primary)',
+                    color: '#fff',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  + Add/Override
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
+                <Text style={{ fontSize: 12, flex: 1 }}>Multi-tab request metadata panels</Text>
+                <LayoutMenuIcon kind="close-tabs-left" size={16} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
+                <Text style={{ fontSize: 12, flex: 1 }}>Advanced search & filter</Text>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <SearchOutlined style={{ fontSize: 11, color: 'var(--ant-color-text-secondary)' }} />
+                  {['Aa', 'ab', '.*'].map((label) => (
+                    <span
+                      key={label}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 16,
+                        height: 16,
+                        padding: '0 3px',
+                        fontSize: 9,
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                        border: '1px solid var(--ant-color-border)',
+                        borderRadius: 3,
+                        color: 'var(--ant-color-text-secondary)',
+                        background: 'var(--ant-color-bg-elevated)',
+                      }}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircleFilled style={{ color: 'var(--ant-color-success)', fontSize: 11 }} />
+                <Text style={{ fontSize: 12, flex: 1 }}>Drag & drop sidebar panels</Text>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <DockSlotIcon slot="left-top" size={16} />
+                  <DockSlotIcon slot="right-bottom" size={16} />
+                  <DockSlotIcon slot="bottom-left" size={16} />
+                </span>
+              </div>
+            </div>
+            <Text type="secondary" style={{ fontSize: 11, marginTop: 6, display: 'block' }}>
+              Click this button anytime for setup.
+            </Text>
+          </StepDescription>
+        ),
+        target: () => getTarget('.debug-network-button')!,
         placement: 'top' as const,
         ...sharedStepProps,
       },
