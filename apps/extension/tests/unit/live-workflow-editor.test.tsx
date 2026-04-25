@@ -20,6 +20,11 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { App } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+// EditorHeader (rendered inside LiveWorkflowEditor) reads `keyboard.save`
+// via useShortcutLabel; the registry is populated by importing the
+// schema barrel for its side effects.
+import '@/workbench/settings/schema';
+
 // AntD Collapse (used inside WorkflowStepEditor) and several other
 // AntD primitives rely on ResizeObserver via rc-resize-observer. jsdom
 // doesn't ship one.

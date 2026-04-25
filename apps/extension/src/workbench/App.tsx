@@ -645,12 +645,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   const applyDefaultsSessionOverridesRef = useRef<Map<string, string | null>>(new Map());
   const prevAutoSwitchCollectionIdRef = useRef<string | null>(null);
 
-  // Drop session overrides on mode change so a stale entry doesn't
-  // resurface when the user toggles back into apply-defaults.
+  // Drop session overrides on mode change OR workspace switch.
+  // - Mode change: a stale entry shouldn't resurface when the user
+  //   toggles back into apply-defaults.
+  // - Workspace switch: collection uids are unique per workspace, but
+  //   the in-memory map carries old-workspace entries by reference.
   useEffect(() => {
     applyDefaultsSessionOverridesRef.current.clear();
     prevAutoSwitchCollectionIdRef.current = null;
-  }, [collectionEnvAutoSwitch]);
+  }, [collectionEnvAutoSwitch, workspacesApi.activeWorkspaceId]);
 
   useEffect(() => {
     if (!envApi.isReady) return;
@@ -665,16 +668,24 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     }
     prevAutoSwitchCollectionIdRef.current = activeTabCollectionId;
 
+    const knownEnvIds = new Set(envApi.environments.map((e) => e.uid));
+
     // Inside a collection in apply-defaults mode, an in-session pick
     // wins over the resolver's "default takes over" rule until the
-    // user leaves the collection.
+    // user leaves the collection. If the picked env was deleted out
+    // from under us mid-visit, drop the override and fall through to
+    // the resolver instead of firing a doomed setActiveEnvironment.
     if (collectionEnvAutoSwitch === 'apply-defaults' && activeTabCollectionId) {
       const sessionOverride = applyDefaultsSessionOverridesRef.current.get(activeTabCollectionId);
       if (sessionOverride !== undefined) {
-        if (sessionOverride !== envApi.activeEnvironmentId) {
-          void envApi.setActiveEnvironment(sessionOverride);
+        const overrideValid = sessionOverride === null || knownEnvIds.has(sessionOverride);
+        if (overrideValid) {
+          if (sessionOverride !== envApi.activeEnvironmentId) {
+            void envApi.setActiveEnvironment(sessionOverride);
+          }
+          return;
         }
-        return;
+        applyDefaultsSessionOverridesRef.current.delete(activeTabCollectionId);
       }
     }
 
@@ -685,7 +696,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       overrides: envApi.collectionEnvOverrides,
       activeEnvId: envApi.activeEnvironmentId,
       manualEnvId: envApi.manualEnvId,
-      knownEnvIds: new Set(envApi.environments.map((e) => e.uid)),
+      knownEnvIds,
     });
     if (target !== envApi.activeEnvironmentId) {
       void envApi.setActiveEnvironment(target);
@@ -718,13 +729,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         : undefined;
       const defaultId = col?.defaultEnvironmentId ?? null;
 
-      if (collectionEnvAutoSwitch === 'follow-collection' && activeTabCollectionId && defaultId !== null) {
-        // Per-collection memory only kicks in once a default is set —
-        // collections without one just keep the current selection, so
-        // don't record an override for them. Picking the default itself
-        // clears any prior override so the collection reverts to its
-        // "follow default" behavior.
-        void envApi.setCollectionEnvOverride(activeTabCollectionId, uid === defaultId ? undefined : uid);
+      if (collectionEnvAutoSwitch === 'follow-collection' && activeTabCollectionId) {
+        // "Follow each collection" means every collection remembers
+        // your last pick — including those without a default. Picking
+        // the default itself clears any prior override so the
+        // collection reverts to its "follow default" behavior.
+        const clearOverride = defaultId !== null && uid === defaultId;
+        void envApi.setCollectionEnvOverride(activeTabCollectionId, clearOverride ? undefined : uid);
       }
 
       if (collectionEnvAutoSwitch === 'apply-defaults' && activeTabCollectionId) {

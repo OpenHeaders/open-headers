@@ -66,6 +66,19 @@ describe('resolveAutoSwitchTarget — keep-selection mode', () => {
     });
     expect(result).toBeNull();
   });
+
+  it('treats an orphan active env as no selection and bootstraps to default', () => {
+    const result = resolveAutoSwitchTarget({
+      mode,
+      collectionId: 'col-a',
+      collections: [collection('col-a', 'env-default')],
+      overrides: {},
+      activeEnvId: 'env-deleted',
+      manualEnvId: null,
+      knownEnvIds: new Set(['env-default']),
+    });
+    expect(result).toBe('env-default');
+  });
 });
 
 describe('resolveAutoSwitchTarget — apply-defaults mode', () => {
