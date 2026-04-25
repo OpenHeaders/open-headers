@@ -691,3 +691,51 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* Status pill dot — used by `density="full"` of <StatusPill /> in
+ * both the workspace footer and the devpanel footer. Workspace also
+ * defines this in rules.less; the shared rule keeps the devpanel
+ * (which doesn't import rules.less) consistent. */
+.rules-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Env-selector row — hover background mirrors the workspace
+ * dropdown (rules.less). Lives here so the slim devpanel env
+ * selector picks up the same affordance. */
+.oh-env-row:hover {
+  background: rgba(128, 128, 128, 0.08);
+}
+
+/* Scope-color tokens — drive the colored letter badges produced by
+ * `scopeBadge()` in @/workbench/components/shared/scope-colors.ts.
+ * Workspace already declares these in rules.less; redeclaring here
+ * keeps the devpanel (which doesn't import rules.less) in sync. */
+:root {
+  --scope-vault-color:       #cf1322;
+  --scope-vault-bg:          #ffd8d5;
+  --scope-environment-color: #007F31;
+  --scope-environment-bg:    #E5FFF1;
+  --scope-collection-color:  #AD7A03;
+  --scope-collection-bg:     #FFF4BE;
+  --scope-workspace-color:   #0053B8;
+  --scope-workspace-bg:      #E7F0FF;
+  --scope-live-color:        #531dab;
+  --scope-live-bg:           #f5f0ff;
+}
+
+[data-theme='dark'] {
+  --scope-vault-color:       #ff7875;
+  --scope-vault-bg:          #2a1215;
+  --scope-environment-color: #6BDD9A;
+  --scope-environment-bg:    #013614;
+  --scope-collection-color:  #FFE47E;
+  --scope-collection-bg:     #3d2800;
+  --scope-workspace-color:   #74AEF6;
+  --scope-workspace-bg:      #112749;
+  --scope-live-color:        #c084fc;
+  --scope-live-bg:           #2d1b69;
+}

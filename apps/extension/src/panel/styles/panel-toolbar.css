@@ -97,10 +97,13 @@
 
 /* Pushes everything after it to the right edge of the toolbar — used
  * to anchor the env switcher + layout cluster against the right side
- * (mirrors the workspace TopBar's right-aligned slot). */
+ * (mirrors the workspace TopBar's right-aligned slot). `margin-left:
+ * auto` is more robust than `flex: 1` here because the toolbar's
+ * other children are individually flex-shrink:0 and the spacer would
+ * otherwise compete with them for the leftover space. */
 .dt-toolbar-spacer {
-  flex: 1;
-  min-width: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .dt-toolbar-icon {

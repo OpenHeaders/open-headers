@@ -1,4 +1,4 @@
-import { LayoutOutlined } from '@ant-design/icons';
+import { LayoutOutlined, SettingOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { Dropdown, type MenuProps, Popover, Space, Tooltip } from 'antd';
 import type React from 'react';
@@ -585,6 +585,19 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
               </Dropdown>
             </>
           )}
+          <div className="dt-toolbar-separator" />
+          <Tooltip title="Open Settings in workspace" placement="bottom">
+            <button
+              type="button"
+              className="dt-toolbar-icon"
+              aria-label="Open settings"
+              onClick={() => {
+                void chrome.tabs.create({ url: getBrowserAPI().runtime.getURL('workbench.html#/settings') });
+              }}
+            >
+              <SettingOutlined style={{ fontSize: 14 }} />
+            </button>
+          </Tooltip>
         </div>
       </div>
       <div className={`dt-brand-spacer${showToolWindowLabels ? '' : ' dt-brand-spacer--compact'}`} aria-hidden="true" />
