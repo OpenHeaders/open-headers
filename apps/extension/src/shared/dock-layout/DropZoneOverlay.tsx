@@ -1,11 +1,11 @@
 /**
- * DropZoneOverlay — three drop-target cards shown while a dock tab is
- * being dragged. Each card is a single dashed outline that visually
- * pairs the two docks of a region (left, right, or bottom) and splits
- * itself with a single internal divider — so the user reads each side
- * of the shell as one chunk halved into top/bottom (or left/right for
- * the bottom panel) instead of six free-floating rectangles whose
- * borders touch and double-up at the seams.
+ * DropZoneOverlay — six independent drop-target rects shown while a
+ * dock tab is being dragged. Each slot is its own absolute-positioned
+ * `useDroppable` so dnd-kit's collision detection sees them as flat
+ * siblings (no nested droppable hierarchy). The rects are pre-inset by
+ * ShellLayout so adjacent zones never share an edge — the visible gap
+ * between two halves of the same region (and between regions) is what
+ * groups them visually for the user.
  */
 
 import { useDroppable } from '@dnd-kit/core';
@@ -13,31 +13,49 @@ import { theme } from 'antd';
 import type React from 'react';
 import { DOCK_LABELS } from './constants';
 import DockSlotIcon from './DockSlotIcon';
-import type { DockSlot, DropZoneGroup } from './types';
+import type { DockSlot, DropZoneRect } from './types';
 
-interface DropHalfProps {
+interface DropZoneProps {
   slot: DockSlot;
+  rect: DropZoneRect;
   highlighted: boolean;
 }
 
-const DropHalf: React.FC<DropHalfProps> = ({ slot, highlighted }) => {
+const DropZone: React.FC<DropZoneProps> = ({ slot, rect, highlighted }) => {
   const { token } = theme.useToken();
-  const { setNodeRef, isOver } = useDroppable({ id: `drop:${slot}`, data: { slot } });
+  // Drop-zone sizes are computed once at drag start and never change
+  // during the drag, so we don't need a ResizeObserver on each node.
+  // Disabling it removes the only RO loop class still attached to these
+  // droppables — dnd-kit's `BeforeDragging` measuring strategy already
+  // freezes the rect map, but the per-droppable RO would still tick on
+  // any subpixel/style change and call `measureDroppableContainers`
+  // (which is a no-op under BeforeDragging, but the scheduling alone
+  // costs renders). Belt and suspenders.
+  const { setNodeRef, isOver } = useDroppable({
+    id: `drop:${slot}`,
+    data: { slot },
+    resizeObserverConfig: { disabled: true },
+  });
   const active = isOver || highlighted;
   // Opaque fills so underlying editor / panel content doesn't bleed
-  // through the overlay during a drag — the drop zones need to read as
-  // a solid surface, not a translucent wash, or the user can't focus on
-  // where they're aiming. Falls back to fixed light-theme defaults if
-  // the token isn't exposed.
-  const background = active
-    ? token.colorPrimaryBg ?? '#bae0ff'
-    : token.colorBgElevated ?? '#ffffff';
+  // through during a drag — drop zones must read as a solid surface,
+  // not a translucent wash, or the user can't focus on where they're
+  // aiming.
+  const background = active ? (token.colorPrimaryBg ?? '#bae0ff') : (token.colorBgElevated ?? '#ffffff');
+  const borderColor = active ? token.colorPrimary : `${token.colorPrimary}77`;
 
   return (
     <div
       ref={setNodeRef}
-      className={`rules-drop-half ${active ? 'is-over' : ''}`}
-      style={{ background }}
+      className={`rules-drop-zone ${active ? 'is-over' : ''}`}
+      style={{
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        background,
+        borderColor,
+      }}
       data-dock-slot={slot}
     >
       <span className="rules-drop-zone-label" style={{ color: token.colorPrimary, background: token.colorBgContainer }}>
@@ -50,47 +68,19 @@ const DropHalf: React.FC<DropHalfProps> = ({ slot, highlighted }) => {
   );
 };
 
-interface DropGroupProps {
-  group: DropZoneGroup;
-  highlightedSlot: DockSlot | null;
-}
-
-const DropGroup: React.FC<DropGroupProps> = ({ group, highlightedSlot }) => {
-  const { token } = theme.useToken();
-  const dividerColor = `${token.colorPrimary}77`;
-  return (
-    <div
-      className={`rules-drop-group rules-drop-group--${group.split}`}
-      style={
-        {
-          left: group.rect.left,
-          top: group.rect.top,
-          width: group.rect.width,
-          height: group.rect.height,
-          borderColor: dividerColor,
-          '--rules-drop-divider': dividerColor,
-        } as React.CSSProperties
-      }
-    >
-      <DropHalf slot={group.firstSlot} highlighted={highlightedSlot === group.firstSlot} />
-      <DropHalf slot={group.secondSlot} highlighted={highlightedSlot === group.secondSlot} />
-    </div>
-  );
-};
-
 interface DropZoneOverlayProps {
   visible: boolean;
-  groups: DropZoneGroup[] | null;
+  rects: Record<DockSlot, DropZoneRect> | null;
   highlightedSlot: DockSlot | null;
 }
 
-const DropZoneOverlay: React.FC<DropZoneOverlayProps> = ({ visible, groups, highlightedSlot }) => {
-  if (!visible || !groups) return null;
+const DropZoneOverlay: React.FC<DropZoneOverlayProps> = ({ visible, rects, highlightedSlot }) => {
+  if (!visible || !rects) return null;
 
   return (
     <div className="rules-drop-overlay" aria-hidden="true">
-      {groups.map((group) => (
-        <DropGroup key={group.firstSlot} group={group} highlightedSlot={highlightedSlot} />
+      {(Object.keys(rects) as DockSlot[]).map((slot) => (
+        <DropZone key={slot} slot={slot} rect={rects[slot]} highlighted={highlightedSlot === slot} />
       ))}
     </div>
   );

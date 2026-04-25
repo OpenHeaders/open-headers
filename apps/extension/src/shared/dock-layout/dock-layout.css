@@ -148,6 +148,26 @@
   margin-top: 6px;
 }
 
+/* When the upper-first slot is empty, give it the same dashed bottom
+   boundary that subslot--second has at its top + group--bottom has at
+   its top. Without this, an empty top slot is invisible — the user
+   can't tell a slot is reserved there. The `+ subslot--second` clause
+   drops subslot--second's own top border in this case so the separator
+   reads as a single dashed line, not a doubled-up pair. Scoped to
+   non-dynamic layouts because dynamic collapses empty subslots to 0. */
+.rules-activity-bar:not(.rules-activity-bar--layout-dynamic)
+  .rules-activity-subslot--first.rules-activity-subslot--empty {
+  border-bottom: 1px dashed rgba(128, 128, 128, 0.32);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+.rules-activity-bar:not(.rules-activity-bar--layout-dynamic)
+  .rules-activity-subslot--first.rules-activity-subslot--empty
+  + .rules-activity-subslot--second {
+  border-top: none;
+  margin-top: 0;
+}
+
 .rules-activity-subslot .rules-dock-strip--vertical {
   flex: 1 1 auto;
   min-height: 0;
@@ -214,8 +234,16 @@
   margin-top: 0;
 }
 
+/* Empty subslots in dynamic stop competing for flex space. subslot--second
+   additionally collapses to 0 so its live neighbor (upper-first) absorbs
+   the bottom dock's space — matches the closed-dock migration behavior.
+   subslot--first keeps the base 44px (32px compact) min-height so the
+   upper slot stays visible as a placeholder when its dock is closed,
+   mirroring how group--bottom always reserves 44px. */
 .rules-activity-bar--layout-dynamic .rules-activity-subslot--empty {
   flex: 0 0 auto;
+}
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--second.rules-activity-subslot--empty {
   min-height: 0;
 }
 
@@ -248,7 +276,7 @@
 .rules-activity-bar--compact.rules-activity-bar--layout-dynamic .rules-activity-subslot {
   min-height: 32px;
 }
-.rules-activity-bar--compact.rules-activity-bar--layout-dynamic .rules-activity-subslot--empty {
+.rules-activity-bar--compact.rules-activity-bar--layout-dynamic .rules-activity-subslot--second.rules-activity-subslot--empty {
   min-height: 0;
 }
 
@@ -546,51 +574,23 @@
   z-index: 50;
 }
 
-/* Drop-target card: one dashed outline that wraps both halves of a
-   region (left, right, or bottom). The shared edge is rendered as a
-   single internal divider on the first half — never as two abutting
-   borders. Border width is fixed (2px) so toggling the active state
-   doesn't change box dimensions; a width transition there would fire
-   ResizeObserver continuously and push dnd-kit's measureRects into a
-   setState loop (React #185). */
-.rules-drop-group {
+/* One dashed rectangle per dock slot. Pre-inset by ShellLayout so
+   adjacent zones never share an edge — the visible gap between two
+   halves of the same region (and between regions) is what groups them
+   visually. Border width is fixed (2px); we animate background and
+   border-color but never `border` (which includes width). A width
+   transition fires ResizeObserver continuously through the animation,
+   which can push dnd-kit's measureRects past React's nested-update
+   ceiling (#185). */
+.rules-drop-zone {
   position: absolute;
   border-radius: 6px;
   border: 2px dashed;
-  display: flex;
-  overflow: hidden;
-}
-
-.rules-drop-group--horizontal {
-  flex-direction: column;
-}
-
-.rules-drop-group--vertical {
-  flex-direction: row;
-}
-
-.rules-drop-half {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  transition: background 0.12s;
-}
-
-/* Single shared divider between halves. Painted on the first half
-   only so the seam stays a hairline — adjacent borders would double
-   up to 2px and read as a heavier line than the outer card outline.
-   Color comes from the group's `--rules-drop-divider` CSS variable so
-   it tracks the same theme token as the outer dashed outline. */
-.rules-drop-group--horizontal > .rules-drop-half:first-child {
-  border-bottom: 1px dashed var(--rules-drop-divider);
-}
-.rules-drop-group--vertical > .rules-drop-half:first-child {
-  border-right: 1px dashed var(--rules-drop-divider);
+  transition: background 0.12s, border-color 0.12s;
 }
 
 .rules-drop-zone-label {

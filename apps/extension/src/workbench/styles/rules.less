@@ -208,6 +208,24 @@ html, body, #root {
   margin-top: 6px;
 }
 
+// Empty upper-first placeholder — mirrors subslot--second's dashed
+// boundary so the slot stays visually present when it has no tabs.
+// Scoped to non-dynamic layouts (dynamic collapses empty subslots to 0
+// on purpose). The adjacent-sibling override drops subslot--second's
+// own top border so the separator reads as a single dashed line.
+.rules-activity-bar:not(.rules-activity-bar--layout-dynamic) {
+  .rules-activity-subslot--first.rules-activity-subslot--empty {
+    border-bottom: 1px dashed rgba(128, 128, 128, 0.32);
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+  }
+  .rules-activity-subslot--first.rules-activity-subslot--empty
+    + .rules-activity-subslot--second {
+    border-top: none;
+    margin-top: 0;
+  }
+}
+
 .rules-activity-subslot .rules-dock-strip--vertical {
   flex: 1 1 auto;
   min-height: 0;
@@ -1172,44 +1190,21 @@ html, body, #root {
   z-index: 50;
 }
 
-// Drop-target card: one dashed outline around both halves of a region.
-// The shared edge is a single internal divider on the first half — not
-// two abutting borders. Border width is fixed (2px) so toggling active
-// state can't change box dimensions; a width transition there fires
-// ResizeObserver continuously and pushes dnd-kit into a setState loop.
-.rules-drop-group {
+// One dashed rectangle per dock slot. Pre-inset by ShellLayout so
+// adjacent zones never share an edge. Border width is fixed (2px);
+// background + border-color animate but `border` (which includes
+// width) never does — a width transition fires ResizeObserver through
+// the animation and pushes dnd-kit's measureRects past React's nested
+// update ceiling (#185).
+.rules-drop-zone {
   position: absolute;
   border-radius: 6px;
   border: 2px dashed;
-  display: flex;
-  overflow: hidden;
-}
-
-.rules-drop-group--horizontal {
-  flex-direction: column;
-}
-
-.rules-drop-group--vertical {
-  flex-direction: row;
-}
-
-.rules-drop-half {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  transition: background 0.12s;
-}
-
-.rules-drop-group--horizontal > .rules-drop-half:first-child {
-  border-bottom: 1px dashed var(--rules-drop-divider);
-}
-.rules-drop-group--vertical > .rules-drop-half:first-child {
-  border-right: 1px dashed var(--rules-drop-divider);
+  transition: background 0.12s, border-color 0.12s;
 }
 
 .rules-drop-zone-label {

@@ -37,7 +37,6 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
 import { Allotment, LayoutPriority } from 'allotment';
 import { Dropdown, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -47,13 +46,7 @@ import { ALL_DOCK_SLOTS, regionDocks } from './constants';
 import DockTabStrip from './DockTabStrip';
 import DropZoneOverlay from './DropZoneOverlay';
 import type { FocusStore } from './focus-store';
-import type {
-  BottomPanelAlignment,
-  DockSlot,
-  DropZoneGroup,
-  SidebarLayoutVariant,
-  ToolWindowDef,
-} from './types';
+import type { BottomPanelAlignment, DockSlot, DropZoneRect, SidebarLayoutVariant, ToolWindowDef } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
 // ── Props ─────────────────────────────────────────────────────────────
@@ -548,13 +541,17 @@ function ShellLayoutInner<T extends string>({
         if (!activeLoc || !overLoc) return prev;
         const activeTw = String(active.id).slice(3) as T;
 
-        if (activeLoc.slot === overLoc.slot) {
-          if (activeLoc.index === overLoc.index) return prev;
-          const next = { ...prev } as DockWindowsMap<T>;
-          next[activeLoc.slot] = arrayMove(prev[activeLoc.slot], activeLoc.index, overLoc.index);
-          return next;
-        }
+        // Same-slot reorder: do NOT mutate the preview here. The
+        // SortableContext + verticalListSortingStrategy already provides
+        // stable visual feedback via CSS transforms during the drag; the
+        // actual reorder is applied once in handleDragEnd. Mutating the
+        // items array mid-drag shifts other tabs under the cursor, which
+        // makes the cursor's "closest" target flip on the next frame and
+        // cascades into double-jumps and out-of-strip overflow.
+        if (activeLoc.slot === overLoc.slot) return prev;
 
+        // Cross-slot move: update the preview so the tab visually
+        // "joins" the new slot during the drag.
         const next = { ...prev } as DockWindowsMap<T>;
         next[activeLoc.slot] = prev[activeLoc.slot].filter((id) => id !== activeTw);
         const destList = [...prev[overLoc.slot]];
@@ -579,16 +576,38 @@ function ShellLayoutInner<T extends string>({
 
       const activeTw = data?.kind === 'tool-window' ? data.toolWindowId : null;
       const finalPreview = preview;
+      const overId = event.over?.id ? String(event.over.id) : null;
       setDraggingId(null);
       setPreview(null);
       if (!activeTw || !finalPreview) return;
 
+      // Locate where activeTw lives in the final preview vs current
+      // state. If preview moved it to a different slot during drag-over,
+      // commit that cross-slot move. If preview matches state (same-slot
+      // case — handleDragOver intentionally skipped it), compute the
+      // target index from `over` and apply once.
       for (const slot of ALL_DOCK_SLOTS) {
-        const idx = finalPreview[slot].indexOf(activeTw);
-        if (idx < 0) continue;
-        const currentIdx = tl.state.docks[slot].windows.indexOf(activeTw);
-        if (currentIdx === idx) return;
-        tl.moveWindow(activeTw, slot, idx);
+        const previewIdx = finalPreview[slot].indexOf(activeTw);
+        if (previewIdx < 0) continue;
+        const sourceIdx = tl.state.docks[slot].windows.indexOf(activeTw);
+
+        if (sourceIdx < 0) {
+          // Cross-slot: activeTw arrived in this slot via drag-over.
+          tl.moveWindow(activeTw, slot, previewIdx);
+          return;
+        }
+
+        // Same slot — only reorder when dropped onto a specific tab. A
+        // drop on `dock:`/`drop:` (strip empty area or drop overlay for
+        // the same slot) is a no-op so dragging above/below the list
+        // doesn't fling the tab to the end.
+        if (overId?.startsWith('tw:')) {
+          const overTw = overId.slice(3) as T;
+          const overIdx = tl.state.docks[slot].windows.indexOf(overTw);
+          if (overIdx >= 0 && overIdx !== sourceIdx) {
+            tl.moveWindow(activeTw, slot, overIdx);
+          }
+        }
         return;
       }
     },
@@ -823,7 +842,7 @@ function ShellLayoutInner<T extends string>({
     return null;
   }, [preview, draggingId]);
 
-  const dropGroups = useMemo<DropZoneGroup[] | null>(() => {
+  const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(() => {
     if (!dragging) return null;
     const fullW = shellSize.width;
     const fullH = shellSize.height;
@@ -832,18 +851,6 @@ function ShellLayoutInner<T extends string>({
     const preferredSidebar = sizes.sidebar.preferred;
     const preferredInspector = sizes.inspector.preferred;
     const preferredBottom = sizes.bottom.preferred;
-
-    // Inset each group's rect on every side so adjacent groups don't
-    // share an edge — gives the three cards a visible gutter between
-    // them (and against the activity bars / shell edges) without any
-    // CSS positioning gymnastics.
-    const GAP = 4;
-    const inset = (rect: { left: number; top: number; width: number; height: number }) => ({
-      left: rect.left + GAP,
-      top: rect.top + GAP,
-      width: Math.max(0, rect.width - GAP * 2),
-      height: Math.max(0, rect.height - GAP * 2),
-    });
 
     // Drop zones reflect the layout *as if all six panels were open* —
     // not the live region rects. Per-alignment math gives each side
@@ -878,31 +885,68 @@ function ShellLayoutInner<T extends string>({
       bottomWidth = Math.max(0, fullW - 2 * activityBarWidth - preferredSidebar);
     }
 
-    return [
-      {
-        rect: inset({ left: activityBarWidth, top: 0, width: preferredSidebar, height: leftHeight }),
-        split: 'horizontal',
-        firstSlot: 'left-top',
-        secondSlot: 'left-bottom',
-      },
-      {
-        rect: inset({
-          left: fullW - activityBarWidth - preferredInspector,
-          top: 0,
-          width: preferredInspector,
-          height: rightHeight,
-        }),
-        split: 'horizontal',
-        firstSlot: 'right-top',
-        secondSlot: 'right-bottom',
-      },
-      {
-        rect: inset({ left: bottomLeft, top: fullH - preferredBottom, width: bottomWidth, height: preferredBottom }),
-        split: 'vertical',
-        firstSlot: 'bottom-left',
-        secondSlot: 'bottom-right',
-      },
-    ];
+    // Outer inset against the shell edges / activity bars; HALF_GAP is
+    // half of the gutter rendered between the two halves of a region.
+    // Adjacent zones get `2 * HALF_GAP` of clear space between them
+    // (HALF_GAP from each side). Outer edges get the same OUTER inset
+    // against the activity bar / window border.
+    const OUTER = 4;
+    const HALF_GAP = 4;
+
+    const splitVertical = (r: { left: number; top: number; width: number; height: number }) => {
+      const top: DropZoneRect = {
+        left: r.left + OUTER,
+        top: r.top + OUTER,
+        width: Math.max(0, r.width - OUTER * 2),
+        height: Math.max(0, r.height / 2 - OUTER - HALF_GAP),
+      };
+      const bottom: DropZoneRect = {
+        left: r.left + OUTER,
+        top: r.top + r.height / 2 + HALF_GAP,
+        width: Math.max(0, r.width - OUTER * 2),
+        height: Math.max(0, r.height / 2 - OUTER - HALF_GAP),
+      };
+      return [top, bottom] as const;
+    };
+
+    const splitHorizontal = (r: { left: number; top: number; width: number; height: number }) => {
+      const left: DropZoneRect = {
+        left: r.left + OUTER,
+        top: r.top + OUTER,
+        width: Math.max(0, r.width / 2 - OUTER - HALF_GAP),
+        height: Math.max(0, r.height - OUTER * 2),
+      };
+      const right: DropZoneRect = {
+        left: r.left + r.width / 2 + HALF_GAP,
+        top: r.top + OUTER,
+        width: Math.max(0, r.width / 2 - OUTER - HALF_GAP),
+        height: Math.max(0, r.height - OUTER * 2),
+      };
+      return [left, right] as const;
+    };
+
+    const [lt, lb] = splitVertical({ left: activityBarWidth, top: 0, width: preferredSidebar, height: leftHeight });
+    const [rt, rb] = splitVertical({
+      left: fullW - activityBarWidth - preferredInspector,
+      top: 0,
+      width: preferredInspector,
+      height: rightHeight,
+    });
+    const [bl, br] = splitHorizontal({
+      left: bottomLeft,
+      top: fullH - preferredBottom,
+      width: bottomWidth,
+      height: preferredBottom,
+    });
+
+    return {
+      'left-top': lt,
+      'left-bottom': lb,
+      'right-top': rt,
+      'right-bottom': rb,
+      'bottom-left': bl,
+      'bottom-right': br,
+    };
   }, [dragging, shellSize, sizes, bottomPanelAlignment, activityBarWidth]);
 
   const mainRow = (
@@ -945,14 +989,11 @@ function ShellLayoutInner<T extends string>({
       sensors={sensors}
       collisionDetection={collisionDetection ?? closestCenter}
       autoScroll={false}
-      // Measure droppable rects once at drag start, not continuously.
-      // dnd-kit's default WhileDragging strategy re-measures on every
-      // pointer-move dependency change; under specific transitions
-      // (cursor leaving + re-entering the viewport) that loop has been
-      // observed to push setRects past React's nested-update ceiling
-      // and crash with #185. Drop zones in this shell are sized at
-      // drag start and don't move during drag, so a one-shot measure
-      // is correct and removes the loop class entirely.
+      // Critical: freeze droppable rects at drag start. The default
+      // WhileDragging strategy re-measures on every translate update,
+      // and a specific transition (cursor leaving + re-entering the
+      // viewport) pushes setRects past React's nested-update ceiling
+      // → React #185 / white workspace.
       measuring={{ droppable: { strategy: MeasuringStrategy.BeforeDragging } }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -961,7 +1002,7 @@ function ShellLayoutInner<T extends string>({
     >
       <div className="rules-main" ref={shellRef}>
         {mainRow}
-        <DropZoneOverlay visible={draggingId !== null} groups={dropGroups} highlightedSlot={highlightedSlot} />
+        <DropZoneOverlay visible={draggingId !== null} rects={dropZoneRects} highlightedSlot={highlightedSlot} />
       </div>
       <DragOverlay>
         {draggingDef ? (
