@@ -1,4 +1,5 @@
 import 'allotment/dist/style.css';
+import { useEnvironments } from '@hooks/useEnvironments';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
 import {
@@ -141,6 +142,18 @@ function PanelContent() {
   // (yellow) for request headers on any request that matched a user
   // header rule without explicit Cache-Control handling.
   const [liveRulesMode] = useSetting('rulesEngine.liveRulesMode');
+  // Environment switcher feed for the panel top bar. The panel has no
+  // collection/tab navigation, so a manual pick is the only signal —
+  // we still record it as `manualEnvId` so the workspace's auto-switch
+  // modes treat it as the user's last manual base.
+  const envApi = useEnvironments();
+  const handlePanelSwitchEnv = useCallback(
+    (uid: string | null) => {
+      void envApi.setManualEnv(uid);
+      void envApi.setActiveEnvironment(uid);
+    },
+    [envApi],
+  );
 
   const clear = useCallback(() => {
     clearStore();
@@ -493,6 +506,10 @@ function PanelContent() {
         cacheBypassEnabled={cacheBypass.enabled}
         onToggleCacheBypass={cacheBypass.toggle}
         showToolWindowLabels={activityLabels}
+        tl={tl}
+        environments={envApi.environments}
+        activeEnvironmentId={envApi.activeEnvironmentId}
+        onSwitchEnvironment={handlePanelSwitchEnv}
       />
 
       <ShellLayout<PanelToolWindowId>
@@ -513,7 +530,6 @@ function PanelContent() {
       />
 
       <PanelStatusBar
-        tl={tl}
         requestCount={entries.length}
         transferredSize={transferredSize}
         resourceSize={resourceSize}

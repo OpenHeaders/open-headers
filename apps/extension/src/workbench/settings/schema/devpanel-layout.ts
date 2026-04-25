@@ -18,8 +18,8 @@ declare module '../types' {
   interface SettingsMap {
     'devpanelLayout.footerShowVersion': boolean;
     'devpanelLayout.footerShowThemeSwitcher': boolean;
-    'devpanelLayout.footerShowPanelToggles': boolean;
-    'devpanelLayout.footerShowLayoutMenu': boolean;
+    'devpanelLayout.topbarShowPanelToggles': boolean;
+    'devpanelLayout.topbarShowLayoutMenu': boolean;
     'devpanelLayout.bottomPanelAlignment': DevpanelBottomPanelAlignmentSetting;
     'devpanelLayout.showToolWindowLabels': boolean;
     'devpanelLayout.sidebarLayout': DevpanelSidebarLayoutVariantSetting;
@@ -55,29 +55,29 @@ registerSetting({
 });
 
 registerSetting({
-  key: 'devpanelLayout.footerShowPanelToggles',
+  key: 'devpanelLayout.topbarShowPanelToggles',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Panel Toggles in Footer',
-  description: 'Display the left / bottom / right panel toggle icons in the DevTools panel status bar.',
+  label: 'Show Panel Toggles in Top Bar',
+  description: 'Display the left / bottom / right panel toggle icons in the DevTools panel top bar.',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
-  tags: ['statusbar', 'footer', 'panels', 'toggle', 'devtools'],
+  subcategory: 'Top Bar',
+  tags: ['topbar', 'panels', 'toggle', 'devtools'],
   scope: 'user',
 });
 
 registerSetting({
-  key: 'devpanelLayout.footerShowLayoutMenu',
+  key: 'devpanelLayout.topbarShowLayoutMenu',
   type: 'boolean',
   default: true,
   schema: v.boolean(),
-  label: 'Show Layout Menu in Footer',
+  label: 'Show Layout Menu in Top Bar',
   description:
-    'Display the layout dropdown (bottom full-width, tool-window labels, sidebar layout) in the DevTools panel status bar.',
+    'Display the layout dropdown (bottom full-width, tool-window labels, sidebar layout) in the DevTools panel top bar.',
   category: 'devpanelLayout',
-  subcategory: 'Footer',
-  tags: ['statusbar', 'footer', 'layout', 'menu', 'devtools'],
+  subcategory: 'Top Bar',
+  tags: ['topbar', 'layout', 'menu', 'devtools'],
   scope: 'user',
 });
 

@@ -95,6 +95,14 @@
   flex-shrink: 0;
 }
 
+/* Pushes everything after it to the right edge of the toolbar — used
+ * to anchor the env switcher + layout cluster against the right side
+ * (mirrors the workspace TopBar's right-aligned slot). */
+.dt-toolbar-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
 .dt-toolbar-icon {
   display: flex;
   align-items: center;

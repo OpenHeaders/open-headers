@@ -1,9 +1,19 @@
-import { Popover } from 'antd';
+import { LayoutOutlined } from '@ant-design/icons';
+import type { V5 } from '@openheaders/core/types';
+import { Dropdown, type MenuProps, Popover, Space, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import type { DockLayoutApi } from '@/shared/dock-layout';
+import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
 import { getBrowserAPI } from '@/types/browser';
+import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
+import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 import type { FilterConfig } from '../data/filter-engine';
+import { PanelEnvironmentSelector } from './PanelEnvironmentSelector';
 import { RuleExecutionsHint } from './RuleExecutions';
+
+type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
+type BottomPanelAlignmentSetting = 'center' | 'left' | 'right' | 'justify';
 
 function IconRecord({ active }: { active: boolean }) {
   return active ? (
@@ -248,6 +258,15 @@ export interface PanelToolbarProps {
    *  column collapses to icon-only so its right border aligns with
    *  the compact activity bar below it. */
   showToolWindowLabels: boolean;
+  /** Tool-layout API for the panel-toggle cluster (left/bottom/right
+   *  region toggles + layout menu). Mirrors the workspace top bar so
+   *  layout chrome lives at the top across both surfaces. */
+  tl: DockLayoutApi<PanelToolWindowId>;
+  /** Environment list + active uid + switch handler for the slim
+   *  env-switcher dropdown. Mirrors the workspace env selector. */
+  environments: V5.Environment[];
+  activeEnvironmentId: string | null;
+  onSwitchEnvironment: (uid: string | null) => void;
 }
 
 export const PanelToolbar: React.FC<PanelToolbarProps> = ({
@@ -269,71 +288,306 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   cacheBypassEnabled,
   onToggleCacheBypass,
   showToolWindowLabels,
-}) => (
-  <div className="dt-header">
-    <div className={`dt-brand${showToolWindowLabels ? '' : ' dt-brand--compact'}`}>
-      <img src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')} alt="Open Headers" className="dt-brand-logo" />
-      {showToolWindowLabels && (
-        <span className="dt-brand-title">
-          <span className="dt-brand-title-line">Open</span>
-          <span className="dt-brand-title-line">Headers</span>
-        </span>
-      )}
-    </div>
-    <div className="dt-header-rows">
-      <div className="dt-toolbar">
-        <button
-          type="button"
-          className="dt-toolbar-icon dt-toolbar-icon--record"
-          data-active={recording}
-          onClick={onToggleRecording}
-          title={recording ? 'Stop recording' : 'Record network log'}
-        >
-          <IconRecord active={recording} />
-        </button>
-        <button type="button" className="dt-toolbar-icon" onClick={onClear} title="Clear network log">
-          <IconClear />
-        </button>
-        <div className="dt-toolbar-separator" />
-        <button
-          type="button"
-          className="dt-toolbar-icon"
-          data-active={showFilter}
-          onClick={onToggleFilter}
-          title="Filter"
-        >
-          <IconFilter />
-        </button>
-        <button
-          type="button"
-          className="dt-toolbar-icon"
-          data-active={searchActive}
-          onClick={onToggleSearch}
-          title="Search"
-        >
-          <IconSearch />
-        </button>
-        <div className="dt-toolbar-separator" />
-        <label className="dt-checkbox">
-          <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
-          Preserve log
-        </label>
-        <MoreFiltersMenu
-          filterConfig={filterConfig}
-          onFilterConfigChange={onFilterConfigChange}
-          cacheBypassEnabled={cacheBypassEnabled}
-          onToggleCacheBypass={onToggleCacheBypass}
+  tl,
+  environments,
+  activeEnvironmentId,
+  onSwitchEnvironment,
+}) => {
+  const showPanelToggles = useSettingValue('devpanelLayout.topbarShowPanelToggles');
+  const showLayoutMenu = useSettingValue('devpanelLayout.topbarShowLayoutMenu');
+  const [bottomPanelAlignment, setBottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
+  const [showLabels, setShowLabels] = useSetting('devpanelLayout.showToolWindowLabels');
+  const [sidebarLayout, setSidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
+
+  // Layout menu state — kept open across item clicks so the user can
+  // A/B combinations without reopening (matches workspace TopBar).
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  const [menuOpenKeys, setMenuOpenKeys] = useState<string[]>([]);
+  const handleLayoutOpenChange: NonNullable<React.ComponentProps<typeof Dropdown>['onOpenChange']> = (
+    nextOpen,
+    info,
+  ) => {
+    if (info?.source === 'menu') return;
+    setLayoutMenuOpen(nextOpen);
+    if (!nextOpen) setMenuOpenKeys([]);
+  };
+  const handleMenuClick: NonNullable<MenuProps['onClick']> = ({ keyPath }) => {
+    if (keyPath.length > 1) {
+      const parentKey = keyPath[1];
+      requestAnimationFrame(() => {
+        setMenuOpenKeys((prev) => (prev.includes(parentKey) ? prev : [...prev, parentKey]));
+      });
+    }
+  };
+
+  const [bottomAlignDropdownOpen, setBottomAlignDropdownOpen] = useState(false);
+  const handleBottomAlignOpenChange: NonNullable<React.ComponentProps<typeof Dropdown>['onOpenChange']> = (
+    nextOpen,
+    info,
+  ) => {
+    if (info?.source === 'menu') return;
+    setBottomAlignDropdownOpen(nextOpen);
+  };
+
+  const menuIconWrap = (node: React.ReactNode): React.ReactNode => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18 }}>
+      {node}
+    </span>
+  );
+
+  const menuLabel = (checked: boolean, text: React.ReactNode): React.ReactNode => (
+    <Space size={6}>
+      <span style={{ width: 12, display: 'inline-block' }}>{checked ? '✓' : ''}</span>
+      {text}
+    </Space>
+  );
+
+  const alignmentGlyph = (a: BottomPanelAlignmentSetting): 'bottom-full' | 'bottom-left' | 'bottom-right' | 'bottom-nested' =>
+    a === 'justify' ? 'bottom-full' : a === 'left' ? 'bottom-left' : a === 'right' ? 'bottom-right' : 'bottom-nested';
+
+  const layoutMenu: MenuProps['items'] = [
+    {
+      key: 'bottom-alignment',
+      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
+      label: 'Bottom Panel Alignment',
+      children: (
+        [
+          { key: 'center', label: 'Center (nested)' },
+          { key: 'left', label: 'Left' },
+          { key: 'right', label: 'Right' },
+          { key: 'justify', label: 'Justify (full width)' },
+        ] as { key: BottomPanelAlignmentSetting; label: string }[]
+      ).map((opt) => ({
+        key: `bottom-${opt.key}`,
+        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+        onClick: () => setBottomPanelAlignment(opt.key),
+      })),
+    },
+    {
+      key: 'show-labels',
+      icon: menuIconWrap(<LayoutMenuIcon kind={showLabels ? 'show-labels' : 'hide-labels'} />),
+      label: menuLabel(showLabels, 'Show Tool Window Names'),
+      onClick: () => setShowLabels(!showLabels),
+    },
+    {
+      key: 'sidebar-layout',
+      icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
+      label: 'Activity Bar Layout',
+      children: (
+        [
+          { key: 'proportional', label: 'Proportional (even halves)' },
+          { key: 'compact', label: 'Compact (bottom pinned)' },
+          { key: 'stacked', label: 'Stacked (all at top)' },
+          { key: 'dynamic', label: 'Dynamic (follows panel heights)' },
+        ] as { key: SidebarLayoutVariantSetting; label: string }[]
+      ).map((opt) => ({
+        key: `sidebar-${opt.key}`,
+        icon: menuIconWrap(<SidebarLayoutIcon variant={opt.key} />),
+        label: menuLabel(sidebarLayout === opt.key, opt.label),
+        onClick: () => setSidebarLayout(opt.key),
+      })),
+    },
+    { type: 'divider' },
+    {
+      key: 'restore',
+      icon: menuIconWrap(<LayoutMenuIcon kind="restore-hidden" />),
+      label: 'Restore Hidden Activity Bar Tools',
+      disabled: tl.state.hidden.length === 0,
+      children:
+        tl.state.hidden.length === 0
+          ? undefined
+          : tl.state.hidden.map((id) => {
+              const def = PANEL_TOOL_WINDOW_MAP[id];
+              return {
+                key: `restore-${id}`,
+                icon: menuIconWrap(<DockSlotIcon slot={def.defaultSlot} size={20} />),
+                label: (
+                  <Space size={6}>
+                    <span>{def.label}</span>
+                  </Space>
+                ),
+                onClick: () => tl.restoreWindow(id),
+              };
+            }),
+    },
+  ];
+
+  return (
+    <div className="dt-header">
+      <div className={`dt-brand${showToolWindowLabels ? '' : ' dt-brand--compact'}`}>
+        <img
+          src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
+          alt="Open Headers"
+          className="dt-brand-logo"
         />
-        <div className="dt-toolbar-separator" />
-        <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />
-        {rulesVisible && (
-          <>
-            <div className="dt-toolbar-separator" />
-            <RuleExecutionsHint />
-          </>
+        {showToolWindowLabels && (
+          <span className="dt-brand-title">
+            <span className="dt-brand-title-line">Open</span>
+            <span className="dt-brand-title-line">Headers</span>
+          </span>
         )}
       </div>
+      <div className="dt-header-rows">
+        <div className="dt-toolbar">
+          <button
+            type="button"
+            className="dt-toolbar-icon dt-toolbar-icon--record"
+            data-active={recording}
+            onClick={onToggleRecording}
+            title={recording ? 'Stop recording' : 'Record network log'}
+          >
+            <IconRecord active={recording} />
+          </button>
+          <button type="button" className="dt-toolbar-icon" onClick={onClear} title="Clear network log">
+            <IconClear />
+          </button>
+          <div className="dt-toolbar-separator" />
+          <button
+            type="button"
+            className="dt-toolbar-icon"
+            data-active={showFilter}
+            onClick={onToggleFilter}
+            title="Filter"
+          >
+            <IconFilter />
+          </button>
+          <button
+            type="button"
+            className="dt-toolbar-icon"
+            data-active={searchActive}
+            onClick={onToggleSearch}
+            title="Search"
+          >
+            <IconSearch />
+          </button>
+          <div className="dt-toolbar-separator" />
+          <label className="dt-checkbox">
+            <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
+            Preserve log
+          </label>
+          <MoreFiltersMenu
+            filterConfig={filterConfig}
+            onFilterConfigChange={onFilterConfigChange}
+            cacheBypassEnabled={cacheBypassEnabled}
+            onToggleCacheBypass={onToggleCacheBypass}
+          />
+          <div className="dt-toolbar-separator" />
+          <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />
+          {rulesVisible && (
+            <>
+              <div className="dt-toolbar-separator" />
+              <RuleExecutionsHint />
+            </>
+          )}
+          <div className="dt-toolbar-spacer" />
+          <PanelEnvironmentSelector
+            environments={environments}
+            activeEnvironmentId={activeEnvironmentId}
+            onSwitch={onSwitchEnvironment}
+          />
+          {showPanelToggles && (
+            <>
+              <div className="dt-toolbar-separator" />
+              <div className="rules-panel-toggles">
+                <RegionToggle
+                  title="Left sidebar"
+                  ariaTitle="Left sidebar"
+                  active={tl.isRegionOpen('left')}
+                  position="left"
+                  onClick={() => tl.toggleRegion('left')}
+                />
+                <RegionToggle
+                  title="Bottom panel"
+                  ariaTitle="Bottom panel"
+                  active={tl.isRegionOpen('bottom')}
+                  position="bottom"
+                  onClick={() => tl.toggleRegion('bottom')}
+                />
+                <RegionToggle
+                  title="Right sidebar"
+                  ariaTitle="Right sidebar"
+                  active={tl.isRegionOpen('right')}
+                  position="right"
+                  onClick={() => tl.toggleRegion('right')}
+                />
+                <Dropdown
+                  placement="bottomRight"
+                  trigger={['click']}
+                  open={bottomAlignDropdownOpen}
+                  onOpenChange={handleBottomAlignOpenChange}
+                  menu={{
+                    items: (
+                      [
+                        { key: 'center', label: 'Center (nested)' },
+                        { key: 'left', label: 'Left' },
+                        { key: 'right', label: 'Right' },
+                        { key: 'justify', label: 'Justify (full width)' },
+                      ] as { key: BottomPanelAlignmentSetting; label: string }[]
+                    ).map((opt) => ({
+                      key: `topbar-bottom-${opt.key}`,
+                      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+                      label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+                      onClick: () => setBottomPanelAlignment(opt.key),
+                    })),
+                  }}
+                >
+                  <Tooltip
+                    title={
+                      bottomPanelAlignment === 'center'
+                        ? 'Bottom panel: center (nested)'
+                        : bottomPanelAlignment === 'left'
+                          ? 'Bottom panel: left-aligned'
+                          : bottomPanelAlignment === 'right'
+                            ? 'Bottom panel: right-aligned'
+                            : 'Bottom panel: full width'
+                    }
+                    placement="bottom"
+                    open={bottomAlignDropdownOpen ? false : undefined}
+                  >
+                    <div
+                      className="rules-panel-toggle"
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Choose bottom panel alignment"
+                    >
+                      <LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} size={16} />
+                    </div>
+                  </Tooltip>
+                </Dropdown>
+              </div>
+            </>
+          )}
+          {showLayoutMenu && (
+            <>
+              <div className="dt-toolbar-separator" />
+              <Dropdown
+                menu={{
+                  items: layoutMenu,
+                  openKeys: menuOpenKeys,
+                  onOpenChange: setMenuOpenKeys,
+                  onClick: handleMenuClick,
+                }}
+                placement="bottomRight"
+                trigger={['click']}
+                open={layoutMenuOpen}
+                onOpenChange={handleLayoutOpenChange}
+              >
+                <div
+                  className="rules-statusbar-item rules-layout-toggle"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Layout options"
+                  style={{ cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}
+                >
+                  <LayoutOutlined style={{ fontSize: 13 }} />
+                </div>
+              </Dropdown>
+            </>
+          )}
+        </div>
+      </div>
+      <div className={`dt-brand-spacer${showToolWindowLabels ? '' : ' dt-brand-spacer--compact'}`} aria-hidden="true" />
     </div>
-    <div className={`dt-brand-spacer${showToolWindowLabels ? '' : ' dt-brand-spacer--compact'}`} aria-hidden="true" />
-  </div>
-);
+  );
+};
