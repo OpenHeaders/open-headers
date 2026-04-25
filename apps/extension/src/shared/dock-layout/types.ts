@@ -81,3 +81,18 @@ export interface DropZoneRect {
   width: number;
   height: number;
 }
+
+/**
+ * A drop-zone group — a single dashed card that visually pairs the two
+ * docks of a region (left, right, or bottom). The card carries the
+ * outer dashed outline; `firstSlot`/`secondSlot` are stacked inside it
+ * and share a single internal divider so the user reads each region as
+ * one chunk split in half rather than six free-floating rectangles.
+ */
+export interface DropZoneGroup {
+  rect: DropZoneRect;
+  /** `horizontal` = stacked top/bottom (sidebars); `vertical` = side-by-side (bottom panel). */
+  split: 'horizontal' | 'vertical';
+  firstSlot: DockSlot;
+  secondSlot: DockSlot;
+}

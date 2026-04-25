@@ -32,6 +32,7 @@ import {
   type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
+  MeasuringStrategy,
   PointerSensor,
   useSensor,
   useSensors,
@@ -46,7 +47,13 @@ import { ALL_DOCK_SLOTS, regionDocks } from './constants';
 import DockTabStrip from './DockTabStrip';
 import DropZoneOverlay from './DropZoneOverlay';
 import type { FocusStore } from './focus-store';
-import type { BottomPanelAlignment, DockSlot, DropZoneRect, SidebarLayoutVariant, ToolWindowDef } from './types';
+import type {
+  BottomPanelAlignment,
+  DockSlot,
+  DropZoneGroup,
+  SidebarLayoutVariant,
+  ToolWindowDef,
+} from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
 // ── Props ─────────────────────────────────────────────────────────────
@@ -816,137 +823,87 @@ function ShellLayoutInner<T extends string>({
     return null;
   }, [preview, draggingId]);
 
-  // Region rects in shell-local coords, measured from the DOM at drag
-  // start. Using measured bounding boxes instead of Allotment's
-  // `onChange` sizes keeps this correct across all four alignment
-  // variants — the `left` and `right` layouts nest the sidebar inside
-  // the editor column, so the outer Allotment's horizontal sizes are
-  // [middle, rightSidebar] (two panes), not [left, editor, right]. The
-  // measured approach is agnostic to which Allotment tree is mounted.
-  const [regionRects, setRegionRects] = useState<{
-    left: DropZoneRect | null;
-    right: DropZoneRect | null;
-    bottom: DropZoneRect | null;
-    editor: DropZoneRect | null;
-  }>({ left: null, right: null, bottom: null, editor: null });
-
-  useLayoutEffect(() => {
-    if (!dragging) return;
-    const shell = shellRef.current;
-    if (!shell) return;
-    const shellRect = shell.getBoundingClientRect();
-    const measure = (selector: string): DropZoneRect | null => {
-      const el = shell.querySelector<HTMLElement>(selector);
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { left: r.left - shellRect.left, top: r.top - shellRect.top, width: r.width, height: r.height };
-    };
-    setRegionRects({
-      left: measure('[data-region="left"]'),
-      right: measure('[data-region="right"]'),
-      bottom: measure('[data-region="bottom"]'),
-      editor: measure('[data-region="editor"]'),
-    });
-  }, [dragging, shellSize, bottomPanelAlignment, leftOpen, rightOpen, bottomOpen]);
-
-  const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(() => {
+  const dropGroups = useMemo<DropZoneGroup[] | null>(() => {
     if (!dragging) return null;
     const fullW = shellSize.width;
     const fullH = shellSize.height;
     if (fullW === 0 || fullH === 0) return null;
 
-    // Editor rect is the anchor for fallback geometry when a dock is
-    // closed — it always exists and tells us the available vertical
-    // band (editor.top..editor.bottom). When it hasn't been measured
-    // yet (first-frame drag), fall back to the full shell bounds so
-    // zones render somewhere sensible.
-    const editorR = regionRects.editor ?? { left: activityBarWidth, top: 0, width: fullW - activityBarWidth * 2, height: fullH };
-
     const preferredSidebar = sizes.sidebar.preferred;
     const preferredInspector = sizes.inspector.preferred;
     const preferredBottom = sizes.bottom.preferred;
 
-    const leftRect: DropZoneRect = regionRects.left ?? {
-      left: activityBarWidth,
-      top: editorR.top,
-      width: preferredSidebar,
-      height: editorR.height,
-    };
-    const rightRect: DropZoneRect = regionRects.right ?? {
-      left: fullW - activityBarWidth - preferredInspector,
-      top: editorR.top,
-      width: preferredInspector,
-      height: editorR.height,
-    };
+    // Inset each group's rect on every side so adjacent groups don't
+    // share an edge — gives the three cards a visible gutter between
+    // them (and against the activity bars / shell edges) without any
+    // CSS positioning gymnastics.
+    const GAP = 4;
+    const inset = (rect: { left: number; top: number; width: number; height: number }) => ({
+      left: rect.left + GAP,
+      top: rect.top + GAP,
+      width: Math.max(0, rect.width - GAP * 2),
+      height: Math.max(0, rect.height - GAP * 2),
+    });
 
-    // Bottom fallback (closed dock) depends on alignment because the
-    // bottom region's width and anchoring differ by variant.
-    let bottomRect: DropZoneRect;
-    if (regionRects.bottom) {
-      bottomRect = regionRects.bottom;
+    // Drop zones reflect the layout *as if all six panels were open* —
+    // not the live region rects. Per-alignment math gives each side
+    // the height it would have if the bottom panel were also expanded,
+    // so sidebars get pushed up by `preferredBottom` only on the
+    // alignments where the bottom panel actually shares their column.
+    let leftHeight: number;
+    let rightHeight: number;
+    let bottomLeft: number;
+    let bottomWidth: number;
+
+    if (bottomPanelAlignment === 'center') {
+      leftHeight = fullH;
+      rightHeight = fullH;
+      bottomLeft = activityBarWidth + preferredSidebar;
+      bottomWidth = Math.max(0, fullW - 2 * activityBarWidth - preferredSidebar - preferredInspector);
+    } else if (bottomPanelAlignment === 'justify') {
+      leftHeight = Math.max(0, fullH - preferredBottom);
+      rightHeight = Math.max(0, fullH - preferredBottom);
+      bottomLeft = activityBarWidth;
+      bottomWidth = Math.max(0, fullW - 2 * activityBarWidth);
+    } else if (bottomPanelAlignment === 'left') {
+      leftHeight = Math.max(0, fullH - preferredBottom);
+      rightHeight = fullH;
+      bottomLeft = activityBarWidth;
+      bottomWidth = Math.max(0, fullW - 2 * activityBarWidth - preferredInspector);
     } else {
-      const bottomTop = fullH - preferredBottom;
-      if (bottomPanelAlignment === 'justify') {
-        bottomRect = {
-          left: activityBarWidth,
-          top: bottomTop,
-          width: Math.max(0, fullW - activityBarWidth * 2),
-          height: preferredBottom,
-        };
-      } else if (bottomPanelAlignment === 'left') {
-        bottomRect = {
-          left: activityBarWidth,
-          top: bottomTop,
-          width: Math.max(0, fullW - activityBarWidth - preferredInspector - activityBarWidth),
-          height: preferredBottom,
-        };
-      } else if (bottomPanelAlignment === 'right') {
-        bottomRect = {
-          left: activityBarWidth + preferredSidebar,
-          top: bottomTop,
-          width: Math.max(0, fullW - activityBarWidth * 2 - preferredSidebar),
-          height: preferredBottom,
-        };
-      } else {
-        // 'center' — bottom spans only the editor column.
-        bottomRect = {
-          left: editorR.left,
-          top: bottomTop,
-          width: editorR.width,
-          height: preferredBottom,
-        };
-      }
+      // 'right'
+      leftHeight = fullH;
+      rightHeight = Math.max(0, fullH - preferredBottom);
+      bottomLeft = activityBarWidth + preferredSidebar;
+      bottomWidth = Math.max(0, fullW - 2 * activityBarWidth - preferredSidebar);
     }
 
-    const halfV = (r: DropZoneRect): [DropZoneRect, DropZoneRect] => [
-      { left: r.left, top: r.top, width: r.width, height: r.height / 2 },
-      { left: r.left, top: r.top + r.height / 2, width: r.width, height: r.height / 2 },
+    return [
+      {
+        rect: inset({ left: activityBarWidth, top: 0, width: preferredSidebar, height: leftHeight }),
+        split: 'horizontal',
+        firstSlot: 'left-top',
+        secondSlot: 'left-bottom',
+      },
+      {
+        rect: inset({
+          left: fullW - activityBarWidth - preferredInspector,
+          top: 0,
+          width: preferredInspector,
+          height: rightHeight,
+        }),
+        split: 'horizontal',
+        firstSlot: 'right-top',
+        secondSlot: 'right-bottom',
+      },
+      {
+        rect: inset({ left: bottomLeft, top: fullH - preferredBottom, width: bottomWidth, height: preferredBottom }),
+        split: 'vertical',
+        firstSlot: 'bottom-left',
+        secondSlot: 'bottom-right',
+      },
     ];
-    const halfH = (r: DropZoneRect): [DropZoneRect, DropZoneRect] => [
-      { left: r.left, top: r.top, width: r.width / 2, height: r.height },
-      { left: r.left + r.width / 2, top: r.top, width: r.width / 2, height: r.height },
-    ];
-
-    const [lt, lb] = halfV(leftRect);
-    const [rt, rb] = halfV(rightRect);
-    const [bl, br] = halfH(bottomRect);
-
-    return {
-      'left-top': lt,
-      'left-bottom': lb,
-      'right-top': rt,
-      'right-bottom': rb,
-      'bottom-left': bl,
-      'bottom-right': br,
-    };
-  }, [
-    dragging,
-    shellSize,
-    regionRects,
-    sizes,
-    bottomPanelAlignment,
-    activityBarWidth,
-  ]);
+  }, [dragging, shellSize, sizes, bottomPanelAlignment, activityBarWidth]);
 
   const mainRow = (
     <div className="rules-main-row">
@@ -988,6 +945,15 @@ function ShellLayoutInner<T extends string>({
       sensors={sensors}
       collisionDetection={collisionDetection ?? closestCenter}
       autoScroll={false}
+      // Measure droppable rects once at drag start, not continuously.
+      // dnd-kit's default WhileDragging strategy re-measures on every
+      // pointer-move dependency change; under specific transitions
+      // (cursor leaving + re-entering the viewport) that loop has been
+      // observed to push setRects past React's nested-update ceiling
+      // and crash with #185. Drop zones in this shell are sized at
+      // drag start and don't move during drag, so a one-shot measure
+      // is correct and removes the loop class entirely.
+      measuring={{ droppable: { strategy: MeasuringStrategy.BeforeDragging } }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -995,7 +961,7 @@ function ShellLayoutInner<T extends string>({
     >
       <div className="rules-main" ref={shellRef}>
         {mainRow}
-        <DropZoneOverlay visible={draggingId !== null} rects={dropZoneRects} highlightedSlot={highlightedSlot} />
+        <DropZoneOverlay visible={draggingId !== null} groups={dropGroups} highlightedSlot={highlightedSlot} />
       </div>
       <DragOverlay>
         {draggingDef ? (
