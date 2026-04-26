@@ -213,11 +213,11 @@ export function forgetDelayBypassForTab(tabId: number): void {
 // ── Entry points ─────────────────────────────────────────────────
 
 export function updateNetworkRules(rules: V5.Rule[]): void {
-  void rebuildAll(rules);
+  void scheduleRebuild(rules);
 }
 
 export function applyAllRules(): void {
-  void rebuildAll(getRules());
+  void scheduleRebuild(getRules());
 }
 
 /**
@@ -226,7 +226,63 @@ export function applyAllRules(): void {
  * page's follow-up navigation only starts once the rule change is live.
  */
 export function applyAllRulesAsync(): Promise<void> {
-  return rebuildAll(getRules());
+  return scheduleRebuild(getRules());
+}
+
+// ── Rebuild serializer ───────────────────────────────────────────
+//
+// Single-flight with collapse-to-latest. The full rebuild
+// (resolve → compile → updateDynamic + updateSession) is one
+// transaction; running two in parallel races on Chrome's DNR id
+// space (compilers re-use ids 1, 2, 3, … per call, so the second
+// call's `addRules` collides with the first's still-being-applied
+// state).
+//
+// The simpler "Promise.all serializer per Chrome API" misses the
+// transaction boundary — dynamic + session belong together. It also
+// runs N rebuilds when N requests stack up, but every rebuild fully
+// replaces state, so only the LAST input matters. We keep at most
+// one in-flight + one pending; intermediate requests collapse into
+// the pending slot (always with the latest rule list).
+//
+// Awaiters of all queued requests resolve when their request's
+// rebuild finishes — `applyAllRulesAsync`'s caller (test-runner setup,
+// delay-bypass) sees rules live in Chrome before its promise resolves.
+
+let inflight: Promise<void> | null = null;
+interface PendingRebuild {
+  rules: V5.Rule[];
+  resolvers: Array<() => void>;
+}
+let pending: PendingRebuild | null = null;
+
+function scheduleRebuild(rules: V5.Rule[]): Promise<void> {
+  if (!inflight) {
+    inflight = runRebuild(rules);
+    return inflight;
+  }
+  // A rebuild is in flight — fold this request into the pending slot.
+  // Intentionally overwrite `rules` with the latest snapshot so the
+  // collapsed rebuild reflects the most recent intent.
+  if (!pending) pending = { rules, resolvers: [] };
+  else pending.rules = rules;
+  return new Promise<void>((resolve) => {
+    pending!.resolvers.push(resolve);
+  });
+}
+
+function runRebuild(rules: V5.Rule[]): Promise<void> {
+  return rebuildAll(rules).finally(() => {
+    if (pending) {
+      const next = pending;
+      pending = null;
+      inflight = runRebuild(next.rules).finally(() => {
+        for (const r of next.resolvers) r();
+      });
+    } else {
+      inflight = null;
+    }
+  });
 }
 
 // ── Core compile/dispatch loop ───────────────────────────────────
