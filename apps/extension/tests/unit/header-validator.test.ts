@@ -65,6 +65,36 @@ describe('validateHeaderName', () => {
     expect(validateHeaderName('Traceparent').valid).toBe(true);
     expect(validateHeaderName('X-Amz-Security-Token').valid).toBe(true);
   });
+
+  // ── Templated header names ────────────────────────────────────
+  // Header names may contain `{{var}}` segments that resolve at
+  // request-compile time. The validator must accept these drafts and
+  // defer the strict tchar check to the resolved string.
+
+  it('accepts a header name that is entirely a template', () => {
+    const result = validateHeaderName('{{env.headerName}}');
+    expect(result.valid).toBe(true);
+    expect(result.warning).toMatch(/template/i);
+  });
+
+  it('accepts a mixed literal + template header name', () => {
+    expect(validateHeaderName('X-{{env.suffix}}').valid).toBe(true);
+    expect(validateHeaderName('{{env.prefix}}-Foo').valid).toBe(true);
+    expect(validateHeaderName('X-{{env.mid}}-Foo').valid).toBe(true);
+  });
+
+  it('rejects mixed templates that have invalid characters in the literal portion', () => {
+    // Whitespace outside the template is still tchar-invalid.
+    expect(validateHeaderName('X-{{env.x}} bad').valid).toBe(false);
+    expect(validateHeaderName('X-{{env.x}}@bad').valid).toBe(false);
+  });
+
+  it('lets templated names bypass the forbidden-set check (runtime gates resolution)', () => {
+    // A template draft can't predict its resolution. The runtime DNR
+    // builder re-runs validateHeaderName on the resolved name and
+    // skips the rule if it lands on a forbidden header.
+    expect(validateHeaderName('{{env.maybeForbidden}}').valid).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -61,16 +61,31 @@ function defaultSeparator(headerName: string): string {
  * injection is strictly a scriptable concern — inject-manager reads it
  * from the rule store, never from a compiled plan.
  */
+/**
+ * Skip a merge mod whose template fields didn't fully resolve at
+ * compile time. Mirrors the header-compiler's per-mod guard: if any of
+ * the strings the page would inject still contains `{{`, the SW
+ * resolver couldn't satisfy a reference (TOTP in `reject` mode, broken
+ * var, missing env). Shipping the literal would inject a `{{...}}`
+ * substring into the page's headers — silently wrong. Drop instead.
+ */
+function isMergeModResolvable(m: { headerName: string; value?: string; mergeSeparator?: string }): boolean {
+  if (m.headerName.includes('{{')) return false;
+  if (typeof m.value === 'string' && m.value.includes('{{')) return false;
+  if (typeof m.mergeSeparator === 'string' && m.mergeSeparator.includes('{{')) return false;
+  return true;
+}
+
 function extractHeaderMergeEntry(rule: V5.HeaderRule): HeaderMergeEntry | null {
   const requestMerges = (rule.action.requestHeaders ?? [])
-    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim())
+    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
     .map((m) => ({
       headerName: m.headerName,
       value: m.value!,
       separator: m.mergeSeparator || defaultSeparator(m.headerName),
     }));
   const responseMerges = (rule.action.responseHeaders ?? [])
-    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim())
+    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
     .map((m) => ({
       headerName: m.headerName,
       value: m.value!,
@@ -79,6 +94,9 @@ function extractHeaderMergeEntry(rule: V5.HeaderRule): HeaderMergeEntry | null {
   if (requestMerges.length === 0 && responseMerges.length === 0) return null;
   return { ruleUid: rule.uid, regexSources: compileRuleForInjection(rule), requestMerges, responseMerges };
 }
+
+/** Test-only handle for the unresolved-template guard. */
+export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
 
 // ── Public API ───────────────────────────────────────────────────
 

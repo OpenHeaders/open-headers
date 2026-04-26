@@ -8,10 +8,10 @@
  * Both tabs are ALWAYS mounted (destroyInactiveTabPane=false) so form.setFieldsValue
  * works regardless of which tab is visible. Auto-navigates to the tab with content.
  *
- * Header-name input is an AutoComplete driven by
- * `getHeaderSuggestions(direction, operation)` from `@openheaders/core/utils` —
- * the same canonical table the DNR compiler uses. Each row runs the
- * capability check live: if the user authors an invalid combination
+ * Header-name input is a TemplateInput so `{{var}}` segments render
+ * as pills and resolve at request-compile time alongside the value.
+ * Each row runs the capability check live: if the user authors an
+ * invalid combination
  * (e.g. `Append` on `X-Custom-Header`, which Chrome's DNR rejects), the
  * row shows an inline warning and the rule becomes a draft via
  * `isRuleComplete` so it can never leave stale DNR rules behind.
@@ -19,8 +19,8 @@
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import type { HeaderDirection } from '@openheaders/core/utils';
-import { getHeaderOperationCapability, getHeaderSuggestions } from '@openheaders/core/utils';
-import { Alert, AutoComplete, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
+import { getHeaderOperationCapability } from '@openheaders/core/utils';
+import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
@@ -91,9 +91,16 @@ function ModificationList({ name, direction }: ModificationListProps) {
                   {({ getFieldValue }) => {
                     const op = (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
                     const headerName = (getFieldValue([name, field.name, 'headerName']) as string | undefined) ?? '';
-                    const suggestions = getHeaderSuggestions(direction, op).map((h) => ({ value: h, label: h }));
                     const capability = getHeaderOperationCapability(direction, op, headerName);
                     const showWarning = !capability.allowed;
+                    // Header name uses TemplateInput (same as the value
+                    // field) so `{{var}}` segments render as pills and
+                    // get the variable-suggestion popover. Standard
+                    // header-name autocomplete (Authorization, etc.)
+                    // is dropped — having two competing popovers on
+                    // the same input was the worse UX, and template
+                    // support for header names is the more frequently
+                    // useful primitive.
                     return (
                       <Form.Item
                         {...field}
@@ -101,14 +108,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                         style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                         validateStatus={showWarning ? 'warning' : undefined}
                       >
-                        <AutoComplete
-                          size="small"
-                          placeholder="Header Name"
-                          options={suggestions}
-                          filterOption={(input, option) =>
-                            (option?.value ?? '').toString().toLowerCase().includes(input.toLowerCase())
-                          }
-                        />
+                        <TemplateInput size="small" placeholder="Header Name" />
                       </Form.Item>
                     );
                   }}

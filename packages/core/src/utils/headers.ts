@@ -90,8 +90,27 @@ const FORBIDDEN_RESPONSE_HEADERS = new Set([
   'vary',
 ]);
 
+/** Matches a `{{...}}` template segment. Used by `validateHeaderName`
+ *  to skip variable spans before applying the tchar regex. The braces
+ *  themselves aren't valid HTTP token characters, so without this we
+ *  reject every templated header name even though the *resolved* name
+ *  would be perfectly valid. */
+const TEMPLATE_SEGMENT = /\{\{[^}]*\}\}/g;
+
 /**
  * Validates a header name for browser extension compatibility.
+ *
+ * Header names may contain `{{var}}` template segments — these resolve
+ * at request-compile time. The literal portion outside templates must
+ * still satisfy RFC 9110 §5.1 tchar rules so a successful resolution
+ * always produces a valid token.
+ *
+ * Forbidden-header check: only applied when the name has no templates.
+ * If a template resolves to a forbidden name (e.g. `host`, `content-length`),
+ * the runtime DNR builder catches it via this same function on the
+ * resolved string and skips the rule. The draft validator can't predict
+ * resolution, so we let templated drafts through and rely on the
+ * runtime to gate them.
  */
 export function validateHeaderName(name: string, isResponse = false): HeaderNameValidation {
   if (!name) {
@@ -108,15 +127,27 @@ export function validateHeaderName(name: string, isResponse = false): HeaderName
     return { valid: false, message: 'Header name is too long (max 256 characters)' };
   }
 
+  const hasTemplate = TEMPLATE_SEGMENT.test(trimmedName);
+  TEMPLATE_SEGMENT.lastIndex = 0;
+  const literalPart = trimmedName.replace(TEMPLATE_SEGMENT, '');
+
   const lowerName = trimmedName.toLowerCase();
 
-  const forbiddenSet = isResponse ? FORBIDDEN_RESPONSE_HEADERS : FORBIDDEN_REQUEST_HEADERS;
-  if (forbiddenSet.has(lowerName)) {
-    return { valid: false, message: `"${trimmedName}" is a protected header that cannot be modified by extensions` };
+  if (!hasTemplate) {
+    const forbiddenSet = isResponse ? FORBIDDEN_RESPONSE_HEADERS : FORBIDDEN_REQUEST_HEADERS;
+    if (forbiddenSet.has(lowerName)) {
+      return {
+        valid: false,
+        message: `"${trimmedName}" is a protected header that cannot be modified by extensions`,
+      };
+    }
   }
 
   const validHeaderNameRegex = /^[!#$%&'*+\-.0-9A-Z^_`a-z|~]+$/;
-  if (!validHeaderNameRegex.test(trimmedName)) {
+  // The literal portion (everything outside `{{...}}`) must consist of
+  // tchar bytes only. An empty literal portion (entire name is one or
+  // more templates) trivially passes — runtime resolution decides.
+  if (literalPart.length > 0 && !validHeaderNameRegex.test(literalPart)) {
     return {
       valid: false,
       message: "Header name contains invalid characters. Only letters, numbers, and -_.~!#$%&'*+^`| are allowed",
@@ -124,7 +155,9 @@ export function validateHeaderName(name: string, isResponse = false): HeaderName
   }
 
   let warning: string | undefined;
-  if (lowerName === 'referrer') {
+  if (hasTemplate) {
+    warning = 'Header name uses templates — resolved value is validated at request time.';
+  } else if (lowerName === 'referrer') {
     warning = 'Note: The correct spelling is "Referer" (single r)';
   }
 

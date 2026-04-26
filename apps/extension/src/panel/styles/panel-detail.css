@@ -158,7 +158,7 @@
 }
 
 .dt-kv--oh-removed::before {
-  background: var(--dt-text-muted);
+  background: var(--dt-row-attributed-removed-accent);
 }
 
 .dt-kv--oh-system::before {
@@ -182,14 +182,17 @@
   color: var(--dt-link, #1677ff);
 }
 
-/* Removed headers stay in the list but fade out with strikethrough on
- * the value — "the server sent this, but the page never saw it". */
+/* Removed headers stay in the list but render in red with strikethrough
+ * on the value — "the page never saw this". Covers both the server-sent
+ * case (server header stripped by a remove rule) and the cancelled-
+ * injection case (one rule injected, another rule removed). */
 .dt-kv--oh-removed .dt-btn-link,
 .dt-kv--oh-removed .dt-kv-oh-value {
-  color: var(--dt-text-muted);
+  color: var(--dt-row-attributed-removed-accent);
 }
 .dt-kv--oh-removed .dt-kv-oh-value {
   text-decoration: line-through;
+  text-decoration-color: var(--dt-row-attributed-removed-accent);
 }
 
 .dt-kv-val--status-ok::before {

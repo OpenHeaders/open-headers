@@ -67,6 +67,48 @@ describe('resolveRuleWithDiagnostics', () => {
     expect((rule as HeaderRule).action.requestHeaders[0].value).toBe('abc123');
   });
 
+  it('resolves `{{var}}` segments inside header names', () => {
+    // The DNR builder validates the resolved header name — the
+    // resolver has to substitute templates in `headerName` alongside
+    // `value`, otherwise the runtime would see `X-{{env.suffix}}` and
+    // skip the rule.
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([
+        makeVariable('HOST', 'api.openheaders.io'),
+        makeVariable('HEADER', 'X-Auth-Token'),
+        makeVariable('TOKEN', 'abc'),
+      ]),
+    );
+    const rule = makeHeaderRule({
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: '{{HEADER}}', value: '{{TOKEN}}' }],
+        responseHeaders: [],
+      },
+    });
+    const { rule: resolved, errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors).toEqual([]);
+    expect((resolved as HeaderRule).action.requestHeaders[0].headerName).toBe('X-Auth-Token');
+    expect((resolved as HeaderRule).action.requestHeaders[0].value).toBe('abc');
+  });
+
+  it('resolves mixed literal + template header names', () => {
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([
+        makeVariable('HOST', 'api.openheaders.io'),
+        makeVariable('SUFFIX', 'Debug'),
+        makeVariable('TOKEN', 'abc'),
+      ]),
+    );
+    const rule = makeHeaderRule({
+      action: {
+        requestHeaders: [{ operation: 'override', headerName: 'X-{{SUFFIX}}', value: '{{TOKEN}}' }],
+        responseHeaders: [],
+      },
+    });
+    const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
+    expect((resolved as HeaderRule).action.requestHeaders[0].headerName).toBe('X-Debug');
+  });
+
   it('reports a single error per unresolved reference (deduped across fields)', () => {
     resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOST', 'api.openheaders.io')]));
     // {{TOKEN}} is referenced in the header value only

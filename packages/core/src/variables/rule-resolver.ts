@@ -183,7 +183,17 @@ function resolveHeaderRule(
   const resolveMods = (mods: HeaderRule['action']['requestHeaders']) =>
     mods.map((m) => ({
       ...m,
+      // Header names may contain `{{var}}` segments — resolve them
+      // alongside `value` so the DNR builder receives a literal HTTP
+      // token. Invalid resolutions are gated by `validateHeaderName`
+      // in the builder and the rule is skipped.
+      headerName: m.headerName ? resolveString(m.headerName, resolver, context, errors) : m.headerName,
       value: m.value ? resolveString(m.value, resolver, context, errors) : undefined,
+      // Merge separator may also reference variables (rare but
+      // symmetric). Resolve so the wire gets a literal byte sequence.
+      ...(m.operation === 'merge' && m.mergeSeparator
+        ? { mergeSeparator: resolveString(m.mergeSeparator, resolver, context, errors) }
+        : {}),
     }));
   return {
     ...rule,

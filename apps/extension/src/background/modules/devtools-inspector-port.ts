@@ -54,6 +54,7 @@
  */
 
 import { logger } from '@utils/logger';
+import { buildRuleSnapshot } from './rule-snapshot';
 import {
   isTracked,
   type RequestRecord,
@@ -364,7 +365,20 @@ function broadcastToInspectorPorts(session: TabSession, message: InspectorPortMe
 }
 
 function handleFireRecord(session: TabSession, record: RequestRecord, authoritative: boolean): void {
-  const msg: BufferedFireMessage = { type: 'fire', record, authoritative };
+  // Snapshot here, at the panel-bound boundary, so the panel sees an
+  // immutable record of the rule as it was at fire time. Done once per
+  // emit (live broadcast + ring-buffer entry share the same record
+  // reference, so the freeze is a single allocation). If the rule was
+  // already gone from the registry by the time we snapshot, ship the
+  // record without a snapshot — the panel falls back to a "rule no
+  // longer exists" affordance for that fire.
+  const enriched = record.ruleSnapshot
+    ? record
+    : ((): RequestRecord => {
+        const snapshot = buildRuleSnapshot(record.ruleUid);
+        return snapshot ? { ...record, ruleSnapshot: snapshot } : record;
+      })();
+  const msg: BufferedFireMessage = { type: 'fire', record: enriched, authoritative };
   if (session.inspectorPorts.size > 0) {
     broadcastToInspectorPorts(session, msg);
   }

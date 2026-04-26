@@ -51,7 +51,10 @@
   --dt-row-selected: #e8f0fe;
   --dt-row-zebra: #f8f8f8;
   --dt-row-attributed: #eef3fc;
-  --dt-row-attributed-removed: #f1f1f1;
+  /* Removed-row tint — soft red so "the page never saw this" reads at a
+   * glance against the blue (added/modified) and yellow (system) tints. */
+  --dt-row-attributed-removed: #fdecec;
+  --dt-row-attributed-removed-accent: #d93026;
   /* System-injected headers (live-rules cache-control / pragma) are
      tinted to blend in — they're implementation detail, not user
      intent. Light grey in light theme, subtle dark tone in dark. */
@@ -86,7 +89,8 @@
   --dt-row-selected: #062e61;
   --dt-row-zebra: #222;
   --dt-row-attributed: #23314a;
-  --dt-row-attributed-removed: #2a2a2a;
+  --dt-row-attributed-removed: #3a1f1f;
+  --dt-row-attributed-removed-accent: #ff6b6b;
   --dt-row-attributed-system: #2a2a2a;
   --dt-accent-system: #6a6a6a;
   --dt-header-bg: #292929;

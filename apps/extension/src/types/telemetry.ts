@@ -7,8 +7,58 @@
  * lives here as the single source of truth for the wire format.
  */
 
+import type { V5 } from '@openheaders/core/types';
 import type { ShadowAttribution } from '@/background/modules/shadow-arbitration';
 import type { TrackedResourceType } from './browser';
+
+/**
+ * Frozen snapshot of the rule that produced a fire, captured at fire-emit
+ * time. Carries everything the panel needs to render attribution without
+ * consulting the live rule registry — so editing the rule afterwards
+ * does NOT retroactively rewrite what the user sees for a past request
+ * (event-sourcing pattern: events are immutable, config is mutable).
+ *
+ * Header-rule modifications snapshot both the raw template and the
+ * resolved value that hit the wire — the resolved value is what we
+ * render on the row; the template is shown alongside in the popover so
+ * the user can tell whether a divergence is "I edited the rule" vs
+ * "the env var changed."
+ */
+export interface RuleSnapshot {
+  ruleUid: string;
+  name: string;
+  type: V5.Rule['type'];
+  enabled: boolean;
+  /** Monotonic version at fire time — used by the popover to decide
+   *  whether to surface a "rule changed" indicator without a deep diff. */
+  version: number;
+  /** Header-rule modifications, present only when `type === 'header'`. */
+  headerMods?: ReadonlyArray<RuleSnapshotHeaderMod>;
+}
+
+export interface RuleSnapshotHeaderMod {
+  direction: 'request' | 'response';
+  operation: V5.HeaderOperation;
+  /** Resolved header name — what hit the wire. Drives attribution
+   *  matching against HAR rows and is the display name in the
+   *  inspector. When the user wrote `{{vars}}` in the name field,
+   *  `headerNameTemplate` carries the raw template alongside. */
+  headerName: string;
+  /** Raw header-name template before variable resolution — set only
+   *  when it differs from `headerName` (i.e. the field used `{{}}`). */
+  headerNameTemplate?: string;
+  /** Raw value template — e.g. `"maybe {{env.wat}}"`. Absent for `remove`. */
+  valueTemplate?: string;
+  /** Post-resolution value as compiled into the DNR rule. Absent for
+   *  `remove` and for any mod whose resolution failed at fire time. */
+  valueResolved?: string;
+  /** Resolved merge separator (only for `merge`). */
+  mergeSeparator?: string;
+  /** Raw merge-separator template before resolution — set only when
+   *  the user wrote `{{vars}}` in the separator field. Symmetric with
+   *  `headerNameTemplate` / `valueTemplate`. */
+  mergeSeparatorTemplate?: string;
+}
 
 /**
  * Tier of evidence that a rule applied to a request.
@@ -67,6 +117,11 @@ export interface RequestRecord {
   deliveryMode?: DeliveryMode;
   /** Shadow arbitration verdict — see shadow-arbitration.ts. */
   shadowedBy?: ShadowAttribution;
+  /** Rule snapshot frozen at fire time — see `RuleSnapshot` doc. May be
+   *  absent only for fires emitted before the snapshotter was wired
+   *  (legacy ring-buffer entries) or for rules that vanished from the
+   *  registry between fire and snapshot. */
+  ruleSnapshot?: RuleSnapshot;
 }
 
 /** Per-tab telemetry snapshot returned to consumers. */

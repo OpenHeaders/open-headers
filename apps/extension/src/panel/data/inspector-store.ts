@@ -253,6 +253,7 @@ export class InspectorStore {
         requestId: f.requestId,
         shadowedBy: f.shadowedBy,
         evidence: f.evidence,
+        ...(f.ruleSnapshot ? { ruleSnapshot: f.ruleSnapshot } : {}),
       });
     }
     this.danglingFires = kept;
@@ -293,6 +294,7 @@ export class InspectorStore {
       requestId: record.requestId,
       shadowedBy: record.shadowedBy,
       evidence: record.evidence,
+      ...(record.ruleSnapshot ? { ruleSnapshot: record.ruleSnapshot } : {}),
     };
     const dedup = fireDedupKey(fire.ruleUid, fire.requestId, fire.t);
 

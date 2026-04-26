@@ -24,7 +24,11 @@ interface MatchedRulesPanelProps {
 }
 
 function formatRuleType(rule: V5.Rule): string {
-  switch (rule.type) {
+  return formatRuleTypeFromSnapshot(rule.type);
+}
+
+function formatRuleTypeFromSnapshot(type: V5.Rule['type']): string {
+  switch (type) {
     case 'header':
       return 'Header';
     case 'redirect':
@@ -40,12 +44,30 @@ function formatRuleType(rule: V5.Rule): string {
     case 'inject':
       return 'Inject';
     default:
-      return rule.type;
+      return type;
   }
 }
 
-function describeHeaderActions(rule: V5.Rule): string[] {
-  if (rule.type !== 'header') return [];
+/**
+ * Describe the header modifications a rule applied to *this* fire.
+ * Reads from `fire.ruleSnapshot` first — those are the mods that
+ * actually ran. Falls back to the live rule when the fire predates the
+ * snapshotter (legacy ring-buffer entries). Without the snapshot
+ * preference, editing a rule would silently rewrite the action lines
+ * shown for past fires.
+ */
+function describeHeaderActions(fire: InspectorFire, rule: V5.Rule | undefined): string[] {
+  const snapshot = fire.ruleSnapshot;
+  if (snapshot && snapshot.type === 'header' && snapshot.headerMods) {
+    const lines: string[] = [];
+    for (const h of snapshot.headerMods) {
+      const tag = h.direction === 'request' ? 'req' : 'res';
+      const value = h.valueResolved ?? h.valueTemplate;
+      lines.push(`${tag} ${h.operation} ${h.headerName}${value !== undefined ? ` = ${value}` : ''}`);
+    }
+    return lines;
+  }
+  if (!rule || rule.type !== 'header') return [];
   const lines: string[] = [];
   for (const h of rule.action.requestHeaders) {
     lines.push(`req ${h.operation} ${h.headerName}${h.value != null ? ` = ${h.value}` : ''}`);
@@ -94,9 +116,11 @@ function evidenceTitle(fire: InspectorFire): string {
 }
 
 function FireRow({ fire, rule }: FireRowProps) {
-  const label = rule?.name ?? fire.ruleUid;
-  const type = rule ? formatRuleType(rule) : '—';
-  const actions = rule ? describeHeaderActions(rule) : [];
+  // Identity prefers the snapshot — for a deleted rule we still want to
+  // display the name the rule had when it fired, not the bare uid.
+  const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
+  const type = rule ? formatRuleType(rule) : fire.ruleSnapshot ? formatRuleTypeFromSnapshot(fire.ruleSnapshot.type) : '—';
+  const actions = describeHeaderActions(fire, rule);
   const applied = isAppliedFire(fire);
   const rulePopover = useRulePopover();
   const handleMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {

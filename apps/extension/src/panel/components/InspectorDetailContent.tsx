@@ -5,10 +5,12 @@
  */
 
 import { useRules } from '@hooks/useRules';
+import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
+import { computeRuleApplicability, type RuleApplicability } from '../data/rule-applicability';
 import { formatHttpVersion } from '../data/http-version';
 import type { DetailSection } from '../data/inspector-tab';
 import { findRuleCollectionId } from '../data/rule-collection';
@@ -122,6 +124,10 @@ interface AttributedHeaderRowProps {
    *  Used when resolving `{{collection.X}}` tokens inside the row's value
    *  and when the rule popover hands the same context to its TemplateInput. */
   ruleCollectionId?: string;
+  /** URL of the request whose row this is. Threaded down so the
+   *  popover can run the applicability matcher (does the live rule
+   *  still match this URL?) without going through global state. */
+  requestUrl: string;
   onNameClick: (name: string, value: string) => void;
 }
 
@@ -133,6 +139,7 @@ function AttributedHeaderRow({
   searchLineNumber,
   searchHighlight,
   ruleCollectionId,
+  requestUrl,
   onNameClick,
 }: AttributedHeaderRowProps) {
   const rulePopover = useRulePopover();
@@ -157,43 +164,95 @@ function AttributedHeaderRow({
     .filter(Boolean)
     .join(' ');
 
-  let attributionTitle: string;
-  if (kind === 'added') {
-    const ruleName = attribution.rule.name ?? attribution.rule.uid;
-    attributionTitle = `Injected by Open Headers rule "${ruleName}"`;
-  } else if (kind === 'modified') {
-    const ruleName = attribution.rule.name ?? attribution.rule.uid;
-    attributionTitle = `Modified by Open Headers rule "${ruleName}" · original: ${attribution.originalValue}`;
-  } else if (kind === 'removed') {
-    const ruleName = attribution.rule.name ?? attribution.rule.uid;
-    attributionTitle = `Removed by Open Headers rule "${ruleName}"`;
-  } else if (kind === 'system') {
-    attributionTitle = `Injected by ${attribution.label} (Open Headers system feature)`;
-  } else {
-    attributionTitle = 'Create a rule to override this header';
-  }
-
-  // Rule-attributed rows hover-trigger the rule popover anywhere on
-  // the row — the row IS the modification's surface, and the popover's
-  // value field uses TemplateInput which natively opens the variable
-  // popover for `{{ref}}` editing. So one popover entry point for the
-  // whole row keeps things simple: hover anywhere on x-debug → edit the
-  // rule that produced it, with var editing inside the rule popover.
-  const direction2: 'request' | 'response' = direction;
-  const ruleForHover: V5.Rule | null =
-    kind === 'added' || kind === 'modified' || kind === 'removed' ? attribution.rule : null;
+  // Rule-attributed rows hover-trigger the popover. The popover (not a
+  // native title tooltip) is the affordance — it shows the snapshot of
+  // what the rule did on this request and lets the user edit the rule
+  // for FUTURE requests. The native title would just lie about what's
+  // current vs historical. Server rows still get a one-line title CTA
+  // on the name button.
+  const ruleCtx = kind === 'added' || kind === 'modified' || kind === 'removed' ? attribution.ctx : null;
+  const ruleForHover: V5.Rule | null = ruleCtx?.currentRule ?? null;
   const operationForHover: V5.HeaderOperation | undefined =
     kind === 'added' || kind === 'modified' ? attribution.operation : kind === 'removed' ? 'remove' : undefined;
+
+  // Re-resolve the live mod's template against the current resolver
+  // and compare with the snapshot's frozen resolved value. Catches the
+  // class of drift the structural diff misses — when the rule wasn't
+  // edited but a `{{var}}` it references has been (env value flipped,
+  // workspace var renamed, etc.). Either signal yields the chip.
+  const resolver = useVariableResolver();
+  const currentResolvedValue = useMemo(() => {
+    if (!ruleCtx?.currentMod) return null;
+    if (ruleCtx.currentMod.operation === 'remove') return null;
+    const tpl = ruleCtx.currentMod.value;
+    if (typeof tpl !== 'string') return null;
+    return resolver.resolveTemplate(tpl, ruleCollectionId ? { collectionId: ruleCollectionId } : undefined).result;
+  }, [resolver, ruleCtx?.currentMod, ruleCollectionId]);
+  const currentResolvedName = useMemo(() => {
+    if (!ruleCtx?.currentMod) return null;
+    return resolver.resolveTemplate(
+      ruleCtx.currentMod.headerName,
+      ruleCollectionId ? { collectionId: ruleCollectionId } : undefined,
+    ).result;
+  }, [resolver, ruleCtx?.currentMod, ruleCollectionId]);
+  const applicability = useMemo<RuleApplicability | null>(() => {
+    if (!ruleCtx) return null;
+    return computeRuleApplicability({ ctx: ruleCtx, url: requestUrl, resolver, collectionId: ruleCollectionId });
+  }, [ruleCtx, requestUrl, resolver, ruleCollectionId]);
+  // Drift detection is only meaningful when the snapshot's resolved
+  // value is a reliable baseline. Two cases where it isn't:
+  //   - The template contains `{{vault.TOTP_*}}` — TOTP codes never
+  //     bake into compiled DNR rules (`reject` mode in the SW), so the
+  //     snapshot keeps the literal `{{vault.TOTP_*}}`. The renderer
+  //     resolver uses `defer` mode and returns an empty string. Modes
+  //     differ, so a naive compare always shows drift.
+  //   - The template references a var that didn't resolve at fire
+  //     time (broken ref, env not selected, etc.).
+  // Both surface as `valueResolved === valueTemplate` AND the template
+  // contains `{{`. Skip the drift signal in those cases — the chip
+  // would be a false alarm and the popover's "Now resolves to" line
+  // would mislead.
+  const snapshotResolutionReliable =
+    ruleCtx?.snapshotMod.valueTemplate === undefined ||
+    !ruleCtx.snapshotMod.valueTemplate.includes('{{') ||
+    ruleCtx.snapshotMod.valueTemplate !== ruleCtx.snapshotMod.valueResolved;
+  const valueDrifted =
+    !!ruleCtx &&
+    !ruleCtx.edited &&
+    snapshotResolutionReliable &&
+    currentResolvedValue != null &&
+    ruleCtx.snapshotMod.valueResolved != null &&
+    ruleCtx.snapshotMod.valueResolved !== currentResolvedValue;
+  // Header-name drift: same shape — rule template unchanged, but a var
+  // referenced by the *name* resolves differently now. Same reliability
+  // gate as value drift: skip when the snapshot's name still contains
+  // `{{` (resolution failed at fire time — TOTP in name, broken ref —
+  // so we have no reliable baseline). Without this guard, a TOTP-in-
+  // name template would always show as drifted because the SW kept
+  // the literal `{{}}` while the renderer's defer mode resolves to ''.
+  const snapshotNameReliable = !ruleCtx?.snapshotMod.headerName.includes('{{');
+  const nameDrifted =
+    !!ruleCtx &&
+    !ruleCtx.edited &&
+    snapshotNameReliable &&
+    currentResolvedName != null &&
+    currentResolvedName !== ruleCtx.snapshotMod.headerName;
+  const editedSinceFire = (ruleCtx?.edited ?? false) || valueDrifted || nameDrifted;
+
   const handleRowMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ruleForHover) return;
+    if (!ruleCtx) return;
     rulePopover.open({
       anchorEl: e.currentTarget,
+      attribution,
       rule: ruleForHover,
-      target: operationForHover ? { direction: direction2, headerName: name, operation: operationForHover } : undefined,
+      target: operationForHover ? { direction, headerName: name, operation: operationForHover } : undefined,
+      currentResolvedValue,
+      currentResolvedName,
+      applicability,
     });
   };
   const handleRowMouseOut = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ruleForHover) return;
+    if (!ruleCtx) return;
     rulePopover.scheduleClose(e.relatedTarget);
   };
 
@@ -203,15 +262,17 @@ function AttributedHeaderRow({
   // popover's TemplateInput. Server / removed rows show the raw value.
   const showResolvedValue = kind === 'added' || kind === 'modified' || kind === 'system';
 
+  const serverTitle = kind === 'server' ? 'Create a rule to override this header' : undefined;
+  const systemTitle = kind === 'system' ? `Injected by ${attribution.label} (Open Headers system feature)` : undefined;
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance is the rule's full editor reachable via the popover.
-    // biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use "Open in editor" inside the popover.
+    // biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use "Open in workspace" inside the popover.
     <div
       className={classes}
       style={{ fontFamily: 'monospace' }}
-      title={kind === 'server' ? undefined : attributionTitle}
-      onMouseOver={ruleForHover ? handleRowMouseOver : undefined}
-      onMouseOut={ruleForHover ? handleRowMouseOut : undefined}
+      onMouseOver={ruleCtx ? handleRowMouseOver : undefined}
+      onMouseOut={ruleCtx ? handleRowMouseOut : undefined}
     >
       {isProtected ? (
         <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{name}</span>
@@ -221,7 +282,7 @@ function AttributedHeaderRow({
           className="dt-btn-link"
           style={{ fontFamily: 'monospace', fontWeight: 600 }}
           onClick={() => onNameClick(name, value)}
-          title={kind === 'server' ? 'Create a rule to override this header' : attributionTitle}
+          title={serverTitle ?? systemTitle}
         >
           {name}
         </button>
@@ -229,7 +290,38 @@ function AttributedHeaderRow({
       <span className="dt-kv-oh-value">
         : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
       </span>
+      {editedSinceFire && <EditedSinceFireChip kind={ruleCtx?.edited ? 'rule' : 'value'} />}
     </div>
+  );
+}
+
+/**
+ * Inline chip that flags a row whose snapshot — what hit the wire on
+ * this past request — no longer matches what the rule would do now.
+ * Two reasons: the rule itself was edited (`kind='rule'`), or a
+ * variable referenced by the rule's template resolves to something
+ * different now (`kind='value'`). Hovering the row surfaces the
+ * popover with the full diff.
+ */
+function EditedSinceFireChip({ kind }: { kind: 'rule' | 'value' }) {
+  const label = kind === 'rule' ? '· rule edited since' : '· variable changed since';
+  const title =
+    kind === 'rule'
+      ? 'Rule has been edited since this request — current rule applies only to future requests'
+      : 'A variable referenced by this rule resolves to a different value now — applies only to future requests';
+  return (
+    <span
+      title={title}
+      style={{
+        marginLeft: 8,
+        fontSize: 10,
+        fontStyle: 'italic',
+        opacity: 0.7,
+        userSelect: 'none',
+      }}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -261,7 +353,7 @@ export function InspectorDetailContent({
   const collectionIdFor = (h: AnnotatedHeader): string | undefined => {
     const a = h.attribution;
     if (a.kind === 'added' || a.kind === 'modified' || a.kind === 'removed') {
-      return ruleCollectionByUid.get(a.rule.uid);
+      return ruleCollectionByUid.get(a.ctx.ruleUid);
     }
     return undefined;
   };
@@ -469,6 +561,7 @@ export function InspectorDetailContent({
                     searchLineNumber={searchLineNumber}
                     searchHighlight={searchHighlight}
                     ruleCollectionId={collectionIdFor(h)}
+                    requestUrl={request.url}
                     onNameClick={(name, value) => createHeaderRule('response', name, value)}
                   />
                 ))
@@ -500,6 +593,7 @@ export function InspectorDetailContent({
                     searchLineNumber={searchLineNumber}
                     searchHighlight={searchHighlight}
                     ruleCollectionId={collectionIdFor(h)}
+                    requestUrl={request.url}
                     onNameClick={(name, value) => createHeaderRule('request', name, value)}
                   />
                 ))

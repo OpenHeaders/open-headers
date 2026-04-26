@@ -195,6 +195,27 @@ export const headerCompiler: RuleCompiler<V5.HeaderRule> = {
 };
 
 function buildMod(mod: V5.HeaderModification, isResponse: boolean, ruleName: string): DnrHeaderModification | null {
+  // Unresolvable templates: by the time we run, `resolveRulesForCompile`
+  // has substituted every resolvable `{{ref}}`. A surviving `{{` in the
+  // header name OR value means the resolver couldn't resolve the ref
+  // (TOTP in `reject` mode, broken var, missing env). Chrome's DNR
+  // would reject the literal `{{}}` in either field, so skip the
+  // entire mod with a debug log rather than ship a malformed rule.
+  if (mod.headerName.includes('{{')) {
+    logger.debug(
+      'HeaderCompiler',
+      `Skipping header "${mod.headerName}" in "${ruleName}" — header-name template did not resolve`,
+    );
+    return null;
+  }
+  if (mod.operation !== 'remove' && typeof mod.value === 'string' && mod.value.includes('{{')) {
+    logger.debug(
+      'HeaderCompiler',
+      `Skipping header "${mod.headerName}" in "${ruleName}" — value template did not resolve`,
+    );
+    return null;
+  }
+
   const validation = validateHeaderName(mod.headerName, isResponse);
   if (!validation.valid) {
     logger.debug('HeaderCompiler', `Skipping header "${mod.headerName}" in "${ruleName}" — ${validation.message}`);

@@ -13,6 +13,7 @@
 
 import type { InspectorHarEntry, InspectorNavTiming } from '@/background/modules/devtools-inspector-port';
 import type { RequestRecord } from '@/background/modules/tab-telemetry';
+import type { RuleSnapshot } from '@/types/telemetry';
 
 export type { InspectorNavTiming };
 
@@ -35,6 +36,11 @@ export interface InspectorFire {
   requestId?: string;
   shadowedBy?: RequestRecord['shadowedBy'];
   evidence: RequestRecord['evidence'];
+  /** Frozen rule snapshot captured at fire-emit time in the background.
+   *  Authoritative source for what the row should display — prevents
+   *  later edits to the live rule from rewriting historical attribution.
+   *  See `RuleSnapshot` doc in `types/telemetry.ts`. */
+  ruleSnapshot?: RuleSnapshot;
 }
 
 /**
@@ -93,8 +99,24 @@ export function strongerEvidence(
 export function mergeFireEvidence<T extends InspectorFire>(existing: T, incoming: InspectorFire): T {
   const auth = existing.authoritative || incoming.authoritative;
   const ev = strongerEvidence(existing.evidence, incoming.evidence);
-  if (auth === existing.authoritative && ev === existing.evidence) return existing;
-  return { ...existing, authoritative: auth, evidence: ev };
+  // Snapshot policy: first arrival wins (closest in time to the actual
+  // fire), but adopt the incoming snapshot if existing didn't have one
+  // — covers the race where the authoritative fire (which carries a
+  // snapshot) arrives before the inferred fire (which would also).
+  const snap = existing.ruleSnapshot ?? incoming.ruleSnapshot;
+  if (
+    auth === existing.authoritative &&
+    ev === existing.evidence &&
+    snap === existing.ruleSnapshot
+  ) {
+    return existing;
+  }
+  return {
+    ...existing,
+    authoritative: auth,
+    evidence: ev,
+    ...(snap ? { ruleSnapshot: snap } : {}),
+  };
 }
 
 /**
