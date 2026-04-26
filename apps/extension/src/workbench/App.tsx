@@ -17,7 +17,7 @@ import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { useWorkspaces } from '@hooks/useWorkspaces';
-import { isRequestResolvable, isRuleResolvable, resolveAutoSwitchTarget } from '@openheaders/core/utils';
+import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -76,6 +76,7 @@ import { useToolLayout } from './hooks/useToolLayout';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
+import { type EnvSwitcherCollectionContext, EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { useSettingValue } from './settings/hooks';
 import { get as getSetting } from './settings/store';
@@ -627,132 +628,35 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     [localCollections, requestsApi.collections],
   );
 
-  // Track the active collection's default env separately so the auto-
-  // switch effect re-runs when the user pins a new default via the
-  // env-selector pin icon (vs only when they navigate).
+  // Track the active collection's default env separately so the env-
+  // switcher's auto-switch effect re-runs when the user pins a new
+  // default via the env-selector pin icon (vs only when they
+  // navigate).
   const activeCollectionDefaultEnvId = useMemo(() => {
     if (!activeTabCollectionId) return null;
     return allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId)?.defaultEnvironmentId ?? null;
   }, [activeTabCollectionId, allCollectionsForEnv]);
 
-  // `apply-defaults` semantic: collection defaults take over whenever
-  // the user enters a default-collection. But if the user manually
-  // picks a different env while inside one, snapping straight back to
-  // the default on the next intra-collection navigation feels broken
-  // (the click visibly reverts). The session-override map preserves
-  // the pick for the duration of the visit and is cleared the moment
-  // the user leaves the collection — matching the "no per-collection
-  // memory" half of the spec.
-  const applyDefaultsSessionOverridesRef = useRef<Map<string, string | null>>(new Map());
-  const prevAutoSwitchCollectionIdRef = useRef<string | null>(null);
-
-  // Drop session overrides on mode change OR workspace switch.
-  // - Mode change: a stale entry shouldn't resurface when the user
-  //   toggles back into apply-defaults.
-  // - Workspace switch: collection uids are unique per workspace, but
-  //   the in-memory map carries old-workspace entries by reference.
-  useEffect(() => {
-    applyDefaultsSessionOverridesRef.current.clear();
-    prevAutoSwitchCollectionIdRef.current = null;
-  }, [collectionEnvAutoSwitch, workspacesApi.activeWorkspaceId]);
-
-  useEffect(() => {
-    if (!envApi.isReady) return;
-
-    // Detect collection-leave and clear any session override on the
-    // collection we just left. We compare against the previous
-    // activeTabCollectionId — when it differs, we've moved out of
-    // (or into a different) collection.
-    const prevCollectionId = prevAutoSwitchCollectionIdRef.current;
-    if (prevCollectionId && prevCollectionId !== activeTabCollectionId) {
-      applyDefaultsSessionOverridesRef.current.delete(prevCollectionId);
-    }
-    prevAutoSwitchCollectionIdRef.current = activeTabCollectionId;
-
-    const knownEnvIds = new Set(envApi.environments.map((e) => e.uid));
-
-    // Inside a collection in apply-defaults mode, an in-session pick
-    // wins over the resolver's "default takes over" rule until the
-    // user leaves the collection. If the picked env was deleted out
-    // from under us mid-visit, drop the override and fall through to
-    // the resolver instead of firing a doomed setActiveEnvironment.
-    if (collectionEnvAutoSwitch === 'apply-defaults' && activeTabCollectionId) {
-      const sessionOverride = applyDefaultsSessionOverridesRef.current.get(activeTabCollectionId);
-      if (sessionOverride !== undefined) {
-        const overrideValid = sessionOverride === null || knownEnvIds.has(sessionOverride);
-        if (overrideValid) {
-          if (sessionOverride !== envApi.activeEnvironmentId) {
-            void envApi.setActiveEnvironment(sessionOverride);
-          }
-          return;
-        }
-        applyDefaultsSessionOverridesRef.current.delete(activeTabCollectionId);
-      }
-    }
-
-    const target = resolveAutoSwitchTarget({
-      mode: collectionEnvAutoSwitch,
-      collectionId: activeTabCollectionId,
-      collections: allCollectionsForEnv,
-      overrides: envApi.collectionEnvOverrides,
-      activeEnvId: envApi.activeEnvironmentId,
-      manualEnvId: envApi.manualEnvId,
-      knownEnvIds,
-    });
-    if (target !== envApi.activeEnvironmentId) {
-      void envApi.setActiveEnvironment(target);
-    }
-    // `activeEnvironmentId` and `manualEnvId` are deliberately omitted —
-    // the effect sets active env (looping otherwise), and
-    // `handleSwitchEnvironment` writes both directly so re-running on
-    // those signals would race with the user's pick. Including
-    // `envApi.environments` (knownEnvIds) and
-    // `envApi.collectionEnvOverrides` so a cross-tab env add/delete
-    // or override change re-resolves; including
-    // `activeCollectionDefaultEnvId` so pinning a new default applies
-    // immediately (no nav required).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    activeTab?.id,
-    activeTabCollectionId,
-    activeCollectionDefaultEnvId,
-    envApi.isReady,
-    envApi.environments,
-    envApi.collectionEnvOverrides,
-    collectionEnvAutoSwitch,
-    allCollectionsForEnv,
-  ]);
-
-  const handleSwitchEnvironment = useCallback(
-    (uid: string | null) => {
-      const col = activeTabCollectionId ? allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId) : undefined;
-      const defaultId = col?.defaultEnvironmentId ?? null;
-
-      if (collectionEnvAutoSwitch === 'follow-collection' && activeTabCollectionId) {
-        // "Follow each collection" means every collection remembers
-        // your last pick — including those without a default. Picking
-        // the default itself clears any prior override so the
-        // collection reverts to its "follow default" behavior.
-        const clearOverride = defaultId !== null && uid === defaultId;
-        void envApi.setCollectionEnvOverride(activeTabCollectionId, clearOverride ? undefined : uid);
-      }
-
-      if (collectionEnvAutoSwitch === 'apply-defaults' && activeTabCollectionId) {
-        // Record the pick as a session-scoped override so the auto-
-        // switch effect's next run within this collection respects
-        // the user's choice instead of snapping back to the default.
-        // Cleared on collection-leave (see effect above).
-        applyDefaultsSessionOverridesRef.current.set(activeTabCollectionId, uid);
-      }
-
-      // Every manual pick updates the "base env" record, regardless of
-      // the current mode — switching to `apply-defaults` later should
-      // restore the user's actual last pick, not whatever an auto-
-      // switch left behind.
-      void envApi.setManualEnv(uid);
-      void envApi.setActiveEnvironment(uid);
-    },
-    [collectionEnvAutoSwitch, activeTabCollectionId, allCollectionsForEnv, envApi],
+  // Active-env policy lives in the env-switcher service. WorkbenchContent
+  // hands it the workbench-specific inputs; the service owns the
+  // auto-switch effect, the apply-defaults session-override map, and
+  // exposes `pickActiveEnvironment` for every UI surface (sidebar,
+  // popover, env editor, command palette) via `useEnvSwitcher()`.
+  const envSwitcherCollectionContext = useMemo<EnvSwitcherCollectionContext>(
+    () => ({
+      activeTabCollectionId,
+      allCollectionsForEnv,
+      collectionEnvAutoSwitch,
+      activeCollectionDefaultEnvId,
+      activeWorkspaceId: workspacesApi.activeWorkspaceId,
+    }),
+    [
+      activeTabCollectionId,
+      allCollectionsForEnv,
+      collectionEnvAutoSwitch,
+      activeCollectionDefaultEnvId,
+      workspacesApi.activeWorkspaceId,
+    ],
   );
 
   // Thread the active tab label through the shell's single
@@ -1333,257 +1237,266 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   );
 
   return (
-    <div
-      ref={shellRef}
-      className="rules-shell"
-      data-theme={isDarkMode ? 'dark' : 'light'}
-      style={{ background: token.colorBgLayout }}
-    >
-      <TopBar
-        tl={tl}
-        onCommandPalette={() => setCommandPaletteOpen(true)}
-        onOpenSettings={openSettings}
-        workspaces={workspacesApi.workspaces}
-        activeWorkspaceId={workspacesApi.activeWorkspaceId}
-        onSwitchWorkspace={handleSwitchWorkspace}
-        onOpenWorkspaceManager={openWorkspaceManager}
-        environments={envApi.environments}
-        activeEnvironmentId={envApi.activeEnvironmentId}
-        onSwitchEnvironment={handleSwitchEnvironment}
-        onCreateEnvironment={() => void handleCreateEnvironment()}
-        onOpenEnvironment={(uid) => {
-          const env = envApi.environments.find((e) => e.uid === uid);
-          openEnvironmentEdit(uid, env?.name ?? 'Environment');
-        }}
-        onOpenWorkspaceVariables={openWorkspaceVariables}
-        onOpenCollectionVariables={() => {
-          if (!activeTabCollectionId) return;
-          const col = [...localCollections, ...requestsApi.collections].find((c) => c.uid === activeTabCollectionId);
-          if (!col) return;
-          openCollectionVariables(col.uid, col.name);
-        }}
-        onOpenVault={openVault}
-        activeCollectionId={activeTabCollectionId}
-        allCollections={[...localCollections, ...requestsApi.collections]}
-        onSetCollectionPinnedEnvs={envApi.setCollectionPinnedEnvs}
-      />
-
-      <ShellLayout
-        tl={tl}
-        responsive={layout}
-        renderToolWindow={renderToolWindow}
-        renderEditor={() => (
-          <EditorGroupRenderer
-            groups={groups}
-            rules={rules}
-            templates={templates}
-            requests={requestsApi.requests}
-            pausedUids={pausedUids}
-            unresolvableRuleUids={unresolvableRuleUids}
-            unresolvableRequestUids={unresolvableRequestUids}
-            liveWorkflows={liveWorkflowsApi.workflows}
-            unresolvableWorkflowUids={unresolvableWorkflowUids}
-            renderTabBody={renderTabBody}
-            renderLeafHeader={renderLeafHeader}
-            getTabPath={(tab) =>
-              computeBreadcrumbs(tab, rules, localCollectionTrees, requestsApi.collectionTrees, requestsApi.requests)
-            }
-            renderEmpty={renderEmpty}
-            onCreateRule={openCreateTab}
-            createMenuOpen={createMenuOpen}
-            onCreateMenuOpenChange={setCreateMenuOpen}
-            registerTabSearchToggle={registerTabSearchToggle}
-            onTabDoubleClick={tl.toggleZenMode}
-            onCloseTab={handleCloseTab}
-            onCloseOther={handleCloseOther}
-            onCloseAll={handleCloseAll}
-            onCloseUnmodified={handleCloseUnmodified}
-            onCloseToLeft={handleCloseToLeft}
-            onCloseToRight={handleCloseToRight}
-            recentlyClosed={groups.recentlyClosed}
+    <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
+      <VariablePopoverProvider>
+        <div
+          ref={shellRef}
+          className="rules-shell"
+          data-theme={isDarkMode ? 'dark' : 'light'}
+          style={{ background: token.colorBgLayout }}
+        >
+          <TopBar
+            tl={tl}
+            onCommandPalette={() => setCommandPaletteOpen(true)}
+            onOpenSettings={openSettings}
+            workspaces={workspacesApi.workspaces}
+            activeWorkspaceId={workspacesApi.activeWorkspaceId}
+            onSwitchWorkspace={handleSwitchWorkspace}
+            onOpenWorkspaceManager={openWorkspaceManager}
+            environments={envApi.environments}
+            activeEnvironmentId={envApi.activeEnvironmentId}
+            onCreateEnvironment={() => void handleCreateEnvironment()}
+            onOpenEnvironment={(uid) => {
+              const env = envApi.environments.find((e) => e.uid === uid);
+              openEnvironmentEdit(uid, env?.name ?? 'Environment');
+            }}
+            onOpenWorkspaceVariables={openWorkspaceVariables}
+            onOpenCollectionVariables={() => {
+              if (!activeTabCollectionId) return;
+              const col = [...localCollections, ...requestsApi.collections].find(
+                (c) => c.uid === activeTabCollectionId,
+              );
+              if (!col) return;
+              openCollectionVariables(col.uid, col.name);
+            }}
+            onOpenVault={openVault}
+            activeCollectionId={activeTabCollectionId}
+            allCollections={[...localCollections, ...requestsApi.collections]}
+            onSetCollectionPinnedEnvs={envApi.setCollectionPinnedEnvs}
           />
-        )}
-        onHorizontalResize={handleHorizontalResize}
-        onVerticalResize={handleVerticalResize}
-        renderEditorTabDragPreview={(tabId) => {
-          const tab = allTabs.find((t) => t.id === tabId);
-          if (!tab) return null;
-          return (
-            <div className="rules-drag-preview">
-              <span className="rules-drag-preview-icon">
-                {tabIcon(
-                  tab,
-                  rules,
-                  templates,
-                  pausedUids,
-                  requestsApi.requests,
-                  unresolvableRequestUids,
-                  unresolvableRuleUids,
-                  liveWorkflowsApi.workflows,
-                  unresolvableWorkflowUids,
-                )}
-              </span>
-              <span className="rules-drag-preview-label">{renderTabLabel(tab)}</span>
-            </div>
-          );
-        }}
-      />
 
-      <StatusBar
-        workspace={
-          activeWorkspace
-            ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }
-            : undefined
-        }
-        segments={activeBreadcrumbSegments}
-        onRename={
-          activeTab &&
-          (activeTab.mode === 'create' ||
-            activeTab.mode === 'edit' ||
-            activeTab.mode === 'collection-overview' ||
-            activeTab.mode === 'folder-overview' ||
-            activeTab.mode === 'env-edit' ||
-            activeTab.mode === 'request-edit' ||
-            activeTab.mode === 'request-create' ||
-            activeTab.mode === 'live-variable-edit' ||
-            activeTab.mode === 'live-workflow-edit' ||
-            activeTab.mode === 'live-workflow-create')
-            ? (newName) => handleBreadcrumbRenameFor(activeTab, newName)
-            : undefined
-        }
-        autoRenameKey={activeTab && pendingRenameTabId === activeTab.id ? activeTab.id : null}
-      />
+          <ShellLayout
+            tl={tl}
+            responsive={layout}
+            renderToolWindow={renderToolWindow}
+            renderEditor={() => (
+              <EditorGroupRenderer
+                groups={groups}
+                rules={rules}
+                templates={templates}
+                requests={requestsApi.requests}
+                pausedUids={pausedUids}
+                unresolvableRuleUids={unresolvableRuleUids}
+                unresolvableRequestUids={unresolvableRequestUids}
+                liveWorkflows={liveWorkflowsApi.workflows}
+                unresolvableWorkflowUids={unresolvableWorkflowUids}
+                renderTabBody={renderTabBody}
+                renderLeafHeader={renderLeafHeader}
+                getTabPath={(tab) =>
+                  computeBreadcrumbs(
+                    tab,
+                    rules,
+                    localCollectionTrees,
+                    requestsApi.collectionTrees,
+                    requestsApi.requests,
+                  )
+                }
+                renderEmpty={renderEmpty}
+                onCreateRule={openCreateTab}
+                createMenuOpen={createMenuOpen}
+                onCreateMenuOpenChange={setCreateMenuOpen}
+                registerTabSearchToggle={registerTabSearchToggle}
+                onTabDoubleClick={tl.toggleZenMode}
+                onCloseTab={handleCloseTab}
+                onCloseOther={handleCloseOther}
+                onCloseAll={handleCloseAll}
+                onCloseUnmodified={handleCloseUnmodified}
+                onCloseToLeft={handleCloseToLeft}
+                onCloseToRight={handleCloseToRight}
+                recentlyClosed={groups.recentlyClosed}
+              />
+            )}
+            onHorizontalResize={handleHorizontalResize}
+            onVerticalResize={handleVerticalResize}
+            renderEditorTabDragPreview={(tabId) => {
+              const tab = allTabs.find((t) => t.id === tabId);
+              if (!tab) return null;
+              return (
+                <div className="rules-drag-preview">
+                  <span className="rules-drag-preview-icon">
+                    {tabIcon(
+                      tab,
+                      rules,
+                      templates,
+                      pausedUids,
+                      requestsApi.requests,
+                      unresolvableRequestUids,
+                      unresolvableRuleUids,
+                      liveWorkflowsApi.workflows,
+                      unresolvableWorkflowUids,
+                    )}
+                  </span>
+                  <span className="rules-drag-preview-label">{renderTabLabel(tab)}</span>
+                </div>
+              );
+            }}
+          />
 
-      <SaveToCollectionModal
-        open={saveFlow.saveModalOpen}
-        entityName={saveFlow.saveModalEntityName}
-        collectionTrees={localCollectionTrees}
-        collections={localCollections}
-        onSave={(params) => void saveFlow.handleSaveModalConfirm(params)}
-        onCreateCollection={createLocalCollection}
-        onCreateFolder={createLocalFolder}
-        onCancel={saveFlow.closeSaveModal}
-      />
+          <StatusBar
+            workspace={
+              activeWorkspace
+                ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }
+                : undefined
+            }
+            segments={activeBreadcrumbSegments}
+            onRename={
+              activeTab &&
+              (activeTab.mode === 'create' ||
+                activeTab.mode === 'edit' ||
+                activeTab.mode === 'collection-overview' ||
+                activeTab.mode === 'folder-overview' ||
+                activeTab.mode === 'env-edit' ||
+                activeTab.mode === 'request-edit' ||
+                activeTab.mode === 'request-create' ||
+                activeTab.mode === 'live-variable-edit' ||
+                activeTab.mode === 'live-workflow-edit' ||
+                activeTab.mode === 'live-workflow-create')
+                ? (newName) => handleBreadcrumbRenameFor(activeTab, newName)
+                : undefined
+            }
+            autoRenameKey={activeTab && pendingRenameTabId === activeTab.id ? activeTab.id : null}
+          />
 
-      <SaveToCollectionModal
-        open={requestSaveFlow.saveModalOpen}
-        entityName={requestSaveFlow.saveModalEntityName}
-        collectionTrees={requestsApi.collectionTrees}
-        collections={requestsApi.collections}
-        onSave={(params) => void requestSaveFlow.handleSaveModalConfirm(params)}
-        onCreateCollection={requestsApi.createCollection}
-        onCreateFolder={requestsApi.createFolder}
-        onCancel={requestSaveFlow.closeSaveModal}
-      />
+          <SaveToCollectionModal
+            open={saveFlow.saveModalOpen}
+            entityName={saveFlow.saveModalEntityName}
+            collectionTrees={localCollectionTrees}
+            collections={localCollections}
+            onSave={(params) => void saveFlow.handleSaveModalConfirm(params)}
+            onCreateCollection={createLocalCollection}
+            onCreateFolder={createLocalFolder}
+            onCancel={saveFlow.closeSaveModal}
+          />
 
-      <CommandPalette
-        open={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        groups={cmdGroups}
-        sections={cmdSections}
-      />
+          <SaveToCollectionModal
+            open={requestSaveFlow.saveModalOpen}
+            entityName={requestSaveFlow.saveModalEntityName}
+            collectionTrees={requestsApi.collectionTrees}
+            collections={requestsApi.collections}
+            onSave={(params) => void requestSaveFlow.handleSaveModalConfirm(params)}
+            onCreateCollection={requestsApi.createCollection}
+            onCreateFolder={requestsApi.createFolder}
+            onCancel={requestSaveFlow.closeSaveModal}
+          />
 
-      <ImportCurlModal
-        open={importCurlOpen}
-        collections={requestsApi.collections}
-        initialCollectionId={importCurlContext?.collectionId}
-        onCancel={() => setImportCurlOpen(false)}
-        createRequest={async ({ name, collectionUid, seed }) => {
-          // The parser's output already carries every field the
-          // editor would normally enter; pass the full seed so the
-          // store builds the request with the imported shape.
-          const created = await requestsApi.createRequest({ name, collectionUid, seed });
-          return created ? { uid: created.uid } : null;
-        }}
-        findPreviousReport={findPreviousImportReport}
-        onImported={({ requestUid, name, method, report }) => {
-          setImportCurlOpen(false);
-          // Open the freshly-imported request in an editor tab so
-          // the user can immediately inspect or tweak it. Use the
-          // caller-chosen name + method so the tab label + method
-          // glyph match the new request on first paint (avoids a
-          // "Imported request / GET" flash before the hook hydrates).
-          openRequestEditTab(requestUid, name, method);
-          // Persist the structured import report (ARCHITECTURE §23).
-          // Fire-and-forget — the request itself already landed; a
-          // failure to persist the report is a nice-to-have loss,
-          // not a hard error. Surfaces at triage time via the
-          // observability log if it matters.
-          void call('recordImportReport', { report }).catch(() => undefined);
-        }}
-      />
+          <CommandPalette
+            open={commandPaletteOpen}
+            onClose={() => setCommandPaletteOpen(false)}
+            groups={cmdGroups}
+            sections={cmdSections}
+          />
 
-      <ImportHarModal
-        open={importHarOpen}
-        collections={requestsApi.collections}
-        initialCollectionId={importHarContext?.collectionId}
-        onCancel={() => setImportHarOpen(false)}
-        createRequest={async ({ name, collectionUid, seed }) => {
-          const created = await requestsApi.createRequest({ name, collectionUid, seed });
-          return created ? { uid: created.uid } : null;
-        }}
-        findPreviousReport={findPreviousImportReport}
-        onImported={({ report }) => {
-          setImportHarOpen(false);
-          // HAR imports can produce many requests at once — we don't
-          // auto-open an editor tab (Postman / Insomnia don't either)
-          // to avoid flooding the tab bar. The user browses the
-          // sidebar to find their new entries. The structured report
-          // still lands in storage for audit.
-          void call('recordImportReport', { report }).catch(() => undefined);
-        }}
-      />
+          <ImportCurlModal
+            open={importCurlOpen}
+            collections={requestsApi.collections}
+            initialCollectionId={importCurlContext?.collectionId}
+            onCancel={() => setImportCurlOpen(false)}
+            createRequest={async ({ name, collectionUid, seed }) => {
+              // The parser's output already carries every field the
+              // editor would normally enter; pass the full seed so the
+              // store builds the request with the imported shape.
+              const created = await requestsApi.createRequest({ name, collectionUid, seed });
+              return created ? { uid: created.uid } : null;
+            }}
+            findPreviousReport={findPreviousImportReport}
+            onImported={({ requestUid, name, method, report }) => {
+              setImportCurlOpen(false);
+              // Open the freshly-imported request in an editor tab so
+              // the user can immediately inspect or tweak it. Use the
+              // caller-chosen name + method so the tab label + method
+              // glyph match the new request on first paint (avoids a
+              // "Imported request / GET" flash before the hook hydrates).
+              openRequestEditTab(requestUid, name, method);
+              // Persist the structured import report (ARCHITECTURE §23).
+              // Fire-and-forget — the request itself already landed; a
+              // failure to persist the report is a nice-to-have loss,
+              // not a hard error. Surfaces at triage time via the
+              // observability log if it matters.
+              void call('recordImportReport', { report }).catch(() => undefined);
+            }}
+          />
 
-      <ImportPostmanModal
-        open={importPostmanOpen}
-        onCancel={() => setImportPostmanOpen(false)}
-        createCollection={async (name) => {
-          const c = await requestsApi.createCollection(name);
-          return c ? { uid: c.uid, path: c.path } : null;
-        }}
-        createFolder={async (name, parentPath) => {
-          const f = await requestsApi.createFolder(name, parentPath);
-          return f ? { uid: f.uid, path: f.path } : null;
-        }}
-        createRequest={async ({ name, parentPath, seed }) => {
-          const r = await requestsApi.createRequest({ name, parentPath, seed });
-          return r ? { uid: r.uid } : null;
-        }}
-        createEnvironment={async ({ name, variables }) => {
-          const e = await envApi.createEnvironment(name, variables);
-          return e ? { uid: e.uid } : null;
-        }}
-        findPreviousReport={findPreviousImportReport}
-        onImported={({ report }) => {
-          setImportPostmanOpen(false);
-          // Postman imports are multi-entity — like HAR, we don't
-          // auto-open an editor tab. The user navigates to the new
-          // collection from the sidebar. Structured report still
-          // lands in storage for audit.
-          void call('recordImportReport', { report }).catch(() => undefined);
-        }}
-      />
+          <ImportHarModal
+            open={importHarOpen}
+            collections={requestsApi.collections}
+            initialCollectionId={importHarContext?.collectionId}
+            onCancel={() => setImportHarOpen(false)}
+            createRequest={async ({ name, collectionUid, seed }) => {
+              const created = await requestsApi.createRequest({ name, collectionUid, seed });
+              return created ? { uid: created.uid } : null;
+            }}
+            findPreviousReport={findPreviousImportReport}
+            onImported={({ report }) => {
+              setImportHarOpen(false);
+              // HAR imports can produce many requests at once — we don't
+              // auto-open an editor tab (Postman / Insomnia don't either)
+              // to avoid flooding the tab bar. The user browses the
+              // sidebar to find their new entries. The structured report
+              // still lands in storage for audit.
+              void call('recordImportReport', { report }).catch(() => undefined);
+            }}
+          />
 
-      <ConnectionProvider value={{ isConnected }}>
-        <SettingsModal
-          open={settingsOpen}
-          onClose={closeSettings}
-          initialSettingKey={settingsTarget.settingKey}
-          initialCategoryId={settingsTarget.categoryId}
-          initialMaximized={settingsMaximized}
-          onPromoteToTab={() => openSettingsTab(settingsTarget)}
-        />
-      </ConnectionProvider>
-    </div>
+          <ImportPostmanModal
+            open={importPostmanOpen}
+            onCancel={() => setImportPostmanOpen(false)}
+            createCollection={async (name) => {
+              const c = await requestsApi.createCollection(name);
+              return c ? { uid: c.uid, path: c.path } : null;
+            }}
+            createFolder={async (name, parentPath) => {
+              const f = await requestsApi.createFolder(name, parentPath);
+              return f ? { uid: f.uid, path: f.path } : null;
+            }}
+            createRequest={async ({ name, parentPath, seed }) => {
+              const r = await requestsApi.createRequest({ name, parentPath, seed });
+              return r ? { uid: r.uid } : null;
+            }}
+            createEnvironment={async ({ name, variables }) => {
+              const e = await envApi.createEnvironment(name, variables);
+              return e ? { uid: e.uid } : null;
+            }}
+            findPreviousReport={findPreviousImportReport}
+            onImported={({ report }) => {
+              setImportPostmanOpen(false);
+              // Postman imports are multi-entity — like HAR, we don't
+              // auto-open an editor tab. The user navigates to the new
+              // collection from the sidebar. Structured report still
+              // lands in storage for audit.
+              void call('recordImportReport', { report }).catch(() => undefined);
+            }}
+          />
+
+          <ConnectionProvider value={{ isConnected }}>
+            <SettingsModal
+              open={settingsOpen}
+              onClose={closeSettings}
+              initialSettingKey={settingsTarget.settingKey}
+              initialCategoryId={settingsTarget.categoryId}
+              initialMaximized={settingsMaximized}
+              onPromoteToTab={() => openSettingsTab(settingsTarget)}
+            />
+          </ConnectionProvider>
+        </div>
+      </VariablePopoverProvider>
+    </EnvSwitcherProvider>
   );
 };
 
 const Workbench: React.FC = () => (
   <RuleProvider>
     <InspectorNavProvider>
-      <VariablePopoverProvider>
-        <WorkbenchInner />
-      </VariablePopoverProvider>
+      <WorkbenchInner />
     </InspectorNavProvider>
   </RuleProvider>
 );

@@ -10,6 +10,7 @@ import {
   useFocusRegion,
 } from '@/shared/dock-layout';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
+import { EnvSwitcherProvider, useEnvSwitcher } from '@/workbench/services/env-switcher';
 import { useSetting } from '@/workbench/settings/hooks';
 import { FilterDocs } from './components/FilterDocs';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
@@ -109,9 +110,11 @@ function getPanelSizes() {
 export default function App() {
   return (
     <ShellEventBusContext.Provider value={busHandle.bus}>
-      <VariablePopoverProvider>
-        <PanelContent />
-      </VariablePopoverProvider>
+      <EnvSwitcherProvider>
+        <VariablePopoverProvider>
+          <PanelContent />
+        </VariablePopoverProvider>
+      </EnvSwitcherProvider>
     </ShellEventBusContext.Provider>
   );
 }
@@ -145,18 +148,13 @@ function PanelContent() {
   // (yellow) for request headers on any request that matched a user
   // header rule without explicit Cache-Control handling.
   const [liveRulesMode] = useSetting('rulesEngine.liveRulesMode');
-  // Environment switcher feed for the panel top bar. The panel has no
-  // collection/tab navigation, so a manual pick is the only signal —
-  // we still record it as `manualEnvId` so the workspace's auto-switch
-  // modes treat it as the user's last manual base.
+  // Environment switcher feed for the panel top bar. Panel mounts the
+  // env-switcher provider without `collectionContext`, so the service
+  // degrades to plain manual-pick (setManualEnv + setActiveEnvironment)
+  // which is exactly what the panel needs — it has no collection/tab
+  // navigation and thus no collection-mode side effects to apply.
   const envApi = useEnvironments();
-  const handlePanelSwitchEnv = useCallback(
-    (uid: string | null) => {
-      void envApi.setManualEnv(uid);
-      void envApi.setActiveEnvironment(uid);
-    },
-    [envApi],
-  );
+  const { pickActiveEnvironment: handlePanelSwitchEnv } = useEnvSwitcher();
 
   const clear = useCallback(() => {
     clearStore();

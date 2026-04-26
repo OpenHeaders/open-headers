@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { extensionStorage, UI } from '@/shared/storage';
 import { useSurface } from '@/shared/surface';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
+import { EnvSwitcherProvider } from '@/workbench/services/env-switcher';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
@@ -110,9 +111,11 @@ const AppContent: React.FC = () => {
           onToggleCompactMode={toggleCompactMode}
           onOpenTour={handleOpenTour}
         >
-          <VariablePopoverProvider>
-            <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-          </VariablePopoverProvider>
+          <EnvSwitcherProvider>
+            <VariablePopoverProvider>
+              <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+            </VariablePopoverProvider>
+          </EnvSwitcherProvider>
         </KeyboardNavProvider>
       </RuleProvider>
     </ErrorBoundary>

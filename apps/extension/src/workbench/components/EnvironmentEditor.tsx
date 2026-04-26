@@ -15,6 +15,7 @@ import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import StaleDraftBanner from './StaleDraftBanner';
@@ -39,8 +40,8 @@ const EMPTY_VARS: V5.Variable[] = [];
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { environments, activeEnvironmentId, defaultEnvironmentId, setActiveEnvironment, setDefaultEnvironment } =
-    useEnvironments();
+  const { environments, activeEnvironmentId, defaultEnvironmentId, setDefaultEnvironment } = useEnvironments();
+  const { pickActiveEnvironment } = useEnvSwitcher();
   const { replaceEnvironmentVariables } = useVariableMutator();
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
@@ -148,7 +149,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const headerActions = (
     <>
       {!isActive && (
-        <Button size="small" icon={<CheckCircleTwoTone />} onClick={() => void setActiveEnvironment(env.uid)}>
+        <Button size="small" icon={<CheckCircleTwoTone />} onClick={() => pickActiveEnvironment(env.uid)}>
           Set active
         </Button>
       )}

@@ -19,7 +19,12 @@ interface UseEnvironmentNodesParams {
   confirmDelete: (name: string, onConfirm: () => void) => void;
   renameEnvironment: (uid: string, name: string) => Promise<unknown> | unknown;
   deleteEnvironment: (uid: string) => Promise<unknown> | unknown;
-  setActiveEnvironment: (uid: string | null) => Promise<unknown> | unknown;
+  /** User-driven env pick — must go through the env-switcher service
+   *  (`useEnvSwitcher().pickActiveEnvironment`) so the active-env
+   *  policy is applied (manual pick recorded, collection-mode side
+   *  effects). The raw `setActiveEnvironment` from `useEnvironments`
+   *  would be silently reverted by the auto-switch effect. */
+  pickActiveEnvironment: (uid: string | null) => void;
   setDefaultEnvironment: (uid: string | null) => Promise<unknown> | unknown;
   onSelectEnvironment?: (uid: string, name: string, autoRename?: boolean) => void;
 }
@@ -55,19 +60,23 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
           }),
         hoverActions: [
           {
-            icon: createElement(
-              isActive ? CheckCircleFilled : CheckCircleOutlined,
-              { style: { fontSize: 12, color: isActive ? 'var(--ant-color-primary-hover, #4096ff)' : 'var(--ant-color-text-tertiary, #999)' } },
-            ),
+            icon: createElement(isActive ? CheckCircleFilled : CheckCircleOutlined, {
+              style: {
+                fontSize: 12,
+                color: isActive ? 'var(--ant-color-primary-hover, #4096ff)' : 'var(--ant-color-text-tertiary, #999)',
+              },
+            }),
             tooltip: isActive ? 'Set inactive' : 'Set active',
             alwaysVisible: isActive,
-            onClick: () => void p.setActiveEnvironment(isActive ? null : env.uid),
+            onClick: () => p.pickActiveEnvironment(isActive ? null : env.uid),
           },
           {
-            icon: createElement(
-              isDefault ? StarFilled : StarOutlined,
-              { style: { fontSize: 12, color: isDefault ? 'var(--ant-color-warning, #faad14)' : 'var(--ant-color-text-tertiary, #999)' } },
-            ),
+            icon: createElement(isDefault ? StarFilled : StarOutlined, {
+              style: {
+                fontSize: 12,
+                color: isDefault ? 'var(--ant-color-warning, #faad14)' : 'var(--ant-color-text-tertiary, #999)',
+              },
+            }),
             tooltip: isDefault ? 'Unset default' : 'Set as default',
             alwaysVisible: isDefault,
             onClick: () => void p.setDefaultEnvironment(isDefault ? null : env.uid),
@@ -96,7 +105,7 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
     lowerFilter,
     p.renameEnvironment,
     p.deleteEnvironment,
-    p.setActiveEnvironment,
+    p.pickActiveEnvironment,
     p.setDefaultEnvironment,
     p.confirmDelete,
     p.onSelectEnvironment,

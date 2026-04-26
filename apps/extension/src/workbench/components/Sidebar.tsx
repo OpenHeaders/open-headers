@@ -41,6 +41,7 @@ import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
+import { useEnvSwitcher } from '../services/env-switcher';
 import { useSettingValue } from '../settings/hooks';
 import type { WorkbenchTab } from '../types';
 import { SectionHeader } from './sidebar/SectionHeader';
@@ -176,9 +177,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     createEnvironment,
     renameEnvironment,
     deleteEnvironment,
-    setActiveEnvironment,
     setDefaultEnvironment,
   } = useEnvironments();
+  const { pickActiveEnvironment } = useEnvSwitcher();
 
   const { variables: liveVariables } = useLiveVariables();
   const {
@@ -434,7 +435,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     confirmDelete,
     renameEnvironment,
     deleteEnvironment,
-    setActiveEnvironment,
+    pickActiveEnvironment,
     setDefaultEnvironment,
     onSelectEnvironment,
   });
@@ -787,136 +788,136 @@ const Sidebar: React.FC<SidebarProps> = ({
           variant="borderless"
         />
         <div className="rules-panel-header-actions" data-focus-skip>
-        {view === 'http-rules' && (
-          <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-            <Tooltip title="New rule" placement="bottom">
-              <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+          {view === 'http-rules' && (
+            <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
+              <Tooltip title="New rule" placement="bottom">
+                <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+                  <PlusOutlined />
+                </div>
+              </Tooltip>
+            </Dropdown>
+          )}
+          {view === 'api-requests' && (
+            <Dropdown menu={{ items: requestImportMenuItems }} trigger={['click']} placement="bottomRight">
+              <Tooltip title="Add request" placement="bottom">
+                <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+                  <PlusOutlined />
+                </div>
+              </Tooltip>
+            </Dropdown>
+          )}
+          {view === 'variables' && (
+            <Tooltip title="New environment" placement="bottom">
+              <button
+                type="button"
+                className="rules-sidebar-toolbar-icon"
+                style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+                onClick={() => void createNewEnvironment()}
+              >
                 <PlusOutlined />
+              </button>
+            </Tooltip>
+          )}
+          {view === 'workflows' && (
+            <Tooltip title="New workflow" placement="bottom">
+              <button
+                type="button"
+                className="rules-sidebar-toolbar-icon"
+                style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+                onClick={() => onCreateWorkflow?.()}
+              >
+                <PlusOutlined />
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip title="Select Opened Tab" placement="bottom">
+            <button
+              type="button"
+              className="rules-sidebar-toolbar-icon"
+              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={selectOpenedFile}
+            >
+              <AimOutlined />
+            </button>
+          </Tooltip>
+          <Tooltip title="Expand All" placement="bottom">
+            <button
+              type="button"
+              className="rules-sidebar-toolbar-icon"
+              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={expandAll}
+            >
+              <MenuUnfoldOutlined />
+            </button>
+          </Tooltip>
+          <Tooltip title="Collapse All" placement="bottom">
+            <button
+              type="button"
+              className="rules-sidebar-toolbar-icon"
+              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={collapseAll}
+            >
+              <BorderLeftOutlined />
+            </button>
+          </Tooltip>
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'behavior',
+                  label: 'Behavior',
+                  children: [
+                    {
+                      key: 'single-click',
+                      label: `${openWithSingleClick ? '✓ ' : ''}Open Entries with Single Click`,
+                      onClick: () => setOpenWithSingleClick((v) => !v),
+                    },
+                    {
+                      key: 'collections-single-click',
+                      label: `${openCollectionsWithSingleClick ? '✓ ' : ''}Open Collections with Single Click`,
+                      onClick: () => setOpenCollectionsWithSingleClick((v) => !v),
+                    },
+                    {
+                      key: 'folders-single-click',
+                      label: `${openFoldersWithSingleClick ? '✓ ' : ''}Open Folders with Single Click`,
+                      onClick: () => setOpenFoldersWithSingleClick((v) => !v),
+                    },
+                    {
+                      key: 'always-select',
+                      label: `${alwaysSelectOpened ? '✓ ' : ''}Always Select Opened Tab`,
+                      onClick: () => setAlwaysSelectOpened((v) => !v),
+                    },
+                  ],
+                },
+              ],
+            }}
+            trigger={['click']}
+            placement="bottomRight"
+            onOpenChange={setOptionsMenuOpen}
+          >
+            <Tooltip title="Options" placement="bottom" open={optionsMenuOpen ? false : undefined}>
+              <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
+                <EllipsisOutlined />
               </div>
             </Tooltip>
           </Dropdown>
-        )}
-        {view === 'api-requests' && (
-          <Dropdown menu={{ items: requestImportMenuItems }} trigger={['click']} placement="bottomRight">
-            <Tooltip title="Add request" placement="bottom">
-              <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
-                <PlusOutlined />
-              </div>
+          {onHide && (
+            <Tooltip title="Hide" placement="bottom">
+              <button
+                type="button"
+                className="rules-sidebar-toolbar-icon"
+                style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+                // preventDefault on mousedown: don't steal DOM focus from
+                // whatever the user currently has focused. The click still
+                // fires onClick after.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={onHide}
+                aria-label="Hide panel"
+              >
+                <MinusOutlined />
+              </button>
             </Tooltip>
-          </Dropdown>
-        )}
-        {view === 'variables' && (
-          <Tooltip title="New environment" placement="bottom">
-            <button
-              type="button"
-              className="rules-sidebar-toolbar-icon"
-              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-              onClick={() => void createNewEnvironment()}
-            >
-              <PlusOutlined />
-            </button>
-          </Tooltip>
-        )}
-        {view === 'workflows' && (
-          <Tooltip title="New workflow" placement="bottom">
-            <button
-              type="button"
-              className="rules-sidebar-toolbar-icon"
-              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-              onClick={() => onCreateWorkflow?.()}
-            >
-              <PlusOutlined />
-            </button>
-          </Tooltip>
-        )}
-        <Tooltip title="Select Opened Tab" placement="bottom">
-          <button
-            type="button"
-            className="rules-sidebar-toolbar-icon"
-            style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={selectOpenedFile}
-          >
-            <AimOutlined />
-          </button>
-        </Tooltip>
-        <Tooltip title="Expand All" placement="bottom">
-          <button
-            type="button"
-            className="rules-sidebar-toolbar-icon"
-            style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={expandAll}
-          >
-            <MenuUnfoldOutlined />
-          </button>
-        </Tooltip>
-        <Tooltip title="Collapse All" placement="bottom">
-          <button
-            type="button"
-            className="rules-sidebar-toolbar-icon"
-            style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={collapseAll}
-          >
-            <BorderLeftOutlined />
-          </button>
-        </Tooltip>
-        <Dropdown
-          menu={{
-            items: [
-              {
-                key: 'behavior',
-                label: 'Behavior',
-                children: [
-                  {
-                    key: 'single-click',
-                    label: `${openWithSingleClick ? '✓ ' : ''}Open Entries with Single Click`,
-                    onClick: () => setOpenWithSingleClick((v) => !v),
-                  },
-                  {
-                    key: 'collections-single-click',
-                    label: `${openCollectionsWithSingleClick ? '✓ ' : ''}Open Collections with Single Click`,
-                    onClick: () => setOpenCollectionsWithSingleClick((v) => !v),
-                  },
-                  {
-                    key: 'folders-single-click',
-                    label: `${openFoldersWithSingleClick ? '✓ ' : ''}Open Folders with Single Click`,
-                    onClick: () => setOpenFoldersWithSingleClick((v) => !v),
-                  },
-                  {
-                    key: 'always-select',
-                    label: `${alwaysSelectOpened ? '✓ ' : ''}Always Select Opened Tab`,
-                    onClick: () => setAlwaysSelectOpened((v) => !v),
-                  },
-                ],
-              },
-            ],
-          }}
-          trigger={['click']}
-          placement="bottomRight"
-          onOpenChange={setOptionsMenuOpen}
-        >
-          <Tooltip title="Options" placement="bottom" open={optionsMenuOpen ? false : undefined}>
-            <div className="rules-sidebar-toolbar-icon" style={{ color: token.colorTextSecondary }}>
-              <EllipsisOutlined />
-            </div>
-          </Tooltip>
-        </Dropdown>
-        {onHide && (
-          <Tooltip title="Hide" placement="bottom">
-            <button
-              type="button"
-              className="rules-sidebar-toolbar-icon"
-              style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
-              // preventDefault on mousedown: don't steal DOM focus from
-              // whatever the user currently has focused. The click still
-              // fires onClick after.
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={onHide}
-              aria-label="Hide panel"
-            >
-              <MinusOutlined />
-            </button>
-          </Tooltip>
-        )}
+          )}
         </div>
       </div>
 

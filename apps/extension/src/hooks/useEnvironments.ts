@@ -60,7 +60,13 @@ export interface UseEnvironmentsApi {
     expectedVersion?: number,
   ) => Promise<EnvironmentWriteResult>;
   deleteEnvironment: (uid: string) => Promise<boolean>;
-  /** Pass `null` to enter "No environment" mode. */
+  /** Raw setter — replaces the active env without touching
+   *  `manualEnvId`. Used by the env-switcher service (auto-switch
+   *  effect) for programmatic env changes from collection navigation.
+   *  UI code that handles a user-driven pick must NOT call this
+   *  directly — go through `useEnvSwitcher().pickActiveEnvironment`,
+   *  which records the manual pick + active state in one operation
+   *  and is consequently respected by the auto-switch policy. */
   setActiveEnvironment: (uid: string | null) => Promise<boolean>;
   /** Pass `null` to clear the default-env fallback. */
   setDefaultEnvironment: (uid: string | null) => Promise<boolean>;

@@ -16,6 +16,7 @@ import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-l
 import { getBrowserAPI } from '@/types/browser';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { useEnvSwitcher } from '../services/env-switcher';
 import { useSetting, useSettingValue } from '../settings/hooks';
 import type { BottomPanelAlignmentSetting, SidebarLayoutVariantSetting } from '../settings/schema/workspace-layout';
 import { DOCK_LABELS, TOOL_WINDOW_MAP } from '../tool-windows';
@@ -32,7 +33,6 @@ interface TopBarProps {
   onOpenWorkspaceManager: () => void;
   environments: V5.Environment[];
   activeEnvironmentId: string | null;
-  onSwitchEnvironment: (uid: string | null) => void;
   onCreateEnvironment: () => void;
   onOpenEnvironment: (uid: string) => void;
   onOpenWorkspaceVariables: () => void;
@@ -53,7 +53,6 @@ const TopBar: React.FC<TopBarProps> = ({
   onOpenWorkspaceManager,
   environments,
   activeEnvironmentId,
-  onSwitchEnvironment,
   onCreateEnvironment,
   onOpenEnvironment,
   onOpenWorkspaceVariables,
@@ -64,6 +63,7 @@ const TopBar: React.FC<TopBarProps> = ({
   onSetCollectionPinnedEnvs,
 }) => {
   const { token } = theme.useToken();
+  const { pickActiveEnvironment } = useEnvSwitcher();
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const openSettingsLabel = useShortcutLabel('open-settings');
   const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
@@ -281,7 +281,7 @@ const TopBar: React.FC<TopBarProps> = ({
         <EnvironmentSelector
           environments={environments}
           activeEnvironmentId={activeEnvironmentId}
-          onSwitch={onSwitchEnvironment}
+          onSwitch={pickActiveEnvironment}
           onCreateEnvironment={onCreateEnvironment}
           onOpenEnvironment={onOpenEnvironment}
           onOpenWorkspaceVariables={onOpenWorkspaceVariables}

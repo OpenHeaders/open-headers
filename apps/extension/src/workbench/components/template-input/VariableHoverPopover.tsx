@@ -16,10 +16,10 @@ import { useRules } from '@hooks/useRules';
 import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@hooks/useVariableLookup';
 import { type MutationResult, useVariableMutator } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
-import type { VariableNamespace } from '@openheaders/core/variables';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildChordsFromEvent, useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
+import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import { type ScopeKey, scopeBadge } from '../shared/scope-colors';
 
@@ -75,19 +75,28 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   // popover passes the FULL list it sees to the mutator's
   // `replace*` methods (which are pure write wrappers) so there's
   // exactly one source of truth for the read-modify-write.
-  const { activeEnvironmentId, activeEnvironment, setActiveEnvironment, environments, workspaceVariables, vault } =
-    useEnvironments();
+  const { activeEnvironmentId, activeEnvironment, environments, workspaceVariables, vault } = useEnvironments();
+  const { pickActiveEnvironment } = useEnvSwitcher();
   const { localCollections } = useRules();
   const mutator = useVariableMutator();
 
-  // Initial draft primed once at mount from the resolver — the host
-  // remounts this component for each open session (key={reference}),
-  // so we don't need a re-prime effect.
+  // Pick the candidate that matches what the resolver ACTUALLY
+  // resolved. For env scope this matters when multiple envs define
+  // the same name — the resolver checks active env first, then falls
+  // back to default env. Picking by `isActive` / `isDefault` avoids
+  // labelling a hit from "New Environment (4)" as "New Environment"
+  // just because that one happens to be first in the list.
   const candidate = useMemo<VariableCandidate | null>(() => {
     if (lookup.candidates.length === 0) return null;
     if (lookup.active) {
-      const i = lookup.candidates.findIndex((c) => c.scope === lookup.active!.scope);
-      if (i !== -1) return lookup.candidates[i];
+      const sameScope = lookup.candidates.filter((c) => c.scope === lookup.active!.scope);
+      if (sameScope.length > 0) {
+        if (lookup.active.scope === 'environment') {
+          const envHits = sameScope as Extract<VariableCandidate, { scope: 'environment' }>[];
+          return envHits.find((c) => c.isActive) ?? envHits.find((c) => c.isDefault) ?? envHits[0];
+        }
+        return sameScope[0];
+      }
     }
     return lookup.candidates[0];
   }, [lookup]);
@@ -138,25 +147,21 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
     };
   }, [anchorEl]);
 
-  // Save-chord + Escape listener. While the popover is mounted, the
-  // user's bound save chord (default Cmd/Ctrl+S) saves whatever is in
-  // the textarea regardless of focus, and Escape dismisses. We
-  // `stopPropagation` + `preventDefault` so the workspace-level save
-  // shortcut (which would save the underlying editor tab) doesn't
-  // also fire — the popover's edit takes priority while it's open.
+  // Save-chord listener. While the popover is mounted, the user's
+  // bound save chord (default Cmd/Ctrl+S) saves whatever is in the
+  // textarea regardless of focus. Capture phase + `stopPropagation`
+  // so the workspace-level save shortcut (which would save the
+  // underlying editor tab) doesn't also fire — popover edits take
+  // priority while open. Escape dismissal is handled by the host's
+  // `useDismiss`; we don't duplicate it here.
   const saveLabel = useShortcutLabel('save');
   const saveChord = useSettingValue('keyboard.save');
   // Ref-mirror of `handleSave` so the keydown listener (which is set
   // up once per popover mount) always calls the latest closure.
   const handleSaveRef = useRef<(() => void) | null>(null);
   useEffect(() => {
+    if (typeof saveChord !== 'string' || !saveChord) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-        return;
-      }
-      if (typeof saveChord !== 'string' || !saveChord) return;
       const chords = buildChordsFromEvent(e);
       if (chords.includes(saveChord)) {
         e.preventDefault();
@@ -164,12 +169,9 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
         handleSaveRef.current?.();
       }
     };
-    // Capture phase so we beat the workspace-level shortcut handler —
-    // while the popover is open, the chord saves the popover, not the
-    // underlying editor.
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose, saveChord]);
+  }, [saveChord]);
 
   const editable = candidate ? isCandidateEditable(candidate) : false;
   const resolvedScope: V5.VariableScope | 'reserved' | 'none' = lookup.active?.scope ?? candidate?.scope ?? 'none';
@@ -253,6 +255,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   return (
     <div
       role="dialog"
+      data-variable-popover-root=""
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{
@@ -315,15 +318,12 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
             color: token.colorTextSecondary,
           }}
         >
-          <span>Defined in:</span>
+          <span>Found in:</span>
           {envSuggestions.map((c) => (
             <button
               key={c.envUid}
               type="button"
-              onClick={async () => {
-                await setActiveEnvironment(c.envUid);
-                message.info(`Switched to "${c.envName}"`);
-              }}
+              onClick={() => pickActiveEnvironment(c.envUid)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -357,6 +357,10 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
             createOptions.length > 0 ? (
               <Dropdown
                 trigger={['click']}
+                // Same stacking concern as the Save tooltip — the
+                // popover sits at zIndex 1080, so default Dropdown
+                // overlay (1050) renders behind it. Bump above.
+                overlayStyle={{ zIndex: 1090 }}
                 menu={{
                   items: createOptions.map<NonNullable<MenuProps['items']>[number]>((opt) => ({
                     key: opt.key,
@@ -709,14 +713,9 @@ function buildCreateOptions(
   hasActiveEnv: boolean,
   hasCollection: boolean,
 ): CreateOption[] {
-  const restrict = (ns: VariableNamespace, key: CreateScope): CreateScope[] | null =>
-    lookup.namespace === ns ? [key] : null;
-  const allowed: CreateScope[] | null =
-    restrict('env', 'environment') ??
-    restrict('vault', 'vault') ??
-    restrict('collection', 'collection') ??
-    restrict('workspace', 'workspace') ??
-    null;
+  // Reserved / runtime-only namespaces aren't creatable from the
+  // popover — they need their dedicated editors (Live Variables, file
+  // upload, workflow steps).
   if (
     lookup.namespace === 'live' ||
     lookup.namespace === 'step' ||
@@ -725,7 +724,11 @@ function buildCreateOptions(
   ) {
     return [];
   }
-  const all: CreateScope[] = allowed ?? ['environment', 'collection', 'workspace', 'vault'];
+  // Show every creatable destination regardless of the reference's
+  // explicit namespace — matches Postman. The user picks where the
+  // variable should live; the namespace dictates where the resolver
+  // looks but doesn't constrain where storage happens.
+  const all: CreateScope[] = ['environment', 'collection', 'workspace', 'vault'];
   return all
     .map<CreateOption | null>((k) => {
       switch (k) {
