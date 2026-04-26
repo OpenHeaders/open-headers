@@ -4,11 +4,14 @@
  * close) and with section state driven by InspectorTab.activeSection.
  */
 
+import { useRules } from '@hooks/useRules';
+import type { V5 } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
 import { formatHttpVersion } from '../data/http-version';
 import type { DetailSection } from '../data/inspector-tab';
+import { findRuleCollectionId } from '../data/rule-collection';
 import { buildHeaderDraftFromRequest, handOffRuleDraft } from '../data/rule-draft-bridge';
 import type { InspectorRequest } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
@@ -20,7 +23,9 @@ import PayloadView from './detail/PayloadView';
 import PreviewView from './detail/PreviewView';
 import TimingView from './detail/TimingView';
 import { JsonTree } from './JsonTree';
+import { ResolvedHeaderValue } from './ResolvedHeaderValue';
 import { ResponseBodyView } from './ResponseBodyView';
+import { useRulePopover } from './RulePopoverHost';
 
 interface InspectorDetailContentProps {
   request: InspectorRequest;
@@ -113,6 +118,10 @@ interface AttributedHeaderRowProps {
   searchSection: string | undefined;
   searchLineNumber: number | undefined;
   searchHighlight: string | undefined;
+  /** Owning collection of the attributing rule, looked up by the parent.
+   *  Used when resolving `{{collection.X}}` tokens inside the row's value
+   *  and when the rule popover hands the same context to its TemplateInput. */
+  ruleCollectionId?: string;
   onNameClick: (name: string, value: string) => void;
 }
 
@@ -123,8 +132,10 @@ function AttributedHeaderRow({
   searchSection,
   searchLineNumber,
   searchHighlight,
+  ruleCollectionId,
   onNameClick,
 }: AttributedHeaderRowProps) {
+  const rulePopover = useRulePopover();
   const { name, value, attribution } = row;
   const kind = attribution.kind;
 
@@ -162,11 +173,45 @@ function AttributedHeaderRow({
     attributionTitle = 'Create a rule to override this header';
   }
 
+  // Rule-attributed rows hover-trigger the rule popover anywhere on
+  // the row — the row IS the modification's surface, and the popover's
+  // value field uses TemplateInput which natively opens the variable
+  // popover for `{{ref}}` editing. So one popover entry point for the
+  // whole row keeps things simple: hover anywhere on x-debug → edit the
+  // rule that produced it, with var editing inside the rule popover.
+  const direction2: 'request' | 'response' = direction;
+  const ruleForHover: V5.Rule | null =
+    kind === 'added' || kind === 'modified' || kind === 'removed' ? attribution.rule : null;
+  const operationForHover: V5.HeaderOperation | undefined =
+    kind === 'added' || kind === 'modified' ? attribution.operation : kind === 'removed' ? 'remove' : undefined;
+  const handleRowMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!ruleForHover) return;
+    rulePopover.open({
+      anchorEl: e.currentTarget,
+      rule: ruleForHover,
+      target: operationForHover ? { direction: direction2, headerName: name, operation: operationForHover } : undefined,
+    });
+  };
+  const handleRowMouseOut = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!ruleForHover) return;
+    rulePopover.scheduleClose(e.relatedTarget);
+  };
+
+  // Rule-injected / -modified rows display the resolved value (so users
+  // see what hit the wire, not the literal `{{env.foo}}`). The resolved
+  // chunks are display-only — variable editing happens inside the rule
+  // popover's TemplateInput. Server / removed rows show the raw value.
+  const showResolvedValue = kind === 'added' || kind === 'modified' || kind === 'system';
+
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance is the rule's full editor reachable via the popover.
+    // biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use "Open in editor" inside the popover.
     <div
       className={classes}
       style={{ fontFamily: 'monospace' }}
       title={kind === 'server' ? undefined : attributionTitle}
+      onMouseOver={ruleForHover ? handleRowMouseOver : undefined}
+      onMouseOut={ruleForHover ? handleRowMouseOut : undefined}
     >
       {isProtected ? (
         <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{name}</span>
@@ -181,7 +226,9 @@ function AttributedHeaderRow({
           {name}
         </button>
       )}
-      <span className="dt-kv-oh-value">: {value}</span>
+      <span className="dt-kv-oh-value">
+        : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
+      </span>
     </div>
   );
 }
@@ -201,6 +248,23 @@ export function InspectorDetailContent({
   const [error, setError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const tabBodyRef = useRef<HTMLDivElement>(null);
+  const { localCollections } = useRules();
+  // Cached `rule.uid → collectionId` for any rule referenced by an
+  // attributed row. Avoids re-walking `localCollections` on every row.
+  const ruleCollectionByUid = useMemo<Map<string, string | undefined>>(() => {
+    const m = new Map<string, string | undefined>();
+    for (const rule of rulesByUid.values()) {
+      m.set(rule.uid, findRuleCollectionId(rule, localCollections));
+    }
+    return m;
+  }, [rulesByUid, localCollections]);
+  const collectionIdFor = (h: AnnotatedHeader): string | undefined => {
+    const a = h.attribution;
+    if (a.kind === 'added' || a.kind === 'modified' || a.kind === 'removed') {
+      return ruleCollectionByUid.get(a.rule.uid);
+    }
+    return undefined;
+  };
 
   // Auto-scroll to highlighted element when search navigates here.
   // biome-ignore lint/correctness/useExhaustiveDependencies: searchLineNumber triggers re-scroll when clicking different results for the same query
@@ -404,6 +468,7 @@ export function InspectorDetailContent({
                     searchSection={searchSection}
                     searchLineNumber={searchLineNumber}
                     searchHighlight={searchHighlight}
+                    ruleCollectionId={collectionIdFor(h)}
                     onNameClick={(name, value) => createHeaderRule('response', name, value)}
                   />
                 ))
@@ -434,6 +499,7 @@ export function InspectorDetailContent({
                     searchSection={searchSection}
                     searchLineNumber={searchLineNumber}
                     searchHighlight={searchHighlight}
+                    ruleCollectionId={collectionIdFor(h)}
                     onNameClick={(name, value) => createHeaderRule('request', name, value)}
                   />
                 ))

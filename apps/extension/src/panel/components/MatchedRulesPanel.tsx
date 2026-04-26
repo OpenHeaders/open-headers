@@ -15,6 +15,7 @@ import type { V5 } from '@openheaders/core/types';
 import { PanelHeader } from '@/shared/dock-layout';
 import { type InspectorFire, type InspectorRequest, isAppliedFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
+import { useRulePopover } from './RulePopoverHost';
 
 interface MatchedRulesPanelProps {
   request: InspectorRequest | null;
@@ -97,8 +98,23 @@ function FireRow({ fire, rule }: FireRowProps) {
   const type = rule ? formatRuleType(rule) : '—';
   const actions = rule ? describeHeaderActions(rule) : [];
   const applied = isAppliedFire(fire);
+  const rulePopover = useRulePopover();
+  const handleMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!rule) return;
+    rulePopover.open({ anchorEl: e.currentTarget, rule });
+  };
+  const handleMouseOut = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!rule) return;
+    rulePopover.scheduleClose(e.relatedTarget);
+  };
   return (
-    <div className="dt-matched-rule">
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance remains the rule's full editor.
+    // biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use the existing list interactions in the panel.
+    <div
+      className="dt-matched-rule"
+      onMouseOver={rule ? handleMouseOver : undefined}
+      onMouseOut={rule ? handleMouseOut : undefined}
+    >
       <div className="dt-matched-rule-head">
         <span
           className={`dt-exec-badge ${applied ? 'dt-exec-badge--auth' : 'dt-exec-badge--inferred'}`}

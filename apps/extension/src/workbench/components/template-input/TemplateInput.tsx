@@ -37,6 +37,11 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
+// Co-located styles travel with the component — anyone who imports
+// TemplateInput automatically gets `{{ref}}` highlighting + suggestion
+// popover chrome without per-app CSS plumbing.
+import './template-input.css';
 import { useSettingValue } from '../../settings/hooks';
 import { addRecent, listRecents, pruneRecents, type VariableRecents } from './recents';
 import { useAutoSuggestionContext } from './SuggestionContextProvider';
@@ -255,6 +260,11 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const [activeIndex, setActiveIndex] = useState(0);
     const [recents, setRecents] = useState<VariableRecents | null>(null);
     const [isFocused, setIsFocused] = useState(false);
+    // Suggestion popover coords. Portal-rendered to `document.body`
+    // so the popover floats above whatever container the editable
+    // lives in (clipped panels, hover popovers, modals). Recomputed
+    // on open + on scroll/resize from the editable's bounding rect.
+    const [popoverCoords, setPopoverCoords] = useState<{ top: number; left: number } | null>(null);
     // Shared hover-popover host — single instance per app root, owns
     // open-state + close-grace timer. We just emit hover events.
     const popoverHost = useVariablePopover();
@@ -351,6 +361,27 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     useEffect(() => {
       popoverHost.closeNow();
     }, [value, isOpen]);
+
+    // Suggestion popover positioning — keep it pinned beneath the
+    // editable as the user types / the page scrolls. Portal-mounted
+    // so it ignores the editable's ancestor clipping (a clipped
+    // overflow on a hover popover / Modal / panel container would
+    // otherwise crop the dropdown).
+    useEffect(() => {
+      if (!isOpen) return;
+      const update = () => {
+        const rect = editableRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setPopoverCoords({ top: rect.bottom + 4, left: rect.left });
+      };
+      update();
+      window.addEventListener('scroll', update, true);
+      window.addEventListener('resize', update);
+      return () => {
+        window.removeEventListener('scroll', update, true);
+        window.removeEventListener('resize', update);
+      };
+    }, [isOpen]);
 
     const updateMeasure = useCallback(
       (text: string, caret: number) => {
@@ -511,7 +542,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
         if (!span) return;
         const related = e.relatedTarget as Node | null;
         if (related && span.contains(related)) return;
-        popoverHost.scheduleClose();
+        popoverHost.scheduleClose(e.relatedTarget);
       },
       [popoverHost],
     );
@@ -624,16 +655,19 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           onMouseOver={handleEditableMouseOver}
           onMouseOut={handleEditableMouseOut}
         />
-        {isOpen && (
-          <div className="oh-template-popover-anchor">
-            <SuggestionPopover
-              suggestions={suggestions}
-              activeIndex={activeIndex}
-              onActiveIndexChange={setActiveIndex}
-              onSelect={insertReference}
-            />
-          </div>
-        )}
+        {isOpen &&
+          popoverCoords &&
+          createPortal(
+            <div className="oh-template-popover-anchor" style={{ top: popoverCoords.top, left: popoverCoords.left }}>
+              <SuggestionPopover
+                suggestions={suggestions}
+                activeIndex={activeIndex}
+                onActiveIndexChange={setActiveIndex}
+                onSelect={insertReference}
+              />
+            </div>,
+            document.body,
+          )}
       </span>
     );
   },

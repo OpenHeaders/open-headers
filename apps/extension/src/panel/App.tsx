@@ -19,6 +19,7 @@ import { MatchedRulesPanel } from './components/MatchedRulesPanel';
 import PanelStatusBar from './components/PanelStatusBar';
 import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
+import { RulePopoverProvider } from './components/RulePopoverHost';
 import { SearchPanel } from './components/SearchPanel';
 import { TrafficList } from './components/TrafficList';
 import type { ColumnKey } from './components/traffic/columns';
@@ -112,7 +113,9 @@ export default function App() {
     <ShellEventBusContext.Provider value={busHandle.bus}>
       <EnvSwitcherProvider>
         <VariablePopoverProvider>
-          <PanelContent />
+          <RulePopoverProvider>
+            <PanelContent />
+          </RulePopoverProvider>
         </VariablePopoverProvider>
       </EnvSwitcherProvider>
     </ShellEventBusContext.Provider>

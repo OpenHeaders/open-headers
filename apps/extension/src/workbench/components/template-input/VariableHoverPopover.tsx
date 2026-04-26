@@ -18,6 +18,7 @@ import { type MutationResult, useVariableMutator } from '@hooks/useVariableMutat
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePopoverPlacement } from '@/shared/use-popover-placement';
 import { buildChordsFromEvent, useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
@@ -33,7 +34,10 @@ export interface VariableHoverPopoverProps {
   collectionId?: string;
   onClose: () => void;
   onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
+  onMouseLeave?: (e: React.MouseEvent) => void;
+  /** Host-controlled visibility for the open/close transition.
+   *  Defaults to true so the popover can be used standalone. */
+  visible?: boolean;
 }
 
 /** Map a resolver scope (`V5.VariableScope`) plus the popover-only
@@ -48,13 +52,6 @@ function toScopeKey(scope: V5.VariableScope | 'reserved' | 'none'): ScopeKey | n
 }
 
 const POPOVER_WIDTH = 380;
-const POPOVER_GAP = 6;
-
-function initialPosition(anchorEl: HTMLElement): { top: number; left: number } {
-  const rect = anchorEl.getBoundingClientRect();
-  const left = Math.max(8, Math.min(window.innerWidth - POPOVER_WIDTH - 8, rect.left));
-  return { top: rect.bottom + POPOVER_GAP, left };
-}
 
 const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   anchorEl,
@@ -63,6 +60,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   onClose,
   onMouseEnter,
   onMouseLeave,
+  visible = true,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -101,7 +99,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
     return lookup.candidates[0];
   }, [lookup]);
 
-  const [position, setPosition] = useState<{ top: number; left: number }>(() => initialPosition(anchorEl));
+  const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH);
   const [draft, setDraft] = useState<string>(() => currentValue(candidate, lookup.active?.value ?? ''));
   const [draftDirty, setDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -130,22 +128,6 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
     draftRef.current = next;
     setDraft(next);
   }, [candidate, lookup.active?.value]);
-
-  useEffect(() => {
-    const update = () => {
-      const rect = anchorEl.getBoundingClientRect();
-      const left = Math.max(8, Math.min(window.innerWidth - POPOVER_WIDTH - 8, rect.left));
-      const top = rect.bottom + POPOVER_GAP;
-      setPosition({ top, left });
-    };
-    update();
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
-    };
-  }, [anchorEl]);
 
   // Save-chord listener. While the popover is mounted, the user's
   // bound save chord (default Cmd/Ctrl+S) saves whatever is in the
@@ -254,6 +236,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
 
   return (
     <div
+      ref={popoverRef as React.RefCallback<HTMLDivElement>}
       role="dialog"
       data-variable-popover-root=""
       onMouseEnter={onMouseEnter}
@@ -269,6 +252,19 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
         borderRadius: token.borderRadiusLG,
         boxShadow: token.boxShadowSecondary,
         padding: 12,
+        // Visibility = AND of:
+        //   `measured` — placement hook has seen layout settle across
+        //     two frames (open transition guard, prevents flicker).
+        //   `visible` — host hasn't started the close animation
+        //     (close transition guard, mirrors the open transition).
+        // Either being false fades opacity / transform to 0; both
+        // true reveals at full opacity. The CSS transition handles
+        // the animation in both directions.
+        visibility: measured ? 'visible' : 'hidden',
+        opacity: measured && visible ? 1 : 0,
+        transform: measured && visible ? 'scale(1)' : 'scale(0.96)',
+        transformOrigin: `${position.side === 'above' ? 'bottom' : 'top'} left`,
+        transition: 'opacity 120ms ease-out, transform 120ms ease-out',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
