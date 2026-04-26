@@ -45,9 +45,7 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ title, actions, optionsMenuIt
       style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
     >
       {title !== undefined && (
-        <div className="rules-panel-header-title">
-          {typeof title === 'string' ? <strong>{title}</strong> : title}
-        </div>
+        <div className="rules-panel-header-title">{typeof title === 'string' ? <strong>{title}</strong> : title}</div>
       )}
       <div className="rules-panel-header-actions" data-focus-skip>
         {actions}

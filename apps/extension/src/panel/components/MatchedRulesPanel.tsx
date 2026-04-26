@@ -119,7 +119,11 @@ function FireRow({ fire, rule }: FireRowProps) {
   // Identity prefers the snapshot — for a deleted rule we still want to
   // display the name the rule had when it fired, not the bare uid.
   const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
-  const type = rule ? formatRuleType(rule) : fire.ruleSnapshot ? formatRuleTypeFromSnapshot(fire.ruleSnapshot.type) : '—';
+  const type = rule
+    ? formatRuleType(rule)
+    : fire.ruleSnapshot
+      ? formatRuleTypeFromSnapshot(fire.ruleSnapshot.type)
+      : '—';
   const actions = describeHeaderActions(fire, rule);
   const applied = isAppliedFire(fire);
   const rulePopover = useRulePopover();

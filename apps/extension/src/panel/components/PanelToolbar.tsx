@@ -7,8 +7,8 @@ import type { DockLayoutApi } from '@/shared/dock-layout';
 import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
 import { getBrowserAPI } from '@/types/browser';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
-import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 import type { FilterConfig } from '../data/filter-engine';
+import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 import { PanelEnvironmentSelector } from './PanelEnvironmentSelector';
 import { RuleExecutionsHint } from './RuleExecutions';
 
@@ -342,7 +342,9 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
     </Space>
   );
 
-  const alignmentGlyph = (a: BottomPanelAlignmentSetting): 'bottom-full' | 'bottom-left' | 'bottom-right' | 'bottom-nested' =>
+  const alignmentGlyph = (
+    a: BottomPanelAlignmentSetting,
+  ): 'bottom-full' | 'bottom-left' | 'bottom-right' | 'bottom-nested' =>
     a === 'justify' ? 'bottom-full' : a === 'left' ? 'bottom-left' : a === 'right' ? 'bottom-right' : 'bottom-nested';
 
   const layoutMenu: MenuProps['items'] = [

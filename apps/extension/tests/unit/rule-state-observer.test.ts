@@ -32,7 +32,7 @@ function rule(uid: string, opts: { domain?: string; enabled?: boolean; path?: st
     type: 'block',
     enabled: opts.enabled ?? true,
     conditions: [{ type: 'request-domains', values: [domain] }],
-    action: { statusCode: 403 },
+    action: {},
   } as V5.Rule;
 }
 
@@ -349,7 +349,7 @@ describe('broad fallback', () => {
       type: 'block',
       enabled: true,
       conditions: [{ type: 'url-filter', values: ['*://*.openheaders.io/*'] }],
-      action: { statusCode: 403 },
+      action: {},
     } as unknown as V5.Rule;
 
     observeRuleState([broadRule], NO_MARKERS, false);

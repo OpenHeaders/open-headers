@@ -6,15 +6,15 @@ const KIND_OPTIONS = [
   {
     label: 'Response body',
     options: [
-      { value: 'whole-body' as const,  label: 'Whole body' },
-      { value: 'json-path' as const,   label: 'JSON path' },
-      { value: 'body-regex' as const,  label: 'Regex' },
+      { value: 'whole-body' as const, label: 'Whole body' },
+      { value: 'json-path' as const, label: 'JSON path' },
+      { value: 'body-regex' as const, label: 'Regex' },
     ],
   },
   {
     label: 'Response',
     options: [
-      { value: 'header' as const,      label: 'Header' },
+      { value: 'header' as const, label: 'Header' },
       { value: 'status-code' as const, label: 'Status code' },
     ],
   },

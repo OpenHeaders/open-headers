@@ -51,7 +51,6 @@ export function collectRuleTemplateStrings(rule: Rule): string[] {
       break;
     }
     case 'redirect':
-      if (rule.action.matchPattern) out.push(rule.action.matchPattern);
       if (rule.action.redirectTo) out.push(rule.action.redirectTo);
       break;
     case 'body':
@@ -66,7 +65,7 @@ export function collectRuleTemplateStrings(rule: Rule): string[] {
       if (rule.action.code) out.push(rule.action.code);
       break;
     case 'block':
-      if (rule.action.responseBody) out.push(rule.action.responseBody);
+      // No user-templated string fields on block actions.
       break;
     case 'delay':
       // Delay rules have no user-templated string fields today.

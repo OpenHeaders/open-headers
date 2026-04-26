@@ -361,8 +361,7 @@ export function attributeHeaders(
         // `injectingRule` so the popover can explain the chain.
         const cancelled = addedByName.get(key);
         if (cancelled) {
-          const cancelledCtx =
-            cancelled.attribution.kind === 'added' ? cancelled.attribution.ctx : null;
+          const cancelledCtx = cancelled.attribution.kind === 'added' ? cancelled.attribution.ctx : null;
           addedByName.set(key, {
             name: cancelled.name,
             value: cancelled.value,

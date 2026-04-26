@@ -123,7 +123,7 @@ describe('blockCompiler resource-type handling', () => {
       { type: 'request-domains', values: ['openheaders.io'] },
       { type: 'exclude-resource-types', values: ['image'] },
     ],
-    action: { statusCode: 403 },
+    action: {},
   };
 
   it('emits resolved resourceTypes and never excludedResourceTypes', () => {
@@ -164,7 +164,7 @@ describe('redirectCompiler resource-type handling', () => {
       { type: 'resource-types', values: ['page', 'xhr'] },
       { type: 'exclude-resource-types', values: ['xhr'] },
     ],
-    action: { matchPattern: '*://openheaders.io/*', redirectTo: 'https://test.openheaders.io/' },
+    action: { redirectTo: 'https://test.openheaders.io/' },
   };
 
   it('intersects include then subtracts exclude', () => {

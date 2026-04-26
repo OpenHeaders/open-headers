@@ -677,9 +677,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         size="small"
         style={{ width: 96, flexShrink: 0 }}
         popupMatchSelectWidth={false}
-        labelRender={({ label }) => (
-          <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
-        )}
+        labelRender={({ label }) => <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>}
       />
       <TemplateInput
         value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}

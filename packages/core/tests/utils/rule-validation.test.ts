@@ -18,18 +18,18 @@ describe('isRuleComplete', () => {
   // ── Conditions (common to all) ─────────────────────────────────
 
   it('returns false when conditions is empty', () => {
-    expect(isRuleComplete({ ...base, conditions: [], type: 'block', action: { statusCode: 403 } })).toBe(false);
+    expect(isRuleComplete({ ...base, conditions: [], type: 'block', action: {} })).toBe(false);
   });
 
   it('returns false when all condition values are whitespace', () => {
     const emptyCondition: RuleCondition = { type: 'request-domains', values: ['  ', ''] };
-    expect(isRuleComplete({ ...base, conditions: [emptyCondition], type: 'block', action: { statusCode: 403 } })).toBe(
+    expect(isRuleComplete({ ...base, conditions: [emptyCondition], type: 'block', action: {} })).toBe(
       false,
     );
   });
 
   it('returns true with a valid condition', () => {
-    expect(isRuleComplete({ ...base, type: 'block', action: { statusCode: 403 } })).toBe(true);
+    expect(isRuleComplete({ ...base, type: 'block', action: {} })).toBe(true);
   });
 
   it('returns true with multiple conditions', () => {
@@ -39,14 +39,14 @@ describe('isRuleComplete', () => {
         ...base,
         conditions: [hostCondition, methodCondition],
         type: 'block',
-        action: { statusCode: 403 },
+        action: {},
       }),
     ).toBe(true);
   });
 
   it('returns false when condition values array is empty', () => {
     const noValues: RuleCondition = { type: 'request-domains', values: [] };
-    expect(isRuleComplete({ ...base, conditions: [noValues], type: 'block', action: { statusCode: 403 } })).toBe(false);
+    expect(isRuleComplete({ ...base, conditions: [noValues], type: 'block', action: {} })).toBe(false);
   });
 
   // ── Header ──────────────────────────────────────────────────────
@@ -97,19 +97,19 @@ describe('isRuleComplete', () => {
   // ── Block ───────────────────────────────────────────────────────
 
   it('block: complete with just conditions', () => {
-    expect(isRuleComplete({ ...base, type: 'block', action: { statusCode: 403 } })).toBe(true);
+    expect(isRuleComplete({ ...base, type: 'block', action: {} })).toBe(true);
   });
 
   // ── Redirect ────────────────────────────────────────────────────
 
   it('redirect: complete with redirectTo', () => {
     expect(
-      isRuleComplete({ ...base, type: 'redirect', action: { matchPattern: '', redirectTo: 'https://openheaders.io' } }),
+      isRuleComplete({ ...base, type: 'redirect', action: { redirectTo: 'https://openheaders.io' } }),
     ).toBe(true);
   });
 
   it('redirect: incomplete without redirectTo', () => {
-    expect(isRuleComplete({ ...base, type: 'redirect', action: { matchPattern: '', redirectTo: '' } })).toBe(false);
+    expect(isRuleComplete({ ...base, type: 'redirect', action: { redirectTo: '' } })).toBe(false);
   });
 
   // ── Query Param ─────────────────────────────────────────────────
@@ -202,18 +202,72 @@ describe('isRuleComplete', () => {
         ...base,
         conditions: [hostCondition, excludeCondition],
         type: 'block',
-        action: { statusCode: 403 },
+        action: {},
       }),
     ).toBe(true);
   });
 
   // ── Header condition types ──────────────────────────────────────
 
-  it('request-header condition with headerName is valid', () => {
-    const headerCondition: RuleCondition = { type: 'request-header', values: ['Bearer*'], headerName: 'Authorization' };
-    expect(isRuleComplete({ ...base, conditions: [headerCondition], type: 'block', action: { statusCode: 403 } })).toBe(
+  it('response-header condition with headerName is valid', () => {
+    const headerCondition: RuleCondition = {
+      type: 'response-header',
+      values: ['application/json'],
+      headerName: 'Content-Type',
+    };
+    expect(isRuleComplete({ ...base, conditions: [headerCondition], type: 'block', action: {} })).toBe(
       true,
     );
+  });
+
+  // ── Per-condition input validation gating ──────────────────────
+  //
+  // Errors that Chrome's DNR will reject ought to render the rule
+  // INCOMPLETE so the compiler skips it instead of breaking the
+  // updateDynamicRules batch atomically. Warnings stay advisory.
+
+  it('rejects a request-domains row whose value contains regex syntax (non-ascii kind)', () => {
+    const c: RuleCondition = { type: 'request-domains', values: ['^example.org'] };
+    expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
+  });
+
+  it('rejects a url-regex row that does not compile', () => {
+    const c: RuleCondition = { type: 'url-regex', values: ['^https://[unclosed'] };
+    expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
+  });
+
+  it('rejects a url-filter row with whitespace inside the pattern', () => {
+    const c: RuleCondition = { type: 'url-filter', values: ['*://api openheaders io/*'] };
+    expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
+  });
+
+  it('rejects a request-methods row with an unknown method', () => {
+    const c: RuleCondition = { type: 'request-methods', values: ['BREW'] };
+    expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
+  });
+
+  it('rejects a response-header row missing the header name', () => {
+    const c: RuleCondition = { type: 'response-header', values: ['application/json'], headerName: '' };
+    expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
+  });
+
+  it('does NOT reject for advisory warnings — rule still compiles', () => {
+    // url-filter with regex-looking syntax → warning, not error.
+    const c: RuleCondition = { type: 'url-filter', values: ['*://api+.openheaders.io/*'] };
+    expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(true);
+  });
+
+  it('does NOT reject for auto-fixable domain mistakes — they have a clean-up path', () => {
+    // `*.foo.com` is a wildcard mistake (auto-fixable to `foo.com`),
+    // not a structurally-broken value. Stays complete; banner offers cleanup.
+    const c: RuleCondition = { type: 'request-domains', values: ['*.foo.com'] };
+    expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(true);
+  });
+
+  it('rejects when ANY of multiple conditions is invalid', () => {
+    const good: RuleCondition = { type: 'request-domains', values: ['openheaders.io'] };
+    const bad: RuleCondition = { type: 'request-methods', values: ['INVALID'] };
+    expect(isRuleComplete({ ...base, conditions: [good, bad], type: 'block', action: {} })).toBe(false);
   });
 });
 
@@ -308,7 +362,7 @@ describe('isRuleResolvable', () => {
     const rule = {
       ...base,
       type: 'redirect' as const,
-      action: { matchPattern: '(.*)', redirectTo: 'https://{{HOST}}/r' },
+      action: { redirectTo: 'https://{{HOST}}/r' },
     };
     expect(isRuleResolvable(rule, lookupFromMap({ HOST: 'openheaders.io' }))).toBe(true);
     expect(isRuleResolvable(rule, () => null)).toBe(false);

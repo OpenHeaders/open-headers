@@ -104,11 +104,7 @@ export function mergeFireEvidence<T extends InspectorFire>(existing: T, incoming
   // — covers the race where the authoritative fire (which carries a
   // snapshot) arrives before the inferred fire (which would also).
   const snap = existing.ruleSnapshot ?? incoming.ruleSnapshot;
-  if (
-    auth === existing.authoritative &&
-    ev === existing.evidence &&
-    snap === existing.ruleSnapshot
-  ) {
+  if (auth === existing.authoritative && ev === existing.evidence && snap === existing.ruleSnapshot) {
     return existing;
   }
   return {

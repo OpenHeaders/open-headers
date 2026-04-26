@@ -316,10 +316,7 @@ export async function setManualEnv(uid: string | null): Promise<boolean> {
   return true;
 }
 
-export async function setCollectionEnvOverride(
-  collectionId: string,
-  envId: string | null | undefined,
-): Promise<void> {
+export async function setCollectionEnvOverride(collectionId: string, envId: string | null | undefined): Promise<void> {
   const workspaceId = assertLoaded();
   const next = { ...collectionEnvOverrides };
   if (envId === undefined) {
@@ -570,20 +567,27 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     workspaceId,
   });
 
-  const [environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault, rawOverrides, manualEnvId] =
-    await Promise.all([
-      extensionStorage.getValidatedArray(keys.environments, EnvironmentSchema, {
-        onError: drift(keys.environments.key),
-      }),
-      extensionStorage.get(keys.activeEnvironmentId),
-      extensionStorage.get(keys.defaultEnvironmentId),
-      extensionStorage.getValidated(keys.workspaceVars, WorkspaceVariablesSchema, {
-        onError: drift(keys.workspaceVars.key),
-      }),
-      extensionStorage.getValidated(keys.vault, VaultSchema, { onError: vaultDrift }),
-      extensionStorage.get(keys.collectionEnvOverrides),
-      extensionStorage.get(keys.manualEnvId),
-    ]);
+  const [
+    environments,
+    activeEnvironmentId,
+    defaultEnvironmentId,
+    workspaceVariables,
+    vault,
+    rawOverrides,
+    manualEnvId,
+  ] = await Promise.all([
+    extensionStorage.getValidatedArray(keys.environments, EnvironmentSchema, {
+      onError: drift(keys.environments.key),
+    }),
+    extensionStorage.get(keys.activeEnvironmentId),
+    extensionStorage.get(keys.defaultEnvironmentId),
+    extensionStorage.getValidated(keys.workspaceVars, WorkspaceVariablesSchema, {
+      onError: drift(keys.workspaceVars.key),
+    }),
+    extensionStorage.getValidated(keys.vault, VaultSchema, { onError: vaultDrift }),
+    extensionStorage.get(keys.collectionEnvOverrides),
+    extensionStorage.get(keys.manualEnvId),
+  ]);
 
   const parsedOverrides: Record<string, string | null> =
     rawOverrides !== null &&

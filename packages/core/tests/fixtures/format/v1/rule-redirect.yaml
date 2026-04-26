@@ -9,5 +9,4 @@ conditions:
     values:
       - "||staging.openheaders.io/*"
 action:
-  matchPattern: https://staging.openheaders.io/*
   redirectTo: http://localhost:3000/{0}

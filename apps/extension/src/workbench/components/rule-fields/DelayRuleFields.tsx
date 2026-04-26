@@ -35,7 +35,10 @@ const DelayRuleFields: React.FC = () => {
           Delay
         </Text>
         <Form.Item name="delayMs" style={{ marginBottom: 0 }}>
-          <InputNumber min={0} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
+          {/* min={1}: a 0ms delay makes the rule a no-op (the compiler skips
+              `delayMs === 0`), so the rule would save but never fire. Forcing
+              >=1 keeps "saved" and "effective" aligned. */}
+          <InputNumber min={1} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
         </Form.Item>
         <Text type="secondary" style={{ fontSize: 11 }}>
           Max 30,000 ms

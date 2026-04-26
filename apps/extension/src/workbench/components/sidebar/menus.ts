@@ -35,11 +35,7 @@ export interface ContainerAddMenuOptions {
   onAddFolder: () => void;
 }
 
-export function containerAddMenuItems({
-  onAddRule,
-  onAddRequest,
-  onAddFolder,
-}: ContainerAddMenuOptions): ItemType[] {
+export function containerAddMenuItems({ onAddRule, onAddRequest, onAddFolder }: ContainerAddMenuOptions): ItemType[] {
   const items: ItemType[] = [];
   if (onAddRule) {
     items.push({

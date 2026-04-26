@@ -43,7 +43,7 @@ function makeRedirectRule(overrides: Partial<RedirectRule> = {}): RedirectRule {
     enabled: true,
     conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
     action: {
-      matchPattern: 'https://{{HOST}}/old',
+      
       redirectTo: 'https://{{HOST}}/new',
     },
     ...overrides,

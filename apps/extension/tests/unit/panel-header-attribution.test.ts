@@ -1,8 +1,8 @@
 import type { V5 } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
 import { attributeHeaders } from '@/panel/data/header-attribution';
 import type { InspectorFire } from '@/panel/data/types';
+import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
 
 function headerRule(
   uid: string,
@@ -323,7 +323,7 @@ describe('attributeHeaders', () => {
       name: 'Redir',
       enabled: true,
       conditions: [],
-      action: { matchPattern: 'x', redirectTo: 'y' },
+      action: { redirectTo: 'y' },
     } as unknown as V5.Rule;
     const result = attributeHeaders([{ name: 'Location', value: '/old' }], [fire('r1')], 'response', byUid(nonHeader));
     expect(result[0].attribution.kind).toBe('server');
@@ -593,18 +593,8 @@ describe('attributeHeaders', () => {
     // `ruleSnapshot`. The attributor synthesizes one from the live rule
     // so the row still renders — but never marks it edited (no
     // baseline to compare against).
-    const rule = headerRule(
-      'r1',
-      'X',
-      [{ operation: 'override', headerName: 'X-Foo', value: 'live' }],
-      'response',
-    );
-    const result = attributeHeaders(
-      [{ name: 'X-Foo', value: 'server' }],
-      [fire('r1')],
-      'response',
-      byUid(rule),
-    );
+    const rule = headerRule('r1', 'X', [{ operation: 'override', headerName: 'X-Foo', value: 'live' }], 'response');
+    const result = attributeHeaders([{ name: 'X-Foo', value: 'server' }], [fire('r1')], 'response', byUid(rule));
     expect(result[0].value).toBe('live');
     if (result[0].attribution.kind === 'modified') {
       expect(result[0].attribution.ctx.edited).toBe(false);

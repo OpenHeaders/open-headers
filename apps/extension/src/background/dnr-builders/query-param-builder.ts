@@ -38,10 +38,14 @@ export const queryParamCompiler: RuleCompiler<V5.QueryParamRule> = {
           break;
         case 'add':
           if (!entry.param?.trim()) continue;
+          // `addOrReplaceParams` without `replaceOnly` — adds when missing,
+          // overwrites when present. Editor labels this "ADD / REPLACE".
           addOrReplaceParams.push({ key: entry.param, value: entry.value ?? '' });
           break;
         case 'override':
           if (!entry.param?.trim()) continue;
+          // `addOrReplaceParams` with `replaceOnly: true` — updates only when
+          // the param is already present; leaves the URL untouched otherwise.
           addOrReplaceParams.push({ key: entry.param, value: entry.value ?? '', replaceOnly: true });
           break;
         case 'remove':

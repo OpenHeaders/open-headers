@@ -30,7 +30,6 @@ import {
   EyeOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { PanelHeader } from '@/shared/dock-layout';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
@@ -43,9 +42,10 @@ import { VariableResolver } from '@openheaders/core/variables';
 import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SCOPE_COLORS, scopeBadge } from '../shared/scope-colors';
+import { PanelHeader } from '@/shared/dock-layout';
 import type { TabMode, WorkbenchTab } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
+import { SCOPE_COLORS, scopeBadge } from '../shared/scope-colors';
 import TotpPreview from '../totp/TotpPreview';
 
 // ── Scope kind (context classification of the focused tab) ─────────
@@ -81,11 +81,11 @@ interface VariablesPanelProps {
 // ── Scope config ────────────────────────────────────────────────────
 
 const SCOPE_CONFIG = {
-  vault:       { label: 'Vault',       priority: 'highest',  color: SCOPE_COLORS.vault.color },
-  environment: { label: 'Environment', priority: 'high',     color: SCOPE_COLORS.environment.color },
-  collection:  { label: 'Collection',  priority: 'medium',   color: SCOPE_COLORS.collection.color },
-  workspace:   { label: 'Workspace',   priority: 'lowest',   color: SCOPE_COLORS.workspace.color },
-  live:        { label: 'Live',        priority: 'resolved', color: SCOPE_COLORS.live.color },
+  vault: { label: 'Vault', priority: 'highest', color: SCOPE_COLORS.vault.color },
+  environment: { label: 'Environment', priority: 'high', color: SCOPE_COLORS.environment.color },
+  collection: { label: 'Collection', priority: 'medium', color: SCOPE_COLORS.collection.color },
+  workspace: { label: 'Workspace', priority: 'lowest', color: SCOPE_COLORS.workspace.color },
+  live: { label: 'Live', priority: 'resolved', color: SCOPE_COLORS.live.color },
 } as const;
 
 type DisplayScope = keyof typeof SCOPE_CONFIG;

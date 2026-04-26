@@ -7,6 +7,8 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { validateConditionStructure } from '@openheaders/core/utils';
+import { logger } from '@utils/logger';
 
 // ── DNR rule shape ───────────────────────────────────────────────
 
@@ -192,6 +194,18 @@ export function buildDnrCondition(conditions: V5.RuleCondition[]): {
   let useRegex = false;
   let urlPattern: string | undefined;
 
+  // Surface structural issues (duplicate singletons, mutex conflicts,
+  // unsupported-by-DNR types) at compile time. The compiler's behavior
+  // remains "last write wins" on shared slots — same as before — but
+  // every overwrite now leaves an observability trace so the same data
+  // never reaches Chrome silently. The editor renders the same issues
+  // inline; this logger call covers programmatic / imported writes that
+  // bypassed the editor.
+  const structuralIssues = validateConditionStructure(conditions);
+  for (const issue of structuralIssues) {
+    logger.warn('DnrCondition', `${issue.kind} on row ${issue.index} (${issue.type}): ${issue.message}`);
+  }
+
   for (const cond of conditions) {
     const vals = cond.values.filter((v) => v.trim());
     if (vals.length === 0 && cond.type !== 'domain-type') continue;
@@ -245,17 +259,9 @@ export function buildDnrCondition(conditions: V5.RuleCondition[]): {
         break;
 
       // ── Response header matching (Chrome 128+) ──
-      //
-      // Chrome DNR only supports response-header matching on
-      // `RuleCondition`. `request-header` / `exclude-request-header`
-      // conditions stay in the V5 authoring model (the editor still
-      // accepts them) but are silently dropped from the compiled DNR
-      // rule — emitting them would trip Chrome's
-      // "Unexpected property: 'requestHeaders'" rejection and wipe
-      // out the whole `updateDynamicRules` call.
-      case 'request-header':
-      case 'exclude-request-header':
-        break;
+      // Request-side matching was never shipped by Chrome MV3 DNR, so
+      // those condition types don't exist in the schema. If they ever
+      // ship, add them in `ConditionTypeSchema` + `CONDITION_META` first.
       case 'response-header':
         if (cond.headerName) {
           base.responseHeaders = [

@@ -8,5 +8,4 @@ conditions:
   - type: request-domains
     values:
       - analytics.openheaders.io
-action:
-  statusCode: 403
+action: {}

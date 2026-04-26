@@ -27,8 +27,6 @@ const CONDITION_DOC_ID: Record<string, string> = {
   'resource-types': 'doc-resource-types',
   'exclude-resource-types': 'doc-resource-types',
   'domain-type': 'doc-domain-type',
-  'request-header': 'doc-headers',
-  'exclude-request-header': 'doc-headers',
   'response-header': 'doc-headers',
   'exclude-response-header': 'doc-headers',
 };
@@ -49,6 +47,7 @@ const ACTION_DOC_ID: Record<string, string> = {
   mock: 'actions-mock',
   // Query param operations
   'qp-add': 'doc-qp-add',
+  'qp-override': 'doc-qp-override',
   'qp-remove': 'doc-qp-remove',
   'qp-remove-all': 'doc-qp-remove-all',
   // Inject types
@@ -704,7 +703,7 @@ const InspectorDocs: React.FC = () => {
         <SectionTitle id="actions">Actions</SectionTitle>
 
         <div id="doc-override" style={{ scrollMarginTop: 8 }}>
-          <Card title="Override" extra={<Tag color="blue">DNR set</Tag>}>
+          <Card title="Add / Replace" extra={<Tag color="blue">DNR set</Tag>}>
             Sets the header to this value. Replaces if present, adds if missing. Always results in exactly one header
             with your value.
             <Example
@@ -817,6 +816,18 @@ const InspectorDocs: React.FC = () => {
             <Example rule="debug = true" before={['?page=1']} after={['?page=1&debug=true']} />
           </Card>
         </div>
+        <div id="doc-qp-override" style={{ scrollMarginTop: 8 }}>
+          <Card title="Replace Only" extra={<Tag color="blue">replaceOnly</Tag>}>
+            Replaces the value <strong>only when the parameter is already present</strong>. URLs that don't carry the
+            param are left untouched. Use this to canonicalize a value (e.g. force <code>region=eu</code> on URLs
+            already carrying any other region) without injecting the param into URLs that didn't have it.
+            <Example
+              rule="region = eu (override)"
+              before={['?region=us', '?page=1']}
+              after={['?region=eu', '?page=1']}
+            />
+          </Card>
+        </div>
         <div id="doc-qp-remove" style={{ scrollMarginTop: 8 }}>
           <Card title="Remove" extra={<Tag color="red">removeParams</Tag>}>
             Removes specific parameters by name. Value is ignored.
@@ -841,8 +852,10 @@ const InspectorDocs: React.FC = () => {
         </DocParagraph>
         <div id="doc-inject-script" style={{ scrollMarginTop: 8 }}>
           <Card title="Script Injection" extra={<Tag color="orange">JavaScript</Tag>}>
-            Inline code or an external URL. Choose insertion point: head (before page scripts), body-start, or body-end
-            (after page loads).
+            Inline code or an external URL. Choose insertion timing: <strong>As Soon As Possible</strong> (runs before
+            the page's own scripts — useful for monkey-patches that need to win the race) or{' '}
+            <strong>After Page Load</strong> (runs once the page has parsed — the safer default for code that reads
+            the DOM).
           </Card>
         </div>
         <div id="doc-inject-css" style={{ scrollMarginTop: 8 }}>
@@ -855,12 +868,24 @@ const InspectorDocs: React.FC = () => {
         {/* ── Delay Rules ── */}
         <SectionTitle id="actions-delay">Delay Rules</SectionTitle>
         <DocParagraph>
-          Adds artificial latency to matching requests. Script-based — intercepts <code>fetch()</code> and{' '}
-          <code>XMLHttpRequest</code>.
+          Adds artificial latency to matching requests. Two execution paths run in parallel depending on what kind
+          of request is matched.
         </DocParagraph>
         <Card size="small">
-          In the browser extension, delay is capped at 5,000ms for XHR/fetch to avoid performance degradation. Static
-          resources (images, scripts, stylesheets) are not affected. The desktop app has no restrictions.
+          <p style={{ marginTop: 0 }}>
+            <strong>Document &amp; iframe navigations</strong> are routed through a local waiting page. Honors delays
+            up to <strong>30,000 ms</strong> (the DNR ceiling).
+          </p>
+          <p>
+            <strong>JS-initiated XHR / fetch</strong> is intercepted by a <code>fetch()</code> /{' '}
+            <code>XMLHttpRequest</code> monkey-patch. Capped at <strong>5,000 ms</strong> to avoid starving Chrome's
+            HTTP connection pool — values above are clamped on the wire.
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            <strong>Sub-resources</strong> (images, scripts, stylesheets, fonts) are <strong>not delayed</strong> —
+            they need a real local proxy that can hold the connection open and stream bytes, which an extension can't
+            do.
+          </p>
         </Card>
 
         {/* ── Body Modification ── */}
@@ -881,9 +906,11 @@ const InspectorDocs: React.FC = () => {
           </Card>
         </div>
         <div id="doc-body-graphql" style={{ scrollMarginTop: 8 }}>
-          <Card title="GraphQL Filter" extra={<Tag color="cyan">operationName</Tag>}>
-            Filter by GraphQL operation name in the request payload. Only modifies requests matching the operation.
-            Leave empty to match all GraphQL operations.
+          <Card title="GraphQL Filter" extra={<Tag color="default">Coming soon</Tag>}>
+            Filter by GraphQL operation name in the request payload. The schema fields are in place; the runtime
+            payload-matching logic isn't shipped yet, so the GraphQL radio is disabled in the editor for now. When
+            it lands, this section will describe how to filter by <code>operationName</code> or query substring with
+            an Equals / Contains operator.
           </Card>
         </div>
 
@@ -894,14 +921,18 @@ const InspectorDocs: React.FC = () => {
           <code>XMLHttpRequest</code>.
         </DocParagraph>
         <div id="doc-mock-static" style={{ scrollMarginTop: 8 }}>
-          <Card title="Static Response" extra={<Tag color="blue">Fixed JSON</Tag>}>
-            Return a fixed response body with a custom status code and content type. The real request is never made.
+          <Card title="Static Response" extra={<Tag color="blue">Fixed body</Tag>}>
+            Return a fixed body with full control over the synthetic response: status code, Content-Type, and any
+            additional response headers (Set-Cookie, CORS headers, custom flags). The real request is never made —
+            useful for offline development against a known fixture.
           </Card>
         </div>
         <div id="doc-mock-dynamic" style={{ scrollMarginTop: 8 }}>
           <Card title="Dynamic Response" extra={<Tag color="purple">Function</Tag>}>
             The real request is made first. Your function receives the response and request context, then returns the
-            modified response. Receives <code>{'{status, body, bodyAsJson, url, method}'}</code>.
+            modified response. Receives <code>{'{status, body, bodyAsJson, url, method}'}</code>. The status code,
+            Content-Type, and response-header fields you set on the rule still apply on top of your function's return
+            value.
           </Card>
         </div>
 

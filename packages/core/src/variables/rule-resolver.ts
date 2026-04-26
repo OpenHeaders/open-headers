@@ -86,7 +86,8 @@ function walkRule(
     case 'inject':
       return resolveInjectRule(base as InjectRule, resolver, context, errors);
     case 'block':
-      return resolveBlockRule(base as BlockRule, resolver, context, errors);
+      // Block has no resolvable action fields — pass through.
+      return base as BlockRule;
     case 'delay':
       return base as DelayRule;
     case 'mock':
@@ -214,7 +215,6 @@ function resolveRedirectRule(
     ...rule,
     action: {
       ...rule.action,
-      matchPattern: resolveString(rule.action.matchPattern, resolver, context, errors),
       redirectTo: resolveString(rule.action.redirectTo, resolver, context, errors),
     },
   };
@@ -250,23 +250,6 @@ function resolveInjectRule(
     action: {
       ...rule.action,
       code: resolveString(rule.action.code, resolver, context, errors),
-    },
-  };
-}
-
-function resolveBlockRule(
-  rule: BlockRule,
-  resolver: VariableResolver,
-  context: ResolutionContext | undefined,
-  errors: ResolutionError[] | undefined,
-): BlockRule {
-  return {
-    ...rule,
-    action: {
-      ...rule.action,
-      responseBody: rule.action.responseBody
-        ? resolveString(rule.action.responseBody, resolver, context, errors)
-        : undefined,
     },
   };
 }

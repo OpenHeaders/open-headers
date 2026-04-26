@@ -29,7 +29,11 @@ import { TemplateInput } from '../template-input';
 const { Text } = Typography;
 
 const OPERATIONS = [
-  { value: 'override', label: 'Override' },
+  // Labels describe what each op does to a header. The schema literals stay
+  // ('override', 'add') for back-compat with the compiler; the user-facing
+  // labels are unified across rule types so the same concept always reads
+  // the same way (header "Add / Replace" matches query-param "Add / Replace").
+  { value: 'override', label: 'Add / Replace' },
   { value: 'add', label: 'Append' },
   { value: 'remove', label: 'Remove' },
   { value: 'merge', label: 'Merge' },
@@ -215,7 +219,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                               onClick={switchToSuggested}
                               style={{ padding: 0, height: 'auto', fontSize: 11 }}
                             >
-                              Switch to {capability.suggestion === 'override' ? 'Override' : capability.suggestion}
+                              Switch to {capability.suggestion === 'override' ? 'Add / Replace' : capability.suggestion}
                             </Button>
                           </>
                         )}

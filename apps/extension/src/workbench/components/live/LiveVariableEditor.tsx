@@ -224,97 +224,97 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
       <EditorHeader title={createHeaderTitle} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <InlineNameDescription
-            name={draft.name}
-            description={draft.description}
-            onChangeName={(name) => setDraft({ ...draft, name })}
-            onChangeDescription={(description) => setDraft({ ...draft, description })}
-            namePlaceholder="Name (e.g. accessToken)"
-          />
-          <Text type="secondary" style={{ fontSize: 10, marginTop: -4 }}>
-            Reference as {'{{'}live.{draft.name.trim() || 'NAME'}
-            {'}}'}
-          </Text>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <InlineNameDescription
+              name={draft.name}
+              description={draft.description}
+              onChangeName={(name) => setDraft({ ...draft, name })}
+              onChangeDescription={(description) => setDraft({ ...draft, description })}
+              namePlaceholder="Name (e.g. accessToken)"
+            />
+            <Text type="secondary" style={{ fontSize: 10, marginTop: -4 }}>
+              Reference as {'{{'}live.{draft.name.trim() || 'NAME'}
+              {'}}'}
+            </Text>
 
-          <Section title="Binding">
-            <FieldRow label="Workflow">
-              <Select
-                size="small"
-                style={{ width: '100%' }}
-                showSearch
-                optionFilterProp="label"
-                placeholder={
-                  workflows.length === 0
-                    ? 'No workflows yet — create one from the Workflows sidebar'
-                    : 'Select a workflow'
-                }
-                value={draft.workflowUid || undefined}
-                onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
-                options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                notFoundContent={<Text type="secondary">No workflows yet.</Text>}
-              />
-            </FieldRow>
-            <FieldRow label="Step">
-              <Select
-                size="small"
-                style={{ width: '100%' }}
-                placeholder="Select a step"
-                disabled={!selectedWorkflow}
-                value={draft.stepId || undefined}
-                onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
-                options={selectedSteps.map((s) => ({
-                  value: s.id,
-                  label: `${s.id} (${s.captures.length} captures)`,
-                }))}
-              />
-            </FieldRow>
-            <FieldRow label="Capture">
-              <Select
-                size="small"
-                style={{ width: '100%' }}
-                placeholder="Select a capture"
-                disabled={!selectedStep}
-                value={draft.captureName || undefined}
-                onChange={(captureName) => setDraft({ ...draft, captureName })}
-                options={selectedCaptures.map((c) => ({ value: c.name, label: c.name }))}
-              />
-            </FieldRow>
-          </Section>
+            <Section title="Binding">
+              <FieldRow label="Workflow">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder={
+                    workflows.length === 0
+                      ? 'No workflows yet — create one from the Workflows sidebar'
+                      : 'Select a workflow'
+                  }
+                  value={draft.workflowUid || undefined}
+                  onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
+                  options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
+                  notFoundContent={<Text type="secondary">No workflows yet.</Text>}
+                />
+              </FieldRow>
+              <FieldRow label="Step">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  placeholder="Select a step"
+                  disabled={!selectedWorkflow}
+                  value={draft.stepId || undefined}
+                  onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
+                  options={selectedSteps.map((s) => ({
+                    value: s.id,
+                    label: `${s.id} (${s.captures.length} captures)`,
+                  }))}
+                />
+              </FieldRow>
+              <FieldRow label="Capture">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  placeholder="Select a capture"
+                  disabled={!selectedStep}
+                  value={draft.captureName || undefined}
+                  onChange={(captureName) => setDraft({ ...draft, captureName })}
+                  options={selectedCaptures.map((c) => ({ value: c.name, label: c.name }))}
+                />
+              </FieldRow>
+            </Section>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: 20,
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              marginTop: 6,
-              paddingTop: 10,
-              borderTop: `1px solid ${token.colorBorderSecondary}`,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
-              <Text style={{ fontSize: 12 }}>Enabled</Text>
-              <Tooltip title={ENABLED_TOOLTIP}>
-                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-              </Tooltip>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Switch
-                size="small"
-                checked={draft.requireFreshOnRuleBuild}
-                onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
-              />
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Wait for fresh value
-              </Text>
-              <Tooltip title={FRESH_TOOLTIP}>
-                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-              </Tooltip>
+            <div
+              style={{
+                display: 'flex',
+                gap: 20,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                marginTop: 6,
+                paddingTop: 10,
+                borderTop: `1px solid ${token.colorBorderSecondary}`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
+                <Text style={{ fontSize: 12 }}>Enabled</Text>
+                <Tooltip title={ENABLED_TOOLTIP}>
+                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+                </Tooltip>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Switch
+                  size="small"
+                  checked={draft.requireFreshOnRuleBuild}
+                  onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Wait for fresh value
+                </Text>
+                <Tooltip title={FRESH_TOOLTIP}>
+                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+                </Tooltip>
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
     </div>
@@ -523,240 +523,243 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
             />
           )}
 
-        {/* Current value — single compact row */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 10,
-            padding: '6px 10px',
-            background: token.colorFillAlter,
-            borderRadius: 4,
-            marginBottom: 14,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            fontSize: 11,
-          }}
-        >
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            Value
-          </Text>
-          <Text
-            style={{
-              fontFamily: "'SF Mono', monospace",
-              fontSize: 12,
-              wordBreak: 'break-all',
-              maxWidth: 320,
-            }}
-          >
-            {liveValue === null ? (
-              <Text type="secondary">(never refreshed)</Text>
-            ) : revealValue ? (
-              liveValue
-            ) : (
-              '••••••••'
-            )}
-          </Text>
-          {liveValue !== null && (
-            <Button
-              size="small"
-              type="text"
-              icon={revealValue ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-              onClick={() => setRevealValue((r) => !r)}
-            />
-          )}
-          <div style={{ flex: 1 }} />
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            last {run ? formatRelativeMs(run.extractedAt) : 'never'}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            · expires {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
-          </Text>
-          {run?.lastErrorMessage && (
-            <Text type="danger" style={{ fontSize: 11 }}>
-              · {run.lastErrorMessage}
-              {run.lastErrorStepId ? ` (${run.lastErrorStepId})` : ''}
-            </Text>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <FieldRow
-            label="Name"
-            hint={
-              <>
-                Reference as {'{{'}live.NAME{'}}'}
-              </>
-            }
-          >
-            <Input size="small" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-          </FieldRow>
-
-          <FieldRow label="Description" center={false}>
-            <Input.TextArea
-              size="small"
-              autoSize={{ minRows: 1, maxRows: 3 }}
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            />
-          </FieldRow>
-
-          <Section
-            title={
-              <>
-                <span style={{ flex: 1 }}>Binding</span>
-                {workflow && (
-                  <>
-                    <Text type="secondary" style={{ fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>
-                      {describeRefreshPolicy(workflow.refresh)}
-                    </Text>
-                    {openWorkflowTab && (
-                      <Button
-                        size="small"
-                        type="link"
-                        style={{ padding: 0, fontSize: 11, height: 'auto' }}
-                        onClick={() => openWorkflowTab(workflow.uid, workflow.name)}
-                      >
-                        Open flow
-                      </Button>
-                    )}
-                  </>
-                )}
-              </>
-            }
-          >
-            <FieldRow label="Workflow">
-              <Select
-                size="small"
-                style={{ width: '100%' }}
-                value={draft.workflowUid || undefined}
-                onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
-                options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                placeholder="Select a workflow"
-              />
-            </FieldRow>
-            <FieldRow label="Step">
-              <Select
-                size="small"
-                style={{ width: '100%' }}
-                value={draft.stepId || undefined}
-                onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
-                options={(selectedWorkflow?.steps ?? []).map((s) => ({
-                  value: s.id,
-                  label: `${s.id} (${s.captures.length} captures)`,
-                }))}
-                placeholder="Select a step"
-                disabled={!selectedWorkflow}
-              />
-            </FieldRow>
-            <FieldRow label="Capture">
-              <Select
-                size="small"
-                style={{ width: '100%' }}
-                value={draft.captureName || undefined}
-                onChange={(captureName) => setDraft({ ...draft, captureName })}
-                options={selectedCaptures.map((c) => ({
-                  value: c.name,
-                  label: `${c.name} — ${c.extractor.kind}`,
-                }))}
-                placeholder="Select a capture"
-                disabled={!selectedStep}
-              />
-            </FieldRow>
-          </Section>
-
-          <Section title="Manual override">
-            {draft.manualOverride ? (
-              <>
-                <FieldRow label="Value">
-                  <Input
-                    size="small"
-                    value={draft.manualOverride.value}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        manualOverride: { ...draft.manualOverride!, value: e.target.value },
-                      })
-                    }
-                    placeholder="Fixed override value"
-                  />
-                </FieldRow>
-                <FieldRow label="Expires (ms)" hint="Wall-clock epoch ms — leave blank for permanent override">
-                  <InputNumber
-                    size="small"
-                    style={{ width: 220 }}
-                    value={draft.manualOverride.until ?? null}
-                    onChange={(until) =>
-                      setDraft({
-                        ...draft,
-                        manualOverride: {
-                          ...draft.manualOverride!,
-                          until: typeof until === 'number' ? until : null,
-                        },
-                      })
-                    }
-                  />
-                </FieldRow>
-                <div style={{ paddingLeft: LIVE_ROW_LABEL_WIDTH + LIVE_ROW_GAP, display: 'flex', gap: 8 }}>
-                  <Button size="small" onClick={() => void handleSetOverride(draft.manualOverride)}>
-                    Apply override
-                  </Button>
-                  <Button
-                    size="small"
-                    danger
-                    onClick={() => {
-                      setDraft({ ...draft, manualOverride: null });
-                      void handleSetOverride(null);
-                    }}
-                  >
-                    Clear
-                  </Button>
-                  <Text type="secondary" style={{ fontSize: 11, alignSelf: 'center' }}>
-                    Resolver serves the pinned value; scheduler still refreshes the underlying workflow.
-                  </Text>
-                </div>
-              </>
-            ) : (
-              <div style={{ paddingLeft: LIVE_ROW_LABEL_WIDTH + LIVE_ROW_GAP }}>
-                <Button size="small" onClick={() => setDraft({ ...draft, manualOverride: { value: '', until: null } })}>
-                  Set manual override
-                </Button>
-              </div>
-            )}
-          </Section>
-
+          {/* Current value — single compact row */}
           <div
             style={{
               display: 'flex',
-              gap: 20,
+              gap: 10,
+              padding: '6px 10px',
+              background: token.colorFillAlter,
+              borderRadius: 4,
+              marginBottom: 14,
               alignItems: 'center',
               flexWrap: 'wrap',
-              marginTop: 4,
-              paddingTop: 10,
-              borderTop: `1px solid ${token.colorBorderSecondary}`,
+              fontSize: 11,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
-              <Text style={{ fontSize: 12 }}>Enabled</Text>
-              <Tooltip title={ENABLED_TOOLTIP}>
-                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-              </Tooltip>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Switch
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Value
+            </Text>
+            <Text
+              style={{
+                fontFamily: "'SF Mono', monospace",
+                fontSize: 12,
+                wordBreak: 'break-all',
+                maxWidth: 320,
+              }}
+            >
+              {liveValue === null ? (
+                <Text type="secondary">(never refreshed)</Text>
+              ) : revealValue ? (
+                liveValue
+              ) : (
+                '••••••••'
+              )}
+            </Text>
+            {liveValue !== null && (
+              <Button
                 size="small"
-                checked={draft.requireFreshOnRuleBuild}
-                onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
+                type="text"
+                icon={revealValue ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                onClick={() => setRevealValue((r) => !r)}
               />
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Wait for fresh value
+            )}
+            <div style={{ flex: 1 }} />
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              last {run ? formatRelativeMs(run.extractedAt) : 'never'}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              · expires {run?.expiresAt ? formatRelativeMs(run.expiresAt) : '—'}
+            </Text>
+            {run?.lastErrorMessage && (
+              <Text type="danger" style={{ fontSize: 11 }}>
+                · {run.lastErrorMessage}
+                {run.lastErrorStepId ? ` (${run.lastErrorStepId})` : ''}
               </Text>
-              <Tooltip title={FRESH_TOOLTIP}>
-                <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-              </Tooltip>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <FieldRow
+              label="Name"
+              hint={
+                <>
+                  Reference as {'{{'}live.NAME{'}}'}
+                </>
+              }
+            >
+              <Input size="small" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            </FieldRow>
+
+            <FieldRow label="Description" center={false}>
+              <Input.TextArea
+                size="small"
+                autoSize={{ minRows: 1, maxRows: 3 }}
+                value={draft.description}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              />
+            </FieldRow>
+
+            <Section
+              title={
+                <>
+                  <span style={{ flex: 1 }}>Binding</span>
+                  {workflow && (
+                    <>
+                      <Text type="secondary" style={{ fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>
+                        {describeRefreshPolicy(workflow.refresh)}
+                      </Text>
+                      {openWorkflowTab && (
+                        <Button
+                          size="small"
+                          type="link"
+                          style={{ padding: 0, fontSize: 11, height: 'auto' }}
+                          onClick={() => openWorkflowTab(workflow.uid, workflow.name)}
+                        >
+                          Open flow
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </>
+              }
+            >
+              <FieldRow label="Workflow">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  value={draft.workflowUid || undefined}
+                  onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
+                  options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
+                  placeholder="Select a workflow"
+                />
+              </FieldRow>
+              <FieldRow label="Step">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  value={draft.stepId || undefined}
+                  onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
+                  options={(selectedWorkflow?.steps ?? []).map((s) => ({
+                    value: s.id,
+                    label: `${s.id} (${s.captures.length} captures)`,
+                  }))}
+                  placeholder="Select a step"
+                  disabled={!selectedWorkflow}
+                />
+              </FieldRow>
+              <FieldRow label="Capture">
+                <Select
+                  size="small"
+                  style={{ width: '100%' }}
+                  value={draft.captureName || undefined}
+                  onChange={(captureName) => setDraft({ ...draft, captureName })}
+                  options={selectedCaptures.map((c) => ({
+                    value: c.name,
+                    label: `${c.name} — ${c.extractor.kind}`,
+                  }))}
+                  placeholder="Select a capture"
+                  disabled={!selectedStep}
+                />
+              </FieldRow>
+            </Section>
+
+            <Section title="Manual override">
+              {draft.manualOverride ? (
+                <>
+                  <FieldRow label="Value">
+                    <Input
+                      size="small"
+                      value={draft.manualOverride.value}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          manualOverride: { ...draft.manualOverride!, value: e.target.value },
+                        })
+                      }
+                      placeholder="Fixed override value"
+                    />
+                  </FieldRow>
+                  <FieldRow label="Expires (ms)" hint="Wall-clock epoch ms — leave blank for permanent override">
+                    <InputNumber
+                      size="small"
+                      style={{ width: 220 }}
+                      value={draft.manualOverride.until ?? null}
+                      onChange={(until) =>
+                        setDraft({
+                          ...draft,
+                          manualOverride: {
+                            ...draft.manualOverride!,
+                            until: typeof until === 'number' ? until : null,
+                          },
+                        })
+                      }
+                    />
+                  </FieldRow>
+                  <div style={{ paddingLeft: LIVE_ROW_LABEL_WIDTH + LIVE_ROW_GAP, display: 'flex', gap: 8 }}>
+                    <Button size="small" onClick={() => void handleSetOverride(draft.manualOverride)}>
+                      Apply override
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() => {
+                        setDraft({ ...draft, manualOverride: null });
+                        void handleSetOverride(null);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                    <Text type="secondary" style={{ fontSize: 11, alignSelf: 'center' }}>
+                      Resolver serves the pinned value; scheduler still refreshes the underlying workflow.
+                    </Text>
+                  </div>
+                </>
+              ) : (
+                <div style={{ paddingLeft: LIVE_ROW_LABEL_WIDTH + LIVE_ROW_GAP }}>
+                  <Button
+                    size="small"
+                    onClick={() => setDraft({ ...draft, manualOverride: { value: '', until: null } })}
+                  >
+                    Set manual override
+                  </Button>
+                </div>
+              )}
+            </Section>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: 20,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                marginTop: 4,
+                paddingTop: 10,
+                borderTop: `1px solid ${token.colorBorderSecondary}`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
+                <Text style={{ fontSize: 12 }}>Enabled</Text>
+                <Tooltip title={ENABLED_TOOLTIP}>
+                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+                </Tooltip>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Switch
+                  size="small"
+                  checked={draft.requireFreshOnRuleBuild}
+                  onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Wait for fresh value
+                </Text>
+                <Tooltip title={FRESH_TOOLTIP}>
+                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
+                </Tooltip>
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
     </div>

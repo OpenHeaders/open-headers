@@ -39,7 +39,7 @@ const QueryParamRuleFields: React.FC = () => {
               type="warning"
               showIcon
               style={{ marginBottom: 8, fontSize: 12 }}
-              message="REMOVE ALL will strip the entire query string. Other operations in this rule will be ignored. Use a separate rule to add params after removal."
+              message="Remove All will strip the entire query string. Other operations in this rule will be ignored. Use a separate rule to add params after removal."
             />
           );
         }}
@@ -57,9 +57,16 @@ const QueryParamRuleFields: React.FC = () => {
                   <Select
                     size="small"
                     options={[
-                      { value: 'add', label: 'ADD / REPLACE' },
-                      { value: 'remove', label: 'REMOVE' },
-                      { value: 'remove-all', label: 'REMOVE ALL' },
+                      // Same casing + same "Add / Replace" wording as
+                      // header rules so the cross-rule UX stays consistent.
+                      // "Replace Only" disambiguates from header "Add / Replace"
+                      // — query-param's `'override'` skips URLs that don't
+                      // already carry the param, while header `'override'`
+                      // always sets.
+                      { value: 'add', label: 'Add / Replace' },
+                      { value: 'override', label: 'Replace Only' },
+                      { value: 'remove', label: 'Remove' },
+                      { value: 'remove-all', label: 'Remove All' },
                     ]}
                   />
                 </Form.Item>
@@ -82,7 +89,13 @@ const QueryParamRuleFields: React.FC = () => {
                         onClick={() =>
                           openDocs(
                             getDocId(
-                              op === 'remove-all' ? 'qp-remove-all' : op === 'remove' ? 'qp-remove' : 'qp-add',
+                              op === 'remove-all'
+                                ? 'qp-remove-all'
+                                : op === 'remove'
+                                  ? 'qp-remove'
+                                  : op === 'override'
+                                    ? 'qp-override'
+                                    : 'qp-add',
                               'action',
                             ),
                           )

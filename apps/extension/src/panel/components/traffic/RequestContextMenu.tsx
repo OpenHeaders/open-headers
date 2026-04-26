@@ -68,7 +68,6 @@ async function blockRequest(request: InspectorRequest, scope: 'url' | 'domain'):
   await handOffRuleDraft({
     type: 'block',
     url,
-    statusCode: 403,
   });
 }
 

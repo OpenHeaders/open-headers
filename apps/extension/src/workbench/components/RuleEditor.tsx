@@ -35,6 +35,7 @@ import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
 import EditorHeader from './EditorHeader';
+import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -44,8 +45,8 @@ import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFie
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
-import { buildRuleIcon } from './shared/rule-icon';
 import StaleDraftBanner from './StaleDraftBanner';
+import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 import { SuggestionContextProvider } from './template-input';
 
@@ -352,6 +353,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             mockGraphqlKey: mr.action.graphqlFilter?.key || '',
             mockGraphqlOperator: mr.action.graphqlFilter?.operator || 'Equals',
             mockGraphqlValue: mr.action.graphqlFilter?.value || '',
+            // Persisted shape is a Record<string, string>; the editor's
+            // Form.List wants an array of {name, value} rows.
+            mockResponseHeaders: Object.entries(mr.action.responseHeaders ?? {}).map(([name, value]) => ({
+              name,
+              value,
+            })),
           });
           break;
         }
@@ -379,6 +386,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         mockBodyType: 'static',
         mockResourceType: 'rest',
         mockGraphqlOperator: 'Equals',
+        mockContentType: 'application/json',
+        mockResponseHeaders: [],
         bodyModType: 'static',
         bodyResourceType: 'rest',
         bodyGraphqlOperator: 'Equals',
@@ -406,10 +415,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           defaults.responseHeaders = initialDraft.responseHeaders ?? (targetsRequest ? [] : []);
         } else if (initialDraft.type === 'redirect') {
           if (initialDraft.redirectTo) defaults.redirectTo = initialDraft.redirectTo;
-        } else if (initialDraft.type === 'block') {
-          if (initialDraft.statusCode != null) defaults.blockStatusCode = initialDraft.statusCode;
-          if (initialDraft.responseBody) defaults.blockResponseBody = initialDraft.responseBody;
         }
+        // Block has no editable action fields.
         // Other rule types extend similarly as inspector CTAs grow.
       }
 
@@ -484,15 +491,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             },
           } as Omit<V5.HeaderRule, 'uid' | 'path'>;
         case 'block':
-          return { ...base, type: 'block', action: { statusCode: 403 } } as Omit<V5.BlockRule, 'uid' | 'path'>;
+          return { ...base, type: 'block', action: {} } as Omit<V5.BlockRule, 'uid' | 'path'>;
         case 'redirect':
           return {
             ...base,
             type: 'redirect',
-            action: {
-              matchPattern: '',
-              redirectTo: (formValues.redirectTo as string) ?? '',
-            },
+            action: { redirectTo: (formValues.redirectTo as string) ?? '' },
           } as Omit<V5.RedirectRule, 'uid' | 'path'>;
         case 'query-param':
           return {
@@ -559,7 +563,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   ? ((formValues.mockDynamicBody as string) ?? '')
                   : ((formValues.mockStaticBody as string) ?? ''),
               contentType: (formValues.mockContentType as string) ?? 'application/json',
-              responseHeaders: {},
+              // Form.List rows → Record<string, string>. Drops empty
+              // names; later occurrences of the same name silently
+              // win (matches Object.fromEntries semantics — fine because
+              // duplicate response headers are nonsensical).
+              responseHeaders: Object.fromEntries(
+                ((formValues.mockResponseHeaders as Array<{ name?: string; value?: string }>) ?? [])
+                  .filter((h) => h.name?.trim())
+                  .map((h) => [h.name!.trim(), h.value ?? '']),
+              ),
               bodyType: ((formValues.mockBodyType as string) ?? 'static') as V5.MockBodyType,
               resourceType: ((formValues.mockResourceType as string) ?? 'rest') as V5.BodyResourceType,
               graphqlFilter:
@@ -849,7 +861,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const headerTitle = (
     <>
-      {buildRuleIcon({ ruleType: selectedType ?? 'header', rule: liveRule, isActive: isEnabled, compactArrow: true, size: 14 })}
+      {buildRuleIcon({
+        ruleType: selectedType ?? 'header',
+        rule: liveRule,
+        isActive: isEnabled,
+        compactArrow: true,
+        size: 14,
+      })}
       <Typography.Text strong style={{ fontSize: 13 }}>
         {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
       </Typography.Text>
@@ -885,155 +903,180 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       <div style={{ flex: 1, overflow: 'auto' }}>
         <div className="rules-rule-editor">
           <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
-            <Form form={form} layout="vertical" onFinish={handleSubmit} onValuesChange={handleValuesChange} size="small">
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              onValuesChange={handleValuesChange}
+              size="small"
+            >
               {/* Hidden: rule type (set at creation, can't change) */}
               <Form.Item name="ruleType" hidden>
                 <input type="hidden" />
               </Form.Item>
 
-          {/* Unresolved-variable feedback lives in the inline mirror
-           *  (red-dashed `{{ref}}` at the source) + the Variables
-           *  panel's "Resolution issues" section, both of which show
-           *  the same state without reflowing the editor on every
-           *  keystroke. An always-on banner here duplicated that
-           *  information and nudged scroll as counts changed. */}
-          {staleDraft && (
-            <StaleDraftBanner
-              entityLabel="rule"
-              serverVersion={staleDraft.serverVersion}
-              loadedVersion={staleDraft.loadedVersion}
-              onReload={handleStaleDraftReload}
-              onKeepEditing={handleStaleDraftKeepEditing}
-            />
-          )}
-
-          {/* ── Templates ── */}
-          <div style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8,
-                alignItems: 'center',
-              }}
-            >
-              <Button
-                size="small"
-                type={activeSource === 'blank' ? 'primary' : 'default'}
-                icon={<FileOutlined />}
-                onClick={() => applyTemplate('empty')}
-              >
-                Blank
-              </Button>
-
-              <Dropdown menu={{ items: systemMenuItems }} trigger={['click']} disabled={systemMenuItems.length === 0}>
-                <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <FolderOpenOutlined style={{ fontSize: 13 }} />
-                    <span>System Templates</span>
-                    {activeSystemTemplate && (
-                      <span
-                        style={{
-                          fontWeight: 400,
-                          opacity: 0.85,
-                        }}
-                      >
-                        : {activeSystemTemplate.icon} {activeSystemTemplate.name}
-                      </span>
-                    )}
-                    <DownOutlined style={{ fontSize: 9 }} />
-                  </span>
-                </Button>
-              </Dropdown>
-
-              <Tooltip
-                title={
-                  userMenuItems.length === 0 ? 'No user templates yet for this rule type — save one first' : undefined
-                }
-              >
-                <Dropdown menu={{ items: userMenuItems }} trigger={['click']} disabled={userMenuItems.length === 0}>
-                  <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <FolderOpenTwoTone style={{ fontSize: 13 }} />
-                      <span>User Templates</span>
-                      {activeUserTemplate && (
-                        <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
-                          :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
-                          {activeUserTemplate.name}
-                        </span>
-                      )}
-                      <DownOutlined style={{ fontSize: 9 }} />
-                    </span>
-                  </Button>
-                </Dropdown>
-              </Tooltip>
-            </div>
-
-            {selectedDescription && (
-              <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>{selectedDescription}</div>
-            )}
-          </div>
-
-          {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
-          <div className="rules-rule-editor-columns">
-            {/* ── Per-type fields ── */}
-            <div>
-              {selectedType === 'header' && (
-                <HeaderRuleFields
-                  activeTab={headerActiveTab}
-                  onTabChange={setHeaderActiveTab}
-                  reqCount={headerReqCount}
-                  resCount={headerResCount}
+              {/* Unresolved-variable feedback lives in the inline mirror
+               *  (red-dashed `{{ref}}` at the source) + the Variables
+               *  panel's "Resolution issues" section, both of which show
+               *  the same state without reflowing the editor on every
+               *  keystroke. An always-on banner here duplicated that
+               *  information and nudged scroll as counts changed. */}
+              {staleDraft && (
+                <StaleDraftBanner
+                  entityLabel="rule"
+                  serverVersion={staleDraft.serverVersion}
+                  loadedVersion={staleDraft.loadedVersion}
+                  onReload={handleStaleDraftReload}
+                  onKeepEditing={handleStaleDraftKeepEditing}
                 />
               )}
-              {selectedType === 'block' && <BlockRuleFields />}
-              {selectedType === 'redirect' && <RedirectRuleFields />}
-              {selectedType === 'query-param' && <QueryParamRuleFields />}
-              {selectedType === 'inject' && <InjectRuleFields />}
-              {selectedType === 'delay' && <DelayRuleFields />}
-              {selectedType === 'body' && <BodyRuleFields />}
-              {selectedType === 'mock' && <MockRuleFields />}
-            </div>
 
-            {/* ── Conditions section ── */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <Text strong style={{ fontSize: 13 }}>
-                  Conditions
-                </Text>
-                <InfoCircleOutlined
-                  style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={() => openDocs('conditions')}
-                />
-              </div>
-              <div
-                style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}
-              >
-                All conditions must match for this rule to fire (AND logic). Add at least one condition.
-              </div>
-              <Form.Item name="conditions" style={{ marginBottom: 0 }}>
-                <ConditionEditor />
-              </Form.Item>
-            </div>
-          </div>
-        </Form>
+              {/* ── Templates ── */}
+              <div style={{ marginBottom: 16 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Button
+                    size="small"
+                    type={activeSource === 'blank' ? 'primary' : 'default'}
+                    icon={<FileOutlined />}
+                    onClick={() => applyTemplate('empty')}
+                  >
+                    Blank
+                  </Button>
 
-        <SaveAsTemplateModal
-          open={saveAsTemplateOpen}
-          ruleType={selectedType ?? 'header'}
-          conditions={form.getFieldValue('conditions') ?? []}
-          formValues={(() => {
-            if (!saveAsTemplateOpen) return {};
-            const all = form.getFieldsValue();
-            const metaKeys = new Set(['ruleType', 'conditions']);
-            const fv: Record<string, unknown> = {};
-            for (const [k, v] of Object.entries(all)) {
-              if (!metaKeys.has(k)) fv[k] = v;
-            }
-            return fv;
-          })()}
-          onCancel={() => setSaveAsTemplateOpen(false)}
-        />
+                  <Dropdown
+                    menu={{ items: systemMenuItems }}
+                    trigger={['click']}
+                    disabled={systemMenuItems.length === 0}
+                  >
+                    <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <FolderOpenOutlined style={{ fontSize: 13 }} />
+                        <span>System Templates</span>
+                        {activeSystemTemplate && (
+                          <span
+                            style={{
+                              fontWeight: 400,
+                              opacity: 0.85,
+                            }}
+                          >
+                            : {activeSystemTemplate.icon} {activeSystemTemplate.name}
+                          </span>
+                        )}
+                        <DownOutlined style={{ fontSize: 9 }} />
+                      </span>
+                    </Button>
+                  </Dropdown>
+
+                  <Tooltip
+                    title={
+                      userMenuItems.length === 0
+                        ? 'No user templates yet for this rule type — save one first'
+                        : undefined
+                    }
+                  >
+                    <Dropdown menu={{ items: userMenuItems }} trigger={['click']} disabled={userMenuItems.length === 0}>
+                      <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <FolderOpenTwoTone style={{ fontSize: 13 }} />
+                          <span>User Templates</span>
+                          {activeUserTemplate && (
+                            <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
+                              :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
+                              {activeUserTemplate.name}
+                            </span>
+                          )}
+                          <DownOutlined style={{ fontSize: 9 }} />
+                        </span>
+                      </Button>
+                    </Dropdown>
+                  </Tooltip>
+                </div>
+
+                {selectedDescription && (
+                  <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>
+                    {selectedDescription}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
+              <div className="rules-rule-editor-columns">
+                {/* ── Per-type fields ── */}
+                <div>
+                  {selectedType === 'header' && (
+                    <HeaderRuleFields
+                      activeTab={headerActiveTab}
+                      onTabChange={setHeaderActiveTab}
+                      reqCount={headerReqCount}
+                      resCount={headerResCount}
+                    />
+                  )}
+                  {selectedType === 'block' && <BlockRuleFields />}
+                  {selectedType === 'redirect' && <RedirectRuleFields />}
+                  {selectedType === 'query-param' && <QueryParamRuleFields />}
+                  {selectedType === 'inject' && <InjectRuleFields />}
+                  {selectedType === 'delay' && <DelayRuleFields />}
+                  {selectedType === 'body' && <BodyRuleFields />}
+                  {selectedType === 'mock' && <MockRuleFields />}
+                  {/* Single-mount inline action validation. The validator
+                      lives in core; new rule types pick the banner up
+                      automatically when their case is added there. */}
+                  {selectedType && <ActionValueBanner ruleType={selectedType} />}
+                </div>
+
+                {/* ── Conditions section ── */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <Text strong style={{ fontSize: 13 }}>
+                      Conditions
+                    </Text>
+                    <InfoCircleOutlined
+                      style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                      onClick={() => openDocs('conditions')}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--ant-color-text-secondary)',
+                      lineHeight: 1.5,
+                      marginBottom: 10,
+                    }}
+                  >
+                    Rows combine with <strong>AND</strong> — every row must match. Each row shows an{' '}
+                    <strong>OR</strong> badge (multiple values match if any matches) or a <strong>1 value</strong> badge
+                    (singleton type). Add at least one condition.
+                  </div>
+                  <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+                    <ConditionEditor />
+                  </Form.Item>
+                </div>
+              </div>
+            </Form>
+
+            <SaveAsTemplateModal
+              open={saveAsTemplateOpen}
+              ruleType={selectedType ?? 'header'}
+              conditions={form.getFieldValue('conditions') ?? []}
+              formValues={(() => {
+                if (!saveAsTemplateOpen) return {};
+                const all = form.getFieldsValue();
+                const metaKeys = new Set(['ruleType', 'conditions']);
+                const fv: Record<string, unknown> = {};
+                for (const [k, v] of Object.entries(all)) {
+                  if (!metaKeys.has(k)) fv[k] = v;
+                }
+                return fv;
+              })()}
+              onCancel={() => setSaveAsTemplateOpen(false)}
+            />
           </SuggestionContextProvider>
         </div>
       </div>

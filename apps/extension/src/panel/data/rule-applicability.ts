@@ -141,4 +141,3 @@ function containsUnresolvedRef(
   }
   return false;
 }
-

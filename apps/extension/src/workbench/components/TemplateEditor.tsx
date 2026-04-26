@@ -12,6 +12,7 @@ import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ConditionEditor from './ConditionEditor';
+import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -235,6 +236,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         {selectedType === 'delay' && <DelayRuleFields />}
         {selectedType === 'body' && <BodyRuleFields />}
         {selectedType === 'mock' && <MockRuleFields />}
+        {/* Inline action validation — same single-mount pattern as RuleEditor. */}
+        {selectedType && <ActionValueBanner ruleType={selectedType} />}
 
         {/* ── Conditions ── */}
         <div style={{ marginBottom: 20 }}>

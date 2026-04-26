@@ -109,7 +109,7 @@ describe('generateRulesHash', () => {
         type: 'block',
         enabled: true,
         conditions: hostConditions(['*.openheaders.io']),
-        action: { statusCode: 403 },
+        action: {},
       },
     ];
     expect(generateRulesHash(r1)).not.toBe(generateRulesHash(r2));

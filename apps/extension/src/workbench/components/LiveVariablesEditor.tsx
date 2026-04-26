@@ -119,237 +119,241 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
             </Text>
           </div>
 
-        <div
-          style={{
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 6,
-            overflow: 'hidden',
-            background: token.colorBgContainer,
-          }}
-        >
-          {/* Header row */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: GRID_COLS,
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
-              background: token.colorFillQuaternary,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 6,
+              overflow: 'hidden',
+              background: token.colorBgContainer,
             }}
           >
-            <div style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, color: token.colorTextSecondary }}>
-              Name
-            </div>
+            {/* Header row */}
             <div
               style={{
-                padding: '6px 10px',
-                fontSize: 11,
-                fontWeight: 600,
-                color: token.colorTextSecondary,
-                borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                display: 'grid',
+                gridTemplateColumns: GRID_COLS,
+                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                background: token.colorFillQuaternary,
               }}
             >
-              Value
+              <div style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, color: token.colorTextSecondary }}>
+                Name
+              </div>
+              <div
+                style={{
+                  padding: '6px 10px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: token.colorTextSecondary,
+                  borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
+                Value
+              </div>
+              <div
+                style={{
+                  padding: '6px 10px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: token.colorTextSecondary,
+                  borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
+                Workflow
+              </div>
+              <div style={{ padding: '6px 8px' }} />
             </div>
-            <div
-              style={{
-                padding: '6px 10px',
-                fontSize: 11,
-                fontWeight: 600,
-                color: token.colorTextSecondary,
-                borderLeft: `1px solid ${token.colorBorderSecondary}`,
-              }}
-            >
-              Workflow
-            </div>
-            <div style={{ padding: '6px 8px' }} />
-          </div>
 
-          {liveVariables.length === 0 ? (
-            <div style={{ padding: 24 }}>
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={
-                  <span style={{ fontSize: 12 }}>
-                    No live variables yet. Create one to bind a name to a workflow's captured value.
-                  </span>
-                }
-              />
-            </div>
-          ) : (
-            liveVariables.map((lv, index) => {
-              const workflow = liveWorkflows.find((w) => w.uid === lv.workflowUid) ?? null;
-              const runs = liveCaches[lv.workflowUid] ?? [];
-              const run =
-                runs.find((r) => r.environmentId === activeEnvironmentId) ??
-                runs.find((r) => r.environmentId === null) ??
-                runs[0] ??
-                null;
-              // Manual override wins; otherwise the cached step-capture
-              // for the active environment (null-env falls back).
-              const overrideActive =
-                lv.manualOverride && (lv.manualOverride.until === undefined || lv.manualOverride.until > Date.now());
-              const rawValue = overrideActive
-                ? lv.manualOverride?.value
-                : run?.stepCaptures?.[lv.stepId]?.[lv.captureName];
-              const hasValue = typeof rawValue === 'string' && rawValue.length > 0;
-              const isRevealed = revealed.has(lv.uid);
-              const displayValue = hasValue ? (isRevealed ? rawValue : '•'.repeat(Math.min(rawValue.length, 12))) : '';
-              const isLast = index === liveVariables.length - 1;
-
-              return (
-                <div
-                  key={lv.uid}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: GRID_COLS,
-                    borderBottom: isLast ? undefined : `1px solid ${token.colorBorderSecondary}`,
-                    alignItems: 'center',
-                  }}
-                >
-                  {/* Name cell */}
-                  <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <span
-                      style={{
-                        fontFamily: "'SF Mono', 'Fira Code', monospace",
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: token.colorText,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={lv.name}
-                    >
-                      {lv.name}
+            {liveVariables.length === 0 ? (
+              <div style={{ padding: 24 }}>
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    <span style={{ fontSize: 12 }}>
+                      No live variables yet. Create one to bind a name to a workflow's captured value.
                     </span>
-                    {!lv.enabled && <span style={{ fontSize: 9, color: token.colorTextTertiary }}>off</span>}
-                    {overrideActive && <span style={{ fontSize: 9, color: token.colorWarning }}>override</span>}
-                  </div>
+                  }
+                />
+              </div>
+            ) : (
+              liveVariables.map((lv, index) => {
+                const workflow = liveWorkflows.find((w) => w.uid === lv.workflowUid) ?? null;
+                const runs = liveCaches[lv.workflowUid] ?? [];
+                const run =
+                  runs.find((r) => r.environmentId === activeEnvironmentId) ??
+                  runs.find((r) => r.environmentId === null) ??
+                  runs[0] ??
+                  null;
+                // Manual override wins; otherwise the cached step-capture
+                // for the active environment (null-env falls back).
+                const overrideActive =
+                  lv.manualOverride && (lv.manualOverride.until === undefined || lv.manualOverride.until > Date.now());
+                const rawValue = overrideActive
+                  ? lv.manualOverride?.value
+                  : run?.stepCaptures?.[lv.stepId]?.[lv.captureName];
+                const hasValue = typeof rawValue === 'string' && rawValue.length > 0;
+                const isRevealed = revealed.has(lv.uid);
+                const displayValue = hasValue
+                  ? isRevealed
+                    ? rawValue
+                    : '•'.repeat(Math.min(rawValue.length, 12))
+                  : '';
+                const isLast = index === liveVariables.length - 1;
 
-                  {/* Value cell */}
+                return (
                   <div
+                    key={lv.uid}
                     style={{
-                      padding: '6px 10px',
-                      display: 'flex',
+                      display: 'grid',
+                      gridTemplateColumns: GRID_COLS,
+                      borderBottom: isLast ? undefined : `1px solid ${token.colorBorderSecondary}`,
                       alignItems: 'center',
-                      gap: 4,
-                      borderLeft: `1px solid ${token.colorBorderSecondary}`,
-                      minWidth: 0,
                     }}
                   >
-                    {hasValue ? (
-                      <>
-                        <span
-                          style={{
-                            fontFamily: "'SF Mono', 'Fira Code', monospace",
-                            fontSize: 12,
-                            color: token.colorText,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            flex: 1,
-                            minWidth: 0,
-                          }}
-                          title={isRevealed ? rawValue : 'Click eye to reveal'}
-                        >
-                          {displayValue}
-                        </span>
-                        <Tooltip title={isRevealed ? 'Hide value' : 'Show value'}>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => toggleReveal(lv.uid)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') toggleReveal(lv.uid);
-                            }}
-                            style={{ cursor: 'pointer', fontSize: 12, color: token.colorTextTertiary }}
-                          >
-                            {isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                          </span>
-                        </Tooltip>
-                      </>
-                    ) : (
-                      <span style={{ fontSize: 11, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
-                        not captured yet
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Workflow cell — click opens the Workflow editor */}
-                  <div
-                    style={{
-                      padding: '6px 10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      borderLeft: `1px solid ${token.colorBorderSecondary}`,
-                      minWidth: 0,
-                    }}
-                  >
-                    {workflow ? (
-                      <Button
-                        type="link"
-                        size="small"
-                        icon={<LinkOutlined />}
-                        onClick={() => onOpenWorkflow?.(workflow.uid, workflow.name)}
+                    {/* Name cell */}
+                    <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <span
                         style={{
-                          padding: 0,
-                          height: 'auto',
+                          fontFamily: "'SF Mono', 'Fira Code', monospace",
                           fontSize: 12,
+                          fontWeight: 500,
+                          color: token.colorText,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
-                          maxWidth: '100%',
-                          justifyContent: 'flex-start',
                         }}
+                        title={lv.name}
                       >
-                        {workflow.name}
-                      </Button>
-                    ) : (
-                      <span style={{ fontSize: 11, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
-                        missing workflow
+                        {lv.name}
                       </span>
-                    )}
-                  </div>
+                      {!lv.enabled && <span style={{ fontSize: 9, color: token.colorTextTertiary }}>off</span>}
+                      {overrideActive && <span style={{ fontSize: 9, color: token.colorWarning }}>override</span>}
+                    </div>
 
-                  {/* Actions cell */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                    <Tooltip title="Refresh workflow now">
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<ReloadOutlined />}
-                        onClick={() => void handleRefresh(lv.workflowUid)}
-                        aria-label={`Refresh ${lv.name}`}
-                      />
-                    </Tooltip>
-                    {onEditBinding && (
-                      <Tooltip title="Edit binding (name / enabled / override)">
+                    {/* Value cell */}
+                    <div
+                      style={{
+                        padding: '6px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                        minWidth: 0,
+                      }}
+                    >
+                      {hasValue ? (
+                        <>
+                          <span
+                            style={{
+                              fontFamily: "'SF Mono', 'Fira Code', monospace",
+                              fontSize: 12,
+                              color: token.colorText,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              flex: 1,
+                              minWidth: 0,
+                            }}
+                            title={isRevealed ? rawValue : 'Click eye to reveal'}
+                          >
+                            {displayValue}
+                          </span>
+                          <Tooltip title={isRevealed ? 'Hide value' : 'Show value'}>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => toggleReveal(lv.uid)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') toggleReveal(lv.uid);
+                              }}
+                              style={{ cursor: 'pointer', fontSize: 12, color: token.colorTextTertiary }}
+                            >
+                              {isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                            </span>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 11, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
+                          not captured yet
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Workflow cell — click opens the Workflow editor */}
+                    <div
+                      style={{
+                        padding: '6px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                        minWidth: 0,
+                      }}
+                    >
+                      {workflow ? (
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<LinkOutlined />}
+                          onClick={() => onOpenWorkflow?.(workflow.uid, workflow.name)}
+                          style={{
+                            padding: 0,
+                            height: 'auto',
+                            fontSize: 12,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '100%',
+                            justifyContent: 'flex-start',
+                          }}
+                        >
+                          {workflow.name}
+                        </Button>
+                      ) : (
+                        <span style={{ fontSize: 11, color: token.colorTextQuaternary, fontStyle: 'italic' }}>
+                          missing workflow
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions cell */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                      <Tooltip title="Refresh workflow now">
                         <Button
                           type="text"
                           size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => onEditBinding(lv.uid, lv.name)}
-                          aria-label={`Edit ${lv.name}`}
+                          icon={<ReloadOutlined />}
+                          onClick={() => void handleRefresh(lv.workflowUid)}
+                          aria-label={`Refresh ${lv.name}`}
                         />
                       </Tooltip>
-                    )}
-                    <Tooltip title="Delete">
-                      <Button
-                        type="text"
-                        size="small"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => void handleDelete(lv.uid, lv.name)}
-                        aria-label={`Delete ${lv.name}`}
-                      />
-                    </Tooltip>
+                      {onEditBinding && (
+                        <Tooltip title="Edit binding (name / enabled / override)">
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => onEditBinding(lv.uid, lv.name)}
+                            aria-label={`Edit ${lv.name}`}
+                          />
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Delete">
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => void handleDelete(lv.uid, lv.name)}
+                          aria-label={`Delete ${lv.name}`}
+                        />
+                      </Tooltip>
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>

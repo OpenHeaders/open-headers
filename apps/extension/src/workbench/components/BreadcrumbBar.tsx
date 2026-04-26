@@ -58,9 +58,7 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ leadingNode, segments, on
 
   if (segments.length === 0 && !leadingNode) return null;
 
-  const separator = (
-    <RightOutlined style={{ fontSize: 7, color: token.colorTextTertiary, margin: '0 4px' }} />
-  );
+  const separator = <RightOutlined style={{ fontSize: 7, color: token.colorTextTertiary, margin: '0 4px' }} />;
 
   return (
     <div className="rules-breadcrumbs">

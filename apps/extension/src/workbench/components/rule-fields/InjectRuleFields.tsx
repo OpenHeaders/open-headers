@@ -92,7 +92,8 @@ const InjectRuleFields: React.FC = () => {
               size="small"
               style={{ width: 90 }}
               options={[
-                { value: 'code', label: 'CODE' },
+                // TitleCase to match Header/QueryParam editor convention.
+                { value: 'code', label: 'Code' },
                 { value: 'url', label: 'URL' },
               ]}
             />

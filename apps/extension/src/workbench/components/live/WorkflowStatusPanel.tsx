@@ -20,7 +20,6 @@
  */
 
 import { ReloadOutlined, UndoOutlined } from '@ant-design/icons';
-import { PanelHeader } from '@/shared/dock-layout';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -30,6 +29,7 @@ import { call } from '@utils/bridge';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PanelHeader } from '@/shared/dock-layout';
 import { classifyRun, describeCircuit, describeRunSchedule, formatCountdown, statusColor } from './live-display';
 
 const { Text } = Typography;

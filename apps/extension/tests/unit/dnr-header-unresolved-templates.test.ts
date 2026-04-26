@@ -98,9 +98,7 @@ describe('header compiler — unresolved template guard', () => {
     // reach the page injection.
     const { __testExtractHeaderMergeEntry } = await import('@/background/inject-manager');
     const rule = baseRule({
-      requestHeaders: [
-        { operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
-      ],
+      requestHeaders: [{ operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' }],
       responseHeaders: [],
     });
     expect(__testExtractHeaderMergeEntry(rule)).toBeNull();

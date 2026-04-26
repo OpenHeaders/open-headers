@@ -16,6 +16,8 @@ import {
   resolveTemplate,
   type ScopedLookupFn,
 } from '../variables';
+import { validateActionValues } from './action-validation';
+import { validateConditionValues, validateDomainValues } from './condition-validation';
 import { getHeaderOperationCapability } from './headers';
 import { type PauseMarkers, resolvePauseState } from './pause';
 
@@ -25,11 +27,11 @@ import { type PauseMarkers, resolvePauseState } from './pause';
  *
  * Every rule needs at least one condition with a non-empty value. Per-type checks:
  *   - header: headerName required; value required unless operation is 'remove'
- *   - block: conditions only (no extra fields)
+ *   - block: conditions only (action has no fields)
  *   - redirect: redirectTo
  *   - query-param: at least one param entry with a non-empty param name
  *   - inject: code (inline) or sourceUrl (URL mode) must be non-empty
- *   - body: matchPattern + replaceWith
+ *   - body: body content non-empty
  *   - delay: delayMs > 0
  *   - mock: statusCode + responseBody
  */
@@ -42,6 +44,32 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
   ) {
     return false;
   }
+
+  // Per-condition input validation. A rule whose conditions carry values
+  // Chrome's DNR will reject — bare regex syntax in `request-domains`,
+  // a `request-methods` value that isn't an HTTP method, an unparseable
+  // url-regex, etc. — is treated as INCOMPLETE rather than allowed to
+  // reach Chrome and atomically fail an `updateDynamicRules` batch.
+  //
+  // Only `severity: 'error'` issues from `validateConditionValues` and
+  // non-fixable kinds from `validateDomainValues` (`non-ascii`, `empty`)
+  // gate completeness. Warnings (regex-looking url-filter, RE2 lookbehind,
+  // etc.) and auto-fixable domain mistakes (wildcards, ports, schemes,
+  // uppercase) stay advisory — the editor surfaces them inline; the rule
+  // still compiles. Incompleteness is for things the rule can't recover
+  // from without user intervention.
+  for (const c of base.conditions) {
+    if (validateConditionValues(c).some((i) => i.severity === 'error')) return false;
+    if (validateDomainValues(c).some((i) => i.kind === 'non-ascii' || i.kind === 'empty')) return false;
+  }
+
+  // Per-type action input validation. Same gating contract as conditions:
+  // `severity: 'error'` means Chrome / scriptable layer would reject the
+  // value, so the rule is INCOMPLETE (saves but doesn't compile) until
+  // fixed. Warnings (status code outside 100-599 on a `block` rule that
+  // ignores it; delay over the platform cap; content-type without
+  // subtype) stay advisory and don't gate.
+  if (validateActionValues(rule).some((i) => i.severity === 'error')) return false;
 
   switch (base.type) {
     case 'header': {

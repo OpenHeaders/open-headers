@@ -5,18 +5,39 @@
  * What the user configures is exactly what Chrome executes.
  *
  * Categories:
- *   URL Matching: url-filter, url-regex (pick one per rule)
+ *   URL Matching: url-filter, url-regex (mutually exclusive — share one DNR slot)
  *   Domain Filtering: request-domains, exclude-request-domains, initiator-domains, exclude-initiator-domains
  *   Request Filtering: request-methods, exclude-request-methods, resource-types, exclude-resource-types, domain-type
- *   Header Matching: request-header, exclude-request-header, response-header, exclude-response-header
+ *   Header Matching: response-header, exclude-response-header (Chrome 128+)
+ *
+ * Singleton enforcement: `url-filter`, `url-regex`, and `domain-type` map to
+ * scalar DNR fields. Two rows of the same singleton would silently overwrite
+ * in `buildDnrCondition`, so the type dropdown disables them on other rows
+ * once one is present. `url-filter` + `url-regex` share the urlPattern slot
+ * and are treated as a single mutex group.
+ *
+ * `request-header` / `exclude-request-header` are intentionally NOT in the
+ * picker: Chrome MV3 DNR has no request-header matching, so they ship
+ * nothing. They remain in the schema for forward-compat with older imports.
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningFilled } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import { applyDomainValueCleanup, type DomainValueIssue, validateDomainValues } from '@openheaders/core/utils';
+import {
+  applyDomainValueCleanup,
+  CONDITION_META,
+  type ConditionStructuralIssue,
+  type ConditionValueIssue,
+  type DomainValueIssue,
+  getConditionMutexKey,
+  isConditionSupportedByDnr,
+  validateConditionStructure,
+  validateConditionValues,
+  validateDomainValues,
+} from '@openheaders/core/utils';
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { getDocId } from './InspectorDocs';
 import { TemplateInput } from './template-input';
@@ -92,21 +113,7 @@ const CONDITION_TYPES: ConditionTypeDef[] = [
     inputType: 'multi-select-resources',
   },
   { value: 'domain-type', label: 'Domain Type', group: 'Request Filtering', inputType: 'single-select-domain-type' },
-  // Header Matching (Chrome 128+)
-  {
-    value: 'request-header',
-    label: 'Request Header',
-    group: 'Header Matching',
-    inputType: 'header',
-    placeholder: 'Header value equals...',
-  },
-  {
-    value: 'exclude-request-header',
-    label: 'Excl. Req Header',
-    group: 'Header Matching',
-    inputType: 'header',
-    placeholder: 'Header value equals...',
-  },
+  // Header Matching (Chrome 128+, response-side only — DNR has no request-header matching)
   {
     value: 'response-header',
     label: 'Response Header',
@@ -130,18 +137,61 @@ const DOMAIN_TYPES = [
   { value: 'thirdParty', label: 'Third-party' },
 ];
 
-// Build grouped options for the type selector
-const TYPE_OPTIONS = (() => {
+/**
+ * Build the type-selector options for one row, given the current
+ * condition list and that row's index. Types are grouped by category
+ * and disabled (with an explanatory label suffix) when:
+ *
+ *   - the type is not supported by Chrome DNR (`supportedByDnr === false`),
+ *     unless the row already holds that type — in that case it's allowed
+ *     to render so the user can switch it to something else without
+ *     losing the row, and
+ *   - the type's mutex key is already claimed by a different row
+ *     (`url-filter` and `url-regex` share the `'url-pattern'` group, so
+ *     having either present in another row disables both here).
+ *
+ * The metadata in core/utils is the single source of truth for both
+ * conditions; the editor just renders it.
+ */
+function buildTypeOptions(
+  conditions: readonly V5.RuleCondition[],
+  currentIndex: number,
+): Array<{ label: string; options: Array<{ value: V5.ConditionType; label: React.ReactNode; disabled?: boolean }> }> {
+  // Mutex keys claimed by OTHER rows.
+  const claimedKeys = new Set<string>();
+  for (let i = 0; i < conditions.length; i++) {
+    if (i === currentIndex) continue;
+    const key = getConditionMutexKey(conditions[i].type);
+    if (key) claimedKeys.add(key);
+  }
+  const currentType = conditions[currentIndex]?.type;
+
   const groups = new Map<string, ConditionTypeDef[]>();
   for (const t of CONDITION_TYPES) {
     if (!groups.has(t.group)) groups.set(t.group, []);
     groups.get(t.group)!.push(t);
   }
+
   return [...groups.entries()].map(([group, items]) => ({
     label: group,
-    options: items.map((t) => ({ value: t.value, label: t.label })),
+    options: items.map((t) => {
+      const isCurrent = t.value === currentType;
+      // Hide the type completely if it's unsupported AND not the current
+      // row's value. Showing it on the current row lets the user switch
+      // away from a legacy import without first deleting the row.
+      const unsupported = !isConditionSupportedByDnr(t.value) && !isCurrent;
+      const key = getConditionMutexKey(t.value);
+      const mutexClash = !isCurrent && key !== null && claimedKeys.has(key);
+      const disabled = unsupported || mutexClash;
+      const suffix = unsupported ? ' — not supported by Chrome DNR' : mutexClash ? ' — already used' : '';
+      return {
+        value: t.value,
+        label: suffix ? `${t.label}${suffix}` : t.label,
+        disabled,
+      };
+    }),
   }));
-})();
+}
 
 function getTypeDef(type: V5.ConditionType): ConditionTypeDef | undefined {
   return CONDITION_TYPES.find((t) => t.value === type);
@@ -159,6 +209,18 @@ interface ConditionEditorProps {
 const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange }) => {
   const { token } = theme.useToken();
   const { openDocs } = useInspectorNav();
+
+  // Group structural issues by row so each row can render its own banner.
+  // Single pass, recomputed only when the condition list changes.
+  const structuralIssuesByRow = useMemo(() => {
+    const byRow = new Map<number, ConditionStructuralIssue[]>();
+    for (const issue of validateConditionStructure(value)) {
+      const list = byRow.get(issue.index) ?? [];
+      list.push(issue);
+      byRow.set(issue.index, list);
+    }
+    return byRow;
+  }, [value]);
 
   const updateCondition = useCallback(
     (index: number, updates: Partial<V5.RuleCondition>) => {
@@ -228,6 +290,15 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
         // otherwise leaves the user staring at a non-applying rule
         // with zero feedback.
         const domainIssues = validateDomainValues(condition);
+        const valueIssues = validateConditionValues(condition);
+        const structuralIssues = structuralIssuesByRow.get(index) ?? [];
+        // Rows that ship nothing to Chrome (overridden by a later row in
+        // the same mutex group, or an unsupported-by-DNR type) get muted
+        // visually so the user can see at a glance which rows are dead
+        // weight. The banner explains why; the muting reinforces it.
+        const isInert = structuralIssues.some(
+          (i) => i.kind === 'duplicate-singleton' || i.kind === 'mutex-conflict' || i.kind === 'unsupported-by-dnr',
+        );
 
         return (
           <div
@@ -238,42 +309,49 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               gap: 6,
               padding: '8px 10px',
               borderBottom: index < value.length - 1 ? `1px solid ${token.colorBorderSecondary}` : undefined,
+              opacity: isInert ? 0.6 : 1,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {/* AND badge */}
+              {/* AND badge — connector between rows. */}
               {index > 0 && (
-                <Tag
-                  color="blue"
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: 1,
-                    lineHeight: '18px',
-                    margin: 0,
-                    padding: '0 4px',
-                    flexShrink: 0,
-                  }}
-                >
-                  AND
-                </Tag>
+                <Tooltip title="Rows combine with AND — every row must match for the rule to fire. The OR / 1 value badge next to each row's input shows that row's value-combination logic.">
+                  <Tag
+                    color="blue"
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: 1,
+                      lineHeight: '18px',
+                      margin: 0,
+                      padding: '0 4px',
+                      flexShrink: 0,
+                      cursor: 'help',
+                    }}
+                  >
+                    AND
+                  </Tag>
+                </Tooltip>
               )}
 
               {/* Exclude indicator */}
               {isExclude && (
-                <Tag
-                  color="warning"
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    lineHeight: '18px',
-                    margin: 0,
-                    padding: '0 4px',
-                    flexShrink: 0,
-                  }}
-                >
-                  NOT
-                </Tag>
+                <Tooltip title="This is an exclusion condition — the rule fires only when NONE of the listed values match.">
+                  <Tag
+                    color="warning"
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      lineHeight: '18px',
+                      margin: 0,
+                      padding: '0 4px',
+                      flexShrink: 0,
+                      cursor: 'help',
+                    }}
+                  >
+                    NOT
+                  </Tag>
+                </Tooltip>
               )}
 
               {/* Type selector + docs link */}
@@ -282,8 +360,8 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 value={condition.type}
                 onChange={(type) => handleTypeChange(index, type)}
                 style={{ width: 160, flexShrink: 0 }}
-                popupMatchSelectWidth={200}
-                options={TYPE_OPTIONS}
+                popupMatchSelectWidth={240}
+                options={buildTypeOptions(value, index)}
               />
               <InfoCircleOutlined
                 style={{ fontSize: 10, color: token.colorTextQuaternary, cursor: 'pointer', flexShrink: 0 }}
@@ -343,6 +421,9 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 />
               )}
 
+              {/* Value-logic hint — explains how multiple values inside this row combine. */}
+              <ValueLogicHint type={condition.type} />
+
               {/* Delete */}
               <Button
                 type="text"
@@ -352,6 +433,8 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 style={{ color: token.colorTextTertiary, flexShrink: 0 }}
               />
             </div>
+            {structuralIssues.length > 0 && <StructuralIssueBanner issues={structuralIssues} />}
+            {valueIssues.length > 0 && <ValueIssueBanner issues={valueIssues} />}
             {domainIssues.length > 0 && (
               <DomainIssueBanner
                 issues={domainIssues}
@@ -372,6 +455,167 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
         <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addCondition} style={{ fontSize: 12 }}>
           Add condition
         </Button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Tiny inline badge that tells the user how multiple values inside ONE
+ * row combine. Together with the "AND" tag between rows, this makes the
+ * full logic visible without a docs trip:
+ *
+ *   - `or`     → `OR`     "values in this row match any (OR)"
+ *   - `single` → `1 value` "this condition takes one value; comma-separating won't help"
+ *
+ * Drawn from `CONDITION_META.valueLogic` — no editor-side hardcoding.
+ */
+const ValueLogicHint: React.FC<{ type: V5.ConditionType }> = ({ type }) => {
+  const { token } = theme.useToken();
+  const meta = CONDITION_META[type];
+  if (!meta) return null;
+  const label = meta.valueLogic === 'or' ? 'OR' : '1 value';
+  const tooltip =
+    meta.valueLogic === 'or'
+      ? 'Multiple values in this row match if ANY value matches (OR). Rows below combine with AND.'
+      : 'This condition takes a single value — comma-separating has no effect. Rows below combine with AND.';
+  return (
+    <Tooltip title={tooltip}>
+      <Tag
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: 1,
+          lineHeight: '18px',
+          margin: 0,
+          padding: '0 4px',
+          flexShrink: 0,
+          background: token.colorFillTertiary,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          color: token.colorTextSecondary,
+          cursor: 'help',
+        }}
+      >
+        {label}
+      </Tag>
+    </Tooltip>
+  );
+};
+
+/**
+ * Banner for per-input value validation issues. Renders error-severity
+ * issues with the danger palette (Chrome will reject the rule) and
+ * warning-severity issues with the warning palette (rule loads but
+ * probably doesn't do what the user intended). When both severities are
+ * present in one row we render both blocks so the user sees the full
+ * picture without color-coding hiding warnings behind errors.
+ */
+const ValueIssueBanner: React.FC<{ issues: readonly ConditionValueIssue[] }> = ({ issues }) => {
+  const { token } = theme.useToken();
+  const errors = issues.filter((i) => i.severity === 'error');
+  const warnings = issues.filter((i) => i.severity === 'warning');
+  return (
+    <>
+      {errors.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: '6px 8px',
+            marginLeft: 26,
+            background: token.colorErrorBg,
+            border: `1px solid ${token.colorErrorBorder}`,
+            borderRadius: 4,
+            fontSize: 11,
+            lineHeight: 1.4,
+            color: token.colorErrorText,
+          }}
+        >
+          <WarningFilled style={{ color: token.colorError, fontSize: 12, marginTop: 1, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {dedupeMessages(errors).map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: '6px 8px',
+            marginLeft: 26,
+            background: token.colorWarningBg,
+            border: `1px solid ${token.colorWarningBorder}`,
+            borderRadius: 4,
+            fontSize: 11,
+            lineHeight: 1.4,
+            color: token.colorWarningText,
+          }}
+        >
+          <WarningFilled style={{ color: token.colorWarning, fontSize: 12, marginTop: 1, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {dedupeMessages(warnings).map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+function dedupeMessages(issues: readonly ConditionValueIssue[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const issue of issues) {
+    if (seen.has(issue.message)) continue;
+    seen.add(issue.message);
+    out.push(issue.message);
+  }
+  return out;
+}
+
+interface StructuralIssueBannerProps {
+  issues: readonly ConditionStructuralIssue[];
+}
+
+const StructuralIssueBanner: React.FC<StructuralIssueBannerProps> = ({ issues }) => {
+  const { token } = theme.useToken();
+  // Dedupe identical messages — a row can only carry one mutex-conflict
+  // and one duplicate-singleton at a time, but unsupported-by-dnr can
+  // stack with a future kind, so the dedupe keeps the banner readable.
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const issue of issues) {
+    if (seen.has(issue.message)) continue;
+    seen.add(issue.message);
+    lines.push(issue.message);
+  }
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '6px 8px',
+        marginLeft: 26,
+        background: token.colorWarningBg,
+        border: `1px solid ${token.colorWarningBorder}`,
+        borderRadius: 4,
+        fontSize: 11,
+        lineHeight: 1.4,
+        color: token.colorWarningText,
+      }}
+    >
+      <WarningFilled style={{ color: token.colorWarning, fontSize: 12, marginTop: 1, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {lines.map((line, i) => (
+          <div key={i}>{line}</div>
+        ))}
       </div>
     </div>
   );

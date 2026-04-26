@@ -44,7 +44,6 @@ export const HeaderRuleDraftSchema = v.object({
 export const RedirectRuleDraftSchema = v.object({
   type: v.literal('redirect'),
   ...RuleDraftBaseFields,
-  matchPattern: v.optional(v.string()),
   redirectTo: v.optional(v.string()),
 });
 
@@ -70,8 +69,6 @@ export const MockRuleDraftSchema = v.object({
 export const BlockRuleDraftSchema = v.object({
   type: v.literal('block'),
   ...RuleDraftBaseFields,
-  statusCode: v.optional(v.number()),
-  responseBody: v.optional(v.string()),
 });
 
 export const DelayRuleDraftSchema = v.object({
@@ -92,7 +89,7 @@ export const QueryParamRuleDraftSchema = v.object({
   params: v.optional(v.array(QueryParamDraftEntrySchema)),
 });
 
-const InjectPositionSchema = v.picklist(['head', 'body-start', 'body-end']);
+const InjectPositionSchema = v.picklist(['head', 'body-end']);
 
 export const InjectRuleDraftSchema = v.object({
   type: v.literal('inject'),

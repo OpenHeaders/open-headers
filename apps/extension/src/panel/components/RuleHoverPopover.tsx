@@ -39,13 +39,13 @@ import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
 import type { MutationResult } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
-import { getHeaderOperationCapability } from '@openheaders/core/utils';
-import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
+import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
 import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@/shared/use-popover-placement';
 import { openWorkspace } from '@/shared/workspace-intent';
+import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
 import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
 import { TemplateInput } from '@/workbench/components/template-input';
 import { buildChordsFromEvent, useShortcutLabel } from '@/workbench/hooks/useWorkspaceShortcuts';
@@ -94,7 +94,9 @@ export interface RuleHoverPopoverProps {
 const POPOVER_WIDTH = 480;
 
 const OPERATION_OPTIONS: { value: V5.HeaderOperation; label: string }[] = [
-  { value: 'override', label: 'Override' },
+  // Mirror the workbench HeaderRuleFields labels so the popover and the
+  // full editor agree on what each op is called.
+  { value: 'override', label: 'Add / Replace' },
   { value: 'add', label: 'Append' },
   { value: 'remove', label: 'Remove' },
   { value: 'merge', label: 'Merge' },
@@ -458,11 +460,36 @@ export function RuleHoverPopover({
   }, [saveChord]);
 
   const editable = isHeader && !!currentMod && !!headerRule;
-  const canSave = editable && draftDirty && !saving && draft.headerName.trim().length > 0;
-  handleSaveRef.current = canSave ? () => void handleSave() : null;
 
+  // Full draft validation — same validators core uses for the workbench
+  // editor and `isRuleComplete`. Templates pass through (resolved at
+  // runtime; structural validity isn't decidable at edit time).
+  const isResponse = target?.direction === 'response';
+  const trimmedName = draft.headerName.trim();
+  const nameValidation =
+    editable && trimmedName && !trimmedName.includes('{{')
+      ? validateHeaderName(trimmedName, isResponse)
+      : { valid: true as const, message: '' };
+  const valueValidation =
+    editable && draft.operation !== 'remove' && draft.value && !draft.value.includes('{{')
+      ? validateHeaderValue(draft.value, trimmedName)
+      : { valid: true as const, message: '' };
   const capability =
     editable && target ? getHeaderOperationCapability(target.direction, draft.operation, draft.headerName) : null;
+
+  // Save is gated on every error: empty name, invalid name, invalid
+  // value, capability violation. Mirrors the workbench editor's
+  // `isRuleComplete` contract — broken edits never reach the rule
+  // store.
+  const canSave =
+    editable &&
+    draftDirty &&
+    !saving &&
+    trimmedName.length > 0 &&
+    nameValidation.valid &&
+    valueValidation.valid &&
+    (!capability || capability.allowed);
+  handleSaveRef.current = canSave ? () => void handleSave() : null;
 
   const openInEditor = () => {
     const uid = liveRule?.uid ?? ctx?.ruleUid;
@@ -622,12 +649,25 @@ export function RuleHoverPopover({
               </div>
             )}
           </div>
+          {/* Inline validation errors. Capability errors keep the
+              "Switch to <suggestion>" affordance so the user can fix
+              it in one click. Name / value errors are read-only. */}
+          {!nameValidation.valid && (
+            <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
+              {nameValidation.message || 'Invalid header name.'}
+            </div>
+          )}
+          {!valueValidation.valid && (
+            <div style={{ marginTop: 6, fontSize: 11, color: token.colorError, lineHeight: 1.4 }}>
+              {valueValidation.message || 'Invalid header value.'}
+            </div>
+          )}
           {capability && !capability.allowed && (
             <div
               style={{
                 marginTop: 6,
                 fontSize: 11,
-                color: token.colorWarning,
+                color: token.colorError,
                 lineHeight: 1.4,
               }}
             >
@@ -803,8 +843,7 @@ function SnapshotBlock({
   // case: request-direction overrides where Chrome's HAR captured the
   // post-rule value as the "server" value, so `originalValue` ===
   // `appliedValue`. The row would carry no information.
-  const showOriginalRow =
-    originalValue !== null && (mod.operation === 'remove' || originalValue !== appliedValue);
+  const showOriginalRow = originalValue !== null && (mod.operation === 'remove' || originalValue !== appliedValue);
 
   // Name drift: same reliability gate as value drift — if the
   // snapshot's resolved name still contains `{{`, resolution failed at

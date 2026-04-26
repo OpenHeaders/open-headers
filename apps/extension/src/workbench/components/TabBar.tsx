@@ -16,7 +16,6 @@
 import {
   ApartmentOutlined,
   AppstoreOutlined,
-  SisternodeOutlined,
   CloseOutlined,
   DownOutlined,
   ExperimentOutlined,
@@ -27,19 +26,20 @@ import {
   PlusOutlined,
   SearchOutlined,
   SettingOutlined,
+  SisternodeOutlined,
 } from '@ant-design/icons';
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isWorkflowComplete } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRuleComplete } from '@openheaders/core/utils';
-import { scratchLabelForMode } from '../breadcrumbs';
 import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { scratchLabelForMode } from '../breadcrumbs';
 import { useDragIntent } from '../drag-intent';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
@@ -114,12 +114,20 @@ export function tabIcon(
   if (tab.mode === 'env-edit') return scopeBadge('environment');
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');
-  if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create') return scopeBadge('live');
+  if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create')
+    return scopeBadge('live');
   if (tab.mode === 'live-workflow-edit' || tab.mode === 'live-workflow-create') {
     const workflow = tab.liveWorkflowUid ? liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid) : undefined;
     const unresolved = tab.liveWorkflowUid ? unresolvableWorkflowUids.has(tab.liveWorkflowUid) : false;
     const complete = workflow ? isWorkflowComplete(workflow) : false;
-    const color = tab.mode === 'live-workflow-create' ? TAB_ICON_GRAY : unresolved ? TAB_ICON_YELLOW : complete ? '#1677ff' : TAB_ICON_GRAY;
+    const color =
+      tab.mode === 'live-workflow-create'
+        ? TAB_ICON_GRAY
+        : unresolved
+          ? TAB_ICON_YELLOW
+          : complete
+            ? '#1677ff'
+            : TAB_ICON_GRAY;
     return <SisternodeOutlined style={{ fontSize: 12, color }} />;
   }
   if (tab.mode === 'collection-vars') return scopeBadge('collection');
@@ -333,7 +341,17 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   const inner = (
     <>
       <span className="rules-type-badge">
-        {tabIcon(tab, rules, templates, pausedUids, requests, unresolvableRequestUids, unresolvableRuleUids, liveWorkflows, unresolvableWorkflowUids)}
+        {tabIcon(
+          tab,
+          rules,
+          templates,
+          pausedUids,
+          requests,
+          unresolvableRequestUids,
+          unresolvableRuleUids,
+          liveWorkflows,
+          unresolvableWorkflowUids,
+        )}
       </span>
       <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab)}
@@ -827,9 +845,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                         // biome-ignore lint/suspicious/noArrayIndexKey: path segments are inherently positional
                         <Fragment key={`${seg}-${i}`}>
                           {i > 0 && <span style={{ margin: '0 4px' }}>{'›'}</span>}
-                          {i > 0 && (
-                            <FolderOpenOutlined style={{ fontSize: 9, marginRight: 3 }} />
-                          )}
+                          {i > 0 && <FolderOpenOutlined style={{ fontSize: 9, marginRight: 3 }} />}
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{seg}</span>
                         </Fragment>
                       ))}
@@ -887,7 +903,13 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                       }}
                     >
                       <span
-                        style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, fontSize: 13, marginTop: 1 }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          flexShrink: 0,
+                          fontSize: 13,
+                          marginTop: 1,
+                        }}
                       >
                         {tabIcon(
                           closed.tab,
@@ -928,9 +950,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                               // biome-ignore lint/suspicious/noArrayIndexKey: path segments are inherently positional
                               <Fragment key={`${seg}-${i}`}>
                                 {i > 0 && <span style={{ margin: '0 4px' }}>{'›'}</span>}
-                                {i > 0 && (
-                                  <FolderOpenOutlined style={{ fontSize: 9, marginRight: 3 }} />
-                                )}
+                                {i > 0 && <FolderOpenOutlined style={{ fontSize: 9, marginRight: 3 }} />}
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{seg}</span>
                               </Fragment>
                             ))}
@@ -1216,10 +1236,7 @@ const TabBar: React.FC<TabBarProps> = ({
   const insertionTab = insertionIndex !== null ? dragIntentForBar.draggingTab : null;
 
   return (
-    <div
-      className="rules-tabs-bar"
-      style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-    >
+    <div className="rules-tabs-bar" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
       {/* Scrollable tabs */}
       <div className="rules-tabs-scroll" ref={scrollRef} onWheel={handleWheel}>
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>

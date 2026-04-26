@@ -221,8 +221,6 @@ const CONDITION_TYPE_SHORT: Record<string, string> = {
   'resource-types': 'Resource',
   'exclude-resource-types': 'Excl Resource',
   'domain-type': 'Domain Type',
-  'request-header': 'Req Hdr',
-  'exclude-request-header': 'Excl Req Hdr',
   'response-header': 'Resp Hdr',
   'exclude-response-header': 'Excl Resp Hdr',
 };
@@ -240,8 +238,6 @@ const CONDITION_TYPE_LABEL: Record<string, string> = {
   'resource-types': 'Resources',
   'exclude-resource-types': 'Excl Resources',
   'domain-type': 'Domain Type',
-  'request-header': 'Req Header',
-  'exclude-request-header': 'Excl Req Header',
   'response-header': 'Resp Header',
   'exclude-response-header': 'Excl Resp Header',
 };
@@ -262,10 +258,8 @@ const CONDITION_PRIORITY: Record<string, number> = {
   'exclude-initiator-domains': 8,
   'exclude-resource-types': 9,
   'exclude-request-methods': 10,
-  'request-header': 11,
-  'exclude-request-header': 12,
-  'response-header': 13,
-  'exclude-response-header': 14,
+  'response-header': 11,
+  'exclude-response-header': 12,
 };
 
 /** Strip protocol and trailing wildcard from URL patterns for compact display. */

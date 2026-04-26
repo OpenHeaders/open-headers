@@ -361,10 +361,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, lineHeight: 1.3 }}>Keep selected environment</div>
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}
-                  >
+                  <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
                     Your selection stays put across collections and everything inside them.
                   </Text>
                 </div>
@@ -389,10 +386,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, lineHeight: 1.3 }}>Apply collection defaults</div>
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}
-                  >
+                  <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
                     Defaults take over while inside. Your last manual pick is restored elsewhere.
                   </Text>
                 </div>
@@ -417,12 +411,8 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, lineHeight: 1.3 }}>Follow each collection</div>
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}
-                  >
-                    Collections with a default switch to it (and remember your picks). Others don't
-                    switch.
+                  <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
+                    Collections with a default switch to it (and remember your picks). Others don't switch.
                   </Text>
                 </div>
               </div>

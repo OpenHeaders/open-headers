@@ -43,8 +43,7 @@ function makeCtx(overrides: Partial<RuleAttributionContext> = {}): RuleAttributi
     ruleVersion: 1,
     snapshotMod: makeMod(),
     currentRule: rule,
-    currentMod:
-      rule && rule.type === 'header' ? rule.action.requestHeaders[0] ?? null : null,
+    currentMod: rule && rule.type === 'header' ? (rule.action.requestHeaders[0] ?? null) : null,
     edited: false,
     siblingMods: [],
     ...overrides,

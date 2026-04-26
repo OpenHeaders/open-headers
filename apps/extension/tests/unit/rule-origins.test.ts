@@ -15,7 +15,7 @@ function rule(conditions: V5.RuleCondition[]): V5.Rule {
     type: 'block',
     enabled: true,
     conditions,
-    action: { statusCode: 403 },
+    action: {},
   } as V5.Rule;
 }
 

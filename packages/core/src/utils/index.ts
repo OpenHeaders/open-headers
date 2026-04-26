@@ -4,8 +4,34 @@ export type {
   CollectionEnvOverride,
 } from './collection-env-resolution';
 export { resolveAutoSwitchTarget, resolveCollectionEnv } from './collection-env-resolution';
-export type { DomainIssueKind, DomainValueIssue } from './condition-validation';
-export { applyDomainValueCleanup, validateDomainValues } from './condition-validation';
+export type { ConditionCardinality, ConditionTypeMeta, ConditionValueLogic } from './condition-metadata';
+export {
+  CONDITION_META,
+  getConditionMutexKey,
+  isConditionSupportedByDnr,
+  listSupportedConditionTypes,
+} from './condition-metadata';
+export type {
+  ActionValueIssue,
+  ActionValueIssueKind,
+  ActionValueSeverity,
+} from './action-validation';
+export { validateActionValues } from './action-validation';
+export type {
+  ConditionStructuralIssue,
+  ConditionStructuralIssueKind,
+  ConditionValueIssue,
+  ConditionValueIssueKind,
+  ConditionValueSeverity,
+  DomainIssueKind,
+  DomainValueIssue,
+} from './condition-validation';
+export {
+  applyDomainValueCleanup,
+  validateConditionStructure,
+  validateConditionValues,
+  validateDomainValues,
+} from './condition-validation';
 export type {
   HeaderDirection,
   HeaderNameValidation,

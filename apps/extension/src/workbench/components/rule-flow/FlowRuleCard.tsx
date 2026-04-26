@@ -30,8 +30,6 @@ const CONDITION_TYPE_LABELS: Record<string, string> = {
   'resource-types': 'Types',
   'exclude-resource-types': '!Types',
   'domain-type': 'Party',
-  'request-header': 'Req Header',
-  'exclude-request-header': '!Req Header',
   'response-header': 'Res Header',
   'exclude-response-header': '!Res Header',
 };

@@ -351,7 +351,7 @@ describe('RuleSchema', () => {
         type: 'block',
         enabled: true,
         conditions: [{ type: 'request-domains', values: ['bad.io'] }],
-        action: { statusCode: 403 },
+        action: {},
       }),
     ).toBeTruthy();
   });

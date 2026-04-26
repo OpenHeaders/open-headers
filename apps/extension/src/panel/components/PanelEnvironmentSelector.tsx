@@ -141,7 +141,11 @@ export const PanelEnvironmentSelector: React.FC<PanelEnvironmentSelectorProps> =
         }}
       >
         <Space size={4}>
-          {active ? scopeBadge('environment', 12) : <GlobalOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />}
+          {active ? (
+            scopeBadge('environment', 12)
+          ) : (
+            <GlobalOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+          )}
           <Text
             style={{
               maxWidth: 120,

@@ -79,7 +79,9 @@ function buildHeaderMods(
   // safe because `resolveRulesForCompile` produces the resolved rule by
   // mapping over the same arrays without reordering.
   const out: RuleSnapshotHeaderMod[] = [];
-  const directions: Array<['request' | 'response', V5.HeaderModification[] | undefined, V5.HeaderModification[] | undefined]> = [
+  const directions: Array<
+    ['request' | 'response', V5.HeaderModification[] | undefined, V5.HeaderModification[] | undefined]
+  > = [
     ['request', raw?.action.requestHeaders, resolved?.action.requestHeaders],
     ['response', raw?.action.responseHeaders, resolved?.action.responseHeaders],
   ];

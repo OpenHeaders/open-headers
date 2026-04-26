@@ -378,98 +378,98 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
             />
           )}
 
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '6px 10px',
-            background: token.colorFillAlter,
-            borderRadius: 4,
-            marginBottom: 14,
-            fontSize: 11,
-          }}
-        >
-          {/* Top row: refresh policy + binding count — workflow-level facts that don't vary by env */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {describeRefreshPolicy(draft.refresh)}
-            </Text>
-            <div style={{ flex: 1 }} />
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              bound: {boundVars.length} variable{boundVars.length === 1 ? '' : 's'}
-            </Text>
-          </div>
-          {/* Per-env table — one row per env that has a cache, plus the
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '6px 10px',
+              background: token.colorFillAlter,
+              borderRadius: 4,
+              marginBottom: 14,
+              fontSize: 11,
+            }}
+          >
+            {/* Top row: refresh policy + binding count — workflow-level facts that don't vary by env */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {describeRefreshPolicy(draft.refresh)}
+              </Text>
+              <div style={{ flex: 1 }} />
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                bound: {boundVars.length} variable{boundVars.length === 1 ? '' : 's'}
+              </Text>
+            </div>
+            {/* Per-env table — one row per env that has a cache, plus the
               active env row even when no cache exists for it. The active
               env row is always first + visually highlighted so the user
               sees "what's resolved RIGHT NOW" at a glance. */}
-          <div
-            style={{
-              marginTop: 6,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
-          >
-            {perEnvRuns.map((entry) => {
-              const entryLevel = classifyRun(entry.run);
-              return (
-                <div
-                  key={entry.environmentId ?? '__none__'}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '3px 6px',
-                    borderRadius: 3,
-                    background: entry.isActive ? token.colorBgContainer : 'transparent',
-                    border: entry.isActive ? `1px solid ${token.colorBorderSecondary}` : '1px solid transparent',
-                  }}
-                >
-                  <span
+            <div
+              style={{
+                marginTop: 6,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+            >
+              {perEnvRuns.map((entry) => {
+                const entryLevel = classifyRun(entry.run);
+                return (
+                  <div
+                    key={entry.environmentId ?? '__none__'}
                     style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: statusColor(entryLevel),
-                      flexShrink: 0,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: entry.isActive ? 600 : 400,
-                      color: entry.isActive ? token.colorText : token.colorTextSecondary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '3px 6px',
+                      borderRadius: 3,
+                      background: entry.isActive ? token.colorBgContainer : 'transparent',
+                      border: entry.isActive ? `1px solid ${token.colorBorderSecondary}` : '1px solid transparent',
                     }}
                   >
-                    {envName(entry.environmentId)}
-                    {entry.isActive ? ' (active)' : ''}
-                  </Text>
-                  {entry.run ? (
-                    <>
-                      {describeRunSchedule(entry.run, draft.refresh).map((chunk) => (
-                        <Text key={chunk.text} type={chunk.tone} style={{ fontSize: 11 }}>
-                          · {chunk.text}
-                        </Text>
-                      ))}
-                      <CircuitInlineStatus run={entry.run} />
-                      {entry.run.lastErrorMessage && (
-                        <Text type="danger" style={{ fontSize: 11 }}>
-                          · {entry.run.lastErrorMessage}
-                          {entry.run.lastErrorStepId ? ` (${entry.run.lastErrorStepId})` : ''}
-                        </Text>
-                      )}
-                    </>
-                  ) : (
-                    <Text type="warning" style={{ fontSize: 11 }}>
-                      · never run for this env — click Refresh to populate
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: statusColor(entryLevel),
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: entry.isActive ? 600 : 400,
+                        color: entry.isActive ? token.colorText : token.colorTextSecondary,
+                      }}
+                    >
+                      {envName(entry.environmentId)}
+                      {entry.isActive ? ' (active)' : ''}
                     </Text>
-                  )}
-                </div>
-              );
-            })}
+                    {entry.run ? (
+                      <>
+                        {describeRunSchedule(entry.run, draft.refresh).map((chunk) => (
+                          <Text key={chunk.text} type={chunk.tone} style={{ fontSize: 11 }}>
+                            · {chunk.text}
+                          </Text>
+                        ))}
+                        <CircuitInlineStatus run={entry.run} />
+                        {entry.run.lastErrorMessage && (
+                          <Text type="danger" style={{ fontSize: 11 }}>
+                            · {entry.run.lastErrorMessage}
+                            {entry.run.lastErrorStepId ? ` (${entry.run.lastErrorStepId})` : ''}
+                          </Text>
+                        )}
+                      </>
+                    ) : (
+                      <Text type="warning" style={{ fontSize: 11 }}>
+                        · never run for this env — click Refresh to populate
+                      </Text>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
           <WorkflowFormBody draft={draft} setDraft={setDraft} />
         </div>

@@ -18,12 +18,13 @@
  * the moment the Radio flips — no parallel hook needed here.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
+import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, AutoComplete, Button, Form, Input, Radio, Select, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
+import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -117,6 +118,23 @@ const STATUS_CODES = [
   },
 ];
 
+// Common Content-Type values surfaced as autocomplete suggestions. Users
+// can type any value freely; this is a convenience, not a constraint.
+// Order: most-likely-first (JSON dominates API mocking).
+const CONTENT_TYPE_OPTIONS = [
+  { value: 'application/json' },
+  { value: 'application/xml' },
+  { value: 'application/javascript' },
+  { value: 'application/octet-stream' },
+  { value: 'text/plain' },
+  { value: 'text/html' },
+  { value: 'text/css' },
+  { value: 'text/csv' },
+  { value: 'image/png' },
+  { value: 'image/jpeg' },
+  { value: 'image/svg+xml' },
+];
+
 export const MOCK_DYNAMIC_TEMPLATE = `function modifyResponse(args) {
   const { method, url, response, responseType, requestHeaders, requestData, responseJSON } = args;
   // Change response below depending upon request attributes received in args
@@ -157,7 +175,11 @@ const MockRuleFields: React.FC = () => {
         <Form.Item name="mockResourceType" style={{ marginBottom: 0 }}>
           <Radio.Group>
             <Radio value="rest">REST API</Radio>
-            <Radio value="graphql">GraphQL API</Radio>
+            <Tooltip title="GraphQL operation filtering is coming soon. The schema fields are in place; the runtime payload-matching logic isn't shipped yet.">
+              <Radio value="graphql" disabled>
+                GraphQL API
+              </Radio>
+            </Tooltip>
           </Radio.Group>
         </Form.Item>
       </div>
@@ -229,6 +251,77 @@ const MockRuleFields: React.FC = () => {
             }}
           />
         </Form.Item>
+      </div>
+
+      {/* Content-Type — a single header that controls how the browser parses
+          the synthetic body. Defaults to application/json (the dominant API
+          mocking case). AutoComplete: typed value passes through verbatim,
+          the suggestions are convenience, not a constraint. */}
+      <div style={{ marginBottom: 12 }}>
+        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+          Content-Type
+        </Text>
+        <Form.Item name="mockContentType" style={{ marginBottom: 0 }}>
+          <AutoComplete
+            options={CONTENT_TYPE_OPTIONS}
+            placeholder="application/json"
+            style={{ width: '100%' }}
+            filterOption={(input, option) => {
+              const value = String(option?.value ?? '');
+              return value.toLowerCase().includes(input.toLowerCase());
+            }}
+          />
+        </Form.Item>
+      </div>
+
+      {/* Response Headers — additional headers applied alongside Content-Type.
+          Stored in the schema as a Record<string, string>; the form-state
+          shape is an array of {name, value} rows so Form.List can manage
+          add/remove. Conversion happens in RuleEditor's load + save paths.
+          Empty rows are dropped on save. */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+          <Text strong style={{ fontSize: 12 }}>
+            Response Headers
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            (optional)
+          </Text>
+        </div>
+        <Form.List name="mockResponseHeaders">
+          {(fields, { add, remove }) => (
+            <>
+              {fields.map((field) => (
+                <div key={field.key} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                  <Form.Item
+                    {...field}
+                    name={[field.name, 'name']}
+                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                  >
+                    <Input size="small" placeholder="Header name (e.g. X-Custom)" />
+                  </Form.Item>
+                  <Form.Item
+                    {...field}
+                    name={[field.name, 'value']}
+                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                  >
+                    <TemplateInput size="small" placeholder="Header value" />
+                  </Form.Item>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CloseOutlined style={{ fontSize: 10 }} />}
+                    onClick={() => remove(field.name)}
+                    style={{ color: 'var(--ant-color-text-tertiary)', flexShrink: 0 }}
+                  />
+                </div>
+              ))}
+              <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={() => add({ name: '', value: '' })}>
+                Add Header
+              </Button>
+            </>
+          )}
+        </Form.List>
       </div>
 
       <div>

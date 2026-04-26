@@ -33,11 +33,11 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Collapse, Input, InputNumber, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
+import { scopeBadge } from '../shared/scope-colors';
 import { METHOD_COLORS } from '../sidebar/icons';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor from './ExtractorEditor';
 import StepGateEditor from './StepGateEditor';
-import { scopeBadge } from '../shared/scope-colors';
 
 const { Text } = Typography;
 

@@ -26,6 +26,11 @@ export const RuleTypeSchema = v.picklist([
 
 // ── Conditions ──────────────────────────────────────────────────────
 
+// Chrome MV3 DNR has no request-header matching; the request-side
+// counterparts of `response-header` were never shipped. We omit them from
+// the schema entirely — V5 starts clean. If Chrome ships request-header
+// matching later, re-add the two types here and flip them in
+// `condition-metadata.ts`.
 export const ConditionTypeSchema = v.picklist([
   'url-filter',
   'url-regex',
@@ -38,8 +43,6 @@ export const ConditionTypeSchema = v.picklist([
   'resource-types',
   'exclude-resource-types',
   'domain-type',
-  'request-header',
-  'exclude-request-header',
   'response-header',
   'exclude-response-header',
 ]);
@@ -108,8 +111,11 @@ export const HeaderRuleSchema = v.object({
 
 // ── Redirect rule ──────────────────────────────────────────────────
 
+// Redirect actions only carry the target. URL matching is fully expressed
+// by the rule's `conditions` (url-filter / url-regex / request-domains);
+// a separate `matchPattern` field would be redundant — the compiler ignores
+// it and there's no editor surface for it.
 export const RedirectActionSchema = v.object({
-  matchPattern: v.string(),
   redirectTo: v.string(),
 });
 
@@ -147,7 +153,16 @@ export const BodyRuleSchema = v.object({
 
 export const InjectTypeSchema = v.picklist(['script', 'css']);
 export const InjectSourceSchema = v.picklist(['code', 'url']);
-export const InjectPositionSchema = v.picklist(['head', 'body-start', 'body-end']);
+// Inject position semantics:
+//   - 'head'     — runs as soon as possible (uses chrome.scripting's
+//                  `injectImmediately: true`, before page parser starts).
+//   - 'body-end' — runs after the page has parsed (the default scripting
+//                  injection behavior, equivalent to a `<script>` tag at
+//                  the end of body).
+// Only meaningful for `injectType: 'script'`. CSS rules use `insertCSS`
+// which doesn't honor position — it always applies as soon as the tab
+// allows it. The field is persisted on CSS rules but ignored on the wire.
+export const InjectPositionSchema = v.picklist(['head', 'body-end']);
 
 export const InjectActionSchema = v.object({
   injectType: InjectTypeSchema,
@@ -165,11 +180,13 @@ export const InjectRuleSchema = v.object({
 });
 
 // ── Block rule ─────────────────────────────────────────────────────
+//
+// Block actions have no fields. Chrome DNR's `block` returns
+// `ERR_BLOCKED_BY_CLIENT` at the network layer — there's no synthetic
+// status code and no response body. For "block with a custom response",
+// use a `mock` rule with the desired status code and body.
 
-export const BlockActionSchema = v.object({
-  statusCode: v.number(),
-  responseBody: v.optional(v.string()),
-});
+export const BlockActionSchema = v.object({});
 
 export const BlockRuleSchema = v.object({
   ...RuleBaseFields,
@@ -211,6 +228,15 @@ export const MockRuleSchema = v.object({
 
 // ── Query-param rule ───────────────────────────────────────────────
 
+// Query-param operations:
+//   - 'add'        — add or replace (Chrome `addOrReplaceParams` without
+//                    `replaceOnly`). Adds when missing, overwrites when present.
+//   - 'override'   — replace only (Chrome `addOrReplaceParams` with
+//                    `replaceOnly: true`). Updates when present, leaves the URL
+//                    untouched when missing — useful for canonicalizing values
+//                    on URLs that already carry the param.
+//   - 'remove'     — remove a specific named param.
+//   - 'remove-all' — strip the entire query string.
 export const QueryParamOperationSchema = v.picklist(['add', 'override', 'remove', 'remove-all']);
 
 export const QueryParamEntrySchema = v.object({
