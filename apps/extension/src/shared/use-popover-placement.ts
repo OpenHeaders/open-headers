@@ -1,14 +1,28 @@
 /**
- * usePopoverPlacement — keep a popover positioned next to its anchor,
- * accounting for the popover's actual rendered height. Hover popovers
- * lose the close-grace battle when there's a gap between anchor and
- * popover (cursor enters dead space → mouseleave fires → close timer
- * runs); placing the popover flush against the anchor closes that gap.
+ * usePopoverPlacement — keep a popover anchored next to its trigger
+ * across the popover's lifetime.
  *
- * The hook holds the position state, observes the popover's own size
- * via `ResizeObserver`, and re-runs `computeAnchoredPosition` on
- * scroll / resize / size change. Callers attach the returned ref to
- * their popover root and read `position` for `top` / `left`.
+ * Lifecycle contract (intentionally minimal):
+ *   - Position derives from the anchor's `getBoundingClientRect()`
+ *     + the popover's measured height. Recomputed on:
+ *       - Popover size changes (own ResizeObserver).
+ *       - Anchor size / position changes (anchor's ResizeObserver).
+ *       - Window scroll / resize.
+ *   - If the anchor is momentarily detached during React reconciliation,
+ *     skip the recompute (don't write a zero-rect position). The next
+ *     observer fire after reconnect picks up the real rect.
+ *   - If the anchor goes away PERMANENTLY (its host destroyed it),
+ *     that's the consumer's responsibility to handle — close the
+ *     popover in the action that mutated the host. Hover popovers
+ *     should close on commit-style actions anyway (matches AntD /
+ *     Radix / etc.). The hook intentionally doesn't try to detect
+ *     "anchor lost" via timeouts — that's brittle and only ever needed
+ *     because the consumer kept the popover open across an action.
+ *
+ * `measured` is a paint-flicker guard — false until the popover's
+ * real height has been recorded across two animation frames; the
+ * popover should stay `visibility: hidden` until then so the initial
+ * paint at the estimated-height position never reaches the screen.
  */
 
 import { type RefCallback, useCallback, useEffect, useRef, useState } from 'react';
@@ -17,78 +31,79 @@ import { computeAnchoredPosition, type PopoverPlacement } from './popover-positi
 export interface UsePopoverPlacementApi {
   position: PopoverPlacement;
   popoverRef: RefCallback<HTMLElement>;
-  /** False until the popover's real rendered height has been
-   *  measured. Callers should keep the popover `visibility: hidden`
-   *  while this is false to avoid a one-frame flicker — the initial
-   *  position uses an estimated height (~220px) which is wrong by
-   *  ~50px for typical popover content; correcting it after the
-   *  first paint makes the popover visibly jump. Hiding through the
-   *  first paint and revealing once measured eliminates the flicker
-   *  without delaying the popover. */
   measured: boolean;
 }
 
 export function usePopoverPlacement(anchorEl: HTMLElement, width: number): UsePopoverPlacementApi {
-  // Initial render uses the conservative default-height estimate
-  // from `computeAnchoredPosition`. The popover is hidden via
-  // `measured: false` until the ref-callback below records the real
-  // height; the position state is then correct on the first VISIBLE
-  // paint, no flicker.
   const [position, setPosition] = useState<PopoverPlacement>(() => computeAnchoredPosition(anchorEl, width));
   const [measured, setMeasured] = useState(false);
   const elRef = useRef<HTMLElement | null>(null);
   const heightRef = useRef<number | undefined>(undefined);
 
   const recompute = useCallback(() => {
+    // Skip during transient detachment — the next observer fire after
+    // reconnect picks up the real rect. Permanent loss is the
+    // consumer's responsibility to close (see file header).
+    if (!anchorEl.isConnected) return;
     setPosition(computeAnchoredPosition(anchorEl, width, heightRef.current));
   }, [anchorEl, width]);
 
-  // ref-callback only stores the element. Measurement is driven by
-  // the ResizeObserver below.
+  // ref-callback only stores the element; measurement is driven by the
+  // ResizeObserver below so the FIRST height we record is the LAST
+  // (post-autoSize / post-content-layout) height — no jump-after-reveal.
   const popoverRef = useCallback<RefCallback<HTMLElement>>((node) => {
     elRef.current = node;
     if (!node) setMeasured(false);
   }, []);
 
+  // Popover-side observer — tracks the popover's own size for
+  // continuous repositioning as content changes.
   useEffect(() => {
     const node = elRef.current;
     if (!node) return;
-    let revealRaf1 = 0;
-    let revealRaf2 = 0;
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
-      // Use border-box size, NOT `contentRect`. `contentRect` is the
-      // content-box (CSS Box Model: excludes padding + border) — for
-      // a popover with `padding: 12; border: 1px` that under-reports
-      // by 26px, leaving the popover floating ~26px below where its
-      // top-edge calc thinks it should be. `borderBoxSize` is the
-      // visually-painted box and matches `getBoundingClientRect()`.
+      // Use border-box (matches `getBoundingClientRect`); `contentRect`
+      // is the content-box and excludes padding+border (~26px short
+      // for a popover with `padding: 12; border: 1px`).
       const next = entry.borderBoxSize?.[0]?.blockSize ?? node.getBoundingClientRect().height;
       if (next === heightRef.current) return;
       heightRef.current = next;
       recompute();
     });
     ro.observe(node);
-    // Reveal-after-settle: a single ResizeObserver fire isn't proof
-    // that layout is stable — late layout passes (font swap, AntD
-    // TextArea autoSize, child portal mounts) can fire again on the
-    // next frame and shift the popover. Waiting two animation frames
-    // before flipping `measured: true` guarantees the painter sees
-    // the final position; combined with the CSS opacity transition
-    // on the popover root, any fire that lands DURING the fade-in is
-    // imperceptible because the popover is still partially
-    // transparent and animating.
-    revealRaf1 = requestAnimationFrame(() => {
-      revealRaf2 = requestAnimationFrame(() => setMeasured(true));
-    });
-    return () => {
-      ro.disconnect();
-      cancelAnimationFrame(revealRaf1);
-      cancelAnimationFrame(revealRaf2);
-    };
+    return () => ro.disconnect();
   }, [recompute]);
 
+  // Anchor-side observer — repositions when the anchor moves (parent
+  // reflow, sibling content changes its width, etc.) without the
+  // popover's own height changing.
+  useEffect(() => {
+    const ro = new ResizeObserver(() => recompute());
+    ro.observe(anchorEl);
+    return () => ro.disconnect();
+  }, [anchorEl, recompute]);
+
+  // Reveal-after-settle: defer `measured: true` by two animation
+  // frames so any late layout pass (font swap, AntD `TextArea`
+  // autoSize, child portal mount) has had a chance to settle the
+  // popover's height before the first VISIBLE paint. The CSS
+  // transition on the popover root absorbs any micro-shift that does
+  // happen to land during the fade-in.
+  useEffect(() => {
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setMeasured(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, []);
+
+  // Window scroll / resize — anchor coords change with viewport.
   useEffect(() => {
     const onScroll = () => recompute();
     window.addEventListener('scroll', onScroll, true);

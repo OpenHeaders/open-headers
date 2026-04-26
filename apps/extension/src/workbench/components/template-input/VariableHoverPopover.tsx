@@ -319,7 +319,17 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
             <button
               key={c.envUid}
               type="button"
-              onClick={() => pickActiveEnvironment(c.envUid)}
+              // Close after switching: the user has committed an
+              // action, and the popover's anchor (the resolved-value
+              // span) is about to be destroyed by the re-resolution
+              // re-rendering its host TemplateInput's innerHTML —
+              // keeping the popover open would leave it orphaned at a
+              // stale position. Re-hover after the switch gets a fresh
+              // popover anchored to the new span with the new value.
+              onClick={() => {
+                pickActiveEnvironment(c.envUid);
+                onClose();
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
