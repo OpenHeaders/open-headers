@@ -120,10 +120,11 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
             flex: 1,
+            minHeight: 0,
             gap: 12,
             color: token.colorTextTertiary,
+            overflow: 'auto',
           }}
         >
           <Text type="secondary" style={{ fontSize: 12 }}>
