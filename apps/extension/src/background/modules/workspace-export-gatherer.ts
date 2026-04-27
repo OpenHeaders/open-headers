@@ -22,6 +22,7 @@
  * `packages/core/src/workspace-export/yaml.ts` header).
  */
 
+import { scanTemplateReferencesMany } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import type { BuildWorkspaceExportInput } from '@openheaders/core/workspace-export';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
@@ -38,9 +39,12 @@ import { getWorkspace } from './workspace-store';
  * (design §2.3).
  *
  * Transitive dependency expansion (envs / workflows / collection-vars
- * referenced by a selected rule's template strings) is a separate
- * concern — handled by the export-side "Strict literal" toggle in PR 5
- * Advanced rather than baked into the gatherer.
+ * referenced by a selected rule's template strings) runs after the
+ * tree-structure expansion above — `expandTransitiveDeps` walks string
+ * fields, scans for `{{env.X}}` / `{{live.X}}` / `{{collection.X}}` /
+ * `{{workspace.X}}` references, and pulls in matching entities. The
+ * Advanced "Strict literal" toggle bypasses both passes (ship exactly
+ * what was picked, recipient sees missing-deps).
  */
 export interface ExportSelection {
   rules?: readonly string[];
@@ -100,6 +104,13 @@ interface ExpandedSelection {
   liveVariables: Set<string>;
   collections: Set<string>;
   folders: Set<string>;
+  /**
+   * Names of `{{workspace.X}}` references discovered while scanning
+   * selected entities for transitive deps. Empty in `strictLiteral`
+   * mode. Drives the workspace-vars filter applied below — only
+   * referenced names ship on selection scope (design §2.3 + §12 q1).
+   */
+  workspaceVarNames: Set<string>;
 }
 
 interface SelectionSources {
@@ -108,6 +119,9 @@ interface SelectionSources {
   rules: readonly V5.Rule[];
   requests: readonly V5.Request[];
   templates: readonly V5.Template[];
+  environments: readonly V5.Environment[];
+  liveWorkflows: readonly V5.LiveWorkflow[];
+  liveVariables: readonly V5.LiveVariable[];
 }
 
 /**
@@ -176,13 +190,170 @@ function expandSelection(selection: ExportSelection, src: SelectionSources): Exp
     }
   }
 
-  return { rules, requests, templates, environments, liveWorkflows, liveVariables, collections, folders };
+  const expanded: ExpandedSelection = {
+    rules,
+    requests,
+    templates,
+    environments,
+    liveWorkflows,
+    liveVariables,
+    collections,
+    folders,
+    workspaceVarNames: new Set<string>(),
+  };
+  expandTransitiveDeps(expanded, src);
+  return expanded;
+}
+
+/**
+ * Walk every string field of selected entities (rules, requests,
+ * live-workflows, live-variables, templates) and pull in the entities
+ * referenced via `{{env.X}}` / `{{live.X}}` / `{{collection.X}}` —
+ * design §2.3, "transitive dependencies by default on selection scope".
+ *
+ * `{{workspace.X}}` references accumulate into
+ * `expanded.workspaceVarNames` so the gatherer can filter the
+ * `WorkspaceVariables` blob to only the referenced names.
+ *
+ * Iterates to a fixed point because newly-pulled-in workflows /
+ * live-vars / collections may themselves reference more vars.
+ */
+function expandTransitiveDeps(expanded: ExpandedSelection, src: SelectionSources): void {
+  // `{{env.X}}` resolves against the *variable* name, not the env
+  // name. An env contributes when any of its variables matches — pull
+  // in every env that carries a referenced name (a name can live in
+  // multiple envs; ship them all so the recipient can pick the right
+  // one at import time).
+  const envsByVarName = new Map<string, V5.Environment[]>();
+  for (const env of src.environments) {
+    for (const v of env.variables ?? []) {
+      const list = envsByVarName.get(v.name) ?? [];
+      if (!list.includes(env)) list.push(env);
+      envsByVarName.set(v.name, list);
+    }
+  }
+
+  const liveVarByName = new Map<string, V5.LiveVariable>();
+  for (const lv of src.liveVariables) liveVarByName.set(lv.name, lv);
+
+  const workflowByUid = new Map<string, V5.LiveWorkflow>();
+  for (const wf of src.liveWorkflows) workflowByUid.set(wf.uid, wf);
+
+  const requestByUid = new Map<string, V5.Request>();
+  for (const r of src.requests) requestByUid.set(r.uid, r);
+
+  type ColWithVars = V5.Collection & { variables?: { name: string }[] };
+  const collectionsWithVar = new Map<string, ColWithVars>();
+  for (const c of src.collections as ColWithVars[]) {
+    for (const v of c.variables ?? []) {
+      if (!collectionsWithVar.has(v.name)) collectionsWithVar.set(v.name, c);
+    }
+  }
+
+  const collectStrings = (value: unknown, out: string[]): void => {
+    if (value === null || value === undefined) return;
+    if (typeof value === 'string') {
+      out.push(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const v of value) collectStrings(v, out);
+      return;
+    }
+    if (typeof value === 'object') {
+      for (const v of Object.values(value as Record<string, unknown>)) collectStrings(v, out);
+    }
+  };
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const strings: string[] = [];
+
+    for (const r of src.rules) {
+      if (!expanded.rules.has(r.uid)) continue;
+      collectStrings((r as { conditions?: unknown }).conditions, strings);
+      collectStrings((r as { action?: unknown }).action, strings);
+    }
+    for (const req of src.requests) {
+      if (!expanded.requests.has(req.uid)) continue;
+      collectStrings(req, strings);
+    }
+    for (const t of src.templates) {
+      if (!expanded.templates.has(t.uid)) continue;
+      collectStrings(t, strings);
+    }
+    for (const wf of src.liveWorkflows) {
+      if (!expanded.liveWorkflows.has(wf.uid)) continue;
+      collectStrings(wf.steps, strings);
+      // Workflow-step `requestUid`s are also transitive deps — pull
+      // the referenced request in (and its own template strings will
+      // get scanned next iteration).
+      for (const step of wf.steps) {
+        const req = requestByUid.get(step.requestUid);
+        if (req && !expanded.requests.has(req.uid)) {
+          expanded.requests.add(req.uid);
+          changed = true;
+        }
+      }
+    }
+    for (const lv of src.liveVariables) {
+      if (!expanded.liveVariables.has(lv.uid)) continue;
+      // LV → workflow back-pointer is the only structural transitive
+      // dep on live-vars (its capture path doesn't contain templates).
+      const wf = workflowByUid.get(lv.workflowUid);
+      if (wf && !expanded.liveWorkflows.has(wf.uid)) {
+        expanded.liveWorkflows.add(wf.uid);
+        changed = true;
+      }
+    }
+
+    if (strings.length === 0) continue;
+    const refs = scanTemplateReferencesMany(strings);
+
+    for (const name of refs.live) {
+      const lv = liveVarByName.get(name);
+      if (lv && !expanded.liveVariables.has(lv.uid)) {
+        expanded.liveVariables.add(lv.uid);
+        changed = true;
+      }
+    }
+    for (const r of refs.other) {
+      if (r.namespace === 'env') {
+        const envs = envsByVarName.get(r.name);
+        if (envs) {
+          for (const env of envs) {
+            if (!expanded.environments.has(env.uid)) {
+              expanded.environments.add(env.uid);
+              changed = true;
+            }
+          }
+        }
+      } else if (r.namespace === 'workspace') {
+        if (!expanded.workspaceVarNames.has(r.name)) {
+          expanded.workspaceVarNames.add(r.name);
+          changed = true;
+        }
+      } else if (r.namespace === 'collection') {
+        const col = collectionsWithVar.get(r.name);
+        if (col && !expanded.collections.has(col.uid)) {
+          expanded.collections.add(col.uid);
+          changed = true;
+        }
+      }
+      // `vault` / `file` / `dynamic` / `step` / null — not
+      // entity-resolvable from the gatherer's viewpoint. Vault is
+      // gated separately by the include-mode control; the rest are
+      // either runtime-only or workflow-internal.
+    }
+  }
 }
 
 /**
  * Strict-literal counterpart to `expandSelection`: ship exactly the uids
- * the caller picked, with no descendant or parent-container expansion.
- * The recipient sees missing-deps for any unresolved references.
+ * the caller picked, with no descendant / parent-container / transitive-
+ * dep expansion. Workspace-vars also ship empty under strict-literal —
+ * the recipient sees missing-deps for any unresolved references.
  */
 function literalSelection(selection: ExportSelection): ExpandedSelection {
   return {
@@ -194,6 +365,7 @@ function literalSelection(selection: ExportSelection): ExpandedSelection {
     liveVariables: new Set<string>(selection.liveVariables ?? []),
     collections: new Set<string>(selection.collections ?? []),
     folders: new Set<string>(selection.folders ?? []),
+    workspaceVarNames: new Set<string>(),
   };
 }
 
@@ -258,6 +430,7 @@ export async function gatherWorkspaceExport(
   let liveWorkflows: V5.LiveWorkflow[];
   let liveVariables: V5.LiveVariable[];
   let envelopeScope: BuildWorkspaceExportInput['scope'];
+  let workspaceVarsOut: V5.WorkspaceVariables | undefined;
 
   if (scope.kind === 'workspace') {
     rules = allRules;
@@ -269,6 +442,7 @@ export async function gatherWorkspaceExport(
     liveWorkflows = allLiveWorkflows;
     liveVariables = allLiveVariables;
     envelopeScope = 'workspace';
+    workspaceVarsOut = src.workspaceVars;
   } else {
     const picked = scope.strictLiteral
       ? literalSelection(scope.selection)
@@ -278,6 +452,9 @@ export async function gatherWorkspaceExport(
           rules: allRules,
           requests: allRequests,
           templates: allTemplates,
+          environments: allEnvironments,
+          liveWorkflows: allLiveWorkflows,
+          liveVariables: allLiveVariables,
         });
     if (
       picked.rules.size === 0 &&
@@ -300,6 +477,16 @@ export async function gatherWorkspaceExport(
     collections = allCollections.filter((c) => picked.collections.has(c.uid));
     folders = allFolders.filter((f) => picked.folders.has(f.uid));
     envelopeScope = 'selection';
+
+    // Filter workspaceVars to only the names referenced by the
+    // selected entities (design §2.3 + §12 q1). In strict-literal
+    // mode `workspaceVarNames` is empty, so the blob ships empty.
+    const baseWsVars = src.workspaceVars;
+    if (baseWsVars) {
+      const filteredVars = baseWsVars.variables.filter((v) => picked.workspaceVarNames.has(v.name));
+      workspaceVarsOut =
+        filteredVars.length === baseWsVars.variables.length ? baseWsVars : { ...baseWsVars, variables: filteredVars };
+    }
   }
 
   const input: BuildWorkspaceExportInput = {
@@ -326,7 +513,7 @@ export async function gatherWorkspaceExport(
       requests,
       templates,
       environments,
-      workspaceVars: src.workspaceVars ?? { schemaVersion: 5, version: 1, variables: [] },
+      workspaceVars: workspaceVarsOut ?? { schemaVersion: 5, version: 1, variables: [] },
       liveWorkflows,
       liveVariables,
     },
