@@ -1,15 +1,19 @@
 /**
- * Two-pane diff workspace for the import-preview modal.
+ * Three-column diff workspace for the import-preview modal.
  *
- * Left rail (DiffSidebar) = entity tree grouped by section. Right pane
- * (DiffPane) = Monaco DiffEditor comparing target vs incoming serialized
- * through the same canonical field-order so the diff highlights actual
- * content drift, not key-order churn. Strategy lives at the row level
- * via a segmented control.
+ *   ┌──────────────────┬──────────────────────────┬──────────────────┐
+ *   │  Sidebar         │  Diff pane               │  Advanced (opt)  │
+ *   │  (entity tree)   │  (Monaco DiffEditor)     │  (toggles)       │
+ *   └──────────────────┴──────────────────────────┴──────────────────┘
  *
- * This file owns: row materialisation, YAML serialization, line-count
- * memoization, default selection, and the strategy-change plumbing back
- * up to the parent. Visual concerns live in `DiffSidebar` / `DiffPane`.
+ * Sidebar mirrors the workspace sidebar (sections + nested
+ * collection→folder→entity trees) so the user navigates the export
+ * with the same mental model they already use. Diff pane shows target
+ * vs incoming for the selected node, serialized through canonical
+ * field-order so the diff highlights real drift, not key-order churn.
+ * Advanced is a togglable third column — collapsed by default,
+ * expanding it reveals the §5.5 override toggles inline so the user
+ * can flip them and watch the diff respond live.
  */
 
 import {
@@ -21,9 +25,10 @@ import {
 import { Empty, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import AdvancedPanel, { type AdvancedPanelProps } from './AdvancedPanel';
 import DiffPane from './DiffPane';
 import DiffSidebar from './DiffSidebar';
-import { type MaterialisedRow, rowsForSection, SECTIONS, strategyForRow } from './diff-sections';
+import { buildTaxonomy, type MaterialisedRow, strategyForRow } from './diff-sections';
 import { diffLineCounts } from './diff-stats';
 
 interface ImportDiffWorkspaceProps {
@@ -36,6 +41,9 @@ interface ImportDiffWorkspaceProps {
   };
   strategies: StrategyMap;
   onChangeStrategy: (kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => void;
+  /** When provided, an Advanced panel is rendered as a third column
+   *  with a collapse handle. Omit to render only the two-pane layout. */
+  advanced?: Omit<AdvancedPanelProps, 'open' | 'onToggle'>;
 }
 
 const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
@@ -43,41 +51,31 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
   incomingEntities,
   strategies,
   onChangeStrategy,
+  advanced,
 }) => {
   const { token } = theme.useToken();
 
-  const allRows = useMemo<MaterialisedRow[]>(() => {
-    const out: MaterialisedRow[] = [];
-    for (const section of SECTIONS) {
-      const rows = rowsForSection(section, diff);
-      // Patch in incoming for singletons (rowsForSection doesn't see the envelope).
-      for (const r of rows) {
-        if (section.singleton) {
-          r.entity = section.kind === 'workspaceVars' ? incomingEntities.workspaceVars : incomingEntities.vault;
-        }
-        out.push(r);
-      }
-    }
-    return out;
-  }, [diff, incomingEntities]);
+  const taxonomy = useMemo(() => buildTaxonomy(diff, incomingEntities), [diff, incomingEntities]);
+  const allRows = taxonomy.allRows;
 
   const [selectionKey, setSelectionKey] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // Default-select the first interesting row (first collision; falls
   // back to the first row regardless of state).
   useEffect(() => {
     if (selectionKey && allRows.some((r) => r.selectionKey === selectionKey)) return;
-    const firstCollision = allRows.find((r) => r.state !== 'no-collision');
-    const fallback = allRows[0];
-    setSelectionKey(firstCollision?.selectionKey ?? fallback?.selectionKey ?? null);
+    const firstCollision = allRows.find((r) => r.state !== 'no-collision' && r.rowKind === 'entity');
+    const firstAny = allRows.find((r) => r.rowKind === 'entity');
+    setSelectionKey(firstCollision?.selectionKey ?? firstAny?.selectionKey ?? null);
   }, [allRows, selectionKey]);
 
   const yamlByKey = useMemo(() => {
     const out = new Map<string, { targetYaml: string; incomingYaml: string }>();
     for (const row of allRows) {
       out.set(row.selectionKey, {
-        targetYaml: row.target ? serializeEntityYaml(row.section.entityKind, row.target) : '',
-        incomingYaml: row.entity ? serializeEntityYaml(row.section.entityKind, row.entity) : '',
+        targetYaml: row.target ? serializeEntityYaml(row.entityKind, row.target) : '',
+        incomingYaml: row.entity ? serializeEntityYaml(row.entityKind, row.entity) : '',
       });
     }
     return out;
@@ -93,7 +91,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
     return out;
   }, [allRows, yamlByKey]);
 
-  const selectedRow = useMemo(
+  const selectedRow: MaterialisedRow | null = useMemo(
     () => allRows.find((r) => r.selectionKey === selectionKey) ?? null,
     [allRows, selectionKey],
   );
@@ -102,11 +100,13 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
     return <Empty description="Nothing to import" style={{ padding: 32 }} />;
   }
 
+  const gridTemplate = advanced && advancedOpen ? '320px 1fr 360px' : '320px 1fr';
+
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '320px 1fr',
+        gridTemplateColumns: gridTemplate,
         height: '100%',
         minHeight: 0,
         border: `1px solid ${token.colorBorderSecondary}`,
@@ -116,7 +116,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
       }}
     >
       <DiffSidebar
-        rows={allRows}
+        taxonomy={taxonomy}
         selectionKey={selectionKey}
         onSelect={setSelectionKey}
         lineCounts={lineCountsByKey}
@@ -128,10 +128,20 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
         currentStrategy={selectedRow ? strategyForRow(strategies, selectedRow) : 'skip'}
         onChangeStrategy={(s) => {
           if (!selectedRow) return;
-          const uidKey = selectedRow.section.singleton ? 'singleton' : (selectedRow.entity as { uid: string }).uid;
+          const uidKey = selectedRow.section.singleton
+            ? 'singleton'
+            : ((selectedRow.entity as { uid: string })?.uid ?? '');
           onChangeStrategy(selectedRow.section.strategyKey, uidKey, s);
         }}
+        advancedTrigger={
+          advanced
+            ? { open: advancedOpen, onToggle: () => setAdvancedOpen((v) => !v), activeCount: advanced.activeCount }
+            : null
+        }
       />
+      {advanced && advancedOpen && (
+        <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />
+      )}
     </div>
   );
 };

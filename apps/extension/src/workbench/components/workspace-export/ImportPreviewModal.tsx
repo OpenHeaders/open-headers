@@ -48,7 +48,6 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
 import { call } from '@/utils/bridge';
-import AdvancedDrawer, { AdvancedTrigger } from './preview/AdvancedDrawer';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
@@ -151,8 +150,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [keepTargetCollectionOrder, setKeepTargetCollectionOrder] = useState(false);
   const [includeWorkspaceSettings, setIncludeWorkspaceSettings] = useState(false);
   const [refuseUidCollision, setRefuseUidCollision] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const [dedup, setDedup] = useState<DedupMatchesResult | null>(null);
   // Per-`(exportId, target)` dismissals for the soft-dedup banner. Lives
   // in sessionStorage so the dismissal persists across modal opens within
@@ -514,7 +511,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       )}
 
       {parsed && (
-        <div ref={modalBodyRef} style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <SourceAttribution envelope={parsed.envelope} drops={[]} />
@@ -529,17 +526,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 gap: 6,
               }}
             >
-              <AdvancedTrigger
-                onClick={() => setAdvancedOpen(true)}
-                activeCount={
-                  (backupRestore ? 1 : 0) +
-                  (trustExport ? 1 : 0) +
-                  (stripScripts && !isLowTrustSource ? 1 : 0) +
-                  (omitOAuthConfigs ? 1 : 0) +
-                  (keepTargetCollectionOrder ? 1 : 0) +
-                  (refuseUidCollision ? 1 : 0)
-                }
-              />
               <StatusChips
                 chips={buildImportStatusChips({
                   envelope: parsed.envelope,
@@ -621,33 +607,36 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                   }}
                   strategies={strategies}
                   onChangeStrategy={setStrategyFor}
+                  advanced={{
+                    activeCount:
+                      (backupRestore ? 1 : 0) +
+                      (trustExport ? 1 : 0) +
+                      (stripScripts && !isLowTrustSource ? 1 : 0) +
+                      (omitOAuthConfigs ? 1 : 0) +
+                      (keepTargetCollectionOrder ? 1 : 0) +
+                      (refuseUidCollision ? 1 : 0),
+                    lowTrustSource: isLowTrustSource,
+                    source: source ?? 'file',
+                    backupRestore,
+                    onBackupRestoreChange: setBackupRestore,
+                    trustExport,
+                    onTrustExportChange: setTrustExport,
+                    stripScripts,
+                    onStripScriptsChange: setStripScripts,
+                    omitOAuthConfigs,
+                    onOmitOAuthConfigsChange: setOmitOAuthConfigs,
+                    keepTargetCollectionOrder,
+                    onKeepTargetCollectionOrderChange: setKeepTargetCollectionOrder,
+                    includeWorkspaceSettings,
+                    onIncludeWorkspaceSettingsChange: setIncludeWorkspaceSettings,
+                    refuseUidCollision,
+                    onRefuseUidCollisionChange: setRefuseUidCollision,
+                    targetMode: target.mode,
+                  }}
                 />
               </div>
             </>
           )}
-
-          <AdvancedDrawer
-            open={advancedOpen}
-            onClose={() => setAdvancedOpen(false)}
-            getContainer={() => modalBodyRef.current ?? document.body}
-            lowTrustSource={isLowTrustSource}
-            source={source ?? 'file'}
-            backupRestore={backupRestore}
-            onBackupRestoreChange={setBackupRestore}
-            trustExport={trustExport}
-            onTrustExportChange={setTrustExport}
-            stripScripts={stripScripts}
-            onStripScriptsChange={setStripScripts}
-            omitOAuthConfigs={omitOAuthConfigs}
-            onOmitOAuthConfigsChange={setOmitOAuthConfigs}
-            keepTargetCollectionOrder={keepTargetCollectionOrder}
-            onKeepTargetCollectionOrderChange={setKeepTargetCollectionOrder}
-            includeWorkspaceSettings={includeWorkspaceSettings}
-            onIncludeWorkspaceSettingsChange={setIncludeWorkspaceSettings}
-            refuseUidCollision={refuseUidCollision}
-            onRefuseUidCollisionChange={setRefuseUidCollision}
-            targetMode={target.mode}
-          />
         </div>
       )}
     </Modal>
