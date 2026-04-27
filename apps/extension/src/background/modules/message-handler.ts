@@ -83,6 +83,7 @@ import { clearObservabilityLog, getObservabilityLog } from './observability-log'
 import { handleScriptHostRequest } from './offscreen-host';
 import { replaceMarkers as replacePauseMarkers } from './pause-markers-store';
 import { executeRequest, executeRequestDraft } from './request-executor';
+import { clearPendingScriptsReview, getPendingScriptsReview } from './request-scripts-review-store';
 import {
   addRequest,
   addRequestToCollection,
@@ -455,13 +456,14 @@ export function handleGeneralMessage(
         .catch(() => safeResponse({ hosts: [] }));
       return true;
     } else if (message.type === 'getRequestScriptsReviewPending') {
-      import('./request-scripts-review-store')
-        .then(({ getPendingScriptsReview }) => safeResponse({ uids: Array.from(getPendingScriptsReview()) }))
-        .catch(() => safeResponse({ uids: [] }));
+      try {
+        safeResponse({ uids: Array.from(getPendingScriptsReview()) });
+      } catch {
+        safeResponse({ uids: [] });
+      }
       return true;
     } else if (message.type === 'clearRequestScriptsReviewPending') {
-      import('./request-scripts-review-store')
-        .then(({ clearPendingScriptsReview }) => clearPendingScriptsReview(message.uid as string))
+      clearPendingScriptsReview(message.uid as string)
         .then(() => safeResponse({ success: true }))
         .catch(() => safeResponse({ success: false }));
       return true;

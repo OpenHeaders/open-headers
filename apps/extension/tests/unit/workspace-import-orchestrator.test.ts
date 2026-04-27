@@ -427,6 +427,87 @@ describe('importWorkspace — scripts review pending set', () => {
   });
 });
 
+describe('importWorkspace — quota pre-check (best-effort, warn-only)', () => {
+  it('logs a warning and continues when the estimated plan exceeds the quota headroom', async () => {
+    const { logger } = await import('@utils/logger');
+    // A 4 MB inline script in one request blows past the 4.5 MB headroom
+    // when combined with any envelope overhead. The orchestrator should
+    // warn but still write — pre-check is a UX hint, not a guard
+    // (design §5.3 step 2).
+    const huge = 'x'.repeat(5 * 1024 * 1024);
+    const incoming = makeExport({
+      entities: {
+        collections: [],
+        folders: [],
+        rules: [],
+        requests: [
+          {
+            schemaVersion: 5,
+            version: 1,
+            uid: 'req99999',
+            path: 'requests/api-col/req99999',
+            name: 'Big',
+            method: 'POST',
+            url: 'https://api.openheaders.io/upload',
+            headers: [],
+            params: [],
+            auth: { type: 'none' },
+            body: { type: 'text', content: huge },
+          },
+        ],
+        templates: [],
+        environments: [],
+        workspaceVars: { schemaVersion: 5, version: 1, variables: [] },
+        liveWorkflows: [],
+        liveVariables: [],
+      },
+      meta: {
+        redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
+        counts: {
+          rules: 0,
+          requests: 1,
+          environments: 0,
+          liveWorkflows: 0,
+          liveVariables: 0,
+          templates: 0,
+          secrets: 0,
+        },
+      },
+    } as Partial<WorkspaceExport>);
+
+    const result = await orchestrator.importWorkspace({
+      incoming,
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:huge',
+    });
+
+    expect(result.targetWorkspaceId).toBe('ws-active');
+    // Write still succeeded — the partial-success contract says we never
+    // roll back, and the pre-check doesn't block writes.
+    expect(blobs.get('oh.ws.ws-active.requests')).toBeDefined();
+    // Warning surfaced for the operator log.
+    const warned = (logger.warn as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+      String(call[1] ?? '').includes('exceeds best-effort quota headroom'),
+    );
+    expect(warned).toBe(true);
+  });
+
+  it('does not warn when the plan fits comfortably under the headroom', async () => {
+    const { logger } = await import('@utils/logger');
+    await orchestrator.importWorkspace({
+      incoming: makeExport(),
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:tiny',
+    });
+    const warned = (logger.warn as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+      String(call[1] ?? '').includes('exceeds best-effort quota headroom'),
+    );
+    expect(warned).toBe(false);
+  });
+});
+
 describe('previewWorkspaceImport', () => {
   it('returns a diff + missing-deps + snapshot hash for target=current', async () => {
     const res = await orchestrator.previewWorkspaceImport({
