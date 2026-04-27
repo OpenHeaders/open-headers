@@ -11,8 +11,9 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
+import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/core/workspace-export';
 import { broadcast } from '@utils/bridge';
-import { runtime as browserRuntime, tabs } from '@utils/browser-api';
+import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
@@ -152,6 +153,7 @@ import {
 } from './test-run-store';
 import { startRun } from './test-runner';
 import { getResolvedRules } from './variables-resolver';
+import { gatherWorkspaceExport } from './workspace-export-gatherer';
 import { openWorkspaceIntent } from './workspace-navigator';
 import {
   deleteWorkspaceWithData,
@@ -333,6 +335,36 @@ export function handleGeneralMessage(
         .then((workspace) => {
           if (!workspace) safeResponse({ success: false, error: 'Source workspace not found' });
           else safeResponse({ success: true, workspace });
+        })
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'exportWorkspace') {
+      // PR 1B: scope = 'workspace' or 'selection-rule' (single rule).
+      // Vault default-omit; encryption / plaintext lands in PR 4.
+      const wsId = (message.workspaceId as string | undefined) ?? getActiveWorkspaceId();
+      const scope = message.scope as { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string };
+      const platform: 'chrome' | 'firefox' | 'edge' | 'safari' = isFirefox
+        ? 'firefox'
+        : isEdge
+          ? 'edge'
+          : isSafari
+            ? 'safari'
+            : isChrome
+              ? 'chrome'
+              : 'chrome';
+      gatherWorkspaceExport(wsId, scope, {
+        app: 'extension',
+        appVersion: browserRuntime.getManifest()?.version ?? '0.0.0',
+        platform,
+      })
+        .then((res) => {
+          if (!res) {
+            safeResponse({ success: false, error: 'Workspace or rule not found' });
+            return;
+          }
+          const envelope = buildWorkspaceExport(res.input);
+          const yaml = serializeWorkspaceExport(envelope);
+          safeResponse({ success: true, yaml, exportId: envelope.exportId, scope: envelope.scope });
         })
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;

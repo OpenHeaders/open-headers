@@ -1,4 +1,10 @@
 export type {
+  ActionValueIssue,
+  ActionValueIssueKind,
+  ActionValueSeverity,
+} from './action-validation';
+export { validateActionValues } from './action-validation';
+export type {
   AutoSwitchParams,
   CollectionEnvAutoSwitchMode,
   CollectionEnvOverride,
@@ -11,12 +17,6 @@ export {
   isConditionSupportedByDnr,
   listSupportedConditionTypes,
 } from './condition-metadata';
-export type {
-  ActionValueIssue,
-  ActionValueIssueKind,
-  ActionValueSeverity,
-} from './action-validation';
-export { validateActionValues } from './action-validation';
 export type {
   ConditionStructuralIssue,
   ConditionStructuralIssueKind,

@@ -8,7 +8,7 @@
  * it on unsaved work.
  */
 
-import { CheckOutlined, DownOutlined, SettingOutlined } from '@ant-design/icons';
+import { CheckOutlined, DownOutlined, ExportOutlined, SettingOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import type { MenuProps } from 'antd';
 import { Button, Dropdown, Space, Typography, theme } from 'antd';
@@ -23,6 +23,11 @@ interface WorkspaceSwitcherProps {
   activeWorkspaceId: string | null;
   onSwitch: (id: string) => void;
   onOpenManager: () => void;
+  /**
+   * Open the workspace-export modal scoped to the active workspace.
+   * Wired to the "Export…" item below the workspace list.
+   */
+  onExport: () => void;
 }
 
 const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
@@ -30,6 +35,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   activeWorkspaceId,
   onSwitch,
   onOpenManager,
+  onExport,
 }) => {
   const { token } = theme.useToken();
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
@@ -56,13 +62,19 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
       ...workspaceItems,
       { type: 'divider' as const, key: 'div-manage' },
       {
+        key: 'export',
+        icon: <ExportOutlined />,
+        label: 'Export…',
+        onClick: onExport,
+      },
+      {
         key: 'manage',
         icon: <SettingOutlined />,
         label: 'Manage workspaces…',
         onClick: onOpenManager,
       },
     ];
-  }, [workspaces, activeWorkspaceId, onSwitch, onOpenManager, token]);
+  }, [workspaces, activeWorkspaceId, onSwitch, onOpenManager, onExport, token]);
 
   if (!active) return null;
 

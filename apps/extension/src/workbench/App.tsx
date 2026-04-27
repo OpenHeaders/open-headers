@@ -60,6 +60,7 @@ import { VariablePopoverProvider } from './components/template-input/VariablePop
 import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
+import ExportModal from './components/workspace-export/ExportModal';
 import { findLeaf } from './editor-groups';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
@@ -300,6 +301,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   const [importHarOpen, setImportHarOpen] = useState(false);
   const [importHarContext, setImportHarContext] = useState<{ collectionId?: string } | undefined>(undefined);
   const [importPostmanOpen, setImportPostmanOpen] = useState(false);
+  const [exportModalState, setExportModalState] = useState<
+    | { open: false }
+    | { open: true; scope: { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string; ruleName: string } }
+  >({ open: false });
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
@@ -1135,6 +1140,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onSelectRule={openEditTab}
               onCreateRule={openCreateTab}
               onDeleteRule={handleDeleteRule}
+              onExportRule={(uid, name) =>
+                setExportModalState({ open: true, scope: { kind: 'selection-rule', ruleUid: uid, ruleName: name } })
+              }
               onOpenCollectionOverview={openCollectionOverview}
               onOpenFolderOverview={openFolderOverview}
               onSelectTemplate={openTemplateEditTab}
@@ -1253,6 +1261,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             activeWorkspaceId={workspacesApi.activeWorkspaceId}
             onSwitchWorkspace={handleSwitchWorkspace}
             onOpenWorkspaceManager={openWorkspaceManager}
+            onExportWorkspace={() => setExportModalState({ open: true, scope: { kind: 'workspace' } })}
             environments={envApi.environments}
             activeEnvironmentId={envApi.activeEnvironmentId}
             onCreateEnvironment={() => void handleCreateEnvironment()}
@@ -1476,6 +1485,16 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               void call('recordImportReport', { report }).catch(() => undefined);
             }}
           />
+
+          {exportModalState.open && workspacesApi.activeWorkspace ? (
+            <ExportModal
+              open
+              workspaceId={workspacesApi.activeWorkspace.id}
+              workspaceName={workspacesApi.activeWorkspace.name}
+              scope={exportModalState.scope}
+              onCancel={() => setExportModalState({ open: false })}
+            />
+          ) : null}
 
           <ConnectionProvider value={{ isConnected }}>
             <SettingsModal

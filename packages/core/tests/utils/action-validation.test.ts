@@ -138,9 +138,7 @@ describe('validateActionValues — header', () => {
 
 describe('validateActionValues — redirect', () => {
   it('accepts a full http(s) URL', () => {
-    expect(validateActionValues(redirect({ redirectTo: 'https://openheaders.io/' }))).toEqual(
-      [],
-    );
+    expect(validateActionValues(redirect({ redirectTo: 'https://openheaders.io/' }))).toEqual([]);
   });
 
   it('accepts a path starting with /', () => {
@@ -389,9 +387,7 @@ describe('validateActionValues — query-param', () => {
   });
 
   it('flags param names with whitespace', () => {
-    const issues = validateActionValues(
-      queryParam({ params: [{ param: 'has space', operation: 'add', value: 'x' }] }),
-    );
+    const issues = validateActionValues(queryParam({ params: [{ param: 'has space', operation: 'add', value: 'x' }] }));
     expect(issues[0]).toMatchObject({ kind: 'invalid-param-name', severity: 'error' });
   });
 
@@ -400,9 +396,9 @@ describe('validateActionValues — query-param', () => {
   });
 
   it('skips template param names', () => {
-    expect(
-      validateActionValues(queryParam({ params: [{ param: '{{KEY}}', operation: 'add', value: 'x' }] })),
-    ).toEqual([]);
+    expect(validateActionValues(queryParam({ params: [{ param: '{{KEY}}', operation: 'add', value: 'x' }] }))).toEqual(
+      [],
+    );
   });
 });
 

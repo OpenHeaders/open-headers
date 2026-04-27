@@ -39,6 +39,11 @@ export interface TreeNode {
   onRename?: (newName: string) => Promise<void> | void;
   onDelete?: () => void;
   onAddItem?: () => void;
+  /**
+   * Open the workspace-export modal for this leaf. Wired only for rule
+   * leaves in PR 1B; PR 5 extends to every exportable entity type.
+   */
+  onExport?: () => void;
   /** Items shown on `+` — create affordances only (Add Rule / Add
    *  Request / Add Folder). */
   addMenuItems?: ItemType[];

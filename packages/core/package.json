@@ -43,6 +43,10 @@
       "import": "./src/workspace-intent/index.ts",
       "default": "./dist/workspace-intent/index.js"
     },
+    "./workspace-export": {
+      "import": "./src/workspace-export/index.ts",
+      "default": "./dist/workspace-export/index.js"
+    },
     "./import": {
       "import": "./src/import/index.ts",
       "default": "./dist/import/index.js"

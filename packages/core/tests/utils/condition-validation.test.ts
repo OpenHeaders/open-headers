@@ -101,10 +101,7 @@ describe('validateConditionStructure', () => {
 
   it('returns no issues for one singleton of each different mutex group', () => {
     expect(
-      validateConditionStructure([
-        cond('url-filter', ['*://openheaders.io/*']),
-        cond('domain-type', ['firstParty']),
-      ]),
+      validateConditionStructure([cond('url-filter', ['*://openheaders.io/*']), cond('domain-type', ['firstParty'])]),
     ).toEqual([]);
   });
 
@@ -169,29 +166,20 @@ describe('validateConditionStructure', () => {
     // User mid-edit: typed a real url-filter, then added a second row that
     // hasn't been filled in yet. The empty row must NOT be reported as
     // the winner — that would falsely flag the real row as overwritten.
-    expect(
-      validateConditionStructure([
-        cond('url-filter', ['*://openheaders.io/*']),
-        cond('url-filter', []),
-      ]),
-    ).toEqual([]);
+    expect(validateConditionStructure([cond('url-filter', ['*://openheaders.io/*']), cond('url-filter', [])])).toEqual(
+      [],
+    );
   });
 
   it('does not flag empty mutex-collision rows', () => {
-    expect(
-      validateConditionStructure([
-        cond('url-filter', ['*://openheaders.io/*']),
-        cond('url-regex', ['']),
-      ]),
-    ).toEqual([]);
+    expect(validateConditionStructure([cond('url-filter', ['*://openheaders.io/*']), cond('url-regex', [''])])).toEqual(
+      [],
+    );
   });
 
   it('treats whitespace-only values as empty', () => {
     expect(
-      validateConditionStructure([
-        cond('url-filter', ['*://openheaders.io/*']),
-        cond('url-filter', ['   ', '\t']),
-      ]),
+      validateConditionStructure([cond('url-filter', ['*://openheaders.io/*']), cond('url-filter', ['   ', '\t'])]),
     ).toEqual([]);
   });
 });

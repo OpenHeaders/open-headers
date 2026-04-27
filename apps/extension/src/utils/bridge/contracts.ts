@@ -138,6 +138,20 @@ export interface BridgeRpcContract {
     req: { id: string; name?: string };
     res: { success: boolean; workspace?: V5.ExtensionWorkspace; error?: string };
   };
+  exportWorkspace: {
+    req: {
+      /** Falls back to the active workspace when omitted. */
+      workspaceId?: string;
+      scope: { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string };
+    };
+    res: {
+      success: boolean;
+      yaml?: string;
+      exportId?: string;
+      scope?: 'workspace' | 'collection' | 'selection';
+      error?: string;
+    };
+  };
   setActiveWorkspace: {
     req: { id: string };
     res: { success: boolean; error?: string };

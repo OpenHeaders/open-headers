@@ -12,6 +12,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   EllipsisOutlined,
+  ExportOutlined,
   MoreOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
@@ -234,7 +235,7 @@ export function TreeNodeRow({
             ))}
 
           {/* Context menu for leaf nodes */}
-          {!node.canAddChild && (node.canRename || node.canDelete) && (
+          {!node.canAddChild && (node.canRename || node.canDelete || node.onExport) && (
             <Dropdown
               menu={{
                 items: [
@@ -242,6 +243,9 @@ export function TreeNodeRow({
                     ? [{ key: 'rename', icon: <EditOutlined />, label: 'Rename', onClick: () => onStartRename() }]
                     : []),
                   { key: 'duplicate', icon: <CopyOutlined />, label: 'Duplicate', disabled: true },
+                  ...(node.onExport
+                    ? [{ key: 'export', icon: <ExportOutlined />, label: 'Export…', onClick: () => node.onExport?.() }]
+                    : []),
                   { type: 'divider' as const, key: 'div' },
                   ...(node.canDelete
                     ? [

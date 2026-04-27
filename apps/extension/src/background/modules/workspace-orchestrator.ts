@@ -23,6 +23,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { deepCopyHierarchy } from '@openheaders/core/workspace-export';
 import { logger } from '@utils/logger';
 import { extensionStorage, type StorageKey, wsKeys } from '@/shared/storage';
 import { getRulesPaused } from '../dnr-manager';
@@ -369,61 +370,30 @@ function deepCopyRuleHierarchy(
   collections: V5.Collection[],
   folders: LocalFolder[],
 ): RuleHierarchyCopy {
-  const pathRemap = new Map<string, string>();
-
-  const remappedCollections: V5.Collection[] = collections.map((c) => {
-    const uid = generateUid();
-    const path = `rules/${toFolderName(c.name, uid)}`;
-    pathRemap.set(c.path, path);
-    return { ...c, uid, path };
+  const result = deepCopyHierarchy<V5.Rule>({
+    entities: rules,
+    collections,
+    folders,
+    treePrefix: 'rules',
+    finalizeEntity: (rule, ctx) => {
+      const ruleWithIds = rule as V5.Rule & { collectionId?: string; folderId?: string };
+      const remapContainerId = (oldId: string | undefined): string | undefined => {
+        if (!oldId) return oldId;
+        return ctx.collectionUidRemap.get(oldId) ?? ctx.folderUidRemap.get(oldId) ?? oldId;
+      };
+      return {
+        ...rule,
+        ...(ruleWithIds.collectionId && { collectionId: remapContainerId(ruleWithIds.collectionId) }),
+        ...(ruleWithIds.folderId && { folderId: remapContainerId(ruleWithIds.folderId) }),
+      } as V5.Rule;
+    },
   });
-
-  // Folders may nest — walk by path-depth so parents remap first. We
-  // also need to return folders in the SAME order as the input so the
-  // caller's persisted array has a stable layout.
-  const folderByOldPath = new Map<string, LocalFolder>();
-  const sortedFolders = [...folders].sort((a, b) => a.path.split('/').length - b.path.split('/').length);
-  for (const f of sortedFolders) {
-    const uid = generateUid();
-    const parentOldPath = f.path.substring(0, f.path.lastIndexOf('/'));
-    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
-    const path = `${parentNewPath}/${toFolderName(f.name, uid)}`;
-    pathRemap.set(f.path, path);
-    folderByOldPath.set(f.path, { ...f, uid, path });
-  }
-  const remappedFolders: LocalFolder[] = folders.map((f) => folderByOldPath.get(f.path) ?? f);
-
-  const remappedRules: V5.Rule[] = rules.map((r) => {
-    const uid = generateUid();
-    const parentOldPath = r.path.substring(0, r.path.lastIndexOf('/'));
-    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
-    const path = `${parentNewPath}/${toFolderName(r.name, uid)}`;
-    // Update collectionId / folderId references to the new uids.
-    const remapContainerId = (oldId: string | undefined): string | undefined => {
-      if (!oldId) return oldId;
-      const coll = collections.find((c) => c.uid === oldId);
-      if (coll) {
-        const newColl = remappedCollections.find((rc) => rc.path === pathRemap.get(coll.path));
-        return newColl?.uid ?? oldId;
-      }
-      const fold = folders.find((f) => f.uid === oldId);
-      if (fold) {
-        const newFold = remappedFolders.find((rf) => rf.path === pathRemap.get(fold.path));
-        return newFold?.uid ?? oldId;
-      }
-      return oldId;
-    };
-    const ruleWithIds = r as V5.Rule & { collectionId?: string; folderId?: string };
-    return {
-      ...r,
-      uid,
-      path,
-      ...(ruleWithIds.collectionId && { collectionId: remapContainerId(ruleWithIds.collectionId) }),
-      ...(ruleWithIds.folderId && { folderId: remapContainerId(ruleWithIds.folderId) }),
-    } as V5.Rule;
-  });
-
-  return { remappedRules, remappedCollections, remappedFolders, containerPathRemap: pathRemap };
+  return {
+    remappedRules: result.entities,
+    remappedCollections: result.collections,
+    remappedFolders: result.folders,
+    containerPathRemap: result.pathRemap,
+  };
 }
 
 interface TemplateHierarchyCopy {
@@ -437,36 +407,17 @@ function deepCopyTemplateHierarchy(
   collections: V5.Collection[],
   folders: LocalFolder[],
 ): TemplateHierarchyCopy {
-  const pathRemap = new Map<string, string>();
-  const folderByOldPath = new Map<string, LocalFolder>();
-
-  const remappedTemplateCollections: V5.Collection[] = collections.map((c) => {
-    const uid = generateUid();
-    const path = `templates/${toFolderName(c.name, uid)}`;
-    pathRemap.set(c.path, path);
-    return { ...c, uid, path };
+  const result = deepCopyHierarchy<V5.Template>({
+    entities: templates,
+    collections,
+    folders,
+    treePrefix: 'templates',
   });
-
-  const sortedFolders = [...folders].sort((a, b) => a.path.split('/').length - b.path.split('/').length);
-  for (const f of sortedFolders) {
-    const uid = generateUid();
-    const parentOldPath = f.path.substring(0, f.path.lastIndexOf('/'));
-    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
-    const path = `${parentNewPath}/${toFolderName(f.name, uid)}`;
-    pathRemap.set(f.path, path);
-    folderByOldPath.set(f.path, { ...f, uid, path });
-  }
-  const remappedTemplateFolders: LocalFolder[] = folders.map((f) => folderByOldPath.get(f.path) ?? f);
-
-  const remappedTemplates: V5.Template[] = templates.map((t) => {
-    const uid = generateUid();
-    const parentOldPath = t.path.substring(0, t.path.lastIndexOf('/'));
-    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
-    const path = `${parentNewPath}/${toFolderName(t.name, uid)}`;
-    return { ...t, uid, path };
-  });
-
-  return { remappedTemplates, remappedTemplateCollections, remappedTemplateFolders };
+  return {
+    remappedTemplates: result.entities,
+    remappedTemplateCollections: result.collections,
+    remappedTemplateFolders: result.folders,
+  };
 }
 
 interface RequestHierarchyCopy {
@@ -488,38 +439,18 @@ function deepCopyRequestHierarchy(
   collections: V5.Collection[],
   folders: LocalFolder[],
 ): RequestHierarchyCopy {
-  const pathRemap = new Map<string, string>();
-  const folderByOldPath = new Map<string, LocalFolder>();
-
-  const remappedRequestCollections: V5.Collection[] = collections.map((c) => {
-    const uid = generateUid();
-    const path = `requests/${toFolderName(c.name, uid)}`;
-    pathRemap.set(c.path, path);
-    return { ...c, uid, path };
+  const result = deepCopyHierarchy<V5.Request>({
+    entities: requests,
+    collections,
+    folders,
+    treePrefix: 'requests',
   });
-
-  const sortedFolders = [...folders].sort((a, b) => a.path.split('/').length - b.path.split('/').length);
-  for (const f of sortedFolders) {
-    const uid = generateUid();
-    const parentOldPath = f.path.substring(0, f.path.lastIndexOf('/'));
-    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
-    const path = `${parentNewPath}/${toFolderName(f.name, uid)}`;
-    pathRemap.set(f.path, path);
-    folderByOldPath.set(f.path, { ...f, uid, path });
-  }
-  const remappedRequestFolders: LocalFolder[] = folders.map((f) => folderByOldPath.get(f.path) ?? f);
-
-  const requestUidRemap = new Map<string, string>();
-  const remappedRequests: V5.Request[] = requests.map((r) => {
-    const uid = generateUid();
-    const parentOldPath = r.path.substring(0, r.path.lastIndexOf('/'));
-    const parentNewPath = pathRemap.get(parentOldPath) ?? parentOldPath;
-    const path = `${parentNewPath}/${toFolderName(r.name, uid)}`;
-    requestUidRemap.set(r.uid, uid);
-    return { ...r, uid, path };
-  });
-
-  return { remappedRequests, remappedRequestCollections, remappedRequestFolders, requestUidRemap };
+  return {
+    remappedRequests: result.entities,
+    remappedRequestCollections: result.collections,
+    remappedRequestFolders: result.folders,
+    requestUidRemap: result.entityUidRemap,
+  };
 }
 
 interface LiveEntitiesCopy {

@@ -23,9 +23,7 @@ describe('isRuleComplete', () => {
 
   it('returns false when all condition values are whitespace', () => {
     const emptyCondition: RuleCondition = { type: 'request-domains', values: ['  ', ''] };
-    expect(isRuleComplete({ ...base, conditions: [emptyCondition], type: 'block', action: {} })).toBe(
-      false,
-    );
+    expect(isRuleComplete({ ...base, conditions: [emptyCondition], type: 'block', action: {} })).toBe(false);
   });
 
   it('returns true with a valid condition', () => {
@@ -103,9 +101,7 @@ describe('isRuleComplete', () => {
   // ── Redirect ────────────────────────────────────────────────────
 
   it('redirect: complete with redirectTo', () => {
-    expect(
-      isRuleComplete({ ...base, type: 'redirect', action: { redirectTo: 'https://openheaders.io' } }),
-    ).toBe(true);
+    expect(isRuleComplete({ ...base, type: 'redirect', action: { redirectTo: 'https://openheaders.io' } })).toBe(true);
   });
 
   it('redirect: incomplete without redirectTo', () => {
@@ -215,9 +211,7 @@ describe('isRuleComplete', () => {
       values: ['application/json'],
       headerName: 'Content-Type',
     };
-    expect(isRuleComplete({ ...base, conditions: [headerCondition], type: 'block', action: {} })).toBe(
-      true,
-    );
+    expect(isRuleComplete({ ...base, conditions: [headerCondition], type: 'block', action: {} })).toBe(true);
   });
 
   // ── Per-condition input validation gating ──────────────────────

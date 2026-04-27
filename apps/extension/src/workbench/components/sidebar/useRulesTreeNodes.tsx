@@ -37,6 +37,11 @@ interface UseRulesTreeNodesParams {
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   onSelectRule: (uid: string) => void;
   onDeleteRule?: (uid: string) => void;
+  /**
+   * Open the workspace-export modal scoped to a single rule (selection
+   * scope). Wired to the rule leaf's "Export…" context menu item.
+   */
+  onExportRule?: (uid: string, name: string) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
 }
@@ -203,6 +208,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 p.onDeleteRule?.(node.uid);
               }),
+            ...(p.onExportRule ? { onExport: () => p.onExportRule?.(node.uid, node.name) } : {}),
           });
         }
       }
@@ -222,6 +228,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       p.onCreateRule,
       p.onSelectRule,
       p.onDeleteRule,
+      p.onExportRule,
       p.handleToggleRule,
       p.updateLocalRule,
       p.createLocalFolder,

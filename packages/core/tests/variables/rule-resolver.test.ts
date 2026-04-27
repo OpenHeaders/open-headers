@@ -43,7 +43,6 @@ function makeRedirectRule(overrides: Partial<RedirectRule> = {}): RedirectRule {
     enabled: true,
     conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
     action: {
-      
       redirectTo: 'https://{{HOST}}/new',
     },
     ...overrides,

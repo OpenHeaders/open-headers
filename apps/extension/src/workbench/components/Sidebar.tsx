@@ -64,6 +64,7 @@ interface SidebarProps {
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   onDeleteRule?: (uid: string) => void;
+  onExportRule?: (uid: string, name: string) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onSelectTemplate?: (uid: string) => void;
@@ -100,6 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectRule,
   onCreateRule,
   onDeleteRule,
+  onExportRule,
   onOpenCollectionOverview,
   onOpenFolderOverview,
   onSelectTemplate,
@@ -376,6 +378,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCreateRule,
     onSelectRule,
     onDeleteRule,
+    onExportRule,
     onOpenCollectionOverview,
     onOpenFolderOverview,
   });
