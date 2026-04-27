@@ -27,7 +27,33 @@ import type { BuildWorkspaceExportInput } from '@openheaders/core/workspace-expo
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { getWorkspace } from './workspace-store';
 
-export type ExportGatherScope = { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string };
+/**
+ * Per-entity-type uid lists for a `selection` scope. Collections and
+ * folders are *expanders*: picking one pulls in every descendant
+ * folder/entity plus the parent containers needed for `collectionId` /
+ * `folderId` and tree-prefix paths to resolve at import time. Picking a
+ * leaf entity (rule / request / template / env / live-*) ships exactly
+ * that entity — recipients see missing-deps in the preview if the
+ * referenced collection/env/workflow isn't already in their workspace
+ * (design §2.3).
+ *
+ * Transitive dependency expansion (envs / workflows / collection-vars
+ * referenced by a selected rule's template strings) is a separate
+ * concern — handled by the export-side "Strict literal" toggle in PR 5
+ * Advanced rather than baked into the gatherer.
+ */
+export interface ExportSelection {
+  rules?: readonly string[];
+  requests?: readonly string[];
+  templates?: readonly string[];
+  environments?: readonly string[];
+  liveWorkflows?: readonly string[];
+  liveVariables?: readonly string[];
+  collections?: readonly string[];
+  folders?: readonly string[];
+}
+
+export type ExportGatherScope = { kind: 'workspace' } | { kind: 'selection'; selection: ExportSelection };
 
 interface GatherOptions {
   appVersion: string;
@@ -50,6 +76,94 @@ interface GatherResult {
  */
 function toExportFolders(folders: PersistedLocalFolder[]): V5.Folder[] {
   return folders;
+}
+
+interface ExpandedSelection {
+  rules: Set<string>;
+  requests: Set<string>;
+  templates: Set<string>;
+  environments: Set<string>;
+  liveWorkflows: Set<string>;
+  liveVariables: Set<string>;
+  collections: Set<string>;
+  folders: Set<string>;
+}
+
+interface SelectionSources {
+  collections: readonly V5.Collection[];
+  folders: readonly V5.Folder[];
+  rules: readonly V5.Rule[];
+  requests: readonly V5.Request[];
+  templates: readonly V5.Template[];
+}
+
+/**
+ * Resolve a user-picked `ExportSelection` into the concrete uid sets the
+ * gatherer should ship. Collections and folders expand to descendant
+ * folders/entities AND parent containers needed for the importer's path
+ * + uid binding to resolve.
+ */
+function expandSelection(selection: ExportSelection, src: SelectionSources): ExpandedSelection {
+  const rules = new Set<string>(selection.rules ?? []);
+  const requests = new Set<string>(selection.requests ?? []);
+  const templates = new Set<string>(selection.templates ?? []);
+  const environments = new Set<string>(selection.environments ?? []);
+  const liveWorkflows = new Set<string>(selection.liveWorkflows ?? []);
+  const liveVariables = new Set<string>(selection.liveVariables ?? []);
+  const collections = new Set<string>(selection.collections ?? []);
+  const folders = new Set<string>(selection.folders ?? []);
+
+  // Each entity's `path` is the slash-joined hierarchy
+  // (`<tree>/<collection-slug>[/<folder-slug>...]`). Tree affiliation +
+  // ancestry resolve from path — no separate `collectionId` /
+  // `folderId` fields on the persisted shape.
+  const pathStartsAt = (entityPath: string, ancestor: string): boolean =>
+    entityPath === ancestor || entityPath.startsWith(`${ancestor}/`);
+
+  for (const cid of selection.collections ?? []) {
+    const col = src.collections.find((c) => c.uid === cid);
+    if (!col) continue;
+    const colPath = col.path;
+    const tree = colPath.split('/')[0];
+    for (const f of src.folders) {
+      if (pathStartsAt(f.path, colPath) && f.path !== colPath) folders.add(f.uid);
+    }
+    if (tree === 'rules') {
+      for (const r of src.rules) if (pathStartsAt(r.path, colPath)) rules.add(r.uid);
+    } else if (tree === 'requests') {
+      for (const r of src.requests) if (pathStartsAt(r.path, colPath)) requests.add(r.uid);
+    } else if (tree === 'templates') {
+      for (const t of src.templates) if (pathStartsAt(t.path, colPath)) templates.add(t.uid);
+    }
+  }
+
+  for (const fid of selection.folders ?? []) {
+    const folder = src.folders.find((f) => f.uid === fid);
+    if (!folder) continue;
+    const folderPath = folder.path;
+    const tree = folderPath.split('/')[0];
+    // Parent collection (path = `<tree>/<collection-slug>`) so the
+    // recipient can resolve the folder's chain. Walk up the path and
+    // match by-path against the collection list.
+    const segs = folderPath.split('/');
+    if (segs.length >= 2) {
+      const parentColPath = `${segs[0]}/${segs[1]}`;
+      const parentCol = src.collections.find((c) => c.path === parentColPath);
+      if (parentCol) collections.add(parentCol.uid);
+    }
+    for (const f2 of src.folders) {
+      if (pathStartsAt(f2.path, folderPath) && f2.path !== folderPath) folders.add(f2.uid);
+    }
+    if (tree === 'rules') {
+      for (const r of src.rules) if (pathStartsAt(r.path, folderPath)) rules.add(r.uid);
+    } else if (tree === 'requests') {
+      for (const r of src.requests) if (pathStartsAt(r.path, folderPath)) requests.add(r.uid);
+    } else if (tree === 'templates') {
+      for (const t of src.templates) if (pathStartsAt(t.path, folderPath)) templates.add(t.uid);
+    }
+  }
+
+  return { rules, requests, templates, environments, liveWorkflows, liveVariables, collections, folders };
 }
 
 /**
@@ -125,21 +239,33 @@ export async function gatherWorkspaceExport(
     liveVariables = allLiveVariables;
     envelopeScope = 'workspace';
   } else {
-    // selection-rule: just the one rule. Transitive-dep expansion (the
-    // env / collection / vault entries the rule references) lands in
-    // PR 5's Advanced "expand to dependencies" toggle. For PR 1 we
-    // ship the literal rule only — recipients see "missing dep" hints
-    // in PR 2's preview.
-    const target = allRules.find((r) => r.uid === scope.ruleUid);
-    if (!target) return null;
-    rules = [target];
-    requests = [];
-    templates = [];
-    environments = [];
-    collections = [];
-    folders = [];
-    liveWorkflows = [];
-    liveVariables = [];
+    const picked = expandSelection(scope.selection, {
+      collections: allCollections,
+      folders: allFolders,
+      rules: allRules,
+      requests: allRequests,
+      templates: allTemplates,
+    });
+    if (
+      picked.rules.size === 0 &&
+      picked.requests.size === 0 &&
+      picked.templates.size === 0 &&
+      picked.environments.size === 0 &&
+      picked.liveWorkflows.size === 0 &&
+      picked.liveVariables.size === 0 &&
+      picked.collections.size === 0 &&
+      picked.folders.size === 0
+    ) {
+      return null;
+    }
+    rules = allRules.filter((r) => picked.rules.has(r.uid));
+    requests = allRequests.filter((r) => picked.requests.has(r.uid));
+    templates = allTemplates.filter((t) => picked.templates.has(t.uid));
+    environments = allEnvironments.filter((e) => picked.environments.has(e.uid));
+    liveWorkflows = allLiveWorkflows.filter((w) => picked.liveWorkflows.has(w.uid));
+    liveVariables = allLiveVariables.filter((v) => picked.liveVariables.has(v.uid));
+    collections = allCollections.filter((c) => picked.collections.has(c.uid));
+    folders = allFolders.filter((f) => picked.folders.has(f.uid));
     envelopeScope = 'selection';
   }
 

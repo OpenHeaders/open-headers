@@ -33,6 +33,7 @@ interface UseWorkflowNodesParams {
   dirtyWorkflowUids?: ReadonlySet<string>;
   /** Workflow uids with step-request templates that don't resolve. */
   unresolvableWorkflowUids?: ReadonlySet<string>;
+  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
 }
 
 /**
@@ -165,6 +166,9 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
           p.confirmDelete(wf.name, () => {
             void p.deleteWorkflow(wf.uid);
           }),
+        ...(p.onExportEntity
+          ? { onExport: () => p.onExportEntity?.({ kind: 'liveWorkflow', uid: wf.uid, name: wf.name }) }
+          : {}),
       });
     }
     return items;
@@ -182,5 +186,6 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
     p.buildWorkflowDraftNode,
     p.dirtyWorkflowUids,
     p.unresolvableWorkflowUids,
+    p.onExportEntity,
   ]);
 }

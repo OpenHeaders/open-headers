@@ -38,10 +38,12 @@ interface UseRulesTreeNodesParams {
   onSelectRule: (uid: string) => void;
   onDeleteRule?: (uid: string) => void;
   /**
-   * Open the workspace-export modal scoped to a single rule (selection
-   * scope). Wired to the rule leaf's "Export…" context menu item.
+   * Open the workspace-export modal scoped to a single sidebar entity.
+   * Used by the rule leaf, the collection group, and the folder row.
+   * Resolution from `(kind, uid, name)` → `ExportModalScope` lives in
+   * `App.tsx`'s `buildEntityExportScope` so this hook stays UI-only.
    */
-  onExportRule?: (uid: string, name: string) => void;
+  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
 }
@@ -88,6 +90,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
             canRename: true,
             canDelete: true,
             canAddChild: true,
+            ...(p.onExportEntity
+              ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
+              : {}),
             onOpen: () => {
               p.toggleExpand(fid);
               p.onOpenFolderOverview?.(node.uid, node.name);
@@ -116,6 +121,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               onClearOverride: () => p.clearPauseOverride(node.path),
               onClearNested: () => p.clearNestedPauseOverrides(node.path),
               kind: 'folder',
+              ...(p.onExportEntity
+                ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
+                : {}),
             }),
           });
           if (isExpanded) {
@@ -208,7 +216,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 p.onDeleteRule?.(node.uid);
               }),
-            ...(p.onExportRule ? { onExport: () => p.onExportRule?.(node.uid, node.name) } : {}),
+            ...(p.onExportEntity
+              ? { onExport: () => p.onExportEntity?.({ kind: 'rule', uid: node.uid, name: node.name }) }
+              : {}),
           });
         }
       }
@@ -228,7 +238,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       p.onCreateRule,
       p.onSelectRule,
       p.onDeleteRule,
-      p.onExportRule,
+      p.onExportEntity,
       p.handleToggleRule,
       p.updateLocalRule,
       p.createLocalFolder,
@@ -286,6 +296,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
         canRename: true,
         canDelete: true,
         canAddChild: true,
+        ...(p.onExportEntity
+          ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
+          : {}),
         onOpen: () => {
           p.toggleExpand(colId);
           p.onOpenCollectionOverview?.(collection.uid, collection.name);
@@ -314,6 +327,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
           onClearOverride: () => p.clearPauseOverride(collection.path),
           onClearNested: () => p.clearNestedPauseOverrides(collection.path),
           kind: 'collection',
+          ...(p.onExportEntity
+            ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
+            : {}),
         }),
       });
 
@@ -376,5 +392,6 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
     p.buildRuleDraftNode,
     p.setExpandedKeys,
     p.setRenamingId,
+    p.onExportEntity,
   ]);
 }

@@ -32,13 +32,32 @@ import { IMPORT_INLINE_PAYLOAD_MAX_BYTES, intentToHash } from '@openheaders/core
 import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Progress, Radio, Space, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import type { ExportSelection } from '@/background/modules/workspace-export-gatherer';
 import { call } from '@/utils/bridge';
 
 const HOSTED_IMPORT_URL = 'https://workspace.openheaders.io/import';
 
 const { Text, Paragraph } = Typography;
 
-export type ExportModalScope = { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string; ruleName: string };
+/**
+ * Modal-level scope description: `'workspace'` for the whole-workspace
+ * export and `'selection'` for any single-entity / multi-select / right-
+ * click flow. The modal renders a tag from `selection.label` and forwards
+ * `selection.entities` (per-entity-type uid lists) to the SW gatherer,
+ * which auto-expands collections / folders to descendants.
+ *
+ * `slug` drives the filename suffix (`<workspace>-<slug>.openheaders.yaml`)
+ * and stays free-form so callers can encode "rule-auth-token" / "collection-
+ * payments" / "folder-checkout" without having to mirror an enum here.
+ */
+export type ExportModalScope =
+  | { kind: 'workspace' }
+  | {
+      kind: 'selection';
+      label: string;
+      slug: string;
+      selection: ExportSelection;
+    };
 
 type VaultMode = 'omitted' | 'encrypted' | 'plaintext';
 
@@ -57,7 +76,7 @@ interface FingerprintPair {
 
 function buildFilename(workspaceName: string, scope: ExportModalScope): string {
   const slug = slugify(workspaceName) || 'workspace';
-  const suffix = scope.kind === 'workspace' ? 'workspace' : `rule-${slugify(scope.ruleName) || 'untitled'}`;
+  const suffix = scope.kind === 'workspace' ? 'workspace' : scope.slug || 'selection';
   return `${slug}-${suffix}.openheaders.yaml`;
 }
 
@@ -118,7 +137,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       const swScope =
         scope.kind === 'workspace'
           ? { kind: 'workspace' as const }
-          : { kind: 'selection-rule' as const, ruleUid: scope.ruleUid };
+          : { kind: 'selection' as const, selection: scope.selection };
       const resp = await call('exportWorkspace', {
         workspaceId,
         scope: swScope,
@@ -221,7 +240,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
     scope.kind === 'workspace' ? (
       <Tag color="blue">Whole workspace</Tag>
     ) : (
-      <Tag color="purple">Single rule — {scope.ruleName}</Tag>
+      <Tag color="purple">{scope.label}</Tag>
     );
 
   return (

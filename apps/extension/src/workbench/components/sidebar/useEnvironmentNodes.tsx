@@ -27,6 +27,7 @@ interface UseEnvironmentNodesParams {
   pickActiveEnvironment: (uid: string | null) => void;
   setDefaultEnvironment: (uid: string | null) => Promise<unknown> | unknown;
   onSelectEnvironment?: (uid: string, name: string, autoRename?: boolean) => void;
+  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
 }
 
 export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
@@ -50,6 +51,9 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
         canRename: true,
         canDelete: true,
         canAddChild: false,
+        ...(p.onExportEntity
+          ? { onExport: () => p.onExportEntity?.({ kind: 'environment', uid: env.uid, name: env.name }) }
+          : {}),
         onOpen: () => p.onSelectEnvironment?.(env.uid, env.name),
         onRename: async (name: string) => {
           void p.renameEnvironment(env.uid, name);
@@ -110,5 +114,6 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
     p.confirmDelete,
     p.onSelectEnvironment,
     p.setRenamingId,
+    p.onExportEntity,
   ]);
 }

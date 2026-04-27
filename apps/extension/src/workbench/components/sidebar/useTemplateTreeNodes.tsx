@@ -40,6 +40,7 @@ interface UseTemplateTreeNodesParams {
   onSelectTemplate?: (uid: string) => void;
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
 }
 
 export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
@@ -98,6 +99,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
                 p.confirmDelete(node.name, () => {
                   void p.deleteTemplateFolder(node.uid);
                 }),
+              p.onExportEntity ? () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) : undefined,
             ),
           });
           if (isExpanded) {
@@ -146,6 +148,9 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
               p.confirmDelete(node.name, () => {
                 void p.deleteTemplate(node.uid);
               }),
+            ...(p.onExportEntity
+              ? { onExport: () => p.onExportEntity?.({ kind: 'template', uid: node.uid, name: node.name }) }
+              : {}),
           });
         }
       }
@@ -166,6 +171,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
       p.onOpenTemplateFolderOverview,
       p.setExpandedKeys,
       p.setRenamingId,
+      p.onExportEntity,
     ],
   );
 
@@ -293,6 +299,9 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
               void p.deleteTemplateCollection(collection.uid);
             }),
           isDefault,
+          p.onExportEntity
+            ? () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name })
+            : undefined,
         ),
       });
 
@@ -333,6 +342,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     p.onOpenTemplateFolderOverview,
     p.setExpandedKeys,
     p.setRenamingId,
+    p.onExportEntity,
   ]);
 
   return { systemTemplateNodes, templateNodes };

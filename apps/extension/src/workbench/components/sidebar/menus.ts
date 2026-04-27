@@ -2,6 +2,7 @@ import {
   ClearOutlined,
   DeleteOutlined,
   EditOutlined,
+  ExportOutlined,
   FolderOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -73,6 +74,9 @@ export interface ContainerActionMenuOptions {
   onTogglePause?: () => void;
   onClearOverride?: () => void;
   onClearNested?: () => void;
+  /** "Export…" entry on this container's `⋯`. Wired only when the
+   *  caller hooks the workspace-export modal up to the sidebar. */
+  onExport?: () => void;
 }
 
 export function containerActionMenuItems({
@@ -85,6 +89,7 @@ export function containerActionMenuItems({
   onTogglePause,
   onClearOverride,
   onClearNested,
+  onExport,
 }: ContainerActionMenuOptions): ItemType[] {
   const noun = kind === 'collection' ? 'Collection' : 'Folder';
   const items: ItemType[] = [];
@@ -114,6 +119,9 @@ export function containerActionMenuItems({
     items.push({ type: 'divider' as const, key: 'div-pause' });
   }
   items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
+  if (onExport) {
+    items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
+  }
   items.push({
     key: 'delete',
     icon: createElement(DeleteOutlined),
@@ -129,28 +137,34 @@ export function templateCollectionMenuItems(
   onRename: () => void,
   onDelete: () => void,
   isDefault: boolean,
+  onExport?: () => void,
 ): ItemType[] {
-  return [
-    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
-    ...(!isDefault
-      ? [
-          { type: 'divider' as const, key: 'div' },
-          { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
-          { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
-        ]
-      : []),
-  ];
+  const items: ItemType[] = [{ key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder }];
+  if (!isDefault) {
+    items.push({ type: 'divider' as const, key: 'div' });
+    items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
+    if (onExport) {
+      items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
+    }
+    items.push({ key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete });
+  }
+  return items;
 }
 
 export function templateFolderMenuItems(
   onAddFolder: () => void,
   onRename: () => void,
   onDelete: () => void,
+  onExport?: () => void,
 ): ItemType[] {
-  return [
+  const items: ItemType[] = [
     { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
     { type: 'divider' as const, key: 'div' },
     { key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename },
-    { key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete },
   ];
+  if (onExport) {
+    items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
+  }
+  items.push({ key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete });
+  return items;
 }

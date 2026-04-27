@@ -142,7 +142,12 @@ export interface BridgeRpcContract {
     req: {
       /** Falls back to the active workspace when omitted. */
       workspaceId?: string;
-      scope: { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string };
+      scope:
+        | { kind: 'workspace' }
+        | {
+            kind: 'selection';
+            selection: import('@/background/modules/workspace-export-gatherer').ExportSelection;
+          };
       /**
        * Vault include mode (design §3.1 / §3.2 / §3.3).
        *

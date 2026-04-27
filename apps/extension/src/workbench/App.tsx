@@ -17,7 +17,7 @@ import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { useWorkspaces } from '@hooks/useWorkspaces';
-import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
+import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -60,7 +60,7 @@ import { VariablePopoverProvider } from './components/template-input/VariablePop
 import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
-import ExportModal from './components/workspace-export/ExportModal';
+import ExportModal, { type ExportModalScope } from './components/workspace-export/ExportModal';
 import ImportPreviewModal, { type ImportPreviewSource } from './components/workspace-export/ImportPreviewModal';
 import { findLeaf } from './editor-groups';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
@@ -85,6 +85,80 @@ import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
 import { getFocusedRegion } from './stores/focus-region-store';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
+
+// ── Sidebar "Export…" — single callback shape for every entity type ─
+
+/**
+ * Argument shape for the sidebar's `onExportEntity` callback. The kind
+ * decides whether the SW gatherer treats the uid as a literal pick (leaf
+ * entities) or as an expander (collections / folders pull descendants
+ * and parent containers).
+ */
+export type SidebarExportEntity =
+  | { kind: 'rule' | 'request' | 'template' | 'environment' | 'liveWorkflow' | 'liveVariable'; uid: string; name: string }
+  | { kind: 'collection' | 'folder'; uid: string; name: string };
+
+/**
+ * Translate a sidebar entity ref into the modal-level `ExportModalScope`.
+ * Centralized here so every tree-nodes hook just yells "export this thing"
+ * and the wiring around filename slugs / preview labels lives in one place.
+ */
+function buildEntityExportScope(entity: SidebarExportEntity): ExportModalScope {
+  const slug = slugify(entity.name) || 'untitled';
+  switch (entity.kind) {
+    case 'rule':
+      return { kind: 'selection', label: `Rule — ${entity.name}`, slug: `rule-${slug}`, selection: { rules: [entity.uid] } };
+    case 'request':
+      return {
+        kind: 'selection',
+        label: `Request — ${entity.name}`,
+        slug: `request-${slug}`,
+        selection: { requests: [entity.uid] },
+      };
+    case 'template':
+      return {
+        kind: 'selection',
+        label: `Template — ${entity.name}`,
+        slug: `template-${slug}`,
+        selection: { templates: [entity.uid] },
+      };
+    case 'environment':
+      return {
+        kind: 'selection',
+        label: `Environment — ${entity.name}`,
+        slug: `env-${slug}`,
+        selection: { environments: [entity.uid] },
+      };
+    case 'liveWorkflow':
+      return {
+        kind: 'selection',
+        label: `Live workflow — ${entity.name}`,
+        slug: `workflow-${slug}`,
+        selection: { liveWorkflows: [entity.uid] },
+      };
+    case 'liveVariable':
+      return {
+        kind: 'selection',
+        label: `Live variable — ${entity.name}`,
+        slug: `live-var-${slug}`,
+        selection: { liveVariables: [entity.uid] },
+      };
+    case 'collection':
+      return {
+        kind: 'selection',
+        label: `Collection — ${entity.name}`,
+        slug: `collection-${slug}`,
+        selection: { collections: [entity.uid] },
+      };
+    case 'folder':
+      return {
+        kind: 'selection',
+        label: `Folder — ${entity.name}`,
+        slug: `folder-${slug}`,
+        selection: { folders: [entity.uid] },
+      };
+  }
+}
 
 // ── Shell loader ────────────────────────────────────────────────────
 
@@ -303,8 +377,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   const [importHarContext, setImportHarContext] = useState<{ collectionId?: string } | undefined>(undefined);
   const [importPostmanOpen, setImportPostmanOpen] = useState(false);
   const [exportModalState, setExportModalState] = useState<
-    | { open: false }
-    | { open: true; scope: { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string; ruleName: string } }
+    { open: false } | { open: true; scope: ExportModalScope }
   >({ open: false });
   const [importPreviewState, setImportPreviewState] = useState<
     | { open: false }
@@ -1227,8 +1300,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onSelectRule={openEditTab}
               onCreateRule={openCreateTab}
               onDeleteRule={handleDeleteRule}
-              onExportRule={(uid, name) =>
-                setExportModalState({ open: true, scope: { kind: 'selection-rule', ruleUid: uid, ruleName: name } })
+              onExportEntity={(args) =>
+                setExportModalState({ open: true, scope: buildEntityExportScope(args) })
               }
               onOpenCollectionOverview={openCollectionOverview}
               onOpenFolderOverview={openFolderOverview}

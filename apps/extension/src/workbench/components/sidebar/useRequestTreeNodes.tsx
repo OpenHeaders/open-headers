@@ -34,6 +34,7 @@ interface UseRequestTreeNodesParams {
   deleteRequestCollectionRpc: (uid: string) => Promise<unknown> | unknown;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
+  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
 }
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
@@ -95,6 +96,9 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                   void p.deleteRequestFolderRpc(node.uid);
                 }),
               kind: 'folder',
+              ...(p.onExportEntity
+                ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
+                : {}),
             }),
           });
           if (isExpanded) {
@@ -144,6 +148,9 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteRequest(node.uid);
               }),
+            ...(p.onExportEntity
+              ? { onExport: () => p.onExportEntity?.({ kind: 'request', uid: node.uid, name: node.name }) }
+              : {}),
           });
         }
       }
@@ -169,6 +176,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.buildRequestDraftNode,
       p.setExpandedKeys,
       p.setRenamingId,
+      p.onExportEntity,
     ],
   );
 
@@ -234,6 +242,9 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               void p.deleteRequestCollectionRpc(collection.uid);
             }),
           kind: 'collection',
+          ...(p.onExportEntity
+            ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
+            : {}),
         }),
       });
 
@@ -289,5 +300,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.buildRequestDraftNode,
     p.setExpandedKeys,
     p.setRenamingId,
+    p.onExportEntity,
   ]);
 }

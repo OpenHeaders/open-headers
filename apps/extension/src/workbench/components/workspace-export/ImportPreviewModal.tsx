@@ -45,6 +45,7 @@ import {
   decryptVaultBlock,
   type ImportDrop,
   type MissingDep,
+  type ParseResult,
   parseWorkspaceExport,
   type StrategyMap,
   VaultDecryptionFailedError,
@@ -122,6 +123,18 @@ interface PreviewState {
   targetWorkspaceId: string | null;
 }
 
+/**
+ * Structured rejection state. `kind: 'parse'` carries the discriminator
+ * from `parseWorkspaceExport` so the UI can pick a tailored copy block
+ * (forward-compat banner for `export-format-version`, schema-version
+ * mismatch, discriminator gate, etc.). `kind: 'caller'` covers errors
+ * surfaced by the caller before any parse ran (link expired, decompress
+ * failure, fetch refusal).
+ */
+type ParseRejection =
+  | { kind: 'parse'; reason: Extract<ParseResult, { ok: false }>['reason']; details: string }
+  | { kind: 'caller'; details: string };
+
 // ── Modal ──────────────────────────────────────────────────────────
 
 const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
@@ -138,7 +151,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
 
-  const [parseError, setParseError] = useState<string | null>(null);
+  const [parseRejection, setParseRejection] = useState<ParseRejection | null>(null);
   const [parsed, setParsed] = useState<{ envelope: WorkspaceExport; drops: ImportDrop[] } | null>(null);
   const [sourceHash, setSourceHash] = useState<string | null>(null);
   // Vault decryption state — when the envelope carries a `secrets` block,
@@ -170,25 +183,25 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   useEffect(() => {
     if (!open) return;
     if (initialError) {
-      setParseError(initialError);
+      setParseRejection({ kind: 'caller', details: initialError });
       setParsed(null);
       setSourceHash(null);
       return;
     }
     if (rawText === null) {
-      setParseError(null);
+      setParseRejection(null);
       setParsed(null);
       setSourceHash(null);
       return;
     }
     const result = parseWorkspaceExport(rawText);
     if (!result.ok) {
-      setParseError(`${result.reason}: ${result.details}`);
+      setParseRejection({ kind: 'parse', reason: result.reason, details: result.details });
       setParsed(null);
       setSourceHash(null);
       return;
     }
-    setParseError(null);
+    setParseRejection(null);
     setParsed({ envelope: result.export, drops: result.drops });
     setStrategies({});
     setBackupRestore(false);
@@ -207,7 +220,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   // Reset on close so a second open starts clean.
   useEffect(() => {
     if (open) return;
-    setParseError(null);
+    setParseRejection(null);
     setParsed(null);
     setPreview(null);
     setPreviewError(null);
@@ -440,17 +453,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       destroyOnClose
       footer={footer}
     >
-      {parseError && (
-        <Alert
-          type="error"
-          showIcon
-          message="This file isn't a workspace export we can import"
-          description={parseError}
-          style={{ marginBottom: 12 }}
-        />
-      )}
+      {parseRejection && <RejectionBanner rejection={parseRejection} />}
 
-      {!parsed && !parseError && (
+      {!parsed && !parseRejection && (
         <Empty
           description={
             source === 'file'
@@ -539,6 +544,72 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 };
 
 // ── Sub-components ─────────────────────────────────────────────────
+
+const RejectionBanner: React.FC<{ rejection: ParseRejection }> = ({ rejection }) => {
+  const { title, body } = describeRejection(rejection);
+  return (
+    <Alert
+      type="error"
+      showIcon
+      message={title}
+      description={
+        <div>
+          <Paragraph style={{ marginBottom: 4 }}>{body}</Paragraph>
+          <Text type="secondary" style={{ fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            {rejection.details}
+          </Text>
+        </div>
+      }
+      style={{ marginBottom: 12 }}
+    />
+  );
+};
+
+function describeRejection(rejection: ParseRejection): { title: string; body: string } {
+  if (rejection.kind === 'caller') {
+    return {
+      title: "Couldn't load the import",
+      body: 'The source returned an error before the file could be parsed.',
+    };
+  }
+  switch (rejection.reason) {
+    case 'export-format-version':
+      return {
+        title: 'This export was created with a newer version of OpenHeaders',
+        body: "Your installation can't read it yet. Update OpenHeaders, then try again — older versions are read forward, but newer ones aren't read backward.",
+      };
+    case 'schema-version':
+      return {
+        title: 'Incompatible workspace model version',
+        body: 'This export targets a different major version of the OpenHeaders data model. Update OpenHeaders if the export is newer, or ask the sender to re-export from a current version.',
+      };
+    case 'discriminator':
+      return {
+        title: 'This file is not a workspace export',
+        body: 'A workspace export starts with `kind: workspace-export`. This file has a different shape — double-check that you picked the right file.',
+      };
+    case 'format':
+      return {
+        title: "Couldn't parse the file as YAML or JSON",
+        body: 'A workspace export is YAML (preferred) or JSON. The parser rejected this input — the file may be truncated or corrupted.',
+      };
+    case 'size-cap':
+      return {
+        title: 'This export is too large to import',
+        body: 'Workspace exports are capped at 50 MB. Split the source workspace into smaller pieces and re-export.',
+      };
+    case 'envelope-schema':
+      return {
+        title: "The export envelope doesn't match what the importer expects",
+        body: "One or more top-level fields are missing or invalid. If this came from a trusted source, ask them to re-export.",
+      };
+    case 'crypto-envelope':
+      return {
+        title: "The encrypted block in this export isn't well-formed",
+        body: "We can't decrypt the secrets without a valid envelope. Ask the sender to re-export.",
+      };
+  }
+}
 
 const SourceAttribution: React.FC<{ envelope: WorkspaceExport; drops: ImportDrop[] }> = ({ envelope, drops }) => {
   const counts = envelope.meta.counts;

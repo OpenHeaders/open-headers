@@ -342,10 +342,11 @@ export function handleGeneralMessage(
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'exportWorkspace') {
-      // scope = 'workspace' or 'selection-rule' (single rule).
+      // scope = 'workspace' (full workspace) or 'selection' (per-type uid lists,
+      // collections/folders auto-expanded by the gatherer).
       // PR 4: vaultMode = 'omitted' (default) | 'encrypted' | 'plaintext'.
       const wsId = (message.workspaceId as string | undefined) ?? getActiveWorkspaceId();
-      const scope = message.scope as { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string };
+      const scope = message.scope as Parameters<typeof gatherWorkspaceExport>[1];
       const vaultMode = (message.vaultMode as 'omitted' | 'encrypted' | 'plaintext' | undefined) ?? 'omitted';
       const passphrase = message.passphrase as string | undefined;
       const passphraseHint = message.passphraseHint as string | undefined;

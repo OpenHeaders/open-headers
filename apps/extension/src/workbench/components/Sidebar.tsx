@@ -64,7 +64,12 @@ interface SidebarProps {
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   onDeleteRule?: (uid: string) => void;
-  onExportRule?: (uid: string, name: string) => void;
+  /**
+   * Open the workspace-export modal scoped to a single sidebar entity.
+   * Single callback for every entity kind — keeps the consumer (App.tsx)
+   * authoritative on how an entity-ref maps to an `ExportModalScope`.
+   */
+  onExportEntity?: (entity: import('../App').SidebarExportEntity) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onSelectTemplate?: (uid: string) => void;
@@ -101,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectRule,
   onCreateRule,
   onDeleteRule,
-  onExportRule,
+  onExportEntity,
   onOpenCollectionOverview,
   onOpenFolderOverview,
   onSelectTemplate,
@@ -378,7 +383,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCreateRule,
     onSelectRule,
     onDeleteRule,
-    onExportRule,
+    onExportEntity,
     onOpenCollectionOverview,
     onOpenFolderOverview,
   });
@@ -402,6 +407,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onSelectTemplate,
     onOpenTemplateCollectionOverview,
     onOpenTemplateFolderOverview,
+    onExportEntity,
   });
 
   const requestNodes = useRequestTreeNodes({
@@ -427,6 +433,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteRequestCollectionRpc,
     onSelectRequest,
     onCreateRequest,
+    onExportEntity,
   });
 
   const environmentNodes = useEnvironmentNodes({
@@ -441,6 +448,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     pickActiveEnvironment,
     setDefaultEnvironment,
     onSelectEnvironment,
+    onExportEntity,
   });
 
   const workflowNodes = useWorkflowNodes({
@@ -458,6 +466,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     buildWorkflowDraftNode,
     dirtyWorkflowUids,
     unresolvableWorkflowUids,
+    onExportEntity,
   });
 
   const { vaultNode, workspaceVarsNode, liveVarsNode } = useVariableSingletonNodes({
