@@ -22,6 +22,7 @@ import {
   type StrategyMap,
   serializeEntityYaml,
 } from '@openheaders/core/workspace-export';
+import { Allotment } from 'allotment';
 import { Empty, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -100,13 +101,11 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
     return <Empty description="Nothing to import" style={{ padding: 32 }} />;
   }
 
-  const gridTemplate = advanced && advancedOpen ? '320px 1fr 360px' : '320px 1fr';
+  const showAdvanced = !!(advanced && advancedOpen);
 
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: gridTemplate,
         height: '100%',
         minHeight: 0,
         border: `1px solid ${token.colorBorderSecondary}`,
@@ -115,33 +114,41 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
         background: token.colorBgContainer,
       }}
     >
-      <DiffSidebar
-        taxonomy={taxonomy}
-        selectionKey={selectionKey}
-        onSelect={setSelectionKey}
-        lineCounts={lineCountsByKey}
-        strategies={strategies}
-      />
-      <DiffPane
-        row={selectedRow}
-        yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
-        currentStrategy={selectedRow ? strategyForRow(strategies, selectedRow) : 'skip'}
-        onChangeStrategy={(s) => {
-          if (!selectedRow) return;
-          const uidKey = selectedRow.section.singleton
-            ? 'singleton'
-            : ((selectedRow.entity as { uid: string })?.uid ?? '');
-          onChangeStrategy(selectedRow.section.strategyKey, uidKey, s);
-        }}
-        advancedTrigger={
-          advanced
-            ? { open: advancedOpen, onToggle: () => setAdvancedOpen((v) => !v), activeCount: advanced.activeCount }
-            : null
-        }
-      />
-      {advanced && advancedOpen && (
-        <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />
-      )}
+      <Allotment proportionalLayout={false}>
+        <Allotment.Pane preferredSize={320} minSize={220}>
+          <DiffSidebar
+            taxonomy={taxonomy}
+            selectionKey={selectionKey}
+            onSelect={setSelectionKey}
+            lineCounts={lineCountsByKey}
+            strategies={strategies}
+          />
+        </Allotment.Pane>
+        <Allotment.Pane minSize={360}>
+          <DiffPane
+            row={selectedRow}
+            yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
+            currentStrategy={selectedRow ? strategyForRow(strategies, selectedRow) : 'skip'}
+            onChangeStrategy={(s) => {
+              if (!selectedRow) return;
+              const uidKey = selectedRow.section.singleton
+                ? 'singleton'
+                : ((selectedRow.entity as { uid: string })?.uid ?? '');
+              onChangeStrategy(selectedRow.section.strategyKey, uidKey, s);
+            }}
+            advancedTrigger={
+              advanced
+                ? { open: advancedOpen, onToggle: () => setAdvancedOpen((v) => !v), activeCount: advanced.activeCount }
+                : null
+            }
+          />
+        </Allotment.Pane>
+        <Allotment.Pane preferredSize={360} minSize={260} visible={showAdvanced}>
+          {advanced && (
+            <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />
+          )}
+        </Allotment.Pane>
+      </Allotment>
     </div>
   );
 };
