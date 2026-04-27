@@ -22,7 +22,7 @@ import {
   type StrategyMap,
   serializeEntityYaml,
 } from '@openheaders/core/workspace-export';
-import { Allotment } from 'allotment';
+import { Allotment, LayoutPriority } from 'allotment';
 import { Empty, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -31,6 +31,19 @@ import DiffPane from './DiffPane';
 import DiffSidebar from './DiffSidebar';
 import { buildTaxonomy, type MaterialisedRow, strategyForRow } from './diff-sections';
 import { diffLineCounts } from './diff-stats';
+
+// Sidebar sizing — mirrors the workspace shell's pattern in
+// `useResponsiveLayout.ts`: 20% of viewport, clamped 180–400px,
+// `proportionalLayout: false` + `LayoutPriority` so the diff pane
+// (high priority) absorbs every extra pixel and the sidebar stays at
+// its preferred width regardless of modal-width changes.
+const SIDEBAR_MIN_PX = 180;
+const SIDEBAR_MAX_PX = 400;
+const SIDEBAR_PREFERRED_PX = (() => {
+  if (typeof window === 'undefined') return 280;
+  const target = Math.round(window.innerWidth * 0.2);
+  return Math.min(SIDEBAR_MAX_PX, Math.max(SIDEBAR_MIN_PX, target));
+})();
 
 interface ImportDiffWorkspaceProps {
   diff: DiffResult;
@@ -114,8 +127,14 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
         background: token.colorBgContainer,
       }}
     >
-      <Allotment>
-        <Allotment.Pane preferredSize="22%" minSize={200}>
+      <Allotment proportionalLayout={false}>
+        <Allotment.Pane
+          preferredSize={SIDEBAR_PREFERRED_PX}
+          minSize={SIDEBAR_MIN_PX}
+          maxSize={SIDEBAR_MAX_PX}
+          priority={LayoutPriority.Low}
+          snap
+        >
           <DiffSidebar
             taxonomy={taxonomy}
             selectionKey={selectionKey}
@@ -124,7 +143,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
             strategies={strategies}
           />
         </Allotment.Pane>
-        <Allotment.Pane preferredSize="78%" minSize={360}>
+        <Allotment.Pane priority={LayoutPriority.High} minSize={360}>
           <DiffPane
             row={selectedRow}
             yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
@@ -143,7 +162,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
             }
           />
         </Allotment.Pane>
-        <Allotment.Pane preferredSize={360} minSize={260} visible={showAdvanced}>
+        <Allotment.Pane preferredSize={360} minSize={260} priority={LayoutPriority.Low} visible={showAdvanced} snap>
           {advanced && <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />}
         </Allotment.Pane>
       </Allotment>
