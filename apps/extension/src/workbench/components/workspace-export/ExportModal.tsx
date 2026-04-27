@@ -15,12 +15,23 @@
  * and to the importer's drag-drop handler.
  */
 
-import { CopyOutlined, DownloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CopyOutlined, DownloadOutlined, InfoCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import { slugify } from '@openheaders/core/utils';
+import { DeepLinkPayloadTooLargeError, encodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
+import { IMPORT_INLINE_PAYLOAD_MAX_BYTES, intentToHash } from '@openheaders/core/workspace-intent';
 import { App as AntApp, Button, Modal, Space, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import { call } from '@/utils/bridge';
+
+/**
+ * Hosted entry point that redirects into the extension's workspace tab.
+ * Recipients without the extension installed land on the page's
+ * "install OpenHeaders" prompt; recipients with the extension installed
+ * are redirected via `chrome-extension://<id>/workbench.html#/import/...`
+ * so the workspace router picks the inline payload off the URL hash.
+ */
+const HOSTED_IMPORT_URL = 'https://workspace.openheaders.io/import';
 
 const { Text, Paragraph } = Typography;
 
@@ -89,6 +100,34 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
     }
   }, [fetchYaml, filename, message, onCancel]);
 
+  const onCopyDeepLink = useCallback(async () => {
+    setBusy(true);
+    try {
+      const yaml = await fetchYaml();
+      if (!yaml) return;
+      try {
+        const payload = await encodeWorkspaceExportDeepLink(yaml, {
+          maxCompressedBytes: IMPORT_INLINE_PAYLOAD_MAX_BYTES,
+        });
+        const hash = intentToHash({ kind: 'open-import', payload });
+        const url = `${HOSTED_IMPORT_URL}${hash}`;
+        await navigator.clipboard.writeText(url);
+        message.success('Copied deep link to clipboard');
+        onCancel();
+      } catch (err) {
+        if (err instanceof DeepLinkPayloadTooLargeError) {
+          message.warning('This export is too large for a deep link — falling back to a downloaded file.');
+          downloadYaml(filename, yaml);
+          onCancel();
+          return;
+        }
+        message.error(err instanceof Error ? err.message : 'Could not build deep link');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [fetchYaml, filename, message, onCancel]);
+
   const onCopy = useCallback(async () => {
     setBusy(true);
     try {
@@ -121,6 +160,9 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       footer={
         <Space>
           <Button onClick={onCancel}>Cancel</Button>
+          <Button icon={<LinkOutlined />} onClick={onCopyDeepLink} loading={busy}>
+            Copy deep link
+          </Button>
           <Button icon={<CopyOutlined />} onClick={onCopy} loading={busy}>
             Copy YAML
           </Button>

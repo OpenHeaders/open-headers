@@ -88,6 +88,7 @@ import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
 import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from './modules/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
+import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-export-handoff-store';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
   bootstrap as bootstrapWorkspaces,
@@ -644,6 +645,8 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     await handleLiveAlarm(alarm);
   } else if (isTotpAlarm(alarm)) {
     await handleTotpAlarm();
+  } else if (isHandoffSweepAlarm(alarm)) {
+    await sweepExpiredHandoffs();
   }
 });
 

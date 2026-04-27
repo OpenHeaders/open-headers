@@ -14,6 +14,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
   hashToIntent,
+  IMPORT_INLINE_PAYLOAD_MAX_BYTES,
   intentToHash,
   parseIntent,
   WORKSPACE_INTENT_KINDS,
@@ -129,6 +130,7 @@ describe('WORKSPACE_INTENT_KINDS', () => {
       'edit-live-variable': { kind: 'edit-live-variable', uid: UID_A },
       'edit-live-workflow': { kind: 'edit-live-workflow', uid: UID_A },
       'create-live-variable': { kind: 'create-live-variable' },
+      'open-import': { kind: 'open-import', handoffId: UID_A },
     };
     for (const kind of WORKSPACE_INTENT_KINDS) {
       expect(minimal[kind], `missing minimal-case fixture for kind ${kind}`).toBeDefined();
@@ -176,6 +178,16 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'edit-live-workflow', uid: UID_B },
     { kind: 'create-live-variable' },
     { kind: 'create-live-variable', seedRequestUid: UID_A },
+    // `source.via` is intentionally not carried through the URL hash —
+    // a hash-borne intent is `via: 'link'` by definition. The router
+    // stamps source at decode boundaries so it isn't part of byte
+    // round-trip.
+    { kind: 'open-import', payload: 'eJxLrShOzCnRSEksSdQB0gNvAAAA__8' },
+    { kind: 'open-import', handoffId: UID_A },
+    {
+      kind: 'open-import',
+      fetchUrl: 'https://raw.githubusercontent.com/openheaders/example/main/export.openheaders.yaml',
+    },
   ];
 
   it.each(roundTripCases)('round-trips %j', (intent) => {
@@ -242,6 +254,118 @@ describe('codec encoding', () => {
     // `%ZZ` is not a valid escape — the segment parser catches the
     // TypeError, returns the raw segment, schema rejects it.
     expect(hashToIntent('#/docs/bad%ZZ')).toBeNull();
+  });
+});
+
+// ── open-import — exactly-one + size cap invariants ────────────────
+
+describe('open-import schema invariants', () => {
+  it('rejects an intent with no payload, handoffId, or fetchUrl', () => {
+    expect(v.safeParse(WorkspaceIntentSchema, { kind: 'open-import' }).success).toBe(false);
+  });
+
+  it('rejects an intent with both payload and handoffId', () => {
+    expect(
+      v.safeParse(WorkspaceIntentSchema, {
+        kind: 'open-import',
+        payload: 'abc',
+        handoffId: UID_A,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an intent with both handoffId and fetchUrl', () => {
+    expect(
+      v.safeParse(WorkspaceIntentSchema, {
+        kind: 'open-import',
+        handoffId: UID_A,
+        fetchUrl: 'https://example.openheaders.io/x.yaml',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an inline payload over the size cap at schema time', () => {
+    const oversized = 'a'.repeat(IMPORT_INLINE_PAYLOAD_MAX_BYTES + 1);
+    expect(v.safeParse(WorkspaceIntentSchema, { kind: 'open-import', payload: oversized }).success).toBe(false);
+  });
+
+  it('accepts an inline payload exactly at the cap', () => {
+    const atCap = 'a'.repeat(IMPORT_INLINE_PAYLOAD_MAX_BYTES);
+    expect(v.safeParse(WorkspaceIntentSchema, { kind: 'open-import', payload: atCap }).success).toBe(true);
+  });
+
+  it('rejects a non-https fetchUrl shape only via the importer (codec stays permissive)', () => {
+    // Schema-level: any bounded string is accepted as fetchUrl. Host/scheme
+    // allowlisting lives in the SW fetch path (PR 4) — keeping schema
+    // permissive means the renderer can't accidentally swallow a
+    // not-yet-allowlisted host as a 404, it gets a precise rejection
+    // reason from the SW.
+    expect(
+      v.safeParse(WorkspaceIntentSchema, {
+        kind: 'open-import',
+        fetchUrl: 'https://example.openheaders.io/x.yaml',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts an optional source.via for any of the three forms', () => {
+    for (const via of ['link', 'playground', 'context-menu', 'paste'] as const) {
+      expect(
+        v.safeParse(WorkspaceIntentSchema, { kind: 'open-import', handoffId: UID_A, source: { via } }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('rejects an unknown source.via', () => {
+    expect(
+      v.safeParse(WorkspaceIntentSchema, { kind: 'open-import', handoffId: UID_A, source: { via: 'sms' } }).success,
+    ).toBe(false);
+  });
+});
+
+describe('open-import codec', () => {
+  it('refuses to encode an inline payload over the cap', () => {
+    const oversized = 'a'.repeat(IMPORT_INLINE_PAYLOAD_MAX_BYTES + 1);
+    // Schema accepts via direct construction (we bypass safeParse here);
+    // codec is the second gate.
+    expect(() =>
+      intentToHash({
+        kind: 'open-import',
+        payload: oversized,
+      } as unknown as WorkspaceIntent),
+    ).toThrow();
+  });
+
+  it('refuses to decode an inline payload over the cap', () => {
+    const oversized = 'a'.repeat(IMPORT_INLINE_PAYLOAD_MAX_BYTES + 1);
+    expect(hashToIntent(`#/import/inline/${oversized}`)).toBeNull();
+  });
+
+  it('decodes #/import/handoff/<id>', () => {
+    expect(hashToIntent(`#/import/handoff/${UID_A}`)).toEqual({
+      kind: 'open-import',
+      handoffId: UID_A,
+    });
+  });
+
+  it('decodes #/import/url/<encoded https url>', () => {
+    const url = 'https://raw.githubusercontent.com/x/y/main/z.openheaders.yaml';
+    expect(hashToIntent(`#/import/url/${encodeURIComponent(url)}`)).toEqual({
+      kind: 'open-import',
+      fetchUrl: url,
+    });
+  });
+
+  it('rejects an unknown #/import/<form>', () => {
+    expect(hashToIntent('#/import/unknown/abc')).toBeNull();
+  });
+
+  it('rejects #/import with no form', () => {
+    expect(hashToIntent('#/import')).toBeNull();
+  });
+
+  it('rejects #/import/handoff with bad uid', () => {
+    expect(hashToIntent('#/import/handoff/short')).toBeNull();
   });
 });
 

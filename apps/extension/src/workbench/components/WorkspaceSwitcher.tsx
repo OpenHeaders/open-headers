@@ -30,9 +30,14 @@ interface WorkspaceSwitcherProps {
   onExport: () => void;
   /**
    * Open the file picker for importing a workspace export. Wired to
-   * the "Import…" item below the workspace list.
+   * the "Import from file…" item below the workspace list.
    */
   onImport: () => void;
+  /**
+   * Read the clipboard and open the import preview against the
+   * pasted content. Wired to the "Paste import…" item below.
+   */
+  onPasteImport: () => void;
 }
 
 const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
@@ -42,6 +47,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   onOpenManager,
   onExport,
   onImport,
+  onPasteImport,
 }) => {
   const { token } = theme.useToken();
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
@@ -76,8 +82,14 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
       {
         key: 'import',
         icon: <ImportOutlined />,
-        label: 'Import…',
+        label: 'Import from file…',
         onClick: onImport,
+      },
+      {
+        key: 'import-paste',
+        icon: <ImportOutlined />,
+        label: 'Paste import…',
+        onClick: onPasteImport,
       },
       {
         key: 'manage',
@@ -86,7 +98,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         onClick: onOpenManager,
       },
     ];
-  }, [workspaces, activeWorkspaceId, onSwitch, onOpenManager, onExport, onImport, token]);
+  }, [workspaces, activeWorkspaceId, onSwitch, onOpenManager, onExport, onImport, onPasteImport, token]);
 
   if (!active) return null;
 

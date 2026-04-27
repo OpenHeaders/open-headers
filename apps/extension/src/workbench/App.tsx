@@ -61,7 +61,7 @@ import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
 import ExportModal from './components/workspace-export/ExportModal';
-import ImportPreviewModal from './components/workspace-export/ImportPreviewModal';
+import ImportPreviewModal, { type ImportPreviewSource } from './components/workspace-export/ImportPreviewModal';
 import { findLeaf } from './editor-groups';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
@@ -307,11 +307,39 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     | { open: true; scope: { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string; ruleName: string } }
   >({ open: false });
   const [importPreviewState, setImportPreviewState] = useState<
-    { open: false } | { open: true; rawText: string; source: 'file' | 'clipboard' | 'menu' }
+    | { open: false }
+    | { open: true; rawText: string; initialError?: string; source: ImportPreviewSource }
+    | { open: true; rawText: null; initialError: string; source: ImportPreviewSource }
   >({ open: false });
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const openImportFilePicker = useCallback(() => {
     importFileInputRef.current?.click();
+  }, []);
+  const openPasteImport = useCallback(async () => {
+    // Read the clipboard inline. Failures land as a banner inside the
+    // preview modal so the surface stays consistent with file-drop /
+    // file-pick — there's exactly one error gutter for "we couldn't
+    // get your import bytes."
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || text.trim().length === 0) {
+        setImportPreviewState({
+          open: true,
+          rawText: null,
+          initialError: 'Clipboard is empty. Copy a workspace export YAML first, then try Paste import again.',
+          source: 'paste',
+        });
+        return;
+      }
+      setImportPreviewState({ open: true, rawText: text, source: 'paste' });
+    } catch (err) {
+      setImportPreviewState({
+        open: true,
+        rawText: null,
+        initialError: `Could not read clipboard: ${(err as Error).message}`,
+        source: 'paste',
+      });
+    }
   }, []);
   const onImportFileChosen = useCallback(async (file: File) => {
     try {
@@ -598,6 +626,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
+    openImportPreview: (args) => {
+      if ('error' in args) {
+        setImportPreviewState({ open: true, rawText: null, initialError: args.error, source: args.source });
+      } else {
+        setImportPreviewState({ open: true, rawText: args.rawText, source: args.source });
+      }
+    },
   });
 
   // ── Initial landing (openTo = home/workbench/collections) ─────────
@@ -1315,6 +1350,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             onOpenWorkspaceManager={openWorkspaceManager}
             onExportWorkspace={() => setExportModalState({ open: true, scope: { kind: 'workspace' } })}
             onImportWorkspace={openImportFilePicker}
+            onPasteImportWorkspace={() => void openPasteImport()}
             environments={envApi.environments}
             activeEnvironmentId={envApi.activeEnvironmentId}
             onCreateEnvironment={() => void handleCreateEnvironment()}
@@ -1564,6 +1600,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
           <ImportPreviewModal
             open={importPreviewState.open}
             rawText={importPreviewState.open ? importPreviewState.rawText : null}
+            initialError={importPreviewState.open ? importPreviewState.initialError : undefined}
             source={importPreviewState.open ? importPreviewState.source : undefined}
             workspaces={workspacesApi.workspaces}
             activeWorkspaceId={workspacesApi.activeWorkspaceId}

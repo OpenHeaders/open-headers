@@ -77,12 +77,30 @@ const { Text, Paragraph } = Typography;
 
 export type ImportTargetSelection = { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
 
+/**
+ * Where the import flow originated. The first three (file / clipboard /
+ * menu) are local-trust sources — the user has the bytes locally and
+ * could read them. The last four (link / playground / context-menu /
+ * paste) match `source.via` on the workspace-intent envelope and
+ * generally indicate lower-trust paths (deep link, playground CTA).
+ *
+ * `context-menu` here matches the intent picklist; the in-extension
+ * "Import from file…" entry stays under `'menu'`.
+ */
+export type ImportPreviewSource = 'file' | 'clipboard' | 'menu' | 'link' | 'playground' | 'context-menu' | 'paste';
+
 interface ImportPreviewModalProps {
   open: boolean;
   /** Raw export text (YAML or JSON) — modal handles parse + preview. */
   rawText: string | null;
+  /**
+   * Pre-parse error surfaced by the caller (e.g. "link expired",
+   * "couldn't decompress payload"). Renders the same error banner the
+   * parse pipeline uses for envelope rejections.
+   */
+  initialError?: string | null;
   /** Provenance of the source (drives tone of the modal & "Save & re-open" hint). */
-  source?: 'file' | 'clipboard' | 'menu';
+  source?: ImportPreviewSource;
   /** All workspaces the user can pick as the import target. */
   workspaces: V5.ExtensionWorkspace[];
   activeWorkspaceId: string | null;
@@ -105,6 +123,7 @@ interface PreviewState {
 const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   open,
   rawText,
+  initialError,
   source,
   workspaces,
   activeWorkspaceId,
@@ -134,6 +153,12 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   // ── Stage 1: parse on open / when raw text changes ────────────────
   useEffect(() => {
     if (!open) return;
+    if (initialError) {
+      setParseError(initialError);
+      setParsed(null);
+      setSourceHash(null);
+      return;
+    }
     if (rawText === null) {
       setParseError(null);
       setParsed(null);
@@ -155,7 +180,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     void hashImportSource(rawText)
       .then(setSourceHash)
       .catch(() => setSourceHash(''));
-  }, [open, rawText]);
+  }, [open, rawText, initialError]);
 
   // Reset on close so a second open starts clean.
   useEffect(() => {
@@ -354,7 +379,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           description={
             source === 'file'
               ? 'Drop a .openheaders.yaml file to preview it.'
-              : 'Paste a workspace export to preview it.'
+              : source === 'link' || source === 'playground'
+                ? 'Resolving import link…'
+                : 'Paste a workspace export to preview it.'
           }
         />
       )}

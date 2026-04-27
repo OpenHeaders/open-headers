@@ -30,6 +30,9 @@
  *   #/live-workflow/<uid>    → edit-live-workflow
  *   #/create-live-variable   → create-live-variable (no seed)
  *   #/create-live-variable/<reqUid> → create-live-variable with seed request
+ *   #/import/inline/<payload> → open-import with inline base64url(gzip(YAML)) payload
+ *   #/import/handoff/<id>     → open-import with SW-registered handoff id
+ *   #/import/url/<encodedUrl> → open-import with allowlisted https fetchUrl
  *
  * Unknown hashes return `null`, not a throw — callers decide whether
  * to treat that as "nothing to dispatch" (valid on any page load) or
@@ -37,7 +40,7 @@
  */
 
 import * as v from 'valibot';
-import { type WorkspaceIntent, WorkspaceIntentSchema } from './schema';
+import { IMPORT_INLINE_PAYLOAD_MAX_BYTES, type WorkspaceIntent, WorkspaceIntentSchema } from './schema';
 
 /**
  * Normalize a raw `window.location.hash` (or any fragment) to the path
@@ -160,6 +163,32 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
       return buildIntent({ kind: 'create-live-variable', seedRequestUid: rest[0] });
     }
 
+    case 'import': {
+      // `#/import/<form>/<…>` — three sub-routes, exactly one carries the
+      // payload. The schema's `v.check` guarantees only one of the three
+      // fields is set, so the route → intent mapping is one-to-one.
+      const [form, ...trailing] = rest;
+      if (!form) return null;
+      if (form === 'inline' && trailing.length > 0) {
+        // Inline payload may legitimately contain `/` after percent-decode
+        // since base64url uses `-_` not `/`; but `parseHashSegments`
+        // already split on `/` *before* decoding, so the joined raw form
+        // is the right reconstruction. Per the schema, `payload` is bound
+        // to the inline-cap byte length — the safeParse below enforces it.
+        return buildIntent({
+          kind: 'open-import',
+          payload: trailing.join('/'),
+        });
+      }
+      if (form === 'handoff' && trailing[0]) {
+        return buildIntent({ kind: 'open-import', handoffId: trailing[0] });
+      }
+      if (form === 'url' && trailing.length > 0) {
+        return buildIntent({ kind: 'open-import', fetchUrl: trailing.join('/') });
+      }
+      return null;
+    }
+
     default:
       return null;
   }
@@ -250,6 +279,27 @@ export function intentToHash(intent: WorkspaceIntent): string {
       return intent.seedRequestUid
         ? `#/create-live-variable/${encodeSegment(intent.seedRequestUid)}`
         : '#/create-live-variable';
+
+    case 'open-import': {
+      // Schema invariant: exactly one of payload/handoffId/fetchUrl.
+      // If a caller hands us a malformed intent that bypassed the
+      // schema, refuse to mint a hash rather than emit garbage.
+      if (intent.payload !== undefined) {
+        if (intent.payload.length > IMPORT_INLINE_PAYLOAD_MAX_BYTES) {
+          throw new Error(
+            `Inline import payload exceeds ${IMPORT_INLINE_PAYLOAD_MAX_BYTES} bytes (got ${intent.payload.length}).`,
+          );
+        }
+        return `#/import/inline/${encodeSegment(intent.payload)}`;
+      }
+      if (intent.handoffId !== undefined) {
+        return `#/import/handoff/${encodeSegment(intent.handoffId)}`;
+      }
+      if (intent.fetchUrl !== undefined) {
+        return `#/import/url/${encodeSegment(intent.fetchUrl)}`;
+      }
+      throw new Error('open-import intent has no payload, handoffId, or fetchUrl set.');
+    }
   }
 }
 

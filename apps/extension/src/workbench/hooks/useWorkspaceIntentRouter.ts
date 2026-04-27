@@ -30,10 +30,14 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { decodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
 import { hashToIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { call, subscribe } from '@utils/bridge';
 import { useEffect, useRef } from 'react';
 import type { RuleFlowScope } from '../types';
+
+/** Provenance attached to the import preview when an intent opens it. */
+export type ImportIntentSource = 'link' | 'playground' | 'context-menu' | 'paste';
 
 interface UseWorkspaceIntentRouterOptions {
   isStatusLoaded: boolean;
@@ -61,6 +65,17 @@ interface UseWorkspaceIntentRouterOptions {
   openLiveVariableEdit: (uid: string, name: string) => void;
   openLiveWorkflowEdit: (uid: string, name: string) => void;
   openCreateLiveVariable: () => void;
+  /**
+   * Open the workspace-export import preview modal. The router resolves
+   * inline / handoff payload forms into raw YAML before invoking; URL
+   * fetch is currently surfaced as an error (lands in PR 4 with the
+   * allowlisted SW fetch path). The `error` arm lets the modal render
+   * a hard error banner ("the link expired", "couldn't decode payload")
+   * without bouncing through a toast.
+   */
+  openImportPreview: (
+    args: { rawText: string; source: ImportIntentSource } | { error: string; source: ImportIntentSource },
+  ) => void;
 }
 
 /** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault` */
@@ -80,6 +95,58 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
 
 function assertNever(x: never): never {
   throw new Error(`Unhandled WorkspaceIntent kind: ${JSON.stringify(x)}`);
+}
+
+/**
+ * Resolve an `open-import` intent to raw YAML by following whichever
+ * payload form is set. The intent schema guarantees exactly one of the
+ * three is present — the `else` is unreachable in well-typed callers
+ * but kept defensive for hand-constructed intents.
+ */
+async function resolveImportIntent(
+  intent: Extract<WorkspaceIntent, { kind: 'open-import' }>,
+): Promise<{ rawText: string } | { error: string }> {
+  if (intent.payload !== undefined) {
+    try {
+      const yaml = await decodeWorkspaceExportDeepLink(intent.payload);
+      return { rawText: yaml };
+    } catch (err) {
+      return { error: `Could not decode the inline import link: ${(err as Error).message}` };
+    }
+  }
+  if (intent.handoffId !== undefined) {
+    try {
+      const { yaml } = await call('consumeImportHandoff', { handoffId: intent.handoffId });
+      if (yaml === null) {
+        return {
+          error:
+            'This import link has expired or was already used. Ask the sender to share a fresh link, or import the file directly.',
+        };
+      }
+      return { rawText: yaml };
+    } catch (err) {
+      return { error: `Could not retrieve the import payload: ${(err as Error).message}` };
+    }
+  }
+  if (intent.fetchUrl !== undefined) {
+    // URL-fetch lands in PR 4 alongside the host allowlist + SSRF
+    // hardening. Surface a precise error rather than silently 404'ing.
+    return {
+      error: 'Importing from a URL is not yet supported. Save the file locally and use "Import from file…".',
+    };
+  }
+  return { error: 'Import link is malformed (no payload).' };
+}
+
+function dispatchImportIntent(
+  intent: Extract<WorkspaceIntent, { kind: 'open-import' }>,
+  openImportPreview: UseWorkspaceIntentRouterOptions['openImportPreview'],
+): void {
+  const via: ImportIntentSource = intent.source?.via ?? 'link';
+  void resolveImportIntent(intent).then((result) => {
+    if ('error' in result) openImportPreview({ error: result.error, source: via });
+    else openImportPreview({ rawText: result.rawText, source: via });
+  });
 }
 
 export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOptions): void {
@@ -198,6 +265,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // Request editor's "Use response in workflow" dropdown.
           o.openCreateLiveVariable();
           return;
+        case 'open-import':
+          dispatchImportIntent(intent, o.openImportPreview);
+          return;
         default:
           assertNever(intent);
       }
@@ -292,6 +362,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'create-live-variable':
         o.openCreateLiveVariable();
+        return;
+      case 'open-import':
+        dispatchImportIntent(pending, o.openImportPreview);
         return;
       default:
         assertNever(pending);

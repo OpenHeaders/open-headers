@@ -216,6 +216,28 @@ export interface BridgeRpcContract {
     req: { exportId: string; workspaceUid: string; currentTargetWorkspaceId: string | null };
     res: import('@/background/modules/workspace-import-dedup').DedupMatchesResult;
   };
+  /**
+   * Stage a YAML payload in the SW's handoff registry (5min TTL).
+   * Caller embeds the returned `handoffId` in a workspace-intent
+   * `{kind: 'open-import', handoffId, source: {via: …}}` and dispatches
+   * via `openWorkspaceIntent`. Used when the YAML is too large for an
+   * inline deep link or the caller (popup, playground) doesn't have
+   * a URL bar to drop the link into.
+   */
+  registerImportHandoff: {
+    req: { yaml: string };
+    res: { success: boolean; handoffId?: string; error?: string };
+  };
+  /**
+   * Drain a previously-staged handoff. Single-use — re-consuming an
+   * id returns `null`. Returns `null` for unknown/expired ids; the
+   * renderer surfaces this as "the link expired, ask the sender to
+   * resend" rather than as a hard failure.
+   */
+  consumeImportHandoff: {
+    req: { handoffId: string };
+    res: { yaml: string | null };
+  };
   setActiveWorkspace: {
     req: { id: string };
     res: { success: boolean; error?: string };

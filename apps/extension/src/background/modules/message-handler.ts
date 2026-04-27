@@ -154,6 +154,7 @@ import {
 import { startRun } from './test-runner';
 import { getResolvedRules } from './variables-resolver';
 import { gatherWorkspaceExport } from './workspace-export-gatherer';
+import { consumeImportHandoff, registerImportHandoff } from './workspace-export-handoff-store';
 import { findExportImportMatches } from './workspace-import-dedup';
 import { importWorkspace as importWorkspaceFromExport, previewWorkspaceImport } from './workspace-import-orchestrator';
 import { openWorkspaceIntent } from './workspace-navigator';
@@ -395,6 +396,16 @@ export function handleGeneralMessage(
       })
         .then((res) => safeResponse(res))
         .catch(() => safeResponse({ exportIdSameTarget: [], exportIdOtherTargets: [], workspaceUidMatches: [] }));
+      return true;
+    } else if (message.type === 'registerImportHandoff') {
+      registerImportHandoff(message.yaml as string)
+        .then((handoffId) => safeResponse({ success: true, handoffId }))
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'consumeImportHandoff') {
+      consumeImportHandoff(message.handoffId as string)
+        .then((yaml) => safeResponse({ yaml }))
+        .catch(() => safeResponse({ yaml: null }));
       return true;
     } else if (message.type === 'importWorkspace') {
       // Drive the import orchestrator. SW reads target state, runs a
