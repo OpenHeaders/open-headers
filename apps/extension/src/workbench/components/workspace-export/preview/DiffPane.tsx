@@ -7,9 +7,8 @@
  * lives directly above the editor, inside `RichDiffEditor`.
  */
 
-import { SettingOutlined } from '@ant-design/icons';
 import type { CollisionStrategy } from '@openheaders/core/workspace-export';
-import { Button, Segmented, Tag, Typography, theme } from 'antd';
+import { Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { RichDiffEditor } from '@/workbench/components/diff-viewer';
 import RequestSummary from '../RequestSummary';
@@ -25,12 +24,9 @@ interface DiffPaneProps {
   yaml: { targetYaml: string; incomingYaml: string } | undefined;
   currentStrategy: CollisionStrategy;
   onChangeStrategy: (s: CollisionStrategy) => void;
-  /** When the parent renders an Advanced column, surface a button in
-   *  this pane's header so the user can open/close it from here. */
-  advancedTrigger: { open: boolean; onToggle: () => void; activeCount: number } | null;
 }
 
-const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChangeStrategy, advancedTrigger }) => {
+const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChangeStrategy }) => {
   const { token } = theme.useToken();
   const [diffOptions, setDiffOptions] = useImportPreviewDiffOptions();
 
@@ -74,17 +70,6 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
           <Tag color="warning" style={{ fontSize: 10, margin: 0 }}>
             edited locally since export
           </Tag>
-        )}
-        {advancedTrigger && !advancedTrigger.open && (
-          <Button
-            size="small"
-            icon={<SettingOutlined />}
-            onClick={advancedTrigger.onToggle}
-            type={advancedTrigger.activeCount > 0 ? 'primary' : 'default'}
-            ghost={advancedTrigger.activeCount > 0}
-          >
-            Advanced{advancedTrigger.activeCount > 0 ? ` · ${advancedTrigger.activeCount}` : ''}
-          </Button>
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

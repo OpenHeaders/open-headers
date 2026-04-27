@@ -1,21 +1,26 @@
 /**
- * Three-column diff workspace for the import-preview modal.
+ * Five-region diff workspace for the import-preview modal — mirrors the
+ * IDE workspace shell pattern with activity bars on both edges:
  *
- *   ┌──────────────────┬──────────────────────────┬──────────────────┐
- *   │  Sidebar         │  Diff pane               │  Advanced (opt)  │
- *   │  (entity tree)   │  (Monaco DiffEditor)     │  (toggles)       │
- *   └──────────────────┴──────────────────────────┴──────────────────┘
+ *   ┌────┬───────────┬──────────────────┬───────────┬────┐
+ *   │ ▣ │ Sidebar    │  Diff pane       │ Advanced  │ ⚙ │
+ *   │ rl │ (entities) │  (Monaco diff)   │ (toggles) │ rl │
+ *   └────┴───────────┴──────────────────┴───────────┴────┘
  *
- * Sidebar mirrors the workspace sidebar (sections + nested
- * collection→folder→entity trees) so the user navigates the export
- * with the same mental model they already use. Diff pane shows target
- * vs incoming for the selected node, serialized through canonical
- * field-order so the diff highlights real drift, not key-order churn.
- * Advanced is a togglable third column — collapsed by default,
- * expanding it reveals the §5.5 override toggles inline so the user
- * can flip them and watch the diff respond live.
+ * The activity rails are reused from the workspace's `ActivityBar`
+ * (compact / icons-only ⇒ 36 px wide). Each rail has one tool-window
+ * icon: the left rail toggles the entity tree, the right rail toggles
+ * the Advanced panel. Identical interaction model to the workspace
+ * shell — click the icon to show / hide its panel — just scoped to
+ * the modal and without dock-and-drop.
+ *
+ * The middle three regions remain an `Allotment`, so the user can
+ * still resize sidebar ⇄ diff ⇄ advanced. Sidebar visibility is now
+ * controlled by the rail rather than by snap-to-zero, so closing it
+ * collapses the pane out of the layout entirely (no leftover handle).
  */
 
+import { AppstoreOutlined, SettingOutlined } from '@ant-design/icons';
 import {
   type CollisionStrategy,
   type DiffResult,
@@ -26,6 +31,7 @@ import { Allotment, LayoutPriority } from 'allotment';
 import { Empty, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import ActivityBar, { type ActivityBarItem } from '@/workbench/components/ActivityBar';
 import AdvancedPanel, { type AdvancedPanelProps } from './AdvancedPanel';
 import DiffPane from './DiffPane';
 import DiffSidebar from './DiffSidebar';
@@ -73,6 +79,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
   const allRows = taxonomy.allRows;
 
   const [selectionKey, setSelectionKey] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // Default-select the first interesting row (first collision; falls
@@ -110,6 +117,42 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
     [allRows, selectionKey],
   );
 
+  // ── Activity-bar items ──────────────────────────────────────────────
+  const leftItems: ActivityBarItem[] = useMemo(
+    () => [
+      {
+        key: 'entities',
+        icon: <AppstoreOutlined />,
+        label: 'Entities',
+        enabled: true,
+        active: sidebarOpen,
+        focused: false,
+        tooltip: sidebarOpen ? 'Hide entities panel' : 'Show entities panel',
+        onActivate: () => setSidebarOpen((v) => !v),
+      },
+    ],
+    [sidebarOpen],
+  );
+
+  const rightItems: ActivityBarItem[] = useMemo(
+    () =>
+      advanced
+        ? [
+            {
+              key: 'advanced',
+              icon: <SettingOutlined />,
+              label: 'Advanced',
+              enabled: true,
+              active: advancedOpen,
+              focused: false,
+              tooltip: advancedOpen ? 'Hide advanced panel' : 'Show advanced panel',
+              onActivate: () => setAdvancedOpen((v) => !v),
+            },
+          ]
+        : [],
+    [advanced, advancedOpen],
+  );
+
   if (allRows.length === 0) {
     return <Empty description="Nothing to import" style={{ padding: 32 }} />;
   }
@@ -121,51 +164,61 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
       style={{
         height: '100%',
         minHeight: 0,
+        display: 'flex',
+        flexDirection: 'row',
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 8,
         overflow: 'hidden',
         background: token.colorBgContainer,
       }}
     >
-      <Allotment proportionalLayout={false}>
-        <Allotment.Pane
-          preferredSize={SIDEBAR_PREFERRED_PX}
-          minSize={SIDEBAR_MIN_PX}
-          maxSize={SIDEBAR_MAX_PX}
-          priority={LayoutPriority.Low}
-          snap
-        >
-          <DiffSidebar
-            taxonomy={taxonomy}
-            selectionKey={selectionKey}
-            onSelect={setSelectionKey}
-            lineCounts={lineCountsByKey}
-            strategies={strategies}
-          />
-        </Allotment.Pane>
-        <Allotment.Pane priority={LayoutPriority.High} minSize={360}>
-          <DiffPane
-            row={selectedRow}
-            yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
-            currentStrategy={selectedRow ? strategyForRow(strategies, selectedRow) : 'skip'}
-            onChangeStrategy={(s) => {
-              if (!selectedRow) return;
-              const uidKey = selectedRow.section.singleton
-                ? 'singleton'
-                : ((selectedRow.entity as { uid: string })?.uid ?? '');
-              onChangeStrategy(selectedRow.section.strategyKey, uidKey, s);
-            }}
-            advancedTrigger={
-              advanced
-                ? { open: advancedOpen, onToggle: () => setAdvancedOpen((v) => !v), activeCount: advanced.activeCount }
-                : null
-            }
-          />
-        </Allotment.Pane>
-        <Allotment.Pane preferredSize={360} minSize={260} priority={LayoutPriority.Low} visible={showAdvanced} snap>
-          {advanced && <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />}
-        </Allotment.Pane>
-      </Allotment>
+      <ActivityBar
+        side="left"
+        topItems={leftItems}
+        labelsVisible={false}
+        // Labels stay icons-only inside the modal; the right-click
+        // toggle is wired but no-ops since there is nothing to persist.
+        onToggleLabels={() => undefined}
+      />
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
+        <Allotment proportionalLayout={false}>
+          <Allotment.Pane
+            preferredSize={SIDEBAR_PREFERRED_PX}
+            minSize={SIDEBAR_MIN_PX}
+            maxSize={SIDEBAR_MAX_PX}
+            priority={LayoutPriority.Low}
+            visible={sidebarOpen}
+          >
+            <DiffSidebar
+              taxonomy={taxonomy}
+              selectionKey={selectionKey}
+              onSelect={setSelectionKey}
+              lineCounts={lineCountsByKey}
+              strategies={strategies}
+            />
+          </Allotment.Pane>
+          <Allotment.Pane priority={LayoutPriority.High} minSize={360}>
+            <DiffPane
+              row={selectedRow}
+              yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
+              currentStrategy={selectedRow ? strategyForRow(strategies, selectedRow) : 'skip'}
+              onChangeStrategy={(s) => {
+                if (!selectedRow) return;
+                const uidKey = selectedRow.section.singleton
+                  ? 'singleton'
+                  : ((selectedRow.entity as { uid: string })?.uid ?? '');
+                onChangeStrategy(selectedRow.section.strategyKey, uidKey, s);
+              }}
+            />
+          </Allotment.Pane>
+          <Allotment.Pane preferredSize={360} minSize={260} priority={LayoutPriority.Low} visible={showAdvanced}>
+            {advanced && <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />}
+          </Allotment.Pane>
+        </Allotment>
+      </div>
+      {advanced ? (
+        <ActivityBar side="right" topItems={rightItems} labelsVisible={false} onToggleLabels={() => undefined} />
+      ) : null}
     </div>
   );
 };
