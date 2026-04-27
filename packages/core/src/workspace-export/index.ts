@@ -63,6 +63,8 @@ export type {
   TargetWorkspaceState,
 } from './diff';
 export { applyBackupRestoreToggle, COLLISION_STRATEGIES, CollisionStrategySchema, diffWorkspaceExport } from './diff';
+export type { ImportDiffEntityType, ImportDiffSection, ImportSinceLastDiff } from './import-diff';
+export { diffIncomingAgainstPriorImport } from './import-diff';
 export type {
   ImporterOptions,
   ImportPlan,
@@ -85,6 +87,7 @@ export {
 } from './ordering';
 export type { ImportDrop, ParseOptions, ParseResult } from './parse';
 export { DEFAULT_SIZE_CAP_BYTES, parseWorkspaceExport, YAML_MAX_ALIAS_COUNT } from './parse';
+export { type RuleSummary, summarizeRule } from './rule-summary';
 export type {
   ExportEncryption,
   ExportEntities,
@@ -115,5 +118,4 @@ export {
   ExportWorkspaceSchema,
   WorkspaceExportSchema,
 } from './schema';
-export { type RuleSummary, summarizeRule } from './rule-summary';
 export { serializeWorkspaceExport } from './yaml';

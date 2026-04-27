@@ -43,7 +43,9 @@ import {
   type DiffResult,
   type DiffSingleton,
   decryptVaultBlock,
+  diffIncomingAgainstPriorImport,
   type ImportDrop,
+  type ImportSinceLastDiff,
   type MissingDep,
   type ParseResult,
   parseWorkspaceExport,
@@ -568,6 +570,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               return (
                 <DedupBanner
                   dedup={dedup}
+                  envelope={effectiveEnvelope}
                   onDismiss={() => {
                     setDedupDismissed((prev) => {
                       const next = new Set(prev);
@@ -944,20 +947,58 @@ const VaultPartialDecryptPanel: React.FC<{ drops: { index: number; reason: strin
   />
 );
 
-const DedupBanner: React.FC<{ dedup: DedupMatchesResult; onDismiss: () => void }> = ({ dedup, onDismiss }) => {
+const DedupBanner: React.FC<{
+  dedup: DedupMatchesResult;
+  envelope: WorkspaceExport | null;
+  onDismiss: () => void;
+}> = ({ dedup, envelope, onDismiss }) => {
+  const [showDiff, setShowDiff] = useState(false);
+
   if (dedup.exportIdSameTarget.length > 0) {
     const m = dedup.exportIdSameTarget[0];
     if (!m) return null;
+    const canDiff = !!(envelope && m.perEntityStrategies);
+    const diff: ImportSinceLastDiff | null =
+      canDiff && envelope && m.perEntityStrategies
+        ? diffIncomingAgainstPriorImport(envelope, m.perEntityStrategies)
+        : null;
     return (
-      <Alert
-        type="info"
-        showIcon
-        closable
-        onClose={onDismiss}
-        icon={<InfoCircleOutlined />}
-        message={`You imported export ${m.exportId} here on ${new Date(m.importedAt).toLocaleDateString()}`}
-        description="Re-importing it will apply your current per-entity strategy choices."
-      />
+      <>
+        <Alert
+          type="info"
+          showIcon
+          closable
+          onClose={onDismiss}
+          icon={<InfoCircleOutlined />}
+          message={`You imported export ${m.exportId} here on ${new Date(m.importedAt).toLocaleDateString()}`}
+          description={
+            <span>
+              Re-importing it will apply your current per-entity strategy choices.
+              {canDiff && (
+                <>
+                  {' '}
+                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setShowDiff(true)}>
+                    Show what changed since last import
+                  </Button>
+                </>
+              )}
+            </span>
+          }
+        />
+        {diff && (
+          <Modal
+            open={showDiff}
+            onCancel={() => setShowDiff(false)}
+            onOk={() => setShowDiff(false)}
+            cancelButtonProps={{ style: { display: 'none' } }}
+            okText="Close"
+            title={`Changes since ${new Date(m.importedAt).toLocaleDateString()}`}
+            width={560}
+          >
+            <ImportSinceLastDiffPanel diff={diff} />
+          </Modal>
+        )}
+      </>
     );
   }
   if (dedup.exportIdOtherTargets.length > 0) {
@@ -989,6 +1030,63 @@ const DedupBanner: React.FC<{ dedup: DedupMatchesResult; onDismiss: () => void }
     );
   }
   return null;
+};
+
+const ENTITY_TYPE_LABELS: Record<ImportSinceLastDiff['sections'][number]['type'], string> = {
+  rules: 'Rules',
+  requests: 'Requests',
+  templates: 'Templates',
+  environments: 'Environments',
+  liveWorkflows: 'Live workflows',
+  liveVariables: 'Live variables',
+  collections: 'Collections',
+  folders: 'Folders',
+};
+
+const ImportSinceLastDiffPanel: React.FC<{ diff: ImportSinceLastDiff }> = ({ diff }) => {
+  const interesting = diff.sections.filter((s) => s.prior > 0 || s.incoming > 0);
+  if (interesting.length === 0) {
+    return <Text type="secondary">No entities in either import.</Text>;
+  }
+  return (
+    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Text type="secondary">
+        Then: {diff.totals.prior} entities · Now: {diff.totals.incoming} ·{' '}
+        <Text strong style={{ color: '#1677ff' }}>
+          {diff.totals.new} new
+        </Text>{' '}
+        · {diff.totals.kept} kept · {diff.totals.removed} no longer in export
+      </Text>
+      {interesting.map((s) => (
+        <div key={s.type} style={{ borderLeft: '2px solid #f0f0f0', paddingLeft: 12 }}>
+          <Text strong>{ENTITY_TYPE_LABELS[s.type]}</Text>{' '}
+          <Text type="secondary">
+            ({s.prior} → {s.incoming})
+          </Text>
+          {s.newUids.length > 0 && (
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              {s.newUids.slice(0, 6).map((x) => (
+                <li key={x.uid} style={{ fontSize: 12 }}>
+                  <Tag color="blue">new</Tag>
+                  <Text>{x.name}</Text>
+                </li>
+              ))}
+              {s.newUids.length > 6 && (
+                <li style={{ fontSize: 12 }}>
+                  <Text type="secondary">…and {s.newUids.length - 6} more</Text>
+                </li>
+              )}
+            </ul>
+          )}
+          {s.removedUids.length > 0 && (
+            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+              {s.removedUids.length} no longer in this export
+            </Text>
+          )}
+        </div>
+      ))}
+    </Space>
+  );
 };
 
 const MissingDepsPanel: React.FC<{ missingDeps: MissingDep[] }> = ({ missingDeps }) => (

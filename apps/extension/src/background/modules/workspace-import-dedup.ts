@@ -13,6 +13,7 @@
 import type { WorkspaceExportImportReport } from '@openheaders/core/import';
 import { ImportReportSchema } from '@openheaders/core/import';
 import { parseEntityArray } from '@openheaders/core/schemas';
+import type { CollisionStrategy } from '@openheaders/core/workspace-export';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { listWorkspaces } from './workspace-store';
 
@@ -21,6 +22,15 @@ export interface DedupMatchEntry {
   workspaceName: string;
   importedAt: string;
   exportId: string;
+  /**
+   * Snapshot of the prior import's per-entity strategies — keys are
+   * `<entityType>:<uid>`, values are the collision strategy applied.
+   * Carried only on `exportIdSameTarget` matches (the only arm where a
+   * meaningful diff against the incoming envelope makes sense). Drives
+   * the "show changes since last import" affordance in the soft-dedup
+   * banner (design §5.2 + §11 PR 5).
+   */
+  perEntityStrategies?: Record<string, CollisionStrategy>;
 }
 
 export interface DedupMatchesResult {
@@ -66,8 +76,10 @@ export async function findExportImportMatches(args: FindMatchesArgs): Promise<De
             importedAt: r.importedAt,
             exportId: r.exportId,
           };
-          if (ws.id === args.currentTargetWorkspaceId) exportIdSameTarget.push(entry);
-          else exportIdOtherTargets.push(entry);
+          if (ws.id === args.currentTargetWorkspaceId) {
+            entry.perEntityStrategies = r.perEntityStrategies;
+            exportIdSameTarget.push(entry);
+          } else exportIdOtherTargets.push(entry);
           exportIdHits.add(ws.id);
         }
       }
