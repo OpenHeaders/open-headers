@@ -19,6 +19,8 @@ import { registerSetting } from '../registry';
 declare module '../types' {
   interface SettingsMap {
     [ALLOWED_FETCH_HOSTS_SETTING_KEY]: string;
+    'workspaceSharing.importPreviewShowMergeStrategy': boolean;
+    'workspaceSharing.importPreviewSideBySide': boolean;
   }
 }
 
@@ -34,5 +36,31 @@ registerSetting({
     'Comma- or whitespace-separated list of HTTPS hosts the URL-fetch import source may retrieve workspace exports from. Subdomains are matched (e.g. `github.com` matches `gist.github.com`). Off-allowlist hosts and off-allowlist redirect targets are refused before any network call.',
   category: 'workspaceSharing',
   tags: ['allowlist', 'hosts', 'import', 'fetch', 'security', 'ssrf', 'sharing'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'workspaceSharing.importPreviewShowMergeStrategy',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show merge strategy on import-preview rows',
+  description:
+    "When on, each entity row in the import-preview's left sidebar shows the chosen merge strategy (Add as new, Replace, Skip, …) inline next to the line counts. Toggle off to free up row width on narrow panes.",
+  category: 'workspaceSharing',
+  tags: ['import', 'preview', 'sidebar', 'strategy', 'sharing'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'workspaceSharing.importPreviewSideBySide',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Side-by-side diff in import preview',
+  description:
+    'When on, the import-preview diff editor renders target vs incoming side by side. When off, it stacks them inline. Auto-flips to inline when the diff pane is too narrow regardless.',
+  category: 'workspaceSharing',
+  tags: ['import', 'preview', 'diff', 'monaco', 'sharing'],
   scope: 'user',
 });

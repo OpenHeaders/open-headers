@@ -12,7 +12,8 @@ import type { CollisionStrategy } from '@openheaders/core/workspace-export';
 import { Button, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useSetting } from '@/workbench/settings';
 import RequestSummary from '../RequestSummary';
 import RuleSummary from '../RuleSummary';
 import type { MaterialisedRow } from './diff-sections';
@@ -30,31 +31,14 @@ interface DiffPaneProps {
   advancedTrigger: { open: boolean; onToggle: () => void; activeCount: number } | null;
 }
 
-const DIFF_LAYOUT_KEY = 'oh.workspace-export.diff-layout';
-
 const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChangeStrategy, advancedTrigger }) => {
   const { token } = theme.useToken();
   const { isDarkMode } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
 
-  // Diff-editor layout — defaults to side-by-side, persists across the
-  // session so re-opening the modal keeps the user's choice.
-  const [sideBySide, setSideBySide] = useState<boolean>(() => {
-    try {
-      const raw = window.sessionStorage.getItem(DIFF_LAYOUT_KEY);
-      if (raw === 'inline') return false;
-    } catch {
-      // sessionStorage can throw under privacy modes — fall through to default
-    }
-    return true;
-  });
-  useEffect(() => {
-    try {
-      window.sessionStorage.setItem(DIFF_LAYOUT_KEY, sideBySide ? 'side-by-side' : 'inline');
-    } catch {
-      // ignore — preference stays for this modal lifetime
-    }
-  }, [sideBySide]);
+  // Diff-editor layout — persisted via the project's settings store
+  // (registered in `schema/workspace-sharing.ts`).
+  const [sideBySide, setSideBySide] = useSetting('workspaceSharing.importPreviewSideBySide');
 
   const onMount = useCallback((editor: monaco.editor.IStandaloneDiffEditor, _m: Monaco) => {
     editorRef.current = editor;
@@ -119,7 +103,7 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
               <Button
                 size="small"
                 icon={sideBySide ? <ColumnWidthOutlined /> : <ColumnHeightOutlined />}
-                onClick={() => setSideBySide((v) => !v)}
+                onClick={() => setSideBySide(!sideBySide)}
               >
                 {sideBySide ? 'Side by side' : 'Inline'}
               </Button>

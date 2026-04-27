@@ -14,6 +14,8 @@ import {
   ApiOutlined,
   CaretDownOutlined,
   CaretRightOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
   FileOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
@@ -21,11 +23,13 @@ import {
   SisternodeOutlined,
 } from '@ant-design/icons';
 import type { CollisionStrategy, StrategyMap } from '@openheaders/core/workspace-export';
-import { theme } from 'antd';
+import { Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useSetting } from '@/workbench/settings';
 import { scopeBadge } from '../../shared/scope-colors';
 import { type ImportTaxonomy, type MaterialisedRow, SECTIONS, type SectionKind, strategyForRow } from './diff-sections';
+import { STRATEGY_META } from './strategy-meta';
 
 interface DiffSidebarProps {
   taxonomy: ImportTaxonomy;
@@ -50,6 +54,10 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(() => new Set());
   const [collapsedNodes, setCollapsedNodes] = useState<ReadonlySet<string>>(() => new Set());
 
+  // Per-row strategy chip visibility — persisted via the project's
+  // settings store (registered in `schema/workspace-sharing.ts`).
+  const [showStrategy, setShowStrategy] = useSetting('workspaceSharing.importPreviewShowMergeStrategy');
+
   const toggleSection = (kind: string): void => {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
@@ -72,67 +80,108 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
     <div
       style={{
         height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         borderRight: `1px solid ${token.colorBorderSecondary}`,
         background: token.colorFillQuaternary,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        padding: '6px 0',
+        overflow: 'hidden',
         fontFeatureSettings: '"tnum" 1',
       }}
     >
-      {sections.map(({ section, rows }) => {
-        const collapsed = collapsedSections.has(section.kind);
-        const totalRows = countLeafRows(rows);
-        const headerIcon = sectionHeaderIcon(section.kind);
-        return (
-          <div key={section.kind} style={{ marginBottom: 8, overflow: 'hidden' }}>
-            <button
-              type="button"
-              onClick={() => toggleSection(section.kind)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '6px 10px 6px 8px',
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: 0.6,
-                color: token.colorTextTertiary,
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                textAlign: 'left',
-              }}
-            >
-              {collapsed ? (
-                <CaretRightOutlined style={{ fontSize: 9 }} />
-              ) : (
-                <CaretDownOutlined style={{ fontSize: 9 }} />
-              )}
-              {headerIcon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{headerIcon}</span>}
-              <span style={{ flex: 1 }}>{section.label}</span>
-              <span style={{ fontWeight: 500 }}>{totalRows}</span>
-            </button>
-            {!collapsed &&
-              rows.map((row) => (
-                <TreeRowView
-                  key={row.selectionKey}
-                  row={row}
-                  selectionKey={selectionKey}
-                  onSelect={onSelect}
-                  lineCounts={lineCounts}
-                  strategies={strategies}
-                  collapsedNodes={collapsedNodes}
-                  onToggleNode={toggleNode}
-                  token={token}
-                />
-              ))}
-          </div>
-        );
-      })}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: '4px 8px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          flexShrink: 0,
+        }}
+      >
+        <Tooltip title={showStrategy ? 'Hide merge strategy on rows' : 'Show merge strategy on rows'}>
+          <button
+            type="button"
+            onClick={() => setShowStrategy(!showStrategy)}
+            aria-label={showStrategy ? 'Hide merge strategy' : 'Show merge strategy'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 22,
+              height: 22,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              color: showStrategy ? token.colorPrimary : token.colorTextTertiary,
+              padding: 0,
+              fontFamily: 'inherit',
+              borderRadius: 4,
+            }}
+          >
+            {showStrategy ? (
+              <EyeOutlined style={{ fontSize: 12 }} />
+            ) : (
+              <EyeInvisibleOutlined style={{ fontSize: 12 }} />
+            )}
+          </button>
+        </Tooltip>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
+        {sections.map(({ section, rows }) => {
+          const collapsed = collapsedSections.has(section.kind);
+          const totalRows = countLeafRows(rows);
+          const headerIcon = sectionHeaderIcon(section.kind);
+          return (
+            <div key={section.kind} style={{ marginBottom: 8, overflow: 'hidden' }}>
+              <button
+                type="button"
+                onClick={() => toggleSection(section.kind)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '6px 10px 6px 8px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0.6,
+                  color: token.colorTextTertiary,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textAlign: 'left',
+                }}
+              >
+                {collapsed ? (
+                  <CaretRightOutlined style={{ fontSize: 9 }} />
+                ) : (
+                  <CaretDownOutlined style={{ fontSize: 9 }} />
+                )}
+                {headerIcon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{headerIcon}</span>}
+                <span style={{ flex: 1 }}>{section.label}</span>
+                <span style={{ fontWeight: 500 }}>{totalRows}</span>
+              </button>
+              {!collapsed &&
+                rows.map((row) => (
+                  <TreeRowView
+                    key={row.selectionKey}
+                    row={row}
+                    selectionKey={selectionKey}
+                    onSelect={onSelect}
+                    lineCounts={lineCounts}
+                    strategies={strategies}
+                    collapsedNodes={collapsedNodes}
+                    onToggleNode={toggleNode}
+                    showStrategy={showStrategy}
+                    token={token}
+                  />
+                ))}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -156,6 +205,7 @@ interface TreeRowViewProps {
   strategies: StrategyMap;
   collapsedNodes: ReadonlySet<string>;
   onToggleNode: (k: string) => void;
+  showStrategy: boolean;
   token: ReturnType<typeof theme.useToken>['token'];
 }
 
@@ -167,6 +217,7 @@ const TreeRowView: React.FC<TreeRowViewProps> = ({
   strategies,
   collapsedNodes,
   onToggleNode,
+  showStrategy,
   token,
 }) => {
   const collapsed = collapsedNodes.has(row.selectionKey);
@@ -182,6 +233,7 @@ const TreeRowView: React.FC<TreeRowViewProps> = ({
         collapsed={collapsed}
         hasChildren={hasChildren}
         onToggle={() => onToggleNode(row.selectionKey)}
+        showStrategy={showStrategy}
         token={token}
       />
       {hasChildren &&
@@ -196,6 +248,7 @@ const TreeRowView: React.FC<TreeRowViewProps> = ({
             strategies={strategies}
             collapsedNodes={collapsedNodes}
             onToggleNode={onToggleNode}
+            showStrategy={showStrategy}
             token={token}
           />
         ))}
@@ -212,6 +265,7 @@ interface RowButtonProps {
   collapsed: boolean;
   hasChildren: boolean;
   onToggle: () => void;
+  showStrategy: boolean;
   token: ReturnType<typeof theme.useToken>['token'];
 }
 
@@ -224,8 +278,10 @@ const RowButton: React.FC<RowButtonProps> = ({
   collapsed,
   hasChildren,
   onToggle,
+  showStrategy,
   token,
 }) => {
+  const meta = STRATEGY_META[strategy];
   const skipped = strategy === 'skip';
   const stateDot =
     row.state === 'no-collision'
@@ -332,6 +388,24 @@ const RowButton: React.FC<RowButtonProps> = ({
             {lineCounts.added > 0 && <span style={{ color: token.colorSuccess }}>+{lineCounts.added}</span>}
             {lineCounts.added > 0 && lineCounts.removed > 0 ? ' ' : ''}
             {lineCounts.removed > 0 && <span style={{ color: token.colorError }}>−{lineCounts.removed}</span>}
+          </span>
+        )}
+        {showStrategy && (
+          <span
+            style={{
+              fontSize: 10,
+              color:
+                meta.tone === 'warn'
+                  ? token.colorWarning
+                  : meta.tone === 'accent'
+                    ? token.colorPrimary
+                    : token.colorTextTertiary,
+              flexShrink: 0,
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {row.state === 'no-collision' && strategy === 'new-uid' ? 'new' : meta.label.toLowerCase()}
           </span>
         )}
       </button>
