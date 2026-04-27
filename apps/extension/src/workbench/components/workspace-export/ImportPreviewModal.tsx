@@ -497,7 +497,15 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       centered
       destroyOnHidden
       footer={footer}
-      styles={{ body: { maxHeight: 'calc(95vh - 110px)', overflowY: 'auto', paddingTop: 12 } }}
+      styles={{
+        body: {
+          height: 'calc(95vh - 110px)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          paddingTop: 12,
+        },
+      }}
     >
       {parseRejection && <RejectionBanner rejection={parseRejection} />}
 
@@ -514,7 +522,16 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       )}
 
       {parsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            position: 'relative',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <SourceAttribution envelope={parsed.envelope} />
@@ -601,7 +618,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
               )}
 
-              <div style={{ height: 'calc(95vh - 320px)', minHeight: 420, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
                 <ImportDiffWorkspace
                   diff={preview.diff}
                   incomingEntities={{
