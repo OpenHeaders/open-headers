@@ -1,23 +1,22 @@
 /**
- * Right pane of the diff workspace — entity header + Monaco DiffEditor
- * (or empty-state preview for new entities). The header carries the
- * segmented strategy control and a one-sentence "what does this mean"
- * subtitle so the user never has to memorise the matrix.
+ * Right pane of the diff workspace — entity header + the rich diff
+ * editor (or empty-state preview for new entities). The header carries
+ * the entity title, kind tag, state tags, and the segmented strategy
+ * control with a one-sentence "what does this mean" subtitle so the
+ * user never has to memorise the matrix. The IDE-style diff toolbar
+ * lives directly above the editor, inside `RichDiffEditor`.
  */
 
-import { ColumnHeightOutlined, ColumnWidthOutlined, SettingOutlined } from '@ant-design/icons';
-import { useTheme } from '@context/ThemeContext';
-import { DiffEditor, type Monaco } from '@monaco-editor/react';
+import { SettingOutlined } from '@ant-design/icons';
 import type { CollisionStrategy } from '@openheaders/core/workspace-export';
-import { Button, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
-import type * as monaco from 'monaco-editor';
+import { Button, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useRef } from 'react';
-import { useSetting } from '@/workbench/settings';
+import { RichDiffEditor } from '@/workbench/components/diff-viewer';
 import RequestSummary from '../RequestSummary';
 import RuleSummary from '../RuleSummary';
 import type { MaterialisedRow } from './diff-sections';
 import { STRATEGY_META } from './strategy-meta';
+import { useImportPreviewDiffOptions } from './useImportPreviewDiffOptions';
 
 const { Text } = Typography;
 
@@ -33,27 +32,7 @@ interface DiffPaneProps {
 
 const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChangeStrategy, advancedTrigger }) => {
   const { token } = theme.useToken();
-  const { isDarkMode } = useTheme();
-  const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
-
-  // Diff-editor layout — persisted via the project's settings store
-  // (registered in `schema/workspace-sharing.ts`).
-  const [sideBySide, setSideBySide] = useSetting('workspaceSharing.importPreviewSideBySide');
-
-  const onMount = useCallback((editor: monaco.editor.IStandaloneDiffEditor, _m: Monaco) => {
-    editorRef.current = editor;
-  }, []);
-
-  // Monaco's `options` prop only seeds construction — flipping
-  // `renderSideBySide` live needs an explicit `updateOptions` call on
-  // the captured editor instance. Without this the toggle visually
-  // changes the button label but the editor stays on whatever mode
-  // it mounted with.
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.updateOptions({ renderSideBySide: sideBySide });
-    }
-  }, [sideBySide]);
+  const [diffOptions, setDiffOptions] = useImportPreviewDiffOptions();
 
   if (!row) {
     return (
@@ -72,153 +51,119 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
   const isNew = row.state === 'no-collision';
   const showsDiff = !isNew && yaml && yaml.targetYaml !== '';
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
-      <div
-        style={{
-          padding: '14px 20px 10px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <Text strong style={{ fontSize: 15, flex: 1, minWidth: 0 }}>
-            {row.name}
-          </Text>
-          <Tag style={{ fontSize: 10, margin: 0, fontWeight: 500 }}>{row.section.label}</Tag>
-          {isNew && (
-            <Tag color="success" style={{ fontSize: 10, margin: 0 }}>
-              new on the target
-            </Tag>
-          )}
-          {row.divergedFromExport && (
-            <Tag color="warning" style={{ fontSize: 10, margin: 0 }}>
-              edited locally since export
-            </Tag>
-          )}
-          {showsDiff && (
-            <Tooltip title={sideBySide ? 'Switch to inline diff' : 'Switch to side-by-side diff'}>
-              <Button
-                size="small"
-                icon={sideBySide ? <ColumnWidthOutlined /> : <ColumnHeightOutlined />}
-                onClick={() => setSideBySide(!sideBySide)}
-              >
-                {sideBySide ? 'Side by side' : 'Inline'}
-              </Button>
-            </Tooltip>
-          )}
-          {advancedTrigger && !advancedTrigger.open && (
-            <Button
-              size="small"
-              icon={<SettingOutlined />}
-              onClick={advancedTrigger.onToggle}
-              type={advancedTrigger.activeCount > 0 ? 'primary' : 'default'}
-              ghost={advancedTrigger.activeCount > 0}
-            >
-              Advanced{advancedTrigger.activeCount > 0 ? ` · ${advancedTrigger.activeCount}` : ''}
-            </Button>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <Segmented
+  const headerContent = (
+    <div
+      style={{
+        padding: '14px 20px 10px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <Text strong style={{ fontSize: 15, flex: 1, minWidth: 0 }}>
+          {row.name}
+        </Text>
+        <Tag style={{ fontSize: 10, margin: 0, fontWeight: 500 }}>{row.section.label}</Tag>
+        {isNew && (
+          <Tag color="success" style={{ fontSize: 10, margin: 0 }}>
+            new on the target
+          </Tag>
+        )}
+        {row.divergedFromExport && (
+          <Tag color="warning" style={{ fontSize: 10, margin: 0 }}>
+            edited locally since export
+          </Tag>
+        )}
+        {advancedTrigger && !advancedTrigger.open && (
+          <Button
             size="small"
-            value={currentStrategy}
-            onChange={(v) => onChangeStrategy(v as CollisionStrategy)}
-            options={segmentedOptions}
-          />
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {meta.description}
-          </Text>
-        </div>
-        {row.entityKind === 'rule' && row.entity ? (
-          <div style={{ marginTop: 2 }}>
-            <RuleSummary rule={row.entity as never} />
-          </div>
-        ) : row.entityKind === 'request' && row.entity ? (
-          <div style={{ marginTop: 2 }}>
-            <RequestSummary request={row.entity as never} />
-          </div>
-        ) : null}
-      </div>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        {showsDiff ? (
-          // `key` forces a clean remount when the layout flips —
-          // `editor.updateOptions({renderSideBySide})` is supposed to
-          // be live but the @monaco-editor/react wrapper sometimes
-          // misses the propagation, leaving the user staring at the
-          // old layout. Remount is cheap (single entity's YAML) and
-          // visibly correct.
-          <DiffEditor
-            key={sideBySide ? 'sbs' : 'inline'}
-            original={yaml?.targetYaml ?? ''}
-            modified={yaml?.incomingYaml ?? ''}
-            language="yaml"
-            theme={isDarkMode ? 'oh-dark' : 'oh-light'}
-            onMount={onMount}
-            options={{
-              readOnly: true,
-              renderSideBySide: sideBySide,
-              minimap: { enabled: false },
-              folding: false,
-              lineNumbers: 'on',
-              renderOverviewRuler: false,
-              scrollbar: { useShadows: false, verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
-              fontSize: 12,
-              fontFamily:
-                'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-              renderLineHighlight: 'none',
-              hideUnchangedRegions: { enabled: true, contextLineCount: 2 },
-              // Monaco's default `renderSideBySideInlineBreakpoint`
-              // is 900px — at narrower widths it silently flips to
-              // inline even when `renderSideBySide:true`. The user
-              // configures "Side by side" expecting it to stay; only
-              // auto-flip when the pane is genuinely cramped.
-              renderSideBySideInlineBreakpoint: 480,
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              padding: 24,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              gap: 12,
-              color: token.colorTextTertiary,
-            }}
+            icon={<SettingOutlined />}
+            onClick={advancedTrigger.onToggle}
+            type={advancedTrigger.activeCount > 0 ? 'primary' : 'default'}
+            ghost={advancedTrigger.activeCount > 0}
           >
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {isNew
-                ? 'This entity is new — nothing on the target side to compare against.'
-                : 'Nothing to diff — both sides are empty.'}
-            </Text>
-            {row.entity && yaml?.incomingYaml ? (
-              <pre
-                style={{
-                  margin: 0,
-                  padding: 12,
-                  width: '100%',
-                  maxHeight: 320,
-                  overflow: 'auto',
-                  background: token.colorBgLayout,
-                  borderRadius: 6,
-                  fontSize: 11,
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                  color: token.colorText,
-                }}
-              >
-                {yaml.incomingYaml}
-              </pre>
-            ) : null}
-          </div>
+            Advanced{advancedTrigger.activeCount > 0 ? ` · ${advancedTrigger.activeCount}` : ''}
+          </Button>
         )}
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <Segmented
+          size="small"
+          value={currentStrategy}
+          onChange={(v) => onChangeStrategy(v as CollisionStrategy)}
+          options={segmentedOptions}
+        />
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {meta.description}
+        </Text>
+      </div>
+      {row.entityKind === 'rule' && row.entity ? (
+        <div style={{ marginTop: 2 }}>
+          <RuleSummary rule={row.entity as never} />
+        </div>
+      ) : row.entityKind === 'request' && row.entity ? (
+        <div style={{ marginTop: 2 }}>
+          <RequestSummary request={row.entity as never} />
+        </div>
+      ) : null}
     </div>
+  );
+
+  if (!showsDiff) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
+        <div style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>{headerContent}</div>
+        <div
+          style={{
+            padding: 24,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            gap: 12,
+            color: token.colorTextTertiary,
+          }}
+        >
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {isNew
+              ? 'This entity is new — nothing on the target side to compare against.'
+              : 'Nothing to diff — both sides are empty.'}
+          </Text>
+          {row.entity && yaml?.incomingYaml ? (
+            <pre
+              style={{
+                margin: 0,
+                padding: 12,
+                width: '100%',
+                maxHeight: 320,
+                overflow: 'auto',
+                background: token.colorBgLayout,
+                borderRadius: 6,
+                fontSize: 11,
+                fontFamily:
+                  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                color: token.colorText,
+              }}
+            >
+              {yaml.incomingYaml}
+            </pre>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <RichDiffEditor
+      original={yaml?.targetYaml ?? ''}
+      modified={yaml?.incomingYaml ?? ''}
+      language="yaml"
+      options={diffOptions}
+      onOptionsChange={setDiffOptions}
+      header={headerContent}
+    />
   );
 };
 
