@@ -147,6 +147,12 @@ export interface BridgeRpcContract {
         | {
             kind: 'selection';
             selection: import('@/background/modules/workspace-export-gatherer').ExportSelection;
+            /**
+             * Strict-literal export (design §5.5 Advanced override).
+             * When `true`, the gatherer ships exactly the picked uids
+             * with no descendant/parent expansion.
+             */
+            strictLiteral?: boolean;
           };
       /**
        * Vault include mode (design §3.1 / §3.2 / §3.3).
@@ -195,6 +201,16 @@ export interface BridgeRpcContract {
       trustExport?: boolean;
       /** Advanced override — when true, strips request scripts on import. */
       stripScripts?: boolean;
+      /** Advanced override — when true, replaces oauth2 Request.auth with
+       *  `{ type: 'none' }` on every imported request. */
+      omitOAuthConfigs?: boolean;
+      /** Advanced override — when true, `update` collisions on
+       *  collections preserve the target's `order` field. */
+      keepTargetCollectionOrder?: boolean;
+      /** Advanced override — when true and target=new, refuse to
+       *  create when an existing workspace carries the export's
+       *  `workspace.uid`. */
+      refuseUidCollision?: boolean;
       target: { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
       /** SHA-256 of the original raw bytes (`sha256:<hex>`). */
       sourceHash: string;

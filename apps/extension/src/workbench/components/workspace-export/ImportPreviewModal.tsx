@@ -180,6 +180,10 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   // Low-trust sources (URL fetch / deep link) pre-check; local sources start unchecked.
   const isLowTrustSource = source === 'link' || source === 'playground' || source === 'context-menu';
   const [stripScripts, setStripScripts] = useState<boolean>(isLowTrustSource);
+  const [omitOAuthConfigs, setOmitOAuthConfigs] = useState(false);
+  const [keepTargetCollectionOrder, setKeepTargetCollectionOrder] = useState(false);
+  const [includeWorkspaceSettings, setIncludeWorkspaceSettings] = useState(false);
+  const [refuseUidCollision, setRefuseUidCollision] = useState(false);
   const [dedup, setDedup] = useState<DedupMatchesResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [staleSnapshotHash, setStaleSnapshotHash] = useState<string | null>(null);
@@ -213,6 +217,10 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setBackupRestore(false);
     setTrustExport(false);
     setStripScripts(isLowTrustSource);
+    setOmitOAuthConfigs(false);
+    setKeepTargetCollectionOrder(false);
+    setIncludeWorkspaceSettings(false);
+    setRefuseUidCollision(false);
     setStaleSnapshotHash(null);
     // Reset vault decrypt state when a fresh envelope arrives — a new
     // file shouldn't carry over the prior passphrase or decrypted vault.
@@ -223,7 +231,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     void hashImportSource(rawText)
       .then(setSourceHash)
       .catch(() => setSourceHash(''));
-  }, [open, rawText, initialError]);
+  }, [open, rawText, initialError, isLowTrustSource]);
 
   // Reset on close so a second open starts clean.
   useEffect(() => {
@@ -236,6 +244,10 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setBackupRestore(false);
     setTrustExport(false);
     setStripScripts(false);
+    setOmitOAuthConfigs(false);
+    setKeepTargetCollectionOrder(false);
+    setIncludeWorkspaceSettings(false);
+    setRefuseUidCollision(false);
     setDedup(null);
     setStaleSnapshotHash(null);
     setSourceHash(null);
@@ -369,6 +381,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         backupRestore,
         trustExport,
         stripScripts,
+        omitOAuthConfigs,
+        keepTargetCollectionOrder,
+        refuseUidCollision,
         target,
         sourceHash,
       });
@@ -394,6 +409,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     backupRestore,
     trustExport,
     stripScripts,
+    omitOAuthConfigs,
+    keepTargetCollectionOrder,
+    refuseUidCollision,
     strategies,
     message,
     onImported,
@@ -569,11 +587,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               {preview.missingDeps.length > 0 && <MissingDepsPanel missingDeps={preview.missingDeps} />}
 
               {isLowTrustSource && (
-                <StripScriptsTopRow
-                  source={source ?? 'link'}
-                  stripScripts={stripScripts}
-                  onChange={setStripScripts}
-                />
+                <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
               )}
 
               <DiffTree diff={preview.diff} strategies={strategies} onChangeStrategy={setStrategyFor} token={token} />
@@ -587,6 +601,15 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 onTrustExportChange={setTrustExport}
                 stripScripts={stripScripts}
                 onStripScriptsChange={setStripScripts}
+                omitOAuthConfigs={omitOAuthConfigs}
+                onOmitOAuthConfigsChange={setOmitOAuthConfigs}
+                keepTargetCollectionOrder={keepTargetCollectionOrder}
+                onKeepTargetCollectionOrderChange={setKeepTargetCollectionOrder}
+                includeWorkspaceSettings={includeWorkspaceSettings}
+                onIncludeWorkspaceSettingsChange={setIncludeWorkspaceSettings}
+                refuseUidCollision={refuseUidCollision}
+                onRefuseUidCollisionChange={setRefuseUidCollision}
+                targetMode={target.mode}
               />
             </>
           )}
@@ -654,7 +677,7 @@ function describeRejection(rejection: ParseRejection): { title: string; body: st
     case 'envelope-schema':
       return {
         title: "The export envelope doesn't match what the importer expects",
-        body: "One or more top-level fields are missing or invalid. If this came from a trusted source, ask them to re-export.",
+        body: 'One or more top-level fields are missing or invalid. If this came from a trusted source, ask them to re-export.',
       };
     case 'crypto-envelope':
       return {
@@ -1203,6 +1226,15 @@ const AdvancedDisclosure: React.FC<{
   onTrustExportChange: (next: boolean) => void;
   stripScripts: boolean;
   onStripScriptsChange: (next: boolean) => void;
+  omitOAuthConfigs: boolean;
+  onOmitOAuthConfigsChange: (next: boolean) => void;
+  keepTargetCollectionOrder: boolean;
+  onKeepTargetCollectionOrderChange: (next: boolean) => void;
+  includeWorkspaceSettings: boolean;
+  onIncludeWorkspaceSettingsChange: (next: boolean) => void;
+  refuseUidCollision: boolean;
+  onRefuseUidCollisionChange: (next: boolean) => void;
+  targetMode: ImportTargetSelection['mode'];
 }> = ({
   lowTrustSource,
   source,
@@ -1212,6 +1244,15 @@ const AdvancedDisclosure: React.FC<{
   onTrustExportChange,
   stripScripts,
   onStripScriptsChange,
+  omitOAuthConfigs,
+  onOmitOAuthConfigsChange,
+  keepTargetCollectionOrder,
+  onKeepTargetCollectionOrderChange,
+  includeWorkspaceSettings,
+  onIncludeWorkspaceSettingsChange,
+  refuseUidCollision,
+  onRefuseUidCollisionChange,
+  targetMode,
 }) => {
   const sourceLabel = source === 'link' ? 'deep-link' : 'URL-fetch';
   // Per design §5.5 discovery rules: hide override toggles entirely on
@@ -1261,8 +1302,8 @@ const AdvancedDisclosure: React.FC<{
                 <Text strong>Trust this export — import enabled flags as-is</Text>
                 <div style={{ fontSize: 11 }}>
                   <Text type="secondary">
-                    Imported rules / live workflows / live variables land disabled by default. Enable this only when
-                    you trust the sender — it lets the export turn things on the moment it lands.
+                    Imported rules / live workflows / live variables land disabled by default. Enable this only when you
+                    trust the sender — it lets the export turn things on the moment it lands.
                   </Text>
                 </div>
               </Checkbox>
@@ -1275,6 +1316,53 @@ const AdvancedDisclosure: React.FC<{
                   </Text>
                 </div>
               </Checkbox>
+              <Checkbox checked={omitOAuthConfigs} onChange={(e) => onOmitOAuthConfigsChange(e.target.checked)}>
+                <Text strong>Omit OAuth configs</Text>
+                <div style={{ fontSize: 11 }}>
+                  <Text type="secondary">
+                    By default, OAuth2 configs ride with the request (token endpoint, client id, scopes — never client
+                    secret or tokens). With this on, every OAuth2 request lands with auth set to none — you wire it up
+                    from scratch.
+                  </Text>
+                </div>
+              </Checkbox>
+              <Checkbox
+                checked={keepTargetCollectionOrder}
+                onChange={(e) => onKeepTargetCollectionOrderChange(e.target.checked)}
+              >
+                <Text strong>Keep target collection order on update</Text>
+                <div style={{ fontSize: 11 }}>
+                  <Text type="secondary">
+                    By default, an updated collection takes the export's child order. With this on, your existing target
+                    ordering is preserved when collisions update by uid.
+                  </Text>
+                </div>
+              </Checkbox>
+              <Checkbox
+                checked={includeWorkspaceSettings}
+                onChange={(e) => onIncludeWorkspaceSettingsChange(e.target.checked)}
+                disabled
+              >
+                <Text strong>Include workspace-level settings</Text>
+                <div style={{ fontSize: 11 }}>
+                  <Text type="secondary">
+                    Reserved for a future allowlist of workspace-semantic settings. The current allowlist is empty —
+                    nothing ships through this toggle in v1.
+                  </Text>
+                </div>
+              </Checkbox>
+              {targetMode === 'new' && (
+                <Checkbox checked={refuseUidCollision} onChange={(e) => onRefuseUidCollisionChange(e.target.checked)}>
+                  <Text strong>Refuse on workspace.uid collision</Text>
+                  <div style={{ fontSize: 11 }}>
+                    <Text type="secondary">
+                      By default, importing into a new workspace silently regenerates the workspace uid on collision.
+                      With this on, an existing workspace with the same uid blocks the import — switch to "Pick
+                      existing" to merge into it instead.
+                    </Text>
+                  </div>
+                </Checkbox>
+              )}
             </Space>
           ),
         },

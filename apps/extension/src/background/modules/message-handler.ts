@@ -464,6 +464,9 @@ export function handleGeneralMessage(
         backupRestore: message.backupRestore as boolean | undefined,
         trustExport: message.trustExport as boolean | undefined,
         stripScripts: message.stripScripts as boolean | undefined,
+        omitOAuthConfigs: message.omitOAuthConfigs as boolean | undefined,
+        keepTargetCollectionOrder: message.keepTargetCollectionOrder as boolean | undefined,
+        refuseUidCollision: message.refuseUidCollision as boolean | undefined,
         target: message.target as Parameters<typeof importWorkspaceFromExport>[0]['target'],
         sourceHash: message.sourceHash as string,
       })

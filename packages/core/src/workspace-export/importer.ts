@@ -132,6 +132,21 @@ export interface ImporterOptions {
    * toggle on file / clipboard / menu sources.
    */
   stripScripts?: boolean;
+  /**
+   * Omit OAuth configs on import (design §5.5). Default is to keep the
+   * OAuth2 config (token endpoint, client id, scopes — `clientSecret`
+   * is always stripped on export). When `true`, every incoming
+   * oauth2 `Request.auth` is replaced with `{ type: 'none' }` so the
+   * recipient configures auth from scratch.
+   */
+  omitOAuthConfigs?: boolean;
+  /**
+   * Preserve the target collection's `order` field on update collisions
+   * (design §5.5). Default is `false` — `update` takes the export's
+   * order. When `true`, collections that update an existing target
+   * keep the recipient's existing child order.
+   */
+  keepTargetCollectionOrder?: boolean;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -178,6 +193,17 @@ function stripRequestScripts<T extends { preRequestScript?: string; postResponse
   delete next.preRequestScript;
   delete next.postResponseScript;
   return next;
+}
+
+/**
+ * Replace OAuth2 `Request.auth` with `{ type: 'none' }` when the user
+ * opts out of importing OAuth configs. The recipient configures auth
+ * from scratch; the request's URL / method / headers / body still ship.
+ */
+function omitOAuthAuth<T extends { auth?: { type: string } }>(entity: T, omit: boolean): T {
+  if (!omit) return entity;
+  if (entity.auth?.type !== 'oauth2') return entity;
+  return { ...entity, auth: { type: 'none' } as T['auth'] };
 }
 
 // ── Tree-aware new-uid for collections + folders + leaves ───────────
@@ -262,6 +288,7 @@ export function buildImportPlan(
 ): ImportPlan {
   const trust = opts.trustExport ?? false;
   const strip = opts.stripScripts ?? false;
+  const omitOAuth = opts.omitOAuthConfigs ?? false;
   const uidRemap: Record<string, string> = {};
 
   // ── Resolve per-array strategies (action tagging) ───────────────
@@ -269,6 +296,21 @@ export function buildImportPlan(
     diff: diff.collections,
     overrides: strategies.collections,
   });
+  // Keep-target-order override: on `update`, preserve the target
+  // collection's `order` instead of taking export's. Indexed walk —
+  // resolveArrayBase preserves diff order so the entries align 1:1.
+  if (opts.keepTargetCollectionOrder) {
+    for (let i = 0; i < collections.entries.length; i++) {
+      const entry = collections.entries[i];
+      const diffEntry = diff.collections[i];
+      if (entry.action !== 'update' || !diffEntry?.matchedTarget) continue;
+      const targetOrder = diffEntry.matchedTarget.order;
+      const next: Collection = { ...entry.entity };
+      if (targetOrder !== undefined) next.order = targetOrder;
+      else delete (next as { order?: unknown }).order;
+      collections.entries[i] = { ...entry, entity: next };
+    }
+  }
   const folders = resolveArrayBase<LocalFolder>({
     diff: diff.folders,
     overrides: strategies.folders,
@@ -281,7 +323,7 @@ export function buildImportPlan(
   const requests = resolveArrayBase<Request>({
     diff: diff.requests,
     overrides: strategies.requests,
-    stamp: (r) => stripRequestScripts(r, strip),
+    stamp: (r) => omitOAuthAuth(stripRequestScripts(r, strip), omitOAuth),
   });
   const templates = resolveArrayBase<Template>({
     diff: diff.templates,

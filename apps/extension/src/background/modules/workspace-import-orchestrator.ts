@@ -86,6 +86,19 @@ export interface ImportWorkspaceArgs {
    *  every imported request (Advanced override; default-on for low-trust
    *  sources per design §5.5). */
   stripScripts?: boolean;
+  /** When `true`, replaces every imported oauth2 `Request.auth` with
+   *  `{ type: 'none' }` so the recipient configures auth from scratch
+   *  (Advanced override per design §5.5). */
+  omitOAuthConfigs?: boolean;
+  /** When `true`, `update` collisions on collections preserve the
+   *  target's `order` instead of taking export's (Advanced override
+   *  per design §5.5). */
+  keepTargetCollectionOrder?: boolean;
+  /** When `true` and target=new, refuse to create when an existing
+   *  workspace already carries the export's `workspace.uid`. The user
+   *  must switch to "Pick existing" to merge into it (Advanced override
+   *  per design §5.5). Default behavior silently regenerates the uid. */
+  refuseUidCollision?: boolean;
   target: ImportTargetSelector;
   /** SHA-256 of the original raw export bytes (`sha256:<hex>`). */
   sourceHash: string;
@@ -176,6 +189,8 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       const importerOpts: ImporterOptions = {
         trustExport: args.trustExport ?? false,
         stripScripts: args.stripScripts ?? false,
+        omitOAuthConfigs: args.omitOAuthConfigs ?? false,
+        keepTargetCollectionOrder: args.keepTargetCollectionOrder ?? false,
       };
       const plan = buildImportPlan(args.incoming, diff, targetState, args.strategies, importerOpts);
 
@@ -378,6 +393,19 @@ async function resolveTargetWorkspace(args: ImportWorkspaceArgs): Promise<string
   }
   // mode: 'new' — create a fresh workspace using export's metadata.
   // Append " (imported)" suffix on name collision (design §2.4).
+  // Advanced override (design §5.5): refuseUidCollision blocks the
+  // create when an existing workspace carries the export's
+  // `workspace.uid`. The default behavior is silent uid regen via
+  // `createWorkspace` (the new workspace gets a fresh uid regardless).
+  if (args.refuseUidCollision) {
+    const incomingUid = args.incoming.workspace.uid;
+    const collision = listWorkspaces().find((w) => w.id === incomingUid);
+    if (collision) {
+      throw new Error(
+        `A workspace with uid ${incomingUid} already exists ("${collision.name}"). Switch the import target to "Pick existing" to merge into it, or turn off "Refuse on workspace.uid collision" in Advanced.`,
+      );
+    }
+  }
   const desiredName = collidingName(args.incoming.workspace.name);
   const meta = await createWorkspaceMeta({
     name: desiredName,

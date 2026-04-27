@@ -29,7 +29,20 @@ import {
 import { slugify } from '@openheaders/core/utils';
 import { DeepLinkPayloadTooLargeError, encodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
 import { IMPORT_INLINE_PAYLOAD_MAX_BYTES, intentToHash } from '@openheaders/core/workspace-intent';
-import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Progress, Radio, Space, Tag, Typography } from 'antd';
+import {
+  Alert,
+  App as AntApp,
+  Button,
+  Checkbox,
+  Collapse,
+  Input,
+  Modal,
+  Progress,
+  Radio,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ExportSelection } from '@/background/modules/workspace-export-gatherer';
@@ -117,6 +130,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
   const [busy, setBusy] = useState(false);
 
   const [vaultMode, setVaultMode] = useState<VaultMode>('omitted');
+  const [strictLiteral, setStrictLiteral] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [passphraseHint, setPassphraseHint] = useState('');
@@ -137,7 +151,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       const swScope =
         scope.kind === 'workspace'
           ? { kind: 'workspace' as const }
-          : { kind: 'selection' as const, selection: scope.selection };
+          : {
+              kind: 'selection' as const,
+              selection: scope.selection,
+              ...(strictLiteral ? { strictLiteral: true } : {}),
+            };
       const resp = await call('exportWorkspace', {
         workspaceId,
         scope: swScope,
@@ -155,7 +173,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
           : null;
       return { yaml: resp.yaml, fingerprints };
     },
-    [scope, workspaceId, message, vaultMode, passphrase, passphraseHint],
+    [scope, workspaceId, message, vaultMode, passphrase, passphraseHint, strictLiteral],
   );
 
   const onDownload = useCallback(async () => {
@@ -237,11 +255,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
   }, [fetchYaml, message, onCancel, vaultOk]);
 
   const scopeLabel =
-    scope.kind === 'workspace' ? (
-      <Tag color="blue">Whole workspace</Tag>
-    ) : (
-      <Tag color="purple">{scope.label}</Tag>
-    );
+    scope.kind === 'workspace' ? <Tag color="blue">Whole workspace</Tag> : <Tag color="purple">{scope.label}</Tag>;
 
   return (
     <Modal
@@ -384,6 +398,30 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
                 </Paragraph>
               </div>
             }
+          />
+        )}
+
+        {scope.kind === 'selection' && (
+          <Collapse
+            size="small"
+            items={[
+              {
+                key: 'advanced',
+                label: 'Advanced',
+                children: (
+                  <Checkbox checked={strictLiteral} onChange={(e) => setStrictLiteral(e.target.checked)}>
+                    <Text strong>Strict literal — export only what I selected</Text>
+                    <div style={{ fontSize: 11 }}>
+                      <Text type="secondary">
+                        By default, picking a collection or folder pulls in every descendant plus parent containers so
+                        the import stands on its own. With strict literal on, only the picked uids ship — the recipient
+                        sees missing-deps for anything you didn't include.
+                      </Text>
+                    </div>
+                  </Checkbox>
+                ),
+              },
+            ]}
           />
         )}
 

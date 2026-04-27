@@ -434,3 +434,91 @@ describe('buildImportPlan — cross-workspace fresh import', () => {
     expect(plan.environments.every((e) => e.action === 'create')).toBe(true);
   });
 });
+
+// ── Advanced overrides (design §5.5) ──────────────────────────────
+
+describe('buildImportPlan — omitOAuthConfigs', () => {
+  it('replaces oauth2 Request.auth with { type: none } when set', () => {
+    const input = baseInput();
+    const req: Request = {
+      schemaVersion: 5,
+      version: 1,
+      uid: 'req00001',
+      path: 'requests/api-req00001',
+      name: 'API',
+      method: 'GET',
+      url: 'https://api.openheaders.io/ping',
+      headers: [],
+      params: [],
+      auth: {
+        type: 'oauth2',
+        credentialRef: 'cred-1',
+        flow: 'authorization-code-pkce',
+        tokenEndpoint: 'https://auth.openheaders.io/token',
+        clientId: 'client-1',
+        scopes: ['read'],
+      },
+      body: { type: 'none' },
+    };
+    input.entities.requests = [req];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {}, { omitOAuthConfigs: true });
+    const created = plan.requests.find((r) => r.action === 'create');
+    expect(created?.entity.auth).toEqual({ type: 'none' });
+  });
+
+  it('leaves non-oauth2 auth untouched even when omitOAuthConfigs=true', () => {
+    const input = baseInput();
+    const req: Request = {
+      schemaVersion: 5,
+      version: 1,
+      uid: 'req00002',
+      path: 'requests/api-req00002',
+      name: 'API',
+      method: 'GET',
+      url: 'https://api.openheaders.io/ping',
+      headers: [],
+      params: [],
+      auth: { type: 'bearer', token: 'tok' },
+      body: { type: 'none' },
+    };
+    input.entities.requests = [req];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {}, { omitOAuthConfigs: true });
+    const created = plan.requests.find((r) => r.action === 'create');
+    expect(created?.entity.auth).toEqual({ type: 'bearer', token: 'tok' });
+  });
+});
+
+describe('buildImportPlan — keepTargetCollectionOrder', () => {
+  it('preserves target order on update when set', () => {
+    const input = baseInput();
+    input.entities.collections = [{ ...collection('col00001', 'API', 'rules/api-col00001'), order: ['a', 'b', 'c'] }];
+    const exp = buildWorkspaceExport(input);
+    const target = emptyTarget();
+    target.collections = [{ ...collection('col00001', 'API', 'rules/api-col00001'), order: ['z', 'y', 'x'] }];
+    const diff = diffWorkspaceExport(exp, target);
+    const plan = buildImportPlan(
+      exp,
+      diff,
+      target,
+      { collections: { col00001: 'update' } },
+      { keepTargetCollectionOrder: true },
+    );
+    expect(plan.collections[0].action).toBe('update');
+    expect((plan.collections[0].entity as Collection & { order?: string[] }).order).toEqual(['z', 'y', 'x']);
+  });
+
+  it('takes export order on update when keepTargetCollectionOrder is unset', () => {
+    const input = baseInput();
+    input.entities.collections = [{ ...collection('col00001', 'API', 'rules/api-col00001'), order: ['a', 'b', 'c'] }];
+    const exp = buildWorkspaceExport(input);
+    const target = emptyTarget();
+    target.collections = [{ ...collection('col00001', 'API', 'rules/api-col00001'), order: ['z', 'y', 'x'] }];
+    const diff = diffWorkspaceExport(exp, target);
+    const plan = buildImportPlan(exp, diff, target, { collections: { col00001: 'update' } });
+    expect((plan.collections[0].entity as Collection & { order?: string[] }).order).toEqual(['a', 'b', 'c']);
+  });
+});

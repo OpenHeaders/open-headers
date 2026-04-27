@@ -53,7 +53,20 @@ export interface ExportSelection {
   folders?: readonly string[];
 }
 
-export type ExportGatherScope = { kind: 'workspace' } | { kind: 'selection'; selection: ExportSelection };
+export type ExportGatherScope =
+  | { kind: 'workspace' }
+  | {
+      kind: 'selection';
+      selection: ExportSelection;
+      /**
+       * Strict-literal mode (design §5.5): when `true`, ship exactly the
+       * uids the caller picked — no descendant or parent-container
+       * expansion. Recipients see missing-deps in the preview if a
+       * referenced collection / folder isn't in their workspace. Default
+       * is `false` (expand-to-deps so the import stands on its own).
+       */
+      strictLiteral?: boolean;
+    };
 
 interface GatherOptions {
   appVersion: string;
@@ -167,6 +180,24 @@ function expandSelection(selection: ExportSelection, src: SelectionSources): Exp
 }
 
 /**
+ * Strict-literal counterpart to `expandSelection`: ship exactly the uids
+ * the caller picked, with no descendant or parent-container expansion.
+ * The recipient sees missing-deps for any unresolved references.
+ */
+function literalSelection(selection: ExportSelection): ExpandedSelection {
+  return {
+    rules: new Set<string>(selection.rules ?? []),
+    requests: new Set<string>(selection.requests ?? []),
+    templates: new Set<string>(selection.templates ?? []),
+    environments: new Set<string>(selection.environments ?? []),
+    liveWorkflows: new Set<string>(selection.liveWorkflows ?? []),
+    liveVariables: new Set<string>(selection.liveVariables ?? []),
+    collections: new Set<string>(selection.collections ?? []),
+    folders: new Set<string>(selection.folders ?? []),
+  };
+}
+
+/**
  * Collect all collections/folders/etc for `scope`. PR 1 only handles
  * `'workspace'` and `'selection-rule'` (single rule). `'collection'`
  * and multi-select selection scopes land in PR 5.
@@ -239,13 +270,15 @@ export async function gatherWorkspaceExport(
     liveVariables = allLiveVariables;
     envelopeScope = 'workspace';
   } else {
-    const picked = expandSelection(scope.selection, {
-      collections: allCollections,
-      folders: allFolders,
-      rules: allRules,
-      requests: allRequests,
-      templates: allTemplates,
-    });
+    const picked = scope.strictLiteral
+      ? literalSelection(scope.selection)
+      : expandSelection(scope.selection, {
+          collections: allCollections,
+          folders: allFolders,
+          rules: allRules,
+          requests: allRequests,
+          templates: allTemplates,
+        });
     if (
       picked.rules.size === 0 &&
       picked.requests.size === 0 &&
