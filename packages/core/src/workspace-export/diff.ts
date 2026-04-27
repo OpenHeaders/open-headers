@@ -81,6 +81,13 @@ export interface DiffSingleton<T> {
   allowedStrategies: readonly CollisionStrategy[];
   /** Singleton has any existing content on the target. */
   targetHasContent: boolean;
+  /**
+   * Target-side singleton value when present — surfaced so the import
+   * preview's diff pane can render a side-by-side comparison against
+   * the incoming envelope's singleton (design §5.2 "show me what
+   * changes" — the same affordance as DiffEntry.matchedTarget).
+   */
+  target?: T;
 }
 
 export interface DiffResult {
@@ -218,6 +225,7 @@ function diffWorkspaceVarsSingleton(target?: WorkspaceVariables): DiffSingleton<
     defaultStrategy: 'merge-by-name',
     allowedStrategies: SINGLETON_STRATEGIES,
     targetHasContent,
+    ...(target ? { target } : {}),
   };
 }
 
@@ -228,6 +236,7 @@ function diffVaultSingleton(target?: Vault): DiffSingleton<Vault> {
     defaultStrategy: 'merge-by-name',
     allowedStrategies: SINGLETON_STRATEGIES,
     targetHasContent,
+    ...(target ? { target } : {}),
   };
 }
 

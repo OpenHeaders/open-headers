@@ -39,9 +39,7 @@ import { hashImportSource } from '@openheaders/core/import';
 import type { V5 } from '@openheaders/core/types';
 import {
   type CollisionStrategy,
-  type DiffEntry,
   type DiffResult,
-  type DiffSingleton,
   decryptVaultBlock,
   diffIncomingAgainstPriorImport,
   type ImportDrop,
@@ -69,15 +67,12 @@ import {
   Spin,
   Tag,
   Typography,
-  theme,
 } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
 import { call } from '@/utils/bridge';
-import CollisionStrategyControl from './CollisionStrategyControl';
-import RequestSummary from './RequestSummary';
-import RuleSummary from './RuleSummary';
+import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
 
 const { Text, Paragraph } = Typography;
 
@@ -151,7 +146,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   onCancel,
   onImported,
 }) => {
-  const { token } = theme.useToken();
   const { message } = AntApp.useApp();
 
   const [parseRejection, setParseRejection] = useState<ParseRejection | null>(null);
@@ -537,7 +531,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       centered
       destroyOnClose
       footer={footer}
-      styles={{ body: { maxHeight: 'calc(90vh - 110px)', overflowY: 'auto' } }}
+      styles={{ body: { maxHeight: 'calc(90vh - 110px)', overflowY: 'auto', paddingTop: 12 } }}
     >
       {parseRejection && <RejectionBanner rejection={parseRejection} />}
 
@@ -649,7 +643,17 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
               )}
 
-              <DiffTree diff={preview.diff} strategies={strategies} onChangeStrategy={setStrategyFor} token={token} />
+              <div style={{ height: '60vh', minHeight: 420, display: 'flex', flexDirection: 'column' }}>
+                <ImportDiffWorkspace
+                  diff={preview.diff}
+                  incomingEntities={{
+                    workspaceVars: effectiveEnvelope?.entities.workspaceVars,
+                    vault: effectiveEnvelope?.entities.vault,
+                  }}
+                  strategies={strategies}
+                  onChangeStrategy={setStrategyFor}
+                />
+              </div>
 
               <AdvancedDisclosure
                 lowTrustSource={isLowTrustSource}
@@ -1123,304 +1127,6 @@ const MissingDepsPanel: React.FC<{ missingDeps: MissingDep[] }> = ({ missingDeps
       </ul>
     }
   />
-);
-
-/**
- * Collections + folders flatten across the three trees (rules / requests /
- * templates) into single arrays in the export envelope; the path prefix
- * preserves which tree each entry belongs to. The preview surfaces them
- * split per-tree so users see "Rule collections" / "Request collections" /
- * "Template collections" instead of one mashed list (which loses the
- * structural meaning — `User Templates` and `New Collection` look identical
- * when stripped of their tree). Sections with no entries are omitted by
- * the renderer below.
- */
-function buildTreeSections<T extends { uid: string; name: string; path?: string }>(
-  noun: string,
-  kind: 'collections' | 'folders',
-  entries: DiffEntry<T>[],
-): Array<{ title: string; kind: keyof StrategyMap; entries: DiffEntry<{ uid: string; name: string }>[] }> {
-  const ruleTitle = noun === 'Collections' ? 'Rule collections' : 'Rule folders';
-  const reqTitle = noun === 'Collections' ? 'Request collections' : 'Request folders';
-  const tplTitle = noun === 'Collections' ? 'Template collections' : 'Template folders';
-  const otherTitle = noun;
-
-  const buckets = { rules: [] as DiffEntry<T>[], requests: [], templates: [], other: [] } as Record<
-    'rules' | 'requests' | 'templates' | 'other',
-    DiffEntry<T>[]
-  >;
-  for (const e of entries) {
-    const tree = (e.entity.path ?? '').split('/')[0];
-    if (tree === 'rules') buckets.rules.push(e);
-    else if (tree === 'requests') buckets.requests.push(e);
-    else if (tree === 'templates') buckets.templates.push(e);
-    else buckets.other.push(e);
-  }
-  return [
-    { title: ruleTitle, kind, entries: buckets.rules as DiffEntry<{ uid: string; name: string }>[] },
-    { title: reqTitle, kind, entries: buckets.requests as DiffEntry<{ uid: string; name: string }>[] },
-    { title: tplTitle, kind, entries: buckets.templates as DiffEntry<{ uid: string; name: string }>[] },
-    { title: otherTitle, kind, entries: buckets.other as DiffEntry<{ uid: string; name: string }>[] },
-  ];
-}
-
-interface DiffTreeProps {
-  diff: DiffResult;
-  strategies: StrategyMap;
-  onChangeStrategy: (kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => void;
-  token: ReturnType<typeof theme.useToken>['token'];
-}
-
-const DiffTree: React.FC<DiffTreeProps> = ({ diff, strategies, onChangeStrategy, token }) => {
-  const sections: Array<{
-    title: string;
-    kind: keyof StrategyMap;
-    entries: DiffEntry<{ uid: string; name: string }>[];
-    renderExtra?: (e: DiffEntry<{ uid: string; name: string }>) => React.ReactNode;
-  }> = [
-    {
-      title: 'Rules',
-      kind: 'rules',
-      entries: diff.rules as DiffEntry<{ uid: string; name: string }>[],
-      renderExtra: (e) => <RuleSummary rule={e.entity as unknown as V5.Rule} />,
-    },
-    {
-      title: 'Requests',
-      kind: 'requests',
-      entries: diff.requests as DiffEntry<{ uid: string; name: string }>[],
-      renderExtra: (e) => <RequestSummary request={e.entity as unknown as V5.Request} />,
-    },
-    { title: 'Templates', kind: 'templates', entries: diff.templates as DiffEntry<{ uid: string; name: string }>[] },
-    {
-      title: 'Environments',
-      kind: 'environments',
-      entries: diff.environments as DiffEntry<{ uid: string; name: string }>[],
-    },
-    {
-      title: 'Live workflows',
-      kind: 'liveWorkflows',
-      entries: diff.liveWorkflows as DiffEntry<{ uid: string; name: string }>[],
-    },
-    {
-      title: 'Live variables',
-      kind: 'liveVariables',
-      entries: diff.liveVariables as DiffEntry<{ uid: string; name: string }>[],
-    },
-    ...buildTreeSections('Collections', 'collections', diff.collections),
-    ...buildTreeSections('Folders', 'folders', diff.folders),
-  ];
-
-  const totalEntries = sections.reduce((acc, s) => acc + s.entries.length, 0);
-  if (totalEntries === 0 && diff.workspaceVars.state === 'no-collision' && diff.vault.state === 'no-collision') {
-    return <Empty description="Nothing to import" />;
-  }
-
-  return (
-    <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6 }}>
-      {sections.map(
-        (section) =>
-          section.entries.length > 0 && (
-            <DiffSection
-              key={`${section.kind}:${section.title}`}
-              title={section.title}
-              kind={section.kind}
-              entries={section.entries}
-              strategies={(strategies[section.kind] as Record<string, CollisionStrategy> | undefined) ?? {}}
-              onChangeStrategy={onChangeStrategy}
-              token={token}
-              renderExtra={section.renderExtra}
-            />
-          ),
-      )}
-      {(diff.workspaceVars.state !== 'no-collision' || diff.vault.state !== 'no-collision') && (
-        <SingletonsSection
-          workspaceVars={diff.workspaceVars}
-          vault={diff.vault}
-          strategies={strategies}
-          onChangeWorkspaceVars={(v) => {
-            // singletons use PlanSingletonAction values within the StrategyMap.
-            onChangeStrategyForSingleton('workspaceVars', v, onChangeStrategy);
-          }}
-          onChangeVault={(v) => onChangeStrategyForSingleton('vault', v, onChangeStrategy)}
-          token={token}
-        />
-      )}
-    </div>
-  );
-};
-
-// Singleton update flows through the same strategy-map setter; the caller
-// just needs to write under the singleton key. The `kind` cast is safe —
-// `StrategyMap.workspaceVars` / `.vault` carry `PlanSingletonAction`,
-// which is a subset of `CollisionStrategy`.
-function onChangeStrategyForSingleton(
-  key: 'workspaceVars' | 'vault',
-  value: 'merge-by-name' | 'replace' | 'skip',
-  onChangeStrategy: (kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => void,
-): void {
-  onChangeStrategy(key, '__singleton__', value as CollisionStrategy);
-}
-
-const DiffSection: React.FC<{
-  title: string;
-  kind: keyof StrategyMap;
-  entries: DiffEntry<{ uid: string; name: string }>[];
-  strategies: Record<string, CollisionStrategy>;
-  onChangeStrategy: (kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => void;
-  token: ReturnType<typeof theme.useToken>['token'];
-  renderExtra?: (e: DiffEntry<{ uid: string; name: string }>) => React.ReactNode;
-}> = ({ title, kind, entries, strategies, onChangeStrategy, token, renderExtra }) => (
-  <div>
-    <div
-      style={{
-        padding: '6px 10px',
-        background: token.colorFillAlter,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: 0.5,
-        color: token.colorTextSecondary,
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 1,
-      }}
-    >
-      {title.toUpperCase()} · {entries.length}
-    </div>
-    {entries.map((entry) => (
-      <DiffRow
-        key={entry.entity.uid}
-        entry={entry}
-        currentStrategy={strategies[entry.entity.uid] ?? entry.defaultStrategy}
-        onChange={(s) => onChangeStrategy(kind, entry.entity.uid, s)}
-        token={token}
-        extra={renderExtra ? renderExtra(entry) : null}
-      />
-    ))}
-  </div>
-);
-
-const DiffRow: React.FC<{
-  entry: DiffEntry<{ uid: string; name: string }>;
-  currentStrategy: CollisionStrategy;
-  onChange: (s: CollisionStrategy) => void;
-  token: ReturnType<typeof theme.useToken>['token'];
-  extra?: React.ReactNode;
-}> = ({ entry, currentStrategy, onChange, token, extra }) => (
-  <div
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      padding: '6px 10px',
-      borderBottom: `1px solid ${token.colorBorderSecondary}`,
-      fontSize: 12,
-    }}
-  >
-    <CollisionBadge state={entry.state} />
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        <Text>{entry.entity.name}</Text>
-        {entry.divergedFromExport && (
-          <Tag color="orange" style={{ marginLeft: 6, fontSize: 10 }}>
-            edited locally
-          </Tag>
-        )}
-      </div>
-      {extra}
-    </div>
-    <CollisionStrategyControl value={currentStrategy} allowed={entry.allowedStrategies} onChange={onChange} />
-  </div>
-);
-
-const CollisionBadge: React.FC<{ state: 'no-collision' | 'collision-uid' | 'collision-name' }> = ({ state }) => {
-  if (state === 'no-collision')
-    return (
-      <Tag color="green" style={{ fontSize: 10, minWidth: 56, textAlign: 'center' }}>
-        new
-      </Tag>
-    );
-  if (state === 'collision-uid')
-    return (
-      <Tag color="blue" style={{ fontSize: 10, minWidth: 56, textAlign: 'center' }}>
-        update
-      </Tag>
-    );
-  return (
-    <Tag color="gold" style={{ fontSize: 10, minWidth: 56, textAlign: 'center' }}>
-      conflict
-    </Tag>
-  );
-};
-
-const SingletonsSection: React.FC<{
-  workspaceVars: DiffSingleton<V5.WorkspaceVariables>;
-  vault: DiffSingleton<V5.Vault>;
-  strategies: StrategyMap;
-  onChangeWorkspaceVars: (v: 'merge-by-name' | 'replace' | 'skip') => void;
-  onChangeVault: (v: 'merge-by-name' | 'replace' | 'skip') => void;
-  token: ReturnType<typeof theme.useToken>['token'];
-}> = ({ workspaceVars, vault, strategies, onChangeWorkspaceVars, onChangeVault, token }) => (
-  <div>
-    <div
-      style={{
-        padding: '6px 10px',
-        background: token.colorFillAlter,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: 0.5,
-        color: token.colorTextSecondary,
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-      }}
-    >
-      WORKSPACE-LEVEL · 2
-    </div>
-    {workspaceVars.state !== 'no-collision' && (
-      <SingletonRow
-        label="Workspace variables"
-        diff={workspaceVars}
-        currentStrategy={strategies.workspaceVars ?? workspaceVars.defaultStrategy}
-        onChange={onChangeWorkspaceVars}
-        token={token}
-      />
-    )}
-    {vault.state !== 'no-collision' && (
-      <SingletonRow
-        label="Vault"
-        diff={vault}
-        currentStrategy={strategies.vault ?? vault.defaultStrategy}
-        onChange={onChangeVault}
-        token={token}
-      />
-    )}
-  </div>
-);
-
-const SingletonRow: React.FC<{
-  label: string;
-  diff: DiffSingleton<unknown>;
-  currentStrategy: CollisionStrategy;
-  onChange: (v: 'merge-by-name' | 'replace' | 'skip') => void;
-  token: ReturnType<typeof theme.useToken>['token'];
-}> = ({ label, diff, currentStrategy, onChange, token }) => (
-  <div
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      padding: '6px 10px',
-      borderBottom: `1px solid ${token.colorBorderSecondary}`,
-      fontSize: 12,
-    }}
-  >
-    <CollisionBadge state={diff.state} />
-    <Text style={{ flex: 1 }}>{label}</Text>
-    <CollisionStrategyControl
-      value={currentStrategy}
-      allowed={diff.allowedStrategies}
-      onChange={(v) => onChange(v as 'merge-by-name' | 'replace' | 'skip')}
-    />
-  </div>
 );
 
 const StripScriptsTopRow: React.FC<{

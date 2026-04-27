@@ -63,6 +63,8 @@ export type {
   TargetWorkspaceState,
 } from './diff';
 export { applyBackupRestoreToggle, COLLISION_STRATEGIES, CollisionStrategySchema, diffWorkspaceExport } from './diff';
+export type { SerializableEntityKind } from './entity-yaml';
+export { serializeEntityYaml } from './entity-yaml';
 export type { ImportDiffEntityType, ImportDiffSection, ImportSinceLastDiff } from './import-diff';
 export { diffIncomingAgainstPriorImport } from './import-diff';
 export type {
