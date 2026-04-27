@@ -309,7 +309,7 @@ describe('open-import schema invariants', () => {
   });
 
   it('accepts an optional source.via for any of the three forms', () => {
-    for (const via of ['link', 'playground', 'context-menu', 'paste'] as const) {
+    for (const via of ['link', 'playground', 'context-menu'] as const) {
       expect(
         v.safeParse(WorkspaceIntentSchema, { kind: 'open-import', handoffId: UID_A, source: { via } }).success,
       ).toBe(true);

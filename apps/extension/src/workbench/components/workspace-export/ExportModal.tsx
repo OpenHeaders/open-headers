@@ -46,9 +46,25 @@ import {
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ExportSelection } from '@/background/modules/workspace-export-gatherer';
+import { getBrowserAPI } from '@/types/browser';
 import { call } from '@/utils/bridge';
 
-const HOSTED_IMPORT_URL = 'https://workspace.openheaders.io/import';
+/**
+ * Build the deep-link base URL. There is no hosted companion site — the
+ * extension is the entire surface — so the link self-references the
+ * caller's own workbench page (`chrome-extension://<id>/workbench.html`
+ * on Chromium / `moz-extension://<uuid>/workbench.html` on Firefox).
+ *
+ * The published extension has a stable id on each store (Chrome `key` in
+ * the manifest, Firefox `browser_specific_settings.gecko.id`), so the
+ * URL a sender mints resolves to the recipient's installed copy as long
+ * as they are on the same browser family. Cross-browser shares
+ * (Chrome → Firefox) require copying the YAML and using "Import from
+ * file…" instead — the link scheme cannot bridge browsers.
+ */
+function buildImportBaseUrl(): string {
+  return getBrowserAPI().runtime.getURL('workbench.html');
+}
 
 const { Text, Paragraph } = Typography;
 
@@ -210,7 +226,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
           maxCompressedBytes: IMPORT_INLINE_PAYLOAD_MAX_BYTES,
         });
         const hash = intentToHash({ kind: 'open-import', payload });
-        const url = `${HOSTED_IMPORT_URL}${hash}`;
+        const url = `${buildImportBaseUrl()}${hash}`;
         await navigator.clipboard.writeText(url);
         if (result.fingerprints) {
           setLastFingerprints(result.fingerprints);

@@ -163,7 +163,7 @@ export const CreateLiveVariableIntentSchema = v.object({
 export const IMPORT_INLINE_PAYLOAD_MAX_BYTES = 32 * 1024;
 
 const ImportSourceSchema = v.object({
-  via: v.picklist(['link', 'playground', 'context-menu', 'paste']),
+  via: v.picklist(['link', 'playground', 'context-menu']),
 });
 
 /**

@@ -37,7 +37,7 @@ import { useEffect, useRef } from 'react';
 import type { RuleFlowScope } from '../types';
 
 /** Provenance attached to the import preview when an intent opens it. */
-export type ImportIntentSource = 'link' | 'playground' | 'context-menu' | 'paste';
+export type ImportIntentSource = 'link' | 'playground' | 'context-menu';
 
 interface UseWorkspaceIntentRouterOptions {
   isStatusLoaded: boolean;
