@@ -26,7 +26,6 @@ import type React from 'react';
 import { useMemo, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
 import { type ImportTaxonomy, type MaterialisedRow, SECTIONS, type SectionKind, strategyForRow } from './diff-sections';
-import { STRATEGY_META } from './strategy-meta';
 
 interface DiffSidebarProps {
   taxonomy: ImportTaxonomy;
@@ -224,7 +223,6 @@ const RowButton: React.FC<RowButtonProps> = ({
   onToggle,
   token,
 }) => {
-  const meta = STRATEGY_META[strategy];
   const skipped = strategy === 'skip';
   const stateDot =
     row.state === 'no-collision'
@@ -329,21 +327,6 @@ const RowButton: React.FC<RowButtonProps> = ({
             {lineCounts.removed > 0 && <span style={{ color: token.colorError }}>−{lineCounts.removed}</span>}
           </span>
         )}
-        <span
-          style={{
-            fontSize: 10,
-            color:
-              meta.tone === 'warn'
-                ? token.colorWarning
-                : meta.tone === 'accent'
-                  ? token.colorPrimary
-                  : token.colorTextTertiary,
-            flexShrink: 0,
-            fontWeight: 500,
-          }}
-        >
-          {row.state === 'no-collision' && strategy === 'new-uid' ? 'new' : meta.label.toLowerCase()}
-        </span>
       </button>
     </div>
   );

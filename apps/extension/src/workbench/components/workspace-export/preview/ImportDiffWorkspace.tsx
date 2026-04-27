@@ -114,8 +114,8 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
         background: token.colorBgContainer,
       }}
     >
-      <Allotment proportionalLayout={false}>
-        <Allotment.Pane preferredSize={320} minSize={220}>
+      <Allotment>
+        <Allotment.Pane preferredSize="30%" minSize={220}>
           <DiffSidebar
             taxonomy={taxonomy}
             selectionKey={selectionKey}
@@ -124,7 +124,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
             strategies={strategies}
           />
         </Allotment.Pane>
-        <Allotment.Pane minSize={360}>
+        <Allotment.Pane preferredSize="70%" minSize={360}>
           <DiffPane
             row={selectedRow}
             yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
@@ -144,9 +144,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
           />
         </Allotment.Pane>
         <Allotment.Pane preferredSize={360} minSize={260} visible={showAdvanced}>
-          {advanced && (
-            <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />
-          )}
+          {advanced && <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />}
         </Allotment.Pane>
       </Allotment>
     </div>

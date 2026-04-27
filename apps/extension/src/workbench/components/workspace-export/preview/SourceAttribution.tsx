@@ -1,15 +1,16 @@
 /**
- * Source attribution — who shipped this export, when, and what it
- * carries. Renders the per-entity drops alongside (envelope-valid but
- * per-entity-invalid rows that the importer will skip).
+ * Source attribution — minimal header line for the import preview.
+ * Just the workspace label and the entity-counts summary; app version
+ * / platform / export timestamp aren't actionable for the recipient,
+ * so they live behind the optional `notes` field if the sender chose
+ * to attach one.
  */
 
-import { WarningOutlined } from '@ant-design/icons';
-import type { ImportDrop, WorkspaceExport } from '@openheaders/core/workspace-export';
-import { Alert, Typography } from 'antd';
+import type { WorkspaceExport } from '@openheaders/core/workspace-export';
+import { Typography } from 'antd';
 import type React from 'react';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 function summarizeCounts(counts: WorkspaceExport['meta']['counts']): string {
   const parts: string[] = [];
@@ -26,48 +27,21 @@ function summarizeCounts(counts: WorkspaceExport['meta']['counts']): string {
   return parts.join(', ');
 }
 
-const SourceAttribution: React.FC<{ envelope: WorkspaceExport; drops: ImportDrop[] }> = ({ envelope, drops }) => {
+const SourceAttribution: React.FC<{ envelope: WorkspaceExport }> = ({ envelope }) => {
   const counts = envelope.meta.counts;
+  const sourceName = envelope.source.workspaceLabel ?? envelope.workspace.name;
   return (
-    <div>
-      <Paragraph style={{ marginBottom: 4 }}>
-        <Text strong>From: </Text>
-        <Text>{envelope.source.workspaceLabel ?? envelope.workspace.name}</Text>
-        <Text type="secondary"> · </Text>
-        <Text type="secondary">
-          {envelope.source.app} {envelope.source.appVersion} · {envelope.source.platform}
-        </Text>
-      </Paragraph>
-      <Paragraph style={{ marginBottom: 4, fontSize: 12 }}>
-        <Text type="secondary">Exported {new Date(envelope.exportedAt).toLocaleString()}</Text>
-      </Paragraph>
-      <Paragraph style={{ marginBottom: 0, fontSize: 12 }}>
-        <Text type="secondary">{summarizeCounts(counts) || 'no entities'}</Text>
-      </Paragraph>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+      <Text strong style={{ fontSize: 14 }}>
+        {sourceName}
+      </Text>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {summarizeCounts(counts) || 'no entities'}
+      </Text>
       {envelope.notes && (
-        <Paragraph style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
-          <Text type="secondary">Notes: </Text>
-          <Text>{envelope.notes}</Text>
-        </Paragraph>
-      )}
-      {drops.length > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          icon={<WarningOutlined />}
-          title={`${drops.length} entit${drops.length === 1 ? 'y' : 'ies'} couldn't be parsed and will be skipped`}
-          description={
-            <ul style={{ margin: 0, paddingLeft: 20 }}>
-              {drops.slice(0, 5).map((d, idx) => (
-                <li key={`${d.path}-${idx}`} style={{ fontSize: 11 }}>
-                  <Text code>{d.path}</Text> — {d.reason}
-                </li>
-              ))}
-              {drops.length > 5 && <li style={{ fontSize: 11 }}>…and {drops.length - 5} more</li>}
-            </ul>
-          }
-          style={{ marginTop: 8 }}
-        />
+        <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
+          · {envelope.notes}
+        </Text>
       )}
     </div>
   );

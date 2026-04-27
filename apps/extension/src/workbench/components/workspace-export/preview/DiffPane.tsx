@@ -60,6 +60,17 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
     editorRef.current = editor;
   }, []);
 
+  // Monaco's `options` prop only seeds construction — flipping
+  // `renderSideBySide` live needs an explicit `updateOptions` call on
+  // the captured editor instance. Without this the toggle visually
+  // changes the button label but the editor stays on whatever mode
+  // it mounted with.
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions({ renderSideBySide: sideBySide });
+    }
+  }, [sideBySide]);
+
   if (!row) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>

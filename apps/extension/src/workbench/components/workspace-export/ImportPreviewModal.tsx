@@ -522,7 +522,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <SourceAttribution envelope={parsed.envelope} drops={[]} />
+              <SourceAttribution envelope={parsed.envelope} />
             </div>
             <div
               style={{
