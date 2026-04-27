@@ -8,6 +8,7 @@
 
 import {
   CaretRightOutlined,
+  CheckSquareFilled,
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -17,6 +18,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { Dropdown, Tooltip, theme } from 'antd';
+import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { TreeNode } from './types';
 
@@ -26,7 +28,9 @@ interface TreeNodeRowProps {
   isFocused: boolean;
   isRenaming: boolean;
   isExpanded?: boolean;
-  onClick: () => void;
+  /** True when this node is part of the multi-select export set. */
+  isExportSelected?: boolean;
+  onClick: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
   onStartRename: () => void;
 }
@@ -85,6 +89,7 @@ export function TreeNodeRow({
   isFocused,
   isRenaming,
   isExpanded,
+  isExportSelected,
   onClick,
   onDoubleClick,
   onStartRename,
@@ -122,7 +127,12 @@ export function TreeNodeRow({
     );
   }
 
-  const className = ['rules-sidebar-item', isSelected ? 'selected' : '', isFocused ? 'focused' : '']
+  const className = [
+    'rules-sidebar-item',
+    isSelected ? 'selected' : '',
+    isFocused ? 'focused' : '',
+    isExportSelected ? 'export-selected' : '',
+  ]
     .filter(Boolean)
     .join(' ');
 
@@ -135,8 +145,8 @@ export function TreeNodeRow({
       className={className}
       data-item-id={node.id}
       style={{ color: token.colorText, paddingLeft }}
-      onClick={() => {
-        if (!isRenaming) onClick();
+      onClick={(e) => {
+        if (!isRenaming) onClick(e);
       }}
       onDoubleClick={() => {
         if (!isRenaming) onDoubleClick();
@@ -154,8 +164,9 @@ export function TreeNodeRow({
         />
       )}
 
-      {/* Icon */}
-      {node.icon}
+      {/* Icon — multi-select check overrides the entity icon when this
+          node is part of the active export selection set. */}
+      {isExportSelected ? <CheckSquareFilled style={{ color: token.colorPrimary, fontSize: 12 }} /> : node.icon}
 
       {/* Label or rename input */}
       {isRenaming && node.onRename ? (

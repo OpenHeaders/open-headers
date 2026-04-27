@@ -165,6 +165,13 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [vaultDecryptError, setVaultDecryptError] = useState<string | null>(null);
   const [vaultDecrypting, setVaultDecrypting] = useState(false);
   const [vaultFingerprints, setVaultFingerprints] = useState<{ ciphertext: string; key: string } | null>(null);
+  // Per-secret decode failures surfaced by `decryptVaultBlock` — these
+  // are well-formed envelope + correct passphrase, but one or more
+  // entries inside the AES-GCM payload didn't validate against
+  // `VaultSecretSchema`. Surfaced alongside the decrypted banner so the
+  // user can see "N secret(s) skipped" with the per-entry reason
+  // (design §3.2 — fail-soft per secret instead of all-or-nothing).
+  const [vaultPartialDrops, setVaultPartialDrops] = useState<{ index: number; reason: string }[]>([]);
   /** When set, the rendered envelope has decrypted secrets injected. */
   const [decryptedEnvelope, setDecryptedEnvelope] = useState<WorkspaceExport | null>(null);
   const [target, setTarget] = useState<ImportTargetSelection>(
@@ -185,6 +192,24 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [includeWorkspaceSettings, setIncludeWorkspaceSettings] = useState(false);
   const [refuseUidCollision, setRefuseUidCollision] = useState(false);
   const [dedup, setDedup] = useState<DedupMatchesResult | null>(null);
+  // Per-`(exportId, target)` dismissals for the soft-dedup banner. Lives
+  // in sessionStorage so the dismissal persists across modal opens within
+  // the same browser session but doesn't outlive the tab — the banner is
+  // a soft signal, not a permanent suppression. Keyed by exportId plus
+  // the resolved target workspace id (or `'new'` for new-workspace target),
+  // matching design §5.2's "dismissable per (exportId, current-target)
+  // pair" so re-importing into a sequence of fresh workspaces only shows
+  // the banner once per pair.
+  const [dedupDismissed, setDedupDismissed] = useState<ReadonlySet<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = window.sessionStorage.getItem('oh.workspace-export.dedup-dismissed');
+      const arr = raw ? (JSON.parse(raw) as unknown) : null;
+      return Array.isArray(arr) ? new Set(arr.filter((x): x is string => typeof x === 'string')) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [importing, setImporting] = useState(false);
   const [staleSnapshotHash, setStaleSnapshotHash] = useState<string | null>(null);
   const requestSeq = useRef(0);
@@ -227,6 +252,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setVaultPassphrase('');
     setVaultDecryptError(null);
     setVaultFingerprints(null);
+    setVaultPartialDrops([]);
     setDecryptedEnvelope(null);
     void hashImportSource(rawText)
       .then(setSourceHash)
@@ -254,6 +280,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setVaultPassphrase('');
     setVaultDecryptError(null);
     setVaultFingerprints(null);
+    setVaultPartialDrops([]);
     setDecryptedEnvelope(null);
   }, [open]);
 
@@ -445,6 +472,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       delete (next as { secrets?: unknown }).secrets;
       setDecryptedEnvelope(next);
       setVaultFingerprints({ ciphertext: result.ciphertextFingerprint, key: result.keyFingerprint });
+      setVaultPartialDrops(result.drops);
       setVaultPassphrase(''); // wipe from memory
     } catch (err) {
       if (err instanceof VaultDecryptionFailedError) {
@@ -533,7 +561,31 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             envelope={parsed.envelope}
           />
 
-          {dedup && <DedupBanner dedup={dedup} />}
+          {dedup &&
+            (() => {
+              const key = `${parsed.envelope.exportId}:${preview?.targetWorkspaceId ?? 'new'}`;
+              if (dedupDismissed.has(key)) return null;
+              return (
+                <DedupBanner
+                  dedup={dedup}
+                  onDismiss={() => {
+                    setDedupDismissed((prev) => {
+                      const next = new Set(prev);
+                      next.add(key);
+                      try {
+                        window.sessionStorage.setItem(
+                          'oh.workspace-export.dedup-dismissed',
+                          JSON.stringify(Array.from(next)),
+                        );
+                      } catch {
+                        // sessionStorage can throw under privacy modes — dismissal stays for the modal lifetime
+                      }
+                      return next;
+                    });
+                  }}
+                />
+              );
+            })()}
 
           {parsed.envelope.secrets && !decryptedEnvelope && (
             <VaultEncryptedBlock
@@ -552,6 +604,8 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
             />
           )}
+
+          {decryptedEnvelope && vaultPartialDrops.length > 0 && <VaultPartialDecryptPanel drops={vaultPartialDrops} />}
 
           {parsed.envelope.meta.redactions.vault === 'plaintext' && (
             <Alert
@@ -859,7 +913,38 @@ const VaultDecryptedBanner: React.FC<{ fingerprints: { ciphertext: string; key: 
   />
 );
 
-const DedupBanner: React.FC<{ dedup: DedupMatchesResult }> = ({ dedup }) => {
+/**
+ * Per-secret decrypt-side fail-soft UI. The AES-GCM payload was decrypted
+ * with the right passphrase but one or more decoded secret entries
+ * didn't match `VaultSecretSchema`. The importer's vault path will only
+ * see the survivors, so the user just needs to know what got dropped and
+ * why — not approve the recovery (decryptVaultBlock already filtered).
+ */
+const VaultPartialDecryptPanel: React.FC<{ drops: { index: number; reason: string }[] }> = ({ drops }) => (
+  <Alert
+    type="warning"
+    showIcon
+    icon={<ExclamationCircleOutlined />}
+    message={`${drops.length} secret${drops.length === 1 ? '' : 's'} couldn't be decoded — will be omitted from the import`}
+    description={
+      <ul style={{ margin: 0, paddingLeft: 20 }}>
+        {drops.slice(0, 6).map((d) => (
+          <li key={d.index} style={{ fontSize: 11 }}>
+            <Tag>#{d.index}</Tag>
+            <Text>{d.reason}</Text>
+          </li>
+        ))}
+        {drops.length > 6 && (
+          <li style={{ fontSize: 11 }}>
+            <Text type="secondary">…and {drops.length - 6} more</Text>
+          </li>
+        )}
+      </ul>
+    }
+  />
+);
+
+const DedupBanner: React.FC<{ dedup: DedupMatchesResult; onDismiss: () => void }> = ({ dedup, onDismiss }) => {
   if (dedup.exportIdSameTarget.length > 0) {
     const m = dedup.exportIdSameTarget[0];
     if (!m) return null;
@@ -867,6 +952,8 @@ const DedupBanner: React.FC<{ dedup: DedupMatchesResult }> = ({ dedup }) => {
       <Alert
         type="info"
         showIcon
+        closable
+        onClose={onDismiss}
         icon={<InfoCircleOutlined />}
         message={`You imported export ${m.exportId} here on ${new Date(m.importedAt).toLocaleDateString()}`}
         description="Re-importing it will apply your current per-entity strategy choices."
@@ -880,6 +967,8 @@ const DedupBanner: React.FC<{ dedup: DedupMatchesResult }> = ({ dedup }) => {
       <Alert
         type="info"
         showIcon
+        closable
+        onClose={onDismiss}
         message={`You also imported export ${m.exportId} into "${m.workspaceName}"`}
         description="That workspace is unaffected by this import."
       />
@@ -892,6 +981,8 @@ const DedupBanner: React.FC<{ dedup: DedupMatchesResult }> = ({ dedup }) => {
       <Alert
         type="info"
         showIcon
+        closable
+        onClose={onDismiss}
         message={`A workspace from this source already exists ("${m.workspaceName}")`}
         description="Switch the target above to refresh it, or import as a new copy."
       />

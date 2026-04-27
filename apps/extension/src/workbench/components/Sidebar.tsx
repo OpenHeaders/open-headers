@@ -17,8 +17,10 @@
 import {
   AimOutlined,
   BorderLeftOutlined,
+  CloseOutlined,
   DownloadOutlined,
   EllipsisOutlined,
+  ExportOutlined,
   FolderOpenOutlined,
   MenuUnfoldOutlined,
   MinusOutlined,
@@ -70,6 +72,14 @@ interface SidebarProps {
    * authoritative on how an entity-ref maps to an `ExportModalScope`.
    */
   onExportEntity?: (entity: import('../App').SidebarExportEntity) => void;
+  /**
+   * Open the workspace-export modal scoped to a multi-select set of
+   * sidebar entities. Aggregation into a single `ExportSelection`
+   * (per-type uid lists) lives in App.tsx so the sidebar stays
+   * responsibility-pure: it tracks selection, owns the keyboard/mouse
+   * gestures, and hands the consumer the resolved entity list.
+   */
+  onExportSelection?: (entities: import('../App').SidebarExportEntity[]) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onSelectTemplate?: (uid: string) => void;
@@ -107,6 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateRule,
   onDeleteRule,
   onExportEntity,
+  onExportSelection,
   onOpenCollectionOverview,
   onOpenFolderOverview,
   onSelectTemplate,
@@ -236,6 +247,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     return base;
   });
+
+  // Multi-select export selection state. Distinct from `focusedId` /
+  // `isSelected` (which track active-tab navigation) — these track which
+  // sidebar entities are queued for a combined "Export selected…" call.
+  // Cmd/Ctrl+click toggles a single entry; Shift+click extends a range
+  // anchored at the last toggled exportable id. Plain click clears.
+  // Cleared on view change, filter change, and explicit Esc.
+  const [exportSelectedIds, setExportSelectedIds] = useState<Set<string>>(() => new Set());
+  const lastExportSelectAnchorRef = useRef<string | null>(null);
 
   const [openWithSingleClick, setOpenWithSingleClick] = useState(true);
   const [openCollectionsWithSingleClick, setOpenCollectionsWithSingleClick] = useState(true);
@@ -578,11 +598,49 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const handleItemClick = useCallback(
-    (node: TreeNode) => {
+    (node: TreeNode, e: React.MouseEvent) => {
+      const modifierToggle = (e.metaKey || e.ctrlKey) && !e.shiftKey;
+      const modifierRange = e.shiftKey;
+
+      if ((modifierToggle || modifierRange) && node.exportEntity) {
+        // Multi-select gesture — suppress nav. Cmd/Ctrl toggles, Shift
+        // extends a contiguous range over exportable nodes anchored at
+        // the last toggled id (or this node if no anchor yet).
+        e.preventDefault();
+        if (modifierRange) {
+          const exportableIds = allFlatItems.filter((n) => n.exportEntity).map((n) => n.id);
+          const anchor = lastExportSelectAnchorRef.current ?? node.id;
+          const a = exportableIds.indexOf(anchor);
+          const b = exportableIds.indexOf(node.id);
+          if (a >= 0 && b >= 0) {
+            const [from, to] = a <= b ? [a, b] : [b, a];
+            setExportSelectedIds((prev) => {
+              const next = new Set(prev);
+              for (let i = from; i <= to; i++) next.add(exportableIds[i]!);
+              return next;
+            });
+            lastExportSelectAnchorRef.current = node.id;
+          }
+        } else {
+          setExportSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(node.id)) next.delete(node.id);
+            else next.add(node.id);
+            return next;
+          });
+          lastExportSelectAnchorRef.current = node.id;
+        }
+        setFocusedId(node.id);
+        return;
+      }
+
+      // Plain click — clear any multi-select set, then normal nav.
+      if (exportSelectedIds.size > 0) setExportSelectedIds(new Set());
+      lastExportSelectAnchorRef.current = null;
       setFocusedId(node.id);
       if (shouldOpenOnSingleClick(node)) node.onOpen?.();
     },
-    [shouldOpenOnSingleClick],
+    [shouldOpenOnSingleClick, allFlatItems, exportSelectedIds.size],
   );
 
   const handleItemDoubleClick = useCallback(
@@ -622,6 +680,30 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [alwaysSelectOpened, activeTabId, selectOpenedFile]);
 
+  // Multi-select set is bound to the current view + filter context — a
+  // pick made under "http-rules" with no filter would silently include
+  // hidden nodes if the user switched view or typed a query, so clear it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset on view/filter change
+  useEffect(() => {
+    if (exportSelectedIds.size === 0) return;
+    setExportSelectedIds(new Set());
+    lastExportSelectAnchorRef.current = null;
+  }, [view, filterText]);
+
+  const resolveExportSelectionEntities = useCallback((): import('../App').SidebarExportEntity[] => {
+    const byId = new Map<string, import('../App').SidebarExportEntity>();
+    for (const n of allFlatItems) {
+      if (exportSelectedIds.has(n.id) && n.exportEntity) byId.set(n.id, n.exportEntity);
+    }
+    return Array.from(byId.values());
+  }, [allFlatItems, exportSelectedIds]);
+
+  const handleExportSelectedClick = useCallback(() => {
+    const entities = resolveExportSelectionEntities();
+    if (entities.length === 0) return;
+    onExportSelection?.(entities);
+  }, [resolveExportSelectionEntities, onExportSelection]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -659,9 +741,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         e.preventDefault();
         const node = allFlatItems.find((n) => n.id === focusedId);
         if (node?.canRename) setRenamingId(focusedId);
+      } else if (e.key === 'Escape' && exportSelectedIds.size > 0) {
+        e.preventDefault();
+        setExportSelectedIds(new Set());
+        lastExportSelectAnchorRef.current = null;
       }
     },
-    [allFlatItems, focusedId, expandedKeys, toggleExpand],
+    [allFlatItems, focusedId, expandedKeys, toggleExpand, exportSelectedIds.size],
   );
 
   const createMenuItems = [
@@ -754,7 +840,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         isFocused={isFocused(node.id)}
         isRenaming={renamingId === node.id}
         isExpanded={node.expandable ? expandedKeys.has(node.id) : undefined}
-        onClick={() => handleItemClick(node)}
+        isExportSelected={exportSelectedIds.has(node.id)}
+        onClick={(e) => handleItemClick(node, e)}
         onDoubleClick={() => handleItemDoubleClick(node)}
         onStartRename={() => {
           if (renamingId === node.id) setRenamingId(null);
@@ -841,6 +928,36 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <PlusOutlined />
               </button>
             </Tooltip>
+          )}
+          {exportSelectedIds.size > 0 && onExportSelection && (
+            <>
+              <Tooltip title={`Export ${exportSelectedIds.size} selected…`} placement="bottom">
+                <button
+                  type="button"
+                  className="rules-sidebar-toolbar-icon"
+                  style={{ color: token.colorPrimary, background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={handleExportSelectedClick}
+                  aria-label={`Export ${exportSelectedIds.size} selected items`}
+                >
+                  <ExportOutlined />
+                  <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600 }}>{exportSelectedIds.size}</span>
+                </button>
+              </Tooltip>
+              <Tooltip title="Clear selection" placement="bottom">
+                <button
+                  type="button"
+                  className="rules-sidebar-toolbar-icon"
+                  style={{ color: token.colorTextSecondary, background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={() => {
+                    setExportSelectedIds(new Set());
+                    lastExportSelectAnchorRef.current = null;
+                  }}
+                  aria-label="Clear export selection"
+                >
+                  <CloseOutlined />
+                </button>
+              </Tooltip>
+            </>
           )}
           <Tooltip title="Select Opened Tab" placement="bottom">
             <button

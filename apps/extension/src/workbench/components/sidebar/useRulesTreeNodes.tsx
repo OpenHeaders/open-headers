@@ -4,6 +4,7 @@ import { hasNestedPauseMarkers, isRuleComplete, type PauseMarkers } from '@openh
 import { useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
+import { exportNodeFields } from './export-fields';
 import { composeBadge, iconEl } from './icons';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
@@ -90,9 +91,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
             canRename: true,
             canDelete: true,
             canAddChild: true,
-            ...(p.onExportEntity
-              ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
-              : {}),
+            ...exportNodeFields({ kind: 'folder', uid: node.uid, name: node.name }, p.onExportEntity),
             onOpen: () => {
               p.toggleExpand(fid);
               p.onOpenFolderOverview?.(node.uid, node.name);
@@ -216,9 +215,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 p.onDeleteRule?.(node.uid);
               }),
-            ...(p.onExportEntity
-              ? { onExport: () => p.onExportEntity?.({ kind: 'rule', uid: node.uid, name: node.name }) }
-              : {}),
+            ...exportNodeFields({ kind: 'rule', uid: node.uid, name: node.name }, p.onExportEntity),
           });
         }
       }
@@ -296,9 +293,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
         canRename: true,
         canDelete: true,
         canAddChild: true,
-        ...(p.onExportEntity
-          ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
-          : {}),
+        ...exportNodeFields({ kind: 'collection', uid: collection.uid, name: collection.name }, p.onExportEntity),
         onOpen: () => {
           p.toggleExpand(colId);
           p.onOpenCollectionOverview?.(collection.uid, collection.name);

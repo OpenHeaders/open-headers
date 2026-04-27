@@ -2,6 +2,7 @@ import { isWorkflowComplete } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { createElement, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
+import { exportNodeFields } from './export-fields';
 import { composeBadge } from './icons';
 import type { TreeNode } from './types';
 
@@ -166,9 +167,7 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
           p.confirmDelete(wf.name, () => {
             void p.deleteWorkflow(wf.uid);
           }),
-        ...(p.onExportEntity
-          ? { onExport: () => p.onExportEntity?.({ kind: 'liveWorkflow', uid: wf.uid, name: wf.name }) }
-          : {}),
+        ...exportNodeFields({ kind: 'liveWorkflow', uid: wf.uid, name: wf.name }, p.onExportEntity),
       });
     }
     return items;

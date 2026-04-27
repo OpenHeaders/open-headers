@@ -4,6 +4,7 @@ import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
+import { exportNodeFields } from './export-fields';
 import { composeBadge, iconEl, methodTag } from './icons';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
@@ -100,6 +101,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                 ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
                 : {}),
             }),
+            ...exportNodeFields({ kind: 'folder', uid: node.uid, name: node.name }, p.onExportEntity),
           });
           if (isExpanded) {
             const children = walkRequestTree(node.children, depth + 1, fid, collectionId);
@@ -148,9 +150,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteRequest(node.uid);
               }),
-            ...(p.onExportEntity
-              ? { onExport: () => p.onExportEntity?.({ kind: 'request', uid: node.uid, name: node.name }) }
-              : {}),
+            ...exportNodeFields({ kind: 'request', uid: node.uid, name: node.name }, p.onExportEntity),
           });
         }
       }
@@ -223,6 +223,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         canRename: true,
         canDelete: true,
         canAddChild: true,
+        ...exportNodeFields({ kind: 'collection', uid: collection.uid, name: collection.name }, p.onExportEntity),
         onOpen: () => p.toggleExpand(colId),
         onRename: async (name) => {
           void p.renameRequestCollectionRpc(collection.uid, name);

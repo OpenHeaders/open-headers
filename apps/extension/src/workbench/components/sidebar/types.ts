@@ -44,6 +44,13 @@ export interface TreeNode {
    * leaves in PR 1B; PR 5 extends to every exportable entity type.
    */
   onExport?: () => void;
+  /**
+   * Identity of this node as an exportable entity. Present iff the node
+   * carries `onExport`; consumed by the sidebar's multi-select aggregator
+   * so cmd/ctrl+click and shift+click can build a single combined export
+   * across heterogeneous picks (rules, requests, collections, …).
+   */
+  exportEntity?: import('../../App').SidebarExportEntity;
   /** Items shown on `+` — create affordances only (Add Rule / Add
    *  Request / Add Folder). */
   addMenuItems?: ItemType[];

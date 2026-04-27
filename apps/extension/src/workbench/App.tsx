@@ -95,7 +95,11 @@ import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
  * and parent containers).
  */
 export type SidebarExportEntity =
-  | { kind: 'rule' | 'request' | 'template' | 'environment' | 'liveWorkflow' | 'liveVariable'; uid: string; name: string }
+  | {
+      kind: 'rule' | 'request' | 'template' | 'environment' | 'liveWorkflow' | 'liveVariable';
+      uid: string;
+      name: string;
+    }
   | { kind: 'collection' | 'folder'; uid: string; name: string };
 
 /**
@@ -107,7 +111,12 @@ function buildEntityExportScope(entity: SidebarExportEntity): ExportModalScope {
   const slug = slugify(entity.name) || 'untitled';
   switch (entity.kind) {
     case 'rule':
-      return { kind: 'selection', label: `Rule — ${entity.name}`, slug: `rule-${slug}`, selection: { rules: [entity.uid] } };
+      return {
+        kind: 'selection',
+        label: `Rule — ${entity.name}`,
+        slug: `rule-${slug}`,
+        selection: { rules: [entity.uid] },
+      };
     case 'request':
       return {
         kind: 'selection',
@@ -158,6 +167,55 @@ function buildEntityExportScope(entity: SidebarExportEntity): ExportModalScope {
         selection: { folders: [entity.uid] },
       };
   }
+}
+
+/**
+ * Aggregate a multi-select set of sidebar entities into a single
+ * `selection` scope. Per-type uid lists fall out naturally — the gatherer
+ * already accepts heterogeneous picks (rules + collections + envs in one
+ * call) and auto-expands collections/folders to descendants. Label and
+ * slug summarize the mix; the underlying envelope is the same one-file
+ * shape (design §1.2 — one format, three callers).
+ */
+function buildSelectionExportScope(entities: SidebarExportEntity[]): ExportModalScope {
+  const sel: import('@/background/modules/workspace-export-gatherer').ExportSelection = {};
+  const pushUid = (key: keyof typeof sel, uid: string) => {
+    const arr = (sel[key] as string[] | undefined) ?? [];
+    if (!arr.includes(uid)) arr.push(uid);
+    (sel[key] as string[]) = arr;
+  };
+  for (const e of entities) {
+    switch (e.kind) {
+      case 'rule':
+        pushUid('rules', e.uid);
+        break;
+      case 'request':
+        pushUid('requests', e.uid);
+        break;
+      case 'template':
+        pushUid('templates', e.uid);
+        break;
+      case 'environment':
+        pushUid('environments', e.uid);
+        break;
+      case 'liveWorkflow':
+        pushUid('liveWorkflows', e.uid);
+        break;
+      case 'liveVariable':
+        pushUid('liveVariables', e.uid);
+        break;
+      case 'collection':
+        pushUid('collections', e.uid);
+        break;
+      case 'folder':
+        pushUid('folders', e.uid);
+        break;
+    }
+  }
+  const total = entities.length;
+  const label = total === 1 ? `Selection — ${entities[0]!.name}` : `Selection — ${total} items`;
+  const slug = `selection-${total}`;
+  return { kind: 'selection', label, slug, selection: sel };
 }
 
 // ── Shell loader ────────────────────────────────────────────────────
@@ -376,9 +434,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   const [importHarOpen, setImportHarOpen] = useState(false);
   const [importHarContext, setImportHarContext] = useState<{ collectionId?: string } | undefined>(undefined);
   const [importPostmanOpen, setImportPostmanOpen] = useState(false);
-  const [exportModalState, setExportModalState] = useState<
-    { open: false } | { open: true; scope: ExportModalScope }
-  >({ open: false });
+  const [exportModalState, setExportModalState] = useState<{ open: false } | { open: true; scope: ExportModalScope }>({
+    open: false,
+  });
   const [importPreviewState, setImportPreviewState] = useState<
     | { open: false }
     | { open: true; rawText: string; initialError?: string; source: ImportPreviewSource }
@@ -1339,8 +1397,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onSelectRule={openEditTab}
               onCreateRule={openCreateTab}
               onDeleteRule={handleDeleteRule}
-              onExportEntity={(args) =>
-                setExportModalState({ open: true, scope: buildEntityExportScope(args) })
+              onExportEntity={(args) => setExportModalState({ open: true, scope: buildEntityExportScope(args) })}
+              onExportSelection={(entities) =>
+                setExportModalState({ open: true, scope: buildSelectionExportScope(entities) })
               }
               onOpenCollectionOverview={openCollectionOverview}
               onOpenFolderOverview={openFolderOverview}

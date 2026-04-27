@@ -3,6 +3,7 @@ import type { V5 } from '@openheaders/core/types';
 import { createElement, useCallback, useMemo } from 'react';
 import { TEMPLATES_BY_TYPE } from '../../rule-templates';
 import { renderTwoToneIcon } from '../TwoToneIconPicker';
+import { exportNodeFields } from './export-fields';
 import { iconEl } from './icons';
 import { DEFAULT_TEMPLATE_COLLECTION, templateCollectionMenuItems, templateFolderMenuItems } from './menus';
 import type { TreeNode } from './types';
@@ -81,6 +82,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
             canRename: true,
             canDelete: true,
             canAddChild: true,
+            ...exportNodeFields({ kind: 'folder', uid: node.uid, name: node.name }, p.onExportEntity),
             onOpen: () => {
               p.toggleExpand(fid);
               p.onOpenTemplateFolderOverview?.(node.uid, node.name);
@@ -99,7 +101,9 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
                 p.confirmDelete(node.name, () => {
                   void p.deleteTemplateFolder(node.uid);
                 }),
-              p.onExportEntity ? () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) : undefined,
+              p.onExportEntity
+                ? () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name })
+                : undefined,
             ),
           });
           if (isExpanded) {
@@ -148,9 +152,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
               p.confirmDelete(node.name, () => {
                 void p.deleteTemplate(node.uid);
               }),
-            ...(p.onExportEntity
-              ? { onExport: () => p.onExportEntity?.({ kind: 'template', uid: node.uid, name: node.name }) }
-              : {}),
+            ...exportNodeFields({ kind: 'template', uid: node.uid, name: node.name }, p.onExportEntity),
           });
         }
       }
@@ -276,6 +278,9 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
         canRename: !isDefault,
         canDelete: !isDefault,
         canAddChild: true,
+        ...(isDefault
+          ? {}
+          : exportNodeFields({ kind: 'collection', uid: collection.uid, name: collection.name }, p.onExportEntity)),
         onOpen: () => {
           p.toggleExpand(colId);
           p.onOpenTemplateCollectionOverview?.(collection.uid, collection.name);

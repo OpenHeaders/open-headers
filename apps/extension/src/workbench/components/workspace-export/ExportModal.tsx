@@ -370,6 +370,20 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
                   Use only when sharing with a system you fully trust (e.g. backup to your own encrypted drive). Cannot
                   be sent as a deep link — the URL would land in browser history.
                 </Paragraph>
+                <Paragraph style={{ marginBottom: 8 }}>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<LockOutlined />}
+                    onClick={() => {
+                      setVaultMode('encrypted');
+                      setPlaintextAcknowledged(false);
+                      setLastFingerprints(null);
+                    }}
+                  >
+                    Switch to encrypted (recommended)
+                  </Button>
+                </Paragraph>
                 <Checkbox checked={plaintextAcknowledged} onChange={(e) => setPlaintextAcknowledged(e.target.checked)}>
                   I understand the risks
                 </Checkbox>

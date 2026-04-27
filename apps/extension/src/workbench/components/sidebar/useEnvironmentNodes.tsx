@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import { createElement, useMemo } from 'react';
 import { scopeBadge } from '../shared/scope-colors';
+import { exportNodeFields } from './export-fields';
 import type { TreeNode } from './types';
 
 interface UseEnvironmentNodesParams {
@@ -51,9 +52,7 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
         canRename: true,
         canDelete: true,
         canAddChild: false,
-        ...(p.onExportEntity
-          ? { onExport: () => p.onExportEntity?.({ kind: 'environment', uid: env.uid, name: env.name }) }
-          : {}),
+        ...exportNodeFields({ kind: 'environment', uid: env.uid, name: env.name }, p.onExportEntity),
         onOpen: () => p.onSelectEnvironment?.(env.uid, env.name),
         onRename: async (name: string) => {
           void p.renameEnvironment(env.uid, name);
