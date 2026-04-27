@@ -154,6 +154,7 @@ import {
 import { startRun } from './test-runner';
 import { getResolvedRules } from './variables-resolver';
 import { gatherWorkspaceExport } from './workspace-export-gatherer';
+import { importWorkspace as importWorkspaceFromExport } from './workspace-import-orchestrator';
 import { openWorkspaceIntent } from './workspace-navigator';
 import {
   deleteWorkspaceWithData,
@@ -366,6 +367,21 @@ export function handleGeneralMessage(
           const yaml = serializeWorkspaceExport(envelope);
           safeResponse({ success: true, yaml, exportId: envelope.exportId, scope: envelope.scope });
         })
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'importWorkspace') {
+      // Drive the import orchestrator. SW reads target state, runs a
+      // fresh diff under the workspace-import lock, applies the plan,
+      // and persists the report. See `workspace-import-orchestrator.ts`.
+      importWorkspaceFromExport({
+        incoming: message.incoming as Parameters<typeof importWorkspaceFromExport>[0]['incoming'],
+        strategies: message.strategies as Parameters<typeof importWorkspaceFromExport>[0]['strategies'],
+        backupRestore: message.backupRestore as boolean | undefined,
+        trustExport: message.trustExport as boolean | undefined,
+        target: message.target as Parameters<typeof importWorkspaceFromExport>[0]['target'],
+        sourceHash: message.sourceHash as string,
+      })
+        .then((res) => safeResponse({ success: true, report: res.report, targetWorkspaceId: res.targetWorkspaceId }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'setActiveWorkspace') {

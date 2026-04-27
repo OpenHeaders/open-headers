@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createReport,
   diffImportReports,
+  type FlatImportReport,
   type ImportDrop,
-  type ImportReport,
   type ImportTransform,
   recordDrop,
   recordTransform,
@@ -11,14 +11,14 @@ import {
 
 function seedReport(
   opts: {
-    source?: ImportReport['source'];
+    source?: FlatImportReport['source'];
     hash?: string;
     importedAt?: string;
     imported?: number;
     drops?: ImportDrop[];
     transforms?: ImportTransform[];
   } = {},
-): ImportReport {
+): FlatImportReport {
   const r = createReport(opts.source ?? 'postman-v2.1', opts.imported ?? 1);
   r.sourceHash = opts.hash ?? 'sha256:deadbeef';
   if (opts.importedAt) r.importedAt = opts.importedAt;

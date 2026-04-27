@@ -24,6 +24,7 @@
  * plan, and the preview modal renders it as the collision tree.
  */
 
+import * as v from 'valibot';
 import type {
   Collection,
   Environment,
@@ -44,14 +45,17 @@ import type { WorkspaceExport } from './schema';
  * Per-entity action the importer will take. Not all values apply to
  * every entity type — see `allowedStrategies` on each `DiffEntry`.
  */
-export type CollisionStrategy =
-  | 'new-uid'
-  | 'update'
-  | 'skip'
-  | 'merge-by-name'
-  | 'replace'
-  | 'merge-vars'
-  | 'merge-children';
+export const COLLISION_STRATEGIES = [
+  'new-uid',
+  'update',
+  'skip',
+  'merge-by-name',
+  'replace',
+  'merge-vars',
+  'merge-children',
+] as const;
+export const CollisionStrategySchema = v.picklist(COLLISION_STRATEGIES);
+export type CollisionStrategy = v.InferOutput<typeof CollisionStrategySchema>;
 
 export type CollisionState = 'no-collision' | 'collision-uid' | 'collision-name';
 

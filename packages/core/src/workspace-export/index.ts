@@ -42,7 +42,7 @@ export type {
   DiffSingleton,
   TargetWorkspaceState,
 } from './diff';
-export { applyBackupRestoreToggle, diffWorkspaceExport } from './diff';
+export { applyBackupRestoreToggle, COLLISION_STRATEGIES, CollisionStrategySchema, diffWorkspaceExport } from './diff';
 export type {
   ImporterOptions,
   ImportPlan,
@@ -54,6 +54,8 @@ export type {
   StrategyMap,
 } from './importer';
 export { buildImportPlan } from './importer';
+export type { MissingDep, MissingDepType } from './missing-deps';
+export { MISSING_DEP_TYPES, MissingDepSchema, MissingDepTypeSchema, walkMissingDeps } from './missing-deps';
 export {
   WORKSPACE_EXPORT_ENTITIES_FIELD_ORDER,
   WORKSPACE_EXPORT_FIELD_ORDER,

@@ -152,6 +152,35 @@ export interface BridgeRpcContract {
       error?: string;
     };
   };
+  /**
+   * Apply a parsed `WorkspaceExport` to a target workspace. SW reads
+   * the target's current state under a workspace-import lock, runs the
+   * collision diff fresh (handles concurrent edits during preview),
+   * resolves the user's per-entity strategies into an ImportPlan, and
+   * drives `chrome.storage` writes. Returns the persisted
+   * `WorkspaceExportImportReport`.
+   */
+  importWorkspace: {
+    req: {
+      /** The validated export envelope (already parsed via `parseWorkspaceExport`). */
+      incoming: import('@openheaders/core/workspace-export').WorkspaceExport;
+      /** User's per-entity strategy choices from the preview modal. */
+      strategies: import('@openheaders/core/workspace-export').StrategyMap;
+      /** Backup-restore toggle ("this is mine — prefer update-by-uid"). */
+      backupRestore?: boolean;
+      /** Advanced override — when true, preserves source enabled flags. */
+      trustExport?: boolean;
+      target: { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
+      /** SHA-256 of the original raw bytes (`sha256:<hex>`). */
+      sourceHash: string;
+    };
+    res: {
+      success: boolean;
+      report?: import('@openheaders/core/import').WorkspaceExportImportReport;
+      targetWorkspaceId?: string;
+      error?: string;
+    };
+  };
   setActiveWorkspace: {
     req: { id: string };
     res: { success: boolean; error?: string };

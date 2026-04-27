@@ -5,7 +5,7 @@
  * mutex so concurrent dedup races are observable.
  */
 
-import type { ImportReport } from '@openheaders/core/import';
+import type { FlatImportReport, ImportReport } from '@openheaders/core/import';
 import { createReport } from '@openheaders/core/import';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -84,7 +84,7 @@ afterEach(() => {
 
 // Fabricate a report that matches the schema so parseEntityArray
 // doesn't reject it at read time.
-function stubReport(hash: string, source: ImportReport['source'] = 'curl'): ImportReport {
+function stubReport(hash: string, source: FlatImportReport['source'] = 'curl'): ImportReport {
   const r = createReport(source);
   r.sourceHash = hash;
   return r;

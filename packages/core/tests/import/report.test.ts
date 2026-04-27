@@ -10,11 +10,14 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
   createReport,
+  createWorkspaceExportReport,
+  FLAT_IMPORT_SOURCES,
   hashImportSource,
   IMPORT_SOURCES,
   ImportReportSchema,
   recordDrop,
   recordTransform,
+  WorkspaceExportImportReportSchema,
 } from '../../src/import/report';
 
 describe('ImportReportSchema', () => {
@@ -59,8 +62,8 @@ describe('ImportReportSchema', () => {
     ).toBe(false);
   });
 
-  it('accepts every listed IMPORT_SOURCES value', () => {
-    for (const source of IMPORT_SOURCES) {
+  it('accepts every flat IMPORT_SOURCES value', () => {
+    for (const source of FLAT_IMPORT_SOURCES) {
       const parsed = v.safeParse(ImportReportSchema, {
         schemaVersion: 5,
         source,
@@ -72,6 +75,61 @@ describe('ImportReportSchema', () => {
       });
       expect(parsed.success).toBe(true);
     }
+  });
+
+  it('accepts a workspace-export report with the required extra fields', () => {
+    const report = {
+      schemaVersion: 5,
+      source: 'workspace-export' as const,
+      sourceHash: '',
+      importedAt: '2026',
+      summary: { imported: 0, dropped: 0, transformed: 0 },
+      drops: [],
+      transforms: [],
+      exportId: 'a1b2c3d4',
+      perEntityStrategies: { 'rules:abcd1234': 'new-uid' as const },
+      missingDeps: [{ type: 'env' as const, name: 'STAGING', referencedBy: ['rules:abcd1234'] }],
+      targetMode: 'current' as const,
+      sourceWorkspaceLabel: 'My Workspace',
+      sourceAppVersion: '5.0.4',
+    };
+    expect(v.parse(WorkspaceExportImportReportSchema, report)).toEqual(report);
+    expect(v.parse(ImportReportSchema, report)).toEqual(report);
+  });
+
+  it('rejects a workspace-export report missing the extra fields', () => {
+    expect(
+      v.safeParse(ImportReportSchema, {
+        schemaVersion: 5,
+        source: 'workspace-export',
+        sourceHash: '',
+        importedAt: '2026',
+        summary: { imported: 0, dropped: 0, transformed: 0 },
+        drops: [],
+        transforms: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('exposes workspace-export in the IMPORT_SOURCES picklist', () => {
+    expect(IMPORT_SOURCES).toContain('workspace-export');
+  });
+});
+
+describe('createWorkspaceExportReport', () => {
+  it('builds a workspace-export arm with defaults populated', () => {
+    const report = createWorkspaceExportReport({
+      exportId: 'a1b2c3d4',
+      targetMode: 'new',
+      sourceWorkspaceLabel: 'Test Workspace',
+      sourceAppVersion: '5.0.4',
+    });
+    expect(report.source).toBe('workspace-export');
+    expect(report.exportId).toBe('a1b2c3d4');
+    expect(report.perEntityStrategies).toEqual({});
+    expect(report.missingDeps).toEqual([]);
+    expect(report.targetMode).toBe('new');
+    expect(v.parse(WorkspaceExportImportReportSchema, report)).toEqual(report);
   });
 });
 

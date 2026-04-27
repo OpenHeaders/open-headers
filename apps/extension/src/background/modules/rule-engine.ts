@@ -38,6 +38,11 @@ const FORCED_REASONS = new Set([
   // flag, the hash guard would skip every alarm-driven recompile and
   // DNR would keep firing the stale code from boot time.
   'totp',
+  // Workspace-export import — even when imported rules land disabled,
+  // the DNR ruleset still needs to refresh so the new (still-disabled)
+  // rules are visible to the engine and can be enabled live without
+  // a workspace switch.
+  'import',
 ]);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
