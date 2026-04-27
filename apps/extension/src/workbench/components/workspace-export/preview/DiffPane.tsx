@@ -160,7 +160,14 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {showsDiff ? (
+          // `key` forces a clean remount when the layout flips —
+          // `editor.updateOptions({renderSideBySide})` is supposed to
+          // be live but the @monaco-editor/react wrapper sometimes
+          // misses the propagation, leaving the user staring at the
+          // old layout. Remount is cheap (single entity's YAML) and
+          // visibly correct.
           <DiffEditor
+            key={sideBySide ? 'sbs' : 'inline'}
             original={yaml?.targetYaml ?? ''}
             modified={yaml?.incomingYaml ?? ''}
             language="yaml"

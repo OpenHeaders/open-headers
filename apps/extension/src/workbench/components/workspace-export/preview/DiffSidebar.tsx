@@ -71,9 +71,11 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
   return (
     <div
       style={{
+        height: '100%',
         borderRight: `1px solid ${token.colorBorderSecondary}`,
         background: token.colorFillQuaternary,
         overflowY: 'auto',
+        overflowX: 'hidden',
         padding: '6px 0',
         fontFeatureSettings: '"tnum" 1',
       }}
@@ -300,6 +302,7 @@ const RowButton: React.FC<RowButtonProps> = ({
         <span
           style={{
             flex: 1,
+            minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -320,6 +323,7 @@ const RowButton: React.FC<RowButtonProps> = ({
               fontVariantNumeric: 'tabular-nums',
               color: token.colorTextTertiary,
               flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             {lineCounts.added > 0 && <span style={{ color: token.colorSuccess }}>+{lineCounts.added}</span>}
