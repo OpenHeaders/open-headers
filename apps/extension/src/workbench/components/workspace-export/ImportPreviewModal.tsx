@@ -493,7 +493,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       onCancel={importing ? undefined : onCancel}
       width="90vw"
       centered
-      destroyOnClose
+      destroyOnHidden
       footer={footer}
       styles={{ body: { maxHeight: 'calc(90vh - 110px)', overflowY: 'auto', paddingTop: 12 } }}
     >
@@ -512,7 +512,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       )}
 
       {parsed && (
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <SourceAttribution envelope={parsed.envelope} drops={parsed.drops} />
 
           <TargetControl
@@ -575,7 +575,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               type="warning"
               showIcon
               icon={<WarningOutlined />}
-              message="This export contains plaintext vault secrets"
+              title="This export contains plaintext vault secrets"
               description="Anyone with this file can read every secret it carries. Consider re-issuing as encrypted before forwarding."
             />
           )}
@@ -584,7 +584,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             <Alert
               type="warning"
               showIcon
-              message="Data changed since you opened this preview"
+              title="Data changed since you opened this preview"
               description="The target workspace was modified by another tab. The collision tree below has been refreshed — review and click Import again."
             />
           )}
@@ -596,7 +596,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           )}
 
           {previewError && (
-            <Alert type="error" showIcon message="Couldn't compute collision diff" description={previewError} />
+            <Alert type="error" showIcon title="Couldn't compute collision diff" description={previewError} />
           )}
 
           {preview && (

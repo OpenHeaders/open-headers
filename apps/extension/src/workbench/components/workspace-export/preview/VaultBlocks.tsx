@@ -24,9 +24,9 @@ export const VaultEncryptedBlock: React.FC<{
     <Alert
       type="info"
       showIcon
-      message={`Encrypted vault — ${secretCount} secret${secretCount === 1 ? '' : 's'}`}
+      title={`Encrypted vault — ${secretCount} secret${secretCount === 1 ? '' : 's'}`}
       description={
-        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={6} style={{ width: '100%' }}>
           {hint && (
             <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
               <Text strong>Hint from sender: </Text>
@@ -68,7 +68,7 @@ export const VaultDecryptedBanner: React.FC<{
     type="success"
     showIcon
     icon={<CheckCircleOutlined />}
-    message={`Vault decrypted — ${secretCount} secret${secretCount === 1 ? '' : 's'} ready to import`}
+    title={`Vault decrypted — ${secretCount} secret${secretCount === 1 ? '' : 's'} ready to import`}
     description={
       <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12 }}>
         <div>
@@ -98,7 +98,7 @@ export const VaultPartialDecryptPanel: React.FC<{ drops: { index: number; reason
     type="warning"
     showIcon
     icon={<ExclamationCircleOutlined />}
-    message={`${drops.length} secret${drops.length === 1 ? '' : 's'} couldn't be decoded — will be omitted from the import`}
+    title={`${drops.length} secret${drops.length === 1 ? '' : 's'} couldn't be decoded — will be omitted from the import`}
     description={
       <ul style={{ margin: 0, paddingLeft: 20 }}>
         {drops.slice(0, 6).map((d) => (

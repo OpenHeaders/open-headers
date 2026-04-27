@@ -24,9 +24,9 @@ const StripScriptsTopRow: React.FC<{
       type="warning"
       showIcon
       icon={<WarningOutlined />}
-      message="Strip request scripts on import"
+      title="Strip request scripts on import"
       description={
-        <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size={4}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             Pre-checked for {sourceLabel} sources — request `preRequestScript` and `postResponseScript` will be removed
             so untrusted JavaScript can't run when you click Send.

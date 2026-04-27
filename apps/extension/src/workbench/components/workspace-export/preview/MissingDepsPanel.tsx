@@ -16,7 +16,7 @@ const MissingDepsPanel: React.FC<{ missingDeps: MissingDep[] }> = ({ missingDeps
     type="warning"
     showIcon
     icon={<ExclamationCircleOutlined />}
-    message={`${missingDeps.length} unresolved reference${missingDeps.length === 1 ? '' : 's'}`}
+    title={`${missingDeps.length} unresolved reference${missingDeps.length === 1 ? '' : 's'}`}
     description={
       <ul style={{ margin: 0, paddingLeft: 20 }}>
         {missingDeps.slice(0, 8).map((d) => (

@@ -64,7 +64,7 @@ const AdvancedDisclosure: React.FC<{
                 type="info"
                 showIcon
                 icon={<InfoCircleOutlined />}
-                message="Advanced overrides are hidden for low-trust sources"
+                title="Advanced overrides are hidden for low-trust sources"
                 description={`Save the file locally and use "Import from file…" if you need to override the protective defaults for this ${sourceLabel} import.`}
               />
             ),
@@ -81,7 +81,7 @@ const AdvancedDisclosure: React.FC<{
           key: 'advanced',
           label: 'Advanced',
           children: (
-            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={8} style={{ width: '100%' }}>
               <Checkbox checked={backupRestore} onChange={(e) => onBackupRestoreChange(e.target.checked)}>
                 <Text strong>This is mine — prefer update by uid</Text>
                 <div style={{ fontSize: 11 }}>

@@ -37,7 +37,7 @@ const ImportSinceLastDiffPanel: React.FC<{ diff: ImportSinceLastDiff }> = ({ dif
     return <Text type="secondary">No entities in either import.</Text>;
   }
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
       <Text type="secondary">
         Then: {diff.totals.prior} entities · Now: {diff.totals.incoming} ·{' '}
         <Text strong style={{ color: '#1677ff' }}>
@@ -100,7 +100,7 @@ const DedupBanner: React.FC<{
           closable
           onClose={onDismiss}
           icon={<InfoCircleOutlined />}
-          message={`You imported export ${m.exportId} here on ${new Date(m.importedAt).toLocaleDateString()}`}
+          title={`You imported export ${m.exportId} here on ${new Date(m.importedAt).toLocaleDateString()}`}
           description={
             <span>
               Re-importing it will apply your current per-entity strategy choices.
@@ -140,7 +140,7 @@ const DedupBanner: React.FC<{
         showIcon
         closable
         onClose={onDismiss}
-        message={`You also imported export ${m.exportId} into "${m.workspaceName}"`}
+        title={`You also imported export ${m.exportId} into "${m.workspaceName}"`}
         description="That workspace is unaffected by this import."
       />
     );
@@ -154,7 +154,7 @@ const DedupBanner: React.FC<{
         showIcon
         closable
         onClose={onDismiss}
-        message={`A workspace from this source already exists ("${m.workspaceName}")`}
+        title={`A workspace from this source already exists ("${m.workspaceName}")`}
         description="Switch the target above to refresh it, or import as a new copy."
       />
     );

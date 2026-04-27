@@ -20,7 +20,7 @@ const RejectionBanner: React.FC<{ rejection: ParseRejection }> = ({ rejection })
     <Alert
       type="error"
       showIcon
-      message={title}
+      title={title}
       description={
         <div>
           <Paragraph style={{ marginBottom: 4 }}>{body}</Paragraph>

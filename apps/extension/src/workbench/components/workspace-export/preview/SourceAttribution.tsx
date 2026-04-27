@@ -55,7 +55,7 @@ const SourceAttribution: React.FC<{ envelope: WorkspaceExport; drops: ImportDrop
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message={`${drops.length} entit${drops.length === 1 ? 'y' : 'ies'} couldn't be parsed and will be skipped`}
+          title={`${drops.length} entit${drops.length === 1 ? 'y' : 'ies'} couldn't be parsed and will be skipped`}
           description={
             <ul style={{ margin: 0, paddingLeft: 20 }}>
               {drops.slice(0, 5).map((d, idx) => (

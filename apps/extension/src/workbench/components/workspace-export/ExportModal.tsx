@@ -262,7 +262,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       title="Export"
       open={open}
       onCancel={onCancel}
-      destroyOnClose
+      destroyOnHidden
       width={620}
       footer={
         <Space>
@@ -285,7 +285,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
         </Space>
       }
     >
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <div>
           <Paragraph style={{ marginBottom: 4 }}>
             <Text strong>Source: </Text>
@@ -363,7 +363,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
             type="error"
             showIcon
             icon={<WarningOutlined />}
-            message="Plaintext secrets are readable by anyone who sees this file"
+            title="Plaintext secrets are readable by anyone who sees this file"
             description={
               <div>
                 <Paragraph style={{ marginBottom: 8 }}>
@@ -396,7 +396,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
           <Alert
             type="success"
             showIcon
-            message="Encrypted — share these fingerprints with the recipient"
+            title="Encrypted — share these fingerprints with the recipient"
             description={
               <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12 }}>
                 <div>
