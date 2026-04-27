@@ -119,15 +119,14 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
             padding: 24,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
+            alignItems: 'stretch',
             flex: 1,
             minHeight: 0,
             gap: 12,
             color: token.colorTextTertiary,
-            overflow: 'auto',
           }}
         >
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
             {isNew
               ? 'This entity is new — nothing on the target side to compare against.'
               : 'Nothing to diff — both sides are empty.'}
@@ -138,7 +137,8 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
                 margin: 0,
                 padding: 12,
                 width: '100%',
-                maxHeight: 320,
+                flex: 1,
+                minHeight: 0,
                 overflow: 'auto',
                 background: token.colorBgLayout,
                 borderRadius: 6,
