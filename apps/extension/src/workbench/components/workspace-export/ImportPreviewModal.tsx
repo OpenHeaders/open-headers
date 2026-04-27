@@ -28,7 +28,7 @@
  * only "Backup-restore mode" inside it — the §5.5 toggles ship later.
  */
 
-import { UploadOutlined, WarningOutlined } from '@ant-design/icons';
+import { UploadOutlined } from '@ant-design/icons';
 import { hashImportSource } from '@openheaders/core/import';
 import type { V5 } from '@openheaders/core/types';
 import {
@@ -43,17 +43,17 @@ import {
   VaultPayloadShapeError,
   type WorkspaceExport,
 } from '@openheaders/core/workspace-export';
-import { Alert, App as AntApp, Button, Empty, Modal, Space, Spin, Typography } from 'antd';
+import { App as AntApp, Button, Empty, Modal, Space, Spin, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
 import { call } from '@/utils/bridge';
-import AdvancedDisclosure from './preview/AdvancedDisclosure';
-import DedupBanner from './preview/DedupBanner';
+import AdvancedDrawer, { AdvancedTrigger } from './preview/AdvancedDrawer';
+import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
-import MissingDepsPanel from './preview/MissingDepsPanel';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
 import SourceAttribution from './preview/SourceAttribution';
+import StatusChips from './preview/StatusChips';
 import StripScriptsTopRow from './preview/StripScriptsTopRow';
 import TargetControl, { type ImportTargetSelection } from './preview/TargetControl';
 import type { ImportPreviewSource } from './preview/types';
@@ -151,6 +151,8 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [keepTargetCollectionOrder, setKeepTargetCollectionOrder] = useState(false);
   const [includeWorkspaceSettings, setIncludeWorkspaceSettings] = useState(false);
   const [refuseUidCollision, setRefuseUidCollision] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const [dedup, setDedup] = useState<DedupMatchesResult | null>(null);
   // Per-`(exportId, target)` dismissals for the soft-dedup banner. Lives
   // in sessionStorage so the dismissal persists across modal opens within
@@ -491,11 +493,11 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       open={open}
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>}
       onCancel={importing ? undefined : onCancel}
-      width="90vw"
+      width="95vw"
       centered
       destroyOnHidden
       footer={footer}
-      styles={{ body: { maxHeight: 'calc(90vh - 110px)', overflowY: 'auto', paddingTop: 12 } }}
+      styles={{ body: { maxHeight: 'calc(95vh - 110px)', overflowY: 'auto', paddingTop: 12 } }}
     >
       {parseRejection && <RejectionBanner rejection={parseRejection} />}
 
@@ -512,26 +514,45 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       )}
 
       {parsed && (
-        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-          <SourceAttribution envelope={parsed.envelope} drops={parsed.drops} />
-
-          <TargetControl
-            target={target}
-            onChange={setTarget}
-            workspaces={workspaces}
-            activeWorkspaceId={activeWorkspaceId}
-            envelope={parsed.envelope}
-          />
-
-          {dedup &&
-            (() => {
-              const key = `${parsed.envelope.exportId}:${preview?.targetWorkspaceId ?? 'new'}`;
-              if (dedupDismissed.has(key)) return null;
-              return (
-                <DedupBanner
-                  dedup={dedup}
-                  envelope={effectiveEnvelope}
-                  onDismiss={() => {
+        <div ref={modalBodyRef} style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SourceAttribution envelope={parsed.envelope} drops={[]} />
+            </div>
+            <div
+              style={{
+                flexShrink: 0,
+                paddingTop: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                gap: 6,
+              }}
+            >
+              <AdvancedTrigger
+                onClick={() => setAdvancedOpen(true)}
+                activeCount={
+                  (backupRestore ? 1 : 0) +
+                  (trustExport ? 1 : 0) +
+                  (stripScripts && !isLowTrustSource ? 1 : 0) +
+                  (omitOAuthConfigs ? 1 : 0) +
+                  (keepTargetCollectionOrder ? 1 : 0) +
+                  (refuseUidCollision ? 1 : 0)
+                }
+              />
+              <StatusChips
+                chips={buildImportStatusChips({
+                  envelope: parsed.envelope,
+                  drops: parsed.drops,
+                  dedup,
+                  dedupDismissed,
+                  effectiveEnvelope,
+                  staleSnapshot: !!staleSnapshotHash,
+                  previewError,
+                  missingDeps: preview?.missingDeps ?? [],
+                  targetWorkspaceId: preview?.targetWorkspaceId ?? null,
+                  onDismissDedup: () => {
+                    const key = `${parsed.envelope.exportId}:${preview?.targetWorkspaceId ?? 'new'}`;
                     setDedupDismissed((prev) => {
                       const next = new Set(prev);
                       next.add(key);
@@ -545,10 +566,19 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                       }
                       return next;
                     });
-                  }}
-                />
-              );
-            })()}
+                  },
+                })}
+              />
+            </div>
+          </div>
+
+          <TargetControl
+            target={target}
+            onChange={setTarget}
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            envelope={parsed.envelope}
+          />
 
           {parsed.envelope.secrets && !decryptedEnvelope && (
             <VaultEncryptedBlock
@@ -570,44 +600,19 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 
           {decryptedEnvelope && vaultPartialDrops.length > 0 && <VaultPartialDecryptPanel drops={vaultPartialDrops} />}
 
-          {parsed.envelope.meta.redactions.vault === 'plaintext' && (
-            <Alert
-              type="warning"
-              showIcon
-              icon={<WarningOutlined />}
-              title="This export contains plaintext vault secrets"
-              description="Anyone with this file can read every secret it carries. Consider re-issuing as encrypted before forwarding."
-            />
-          )}
-
-          {staleSnapshotHash && (
-            <Alert
-              type="warning"
-              showIcon
-              title="Data changed since you opened this preview"
-              description="The target workspace was modified by another tab. The collision tree below has been refreshed — review and click Import again."
-            />
-          )}
-
           {previewing && !preview && (
             <div style={{ textAlign: 'center', padding: 24 }}>
               <Spin />
             </div>
           )}
 
-          {previewError && (
-            <Alert type="error" showIcon title="Couldn't compute collision diff" description={previewError} />
-          )}
-
           {preview && (
             <>
-              {preview.missingDeps.length > 0 && <MissingDepsPanel missingDeps={preview.missingDeps} />}
-
               {isLowTrustSource && (
                 <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
               )}
 
-              <div style={{ height: '60vh', minHeight: 420, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ height: 'calc(95vh - 320px)', minHeight: 420, display: 'flex', flexDirection: 'column' }}>
                 <ImportDiffWorkspace
                   diff={preview.diff}
                   incomingEntities={{
@@ -618,29 +623,32 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                   onChangeStrategy={setStrategyFor}
                 />
               </div>
-
-              <AdvancedDisclosure
-                lowTrustSource={isLowTrustSource}
-                source={source ?? 'file'}
-                backupRestore={backupRestore}
-                onBackupRestoreChange={setBackupRestore}
-                trustExport={trustExport}
-                onTrustExportChange={setTrustExport}
-                stripScripts={stripScripts}
-                onStripScriptsChange={setStripScripts}
-                omitOAuthConfigs={omitOAuthConfigs}
-                onOmitOAuthConfigsChange={setOmitOAuthConfigs}
-                keepTargetCollectionOrder={keepTargetCollectionOrder}
-                onKeepTargetCollectionOrderChange={setKeepTargetCollectionOrder}
-                includeWorkspaceSettings={includeWorkspaceSettings}
-                onIncludeWorkspaceSettingsChange={setIncludeWorkspaceSettings}
-                refuseUidCollision={refuseUidCollision}
-                onRefuseUidCollisionChange={setRefuseUidCollision}
-                targetMode={target.mode}
-              />
             </>
           )}
-        </Space>
+
+          <AdvancedDrawer
+            open={advancedOpen}
+            onClose={() => setAdvancedOpen(false)}
+            getContainer={() => modalBodyRef.current ?? document.body}
+            lowTrustSource={isLowTrustSource}
+            source={source ?? 'file'}
+            backupRestore={backupRestore}
+            onBackupRestoreChange={setBackupRestore}
+            trustExport={trustExport}
+            onTrustExportChange={setTrustExport}
+            stripScripts={stripScripts}
+            onStripScriptsChange={setStripScripts}
+            omitOAuthConfigs={omitOAuthConfigs}
+            onOmitOAuthConfigsChange={setOmitOAuthConfigs}
+            keepTargetCollectionOrder={keepTargetCollectionOrder}
+            onKeepTargetCollectionOrderChange={setKeepTargetCollectionOrder}
+            includeWorkspaceSettings={includeWorkspaceSettings}
+            onIncludeWorkspaceSettingsChange={setIncludeWorkspaceSettings}
+            refuseUidCollision={refuseUidCollision}
+            onRefuseUidCollisionChange={setRefuseUidCollision}
+            targetMode={target.mode}
+          />
+        </div>
       )}
     </Modal>
   );
