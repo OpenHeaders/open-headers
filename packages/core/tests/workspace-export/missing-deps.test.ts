@@ -98,9 +98,7 @@ function makeRuleWithRef(
     name,
     type: 'header',
     enabled: true,
-    conditions: ref.valueWithRefs
-      ? [{ schemaVersion: 5, type: 'request-domains' as const, values: [ref.valueWithRefs] }]
-      : [],
+    conditions: ref.valueWithRefs ? [{ type: 'request-domains' as const, values: [ref.valueWithRefs] }] : [],
     action: { requestHeaders: [], responseHeaders: [] },
   };
   if (ref.collectionId) (r as HeaderRule & { collectionId: string }).collectionId = ref.collectionId;
@@ -201,10 +199,12 @@ describe('walkMissingDeps — live entities', () => {
       method: 'GET',
       url: 'https://openheaders.io',
       headers: [],
-      query: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
     };
     input.entities.requests = [req];
-    wf.steps = [{ schemaVersion: 5, id: 'step-0' as `step-${string}`, requestUid: 'req00001', captures: [] }];
+    wf.steps = [{ id: 'step-0' as `step-${string}`, requestUid: 'req00001', captures: [] }];
     input.entities.liveWorkflows = [wf];
     input.entities.liveVariables = [makeLiveVar('lv000001', 'TOKEN', 'wf000001')];
     const exp = buildWorkspaceExport(input);
@@ -290,7 +290,7 @@ describe('walkMissingDeps — variable references', () => {
     const vault: Vault = {
       schemaVersion: 5,
       version: 1,
-      secrets: [{ schemaVersion: 5, kind: 'string', name: 'API_KEY', value: 'shh' }],
+      secrets: [{ kind: 'string', name: 'API_KEY', value: 'shh' }],
     };
     target.vault = vault;
     const deps = walkMissingDeps(exp, target);

@@ -309,3 +309,63 @@ describe('importWorkspace — locking', () => {
     expect(blobs.get('oh.ws.ws-other.rules')).toBeDefined();
   });
 });
+
+describe('previewWorkspaceImport', () => {
+  it('returns a diff + missing-deps + snapshot hash for target=current', async () => {
+    const res = await orchestrator.previewWorkspaceImport({
+      incoming: makeExport(),
+      target: { mode: 'current' },
+    });
+    expect(res.targetWorkspaceId).toBe('ws-active');
+    expect(res.diff.rules).toHaveLength(1);
+    expect(res.diff.rules[0]?.state).toBe('no-collision');
+    expect(res.snapshotHash).toMatch(/^[0-9a-f]{64}$/);
+    // Empty target means no missing-deps walk for the trivial export.
+    expect(res.missingDeps).toEqual([]);
+  });
+
+  it('returns null targetWorkspaceId for target=new (everything is new)', async () => {
+    const res = await orchestrator.previewWorkspaceImport({
+      incoming: makeExport(),
+      target: { mode: 'new' },
+    });
+    expect(res.targetWorkspaceId).toBeNull();
+    expect(res.diff.rules[0]?.state).toBe('no-collision');
+  });
+
+  it('snapshot hash changes when target storage changes (concurrent-edit signal)', async () => {
+    const before = await orchestrator.previewWorkspaceImport({
+      incoming: makeExport(),
+      target: { mode: 'current' },
+    });
+    // Simulate a concurrent edit landing the same uid.
+    blobs.set('oh.ws.ws-active.rules', [
+      {
+        schemaVersion: 5,
+        version: 1,
+        uid: 'rul00001',
+        path: 'rules/auth-col/auth-rul00001',
+        name: 'Auth (local)',
+        type: 'header',
+        enabled: true,
+        conditions: [],
+        action: { requestHeaders: [], responseHeaders: [] },
+      },
+    ]);
+    const after = await orchestrator.previewWorkspaceImport({
+      incoming: makeExport(),
+      target: { mode: 'current' },
+    });
+    expect(after.snapshotHash).not.toBe(before.snapshotHash);
+    expect(after.diff.rules[0]?.state).toBe('collision-uid');
+  });
+
+  it('does not write to storage during preview', async () => {
+    await orchestrator.previewWorkspaceImport({
+      incoming: makeExport(),
+      target: { mode: 'current' },
+    });
+    expect(blobs.get('oh.ws.ws-active.rules')).toBeUndefined();
+    expect(blobs.get('oh.ws.ws-active.importReports')).toBeUndefined();
+  });
+});

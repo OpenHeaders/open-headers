@@ -154,7 +154,8 @@ import {
 import { startRun } from './test-runner';
 import { getResolvedRules } from './variables-resolver';
 import { gatherWorkspaceExport } from './workspace-export-gatherer';
-import { importWorkspace as importWorkspaceFromExport } from './workspace-import-orchestrator';
+import { findExportImportMatches } from './workspace-import-dedup';
+import { importWorkspace as importWorkspaceFromExport, previewWorkspaceImport } from './workspace-import-orchestrator';
 import { openWorkspaceIntent } from './workspace-navigator';
 import {
   deleteWorkspaceWithData,
@@ -368,6 +369,32 @@ export function handleGeneralMessage(
           safeResponse({ success: true, yaml, exportId: envelope.exportId, scope: envelope.scope });
         })
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'previewWorkspaceImport') {
+      previewWorkspaceImport({
+        incoming: message.incoming as Parameters<typeof previewWorkspaceImport>[0]['incoming'],
+        target: message.target as Parameters<typeof previewWorkspaceImport>[0]['target'],
+        backupRestore: message.backupRestore as boolean | undefined,
+      })
+        .then((res) =>
+          safeResponse({
+            success: true,
+            diff: res.diff,
+            missingDeps: res.missingDeps,
+            snapshotHash: res.snapshotHash,
+            targetWorkspaceId: res.targetWorkspaceId,
+          }),
+        )
+        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+      return true;
+    } else if (message.type === 'findWorkspaceExportImportMatches') {
+      findExportImportMatches({
+        exportId: message.exportId as string,
+        workspaceUid: message.workspaceUid as string,
+        currentTargetWorkspaceId: message.currentTargetWorkspaceId as string | null,
+      })
+        .then((res) => safeResponse(res))
+        .catch(() => safeResponse({ exportIdSameTarget: [], exportIdOtherTargets: [], workspaceUidMatches: [] }));
       return true;
     } else if (message.type === 'importWorkspace') {
       // Drive the import orchestrator. SW reads target state, runs a

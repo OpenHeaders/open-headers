@@ -1,0 +1,869 @@
+/**
+ * ImportPreviewModal — preview a workspace-export envelope and confirm
+ * an import (design §5.2 / §5.3 / §5.4).
+ *
+ * Flow inside the modal:
+ *   1. File / clipboard text arrives → `parseWorkspaceExport` (renderer-
+ *      side, pure). Envelope-level rejections render as a hard error
+ *      banner; per-entity drops surface alongside the importable tree.
+ *   2. SW preview RPC (`previewWorkspaceImport`) runs `diff` +
+ *      `walkMissingDeps` against the chosen target. SW returns a
+ *      `snapshotHash` so we can detect concurrent edits between
+ *      preview-open and submit.
+ *   3. Soft-dedup banner (§5.2 precedence): SW walks every workspace's
+ *      `importReports` ring for `exportId` / `workspace.uid` matches.
+ *   4. User picks per-entity strategies + the import target
+ *      (current / new / pick existing). On submit we re-run the
+ *      preview RPC; if `snapshotHash` changed, surface the
+ *      concurrent-edit banner and re-render before allowing import.
+ *   5. `importWorkspace` RPC drives the SW orchestrator's lock + writes.
+ *
+ * Untrusted-string discipline (§4.1 gate 10): every export-supplied
+ * string (workspace.name, source.workspaceLabel, entity.name, notes)
+ * renders as a React text node. Never `dangerouslySetInnerHTML`,
+ * never markdown.
+ *
+ * "Trust this export" (rule-enable + script-enable) lives in PR 5.
+ * For PR 2D, the modal scaffolds an Advanced disclosure but exposes
+ * only "Backup-restore mode" inside it — the §5.5 toggles ship later.
+ */
+
+import {
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  InfoCircleOutlined,
+  UploadOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+import { hashImportSource } from '@openheaders/core/import';
+import type { V5 } from '@openheaders/core/types';
+import {
+  type CollisionStrategy,
+  type DiffEntry,
+  type DiffResult,
+  type DiffSingleton,
+  type ImportDrop,
+  type MissingDep,
+  parseWorkspaceExport,
+  type StrategyMap,
+  type WorkspaceExport,
+} from '@openheaders/core/workspace-export';
+import {
+  Alert,
+  App as AntApp,
+  Button,
+  Checkbox,
+  Collapse,
+  Empty,
+  Modal,
+  Radio,
+  Select,
+  Space,
+  Spin,
+  Tag,
+  Typography,
+  theme,
+} from 'antd';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
+import { call } from '@/utils/bridge';
+import CollisionStrategyControl from './CollisionStrategyControl';
+import RuleSummary from './RuleSummary';
+
+const { Text, Paragraph } = Typography;
+
+// ── Types ──────────────────────────────────────────────────────────
+
+export type ImportTargetSelection = { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
+
+interface ImportPreviewModalProps {
+  open: boolean;
+  /** Raw export text (YAML or JSON) — modal handles parse + preview. */
+  rawText: string | null;
+  /** Provenance of the source (drives tone of the modal & "Save & re-open" hint). */
+  source?: 'file' | 'clipboard' | 'menu';
+  /** All workspaces the user can pick as the import target. */
+  workspaces: V5.ExtensionWorkspace[];
+  activeWorkspaceId: string | null;
+  /** Default target when the modal opens. */
+  initialTarget?: ImportTargetSelection;
+  onCancel: () => void;
+  /** Called after a successful import — caller closes modal + shows post-import toast. */
+  onImported: (result: { targetWorkspaceId: string; importedCount: number; sourceLabel: string }) => void;
+}
+
+interface PreviewState {
+  diff: DiffResult;
+  missingDeps: MissingDep[];
+  snapshotHash: string;
+  targetWorkspaceId: string | null;
+}
+
+// ── Modal ──────────────────────────────────────────────────────────
+
+const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
+  open,
+  rawText,
+  source,
+  workspaces,
+  activeWorkspaceId,
+  initialTarget,
+  onCancel,
+  onImported,
+}) => {
+  const { token } = theme.useToken();
+  const { message } = AntApp.useApp();
+
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [parsed, setParsed] = useState<{ envelope: WorkspaceExport; drops: ImportDrop[] } | null>(null);
+  const [sourceHash, setSourceHash] = useState<string | null>(null);
+  const [target, setTarget] = useState<ImportTargetSelection>(
+    initialTarget ?? (activeWorkspaceId ? { mode: 'current' } : { mode: 'new' }),
+  );
+  const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [strategies, setStrategies] = useState<StrategyMap>({});
+  const [backupRestore, setBackupRestore] = useState(false);
+  const [dedup, setDedup] = useState<DedupMatchesResult | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [staleSnapshotHash, setStaleSnapshotHash] = useState<string | null>(null);
+  const requestSeq = useRef(0);
+
+  // ── Stage 1: parse on open / when raw text changes ────────────────
+  useEffect(() => {
+    if (!open) return;
+    if (rawText === null) {
+      setParseError(null);
+      setParsed(null);
+      setSourceHash(null);
+      return;
+    }
+    const result = parseWorkspaceExport(rawText);
+    if (!result.ok) {
+      setParseError(`${result.reason}: ${result.details}`);
+      setParsed(null);
+      setSourceHash(null);
+      return;
+    }
+    setParseError(null);
+    setParsed({ envelope: result.export, drops: result.drops });
+    setStrategies({});
+    setBackupRestore(false);
+    setStaleSnapshotHash(null);
+    void hashImportSource(rawText)
+      .then(setSourceHash)
+      .catch(() => setSourceHash(''));
+  }, [open, rawText]);
+
+  // Reset on close so a second open starts clean.
+  useEffect(() => {
+    if (open) return;
+    setParseError(null);
+    setParsed(null);
+    setPreview(null);
+    setPreviewError(null);
+    setStrategies({});
+    setBackupRestore(false);
+    setDedup(null);
+    setStaleSnapshotHash(null);
+    setSourceHash(null);
+  }, [open]);
+
+  // ── Stage 2: SW-side preview (diff + missing-deps) ────────────────
+  useEffect(() => {
+    if (!parsed) {
+      setPreview(null);
+      setPreviewError(null);
+      return;
+    }
+    let cancelled = false;
+    const seq = ++requestSeq.current;
+    setPreviewing(true);
+    setPreviewError(null);
+    void call('previewWorkspaceImport', {
+      incoming: parsed.envelope,
+      target: target,
+      backupRestore,
+    })
+      .then((res) => {
+        if (cancelled || seq !== requestSeq.current) return;
+        if (!res.success || !res.diff || !res.missingDeps || !res.snapshotHash) {
+          setPreviewError(res.error ?? 'Preview failed');
+          setPreview(null);
+          return;
+        }
+        setPreview({
+          diff: res.diff,
+          missingDeps: res.missingDeps,
+          snapshotHash: res.snapshotHash,
+          targetWorkspaceId: res.targetWorkspaceId ?? null,
+        });
+        setStaleSnapshotHash(null);
+      })
+      .catch((err: Error) => {
+        if (cancelled || seq !== requestSeq.current) return;
+        setPreviewError(err.message);
+        setPreview(null);
+      })
+      .finally(() => {
+        if (cancelled || seq !== requestSeq.current) return;
+        setPreviewing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [parsed, target, backupRestore]);
+
+  // ── Stage 3: dedup walker ─────────────────────────────────────────
+  useEffect(() => {
+    if (!parsed || !preview) {
+      setDedup(null);
+      return;
+    }
+    let cancelled = false;
+    void call('findWorkspaceExportImportMatches', {
+      exportId: parsed.envelope.exportId,
+      workspaceUid: parsed.envelope.workspace.uid,
+      currentTargetWorkspaceId: preview.targetWorkspaceId,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setDedup(res);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDedup(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [parsed, preview]);
+
+  // ── Submit ────────────────────────────────────────────────────────
+  const handleImport = useCallback(async () => {
+    if (!parsed || !preview || !sourceHash) return;
+    setImporting(true);
+    try {
+      // Re-run preview to detect concurrent edits since the user opened
+      // the modal (design §9 — "data changed since you opened this preview").
+      const fresh = await call('previewWorkspaceImport', {
+        incoming: parsed.envelope,
+        target,
+        backupRestore,
+      });
+      if (!fresh.success || !fresh.snapshotHash) {
+        message.error(fresh.error ?? 'Preview re-check failed');
+        return;
+      }
+      if (fresh.snapshotHash !== preview.snapshotHash) {
+        // Surface the change and require a second confirmation.
+        setStaleSnapshotHash(preview.snapshotHash);
+        if (fresh.diff && fresh.missingDeps) {
+          setPreview({
+            diff: fresh.diff,
+            missingDeps: fresh.missingDeps,
+            snapshotHash: fresh.snapshotHash,
+            targetWorkspaceId: fresh.targetWorkspaceId ?? null,
+          });
+        }
+        return;
+      }
+      const res = await call('importWorkspace', {
+        incoming: parsed.envelope,
+        strategies,
+        backupRestore,
+        target,
+        sourceHash,
+      });
+      if (!res.success || !res.report || !res.targetWorkspaceId) {
+        message.error(res.error ?? 'Import failed');
+        return;
+      }
+      onImported({
+        targetWorkspaceId: res.targetWorkspaceId,
+        importedCount: res.report.summary.imported,
+        sourceLabel: parsed.envelope.source.workspaceLabel ?? parsed.envelope.workspace.name,
+      });
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImporting(false);
+    }
+  }, [parsed, preview, sourceHash, target, backupRestore, strategies, message, onImported]);
+
+  // ── Strategy update helpers ──────────────────────────────────────
+
+  const setStrategyFor = useCallback((kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => {
+    setStrategies((prev) => {
+      const bucket = (prev[kind] as Record<string, CollisionStrategy> | undefined) ?? {};
+      return { ...prev, [kind]: { ...bucket, [uid]: value } };
+    });
+  }, []);
+
+  // ── Render ────────────────────────────────────────────────────────
+
+  const footer = (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        {parsed
+          ? `Export ${parsed.envelope.exportId} · ${parsed.envelope.scope}`
+          : source === 'file'
+            ? 'Pick a file to preview'
+            : 'No data'}
+      </Text>
+      <Space>
+        <Button onClick={onCancel} disabled={importing}>
+          Cancel
+        </Button>
+        <Button
+          type="primary"
+          icon={<UploadOutlined />}
+          onClick={() => void handleImport()}
+          disabled={!parsed || !preview || previewing || !sourceHash || importing}
+          loading={importing}
+        >
+          Import
+        </Button>
+      </Space>
+    </div>
+  );
+
+  return (
+    <Modal
+      open={open}
+      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>}
+      onCancel={importing ? undefined : onCancel}
+      width={840}
+      destroyOnClose
+      footer={footer}
+    >
+      {parseError && (
+        <Alert
+          type="error"
+          showIcon
+          message="This file isn't a workspace export we can import"
+          description={parseError}
+          style={{ marginBottom: 12 }}
+        />
+      )}
+
+      {!parsed && !parseError && (
+        <Empty
+          description={
+            source === 'file'
+              ? 'Drop a .openheaders.yaml file to preview it.'
+              : 'Paste a workspace export to preview it.'
+          }
+        />
+      )}
+
+      {parsed && (
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <SourceAttribution envelope={parsed.envelope} drops={parsed.drops} />
+
+          <TargetControl
+            target={target}
+            onChange={setTarget}
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            envelope={parsed.envelope}
+          />
+
+          {dedup && <DedupBanner dedup={dedup} />}
+
+          {staleSnapshotHash && (
+            <Alert
+              type="warning"
+              showIcon
+              message="Data changed since you opened this preview"
+              description="The target workspace was modified by another tab. The collision tree below has been refreshed — review and click Import again."
+            />
+          )}
+
+          {previewing && !preview && (
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <Spin />
+            </div>
+          )}
+
+          {previewError && (
+            <Alert type="error" showIcon message="Couldn't compute collision diff" description={previewError} />
+          )}
+
+          {preview && (
+            <>
+              {preview.missingDeps.length > 0 && <MissingDepsPanel missingDeps={preview.missingDeps} />}
+
+              <DiffTree diff={preview.diff} strategies={strategies} onChangeStrategy={setStrategyFor} token={token} />
+
+              <AdvancedDisclosure backupRestore={backupRestore} onBackupRestoreChange={setBackupRestore} />
+            </>
+          )}
+        </Space>
+      )}
+    </Modal>
+  );
+};
+
+// ── Sub-components ─────────────────────────────────────────────────
+
+const SourceAttribution: React.FC<{ envelope: WorkspaceExport; drops: ImportDrop[] }> = ({ envelope, drops }) => {
+  const counts = envelope.meta.counts;
+  return (
+    <div>
+      <Paragraph style={{ marginBottom: 4 }}>
+        <Text strong>From: </Text>
+        <Text>{envelope.source.workspaceLabel ?? envelope.workspace.name}</Text>
+        <Text type="secondary"> · </Text>
+        <Text type="secondary">
+          {envelope.source.app} {envelope.source.appVersion} · {envelope.source.platform}
+        </Text>
+      </Paragraph>
+      <Paragraph style={{ marginBottom: 4, fontSize: 12 }}>
+        <Text type="secondary">Exported {new Date(envelope.exportedAt).toLocaleString()}</Text>
+      </Paragraph>
+      <Paragraph style={{ marginBottom: 0, fontSize: 12 }}>
+        <Text type="secondary">
+          {counts.rules} rule{counts.rules === 1 ? '' : 's'}, {counts.requests} request
+          {counts.requests === 1 ? '' : 's'}, {counts.environments} env{counts.environments === 1 ? '' : 's'},{' '}
+          {counts.templates} template
+          {counts.templates === 1 ? '' : 's'}, {counts.liveWorkflows} workflow
+          {counts.liveWorkflows === 1 ? '' : 's'}
+        </Text>
+      </Paragraph>
+      {envelope.notes && (
+        <Paragraph style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
+          <Text type="secondary">Notes: </Text>
+          <Text>{envelope.notes}</Text>
+        </Paragraph>
+      )}
+      {drops.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          message={`${drops.length} entit${drops.length === 1 ? 'y' : 'ies'} couldn't be parsed and will be skipped`}
+          description={
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              {drops.slice(0, 5).map((d, idx) => (
+                <li key={`${d.path}-${idx}`} style={{ fontSize: 11 }}>
+                  <Text code>{d.path}</Text> — {d.reason}
+                </li>
+              ))}
+              {drops.length > 5 && <li style={{ fontSize: 11 }}>…and {drops.length - 5} more</li>}
+            </ul>
+          }
+          style={{ marginTop: 8 }}
+        />
+      )}
+    </div>
+  );
+};
+
+const TargetControl: React.FC<{
+  target: ImportTargetSelection;
+  onChange: (t: ImportTargetSelection) => void;
+  workspaces: V5.ExtensionWorkspace[];
+  activeWorkspaceId: string | null;
+  envelope: WorkspaceExport;
+}> = ({ target, onChange, workspaces, activeWorkspaceId, envelope }) => {
+  const newWsName = envelope.workspace.name;
+  return (
+    <div>
+      <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>IMPORT INTO</Text>
+      <Radio.Group
+        value={target.mode}
+        onChange={(e) => {
+          const mode = e.target.value as ImportTargetSelection['mode'];
+          if (mode === 'current') onChange({ mode: 'current' });
+          else if (mode === 'new') onChange({ mode: 'new' });
+          else onChange({ mode: 'picked', workspaceId: workspaces[0]?.id ?? '' });
+        }}
+      >
+        <Radio value="current" disabled={!activeWorkspaceId}>
+          Current workspace
+        </Radio>
+        <Radio value="new">New workspace ("{newWsName}")</Radio>
+        <Radio value="picked" disabled={workspaces.length === 0}>
+          Pick existing
+        </Radio>
+      </Radio.Group>
+      {target.mode === 'picked' && (
+        <Select
+          size="small"
+          value={target.workspaceId || undefined}
+          onChange={(id) => onChange({ mode: 'picked', workspaceId: id })}
+          style={{ marginTop: 6, width: 280 }}
+          options={workspaces.map((w) => ({ label: w.name, value: w.id }))}
+          placeholder="Select a workspace"
+        />
+      )}
+    </div>
+  );
+};
+
+const DedupBanner: React.FC<{ dedup: DedupMatchesResult }> = ({ dedup }) => {
+  if (dedup.exportIdSameTarget.length > 0) {
+    const m = dedup.exportIdSameTarget[0];
+    if (!m) return null;
+    return (
+      <Alert
+        type="info"
+        showIcon
+        icon={<InfoCircleOutlined />}
+        message={`You imported export ${m.exportId} here on ${new Date(m.importedAt).toLocaleDateString()}`}
+        description="Re-importing it will apply your current per-entity strategy choices."
+      />
+    );
+  }
+  if (dedup.exportIdOtherTargets.length > 0) {
+    const m = dedup.exportIdOtherTargets[0];
+    if (!m) return null;
+    return (
+      <Alert
+        type="info"
+        showIcon
+        message={`You also imported export ${m.exportId} into "${m.workspaceName}"`}
+        description="That workspace is unaffected by this import."
+      />
+    );
+  }
+  if (dedup.workspaceUidMatches.length > 0) {
+    const m = dedup.workspaceUidMatches[0];
+    if (!m) return null;
+    return (
+      <Alert
+        type="info"
+        showIcon
+        message={`A workspace from this source already exists ("${m.workspaceName}")`}
+        description="Switch the target above to refresh it, or import as a new copy."
+      />
+    );
+  }
+  return null;
+};
+
+const MissingDepsPanel: React.FC<{ missingDeps: MissingDep[] }> = ({ missingDeps }) => (
+  <Alert
+    type="warning"
+    showIcon
+    icon={<ExclamationCircleOutlined />}
+    message={`${missingDeps.length} unresolved reference${missingDeps.length === 1 ? '' : 's'}`}
+    description={
+      <ul style={{ margin: 0, paddingLeft: 20 }}>
+        {missingDeps.slice(0, 8).map((d) => (
+          <li key={`${d.type}:${d.name}`} style={{ fontSize: 11 }}>
+            <Tag>{d.type}</Tag>
+            <Text>{d.name}</Text>
+            <Text type="secondary"> · referenced by {d.referencedBy.length}</Text>
+          </li>
+        ))}
+        {missingDeps.length > 8 && (
+          <li style={{ fontSize: 11 }}>
+            <Text type="secondary">…and {missingDeps.length - 8} more</Text>
+          </li>
+        )}
+      </ul>
+    }
+  />
+);
+
+interface DiffTreeProps {
+  diff: DiffResult;
+  strategies: StrategyMap;
+  onChangeStrategy: (kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => void;
+  token: ReturnType<typeof theme.useToken>['token'];
+}
+
+const DiffTree: React.FC<DiffTreeProps> = ({ diff, strategies, onChangeStrategy, token }) => {
+  const sections: Array<{
+    title: string;
+    kind: keyof StrategyMap;
+    entries: DiffEntry<{ uid: string; name: string }>[];
+    renderExtra?: (e: DiffEntry<{ uid: string; name: string }>) => React.ReactNode;
+  }> = [
+    {
+      title: 'Rules',
+      kind: 'rules',
+      entries: diff.rules as DiffEntry<{ uid: string; name: string }>[],
+      renderExtra: (e) => <RuleSummary rule={e.entity as unknown as V5.Rule} />,
+    },
+    { title: 'Requests', kind: 'requests', entries: diff.requests as DiffEntry<{ uid: string; name: string }>[] },
+    { title: 'Templates', kind: 'templates', entries: diff.templates as DiffEntry<{ uid: string; name: string }>[] },
+    {
+      title: 'Environments',
+      kind: 'environments',
+      entries: diff.environments as DiffEntry<{ uid: string; name: string }>[],
+    },
+    {
+      title: 'Live workflows',
+      kind: 'liveWorkflows',
+      entries: diff.liveWorkflows as DiffEntry<{ uid: string; name: string }>[],
+    },
+    {
+      title: 'Live variables',
+      kind: 'liveVariables',
+      entries: diff.liveVariables as DiffEntry<{ uid: string; name: string }>[],
+    },
+    {
+      title: 'Collections',
+      kind: 'collections',
+      entries: diff.collections as DiffEntry<{ uid: string; name: string }>[],
+    },
+    { title: 'Folders', kind: 'folders', entries: diff.folders as DiffEntry<{ uid: string; name: string }>[] },
+  ];
+
+  const totalEntries = sections.reduce((acc, s) => acc + s.entries.length, 0);
+  if (totalEntries === 0 && diff.workspaceVars.state === 'no-collision' && diff.vault.state === 'no-collision') {
+    return <Empty description="Nothing to import" />;
+  }
+
+  return (
+    <div
+      style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, maxHeight: 320, overflowY: 'auto' }}
+    >
+      {sections.map(
+        (section) =>
+          section.entries.length > 0 && (
+            <DiffSection
+              key={section.kind}
+              title={section.title}
+              kind={section.kind}
+              entries={section.entries}
+              strategies={(strategies[section.kind] as Record<string, CollisionStrategy> | undefined) ?? {}}
+              onChangeStrategy={onChangeStrategy}
+              token={token}
+              renderExtra={section.renderExtra}
+            />
+          ),
+      )}
+      {(diff.workspaceVars.state !== 'no-collision' || diff.vault.state !== 'no-collision') && (
+        <SingletonsSection
+          workspaceVars={diff.workspaceVars}
+          vault={diff.vault}
+          strategies={strategies}
+          onChangeWorkspaceVars={(v) => {
+            // singletons use PlanSingletonAction values within the StrategyMap.
+            onChangeStrategyForSingleton('workspaceVars', v, onChangeStrategy);
+          }}
+          onChangeVault={(v) => onChangeStrategyForSingleton('vault', v, onChangeStrategy)}
+          token={token}
+        />
+      )}
+    </div>
+  );
+};
+
+// Singleton update flows through the same strategy-map setter; the caller
+// just needs to write under the singleton key. The `kind` cast is safe —
+// `StrategyMap.workspaceVars` / `.vault` carry `PlanSingletonAction`,
+// which is a subset of `CollisionStrategy`.
+function onChangeStrategyForSingleton(
+  key: 'workspaceVars' | 'vault',
+  value: 'merge-by-name' | 'replace' | 'skip',
+  onChangeStrategy: (kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => void,
+): void {
+  onChangeStrategy(key, '__singleton__', value as CollisionStrategy);
+}
+
+const DiffSection: React.FC<{
+  title: string;
+  kind: keyof StrategyMap;
+  entries: DiffEntry<{ uid: string; name: string }>[];
+  strategies: Record<string, CollisionStrategy>;
+  onChangeStrategy: (kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => void;
+  token: ReturnType<typeof theme.useToken>['token'];
+  renderExtra?: (e: DiffEntry<{ uid: string; name: string }>) => React.ReactNode;
+}> = ({ title, kind, entries, strategies, onChangeStrategy, token, renderExtra }) => (
+  <div>
+    <div
+      style={{
+        padding: '6px 10px',
+        background: token.colorFillAlter,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 0.5,
+        color: token.colorTextSecondary,
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        position: 'sticky',
+        top: 0,
+        zIndex: 1,
+      }}
+    >
+      {title.toUpperCase()} · {entries.length}
+    </div>
+    {entries.map((entry) => (
+      <DiffRow
+        key={entry.entity.uid}
+        entry={entry}
+        currentStrategy={strategies[entry.entity.uid] ?? entry.defaultStrategy}
+        onChange={(s) => onChangeStrategy(kind, entry.entity.uid, s)}
+        token={token}
+        extra={renderExtra ? renderExtra(entry) : null}
+      />
+    ))}
+  </div>
+);
+
+const DiffRow: React.FC<{
+  entry: DiffEntry<{ uid: string; name: string }>;
+  currentStrategy: CollisionStrategy;
+  onChange: (s: CollisionStrategy) => void;
+  token: ReturnType<typeof theme.useToken>['token'];
+  extra?: React.ReactNode;
+}> = ({ entry, currentStrategy, onChange, token, extra }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '6px 10px',
+      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+      fontSize: 12,
+    }}
+  >
+    <CollisionBadge state={entry.state} />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Text>{entry.entity.name}</Text>
+        {entry.divergedFromExport && (
+          <Tag color="orange" style={{ marginLeft: 6, fontSize: 10 }}>
+            edited locally
+          </Tag>
+        )}
+      </div>
+      {extra}
+    </div>
+    <CollisionStrategyControl value={currentStrategy} allowed={entry.allowedStrategies} onChange={onChange} />
+  </div>
+);
+
+const CollisionBadge: React.FC<{ state: 'no-collision' | 'collision-uid' | 'collision-name' }> = ({ state }) => {
+  if (state === 'no-collision')
+    return (
+      <Tag color="green" style={{ fontSize: 10, minWidth: 56, textAlign: 'center' }}>
+        new
+      </Tag>
+    );
+  if (state === 'collision-uid')
+    return (
+      <Tag color="blue" style={{ fontSize: 10, minWidth: 56, textAlign: 'center' }}>
+        update
+      </Tag>
+    );
+  return (
+    <Tag color="gold" style={{ fontSize: 10, minWidth: 56, textAlign: 'center' }}>
+      conflict
+    </Tag>
+  );
+};
+
+const SingletonsSection: React.FC<{
+  workspaceVars: DiffSingleton<V5.WorkspaceVariables>;
+  vault: DiffSingleton<V5.Vault>;
+  strategies: StrategyMap;
+  onChangeWorkspaceVars: (v: 'merge-by-name' | 'replace' | 'skip') => void;
+  onChangeVault: (v: 'merge-by-name' | 'replace' | 'skip') => void;
+  token: ReturnType<typeof theme.useToken>['token'];
+}> = ({ workspaceVars, vault, strategies, onChangeWorkspaceVars, onChangeVault, token }) => (
+  <div>
+    <div
+      style={{
+        padding: '6px 10px',
+        background: token.colorFillAlter,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 0.5,
+        color: token.colorTextSecondary,
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+      }}
+    >
+      WORKSPACE-LEVEL · 2
+    </div>
+    {workspaceVars.state !== 'no-collision' && (
+      <SingletonRow
+        label="Workspace variables"
+        diff={workspaceVars}
+        currentStrategy={strategies.workspaceVars ?? workspaceVars.defaultStrategy}
+        onChange={onChangeWorkspaceVars}
+        token={token}
+      />
+    )}
+    {vault.state !== 'no-collision' && (
+      <SingletonRow
+        label="Vault"
+        diff={vault}
+        currentStrategy={strategies.vault ?? vault.defaultStrategy}
+        onChange={onChangeVault}
+        token={token}
+      />
+    )}
+  </div>
+);
+
+const SingletonRow: React.FC<{
+  label: string;
+  diff: DiffSingleton<unknown>;
+  currentStrategy: CollisionStrategy;
+  onChange: (v: 'merge-by-name' | 'replace' | 'skip') => void;
+  token: ReturnType<typeof theme.useToken>['token'];
+}> = ({ label, diff, currentStrategy, onChange, token }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '6px 10px',
+      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+      fontSize: 12,
+    }}
+  >
+    <CollisionBadge state={diff.state} />
+    <Text style={{ flex: 1 }}>{label}</Text>
+    <CollisionStrategyControl
+      value={currentStrategy}
+      allowed={diff.allowedStrategies}
+      onChange={(v) => onChange(v as 'merge-by-name' | 'replace' | 'skip')}
+    />
+  </div>
+);
+
+const AdvancedDisclosure: React.FC<{
+  backupRestore: boolean;
+  onBackupRestoreChange: (next: boolean) => void;
+}> = ({ backupRestore, onBackupRestoreChange }) => (
+  <Collapse
+    size="small"
+    items={[
+      {
+        key: 'advanced',
+        label: 'Advanced',
+        children: (
+          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            <Checkbox checked={backupRestore} onChange={(e) => onBackupRestoreChange(e.target.checked)}>
+              <Text strong>This is mine — prefer update by uid</Text>
+              <div style={{ fontSize: 11 }}>
+                <Text type="secondary">
+                  Default strategy switches from "create new copy" to "update existing" for entities that match by uid.
+                  Skipped for entities edited since the export was made.
+                </Text>
+              </div>
+            </Checkbox>
+            <Alert
+              type="info"
+              showIcon
+              icon={<CheckCircleOutlined />}
+              message="Imported rules, live workflows, and live variables land disabled by default."
+              description="The override to preserve their enabled state lives in a future update."
+              style={{ marginTop: 4 }}
+            />
+          </Space>
+        ),
+      },
+    ]}
+  />
+);
+
+export default ImportPreviewModal;

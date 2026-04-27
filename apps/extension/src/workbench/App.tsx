@@ -61,6 +61,7 @@ import VaultEditor from './components/VaultEditor';
 import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
 import ExportModal from './components/workspace-export/ExportModal';
+import ImportPreviewModal from './components/workspace-export/ImportPreviewModal';
 import { findLeaf } from './editor-groups';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
@@ -305,6 +306,25 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     | { open: false }
     | { open: true; scope: { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string; ruleName: string } }
   >({ open: false });
+  const [importPreviewState, setImportPreviewState] = useState<
+    { open: false } | { open: true; rawText: string; source: 'file' | 'clipboard' | 'menu' }
+  >({ open: false });
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+  const openImportFilePicker = useCallback(() => {
+    importFileInputRef.current?.click();
+  }, []);
+  const onImportFileChosen = useCallback(async (file: File) => {
+    try {
+      const text = await file.text();
+      setImportPreviewState({ open: true, rawText: text, source: 'file' });
+    } catch (err) {
+      // File-read failures (sandbox quirks, perms) — surface inline. Modal
+      // will display a parse-error banner if the bytes turn out to be
+      // unreadable.
+      setImportPreviewState({ open: true, rawText: '', source: 'file' });
+      void err;
+    }
+  }, []);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
@@ -339,6 +359,38 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   // listeners on the shell root and window.
   const shellRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => attachBus(shellRef.current), [attachBus]);
+
+  // Workspace-export drag-and-drop. The whole shell is a drop target;
+  // a `.openheaders.yaml` / `.json` file opens the import preview modal.
+  // We cancel non-file drags so the browser doesn't navigate the tab.
+  useEffect(() => {
+    const root = shellRef.current;
+    if (!root) return;
+    const isExportFile = (file: File): boolean => {
+      const name = file.name.toLowerCase();
+      return (
+        name.endsWith('.openheaders.yaml') || name.endsWith('.openheaders.yml') || name.endsWith('.openheaders.json')
+      );
+    };
+    const onDragOver = (e: DragEvent) => {
+      if (!e.dataTransfer) return;
+      const types = Array.from(e.dataTransfer.types);
+      if (types.includes('Files')) e.preventDefault();
+    };
+    const onDrop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      if (!isExportFile(file)) return;
+      e.preventDefault();
+      void file.text().then((text) => setImportPreviewState({ open: true, rawText: text, source: 'file' }));
+    };
+    root.addEventListener('dragover', onDragOver);
+    root.addEventListener('drop', onDrop);
+    return () => {
+      root.removeEventListener('dragover', onDragOver);
+      root.removeEventListener('drop', onDrop);
+    };
+  }, []);
 
   const focus = useFocusRegion({
     shellRef,
@@ -1262,6 +1314,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             onSwitchWorkspace={handleSwitchWorkspace}
             onOpenWorkspaceManager={openWorkspaceManager}
             onExportWorkspace={() => setExportModalState({ open: true, scope: { kind: 'workspace' } })}
+            onImportWorkspace={openImportFilePicker}
             environments={envApi.environments}
             activeEnvironmentId={envApi.activeEnvironmentId}
             onCreateEnvironment={() => void handleCreateEnvironment()}
@@ -1495,6 +1548,36 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onCancel={() => setExportModalState({ open: false })}
             />
           ) : null}
+
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept=".yaml,.yml,.json,application/yaml,application/json,text/yaml,text/plain"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              if (file) void onImportFileChosen(file);
+              e.currentTarget.value = '';
+            }}
+          />
+
+          <ImportPreviewModal
+            open={importPreviewState.open}
+            rawText={importPreviewState.open ? importPreviewState.rawText : null}
+            source={importPreviewState.open ? importPreviewState.source : undefined}
+            workspaces={workspacesApi.workspaces}
+            activeWorkspaceId={workspacesApi.activeWorkspaceId}
+            onCancel={() => setImportPreviewState({ open: false })}
+            onImported={({ targetWorkspaceId, importedCount, sourceLabel }) => {
+              setImportPreviewState({ open: false });
+              const summary = `Imported ${importedCount} entit${importedCount === 1 ? 'y' : 'ies'} from "${sourceLabel}"`;
+              message.success(summary);
+              // If the target isn't the active workspace, offer to switch.
+              if (targetWorkspaceId !== workspacesApi.activeWorkspaceId) {
+                void handleSwitchWorkspace(targetWorkspaceId);
+              }
+            }}
+          />
 
           <ConnectionProvider value={{ isConnected }}>
             <SettingsModal

@@ -181,6 +181,41 @@ export interface BridgeRpcContract {
       error?: string;
     };
   };
+  /**
+   * Preview-time analog of `importWorkspace`. Reads (no writes) the
+   * chosen target workspace and runs the collision diff +
+   * missing-deps walk. The renderer drives the preview modal off
+   * this; on submit it calls `importWorkspace`, which re-runs the
+   * diff under the workspace-import lock for authoritative state.
+   * `snapshotHash` lets the renderer detect concurrent edits between
+   * preview-open and submit.
+   */
+  previewWorkspaceImport: {
+    req: {
+      incoming: import('@openheaders/core/workspace-export').WorkspaceExport;
+      target: { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
+      backupRestore?: boolean;
+    };
+    res: {
+      success: boolean;
+      diff?: import('@openheaders/core/workspace-export').DiffResult;
+      missingDeps?: import('@openheaders/core/workspace-export').MissingDep[];
+      snapshotHash?: string;
+      targetWorkspaceId?: string | null;
+      error?: string;
+    };
+  };
+  /**
+   * Walk every workspace's `importReports` ring for prior imports
+   * matching the incoming export's `exportId` or source-workspace
+   * uid. Drives the soft-dedup banner in the preview modal
+   * (design §5.2 precedence — exportId beats workspace.uid; same-
+   * target beats different-target).
+   */
+  findWorkspaceExportImportMatches: {
+    req: { exportId: string; workspaceUid: string; currentTargetWorkspaceId: string | null };
+    res: import('@/background/modules/workspace-import-dedup').DedupMatchesResult;
+  };
   setActiveWorkspace: {
     req: { id: string };
     res: { success: boolean; error?: string };
