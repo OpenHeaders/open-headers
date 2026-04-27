@@ -85,7 +85,7 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
         const totalRows = countLeafRows(rows);
         const headerIcon = sectionHeaderIcon(section.kind);
         return (
-          <div key={section.kind} style={{ marginBottom: 8 }}>
+          <div key={section.kind} style={{ marginBottom: 8, overflow: 'hidden' }}>
             <button
               type="button"
               onClick={() => toggleSection(section.kind)}
@@ -94,7 +94,8 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
                 alignItems: 'center',
                 gap: 6,
                 width: '100%',
-                padding: '6px 12px 6px 8px',
+                boxSizing: 'border-box',
+                padding: '6px 10px 6px 8px',
                 fontSize: 10,
                 fontWeight: 700,
                 letterSpacing: 0.6,
@@ -243,8 +244,10 @@ const RowButton: React.FC<RowButtonProps> = ({
         alignItems: 'center',
         gap: 6,
         width: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
         paddingLeft: indent,
-        paddingRight: 12,
+        paddingRight: 10,
         background,
         opacity: skipped ? 0.65 : 1,
         transition: 'background 120ms',

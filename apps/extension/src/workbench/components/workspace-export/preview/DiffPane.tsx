@@ -186,6 +186,12 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
                 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
               renderLineHighlight: 'none',
               hideUnchangedRegions: { enabled: true, contextLineCount: 2 },
+              // Monaco's default `renderSideBySideInlineBreakpoint`
+              // is 900px — at narrower widths it silently flips to
+              // inline even when `renderSideBySide:true`. The user
+              // configures "Side by side" expecting it to stay; only
+              // auto-flip when the pane is genuinely cramped.
+              renderSideBySideInlineBreakpoint: 480,
             }}
           />
         ) : (

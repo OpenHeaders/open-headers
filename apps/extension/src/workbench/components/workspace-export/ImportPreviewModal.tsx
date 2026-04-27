@@ -133,17 +133,12 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [vaultPartialDrops, setVaultPartialDrops] = useState<{ index: number; reason: string }[]>([]);
   /** When set, the rendered envelope has decrypted secrets injected. */
   const [decryptedEnvelope, setDecryptedEnvelope] = useState<WorkspaceExport | null>(null);
-  // Default-target chain: caller's `initialTarget` wins, then current
-  // workspace (the user is already there — cheapest mental switch),
-  // then any existing workspace (so an export imports into something
-  // they already own rather than spawning a new one), finally `new`
-  // as a last resort when there's nothing to merge into.
-  const [target, setTarget] = useState<ImportTargetSelection>(() => {
-    if (initialTarget) return initialTarget;
-    if (activeWorkspaceId) return { mode: 'current' };
-    if (workspaces.length > 0) return { mode: 'picked', workspaceId: workspaces[0].id };
-    return { mode: 'new' };
-  });
+  // Default to `current` unconditionally — the user is already in
+  // their workspace and "import here" is the most common intent. The
+  // segmented control still lets them flip to `new` / `picked` if
+  // they want; we don't try to be clever about fallbacks because the
+  // initial state-init can race with `activeWorkspaceId` resolution.
+  const [target, setTarget] = useState<ImportTargetSelection>(() => initialTarget ?? { mode: 'current' });
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);

@@ -115,7 +115,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
       }}
     >
       <Allotment>
-        <Allotment.Pane preferredSize="30%" minSize={220}>
+        <Allotment.Pane preferredSize="22%" minSize={200}>
           <DiffSidebar
             taxonomy={taxonomy}
             selectionKey={selectionKey}
@@ -124,7 +124,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
             strategies={strategies}
           />
         </Allotment.Pane>
-        <Allotment.Pane preferredSize="70%" minSize={360}>
+        <Allotment.Pane preferredSize="78%" minSize={360}>
           <DiffPane
             row={selectedRow}
             yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
