@@ -263,6 +263,55 @@ describe('buildImportPlan — strategy resolution', () => {
     expect(plan.rules[0].entity.uid).toBe('rul99999');
   });
 
+  it('update bumps version past max(target, incoming)', () => {
+    // Target is at version 7 (lots of local edits); incoming snapshot
+    // was at version 2. The bumped result should be 8 — preserves
+    // target's history and signals a fresh write.
+    const input = baseInput();
+    const incomingRule = rule('rul00001', 'Auth', 'rules/col/auth-rul00001');
+    incomingRule.version = 2;
+    input.entities.rules = [incomingRule];
+    const exp = buildWorkspaceExport(input);
+    const target = emptyTarget();
+    const targetRule = rule('rul00001', 'Auth', 'rules/col/auth-rul00001');
+    targetRule.version = 7;
+    target.rules = [targetRule];
+    const diff = diffWorkspaceExport(exp, target);
+    const plan = buildImportPlan(exp, diff, target, { rules: { rul00001: 'update' } });
+    expect(plan.rules[0].action).toBe('update');
+    expect(plan.rules[0].entity.version).toBe(8);
+  });
+
+  it('update bumps even when incoming version is higher than target', () => {
+    const input = baseInput();
+    const incomingRule = rule('rul00001', 'Auth', 'rules/col/auth-rul00001');
+    incomingRule.version = 5;
+    input.entities.rules = [incomingRule];
+    const exp = buildWorkspaceExport(input);
+    const target = emptyTarget();
+    const targetRule = rule('rul00001', 'Auth', 'rules/col/auth-rul00001');
+    targetRule.version = 2;
+    target.rules = [targetRule];
+    const diff = diffWorkspaceExport(exp, target);
+    const plan = buildImportPlan(exp, diff, target, { rules: { rul00001: 'update' } });
+    expect(plan.rules[0].entity.version).toBe(6);
+  });
+
+  it('new-uid resets version to 1 regardless of source snapshot', () => {
+    const input = baseInput();
+    const incomingRule = rule('rul00001', 'Auth', 'rules/auth-col/auth-rul00001');
+    incomingRule.version = 42;
+    input.entities.rules = [incomingRule];
+    input.entities.collections = [collection('col00001', 'Auth', 'rules/auth-col')];
+    const exp = buildWorkspaceExport(input);
+    const target = emptyTarget();
+    target.rules = [rule('rul00001', 'Other', 'rules/other-col/other-rul00001')];
+    const diff = diffWorkspaceExport(exp, target);
+    const plan = buildImportPlan(exp, diff, target);
+    const created = plan.rules.find((r) => r.action === 'create');
+    expect(created?.entity.version).toBe(1);
+  });
+
   it('new-uid (default) regenerates the uid + path', () => {
     const input = baseInput();
     input.entities.rules = [rule('rul00001', 'Auth', 'rules/auth-col/auth-rul00001')];

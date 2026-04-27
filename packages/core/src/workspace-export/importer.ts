@@ -261,20 +261,55 @@ function resolveArrayBase<T extends { uid: string; name: string; path?: string }
       return { action: 'skip', entity: entry.entity };
     }
     if (strat === 'update' && entry.matchedTarget) {
+      // Version handling on `update`: bump past max(target, incoming).
+      // Without this the target's local edit history would silently
+      // regress to the snapshot version that shipped in the export
+      // (see V5_WORKSPACE_EXPORT_DESIGN.md §2.1 / `version` semantics).
+      const bumped = bumpVersion(entry.entity, entry.matchedTarget);
       return {
         action: 'update',
         targetUid: entry.matchedTarget.uid,
         // On update we keep the target's uid (and target's path),
         // overwriting the entity's *content* with the incoming one's.
-        entity: stamp({ ...entry.entity, uid: entry.matchedTarget.uid }),
+        entity: stamp({ ...bumped, uid: entry.matchedTarget.uid }),
       };
     }
     // new-uid (default), or a fallback when update was selected but no
-    // matchedTarget exists (shouldn't happen, but defensive).
+    // matchedTarget exists (shouldn't happen, but defensive). A fresh
+    // entity instance starts at version 1 — the export's version was
+    // a snapshot of the source's history and doesn't apply here.
     newUidUids.add(entry.entity.uid);
-    return { action: 'create', entity: stamp(entry.entity) };
+    return { action: 'create', entity: stamp(resetVersion(entry.entity)) };
   });
   return { entries, newUidUids };
+}
+
+/**
+ * Set `version: 1` on an entity that's about to be created fresh
+ * (`new-uid` strategy). Preserves the input shape; only entities that
+ * carry a `version` number get touched.
+ */
+function resetVersion<T>(entity: T): T {
+  if (!entity || typeof entity !== 'object') return entity;
+  const e = entity as T & { version?: number };
+  if (typeof e.version !== 'number') return entity;
+  return { ...e, version: 1 };
+}
+
+/**
+ * Compute the next `version` for an `update` collision: one past the
+ * higher of (target's current version, incoming's snapshot version).
+ * Preserves target's local edit history while letting subscribers /
+ * snapshot diffs see "this entity changed on import".
+ */
+function bumpVersion<T>(incoming: T, target: T): T {
+  if (!incoming || typeof incoming !== 'object') return incoming;
+  const inc = incoming as T & { version?: number };
+  const tgt = target as T & { version?: number };
+  const incomingV = typeof inc.version === 'number' ? inc.version : 0;
+  const targetV = typeof tgt.version === 'number' ? tgt.version : 0;
+  if (incomingV === 0 && targetV === 0) return incoming;
+  return { ...inc, version: Math.max(incomingV, targetV) + 1 };
 }
 
 // ── Main entry ──────────────────────────────────────────────────────
