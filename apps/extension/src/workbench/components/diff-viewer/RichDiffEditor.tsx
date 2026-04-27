@@ -44,6 +44,7 @@ const RichDiffEditor: React.FC<Props> = ({
   const { token } = theme.useToken();
   const { isDarkMode } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
+  const diffSubRef = useRef<monaco.IDisposable | null>(null);
   const [diffCount, setDiffCount] = useState<number | null>(null);
 
   const recountDifferences = useCallback((editor: monaco.editor.IStandaloneDiffEditor): void => {
@@ -54,20 +55,31 @@ const RichDiffEditor: React.FC<Props> = ({
   const onMount = useCallback(
     (editor: monaco.editor.IStandaloneDiffEditor, _m: Monaco) => {
       editorRef.current = editor;
-      const dispose = editor.onDidUpdateDiff(() => recountDifferences(editor));
-      // Initial compute may have already fired before our subscription —
-      // ask once explicitly.
+      diffSubRef.current = editor.onDidUpdateDiff(() => recountDifferences(editor));
+      // Initial compute may have fired before subscription — recount once.
       recountDifferences(editor);
-      // Cache disposer on the instance so the next mount can clean up.
-      (editor as unknown as { _ohDisposer?: monaco.IDisposable })._ohDisposer = dispose;
     },
     [recountDifferences],
   );
 
-  // Live-apply option changes — `editor.updateOptions` is the supported
-  // path for everything except `renderSideBySide`, which the React
-  // wrapper sometimes drops; we force a remount via the `key` below
-  // when the viewer mode flips so the user always sees the right layout.
+  // Tear down the diff-update subscription when the component unmounts.
+  // Without this, Monaco's TextModel can dispose before our listener
+  // releases it and the wrapper logs `TextModel got disposed before
+  // DiffEditorWidget model got reset`.
+  useEffect(() => {
+    return () => {
+      diffSubRef.current?.dispose();
+      diffSubRef.current = null;
+      editorRef.current = null;
+    };
+  }, []);
+
+  // Live-apply every option through `updateOptions` — including
+  // `renderSideBySide`, which Monaco honours dynamically. Avoid
+  // remounting the `DiffEditor` on viewer-mode flips: the
+  // `@monaco-editor/react` wrapper shares text models across instances,
+  // so a same-frame unmount/mount disposes a model the new instance
+  // already holds, surfacing the BugIndicatingError above.
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.updateOptions(toMonacoDiffOptions(options));
@@ -80,7 +92,6 @@ const RichDiffEditor: React.FC<Props> = ({
       <DiffEditorToolbar options={options} onChange={onOptionsChange} diffCount={diffCount} />
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <DiffEditor
-          key={options.mode}
           original={original}
           modified={modified}
           language={language}
