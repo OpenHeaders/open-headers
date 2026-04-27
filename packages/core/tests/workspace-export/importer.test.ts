@@ -15,6 +15,7 @@ import type {
   HeaderRule,
   LiveVariable,
   LiveWorkflow,
+  Request,
   WorkspaceVariables,
 } from '../../src/types/v5/index';
 import {
@@ -148,6 +149,56 @@ describe('buildImportPlan — force-disable', () => {
     const plan = buildImportPlan(exp, diff, emptyTarget(), {}, { trustExport: true });
     const created = plan.rules.find((r) => r.action === 'create');
     expect(created?.entity.enabled).toBe(true);
+  });
+
+  it('strips request scripts when stripScripts=true', () => {
+    const input = baseInput();
+    const req: Request = {
+      schemaVersion: 5,
+      version: 1,
+      uid: 'req00001',
+      path: 'requests/api-req00001',
+      name: 'API',
+      method: 'GET',
+      url: 'https://api.openheaders.io/ping',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+      preRequestScript: 'pre',
+      postResponseScript: 'post',
+    };
+    input.entities.requests = [req];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {}, { stripScripts: true });
+    const created = plan.requests.find((r) => r.action === 'create');
+    expect(created?.entity.preRequestScript).toBeUndefined();
+    expect(created?.entity.postResponseScript).toBeUndefined();
+  });
+
+  it('preserves request scripts when stripScripts is unset', () => {
+    const input = baseInput();
+    const req: Request = {
+      schemaVersion: 5,
+      version: 1,
+      uid: 'req00001',
+      path: 'requests/api-req00001',
+      name: 'API',
+      method: 'GET',
+      url: 'https://api.openheaders.io/ping',
+      headers: [],
+      params: [],
+      auth: { type: 'none' },
+      body: { type: 'none' },
+      preRequestScript: 'pre',
+    };
+    input.entities.requests = [req];
+    const exp = buildWorkspaceExport(input);
+    const diff = diffWorkspaceExport(exp, emptyTarget());
+    const plan = buildImportPlan(exp, diff, emptyTarget(), {});
+    const created = plan.requests.find((r) => r.action === 'create');
+    expect(created?.entity.preRequestScript).toBe('pre');
   });
 
   it('forces LiveWorkflow.enabled=false', () => {

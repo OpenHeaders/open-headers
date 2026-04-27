@@ -193,6 +193,8 @@ export interface BridgeRpcContract {
       backupRestore?: boolean;
       /** Advanced override — when true, preserves source enabled flags. */
       trustExport?: boolean;
+      /** Advanced override — when true, strips request scripts on import. */
+      stripScripts?: boolean;
       target: { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
       /** SHA-256 of the original raw bytes (`sha256:<hex>`). */
       sourceHash: string;

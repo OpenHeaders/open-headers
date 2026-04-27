@@ -82,6 +82,10 @@ export interface ImportWorkspaceArgs {
   backupRestore?: boolean;
   /** When `true`, preserves source `enabled` flags (Advanced override). */
   trustExport?: boolean;
+  /** When `true`, strips `preRequestScript` / `postResponseScript` from
+   *  every imported request (Advanced override; default-on for low-trust
+   *  sources per design §5.5). */
+  stripScripts?: boolean;
   target: ImportTargetSelector;
   /** SHA-256 of the original raw export bytes (`sha256:<hex>`). */
   sourceHash: string;
@@ -169,7 +173,10 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       let diff = diffWorkspaceExport(args.incoming, targetState);
       if (args.backupRestore) diff = applyBackupRestoreToggle(diff);
 
-      const importerOpts: ImporterOptions = { trustExport: args.trustExport ?? false };
+      const importerOpts: ImporterOptions = {
+        trustExport: args.trustExport ?? false,
+        stripScripts: args.stripScripts ?? false,
+      };
       const plan = buildImportPlan(args.incoming, diff, targetState, args.strategies, importerOpts);
 
       const missingDeps: MissingDep[] = walkMissingDeps(args.incoming, targetState);

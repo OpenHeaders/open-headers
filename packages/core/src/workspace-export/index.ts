@@ -115,4 +115,5 @@ export {
   ExportWorkspaceSchema,
   WorkspaceExportSchema,
 } from './schema';
+export { type RuleSummary, summarizeRule } from './rule-summary';
 export { serializeWorkspaceExport } from './yaml';

@@ -174,6 +174,11 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [strategies, setStrategies] = useState<StrategyMap>({});
   const [backupRestore, setBackupRestore] = useState(false);
+  const [trustExport, setTrustExport] = useState(false);
+  // Strip-scripts default depends on source trust posture (design §5.5).
+  // Low-trust sources (URL fetch / deep link) pre-check; local sources start unchecked.
+  const isLowTrustSource = source === 'link' || source === 'playground' || source === 'context-menu';
+  const [stripScripts, setStripScripts] = useState<boolean>(isLowTrustSource);
   const [dedup, setDedup] = useState<DedupMatchesResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [staleSnapshotHash, setStaleSnapshotHash] = useState<string | null>(null);
@@ -205,6 +210,8 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setParsed({ envelope: result.export, drops: result.drops });
     setStrategies({});
     setBackupRestore(false);
+    setTrustExport(false);
+    setStripScripts(isLowTrustSource);
     setStaleSnapshotHash(null);
     // Reset vault decrypt state when a fresh envelope arrives — a new
     // file shouldn't carry over the prior passphrase or decrypted vault.
@@ -226,6 +233,8 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setPreviewError(null);
     setStrategies({});
     setBackupRestore(false);
+    setTrustExport(false);
+    setStripScripts(false);
     setDedup(null);
     setStaleSnapshotHash(null);
     setSourceHash(null);
@@ -302,6 +311,18 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       .then((res) => {
         if (cancelled) return;
         setDedup(res);
+        // Same-install detection (design §5.5): if the export's
+        // workspace.uid matches the current target's workspace, the
+        // recipient is almost certainly looking at their own backup.
+        // Pre-check "this is mine — prefer update by uid". Skipped if
+        // the user already toggled something (we don't stomp their
+        // pick); the auto-pick is a one-shot helpful default.
+        if (
+          target.mode === 'current' &&
+          res.workspaceUidMatches.some((m) => m.workspaceId === preview.targetWorkspaceId)
+        ) {
+          setBackupRestore((prev) => prev || true);
+        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -310,7 +331,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [parsed, preview]);
+  }, [parsed, preview, target.mode]);
 
   // ── Submit ────────────────────────────────────────────────────────
   const handleImport = useCallback(async () => {
@@ -345,6 +366,8 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         incoming: effectiveEnvelope,
         strategies,
         backupRestore,
+        trustExport,
+        stripScripts,
         target,
         sourceHash,
       });
@@ -362,7 +385,19 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     } finally {
       setImporting(false);
     }
-  }, [parsed, preview, sourceHash, target, backupRestore, strategies, message, onImported, effectiveEnvelope]);
+  }, [
+    parsed,
+    preview,
+    sourceHash,
+    target,
+    backupRestore,
+    trustExport,
+    stripScripts,
+    strategies,
+    message,
+    onImported,
+    effectiveEnvelope,
+  ]);
 
   // ── Vault decryption handler ────────────────────────────────────
   const handleDecryptVault = useCallback(async () => {
@@ -532,9 +567,26 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             <>
               {preview.missingDeps.length > 0 && <MissingDepsPanel missingDeps={preview.missingDeps} />}
 
+              {isLowTrustSource && (
+                <StripScriptsTopRow
+                  source={source ?? 'link'}
+                  stripScripts={stripScripts}
+                  onChange={setStripScripts}
+                />
+              )}
+
               <DiffTree diff={preview.diff} strategies={strategies} onChangeStrategy={setStrategyFor} token={token} />
 
-              <AdvancedDisclosure backupRestore={backupRestore} onBackupRestoreChange={setBackupRestore} />
+              <AdvancedDisclosure
+                lowTrustSource={isLowTrustSource}
+                source={source ?? 'file'}
+                backupRestore={backupRestore}
+                onBackupRestoreChange={setBackupRestore}
+                trustExport={trustExport}
+                onTrustExportChange={setTrustExport}
+                stripScripts={stripScripts}
+                onStripScriptsChange={setStripScripts}
+              />
             </>
           )}
         </Space>
@@ -1109,40 +1161,120 @@ const SingletonRow: React.FC<{
   </div>
 );
 
+const StripScriptsTopRow: React.FC<{
+  source: ImportPreviewSource;
+  stripScripts: boolean;
+  onChange: (next: boolean) => void;
+}> = ({ source, stripScripts, onChange }) => {
+  const sourceLabel = source === 'link' ? 'deep-link' : source === 'playground' ? 'playground' : 'remote';
+  return (
+    <Alert
+      type="warning"
+      showIcon
+      icon={<WarningOutlined />}
+      message="Strip request scripts on import"
+      description={
+        <Space direction="vertical" size={4}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Pre-checked for {sourceLabel} sources — request `preRequestScript` and `postResponseScript` will be removed
+            so untrusted JavaScript can't run when you click Send.
+          </Text>
+          <Checkbox checked={stripScripts} onChange={(e) => onChange(e.target.checked)}>
+            <Text strong>Strip scripts on import</Text>
+          </Checkbox>
+        </Space>
+      }
+    />
+  );
+};
+
 const AdvancedDisclosure: React.FC<{
+  lowTrustSource: boolean;
+  source: ImportPreviewSource;
   backupRestore: boolean;
   onBackupRestoreChange: (next: boolean) => void;
-}> = ({ backupRestore, onBackupRestoreChange }) => (
-  <Collapse
-    size="small"
-    items={[
-      {
-        key: 'advanced',
-        label: 'Advanced',
-        children: (
-          <Space direction="vertical" size={6} style={{ width: '100%' }}>
-            <Checkbox checked={backupRestore} onChange={(e) => onBackupRestoreChange(e.target.checked)}>
-              <Text strong>This is mine — prefer update by uid</Text>
-              <div style={{ fontSize: 11 }}>
-                <Text type="secondary">
-                  Default strategy switches from "create new copy" to "update existing" for entities that match by uid.
-                  Skipped for entities edited since the export was made.
-                </Text>
-              </div>
-            </Checkbox>
-            <Alert
-              type="info"
-              showIcon
-              icon={<CheckCircleOutlined />}
-              message="Imported rules, live workflows, and live variables land disabled by default."
-              description="The override to preserve their enabled state lives in a future update."
-              style={{ marginTop: 4 }}
-            />
-          </Space>
-        ),
-      },
-    ]}
-  />
-);
+  trustExport: boolean;
+  onTrustExportChange: (next: boolean) => void;
+  stripScripts: boolean;
+  onStripScriptsChange: (next: boolean) => void;
+}> = ({
+  lowTrustSource,
+  source,
+  backupRestore,
+  onBackupRestoreChange,
+  trustExport,
+  onTrustExportChange,
+  stripScripts,
+  onStripScriptsChange,
+}) => {
+  const sourceLabel = source === 'link' ? 'deep-link' : 'URL-fetch';
+  // Per design §5.5 discovery rules: hide override toggles entirely on
+  // low-trust sources. The collapse ribbon stays visible but expands to
+  // an explainer pointing the user at the safe path.
+  if (lowTrustSource) {
+    return (
+      <Collapse
+        size="small"
+        items={[
+          {
+            key: 'advanced',
+            label: 'Advanced',
+            children: (
+              <Alert
+                type="info"
+                showIcon
+                icon={<InfoCircleOutlined />}
+                message="Advanced overrides are hidden for low-trust sources"
+                description={`Save the file locally and use "Import from file…" if you need to override the protective defaults for this ${sourceLabel} import.`}
+              />
+            ),
+          },
+        ]}
+      />
+    );
+  }
+  return (
+    <Collapse
+      size="small"
+      items={[
+        {
+          key: 'advanced',
+          label: 'Advanced',
+          children: (
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Checkbox checked={backupRestore} onChange={(e) => onBackupRestoreChange(e.target.checked)}>
+                <Text strong>This is mine — prefer update by uid</Text>
+                <div style={{ fontSize: 11 }}>
+                  <Text type="secondary">
+                    Switches the default for uid-matched entities from "create new copy" to "update existing". Skipped
+                    for entities edited locally since the export was made.
+                  </Text>
+                </div>
+              </Checkbox>
+              <Checkbox checked={trustExport} onChange={(e) => onTrustExportChange(e.target.checked)}>
+                <Text strong>Trust this export — import enabled flags as-is</Text>
+                <div style={{ fontSize: 11 }}>
+                  <Text type="secondary">
+                    Imported rules / live workflows / live variables land disabled by default. Enable this only when
+                    you trust the sender — it lets the export turn things on the moment it lands.
+                  </Text>
+                </div>
+              </Checkbox>
+              <Checkbox checked={stripScripts} onChange={(e) => onStripScriptsChange(e.target.checked)}>
+                <Text strong>Strip request scripts on import</Text>
+                <div style={{ fontSize: 11 }}>
+                  <Text type="secondary">
+                    Removes pre-request and post-response scripts from every imported request. Recommended when the
+                    sender is unfamiliar.
+                  </Text>
+                </div>
+              </Checkbox>
+            </Space>
+          ),
+        },
+      ]}
+    />
+  );
+};
 
 export default ImportPreviewModal;

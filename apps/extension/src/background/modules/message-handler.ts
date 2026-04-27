@@ -463,6 +463,7 @@ export function handleGeneralMessage(
         strategies: message.strategies as Parameters<typeof importWorkspaceFromExport>[0]['strategies'],
         backupRestore: message.backupRestore as boolean | undefined,
         trustExport: message.trustExport as boolean | undefined,
+        stripScripts: message.stripScripts as boolean | undefined,
         target: message.target as Parameters<typeof importWorkspaceFromExport>[0]['target'],
         sourceHash: message.sourceHash as string,
       })

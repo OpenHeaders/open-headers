@@ -124,6 +124,14 @@ export interface ImporterOptions {
    * `true`, source-state passes through.
    */
   trustExport?: boolean;
+  /**
+   * Strip request scripts on import (design §5.5). Replaces every
+   * incoming `Request.preRequestScript` / `postResponseScript` with
+   * `undefined`. Surfaced as the top-level info row on low-trust
+   * sources (URL-fetch / deep-link, pre-checked) and as an Advanced
+   * toggle on file / clipboard / menu sources.
+   */
+  stripScripts?: boolean;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -152,6 +160,24 @@ function mergeSecretsByName(target: VaultSecret[], incoming: VaultSecret[]): Vau
 function forceDisabled<T extends { enabled?: boolean }>(entity: T, trust: boolean): T {
   if (trust) return entity;
   return { ...entity, enabled: false };
+}
+
+/**
+ * Strip pre-request / post-response script source. Returns the request
+ * verbatim when `strip` is false. The fields are removed entirely
+ * rather than blanked, so the importer's downstream "scripts present"
+ * surface matches the rule "field absent ↔ no script."
+ */
+function stripRequestScripts<T extends { preRequestScript?: string; postResponseScript?: string }>(
+  entity: T,
+  strip: boolean,
+): T {
+  if (!strip) return entity;
+  if (entity.preRequestScript === undefined && entity.postResponseScript === undefined) return entity;
+  const next = { ...entity };
+  delete next.preRequestScript;
+  delete next.postResponseScript;
+  return next;
 }
 
 // ── Tree-aware new-uid for collections + folders + leaves ───────────
@@ -235,6 +261,7 @@ export function buildImportPlan(
   opts: ImporterOptions = {},
 ): ImportPlan {
   const trust = opts.trustExport ?? false;
+  const strip = opts.stripScripts ?? false;
   const uidRemap: Record<string, string> = {};
 
   // ── Resolve per-array strategies (action tagging) ───────────────
@@ -254,6 +281,7 @@ export function buildImportPlan(
   const requests = resolveArrayBase<Request>({
     diff: diff.requests,
     overrides: strategies.requests,
+    stamp: (r) => stripRequestScripts(r, strip),
   });
   const templates = resolveArrayBase<Template>({
     diff: diff.templates,
