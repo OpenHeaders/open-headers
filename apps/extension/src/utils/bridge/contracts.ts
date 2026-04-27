@@ -143,12 +143,30 @@ export interface BridgeRpcContract {
       /** Falls back to the active workspace when omitted. */
       workspaceId?: string;
       scope: { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string };
+      /**
+       * Vault include mode (design §3.1 / §3.2 / §3.3).
+       *
+       * Encrypted exports are computed entirely SW-side: the renderer
+       * passes the user's passphrase, the SW derives the key, encrypts,
+       * zeroes the in-memory passphrase reference, and returns the
+       * fingerprints alongside the YAML. The passphrase never lands in
+       * persisted state.
+       */
+      vaultMode?: 'omitted' | 'encrypted' | 'plaintext';
+      passphrase?: string;
+      passphraseHint?: string;
+      /** Drives the deep-link plaintext refusal in `buildWorkspaceExport`. */
+      destination?: 'file' | 'clipboard' | 'deep-link';
     };
     res: {
       success: boolean;
       yaml?: string;
       exportId?: string;
       scope?: 'workspace' | 'collection' | 'selection';
+      /** Present when `vaultMode === 'encrypted'`. Sender shows these to
+       *  the recipient out-of-band ("does yours say `7f:a3:c1`?"). */
+      ciphertextFingerprint?: string;
+      keyFingerprint?: string;
       error?: string;
     };
   };
@@ -237,6 +255,39 @@ export interface BridgeRpcContract {
   consumeImportHandoff: {
     req: { handoffId: string };
     res: { yaml: string | null };
+  };
+  /**
+   * Fetch a workspace-export YAML/JSON from an https:// URL. SW
+   * enforces the host allowlist + 1 MB streaming cap + manual redirect
+   * validation; the renderer's role is purely to pass the URL and
+   * surface the discriminated outcome in the preview-modal error
+   * gutter (design §5.1).
+   */
+  fetchWorkspaceExportYaml: {
+    req: { url: string };
+    res:
+      | { ok: true; yaml: string; finalUrl: string }
+      | {
+          ok: false;
+          reason:
+            | 'invalid-url'
+            | 'not-https'
+            | 'host-not-allowlisted'
+            | 'too-many-redirects'
+            | 'redirect-host-not-allowlisted'
+            | 'body-too-large'
+            | 'http-error'
+            | 'network-error';
+          message: string;
+        };
+  };
+  /** Read the resolved allowlist (parsed from `oh.settings.user`,
+   *  falling back to defaults when unset). The Settings UI stores the
+   *  raw comma-separated string; this RPC returns the parsed list for
+   *  diagnostics surfaces. */
+  getAllowedFetchHosts: {
+    req: Record<string, never>;
+    res: { hosts: string[] };
   };
   setActiveWorkspace: {
     req: { id: string };

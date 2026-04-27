@@ -1,49 +1,58 @@
 /**
  * ExportModal — emit a workspace-export envelope as YAML.
  *
- * PR 1B scope (per docs/V5_WORKSPACE_EXPORT_DESIGN.md §6 and
- * docs/V5_WORKSPACE_EXPORT_STATUS.md):
- *   - Destinations: download file, copy to clipboard.
- *   - Vault: omitted (only mode supported until PR 4).
- *   - Scope: 'workspace' (whole workspace) or 'selection' (one rule).
- *   - No deep-link destination (PR 3), no encryption UI (PR 4),
- *     no Advanced overrides (PR 5).
+ * Destinations: download file, copy to clipboard, copy deep link.
  *
- * Filename: `<workspace-slug>-<scope>.openheaders.yaml` per design §6.2.
- * The double-extension is intentional — `.yaml` keeps editors syntax-
- * highlighted, `.openheaders` makes the file recognizable to humans
- * and to the importer's drag-drop handler.
+ * Vault include modes (design §3.1 / §3.2 / §3.3):
+ *   - Omit (default) — no vault in the envelope.
+ *   - Encrypted (passphrase) — PBKDF2-HMAC-SHA256 → AES-GCM-256, fresh
+ *     12-byte IV per export, 600k iterations. Sender sees a ciphertext
+ *     fingerprint + key fingerprint to share out-of-band so the recipient
+ *     can confirm "we typed the same passphrase".
+ *   - Plaintext (advanced) — secrets ride in the envelope verbatim. Red
+ *     banner + "I understand" gate. Refused outright on the deep-link
+ *     destination (URL would land in browser history).
+ *
+ * Filename: `<workspace-slug>-<scope>.openheaders.yaml`. The double
+ * extension keeps editor syntax-highlighting while making the file
+ * recognizable to the importer's drag-drop handler.
  */
 
-import { CopyOutlined, DownloadOutlined, InfoCircleOutlined, LinkOutlined } from '@ant-design/icons';
+import {
+  CopyOutlined,
+  DownloadOutlined,
+  InfoCircleOutlined,
+  LinkOutlined,
+  LockOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
 import { slugify } from '@openheaders/core/utils';
 import { DeepLinkPayloadTooLargeError, encodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
 import { IMPORT_INLINE_PAYLOAD_MAX_BYTES, intentToHash } from '@openheaders/core/workspace-intent';
-import { App as AntApp, Button, Modal, Space, Tag, Typography } from 'antd';
+import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Progress, Radio, Space, Tag, Typography } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { call } from '@/utils/bridge';
 
-/**
- * Hosted entry point that redirects into the extension's workspace tab.
- * Recipients without the extension installed land on the page's
- * "install OpenHeaders" prompt; recipients with the extension installed
- * are redirected via `chrome-extension://<id>/workbench.html#/import/...`
- * so the workspace router picks the inline payload off the URL hash.
- */
 const HOSTED_IMPORT_URL = 'https://workspace.openheaders.io/import';
 
 const { Text, Paragraph } = Typography;
 
 export type ExportModalScope = { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string; ruleName: string };
 
+type VaultMode = 'omitted' | 'encrypted' | 'plaintext';
+
 interface ExportModalProps {
   open: boolean;
-  /** Source workspace (defaults to active when omitted at the SW). */
   workspaceId?: string;
   workspaceName: string;
   scope: ExportModalScope;
   onCancel: () => void;
+}
+
+interface FingerprintPair {
+  ciphertext: string;
+  key: string;
 }
 
 function buildFilename(workspaceName: string, scope: ExportModalScope): string {
@@ -63,61 +72,120 @@ function downloadYaml(filename: string, yaml: string): void {
     a.click();
     document.body.removeChild(a);
   } finally {
-    // Defer revoke so Safari has time to start the download.
     setTimeout(() => URL.revokeObjectURL(url), 1_000);
   }
+}
+
+/**
+ * Lightweight passphrase strength signal. Not a security boundary —
+ * PBKDF2 + 600k iterations carries the cost. This drives a visual cue
+ * so users don't pick "1234".
+ */
+function passphraseStrength(pass: string): { score: number; label: string } {
+  if (!pass) return { score: 0, label: 'enter a passphrase' };
+  let score = 0;
+  if (pass.length >= 8) score += 25;
+  if (pass.length >= 16) score += 25;
+  if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 15;
+  if (/\d/.test(pass)) score += 15;
+  if (/[^A-Za-z0-9]/.test(pass)) score += 20;
+  const label = score < 40 ? 'weak' : score < 70 ? 'fair' : score < 90 ? 'good' : 'strong';
+  return { score: Math.min(100, score), label };
 }
 
 const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceName, scope, onCancel }) => {
   const { message } = AntApp.useApp();
   const [busy, setBusy] = useState(false);
 
-  const filename = buildFilename(workspaceName, scope);
+  const [vaultMode, setVaultMode] = useState<VaultMode>('omitted');
+  const [passphrase, setPassphrase] = useState('');
+  const [confirmPassphrase, setConfirmPassphrase] = useState('');
+  const [passphraseHint, setPassphraseHint] = useState('');
+  const [plaintextAcknowledged, setPlaintextAcknowledged] = useState(false);
+  const [lastFingerprints, setLastFingerprints] = useState<FingerprintPair | null>(null);
 
-  const fetchYaml = useCallback(async (): Promise<string | null> => {
-    const swScope =
-      scope.kind === 'workspace'
-        ? { kind: 'workspace' as const }
-        : { kind: 'selection-rule' as const, ruleUid: scope.ruleUid };
-    const resp = await call('exportWorkspace', { workspaceId, scope: swScope });
-    if (!resp?.success || !resp.yaml) {
-      message.error(resp?.error ?? 'Export failed');
-      return null;
-    }
-    return resp.yaml;
-  }, [scope, workspaceId, message]);
+  const filename = buildFilename(workspaceName, scope);
+  const strength = useMemo(() => passphraseStrength(passphrase), [passphrase]);
+
+  const passphraseOk = vaultMode !== 'encrypted' || (passphrase.length >= 8 && passphrase === confirmPassphrase);
+  const plaintextOk = vaultMode !== 'plaintext' || plaintextAcknowledged;
+  const vaultOk = passphraseOk && plaintextOk;
+
+  const fetchYaml = useCallback(
+    async (
+      destination: 'file' | 'clipboard' | 'deep-link',
+    ): Promise<{ yaml: string; fingerprints: FingerprintPair | null } | null> => {
+      const swScope =
+        scope.kind === 'workspace'
+          ? { kind: 'workspace' as const }
+          : { kind: 'selection-rule' as const, ruleUid: scope.ruleUid };
+      const resp = await call('exportWorkspace', {
+        workspaceId,
+        scope: swScope,
+        vaultMode,
+        ...(vaultMode === 'encrypted' ? { passphrase, ...(passphraseHint ? { passphraseHint } : {}) } : {}),
+        destination,
+      });
+      if (!resp?.success || !resp.yaml) {
+        message.error(resp?.error ?? 'Export failed');
+        return null;
+      }
+      const fingerprints =
+        resp.ciphertextFingerprint && resp.keyFingerprint
+          ? { ciphertext: resp.ciphertextFingerprint, key: resp.keyFingerprint }
+          : null;
+      return { yaml: resp.yaml, fingerprints };
+    },
+    [scope, workspaceId, message, vaultMode, passphrase, passphraseHint],
+  );
 
   const onDownload = useCallback(async () => {
+    if (!vaultOk) return;
     setBusy(true);
     try {
-      const yaml = await fetchYaml();
-      if (!yaml) return;
-      downloadYaml(filename, yaml);
-      message.success(`Exported ${filename}`);
-      onCancel();
+      const result = await fetchYaml('file');
+      if (!result) return;
+      downloadYaml(filename, result.yaml);
+      if (result.fingerprints) {
+        setLastFingerprints(result.fingerprints);
+        message.success(`Exported ${filename} — share fingerprints with recipient`);
+      } else {
+        message.success(`Exported ${filename}`);
+        onCancel();
+      }
     } finally {
       setBusy(false);
     }
-  }, [fetchYaml, filename, message, onCancel]);
+  }, [fetchYaml, filename, message, onCancel, vaultOk]);
 
   const onCopyDeepLink = useCallback(async () => {
+    if (!vaultOk) return;
+    if (vaultMode === 'plaintext') {
+      message.error('Plaintext-vault exports cannot be shared as a deep link.');
+      return;
+    }
     setBusy(true);
     try {
-      const yaml = await fetchYaml();
-      if (!yaml) return;
+      const result = await fetchYaml('deep-link');
+      if (!result) return;
       try {
-        const payload = await encodeWorkspaceExportDeepLink(yaml, {
+        const payload = await encodeWorkspaceExportDeepLink(result.yaml, {
           maxCompressedBytes: IMPORT_INLINE_PAYLOAD_MAX_BYTES,
         });
         const hash = intentToHash({ kind: 'open-import', payload });
         const url = `${HOSTED_IMPORT_URL}${hash}`;
         await navigator.clipboard.writeText(url);
-        message.success('Copied deep link to clipboard');
-        onCancel();
+        if (result.fingerprints) {
+          setLastFingerprints(result.fingerprints);
+          message.success('Deep link copied — share fingerprints with recipient');
+        } else {
+          message.success('Copied deep link to clipboard');
+          onCancel();
+        }
       } catch (err) {
         if (err instanceof DeepLinkPayloadTooLargeError) {
           message.warning('This export is too large for a deep link — falling back to a downloaded file.');
-          downloadYaml(filename, yaml);
+          downloadYaml(filename, result.yaml);
           onCancel();
           return;
         }
@@ -126,22 +194,28 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
     } finally {
       setBusy(false);
     }
-  }, [fetchYaml, filename, message, onCancel]);
+  }, [fetchYaml, filename, message, onCancel, vaultMode, vaultOk]);
 
   const onCopy = useCallback(async () => {
+    if (!vaultOk) return;
     setBusy(true);
     try {
-      const yaml = await fetchYaml();
-      if (!yaml) return;
-      await navigator.clipboard.writeText(yaml);
-      message.success('Copied YAML to clipboard');
-      onCancel();
+      const result = await fetchYaml('clipboard');
+      if (!result) return;
+      await navigator.clipboard.writeText(result.yaml);
+      if (result.fingerprints) {
+        setLastFingerprints(result.fingerprints);
+        message.success('YAML copied — share fingerprints with recipient');
+      } else {
+        message.success('Copied YAML to clipboard');
+        onCancel();
+      }
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Could not copy to clipboard');
     } finally {
       setBusy(false);
     }
-  }, [fetchYaml, message, onCancel]);
+  }, [fetchYaml, message, onCancel, vaultOk]);
 
   const scopeLabel =
     scope.kind === 'workspace' ? (
@@ -156,17 +230,23 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       open={open}
       onCancel={onCancel}
       destroyOnClose
-      width={560}
+      width={620}
       footer={
         <Space>
           <Button onClick={onCancel}>Cancel</Button>
-          <Button icon={<LinkOutlined />} onClick={onCopyDeepLink} loading={busy}>
+          <Button
+            icon={<LinkOutlined />}
+            onClick={onCopyDeepLink}
+            loading={busy}
+            disabled={!vaultOk || vaultMode === 'plaintext'}
+            title={vaultMode === 'plaintext' ? 'Plaintext-vault exports cannot be shared as a deep link' : undefined}
+          >
             Copy deep link
           </Button>
-          <Button icon={<CopyOutlined />} onClick={onCopy} loading={busy}>
+          <Button icon={<CopyOutlined />} onClick={onCopy} loading={busy} disabled={!vaultOk}>
             Copy YAML
           </Button>
-          <Button type="primary" icon={<DownloadOutlined />} onClick={onDownload} loading={busy}>
+          <Button type="primary" icon={<DownloadOutlined />} onClick={onDownload} loading={busy} disabled={!vaultOk}>
             Download
           </Button>
         </Space>
@@ -188,10 +268,110 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
           </Paragraph>
         </div>
 
+        <div>
+          <Text strong style={{ display: 'block', marginBottom: 6 }}>
+            Vault secrets
+          </Text>
+          <Radio.Group
+            value={vaultMode}
+            onChange={(e) => {
+              setVaultMode(e.target.value as VaultMode);
+              setLastFingerprints(null);
+            }}
+          >
+            <Radio value="omitted">Omit (default)</Radio>
+            <Radio value="encrypted">
+              <LockOutlined /> Encrypted (passphrase)
+            </Radio>
+            <Radio value="plaintext">Plaintext (advanced)</Radio>
+          </Radio.Group>
+        </div>
+
+        {vaultMode === 'encrypted' && (
+          <div>
+            <Input.Password
+              placeholder="Passphrase"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+              autoComplete="new-password"
+            />
+            <Input.Password
+              placeholder="Confirm passphrase"
+              value={confirmPassphrase}
+              onChange={(e) => setConfirmPassphrase(e.target.value)}
+              autoComplete="new-password"
+              status={confirmPassphrase && confirmPassphrase !== passphrase ? 'error' : undefined}
+              style={{ marginTop: 6 }}
+            />
+            <Input
+              placeholder="Optional hint (visible to recipient — never the passphrase itself)"
+              value={passphraseHint}
+              onChange={(e) => setPassphraseHint(e.target.value)}
+              maxLength={2048}
+              style={{ marginTop: 6 }}
+            />
+            <div style={{ marginTop: 6 }}>
+              <Progress
+                percent={strength.score}
+                size="small"
+                showInfo={false}
+                strokeColor={strength.score < 40 ? '#ff4d4f' : strength.score < 70 ? '#faad14' : '#52c41a'}
+              />
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Passphrase strength: {strength.label}. Share the passphrase out-of-band (Signal, password manager,
+                voice). Anyone with the passphrase can read every secret in this export.
+              </Text>
+            </div>
+          </div>
+        )}
+
+        {vaultMode === 'plaintext' && (
+          <Alert
+            type="error"
+            showIcon
+            icon={<WarningOutlined />}
+            message="Plaintext secrets are readable by anyone who sees this file"
+            description={
+              <div>
+                <Paragraph style={{ marginBottom: 8 }}>
+                  Use only when sharing with a system you fully trust (e.g. backup to your own encrypted drive). Cannot
+                  be sent as a deep link — the URL would land in browser history.
+                </Paragraph>
+                <Checkbox checked={plaintextAcknowledged} onChange={(e) => setPlaintextAcknowledged(e.target.checked)}>
+                  I understand the risks
+                </Checkbox>
+              </div>
+            }
+          />
+        )}
+
+        {lastFingerprints && (
+          <Alert
+            type="success"
+            showIcon
+            message="Encrypted — share these fingerprints with the recipient"
+            description={
+              <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12 }}>
+                <div>
+                  <Text strong>Ciphertext fingerprint: </Text>
+                  <Text code>{lastFingerprints.ciphertext}</Text>
+                </div>
+                <div>
+                  <Text strong>Key fingerprint: </Text>
+                  <Text code>{lastFingerprints.key}</Text>
+                </div>
+                <Paragraph type="secondary" style={{ marginTop: 6, marginBottom: 0, fontSize: 11 }}>
+                  After the recipient enters the passphrase, they'll see the same key fingerprint if it matches yours.
+                </Paragraph>
+              </div>
+            }
+          />
+        )}
+
         <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
           <InfoCircleOutlined style={{ marginRight: 6 }} />
-          Vault secrets and OAuth client secrets are <Text strong>omitted</Text>. Encryption + plaintext include modes
-          arrive in a future update. The recipient will need to provide their own credentials at first auth.
+          OAuth client secrets are always omitted regardless of vault mode. The recipient enters their own at first
+          auth.
         </Paragraph>
       </Space>
     </Modal>

@@ -296,14 +296,97 @@ describe('buildWorkspaceExport — vault include modes', () => {
     expect(exp.entities.vault).toBeUndefined();
     expect(exp.secrets).toBeUndefined();
     expect(exp.meta.counts.secrets).toBe(0);
+    expect(exp.meta.redactions.vault).toBe('omitted');
   });
 
-  it('refuses encrypted mode in PR 1 (lands in PR 4)', () => {
-    expect(() => buildWorkspaceExport(baseInput(), { vaultMode: 'encrypted' })).toThrow(/PR 4/);
+  it('plaintext mode keeps entities.vault and counts secrets', () => {
+    const input = baseInput();
+    input.entities.vault = {
+      schemaVersion: 5,
+      version: 1,
+      secrets: [{ name: 'API_KEY', kind: 'string', value: 'sekret' }],
+    };
+    const exp = buildWorkspaceExport(input, { vaultMode: 'plaintext' });
+    expect(exp.entities.vault?.secrets).toHaveLength(1);
+    expect(exp.secrets).toBeUndefined();
+    expect(exp.meta.counts.secrets).toBe(1);
+    expect(exp.meta.redactions.vault).toBe('plaintext');
   });
 
-  it('refuses plaintext mode in PR 1 (lands in PR 4)', () => {
-    expect(() => buildWorkspaceExport(baseInput(), { vaultMode: 'plaintext' })).toThrow(/PR 4/);
+  it('plaintext + deep-link destination is refused', () => {
+    const input = baseInput();
+    input.entities.vault = { schemaVersion: 5, version: 1, secrets: [] };
+    expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'deep-link' })).toThrow(
+      /Plaintext-vault/,
+    );
+  });
+
+  it('plaintext on file/clipboard destinations is allowed', () => {
+    const input = baseInput();
+    input.entities.vault = { schemaVersion: 5, version: 1, secrets: [] };
+    expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'file' })).not.toThrow();
+    expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'clipboard' })).not.toThrow();
+  });
+
+  it('encrypted mode requires a pre-computed secretsBlock', () => {
+    expect(() => buildWorkspaceExport(baseInput(), { vaultMode: 'encrypted' })).toThrow(/secretsBlock/);
+  });
+
+  it('encrypted mode emits the secrets block and drops entities.vault', () => {
+    const input = baseInput();
+    input.entities.vault = {
+      schemaVersion: 5,
+      version: 1,
+      secrets: [
+        { name: 'API_KEY', kind: 'string', value: 'sekret' },
+        { name: 'DB_URL', kind: 'string', value: 'postgres://x' },
+      ],
+    };
+    const fakeBlock = {
+      encryption: { kind: 'pbkdf2-aes-gcm' as const, salt: 'AAAA', iv: 'BBBB', iterations: 600_000 },
+      ciphertext: 'CCCC',
+    };
+    const exp = buildWorkspaceExport(input, { vaultMode: 'encrypted', secretsBlock: fakeBlock });
+    expect(exp.entities.vault).toBeUndefined();
+    expect(exp.secrets).toEqual(fakeBlock);
+    expect(exp.meta.counts.secrets).toBe(2);
+    expect(exp.meta.redactions.vault).toBe('encrypted');
+  });
+});
+
+describe('encryptVaultBlock + decryptVaultBlock', () => {
+  it('round-trips a vault under a passphrase', async () => {
+    const { encryptVaultBlock, decryptVaultBlock } = await import('../../src/workspace-export/index');
+    const secrets = [{ name: 'API_KEY', kind: 'string' as const, value: 's' }];
+    const enc = await encryptVaultBlock(secrets, 'correct horse battery staple', { iterations: 100_000 });
+    expect(enc.block.encryption.kind).toBe('pbkdf2-aes-gcm');
+    expect(enc.ciphertextFingerprint).toMatch(/^[0-9a-f]{2}(:[0-9a-f]{2}){7}$/);
+    expect(enc.keyFingerprint).toMatch(/^[0-9a-f]{2}(:[0-9a-f]{2}){2}$/);
+
+    const dec = await decryptVaultBlock(enc.block, 'correct horse battery staple');
+    expect(dec.secrets).toEqual(secrets);
+    expect(dec.drops).toHaveLength(0);
+    expect(dec.keyFingerprint).toBe(enc.keyFingerprint);
+    expect(dec.ciphertextFingerprint).toBe(enc.ciphertextFingerprint);
+  });
+
+  it('wrong passphrase throws VaultDecryptionFailedError', async () => {
+    const { encryptVaultBlock, decryptVaultBlock, VaultDecryptionFailedError } = await import(
+      '../../src/workspace-export/index'
+    );
+    const enc = await encryptVaultBlock([], 'one passphrase', { iterations: 100_000 });
+    await expect(decryptVaultBlock(enc.block, 'a different passphrase')).rejects.toBeInstanceOf(
+      VaultDecryptionFailedError,
+    );
+  });
+
+  it('AES-GCM IV is fresh per encryption (no IV reuse)', async () => {
+    const { encryptVaultBlock } = await import('../../src/workspace-export/index');
+    const a = await encryptVaultBlock([], 'pp', { iterations: 100_000 });
+    const b = await encryptVaultBlock([], 'pp', { iterations: 100_000 });
+    expect(a.block.encryption.iv).not.toBe(b.block.encryption.iv);
+    expect(a.block.encryption.salt).not.toBe(b.block.encryption.salt);
+    expect(a.block.ciphertext).not.toBe(b.block.ciphertext);
   });
 });
 

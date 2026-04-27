@@ -42,10 +42,13 @@ import {
   type DiffEntry,
   type DiffResult,
   type DiffSingleton,
+  decryptVaultBlock,
   type ImportDrop,
   type MissingDep,
   parseWorkspaceExport,
   type StrategyMap,
+  VaultDecryptionFailedError,
+  VaultPayloadShapeError,
   type WorkspaceExport,
 } from '@openheaders/core/workspace-export';
 import {
@@ -55,6 +58,7 @@ import {
   Checkbox,
   Collapse,
   Empty,
+  Input,
   Modal,
   Radio,
   Select,
@@ -137,6 +141,18 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<{ envelope: WorkspaceExport; drops: ImportDrop[] } | null>(null);
   const [sourceHash, setSourceHash] = useState<string | null>(null);
+  // Vault decryption state — when the envelope carries a `secrets` block,
+  // the user enters a passphrase and we decrypt client-side, then inject
+  // the resulting secrets into envelope.entities.vault.secrets so the
+  // importer's standard vault path picks them up. The passphrase never
+  // crosses the bridge — only the decrypted secrets do, and only inside
+  // the `incoming` envelope payload of `importWorkspace`.
+  const [vaultPassphrase, setVaultPassphrase] = useState('');
+  const [vaultDecryptError, setVaultDecryptError] = useState<string | null>(null);
+  const [vaultDecrypting, setVaultDecrypting] = useState(false);
+  const [vaultFingerprints, setVaultFingerprints] = useState<{ ciphertext: string; key: string } | null>(null);
+  /** When set, the rendered envelope has decrypted secrets injected. */
+  const [decryptedEnvelope, setDecryptedEnvelope] = useState<WorkspaceExport | null>(null);
   const [target, setTarget] = useState<ImportTargetSelection>(
     initialTarget ?? (activeWorkspaceId ? { mode: 'current' } : { mode: 'new' }),
   );
@@ -177,6 +193,12 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setStrategies({});
     setBackupRestore(false);
     setStaleSnapshotHash(null);
+    // Reset vault decrypt state when a fresh envelope arrives — a new
+    // file shouldn't carry over the prior passphrase or decrypted vault.
+    setVaultPassphrase('');
+    setVaultDecryptError(null);
+    setVaultFingerprints(null);
+    setDecryptedEnvelope(null);
     void hashImportSource(rawText)
       .then(setSourceHash)
       .catch(() => setSourceHash(''));
@@ -194,11 +216,22 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setDedup(null);
     setStaleSnapshotHash(null);
     setSourceHash(null);
+    setVaultPassphrase('');
+    setVaultDecryptError(null);
+    setVaultFingerprints(null);
+    setDecryptedEnvelope(null);
   }, [open]);
+
+  // The envelope used for preview + import. When the user has decrypted
+  // the secrets block, swap in the decrypted envelope; otherwise the
+  // parsed (encrypted) envelope is what we ship — the importer treats a
+  // missing entities.vault as "no secrets to merge", which is what we
+  // want for un-decrypted imports.
+  const effectiveEnvelope: WorkspaceExport | null = decryptedEnvelope ?? parsed?.envelope ?? null;
 
   // ── Stage 2: SW-side preview (diff + missing-deps) ────────────────
   useEffect(() => {
-    if (!parsed) {
+    if (!effectiveEnvelope) {
       setPreview(null);
       setPreviewError(null);
       return;
@@ -208,7 +241,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setPreviewing(true);
     setPreviewError(null);
     void call('previewWorkspaceImport', {
-      incoming: parsed.envelope,
+      incoming: effectiveEnvelope,
       target: target,
       backupRestore,
     })
@@ -239,7 +272,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [parsed, target, backupRestore]);
+  }, [effectiveEnvelope, target, backupRestore]);
 
   // ── Stage 3: dedup walker ─────────────────────────────────────────
   useEffect(() => {
@@ -268,13 +301,13 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 
   // ── Submit ────────────────────────────────────────────────────────
   const handleImport = useCallback(async () => {
-    if (!parsed || !preview || !sourceHash) return;
+    if (!parsed || !preview || !sourceHash || !effectiveEnvelope) return;
     setImporting(true);
     try {
       // Re-run preview to detect concurrent edits since the user opened
       // the modal (design §9 — "data changed since you opened this preview").
       const fresh = await call('previewWorkspaceImport', {
-        incoming: parsed.envelope,
+        incoming: effectiveEnvelope,
         target,
         backupRestore,
       });
@@ -296,7 +329,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         return;
       }
       const res = await call('importWorkspace', {
-        incoming: parsed.envelope,
+        incoming: effectiveEnvelope,
         strategies,
         backupRestore,
         target,
@@ -309,14 +342,57 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       onImported({
         targetWorkspaceId: res.targetWorkspaceId,
         importedCount: res.report.summary.imported,
-        sourceLabel: parsed.envelope.source.workspaceLabel ?? parsed.envelope.workspace.name,
+        sourceLabel: effectiveEnvelope.source.workspaceLabel ?? effectiveEnvelope.workspace.name,
       });
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Import failed');
     } finally {
       setImporting(false);
     }
-  }, [parsed, preview, sourceHash, target, backupRestore, strategies, message, onImported]);
+  }, [parsed, preview, sourceHash, target, backupRestore, strategies, message, onImported, effectiveEnvelope]);
+
+  // ── Vault decryption handler ────────────────────────────────────
+  const handleDecryptVault = useCallback(async () => {
+    if (!parsed?.envelope.secrets) return;
+    setVaultDecrypting(true);
+    setVaultDecryptError(null);
+    try {
+      const result = await decryptVaultBlock(parsed.envelope.secrets, vaultPassphrase);
+      // Inject decrypted secrets into a new envelope copy. The importer's
+      // standard vault path handles merge/replace/skip; we don't need to
+      // touch the importer to support encrypted exports.
+      const next: WorkspaceExport = {
+        ...parsed.envelope,
+        entities: {
+          ...parsed.envelope.entities,
+          vault: {
+            schemaVersion: 5,
+            version: 1,
+            secrets: result.secrets,
+          },
+        },
+      };
+      // Drop the encrypted block from the working copy — it served its
+      // purpose; the decrypted secrets are now in entities.vault and the
+      // importer reads from there.
+      delete (next as { secrets?: unknown }).secrets;
+      setDecryptedEnvelope(next);
+      setVaultFingerprints({ ciphertext: result.ciphertextFingerprint, key: result.keyFingerprint });
+      setVaultPassphrase(''); // wipe from memory
+    } catch (err) {
+      if (err instanceof VaultDecryptionFailedError) {
+        setVaultDecryptError(
+          'Could not decrypt — wrong passphrase or tampered ciphertext. Check the passphrase with the sender.',
+        );
+      } else if (err instanceof VaultPayloadShapeError) {
+        setVaultDecryptError(`The encrypted payload didn't match an expected vault shape: ${err.message}`);
+      } else {
+        setVaultDecryptError(err instanceof Error ? err.message : 'Decryption failed');
+      }
+    } finally {
+      setVaultDecrypting(false);
+    }
+  }, [parsed, vaultPassphrase]);
 
   // ── Strategy update helpers ──────────────────────────────────────
 
@@ -399,6 +475,34 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           />
 
           {dedup && <DedupBanner dedup={dedup} />}
+
+          {parsed.envelope.secrets && !decryptedEnvelope && (
+            <VaultEncryptedBlock
+              envelope={parsed.envelope}
+              passphrase={vaultPassphrase}
+              onChangePassphrase={setVaultPassphrase}
+              onDecrypt={() => void handleDecryptVault()}
+              decrypting={vaultDecrypting}
+              error={vaultDecryptError}
+            />
+          )}
+
+          {decryptedEnvelope && vaultFingerprints && (
+            <VaultDecryptedBanner
+              fingerprints={vaultFingerprints}
+              secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
+            />
+          )}
+
+          {parsed.envelope.meta.redactions.vault === 'plaintext' && (
+            <Alert
+              type="warning"
+              showIcon
+              icon={<WarningOutlined />}
+              message="This export contains plaintext vault secrets"
+              description="Anyone with this file can read every secret it carries. Consider re-issuing as encrypted before forwarding."
+            />
+          )}
 
           {staleSnapshotHash && (
             <Alert
@@ -530,6 +634,83 @@ const TargetControl: React.FC<{
     </div>
   );
 };
+
+const VaultEncryptedBlock: React.FC<{
+  envelope: WorkspaceExport;
+  passphrase: string;
+  onChangePassphrase: (v: string) => void;
+  onDecrypt: () => void;
+  decrypting: boolean;
+  error: string | null;
+}> = ({ envelope, passphrase, onChangePassphrase, onDecrypt, decrypting, error }) => {
+  const secretCount = envelope.meta.counts.secrets;
+  const hint = envelope.secrets?.encryption.kind === 'pbkdf2-aes-gcm' ? envelope.secrets.encryption.hint : undefined;
+  return (
+    <Alert
+      type="info"
+      showIcon
+      message={`Encrypted vault — ${secretCount} secret${secretCount === 1 ? '' : 's'}`}
+      description={
+        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          {hint && (
+            <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
+              <Text strong>Hint from sender: </Text>
+              <Text>{hint}</Text>
+            </Paragraph>
+          )}
+          <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
+            Enter the passphrase to decrypt these secrets locally. Skipping decryption proceeds with the rest of the
+            import — secrets are simply omitted.
+          </Paragraph>
+          <Input.Password
+            placeholder="Passphrase"
+            value={passphrase}
+            onChange={(e) => onChangePassphrase(e.target.value)}
+            onPressEnter={() => {
+              if (passphrase) onDecrypt();
+            }}
+            autoComplete="off"
+          />
+          <Button type="primary" size="small" loading={decrypting} disabled={!passphrase} onClick={onDecrypt}>
+            Decrypt vault
+          </Button>
+          {error && (
+            <Text type="danger" style={{ fontSize: 12 }}>
+              {error}
+            </Text>
+          )}
+        </Space>
+      }
+    />
+  );
+};
+
+const VaultDecryptedBanner: React.FC<{ fingerprints: { ciphertext: string; key: string }; secretCount: number }> = ({
+  fingerprints,
+  secretCount,
+}) => (
+  <Alert
+    type="success"
+    showIcon
+    icon={<CheckCircleOutlined />}
+    message={`Vault decrypted — ${secretCount} secret${secretCount === 1 ? '' : 's'} ready to import`}
+    description={
+      <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12 }}>
+        <div>
+          <Text strong>Key fingerprint: </Text>
+          <Text code>{fingerprints.key}</Text>
+          <Text type="secondary" style={{ marginLeft: 6 }}>
+            (compare with sender)
+          </Text>
+        </div>
+        <div>
+          <Text strong>Ciphertext fingerprint: </Text>
+          <Text code>{fingerprints.ciphertext}</Text>
+        </div>
+      </div>
+    }
+  />
+);
 
 const DedupBanner: React.FC<{ dedup: DedupMatchesResult }> = ({ dedup }) => {
   if (dedup.exportIdSameTarget.length > 0) {

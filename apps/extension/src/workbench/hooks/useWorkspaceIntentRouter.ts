@@ -129,11 +129,36 @@ async function resolveImportIntent(
     }
   }
   if (intent.fetchUrl !== undefined) {
-    // URL-fetch lands in PR 4 alongside the host allowlist + SSRF
-    // hardening. Surface a precise error rather than silently 404'ing.
-    return {
-      error: 'Importing from a URL is not yet supported. Save the file locally and use "Import from file…".',
-    };
+    try {
+      const res = await call('fetchWorkspaceExportYaml', { url: intent.fetchUrl });
+      if (res.ok) return { rawText: res.yaml };
+      // Map specific reasons to user-facing copy. The reasons are
+      // already discrete so the modal can render them verbatim.
+      const prefix = (() => {
+        switch (res.reason) {
+          case 'host-not-allowlisted':
+          case 'redirect-host-not-allowlisted':
+            return 'Refused — host not on the allowlist.';
+          case 'not-https':
+            return 'Refused — only https:// imports are allowed.';
+          case 'body-too-large':
+            return 'Refused — response body exceeds the 1 MB cap.';
+          case 'too-many-redirects':
+            return 'Refused — too many redirects.';
+          case 'invalid-url':
+            return 'Could not parse the URL.';
+          case 'http-error':
+            return 'Server returned an error response.';
+          case 'network-error':
+            return 'Network error fetching the URL.';
+          default:
+            return 'Could not fetch the URL.';
+        }
+      })();
+      return { error: `${prefix} ${res.message}` };
+    } catch (err) {
+      return { error: `Could not fetch import URL: ${(err as Error).message}` };
+    }
   }
   return { error: 'Import link is malformed (no payload).' };
 }

@@ -10,6 +10,7 @@
 import {
   ApiOutlined,
   BgColorsOutlined,
+  CloudDownloadOutlined,
   DatabaseOutlined,
   DesktopOutlined,
   EditOutlined,
@@ -92,6 +93,15 @@ registerCategory({
   icon: <KeyOutlined />,
   order: 80,
   description: 'Customize keyboard shortcuts.',
+});
+
+registerCategory({
+  id: 'workspaceSharing',
+  label: 'Workspace Sharing',
+  icon: <CloudDownloadOutlined />,
+  order: 85,
+  description:
+    'Trust controls for workspace exports — allowlisted hosts the URL-fetch import source may retrieve from.',
 });
 
 registerCategory({

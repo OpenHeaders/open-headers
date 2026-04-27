@@ -342,10 +342,14 @@ export function handleGeneralMessage(
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'exportWorkspace') {
-      // PR 1B: scope = 'workspace' or 'selection-rule' (single rule).
-      // Vault default-omit; encryption / plaintext lands in PR 4.
+      // scope = 'workspace' or 'selection-rule' (single rule).
+      // PR 4: vaultMode = 'omitted' (default) | 'encrypted' | 'plaintext'.
       const wsId = (message.workspaceId as string | undefined) ?? getActiveWorkspaceId();
       const scope = message.scope as { kind: 'workspace' } | { kind: 'selection-rule'; ruleUid: string };
+      const vaultMode = (message.vaultMode as 'omitted' | 'encrypted' | 'plaintext' | undefined) ?? 'omitted';
+      const passphrase = message.passphrase as string | undefined;
+      const passphraseHint = message.passphraseHint as string | undefined;
+      const destination = message.destination as 'file' | 'clipboard' | 'deep-link' | undefined;
       const platform: 'chrome' | 'firefox' | 'edge' | 'safari' = isFirefox
         ? 'firefox'
         : isEdge
@@ -355,21 +359,51 @@ export function handleGeneralMessage(
             : isChrome
               ? 'chrome'
               : 'chrome';
-      gatherWorkspaceExport(wsId, scope, {
-        app: 'extension',
-        appVersion: browserRuntime.getManifest()?.version ?? '0.0.0',
-        platform,
-      })
-        .then((res) => {
+      (async () => {
+        try {
+          const res = await gatherWorkspaceExport(wsId, scope, {
+            app: 'extension',
+            appVersion: browserRuntime.getManifest()?.version ?? '0.0.0',
+            platform,
+          });
           if (!res) {
             safeResponse({ success: false, error: 'Workspace or rule not found' });
             return;
           }
-          const envelope = buildWorkspaceExport(res.input);
+          let secretsBlock: import('@openheaders/core/workspace-export').EncryptVaultBlockResult | undefined;
+          if (vaultMode === 'encrypted') {
+            if (!passphrase) {
+              safeResponse({ success: false, error: 'Encrypted vault export requires a passphrase' });
+              return;
+            }
+            const vaultSecrets = res.input.entities.vault?.secrets ?? [];
+            const { encryptVaultBlock } = await import('@openheaders/core/workspace-export');
+            secretsBlock = await encryptVaultBlock(vaultSecrets, passphrase, {
+              ...(passphraseHint ? { hint: passphraseHint } : {}),
+            });
+          }
+          const envelope = buildWorkspaceExport(res.input, {
+            vaultMode,
+            ...(secretsBlock ? { secretsBlock: secretsBlock.block } : {}),
+            ...(destination ? { destination } : {}),
+          });
           const yaml = serializeWorkspaceExport(envelope);
-          safeResponse({ success: true, yaml, exportId: envelope.exportId, scope: envelope.scope });
-        })
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
+          safeResponse({
+            success: true,
+            yaml,
+            exportId: envelope.exportId,
+            scope: envelope.scope,
+            ...(secretsBlock
+              ? {
+                  ciphertextFingerprint: secretsBlock.ciphertextFingerprint,
+                  keyFingerprint: secretsBlock.keyFingerprint,
+                }
+              : {}),
+          });
+        } catch (error) {
+          safeResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      })();
       return true;
     } else if (message.type === 'previewWorkspaceImport') {
       previewWorkspaceImport({
@@ -406,6 +440,18 @@ export function handleGeneralMessage(
       consumeImportHandoff(message.handoffId as string)
         .then((yaml) => safeResponse({ yaml }))
         .catch(() => safeResponse({ yaml: null }));
+      return true;
+    } else if (message.type === 'fetchWorkspaceExportYaml') {
+      import('./workspace-export-fetch')
+        .then(({ fetchWorkspaceExportYaml }) => fetchWorkspaceExportYaml(message.url as string))
+        .then((res) => safeResponse(res))
+        .catch((error: Error) => safeResponse({ ok: false, reason: 'network-error' as const, message: error.message }));
+      return true;
+    } else if (message.type === 'getAllowedFetchHosts') {
+      import('./workspace-export-fetch')
+        .then(({ getAllowedFetchHosts }) => getAllowedFetchHosts())
+        .then((hosts) => safeResponse({ hosts }))
+        .catch(() => safeResponse({ hosts: [] }));
       return true;
     } else if (message.type === 'importWorkspace') {
       // Drive the import orchestrator. SW reads target state, runs a

@@ -115,6 +115,17 @@ export const OH = {
   observabilityLog: storageKey<LogEntry[]>('oh.observability.log'),
 } as const;
 
+/**
+ * Conservative default allowlist for the workspace-export URL-fetch
+ * source (design §5.1). User-managed via Settings → Workspace Sharing →
+ * "Allowed fetch hosts"; the persisted value lives in `OH.settingsUser`
+ * under the `workspaceSharing.allowedFetchHosts` key (single source of
+ * truth — settings dict is the only place the list lives).
+ */
+export const DEFAULT_ALLOWED_FETCH_HOSTS = ['github.com', 'raw.githubusercontent.com', 'gist.github.com'] as const;
+/** Settings dict key for the user-managed host allowlist. */
+export const ALLOWED_FETCH_HOSTS_SETTING_KEY = 'workspaceSharing.allowedFetchHosts';
+
 // ── UI-global keys (not workspace-scoped by design) ─────────────────
 
 export const UI = {

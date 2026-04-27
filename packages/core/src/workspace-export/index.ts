@@ -13,8 +13,20 @@
 export type {
   BuildWorkspaceExportInput,
   BuildWorkspaceExportOptions,
+  DecryptVaultBlockResult,
+  EncryptVaultBlockOptions,
+  EncryptVaultBlockResult,
+  ExportDestination,
 } from './build';
-export { buildWorkspaceExport } from './build';
+export {
+  buildWorkspaceExport,
+  decryptVaultBlock,
+  encryptVaultBlock,
+  MissingSecretsBlockError,
+  PlaintextDeepLinkRefusedError,
+  VaultDecryptionFailedError,
+  VaultPayloadShapeError,
+} from './build';
 export type { EncryptedEnvelope } from './crypto';
 export {
   base64UrlToBytes,

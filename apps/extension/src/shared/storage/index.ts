@@ -1,5 +1,7 @@
 export { ExtensionStorage, extensionStorage } from './extension-storage';
 export {
+  ALLOWED_FETCH_HOSTS_SETTING_KEY,
+  DEFAULT_ALLOWED_FETCH_HOSTS,
   type HotkeyCommandSignal,
   OH,
   type PersistedLocalFolder,

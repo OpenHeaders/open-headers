@@ -20,5 +20,6 @@ import './recording';
 import './desktop-connection';
 import './keyboard';
 import './keyboard-popup';
+import './workspace-sharing';
 import './data';
 import './about';
