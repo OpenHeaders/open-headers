@@ -317,4 +317,14 @@ describe('parseWorkspaceExport — adversarial', () => {
     if (parsed.ok) return;
     expect(parsed.reason).toBe('discriminator');
   });
+
+  it('round-trips identically across LF and CRLF clipboard line endings', () => {
+    const yamlLf = buildAndSerialize();
+    const yamlCrlf = yamlLf.replace(/\n/g, '\r\n');
+    const parsedLf = parseWorkspaceExport(yamlLf);
+    const parsedCrlf = parseWorkspaceExport(yamlCrlf);
+    expect(parsedLf.ok && parsedCrlf.ok).toBe(true);
+    if (!parsedLf.ok || !parsedCrlf.ok) return;
+    expect(parsedCrlf.export).toEqual(parsedLf.export);
+  });
 });

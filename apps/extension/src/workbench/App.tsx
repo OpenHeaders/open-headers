@@ -450,7 +450,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
    * modal for the first file and stash the rest here. On modal close
    * (cancel or success) we shift the queue and open the next.
    */
-  const [pendingImportFiles, setPendingImportFiles] = useState<File[]>([]);
+  const [, setPendingImportFiles] = useState<File[]>([]);
   const advanceImportQueue = useCallback(() => {
     setPendingImportFiles((queue) => {
       if (queue.length === 0) {
