@@ -115,6 +115,40 @@ html, body, #root {
   cursor: default;
 }
 
+// Narrow-viewport collapse: kill the product title and strip the search
+// placeholder so just the icon + ⌘K hint remain. Keeps the topbar from
+// overflowing into the right cluster on split-screen widths.
+@media (max-width: 1200px) {
+  .rules-topbar {
+    grid-template-columns:
+      var(--ab-width, 64px) auto 1fr auto 1fr auto var(--ab-width, 64px);
+  }
+
+  .rules-topbar-title-full {
+    display: none;
+  }
+
+  .rules-topbar-search-label {
+    display: none;
+  }
+
+  .rules-topbar-search {
+    max-width: none;
+    flex: 0 0 auto;
+    padding: 2px 8px !important;
+  }
+}
+
+// Even narrower: drop the four panel-toggle icons (left/bottom/right
+// regions + bottom-alignment chooser) and keep only the layout-options
+// menu — its submenu still exposes every setting the toggles cover.
+@media (max-width: 600px) {
+  .rules-topbar .rules-topbar-divider-toggles,
+  .rules-topbar-right .rules-panel-toggles {
+    display: none;
+  }
+}
+
 // ── Activity Bar ───────────────────────────────────────────────────
 //
 // Vertical icon strip mounted on either edge of the shell. Internal

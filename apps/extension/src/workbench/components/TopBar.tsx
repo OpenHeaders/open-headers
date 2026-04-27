@@ -235,7 +235,7 @@ const TopBar: React.FC<TopBarProps> = ({
         />
       </div>
       <div className="rules-topbar-left">
-        <span className="rules-topbar-title">Open Headers</span>
+        <span className="rules-topbar-title rules-topbar-title-full">Open Headers</span>
         <WorkspaceSwitcher
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
@@ -258,7 +258,9 @@ const TopBar: React.FC<TopBarProps> = ({
         >
           <Space size={4}>
             <SearchOutlined style={{ color: token.colorTextTertiary }} />
-            <span style={{ color: token.colorTextTertiary }}>Search or run a command...</span>
+            <span className="rules-topbar-search-label" style={{ color: token.colorTextTertiary }}>
+              Search or run a command...
+            </span>
             <kbd
               style={{
                 fontSize: 10,
@@ -298,7 +300,10 @@ const TopBar: React.FC<TopBarProps> = ({
         />
         {showPanelToggles && (
           <>
-            <div className="rules-topbar-divider" style={{ background: token.colorBorder }} />
+            <div
+              className="rules-topbar-divider rules-topbar-divider-toggles"
+              style={{ background: token.colorBorder }}
+            />
             <div className="rules-panel-toggles">
               <RegionToggle
                 title={<ShortcutHintTitle label={toggleSidebarLabel}>Left sidebar</ShortcutHintTitle>}
