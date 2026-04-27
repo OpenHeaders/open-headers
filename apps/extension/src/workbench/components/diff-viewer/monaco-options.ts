@@ -21,6 +21,11 @@ export function toMonacoDiffOptions(opts: DiffViewerOptions): monaco.editor.IDif
     folding: false,
     renderOverviewRuler: false,
     renderLineHighlight: 'none',
+    // Without this, Monaco reserves a full viewport of empty space
+    // past the last line so users can scroll the cursor up — useful
+    // in an IDE, pure noise in a read-only diff (shows up as a
+    // phantom scrollbar with nothing below the content).
+    scrollBeyondLastLine: false,
     scrollbar: { useShadows: false, verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
     fontSize: 12,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
