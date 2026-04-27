@@ -181,13 +181,27 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
         onToggleLabels={() => undefined}
       />
       <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
-        <Allotment proportionalLayout={false}>
+        <Allotment
+          proportionalLayout={false}
+          // Sync rail-icon state with drag-to-edge snap. Allotment fires
+          // `onVisibleChange(index, false)` when a snap-enabled pane is
+          // dragged past `minSize` and released; we mirror it back into
+          // React state so the rail icon flips inactive automatically.
+          // The reverse path (rail click → setSidebarOpen(true)) flows
+          // through the `visible` prop and allotment expands the pane
+          // back to its `preferredSize`.
+          onVisibleChange={(index, visible) => {
+            if (index === 0) setSidebarOpen(visible);
+            else if (index === 2) setAdvancedOpen(visible);
+          }}
+        >
           <Allotment.Pane
             preferredSize={SIDEBAR_PREFERRED_PX}
             minSize={SIDEBAR_MIN_PX}
             maxSize={SIDEBAR_MAX_PX}
             priority={LayoutPriority.Low}
             visible={sidebarOpen}
+            snap
           >
             <DiffSidebar
               taxonomy={taxonomy}
@@ -211,7 +225,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
               }}
             />
           </Allotment.Pane>
-          <Allotment.Pane preferredSize={360} minSize={260} priority={LayoutPriority.Low} visible={showAdvanced}>
+          <Allotment.Pane preferredSize={360} minSize={260} priority={LayoutPriority.Low} visible={showAdvanced} snap>
             {advanced && <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />}
           </Allotment.Pane>
         </Allotment>
