@@ -533,9 +533,11 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       open={open}
       title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>}
       onCancel={importing ? undefined : onCancel}
-      width={840}
+      width="90vw"
+      centered
       destroyOnClose
       footer={footer}
+      styles={{ body: { maxHeight: 'calc(90vh - 110px)', overflowY: 'auto' } }}
     >
       {parseRejection && <RejectionBanner rejection={parseRejection} />}
 
@@ -744,6 +746,21 @@ function describeRejection(rejection: ParseRejection): { title: string; body: st
   }
 }
 
+function summarizeCounts(counts: WorkspaceExport['meta']['counts']): string {
+  const parts: string[] = [];
+  const push = (n: number, singular: string, plural: string): void => {
+    if (n > 0) parts.push(`${n} ${n === 1 ? singular : plural}`);
+  };
+  push(counts.rules, 'rule', 'rules');
+  push(counts.requests, 'request', 'requests');
+  push(counts.environments, 'env', 'envs');
+  push(counts.templates, 'template', 'templates');
+  push(counts.liveWorkflows, 'workflow', 'workflows');
+  push(counts.liveVariables, 'live var', 'live vars');
+  push(counts.secrets, 'secret', 'secrets');
+  return parts.join(', ');
+}
+
 const SourceAttribution: React.FC<{ envelope: WorkspaceExport; drops: ImportDrop[] }> = ({ envelope, drops }) => {
   const counts = envelope.meta.counts;
   return (
@@ -760,13 +777,7 @@ const SourceAttribution: React.FC<{ envelope: WorkspaceExport; drops: ImportDrop
         <Text type="secondary">Exported {new Date(envelope.exportedAt).toLocaleString()}</Text>
       </Paragraph>
       <Paragraph style={{ marginBottom: 0, fontSize: 12 }}>
-        <Text type="secondary">
-          {counts.rules} rule{counts.rules === 1 ? '' : 's'}, {counts.requests} request
-          {counts.requests === 1 ? '' : 's'}, {counts.environments} env{counts.environments === 1 ? '' : 's'},{' '}
-          {counts.templates} template
-          {counts.templates === 1 ? '' : 's'}, {counts.liveWorkflows} workflow
-          {counts.liveWorkflows === 1 ? '' : 's'}
-        </Text>
+        <Text type="secondary">{summarizeCounts(counts) || 'no entities'}</Text>
       </Paragraph>
       {envelope.notes && (
         <Paragraph style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
@@ -1114,6 +1125,45 @@ const MissingDepsPanel: React.FC<{ missingDeps: MissingDep[] }> = ({ missingDeps
   />
 );
 
+/**
+ * Collections + folders flatten across the three trees (rules / requests /
+ * templates) into single arrays in the export envelope; the path prefix
+ * preserves which tree each entry belongs to. The preview surfaces them
+ * split per-tree so users see "Rule collections" / "Request collections" /
+ * "Template collections" instead of one mashed list (which loses the
+ * structural meaning — `User Templates` and `New Collection` look identical
+ * when stripped of their tree). Sections with no entries are omitted by
+ * the renderer below.
+ */
+function buildTreeSections<T extends { uid: string; name: string; path?: string }>(
+  noun: string,
+  kind: 'collections' | 'folders',
+  entries: DiffEntry<T>[],
+): Array<{ title: string; kind: keyof StrategyMap; entries: DiffEntry<{ uid: string; name: string }>[] }> {
+  const ruleTitle = noun === 'Collections' ? 'Rule collections' : 'Rule folders';
+  const reqTitle = noun === 'Collections' ? 'Request collections' : 'Request folders';
+  const tplTitle = noun === 'Collections' ? 'Template collections' : 'Template folders';
+  const otherTitle = noun;
+
+  const buckets = { rules: [] as DiffEntry<T>[], requests: [], templates: [], other: [] } as Record<
+    'rules' | 'requests' | 'templates' | 'other',
+    DiffEntry<T>[]
+  >;
+  for (const e of entries) {
+    const tree = (e.entity.path ?? '').split('/')[0];
+    if (tree === 'rules') buckets.rules.push(e);
+    else if (tree === 'requests') buckets.requests.push(e);
+    else if (tree === 'templates') buckets.templates.push(e);
+    else buckets.other.push(e);
+  }
+  return [
+    { title: ruleTitle, kind, entries: buckets.rules as DiffEntry<{ uid: string; name: string }>[] },
+    { title: reqTitle, kind, entries: buckets.requests as DiffEntry<{ uid: string; name: string }>[] },
+    { title: tplTitle, kind, entries: buckets.templates as DiffEntry<{ uid: string; name: string }>[] },
+    { title: otherTitle, kind, entries: buckets.other as DiffEntry<{ uid: string; name: string }>[] },
+  ];
+}
+
 interface DiffTreeProps {
   diff: DiffResult;
   strategies: StrategyMap;
@@ -1156,12 +1206,8 @@ const DiffTree: React.FC<DiffTreeProps> = ({ diff, strategies, onChangeStrategy,
       kind: 'liveVariables',
       entries: diff.liveVariables as DiffEntry<{ uid: string; name: string }>[],
     },
-    {
-      title: 'Collections',
-      kind: 'collections',
-      entries: diff.collections as DiffEntry<{ uid: string; name: string }>[],
-    },
-    { title: 'Folders', kind: 'folders', entries: diff.folders as DiffEntry<{ uid: string; name: string }>[] },
+    ...buildTreeSections('Collections', 'collections', diff.collections),
+    ...buildTreeSections('Folders', 'folders', diff.folders),
   ];
 
   const totalEntries = sections.reduce((acc, s) => acc + s.entries.length, 0);
@@ -1170,14 +1216,12 @@ const DiffTree: React.FC<DiffTreeProps> = ({ diff, strategies, onChangeStrategy,
   }
 
   return (
-    <div
-      style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, maxHeight: 320, overflowY: 'auto' }}
-    >
+    <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6 }}>
       {sections.map(
         (section) =>
           section.entries.length > 0 && (
             <DiffSection
-              key={section.kind}
+              key={`${section.kind}:${section.title}`}
               title={section.title}
               kind={section.kind}
               entries={section.entries}
