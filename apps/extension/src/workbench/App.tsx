@@ -384,6 +384,34 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     | { open: true; rawText: string; initialError?: string; source: ImportPreviewSource }
     | { open: true; rawText: null; initialError: string; source: ImportPreviewSource }
   >({ open: false });
+  /**
+   * Multi-file import queue (design §5.5). When the user drops or
+   * picks more than one workspace-export file, we open the preview
+   * modal for the first file and stash the rest here. On modal close
+   * (cancel or success) we shift the queue and open the next.
+   */
+  const [pendingImportFiles, setPendingImportFiles] = useState<File[]>([]);
+  const advanceImportQueue = useCallback(() => {
+    setPendingImportFiles((queue) => {
+      if (queue.length === 0) {
+        setImportPreviewState({ open: false });
+        return queue;
+      }
+      const [next, ...rest] = queue;
+      void next
+        .text()
+        .then((text) => setImportPreviewState({ open: true, rawText: text, source: 'file' }))
+        .catch((err: Error) =>
+          setImportPreviewState({
+            open: true,
+            rawText: null,
+            initialError: `Couldn't read ${next.name}: ${err.message}`,
+            source: 'file',
+          }),
+        );
+      return rest;
+    });
+  }, []);
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const openImportFilePicker = useCallback(() => {
     importFileInputRef.current?.click();
@@ -479,11 +507,22 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       if (types.includes('Files')) e.preventDefault();
     };
     const onDrop = (e: DragEvent) => {
-      const file = e.dataTransfer?.files?.[0];
-      if (!file) return;
-      if (!isExportFile(file)) return;
+      const dropped = Array.from(e.dataTransfer?.files ?? []).filter(isExportFile);
+      if (dropped.length === 0) return;
       e.preventDefault();
-      void file.text().then((text) => setImportPreviewState({ open: true, rawText: text, source: 'file' }));
+      const [first, ...rest] = dropped;
+      setPendingImportFiles(rest);
+      void first
+        .text()
+        .then((text) => setImportPreviewState({ open: true, rawText: text, source: 'file' }))
+        .catch((err: Error) =>
+          setImportPreviewState({
+            open: true,
+            rawText: null,
+            initialError: `Couldn't read ${first.name}: ${err.message}`,
+            source: 'file',
+          }),
+        );
     };
     root.addEventListener('dragover', onDragOver);
     root.addEventListener('drop', onDrop);
@@ -1662,11 +1701,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             ref={importFileInputRef}
             type="file"
             accept=".yaml,.yml,.json,application/yaml,application/json,text/yaml,text/plain"
+            multiple
             style={{ display: 'none' }}
             onChange={(e) => {
-              const file = e.currentTarget.files?.[0];
-              if (file) void onImportFileChosen(file);
+              const picked = Array.from(e.currentTarget.files ?? []);
               e.currentTarget.value = '';
+              if (picked.length === 0) return;
+              const [first, ...rest] = picked;
+              setPendingImportFiles(rest);
+              void onImportFileChosen(first);
             }}
           />
 
@@ -1677,11 +1720,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             source={importPreviewState.open ? importPreviewState.source : undefined}
             workspaces={workspacesApi.workspaces}
             activeWorkspaceId={workspacesApi.activeWorkspaceId}
-            onCancel={() => setImportPreviewState({ open: false })}
+            onCancel={() => advanceImportQueue()}
             onImported={({ targetWorkspaceId, importedCount, sourceLabel }) => {
-              setImportPreviewState({ open: false });
               const summary = `Imported ${importedCount} entit${importedCount === 1 ? 'y' : 'ies'} from "${sourceLabel}"`;
               message.success(summary);
+              advanceImportQueue();
               // If the target isn't the active workspace, offer to switch.
               if (targetWorkspaceId !== workspacesApi.activeWorkspaceId) {
                 void handleSwitchWorkspace(targetWorkspaceId);

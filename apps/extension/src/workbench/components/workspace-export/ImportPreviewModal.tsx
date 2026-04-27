@@ -74,6 +74,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
 import { call } from '@/utils/bridge';
 import CollisionStrategyControl from './CollisionStrategyControl';
+import RequestSummary from './RequestSummary';
 import RuleSummary from './RuleSummary';
 
 const { Text, Paragraph } = Typography;
@@ -921,7 +922,12 @@ const DiffTree: React.FC<DiffTreeProps> = ({ diff, strategies, onChangeStrategy,
       entries: diff.rules as DiffEntry<{ uid: string; name: string }>[],
       renderExtra: (e) => <RuleSummary rule={e.entity as unknown as V5.Rule} />,
     },
-    { title: 'Requests', kind: 'requests', entries: diff.requests as DiffEntry<{ uid: string; name: string }>[] },
+    {
+      title: 'Requests',
+      kind: 'requests',
+      entries: diff.requests as DiffEntry<{ uid: string; name: string }>[],
+      renderExtra: (e) => <RequestSummary request={e.entity as unknown as V5.Request} />,
+    },
     { title: 'Templates', kind: 'templates', entries: diff.templates as DiffEntry<{ uid: string; name: string }>[] },
     {
       title: 'Environments',
