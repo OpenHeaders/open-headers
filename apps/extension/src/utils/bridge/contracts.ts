@@ -304,6 +304,26 @@ export interface BridgeRpcContract {
           message: string;
         };
   };
+  /**
+   * Read the active workspace's set of imported request uids that
+   * carry `preRequestScript` / `postResponseScript` and haven't been
+   * opened in the inspector since import. The sidebar surfaces these
+   * as a "scripts" badge per design §5.5; opening the inspector calls
+   * `clearRequestScriptsReviewPending` to drop the uid.
+   */
+  getRequestScriptsReviewPending: {
+    req: Record<string, never>;
+    res: { uids: string[] };
+  };
+  /**
+   * Drop a uid from the pending-scripts-review set (active workspace).
+   * Called when the user opens the request in the inspector — the
+   * badge clears as soon as the script is visible to the eye.
+   */
+  clearRequestScriptsReviewPending: {
+    req: { uid: string };
+    res: { success: boolean };
+  };
   /** Read the resolved allowlist (parsed from `oh.settings.user`,
    *  falling back to defaults when unset). The Settings UI stores the
    *  raw comma-separated string; this RPC returns the parsed list for

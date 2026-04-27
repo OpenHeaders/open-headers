@@ -59,6 +59,7 @@ import { recordImportReport } from './import-reports-store';
 import { hydrateFromStorage as hydrateLiveVariablesFromStorage } from './live-variable-store';
 import { hydrateFromStorage as hydrateLiveWorkflowsFromStorage } from './live-workflow-store';
 import { recordLog } from './observability-log';
+import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
 import { hydrateFromStorage as hydrateRequestsFromStorage } from './request-store';
 import { scheduleUpdate } from './rule-engine';
 import { hydrateFromStorage as hydrateRulesFromStorage } from './rule-store';
@@ -303,6 +304,23 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         plan.folders.filter((e) => e.action !== 'skip').length;
       report.summary = { ...report.summary, imported: importedCount };
 
+      // Collect imported requests carrying scripts so the sidebar can
+      // surface a "scripts" badge until the recipient opens each one in
+      // the inspector. Skipped entries are excluded; if `stripScripts`
+      // was on, the `stamp` already removed the script fields, so the
+      // post-strip check naturally yields an empty set.
+      const scriptsPendingUids: string[] = [];
+      for (const entry of plan.requests) {
+        if (entry.action === 'skip') continue;
+        const r = entry.entity as V5.Request;
+        if (
+          (r.preRequestScript && r.preRequestScript.length > 0) ||
+          (r.postResponseScript && r.postResponseScript.length > 0)
+        ) {
+          scriptsPendingUids.push(r.uid);
+        }
+      }
+
       // If the target is the active workspace, reload in-memory state so
       // the UI sees the newly-imported entities and DNR rebuild reads
       // the fresh rule list.
@@ -317,6 +335,11 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
           hydrateLiveVariablesFromStorage(),
         ]);
         scheduleUpdate('import', { immediate: true });
+        if (scriptsPendingUids.length > 0) {
+          await markPendingScriptsReview(scriptsPendingUids);
+        }
+      } else if (scriptsPendingUids.length > 0) {
+        await markPendingScriptsReviewForWorkspace(targetWorkspaceId, scriptsPendingUids);
       }
       // Non-active target: in-memory snapshots stay untouched. The
       // user's eventual `switchToWorkspace` call hydrates from

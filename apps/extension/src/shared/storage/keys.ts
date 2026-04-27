@@ -209,6 +209,14 @@ export interface WorkspaceKeys {
    * Ephemeral: never committed to git, purged on workspace delete.
    */
   variableRecents: StorageKey<unknown>;
+  /**
+   * Per-workspace set of imported request uids whose `preRequestScript`
+   * or `postResponseScript` the user hasn't yet reviewed in the
+   * inspector. Surfaces as a "scripts" badge on the request row in the
+   * sidebar; cleared on first inspector open. Persisted as a flat
+   * string array; an empty / missing value means nothing pending.
+   */
+  requestScriptsReviewPending: StorageKey<string[]>;
   /** Per-collection environment overrides: collectionId → envId (null = "No environment"). */
   collectionEnvOverrides: StorageKey<Record<string, string | null>>;
   /**
@@ -249,6 +257,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveVariables: storageKey<V5.LiveVariable[]>(`${p}.liveVariables`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),
+    requestScriptsReviewPending: storageKey<string[]>(`${p}.requestScriptsReviewPending`),
     collectionEnvOverrides: storageKey<Record<string, string | null>>(`${p}.collectionEnvOverrides`),
     manualEnvId: storageKey<string | null>(`${p}.manualEnvId`),
   };

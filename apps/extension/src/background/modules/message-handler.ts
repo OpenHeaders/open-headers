@@ -454,6 +454,17 @@ export function handleGeneralMessage(
         .then((hosts) => safeResponse({ hosts }))
         .catch(() => safeResponse({ hosts: [] }));
       return true;
+    } else if (message.type === 'getRequestScriptsReviewPending') {
+      import('./request-scripts-review-store')
+        .then(({ getPendingScriptsReview }) => safeResponse({ uids: Array.from(getPendingScriptsReview()) }))
+        .catch(() => safeResponse({ uids: [] }));
+      return true;
+    } else if (message.type === 'clearRequestScriptsReviewPending') {
+      import('./request-scripts-review-store')
+        .then(({ clearPendingScriptsReview }) => clearPendingScriptsReview(message.uid as string))
+        .then(() => safeResponse({ success: true }))
+        .catch(() => safeResponse({ success: false }));
+      return true;
     } else if (message.type === 'importWorkspace') {
       // Drive the import orchestrator. SW reads target state, runs a
       // fresh diff under the workspace-import lock, applies the plan,

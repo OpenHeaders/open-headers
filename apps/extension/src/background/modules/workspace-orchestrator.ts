@@ -52,6 +52,10 @@ import {
   switchToWorkspace as switchPauseMarkersToWorkspace,
 } from './pause-markers-store';
 import {
+  hydrateRequestScriptsReviewFromStorage,
+  switchToWorkspace as switchRequestScriptsReviewToWorkspace,
+} from './request-scripts-review-store';
+import {
   hydrateFromStorage as hydrateRequestsFromStorage,
   switchToWorkspace as switchRequestsToWorkspace,
 } from './request-store';
@@ -104,6 +108,7 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
     k.settingsWorkspace,
     k.settingsCollection,
     k.importReports,
+    k.requestScriptsReviewPending,
   ];
 }
 
@@ -122,6 +127,7 @@ export async function hydrateActiveWorkspaceStores(): Promise<void> {
     hydrateRequestsFromStorage(),
     hydrateLiveWorkflowsFromStorage(),
     hydrateLiveVariablesFromStorage(),
+    hydrateRequestScriptsReviewFromStorage(),
   ]);
   // Seed a default "User Templates" collection so the Templates
   // section has a ready destination for user-authored templates on
@@ -158,6 +164,7 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
     switchRequestsToWorkspace(targetId),
     switchLiveWorkflowsToWorkspace(targetId),
     switchLiveVariablesToWorkspace(targetId),
+    switchRequestScriptsReviewToWorkspace(targetId),
   ]);
 
   // One broad cache-invalidation baseline reset — the union of

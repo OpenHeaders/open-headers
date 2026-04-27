@@ -15,6 +15,10 @@ interface UseRequestTreeNodesParams {
   allRequests: readonly V5.Request[];
   resolver: ReturnType<typeof useVariableResolver>;
   dirtyRequestUids?: ReadonlySet<string>;
+  /** Post-import: imported request uids whose scripts the user hasn't
+   *  reviewed in the inspector yet. Surfaces as a "scripts" badge that
+   *  clears on first inspector open. */
+  scriptsReviewPendingUids?: ReadonlySet<string>;
   draftsByLocationRequest: Map<string, WorkbenchTab[]>;
   buildRequestDraftNode: (tab: WorkbenchTab, depth: number, parentId: string) => TreeNode;
   expandedKeys: ReadonlySet<string>;
@@ -129,7 +133,21 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             : !requestResolvable
               ? { label: 'unresolved', color: 'var(--ant-color-error, #ff4d4f)' }
               : null;
-          const badge = composeBadge(textBadge, p.dirtyRequestUids?.has(node.uid) ?? false);
+          const hasScripts =
+            !!fullRequest &&
+            ((fullRequest.preRequestScript && fullRequest.preRequestScript.length > 0) ||
+              (fullRequest.postResponseScript && fullRequest.postResponseScript.length > 0));
+          const scriptsPending = hasScripts && (p.scriptsReviewPendingUids?.has(node.uid) ?? false);
+          const extras = scriptsPending
+            ? [
+                {
+                  label: 'scripts',
+                  color: 'var(--ant-color-warning, #faad14)',
+                  title: 'This imported request will execute JavaScript when run. Open it to review the scripts.',
+                },
+              ]
+            : undefined;
+          const badge = composeBadge(textBadge, p.dirtyRequestUids?.has(node.uid) ?? false, extras);
           items.push({
             id: rid,
             kind: 'leaf',
@@ -172,6 +190,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.onSelectRequest,
       p.onCreateRequest,
       p.dirtyRequestUids,
+      p.scriptsReviewPendingUids,
       p.draftsByLocationRequest,
       p.buildRequestDraftNode,
       p.setExpandedKeys,

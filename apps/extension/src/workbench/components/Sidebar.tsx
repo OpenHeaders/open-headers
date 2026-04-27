@@ -100,6 +100,9 @@ interface SidebarProps {
   filterRef?: React.Ref<InputRef>;
   dirtyRuleUids?: ReadonlySet<string>;
   dirtyRequestUids?: ReadonlySet<string>;
+  /** Post-import "scripts" review reminder set — imported request uids
+   *  whose scripts haven't been opened in the inspector yet. */
+  scriptsReviewPendingUids?: ReadonlySet<string>;
   dirtyWorkflowUids?: ReadonlySet<string>;
   unresolvableWorkflowUids?: ReadonlySet<string>;
   allTabs?: WorkbenchTab[];
@@ -137,6 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   filterRef,
   dirtyRuleUids,
   dirtyRequestUids,
+  scriptsReviewPendingUids,
   dirtyWorkflowUids,
   unresolvableWorkflowUids,
   allTabs,
@@ -436,6 +440,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     allRequests,
     resolver,
     dirtyRequestUids,
+    scriptsReviewPendingUids,
     draftsByLocationRequest: draftsByLocation.request,
     buildRequestDraftNode,
     expandedKeys,

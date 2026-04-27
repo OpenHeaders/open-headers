@@ -70,6 +70,7 @@ import { auditHostPermissions } from './modules/permissions-audit';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
+import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import { getRequests, onRequestStoreChange } from './modules/request-store';
 import {
   getActiveRulesForTab,
@@ -664,6 +665,12 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
       applyPauseMarkersSnapshot(record);
       scheduleUpdate('pauseMarkers', { immediate: true });
       debouncedUpdateBadge();
+    }
+    const scriptsReviewKey = `oh.ws.${getActiveWorkspaceId()}.requestScriptsReviewPending`;
+    if (changes[scriptsReviewKey]) {
+      const next = changes[scriptsReviewKey].newValue;
+      const uids = Array.isArray(next) ? next.filter((v): v is string => typeof v === 'string') : [];
+      applyRequestScriptsReviewSnapshot(uids);
     }
   }
 

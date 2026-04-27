@@ -51,12 +51,30 @@ export function dirtyDot(): React.ReactNode {
 }
 
 /** Build a sidebar row badge that combines an optional text label
- *  (paused / draft / unresolved / off) with an optional dirty dot. */
-export function composeBadge(text: { label: string; color: string } | null, isDirty: boolean): React.ReactNode {
-  if (!text && !isDirty) return undefined;
+ *  (paused / draft / unresolved / off) with an optional dirty dot.
+ *  `extras` appends additional small text labels (e.g. post-import
+ *  "scripts" review reminder) before the dirty dot. */
+export function composeBadge(
+  text: { label: string; color: string } | null,
+  isDirty: boolean,
+  extras?: ReadonlyArray<{ label: string; color: string; title?: string }>,
+): React.ReactNode {
+  const hasExtras = !!extras && extras.length > 0;
+  if (!text && !isDirty && !hasExtras) return undefined;
   const children: React.ReactNode[] = [];
   if (text) {
     children.push(createElement('span', { key: 'text', style: { fontSize: 9, color: text.color } }, text.label));
+  }
+  if (hasExtras) {
+    for (const e of extras) {
+      children.push(
+        createElement(
+          'span',
+          { key: `extra-${e.label}`, title: e.title, style: { fontSize: 9, color: e.color } },
+          e.label,
+        ),
+      );
+    }
   }
   if (isDirty) children.push(dirtyDot());
   return createElement(

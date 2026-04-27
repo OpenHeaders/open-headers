@@ -67,6 +67,20 @@ vi.mock('@/background/modules/import-reports-store', () => ({
     blobs.set('oh.ws.ws-active.importReports', [...current, report]);
   }),
 }));
+vi.mock('@/background/modules/request-scripts-review-store', () => ({
+  markPendingScriptsReview: vi.fn(async (uids: readonly string[]) => {
+    const key = 'oh.ws.ws-active.requestScriptsReviewPending';
+    const current = ((blobs.get(key) as string[] | undefined) ?? []).slice();
+    for (const uid of uids) if (!current.includes(uid)) current.push(uid);
+    blobs.set(key, current);
+  }),
+  markPendingScriptsReviewForWorkspace: vi.fn(async (workspaceId: string, uids: readonly string[]) => {
+    const key = `oh.ws.${workspaceId}.requestScriptsReviewPending`;
+    const current = ((blobs.get(key) as string[] | undefined) ?? []).slice();
+    for (const uid of uids) if (!current.includes(uid)) current.push(uid);
+    blobs.set(key, current);
+  }),
+}));
 
 vi.mock('@/shared/storage', async () => {
   const actual = await vi.importActual<typeof import('@/shared/storage')>('@/shared/storage');
@@ -307,6 +321,109 @@ describe('importWorkspace — locking', () => {
     expect(rb.targetWorkspaceId).toBe('ws-other');
     expect(blobs.get('oh.ws.ws-active.rules')).toBeDefined();
     expect(blobs.get('oh.ws.ws-other.rules')).toBeDefined();
+  });
+});
+
+describe('importWorkspace — scripts review pending set', () => {
+  function makeRequest(uid: string, opts: { pre?: string; post?: string } = {}) {
+    return {
+      schemaVersion: 5 as const,
+      version: 1,
+      uid,
+      path: `requests/api-col/req-${uid}`,
+      name: `Request ${uid}`,
+      method: 'GET' as const,
+      url: 'https://api.openheaders.io/ping',
+      headers: [],
+      params: [],
+      auth: { type: 'none' as const },
+      body: { type: 'none' as const },
+      ...(opts.pre !== undefined ? { preRequestScript: opts.pre } : {}),
+      ...(opts.post !== undefined ? { postResponseScript: opts.post } : {}),
+    };
+  }
+
+  function makeExportWithRequests(requests: ReturnType<typeof makeRequest>[]): WorkspaceExport {
+    return makeExport({
+      entities: {
+        collections: [],
+        folders: [],
+        rules: [],
+        requests,
+        templates: [],
+        environments: [],
+        workspaceVars: { schemaVersion: 5, version: 1, variables: [] },
+        liveWorkflows: [],
+        liveVariables: [],
+      },
+      meta: {
+        redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
+        counts: {
+          rules: 0,
+          requests: requests.length,
+          environments: 0,
+          liveWorkflows: 0,
+          liveVariables: 0,
+          templates: 0,
+          secrets: 0,
+        },
+      },
+    } as Partial<WorkspaceExport>);
+  }
+
+  it('marks imported requests with scripts; ignores requests without scripts', async () => {
+    await orchestrator.importWorkspace({
+      incoming: makeExportWithRequests([
+        makeRequest('req00001', { pre: 'console.log("hi")' }),
+        makeRequest('req00002', { post: 'return ctx;' }),
+        makeRequest('req00003'),
+      ]),
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:scripts',
+    });
+    // No-collision creates regenerate uids via the importer's tree-aware
+    // new-uid path, so the persisted set carries the *new* uids — which
+    // is correct, since those are what the renderer references too.
+    const pending = blobs.get('oh.ws.ws-active.requestScriptsReviewPending') as string[];
+    const persisted = blobs.get('oh.ws.ws-active.requests') as Array<{
+      uid: string;
+      preRequestScript?: string;
+      postResponseScript?: string;
+    }>;
+    const expectedPending = persisted
+      .filter(
+        (r) =>
+          (r.preRequestScript && r.preRequestScript.length > 0) ||
+          (r.postResponseScript && r.postResponseScript.length > 0),
+      )
+      .map((r) => r.uid);
+    expect(pending.sort()).toEqual(expectedPending.sort());
+    expect(pending).toHaveLength(2);
+  });
+
+  it('does not mark anything when stripScripts removes the source', async () => {
+    await orchestrator.importWorkspace({
+      incoming: makeExportWithRequests([makeRequest('req00010', { pre: 'console.log("x")' })]),
+      strategies: {},
+      stripScripts: true,
+      target: { mode: 'current' },
+      sourceHash: 'sha256:strip',
+    });
+    expect(blobs.get('oh.ws.ws-active.requestScriptsReviewPending')).toBeUndefined();
+  });
+
+  it('writes the pending set to the target workspace key when target ≠ active', async () => {
+    await orchestrator.importWorkspace({
+      incoming: makeExportWithRequests([makeRequest('req00020', { pre: 'noop()' })]),
+      strategies: {},
+      target: { mode: 'picked', workspaceId: 'ws-other' },
+      sourceHash: 'sha256:other',
+    });
+    const persisted = blobs.get('oh.ws.ws-other.requests') as Array<{ uid: string }>;
+    expect(persisted).toHaveLength(1);
+    expect(blobs.get('oh.ws.ws-other.requestScriptsReviewPending')).toEqual([persisted[0].uid]);
+    expect(blobs.get('oh.ws.ws-active.requestScriptsReviewPending')).toBeUndefined();
   });
 });
 

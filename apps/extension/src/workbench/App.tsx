@@ -68,6 +68,7 @@ import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
 import { useInitialLanding } from './hooks/useInitialLanding';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
+import { useRequestScriptsReviewPending } from './hooks/useRequestScriptsReviewPending';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useSaveToCollectionFlow } from './hooks/useSaveToCollectionFlow';
@@ -376,6 +377,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     }
     return out;
   }, [allTabs]);
+  const scriptsReviewPendingUids = useRequestScriptsReviewPending(workspacesApi.activeWorkspaceId);
   const dirtyWorkflowUids = useMemo(() => {
     const out = new Set<string>();
     for (const tab of allTabs) {
@@ -660,13 +662,27 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openVault,
     openLiveVariables,
     openCollectionVariables,
-    openRequestEditTab,
+    openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
     openCreateLiveWorkflow,
   } = openers;
+
+  // Opening a request in the inspector clears any post-import "scripts
+  // review pending" reminder for that request — the user has now seen
+  // the script content firsthand. Fire-and-forget; the SW arm is a
+  // no-op when the uid isn't in the pending set.
+  const openRequestEditTab = useCallback(
+    (uid: string, name: string, method?: string, autoRename?: boolean) => {
+      if (scriptsReviewPendingUids.has(uid)) {
+        void call('clearRequestScriptsReviewPending', { uid });
+      }
+      openRequestEditTabRaw(uid, name, method, autoRename);
+    },
+    [openRequestEditTabRaw, scriptsReviewPendingUids],
+  );
 
   // Create-then-edit flow for the env selector. New envs are created
   // via the bridge RPC (which fires `environmentsChanged` → envApi
@@ -1426,6 +1442,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               filterRef={sidebarFilterRef}
               dirtyRuleUids={dirtyRuleUids}
               dirtyRequestUids={dirtyRequestUids}
+              scriptsReviewPendingUids={scriptsReviewPendingUids}
               dirtyWorkflowUids={dirtyWorkflowUids}
               unresolvableWorkflowUids={unresolvableWorkflowUids}
               allTabs={allTabs}
@@ -1494,6 +1511,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       liveWorkflowsApi.workflows,
       dirtyRuleUids,
       dirtyRequestUids,
+      scriptsReviewPendingUids,
       dirtyWorkflowUids,
       unresolvableWorkflowUids,
       allTabs,
