@@ -11,17 +11,21 @@
  */
 
 import {
+  ApiOutlined,
   CaretDownOutlined,
   CaretRightOutlined,
   FileOutlined,
+  FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
+  SisternodeOutlined,
 } from '@ant-design/icons';
 import type { CollisionStrategy, StrategyMap } from '@openheaders/core/workspace-export';
 import { theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
-import { type ImportTaxonomy, type MaterialisedRow, SECTIONS, strategyForRow } from './diff-sections';
+import { scopeBadge } from '../../shared/scope-colors';
+import { type ImportTaxonomy, type MaterialisedRow, SECTIONS, type SectionKind, strategyForRow } from './diff-sections';
 import { STRATEGY_META } from './strategy-meta';
 
 interface DiffSidebarProps {
@@ -78,6 +82,7 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
       {sections.map(({ section, rows }) => {
         const collapsed = collapsedSections.has(section.kind);
         const totalRows = countLeafRows(rows);
+        const headerIcon = sectionHeaderIcon(section.kind);
         return (
           <div key={section.kind} style={{ marginBottom: 8 }}>
             <button
@@ -86,7 +91,7 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 4,
+                gap: 6,
                 width: '100%',
                 padding: '6px 12px 6px 8px',
                 fontSize: 10,
@@ -105,6 +110,7 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
               ) : (
                 <CaretDownOutlined style={{ fontSize: 9 }} />
               )}
+              {headerIcon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{headerIcon}</span>}
               <span style={{ flex: 1 }}>{section.label}</span>
               <span style={{ fontWeight: 500 }}>{totalRows}</span>
             </button>
@@ -227,7 +233,7 @@ const RowButton: React.FC<RowButtonProps> = ({
         ? token.colorPrimary
         : token.colorWarning;
   const indent = 8 + row.depth * 14;
-  const Icon = pickIcon(row, collapsed);
+  const iconNode = pickIcon(row, collapsed);
   const [hover, setHover] = useState(false);
   const background = selected ? token.colorPrimaryBg : hover ? token.colorFillTertiary : 'transparent';
   return (
@@ -290,7 +296,9 @@ const RowButton: React.FC<RowButtonProps> = ({
         }}
       >
         <span aria-hidden style={{ width: 7, height: 7, borderRadius: 7, background: stateDot, flexShrink: 0 }} />
-        <Icon style={{ fontSize: 12, color: token.colorTextSecondary, flexShrink: 0 }} />
+        <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, color: token.colorTextSecondary }}>
+          {iconNode}
+        </span>
         <span
           style={{
             flex: 1,
@@ -341,8 +349,47 @@ const RowButton: React.FC<RowButtonProps> = ({
   );
 };
 
-function pickIcon(row: MaterialisedRow, collapsed: boolean): React.ComponentType<{ style?: React.CSSProperties }> {
-  if (row.rowKind === 'collection') return collapsed ? FolderOutlined : FolderOpenOutlined;
-  if (row.rowKind === 'folder') return collapsed ? FolderOutlined : FolderOpenOutlined;
-  return FileOutlined;
+function pickIcon(row: MaterialisedRow, collapsed: boolean): React.ReactNode {
+  if (row.rowKind === 'collection' || row.rowKind === 'folder') {
+    const Icon = collapsed ? FolderOutlined : FolderOpenOutlined;
+    return <Icon style={{ fontSize: 12, color: 'var(--scope-fallback-color, #888)' }} />;
+  }
+  // Entity row — use scope badges for variable-like entities, plain
+  // file glyph for rules/requests/templates so the row reads at a
+  // glance the same way it does in the workspace sidebar.
+  switch (row.entityKind) {
+    case 'environment':
+      return scopeBadge('environment', 14);
+    case 'liveVariable':
+      return scopeBadge('live', 14);
+    case 'liveWorkflow':
+      return <SisternodeOutlined style={{ fontSize: 12 }} />;
+    case 'workspaceVars':
+      return scopeBadge('workspace', 14);
+    case 'vault':
+      return scopeBadge('vault', 14);
+    default:
+      return <FileOutlined style={{ fontSize: 12 }} />;
+  }
+}
+
+function sectionHeaderIcon(kind: SectionKind): React.ReactNode {
+  switch (kind) {
+    case 'rules':
+      return <FileTextOutlined style={{ fontSize: 12 }} />;
+    case 'requests':
+      return <ApiOutlined style={{ fontSize: 12 }} />;
+    case 'liveWorkflows':
+      return <SisternodeOutlined style={{ fontSize: 12 }} />;
+    case 'environments':
+      return scopeBadge('environment', 12);
+    case 'liveVariables':
+      return scopeBadge('live', 12);
+    case 'workspaceVars':
+      return scopeBadge('workspace', 12);
+    case 'vault':
+      return scopeBadge('vault', 12);
+    default:
+      return null;
+  }
 }

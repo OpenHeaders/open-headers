@@ -22,7 +22,6 @@ import type {
 export type SectionKind =
   | 'rules'
   | 'requests'
-  | 'templates'
   | 'environments'
   | 'liveWorkflows'
   | 'liveVariables'
@@ -38,14 +37,13 @@ export interface SectionDef {
   /** True for the two singleton rows (workspaceVars / vault). */
   singleton?: boolean;
   /** True when the section renders as a collection→folder→entity tree
-   *  (Rules / API Requests / Templates). False for flat-list sections. */
+   *  (Rules / API Requests). False for flat-list sections. */
   hierarchical?: boolean;
 }
 
 export const SECTIONS: SectionDef[] = [
   { kind: 'rules', label: 'RULES', strategyKey: 'rules', hierarchical: true },
   { kind: 'requests', label: 'API REQUESTS', strategyKey: 'requests', hierarchical: true },
-  { kind: 'templates', label: 'TEMPLATES', strategyKey: 'templates', hierarchical: true },
   { kind: 'environments', label: 'ENVIRONMENTS', strategyKey: 'environments' },
   { kind: 'liveWorkflows', label: 'LIVE WORKFLOWS', strategyKey: 'liveWorkflows' },
   { kind: 'liveVariables', label: 'LIVE VARIABLES', strategyKey: 'liveVariables' },
@@ -111,16 +109,25 @@ export function buildTaxonomy(diff: DiffResult, incoming: IncomingSingletons): I
     for (const c of row.children) collect(c);
   };
 
-  // ── Hierarchical sections (Rules / API Requests / Templates) ─────
-  const hierarchicalConfigs: Array<{ kind: SectionKind; treePrefix: 'rules' | 'requests' | 'templates' }> = [
-    { kind: 'rules', treePrefix: 'rules' },
-    { kind: 'requests', treePrefix: 'requests' },
-    { kind: 'templates', treePrefix: 'templates' },
+  // ── Hierarchical sections (Rules / API Requests) ────────────────
+  // Templates aren't a top-level section — they're collections nested
+  // under Rules (and later API Requests). Pull `templates/` collections
+  // into the rules tree alongside rule collections; recipients see them
+  // as siblings to rule collections, matching the user's mental model.
+  const hierarchicalConfigs: Array<{
+    kind: SectionKind;
+    treePrefixes: ReadonlyArray<'rules' | 'requests' | 'templates'>;
+  }> = [
+    { kind: 'rules', treePrefixes: ['rules', 'templates'] },
+    { kind: 'requests', treePrefixes: ['requests'] },
   ];
-  for (const { kind, treePrefix } of hierarchicalConfigs) {
+  for (const { kind, treePrefixes } of hierarchicalConfigs) {
     const section = SECTIONS_BY_KIND.get(kind);
     if (!section) continue;
-    const tree = buildTreeForPrefix(section, treePrefix, diff);
+    const tree: MaterialisedRow[] = [];
+    for (const prefix of treePrefixes) {
+      tree.push(...buildTreeForPrefix(section, prefix, diff));
+    }
     bySection.set(kind, tree);
     for (const r of tree) collect(r);
   }

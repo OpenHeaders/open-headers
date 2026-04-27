@@ -5,14 +5,14 @@
  * subtitle so the user never has to memorise the matrix.
  */
 
-import { SettingOutlined } from '@ant-design/icons';
+import { ColumnHeightOutlined, ColumnWidthOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { DiffEditor, type Monaco } from '@monaco-editor/react';
 import type { CollisionStrategy } from '@openheaders/core/workspace-export';
-import { Button, Segmented, Tag, Typography, theme } from 'antd';
+import { Button, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import RequestSummary from '../RequestSummary';
 import RuleSummary from '../RuleSummary';
 import type { MaterialisedRow } from './diff-sections';
@@ -30,10 +30,31 @@ interface DiffPaneProps {
   advancedTrigger: { open: boolean; onToggle: () => void; activeCount: number } | null;
 }
 
+const DIFF_LAYOUT_KEY = 'oh.workspace-export.diff-layout';
+
 const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChangeStrategy, advancedTrigger }) => {
   const { token } = theme.useToken();
   const { isDarkMode } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
+
+  // Diff-editor layout — defaults to side-by-side, persists across the
+  // session so re-opening the modal keeps the user's choice.
+  const [sideBySide, setSideBySide] = useState<boolean>(() => {
+    try {
+      const raw = window.sessionStorage.getItem(DIFF_LAYOUT_KEY);
+      if (raw === 'inline') return false;
+    } catch {
+      // sessionStorage can throw under privacy modes — fall through to default
+    }
+    return true;
+  });
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(DIFF_LAYOUT_KEY, sideBySide ? 'side-by-side' : 'inline');
+    } catch {
+      // ignore — preference stays for this modal lifetime
+    }
+  }, [sideBySide]);
 
   const onMount = useCallback((editor: monaco.editor.IStandaloneDiffEditor, _m: Monaco) => {
     editorRef.current = editor;
@@ -82,6 +103,17 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
               edited locally since export
             </Tag>
           )}
+          {showsDiff && (
+            <Tooltip title={sideBySide ? 'Switch to inline diff' : 'Switch to side-by-side diff'}>
+              <Button
+                size="small"
+                icon={sideBySide ? <ColumnWidthOutlined /> : <ColumnHeightOutlined />}
+                onClick={() => setSideBySide((v) => !v)}
+              >
+                {sideBySide ? 'Side by side' : 'Inline'}
+              </Button>
+            </Tooltip>
+          )}
           {advancedTrigger && !advancedTrigger.open && (
             <Button
               size="small"
@@ -125,7 +157,7 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
             onMount={onMount}
             options={{
               readOnly: true,
-              renderSideBySide: true,
+              renderSideBySide: sideBySide,
               minimap: { enabled: false },
               folding: false,
               lineNumbers: 'on',
