@@ -2,7 +2,7 @@
  * QueryParamRuleFields — inline param modification rows.
  *
  * Each row: [Operation dropdown] [Param Name] [Value] [Delete]
- * Operations: Add/Replace, Remove, Remove All
+ * Operations: Add / Replace, Remove, Remove All
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -52,7 +52,7 @@ const QueryParamRuleFields: React.FC = () => {
                 <Form.Item
                   {...field}
                   name={[field.name, 'operation']}
-                  style={{ marginBottom: 0, width: 150, flexShrink: 0 }}
+                  style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
                 >
                   <Select
                     size="small"

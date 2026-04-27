@@ -836,7 +836,7 @@ const InspectorDocs: React.FC = () => {
         </div>
         <div id="doc-qp-remove-all" style={{ scrollMarginTop: 8 }}>
           <Card title="Remove All" extra={<Tag color="red">strip query</Tag>}>
-            Strips the entire query string. Cannot be combined with Add/Replace in the same rule.
+            Strips the entire query string. Cannot be combined with Add / Replace in the same rule.
             <Example
               rule="Remove All"
               before={['?utm_source=google&page=1&debug=true']}

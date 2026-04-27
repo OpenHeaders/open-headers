@@ -60,7 +60,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                 <Form.Item
                   {...field}
                   name={[field.name, 'operation']}
-                  style={{ marginBottom: 0, width: 110, flexShrink: 0 }}
+                  style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
                 >
                   <Select size="small" options={OPERATIONS} />
                 </Form.Item>
@@ -200,7 +200,7 @@ function ModificationList({ name, direction }: ModificationListProps) {
                         display: 'flex',
                         alignItems: 'flex-start',
                         gap: 6,
-                        marginLeft: 132,
+                        marginLeft: 147,
                         marginTop: 2,
                         fontSize: 11,
                         color: 'var(--ant-color-warning)',
