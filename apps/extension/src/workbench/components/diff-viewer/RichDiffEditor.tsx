@@ -62,14 +62,29 @@ const RichDiffEditor: React.FC<Props> = ({
     [recountDifferences],
   );
 
-  // Tear down the diff-update subscription when the component unmounts.
-  // Without this, Monaco's TextModel can dispose before our listener
-  // releases it and the wrapper logs `TextModel got disposed before
-  // DiffEditorWidget model got reset`.
+  // Unmount cleanup. Two things matter here:
+  //   1. Dispose our `onDidUpdateDiff` subscription before Monaco tears
+  //      the editor down, otherwise the listener can fire against a
+  //      half-disposed editor.
+  //   2. Call `setModel(null)` on the editor BEFORE the
+  //      `@monaco-editor/react` wrapper disposes the underlying
+  //      original/modified `TextModel`s. Monaco asserts the widget
+  //      releases the models before they dispose; without this we get
+  //      `BugIndicatingError: TextModel got disposed before
+  //      DiffEditorWidget model got reset` on every modal close. React
+  //      runs effect cleanups in reverse registration order, so this
+  //      effect's cleanup fires before the wrapper's — i.e. while the
+  //      models are still alive.
   useEffect(() => {
     return () => {
       diffSubRef.current?.dispose();
       diffSubRef.current = null;
+      try {
+        editorRef.current?.setModel(null);
+      } catch {
+        // Editor may already be torn down in some unmount orderings;
+        // swallow rather than mask the real React error.
+      }
       editorRef.current = null;
     };
   }, []);
