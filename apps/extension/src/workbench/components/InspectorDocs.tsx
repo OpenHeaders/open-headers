@@ -854,8 +854,8 @@ const InspectorDocs: React.FC = () => {
           <Card title="Script Injection" extra={<Tag color="orange">JavaScript</Tag>}>
             Inline code or an external URL. Choose insertion timing: <strong>As Soon As Possible</strong> (runs before
             the page's own scripts — useful for monkey-patches that need to win the race) or{' '}
-            <strong>After Page Load</strong> (runs once the page has parsed — the safer default for code that reads
-            the DOM).
+            <strong>After Page Load</strong> (runs once the page has parsed — the safer default for code that reads the
+            DOM).
           </Card>
         </div>
         <div id="doc-inject-css" style={{ scrollMarginTop: 8 }}>
@@ -868,13 +868,13 @@ const InspectorDocs: React.FC = () => {
         {/* ── Delay Rules ── */}
         <SectionTitle id="actions-delay">Delay Rules</SectionTitle>
         <DocParagraph>
-          Adds artificial latency to matching requests. Two execution paths run in parallel depending on what kind
-          of request is matched.
+          Adds artificial latency to matching requests. Two execution paths run in parallel depending on what kind of
+          request is matched.
         </DocParagraph>
         <Card size="small">
           <p style={{ marginTop: 0 }}>
-            <strong>Document &amp; iframe navigations</strong> are routed through a local waiting page. Honors delays
-            up to <strong>30,000 ms</strong> (the DNR ceiling).
+            <strong>Document &amp; iframe navigations</strong> are routed through a local waiting page. Honors delays up
+            to <strong>30,000 ms</strong> (the DNR ceiling).
           </p>
           <p>
             <strong>JS-initiated XHR / fetch</strong> is intercepted by a <code>fetch()</code> /{' '}
@@ -882,9 +882,8 @@ const InspectorDocs: React.FC = () => {
             HTTP connection pool — values above are clamped on the wire.
           </p>
           <p style={{ marginBottom: 0 }}>
-            <strong>Sub-resources</strong> (images, scripts, stylesheets, fonts) are <strong>not delayed</strong> —
-            they need a real local proxy that can hold the connection open and stream bytes, which an extension can't
-            do.
+            <strong>Sub-resources</strong> (images, scripts, stylesheets, fonts) are <strong>not delayed</strong> — they
+            need a real local proxy that can hold the connection open and stream bytes, which an extension can't do.
           </p>
         </Card>
 
@@ -906,11 +905,13 @@ const InspectorDocs: React.FC = () => {
           </Card>
         </div>
         <div id="doc-body-graphql" style={{ scrollMarginTop: 8 }}>
-          <Card title="GraphQL Filter" extra={<Tag color="default">Coming soon</Tag>}>
-            Filter by GraphQL operation name in the request payload. The schema fields are in place; the runtime
-            payload-matching logic isn't shipped yet, so the GraphQL radio is disabled in the editor for now. When
-            it lands, this section will describe how to filter by <code>operationName</code> or query substring with
-            an Equals / Contains operator.
+          <Card title="GraphQL Filter" extra={<Tag color="purple">Payload</Tag>}>
+            When Resource Type is GraphQL, the rule fires only on requests whose JSON payload's configured field matches
+            the value. The runtime parses the request body as JSON, reads the field named by <code>key</code>, and tests
+            it against <code>value</code> using the chosen operator (<code>Equals</code> for exact match,{' '}
+            <code>Contains</code> for substring). Common keys: <code>operationName</code> for the named operation,{' '}
+            <code>query</code> for a substring of the query text. Requests without a JSON body, or whose payload field
+            is missing or doesn't match, pass through untouched.
           </Card>
         </div>
 

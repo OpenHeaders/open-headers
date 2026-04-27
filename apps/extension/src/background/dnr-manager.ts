@@ -365,6 +365,15 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
     if (bypass.size > 0) liveBypassByUid.set(rule.uid, bypass);
   }
 
+  // Extension origin id for live-bypass exclusion. Chain fetches issued
+  // by the SW carry this as their initiator, so adding it to a rule's
+  // `excludedInitiatorDomains` keeps a `{{live.X}}`-referencing rule
+  // from firing on the very fetch that produces the LV value.
+  const extensionId =
+    typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.id === 'string'
+      ? chrome.runtime.id
+      : undefined;
+
   // Resolve {{VAR}} templates against the current env/vars/vault/collection
   // scopes BEFORE any downstream consumer sees the rules. Every compile
   // and every observer diff must see the same resolved shape — otherwise
@@ -446,7 +455,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   for (const { rule, uid } of effectiveDynamic) {
     dynamicDnrIdToUid.set(rule.id, uid);
     const bypass = liveBypassByUid.get(uid);
-    if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass);
+    if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass, { extensionDomain: extensionId });
     dynamicToApply.push(rule);
   }
 
@@ -509,7 +518,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
     for (const { rule, uid } of all) {
       perRunMap.set(rule.id, uid);
       const bypass = liveBypassByUid.get(uid);
-      if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass);
+      if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass, { extensionDomain: extensionId });
       rule.condition = { ...rule.condition, tabIds: [run.tabId] };
       sessionToApply.push(rule);
       sessionIdCounter = Math.max(sessionIdCounter, rule.id + 1);
@@ -523,7 +532,7 @@ async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
   for (const { rule, uid } of globalSessionUntagged) {
     dynamicDnrIdToUid.set(rule.id, uid); // global session rules are part of the "live for this tab" lookup
     const bypass = liveBypassByUid.get(uid);
-    if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass);
+    if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass, { extensionDomain: extensionId });
     if (excludedForGlobal.length > 0) {
       rule.condition = { ...rule.condition, excludedTabIds: excludedForGlobal };
     }

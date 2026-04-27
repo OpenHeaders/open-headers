@@ -278,7 +278,6 @@ function computeFutureKind(
       return { kind: 'value-template-unresolved', template: applicability.template };
     case 'separator-template-unresolved':
       return { kind: 'separator-template-unresolved', template: applicability.template };
-    case 'will-fire':
     default: {
       // Live rule still fires — surface the drift cases relative to
       // the snapshot.

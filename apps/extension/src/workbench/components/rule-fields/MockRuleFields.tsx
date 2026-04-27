@@ -19,7 +19,7 @@
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, AutoComplete, Button, Form, Input, Radio, Select, Tooltip, Typography } from 'antd';
+import { Alert, AutoComplete, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
@@ -175,11 +175,7 @@ const MockRuleFields: React.FC = () => {
         <Form.Item name="mockResourceType" style={{ marginBottom: 0 }}>
           <Radio.Group>
             <Radio value="rest">REST API</Radio>
-            <Tooltip title="GraphQL operation filtering is coming soon. The schema fields are in place; the runtime payload-matching logic isn't shipped yet.">
-              <Radio value="graphql" disabled>
-                GraphQL API
-              </Radio>
-            </Tooltip>
+            <Radio value="graphql">GraphQL API</Radio>
           </Radio.Group>
         </Form.Item>
       </div>
@@ -293,18 +289,10 @@ const MockRuleFields: React.FC = () => {
             <>
               {fields.map((field) => (
                 <div key={field.key} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-                  <Form.Item
-                    {...field}
-                    name={[field.name, 'name']}
-                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                  >
+                  <Form.Item {...field} name={[field.name, 'name']} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
                     <Input size="small" placeholder="Header name (e.g. X-Custom)" />
                   </Form.Item>
-                  <Form.Item
-                    {...field}
-                    name={[field.name, 'value']}
-                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                  >
+                  <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
                     <TemplateInput size="small" placeholder="Header value" />
                   </Form.Item>
                   <Button

@@ -346,17 +346,20 @@ export function stripResourceTypeFields(
 // very chain fetch that produces `live.token` — the workflow's step
 // fetch inherits the host the rule was written for, so DNR matches it.
 // Chain fetches carry `X-OH-Live-Bypass: <workflowUid>` (stamped by
-// `executeForLiveChain`) as an intended marker for DNR to exclude.
+// `executeForLiveChain`) as an observability marker.
 //
-// LIMITATION: Chrome MV3 DNR does not support request-header matching on
-// rule conditions. Only `responseHeaders` / `excludedResponseHeaders`
-// exist (Chrome 128+); the request-side counterparts were never shipped.
-// Until an alternative bypass mechanism lands (candidates: initiator-
-// domain exclusion for the extension origin, or routing chain fetches
-// through a context DNR ignores), `attachLiveBypassExclusion` is a
-// no-op that returns the condition unchanged. The bypass header is still
-// stamped on chain fetches so observability + a future bypass can pick
-// it up without another round-trip.
+// Chrome MV3 DNR does not support request-header matching on rule
+// conditions. The bypass mechanism is `excludedInitiatorDomains` against
+// the extension's own origin: chain fetches issued from the SW carry the
+// extension origin as their initiator, so adding the extension id to the
+// exclusion list keeps the rule from firing on the fetch that produces
+// the live value it depends on. The exclusion is added only when the
+// rule actually references one or more `{{live.X}}` LVs (workflowUids
+// non-empty), so non-live rules are not affected.
+//
+// The extension origin is provided by the caller (dnr-manager pulls it
+// from `chrome.runtime.id`) so this leaf module stays importable by
+// tests without a chrome global.
 
 /**
  * Chain-fetch bypass header name — mirrors the constant exported from
@@ -368,14 +371,33 @@ export function stripResourceTypeFields(
  */
 export const LIVE_BYPASS_HEADER_NAME = 'X-OH-Live-Bypass';
 
+export interface LiveBypassOptions {
+  /**
+   * The extension's runtime id — used as the initiator-domain entry
+   * appended to `excludedInitiatorDomains`. Optional so callers running
+   * outside a chrome environment (tests, isolated compile paths) can
+   * skip the exclusion gracefully.
+   */
+  extensionDomain?: string;
+}
+
 /**
- * Return the condition unchanged. The function exists so the rule-engine
- * compile path keeps a single attachment point for an eventual
- * replacement mechanism — when we wire a working bypass we only touch
- * this function, not every caller.
+ * Append the extension origin to `excludedInitiatorDomains` when the
+ * rule references at least one Live Variable. No-op when the workflow
+ * set is empty (rule has no live refs) or when no extensionDomain is
+ * supplied.
  */
-export function attachLiveBypassExclusion(condition: DnrCondition, _workflowUids: ReadonlySet<string>): DnrCondition {
-  return condition;
+export function attachLiveBypassExclusion(
+  condition: DnrCondition,
+  workflowUids: ReadonlySet<string>,
+  opts?: LiveBypassOptions,
+): DnrCondition {
+  if (workflowUids.size === 0) return condition;
+  const ext = opts?.extensionDomain;
+  if (!ext) return condition;
+  const existing = condition.excludedInitiatorDomains ?? [];
+  if (existing.includes(ext)) return condition;
+  return { ...condition, excludedInitiatorDomains: [...existing, ext] };
 }
 
 // ── Shared resource type constants ───────────────────────────────

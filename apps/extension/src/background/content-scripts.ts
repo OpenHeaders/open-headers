@@ -51,10 +51,17 @@ interface DelayConfig {
   delayMs: number;
 }
 
+interface GraphqlFilter {
+  key: string;
+  operator: 'Equals' | 'Contains';
+  value: string;
+}
+
 interface StaticBodyConfig {
   ruleUid: string;
   regexSources: string[];
   body: string;
+  graphqlFilter?: GraphqlFilter;
 }
 
 interface StaticMockConfig {
@@ -63,6 +70,7 @@ interface StaticMockConfig {
   statusCode: number;
   body: string;
   headers: Record<string, string>;
+  graphqlFilter?: GraphqlFilter;
 }
 
 interface HeaderMergeConfig {
@@ -91,6 +99,26 @@ const URL_MATCHER_CODE = [
   '    try { if (new RegExp(regexSources[i], "i").test(url)) return true; } catch (e) {}',
   '  }',
   '  return false;',
+  '}',
+].join('\n');
+
+// GraphQL operation filter — parses the request body as JSON and tests
+// the configured field (commonly `operationName`, or `query` for substring
+// match) against the user's value. Returns true (pass-through) when no
+// filter is configured. Returns false when a filter is configured and the
+// body is missing, unparseable, or the field does not match — those are
+// the cases where the rule should NOT fire.
+const GRAPHQL_MATCHER_CODE = [
+  'function __ohMatchesGraphQL(bodyStr, filter) {',
+  '  if (!filter || !filter.key) return true;',
+  '  if (typeof bodyStr !== "string" || bodyStr.length === 0) return false;',
+  '  try {',
+  '    var parsed = JSON.parse(bodyStr);',
+  '    if (parsed == null || typeof parsed !== "object") return false;',
+  '    var v = parsed[filter.key];',
+  '    if (typeof v !== "string") return false;',
+  '    return filter.operator === "Contains" ? v.indexOf(filter.value) !== -1 : v === filter.value;',
+  '  } catch (e) { return false; }',
   '}',
 ].join('\n');
 
@@ -182,6 +210,8 @@ export function buildBodyInjection(rule: V5.BodyRule): Injection {
     ruleUid: rule.uid,
     regexSources: compileRuleForInjection(rule),
     body: rule.action.body,
+    graphqlFilter:
+      rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : undefined,
   };
   return {
     kind: 'func',
@@ -199,6 +229,23 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
     return false;
   }
 
+  // GraphQL operation filter — see GRAPHQL_MATCHER_CODE for the
+  // canonical inline-template version. Behavior must match it exactly;
+  // a drift test in graphql-filter.test.ts pins the contract.
+  function matchesGraphQL(bodyStr: unknown, filter: GraphqlFilter | undefined): boolean {
+    if (!filter?.key) return true;
+    if (typeof bodyStr !== 'string' || bodyStr.length === 0) return false;
+    try {
+      const parsed: unknown = JSON.parse(bodyStr);
+      if (parsed == null || typeof parsed !== 'object') return false;
+      const v = (parsed as Record<string, unknown>)[filter.key];
+      if (typeof v !== 'string') return false;
+      return filter.operator === 'Contains' ? v.indexOf(filter.value) !== -1 : v === filter.value;
+    } catch {
+      return false;
+    }
+  }
+
   function fire(url: string): void {
     try {
       window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'body', t: Date.now() }, '*');
@@ -212,6 +259,9 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
     const input = args[0];
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
     if (matches(url) && args[1]) {
+      const reqBody = (args[1] as RequestInit).body;
+      const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
+      if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) return origFetch.apply(this, args);
       fire(url);
       args[1] = Object.assign({}, args[1], { body: cfg.body });
     }
@@ -237,6 +287,12 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
   ): void {
     const url = this.__ohUrl ?? '';
     if (url && matches(url)) {
+      const reqBody = args[0];
+      const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
+      if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) {
+        origXHRSend.apply(this, args);
+        return;
+      }
       fire(url);
       origXHRSend.call(this, cfg.body);
       return;
@@ -259,6 +315,8 @@ export function buildMockInjection(rule: V5.MockRule): Injection {
     statusCode: statusCode || 200,
     body: responseBody,
     headers: { 'Content-Type': contentType || 'application/json', ...responseHeaders },
+    graphqlFilter:
+      rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : undefined,
   };
   return {
     kind: 'func',
@@ -276,6 +334,20 @@ function staticMockInjectionFunc(cfg: StaticMockConfig): void {
     return false;
   }
 
+  function matchesGraphQL(bodyStr: unknown, filter: GraphqlFilter | undefined): boolean {
+    if (!filter?.key) return true;
+    if (typeof bodyStr !== 'string' || bodyStr.length === 0) return false;
+    try {
+      const parsed: unknown = JSON.parse(bodyStr);
+      if (parsed == null || typeof parsed !== 'object') return false;
+      const v = (parsed as Record<string, unknown>)[filter.key];
+      if (typeof v !== 'string') return false;
+      return filter.operator === 'Contains' ? v.indexOf(filter.value) !== -1 : v === filter.value;
+    } catch {
+      return false;
+    }
+  }
+
   function fire(url: string): void {
     try {
       window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'mock', t: Date.now() }, '*');
@@ -289,6 +361,9 @@ function staticMockInjectionFunc(cfg: StaticMockConfig): void {
     const input = args[0];
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
     if (matches(url)) {
+      const reqBody = (args[1] as RequestInit | undefined)?.body;
+      const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
+      if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) return origFetch.apply(this, args);
       fire(url);
       return Promise.resolve(new Response(cfg.body, { status: cfg.statusCode, headers: cfg.headers }));
     }
@@ -314,6 +389,12 @@ function staticMockInjectionFunc(cfg: StaticMockConfig): void {
   ): void {
     const url = this.__ohUrl ?? '';
     if (url && matches(url)) {
+      const reqBody = args[0];
+      const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
+      if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) {
+        origXHRSend.apply(this, args);
+        return;
+      }
       fire(url);
       Object.defineProperty(this, 'status', { get: () => cfg.statusCode });
       Object.defineProperty(this, 'statusText', { get: () => 'OK' });
@@ -469,12 +550,17 @@ function generateDynamicBodyScript(rule: V5.BodyRule): string {
   const { body: userCode } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);
   const ruleUidLit = JSON.stringify(rule.uid);
+  const graphqlFilter =
+    rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : null;
+  const graphqlFilterJSON = JSON.stringify(graphqlFilter);
 
   return `(function(){
 ${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+${GRAPHQL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
 var REGEX_SOURCES = ${regexSourcesJSON};
+var GRAPHQL_FILTER = ${graphqlFilterJSON};
 
 ${userCode}
 
@@ -483,9 +569,10 @@ window.fetch = function() {
   var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
   if (__ohMatchesUrl(url, REGEX_SOURCES) && args[1] && args[1].body) {
+    var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
+    if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origFetch.apply(this, args);
     __ohFire(RULE_UID, url, 'body');
     try {
-      var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
       var bodyAsJson = null;
       try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
       var modified = modifyRequestBody({ method: (args[1].method || 'GET'), url: url, body: bodyStr, bodyAsJson: bodyAsJson });
@@ -504,9 +591,10 @@ XMLHttpRequest.prototype.open = function() {
 };
 XMLHttpRequest.prototype.send = function(body) {
   if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, REGEX_SOURCES) && body) {
+    var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+    if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origXHRSend.call(this, body);
     __ohFire(RULE_UID, this.__ohUrl, 'body');
     try {
-      var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
       var bodyAsJson = null;
       try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
       var modified = modifyRequestBody({ method: this.__ohMethod, url: this.__ohUrl, body: bodyStr, bodyAsJson: bodyAsJson });
@@ -530,13 +618,18 @@ function generateDynamicMockScript(rule: V5.MockRule): string {
   const regexSourcesJSON = JSON.stringify(regexSources);
   const overrideStatus = statusCode || 0;
   const ruleUidLit = JSON.stringify(rule.uid);
+  const graphqlFilter =
+    rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : null;
+  const graphqlFilterJSON = JSON.stringify(graphqlFilter);
 
   return `(function(){
 ${TEST_BRIDGE_CODE}
 ${URL_MATCHER_CODE}
+${GRAPHQL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
 var REGEX_SOURCES = ${regexSourcesJSON};
 var OVERRIDE_STATUS = ${overrideStatus};
+var GRAPHQL_FILTER = ${graphqlFilterJSON};
 
 ${responseBody}
 
@@ -546,6 +639,9 @@ window.fetch = function() {
   var self = this;
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
   if (!__ohMatchesUrl(url, REGEX_SOURCES)) return origFetch.apply(self, args);
+  var __reqBody = (args[1] && args[1].body) || '';
+  var __reqBodyStr = typeof __reqBody === 'string' ? __reqBody : (__reqBody == null ? '' : String(__reqBody));
+  if (!__ohMatchesGraphQL(__reqBodyStr, GRAPHQL_FILTER)) return origFetch.apply(self, args);
   __ohFire(RULE_UID, url, 'mock');
 
   var requestMethod = (args[1] && args[1].method) || 'GET';
@@ -590,6 +686,10 @@ XMLHttpRequest.prototype.open = function() {
 XMLHttpRequest.prototype.send = function(body) {
   var self = this;
   if (!this.__ohUrl || !__ohMatchesUrl(this.__ohUrl, REGEX_SOURCES)) {
+    return origXHRSend.apply(this, arguments);
+  }
+  var __xhrBodyStr = typeof body === 'string' ? body : (body == null ? '' : String(body));
+  if (!__ohMatchesGraphQL(__xhrBodyStr, GRAPHQL_FILTER)) {
     return origXHRSend.apply(this, arguments);
   }
   __ohFire(RULE_UID, this.__ohUrl, 'mock');

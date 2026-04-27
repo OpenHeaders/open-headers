@@ -470,7 +470,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         maybePrefillInjectCode(form, changedValues.injectType);
       }
     },
-    [onDirtyChange, form],
+    [notifyDirty, form],
   );
 
   // ── Build rule: merges form content with externally-owned name/enabled ──
@@ -694,7 +694,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     createLocalRule,
     localCollections,
     message,
-    onDirtyChange,
+    notifyDirty,
     onSaved,
     onSaveDraft,
     loadedVersion,
@@ -1050,9 +1050,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       marginBottom: 10,
                     }}
                   >
-                    Rows combine with <strong>AND</strong> — every row must match. Each row shows an{' '}
-                    <strong>OR</strong> badge (multiple values match if any matches) or a <strong>1 value</strong> badge
-                    (singleton type). Add at least one condition.
+                    Rows combine with <strong>AND</strong> — every row must match. Each row shows an <strong>OR</strong>{' '}
+                    badge (multiple values match if any matches) or a <strong>1 value</strong> badge (singleton type).
+                    Add at least one condition.
                   </div>
                   <Form.Item name="conditions" style={{ marginBottom: 0 }}>
                     <ConditionEditor />

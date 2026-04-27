@@ -2,14 +2,12 @@
  * BodyRuleFields — Modify Request Body rule configuration.
  *
  * Layout:
- *   - Resource Type selector: REST API / GraphQL API (GraphQL disabled —
- *     see GraphQL gating note below)
- *   - GraphQL Operation filter — kept in the schema and form, but the UI
- *     entry point is disabled until the runtime actually honors it. The
- *     fetch/XHR monkey-patch in `content-scripts.ts` does not yet parse
- *     the JSON payload to match `operationName` / query against the
- *     filter, so enabling the radio would let users author rules that
- *     silently fire on every URL match. Tooltip says "coming soon".
+ *   - Resource Type selector: REST API / GraphQL API
+ *   - GraphQL Operation filter — when GraphQL is selected, fires only
+ *     on requests whose JSON payload's configured field matches the
+ *     user's value (Equals or Contains). Honored by the fetch/XHR
+ *     monkey-patch in `content-scripts.ts` for both static and dynamic
+ *     body rules.
  *   - Static Data / Dynamic (JavaScript) toggle
  *   - Code editor for body content
  *
@@ -27,7 +25,7 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Button, Form, Input, Radio, Select, Tooltip, Typography } from 'antd';
+import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
@@ -75,11 +73,7 @@ const BodyRuleFields: React.FC = () => {
         <Form.Item name="bodyResourceType" style={{ marginBottom: 0 }}>
           <Radio.Group>
             <Radio value="rest">REST API</Radio>
-            <Tooltip title="GraphQL operation filtering is coming soon. The schema fields are in place; the runtime payload-matching logic isn't shipped yet.">
-              <Radio value="graphql" disabled>
-                GraphQL API
-              </Radio>
-            </Tooltip>
+            <Radio value="graphql">GraphQL API</Radio>
           </Radio.Group>
         </Form.Item>
       </div>

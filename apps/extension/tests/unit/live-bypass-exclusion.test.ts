@@ -5,14 +5,13 @@
  *   - `computeRuleLiveBypass(rule)` walks every templatable string in a
  *     V5.Rule, finds `{{live.X}}` references, and returns the set of
  *     workflow uids those LVs bind to. Disabled LVs don't contribute.
- *   - `attachLiveBypassExclusion(condition, workflowUids)` is a no-op
- *     today: Chrome MV3 DNR does not expose `requestHeaders` /
- *     `excludedRequestHeaders` on `RuleCondition` (only the
- *     response-side counterparts exist, Chrome 128+). A future
- *     bypass mechanism (e.g. initiator-domain exclusion for the
- *     extension origin) will plug into this function; the rule-engine
- *     compile path already calls it for every rule so no caller-side
- *     change will be needed.
+ *   - `attachLiveBypassExclusion(condition, workflowUids, opts)` appends
+ *     the extension's runtime id to `excludedInitiatorDomains` when the
+ *     rule references at least one LV. Chain fetches issued from the
+ *     SW carry the extension origin as their initiator, so the rule is
+ *     excluded from firing on the very fetch that produces the LV
+ *     value. No-op when workflowUids is empty or extensionDomain is
+ *     not supplied.
  *   - Constant drift check: the DNR builder's `LIVE_BYPASS_HEADER_NAME`
  *     matches the executor's `LIVE_BYPASS_HEADER` — chain fetches still
  *     stamp the header as an observability marker even though DNR
@@ -90,26 +89,47 @@ describe('bypass header constant drift', () => {
 });
 
 describe('attachLiveBypassExclusion', () => {
-  // Current implementation is a no-op because Chrome MV3 DNR does not
-  // support `excludedRequestHeaders` on `RuleCondition` — the original
-  // mechanism was infeasible. The function stays as the single
-  // attach-point for a future mechanism (likely
-  // `excludedInitiatorDomains: [chrome.runtime.id]`); when that lands
-  // these tests switch to asserting on the new field without touching
-  // the call sites in `dnr-manager.ts`.
+  const EXT = 'kjdsljfsdjslkfsdjsdfdj';
 
   it('returns the condition unchanged when workflowUids is empty', () => {
     const input = { urlFilter: 'openheaders.io' };
-    expect(attachLiveBypassExclusion(input, new Set())).toEqual(input);
+    expect(attachLiveBypassExclusion(input, new Set(), { extensionDomain: EXT })).toEqual(input);
   });
 
-  it('returns the condition unchanged when workflowUids is non-empty (no-op today)', () => {
+  it('returns the condition unchanged when no extensionDomain is supplied', () => {
     const input = { urlFilter: 'openheaders.io' };
     expect(attachLiveBypassExclusion(input, new Set(['wflowaa1']))).toEqual(input);
   });
 
+  it('appends the extension id to excludedInitiatorDomains when LV references exist', () => {
+    const out = attachLiveBypassExclusion({ urlFilter: 'openheaders.io' }, new Set(['wflowaa1']), {
+      extensionDomain: EXT,
+    });
+    expect(out.excludedInitiatorDomains).toEqual([EXT]);
+  });
+
+  it('preserves any existing excludedInitiatorDomains entries', () => {
+    const out = attachLiveBypassExclusion(
+      { urlFilter: 'openheaders.io', excludedInitiatorDomains: ['ads.example.com'] },
+      new Set(['wflowaa1']),
+      { extensionDomain: EXT },
+    );
+    expect(out.excludedInitiatorDomains).toEqual(['ads.example.com', EXT]);
+  });
+
+  it('does not duplicate the extension id if already present', () => {
+    const out = attachLiveBypassExclusion(
+      { urlFilter: 'openheaders.io', excludedInitiatorDomains: [EXT] },
+      new Set(['wflowaa1', 'wflowbb2']),
+      { extensionDomain: EXT },
+    );
+    expect(out.excludedInitiatorDomains).toEqual([EXT]);
+  });
+
   it('does not emit the unsupported excludedRequestHeaders property', () => {
-    const out = attachLiveBypassExclusion({ urlFilter: 'openheaders.io' }, new Set(['wflowaa1', 'wflowbb2']));
+    const out = attachLiveBypassExclusion({ urlFilter: 'openheaders.io' }, new Set(['wflowaa1', 'wflowbb2']), {
+      extensionDomain: EXT,
+    });
     expect(out).not.toHaveProperty('excludedRequestHeaders');
   });
 });
