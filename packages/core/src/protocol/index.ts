@@ -18,6 +18,7 @@ export type {
   SyncApplyResponse,
   SyncBridgeMessage,
   SyncBroadcastEvent,
+  SyncRulePostState,
 } from './sync-bridge';
 
 export type {

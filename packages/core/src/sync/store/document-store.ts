@@ -73,6 +73,18 @@ export class InMemoryDocumentStore {
     return liveOrderedItemsAt(state, setPath).map(({ itemId, item }) => ({ itemId, item }));
   }
 
+  /**
+   * Materialize a single entity by `(type, id)`. Returns `null` when
+   * the entity is unknown or has been tombstoned (delete-wins, §7.2).
+   * Hot path for per-envelope projectors that don't want to pay the
+   * sort cost of `materializeAll`.
+   */
+  materializeOne(type: EntityType, id: string): MaterializedEntity | null {
+    const state = this.entities.get(entityKey(type, id));
+    if (!state) return null;
+    return materializeEntity(state);
+  }
+
   /** Materialized, deletion-filtered snapshot list, sorted by (type, id). */
   materializeAll(): MaterializedEntity[] {
     const out: MaterializedEntity[] = [];

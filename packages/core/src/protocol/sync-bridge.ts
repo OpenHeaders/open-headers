@@ -11,6 +11,7 @@
  */
 
 import type { MutationBatch, MutationEnvelope, MutatorOutcome, SideEffectIntent } from '../sync';
+import type { V5 } from '../types';
 
 /** Surface → oracle: apply this batch all-or-nothing under the per-entity lock. */
 export interface SyncApplyRequest {
@@ -38,12 +39,40 @@ export interface SyncApplyAckErr {
 
 export type SyncApplyResponse = SyncApplyAckOk | SyncApplyAckErr;
 
+/**
+ * Post-commit projection for a Rule envelope. Carries the materialized
+ * V5.Rule and the live itemIds the oracle holds at each set-modeled
+ * path, so renderer-side mirrors can:
+ *
+ *   1. Track the canonical rule shape without round-tripping back to
+ *      the SW (synchronous-render discipline, §19.4).
+ *   2. Enumerate the itemIds `removeFromSet` envelopes need to target —
+ *      the materialized shape strips them, so a write helper that wants
+ *      to replace a set has to learn them from somewhere.
+ *
+ * Optional + entity-typed: only Rule envelopes carry it for now. When
+ * Phase B widens the sync engine to additional entities, this either
+ * grows per-entity payload variants or wraps in a discriminated union.
+ * Defer that decision until a second entity actually needs it.
+ */
+export interface SyncRulePostState {
+  rule: V5.Rule;
+  /** Map keyed by set path (e.g. `conditions`, `action.requestHeaders`). */
+  setItemIds: Record<string, string[]>;
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
   envelope: MutationEnvelope;
   outcome: MutatorOutcome;
   batchId?: string;
+  /**
+   * Populated for Rule envelopes whose batch left a materialized rule
+   * in place (i.e. not a `delete`). Other entity types and rolled-back
+   * batches leave it `undefined`.
+   */
+  rulePostState?: SyncRulePostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

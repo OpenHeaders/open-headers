@@ -88,6 +88,16 @@ export class RuleOracle {
   }
 
   /**
+   * Materialize a single entity. Returns `null` for unknown or
+   * tombstoned ids — broadcast projectors use this to attach
+   * post-commit state without paying the full sort cost of
+   * {@link materializeAll}.
+   */
+  materializeOne(type: string, id: string) {
+    return this.store.materializeOne(type, id);
+  }
+
+  /**
    * Read live `(itemId, item)` pairs at a set path. Write-side helpers
    * (rule-store's partial-update path) consult this to enumerate the
    * itemIds they need to emit `removeFromSet` against — the materialized

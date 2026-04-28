@@ -22,7 +22,7 @@ import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders
 import type { FileRef } from '@openheaders/core/files';
 import type { ImportReport } from '@openheaders/core/import';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { SyncApplyRequest, SyncApplyResponse } from '@openheaders/core/protocol';
+import type { SyncApplyRequest, SyncApplyResponse, SyncRulePostState } from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
@@ -1410,7 +1410,17 @@ export interface BridgeBroadcastContract {
    * `bridge` broadcast type so it travels alongside the other UI
    * change channels with no extra plumbing.
    */
-  syncBroadcast: { envelope: MutationEnvelope; outcome: MutatorOutcome; batchId?: string };
+  syncBroadcast: {
+    envelope: MutationEnvelope;
+    outcome: MutatorOutcome;
+    batchId?: string;
+    /**
+     * Post-commit projection for Rule envelopes (Fw7). Renderer-side
+     * rule mirrors fold this into their local view to track itemIds
+     * for set-modeled paths without an oracle round-trip.
+     */
+    rulePostState?: SyncRulePostState;
+  };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

@@ -20,8 +20,20 @@ import type {
   SyncBroadcastEvent,
 } from '@openheaders/core/protocol';
 import { SYNC_BROADCAST_TYPE } from '@openheaders/core/protocol';
+import type { MutationEnvelope } from '@openheaders/core/sync';
 import type { BroadcastEvent, MutationBroadcast } from './broadcast';
 import type { RuleOracle } from './oracle';
+
+/**
+ * Optional per-envelope projection. Receives the committed envelope and
+ * returns the entity-specific post-commit payload to attach to the
+ * broadcast event. Returning `null` skips attachment (e.g. for
+ * non-Rule envelopes during Phase A). Throws are caught by the caller
+ * — projection failure must never tear down the broadcast.
+ */
+export type BroadcastProjector = (
+  envelope: MutationEnvelope,
+) => Pick<SyncBroadcastEvent, 'rulePostState'> | null;
 
 /** Glue: oracle apply result → on-the-wire {@link SyncApplyResponse}. */
 export async function handleSyncApply(
@@ -48,16 +60,29 @@ export async function handleSyncApply(
 export function wireBroadcastToSink(
   broadcast: MutationBroadcast & { subscribe?: (l: (e: BroadcastEvent) => void) => () => void },
   sink: (event: SyncBroadcastEvent) => void,
+  projector?: BroadcastProjector,
 ): () => void {
   if (typeof broadcast.subscribe !== 'function') {
     throw new Error('wireBroadcastToSink requires a broadcast that exposes subscribe()');
   }
   return broadcast.subscribe((e) => {
+    let projected: Pick<SyncBroadcastEvent, 'rulePostState'> | null = null;
+    if (projector) {
+      try {
+        projected = projector(e.envelope);
+      } catch {
+        // Projection failure must not tear down the broadcast — every
+        // surface still needs the (envelope, outcome) tuple even when
+        // the projection couldn't be computed.
+        projected = null;
+      }
+    }
     sink({
       type: SYNC_BROADCAST_TYPE,
       envelope: e.envelope,
       outcome: e.outcome,
       batchId: e.batchId,
+      ...(projected?.rulePostState ? { rulePostState: projected.rulePostState } : {}),
     });
   });
 }

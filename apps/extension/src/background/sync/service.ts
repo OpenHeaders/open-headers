@@ -26,11 +26,12 @@
  * workspace at a time.
  */
 
-import type { SyncApplyRequest, SyncApplyResponse } from '@openheaders/core/protocol';
+import type { SyncApplyRequest, SyncApplyResponse, SyncBroadcastEvent } from '@openheaders/core/protocol';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
-import { handleSyncApply, wireBroadcastToSink } from './bridge';
+import { type BroadcastProjector, handleSyncApply, wireBroadcastToSink } from './bridge';
+import { projectRulePostState } from './rule-post-state';
 import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
@@ -80,14 +81,25 @@ export function initSyncService(workspaceId: string): void {
   setActiveRuleCache(cache);
 
   // Re-publish every committed `(envelope, outcome)` to subscribed
-  // surfaces via the existing chrome.runtime broadcast bus.
-  const unsubscribeBroadcast = wireBroadcastToSink(broadcast, (event) => {
-    bridgeBroadcast('syncBroadcast', {
-      envelope: event.envelope,
-      outcome: event.outcome,
-      batchId: event.batchId,
-    });
-  });
+  // surfaces via the existing chrome.runtime broadcast bus. The
+  // projector reads post-commit state for Rule envelopes so renderer
+  // mirrors can stay in lockstep with the oracle without round-tripping.
+  const projector: BroadcastProjector = (envelope) => {
+    const rulePostState = projectRulePostState(oracle, envelope);
+    return rulePostState ? { rulePostState } : null;
+  };
+  const unsubscribeBroadcast = wireBroadcastToSink(
+    broadcast,
+    (event: SyncBroadcastEvent) => {
+      bridgeBroadcast('syncBroadcast', {
+        envelope: event.envelope,
+        outcome: event.outcome,
+        batchId: event.batchId,
+        ...(event.rulePostState ? { rulePostState: event.rulePostState } : {}),
+      });
+    },
+    projector,
+  );
 
   state = { workspaceId, oracle, broadcast, cache, context, unsubscribeBroadcast };
   logger.info(

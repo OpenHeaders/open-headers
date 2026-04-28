@@ -11,9 +11,14 @@ import {
   SYNC_APPLY_TYPE,
   SYNC_BROADCAST_TYPE,
 } from '@openheaders/core/protocol';
-import { type RuleMutatorContext, toggleEnabled } from '@openheaders/core/sync';
+import {
+  type MutationEnvelope,
+  type RuleMutatorContext,
+  RULE_ENTITY_TYPE,
+  toggleEnabled,
+} from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { handleSyncApply, wireBroadcastToSink } from '@/background/sync/bridge';
+import { type BroadcastProjector, handleSyncApply, wireBroadcastToSink } from '@/background/sync/bridge';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, RuleOracle } from '@/background/sync/oracle';
@@ -70,5 +75,54 @@ describe('sync bridge', () => {
     expect(sink[0].type).toBe(SYNC_BROADCAST_TYPE);
     expect(sink[0].envelope.mutationId).toBe(intent.batch.mutations[0].mutationId);
     expect(sink[0].batchId).toBe(intent.batch.batchId);
+  });
+
+  it('wireBroadcastToSink calls the projector and attaches rulePostState', async () => {
+    const broadcast = new InMemoryBroadcast();
+    const oracle = new RuleOracle({
+      workspaceId: wsId,
+      lock,
+      log: new InMemoryMutationLog(),
+      intents: new InMemoryPendingIntents(),
+      broadcast,
+    });
+    const sink: SyncBroadcastEvent[] = [];
+    const seen: MutationEnvelope[] = [];
+    const projector: BroadcastProjector = (envelope) => {
+      seen.push(envelope);
+      return envelope.body.type === RULE_ENTITY_TYPE
+        ? { rulePostState: { rule: { uid: envelope.body.id } as never, setItemIds: { conditions: ['a', 'b'] } } }
+        : null;
+    };
+    const off = wireBroadcastToSink(broadcast, (e) => sink.push(e), projector);
+    const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
+    await oracle.apply(intent.batch, intent.sideEffects);
+    off();
+    expect(seen).toHaveLength(1);
+    expect(sink[0].rulePostState?.setItemIds.conditions).toEqual(['a', 'b']);
+  });
+
+  it('wireBroadcastToSink swallows projector throws and still emits the event', async () => {
+    const broadcast = new InMemoryBroadcast();
+    const oracle = new RuleOracle({
+      workspaceId: wsId,
+      lock,
+      log: new InMemoryMutationLog(),
+      intents: new InMemoryPendingIntents(),
+      broadcast,
+    });
+    const sink: SyncBroadcastEvent[] = [];
+    const off = wireBroadcastToSink(
+      broadcast,
+      (e) => sink.push(e),
+      () => {
+        throw new Error('boom');
+      },
+    );
+    const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
+    await oracle.apply(intent.batch, intent.sideEffects);
+    off();
+    expect(sink).toHaveLength(1);
+    expect(sink[0].rulePostState).toBeUndefined();
   });
 });

@@ -1,0 +1,139 @@
+/**
+ * Renderer-side rule sync mirror (Phase A Fw8).
+ *
+ * Subscribes once to the SW's `syncBroadcast` channel and folds every
+ * `rulePostState` payload into a `Map<ruleUid, { rule, setItemIds }>`.
+ * Renderer-side write helpers (workbench RuleEditor, popup toggleRule,
+ * devpanel inline edit, …) consult this mirror to:
+ *
+ *   1. Read the canonical rule shape synchronously, in lockstep with
+ *      the oracle. The §19.4 synchronous-render discipline forbids
+ *      round-tripping per write, so the mirror gives the renderer its
+ *      own up-to-date view of the rule.
+ *   2. Enumerate live `itemId`s at set-modeled paths (`conditions`,
+ *      `action.requestHeaders`, `action.responseHeaders`). Set
+ *      replacement requires these — the materialized rule shape strips
+ *      them, but `buildUpdateBatch` needs to emit `removeFromSet` per
+ *      existing itemId.
+ *
+ * The mirror does NOT seed itself from `getLocalRules` on construction:
+ * Phase A's existing `useRules` hook already subscribes to
+ * `rulesUpdated` and refetches the active workspace's rules on every
+ * commit. Until W1 swaps the editor over to direct mutations, the
+ * editor reads from `useRules`. The mirror's first useful state lands
+ * the first time the SW publishes a Rule envelope post-W1.
+ */
+
+import type { V5 } from '@openheaders/core/types';
+import { subscribe } from '@utils/bridge';
+
+export interface RuleMirrorEntry {
+  rule: V5.Rule;
+  /** Map keyed by set path (e.g. `conditions`). */
+  setItemIds: Record<string, string[]>;
+}
+
+export type RuleMirrorListener = (uid: string) => void;
+
+export interface RuleSyncMirror {
+  /** Snapshot of the mirrored rule + itemIds at `uid`, or `null` when
+   *  the mirror hasn't seen a broadcast for this rule yet. */
+  getRuleMirror(uid: string): RuleMirrorEntry | null;
+  /** Live itemIds at a set path. Returns `[]` when unknown — the same
+   *  shape the SW oracle exposes via `liveSetItems`, so write helpers
+   *  can take either. */
+  liveSetItems(uid: string, setPath: string): string[];
+  /** Subscribe to changes for one rule. Listener fires after every
+   *  broadcast that mutates `uid`. Returns an unsubscribe handle. */
+  subscribeRuleMirror(uid: string, listener: RuleMirrorListener): () => void;
+  /** Drop the bridge subscription. Idempotent — safe to call multiple
+   *  times. After dispose, subsequent reads return null / []. */
+  dispose(): void;
+}
+
+/**
+ * Build a fresh mirror. The renderer constructs one per surface (one
+ * per workspace tab, one per popup, …) and tears it down on unmount.
+ */
+export function createRuleSyncMirror(): RuleSyncMirror {
+  const entries = new Map<string, RuleMirrorEntry>();
+  const listeners = new Map<string, Set<RuleMirrorListener>>();
+
+  const unsubscribe = subscribe('syncBroadcast', (event) => {
+    const { envelope, rulePostState } = event;
+    const uid = envelope.body.id;
+
+    // Tombstoned / non-Rule envelopes leave rulePostState undefined.
+    // For a Rule delete the entity is gone — drop our mirror entry so
+    // a subsequent recreate (with a fresh uid per §7.2) doesn't collide.
+    if (!rulePostState) {
+      if (entries.delete(uid)) notify(listeners, uid);
+      return;
+    }
+
+    entries.set(uid, { rule: rulePostState.rule, setItemIds: rulePostState.setItemIds });
+    notify(listeners, uid);
+  });
+
+  return {
+    getRuleMirror(uid) {
+      return entries.get(uid) ?? null;
+    },
+    liveSetItems(uid, setPath) {
+      const entry = entries.get(uid);
+      if (!entry) return [];
+      return entry.setItemIds[setPath] ?? [];
+    },
+    subscribeRuleMirror(uid, listener) {
+      let bucket = listeners.get(uid);
+      if (!bucket) {
+        bucket = new Set();
+        listeners.set(uid, bucket);
+      }
+      bucket.add(listener);
+      return () => {
+        const b = listeners.get(uid);
+        if (!b) return;
+        b.delete(listener);
+        if (b.size === 0) listeners.delete(uid);
+      };
+    },
+    dispose() {
+      unsubscribe();
+      entries.clear();
+      listeners.clear();
+    },
+  };
+}
+
+function notify(listeners: Map<string, Set<RuleMirrorListener>>, uid: string): void {
+  const bucket = listeners.get(uid);
+  if (!bucket) return;
+  for (const l of bucket) {
+    try {
+      l(uid);
+    } catch {
+      // Listener errors must not tear down the broadcast pipe.
+    }
+  }
+}
+
+// ── Module-level singleton ───────────────────────────────────────────
+//
+// The mirror is shared across every consumer in a renderer surface —
+// `useRuleMutator` builds batches against it; future awareness ribbon
+// reads from it. A per-component instance would multiply the bridge
+// subscription count without adding any value (the data is the same).
+
+let active: RuleSyncMirror | null = null;
+
+export function getActiveRuleSyncMirror(): RuleSyncMirror {
+  if (!active) active = createRuleSyncMirror();
+  return active;
+}
+
+export function disposeActiveRuleSyncMirror(): void {
+  if (!active) return;
+  active.dispose();
+  active = null;
+}
