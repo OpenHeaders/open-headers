@@ -164,19 +164,36 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
   const showAdvanced = !!(advanced && advancedOpen);
 
   // Activity rails sit at the OUTER edges of this component (flush
-  // with the modal's left/right body edges). The sash-resizable
-  // sidebar / diff / advanced panes live inside an inner rounded
-  // white card with a 3 px gutter on top/bottom and on the central-
-  // card sides — same `.rules-dock-body` margin pattern as the
-  // workspace shell. With rails outside the card, the card's rounded
-  // corners are unobstructed (previously the gray rails covered the
-  // corner area, hiding the rounding).
+  // with the modal's left/right body edges). Each Allotment pane —
+  // sidebar / diff / advanced — wraps its content in `paneCardWrapper`
+  // (3 px padding) + `paneCard` (white rounded surface). Adjacent
+  // panes meet at 3 + 3 = 6 px of visible gray gutter, which matches
+  // the workspace shell's `.rules-dock-body` margin pattern (one card
+  // per tool window with 3 px around). The previous shape — three
+  // panes inside a single outer white card — left only a hairline
+  // sash between them, which is what the screenshot called out.
   //
   // The inline `--focus-border: transparent` cascade kills allotment's
   // default blue (#007fd4) sash-hover highlight inside this subtree,
   // matching the workspace's neutral resize handles. Scoped via
   // inline style instead of a global CSS rule so the workspace's own
   // dock layout keeps its hover affordance untouched.
+  const paneCardWrapper: React.CSSProperties = {
+    padding: 3,
+    height: '100%',
+    width: '100%',
+    boxSizing: 'border-box',
+  };
+  const paneCard: React.CSSProperties = {
+    background: token.colorBgContainer,
+    borderRadius: 6,
+    height: '100%',
+    width: '100%',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+  };
+
   return (
     <div
       style={
@@ -198,60 +215,63 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
         // toggle is wired but no-ops since there is nothing to persist.
         onToggleLabels={() => undefined}
       />
-      <div style={{ flex: 1, minHeight: 0, minWidth: 0, padding: 3 }}>
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            background: token.colorBgContainer,
-            borderRadius: 6,
-            overflow: 'hidden',
-            position: 'relative',
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
+        <Allotment
+          proportionalLayout={false}
+          onVisibleChange={(index, visible) => {
+            if (index === 0) setSidebarOpen(visible);
+            else if (index === 2) setAdvancedOpen(visible);
           }}
         >
-          <Allotment
-            proportionalLayout={false}
-            onVisibleChange={(index, visible) => {
-              if (index === 0) setSidebarOpen(visible);
-              else if (index === 2) setAdvancedOpen(visible);
-            }}
+          <Allotment.Pane
+            preferredSize={SIDEBAR_PREFERRED_PX}
+            minSize={SIDEBAR_MIN_PX}
+            maxSize={SIDEBAR_MAX_PX}
+            priority={LayoutPriority.Low}
+            visible={sidebarOpen}
+            snap
           >
-            <Allotment.Pane
-              preferredSize={SIDEBAR_PREFERRED_PX}
-              minSize={SIDEBAR_MIN_PX}
-              maxSize={SIDEBAR_MAX_PX}
-              priority={LayoutPriority.Low}
-              visible={sidebarOpen}
-              snap
-            >
-              <DiffSidebar
-                taxonomy={taxonomy}
-                selectionKey={selectionKey}
-                onSelect={setSelectionKey}
-                lineCounts={lineCountsByKey}
-                strategies={strategies}
-                summary={summary}
-              />
-            </Allotment.Pane>
-            <Allotment.Pane priority={LayoutPriority.High} minSize={360}>
-              <DiffPane
-                row={selectedRow}
-                yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
-                currentStrategy={selectedRow ? strategyForRow(strategies, selectedRow) : 'skip'}
-                onChangeStrategy={(s) => {
-                  if (!selectedRow) return;
-                  const uidKey = selectedRow.section.singleton
-                    ? 'singleton'
-                    : ((selectedRow.entity as { uid: string })?.uid ?? '');
-                  onChangeStrategy(selectedRow.section.strategyKey, uidKey, s);
-                }}
-              />
-            </Allotment.Pane>
-            <Allotment.Pane preferredSize={360} minSize={260} priority={LayoutPriority.Low} visible={showAdvanced} snap>
-              {advanced && <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />}
-            </Allotment.Pane>
-          </Allotment>
-        </div>
+            <div style={paneCardWrapper}>
+              <div style={paneCard}>
+                <DiffSidebar
+                  taxonomy={taxonomy}
+                  selectionKey={selectionKey}
+                  onSelect={setSelectionKey}
+                  lineCounts={lineCountsByKey}
+                  strategies={strategies}
+                  summary={summary}
+                />
+              </div>
+            </div>
+          </Allotment.Pane>
+          <Allotment.Pane priority={LayoutPriority.High} minSize={360}>
+            <div style={paneCardWrapper}>
+              <div style={paneCard}>
+                <DiffPane
+                  row={selectedRow}
+                  yaml={selectedRow ? yamlByKey.get(selectedRow.selectionKey) : undefined}
+                  currentStrategy={selectedRow ? strategyForRow(strategies, selectedRow) : 'skip'}
+                  onChangeStrategy={(s) => {
+                    if (!selectedRow) return;
+                    const uidKey = selectedRow.section.singleton
+                      ? 'singleton'
+                      : ((selectedRow.entity as { uid: string })?.uid ?? '');
+                    onChangeStrategy(selectedRow.section.strategyKey, uidKey, s);
+                  }}
+                />
+              </div>
+            </div>
+          </Allotment.Pane>
+          <Allotment.Pane preferredSize={360} minSize={260} priority={LayoutPriority.Low} visible={showAdvanced} snap>
+            <div style={paneCardWrapper}>
+              <div style={paneCard}>
+                {advanced && (
+                  <AdvancedPanel {...advanced} open={advancedOpen} onToggle={() => setAdvancedOpen(false)} />
+                )}
+              </div>
+            </div>
+          </Allotment.Pane>
+        </Allotment>
       </div>
       {advanced ? (
         <ActivityBar side="right" topItems={rightItems} labelsVisible={false} onToggleLabels={() => undefined} />
