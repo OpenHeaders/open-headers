@@ -28,7 +28,7 @@
  * only "Backup-restore mode" inside it — the §5.5 toggles ship later.
  */
 
-import { UploadOutlined } from '@ant-design/icons';
+import { CloseOutlined, UploadOutlined } from '@ant-design/icons';
 import { hashImportSource } from '@openheaders/core/import';
 import type { V5 } from '@openheaders/core/types';
 import {
@@ -494,199 +494,237 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       })
     : [];
 
-  // Antd's close (X) is positioned absolutely in the header at top: 17,
-  // right: 17. The reserved 32 px on the title row keeps chips clear of
-  // it without us re-implementing the close affordance.
-  const titleNode = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 32, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>
-      <div style={{ flex: 1 }} />
-      {statusChips.length > 0 && <StatusChips chips={statusChips} />}
-    </div>
-  );
-
-  const footer = (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {parsed
-          ? `Export ${parsed.envelope.exportId} · ${parsed.envelope.scope}`
-          : source === 'file'
-            ? 'Pick a file to preview'
-            : 'No data'}
-      </Text>
-      <Space>
-        <Button onClick={onCancel} disabled={importing}>
-          Cancel
-        </Button>
-        <Button
-          type="primary"
-          icon={<UploadOutlined />}
-          onClick={() => void handleImport()}
-          disabled={!parsed || !preview || previewing || !sourceHash || importing}
-          loading={importing}
-        >
-          Import
-        </Button>
-      </Space>
-    </div>
-  );
-
   // ── Card recipe ───────────────────────────────────────────────────
   // Mirrors the workspace shell's `.rules-dock-body` pattern: white
   // surface inside the body's `colorBgLayout` gray, with the 6 px
   // vertical flex `gap` showing through as the gray separator — same
   // delimiter the workspace uses between tool windows. No border-radius
-  // on the cards: their left/right edges sit flush against the modal
-  // body's edges (we zeroed horizontal padding above so the diff
-  // workspace's activity rails *become* the modal's sides), and the
-  // modal's own outer corners do the rounding.
+  // on the cards: their left/right edges sit flush against the body
+  // edges (no horizontal padding) so the diff workspace's activity
+  // rails *become* the modal's sides, and the modal's own outer corners
+  // do the rounding.
   const cardStyle: React.CSSProperties = {
     background: token.colorBgContainer,
     overflow: 'hidden',
   };
 
+  // Strip-style row used for the custom header + footer. Same recipe
+  // as the workspace shell's topbar / status-bar — solid container
+  // bg, hairline border on the body-facing edge, comfortable height.
+  const stripStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    height: 44,
+    padding: '0 12px',
+    background: token.colorBgContainer,
+    flexShrink: 0,
+    gap: 12,
+  };
+
   return (
     <Modal
       open={open}
-      title={titleNode}
+      // Antd's built-in title/footer/close chrome is replaced by our
+      // own strips below so the modal can mirror the workspace shell
+      // (white topbar / gray work area / white status bar). We keep
+      // antd Modal for the overlay, focus trap, mask, keyboard
+      // handling, and centering — just not its visual chrome.
+      title={null}
+      footer={null}
+      closable={false}
       onCancel={importing ? undefined : onCancel}
       width="95vw"
       centered
       destroyOnHidden
-      footer={footer}
       styles={{
+        // Zero modal-container padding (antd v6 renamed v5's `content`
+        // slot to `container`): without this, the container's default
+        // ~24 px gutter bleeds through even when body padding is zero,
+        // leaving a visible white frame around the gray body. Zeroing
+        // it lets our header/body/footer strips fill edge-to-edge.
+        container: { padding: 0, overflow: 'hidden' },
         body: {
-          height: 'calc(95vh - 110px)',
+          height: '95vh',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          // Vertical gutter only — left/right are zero so the diff
-          // workspace card spans full body width and its activity rails
-          // become the modal's left/right edges. The 6 px between cards
-          // (gap + outer top/bottom) gives the same gray separator the
-          // workspace shell uses between tool windows.
-          padding: '6px 0',
+          padding: 0,
           background: token.colorBgLayout,
         },
       }}
     >
-      {parseRejection && (
-        <div style={{ ...cardStyle, padding: 12 }}>
-          <RejectionBanner rejection={parseRejection} />
-        </div>
-      )}
+      {/* Custom topbar — matches the workspace shell's top strip. */}
+      <div style={{ ...stripStyle, borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>
+        <div style={{ flex: 1 }} />
+        {statusChips.length > 0 && <StatusChips chips={statusChips} />}
+        <Button
+          type="text"
+          size="small"
+          icon={<CloseOutlined />}
+          onClick={importing ? undefined : onCancel}
+          aria-label="Close import preview"
+          disabled={importing}
+        />
+      </div>
 
-      {!parsed && !parseRejection && (
-        <div style={{ ...cardStyle, padding: 24 }}>
-          <Empty
-            description={
-              source === 'file'
-                ? 'Drop a .openheaders.yaml file to preview it.'
-                : source === 'link' || source === 'playground'
-                  ? 'Resolving import link…'
-                  : 'Paste a workspace export to preview it.'
-            }
-          />
-        </div>
-      )}
+      {/* Middle area — flex column of cards on gray. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          padding: '6px 0',
+          overflow: 'hidden',
+        }}
+      >
+        {parseRejection && (
+          <div style={{ ...cardStyle, padding: 12 }}>
+            <RejectionBanner rejection={parseRejection} />
+          </div>
+        )}
 
-      {parsed && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            position: 'relative',
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          {/* Top card: source attribution + target picker + (optional) vault blocks. */}
-          <div style={{ ...cardStyle, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <SourceAttribution envelope={parsed.envelope} />
-
-            <TargetControl
-              target={target}
-              onChange={setTarget}
-              workspaces={workspaces}
-              activeWorkspaceId={activeWorkspaceId}
-              envelope={parsed.envelope}
+        {!parsed && !parseRejection && (
+          <div style={{ ...cardStyle, padding: 24 }}>
+            <Empty
+              description={
+                source === 'file'
+                  ? 'Drop a .openheaders.yaml file to preview it.'
+                  : source === 'link' || source === 'playground'
+                    ? 'Resolving import link…'
+                    : 'Paste a workspace export to preview it.'
+              }
             />
+          </div>
+        )}
 
-            {parsed.envelope.secrets && !decryptedEnvelope && (
-              <VaultEncryptedBlock
+        {parsed && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
+            {/* Top card: source attribution + target picker + (optional) vault blocks. */}
+            <div style={{ ...cardStyle, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <SourceAttribution envelope={parsed.envelope} />
+
+              <TargetControl
+                target={target}
+                onChange={setTarget}
+                workspaces={workspaces}
+                activeWorkspaceId={activeWorkspaceId}
                 envelope={parsed.envelope}
-                passphrase={vaultPassphrase}
-                onChangePassphrase={setVaultPassphrase}
-                onDecrypt={() => void handleDecryptVault()}
-                decrypting={vaultDecrypting}
-                error={vaultDecryptError}
               />
+
+              {parsed.envelope.secrets && !decryptedEnvelope && (
+                <VaultEncryptedBlock
+                  envelope={parsed.envelope}
+                  passphrase={vaultPassphrase}
+                  onChangePassphrase={setVaultPassphrase}
+                  onDecrypt={() => void handleDecryptVault()}
+                  decrypting={vaultDecrypting}
+                  error={vaultDecryptError}
+                />
+              )}
+
+              {decryptedEnvelope && vaultFingerprints && (
+                <VaultDecryptedBanner
+                  fingerprints={vaultFingerprints}
+                  secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
+                />
+              )}
+
+              {decryptedEnvelope && vaultPartialDrops.length > 0 && (
+                <VaultPartialDecryptPanel drops={vaultPartialDrops} />
+              )}
+
+              {preview && isLowTrustSource && (
+                <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
+              )}
+            </div>
+
+            {previewing && !preview && (
+              <div style={{ ...cardStyle, padding: 24, textAlign: 'center' }}>
+                <Spin />
+              </div>
             )}
 
-            {decryptedEnvelope && vaultFingerprints && (
-              <VaultDecryptedBanner
-                fingerprints={vaultFingerprints}
-                secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
-              />
-            )}
-
-            {decryptedEnvelope && vaultPartialDrops.length > 0 && (
-              <VaultPartialDecryptPanel drops={vaultPartialDrops} />
-            )}
-
-            {preview && isLowTrustSource && (
-              <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
+            {preview && (
+              <div style={{ ...cardStyle, flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
+                <ImportDiffWorkspace
+                  diff={preview.diff}
+                  incomingEntities={{
+                    workspaceVars: effectiveEnvelope?.entities.workspaceVars,
+                    vault: effectiveEnvelope?.entities.vault,
+                  }}
+                  strategies={strategies}
+                  onChangeStrategy={setStrategyFor}
+                  advanced={{
+                    activeCount:
+                      (backupRestore ? 1 : 0) +
+                      (trustExport ? 1 : 0) +
+                      (stripScripts && !isLowTrustSource ? 1 : 0) +
+                      (omitOAuthConfigs ? 1 : 0) +
+                      (keepTargetCollectionOrder ? 1 : 0) +
+                      (refuseUidCollision ? 1 : 0),
+                    lowTrustSource: isLowTrustSource,
+                    source: source ?? 'file',
+                    backupRestore,
+                    onBackupRestoreChange: setBackupRestore,
+                    trustExport,
+                    onTrustExportChange: setTrustExport,
+                    stripScripts,
+                    onStripScriptsChange: setStripScripts,
+                    omitOAuthConfigs,
+                    onOmitOAuthConfigsChange: setOmitOAuthConfigs,
+                    keepTargetCollectionOrder,
+                    onKeepTargetCollectionOrderChange: setKeepTargetCollectionOrder,
+                    includeWorkspaceSettings,
+                    onIncludeWorkspaceSettingsChange: setIncludeWorkspaceSettings,
+                    refuseUidCollision,
+                    onRefuseUidCollisionChange: setRefuseUidCollision,
+                    targetMode: target.mode,
+                  }}
+                />
+              </div>
             )}
           </div>
+        )}
+      </div>
 
-          {previewing && !preview && (
-            <div style={{ ...cardStyle, padding: 24, textAlign: 'center' }}>
-              <Spin />
-            </div>
-          )}
-
-          {preview && (
-            <div style={{ ...cardStyle, flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
-              <ImportDiffWorkspace
-                diff={preview.diff}
-                incomingEntities={{
-                  workspaceVars: effectiveEnvelope?.entities.workspaceVars,
-                  vault: effectiveEnvelope?.entities.vault,
-                }}
-                strategies={strategies}
-                onChangeStrategy={setStrategyFor}
-                advanced={{
-                  activeCount:
-                    (backupRestore ? 1 : 0) +
-                    (trustExport ? 1 : 0) +
-                    (stripScripts && !isLowTrustSource ? 1 : 0) +
-                    (omitOAuthConfigs ? 1 : 0) +
-                    (keepTargetCollectionOrder ? 1 : 0) +
-                    (refuseUidCollision ? 1 : 0),
-                  lowTrustSource: isLowTrustSource,
-                  source: source ?? 'file',
-                  backupRestore,
-                  onBackupRestoreChange: setBackupRestore,
-                  trustExport,
-                  onTrustExportChange: setTrustExport,
-                  stripScripts,
-                  onStripScriptsChange: setStripScripts,
-                  omitOAuthConfigs,
-                  onOmitOAuthConfigsChange: setOmitOAuthConfigs,
-                  keepTargetCollectionOrder,
-                  onKeepTargetCollectionOrderChange: setKeepTargetCollectionOrder,
-                  includeWorkspaceSettings,
-                  onIncludeWorkspaceSettingsChange: setIncludeWorkspaceSettings,
-                  refuseUidCollision,
-                  onRefuseUidCollisionChange: setRefuseUidCollision,
-                  targetMode: target.mode,
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      {/* Custom footer strip — matches the workspace shell's status bar. */}
+      <div
+        style={{ ...stripStyle, borderTop: `1px solid ${token.colorBorderSecondary}`, justifyContent: 'space-between' }}
+      >
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          {parsed
+            ? `Export ${parsed.envelope.exportId} · ${parsed.envelope.scope}`
+            : source === 'file'
+              ? 'Pick a file to preview'
+              : 'No data'}
+        </Text>
+        <Space>
+          <Button onClick={onCancel} disabled={importing}>
+            Cancel
+          </Button>
+          <Button
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={() => void handleImport()}
+            disabled={!parsed || !preview || previewing || !sourceHash || importing}
+            loading={importing}
+          >
+            Import
+          </Button>
+        </Space>
+      </div>
     </Modal>
   );
 };
