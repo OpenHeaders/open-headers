@@ -43,7 +43,7 @@ import {
   VaultPayloadShapeError,
   type WorkspaceExport,
 } from '@openheaders/core/workspace-export';
-import { App as AntApp, Button, Empty, Modal, Space, Spin, Typography } from 'antd';
+import { App as AntApp, Button, Empty, Modal, Space, Spin, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
@@ -110,6 +110,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   onImported,
 }) => {
   const { message } = AntApp.useApp();
+  const { token } = theme.useToken();
 
   const [parseRejection, setParseRejection] = useState<ParseRejection | null>(null);
   const [parsed, setParsed] = useState<{ envelope: WorkspaceExport; drops: ImportDrop[] } | null>(null);
@@ -462,6 +463,48 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 
   // ── Render ────────────────────────────────────────────────────────
 
+  // Status chips computed once and reused across header (right side,
+  // next to the title) and the modal-empty / loading branches if those
+  // ever need them. Hoisting them out of the body lets the diff
+  // workspace claim the entire body height.
+  const statusChips = parsed
+    ? buildImportStatusChips({
+        envelope: parsed.envelope,
+        drops: parsed.drops,
+        dedup,
+        dedupDismissed,
+        effectiveEnvelope,
+        staleSnapshot: !!staleSnapshotHash,
+        previewError,
+        missingDeps: preview?.missingDeps ?? [],
+        targetWorkspaceId: preview?.targetWorkspaceId ?? null,
+        onDismissDedup: () => {
+          const key = `${parsed.envelope.exportId}:${preview?.targetWorkspaceId ?? 'new'}`;
+          setDedupDismissed((prev) => {
+            const next = new Set(prev);
+            next.add(key);
+            try {
+              window.sessionStorage.setItem('oh.workspace-export.dedup-dismissed', JSON.stringify(Array.from(next)));
+            } catch {
+              // sessionStorage can throw under privacy modes — dismissal stays for the modal lifetime
+            }
+            return next;
+          });
+        },
+      })
+    : [];
+
+  // Antd's close (X) is positioned absolutely in the header at top: 17,
+  // right: 17. The reserved 32 px on the title row keeps chips clear of
+  // it without us re-implementing the close affordance.
+  const titleNode = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 32, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>
+      <div style={{ flex: 1 }} />
+      {statusChips.length > 0 && <StatusChips chips={statusChips} />}
+    </div>
+  );
+
   const footer = (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Text type="secondary" style={{ fontSize: 11 }}>
@@ -488,10 +531,24 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     </div>
   );
 
+  // ── Card recipe ───────────────────────────────────────────────────
+  // Mirrors the workspace shell's `.rules-dock-body` pattern: white
+  // surface inside the body's `colorBgLayout` gray, with the 6 px
+  // vertical flex `gap` showing through as the gray separator — same
+  // delimiter the workspace uses between tool windows. No border-radius
+  // on the cards: their left/right edges sit flush against the modal
+  // body's edges (we zeroed horizontal padding above so the diff
+  // workspace's activity rails *become* the modal's sides), and the
+  // modal's own outer corners do the rounding.
+  const cardStyle: React.CSSProperties = {
+    background: token.colorBgContainer,
+    overflow: 'hidden',
+  };
+
   return (
     <Modal
       open={open}
-      title={<span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>}
+      title={titleNode}
       onCancel={importing ? undefined : onCancel}
       width="95vw"
       centered
@@ -503,22 +560,34 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          paddingTop: 12,
+          // Vertical gutter only — left/right are zero so the diff
+          // workspace card spans full body width and its activity rails
+          // become the modal's left/right edges. The 6 px between cards
+          // (gap + outer top/bottom) gives the same gray separator the
+          // workspace shell uses between tool windows.
+          padding: '6px 0',
+          background: token.colorBgLayout,
         },
       }}
     >
-      {parseRejection && <RejectionBanner rejection={parseRejection} />}
+      {parseRejection && (
+        <div style={{ ...cardStyle, padding: 12 }}>
+          <RejectionBanner rejection={parseRejection} />
+        </div>
+      )}
 
       {!parsed && !parseRejection && (
-        <Empty
-          description={
-            source === 'file'
-              ? 'Drop a .openheaders.yaml file to preview it.'
-              : source === 'link' || source === 'playground'
-                ? 'Resolving import link…'
-                : 'Paste a workspace export to preview it.'
-          }
-        />
+        <div style={{ ...cardStyle, padding: 24 }}>
+          <Empty
+            description={
+              source === 'file'
+                ? 'Drop a .openheaders.yaml file to preview it.'
+                : source === 'link' || source === 'playground'
+                  ? 'Resolving import link…'
+                  : 'Paste a workspace export to preview it.'
+            }
+          />
+        </div>
       )}
 
       {parsed && (
@@ -526,136 +595,95 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 12,
+            gap: 6,
             position: 'relative',
             flex: 1,
             minHeight: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <SourceAttribution envelope={parsed.envelope} />
-            </div>
-            <div
-              style={{
-                flexShrink: 0,
-                paddingTop: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-end',
-                gap: 6,
-              }}
-            >
-              <StatusChips
-                chips={buildImportStatusChips({
-                  envelope: parsed.envelope,
-                  drops: parsed.drops,
-                  dedup,
-                  dedupDismissed,
-                  effectiveEnvelope,
-                  staleSnapshot: !!staleSnapshotHash,
-                  previewError,
-                  missingDeps: preview?.missingDeps ?? [],
-                  targetWorkspaceId: preview?.targetWorkspaceId ?? null,
-                  onDismissDedup: () => {
-                    const key = `${parsed.envelope.exportId}:${preview?.targetWorkspaceId ?? 'new'}`;
-                    setDedupDismissed((prev) => {
-                      const next = new Set(prev);
-                      next.add(key);
-                      try {
-                        window.sessionStorage.setItem(
-                          'oh.workspace-export.dedup-dismissed',
-                          JSON.stringify(Array.from(next)),
-                        );
-                      } catch {
-                        // sessionStorage can throw under privacy modes — dismissal stays for the modal lifetime
-                      }
-                      return next;
-                    });
-                  },
-                })}
+          {/* Top card: source attribution + target picker + (optional) vault blocks. */}
+          <div style={{ ...cardStyle, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <SourceAttribution envelope={parsed.envelope} />
+
+            <TargetControl
+              target={target}
+              onChange={setTarget}
+              workspaces={workspaces}
+              activeWorkspaceId={activeWorkspaceId}
+              envelope={parsed.envelope}
+            />
+
+            {parsed.envelope.secrets && !decryptedEnvelope && (
+              <VaultEncryptedBlock
+                envelope={parsed.envelope}
+                passphrase={vaultPassphrase}
+                onChangePassphrase={setVaultPassphrase}
+                onDecrypt={() => void handleDecryptVault()}
+                decrypting={vaultDecrypting}
+                error={vaultDecryptError}
               />
-            </div>
+            )}
+
+            {decryptedEnvelope && vaultFingerprints && (
+              <VaultDecryptedBanner
+                fingerprints={vaultFingerprints}
+                secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
+              />
+            )}
+
+            {decryptedEnvelope && vaultPartialDrops.length > 0 && (
+              <VaultPartialDecryptPanel drops={vaultPartialDrops} />
+            )}
+
+            {preview && isLowTrustSource && (
+              <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
+            )}
           </div>
 
-          <TargetControl
-            target={target}
-            onChange={setTarget}
-            workspaces={workspaces}
-            activeWorkspaceId={activeWorkspaceId}
-            envelope={parsed.envelope}
-          />
-
-          {parsed.envelope.secrets && !decryptedEnvelope && (
-            <VaultEncryptedBlock
-              envelope={parsed.envelope}
-              passphrase={vaultPassphrase}
-              onChangePassphrase={setVaultPassphrase}
-              onDecrypt={() => void handleDecryptVault()}
-              decrypting={vaultDecrypting}
-              error={vaultDecryptError}
-            />
-          )}
-
-          {decryptedEnvelope && vaultFingerprints && (
-            <VaultDecryptedBanner
-              fingerprints={vaultFingerprints}
-              secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
-            />
-          )}
-
-          {decryptedEnvelope && vaultPartialDrops.length > 0 && <VaultPartialDecryptPanel drops={vaultPartialDrops} />}
-
           {previewing && !preview && (
-            <div style={{ textAlign: 'center', padding: 24 }}>
+            <div style={{ ...cardStyle, padding: 24, textAlign: 'center' }}>
               <Spin />
             </div>
           )}
 
           {preview && (
-            <>
-              {isLowTrustSource && (
-                <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
-              )}
-
-              <div style={{ flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
-                <ImportDiffWorkspace
-                  diff={preview.diff}
-                  incomingEntities={{
-                    workspaceVars: effectiveEnvelope?.entities.workspaceVars,
-                    vault: effectiveEnvelope?.entities.vault,
-                  }}
-                  strategies={strategies}
-                  onChangeStrategy={setStrategyFor}
-                  advanced={{
-                    activeCount:
-                      (backupRestore ? 1 : 0) +
-                      (trustExport ? 1 : 0) +
-                      (stripScripts && !isLowTrustSource ? 1 : 0) +
-                      (omitOAuthConfigs ? 1 : 0) +
-                      (keepTargetCollectionOrder ? 1 : 0) +
-                      (refuseUidCollision ? 1 : 0),
-                    lowTrustSource: isLowTrustSource,
-                    source: source ?? 'file',
-                    backupRestore,
-                    onBackupRestoreChange: setBackupRestore,
-                    trustExport,
-                    onTrustExportChange: setTrustExport,
-                    stripScripts,
-                    onStripScriptsChange: setStripScripts,
-                    omitOAuthConfigs,
-                    onOmitOAuthConfigsChange: setOmitOAuthConfigs,
-                    keepTargetCollectionOrder,
-                    onKeepTargetCollectionOrderChange: setKeepTargetCollectionOrder,
-                    includeWorkspaceSettings,
-                    onIncludeWorkspaceSettingsChange: setIncludeWorkspaceSettings,
-                    refuseUidCollision,
-                    onRefuseUidCollisionChange: setRefuseUidCollision,
-                    targetMode: target.mode,
-                  }}
-                />
-              </div>
-            </>
+            <div style={{ ...cardStyle, flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
+              <ImportDiffWorkspace
+                diff={preview.diff}
+                incomingEntities={{
+                  workspaceVars: effectiveEnvelope?.entities.workspaceVars,
+                  vault: effectiveEnvelope?.entities.vault,
+                }}
+                strategies={strategies}
+                onChangeStrategy={setStrategyFor}
+                advanced={{
+                  activeCount:
+                    (backupRestore ? 1 : 0) +
+                    (trustExport ? 1 : 0) +
+                    (stripScripts && !isLowTrustSource ? 1 : 0) +
+                    (omitOAuthConfigs ? 1 : 0) +
+                    (keepTargetCollectionOrder ? 1 : 0) +
+                    (refuseUidCollision ? 1 : 0),
+                  lowTrustSource: isLowTrustSource,
+                  source: source ?? 'file',
+                  backupRestore,
+                  onBackupRestoreChange: setBackupRestore,
+                  trustExport,
+                  onTrustExportChange: setTrustExport,
+                  stripScripts,
+                  onStripScriptsChange: setStripScripts,
+                  omitOAuthConfigs,
+                  onOmitOAuthConfigsChange: setOmitOAuthConfigs,
+                  keepTargetCollectionOrder,
+                  onKeepTargetCollectionOrderChange: setKeepTargetCollectionOrder,
+                  includeWorkspaceSettings,
+                  onIncludeWorkspaceSettingsChange: setIncludeWorkspaceSettings,
+                  refuseUidCollision,
+                  onRefuseUidCollisionChange: setRefuseUidCollision,
+                  targetMode: target.mode,
+                }}
+              />
+            </div>
           )}
         </div>
       )}

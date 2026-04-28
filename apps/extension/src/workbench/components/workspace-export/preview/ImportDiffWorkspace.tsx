@@ -166,8 +166,6 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
         minHeight: 0,
         display: 'flex',
         flexDirection: 'row',
-        border: `1px solid ${token.colorBorderSecondary}`,
-        borderRadius: 8,
         overflow: 'hidden',
         background: token.colorBgContainer,
       }}
