@@ -70,6 +70,7 @@ import { auditHostPermissions } from './modules/permissions-audit';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
+import { markBootPhase } from './sync/boot-telemetry';
 import { initSyncService, reinitForWorkspace } from './sync/service';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import { getRequests, onRequestStoreChange } from './modules/request-store';
@@ -117,6 +118,7 @@ const workspacesReady = bootstrapWorkspaces();
 // first compile reads persisted `rulesEngine.paused`, `maxActiveRules`,
 // `evaluationStrategy`, etc., and would otherwise race the async load.
 const settingsReady = workspacesReady.then(bootstrapSettings).then(() => {
+  markBootPhase('settings-ready');
   setRulesPaused(getSetting('rulesEngine.paused'));
   subscribeKey('rulesEngine.paused', () => {
     setRulesPaused(getSetting('rulesEngine.paused'));
@@ -448,6 +450,7 @@ async function initializeExtension(): Promise<void> {
 
   // Hydrate the active workspace's per-workspace stores from storage.
   await hydrateActiveWorkspaceStores();
+  markBootPhase('hydration-done');
 
   // Sync engine (Phase A) — instantiate the local oracle for the
   // active workspace once hydration has resolved a workspace id. The
@@ -459,18 +462,21 @@ async function initializeExtension(): Promise<void> {
   // — but the IDB connections + bridge handler are live so W1 has
   // nothing to bootstrap.
   initSyncService(getActiveWorkspaceId());
+  markBootPhase('sync-init-done');
   // Bridge the rule-store to the sync engine: seed the oracle from
   // the hydrated `V5.Rule[]` and subscribe to the cache so subsequent
   // mutations (in-process today, remote in Phase C) flow back into
   // the local mirror. After this call rule writes route through the
   // oracle; reads stay synchronous off the local mirror.
   await bridgeToSyncEngine();
+  markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
   // variable / rule stores. Fired here (rather than at end-of-init)
   // because every remaining init step (cache mirror, TOTP bootstrap,
   // observer rehydrate) either reads storage directly or isn't on
   // the alarm dispatch path.
+  markBootPhase('interactive');
   resolveBackgroundReady();
   // Now that the live workflow / variable stores are populated, run
   // the first reconcile so every eligible workflow has an alarm for

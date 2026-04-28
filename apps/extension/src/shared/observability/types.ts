@@ -24,7 +24,8 @@ export type LogSubsystem =
   | 'extension'
   | 'scripts'
   | 'oauth'
-  | 'live';
+  | 'live'
+  | 'sync';
 
 export interface LogEntryContext {
   /** Rule uid when the event relates to a specific rule. */
@@ -53,6 +54,10 @@ export interface LogEntryContext {
   workflowUid?: string;
   /** Environment uid when the event is env-scoped (live scheduler / resolver). */
   environmentId?: string | null;
+  /** Sync-engine boot phase identifier (set by `boot-telemetry`). */
+  phase?: string;
+  /** Milliseconds elapsed between SW eval start and the recorded phase marker. */
+  phaseElapsedMs?: number;
 }
 
 export interface LogEntry {
