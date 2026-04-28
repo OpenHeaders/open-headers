@@ -113,16 +113,22 @@ const RichDiffEditor: React.FC<Props> = ({
     };
   }, []);
 
-  // ── Prop sync: content. Stable models, content via setValue. ──────
+  // ── Prop sync: content. Stable models, content via setValue.
+  // Both sides batched in one effect so Monaco never sees a transient
+  // pair (new original + old modified, or vice versa). The wrong-pair
+  // window — even one tick wide — used to make Monaco compute a diff
+  // against stale content and flash incorrect red/green decorations
+  // before the second setValue triggered the real recomputation. ────
   useEffect(() => {
-    const m = originalModelRef.current;
-    if (m && m.getValue() !== original) m.setValue(original);
-  }, [original]);
-
-  useEffect(() => {
-    const m = modifiedModelRef.current;
-    if (m && m.getValue() !== modified) m.setValue(modified);
-  }, [modified]);
+    const orig = originalModelRef.current;
+    const mod = modifiedModelRef.current;
+    if (!orig || !mod) return;
+    const origChanged = orig.getValue() !== original;
+    const modChanged = mod.getValue() !== modified;
+    if (!origChanged && !modChanged) return;
+    if (origChanged) orig.setValue(original);
+    if (modChanged) mod.setValue(modified);
+  }, [original, modified]);
 
   // ── Prop sync: language. ──────────────────────────────────────────
   useEffect(() => {
