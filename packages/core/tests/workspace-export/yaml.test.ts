@@ -73,7 +73,6 @@ describe('serializeWorkspaceExport — path preserved (tree-affiliation)', () =>
     const input = baseInput();
     const rule: HeaderRule = {
       schemaVersion: 5,
-      version: 1,
       uid: 'r0000001',
       path: 'rules/auth-r0000001',
       name: 'Auth',

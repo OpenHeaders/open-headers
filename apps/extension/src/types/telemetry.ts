@@ -29,9 +29,6 @@ export interface RuleSnapshot {
   name: string;
   type: V5.Rule['type'];
   enabled: boolean;
-  /** Monotonic version at fire time — used by the popover to decide
-   *  whether to surface a "rule changed" indicator without a deep diff. */
-  version: number;
   /** Header-rule modifications, present only when `type === 'header'`. */
   headerMods?: ReadonlyArray<RuleSnapshotHeaderMod>;
 }

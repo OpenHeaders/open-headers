@@ -8,7 +8,7 @@ export {
   type SetConditionFieldArgs,
 } from './condition';
 export { toggleEnabled, type ToggleEnabledArgs } from './enabled';
-export { RULE_MUTATOR_VERSION } from './envelope';
+export { mintBatch, mintEnvelope, RULE_MUTATOR_VERSION } from './envelope';
 export {
   addHeaderMod,
   type AddHeaderModArgs,

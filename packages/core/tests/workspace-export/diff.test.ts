@@ -69,7 +69,6 @@ function makeFolder(uid: string, name: string, path: string): Folder {
 function makeHeaderRule(uid: string, name: string, path: string): HeaderRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path,
     name,

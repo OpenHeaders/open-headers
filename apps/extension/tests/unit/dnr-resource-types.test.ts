@@ -113,7 +113,6 @@ describe('resolveResourceTypes', () => {
 describe('blockCompiler resource-type handling', () => {
   const rule: V5.BlockRule = {
     schemaVersion: 5,
-    version: 1,
     uid: 'b1',
     path: 'rules/block',
     name: 'Block trackers',
@@ -153,7 +152,6 @@ describe('blockCompiler resource-type handling', () => {
 describe('redirectCompiler resource-type handling', () => {
   const rule: V5.RedirectRule = {
     schemaVersion: 5,
-    version: 1,
     uid: 'r1',
     path: 'rules/redirect',
     name: 'Redirect',
@@ -179,7 +177,6 @@ describe('redirectCompiler resource-type handling', () => {
 describe('queryParamCompiler resource-type handling', () => {
   const rule: V5.QueryParamRule = {
     schemaVersion: 5,
-    version: 1,
     uid: 'q1',
     path: 'rules/qp',
     name: 'Add tracking',
@@ -206,7 +203,6 @@ describe('queryParamCompiler resource-type handling', () => {
 describe('injectCompiler resource-type handling', () => {
   const rule: V5.InjectRule = {
     schemaVersion: 5,
-    version: 1,
     uid: 'i1',
     path: 'rules/inject',
     name: 'Inject CSS',
@@ -239,7 +235,6 @@ describe('headerCompiler resource-type handling', () => {
   function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     return {
       schemaVersion: 5,
-      version: 1,
       uid: 'h1',
       path: 'rules/header',
       name: 'Header',
@@ -320,7 +315,6 @@ describe('delayCompiler resource-type handling (regression sanity)', () => {
     const plan = delayCompiler.compile(
       {
         schemaVersion: 5,
-        version: 1,
         uid: 'd1',
         path: 'rules/delay',
         name: 'Delay',

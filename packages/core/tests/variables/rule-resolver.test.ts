@@ -17,7 +17,6 @@ function makeEnvironment(name: string, vars: Variable[]): Environment {
 function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'r1a2b3c4',
     path: 'rules/test',
     name: 'Test',
@@ -35,7 +34,6 @@ function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
 function makeRedirectRule(overrides: Partial<RedirectRule> = {}): RedirectRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'r2a3b4c5',
     path: 'rules/redir',
     name: 'Redir',
@@ -255,7 +253,6 @@ describe('resolveRuleWithDiagnostics', () => {
   it('delay rules carry conditions-only diagnostics (no action resolution needed)', () => {
     const rule = {
       schemaVersion: 5 as const,
-      version: 1,
       uid: 'r3a4b5c6',
       path: 'rules/delay',
       name: 'Delay',

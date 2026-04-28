@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: rulenjc1
 name: Inject console banner
 type: inject

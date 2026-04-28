@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: rulebdy1
 name: Inject feature flag override
 type: body

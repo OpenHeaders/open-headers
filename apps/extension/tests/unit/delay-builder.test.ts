@@ -16,7 +16,6 @@ import type { CompilerContext } from '@/background/dnr-builders/types';
 function makeDelayRule(overrides: Partial<V5.DelayRule> = {}): V5.DelayRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'd1',
     path: 'rules/delay',
     name: 'Slow openheaders.io',

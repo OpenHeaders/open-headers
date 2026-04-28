@@ -92,7 +92,6 @@ function makeRuleWithRef(
 ): HeaderRule {
   const r: HeaderRule = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `rules/auth-col/${name}-${uid}`,
     name,

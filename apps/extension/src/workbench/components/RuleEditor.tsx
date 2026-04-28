@@ -45,7 +45,6 @@ import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFie
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
-import StaleDraftBanner from './StaleDraftBanner';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
 import { SuggestionContextProvider } from './template-input';
@@ -144,29 +143,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     [mode, ruleUid, rules],
   );
 
-  // ── Phase 10 stale-draft tracking ─────────────────────────────────
-  //
-  // `loadedVersion` is the `version` we snapshot when the user first
-  // starts editing this rule. On save, we send it as `expectedVersion`
-  // so the SW can detect when another tab has landed a write while
-  // we've had this editor open. If the server's current version is
-  // higher, the SW returns `stale-draft` and we show a prompt letting
-  // the user pick between "Reload" (take server) and "Keep editing"
-  // (overwrite on next save by snapping `loadedVersion` forward).
-  //
-  // We DO NOT update `loadedVersion` on every `liveRule` broadcast —
-  // that would defeat the protection by silently bumping the baseline
-  // every time another tab writes. Only our own successful saves
-  // advance it. Re-mount (tab close + reopen) re-snapshots.
-  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
-  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
-
-  useEffect(() => {
-    if (mode !== 'edit') return;
-    if (loadedVersion !== null) return;
-    if (typeof liveRule?.version !== 'number') return;
-    setLoadedVersion(liveRule.version);
-  }, [mode, liveRule?.version, loadedVersion]);
+  // Stale-draft tracking is gone — the sync engine
+  // (`docs/SYNC_ENGINE_DESIGN.md` §6.2) replaces the version-counter
+  // OCC with HLC-stamped per-field LWW + an awareness ribbon. Saves
+  // unconditionally apply; concurrent edits from another surface
+  // arrive on the broadcast channel and reconcile per-field. Until
+  // the awareness ribbon (A1–A6) lands, this editor just commits the
+  // user's draft on save and displays whatever liveRule reflects.
 
   /**
    * Rule type is immutable for a given tab — in create mode it comes from
@@ -651,30 +634,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           message.error('Failed to create rule');
         }
       } else if (ruleUid) {
-        // Bypass the context helper so we get the full `RuleWriteResult`
-        // shape (with stale-draft detail). `expectedVersion` is optional
-        // — `loadedVersion` is always defined by the time the user saves
-        // because the `useEffect` above captures it from `liveRule`
-        // before the first keystroke.
-        const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
+        const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
         type UpdateResult = Awaited<ReturnType<typeof call<'updateLocalRule'>>>;
-        const result: UpdateResult = await call('updateLocalRule', {
-          ruleId: ruleUid,
-          updates,
-          ...(loadedVersion !== null ? { expectedVersion: loadedVersion } : {}),
-        }).catch((err: Error): UpdateResult => ({ ok: false, reason: 'other', message: err.message }));
+        const result: UpdateResult = await call('updateLocalRule', { ruleId: ruleUid, updates }).catch(
+          (err: Error): UpdateResult => ({ ok: false, reason: 'other', message: err.message }),
+        );
         if (result.ok) {
           message.success('Rule updated');
-          setLoadedVersion(result.version);
-          setStaleDraft(null);
           notifyDirty(false);
           onSaved(ruleUid);
-        } else if (result.reason === 'stale-draft') {
-          // Another tab wrote first. Show the banner; user picks
-          // Reload (discard this tab's edits) or Keep editing
-          // (force-save on next click). No toast — the banner is
-          // the interaction surface.
-          setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
         } else if (result.reason === 'not-found') {
           message.error('Rule was deleted from another tab');
         } else {
@@ -697,37 +665,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     notifyDirty,
     onSaved,
     onSaveDraft,
-    loadedVersion,
   ]);
-
-  const handleStaleDraftReload = useCallback(() => {
-    // Discard this tab's in-memory edits; re-snap loadedVersion to
-    // the server's current version (pulled from the live rule, which
-    // has been broadcast-refreshed by the winning save). The form
-    // auto-hydrates from `liveRule` via the existing hydrate effect
-    // — we just need to trigger a fresh snapshot.
-    const current = liveRule?.version ?? loadedVersion ?? 0;
-    setLoadedVersion(current);
-    setStaleDraft(null);
-    notifyDirty(false);
-    // Re-hydrate form values from the live rule — same hydration
-    // effect fires when loadedVersion changes and liveRule's fields
-    // are picked up on the next render.
-    if (liveRule) {
-      form.resetFields();
-    }
-  }, [form, liveRule, loadedVersion, notifyDirty]);
-
-  const handleStaleDraftKeepEditing = useCallback(() => {
-    // User chose to overwrite the other tab's changes on next save.
-    // Snap loadedVersion forward to the server's current version so
-    // the subsequent save's `expectedVersion` matches and isn't
-    // rejected. The actual overwrite happens when the user clicks
-    // Save — we don't persist anything here.
-    const current = liveRule?.version ?? loadedVersion ?? 0;
-    setLoadedVersion(current);
-    setStaleDraft(null);
-  }, [liveRule, loadedVersion]);
 
   useEffect(() => {
     registerSaveRef?.(handleSubmit);
@@ -921,16 +859,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                *  the same state without reflowing the editor on every
                *  keystroke. An always-on banner here duplicated that
                *  information and nudged scroll as counts changed. */}
-              {staleDraft && (
-                <StaleDraftBanner
-                  entityLabel="rule"
-                  serverVersion={staleDraft.serverVersion}
-                  loadedVersion={staleDraft.loadedVersion}
-                  onReload={handleStaleDraftReload}
-                  onKeepEditing={handleStaleDraftKeepEditing}
-                />
-              )}
-
               {/* ── Templates ── */}
               <div style={{ marginBottom: 16 }}>
                 <div

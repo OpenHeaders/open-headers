@@ -81,7 +81,6 @@ function seedWorkspace(opts: {
 function makeHeaderRule(overrides: Partial<V5.Rule> = {}): V5.Rule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'rul00001',
     path: 'rules/c1/auth-rul00001',
     name: 'Auth',

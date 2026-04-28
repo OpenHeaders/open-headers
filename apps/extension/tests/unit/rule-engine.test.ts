@@ -40,7 +40,6 @@ function hostConditions(domains: string[]): V5.RuleCondition[] {
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'r1a2',
     path: 'rules/test',
     name: 'Test Rule',

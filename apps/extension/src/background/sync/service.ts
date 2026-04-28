@@ -1,39 +1,33 @@
 /**
  * Sync service — singleton lifecycle around {@link RuleOracle} for the
- * SW background context (Phase A foundation, Option A scope).
+ * SW background context (Phase A foundation).
  *
- * What it owns:
- *   1. The active workspace's {@link RuleOracle}, with production-wired
- *      dependencies: IDB-backed mutation log, IDB-backed pending
- *      intents, an in-memory broadcast bus, and the lock adapter that
- *      reuses the existing per-entity Web Lock plumbing.
- *   2. The bridge subscription that re-publishes oracle broadcasts as
- *      cross-context `syncBroadcast` events so renderer surfaces can
- *      ack + replay.
+ * Responsibilities (all per-workspace):
+ *   1. Construct the {@link RuleOracle} with production-wired
+ *      dependencies — IDB-backed mutation log + pending intents, the
+ *      lock adapter that reuses the existing per-entity Web Lock, and
+ *      an in-memory broadcast bus.
+ *   2. Mint an SW-side HLC sequencer + `RuleMutatorContext` factory
+ *      ({@link sw-context.ts}) — every mutation emitted from the
+ *      background context (boot-time hydration, SW-internal write
+ *      paths) carries a context built from this factory.
+ *   3. Construct the per-workspace {@link RuleCache} ({@link rule-cache.ts}),
+ *      register it as the active cache so `rule-store.ts` reads route
+ *      to it, and wire its broadcast subscription against the oracle's
+ *      bus so every committed envelope re-projects + persists.
+ *   4. Pipe oracle broadcasts onto the `chrome.runtime` `syncBroadcast`
+ *      channel so renderer surfaces can ack + replay.
  *
- * What it explicitly does NOT do (yet):
- *   • Seed the oracle's in-memory store from `rule-store.ts`
- *     snapshots. While legacy write paths (`updateRule`, `toggleRule`,
- *     etc.) still bypass the oracle, any hydration we did at boot
- *     would go stale on the next legacy write, then mislead the first
- *     mutation that does flow through. Hydration is a W1 concern: the
- *     write-site flip will lazy-seed from the current rule-store row
- *     when it routes a mutation, and once every Rule write site flips
- *     the staleness window closes.
- *   • Persist materialized snapshots back to `chrome.storage.local`.
- *     Same reason — the persistence-sink listener is meaningless until
- *     the oracle actually has data flowing through it.
- *
- * Until W1 lands the service is therefore dormant: it accepts the
- * `oh.sync.apply` RPC, runs it against an empty store, and broadcasts
- * outcomes for any envelope it receives. No production write surface
- * calls the RPC yet, so the dormancy is correct — we're paying the
- * boot cost (open IDB connections, register one chrome.runtime
- * listener) so W1 has nothing to wire when it lands.
+ * Workspace switch: {@link reinitForWorkspace} disposes the current
+ * cache (drops the broadcast subscription, clears active-cache
+ * pointer), then re-runs init for the new workspace. The IDB stores
+ * are workspace-prefixed at the PK level so they can stay shared
+ * across workspaces — only the in-memory state belongs to one
+ * workspace at a time.
  */
 
-import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { SyncApplyRequest, SyncApplyResponse } from '@openheaders/core/protocol';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { handleSyncApply, wireBroadcastToSink } from './bridge';
@@ -42,16 +36,15 @@ import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { RuleOracle } from './oracle';
+import { createRuleCache, type RuleCache, setActiveRuleCache } from './rule-cache';
+import { createSwContextHandle, type SwContextHandle } from './sw-context';
 
-/**
- * Snapshot of the live service state. Held in a closure so callers
- * never see a partially-constructed instance — `init` resolves only
- * after every dependency is wired.
- */
 interface ServiceState {
   workspaceId: string;
   oracle: RuleOracle;
   broadcast: InMemoryBroadcast;
+  cache: RuleCache;
+  context: SwContextHandle;
   unsubscribeBroadcast: () => void;
 }
 
@@ -71,6 +64,7 @@ export function initSyncService(workspaceId: string): void {
   const log = new IdbMutationLog(workspaceId);
   const intents = new IdbPendingIntents(workspaceId);
   const broadcast = new InMemoryBroadcast();
+  const context = createSwContextHandle(workspaceId);
 
   const oracle = new RuleOracle({
     workspaceId,
@@ -80,15 +74,11 @@ export function initSyncService(workspaceId: string): void {
     broadcast,
   });
 
+  const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveRuleCache(cache);
+
   // Re-publish every committed `(envelope, outcome)` to subscribed
-  // surfaces via the existing chrome.runtime broadcast bus. We pipe
-  // `SyncBroadcastEvent` straight through to a typed
-  // `bridge.broadcast('syncBroadcast', …)` call — the renderer
-  // subscribes once and gets every workspace's events. (Workspace
-  // scoping is implicit: only one workspace's oracle is live at a
-  // time, and any envelope carries `workspaceId` for surfaces that
-  // still need to filter — e.g., a popup that hasn't yet observed the
-  // workspace switch.)
+  // surfaces via the existing chrome.runtime broadcast bus.
   const unsubscribeBroadcast = wireBroadcastToSink(broadcast, (event) => {
     bridgeBroadcast('syncBroadcast', {
       envelope: event.envelope,
@@ -97,14 +87,19 @@ export function initSyncService(workspaceId: string): void {
     });
   });
 
-  state = { workspaceId, oracle, broadcast, unsubscribeBroadcast };
-  logger.info('SyncService', `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE})`);
+  state = { workspaceId, oracle, broadcast, cache, context, unsubscribeBroadcast };
+  logger.info(
+    'SyncService',
+    `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${context.nodeId})`,
+  );
 }
 
 /** Tear down the active service — used on workspace switch + on shutdown. */
 export function dispose(): void {
   if (!state) return;
   state.unsubscribeBroadcast();
+  state.cache.dispose();
+  setActiveRuleCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -131,11 +126,21 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
 }
 
 /**
- * Direct oracle access for in-process consumers (W-series write-site
- * conversions land seeding + persistence-sink wiring against this
- * handle). Returns null when uninitialized so callers in alarm
- * dispatch paths don't crash on cold-wake races.
+ * Direct oracle access for SW-internal consumers (rule-store's write
+ * path emits mutations through this rather than the bridge layer —
+ * they're already in-process). Returns null when the service hasn't
+ * been initialized so alarm dispatch paths don't crash on cold-wake
+ * races.
  */
 export function getOracleForCurrentWorkspace(): RuleOracle | null {
   return state?.oracle ?? null;
+}
+
+/**
+ * Mint a fresh `RuleMutatorContext` from the SW's HLC sequencer. Used
+ * by SW-internal callers (rule-store, hydration) — surfaces hosted in
+ * a renderer mint their own contexts with their own nodeId.
+ */
+export function nextSwMutatorContext(opts?: Parameters<SwContextHandle['next']>[0]): import('@openheaders/core/sync').RuleMutatorContext | null {
+  return state?.context.next(opts) ?? null;
 }

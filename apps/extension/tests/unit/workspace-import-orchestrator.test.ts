@@ -161,7 +161,6 @@ function makeExport(overrides: Partial<WorkspaceExport> = {}): WorkspaceExport {
       rules: [
         {
           schemaVersion: 5,
-          version: 1,
           uid: 'rul00001',
           path: 'rules/auth-col/auth-rul00001',
           name: 'Auth',
@@ -241,7 +240,6 @@ describe('importWorkspace', () => {
     blobs.set('oh.ws.ws-other.rules', [
       {
         schemaVersion: 5,
-        version: 1,
         uid: 'rul99999',
         path: 'rules/other/r-rul99999',
         name: 'Other',
@@ -540,7 +538,6 @@ describe('previewWorkspaceImport', () => {
     blobs.set('oh.ws.ws-active.rules', [
       {
         schemaVersion: 5,
-        version: 1,
         uid: 'rul00001',
         path: 'rules/auth-col/auth-rul00001',
         name: 'Auth (local)',

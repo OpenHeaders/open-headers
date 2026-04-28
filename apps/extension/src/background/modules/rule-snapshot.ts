@@ -59,7 +59,6 @@ export function buildRuleSnapshot(ruleUid: string): RuleSnapshot | null {
     name: identitySource.name,
     type: identitySource.type,
     enabled: identitySource.enabled,
-    version: identitySource.version,
   };
 
   if (identitySource.type === 'header') {

@@ -35,9 +35,9 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@components/ShortcutKbd';
-import { useRuleMutator } from '@hooks/useRuleMutator';
+import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
+
 import { useRules } from '@hooks/useRules';
-import type { MutationResult } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
 import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
 import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
@@ -429,7 +429,7 @@ export function RuleHoverPopover({
           responseHeaders: target.direction === 'response' ? next : headerRule.action.responseHeaders,
         },
       };
-      const result: MutationResult = await mutator.updateRule(headerRule.uid, updates, headerRule.version);
+      const result: RuleMutationResult = await mutator.updateRule(headerRule.uid, updates);
       surfaceResult(result, message, () => {
         setDraftDirty(false);
         onClose();
@@ -1094,7 +1094,7 @@ function findFallbackMod(
 }
 
 function surfaceResult(
-  result: MutationResult,
+  result: RuleMutationResult,
   message: ReturnType<typeof App.useApp>['message'],
   onSuccess: () => void,
 ): void {
@@ -1104,15 +1104,11 @@ function surfaceResult(
     return;
   }
   switch (result.reason) {
-    case 'stale-draft':
-      message.warning('Rule changed elsewhere — close and reopen the popover.');
-      return;
     case 'not-found':
       message.error('Rule not found — it may have been deleted.');
       return;
-    case 'duplicate-name':
     case 'other':
-      message.error(result.reason === 'other' ? (result.message ?? 'Save failed') : 'Save failed');
+      message.error(result.message ?? 'Save failed');
       return;
   }
 }

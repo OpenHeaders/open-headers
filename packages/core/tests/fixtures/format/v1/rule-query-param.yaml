@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: rulequp1
 name: Force region to eu
 type: query-param

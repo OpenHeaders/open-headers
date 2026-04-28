@@ -161,7 +161,6 @@ describe('isRuleComplete', () => {
   it('works on Omit<Rule, uid | path> for pre-save checks', () => {
     const partial = {
       schemaVersion: 5,
-      version: 1,
       name: 'Draft',
       type: 'header' as const,
       enabled: true,
@@ -177,7 +176,6 @@ describe('isRuleComplete', () => {
   it('empty draft rule is incomplete', () => {
     const partial = {
       schemaVersion: 5,
-      version: 1,
       name: 'New Header Rule',
       type: 'header' as const,
       enabled: true,

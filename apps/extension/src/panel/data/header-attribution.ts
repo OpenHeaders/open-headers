@@ -53,8 +53,6 @@ export interface RuleAttributionContext {
   /** Display name from the snapshot — what the rule was called at fire time. */
   ruleName: string;
   ruleType: V5.Rule['type'];
-  /** Snapshot version — used by the popover to detect drift cheaply. */
-  ruleVersion: number;
   /** The exact mod (frozen) that produced this row. */
   snapshotMod: RuleSnapshotHeaderMod;
   /** Live rule, or `null` if it was deleted between fire and render. */
@@ -239,7 +237,6 @@ function buildContext(
     ruleUid: snapshot.ruleUid,
     ruleName: snapshot.name,
     ruleType: snapshot.type,
-    ruleVersion: snapshot.version,
     snapshotMod,
     currentRule: liveRule,
     currentMod,
@@ -281,7 +278,6 @@ function synthesizeSnapshot(rule: V5.HeaderRule): RuleSnapshot {
     name: rule.name,
     type: rule.type,
     enabled: rule.enabled,
-    version: rule.version,
     headerMods,
   };
 }

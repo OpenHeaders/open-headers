@@ -465,7 +465,6 @@ describe('attributeHeaders', () => {
       name: rule.name,
       type: 'header',
       enabled: true,
-      version: 1,
       headerMods,
       ...overrides,
     };
@@ -530,7 +529,6 @@ describe('attributeHeaders', () => {
       name: 'Deleted',
       type: 'header',
       enabled: true,
-      version: 1,
       headerMods: [
         { direction: 'response', operation: 'override', headerName: 'X-Foo', valueTemplate: 'v1', valueResolved: 'v1' },
       ],
@@ -564,7 +562,6 @@ describe('attributeHeaders', () => {
       name: 'X',
       type: 'header',
       enabled: true,
-      version: 1,
       headerMods: [
         {
           direction: 'response',
@@ -619,7 +616,6 @@ describe('attributeHeaders', () => {
       name: 'Tpl name',
       type: 'header',
       enabled: true,
-      version: 1,
       headerMods: [
         {
           direction: 'request',

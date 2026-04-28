@@ -458,39 +458,21 @@ export interface BridgeRpcContract {
   updateLocalRule: {
     req: {
       ruleId: string;
-      updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
-      /**
-       * Phase 10 stale-draft contract. Optional — editors that track
-       * the `version` they loaded opt in to cross-tab concurrent-edit
-       * protection by passing it here. When present, the SW rejects
-       * the save with `reason: 'stale-draft'` + the server's current
-       * copy if the stored `version` has advanced since load.
-       *
-       * Omitting the field signals an unversioned write — the
-       * inspector's "override header" CTA and any programmatic flow
-       * that didn't load the rule into an editor. Those calls are
-       * accepted as last-write-wins; the per-entity lock still
-       * serializes the storage write so there's no read-modify-write
-       * race at the boundary.
-       */
-      expectedVersion?: number;
+      updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
     };
     /**
-     * Result mirrors `RuleWriteResult` from rule-store:
-     *   - `ok: true` — save accepted, `version` is the new counter
-     *     the client should track for subsequent saves.
-     *   - `reason: 'stale-draft'` — another tab saved first; the
-     *     renderer prompts the user to reload (take the server copy)
-     *     or keep editing (force-save bumps expectedVersion out of
-     *     the way).
+     * Result mirrors `RuleWriteResult` from rule-store. Sync engine
+     * §24 retired the `version` counter and stale-draft contract;
+     * concurrent edits reconcile per-field via HLC LWW + the
+     * awareness ribbon, not via banner prompts.
+     *   - `ok: true` — save accepted.
      *   - `reason: 'not-found'` — rule was deleted between load and
      *     save.
-     *   - `reason: 'other'` — unexpected error (lock timeout, storage
-     *     failure). Covers the message-handler catch path.
+     *   - `reason: 'other'` — transport-level error (lock timeout,
+     *     storage failure). Covers the message-handler catch path.
      */
     res:
-      | { ok: true; version: number; rule: V5.Rule }
-      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverRule: V5.Rule }
+      | { ok: true; rule: V5.Rule }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };

@@ -33,7 +33,6 @@ export const FOLDER_FIELD_ORDER = ['schemaVersion', 'version', 'uid', 'name', 'o
  */
 export const RULE_FIELD_ORDER = [
   'schemaVersion',
-  'version',
   'uid',
   'name',
   'type',

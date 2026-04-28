@@ -40,7 +40,6 @@ function makeWorkspaceVars(overrides: Partial<WorkspaceVariables> = {}): Workspa
 function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'r0000001',
     path: 'will-be-canonicalized',
     name: 'Auth',

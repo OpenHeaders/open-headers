@@ -12,7 +12,6 @@ function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     type: 'header',
     name: 'Test',
     enabled: true,
-    version: 1,
     path: 'collections/c1/rules',
     conditions: [{ type: 'request-domains', values: ['example.com'] }],
     action: {
@@ -40,7 +39,6 @@ function makeCtx(overrides: Partial<RuleAttributionContext> = {}): RuleAttributi
     ruleUid: 'r1',
     ruleName: 'Test',
     ruleType: 'header',
-    ruleVersion: 1,
     snapshotMod: makeMod(),
     currentRule: rule,
     currentMod: rule && rule.type === 'header' ? (rule.action.requestHeaders[0] ?? null) : null,

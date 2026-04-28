@@ -32,7 +32,6 @@ function makeFolder(uid: string, name: string, path: string): LocalFolder {
 function makeRule(uid: string, name: string, path: string, partial: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path,
     name,

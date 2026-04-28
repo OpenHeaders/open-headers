@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: ruledly1
 name: Simulate slow network
 type: delay

@@ -58,7 +58,6 @@ describe('parseWorkspaceExport — happy path', () => {
     const input = baseInput();
     const rule: HeaderRule = {
       schemaVersion: 5,
-      version: 1,
       uid: 'r0000001',
       path: 'rules/auth-r0000001',
       name: 'Auth',
@@ -245,7 +244,6 @@ describe('parseWorkspaceExport — gate 6 (per-entity fail-soft)', () => {
     const input = baseInput();
     const goodRule: HeaderRule = {
       schemaVersion: 5,
-      version: 1,
       uid: 'good0001',
       path: 'rules/good-good0001',
       name: 'Good',

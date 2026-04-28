@@ -162,7 +162,6 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     const activeWs = 'ws-workbench';
     const rule = {
       schemaVersion: 5,
-      version: 1,
       uid: makeUid('r1a2b3c4'),
       path: 'rules/coll-abcd1234/r1a2b3c4',
       name: 'R',
@@ -253,7 +252,6 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     };
     const rule = {
       schemaVersion: 5,
-      version: 1,
       uid: makeUid('e2e1a2b3'),
       path: `rules/coll-eecc1234/e2e1a2b3`,
       name: 'R',

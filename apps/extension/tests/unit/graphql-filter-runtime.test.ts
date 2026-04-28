@@ -69,7 +69,6 @@ function bodyRule(opts: {
 }): V5.BodyRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'bdy00001',
     path: 'rules/body',
     name: 'Body',
@@ -93,7 +92,6 @@ function mockRule(opts: {
 }): V5.MockRule {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'mck00001',
     path: 'rules/mock',
     name: 'Mock',

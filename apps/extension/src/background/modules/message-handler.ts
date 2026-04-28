@@ -886,15 +886,12 @@ export function handleGeneralMessage(
       updateBadgeCallback();
       safeResponse({ success: true, rule: created });
     } else if (message.type === 'updateLocalRule') {
+      // Sync engine §24 retired the `expectedVersion` arg + stale-draft
+      // contract; rule writes apply unconditionally and surfaces
+      // reconcile via the awareness ribbon.
       const ruleId = message.ruleId as string;
       const updates = message.updates as Partial<Omit<V5.Rule, 'uid' | 'path'>>;
-      // `expectedVersion` is optional — editors that track their
-      // loaded version get stale-draft protection. Unversioned
-      // callers (inspector "override header" CTA, programmatic
-      // saves) omit it and are accepted as last-write-wins; the
-      // lock still serializes so the storage write itself is atomic.
-      const expectedVersion = message.expectedVersion as number | undefined;
-      updateRule(ruleId, updates, { expectedVersion })
+      updateRule(ruleId, updates)
         .then((result) => {
           if (result.ok) {
             scheduleUpdate('rules', { immediate: true });
