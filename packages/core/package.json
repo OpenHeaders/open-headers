@@ -70,6 +70,10 @@
     "./totp": {
       "import": "./src/totp/index.ts",
       "default": "./dist/totp/index.js"
+    },
+    "./sync": {
+      "import": "./src/sync/index.ts",
+      "default": "./dist/sync/index.js"
     }
   },
   "scripts": {
