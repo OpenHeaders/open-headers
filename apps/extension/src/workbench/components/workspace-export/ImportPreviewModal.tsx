@@ -495,16 +495,16 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     : [];
 
   // ── Card recipe ───────────────────────────────────────────────────
-  // Mirrors the workspace shell's `.rules-dock-body` pattern: white
-  // surface inside the body's `colorBgLayout` gray, with the 6 px
-  // vertical flex `gap` showing through as the gray separator — same
-  // delimiter the workspace uses between tool windows. No border-radius
-  // on the cards: their left/right edges sit flush against the body
-  // edges (no horizontal padding) so the diff workspace's activity
-  // rails *become* the modal's sides, and the modal's own outer corners
-  // do the rounding.
+  // Mirrors the workspace shell's `.rules-dock-body` exactly: white
+  // surface, 6 px border-radius, sitting inside a 3 px gutter of the
+  // body's `colorBgLayout` gray. The work-area parent supplies that
+  // gutter via `padding: 3`; adjacent cards in its flex column share a
+  // 6 px `gap` (3 + 3 effective). Activity rails inside the diff card
+  // get their outer corners clipped by the card's rounded edges —
+  // same look the workspace shell ships.
   const cardStyle: React.CSSProperties = {
     background: token.colorBgContainer,
+    borderRadius: 6,
     overflow: 'hidden',
   };
 
@@ -616,7 +616,10 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 
       {/* Middle area — flex column of cards on gray. The ONLY white
           surfaces in the modal live below this point: vault cards (when
-          present) and the diff workspace card. */}
+          present) and the diff workspace card. `padding: 3` + flex
+          `gap: 6` reproduces the workspace shell's `.rules-dock-body`
+          margin pattern (3 px gutter to the modal edge, 6 px between
+          adjacent cards). */}
       <div
         style={{
           flex: 1,
@@ -624,7 +627,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: 6,
-          padding: '6px 0',
+          padding: 3,
           overflow: 'hidden',
         }}
       >
