@@ -34,10 +34,10 @@ import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
+import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleResolvable } from '@openheaders/core/utils';
-import { call } from '@utils/bridge';
 import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -151,6 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { token } = theme.useToken();
   const {
     rules,
+    activeWorkspaceId,
     localCollections,
     localCollectionTrees,
     pauseMarkers,
@@ -358,15 +359,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     [confirmOnDelete],
   );
 
+  const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
   const handleToggleRule = useCallback(
     (ruleUid: string, enabled: boolean) => {
-      call('toggleRule', { ruleId: ruleUid, enabled })
-        .then((resp) => {
-          if (!resp?.success) void message.error('Failed to toggle rule');
-        })
-        .catch(() => void message.error('Failed to toggle rule'));
+      void ruleMutator.toggleRule(ruleUid, enabled).then((resp) => {
+        if (!resp.ok) void message.error('Failed to toggle rule');
+      });
     },
-    [message],
+    [message, ruleMutator],
   );
 
   // ── Section nodes via hooks ────────────────────────────────────

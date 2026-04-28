@@ -18,18 +18,12 @@
  */
 
 import { CollectionSchema, FolderSchema, RuleSchema } from '@openheaders/core/schemas';
-import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
-import {
-  buildAddBatch,
-  buildDeleteBatch,
-  buildToggleBatch,
-  buildUpdateBatch,
-} from '@/shared/sync/rule-mutations';
+import { buildAddBatch, buildDeleteBatch, buildToggleBatch } from '@/shared/sync/rule-mutations';
 import { getActiveRuleCache } from '../sync/rule-cache';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
@@ -422,48 +416,6 @@ export function addRuleToCollection(
   const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `rules/${collectionUid}`;
   return addRule(rule, parentPath);
-}
-
-/**
- * Outcome of a rule write. The Phase-10 stale-draft contract is gone
- * with the version field (sync engine §24 kill list); the only
- * non-success path left is "the rule disappeared between caller's
- * read and the SW's write" (`not-found`).
- */
-export type RuleWriteResult =
-  | { ok: true; rule: V5.Rule }
-  | { ok: false; reason: 'not-found' };
-
-export async function updateRule(
-  uid: string,
-  updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
-): Promise<RuleWriteResult> {
-  assertLoaded();
-  const existing = rules.find((r) => r.uid === uid);
-  if (!existing) return { ok: false, reason: 'not-found' } as RuleWriteResult;
-
-  // uid + path are store-managed — never let the caller stomp them.
-  const { uid: _ignoreUid, path: _ignorePath, ...safeUpdates } = updates as {
-    uid?: string;
-    path?: string;
-  } & Partial<Omit<V5.Rule, 'uid' | 'path'>>;
-
-  const oracle = getOracleForCurrentWorkspace();
-  if (!oracle) {
-    return { ok: false, reason: 'not-found' } as RuleWriteResult;
-  }
-  // SW-side adapter: oracle returns `{itemId, item}[]`; the shared
-  // `buildUpdateBatch` only needs itemIds. Map to the narrower shape.
-  const liveSetItemIds = (ruleUid: string, setPath: string): string[] =>
-    oracle.liveSetItems(RULE_ENTITY_TYPE, ruleUid, setPath).map((entry) => entry.itemId);
-  await applyRuleMutationOrThrow(
-    (ctx) => buildUpdateBatch(uid, existing.type, safeUpdates, ctx, liveSetItemIds),
-    'updateRule',
-  );
-  // Cache has been refreshed by the broadcast; read the post-apply
-  // shape so the caller sees the same projection persisted to storage.
-  const updated = rules.find((r) => r.uid === uid) ?? ({ ...existing, ...safeUpdates } as V5.Rule);
-  return { ok: true, rule: updated } as RuleWriteResult;
 }
 
 export async function deleteRule(uid: string): Promise<boolean> {

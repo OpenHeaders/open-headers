@@ -103,7 +103,7 @@ const AppContent: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <RuleProvider>
+      <RuleProvider surfaceId="popup">
         <KeyboardNavProvider
           activeTab={activeTab}
           onTabChange={handleTabChange}

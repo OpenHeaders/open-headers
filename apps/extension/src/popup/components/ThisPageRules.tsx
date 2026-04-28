@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
+import { useRuleMutator } from '@hooks/useRuleMutator';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@utils/frame-scheduler';
@@ -312,7 +313,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
-  const { pauseMarkers } = useRules();
+  const { pauseMarkers, activeWorkspaceId } = useRules();
+  const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
   const openRulesIntent = useOpenRulesIntent();
   const {
     expandedRowKey,
@@ -644,19 +646,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     if (!record) return;
     const isEnabled = record.isEnabled !== false;
     setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-    call('toggleRule', { ruleId: record.id, enabled: !isEnabled })
-      .then((resp) => {
-        if (resp?.success) {
-          // Nudge the SW to revalidate tracked requests + rebuild DNR
-          void call('rulesUpdated').catch(() => undefined);
-        } else {
-          setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-        }
-      })
-      .catch(() => {
+    void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
+      if (resp.ok) {
+        // Nudge the SW to revalidate tracked requests + rebuild DNR
+        void call('rulesUpdated').catch(() => undefined);
+      } else {
         setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-      });
-  }, []);
+      }
+    });
+  }, [ruleMutator]);
 
   const handleEditRow = useCallback(
     (index: number) => {
@@ -680,17 +678,15 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       const record = dataSourceRef.current[index];
       if (!record) return;
       setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
-      call('deleteRule', { ruleId: record.id })
-        .then((resp) => {
-          if (resp?.success) {
-            void message.success('Rule deleted');
-          } else {
-            void message.error('Failed to delete rule');
-          }
-        })
-        .catch(() => void message.error('Failed to delete rule'));
+      void ruleMutator.deleteRule(record.id).then((resp) => {
+        if (resp.ok) {
+          void message.success('Rule deleted');
+        } else {
+          void message.error('Failed to delete rule');
+        }
+      });
     },
-    [message],
+    [message, ruleMutator],
   );
 
   useRowActionRegistration(onRowActionsChange, {
@@ -963,19 +959,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             checked={isEnabled}
             onChange={() => {
               setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-              call('toggleRule', { ruleId: record.id, enabled: !isEnabled })
-                .then((resp) => {
-                  if (resp?.success) {
-                    void call('rulesUpdated').catch(() => undefined);
-                  } else {
-                    setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-                    void message.error('Failed to toggle rule');
-                  }
-                })
-                .catch(() => {
+              void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
+                if (resp.ok) {
+                  void call('rulesUpdated').catch(() => undefined);
+                } else {
                   setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
                   void message.error('Failed to toggle rule');
-                });
+                }
+              });
             }}
             size="small"
           />
@@ -1002,15 +993,13 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               description={`Delete "${record.name}"?`}
               onConfirm={() => {
                 setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
-                call('deleteRule', { ruleId: record.id })
-                  .then((resp) => {
-                    if (resp?.success) {
-                      void message.success('Rule deleted');
-                    } else {
-                      void message.error('Failed to delete rule');
-                    }
-                  })
-                  .catch(() => void message.error('Failed to delete rule'));
+                void ruleMutator.deleteRule(record.id).then((resp) => {
+                  if (resp.ok) {
+                    void message.success('Rule deleted');
+                  } else {
+                    void message.error('Failed to delete rule');
+                  }
+                });
               }}
               okText="Delete"
               okType="danger"

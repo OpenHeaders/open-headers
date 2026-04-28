@@ -10,13 +10,13 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
+import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { resolveRule } from '@openheaders/core/variables';
 import type { VariableResolver } from '@openheaders/core/variables';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarkers } from '@openheaders/core/utils';
 import { type ActionDetail, getActionDetail, isRuleComplete } from '@openheaders/core/utils';
-import { call } from '@utils/bridge';
 import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -246,7 +246,8 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   onPageInfoChange,
   onRowActionsChange,
 }) => {
-  const { rules, localCollectionTrees, pauseMarkers, togglePause } = useRules();
+  const { rules, activeWorkspaceId, localCollectionTrees, pauseMarkers, togglePause } = useRules();
+  const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
   const { message } = App.useApp();
   const surface = useSurface();
   const { setFocusedRowIndex } = useKeyboardNav();
@@ -313,16 +314,14 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const handleToggle = useCallback(
     (record: CollectionTreeRecord) => {
       if (record.nodeType === 'rule') {
-        call('toggleRule', { ruleId: record.uid, enabled: !record.isEnabled })
-          .then((resp) => {
-            if (!resp?.success) message.error('Failed to toggle rule');
-          })
-          .catch(() => message.error('Failed to toggle rule'));
+        void ruleMutator.toggleRule(record.uid, !record.isEnabled).then((resp) => {
+          if (!resp.ok) message.error('Failed to toggle rule');
+        });
       } else {
         togglePause(record.path);
       }
     },
-    [message, togglePause],
+    [message, ruleMutator, togglePause],
   );
 
   const handleVisualize = useCallback(

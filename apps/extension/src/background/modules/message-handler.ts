@@ -123,7 +123,6 @@ import {
   toggleRule,
   updateCollectionPinnedEnvs,
   updateCollectionVariables,
-  updateRule,
 } from './rule-store';
 import { getTabSnapshot, recordScriptableFire } from './tab-telemetry';
 import {
@@ -825,19 +824,6 @@ export function handleGeneralMessage(
       }
 
       // ── Rule CRUD (active workspace) ──────────────────────────
-    } else if (message.type === 'toggleRule') {
-      const ruleId = message.ruleId as string;
-      const enabled = message.enabled as boolean;
-      toggleRule(ruleId, enabled)
-        .then((success) => {
-          if (success) {
-            scheduleUpdate('rules', { immediate: true });
-            updateBadgeCallback();
-          }
-          safeResponse({ success });
-        })
-        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
-      return true;
     } else if (message.type === 'deleteRule') {
       const ruleId = message.ruleId as string;
       deleteRule(ruleId)
@@ -885,22 +871,6 @@ export function handleGeneralMessage(
           safeResponse({ success: true, rule: created });
         })
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
-      return true;
-    } else if (message.type === 'updateLocalRule') {
-      // Sync engine §24 retired the `expectedVersion` arg + stale-draft
-      // contract; rule writes apply unconditionally and surfaces
-      // reconcile via the awareness ribbon.
-      const ruleId = message.ruleId as string;
-      const updates = message.updates as Partial<Omit<V5.Rule, 'uid' | 'path'>>;
-      updateRule(ruleId, updates)
-        .then((result) => {
-          if (result.ok) {
-            scheduleUpdate('rules', { immediate: true });
-            updateBadgeCallback();
-          }
-          safeResponse(result);
-        })
-        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
       return true;
     } else if (message.type === 'getLocalRules') {
       safeResponse({ rules: getRules() });

@@ -35,6 +35,7 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@components/ShortcutKbd';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
 
 import { useRules } from '@hooks/useRules';
@@ -334,7 +335,8 @@ export function RuleHoverPopover({
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { rules, localCollections } = useRules();
-  const mutator = useRuleMutator();
+  const workspaceId = useActiveWorkspaceId();
+  const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
   const ctx = ruleCtxFromAttribution(attribution);
 

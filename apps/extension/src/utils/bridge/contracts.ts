@@ -423,10 +423,6 @@ export interface BridgeRpcContract {
   };
 
   // ── Rule CRUD (local + desktop-routed) ─────────────────────────
-  toggleRule: {
-    req: { ruleId: string; enabled: boolean };
-    res: { success: boolean; error?: string };
-  };
   deleteRule: {
     req: { ruleId: string };
     res: { success: boolean; error?: string };
@@ -454,27 +450,6 @@ export interface BridgeRpcContract {
   setCacheBypass: {
     req: { tabId: number; enabled: boolean };
     res: { success: boolean; error?: string };
-  };
-  updateLocalRule: {
-    req: {
-      ruleId: string;
-      updates: Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
-    };
-    /**
-     * Result mirrors `RuleWriteResult` from rule-store. Sync engine
-     * §24 retired the `version` counter and stale-draft contract;
-     * concurrent edits reconcile per-field via HLC LWW + the
-     * awareness ribbon, not via banner prompts.
-     *   - `ok: true` — save accepted.
-     *   - `reason: 'not-found'` — rule was deleted between load and
-     *     save.
-     *   - `reason: 'other'` — transport-level error (lock timeout,
-     *     storage failure). Covers the message-handler catch path.
-     */
-    res:
-      | { ok: true; rule: V5.Rule }
-      | { ok: false; reason: 'not-found' }
-      | { ok: false; reason: 'other'; message: string };
   };
   getLocalRules: {
     req: Record<string, never>;

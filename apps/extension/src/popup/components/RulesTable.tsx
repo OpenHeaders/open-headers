@@ -9,11 +9,11 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
+import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
 import { resolveRule } from '@openheaders/core/variables';
-import { call } from '@utils/bridge';
 import {
   App,
   Button,
@@ -110,7 +110,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
 }) => {
   const { message } = App.useApp();
 
-  const { rules, uiState, updateUiState, pauseMarkers } = useRules();
+  const { rules, activeWorkspaceId, uiState, updateUiState, pauseMarkers } = useRules();
+  const ruleMutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'popup' });
   const { setFocusedRowIndex } = useKeyboardNav();
   const screens = Grid.useBreakpoint();
   const openRulesIntent = useOpenRulesIntent();
@@ -247,12 +248,12 @@ const RulesTable: React.FC<RulesTableProps> = ({
     async (index: number) => {
       const record = dataSourceRef.current[index];
       if (!record) return;
-      const resp = await call('toggleRule', { ruleId: record.id, enabled: !record.isEnabled }).catch(() => null);
-      if (!resp?.success) {
+      const resp = await ruleMutator.toggleRule(record.id, !record.isEnabled);
+      if (!resp.ok) {
         message.error('Failed to toggle rule');
       }
     },
-    [message],
+    [message, ruleMutator],
   );
 
   const handleEditRow = useCallback(
@@ -274,14 +275,14 @@ const RulesTable: React.FC<RulesTableProps> = ({
     async (index: number) => {
       const record = dataSourceRef.current[index];
       if (!record) return;
-      const resp = await call('deleteRule', { ruleId: record.id }).catch(() => null);
-      if (resp?.success) {
+      const resp = await ruleMutator.deleteRule(record.id);
+      if (resp.ok) {
         message.success('Rule deleted');
       } else {
         message.error('Failed to delete rule');
       }
     },
-    [message],
+    [message, ruleMutator],
   );
 
   const [addRulePaletteOpen, setAddRulePaletteOpen] = useState(false);
@@ -420,8 +421,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
           <Switch
             checked={enabled}
             onChange={async () => {
-              const resp = await call('toggleRule', { ruleId: record.id, enabled: !enabled }).catch(() => null);
-              if (!resp?.success) {
+              const resp = await ruleMutator.toggleRule(record.id, !enabled);
+              if (!resp.ok) {
                 message.error('Failed to toggle rule');
               }
             }}
@@ -457,8 +458,8 @@ const RulesTable: React.FC<RulesTableProps> = ({
                 title="Delete rule"
                 description={`Delete "${record.name}"?`}
                 onConfirm={async () => {
-                  const resp = await call('deleteRule', { ruleId: record.id }).catch(() => null);
-                  if (resp?.success) {
+                  const resp = await ruleMutator.deleteRule(record.id);
+                  if (resp.ok) {
                     message.success('Rule deleted');
                   } else {
                     message.error('Failed to delete rule');

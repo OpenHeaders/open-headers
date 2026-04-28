@@ -17,6 +17,7 @@ import { computePausedUids, resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { applyRuleDelete, applyRuleUpdate } from '@/shared/sync/rule-write-client';
 import { extensionStorage, UI, wsKeys } from '@/shared/storage';
 
 // ── Context shape ─────────────────────────────────────────────────
@@ -34,6 +35,8 @@ export interface UiState {
 export interface RuleContextValue {
   /** All rules from the background (desktop + local). */
   rules: V5.Rule[];
+  /** Active workspace id, or `null` until the SW reply lands. */
+  activeWorkspaceId: string | null;
   /** Whether the desktop app is connected via WebSocket. */
   isConnected: boolean;
   /** Whether initial state has been loaded. */
@@ -133,6 +136,7 @@ export interface RuleContextValue {
 
 const defaultContextValue: RuleContextValue = {
   rules: [],
+  activeWorkspaceId: null,
   isConnected: false,
   isStatusLoaded: false,
   uiState: {
@@ -181,9 +185,15 @@ export const RuleContext = createContext<RuleContextValue>(defaultContextValue);
 
 interface RuleProviderProps {
   children: React.ReactNode;
+  /**
+   * Surface attribution carried on every emitted envelope. Used by the
+   * sync engine to identify the originating renderer in awareness +
+   * mutation logs.
+   */
+  surfaceId: string;
 }
 
-export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
+export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId }) => {
   const [rules, setRules] = useState<V5.Rule[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoaded, setIsStatusLoaded] = useState(false);
@@ -447,34 +457,28 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   const updateLocalRuleFn = useCallback(
     async (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
-      // Unversioned entry point for callers that don't track the
-      // loaded version (inspector "override header" CTA, programmatic
-      // saves). Stale-draft detection is intentionally off — the lock
-      // still serializes the write so there's no read-modify-write
-      // race; a later editor save with a tracked version will catch
-      // any concurrent writes through its own `expectedVersion`
-      // check. Editors go through `call('updateLocalRule', ...)`
-      // directly to consume the full `RuleWriteResult` shape.
-      const resp = await call('updateLocalRule', { ruleId: uid, updates }).catch(() => null);
-      if (resp?.ok) {
+      if (!activeWorkspaceId) return false;
+      const result = await applyRuleUpdate(uid, updates, { workspaceId: activeWorkspaceId, surfaceId });
+      if (result.ok) {
         refreshRules();
         return true;
       }
       return false;
     },
-    [refreshRules],
+    [activeWorkspaceId, surfaceId, refreshRules],
   );
 
   const deleteLocalRuleFn = useCallback(
     async (uid: string): Promise<boolean> => {
-      const resp = await call('deleteRule', { ruleId: uid }).catch(() => null);
-      if (resp?.success) {
+      if (!activeWorkspaceId) return false;
+      const result = await applyRuleDelete(uid, { workspaceId: activeWorkspaceId, surfaceId });
+      if (result.ok) {
         refreshRules();
         return true;
       }
       return false;
     },
-    [refreshRules],
+    [activeWorkspaceId, surfaceId, refreshRules],
   );
 
   const createLocalCollectionFn = useCallback(
@@ -675,6 +679,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children }) => {
 
   const contextValue: RuleContextValue = {
     rules,
+    activeWorkspaceId,
     isConnected,
     isStatusLoaded,
     uiState,

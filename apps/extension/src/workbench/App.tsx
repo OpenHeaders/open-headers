@@ -1842,7 +1842,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
 };
 
 const Workbench: React.FC = () => (
-  <RuleProvider>
+  <RuleProvider surfaceId="workbench">
     <InspectorNavProvider>
       <WorkbenchInner />
     </InspectorNavProvider>

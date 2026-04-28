@@ -38,9 +38,9 @@ describe('bridge', () => {
         (callback as (response: { success: boolean }) => void)({ success: true });
       });
 
-      await call('toggleRule', { ruleId: 'local-42', enabled: true });
+      await call('deleteRule', { ruleId: 'local-42' });
 
-      expect(sentMessage).toEqual({ type: 'toggleRule', ruleId: 'local-42', enabled: true });
+      expect(sentMessage).toEqual({ type: 'deleteRule', ruleId: 'local-42' });
     });
 
     it('rejects with BridgeError when lastError is set', async () => {

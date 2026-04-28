@@ -20,8 +20,8 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
+import { useRuleMutator } from '@hooks/useRuleMutator';
 import type { V5 } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
 import type { MenuProps } from 'antd';
 import { App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -103,7 +103,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { openDocs } = useInspectorNav();
-  const { rules, createLocalRule, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
+  const {
+    rules,
+    activeWorkspaceId,
+    createLocalRule,
+    localCollections,
+    templates: userTemplates,
+    templateCollectionTrees,
+  } = useRules();
+  const mutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
@@ -170,12 +178,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const handleToggleEnabled = useCallback(() => {
     if (mode === 'edit' && ruleUid) {
-      // Same path as sidebar — goes through background, updates rule store, broadcasts back
-      void call('toggleRule', { ruleId: ruleUid, enabled: !isEnabled }).catch(() => undefined);
+      void mutator.toggleRule(ruleUid, !isEnabled);
     } else {
       setDraftEnabled((prev) => !prev);
     }
-  }, [mode, ruleUid, isEnabled]);
+  }, [mode, ruleUid, isEnabled, mutator]);
 
   // ── Template selector ─────────────────────────────────────────
   const [selectedTemplate, setSelectedTemplate] = useState<string>(initialTemplateKey ?? 'empty');
@@ -635,10 +642,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         }
       } else if (ruleUid) {
         const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
-        type UpdateResult = Awaited<ReturnType<typeof call<'updateLocalRule'>>>;
-        const result: UpdateResult = await call('updateLocalRule', { ruleId: ruleUid, updates }).catch(
-          (err: Error): UpdateResult => ({ ok: false, reason: 'other', message: err.message }),
-        );
+        const result = await mutator.updateRule(ruleUid, updates);
         if (result.ok) {
           message.success('Rule updated');
           notifyDirty(false);
@@ -646,7 +650,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         } else if (result.reason === 'not-found') {
           message.error('Rule was deleted from another tab');
         } else {
-          message.error(`Failed to update rule${'message' in result ? `: ${result.message}` : ''}`);
+          message.error(`Failed to update rule${result.message ? `: ${result.message}` : ''}`);
         }
       }
     } finally {
@@ -662,6 +666,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     createLocalRule,
     localCollections,
     message,
+    mutator,
     notifyDirty,
     onSaved,
     onSaveDraft,
