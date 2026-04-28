@@ -585,17 +585,32 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       {/* Secondary header — primary action (target picker) centered,
           rendered at `size="middle"` so it visually outranks the
           smaller controls inside the diff toolbar. Slightly taller than
-          the topbar to read as the "main action" row. */}
+          the topbar to read as the "main action" row. The TargetControl
+          sits inside a white pill so its boundaries are obvious on the
+          gray strip — without it, antd Segmented's own gray bg blends
+          into the modal bg and the user can't see where the options
+          end. */}
       {parsed && (
         <div style={{ ...stripStyle, height: 52, justifyContent: 'center' }}>
-          <TargetControl
-            target={target}
-            onChange={setTarget}
-            workspaces={workspaces}
-            activeWorkspaceId={activeWorkspaceId}
-            envelope={parsed.envelope}
-            size="middle"
-          />
+          <div
+            style={{
+              background: token.colorBgContainer,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 6,
+              padding: '6px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            <TargetControl
+              target={target}
+              onChange={setTarget}
+              workspaces={workspaces}
+              activeWorkspaceId={activeWorkspaceId}
+              envelope={parsed.envelope}
+              size="middle"
+            />
+          </div>
         </div>
       )}
 
