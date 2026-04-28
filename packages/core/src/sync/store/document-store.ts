@@ -22,6 +22,17 @@ import { type MaterializedEntity, materializeEntity } from './materialize';
 
 const entityKey = (type: EntityType, id: string): string => `${type}:${id}`;
 
+/**
+ * Opaque snapshot of the store's mutable state. Returned by
+ * {@link InMemoryDocumentStore.snapshot} and consumed by
+ * {@link InMemoryDocumentStore.restore} — purpose-built for the
+ * oracle's per-batch rollback (§11.2). Treat as a black box.
+ */
+export interface DocumentStoreSnapshot {
+  readonly entities: Map<string, EntityState>;
+  readonly appliedMutationIds: Set<string>;
+}
+
 export class InMemoryDocumentStore {
   private readonly entities = new Map<string, EntityState>();
   private readonly appliedMutationIds = new Set<string>();
@@ -70,4 +81,42 @@ export class InMemoryDocumentStore {
   canonicalSnapshot(): string {
     return canonicalJson(this.materializeAll());
   }
+
+  /**
+   * Capture a deep clone of internal state. Paired with
+   * {@link restore} to give the local oracle per-batch rollback
+   * (§11.2 all-or-nothing) without exposing field-level access.
+   */
+  snapshot(): DocumentStoreSnapshot {
+    const entities = new Map<string, EntityState>();
+    for (const [k, state] of this.entities) entities.set(k, cloneEntityState(state));
+    return { entities, appliedMutationIds: new Set(this.appliedMutationIds) };
+  }
+
+  /** Restore previously-{@link snapshot snapshot}ed state in place. */
+  restore(snap: DocumentStoreSnapshot): void {
+    this.entities.clear();
+    for (const [k, state] of snap.entities) this.entities.set(k, cloneEntityState(state));
+    this.appliedMutationIds.clear();
+    for (const id of snap.appliedMutationIds) this.appliedMutationIds.add(id);
+  }
+}
+
+function cloneEntityState(state: EntityState): EntityState {
+  return {
+    type: state.type,
+    id: state.id,
+    tombstone: state.tombstone,
+    fieldValues: new Map(state.fieldValues),
+    fieldTombstones: new Map(state.fieldTombstones),
+    setItems: cloneNestedMap(state.setItems),
+    setTombstones: cloneNestedMap(state.setTombstones),
+    setOrder: cloneNestedMap(state.setOrder),
+  };
+}
+
+function cloneNestedMap<V>(map: Map<string, Map<string, V>>): Map<string, Map<string, V>> {
+  const out = new Map<string, Map<string, V>>();
+  for (const [k, inner] of map) out.set(k, new Map(inner));
+  return out;
 }

@@ -11,13 +11,15 @@
  *     permanent — §7.2).
  *
  * Set items are emitted under their setPath as an array sorted by
- * itemId so two structurally-equal stores produce byte-identical
- * canonical JSON.
+ * the parent-owned fractional-indexing key (with itemId as tie-break)
+ * so two structurally-equal stores produce byte-identical canonical
+ * JSON. Order computation lives in `liveOrderedItemsAt`.
  */
 
 import type { EntityType } from '../envelope';
 import { compareHlc } from '../hlc';
 import { type Leaf, unflattenLeaves } from '../mutators';
+import { liveOrderedItemsAt } from '../mutators/state';
 import type { EntityState } from '../mutators/types';
 
 export interface MaterializedEntity {
@@ -37,16 +39,9 @@ export function materializeEntity(state: EntityState): MaterializedEntity | null
     leaves.push({ path, value: entry.value });
   }
 
-  for (const [setPath, items] of state.setItems) {
-    const tombstones = state.setTombstones.get(setPath);
-    const live: Array<{ itemId: string; item: unknown }> = [];
-    for (const [itemId, addEntry] of items) {
-      const removeHlc = tombstones?.get(itemId);
-      if (removeHlc && compareHlc(removeHlc, addEntry.addHlc) >= 0) continue;
-      live.push({ itemId, item: addEntry.item });
-    }
+  for (const setPath of state.setItems.keys()) {
+    const live = liveOrderedItemsAt(state, setPath);
     if (live.length === 0) continue;
-    live.sort((a, b) => (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0));
     leaves.push({ path: setPath, value: live.map((l) => l.item) });
   }
 

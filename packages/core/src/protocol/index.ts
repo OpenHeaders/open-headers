@@ -10,6 +10,16 @@ export {
   WS_SERVER_URL,
 } from './constants';
 
+export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
+export type {
+  SyncApplyAckErr,
+  SyncApplyAckOk,
+  SyncApplyRequest,
+  SyncApplyResponse,
+  SyncBridgeMessage,
+  SyncBroadcastEvent,
+} from './sync-bridge';
+
 export type {
   AppNavigationIntent,
   BrowserDisplayInfo,

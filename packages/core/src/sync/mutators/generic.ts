@@ -13,12 +13,14 @@
  */
 
 import type { MutationEnvelope } from '../envelope';
+import { seedKey } from '../order';
 import { flattenToLeaves } from './flatten';
 import {
   writeEntityTombstone,
   writeFieldIfNewer,
   writeFieldTombstoneIfNewer,
   writeSetAddIfNewer,
+  writeSetOrderIfNewer,
   writeSetTombstoneIfNewer,
 } from './state';
 import type { EntityState, MutatorOutcome } from './types';
@@ -55,6 +57,11 @@ export function applyMutation(state: EntityState, envelope: MutationEnvelope): M
     }
     case 'addToSet': {
       const applied = writeSetAddIfNewer(state, body.path, body.itemId, body.item, hlc);
+      // The order key is part of the envelope; if absent, default to
+      // the seed. LWW per (setPath, itemId) — an explicit moveBefore
+      // at a higher HLC overrides; a stale addToSet arriving after a
+      // move can't reset.
+      writeSetOrderIfNewer(state, body.path, body.itemId, body.orderKey ?? seedKey(), hlc);
       return { status: applied ? 'applied' : 'superseded-by-hlc' };
     }
     case 'removeFromSet': {
@@ -62,11 +69,9 @@ export function applyMutation(state: EntityState, envelope: MutationEnvelope): M
       return { status: applied ? 'applied' : 'superseded-by-hlc' };
     }
     case 'moveBefore': {
-      // Reordering primitive — implemented in Phase A's rule-mutator
-      // session via fractional indexing on the parent's order array
-      // (§7.2). The generic store records nothing for moves; entity
-      // mutators own the semantics.
-      return { status: 'applied' };
+      // Writer-committed fractional-indexing key (§7.2 / §23.5).
+      const applied = writeSetOrderIfNewer(state, body.path, body.itemId, body.orderKey, hlc);
+      return { status: applied ? 'applied' : 'superseded-by-hlc' };
     }
   }
 }

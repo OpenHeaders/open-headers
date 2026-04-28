@@ -10,6 +10,7 @@
 import type { EntityType } from '../envelope';
 import type { HLC } from '../hlc';
 import { compareHlc } from '../hlc';
+import { seedKey } from '../order';
 import type { EntityState } from './types';
 
 export function newEntityState(type: EntityType, id: string): EntityState {
@@ -21,6 +22,7 @@ export function newEntityState(type: EntityType, id: string): EntityState {
     fieldTombstones: new Map(),
     setItems: new Map(),
     setTombstones: new Map(),
+    setOrder: new Map(),
   };
 }
 
@@ -69,4 +71,54 @@ export function writeEntityTombstone(state: EntityState, hlc: HLC): boolean {
   if (state.tombstone && compareHlc(hlc, state.tombstone) <= 0) return false;
   state.tombstone = hlc;
   return true;
+}
+
+/**
+ * LWW write of a fractional-indexing key for a (setPath, itemId).
+ * Used by both `moveBefore` (explicit) and `addToSet` (seed). Returns
+ * true if the write applied.
+ */
+export function writeSetOrderIfNewer(
+  state: EntityState,
+  path: string,
+  itemId: string,
+  key: string,
+  hlc: HLC,
+): boolean {
+  let bucket = state.setOrder.get(path);
+  if (!bucket) {
+    bucket = new Map();
+    state.setOrder.set(path, bucket);
+  }
+  const existing = bucket.get(itemId);
+  if (existing && compareHlc(hlc, existing.hlc) <= 0) return false;
+  bucket.set(itemId, { key, hlc });
+  return true;
+}
+
+/**
+ * Live (not tombstoned) members at `path`, sorted by their order key
+ * with itemId as the deterministic tie-breaker. Shared by move-key
+ * computation and the materializer.
+ */
+export function liveOrderedItemsAt(
+  state: EntityState,
+  path: string,
+): Array<{ itemId: string; item: unknown; key: string }> {
+  const items = state.setItems.get(path);
+  if (!items) return [];
+  const tombstones = state.setTombstones.get(path);
+  const order = state.setOrder.get(path);
+  const live: Array<{ itemId: string; item: unknown; key: string }> = [];
+  for (const [itemId, addEntry] of items) {
+    const removeHlc = tombstones?.get(itemId);
+    if (removeHlc && compareHlc(removeHlc, addEntry.addHlc) >= 0) continue;
+    const key = order?.get(itemId)?.key ?? seedKey();
+    live.push({ itemId, item: addEntry.item, key });
+  }
+  live.sort((a, b) => {
+    if (a.key !== b.key) return a.key < b.key ? -1 : 1;
+    return a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0;
+  });
+  return live;
 }

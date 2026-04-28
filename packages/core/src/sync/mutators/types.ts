@@ -65,6 +65,14 @@ export interface EntityState {
   setItems: Map<string, Map<string, { item: unknown; addHlc: HLC }>>;
   /** Per-(setPath, itemId) remove tombstones; max-HLC-wins. */
   setTombstones: Map<string, Map<string, HLC>>;
+  /**
+   * Per-(setPath, itemId) fractional-indexing order keys. Updated by
+   * `moveBefore`; seeded by `addToSet` so newly-added items have a
+   * deterministic position even before any explicit move. LWW by HLC.
+   * Materialization sorts live set items by `key`, with itemId as the
+   * tie-breaker so concurrent mints of the same key still converge.
+   */
+  setOrder: Map<string, Map<string, { key: string; hlc: HLC }>>;
 }
 
 export interface MutatorContext {

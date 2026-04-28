@@ -53,6 +53,14 @@ export interface AddToSetMutation {
   path: string;
   itemId: string;
   item: unknown;
+  /**
+   * Optional initial fractional-indexing key for parent-owned ordering
+   * (§7.2 / §23.5). Convergence requires the writer to commit to a key
+   * at emit time — relative anchors aren't replay-stable. When absent,
+   * the seed key is used; itemId tie-breaks the materialized order so
+   * "naked" set-adds still converge.
+   */
+  orderKey?: string;
 }
 
 /** Tombstone-set remove. */
@@ -65,8 +73,12 @@ export interface RemoveFromSetMutation {
 }
 
 /**
- * Reorder primitive — fractional indexing on the **parent's** order array.
- * `beforeItemId === null` means "move to the end" (per §7.2).
+ * Reorder primitive — fractional indexing on the **parent's** order
+ * array (§7.2 / §23.5). The envelope carries the new `orderKey`
+ * directly: the writer computes it from its local view via
+ * `keyBetween(predecessorKey, anchorKey)` at emit time. This is what
+ * makes replay convergent — relative anchors (`beforeItemId`) would
+ * resolve to different keys depending on apply order.
  */
 export interface MoveBeforeMutation {
   kind: 'moveBefore';
@@ -74,7 +86,7 @@ export interface MoveBeforeMutation {
   id: string;
   path: string;
   itemId: string;
-  beforeItemId: string | null;
+  orderKey: string;
 }
 
 export type MutationBody =

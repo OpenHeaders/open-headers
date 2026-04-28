@@ -1,0 +1,147 @@
+/**
+ * Local oracle for the rule entity (Phase A R3).
+ *
+ * Per `docs/SYNC_ENGINE_DESIGN.md` §11.1 the oracle:
+ *
+ *   1. Serializes concurrent mutations from multiple surfaces via
+ *      `withLock(entityLockName(ws, type, id))` — the lock is
+ *      correctness-load-bearing, not just materialization-consistency
+ *      (§6.3 / §22.1).
+ *   2. Runs the authoritative mutator, materializes the snapshot,
+ *      broadcasts `(envelope, outcome)` to every surface (incl. the
+ *      originator) for ack.
+ *   3. Persists the envelope to the IDB mutation log and any emitted
+ *      side-effect intents to the IDB pending-intents store.
+ *
+ * Per-batch all-or-nothing (§11.2): if any constituent fails the
+ * mutator (status `schema-rejected` / `invalid-path` / surface-thrown),
+ * the whole batch is rolled back — nothing broadcast, nothing
+ * persisted, structured error returned.
+ *
+ * The class is test-friendly by construction: `lock`, `log`,
+ * `intents`, and `broadcast` are injected. Production wires them to
+ * real `withLock` + `IdbMutationLog` + `IdbPendingIntents` + the
+ * chrome.runtime broadcast adapter; tests pass in-memory fakes.
+ */
+
+import {
+  InMemoryDocumentStore,
+  type MutationBatch,
+  type MutationEnvelope,
+  type MutatorOutcome,
+  type MutatorStatus,
+  type SideEffectIntent,
+} from '@openheaders/core/sync';
+import type { MutationBroadcast } from './broadcast';
+import type { MutationLog } from './mutation-log';
+import type { PendingIntents } from './pending-intents';
+
+/** Acquires `(workspaceId, type, entityId)` locks. */
+export type LockAcquirer = <T>(workspaceId: string, type: string, entityId: string, fn: () => Promise<T>) => Promise<T>;
+
+export interface OracleApplyResult {
+  ok: boolean;
+  outcomes: Array<{ envelope: MutationEnvelope; outcome: MutatorOutcome }>;
+  /** Set when `ok === false` — names the constituent that broke the batch. */
+  failure?: { mutationId: string; status: MutatorStatus; detail?: string };
+}
+
+const ROLLBACK_STATUSES: ReadonlySet<MutatorStatus> = new Set<MutatorStatus>([
+  'invalid-path',
+  'schema-rejected',
+  'unknown-mutator-version',
+]);
+
+export interface OracleConfig {
+  workspaceId: string;
+  lock: LockAcquirer;
+  log: MutationLog;
+  intents: PendingIntents;
+  broadcast: MutationBroadcast;
+  /** Optional initial document store — defaults to a fresh in-memory one. */
+  store?: InMemoryDocumentStore;
+}
+
+export class RuleOracle {
+  private readonly store: InMemoryDocumentStore;
+
+  constructor(private readonly cfg: OracleConfig) {
+    this.store = cfg.store ?? new InMemoryDocumentStore();
+  }
+
+  /**
+   * Apply a batch all-or-nothing under the per-entity lock(s) it
+   * touches. A batch that targets multiple entities acquires their
+   * locks in deterministic order to avoid deadlock.
+   */
+  async apply(batch: MutationBatch, sideEffects: SideEffectIntent[] = []): Promise<OracleApplyResult> {
+    if (batch.mutations.length === 0) {
+      return { ok: true, outcomes: [] };
+    }
+    const targets = collectEntityTargets(batch);
+    return this.lockChain(targets, async () => this.applyUnderLock(batch, sideEffects));
+  }
+
+  /** Direct snapshot read for surfaces that need the materialized view. */
+  materializeAll() {
+    return this.store.materializeAll();
+  }
+
+  // ── internals ────────────────────────────────────────────────────
+
+  private async applyUnderLock(
+    batch: MutationBatch,
+    sideEffects: SideEffectIntent[],
+  ): Promise<OracleApplyResult> {
+    const snapshot = this.store.snapshot();
+    const outcomes: Array<{ envelope: MutationEnvelope; outcome: MutatorOutcome }> = [];
+
+    for (const env of batch.mutations) {
+      const outcome = this.store.apply(env);
+      outcomes.push({ envelope: env, outcome });
+      if (ROLLBACK_STATUSES.has(outcome.status)) {
+        this.store.restore(snapshot);
+        return {
+          ok: false,
+          outcomes,
+          failure: { mutationId: env.mutationId, status: outcome.status, detail: outcome.detail },
+        };
+      }
+    }
+
+    // Commit: log envelopes (dedup-safe), enqueue side effects,
+    // broadcast every (env, outcome).
+    await this.cfg.log.appendAll(batch.mutations);
+    if (sideEffects.length > 0) await this.cfg.intents.enqueueAll(sideEffects);
+
+    for (const { envelope, outcome } of outcomes) {
+      this.cfg.broadcast.publish({ envelope, outcome, batchId: batch.batchId });
+    }
+    return { ok: true, outcomes };
+  }
+
+  private async lockChain<T>(
+    targets: ReadonlyArray<{ type: string; id: string }>,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    if (targets.length === 0) return fn();
+    const [head, ...rest] = targets;
+    return this.cfg.lock(this.cfg.workspaceId, head.type, head.id, () => this.lockChain(rest, fn));
+  }
+}
+
+function collectEntityTargets(batch: MutationBatch): Array<{ type: string; id: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ type: string; id: string }> = [];
+  for (const env of batch.mutations) {
+    const key = `${env.body.type}:${env.body.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ type: env.body.type, id: env.body.id });
+  }
+  // Deterministic acquisition order avoids deadlock if two batches
+  // touch the same multi-entity set in different declaration order.
+  out.sort((a, b) => (a.type === b.type ? (a.id < b.id ? -1 : 1) : a.type < b.type ? -1 : 1));
+  return out;
+}
+
