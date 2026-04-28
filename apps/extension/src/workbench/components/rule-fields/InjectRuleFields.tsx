@@ -20,6 +20,8 @@ import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
+import ScalarConflictChip from './ScalarConflictChip';
+import type { ConflictBridge } from './use-rule-conflicts';
 
 const { Text } = Typography;
 
@@ -48,7 +50,11 @@ export function maybePrefillInjectCode(form: FormInstance, injectType: unknown):
   form.setFieldValue('injectCode', injectType === 'css' ? INJECT_TEMPLATES.css : INJECT_TEMPLATES.js);
 }
 
-const InjectRuleFields: React.FC = () => {
+interface InjectRuleFieldsProps {
+  conflicts?: ConflictBridge;
+}
+
+const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
 
@@ -140,9 +146,16 @@ const InjectRuleFields: React.FC = () => {
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
                   Source
                 </Text>
-                <Form.Item name="injectSourceUrl" style={{ marginBottom: 8 }}>
-                  <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
-                </Form.Item>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <Form.Item name="injectSourceUrl" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+                    <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
+                  </Form.Item>
+                  <ScalarConflictChip
+                    formName="injectSourceUrl"
+                    schemaPath="action.sourceUrl"
+                    conflicts={conflicts}
+                  />
+                </div>
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
                   Code
                 </Text>
@@ -152,9 +165,12 @@ const InjectRuleFields: React.FC = () => {
           }
           return (
             <div style={{ marginBottom: 16 }}>
-              <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-                Code
-              </Text>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  Code
+                </Text>
+                <ScalarConflictChip formName="injectCode" schemaPath="action.code" conflicts={conflicts} />
+              </div>
               <Form.Item name="injectCode" style={{ marginBottom: 0 }}>
                 <CodeEditor language={language} minHeight={180} />
               </Form.Item>

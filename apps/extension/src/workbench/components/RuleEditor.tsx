@@ -256,6 +256,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     enabled: mode === 'edit' && !!ruleUid,
   });
 
+  // Bridge handed to per-type *RuleFields. `undefined` in create mode so
+  // chips never render against a draft (no live rule to conflict with).
+  const conflictBridge = useMemo(
+    () =>
+      mode === 'edit'
+        ? {
+            getConflict: conflicts.getConflict,
+            onAcceptTheirs: conflicts.acceptTheirs,
+            onDismissConflict: conflicts.dismiss,
+          }
+        : undefined,
+    [mode, conflicts.getConflict, conflicts.acceptTheirs, conflicts.dismiss],
+  );
+
   const handleToggleEnabled = useCallback(() => {
     if (mode === 'edit' && ruleUid) {
       void mutator.toggleRule(ruleUid, !isEnabled);
@@ -1120,12 +1134,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                     />
                   )}
                   {selectedType === 'block' && <BlockRuleFields />}
-                  {selectedType === 'redirect' && <RedirectRuleFields />}
+                  {selectedType === 'redirect' && <RedirectRuleFields conflicts={conflictBridge} />}
                   {selectedType === 'query-param' && <QueryParamRuleFields />}
-                  {selectedType === 'inject' && <InjectRuleFields />}
-                  {selectedType === 'delay' && <DelayRuleFields />}
-                  {selectedType === 'body' && <BodyRuleFields />}
-                  {selectedType === 'mock' && <MockRuleFields />}
+                  {selectedType === 'inject' && <InjectRuleFields conflicts={conflictBridge} />}
+                  {selectedType === 'delay' && <DelayRuleFields conflicts={conflictBridge} />}
+                  {selectedType === 'body' && <BodyRuleFields conflicts={conflictBridge} />}
+                  {selectedType === 'mock' && <MockRuleFields conflicts={conflictBridge} />}
                   {/* Single-mount inline action validation. The validator
                       lives in core; new rule types pick the banner up
                       automatically when their case is added there. */}

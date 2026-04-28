@@ -8,10 +8,16 @@ import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
+import ScalarConflictChip from './ScalarConflictChip';
+import type { ConflictBridge } from './use-rule-conflicts';
 
 const { Text } = Typography;
 
-const RedirectRuleFields: React.FC = () => {
+interface RedirectRuleFieldsProps {
+  conflicts?: ConflictBridge;
+}
+
+const RedirectRuleFields: React.FC<RedirectRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
 
   return (
@@ -47,9 +53,12 @@ const RedirectRuleFields: React.FC = () => {
         </Radio.Group>
       </div>
 
-      <Form.Item name="redirectTo" style={{ marginBottom: 0 }}>
-        <TemplateInput placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
-      </Form.Item>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Form.Item name="redirectTo" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+          <TemplateInput placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
+        </Form.Item>
+        <ScalarConflictChip formName="redirectTo" schemaPath="action.redirectTo" conflicts={conflicts} />
+      </div>
     </div>
   );
 };

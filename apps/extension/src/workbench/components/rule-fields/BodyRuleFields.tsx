@@ -30,6 +30,8 @@ import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
+import ScalarConflictChip from './ScalarConflictChip';
+import type { ConflictBridge } from './use-rule-conflicts';
 
 const { Text } = Typography;
 
@@ -40,7 +42,11 @@ export const BODY_DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
   return body;
 }`;
 
-const BodyRuleFields: React.FC = () => {
+interface BodyRuleFieldsProps {
+  conflicts?: ConflictBridge;
+}
+
+const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
 
@@ -175,13 +181,31 @@ const BodyRuleFields: React.FC = () => {
                   </div>
                 )}
                 {isDynamic ? (
-                  <Form.Item name="bodyDynamicContent" style={{ marginBottom: 0 }}>
-                    <CodeEditor language="javascript" minHeight={240} />
-                  </Form.Item>
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                      <ScalarConflictChip
+                        formName="bodyDynamicContent"
+                        schemaPath="action.body"
+                        conflicts={conflicts}
+                      />
+                    </div>
+                    <Form.Item name="bodyDynamicContent" style={{ marginBottom: 0 }}>
+                      <CodeEditor language="javascript" minHeight={240} />
+                    </Form.Item>
+                  </>
                 ) : (
-                  <Form.Item name="bodyStaticContent" style={{ marginBottom: 0 }}>
-                    <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} />
-                  </Form.Item>
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                      <ScalarConflictChip
+                        formName="bodyStaticContent"
+                        schemaPath="action.body"
+                        conflicts={conflicts}
+                      />
+                    </div>
+                    <Form.Item name="bodyStaticContent" style={{ marginBottom: 0 }}>
+                      <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} />
+                    </Form.Item>
+                  </>
                 )}
               </>
             );

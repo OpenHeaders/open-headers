@@ -7,10 +7,16 @@ import { Alert, Form, InputNumber, Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
+import ScalarConflictChip from './ScalarConflictChip';
+import type { ConflictBridge } from './use-rule-conflicts';
 
 const { Text } = Typography;
 
-const DelayRuleFields: React.FC = () => {
+interface DelayRuleFieldsProps {
+  conflicts?: ConflictBridge;
+}
+
+const DelayRuleFields: React.FC<DelayRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
 
   return (
@@ -40,6 +46,7 @@ const DelayRuleFields: React.FC = () => {
               >=1 keeps "saved" and "effective" aligned. */}
           <InputNumber min={1} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
         </Form.Item>
+        <ScalarConflictChip formName="delayMs" schemaPath="action.delayMs" conflicts={conflicts} />
         <Text type="secondary" style={{ fontSize: 11 }}>
           Max 30,000 ms
         </Text>

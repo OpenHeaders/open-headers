@@ -17,6 +17,7 @@ import {
   genAddRemoveAdd,
   genConcurrentRenames,
   genCreateDeleteHlcOrder,
+  genEnvRename,
   genRuleReorder,
   genSameFieldSameHlc,
   genSetDeleteRace,
@@ -37,6 +38,7 @@ const BUCKETS: Bucket[] = [
   { name: 'set-delete-race', generate: genSetDeleteRace, count: 1500 },
   { name: 'create-delete-hlc-order', generate: genCreateDeleteHlcOrder, count: 1500 },
   { name: 'concurrent-renames', generate: genConcurrentRenames, count: 1500 },
+  { name: 'env-rename', generate: genEnvRename, count: 1500 },
   { name: 'rule-reorder', generate: genRuleReorder, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];

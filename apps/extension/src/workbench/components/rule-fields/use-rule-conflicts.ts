@@ -41,6 +41,13 @@ export interface PathConflict {
   theirs: string;
 }
 
+/** Bridge handed to per-field renderers so they can call into the tracker. */
+export interface ConflictBridge {
+  getConflict: (path: string, localValue: string) => PathConflict | null;
+  onAcceptTheirs: (path: string, theirs: string) => void;
+  onDismissConflict: (path: string) => void;
+}
+
 export interface RuleConflictsApi {
   /** Re-seed the baseline. Call from populateFormFromRule. */
   setBaseline: (rule: V5.Rule) => void;
@@ -61,8 +68,51 @@ export interface UseRuleConflictsArgs {
   enabled: boolean;
 }
 
+/**
+ * Per-rule-type scalar paths. Use canonical schema paths
+ * (`action.<field>`) rather than form-field ids so the keys stay
+ * meaningful when other surfaces (popup, devpanel) start publishing
+ * the same fields. Conditions (`conditions.<i>.values.<j>`) are
+ * deferred — their form representation is its own investigation.
+ */
+const SCALAR_PATHS_BY_TYPE: Record<V5.Rule['type'], readonly string[]> = {
+  header: [],
+  redirect: ['action.redirectTo'],
+  delay: ['action.delayMs'],
+  inject: ['action.code', 'action.sourceUrl', 'action.injectType', 'action.source', 'action.position'],
+  body: ['action.body', 'action.bodyType', 'action.resourceType'],
+  mock: ['action.statusCode', 'action.responseBody', 'action.contentType', 'action.bodyType'],
+  block: [],
+  'query-param': [],
+};
+
+function readPath(rule: V5.Rule, path: string): string | null {
+  if (path === 'name') return String(rule.name ?? '');
+  if (!path.startsWith('action.')) return null;
+  const tail = path.slice('action.'.length);
+  // Header-mod set paths: `requestHeaders|responseHeaders.<idx>.<leaf>`.
+  const headerMod = /^(requestHeaders|responseHeaders)\.(\d+)\.(value|headerName)$/.exec(tail);
+  if (headerMod) {
+    if (rule.type !== 'header') return null;
+    const set = headerMod[1] as 'requestHeaders' | 'responseHeaders';
+    const idx = Number(headerMod[2]);
+    const leaf = headerMod[3] as 'value' | 'headerName';
+    const arr = set === 'requestHeaders' ? rule.action.requestHeaders : rule.action.responseHeaders;
+    const item = (arr ?? [])[idx];
+    if (!item) return null;
+    return String((item[leaf] as string | undefined) ?? '');
+  }
+  // Scalar action fields: `action.<field>`.
+  const action = (rule as { action?: Record<string, unknown> }).action;
+  if (!action || typeof action !== 'object') return null;
+  const value = action[tail];
+  if (value === undefined || value === null) return null;
+  return String(value);
+}
+
 function extractBaseline(rule: V5.Rule): PathMap {
   const paths: PathMap = {};
+  paths.name = String(rule.name ?? '');
   if (rule.type === 'header') {
     const dirs: Array<'request' | 'response'> = ['request', 'response'];
     for (const dir of dirs) {
@@ -73,6 +123,10 @@ function extractBaseline(rule: V5.Rule): PathMap {
       });
     }
   }
+  for (const path of SCALAR_PATHS_BY_TYPE[rule.type] ?? []) {
+    const value = readPath(rule, path);
+    if (value !== null) paths[path] = value;
+  }
   return paths;
 }
 
@@ -82,17 +136,7 @@ function extractBaseline(rule: V5.Rule): PathMap {
  * symmetric with `extractBaseline`.
  */
 function lookupTheirs(rule: V5.Rule, path: string): string | null {
-  if (rule.type !== 'header') return null;
-  // header-mod paths only: action.<set>.<index>.<leaf>
-  const m = /^action\.(requestHeaders|responseHeaders)\.(\d+)\.(value|headerName)$/.exec(path);
-  if (!m) return null;
-  const set = m[1] as 'requestHeaders' | 'responseHeaders';
-  const idx = Number(m[2]);
-  const leaf = m[3] as 'value' | 'headerName';
-  const arr = set === 'requestHeaders' ? rule.action.requestHeaders : rule.action.responseHeaders;
-  const item = (arr ?? [])[idx];
-  if (!item) return null;
-  return String((item[leaf] as string | undefined) ?? '');
+  return readPath(rule, path);
 }
 
 export function useRuleConflicts(args: UseRuleConflictsArgs): RuleConflictsApi {

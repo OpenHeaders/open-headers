@@ -25,6 +25,8 @@ import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
+import ScalarConflictChip from './ScalarConflictChip';
+import type { ConflictBridge } from './use-rule-conflicts';
 
 const { Text } = Typography;
 
@@ -142,7 +144,11 @@ export const MOCK_DYNAMIC_TEMPLATE = `function modifyResponse(args) {
   return response;
 }`;
 
-const MockRuleFields: React.FC = () => {
+interface MockRuleFieldsProps {
+  conflicts?: ConflictBridge;
+}
+
+const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
 
@@ -234,19 +240,22 @@ const MockRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
           Response Status Code
         </Text>
-        <Form.Item name="mockStatusCode" style={{ marginBottom: 0 }}>
-          <Select
-            allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
-            showSearch
-            placeholder="Keep original status code"
-            options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
-            style={{ width: '100%' }}
-            filterOption={(input, option) => {
-              const label = String(option?.label ?? '');
-              return label.toLowerCase().includes(input.toLowerCase());
-            }}
-          />
-        </Form.Item>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Form.Item name="mockStatusCode" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+            <Select
+              allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
+              showSearch
+              placeholder="Keep original status code"
+              options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
+              style={{ width: '100%' }}
+              filterOption={(input, option) => {
+                const label = String(option?.label ?? '');
+                return label.toLowerCase().includes(input.toLowerCase());
+              }}
+            />
+          </Form.Item>
+          <ScalarConflictChip formName="mockStatusCode" schemaPath="action.statusCode" conflicts={conflicts} />
+        </div>
       </div>
 
       {/* Content-Type — a single header that controls how the browser parses
@@ -358,17 +367,35 @@ const MockRuleFields: React.FC = () => {
                   </div>
                 )}
                 {isDynamic ? (
-                  <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
-                    <CodeEditor language="javascript" minHeight={240} />
-                  </Form.Item>
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                      <ScalarConflictChip
+                        formName="mockDynamicBody"
+                        schemaPath="action.responseBody"
+                        conflicts={conflicts}
+                      />
+                    </div>
+                    <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
+                      <CodeEditor language="javascript" minHeight={240} />
+                    </Form.Item>
+                  </>
                 ) : (
-                  <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
-                    <CodeEditor
-                      language="json"
-                      placeholder={'{"message": "custom response", "data": []}'}
-                      minHeight={160}
-                    />
-                  </Form.Item>
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                      <ScalarConflictChip
+                        formName="mockStaticBody"
+                        schemaPath="action.responseBody"
+                        conflicts={conflicts}
+                      />
+                    </div>
+                    <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
+                      <CodeEditor
+                        language="json"
+                        placeholder={'{"message": "custom response", "data": []}'}
+                        minHeight={160}
+                      />
+                    </Form.Item>
+                  </>
                 )}
               </>
             );

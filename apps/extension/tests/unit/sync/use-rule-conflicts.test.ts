@@ -96,6 +96,105 @@ describe('useRuleConflicts', () => {
     expect(result.current.getConflict(PATH, 'theirs')).toBeNull();
   });
 
+  describe('scalar widening', () => {
+    function makeRedirectRule(target: string, uid = 'r-1'): V5.Rule {
+      return {
+        uid,
+        path: `rules/${uid}.yaml`,
+        name: 'r',
+        enabled: true,
+        type: 'redirect',
+        schemaVersion: 5,
+        conditions: [],
+        action: { redirectTo: target },
+      } as unknown as V5.Rule;
+    }
+    function makeDelayRule(ms: number, uid = 'd-1'): V5.Rule {
+      return {
+        uid,
+        path: `rules/${uid}.yaml`,
+        name: 'd',
+        enabled: true,
+        type: 'delay',
+        schemaVersion: 5,
+        conditions: [],
+        action: { delayMs: ms },
+      } as unknown as V5.Rule;
+    }
+    function makeInjectRule(code: string, uid = 'i-1'): V5.Rule {
+      return {
+        uid,
+        path: `rules/${uid}.yaml`,
+        name: 'i',
+        enabled: true,
+        type: 'inject',
+        schemaVersion: 5,
+        conditions: [],
+        action: { injectType: 'script', code, source: 'code', position: 'body-end' },
+      } as unknown as V5.Rule;
+    }
+
+    it('detects redirectTo scalar conflict on schema path', () => {
+      const live = makeRedirectRule('https://openheaders.io/theirs');
+      const { result } = renderHook(() =>
+        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
+      );
+      act(() => result.current.setBaseline(makeRedirectRule('https://openheaders.io/base')));
+      const conflict = result.current.getConflict('action.redirectTo', 'https://openheaders.io/mine');
+      expect(conflict).toEqual({
+        base: 'https://openheaders.io/base',
+        theirs: 'https://openheaders.io/theirs',
+      });
+    });
+
+    it('detects delayMs numeric scalar conflict (stringified)', () => {
+      const live = makeDelayRule(5000);
+      const { result } = renderHook(() =>
+        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
+      );
+      act(() => result.current.setBaseline(makeDelayRule(1000)));
+      const conflict = result.current.getConflict('action.delayMs', '2000');
+      expect(conflict).toEqual({ base: '1000', theirs: '5000' });
+    });
+
+    it('detects inject code conflict + suppresses on local equals theirs', () => {
+      const live = makeInjectRule('console.log("theirs")');
+      const { result } = renderHook(() =>
+        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
+      );
+      act(() => result.current.setBaseline(makeInjectRule('console.log("base")')));
+      expect(result.current.getConflict('action.code', 'console.log("mine")')).toEqual({
+        base: 'console.log("base")',
+        theirs: 'console.log("theirs")',
+      });
+      // Already converged on theirs → no chip.
+      expect(result.current.getConflict('action.code', 'console.log("theirs")')).toBeNull();
+    });
+
+    it('detects rule.name conflict for any rule type', () => {
+      const live: V5.Rule = { ...makeDelayRule(1000), name: 'theirs name' };
+      const baseline: V5.Rule = { ...makeDelayRule(1000), name: 'base name' };
+      const { result } = renderHook(() =>
+        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
+      );
+      act(() => result.current.setBaseline(baseline));
+      expect(result.current.getConflict('name', 'mine name')).toEqual({
+        base: 'base name',
+        theirs: 'theirs name',
+      });
+    });
+
+    it('returns null for path that does not exist on the rule type', () => {
+      const live = makeDelayRule(1000);
+      const { result } = renderHook(() =>
+        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
+      );
+      act(() => result.current.setBaseline(makeDelayRule(1000)));
+      // delay rule has no `redirectTo`.
+      expect(result.current.getConflict('action.redirectTo', 'mine')).toBeNull();
+    });
+  });
+
   it('setBaseline clears dismissed state', () => {
     const live = makeHeaderRule('theirs');
     const { result, rerender } = mount(live, true);
