@@ -70,6 +70,7 @@ import { auditHostPermissions } from './modules/permissions-audit';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
+import { initSyncService, reinitForWorkspace } from './sync/service';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import { getRequests, onRequestStoreChange } from './modules/request-store';
 import {
@@ -325,6 +326,12 @@ async function initializeExtension(): Promise<void> {
       workspaces: listWorkspaces(),
       activeWorkspaceId: getActiveWorkspaceId(),
     });
+    // Sync service is workspace-scoped — IDB log + intents PKs are
+    // prefixed by `workspaceId`, and the in-memory oracle store
+    // belongs to one workspace at a time. Re-init swaps the oracle
+    // when the active workspace flips. No-op when the active
+    // workspace didn't change (rename / metadata-only mutations).
+    reinitForWorkspace(getActiveWorkspaceId());
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -435,6 +442,17 @@ async function initializeExtension(): Promise<void> {
 
   // Hydrate the active workspace's per-workspace stores from storage.
   await hydrateActiveWorkspaceStores();
+
+  // Sync engine (Phase A) — instantiate the local oracle for the
+  // active workspace once hydration has resolved a workspace id. The
+  // service holds the oracle, IDB-backed mutation log, IDB-backed
+  // pending intents, and the broadcast bus that re-publishes
+  // committed envelopes as `syncBroadcast` chrome.runtime events.
+  // Until the W-series write-site flips land, no production surface
+  // routes mutations through the service, so the oracle stays inert
+  // — but the IDB connections + bridge handler are live so W1 has
+  // nothing to bootstrap.
+  initSyncService(getActiveWorkspaceId());
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
   // variable / rule stores. Fired here (rather than at end-of-init)

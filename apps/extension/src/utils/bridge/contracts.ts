@@ -22,6 +22,8 @@ import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders
 import type { FileRef } from '@openheaders/core/files';
 import type { ImportReport } from '@openheaders/core/import';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
+import type { SyncApplyRequest, SyncApplyResponse } from '@openheaders/core/protocol';
+import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import type { WorkflowRunCache } from '@/background/modules/live-cache-store';
@@ -1266,6 +1268,20 @@ export interface BridgeRpcContract {
     req: { layout: PersistedPanelLayout };
     res: { success: boolean; error?: string };
   };
+
+  // ── Sync engine (Phase A) ────────────────────────────────────────
+  /**
+   * Apply a `MutationBatch` against the local oracle all-or-nothing
+   * under the per-entity Web Lock. Mirrors `SyncApplyRequest` from
+   * `@openheaders/core/protocol` — the `type` field is added by the
+   * bridge layer, so the `req` shape is the request minus `type`. The
+   * response is the oracle's structured ack (success → per-envelope
+   * outcomes; failure → the offending mutationId + reason).
+   */
+  'oh.sync.apply': {
+    req: Omit<SyncApplyRequest, 'type'>;
+    res: SyncApplyResponse;
+  };
 }
 
 /**
@@ -1402,6 +1418,17 @@ export interface BridgeBroadcastContract {
    * pill, observability) refetch on every event.
    */
   liveCacheChanged: { workflowUid: string | null };
+
+  /**
+   * Sync-engine broadcast — every committed mutation envelope and its
+   * mutator outcome, re-published from the local oracle's broadcast
+   * bus (Phase A). Surfaces dedup by `envelope.mutationId` and replay
+   * on top of their optimistic state. The wire shape mirrors
+   * `SyncBroadcastEvent` from `@openheaders/core/protocol` but stays a
+   * `bridge` broadcast type so it travels alongside the other UI
+   * change channels with no extra plumbing.
+   */
+  syncBroadcast: { envelope: MutationEnvelope; outcome: MutatorOutcome; batchId?: string };
 }
 
 // ── Variables / Environments ─────────────────────────────────────

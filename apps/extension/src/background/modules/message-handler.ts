@@ -15,6 +15,7 @@ import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/cor
 import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { applySyncRequest } from '@/background/sync/service';
 import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
@@ -1420,6 +1421,33 @@ export function handleGeneralMessage(
       setPanelLayout(message.layout as import('@/shared/storage').PersistedPanelLayout)
         .then(() => safeResponse({ success: true }))
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
+      // ── Sync engine (Phase A) ──────────────────────────────────
+    } else if (message.type === 'oh.sync.apply') {
+      // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
+      // The bridge layer flattens `{ type, ...payload }` onto the
+      // envelope, so we cast the whole envelope back to the request
+      // type and let the service do the actual apply under the
+      // oracle's per-entity lock.
+      const request = message as unknown as import('@openheaders/core/protocol').SyncApplyRequest;
+      applySyncRequest(request)
+        .then((response) => safeResponse(response))
+        .catch((err: Error) => {
+          logger.info('MessageHandler', 'oh.sync.apply rejected:', err.message);
+          // Surface a structured ack so callers don't need a
+          // separate "transport-level error" branch — the oracle
+          // failure path uses the same shape.
+          // Transport-level errors (IDB unavailable, lock timeout)
+          // surface through the same SyncApplyResponse shape — caller
+          // doesn't need a parallel error branch. `schema-rejected` is
+          // the broadest "couldn't apply" status; `detail` carries the
+          // human-readable cause.
+          safeResponse({
+            ok: false,
+            outcomes: [],
+            failure: { mutationId: '', status: 'schema-rejected', detail: err.message },
+          });
+        });
       return true;
     } else if (message.type && (message.type as string).startsWith('proxy-')) {
       return false;
