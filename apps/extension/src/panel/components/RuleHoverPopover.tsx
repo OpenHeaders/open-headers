@@ -36,9 +36,11 @@
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@components/ShortcutKbd';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useAwareness } from '@hooks/useAwareness';
 import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
 
 import { useRules } from '@hooks/useRules';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
 import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
@@ -47,6 +49,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@/shared/use-popover-placement';
 import { openWorkspace } from '@/shared/workspace-intent';
 import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
+import { FieldPresenceChip, PresenceBadge, RULE_FIELD } from '@/shared/awareness';
 import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
 import { TemplateInput } from '@/workbench/components/template-input';
 import { buildChordsFromEvent, useShortcutLabel } from '@/workbench/hooks/useWorkspaceShortcuts';
@@ -376,8 +379,36 @@ export function RuleHoverPopover({
   }));
   const [draftDirty, setDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [focusedField, setFocusedField] = useState<'value' | 'headerName' | null>(null);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+
+  // ── Awareness publisher (Phase A A2/A3) ─────────────────────────
+  // The popover's "entity in focus" is the live rule it's editing.
+  // The field it focuses is the header mod's value/name field at the
+  // mod's index inside the direction-specific set. Without an
+  // identifiable target the popover is read-only summary only — no
+  // awareness signal needed.
+  const liveRuleUid = liveRule?.uid ?? null;
+  const headerModIndex = useMemo<number | null>(() => {
+    if (!headerRule || !target || !currentMod) return null;
+    const list =
+      target.direction === 'request' ? headerRule.action.requestHeaders : headerRule.action.responseHeaders;
+    const idx = list.indexOf(currentMod);
+    return idx === -1 ? null : idx;
+  }, [headerRule, target, currentMod]);
+  const fieldPath = useMemo<string | null>(() => {
+    if (focusedField === null || headerModIndex === null || !target) return null;
+    return RULE_FIELD.headerMod(target.direction, headerModIndex, focusedField);
+  }, [focusedField, headerModIndex, target]);
+  useAwareness({
+    workspaceId,
+    surfaceId: 'devpanel',
+    entityFocus: liveRuleUid ? { type: RULE_ENTITY_TYPE, id: liveRuleUid } : null,
+    fieldFocus: liveRuleUid && fieldPath ? { type: RULE_ENTITY_TYPE, id: liveRuleUid, path: fieldPath } : null,
+    dirtyFields: draftDirty && fieldPath ? [fieldPath] : [],
+    enabled: visible && !!liveRuleUid,
+  });
 
   // Re-prime on rule version bump (another tab saved) only when the
   // user hasn't started editing yet. Mirrors the variable popover's
@@ -549,6 +580,9 @@ export function RuleHoverPopover({
         >
           {ruleName}
         </span>
+        {liveRuleUid && (
+          <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeSurfaceId="devpanel" />
+        )}
         {!ruleDeleted && ctx?.edited && (
           <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
             Rule edited
@@ -620,6 +654,8 @@ export function RuleHoverPopover({
                 size="small"
                 value={draft.headerName}
                 onChange={(v) => updateDraft({ headerName: v })}
+                onFocus={() => setFocusedField('headerName')}
+                onBlur={() => setFocusedField((f) => (f === 'headerName' ? null : f))}
                 placeholder="Header Name"
                 suggestionContext={{ collectionId }}
               />
@@ -657,6 +693,8 @@ export function RuleHoverPopover({
                 multiline
                 value={draft.value}
                 onChange={(v) => updateDraft({ value: v })}
+                onFocus={() => setFocusedField('value')}
+                onBlur={() => setFocusedField((f) => (f === 'value' ? null : f))}
                 placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
                 suggestionContext={{ collectionId }}
                 style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}

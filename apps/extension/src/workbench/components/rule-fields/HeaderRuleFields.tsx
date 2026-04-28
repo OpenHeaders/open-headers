@@ -18,10 +18,12 @@
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { FieldPresenceChip, RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -45,9 +47,14 @@ interface ModificationListProps {
   /** Form.List parent field name — 'requestHeaders' or 'responseHeaders'. */
   name: 'requestHeaders' | 'responseHeaders';
   direction: HeaderDirection;
+  /** Live rule uid + surface id, used to render presence chips beside
+   *  rows another surface is currently editing. Both undefined for
+   *  drafts (create mode) — chips are entity-bound, drafts have no uid. */
+  ruleUid?: string;
+  surfaceId?: string;
 }
 
-function ModificationList({ name, direction }: ModificationListProps) {
+function ModificationList({ name, direction, ruleUid, surfaceId }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const form = Form.useFormInstance();
   return (
@@ -169,6 +176,14 @@ function ModificationList({ name, direction }: ModificationListProps) {
                     );
                   }}
                 </Form.Item>
+                {ruleUid && surfaceId && (
+                  <FieldPresenceChip
+                    entityType={RULE_ENTITY_TYPE}
+                    entityId={ruleUid}
+                    fieldPath={RULE_FIELD.headerMod(direction, field.name, 'value')}
+                    excludeSurfaceId={surfaceId}
+                  />
+                )}
                 <Button
                   type="text"
                   size="small"
@@ -253,9 +268,20 @@ interface HeaderRuleFieldsProps {
   reqCount: number;
   /** Response header count — parent (RuleEditor) owns this to avoid useWatch timing issues. */
   resCount: number;
+  /** Live rule uid; passed to per-row presence chips. Undefined for drafts. */
+  ruleUid?: string;
+  /** Local surface id ('workbench'), so per-row chips don't render this surface. */
+  surfaceId?: string;
 }
 
-const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({ activeTab, onTabChange, reqCount, resCount }) => {
+const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
+  activeTab,
+  onTabChange,
+  reqCount,
+  resCount,
+  ruleUid,
+  surfaceId,
+}) => {
   const { openDocs } = useInspectorNav();
   const hasResponse = resCount > 0;
 
@@ -293,7 +319,9 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({ activeTab, onTabCha
                 Request Headers {reqCount > 0 && <Badge count={reqCount} size="small" style={{ marginLeft: 4 }} />}
               </span>
             ),
-            children: <ModificationList name="requestHeaders" direction="request" />,
+            children: (
+              <ModificationList name="requestHeaders" direction="request" ruleUid={ruleUid} surfaceId={surfaceId} />
+            ),
           },
           {
             key: 'response',
@@ -302,7 +330,9 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({ activeTab, onTabCha
                 Response Headers {resCount > 0 && <Badge count={resCount} size="small" style={{ marginLeft: 4 }} />}
               </span>
             ),
-            children: <ModificationList name="responseHeaders" direction="response" />,
+            children: (
+              <ModificationList name="responseHeaders" direction="response" ruleUid={ruleUid} surfaceId={surfaceId} />
+            ),
           },
         ]}
       />

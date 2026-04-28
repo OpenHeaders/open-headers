@@ -38,9 +38,11 @@ import type {
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
+import { scheduleUpdate } from '@/background/modules/rule-engine';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { type BroadcastProjector, handleSyncApply, wireBroadcastToSink } from './bridge';
+import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
 import { projectRuleByUid, projectRulePostState } from './rule-post-state';
 import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
@@ -59,6 +61,7 @@ interface ServiceState {
   cache: RuleCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
+  dnrRunner: DnrIntentRunner;
   unsubscribeBroadcast: () => void;
 }
 
@@ -91,6 +94,15 @@ export function initSyncService(workspaceId: string): void {
   const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveRuleCache(cache);
 
+  // DNR intent runner — subscribes AFTER the cache so by the time the
+  // runner asks rule-engine to recompile, the rule mirror already
+  // reflects post-commit state.
+  const dnrRunner = createDnrIntentRunner({
+    broadcast,
+    intents,
+    recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
+  });
+
   const awareness = createAwarenessStore({
     workspaceId,
     emit: (presence) => {
@@ -119,7 +131,7 @@ export function initSyncService(workspaceId: string): void {
     projector,
   );
 
-  state = { workspaceId, oracle, broadcast, cache, context, awareness, unsubscribeBroadcast };
+  state = { workspaceId, oracle, broadcast, cache, context, awareness, dnrRunner, unsubscribeBroadcast };
   logger.info(
     'SyncService',
     `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${context.nodeId})`,
@@ -130,6 +142,7 @@ export function initSyncService(workspaceId: string): void {
 export function dispose(): void {
   if (!state) return;
   state.unsubscribeBroadcast();
+  state.dnrRunner.dispose();
   state.cache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
@@ -238,6 +251,10 @@ export interface SyncServiceTestDeps {
   log?: MutationLog;
   intents?: PendingIntents;
   lock?: LockAcquirer;
+  /** Recompile shim for tests that want to assert "the runner asked
+   *  for a recompile" without booting the real DNR layer. Defaults to
+   *  a no-op. */
+  recompile?: (reason: string) => void;
 }
 
 /**
@@ -260,6 +277,12 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveRuleCache(cache);
 
+  const dnrRunner = createDnrIntentRunner({
+    broadcast,
+    intents,
+    recompile: deps.recompile ?? (() => {}),
+  });
+
   const awareness = createAwarenessStore({
     workspaceId,
     emit: () => {
@@ -274,6 +297,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     cache,
     context,
     awareness,
+    dnrRunner,
     unsubscribeBroadcast: () => {
       // No chrome.runtime sink in tests.
     },

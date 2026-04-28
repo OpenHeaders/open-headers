@@ -19,13 +19,16 @@ import {
   FolderOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
+import { useAwareness } from '@hooks/useAwareness';
 import { useRules } from '@hooks/useRules';
 import { useRuleMutator } from '@hooks/useRuleMutator';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import type { MenuProps } from 'antd';
-import { App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
+import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PresenceBadge } from '@/shared/awareness';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { formatString } from '../languages/prettier';
@@ -151,6 +154,23 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     [mode, ruleUid, rules],
   );
 
+  // Phase A A5 — deletion handling.
+  //
+  // When the live rule disappears in edit mode (delete tombstone landed
+  // from another surface), capture the last-known shape so the
+  // read-only "deleted by …" view can render and the Undelete button
+  // can re-emit a `create(...)` with a fresh id (§7.2 — re-creation
+  // MUST use a fresh id; there's no HLC escape hatch). The open tab
+  // hands off to the freshly-created rule via `onSaved(newUid)`.
+  const lastSeenRuleRef = useRef<V5.Rule | null>(null);
+  useEffect(() => {
+    if (mode === 'edit' && liveRule) {
+      lastSeenRuleRef.current = liveRule;
+    }
+  }, [mode, liveRule]);
+  const isDeletedRemotely =
+    mode === 'edit' && !!ruleUid && initializedRef.current && !liveRule && lastSeenRuleRef.current !== null;
+
   // Stale-draft tracking is gone — the sync engine
   // (`docs/SYNC_ENGINE_DESIGN.md` §6.2) replaces the version-counter
   // OCC with HLC-stamped per-field LWW + an awareness ribbon. Saves
@@ -175,6 +195,30 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   /** Single source of truth for name. */
   const ruleName = mode === 'edit' ? (liveRule?.name ?? 'Rule') : (draftName ?? 'Untitled');
+
+  // ── Awareness publisher (Phase A A2) ─────────────────────────────
+  // Workbench publishes entity-level presence so other surfaces (popup,
+  // devpanel) can show a badge when this surface has the rule open.
+  // Per-field focus tracking lands later — the workbench's antd Form
+  // doesn't expose a global focused-path stream, and the dominant
+  // collision lane today is devpanel→workbench (one-shot popover edits
+  // colliding with a longer-lived editor session). The single dirty
+  // marker tells other surfaces this editor has unsaved edits without
+  // committing to a per-leaf path catalogue mid-Phase-A.
+  const entityFocus = useMemo(
+    () => (mode === 'edit' && ruleUid ? { type: RULE_ENTITY_TYPE, id: ruleUid } : null),
+    [mode, ruleUid],
+  );
+  const dirtyFields = useMemo<string[]>(() => (isDirty ? ['*'] : []), [isDirty]);
+
+  useAwareness({
+    workspaceId: activeWorkspaceId,
+    surfaceId: 'workbench',
+    entityFocus,
+    fieldFocus: null,
+    dirtyFields,
+    enabled: mode === 'edit' && !!ruleUid,
+  });
 
   const handleToggleEnabled = useCallback(() => {
     if (mode === 'edit' && ruleUid) {
@@ -251,19 +295,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   // ── Form initialization (content fields only — no name/enabled) ──
 
-  useEffect(() => {
-    if (initializedRef.current) return;
-
-    if (mode === 'edit' && ruleUid) {
-      const rule = rules.find((r) => r.uid === ruleUid);
-      if (!rule) return;
-      initializedRef.current = true;
-
+  // Populate form from a persisted rule. Pulled out of the init effect
+  // so the live-update path (Phase A A4 — re-prime form on external
+  // mutation while the editor is clean) can reuse the same shape.
+  const populateFormFromRule = useCallback(
+    (rule: V5.Rule) => {
       const baseValues = {
         ruleType: rule.type,
         conditions: rule.conditions,
       };
-
       switch (rule.type) {
         case 'header': {
           const hr = rule as V5.HeaderRule;
@@ -280,10 +320,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           break;
         case 'redirect': {
           const rr = rule as V5.RedirectRule;
-          form.setFieldsValue({
-            ...baseValues,
-            redirectTo: rr.action.redirectTo,
-          });
+          form.setFieldsValue({ ...baseValues, redirectTo: rr.action.redirectTo });
           break;
         }
         case 'query-param': {
@@ -343,8 +380,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             mockGraphqlKey: mr.action.graphqlFilter?.key || '',
             mockGraphqlOperator: mr.action.graphqlFilter?.operator || 'Equals',
             mockGraphqlValue: mr.action.graphqlFilter?.value || '',
-            // Persisted shape is a Record<string, string>; the editor's
-            // Form.List wants an array of {name, value} rows.
             mockResponseHeaders: Object.entries(mr.action.responseHeaders ?? {}).map(([name, value]) => ({
               name,
               value,
@@ -353,6 +388,18 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           break;
         }
       }
+    },
+    [form],
+  );
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+
+    if (mode === 'edit' && ruleUid) {
+      const rule = rules.find((r) => r.uid === ruleUid);
+      if (!rule) return;
+      initializedRef.current = true;
+      populateFormFromRule(rule);
     } else if (mode === 'create' && ruleType) {
       initializedRef.current = true;
 
@@ -423,7 +470,37 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
       }
     }
-  }, [mode, ruleType, ruleUid, rules, form, initialDraft, draftUrlStrategy]);
+  }, [mode, ruleType, ruleUid, rules, form, initialDraft, draftUrlStrategy, populateFormFromRule]);
+
+  // Phase A A4 — live-update reconciliation.
+  //
+  // After init, `liveRule` mutates whenever another surface commits a
+  // change. The §6.2 killer demo requires those edits to land in this
+  // editor without a banner. When the editor has no uncommitted changes
+  // (`isDirty === false`), the safe move is to re-prime the form from
+  // the new live rule — same shape as the init pass, just with a
+  // newer source. When the editor IS dirty, we leave the form alone:
+  // the user is mid-edit, and per §6.3 the LWW save resolves the
+  // conflict at oracle time. The inline diff chip (focused-field-with-
+  // local-uncommitted-text branch) is a follow-up; today the
+  // unconditional save semantics keep correctness even without the
+  // chip — the user's local HLC > the incoming HLC, so their edit
+  // wins on save.
+  const liveRuleSignature = useMemo(() => {
+    if (!liveRule) return null;
+    // Lightweight identity for "did the live rule change". Compares
+    // the JSON-serialized rule; cheap relative to the form re-prime
+    // which is the work this effect gates.
+    return JSON.stringify(liveRule);
+  }, [liveRule]);
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    if (mode !== 'edit' || !liveRule) return;
+    if (isDirtyRef.current) return;
+    populateFormFromRule(liveRule);
+    // liveRuleSignature is the change trigger; the populate runs against
+    // the latest liveRule.
+  }, [liveRuleSignature, mode, liveRule, populateFormFromRule]);
 
   // Apply initial template after form init (from tab identity, runs once).
   // Must wait for selectedType to resolve — applyTemplate looks up templates by type.
@@ -676,6 +753,26 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     registerSaveRef?.(handleSubmit);
   }, [registerSaveRef, handleSubmit]);
 
+  // Phase A A5 — Undelete. The original entity is tombstoned (delete-
+  // wins per §7.2); resurrection mints a fresh uid. The open tab swaps
+  // its identity to the new uid via `onSaved`, so the editor remounts
+  // pointing at the live entity.
+  const handleUndelete = useCallback(async () => {
+    const last = lastSeenRuleRef.current;
+    if (!last) return;
+    const { uid: _uid, path: _path, ...payload } = last;
+    void _uid;
+    void _path;
+    const created = await createLocalRule(payload, localCollections[0]?.uid);
+    if (created) {
+      lastSeenRuleRef.current = null;
+      message.success('Rule restored');
+      onSaved(created.uid);
+    } else {
+      message.error('Failed to restore rule');
+    }
+  }, [createLocalRule, localCollections, message, onSaved]);
+
   const openSaveAsTemplate = useCallback(() => setSaveAsTemplateOpen(true), []);
   useEffect(() => {
     registerSaveAsTemplateRef?.(openSaveAsTemplate);
@@ -814,6 +911,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       <Typography.Text strong style={{ fontSize: 13 }}>
         {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
       </Typography.Text>
+      {isEdit && ruleUid && (
+        <PresenceBadge
+          entityType={RULE_ENTITY_TYPE}
+          entityId={ruleUid}
+          excludeSurfaceId="workbench"
+          style={{ marginLeft: 6 }}
+        />
+      )}
     </>
   );
   const headerActions = (
@@ -844,7 +949,24 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         overflowItems={overflowItems}
       />
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <div className="rules-rule-editor">
+        {isDeletedRemotely && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ margin: 12, fontSize: 12 }}
+            message="This rule was deleted from another surface."
+            description="Restore creates a fresh copy with a new id (the original tombstone is permanent — see sync engine spec §7.2)."
+            action={
+              <Button size="small" type="primary" onClick={() => void handleUndelete()}>
+                Restore
+              </Button>
+            }
+          />
+        )}
+        <div
+          className="rules-rule-editor"
+          style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+        >
           <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
             <Form
               form={form}
@@ -949,6 +1071,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       onTabChange={setHeaderActiveTab}
                       reqCount={headerReqCount}
                       resCount={headerResCount}
+                      ruleUid={mode === 'edit' ? ruleUid : undefined}
+                      surfaceId="workbench"
                     />
                   )}
                   {selectedType === 'block' && <BlockRuleFields />}
