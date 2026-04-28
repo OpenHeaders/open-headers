@@ -50,7 +50,7 @@ const TargetControl: React.FC<{
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <Text strong style={{ fontSize: labelFontSize }}>
-        Import into
+        Import into workspace
       </Text>
       <Segmented
         size={size}
