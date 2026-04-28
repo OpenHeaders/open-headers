@@ -175,9 +175,14 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
   //
   // The inline `--focus-border: transparent` cascade kills allotment's
   // default blue (#007fd4) sash-hover highlight inside this subtree,
-  // matching the workspace's neutral resize handles. Scoped via
-  // inline style instead of a global CSS rule so the workspace's own
-  // dock layout keeps its hover affordance untouched.
+  // matching the workspace's neutral resize handles. `--separator-border`
+  // is the hairline allotment renders between adjacent panes via a
+  // `::before` pseudo-element on each non-first pane; we zero it out
+  // because the 6 px gray gutter from `paneCardWrapper`'s padding is
+  // already the divider — leaving the hairline visible would draw a
+  // second, narrower line inside the gutter (visible at the seam).
+  // Both vars are scoped to this subtree so the workspace's own dock
+  // layout keeps its hover affordance + separator untouched.
   const paneCardWrapper: React.CSSProperties = {
     padding: 3,
     height: '100%',
@@ -204,6 +209,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
           flexDirection: 'row',
           overflow: 'hidden',
           '--focus-border': 'transparent',
+          '--separator-border': 'transparent',
         } as React.CSSProperties
       }
     >
