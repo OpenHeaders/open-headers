@@ -16,16 +16,17 @@
  *      them, but `buildUpdateBatch` needs to emit `removeFromSet` per
  *      existing itemId.
  *
- * The mirror does NOT seed itself from `getLocalRules` on construction:
- * Phase A's existing `useRules` hook already subscribes to
- * `rulesUpdated` and refetches the active workspace's rules on every
- * commit. Until W1 swaps the editor over to direct mutations, the
- * editor reads from `useRules`. The mirror's first useful state lands
- * the first time the SW publishes a Rule envelope post-W1.
+ * On construction the mirror fires a `oh.sync.snapshotRules` RPC at
+ * the SW so it has a starting view before any broadcast arrives. The
+ * subscription is registered first so any concurrent broadcast that
+ * lands while the snapshot is in flight wins (broadcast carries fresher
+ * post-commit state than the snapshot can). Subsequent broadcasts
+ * overwrite per-uid; tombstones drop the entry.
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { subscribe } from '@utils/bridge';
+import { call, subscribe } from '@utils/bridge';
+import { logger } from '@utils/logger';
 
 export interface RuleMirrorEntry {
   rule: V5.Rule;
@@ -51,17 +52,29 @@ export interface RuleSyncMirror {
   dispose(): void;
 }
 
+export interface CreateRuleSyncMirrorOptions {
+  /**
+   * Seed the mirror from a fresh `oh.sync.snapshotRules` RPC. Defaults
+   * to `true` in production; tests that drive only the broadcast path
+   * pass `false` so they don't have to mock the RPC.
+   */
+  bootstrap?: boolean;
+}
+
 /**
  * Build a fresh mirror. The renderer constructs one per surface (one
  * per workspace tab, one per popup, …) and tears it down on unmount.
  */
-export function createRuleSyncMirror(): RuleSyncMirror {
+export function createRuleSyncMirror(options: CreateRuleSyncMirrorOptions = {}): RuleSyncMirror {
+  const { bootstrap = true } = options;
   const entries = new Map<string, RuleMirrorEntry>();
   const listeners = new Map<string, Set<RuleMirrorListener>>();
+  const seenSinceMount = new Set<string>();
 
   const unsubscribe = subscribe('syncBroadcast', (event) => {
     const { envelope, rulePostState } = event;
     const uid = envelope.body.id;
+    seenSinceMount.add(uid);
 
     // Tombstoned / non-Rule envelopes leave rulePostState undefined.
     // For a Rule delete the entity is gone — drop our mirror entry so
@@ -74,6 +87,23 @@ export function createRuleSyncMirror(): RuleSyncMirror {
     entries.set(uid, { rule: rulePostState.rule, setItemIds: rulePostState.setItemIds });
     notify(listeners, uid);
   });
+
+  if (bootstrap) {
+    void call('oh.sync.snapshotRules')
+      .then((resp) => {
+        for (const entry of resp.entries) {
+          // A broadcast that landed mid-flight carries fresher
+          // post-commit state — defer to it instead of overwriting.
+          const uid = entry.rule.uid;
+          if (seenSinceMount.has(uid)) continue;
+          entries.set(uid, { rule: entry.rule, setItemIds: entry.setItemIds });
+          notify(listeners, uid);
+        }
+      })
+      .catch((err: Error) => {
+        logger.info('RuleSyncMirror', `bootstrap snapshot failed: ${err.message}`);
+      });
+  }
 
   return {
     getRuleMirror(uid) {

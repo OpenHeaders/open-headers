@@ -26,12 +26,17 @@
  * workspace at a time.
  */
 
-import type { SyncApplyRequest, SyncApplyResponse, SyncBroadcastEvent } from '@openheaders/core/protocol';
+import type {
+  SyncApplyRequest,
+  SyncApplyResponse,
+  SyncBroadcastEvent,
+  SyncRulePostState,
+} from '@openheaders/core/protocol';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { type BroadcastProjector, handleSyncApply, wireBroadcastToSink } from './bridge';
-import { projectRulePostState } from './rule-post-state';
+import { projectRuleByUid, projectRulePostState } from './rule-post-state';
 import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
@@ -148,6 +153,27 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
  */
 export function getOracleForCurrentWorkspace(): RuleOracle | null {
   return state?.oracle ?? null;
+}
+
+/**
+ * Snapshot every Rule the active oracle holds — `(rule, setItemIds)`
+ * per uid, the same shape `BroadcastProjector` attaches to live
+ * envelopes. Renderer surfaces call this on mount via the
+ * `oh.sync.snapshotRules` RPC so their local mirror has a starting
+ * view before the next broadcast arrives. Returns `{ entries: [] }`
+ * when the service isn't initialized — the renderer treats that as
+ * "no snapshot yet" and falls back to broadcast-only seeding.
+ */
+export function snapshotRulePostStates(): SyncRulePostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncRulePostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== RULE_ENTITY_TYPE) continue;
+    const projection = projectRuleByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
 }
 
 /**

@@ -15,7 +15,7 @@ import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/cor
 import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { applySyncRequest } from '@/background/sync/service';
+import { applySyncRequest, snapshotRulePostStates } from '@/background/sync/service';
 import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
@@ -1421,6 +1421,8 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
       // ── Sync engine (Phase A) ──────────────────────────────────
+    } else if (message.type === 'oh.sync.snapshotRules') {
+      safeResponse({ entries: snapshotRulePostStates() });
     } else if (message.type === 'oh.sync.apply') {
       // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
       // The bridge layer flattens `{ type, ...payload }` onto the

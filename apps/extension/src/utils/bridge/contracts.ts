@@ -1264,6 +1264,20 @@ export interface BridgeRpcContract {
     req: Omit<SyncApplyRequest, 'type'>;
     res: SyncApplyResponse;
   };
+  /**
+   * Snapshot the active workspace's full Rule oracle state for a
+   * freshly-mounted renderer surface — `(rule, setItemIds)` per uid,
+   * matching the broadcast `rulePostState` payload. The renderer-side
+   * mirror calls this on construction so subsequent writes can
+   * synchronously enumerate live itemIds without round-tripping per
+   * envelope (§19.4). Subsequent broadcasts overwrite per-uid; the
+   * snapshot is only authoritative for ids the SW hasn't broadcast
+   * since the surface mounted.
+   */
+  'oh.sync.snapshotRules': {
+    req: Record<string, never>;
+    res: { entries: SyncRulePostState[] };
+  };
 }
 
 /**

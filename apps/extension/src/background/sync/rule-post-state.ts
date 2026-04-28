@@ -34,8 +34,18 @@ export function projectRulePostState(
   envelope: MutationEnvelope,
 ): SyncRulePostState | null {
   if (envelope.body.type !== RULE_ENTITY_TYPE) return null;
+  return projectRuleByUid(oracle, envelope.body.id);
+}
 
-  const ruleUid = envelope.body.id;
+/**
+ * Build the rule post-state for a known rule uid. Same shape the
+ * envelope projector returns; used by the snapshot RPC to seed
+ * freshly-mounted renderer mirrors before the next live broadcast.
+ */
+export function projectRuleByUid(
+  oracle: Pick<RuleOracle, 'materializeOne' | 'liveSetItems'>,
+  ruleUid: string,
+): SyncRulePostState | null {
   const materialized = oracle.materializeOne(RULE_ENTITY_TYPE, ruleUid);
   if (!materialized) return null;
 

@@ -14,15 +14,22 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSubscribe } = vi.hoisted(() => ({ mockSubscribe: vi.fn() }));
+const { mockSubscribe, mockCall } = vi.hoisted(() => ({
+  mockSubscribe: vi.fn(),
+  mockCall: vi.fn(),
+}));
 
 vi.mock('@utils/bridge', () => ({
-  call: vi.fn(),
+  call: mockCall,
   subscribe: mockSubscribe,
   broadcast: vi.fn(),
   receive: vi.fn(),
   presence: vi.fn(),
   tabCall: vi.fn(),
+}));
+
+vi.mock('@utils/logger', () => ({
+  logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 import {
@@ -49,6 +56,8 @@ beforeEach(() => {
     if (type === 'syncBroadcast') lastHandler = handler;
     return unsubscribeMock;
   });
+  mockCall.mockReset();
+  mockCall.mockResolvedValue({ entries: [] });
 });
 
 afterEach(() => {
@@ -70,7 +79,7 @@ const outcome: MutatorOutcome = { status: 'applied' };
 
 describe('rule sync mirror', () => {
   it('folds rulePostState payloads into a per-uid view', () => {
-    const mirror = createRuleSyncMirror();
+    const mirror = createRuleSyncMirror({ bootstrap: false });
     expect(mirror.getRuleMirror('r1')).toBeNull();
 
     lastHandler?.({
@@ -86,7 +95,7 @@ describe('rule sync mirror', () => {
   });
 
   it('notifies subscribers on every touching broadcast', () => {
-    const mirror = createRuleSyncMirror();
+    const mirror = createRuleSyncMirror({ bootstrap: false });
     const seen: string[] = [];
     const off = mirror.subscribeRuleMirror('r1', (uid) => seen.push(uid));
 
@@ -117,7 +126,7 @@ describe('rule sync mirror', () => {
   });
 
   it('drops the entry on tombstone (no rulePostState)', () => {
-    const mirror = createRuleSyncMirror();
+    const mirror = createRuleSyncMirror({ bootstrap: false });
     const seen: string[] = [];
     mirror.subscribeRuleMirror('r1', (uid) => seen.push(uid));
     lastHandler?.({
@@ -138,8 +147,41 @@ describe('rule sync mirror', () => {
     expect(mockSubscribe).toHaveBeenCalledTimes(1);
   });
 
-  it('dispose drops the bridge subscription and clears state', () => {
+  it('bootstrap seeds entries from oh.sync.snapshotRules', async () => {
+    mockCall.mockResolvedValueOnce({
+      entries: [
+        { rule: rule('rA', 'A'), setItemIds: { conditions: ['c1'] } },
+        { rule: rule('rB', 'B'), setItemIds: {} },
+      ],
+    });
     const mirror = createRuleSyncMirror();
+    expect(mockCall).toHaveBeenCalledWith('oh.sync.snapshotRules');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mirror.getRuleMirror('rA')?.rule.name).toBe('A');
+    expect(mirror.liveSetItems('rA', 'conditions')).toEqual(['c1']);
+    expect(mirror.getRuleMirror('rB')?.rule.name).toBe('B');
+  });
+
+  it('bootstrap defers to broadcasts that landed first', async () => {
+    let resolveSnap!: (v: { entries: Array<{ rule: V5.Rule; setItemIds: Record<string, string[]> }> }) => void;
+    mockCall.mockReturnValueOnce(new Promise((res) => { resolveSnap = res; }));
+    const mirror = createRuleSyncMirror();
+    // Broadcast lands while snapshot in flight.
+    lastHandler?.({
+      envelope: env('rA'),
+      outcome,
+      rulePostState: { rule: rule('rA', 'fresh'), setItemIds: { conditions: ['c-fresh'] } },
+    });
+    resolveSnap({ entries: [{ rule: rule('rA', 'stale'), setItemIds: { conditions: ['c-stale'] } }] });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mirror.getRuleMirror('rA')?.rule.name).toBe('fresh');
+    expect(mirror.liveSetItems('rA', 'conditions')).toEqual(['c-fresh']);
+  });
+
+  it('dispose drops the bridge subscription and clears state', () => {
+    const mirror = createRuleSyncMirror({ bootstrap: false });
     lastHandler?.({
       envelope: env('r1'),
       outcome,

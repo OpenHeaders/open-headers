@@ -17,7 +17,7 @@ import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, RuleOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { projectRulePostState } from '@/background/sync/rule-post-state';
+import { projectRuleByUid, projectRulePostState } from '@/background/sync/rule-post-state';
 import { seedRule } from '@/background/sync/rule-projection';
 
 const wsId = 'ws-1';
@@ -96,6 +96,16 @@ describe('projectRulePostState', () => {
     await oracle.apply(deleteBatch, []);
     const post = projectRulePostState(oracle, deleteBatch.mutations[0]);
     expect(post).toBeNull();
+  });
+
+  it('projectRuleByUid returns post-state for known uid + null for unknown', async () => {
+    const oracle = await newOracle();
+    const rule = makeRule(generateUid());
+    await oracle.apply(seedRule(rule, ctx(1_000)), []);
+    const post = projectRuleByUid(oracle, rule.uid);
+    expect(post?.rule.uid).toBe(rule.uid);
+    expect(post?.setItemIds.conditions?.length).toBe(1);
+    expect(projectRuleByUid(oracle, 'no-such-rule')).toBeNull();
   });
 
   it('returns null for an unknown rule id', async () => {
