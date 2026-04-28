@@ -23,7 +23,8 @@ import type { HeaderDirection } from '@openheaders/core/utils';
 import { getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
-import { FieldPresenceChip, RULE_FIELD } from '@/shared/awareness';
+import { ConflictDiffChip, FieldPresenceChip, RULE_FIELD } from '@/shared/awareness';
+import type { PathConflict } from './use-rule-conflicts';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -43,6 +44,12 @@ const OPERATIONS = [
 
 type HeaderOp = 'override' | 'add' | 'remove' | 'merge';
 
+interface ConflictHandlers {
+  getConflict: (path: string, localValue: string) => PathConflict | null;
+  onAcceptTheirs: (path: string, theirs: string) => void;
+  onDismissConflict: (path: string) => void;
+}
+
 interface ModificationListProps {
   /** Form.List parent field name — 'requestHeaders' or 'responseHeaders'. */
   name: 'requestHeaders' | 'responseHeaders';
@@ -52,9 +59,10 @@ interface ModificationListProps {
    *  drafts (create mode) — chips are entity-bound, drafts have no uid. */
   ruleUid?: string;
   surfaceId?: string;
+  conflicts?: ConflictHandlers;
 }
 
-function ModificationList({ name, direction, ruleUid, surfaceId }: ModificationListProps) {
+function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const form = Form.useFormInstance();
   return (
@@ -184,6 +192,32 @@ function ModificationList({ name, direction, ruleUid, surfaceId }: ModificationL
                     excludeSurfaceId={surfaceId}
                   />
                 )}
+                {ruleUid && conflicts && (
+                  <Form.Item
+                    noStyle
+                    shouldUpdate={(prev, cur) =>
+                      prev[name]?.[field.name]?.value !== cur[name]?.[field.name]?.value
+                    }
+                  >
+                    {({ getFieldValue }) => {
+                      const localValue = String(getFieldValue([name, field.name, 'value']) ?? '');
+                      const path = RULE_FIELD.headerMod(direction, field.name, 'value');
+                      const conflict = conflicts.getConflict(path, localValue);
+                      if (!conflict) return null;
+                      return (
+                        <ConflictDiffChip
+                          theirs={conflict.theirs}
+                          base={conflict.base}
+                          onTakeTheirs={() => {
+                            form.setFieldValue([name, field.name, 'value'], conflict.theirs);
+                            conflicts.onAcceptTheirs(path, conflict.theirs);
+                          }}
+                          onKeepMine={() => conflicts.onDismissConflict(path)}
+                        />
+                      );
+                    }}
+                  </Form.Item>
+                )}
                 <Button
                   type="text"
                   size="small"
@@ -272,6 +306,12 @@ interface HeaderRuleFieldsProps {
   ruleUid?: string;
   /** Local surface id ('workbench'), so per-row chips don't render this surface. */
   surfaceId?: string;
+  /** Conflict-tracker bridge — diff chip is rendered when getConflict
+   *  returns a non-null entry for a row's value path. Undefined in
+   *  draft mode (no live rule to conflict with). */
+  getConflict?: (path: string, localValue: string) => PathConflict | null;
+  onAcceptTheirs?: (path: string, theirs: string) => void;
+  onDismissConflict?: (path: string) => void;
 }
 
 const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
@@ -281,9 +321,14 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   resCount,
   ruleUid,
   surfaceId,
+  getConflict,
+  onAcceptTheirs,
+  onDismissConflict,
 }) => {
   const { openDocs } = useInspectorNav();
   const hasResponse = resCount > 0;
+  const conflictBridge =
+    getConflict && onAcceptTheirs && onDismissConflict ? { getConflict, onAcceptTheirs, onDismissConflict } : undefined;
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -320,7 +365,13 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
               </span>
             ),
             children: (
-              <ModificationList name="requestHeaders" direction="request" ruleUid={ruleUid} surfaceId={surfaceId} />
+              <ModificationList
+                name="requestHeaders"
+                direction="request"
+                ruleUid={ruleUid}
+                surfaceId={surfaceId}
+                conflicts={conflictBridge}
+              />
             ),
           },
           {
@@ -331,7 +382,13 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
               </span>
             ),
             children: (
-              <ModificationList name="responseHeaders" direction="response" ruleUid={ruleUid} surfaceId={surfaceId} />
+              <ModificationList
+                name="responseHeaders"
+                direction="response"
+                ruleUid={ruleUid}
+                surfaceId={surfaceId}
+                conflicts={conflictBridge}
+              />
             ),
           },
         ]}

@@ -833,7 +833,11 @@ export function handleGeneralMessage(
       deleteRule(ruleId)
         .then((success) => {
           if (success) {
-            scheduleUpdate('rules', { immediate: true });
+            // DNR recompile is handled by the sync DNR intent runner
+            // (`background/sync/dnr-intent-runner.ts`) — every Rule
+            // mutator emits a `RECOMPILE_DNR` intent that the runner
+            // drains on the post-commit broadcast. Legacy
+            // `scheduleUpdate('rules', { immediate: true })` removed.
             updateBadgeCallback();
             pruneOrphanTestRunOwners();
           }
@@ -870,7 +874,7 @@ export function handleGeneralMessage(
         : addRuleToCollection(ruleData, (collectionUid ? { uid: collectionUid } : ensureDefaultCollection()).uid);
       createPromise
         .then((created) => {
-          scheduleUpdate('rules', { immediate: true });
+          // DNR recompile via dnr-intent-runner; see deleteRule note above.
           updateBadgeCallback();
           safeResponse({ success: true, rule: created });
         })
@@ -896,7 +900,9 @@ export function handleGeneralMessage(
       deleteFolder(message.folderUid as string)
         .then((success) => {
           if (success) {
-            scheduleUpdate('rules', { immediate: true });
+            // Cascade per-rule deletes flow through the oracle (see
+            // rule-store.ts `deleteFolder`) and emit RECOMPILE_DNR
+            // intents the runner drains. Legacy scheduleUpdate dropped.
             updateBadgeCallback();
             pruneOrphanTestRunOwners();
           }
@@ -917,7 +923,8 @@ export function handleGeneralMessage(
       deleteCollection(message.collectionUid as string)
         .then((success) => {
           if (success) {
-            scheduleUpdate('rules', { immediate: true });
+            // Cascade rule deletes route through the oracle; runner
+            // covers the DNR recompile. Legacy scheduleUpdate dropped.
             updateBadgeCallback();
             pruneOrphanTestRunOwners();
           }

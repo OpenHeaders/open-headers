@@ -29,6 +29,8 @@ import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme 
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PresenceBadge } from '@/shared/awareness';
+import { mapAntdIdToFieldPath } from './rule-fields/field-path-map';
+import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { formatString } from '../languages/prettier';
@@ -211,12 +213,46 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   );
   const dirtyFields = useMemo<string[]>(() => (isDirty ? ['*'] : []), [isDirty]);
 
+  // Per-field focus path. The DOM target's id (set by antd Form on every
+  // bound input) is the load-bearing signal — focus events from inputs
+  // bubble through capture so a single listener on the Form root catches
+  // every field swap. The map handles header-mod / condition /
+  // query-param / mock-header indexed paths plus scalar field ids.
+  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
+  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    const id = target?.getAttribute?.('id') ?? null;
+    const path = mapAntdIdToFieldPath(id);
+    if (path) setFocusedFieldPath(path);
+  }, []);
+  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    // relatedTarget is the next focus recipient. If it's another bound
+    // input still inside the form, the next focusCapture will replace
+    // the path; only clear when focus actually leaves the form.
+    const next = e.relatedTarget as HTMLElement | null;
+    if (next && e.currentTarget.contains(next)) return;
+    setFocusedFieldPath(null);
+  }, []);
+  const fieldFocus = useMemo(
+    () =>
+      mode === 'edit' && ruleUid && focusedFieldPath
+        ? { type: RULE_ENTITY_TYPE, id: ruleUid, path: focusedFieldPath }
+        : null,
+    [mode, ruleUid, focusedFieldPath],
+  );
+
   useAwareness({
     workspaceId: activeWorkspaceId,
     surfaceId: 'workbench',
     entityFocus,
-    fieldFocus: null,
+    fieldFocus,
     dirtyFields,
+    enabled: mode === 'edit' && !!ruleUid,
+  });
+
+  const conflicts = useRuleConflicts({
+    liveRule: liveRule ?? null,
+    isDirty,
     enabled: mode === 'edit' && !!ruleUid,
   });
 
@@ -304,6 +340,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         ruleType: rule.type,
         conditions: rule.conditions,
       };
+      conflicts.setBaseline(rule);
       switch (rule.type) {
         case 'header': {
           const hr = rule as V5.HeaderRule;
@@ -389,7 +426,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         }
       }
     },
-    [form],
+    [form, conflicts],
   );
 
   useEffect(() => {
@@ -723,6 +760,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         if (result.ok) {
           message.success('Rule updated');
           notifyDirty(false);
+          conflicts.clearDismissed();
           onSaved(ruleUid);
         } else if (result.reason === 'not-found') {
           message.error('Rule was deleted from another tab');
@@ -747,6 +785,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     notifyDirty,
     onSaved,
     onSaveDraft,
+    conflicts,
   ]);
 
   useEffect(() => {
@@ -966,6 +1005,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         <div
           className="rules-rule-editor"
           style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+          onFocusCapture={handleFocusCapture}
+          onBlurCapture={handleBlurCapture}
         >
           <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
             <Form
@@ -1073,6 +1114,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       resCount={headerResCount}
                       ruleUid={mode === 'edit' ? ruleUid : undefined}
                       surfaceId="workbench"
+                      getConflict={conflicts.getConflict}
+                      onAcceptTheirs={conflicts.acceptTheirs}
+                      onDismissConflict={conflicts.dismiss}
                     />
                   )}
                   {selectedType === 'block' && <BlockRuleFields />}

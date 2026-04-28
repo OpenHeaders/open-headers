@@ -18,10 +18,11 @@
  * own API doesn't need to change.
  */
 
-import { Tag, Typography } from 'antd';
+import { Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { STATUS_TAG_WIDTH } from './StatusPill';
 import type { StatusEntry, StatusSubsystem } from './types';
+import { useBootRegression } from './use-boot-regression';
 
 /**
  * Render function matching `StatusPillProps.renderSubsystemExtras`.
@@ -35,10 +36,44 @@ import type { StatusEntry, StatusSubsystem } from './types';
  */
 export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEntry | undefined): React.ReactNode {
   if (subsystem === 'sync') {
-    return <ExtrasRow tagColor="blue" label="Desktop App" message="v5 coming soon" />;
+    return (
+      <>
+        <ExtrasRow tagColor="blue" label="Desktop App" message="v5 coming soon" />
+        <BootRegressionCallout />
+      </>
+    );
   }
   return null;
 }
+
+/**
+ * T3 boot-regression surface — renders only when the gate has tripped
+ * and the baseline is pinned. The verdict is computed in the renderer
+ * (`use-boot-regression.ts`) by feeding the recent `boot.interactive`
+ * samples into the pure decision module
+ * (`background/sync/boot-regression.ts`). Suppressed entirely while the
+ * baseline is 0 so we don't surface a meaningless "no regression" pill
+ * before measurement.
+ */
+const BootRegressionCallout: React.FC = () => {
+  const { verdict, baselinePending } = useBootRegression();
+  if (baselinePending) return null;
+  if (!verdict.regressed) return null;
+  const tooltip =
+    `Three consecutive cold wakes exceeded baseline by ≥20%. ` +
+    `Recent boot.interactive samples (ms): ${verdict.offending.join(', ')}.`;
+  return (
+    <Tooltip title={tooltip} placement="top">
+      <div>
+        <ExtrasRow
+          tagColor="orange"
+          label="Cold start"
+          message="Performance regression detected — see diagnostic export"
+        />
+      </div>
+    </Tooltip>
+  );
+};
 
 interface ExtrasRowProps {
   tagColor: string;
