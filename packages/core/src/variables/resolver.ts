@@ -136,7 +136,13 @@ export type ResolutionErrorReason =
   | 'reserved-namespace' // `{{dynamic.X}}` — reserved for features not yet shipped
   | 'unset-in-scope' // `{{env.X}}` but X not in active env (and no default fallback)
   | 'step-out-of-context' // `{{step.X.Y}}` outside an active Live Workflow step
-  | 'unresolved'; // `{{X}}` — nowhere in the 4-scope chain
+  | 'unresolved' // `{{X}}` — nowhere in the 4-scope chain
+  // The reference resolved cleanly, but the resolved value isn't a legal
+  // hostname for `requestDomains` (scheme, path, wildcard, whitespace,
+  // non-ASCII, …). We sanitize at compile time so the rule still ships,
+  // but surface the diagnosis so the user knows their variable is shaped
+  // wrong.
+  | 'invalid-resolved-value';
 
 /**
  * Return shape of the diagnostic scoped-resolver. `failureReason` is
@@ -168,6 +174,45 @@ export interface ResolutionError {
   defaultEnvironmentId: string | null;
   /** Short human-readable fix hint. UI may replace with a richer message. */
   hint: string;
+}
+
+/**
+ * Construct a `ResolutionError` for a `{{ref}}` whose resolution
+ * succeeded at the resolver layer but whose resolved value is rejected
+ * downstream (post-resolve domain sanitization, type coercion failure,
+ * …). Lives here so the namespace parsing + hint generation stays
+ * colocated with the rest of the error-construction code.
+ *
+ * `reference` is the raw text between the braces, e.g. `'env.API_HOST'`
+ * or `'API_HOST'`. The `customHint` overrides the default per-reason
+ * hint when the caller has site-specific advice (e.g. "got
+ * `https://...` — drop the scheme").
+ */
+export function buildPostResolveError(
+  reference: string,
+  reason: ResolutionErrorReason,
+  env: ResolutionEnvSnapshot | undefined,
+  customHint?: string,
+): ResolutionError {
+  const trimmed = reference.trim();
+  const parsed = parseReference(trimmed);
+  const namespace: VariableNamespace | 'unknown' | null = parsed.ok
+    ? parsed.ref.namespace
+    : parsed.reason === 'unknown-namespace'
+      ? 'unknown'
+      : null;
+  const variableName = parsed.ok ? parsed.ref.name : trimmed;
+  const activeEnvironmentId = env?.activeEnvironmentId ?? null;
+  const defaultEnvironmentId = env?.defaultEnvironmentId ?? null;
+  return {
+    reference: trimmed,
+    reason,
+    namespace,
+    variableName,
+    activeEnvironmentId,
+    defaultEnvironmentId,
+    hint: customHint ?? buildHint(reason, namespace, activeEnvironmentId),
+  };
 }
 
 function buildHint(
@@ -202,6 +247,8 @@ function buildHint(
       return 'Step references ({{step.<stepId>.<captureName>}}) are only valid inside a Live Workflow step.';
     case 'unresolved':
       return 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
+    case 'invalid-resolved-value':
+      return 'Variable resolved to a value Chrome rejects in this slot — check the variable definition and use bare hostnames (no scheme, no path, no wildcard).';
   }
 }
 
@@ -618,6 +665,19 @@ export class VariableResolver {
         defaultEnvironmentId: this.defaultEnvironmentId,
       },
     );
+  }
+
+  /**
+   * Snapshot of the active/default env IDs the resolver is currently
+   * configured with. Used by post-resolve diagnostic builders that need
+   * to construct `ResolutionError` shapes carrying the same env context
+   * the live resolver did.
+   */
+  getEnvSnapshot(context?: ResolutionContext): ResolutionEnvSnapshot {
+    return {
+      activeEnvironmentId: context?.environmentId ?? this.activeEnvironmentId,
+      defaultEnvironmentId: this.defaultEnvironmentId,
+    };
   }
 
   /**

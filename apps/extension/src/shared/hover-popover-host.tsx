@@ -117,7 +117,24 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
     // Escape, click-outside, or save. Passive readers aren't surprised
     // by a close on stray clicks because the switch only flips on a
     // click-into.
-    const [interacted, setInteracted] = useState(false);
+    //
+    // `interactedRef` is the source of truth, read synchronously by
+    // `scheduleClose` and `handleOutside`. The mirrored state exists
+    // only to re-create callback closures so React state-derived UI
+    // can react to it — but no scheduling logic depends on the state
+    // value to be committed. Keeping the state-only dance led to a
+    // race where a mousedown queued `setInteracted(true)` and a
+    // mouseout / mouseleave firing in the same micro-batch read the
+    // STALE closure (interacted=false) and scheduled a close that
+    // fired 150ms later, dismissing a popover the user had clearly
+    // committed to.
+    const interactedRef = useRef(false);
+    const [, setInteractedVersion] = useState(0);
+    const setInteracted = useCallback((v: boolean) => {
+      if (interactedRef.current === v) return;
+      interactedRef.current = v;
+      setInteractedVersion((n) => n + 1);
+    }, []);
     // True during the close animation — the body stays mounted but
     // fades out via its `visible` prop. After `closeAnimMs` the
     // unmount-timer flips `state` to null and tears down the DOM.
@@ -152,10 +169,22 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
         setClosing(false);
         unmountTimer.current = null;
       }, closeAnimMs);
-    }, [cancelClose, cancelUnmount]);
+    }, [cancelClose, cancelUnmount, setInteracted]);
 
     const open = useCallback(
       (next: TState) => {
+        // Sticky-edit guard. Once the user has clicked inside the
+        // current popover, any further hover events on OTHER `{{ref}}`
+        // chips elsewhere on the page must NOT swap or replace the
+        // popover. The user's commitment to the current edit overrides
+        // hover signals from neighbors. Only Escape, outside-click, or
+        // an explicit save closes the active session — at which point
+        // the user is free to hover a different chip and start a new
+        // one. Same-identity re-hovers (cursor returns to the source
+        // chip) are allowed through because they don't change state.
+        if (interactedRef.current && state) {
+          if (identity(state) !== identity(next)) return;
+        }
         cancelClose();
         // Re-opening during the close animation: cancel the pending
         // unmount, reveal again. Keeps the same DOM if identity is
@@ -163,15 +192,23 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
         // handles fresh mount when identity DOES change.
         cancelUnmount();
         setClosing(false);
+        // Identity changes (different ref / different anchor) reset
+        // `interacted` — that's a new session. SAME identity preserves
+        // it so re-hovering the source chip doesn't silently lose the
+        // sticky flag the user committed to by clicking inside.
+        const prevIdentity = state ? identity(state) : null;
+        if (prevIdentity !== identity(next)) interactedRef.current = false;
         setState(next);
-        setInteracted(false);
       },
-      [cancelClose, cancelUnmount],
+      [cancelClose, cancelUnmount, state],
     );
 
     const scheduleClose = useCallback<HoverPopoverApi<TState>['scheduleClose']>(
       (relatedTarget) => {
-        if (interacted) return;
+        // Synchronous ref read — no closure-staleness race. A mousedown
+        // that flipped `interactedRef.current = true` in the SAME tick
+        // is honored even before React commits the mirrored state.
+        if (interactedRef.current) return;
         // Cursor moving into a portal-mounted child overlay (suggestion
         // dropdown, nested variable popover) doesn't count as leaving
         // the popover surface — without this check the parent popover
@@ -187,7 +224,7 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
           closeNow();
         }, closeGraceMs);
       },
-      [cancelClose, interacted, closeNow],
+      [cancelClose, closeNow],
     );
 
     const api = useMemo<HoverPopoverApi<TState>>(
@@ -198,10 +235,10 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
     const handleInside = useCallback(() => {
       setInteracted(true);
       cancelClose();
-    }, [cancelClose]);
+    }, [cancelClose, setInteracted]);
     const handleOutside = useCallback(() => {
-      if (interacted) closeNow();
-    }, [interacted, closeNow]);
+      if (interactedRef.current) closeNow();
+    }, [closeNow]);
 
     useDismiss({
       active: state !== null,

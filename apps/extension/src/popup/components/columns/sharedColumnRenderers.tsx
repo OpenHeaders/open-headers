@@ -305,9 +305,15 @@ export function renderConditionsSummary(
     (a, b) => (CONDITION_PRIORITY[a.type] ?? 99) - (CONDITION_PRIORITY[b.type] ?? 99),
   );
 
-  // Build tag descriptors — one per condition, no per-tag tooltips (single shared tooltip)
+  // Build tag descriptors — one per condition, no per-tag tooltips
+  // (single shared tooltip below). The label is smart-truncated so a
+  // `{{env.LONG_NAME}}` reference doesn't render as `{{env.LO...}}`
+  // (which obscured exactly the part the user needs to read). The
+  // 24-char budget keeps the tag readable inside the column; CSS
+  // ellipsis below acts as a last-resort fallback if the column
+  // narrows further.
   const allTags: TagDescriptor[] = sorted.map((cond) => ({
-    label: conditionToLabel(cond),
+    label: truncateValue(conditionToLabel(cond), 24),
     color: cond.type.startsWith('exclude-') ? 'warning' : undefined,
   }));
 
@@ -341,7 +347,9 @@ export function renderConditionsSummary(
 
   return (
     <Tooltip title={tooltip} styles={{ root: { maxWidth: 500 } }}>
-      <div style={{ overflow: 'hidden', display: 'flex' }}>{renderTagOverflow(allTags, 1, 72, true)}</div>
+      {/* maxTagWidth bumped from 72 → 160 so smart-truncated labels
+          like `{{env.…AIN}}` aren't immediately re-clipped by CSS. */}
+      <div style={{ overflow: 'hidden', display: 'flex' }}>{renderTagOverflow(allTags, 1, 160, true)}</div>
     </Tooltip>
   );
 }
@@ -443,9 +451,103 @@ export function renderActionDetails(
   );
 }
 
+/**
+ * Truncate a display value WITHOUT slicing through a `{{ref}}` token.
+ *
+ * The naive mid-ellipsis (`a.substring(0, p) + '…' + a.substring(-s)`) used
+ * to render values like `{{vault.CGM_X_BEARER_TOKEN}}` as `{{vault.C…EN}}`
+ * which obscured the variable name — exactly the part the user needs to
+ * read at a glance to tell which rule references which scope.
+ *
+ * Strategy:
+ *   1. Tokenize the value into literal vs `{{ref}}` chunks.
+ *   2. If the WHOLE thing fits in `maxLen`, return it as-is.
+ *   3. Otherwise, prefer the LAST `{{ref}}` (the variable name is the
+ *      load-bearing part of any rule). Pad with as much surrounding
+ *      literal as fits, ellipsizing the rest.
+ *   4. If even one ref alone is wider than `maxLen` (rare — would mean
+ *      a 32+ char variable name in a small column), fall back to the
+ *      legacy mid-ellipsis just on that ref so the user at least sees
+ *      its namespace prefix.
+ */
 export function truncateValue(value: string, maxLen = 16): string {
   if (value.length <= maxLen) return value;
-  const suffixLen = Math.max(4, Math.floor(maxLen * 0.25));
-  const prefixLen = maxLen - suffixLen - 3;
-  return `${value.substring(0, prefixLen)}...${value.substring(value.length - suffixLen)}`;
+
+  type Chunk = { kind: 'lit' | 'ref'; text: string };
+  const chunks: Chunk[] = [];
+  const TEMPLATE = /\{\{[^}]+\}\}/g;
+  let last = 0;
+  for (const m of value.matchAll(TEMPLATE)) {
+    const start = m.index ?? 0;
+    if (start > last) chunks.push({ kind: 'lit', text: value.slice(last, start) });
+    chunks.push({ kind: 'ref', text: m[0] });
+    last = start + m[0].length;
+  }
+  if (last < value.length) chunks.push({ kind: 'lit', text: value.slice(last) });
+
+  // No refs at all — fall back to legacy mid-ellipsis.
+  if (!chunks.some((c) => c.kind === 'ref')) {
+    const suffixLen = Math.max(4, Math.floor(maxLen * 0.25));
+    const prefixLen = maxLen - suffixLen - 3;
+    return `${value.substring(0, prefixLen)}...${value.substring(value.length - suffixLen)}`;
+  }
+
+  // Anchor on the LAST ref. The variable name is the most informative
+  // token in the value at-a-glance.
+  let anchorIdx = -1;
+  for (let i = chunks.length - 1; i >= 0; i--) {
+    if (chunks[i].kind === 'ref') {
+      anchorIdx = i;
+      break;
+    }
+  }
+  const anchor = chunks[anchorIdx]!;
+
+  // Anchor alone exceeds budget — abbreviate inside the anchor as a last
+  // resort, preserving its leading `{{namespace.` prefix.
+  if (anchor.text.length > maxLen) {
+    const inner = anchor.text.slice(2, -2); // drop the outer braces
+    const dotIdx = inner.indexOf('.');
+    const prefix = dotIdx >= 0 ? inner.slice(0, dotIdx + 1) : '';
+    const tailBudget = Math.max(0, maxLen - 2 /* {{ */ - 2 /* }} */ - prefix.length - 1 /* … */);
+    return `{{${prefix}…${inner.slice(-tailBudget)}}}`;
+  }
+
+  // Build outward from the anchor: include preceding literal/ref chunks
+  // until we'd exceed budget, then prepend an ellipsis if anything was
+  // dropped on the left. Same on the right (rare since anchor is last
+  // ref, but a trailing literal — e.g. `{{X}} suffix` — would be
+  // dropped first).
+  let used = anchor.text.length;
+  let leftIdx = anchorIdx;
+  let rightIdx = anchorIdx;
+  let leftDropped = false;
+  let rightDropped = false;
+
+  for (let i = anchorIdx - 1; i >= 0; i--) {
+    const len = chunks[i].text.length;
+    if (used + len + (leftDropped ? 0 : 1 /* … */) > maxLen) {
+      leftDropped = leftIdx > 0;
+      break;
+    }
+    used += len;
+    leftIdx = i;
+  }
+  for (let i = anchorIdx + 1; i < chunks.length; i++) {
+    const len = chunks[i].text.length;
+    if (used + len + (rightDropped ? 0 : 1 /* … */) > maxLen) {
+      rightDropped = rightIdx < chunks.length - 1;
+      break;
+    }
+    used += len;
+    rightIdx = i;
+  }
+
+  let out = chunks
+    .slice(leftIdx, rightIdx + 1)
+    .map((c) => c.text)
+    .join('');
+  if (leftIdx > 0) out = `…${out}`;
+  if (rightIdx < chunks.length - 1) out = `${out}…`;
+  return out;
 }

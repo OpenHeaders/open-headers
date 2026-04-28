@@ -1050,9 +1050,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       marginBottom: 10,
                     }}
                   >
-                    Rows combine with <strong>AND</strong> — every row must match. Each row shows an <strong>OR</strong>{' '}
-                    badge (multiple values match if any matches) or a <strong>1 value</strong> badge (singleton type).
-                    Add at least one condition.
+                    Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must match.
+                    To match any of several values, list them inside one row (the <strong>OR</strong> badge marks rows
+                    that accept multiple values; <strong>1 value</strong> rows take a single scalar). Add at least one
+                    condition.
                   </div>
                   <Form.Item name="conditions" style={{ marginBottom: 0 }}>
                     <ConditionEditor />

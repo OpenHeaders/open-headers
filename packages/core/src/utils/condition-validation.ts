@@ -25,18 +25,42 @@
  */
 
 import type { ConditionType, RuleCondition } from '../types/v5/rule';
-import { CONDITION_META, getConditionMutexKey } from './condition-metadata';
+import { CONDITION_META, getConditionSlotKey, isDomainListConditionType } from './condition-metadata';
 import { validateHeaderName } from './headers';
 
-/** Condition types where the value list IS a domain list. */
-const DOMAIN_CONDITION_TYPES: ReadonlySet<ConditionType> = new Set([
-  'request-domains',
-  'exclude-request-domains',
-  'initiator-domains',
-  'exclude-initiator-domains',
-]);
+export type DomainIssueKind = 'wildcard' | 'port' | 'scheme' | 'uppercase' | 'non-ascii' | 'empty' | 'whitespace';
 
-export type DomainIssueKind = 'wildcard' | 'port' | 'scheme' | 'uppercase' | 'non-ascii' | 'empty';
+/**
+ * One-line phrase describing each domain issue kind, suitable for
+ * inline summary use ("Variable resolved to a value Chrome rejects in
+ * this slot — <phrase>"). Kept colocated with `DomainIssueKind` so the
+ * pre-resolve UI message and the post-resolve diagnostic stay in sync
+ * — never edit one without updating the other.
+ */
+export const DOMAIN_ISSUE_SUMMARY: Readonly<Record<DomainIssueKind, string>> = Object.freeze({
+  whitespace: 'contains whitespace (separate hostnames with commas)',
+  scheme: 'contains a scheme — drop the protocol prefix',
+  wildcard: 'contains a wildcard — requestDomains auto-matches subdomains',
+  port: 'contains a port — requestDomains matches by hostname only',
+  uppercase: 'contains uppercase characters — requestDomains is lowercase ASCII',
+  'non-ascii': 'contains characters Chrome rejects (use punycode for IDN names)',
+  empty: 'is empty after sanitization',
+});
+
+/**
+ * Most-informative-first summary across a set of domain issues. Used
+ * by post-resolve diagnostics to enrich the `invalid-resolved-value`
+ * hint with the specific shape problem found. Order matches the
+ * dependency order of strips inside `inspectDomainValue`.
+ */
+export function summarizeDomainIssues(issues: ReadonlyArray<{ kind: DomainIssueKind }>): string {
+  const kinds = new Set(issues.map((i) => i.kind));
+  const order: DomainIssueKind[] = ['whitespace', 'scheme', 'wildcard', 'port', 'uppercase', 'non-ascii', 'empty'];
+  for (const k of order) {
+    if (kinds.has(k)) return DOMAIN_ISSUE_SUMMARY[k];
+  }
+  return 'is not a valid bare hostname';
+}
 
 export interface DomainValueIssue {
   /** Index in the condition's `values` array. */
@@ -44,8 +68,18 @@ export interface DomainValueIssue {
   /** The raw value as the user typed it. */
   raw: string;
   /** Suggested replacement after stripping the offending bits. Empty
-   *  string means "no salvageable hostname — drop the entry". */
+   *  string means "no salvageable hostname — drop the entry". When
+   *  `cleanedSplit` is set the cleanup expands one entry into many
+   *  and `cleaned` carries the first chunk for callers that want a
+   *  single-string preview. */
   cleaned: string;
+  /**
+   * Multi-entry cleanup. Set for whitespace issues where one user-typed
+   * value should expand into several bare hostnames after the fix.
+   * `applyDomainValueCleanup` substitutes the source entry with these
+   * in order; an empty array means "drop the source entry".
+   */
+  cleanedSplit?: string[];
   kind: DomainIssueKind;
   /** Human-readable explanation suitable for inline display. */
   message: string;
@@ -62,7 +96,7 @@ export interface DomainValueIssue {
  * suggestion strips them in dependency order.
  */
 export function validateDomainValues(condition: RuleCondition): DomainValueIssue[] {
-  if (!DOMAIN_CONDITION_TYPES.has(condition.type)) return [];
+  if (!isDomainListConditionType(condition.type)) return [];
   const issues: DomainValueIssue[] = [];
   for (let i = 0; i < condition.values.length; i++) {
     const issue = inspectDomainValue(condition.values[i], i);
@@ -81,6 +115,45 @@ function inspectDomainValue(raw: string, valueIndex: number): DomainValueIssue |
   // would falsely flag the `{` / `}` characters as non-ASCII and
   // offer a "cleanup" that mangles the template tag.
   if (trimmed.includes('{{') && trimmed.includes('}}')) return null;
+
+  // 0. Whitespace inside the value — caught BEFORE scheme/wildcard/etc.
+  // so users who paste `a.com b.com c.com` get the right message ("split
+  // with commas") instead of "non-ASCII / use punycode". This is the
+  // single most common variable-driven mistake — a `DEV_DOMAINS` env
+  // value with space separators resolves to one whitespace-laced string
+  // which Chrome rejects atomically.
+  //
+  // Cleanup: split on any whitespace run and recursively sanitize each
+  // chunk so the user gets canonical bare hostnames in one click. Empty
+  // chunks (from leading/trailing/double whitespace) drop out. If a
+  // chunk still has its own issue (port, scheme, …), inspectDomainValue
+  // strips that too — the cleaned preview line stays canonical.
+  if (/\s/.test(trimmed)) {
+    const chunks = trimmed
+      .split(/\s+/)
+      .map((c) => c.trim())
+      .filter(Boolean);
+    const sanitizedChunks: string[] = [];
+    for (const chunk of chunks) {
+      const chunkIssue = inspectDomainValue(chunk, valueIndex);
+      // No issue → already canonical. Issue with cleaned → cleaned form.
+      // Issue with empty cleaned → drop. cleanedSplit on a chunk should
+      // never happen (chunks no longer contain whitespace) but is
+      // handled defensively.
+      if (!chunkIssue) sanitizedChunks.push(chunk);
+      else if (chunkIssue.cleanedSplit) sanitizedChunks.push(...chunkIssue.cleanedSplit);
+      else if (chunkIssue.cleaned) sanitizedChunks.push(chunkIssue.cleaned);
+    }
+    return {
+      valueIndex,
+      raw,
+      kind: 'whitespace',
+      cleaned: sanitizedChunks[0] ?? '',
+      cleanedSplit: sanitizedChunks,
+      message:
+        'Whitespace inside the value — separate hostnames with a comma. requestDomains takes one bare hostname per entry.',
+    };
+  }
 
   // Strip in dependency order so the cleaned suggestion is canonical
   // even when the input has multiple problems (e.g. `HTTPS://*.foo.com:443`).
@@ -164,15 +237,17 @@ function inspectDomainValue(raw: string, valueIndex: number): DomainValueIssue |
 // ── Structural validation across the condition list ─────────────
 //
 // The per-value `validateDomainValues` above looks inside one row.
-// `validateConditionStructure` looks at the SHAPE of the rows together:
+// `validateConditionStructure` looks at the SHAPE of the rows together.
+// The model is "one row per DNR slot" (see `condition-metadata.ts`):
 //
-//   - duplicate-singleton: two rows of the same singleton type (e.g.
-//     two `domain-type` rows). Only the last would survive in the
-//     emitted DNR rule.
-//   - mutex-conflict: two rows whose types share a DNR slot but aren't
-//     the same type (e.g. `url-filter` + `url-regex` — both write the
-//     same `urlPattern` slot in the compiler). Last write wins; the
-//     other is silently dropped.
+//   - duplicate-slot: two rows whose slot keys are equal. For most types
+//     that means same type; for header types, same `(type, headerName)`
+//     pair. Only the last row's value reaches Chrome — the duplicate is
+//     dead weight.
+//   - mutex-conflict: two rows of DIFFERENT types that share a slot key
+//     via their mutex group (today only `url-filter` + `url-regex` share
+//     the `'url-pattern'` slot). Same outcome as duplicate-slot but the
+//     message tells the user to pick ONE rather than merge.
 //   - unsupported-by-dnr: condition types Chrome MV3 DNR has no matching
 //     field for. The compiler drops them silently; the validator
 //     surfaces the issue so the user knows the row ships nothing.
@@ -181,7 +256,7 @@ function inspectDomainValue(raw: string, valueIndex: number): DomainValueIssue |
 // suitable for the editor (inline warnings) and the SW (compile-time
 // observability log + future hard gates).
 
-export type ConditionStructuralIssueKind = 'duplicate-singleton' | 'mutex-conflict' | 'unsupported-by-dnr';
+export type ConditionStructuralIssueKind = 'duplicate-slot' | 'mutex-conflict' | 'unsupported-by-dnr';
 
 export interface ConditionStructuralIssue {
   /** Row index in the condition list. */
@@ -191,11 +266,12 @@ export interface ConditionStructuralIssue {
   type: ConditionType;
   kind: ConditionStructuralIssueKind;
   /**
-   * For `mutex-conflict` and `duplicate-singleton`: the conflict group
-   * key (e.g. `'url-pattern'` or the type name). For `unsupported-by-dnr`:
+   * For `duplicate-slot` and `mutex-conflict`: the slot key the rows
+   * share. For header types, the key includes the lowercased header name
+   * (`'response-header::set-cookie'`). For `unsupported-by-dnr`:
    * `undefined`.
    */
-  mutexKey?: string;
+  slotKey?: string;
   /** Human-readable explanation suitable for inline display. */
   message: string;
 }
@@ -203,34 +279,31 @@ export interface ConditionStructuralIssue {
 /**
  * Walk the condition list and report every structural issue.
  *
- * Singleton-conflict semantics match the compiler's `buildDnrCondition`:
- * later rows overwrite earlier rows for any given mutex group, so the
- * LAST row of a conflicting group is the winner; every earlier row of
- * the same group is reported as the loser.
+ * Slot-conflict semantics match the compiler's `buildDnrCondition`:
+ * later rows overwrite earlier rows for any given slot, so the LAST row
+ * of a conflicting slot is the winner; every earlier row of the same
+ * slot is reported as the loser.
  */
 export function validateConditionStructure(conditions: readonly RuleCondition[]): ConditionStructuralIssue[] {
   const issues: ConditionStructuralIssue[] = [];
 
-  // Walk once to find the last CONTRIBUTING index per mutex group — that's
-  // the winner. Rows with no values don't actually claim the slot in the
-  // compiler (`buildDnrCondition` skips empty `vals` for every type except
-  // domain-type, and domain-type's switch case is a no-op when `vals[0]`
-  // is falsy), so they shouldn't claim it in the validator either.
-  // Otherwise a transient mid-edit state — user adds a second `url-filter`
-  // row and hasn't typed yet — would falsely flag the prior real row as
-  // overwritten.
-  const lastIndexByGroup = new Map<string, number>();
+  // Walk once to find the last CONTRIBUTING index per slot key — that's
+  // the winner. Rows that haven't claimed a slot yet (empty values, or
+  // header rows with no header name) cannot be winners or losers; they're
+  // mid-edit states. Otherwise an empty second row would falsely flag
+  // the prior real row as overwritten.
+  const lastIndexBySlot = new Map<string, number>();
   for (let i = 0; i < conditions.length; i++) {
     if (!contributesToSlot(conditions[i])) continue;
-    const key = getConditionMutexKey(conditions[i].type);
-    if (key) lastIndexByGroup.set(key, i);
+    const key = getConditionSlotKey(conditions[i]);
+    if (key) lastIndexBySlot.set(key, i);
   }
 
   for (let i = 0; i < conditions.length; i++) {
     const cond = conditions[i];
     const meta = CONDITION_META[cond.type];
 
-    // 1. Unsupported by DNR — independent of cardinality and value
+    // 1. Unsupported by DNR — independent of slot identity and value
     // emptiness. The user authored the row; tell them it ships nothing.
     if (meta && !meta.supportedByDnr) {
       issues.push({
@@ -244,14 +317,13 @@ export function validateConditionStructure(conditions: readonly RuleCondition[])
       continue;
     }
 
-    // 2. Singleton conflict — duplicate within the same type, or mutex
-    // collision across types in the same group. Empty rows are not
-    // contestants; they can never be the loser of a slot they didn't try
-    // to claim.
+    // 2. Slot conflict — same slot key as a later row. Empty rows are
+    // not contestants; they can never be the loser of a slot they didn't
+    // try to claim.
     if (!contributesToSlot(cond)) continue;
-    const key = getConditionMutexKey(cond.type);
+    const key = getConditionSlotKey(cond);
     if (!key) continue;
-    const winningIndex = lastIndexByGroup.get(key);
+    const winningIndex = lastIndexBySlot.get(key);
     if (winningIndex === undefined || winningIndex === i) continue;
 
     const winningType = conditions[winningIndex]?.type;
@@ -260,10 +332,10 @@ export function validateConditionStructure(conditions: readonly RuleCondition[])
       index: i,
       winningIndex,
       type: cond.type,
-      mutexKey: key,
-      kind: isSameType ? 'duplicate-singleton' : 'mutex-conflict',
+      slotKey: key,
+      kind: isSameType ? 'duplicate-slot' : 'mutex-conflict',
       message: isSameType
-        ? `Only the last ${cond.type} row applies — this row's value won't reach Chrome. Remove this row, or merge values into one.`
+        ? `Only the last ${cond.type} row applies — this row's value won't reach Chrome. Remove this row, or move its values into the row that wins.`
         : `${cond.type} and ${winningType} share a DNR slot — only the last one applies. Pick one.`,
     });
   }
@@ -273,30 +345,41 @@ export function validateConditionStructure(conditions: readonly RuleCondition[])
 
 /**
  * Mirror the compiler's "skip empty values" behavior. A row with no
- * non-blank values doesn't write anything to its DNR slot — `buildDnrCondition`
- * either continues past it (most types) or no-ops the switch case
- * (domain-type's `if (vals[0])` guard) — so it can't logically win or
- * lose a mutex battle.
+ * non-blank values doesn't write anything to its DNR slot. Header
+ * conditions also need a non-empty `headerName` to claim a slot —
+ * a row with values but no name has no identity to collide on.
  */
 function contributesToSlot(cond: RuleCondition): boolean {
+  if (CONDITION_META[cond.type]?.perHeader && !cond.headerName?.trim()) return false;
   return cond.values.some((v) => v.trim());
 }
 
 /**
- * Apply every issue's `cleaned` suggestion to a condition's value
- * list. Empty cleaned values are dropped. Returns a new condition
- * (does not mutate the input).
+ * Apply every issue's cleanup suggestion to a condition's value list.
+ * Issues with `cleanedSplit` expand the source entry into multiple
+ * canonical hostnames; otherwise a single-string `cleaned` replacement
+ * is used. Empty results drop the entry entirely. Returns a new
+ * condition (does not mutate the input).
  *
  * Used by the editor's one-click "Clean up" action.
  */
 export function applyDomainValueCleanup(condition: RuleCondition, issues: readonly DomainValueIssue[]): RuleCondition {
   if (issues.length === 0) return condition;
-  const fixByIndex = new Map<number, string>();
-  for (const issue of issues) fixByIndex.set(issue.valueIndex, issue.cleaned);
+  const fixByIndex = new Map<number, string[]>();
+  for (const issue of issues) {
+    if (issue.cleanedSplit) fixByIndex.set(issue.valueIndex, issue.cleanedSplit);
+    else fixByIndex.set(issue.valueIndex, issue.cleaned ? [issue.cleaned] : []);
+  }
   const next: string[] = [];
   for (let i = 0; i < condition.values.length; i++) {
-    const replacement = fixByIndex.has(i) ? fixByIndex.get(i)! : condition.values[i];
-    if (replacement.length > 0) next.push(replacement);
+    const replacement = fixByIndex.get(i);
+    if (replacement !== undefined) {
+      for (const piece of replacement) {
+        if (piece.length > 0) next.push(piece);
+      }
+    } else {
+      next.push(condition.values[i]);
+    }
   }
   return { ...condition, values: next };
 }

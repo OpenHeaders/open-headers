@@ -595,19 +595,25 @@ export function RuleHoverPopover({
 
       {editable ? (
         <>
+          {/* Top row: operation + name + (merge sep). Editable VALUE moved
+              below so a long token-style value gets a wide multiline
+              surface and never pushes the operation/name into a wrap. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Select
               size="small"
               value={draft.operation}
               onChange={(op) => updateDraft({ operation: op })}
               options={OPERATION_OPTIONS}
-              style={{ width: 100, flexShrink: 0 }}
+              // Width sized so the longest option label ("Add / Replace")
+              // fits without truncation. Earlier 100 px clipped to "Add /
+              // Re…", which obscured what the operation was.
+              style={{ width: 140, flexShrink: 0 }}
               // Popover container's stacking context is z=1080. The
               // antd Select dropdown defaults below that — lift it
               // explicitly so the menu floats above the popover.
               dropdownStyle={{ zIndex: 1090 }}
             />
-            <div style={{ width: 150, flexShrink: 0 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <TemplateInput
                 size="small"
                 value={draft.headerName}
@@ -636,18 +642,25 @@ export function RuleHoverPopover({
                 }}
               />
             )}
-            {draft.operation !== 'remove' && (
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <TemplateInput
-                  size="small"
-                  value={draft.value}
-                  onChange={(v) => updateDraft({ value: v })}
-                  placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
-                  suggestionContext={{ collectionId }}
-                />
-              </div>
-            )}
           </div>
+          {draft.operation !== 'remove' && (
+            // Multiline value surface. Long token-style values
+            // (Bearer JWTs, base64 blobs) used to overflow horizontally
+            // and corrupted the {{ref}} highlight rendering. Cap the
+            // visible area at ~4 lines and scroll vertically inside.
+            // `--oh-multiline-cap` is declared in panel.css :root.
+            <div style={{ marginTop: 6, width: '100%', minWidth: 0 }}>
+              <TemplateInput
+                size="small"
+                multiline
+                value={draft.value}
+                onChange={(v) => updateDraft({ value: v })}
+                placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
+                suggestionContext={{ collectionId }}
+                style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
+              />
+            </div>
+          )}
           {/* Inline validation errors. Capability errors keep the
               "Switch to <suggestion>" affordance so the user can fix
               it in one click. Name / value errors are read-only. */}
@@ -778,11 +791,27 @@ function SnapshotBlock({
 }: SnapshotBlockProps) {
   const { token } = theme.useToken();
   const mod = ctx.snapshotMod;
+  // Long token-style values (Bearer JWTs, base64 blobs, cookies) used
+  // to render at full height inside the snapshot block — for a 3 KB
+  // JWT that meant the popover was 800 px tall and pushed the editable
+  // form below the fold. Cap the visible area at ~4 lines with inner
+  // vertical scroll. `display: inline-block` is required for max-height
+  // / overflow to take on a span; `flex: 1; minWidth: 0` lets the value
+  // shrink to the row's available width inside the flex parent and
+  // wrap rather than overflow horizontally.
   const valueStyle: React.CSSProperties = {
     fontFamily: token.fontFamilyCode,
     fontSize: 12,
     wordBreak: 'break-all',
+    whiteSpace: 'pre-wrap',
     lineHeight: 1.45,
+    display: 'inline-block',
+    flex: 1,
+    minWidth: 0,
+    // Same cap as the editable value field below — see panel.css :root.
+    maxHeight: 'var(--oh-multiline-cap, 96px)',
+    overflowY: 'auto',
+    overflowX: 'hidden',
   };
   const labelStyle: React.CSSProperties = {
     fontSize: 10,
@@ -795,7 +824,9 @@ function SnapshotBlock({
   };
   const rowStyle: React.CSSProperties = {
     display: 'flex',
-    alignItems: 'baseline',
+    // `flex-start` (was: baseline) — baseline misaligns when the value
+    // is a multi-line scrollable block.
+    alignItems: 'flex-start',
     gap: 8,
     marginBottom: 2,
   };

@@ -44,6 +44,7 @@ const REASON_LABEL: Record<ResolutionError['reason'], string> = {
   'reserved-namespace': 'reserved',
   'step-out-of-context': 'step ref out of scope',
   empty: 'empty',
+  'invalid-resolved-value': 'invalid value',
 };
 
 interface RuleResolutionBannerProps {

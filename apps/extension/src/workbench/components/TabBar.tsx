@@ -1084,7 +1084,6 @@ const TabBar: React.FC<TabBarProps> = ({
           {
             key: 'close-other',
             label: 'Close Other Tabs',
-            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-other" />),
             disabled: tabs.length <= 1,
             onClick: () => onCloseOther(tab.id),
           },

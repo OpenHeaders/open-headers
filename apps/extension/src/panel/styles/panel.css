@@ -37,6 +37,12 @@
 /* ── Light palette (default) ────────────────────────────── */
 :root,
 [data-theme='light'] {
+  /* Vertical cap (with inner scroll) for fields that hold long pasted
+   * values — JWTs, Bearer tokens, dt-kv value cells. Mirrors the
+   * `--oh-multiline-cap` declared in `workbench/styles/rules.less` so
+   * panels rendered inside the workbench OR standalone (devtools panel)
+   * resolve the same value. One number, four call sites. */
+  --oh-multiline-cap: 96px;
   /* Outer shell frame — the grey gutter color behind dock-body "cards".
      Mirrors the workspace `colorBgLayout` token so both surfaces render
      the same elegant card-on-frame visual hierarchy. `--dt-bg` stays

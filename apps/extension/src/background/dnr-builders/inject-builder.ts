@@ -22,7 +22,6 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { formatUrlPattern } from '@openheaders/core/utils';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
@@ -47,28 +46,22 @@ export const injectCompiler: RuleCompiler<V5.InjectRule> = {
       { header: 'Content-Security-Policy-Report-Only', operation: 'remove' },
     ];
 
-    const rules: DnrRule[] = [];
-
+    // Single DNR rule. `cleanBase` already carries `requestDomains` from
+    // the request-domains row when present.
+    const condition: DnrCondition = { ...cleanBase, resourceTypes };
     if (urlPattern) {
-      const condition: DnrCondition = { ...cleanBase, resourceTypes };
       if (useRegex) condition.regexFilter = urlPattern;
       else condition.urlFilter = urlPattern;
-      rules.push({
+    }
+
+    const rules: DnrRule[] = [
+      {
         id: ctx.allocateId(),
         priority: 2000, // High — CSP must be stripped before page loads
         action: { type: 'modifyHeaders', responseHeaders: cspHeaders },
         condition,
-      });
-    } else {
-      for (const domain of domains) {
-        rules.push({
-          id: ctx.allocateId(),
-          priority: 2000,
-          action: { type: 'modifyHeaders', responseHeaders: cspHeaders },
-          condition: { ...cleanBase, urlFilter: formatUrlPattern(domain), resourceTypes },
-        });
-      }
-    }
+      },
+    ];
 
     return { dynamicRules: rules };
   },

@@ -394,15 +394,17 @@ const TopBar: React.FC<TopBarProps> = ({
               open={layoutMenuOpen}
               onOpenChange={handleLayoutOpenChange}
             >
-              <div
-                className="rules-topbar-item rules-layout-toggle"
-                role="button"
-                tabIndex={0}
-                aria-label="Layout options"
-                style={{ cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}
-              >
-                <LayoutOutlined style={{ fontSize: 13 }} />
-              </div>
+              <Tooltip title="Layout options">
+                <div
+                  className="rules-topbar-item rules-layout-toggle"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Layout options"
+                  style={{ cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}
+                >
+                  <LayoutOutlined style={{ fontSize: 13 }} />
+                </div>
+              </Tooltip>
             </Dropdown>
           </>
         )}

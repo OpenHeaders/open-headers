@@ -22,7 +22,9 @@ import type {
   Rule,
   RuleCondition,
 } from '../types/v5';
-import type { ResolutionError, VariableResolver } from './resolver';
+import { isListShapedConditionType } from '../utils/condition-metadata';
+import { applyDomainValueCleanup, summarizeDomainIssues, validateDomainValues } from '../utils/condition-validation';
+import { buildPostResolveError, type ResolutionError, type VariableResolver } from './resolver';
 
 // ── Single-rule resolution ────────────────────────────────────────
 
@@ -117,30 +119,31 @@ function dedupeErrors(errors: ResolutionError[]): ResolutionError[] {
 
 // ── Condition resolution ─────────────────────────────────────────
 
+// List-shaped condition types — see `isListShapedConditionType` in
+// `condition-metadata.ts`. Single source of truth so editor / resolver
+// / validator can never disagree about which rows split on `[,\n]`
+// after resolution.
+
 /**
- * Condition types whose `values` field is a LIST of independent
- * entries (one hostname per entry, one method per entry, …). For
- * these we expand a comma/newline-separated resolved string into
- * multiple entries so that a template variable carrying a list
- * (`MC2_DOMAINS = "a.com,b.com,c.com"`) round-trips into the right
- * shape — Chrome's `requestDomains` is `string[]`, and a single
- * `'a.com,b.com,c.com'` entry would be rejected as invalid.
+ * Public helper for callers that need only the rule's CONDITIONS
+ * resolved — the rule-applicability check in the inspector popover,
+ * for instance, runs `getRuleMatchPatterns` against the resolved
+ * conditions but doesn't care about the action's resolved shape.
+ * Walking the full action via `resolveRule` is wasted work for that
+ * code path; this entry point lets the caller skip it.
  *
- * NOT in this set: `url-filter`, `url-regex`, header conditions,
- * `domain-type`. Those carry a single pattern / single value where
- * a comma is either nonsensical or could be part of a legitimate
- * pattern; splitting would silently corrupt the user's input.
+ * Diagnostics: pass an `errors` collector to capture
+ * `invalid-resolved-value` errors (post-resolve domain sanitization);
+ * pass `undefined` for a silent best-effort resolve.
  */
-const LIST_CONDITION_TYPES: ReadonlySet<RuleCondition['type']> = new Set([
-  'request-domains',
-  'exclude-request-domains',
-  'initiator-domains',
-  'exclude-initiator-domains',
-  'request-methods',
-  'exclude-request-methods',
-  'resource-types',
-  'exclude-resource-types',
-]);
+export function resolveRuleConditions(
+  conditions: RuleCondition[],
+  resolver: VariableResolver,
+  context?: ResolutionContext,
+  errors?: ResolutionError[],
+): RuleCondition[] {
+  return resolveConditions(conditions, resolver, context, errors);
+}
 
 function resolveConditions(
   conditions: RuleCondition[],
@@ -153,14 +156,59 @@ function resolveConditions(
     // Mirror the editor's `[,\n]` split semantics post-resolution so a
     // template variable carrying a comma-separated list lands as
     // multiple entries instead of one literal string.
-    const values = LIST_CONDITION_TYPES.has(c.type) ? expandListEntries(resolved) : resolved;
-    return {
+    const values = isListShapedConditionType(c.type) ? expandListEntries(resolved) : resolved;
+    let condition: RuleCondition = {
       ...c,
       values,
       ...(c.headerName ? { headerName: resolveString(c.headerName, resolver, context, errors) } : {}),
     };
+    // Post-resolution domain sanitization. The pre-resolve validator
+    // (`validateDomainValues` called from the editor) skips template
+    // values because it can't see the resolved shape. Once a template
+    // expands to e.g. `https://api.foo.com/*` and lands in a
+    // `requestDomains` slot, Chrome would reject the entire
+    // `updateDynamicRules` batch atomically — leaving the prior
+    // ruleset stuck in place with no rule-level error. We sanitize
+    // here so the rule degrades gracefully: scheme/path/wildcard
+    // strip out, salvageable hostnames survive, and the rule still
+    // ships. Pre-resolve feedback already covers the user-typed case;
+    // this is the safety net for variable-driven values.
+    const domainIssues = validateDomainValues(condition);
+    if (domainIssues.length > 0) {
+      condition = applyDomainValueCleanup(condition, domainIssues);
+      // Surface the sanitization back to the user via the same
+      // resolution-errors channel that powers the SW status pill and the
+      // editor's RuleResolutionBanner. Attribution: every `{{ref}}` that
+      // appears in the original (pre-resolve, pre-list-split) values
+      // gets one `invalid-resolved-value` error. We don't know which
+      // specific reference contributed the bad characters — they could
+      // mix — so blaming all referenced variables is the honest
+      // signal. Dedup by reference is performed by the parent
+      // `resolveRuleWithDiagnostics` callsite.
+      if (errors && domainIssues.length > 0) {
+        const env = resolver.getEnvSnapshot(context);
+        const issueSummary = summarizeDomainIssues(domainIssues);
+        const refsSeen = new Set<string>();
+        for (const original of c.values) {
+          for (const ref of resolver.extractVariableNames(original)) {
+            if (refsSeen.has(ref)) continue;
+            refsSeen.add(ref);
+            errors.push(
+              buildPostResolveError(
+                ref,
+                'invalid-resolved-value',
+                env,
+                `Variable resolved to a value Chrome rejects in this slot — ${issueSummary}. Use bare hostnames separated by commas.`,
+              ),
+            );
+          }
+        }
+      }
+    }
+    return condition;
   });
 }
+
 
 function expandListEntries(values: readonly string[]): string[] {
   const out: string[] = [];

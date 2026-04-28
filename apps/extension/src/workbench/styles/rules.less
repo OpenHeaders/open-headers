@@ -1541,6 +1541,13 @@ html, body, #root {
 :root {
   --sash-size: 16px;
 
+  /* Vertical cap (with inner scroll) for fields that hold long pasted
+   * values — JWTs, Bearer tokens, comma-separated hostname lists. ~4
+   * lines at the small font size we use for these surfaces (popover
+   * editor, snapshot block, condition-editor domain rows, dt-kv value
+   * cells in the inspector). One number, four call sites — change here. */
+  --oh-multiline-cap: 96px;
+
   --scope-vault-color:       #cf1322;
   --scope-vault-bg:          #ffd8d5;
   --scope-environment-color: #007F31;

@@ -10,6 +10,9 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
+import { useVariableResolver } from '@hooks/useVariableResolver';
+import { resolveRule } from '@openheaders/core/variables';
+import type { VariableResolver } from '@openheaders/core/variables';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarkers } from '@openheaders/core/utils';
 import { type ActionDetail, getActionDetail, isRuleComplete } from '@openheaders/core/utils';
@@ -92,11 +95,16 @@ function treeNodesToRecords(
   rules: V5.Rule[],
   pauseMarkers: PauseMarkers,
   inherited: boolean,
+  resolver: VariableResolver,
 ): CollectionTreeRecord[] {
   return nodes.map((node) => {
     const { effective, hasOwn } = resolveNodeState(node.path, pauseMarkers, inherited);
     if (node.type === 'rule') {
       const rule = rules.find((r) => r.uid === node.uid);
+      // Resolve `{{var}}` templates so the row's display reflects what
+      // reaches the wire. Completeness checks still use the unresolved
+      // rule (structural property).
+      const resolved = rule ? resolveRule(rule, resolver) : null;
       return {
         key: node.uid,
         uid: node.uid,
@@ -104,9 +112,9 @@ function treeNodesToRecords(
         name: node.name,
         nodeType: 'rule' as const,
         ruleType: node.ruleType,
-        actionDetail: rule ? getActionDetail(rule) : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
-        domains: rule ? rule.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values) : [],
-        conditions: rule?.conditions ?? [],
+        actionDetail: resolved ? getActionDetail(resolved) : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
+        domains: resolved ? resolved.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values) : [],
+        conditions: resolved?.conditions ?? [],
         isEnabled: node.enabled,
         isComplete: rule ? isRuleComplete(rule) : true,
         effectivelyPaused: effective,
@@ -115,7 +123,7 @@ function treeNodesToRecords(
     }
     if (node.type === 'folder') {
       const { total, enabled } = countRules(node.children);
-      const children = treeNodesToRecords(node.children, rules, pauseMarkers, effective);
+      const children = treeNodesToRecords(node.children, rules, pauseMarkers, effective, resolver);
       return {
         key: node.uid,
         uid: node.uid,
@@ -145,11 +153,12 @@ function collectionTreesToRecords(
   trees: V5.CollectionTree[],
   rules: V5.Rule[],
   pauseMarkers: PauseMarkers,
+  resolver: VariableResolver,
 ): CollectionTreeRecord[] {
   return trees.map((tree) => {
     const { effective, hasOwn } = resolveNodeState(tree.path, pauseMarkers, false);
     const { total, enabled } = countRules(tree.tree);
-    const children = treeNodesToRecords(tree.tree, rules, pauseMarkers, effective);
+    const children = treeNodesToRecords(tree.tree, rules, pauseMarkers, effective, resolver);
     return {
       key: tree.uid,
       uid: tree.uid,
@@ -247,10 +256,15 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
   const [expandedKeys, setExpandedKeys] = useState<readonly React.Key[]>([]);
   const expandInitialized = useRef(false);
 
+  // Resolve `{{var}}` templates so the row's display reflects what
+  // reaches the wire. The resolver instance from `useVariableResolver`
+  // is memoized internally — only changes when variable scope changes.
+  const resolver = useVariableResolver();
+
   // Build tree records
   const treeRecords = useMemo(
-    () => collectionTreesToRecords(localCollectionTrees, rules, pauseMarkers),
-    [localCollectionTrees, rules, pauseMarkers],
+    () => collectionTreesToRecords(localCollectionTrees, rules, pauseMarkers, resolver),
+    [localCollectionTrees, rules, pauseMarkers, resolver],
   );
 
   // Auto-expand all on first load
@@ -510,7 +524,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       render: (_: unknown, record: CollectionTreeRecord) => {
         if (record.nodeType === 'rule' && record.actionDetail) {
           const active = (record.isEnabled ?? false) && (record.isComplete ?? false) && !record.effectivelyPaused;
-          return renderActionDetails(record.actionDetail, record.effectivelyPaused ? 0.5 : 1, 16, active);
+          return renderActionDetails(record.actionDetail, record.effectivelyPaused ? 0.5 : 1, 28, active);
         }
         if (record.nodeType !== 'rule') {
           if (record.effectivelyPaused) {

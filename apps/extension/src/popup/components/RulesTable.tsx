@@ -9,8 +9,10 @@ import {
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRules } from '@hooks/useRules';
+import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
+import { resolveRule } from '@openheaders/core/variables';
 import { call } from '@utils/bridge';
 import {
   App,
@@ -112,6 +114,13 @@ const RulesTable: React.FC<RulesTableProps> = ({
   const { setFocusedRowIndex } = useKeyboardNav();
   const screens = Grid.useBreakpoint();
   const openRulesIntent = useOpenRulesIntent();
+  // Resolve `{{var}}` templates in rule conditions + actions before
+  // rendering the row. Without this the popup shows literal templates
+  // (`Bearer {{vault.X}}`) instead of the values that actually flow
+  // to the wire — and the user can't tell at a glance whether the rule
+  // resolves cleanly. The resolver is memoized inside `useVariableResolver`
+  // so recomputation only fires on variable-store changes.
+  const resolver = useVariableResolver();
 
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
   const [sortMode, setSortMode] = useState<SortMode>((uiState?.tableState?.sortMode as SortMode) || 'status');
@@ -168,12 +177,18 @@ const RulesTable: React.FC<RulesTableProps> = ({
     });
   }, [rules, message]);
 
-  // Build table records from all V5 rules, sorted by status group then name
+  // Build table records from all V5 rules, sorted by status group then name.
+  // `actionDetail` and the displayed `conditions` flow from the RESOLVED
+  // rule (templates substituted) so the row reflects what reaches the
+  // wire — not the literal `{{ref}}` source. The original `rule` is
+  // still used for the IS-COMPLETE / pause checks because completeness
+  // is a structural property independent of variable values.
   const dataSource: TableRecord[] = rules
     .map((rule) => {
       const isEnabled = rule.enabled;
       const complete = isRuleComplete(rule);
       const groupPaused = resolvePauseState(rule.path, pauseMarkers);
+      const resolved = resolveRule(rule, resolver);
 
       let statusRank: StatusRank;
       if (isEnabled && complete && !groupPaused)
@@ -190,9 +205,9 @@ const RulesTable: React.FC<RulesTableProps> = ({
         name: rule.name,
         path: rule.path,
         ruleType: rule.type,
-        actionDetail: getActionDetail(rule),
-        domains: rule.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values),
-        conditions: rule.conditions,
+        actionDetail: getActionDetail(resolved),
+        domains: resolved.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values),
+        conditions: resolved.conditions,
         isEnabled,
         isComplete: complete,
         statusRank,
@@ -370,7 +385,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
       // accessible via the row's expand/edit affordances.
       responsive: ['md'],
       render: (_: unknown, record: TableRecord) =>
-        renderActionDetails(record.actionDetail, 1, 16, record.isEnabled && record.isComplete),
+        renderActionDetails(record.actionDetail, 1, 28, record.isEnabled && record.isComplete),
     },
     {
       title: 'Conditions',

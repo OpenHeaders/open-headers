@@ -180,8 +180,24 @@ const RESOURCE_TYPE_MAP: Record<string, string> = {
 /**
  * Convert V5 RuleCondition[] into a Chrome DNR condition object.
  *
- * Each condition type maps 1:1 to a Chrome DNR field — no translation,
+ * Each condition row maps 1:1 to a Chrome DNR field — no translation,
  * no approximation. What the user configures is what Chrome executes.
+ *
+ * # Slot model
+ *
+ * The editor + structural validator enforce "one row per DNR slot"
+ * (see `condition-metadata.ts`). For non-header types, that means at
+ * most one row per type / mutex group; for header types, at most one
+ * row per `(type, headerName)` pair. With uniqueness enforced, this
+ * function performs a straight assignment — no concat, no merge, no
+ * accumulation — so a value from row N+1 cannot silently combine with
+ * row N from a different slot.
+ *
+ * Programmatic/imported writes can still bypass the editor; for those
+ * `validateConditionStructure` flags duplicates and the same compile-time
+ * log fires below. We adopt **last-write-wins** for any duplicate that
+ * survives — matches what users would see if Chrome assembled the rule
+ * itself (scalar fields overwrite; list fields collapse identically).
  */
 export function buildDnrCondition(conditions: V5.RuleCondition[]): {
   base: DnrCondition;
@@ -190,96 +206,107 @@ export function buildDnrCondition(conditions: V5.RuleCondition[]): {
   urlPattern?: string;
 } {
   const base: DnrCondition = {};
-  const domains: string[] = [];
+  let domains: string[] = [];
   let useRegex = false;
   let urlPattern: string | undefined;
 
-  // Surface structural issues (duplicate singletons, mutex conflicts,
-  // unsupported-by-DNR types) at compile time. The compiler's behavior
-  // remains "last write wins" on shared slots — same as before — but
-  // every overwrite now leaves an observability trace so the same data
-  // never reaches Chrome silently. The editor renders the same issues
-  // inline; this logger call covers programmatic / imported writes that
-  // bypassed the editor.
+  // Surface structural issues (duplicate slots, mutex conflicts,
+  // unsupported-by-DNR types) at compile time. The editor renders the
+  // same issues inline; this log covers programmatic / imported writes
+  // that bypassed the editor.
   const structuralIssues = validateConditionStructure(conditions);
   for (const issue of structuralIssues) {
     logger.warn('DnrCondition', `${issue.kind} on row ${issue.index} (${issue.type}): ${issue.message}`);
   }
 
+  // Header rows are keyed by `(type, headerName)`. Multiple distinct
+  // header names across rows are allowed; they accumulate into Chrome's
+  // `responseHeaders[]` / `excludedResponseHeaders[]` arrays. Same name
+  // twice → last-write-wins via this map keyed by lowercased name.
+  const responseHeaderRows = new Map<string, { header: string; values?: string[] }>();
+  const excludedResponseHeaderRows = new Map<string, { header: string; values?: string[] }>();
+
   for (const cond of conditions) {
-    const vals = cond.values.filter((v) => v.trim());
+    const vals = cond.values.map((v) => v.trim()).filter(Boolean);
+    // domain-type carries a single scalar in vals[0]; an empty vals[0]
+    // means the row hasn't been configured yet — skip it.
     if (vals.length === 0 && cond.type !== 'domain-type') continue;
 
     switch (cond.type) {
-      // ── URL matching (one per rule) ──
+      // ── URL matching (one slot, mutex between url-filter / url-regex) ──
       case 'url-filter':
         urlPattern = vals[0];
+        useRegex = false;
         break;
       case 'url-regex':
-        useRegex = true;
         urlPattern = vals[0];
+        useRegex = true;
         break;
 
       // ── Domain filtering ──
       case 'request-domains':
-        domains.push(...vals);
-        base.requestDomains = [...(base.requestDomains ?? []), ...vals];
+        domains = vals;
+        base.requestDomains = vals;
         break;
       case 'exclude-request-domains':
-        base.excludedRequestDomains = [...(base.excludedRequestDomains ?? []), ...vals];
+        base.excludedRequestDomains = vals;
         break;
       case 'initiator-domains':
-        base.initiatorDomains = [...(base.initiatorDomains ?? []), ...vals];
+        base.initiatorDomains = vals;
         break;
       case 'exclude-initiator-domains':
-        base.excludedInitiatorDomains = [...(base.excludedInitiatorDomains ?? []), ...vals];
+        base.excludedInitiatorDomains = vals;
         break;
 
       // ── Request filtering ──
       case 'request-methods':
-        base.requestMethods = [...(base.requestMethods ?? []), ...vals.map((v) => v.toLowerCase())];
+        base.requestMethods = vals.map((v) => v.toLowerCase());
         break;
       case 'exclude-request-methods':
-        base.excludedRequestMethods = [...(base.excludedRequestMethods ?? []), ...vals.map((v) => v.toLowerCase())];
+        base.excludedRequestMethods = vals.map((v) => v.toLowerCase());
         break;
       case 'resource-types':
-        base.resourceTypes = [
-          ...(base.resourceTypes ?? []),
-          ...vals.map((v) => RESOURCE_TYPE_MAP[v] ?? v).filter(Boolean),
-        ] as chrome.declarativeNetRequest.ResourceType[];
+        base.resourceTypes = vals
+          .map((v) => RESOURCE_TYPE_MAP[v] ?? v)
+          .filter(Boolean) as chrome.declarativeNetRequest.ResourceType[];
         break;
       case 'exclude-resource-types':
-        base.excludedResourceTypes = [
-          ...(base.excludedResourceTypes ?? []),
-          ...vals.map((v) => RESOURCE_TYPE_MAP[v] ?? v).filter(Boolean),
-        ] as chrome.declarativeNetRequest.ResourceType[];
+        base.excludedResourceTypes = vals
+          .map((v) => RESOURCE_TYPE_MAP[v] ?? v)
+          .filter(Boolean) as chrome.declarativeNetRequest.ResourceType[];
         break;
       case 'domain-type':
         if (vals[0]) base.domainType = vals[0] as 'firstParty' | 'thirdParty';
         break;
 
       // ── Response header matching (Chrome 128+) ──
-      // Request-side matching was never shipped by Chrome MV3 DNR, so
-      // those condition types don't exist in the schema. If they ever
-      // ship, add them in `ConditionTypeSchema` + `CONDITION_META` first.
-      case 'response-header':
-        if (cond.headerName) {
-          base.responseHeaders = [
-            ...(base.responseHeaders ?? []),
-            { header: cond.headerName, values: vals.length > 0 ? vals : undefined },
-          ];
-        }
+      // Multiple rows for DIFFERENT header names are independent slots
+      // and accumulate. Same name → last write wins.
+      // Request-side matching was never shipped by Chrome MV3 DNR.
+      case 'response-header': {
+        const name = cond.headerName?.trim();
+        if (!name) break;
+        responseHeaderRows.set(name.toLowerCase(), {
+          header: name,
+          values: vals.length > 0 ? vals : undefined,
+        });
         break;
-      case 'exclude-response-header':
-        if (cond.headerName) {
-          base.excludedResponseHeaders = [
-            ...(base.excludedResponseHeaders ?? []),
-            { header: cond.headerName, values: vals.length > 0 ? vals : undefined },
-          ];
-        }
+      }
+      case 'exclude-response-header': {
+        const name = cond.headerName?.trim();
+        if (!name) break;
+        excludedResponseHeaderRows.set(name.toLowerCase(), {
+          header: name,
+          values: vals.length > 0 ? vals : undefined,
+        });
         break;
+      }
     }
   }
+
+  if (responseHeaderRows.size > 0) base.responseHeaders = [...responseHeaderRows.values()];
+  if (excludedResponseHeaderRows.size > 0)
+    base.excludedResponseHeaders = [...excludedResponseHeaderRows.values()];
 
   // Note: we intentionally do NOT default `resourceTypes` here. The resolver
   // (`resolveResourceTypes`) is the single source of truth for which resource

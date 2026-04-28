@@ -28,6 +28,7 @@ export type {
   TotpRegistry,
 } from './resolver';
 export {
+  buildPostResolveError,
   EMPTY_LIVE_REGISTRY,
   EMPTY_TOTP_REGISTRY,
   resolveTemplate,
@@ -35,7 +36,7 @@ export {
   VariableResolver,
 } from './resolver';
 export type { RuleResolution } from './rule-resolver';
-export { resolveRule, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
+export { resolveRule, resolveRuleConditions, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
 export { collectRuleTemplateStrings } from './rule-templates';
 export type {
   CollectionEntry,

@@ -397,7 +397,11 @@ describe('header-manager', () => {
   // ── Multiple domains ──
 
   describe('multiple domains', () => {
-    it('creates one rule per domain', async () => {
+    it('emits one DNR rule with requestDomains carrying every domain (Chrome ORs the list)', async () => {
+      // Pre-architectural cleanup, the compiler emitted one DNR rule per
+      // domain with a per-domain `urlFilter`. That burned rule-cap quota
+      // and contradicted Chrome's native list semantics. The new shape:
+      // one rule whose `requestDomains` carries the OR'd hostname list.
       const rule = makeHeaderRule({
         action: {
           requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
@@ -409,11 +413,18 @@ describe('header-manager', () => {
       updateNetworkRules([rule]);
       await flushPromises();
 
-      const rules = getRulesFromLastCall();
-      expect(rules).toHaveLength(3);
+      const rules = getRulesFromLastCall() as Array<{ condition: { requestDomains?: string[]; urlFilter?: string } }>;
+      expect(rules).toHaveLength(1);
+      expect(rules[0]!.condition.requestDomains).toEqual([
+        'openheaders.io',
+        'api.openheaders.io',
+        'cdn.openheaders.io',
+      ]);
+      // No per-domain urlFilter — the new shape uses Chrome's native domain list.
+      expect(rules[0]!.condition.urlFilter).toBeUndefined();
     });
 
-    it('skips empty domain strings', async () => {
+    it('skips empty domain strings inside the list', async () => {
       const rule = makeHeaderRule({
         action: {
           requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
@@ -425,8 +436,9 @@ describe('header-manager', () => {
       updateNetworkRules([rule]);
       await flushPromises();
 
-      const rules = getRulesFromLastCall();
+      const rules = getRulesFromLastCall() as Array<{ condition: { requestDomains?: string[] } }>;
       expect(rules).toHaveLength(1);
+      expect(rules[0]!.condition.requestDomains).toEqual(['openheaders.io']);
     });
   });
 

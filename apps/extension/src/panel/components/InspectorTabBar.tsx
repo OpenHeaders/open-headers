@@ -433,7 +433,6 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
           {
             key: 'close-other',
             label: 'Close Other Tabs',
-            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-other" size={MENU_ICON_SIZE} />),
             disabled: tabs.length <= 1,
             onClick: () => onCloseOther(tab.id),
           },

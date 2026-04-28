@@ -1,20 +1,34 @@
 /**
  * ConditionEditor — condition rows that map 1:1 to Chrome DNR fields.
  *
- * Each condition type IS a Chrome DNR field. No operator abstraction.
- * What the user configures is exactly what Chrome executes.
+ * Each condition row IS exactly one Chrome DNR field — its "slot". No
+ * operator abstraction. What the user configures is exactly what Chrome
+ * executes.
  *
  * Categories:
- *   URL Matching: url-filter, url-regex (mutually exclusive — share one DNR slot)
+ *   URL Matching: url-filter, url-regex (share one DNR slot — mutex)
  *   Domain Filtering: request-domains, exclude-request-domains, initiator-domains, exclude-initiator-domains
  *   Request Filtering: request-methods, exclude-request-methods, resource-types, exclude-resource-types, domain-type
  *   Header Matching: response-header, exclude-response-header (Chrome 128+)
  *
- * Singleton enforcement: `url-filter`, `url-regex`, and `domain-type` map to
- * scalar DNR fields. Two rows of the same singleton would silently overwrite
- * in `buildDnrCondition`, so the type dropdown disables them on other rows
- * once one is present. `url-filter` + `url-regex` share the urlPattern slot
- * and are treated as a single mutex group.
+ * # One row per slot
+ *
+ * Two rows that target the same DNR slot would silently overwrite each
+ * other in `buildDnrCondition`. The picker therefore disables types whose
+ * slot is already claimed by another row. Header types are exempt from
+ * picker-side disabling: their slot identity includes the header name
+ * (which the picker can't predict), so the structural validator instead
+ * flags `(type, headerName)` collisions per-row after the user types a
+ * name.
+ *
+ * # Why one row, not many merged automatically
+ *
+ * Multiple rows of the same plural type (e.g. four `request-domains`
+ * rows) used to merge into a single Chrome `requestDomains` array, but
+ * that contradicted the editor's "rows AND" contract — the merge made
+ * them OR. Locking to one row preserves the AND model and gives the
+ * user a single canonical place to express OR (the values inside the
+ * row, comma-separated).
  *
  * `request-header` / `exclude-request-header` are intentionally NOT in the
  * picker: Chrome MV3 DNR has no request-header matching, so they ship
@@ -29,8 +43,9 @@ import {
   type ConditionStructuralIssue,
   type ConditionValueIssue,
   type DomainValueIssue,
-  getConditionMutexKey,
+  getConditionTypeSlotKey,
   isConditionSupportedByDnr,
+  isDomainListConditionType,
   validateConditionStructure,
   validateConditionValues,
   validateDomainValues,
@@ -145,10 +160,18 @@ const DOMAIN_TYPES = [
  *   - the type is not supported by Chrome DNR (`supportedByDnr === false`),
  *     unless the row already holds that type — in that case it's allowed
  *     to render so the user can switch it to something else without
- *     losing the row, and
- *   - the type's mutex key is already claimed by a different row
- *     (`url-filter` and `url-regex` share the `'url-pattern'` group, so
- *     having either present in another row disables both here).
+ *     losing the row;
+ *   - the type's slot key is already claimed by a DIFFERENT row, where
+ *     "slot key" is the type's mutex group or the type itself
+ *     (`url-filter` and `url-regex` share `'url-pattern'`, so having
+ *     either present elsewhere disables both here; `request-domains`
+ *     elsewhere disables `request-domains` here; etc.).
+ *
+ * Header types (`response-header`, `exclude-response-header`) are
+ * intentionally NEVER picker-disabled: their slot identity is
+ * `(type, headerName)`, and the picker can't predict the name the user
+ * will type. The structural validator catches `(type, headerName)`
+ * collisions per row after the fact.
  *
  * The metadata in core/utils is the single source of truth for both
  * conditions; the editor just renders it.
@@ -157,12 +180,16 @@ function buildTypeOptions(
   conditions: readonly V5.RuleCondition[],
   currentIndex: number,
 ): Array<{ label: string; options: Array<{ value: V5.ConditionType; label: React.ReactNode; disabled?: boolean }> }> {
-  // Mutex keys claimed by OTHER rows.
-  const claimedKeys = new Set<string>();
+  // Slot keys claimed by OTHER rows. We use the type-only slot key here
+  // (not the per-row key) — header types intentionally never gate the
+  // picker, so we skip them.
+  const claimedSlots = new Set<string>();
   for (let i = 0; i < conditions.length; i++) {
     if (i === currentIndex) continue;
-    const key = getConditionMutexKey(conditions[i].type);
-    if (key) claimedKeys.add(key);
+    const meta = CONDITION_META[conditions[i].type];
+    if (meta?.perHeader) continue;
+    const key = getConditionTypeSlotKey(conditions[i].type);
+    if (key) claimedSlots.add(key);
   }
   const currentType = conditions[currentIndex]?.type;
 
@@ -180,10 +207,12 @@ function buildTypeOptions(
       // row's value. Showing it on the current row lets the user switch
       // away from a legacy import without first deleting the row.
       const unsupported = !isConditionSupportedByDnr(t.value) && !isCurrent;
-      const key = getConditionMutexKey(t.value);
-      const mutexClash = !isCurrent && key !== null && claimedKeys.has(key);
-      const disabled = unsupported || mutexClash;
-      const suffix = unsupported ? ' — not supported by Chrome DNR' : mutexClash ? ' — already used' : '';
+      const meta = CONDITION_META[t.value];
+      // Header types skip the slot gate — see the comment above.
+      const slotKey = meta?.perHeader ? null : getConditionTypeSlotKey(t.value);
+      const slotClash = !isCurrent && slotKey !== null && claimedSlots.has(slotKey);
+      const disabled = unsupported || slotClash;
+      const suffix = unsupported ? ' — not supported by Chrome DNR' : slotClash ? ' — already used' : '';
       return {
         value: t.value,
         label: suffix ? `${t.label}${suffix}` : t.label,
@@ -238,7 +267,31 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
   );
 
   const addCondition = useCallback(() => {
-    const newCondition: V5.RuleCondition = { type: 'request-domains', values: [] };
+    // Pick the first unclaimed type by `pickerOrder` so adding a
+    // second condition lands on a usable, prominent row instead of
+    // a disabled-on-arrival default. Header types are always available
+    // (their slot includes headerName) so they're valid fallbacks if
+    // every non-header slot is taken. Source of truth: the metadata
+    // table in `condition-metadata.ts` — not the editor's display
+    // ordering.
+    const claimed = new Set<string>();
+    for (const c of value) {
+      const m = CONDITION_META[c.type];
+      if (m?.perHeader) continue;
+      const k = getConditionTypeSlotKey(c.type);
+      if (k) claimed.add(k);
+    }
+    const candidates = (Object.values(CONDITION_META) as ReadonlyArray<(typeof CONDITION_META)[V5.ConditionType]>)
+      .filter((m) => m.supportedByDnr)
+      .filter((m) => {
+        if (m.perHeader) return true;
+        const k = getConditionTypeSlotKey(m.type);
+        return k !== null && !claimed.has(k);
+      })
+      .sort((a, b) => a.pickerOrder - b.pickerOrder);
+    const type: V5.ConditionType = candidates[0]?.type ?? 'request-domains';
+    const newCondition: V5.RuleCondition = { type, values: [] };
+    if (CONDITION_META[type]?.perHeader) newCondition.headerName = '';
     onChange?.([...value, newCondition]);
   }, [value, onChange]);
 
@@ -297,7 +350,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
         // visually so the user can see at a glance which rows are dead
         // weight. The banner explains why; the muting reinforces it.
         const isInert = structuralIssues.some(
-          (i) => i.kind === 'duplicate-singleton' || i.kind === 'mutex-conflict' || i.kind === 'unsupported-by-dnr',
+          (i) => i.kind === 'duplicate-slot' || i.kind === 'mutex-conflict' || i.kind === 'unsupported-by-dnr',
         );
 
         return (
@@ -315,7 +368,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {/* AND badge — connector between rows. */}
               {index > 0 && (
-                <Tooltip title="Rows combine with AND — every row must match for the rule to fire. The OR / 1 value badge next to each row's input shows that row's value-combination logic.">
+                <Tooltip title="Rows combine with AND — every row must match for the rule to fire. Each row targets a different DNR field, so AND across rows is exact. To OR multiple values within one field, list them inside one row (see the row's OR badge).">
                   <Tag
                     color="blue"
                     style={{
@@ -412,13 +465,27 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                   placeholder="Select type"
                 />
               ) : (
-                <TemplateInput
-                  size="small"
-                  placeholder={def?.placeholder ?? 'value'}
-                  value={condition.values.join(', ')}
-                  onChange={(next) => handleValuesText(index, next)}
-                  style={{ flex: 1, minWidth: 0 }}
-                />
+                (() => {
+                  const isDomainList = isDomainListConditionType(condition.type);
+                  // Domain-list rows: textarea with a 4-line visible cap and
+                  // inner scroll. The line-height/font-size match
+                  // TemplateInput's small-size defaults. `--oh-multiline-cap`
+                  // is declared in `workbench/styles/rules.less` (:root) so
+                  // the same cap applies wherever the editor is mounted.
+                  const valueStyle: React.CSSProperties = isDomainList
+                    ? { flex: 1, minWidth: 0, maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }
+                    : { flex: 1, minWidth: 0 };
+                  return (
+                    <TemplateInput
+                      size="small"
+                      multiline={isDomainList}
+                      placeholder={def?.placeholder ?? 'value'}
+                      value={condition.values.join(isDomainList ? ', ' : ', ')}
+                      onChange={(next) => handleValuesText(index, next)}
+                      style={valueStyle}
+                    />
+                  );
+                })()
               )}
 
               {/* Value-logic hint — explains how multiple values inside this row combine. */}
@@ -586,7 +653,7 @@ interface StructuralIssueBannerProps {
 const StructuralIssueBanner: React.FC<StructuralIssueBannerProps> = ({ issues }) => {
   const { token } = theme.useToken();
   // Dedupe identical messages — a row can only carry one mutex-conflict
-  // and one duplicate-singleton at a time, but unsupported-by-dnr can
+  // and one duplicate-slot at a time, but unsupported-by-dnr can
   // stack with a future kind, so the dedupe keeps the banner readable.
   const seen = new Set<string>();
   const lines: string[] = [];

@@ -10,11 +10,15 @@ export type {
   CollectionEnvOverride,
 } from './collection-env-resolution';
 export { resolveAutoSwitchTarget, resolveCollectionEnv } from './collection-env-resolution';
-export type { ConditionCardinality, ConditionTypeMeta, ConditionValueLogic } from './condition-metadata';
+export type { ConditionTypeMeta, ConditionValueLogic, ConditionValueShape } from './condition-metadata';
 export {
   CONDITION_META,
-  getConditionMutexKey,
+  getConditionSlotKey,
+  getConditionTypesByShape,
+  getConditionTypeSlotKey,
   isConditionSupportedByDnr,
+  isDomainListConditionType,
+  isListShapedConditionType,
   listSupportedConditionTypes,
 } from './condition-metadata';
 export type {
@@ -28,6 +32,8 @@ export type {
 } from './condition-validation';
 export {
   applyDomainValueCleanup,
+  DOMAIN_ISSUE_SUMMARY,
+  summarizeDomainIssues,
   validateConditionStructure,
   validateConditionValues,
   validateDomainValues,

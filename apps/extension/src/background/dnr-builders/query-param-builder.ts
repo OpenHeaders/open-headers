@@ -6,7 +6,6 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { formatUrlPattern } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRedirect, DnrRule, RuleCompiler } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
@@ -76,23 +75,17 @@ export const queryParamCompiler: RuleCompiler<V5.QueryParamRule> = {
           return { transform: { queryTransform } };
         })();
 
-    const rules: DnrRule[] = [];
-
+    // Single DNR rule. `cleanBase` already carries `requestDomains` from
+    // the request-domains row when present.
+    const condition: DnrCondition = { ...cleanBase, resourceTypes };
     if (urlPattern) {
-      const condition: DnrCondition = { ...cleanBase, resourceTypes };
       if (useRegex) condition.regexFilter = urlPattern;
       else condition.urlFilter = urlPattern;
-      rules.push({ id: ctx.allocateId(), priority: 150, action: { type: 'redirect', redirect }, condition });
-    } else {
-      for (const domain of domains) {
-        rules.push({
-          id: ctx.allocateId(),
-          priority: 150,
-          action: { type: 'redirect', redirect },
-          condition: { ...cleanBase, urlFilter: formatUrlPattern(domain), resourceTypes },
-        });
-      }
     }
+
+    const rules: DnrRule[] = [
+      { id: ctx.allocateId(), priority: 150, action: { type: 'redirect', redirect }, condition },
+    ];
 
     return { dynamicRules: rules };
   },

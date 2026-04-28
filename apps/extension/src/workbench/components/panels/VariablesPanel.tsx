@@ -612,6 +612,7 @@ const REASON_TAG_COLOR: Record<ResolutionError['reason'], string> = {
   'reserved-namespace': 'geekblue',
   'step-out-of-context': 'volcano',
   empty: 'default',
+  'invalid-resolved-value': 'warning',
 };
 
 const REASON_TAG_LABEL: Record<ResolutionError['reason'], string> = {
@@ -621,6 +622,7 @@ const REASON_TAG_LABEL: Record<ResolutionError['reason'], string> = {
   'reserved-namespace': 'reserved',
   'step-out-of-context': 'step ref out of scope',
   empty: 'empty',
+  'invalid-resolved-value': 'invalid value',
 };
 
 function ResolutionErrorRow({ error }: { error: ResolutionError }) {
@@ -792,7 +794,13 @@ function VariableRow({ variable, compact = false }: { variable: DisplayVariable;
         marginBottom: 5,
       }}
     >
-      <div style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 11, color: token.colorWarning }}>
+      <div
+        style={{
+          fontFamily: "'SF Mono', 'Fira Code', monospace",
+          fontSize: 11,
+          color: variable.resolved ? token.colorPrimary : token.colorWarning,
+        }}
+      >
         {`{{${variable.name}}}`}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>

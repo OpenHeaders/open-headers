@@ -15,7 +15,7 @@
  */
 
 import { doesUrlMatchRule, getRuleMatchPatterns } from '@openheaders/core/utils';
-import type { VariableResolver } from '@openheaders/core/variables';
+import { resolveRuleConditions, type VariableResolver } from '@openheaders/core/variables';
 import type { RuleAttributionContext } from './header-attribution';
 
 export type RuleApplicability =
@@ -68,21 +68,29 @@ export function computeRuleApplicability({ ctx, url, resolver, collectionId }: A
 
   if (liveRule.type !== 'header' || !ctx.currentMod) return { kind: 'mod-gone' };
 
-  // Conditions matcher: if the rule has no conditions (`getRuleMatchPatterns`
-  // returns an empty list), `doesUrlMatchRule` returns false — but the
-  // semantic for an empty pattern list is "match nothing" (DNR rejects
-  // condition-less rules at compile too, see `dnr-manager`). Either way
-  // the rule wouldn't fire — surface as `conditions-mismatch`.
-  const patterns = getRuleMatchPatterns(liveRule);
-  if (patterns.length === 0) return { kind: 'conditions-mismatch' };
-  if (!doesUrlMatchRule(url, liveRule)) return { kind: 'conditions-mismatch' };
+  // Conditions matcher: resolve `{{var}}` templates inside the live
+  // rule's conditions BEFORE testing the URL. The condition values may
+  // reference env / vault / collection / workspace variables —
+  // `getRuleMatchPatterns` would otherwise produce literal patterns
+  // like `*://{{env.QA_DOMAIN}}/*` that can never match a real URL
+  // and surface a misleading `conditions-mismatch` for any rule that
+  // uses variables in its domain conditions.
+  //
+  // Use `resolveRuleConditions` (not `resolveRule`) — we only need
+  // condition templates resolved; walking the full action would be
+  // wasted work for a hover popover that fires per-row.
+  const ctxArg = collectionId ? { collectionId } : undefined;
+  const resolvedConditions = resolveRuleConditions(liveRule.conditions, resolver, ctxArg);
+  const ruleForMatcher = { ...liveRule, conditions: resolvedConditions };
+  if (getRuleMatchPatterns(ruleForMatcher).length === 0) return { kind: 'conditions-mismatch' };
+  if (!doesUrlMatchRule(url, ruleForMatcher)) return { kind: 'conditions-mismatch' };
 
   // Name / value resolution check: take the live mod's templates,
   // resolve them, and confirm no `{{}}` remains. Unresolvable refs
   // (TOTP, broken vars) leave the literal in place. The DNR builder
   // applies the same gate at compile time — we mirror it here so the
   // popover's Future preview matches what would actually happen.
-  const ctxArg = collectionId ? { collectionId } : undefined;
+  // (`ctxArg` is declared above for the conditions-resolution step.)
   const nameTemplate = ctx.currentMod.headerName;
   if (containsUnresolvedRef(resolver, nameTemplate, ctxArg)) {
     return { kind: 'name-template-unresolved', template: nameTemplate };

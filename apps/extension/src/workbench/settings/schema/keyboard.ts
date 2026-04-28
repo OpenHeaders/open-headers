@@ -137,7 +137,12 @@ registerSetting({
 registerSetting({
   key: 'keyboard.closeTab',
   type: 'keybinding',
-  default: 'mod+w',
+  // `mod+w` (Cmd/Ctrl+W) is browser-reserved — it closes the BROWSER
+  // TAB, not just the in-app editor tab, so the binding never reaches
+  // the page. `alt+w` (Option+W on macOS, Alt+W on Windows/Linux) is
+  // unreserved on all three platforms and matches what VS Code Web
+  // does for the same reason. Users can rebind in Settings → Keyboard.
+  default: 'alt+w',
   schema: chordSchema,
   label: 'Close Tab',
   description: 'Close the focused editor tab.',

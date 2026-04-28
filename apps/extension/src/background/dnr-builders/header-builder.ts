@@ -17,7 +17,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { formatUrlPattern, getHeaderOperationCapability } from '@openheaders/core/utils';
+import { getHeaderOperationCapability } from '@openheaders/core/utils';
 import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
 import { normalizeHeaderName } from '@utils/utils';
@@ -174,16 +174,17 @@ export const headerCompiler: RuleCompiler<V5.HeaderRule> = {
       }
     };
 
+    // One DNR rule per V5 rule — `cleanBase` already carries `requestDomains`
+    // when the user added a request-domains row, so we never iterate per
+    // domain. URL Pattern + Request Domains coexist as separate slots and
+    // Chrome AND's them, which matches the editor's "rows combine with AND"
+    // contract.
+    const condition: DnrCondition = { ...cleanBase };
     if (urlPattern) {
-      const condition: DnrCondition = { ...cleanBase };
       if (useRegex) condition.regexFilter = urlPattern;
       else condition.urlFilter = urlPattern;
-      pushForCondition(condition);
-    } else {
-      for (const domain of domains) {
-        pushForCondition({ ...cleanBase, urlFilter: formatUrlPattern(domain) });
-      }
     }
+    pushForCondition(condition);
 
     if (dnrRules.length === 0) {
       logger.debug('HeaderCompiler', `Skipping rule "${rule.name}" — resource-type filter excludes everything`);

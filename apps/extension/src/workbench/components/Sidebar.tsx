@@ -643,6 +643,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (exportSelectedIds.size > 0) setExportSelectedIds(new Set());
       lastExportSelectAnchorRef.current = null;
       setFocusedId(node.id);
+      // Pull keyboard focus onto the tree container so subsequent
+      // ArrowUp/Down/Left/Right reach the React onKeyDown handler.
+      // The container carries tabIndex={-1} so this is a real focus()
+      // (a plain <div> is not focusable, and rows themselves are not
+      // focusable either — focus would otherwise stay on document.body
+      // and arrow keys would never reach handleKeyDown).
+      containerRef.current?.focus({ preventScroll: true });
       if (shouldOpenOnSingleClick(node)) node.onOpen?.();
     },
     [shouldOpenOnSingleClick, allFlatItems, exportSelectedIds.size],
@@ -711,6 +718,20 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // When the keystroke is being typed into a child input/textarea/
+      // contenteditable (most commonly the inline rename input on a
+      // tree row), the tree's nav handler must NOT fire — Arrow keys
+      // belong to the input's caret, Backspace/Delete to text edit,
+      // F2 to nothing here, etc. We mirror the workspace-shortcut
+      // gating (`isInputFocused`) at the container level so the
+      // window-level shortcut bus stays untouched (no React-side
+      // `stopPropagation` to interfere with Cmd+K, Cmd+S, …).
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (target.isContentEditable) return;
+      }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const currentIdx = allFlatItems.findIndex((n) => n.id === focusedId);
@@ -1056,7 +1077,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation container */}
-      <div ref={containerRef} className="rules-sidebar-content" onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
+      <div
+        ref={containerRef}
+        className="rules-sidebar-content"
+        onKeyDown={handleKeyDown}
+        tabIndex={-1}
+        style={{ outline: 'none' }}
+      >
         {view === 'api-requests' && (
           <>
             <SectionHeader

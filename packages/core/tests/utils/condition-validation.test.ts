@@ -105,7 +105,7 @@ describe('validateConditionStructure', () => {
     ).toEqual([]);
   });
 
-  it('flags duplicate singletons of the same type — earlier row loses, last wins', () => {
+  it('flags duplicate slots of the same type — earlier row loses, last wins', () => {
     const issues = validateConditionStructure([
       cond('url-filter', ['*://openheaders.io/*']),
       cond('url-filter', ['*://api.openheaders.io/*']),
@@ -114,12 +114,12 @@ describe('validateConditionStructure', () => {
     expect(issues[0]).toMatchObject({
       index: 0,
       winningIndex: 1,
-      kind: 'duplicate-singleton',
-      mutexKey: 'url-pattern',
+      kind: 'duplicate-slot',
+      slotKey: 'url-pattern',
     });
   });
 
-  it('flags every loser when three rows of the same singleton stack up', () => {
+  it('flags every loser when three rows of the same slot stack up', () => {
     const issues = validateConditionStructure([
       cond('url-filter', ['*://a.com/*']),
       cond('url-filter', ['*://b.com/*']),
@@ -127,7 +127,7 @@ describe('validateConditionStructure', () => {
     ]);
     expect(issues.map((i) => i.index)).toEqual([0, 1]);
     expect(issues.every((i) => i.winningIndex === 2)).toBe(true);
-    expect(issues.every((i) => i.kind === 'duplicate-singleton')).toBe(true);
+    expect(issues.every((i) => i.kind === 'duplicate-slot')).toBe(true);
   });
 
   it('flags mutex collisions across types in the same group (url-filter + url-regex)', () => {
@@ -140,24 +140,54 @@ describe('validateConditionStructure', () => {
       index: 0,
       winningIndex: 1,
       kind: 'mutex-conflict',
-      mutexKey: 'url-pattern',
+      slotKey: 'url-pattern',
     });
   });
 
-  it('flags duplicate domain-type rows (different mutex group from url-pattern)', () => {
+  it('flags duplicate domain-type rows (different slot from url-pattern)', () => {
     const issues = validateConditionStructure([
       cond('domain-type', ['firstParty']),
       cond('domain-type', ['thirdParty']),
     ]);
     expect(issues).toHaveLength(1);
-    expect(issues[0]).toMatchObject({ index: 0, winningIndex: 1, kind: 'duplicate-singleton' });
+    expect(issues[0]).toMatchObject({ index: 0, winningIndex: 1, kind: 'duplicate-slot' });
   });
 
-  it('does not flag plural duplicates — multiple request-domains rows are valid', () => {
+  it('flags duplicate plural slots — two request-domains rows OR-merge silently and confuse users', () => {
+    // Plural rows used to be allowed and concatenated, but that contradicted
+    // the editor's "rows AND" contract. Lock to one row per slot.
+    const issues = validateConditionStructure([
+      cond('request-domains', ['openheaders.io']),
+      cond('request-domains', ['api.openheaders.io']),
+    ]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ index: 0, winningIndex: 1, kind: 'duplicate-slot', slotKey: 'request-domains' });
+  });
+
+  it('treats two response-header rows for DIFFERENT names as independent slots', () => {
     expect(
       validateConditionStructure([
-        cond('request-domains', ['openheaders.io']),
-        cond('request-domains', ['api.openheaders.io']),
+        { type: 'response-header', values: ['application/json'], headerName: 'Content-Type' },
+        { type: 'response-header', values: ['nosniff'], headerName: 'X-Content-Type-Options' },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('flags two response-header rows for the SAME name as duplicate-slot', () => {
+    const issues = validateConditionStructure([
+      { type: 'response-header', values: ['application/json'], headerName: 'Content-Type' },
+      { type: 'response-header', values: ['text/html'], headerName: 'content-type' },
+    ]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ index: 0, winningIndex: 1, kind: 'duplicate-slot' });
+    expect(issues[0].slotKey).toBe('response-header::content-type');
+  });
+
+  it('does not flag a header row with no header name — incomplete rows do not claim a slot', () => {
+    expect(
+      validateConditionStructure([
+        { type: 'response-header', values: ['v'], headerName: 'Content-Type' },
+        { type: 'response-header', values: ['v'], headerName: '' },
       ]),
     ).toEqual([]);
   });

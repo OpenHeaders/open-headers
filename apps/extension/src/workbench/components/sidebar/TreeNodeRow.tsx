@@ -75,6 +75,17 @@ function InlineRenameInput({
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
+        // Only handle the commit / cancel keys; let everything else
+        // (arrows, Backspace, Home/End, …) flow natively for normal
+        // input editing. We deliberately do NOT call `stopPropagation`
+        // here — the workbench keyboard architecture is window-level
+        // (`useShellKeyDown` in shell-event-bus). React's
+        // `stopPropagation` cascades into `nativeEvent.stopPropagation`
+        // which would prevent Cmd+K, Cmd+S, and every other workspace
+        // shortcut from reaching the bus while the rename input has
+        // focus. The sidebar's tree-nav handler is gated separately
+        // by an `isInputElement(target)` check that skips when the
+        // event target is THIS input — see Sidebar.tsx `handleKeyDown`.
         if (e.key === 'Enter') commit();
         else if (e.key === 'Escape') cancel();
       }}
