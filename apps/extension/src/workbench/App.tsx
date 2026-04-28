@@ -686,7 +686,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     (targetId: string) => {
       if (targetId === workspacesApi.activeWorkspaceId) return;
       const hasDirty = Array.from(dirtyMap.current.values()).some(Boolean);
-      const doSwitch = (): void => void workspacesApi.setActiveWorkspace(targetId);
+      const targetName = workspacesApi.workspaces.find((w) => w.id === targetId)?.name;
+      const doSwitch = async (): Promise<void> => {
+        const ok = await workspacesApi.setActiveWorkspace(targetId);
+        // Mirror the import flow's "Imported N entities from <ws>" toast
+        // pattern so every workspace state change has the same feedback
+        // shape — silent state shifts feel like a stuck UI on slow IO.
+        if (ok && targetName) message.success(`Switched to ${targetName}`);
+      };
       if (hasDirty) {
         modal.confirm({
           title: 'Discard unsaved drafts?',
@@ -698,9 +705,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         });
         return;
       }
-      doSwitch();
+      void doSwitch();
     },
-    [workspacesApi, modal, dirtyMap],
+    [workspacesApi, modal, message, dirtyMap],
   );
 
   const openSettings = useCallback(
