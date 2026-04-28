@@ -63,6 +63,20 @@ const TargetControl: React.FC<{
         }}
         options={options}
       />
+      {target.mode === 'current' && (
+        // Read-only mirror of the same Select used by `picked`: shows
+        // the active workspace pinned in place so the user always sees
+        // *which* workspace "current" refers to. Disabled so the only
+        // way to change targets is via the segmented control.
+        <Select
+          size={size}
+          value={activeWorkspaceId ?? undefined}
+          disabled
+          style={{ width: 260 }}
+          options={workspaces.map((w) => ({ label: w.name, value: w.id }))}
+          placeholder="No active workspace"
+        />
+      )}
       {target.mode === 'new' && (
         <Input
           size={size}
