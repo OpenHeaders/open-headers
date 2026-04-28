@@ -39,7 +39,7 @@ import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { RuleOracle } from './oracle';
-import { projectRule, seedRule } from './rule-projection';
+import { projectRule, seedRule } from '@/shared/sync/rule-projection';
 import type { SwMutatorContextFactory } from './sw-context';
 
 export type RuleCacheListener = () => void;

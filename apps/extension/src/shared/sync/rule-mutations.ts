@@ -39,12 +39,22 @@ import {
 import { generateUid } from '@openheaders/core/utils';
 import type { V5 } from '@openheaders/core/types';
 import { seedRule } from './rule-projection';
-import type { RuleOracle } from './oracle';
 
 export interface RuleMutationPayload {
   batch: MutationBatch;
   sideEffects: SideEffectIntent[];
 }
+
+/**
+ * Live-itemId reader for set-modeled paths. The SW oracle exposes
+ * `(itemId, item)` pairs via `oracle.liveSetItems`; the renderer-side
+ * mirror exposes just `string[]` itemIds via
+ * `mirror.liveSetItems(uid, path)`. {@link buildUpdateBatch} only needs
+ * itemIds — anything else would couple the renderer to the SW's richer
+ * shape — so we accept the narrower function signature and let either
+ * caller satisfy it.
+ */
+export type LiveSetItemIds = (ruleUid: string, setPath: string) => readonly string[];
 
 /** New rule → seed batch + DNR recompile intent. */
 export function buildAddBatch(rule: V5.Rule, ctx: RuleMutatorContext): RuleMutationPayload {
@@ -102,7 +112,7 @@ export function buildUpdateBatch(
   ruleType: V5.Rule['type'],
   updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
   ctx: RuleMutatorContext,
-  oracle: Pick<RuleOracle, 'liveSetItems'>,
+  liveSetItemIds: LiveSetItemIds,
 ): RuleMutationPayload {
   const bodies: MutationBody[] = [];
 
@@ -111,7 +121,7 @@ export function buildUpdateBatch(
 
     // conditions: top-level set-modeled path on every rule variant.
     if (key === 'conditions' && Array.isArray(value)) {
-      pushSetReplacement(bodies, ruleUid, 'conditions', value, oracle);
+      pushSetReplacement(bodies, ruleUid, 'conditions', value, liveSetItemIds);
       continue;
     }
 
@@ -126,7 +136,7 @@ export function buildUpdateBatch(
       for (const [subKey, subVal] of Object.entries(action)) {
         const setPath = isSetPath('action', subKey);
         if (setPath && Array.isArray(subVal)) {
-          pushSetReplacement(bodies, ruleUid, setPath, subVal, oracle);
+          pushSetReplacement(bodies, ruleUid, setPath, subVal, liveSetItemIds);
           continue;
         }
         remaining[subKey] = subVal;
@@ -161,10 +171,10 @@ function pushSetReplacement(
   ruleUid: string,
   setPath: SetPath,
   newItems: unknown[],
-  oracle: Pick<RuleOracle, 'liveSetItems'>,
+  liveSetItemIds: LiveSetItemIds,
 ): void {
-  const live = oracle.liveSetItems(RULE_ENTITY_TYPE, ruleUid, setPath);
-  for (const { itemId } of live) {
+  const live = liveSetItemIds(ruleUid, setPath);
+  for (const itemId of live) {
     bodies.push({ kind: 'removeFromSet', type: RULE_ENTITY_TYPE, id: ruleUid, path: setPath, itemId });
   }
   for (const item of newItems) {

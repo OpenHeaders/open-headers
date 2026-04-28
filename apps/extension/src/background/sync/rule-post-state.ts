@@ -18,7 +18,7 @@ import type { SyncRulePostState } from '@openheaders/core/protocol';
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { RuleOracle } from './oracle';
-import { projectRule } from './rule-projection';
+import { projectRule } from '@/shared/sync/rule-projection';
 
 /** Set-modeled paths on a Rule — mirrors {@link rule-projection.SET_PATHS}. */
 const RULE_SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseHeaders'] as const;

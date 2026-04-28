@@ -18,6 +18,7 @@
  */
 
 import { CollectionSchema, FolderSchema, RuleSchema } from '@openheaders/core/schemas';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
@@ -28,7 +29,7 @@ import {
   buildDeleteBatch,
   buildToggleBatch,
   buildUpdateBatch,
-} from '../sync/rule-mutations';
+} from '@/shared/sync/rule-mutations';
 import { getActiveRuleCache } from '../sync/rule-cache';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
@@ -451,8 +452,12 @@ export async function updateRule(
   if (!oracle) {
     return { ok: false, reason: 'not-found' } as RuleWriteResult;
   }
+  // SW-side adapter: oracle returns `{itemId, item}[]`; the shared
+  // `buildUpdateBatch` only needs itemIds. Map to the narrower shape.
+  const liveSetItemIds = (ruleUid: string, setPath: string): string[] =>
+    oracle.liveSetItems(RULE_ENTITY_TYPE, ruleUid, setPath).map((entry) => entry.itemId);
   await applyRuleMutationOrThrow(
-    (ctx) => buildUpdateBatch(uid, existing.type, safeUpdates, ctx, oracle),
+    (ctx) => buildUpdateBatch(uid, existing.type, safeUpdates, ctx, liveSetItemIds),
     'updateRule',
   );
   // Cache has been refreshed by the broadcast; read the post-apply
