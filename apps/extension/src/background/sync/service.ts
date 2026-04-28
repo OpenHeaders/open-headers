@@ -27,6 +27,9 @@
  */
 
 import type {
+  AwarenessPublishRequest,
+  AwarenessPublishResponse,
+  AwarenessState,
   SyncApplyRequest,
   SyncApplyResponse,
   SyncBroadcastEvent,
@@ -35,6 +38,8 @@ import type {
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
+import { type AwarenessStore, createAwarenessStore } from './awareness';
+import { handleAwarenessPublish } from './awareness-bridge';
 import { type BroadcastProjector, handleSyncApply, wireBroadcastToSink } from './bridge';
 import { projectRuleByUid, projectRulePostState } from './rule-post-state';
 import { InMemoryBroadcast } from './broadcast';
@@ -53,6 +58,7 @@ interface ServiceState {
   broadcast: InMemoryBroadcast;
   cache: RuleCache;
   context: SwContextHandle;
+  awareness: AwarenessStore;
   unsubscribeBroadcast: () => void;
 }
 
@@ -85,6 +91,13 @@ export function initSyncService(workspaceId: string): void {
   const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveRuleCache(cache);
 
+  const awareness = createAwarenessStore({
+    workspaceId,
+    emit: (presence) => {
+      bridgeBroadcast('awarenessBroadcast', { workspaceId, presence });
+    },
+  });
+
   // Re-publish every committed `(envelope, outcome)` to subscribed
   // surfaces via the existing chrome.runtime broadcast bus. The
   // projector reads post-commit state for Rule envelopes so renderer
@@ -106,7 +119,7 @@ export function initSyncService(workspaceId: string): void {
     projector,
   );
 
-  state = { workspaceId, oracle, broadcast, cache, context, unsubscribeBroadcast };
+  state = { workspaceId, oracle, broadcast, cache, context, awareness, unsubscribeBroadcast };
   logger.info(
     'SyncService',
     `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${context.nodeId})`,
@@ -118,6 +131,7 @@ export function dispose(): void {
   if (!state) return;
   state.unsubscribeBroadcast();
   state.cache.dispose();
+  state.awareness.dispose();
   setActiveRuleCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
@@ -177,6 +191,39 @@ export function snapshotRulePostStates(): SyncRulePostState[] {
 }
 
 /**
+ * Apply an awareness publish from a renderer surface. Returns the
+ * post-GC presence so the caller's local mirror has an immediate
+ * synchronous answer; the subsequent `awarenessBroadcast` carries the
+ * same shape to every other surface. Cross-workspace publishes (a
+ * renderer that hasn't observed an active-workspace switch yet) drop
+ * to an empty presence list rather than throwing — the renderer's
+ * mirror clears the entry.
+ */
+export function publishAwareness(request: AwarenessPublishRequest): AwarenessPublishResponse {
+  return handleAwarenessPublish(
+    (workspaceId) => (state && state.workspaceId === workspaceId ? state.awareness : null),
+    request,
+  );
+}
+
+/**
+ * Direct accessor for SW-internal consumers (e.g. tests). Returns null
+ * when the service isn't initialized or the requested workspace isn't
+ * the active one.
+ */
+export function getAwarenessStoreForCurrentWorkspace(): AwarenessStore | null {
+  return state?.awareness ?? null;
+}
+
+/**
+ * Snapshot the canonical presence list — used by renderer surfaces on
+ * mount so they have a starting view before the next publish/broadcast.
+ */
+export function snapshotAwarenessPresence(): AwarenessState[] {
+  return state?.awareness.list() ?? [];
+}
+
+/**
  * Mint a fresh `RuleMutatorContext` from the SW's HLC sequencer. Used
  * by SW-internal callers (rule-store, hydration) — surfaces hosted in
  * a renderer mint their own contexts with their own nodeId.
@@ -213,12 +260,20 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveRuleCache(cache);
 
+  const awareness = createAwarenessStore({
+    workspaceId,
+    emit: () => {
+      // No chrome.runtime sink in tests.
+    },
+  });
+
   state = {
     workspaceId,
     oracle,
     broadcast,
     cache,
     context,
+    awareness,
     unsubscribeBroadcast: () => {
       // No chrome.runtime sink in tests.
     },

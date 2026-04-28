@@ -22,7 +22,14 @@ import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders
 import type { FileRef } from '@openheaders/core/files';
 import type { ImportReport } from '@openheaders/core/import';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { SyncApplyRequest, SyncApplyResponse, SyncRulePostState } from '@openheaders/core/protocol';
+import type {
+  AwarenessPublishRequest,
+  AwarenessPublishResponse,
+  AwarenessState,
+  SyncApplyRequest,
+  SyncApplyResponse,
+  SyncRulePostState,
+} from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
@@ -1249,6 +1256,27 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncRulePostState[] };
   };
+
+  // ── Awareness (Phase A A1) ──────────────────────────────────────
+  /**
+   * Publish or refresh this surface's presence with the SW awareness
+   * store. The SW returns the post-GC canonical presence list — the
+   * caller folds it into its local mirror immediately, and every other
+   * surface receives the same list via the `awarenessBroadcast` event.
+   * Awareness is ephemeral; nothing persists.
+   */
+  'oh.awareness.publish': {
+    req: Omit<AwarenessPublishRequest, 'type'>;
+    res: AwarenessPublishResponse;
+  };
+  /**
+   * Snapshot the canonical presence for a freshly-mounted surface so
+   * its mirror has a starting view before the next publish/broadcast.
+   */
+  'oh.awareness.snapshot': {
+    req: Record<string, never>;
+    res: { workspaceId: string | null; presence: AwarenessState[] };
+  };
 }
 
 /**
@@ -1405,6 +1433,19 @@ export interface BridgeBroadcastContract {
      * for set-modeled paths without an oracle round-trip.
      */
     rulePostState?: SyncRulePostState;
+  };
+
+  /**
+   * Awareness broadcast — canonical per-workspace presence list,
+   * re-emitted by the SW on every publish/GC change. Ephemeral; never
+   * persisted. Lives on a separate channel from `syncBroadcast` because
+   * awareness is high-frequency and entangling presence flicker with
+   * mutation projection would couple two unrelated lifecycles
+   * (`docs/SYNC_ENGINE_DESIGN.md` §14).
+   */
+  awarenessBroadcast: {
+    workspaceId: string;
+    presence: AwarenessState[];
   };
 }
 

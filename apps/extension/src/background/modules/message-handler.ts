@@ -15,7 +15,12 @@ import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/cor
 import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { applySyncRequest, snapshotRulePostStates } from '@/background/sync/service';
+import {
+  applySyncRequest,
+  publishAwareness,
+  snapshotAwarenessPresence,
+  snapshotRulePostStates,
+} from '@/background/sync/service';
 import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
@@ -1370,6 +1375,20 @@ export function handleGeneralMessage(
         .then(() => safeResponse({ success: true }))
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
+      // ── Awareness (Phase A A1) ─────────────────────────────────
+    } else if (message.type === 'oh.awareness.publish') {
+      const request = message as unknown as import('@openheaders/core/protocol').AwarenessPublishRequest;
+      try {
+        safeResponse(publishAwareness(request));
+      } catch (err) {
+        logger.info('MessageHandler', 'oh.awareness.publish rejected:', (err as Error).message);
+        safeResponse({ ok: true, presence: [] });
+      }
+    } else if (message.type === 'oh.awareness.snapshot') {
+      safeResponse({
+        workspaceId: getActiveWorkspaceId(),
+        presence: snapshotAwarenessPresence(),
+      });
       // ── Sync engine (Phase A) ──────────────────────────────────
     } else if (message.type === 'oh.sync.snapshotRules') {
       safeResponse({ entries: snapshotRulePostStates() });

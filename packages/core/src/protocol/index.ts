@@ -21,6 +21,18 @@ export type {
   SyncRulePostState,
 } from './sync-bridge';
 
+export {
+  AWARENESS_BROADCAST_TYPE,
+  AWARENESS_PUBLISH_TYPE,
+  AWARENESS_TTL_MS,
+} from './awareness-bridge';
+export type {
+  AwarenessBroadcastEvent,
+  AwarenessPublishRequest,
+  AwarenessPublishResponse,
+  AwarenessState,
+} from './awareness-bridge';
+
 export type {
   AppNavigationIntent,
   BrowserDisplayInfo,
