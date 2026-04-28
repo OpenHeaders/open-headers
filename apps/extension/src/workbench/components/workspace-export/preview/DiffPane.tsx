@@ -1,14 +1,20 @@
 /**
  * Right pane of the diff workspace — entity header + the rich diff
- * editor (or empty-state preview for new entities). The header carries
- * the entity title, kind tag, state tags, and the segmented strategy
- * control with a one-sentence "what does this mean" subtitle so the
- * user never has to memorise the matrix. The IDE-style diff toolbar
- * lives directly above the editor, inside `RichDiffEditor`.
+ * editor. The header carries the entity title, kind tag, state tags,
+ * and the segmented strategy control with a one-sentence "what does
+ * this mean" subtitle so the user never has to memorise the matrix.
+ * The IDE-style diff toolbar lives directly above the editor, inside
+ * `RichDiffEditor`.
+ *
+ * New-entity rows also flow through `RichDiffEditor` (with `original=''`)
+ * so the user gets the same Monaco surface — line numbers, scrolling,
+ * search, the toolbar — instead of a stripped-down `<pre>` block. The
+ * diff renders as one inline "all added" pane, which is exactly the
+ * IDE convention for "this file did not exist before".
  */
 
 import type { CollisionStrategy } from '@openheaders/core/workspace-export';
-import { Segmented, Tag, Typography, theme } from 'antd';
+import { Segmented, Tag, Typography } from 'antd';
 import type React from 'react';
 import { RichDiffEditor } from '@/workbench/components/diff-viewer';
 import RequestSummary from '../RequestSummary';
@@ -27,7 +33,6 @@ interface DiffPaneProps {
 }
 
 const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChangeStrategy }) => {
-  const { token } = theme.useToken();
   const [diffOptions, setDiffOptions] = useImportPreviewDiffOptions();
 
   if (!row) {
@@ -45,7 +50,6 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
   }));
 
   const isNew = row.state === 'no-collision';
-  const showsDiff = !isNew && yaml && yaml.targetYaml !== '';
 
   const headerContent = (
     <div
@@ -94,52 +98,6 @@ const DiffPane: React.FC<DiffPaneProps> = ({ row, yaml, currentStrategy, onChang
       ) : null}
     </div>
   );
-
-  if (!showsDiff) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
-        <div style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>{headerContent}</div>
-        <div
-          style={{
-            padding: 24,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'stretch',
-            flex: 1,
-            minHeight: 0,
-            gap: 12,
-            color: token.colorTextTertiary,
-          }}
-        >
-          <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
-            {isNew
-              ? 'This entity is new — nothing on the target side to compare against.'
-              : 'Nothing to diff — both sides are empty.'}
-          </Text>
-          {row.entity && yaml?.incomingYaml ? (
-            <pre
-              style={{
-                margin: 0,
-                padding: 12,
-                width: '100%',
-                flex: 1,
-                minHeight: 0,
-                overflow: 'auto',
-                background: token.colorBgLayout,
-                borderRadius: 6,
-                fontSize: 11,
-                fontFamily:
-                  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                color: token.colorText,
-              }}
-            >
-              {yaml.incomingYaml}
-            </pre>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <RichDiffEditor
