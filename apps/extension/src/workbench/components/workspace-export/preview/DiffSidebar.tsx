@@ -93,8 +93,13 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderRight: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorFillQuaternary,
+        // Same `colorBgContainer` white as the diff pane card — the
+        // sidebar is a peer dock panel, not a chrome strip, so it
+        // shares the surface colour with every other pane. The 6 px
+        // gray gutter from the parent's `paneCardWrapper` padding is
+        // what visually separates this panel from its neighbours; no
+        // border-right needed.
+        background: token.colorBgContainer,
         overflow: 'hidden',
         fontFeatureSettings: '"tnum" 1',
       }}
