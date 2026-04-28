@@ -62,6 +62,7 @@ import { recordLog } from './observability-log';
 import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
 import { hydrateFromStorage as hydrateRequestsFromStorage } from './request-store';
 import { scheduleUpdate } from './rule-engine';
+import { reinitForWorkspace } from '../sync/service';
 import { bridgeToSyncEngine, hydrateFromStorage as hydrateRulesFromStorage } from './rule-store';
 import { hydrateTemplatesFromStorage } from './template-store';
 import {
@@ -344,10 +345,14 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
           hydrateLiveWorkflowsFromStorage(),
           hydrateLiveVariablesFromStorage(),
         ]);
-        // Re-seed the oracle from the freshly hydrated rule list —
-        // import wrote raw rule entries to chrome.storage.local
-        // outside the sync engine, so the cache + oracle would
-        // otherwise still reflect the pre-import state.
+        // Flush the active oracle's in-memory state before reseeding so
+        // the per-rule seedRule batches emitted by bridgeToSyncEngine
+        // populate a clean entity store. Without the reinit, addToSet
+        // bodies for set-modeled paths (conditions, headerMods) would
+        // append to the pre-import items rather than replace them, and
+        // duplicate set members would survive every active-workspace
+        // import.
+        reinitForWorkspace(targetWorkspaceId);
         await bridgeToSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {

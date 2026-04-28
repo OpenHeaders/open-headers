@@ -427,10 +427,6 @@ export interface BridgeRpcContract {
     req: { ruleId: string };
     res: { success: boolean; error?: string };
   };
-  toggleAllRules: {
-    req: { ruleIds: string[]; enabled: boolean };
-    res: { success: boolean; error?: string };
-  };
   createLocalRule: {
     req: {
       rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>;

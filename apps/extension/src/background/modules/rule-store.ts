@@ -23,7 +23,7 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
-import { buildAddBatch, buildDeleteBatch, buildToggleBatch } from '@/shared/sync/rule-mutations';
+import { buildAddBatch, buildDeleteBatch } from '@/shared/sync/rule-mutations';
 import { getActiveRuleCache } from '../sync/rule-cache';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
@@ -422,13 +422,6 @@ export async function deleteRule(uid: string): Promise<boolean> {
   assertLoaded();
   if (!rules.some((r) => r.uid === uid)) return false;
   await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteRule');
-  return true;
-}
-
-export async function toggleRule(uid: string, enabled: boolean): Promise<boolean> {
-  assertLoaded();
-  if (!rules.some((r) => r.uid === uid)) return false;
-  await applyRuleMutationOrThrow((ctx) => buildToggleBatch(uid, enabled, ctx), 'toggleRule');
   return true;
 }
 

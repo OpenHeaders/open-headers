@@ -120,7 +120,6 @@ import {
   getRules,
   renameCollection,
   renameFolder,
-  toggleRule,
   updateCollectionPinnedEnvs,
   updateCollectionVariables,
 } from './rule-store';
@@ -1005,25 +1004,6 @@ export function handleGeneralMessage(
         })
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
-    } else if (message.type === 'toggleAllRules') {
-      const ruleIds = message.ruleIds as string[];
-      const enabled = message.enabled as boolean;
-      // Each toggle acquires its own per-rule lock. Run them in
-      // parallel — the SW is single-threaded but awaits serialize
-      // the storage writes; `Promise.all` keeps the net round-trip
-      // close to a single toggle's duration.
-      Promise.all(ruleIds.map((ruleId) => toggleRule(ruleId, enabled)))
-        .then((results) => {
-          const touched = results.some((r) => r);
-          if (touched) {
-            scheduleUpdate('rules', { immediate: true });
-            updateBadgeCallback();
-          }
-          safeResponse({ success: true });
-        })
-        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
-      return true;
-
       // ── Template CRUD ──────────────────────────────────────────
     } else if (message.type === 'getTemplates') {
       safeResponse({ templates: getTemplates() });
