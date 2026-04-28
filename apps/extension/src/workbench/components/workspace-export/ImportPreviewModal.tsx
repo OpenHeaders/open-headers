@@ -508,15 +508,17 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     overflow: 'hidden',
   };
 
-  // Strip-style row used for the custom header + footer. Same recipe
-  // as the workspace shell's topbar / status-bar — solid container
-  // bg, hairline border on the body-facing edge, comfortable height.
+  // Strip-style row used for the custom header / secondary header /
+  // footer. They share the modal body's gray bg — only the dock panels
+  // (vault cards + diff workspace) paint white. The strips are
+  // distinguished by their layout (3-column for the top header,
+  // centered for the secondary header) rather than by surface colour.
   const stripStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     height: 44,
     padding: '0 12px',
-    background: token.colorBgContainer,
+    background: token.colorBgLayout,
     flexShrink: 0,
     gap: 12,
   };
@@ -553,22 +555,53 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         },
       }}
     >
-      {/* Custom topbar — matches the workspace shell's top strip. */}
-      <div style={{ ...stripStyle, borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>
-        <div style={{ flex: 1 }} />
-        {statusChips.length > 0 && <StatusChips chips={statusChips} />}
-        <Button
-          type="text"
-          size="small"
-          icon={<CloseOutlined />}
-          onClick={importing ? undefined : onCancel}
-          aria-label="Close import preview"
-          disabled={importing}
-        />
+      {/* Top header — title left, source attribution centered, chips
+          + close X right. 3-column grid keeps the centre slot honestly
+          centered regardless of how wide the chips group becomes. */}
+      <div
+        style={{
+          ...stripStyle,
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, justifySelf: 'start' }}>
+          IMPORT WORKSPACE EXPORT
+        </span>
+        <div style={{ justifySelf: 'center' }}>{parsed && <SourceAttribution envelope={parsed.envelope} />}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifySelf: 'end' }}>
+          {statusChips.length > 0 && <StatusChips chips={statusChips} />}
+          <Button
+            type="text"
+            size="small"
+            icon={<CloseOutlined />}
+            onClick={importing ? undefined : onCancel}
+            aria-label="Close import preview"
+            disabled={importing}
+          />
+        </div>
       </div>
 
-      {/* Middle area — flex column of cards on gray. */}
+      {/* Secondary header — primary action (target picker) centered,
+          rendered at `size="middle"` so it visually outranks the
+          smaller controls inside the diff toolbar. Slightly taller than
+          the topbar to read as the "main action" row. */}
+      {parsed && (
+        <div style={{ ...stripStyle, height: 52, justifyContent: 'center' }}>
+          <TargetControl
+            target={target}
+            onChange={setTarget}
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            envelope={parsed.envelope}
+            size="middle"
+          />
+        </div>
+      )}
+
+      {/* Middle area — flex column of cards on gray. The ONLY white
+          surfaces in the modal live below this point: vault cards (when
+          present) and the diff workspace card. */}
       <div
         style={{
           flex: 1,
@@ -611,44 +644,44 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               minHeight: 0,
             }}
           >
-            {/* Top card: source attribution + target picker + (optional) vault blocks. */}
-            <div style={{ ...cardStyle, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <SourceAttribution envelope={parsed.envelope} />
+            {/* Vault + strip-scripts card — rendered only when the
+                envelope has secrets or the source is low-trust. The
+                source attribution + target picker that used to live
+                here have been hoisted into the modal's top header and
+                secondary header strips. */}
+            {(parsed.envelope.secrets || decryptedEnvelope || (preview && isLowTrustSource)) && (
+              <div style={{ ...cardStyle, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {parsed.envelope.secrets && !decryptedEnvelope && (
+                  <VaultEncryptedBlock
+                    envelope={parsed.envelope}
+                    passphrase={vaultPassphrase}
+                    onChangePassphrase={setVaultPassphrase}
+                    onDecrypt={() => void handleDecryptVault()}
+                    decrypting={vaultDecrypting}
+                    error={vaultDecryptError}
+                  />
+                )}
 
-              <TargetControl
-                target={target}
-                onChange={setTarget}
-                workspaces={workspaces}
-                activeWorkspaceId={activeWorkspaceId}
-                envelope={parsed.envelope}
-              />
+                {decryptedEnvelope && vaultFingerprints && (
+                  <VaultDecryptedBanner
+                    fingerprints={vaultFingerprints}
+                    secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
+                  />
+                )}
 
-              {parsed.envelope.secrets && !decryptedEnvelope && (
-                <VaultEncryptedBlock
-                  envelope={parsed.envelope}
-                  passphrase={vaultPassphrase}
-                  onChangePassphrase={setVaultPassphrase}
-                  onDecrypt={() => void handleDecryptVault()}
-                  decrypting={vaultDecrypting}
-                  error={vaultDecryptError}
-                />
-              )}
+                {decryptedEnvelope && vaultPartialDrops.length > 0 && (
+                  <VaultPartialDecryptPanel drops={vaultPartialDrops} />
+                )}
 
-              {decryptedEnvelope && vaultFingerprints && (
-                <VaultDecryptedBanner
-                  fingerprints={vaultFingerprints}
-                  secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
-                />
-              )}
-
-              {decryptedEnvelope && vaultPartialDrops.length > 0 && (
-                <VaultPartialDecryptPanel drops={vaultPartialDrops} />
-              )}
-
-              {preview && isLowTrustSource && (
-                <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
-              )}
-            </div>
+                {preview && isLowTrustSource && (
+                  <StripScriptsTopRow
+                    source={source ?? 'link'}
+                    stripScripts={stripScripts}
+                    onChange={setStripScripts}
+                  />
+                )}
+              </div>
+            )}
 
             {previewing && !preview && (
               <div style={{ ...cardStyle, padding: 24, textAlign: 'center' }}>
@@ -699,10 +732,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         )}
       </div>
 
-      {/* Custom footer strip — matches the workspace shell's status bar. */}
-      <div
-        style={{ ...stripStyle, borderTop: `1px solid ${token.colorBorderSecondary}`, justifyContent: 'space-between' }}
-      >
+      {/* Footer strip — same gray bg; layout (fixed-height row at the
+          bottom of a flex column) is the visual cue, no border needed. */}
+      <div style={{ ...stripStyle, justifyContent: 'space-between' }}>
         <Text type="secondary" style={{ fontSize: 11 }}>
           {parsed
             ? `Export ${parsed.envelope.exportId} · ${parsed.envelope.scope}`

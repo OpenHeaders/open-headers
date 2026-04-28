@@ -26,7 +26,11 @@ const TargetControl: React.FC<{
   workspaces: V5.ExtensionWorkspace[];
   activeWorkspaceId: string | null;
   envelope: WorkspaceExport;
-}> = ({ target, onChange, workspaces, activeWorkspaceId, envelope }) => {
+  /** Visual size of the segmented + side fields. `'middle'` is used
+   *  when the picker is the modal's primary action (secondary header
+   *  strip); `'small'` is the default for in-card uses. */
+  size?: 'small' | 'middle';
+}> = ({ target, onChange, workspaces, activeWorkspaceId, envelope, size = 'small' }) => {
   const exportName = envelope.workspace.name;
 
   // Local name buffer so the user can type freely without re-render
@@ -42,13 +46,14 @@ const TargetControl: React.FC<{
     { label: 'Pick existing', value: 'picked', disabled: workspaces.length === 0 },
   ];
 
+  const labelFontSize = size === 'middle' ? 13 : 12;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <Text strong style={{ fontSize: 12 }}>
+      <Text strong style={{ fontSize: labelFontSize }}>
         Import into
       </Text>
       <Segmented
-        size="small"
+        size={size}
         value={target.mode}
         onChange={(v) => {
           const mode = v as ImportTargetSelection['mode'];
@@ -60,7 +65,7 @@ const TargetControl: React.FC<{
       />
       {target.mode === 'new' && (
         <Input
-          size="small"
+          size={size}
           value={newName}
           placeholder={exportName}
           onChange={(e) => {
@@ -68,15 +73,15 @@ const TargetControl: React.FC<{
             setNewName(v);
             onChange({ mode: 'new', name: v });
           }}
-          style={{ width: 240 }}
+          style={{ width: 260 }}
         />
       )}
       {target.mode === 'picked' && (
         <Select
-          size="small"
+          size={size}
           value={target.workspaceId || undefined}
           onChange={(id) => onChange({ mode: 'picked', workspaceId: id })}
-          style={{ width: 240 }}
+          style={{ width: 260 }}
           options={workspaces.map((w) => ({ label: w.name, value: w.id }))}
           placeholder="Select a workspace"
         />
