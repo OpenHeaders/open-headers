@@ -15,10 +15,18 @@
  *
  * Lifecycle invariants:
  *   • Editor is created exactly once (on container mount).
- *   • Two `TextModel`s are created up-front and held stable across
- *     prop changes; content updates flow through `model.setValue()`.
- *     This is faster than the wrapper's swap-on-prop-change path AND
- *     avoids a class of half-attached-model races.
+ *   • Models are *swapped* (not mutated in place) when content changes.
+ *     `setValue()` on a stable model retains Monaco's per-region
+ *     "user expanded" cache, which carries over to unrelated content
+ *     and prevents `hideUnchangedRegions` from collapsing on first
+ *     paint after a row switch. New model identity ⇒ fresh state ⇒
+ *     the option applies cleanly. Old models are disposed AFTER
+ *     `setModel({newPair})` releases them from the widget.
+ *   • A `loading` flag covers the window between content-swap and the
+ *     `onDidUpdateDiff` callback. Monaco's default `advanced` diff
+ *     algorithm is the best quality but runs async; rendering a
+ *     skeleton over the editor during that window avoids the visible
+ *     "content paints, decorations follow 100–200 ms later" flash.
  *   • Theme is global to Monaco; we apply via `editor.setTheme` on
  *     mount and on every dark-mode change.
  *   • `onDidUpdateDiff` subscription is held on a ref and disposed
@@ -26,7 +34,7 @@
  */
 
 import { useTheme } from '@context/ThemeContext';
-import { theme } from 'antd';
+import { Skeleton, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import type React from 'react';
@@ -65,37 +73,37 @@ const RichDiffEditor: React.FC<Props> = ({
   const diffSubRef = useRef<monaco.IDisposable | null>(null);
 
   const [diffCount, setDiffCount] = useState<number | null>(null);
+  // True while a diff computation is in flight for the current pair.
+  // Flipped to false the next time `onDidUpdateDiff` fires.
+  const [loading, setLoading] = useState(true);
 
-  // ── Mount: create editor + models, set up diff-count subscription.
-  // Cleanup releases everything in the order Monaco requires:
-  // setModel(null) → dispose editor → dispose models. ────────────────
+  // ── Mount: create editor + initial models, set up diff-count
+  // subscription. Cleanup releases everything in the order Monaco
+  // requires: setModel(null) → dispose editor → dispose models. ─────
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only — initial values seed the editor; subsequent prop changes flow through their own effects below.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const theme = isDarkMode ? 'oh-dark' : 'oh-light';
-    monacoEditor.setTheme(theme);
-
-    const originalModel = monacoEditor.createModel(original, language);
-    const modifiedModel = monacoEditor.createModel(modified, language);
-    originalModelRef.current = originalModel;
-    modifiedModelRef.current = modifiedModel;
+    monacoEditor.setTheme(isDarkMode ? 'oh-dark' : 'oh-light');
 
     const editor = monacoEditor.createDiffEditor(container, {
       automaticLayout: true,
       ...toMonacoDiffOptions(options),
     });
-    editor.setModel({ original: originalModel, modified: modifiedModel });
     editorRef.current = editor;
 
     diffSubRef.current = editor.onDidUpdateDiff(() => {
       const changes = editor.getLineChanges();
       setDiffCount(changes ? changes.length : 0);
+      setLoading(false);
     });
-    // Diff may already be computed before subscription attaches.
-    const initialChanges = editor.getLineChanges();
-    setDiffCount(initialChanges ? initialChanges.length : 0);
+
+    const orig = monacoEditor.createModel(original, language);
+    const mod = monacoEditor.createModel(modified, language);
+    editor.setModel({ original: orig, modified: mod });
+    originalModelRef.current = orig;
+    modifiedModelRef.current = mod;
 
     return () => {
       diffSubRef.current?.dispose();
@@ -105,36 +113,36 @@ const RichDiffEditor: React.FC<Props> = ({
       // (`TextModel got disposed before DiffEditorWidget model got reset`).
       editor.setModel(null);
       editor.dispose();
-      originalModel.dispose();
-      modifiedModel.dispose();
+      originalModelRef.current?.dispose();
+      modifiedModelRef.current?.dispose();
       editorRef.current = null;
       originalModelRef.current = null;
       modifiedModelRef.current = null;
     };
   }, []);
 
-  // ── Prop sync: content. Stable models, content via setValue.
-  // Both sides batched in one effect so Monaco never sees a transient
-  // pair (new original + old modified, or vice versa). The wrong-pair
-  // window — even one tick wide — used to make Monaco compute a diff
-  // against stale content and flash incorrect red/green decorations
-  // before the second setValue triggered the real recomputation. ────
+  // ── Prop sync: content. Swap models entirely on change so Monaco's
+  // per-region expansion cache is reset and `hideUnchangedRegions`
+  // applies cleanly to the new pair. The previous setValue-on-stable
+  // -model approach kept the cache and left unchanged regions visible
+  // until the user manually toggled the eye icon round-trip. ────────
   useEffect(() => {
-    const orig = originalModelRef.current;
-    const mod = modifiedModelRef.current;
-    if (!orig || !mod) return;
-    const origChanged = orig.getValue() !== original;
-    const modChanged = mod.getValue() !== modified;
-    if (!origChanged && !modChanged) return;
-    if (origChanged) orig.setValue(original);
-    if (modChanged) mod.setValue(modified);
-  }, [original, modified]);
+    const editor = editorRef.current;
+    const oldOrig = originalModelRef.current;
+    const oldMod = modifiedModelRef.current;
+    if (!editor || !oldOrig || !oldMod) return;
+    if (oldOrig.getValue() === original && oldMod.getValue() === modified) return;
 
-  // ── Prop sync: language. ──────────────────────────────────────────
-  useEffect(() => {
-    if (originalModelRef.current) monacoEditor.setModelLanguage(originalModelRef.current, language);
-    if (modifiedModelRef.current) monacoEditor.setModelLanguage(modifiedModelRef.current, language);
-  }, [language]);
+    setLoading(true);
+    const newOrig = monacoEditor.createModel(original, language);
+    const newMod = monacoEditor.createModel(modified, language);
+    editor.setModel({ original: newOrig, modified: newMod });
+    // The widget no longer holds the old models — safe to dispose.
+    oldOrig.dispose();
+    oldMod.dispose();
+    originalModelRef.current = newOrig;
+    modifiedModelRef.current = newMod;
+  }, [original, modified, language]);
 
   // ── Prop sync: theme (global to Monaco). ──────────────────────────
   useEffect(() => {
@@ -150,7 +158,46 @@ const RichDiffEditor: React.FC<Props> = ({
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
       {header ? <div style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>{header}</div> : null}
       <DiffEditorToolbar options={options} onChange={onOptionsChange} diffCount={diffCount} />
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0, position: 'relative' }} />
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        {loading && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              padding: '14px 20px',
+              background: token.colorBgContainer,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+            }}
+          >
+            <Skeleton
+              active
+              paragraph={{
+                rows: 14,
+                width: [
+                  '38%',
+                  '62%',
+                  '52%',
+                  '74%',
+                  '46%',
+                  '70%',
+                  '34%',
+                  '58%',
+                  '66%',
+                  '42%',
+                  '78%',
+                  '50%',
+                  '60%',
+                  '44%',
+                ],
+              }}
+              title={false}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

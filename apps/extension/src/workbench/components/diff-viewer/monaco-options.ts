@@ -12,16 +12,6 @@ export function toMonacoDiffOptions(opts: DiffViewerOptions): monaco.editor.IDif
     readOnly: true,
     renderSideBySide: opts.mode === 'side-by-side',
     ignoreTrimWhitespace: opts.whitespace === 'ignore',
-    // `legacy` is a Myers-style line diff that runs synchronously in
-    // the main thread; on the small canonical-YAML blobs the import
-    // preview compares (single entity at a time, typically <1 KB) it
-    // completes within the same frame as the model update, so the
-    // red/green decorations paint together with the content. The
-    // default `advanced` algorithm is async — it ships through a
-    // `IDocumentDiffProvider` worker — and creates a visible 100–200ms
-    // gap between content paint and decoration paint. Quality
-    // difference at this scale is imperceptible.
-    diffAlgorithm: 'legacy',
     hideUnchangedRegions: { enabled: opts.collapseUnchanged, contextLineCount: 2 },
     renderWhitespace: opts.showWhitespaces ? 'all' : 'selection',
     lineNumbers: opts.showLineNumbers ? 'on' : 'off',
