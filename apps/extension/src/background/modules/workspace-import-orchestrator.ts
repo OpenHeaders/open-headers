@@ -73,7 +73,17 @@ import {
 
 // ── Public API ─────────────────────────────────────────────────────
 
-export type ImportTargetSelector = { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
+export type ImportTargetSelector =
+  | { mode: 'current' }
+  | {
+      mode: 'new';
+      /** User-overridden workspace name from the import-preview's
+       *  editable input on `mode='new'`. Falls back to the export's
+       *  `workspace.name` when omitted. Collision suffix is applied on
+       *  top of whichever name we end up with. */
+      name?: string;
+    }
+  | { mode: 'picked'; workspaceId: string };
 
 export interface ImportWorkspaceArgs {
   incoming: WorkspaceExport;
@@ -429,7 +439,13 @@ async function resolveTargetWorkspace(args: ImportWorkspaceArgs): Promise<string
       );
     }
   }
-  const desiredName = collidingName(args.incoming.workspace.name);
+  // User-overridden name from the modal (mode='new') wins; otherwise
+  // fall back to the export's own workspace name.
+  const baseName =
+    args.target.mode === 'new' && args.target.name && args.target.name.trim().length > 0
+      ? args.target.name.trim()
+      : args.incoming.workspace.name;
+  const desiredName = collidingName(baseName);
   const meta = await createWorkspaceMeta({
     name: desiredName,
     description: args.incoming.workspace.description,

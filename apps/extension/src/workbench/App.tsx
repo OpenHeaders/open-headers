@@ -685,7 +685,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   const handleSwitchWorkspace = useCallback(
     (targetId: string) => {
       if (targetId === workspacesApi.activeWorkspaceId) return;
-      const hasDirty = Array.from(dirtyMap.current.values()).some(Boolean);
+      // Source of truth is the LIVE tab list — `dirtyMap` accumulates
+      // historical entries (it's never pruned on tab close), so reading
+      // it gives false positives for closed tabs and triggers the
+      // discard-drafts modal when zero tabs are actually open. Use the
+      // current `allTabs` array's `dirty` flag instead.
+      const hasDirty = allTabs.some((t) => t.dirty);
       const targetName = workspacesApi.workspaces.find((w) => w.id === targetId)?.name;
       const doSwitch = async (): Promise<void> => {
         const ok = await workspacesApi.setActiveWorkspace(targetId);
@@ -707,7 +712,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       }
       void doSwitch();
     },
-    [workspacesApi, modal, message, dirtyMap],
+    [workspacesApi, modal, message, allTabs],
   );
 
   const openSettings = useCallback(

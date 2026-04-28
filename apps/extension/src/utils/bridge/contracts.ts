@@ -211,7 +211,7 @@ export interface BridgeRpcContract {
        *  create when an existing workspace carries the export's
        *  `workspace.uid`. */
       refuseUidCollision?: boolean;
-      target: { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
+      target: { mode: 'current' } | { mode: 'new'; name?: string } | { mode: 'picked'; workspaceId: string };
       /** SHA-256 of the original raw bytes (`sha256:<hex>`). */
       sourceHash: string;
     };
@@ -234,7 +234,7 @@ export interface BridgeRpcContract {
   previewWorkspaceImport: {
     req: {
       incoming: import('@openheaders/core/workspace-export').WorkspaceExport;
-      target: { mode: 'current' } | { mode: 'new' } | { mode: 'picked'; workspaceId: string };
+      target: { mode: 'current' } | { mode: 'new'; name?: string } | { mode: 'picked'; workspaceId: string };
       backupRestore?: boolean;
     };
     res: {
