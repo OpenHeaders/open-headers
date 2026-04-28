@@ -164,7 +164,18 @@ const ImportSourceModal: React.FC<Props> = ({ open, onCancel, onFileChosen, load
               Any <code>.openheaders.yaml</code> file your team or playground generated. Drag it onto this area, or pick
               it from your computer.
             </Text>
-            <Button type="primary" icon={<UploadOutlined />} onClick={pickFile} style={{ marginTop: 4 }}>
+            <Button
+              type="primary"
+              icon={<UploadOutlined />}
+              // Stop propagation: the parent zone div is also `role="button"`
+              // wired to `pickFile`, so without this the Button's click
+              // bubbles up and the OS file picker opens twice.
+              onClick={(e) => {
+                e.stopPropagation();
+                pickFile();
+              }}
+              style={{ marginTop: 4 }}
+            >
               Browse files…
             </Button>
             <input
