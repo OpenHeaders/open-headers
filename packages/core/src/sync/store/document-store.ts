@@ -15,7 +15,7 @@
 
 import type { EntityType, MutationEnvelope } from '../envelope';
 import { applyMutation } from '../mutators';
-import { newEntityState } from '../mutators/state';
+import { liveOrderedItemsAt, newEntityState } from '../mutators/state';
 import type { EntityState, MutatorOutcome } from '../mutators/types';
 import { canonicalJson } from './canonical';
 import { type MaterializedEntity, materializeEntity } from './materialize';
@@ -57,6 +57,20 @@ export class InMemoryDocumentStore {
   /** True if a mutationId has already been seen (dedup query for transports). */
   hasMutation(mutationId: string): boolean {
     return this.appliedMutationIds.has(mutationId);
+  }
+
+  /**
+   * Live members of a set at `(type, id, setPath)`, sorted by order key
+   * (with itemId tie-break). Surfaces this for write-side helpers that
+   * need to enumerate current itemIds — e.g. a partial-update flow that
+   * replaces a set's contents must emit `removeFromSet` for every live
+   * itemId before adding fresh members. Returns `[]` when the entity
+   * doesn't exist or the set is empty.
+   */
+  liveSetItems(type: EntityType, id: string, setPath: string): Array<{ itemId: string; item: unknown }> {
+    const state = this.entities.get(entityKey(type, id));
+    if (!state) return [];
+    return liveOrderedItemsAt(state, setPath).map(({ itemId, item }) => ({ itemId, item }));
   }
 
   /** Materialized, deletion-filtered snapshot list, sorted by (type, id). */

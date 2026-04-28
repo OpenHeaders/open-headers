@@ -87,6 +87,16 @@ export class RuleOracle {
     return this.store.materializeAll();
   }
 
+  /**
+   * Read live `(itemId, item)` pairs at a set path. Write-side helpers
+   * (rule-store's partial-update path) consult this to enumerate the
+   * itemIds they need to emit `removeFromSet` against — the materialized
+   * view strips itemIds, so it can't answer this question.
+   */
+  liveSetItems(type: string, id: string, setPath: string): Array<{ itemId: string; item: unknown }> {
+    return this.store.liveSetItems(type, id, setPath);
+  }
+
   // ── internals ────────────────────────────────────────────────────
 
   private async applyUnderLock(

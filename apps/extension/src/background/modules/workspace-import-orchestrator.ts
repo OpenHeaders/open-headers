@@ -62,7 +62,7 @@ import { recordLog } from './observability-log';
 import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
 import { hydrateFromStorage as hydrateRequestsFromStorage } from './request-store';
 import { scheduleUpdate } from './rule-engine';
-import { hydrateFromStorage as hydrateRulesFromStorage } from './rule-store';
+import { bridgeToSyncEngine, hydrateFromStorage as hydrateRulesFromStorage } from './rule-store';
 import { hydrateTemplatesFromStorage } from './template-store';
 import {
   createWorkspace as createWorkspaceMeta,
@@ -344,6 +344,11 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
           hydrateLiveWorkflowsFromStorage(),
           hydrateLiveVariablesFromStorage(),
         ]);
+        // Re-seed the oracle from the freshly hydrated rule list —
+        // import wrote raw rule entries to chrome.storage.local
+        // outside the sync engine, so the cache + oracle would
+        // otherwise still reflect the pre-import state.
+        await bridgeToSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

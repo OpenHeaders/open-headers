@@ -88,7 +88,12 @@ beforeEach(async () => {
   ruleStore = await import('@/background/modules/rule-store');
   requestStore = await import('@/background/modules/request-store');
   templateStore = await import('@/background/modules/template-store');
+  // Sync engine is workspace-scoped; spin up an in-memory oracle/cache
+  // before the rule-store can route writes through it.
+  const syncService = await import('@/background/sync/service');
+  syncService.__initSyncServiceForTests('ws-coll0001');
   await ruleStore.switchToWorkspace('ws-coll0001');
+  await ruleStore.bridgeToSyncEngine();
   await requestStore.switchToWorkspace('ws-coll0001');
   await templateStore.switchToWorkspace('ws-coll0001');
 });
@@ -197,7 +202,7 @@ describe('rule-store — collection lock serializes mixed mutations', () => {
 
   it('deleteCollection removes the collection and cascades child rules', async () => {
     const coll = ruleStore.createCollection('Doomed');
-    ruleStore.addRuleToCollection(
+    await ruleStore.addRuleToCollection(
       {
         name: 'child',
         type: 'header',

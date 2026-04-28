@@ -23,6 +23,14 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import {
+  buildAddBatch,
+  buildDeleteBatch,
+  buildToggleBatch,
+  buildUpdateBatch,
+} from '../sync/rule-mutations';
+import { getActiveRuleCache } from '../sync/rule-cache';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -59,6 +67,10 @@ function notifyChange(): void {
 // ── Reads ────────────────────────────────────────────────────────────
 
 export function getRules(): V5.Rule[] {
+  // Cache is the source of truth once `bridgeToSyncEngine()` has wired
+  // the oracle's broadcast through to our local mirror. The local
+  // `rules` array tracks the cache via the change listener — keep it
+  // as the read path so callers stay synchronous + oracle-decoupled.
   return rules;
 }
 
@@ -235,12 +247,17 @@ export async function deleteCollection(uid: string): Promise<boolean> {
       const collection = collections.find((c) => c.uid === uid);
       if (!collection) return false;
 
+      // Cascade rule deletes through the oracle so the cache (and
+      // hence chrome.storage.local) stays consistent with the
+      // collection/folder removals we apply locally.
+      const cascadingRuleUids = rules.filter((r) => r.path.startsWith(collection.path)).map((r) => r.uid);
       collections = collections.filter((c) => c.uid !== uid);
-      rules = rules.filter((r) => !r.path.startsWith(collection.path));
       folders = folders.filter((f) => !f.path.startsWith(collection.path));
       await persistCollections();
-      await persistRules();
       await persistFolders();
+      for (const ruleUid of cascadingRuleUids) {
+        await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteCollection-cascade');
+      }
       return true;
     },
     { op: 'collection-delete' },
@@ -353,10 +370,12 @@ export async function deleteFolder(uid: string): Promise<boolean> {
       const folder = folders.find((f) => f.uid === uid);
       if (!folder) return false;
 
+      const cascadingRuleUids = rules.filter((r) => r.path.startsWith(`${folder.path}/`)).map((r) => r.uid);
       folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-      rules = rules.filter((r) => !r.path.startsWith(`${folder.path}/`));
       await persistFolders();
-      await persistRules();
+      for (const ruleUid of cascadingRuleUids) {
+        await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteFolder-cascade');
+      }
       return true;
     },
     { op: 'folder-delete' },
@@ -369,8 +388,16 @@ export async function deleteFolder(uid: string): Promise<boolean> {
  * Add a rule. `parentPath` is the collection or folder path.
  * `schemaVersion` is owned by the store — callers provide the feature
  * payload, the store stamps the persisted version.
+ *
+ * Routes through the sync oracle: emits a seed batch (one create +
+ * one addToSet per set-modeled item) and awaits the broadcast-driven
+ * cache refresh so the returned rule is observable from `getRules()`
+ * before the function resolves.
  */
-export function addRule(rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>, parentPath: string): V5.Rule {
+export async function addRule(
+  rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>,
+  parentPath: string,
+): Promise<V5.Rule> {
   const uid = generateUid();
   const folderName = toFolderName(rule.name, uid);
   const created = {
@@ -379,8 +406,7 @@ export function addRule(rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>, p
     uid,
     path: `${parentPath}/${folderName}`,
   } as V5.Rule;
-  rules = [...rules, created];
-  void persistRules();
+  await applyRuleMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addRule');
   return created;
 }
 
@@ -391,7 +417,7 @@ export function addRule(rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>, p
 export function addRuleToCollection(
   rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>,
   collectionUid: string,
-): V5.Rule {
+): Promise<V5.Rule> {
   const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `rules/${collectionUid}`;
   return addRule(rule, parentPath);
@@ -411,67 +437,82 @@ export async function updateRule(
   uid: string,
   updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
 ): Promise<RuleWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'rule', uid),
-    async () => {
-      const index = rules.findIndex((r) => r.uid === uid);
-      if (index === -1) return { ok: false, reason: 'not-found' } as RuleWriteResult;
+  assertLoaded();
+  const existing = rules.find((r) => r.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' } as RuleWriteResult;
 
-      const existing = rules[index];
-      // Never let the caller stomp uid / path — store-managed.
-      const { uid: _ignoreUid, path: _ignorePath, ...safeUpdates } = updates as {
-        uid?: string;
-        path?: string;
-      } & Partial<Omit<V5.Rule, 'uid' | 'path'>>;
+  // uid + path are store-managed — never let the caller stomp them.
+  const { uid: _ignoreUid, path: _ignorePath, ...safeUpdates } = updates as {
+    uid?: string;
+    path?: string;
+  } & Partial<Omit<V5.Rule, 'uid' | 'path'>>;
 
-      const updated = { ...existing, ...safeUpdates } as V5.Rule;
-      rules = [...rules.slice(0, index), updated, ...rules.slice(index + 1)];
-      await persistRules();
-      return { ok: true, rule: updated } as RuleWriteResult;
-    },
-    { op: 'rule-update' },
+  const oracle = getOracleForCurrentWorkspace();
+  if (!oracle) {
+    return { ok: false, reason: 'not-found' } as RuleWriteResult;
+  }
+  await applyRuleMutationOrThrow(
+    (ctx) => buildUpdateBatch(uid, existing.type, safeUpdates, ctx, oracle),
+    'updateRule',
   );
+  // Cache has been refreshed by the broadcast; read the post-apply
+  // shape so the caller sees the same projection persisted to storage.
+  const updated = rules.find((r) => r.uid === uid) ?? ({ ...existing, ...safeUpdates } as V5.Rule);
+  return { ok: true, rule: updated } as RuleWriteResult;
 }
 
 export async function deleteRule(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'rule', uid),
-    async () => {
-      const before = rules.length;
-      rules = rules.filter((r) => r.uid !== uid);
-      if (rules.length === before) return false;
-      await persistRules();
-      return true;
-    },
-    { op: 'rule-delete' },
-  );
+  assertLoaded();
+  if (!rules.some((r) => r.uid === uid)) return false;
+  await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteRule');
+  return true;
 }
 
 export async function toggleRule(uid: string, enabled: boolean): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'rule', uid),
-    async () => {
-      const index = rules.findIndex((r) => r.uid === uid);
-      if (index === -1) return false;
-      rules = [...rules.slice(0, index), { ...rules[index], enabled } as V5.Rule, ...rules.slice(index + 1)];
-      await persistRules();
-      return true;
-    },
-    { op: 'rule-toggle' },
-  );
+  assertLoaded();
+  if (!rules.some((r) => r.uid === uid)) return false;
+  await applyRuleMutationOrThrow((ctx) => buildToggleBatch(uid, enabled, ctx), 'toggleRule');
+  return true;
+}
+
+// ── Sync engine plumbing ────────────────────────────────────────────
+
+/**
+ * Mint an SW context, build a batch via `factory`, and apply it through
+ * the active oracle. Throws when the sync service hasn't been
+ * initialized — that would mean a write site beat boot, which the
+ * background's init order is designed to prevent. The throw surfaces
+ * the order violation immediately rather than silently dropping the
+ * write.
+ */
+async function applyRuleMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').RuleMutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`RuleStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `RuleStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
 
 // ── Persistence (scoped to loadedWorkspaceId) ──────────────────────
-
-async function persistRules(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).rules, rules);
-  logger.debug('RuleStore', `Persisted ${rules.length} rules (ws=${workspaceId})`);
-  notifyChange();
-}
+//
+// Rules persistence is owned by the sync engine's `RuleCache` —
+// `chrome.storage.local` writes happen on every broadcast-driven
+// re-projection. The collection + folder helpers below stay on the
+// legacy direct-write path until Phase B brings them onto the oracle.
 
 async function persistCollections(): Promise<void> {
   const workspaceId = assertLoaded();
@@ -568,6 +609,44 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
   notifyChange();
 }
 
+// ── Sync engine bridge ──────────────────────────────────────────────
+
+let cacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local `rules` array to the active workspace's
+ * {@link RuleCache}: seed the oracle from the hydrated rules, then
+ * subscribe to broadcast-driven re-projections so subsequent
+ * mutations (in-process and — Phase C onward — remote) flow back into
+ * the local mirror.
+ *
+ * Call AFTER `initSyncService(workspaceId)` AND AFTER
+ * `hydrateFromStorage()` (or `switchToWorkspace`). Re-runs are safe —
+ * the prior cache subscription is dropped first.
+ */
+export async function bridgeToSyncEngine(): Promise<void> {
+  const cache = getActiveRuleCache();
+  if (!cache) {
+    logger.info('RuleStore', 'bridgeToSyncEngine: no active cache; skipping');
+    return;
+  }
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  cacheUnsubscribe = cache.onChange(() => {
+    rules = cache.getRules();
+    notifyChange();
+  });
+  await cache.seedFromPersistedRules(rules);
+  // After the seed, broadcasts have driven the listener above so
+  // `rules` already reflects cache.getRules(). Belt-and-braces: copy
+  // the cache view explicitly so a zero-rules workspace (no
+  // broadcasts → listener never fires) still ends up with `rules`
+  // pointed at the cache's snapshot.
+  rules = cache.getRules();
+}
+
 // ── Test helpers ────────────────────────────────────────────────────
 
 /** Test-only: reset the module without touching storage. */
@@ -577,4 +656,8 @@ export function __resetForTests(): void {
   folders = [];
   loadedWorkspaceId = null;
   changeListeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
 }

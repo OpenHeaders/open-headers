@@ -82,7 +82,7 @@ import {
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
-import { getCollectionTrees, getRules, onStoreChange } from './modules/rule-store';
+import { bridgeToSyncEngine, getCollectionTrees, getRules, onStoreChange } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { getTemplates, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
@@ -332,6 +332,12 @@ async function initializeExtension(): Promise<void> {
     // when the active workspace flips. No-op when the active
     // workspace didn't change (rename / metadata-only mutations).
     reinitForWorkspace(getActiveWorkspaceId());
+    // Re-seed the new workspace's oracle + cache from the freshly
+    // switched `rule-store.rules` array (the orchestrator's
+    // `switchRulesToWorkspace` ran before this listener fires).
+    void bridgeToSyncEngine().catch((err: unknown) => {
+      logger.warn('Background', 'bridgeToSyncEngine after workspace switch failed', err);
+    });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -453,6 +459,12 @@ async function initializeExtension(): Promise<void> {
   // — but the IDB connections + bridge handler are live so W1 has
   // nothing to bootstrap.
   initSyncService(getActiveWorkspaceId());
+  // Bridge the rule-store to the sync engine: seed the oracle from
+  // the hydrated `V5.Rule[]` and subscribe to the cache so subsequent
+  // mutations (in-process today, remote in Phase C) flow back into
+  // the local mirror. After this call rule writes route through the
+  // oracle; reads stay synchronous off the local mirror.
+  await bridgeToSyncEngine();
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
   // variable / rule stores. Fired here (rather than at end-of-init)

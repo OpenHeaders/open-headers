@@ -875,16 +875,17 @@ export function handleGeneralMessage(
       const parentPath = message.parentPath as string | undefined;
       const collectionUid = message.collectionUid as string | undefined;
 
-      let created: V5.Rule;
-      if (parentPath) {
-        created = addRule(ruleData, parentPath);
-      } else {
-        const collection = collectionUid ? { uid: collectionUid } : ensureDefaultCollection();
-        created = addRuleToCollection(ruleData, collection.uid);
-      }
-      scheduleUpdate('rules', { immediate: true });
-      updateBadgeCallback();
-      safeResponse({ success: true, rule: created });
+      const createPromise: Promise<V5.Rule> = parentPath
+        ? addRule(ruleData, parentPath)
+        : addRuleToCollection(ruleData, (collectionUid ? { uid: collectionUid } : ensureDefaultCollection()).uid);
+      createPromise
+        .then((created) => {
+          scheduleUpdate('rules', { immediate: true });
+          updateBadgeCallback();
+          safeResponse({ success: true, rule: created });
+        })
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'updateLocalRule') {
       // Sync engine §24 retired the `expectedVersion` arg + stale-draft
       // contract; rule writes apply unconditionally and surfaces

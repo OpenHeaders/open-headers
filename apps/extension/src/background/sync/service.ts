@@ -35,7 +35,9 @@ import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
-import { RuleOracle } from './oracle';
+import { InMemoryMutationLog, type MutationLog } from './mutation-log';
+import { type LockAcquirer, RuleOracle } from './oracle';
+import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
 import { createRuleCache, type RuleCache, setActiveRuleCache } from './rule-cache';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
 
@@ -143,4 +145,44 @@ export function getOracleForCurrentWorkspace(): RuleOracle | null {
  */
 export function nextSwMutatorContext(opts?: Parameters<SwContextHandle['next']>[0]): import('@openheaders/core/sync').RuleMutatorContext | null {
   return state?.context.next(opts) ?? null;
+}
+
+// ── Test-only entry point ────────────────────────────────────────────
+
+export interface SyncServiceTestDeps {
+  log?: MutationLog;
+  intents?: PendingIntents;
+  lock?: LockAcquirer;
+}
+
+/**
+ * Initialize the service with in-memory dependencies. Skips IDB +
+ * chrome.runtime broadcast wiring so tests don't need fake-indexeddb
+ * or a chrome bridge fixture. The cache + oracle + broadcast bus are
+ * the real production classes — only the persistence + lock
+ * adapters are swapped.
+ */
+export function __initSyncServiceForTests(workspaceId: string, deps: SyncServiceTestDeps = {}): void {
+  if (state) dispose();
+
+  const log = deps.log ?? new InMemoryMutationLog();
+  const intents = deps.intents ?? new InMemoryPendingIntents();
+  const lock: LockAcquirer = deps.lock ?? ((_ws, _t, _id, fn) => Promise.resolve().then(fn));
+  const broadcast = new InMemoryBroadcast();
+  const context = createSwContextHandle(workspaceId);
+
+  const oracle = new RuleOracle({ workspaceId, lock, log, intents, broadcast });
+  const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveRuleCache(cache);
+
+  state = {
+    workspaceId,
+    oracle,
+    broadcast,
+    cache,
+    context,
+    unsubscribeBroadcast: () => {
+      // No chrome.runtime sink in tests.
+    },
+  };
 }
