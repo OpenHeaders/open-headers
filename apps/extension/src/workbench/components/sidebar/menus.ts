@@ -139,14 +139,22 @@ export function templateCollectionMenuItems(
   isDefault: boolean,
   onExport?: () => void,
 ): ItemType[] {
-  const items: ItemType[] = [{ key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder }];
+  const items: ItemType[] = [
+    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
+  ];
   if (!isDefault) {
     items.push({ type: 'divider' as const, key: 'div' });
     items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
     if (onExport) {
       items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
     }
-    items.push({ key: 'delete', icon: createElement(DeleteOutlined), label: 'Delete', danger: true, onClick: onDelete });
+    items.push({
+      key: 'delete',
+      icon: createElement(DeleteOutlined),
+      label: 'Delete',
+      danger: true,
+      onClick: onDelete,
+    });
   }
   return items;
 }

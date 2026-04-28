@@ -76,7 +76,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
       {
         key: 'import',
         icon: <ImportOutlined />,
-        label: 'Import from file…',
+        label: 'Import…',
         onClick: onImport,
       },
       {

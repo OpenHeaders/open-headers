@@ -21,6 +21,8 @@
  *   #/settings/<key>         → open-settings with settingKey
  *   #/settings/category/<id> → open-settings with categoryId
  *   #/workspaces             → open-workspace-manager
+ *   #/export                 → open-export-modal
+ *   #/import-modal          → open-import-modal
  *   #/workspace-vars         → open-workspace-vars
  *   #/vault                  → open-vault
  *   #/test/<runId>           → open-run-report
@@ -126,6 +128,12 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
 
     case 'workspaces':
       return buildIntent({ kind: 'open-workspace-manager' });
+
+    case 'export':
+      return buildIntent({ kind: 'open-export-modal' });
+
+    case 'import-modal':
+      return buildIntent({ kind: 'open-import-modal' });
 
     case 'workspace-vars':
       return buildIntent({ kind: 'open-workspace-vars' });
@@ -247,6 +255,12 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'open-workspace-manager':
       return '#/workspaces';
+
+    case 'open-export-modal':
+      return '#/export';
+
+    case 'open-import-modal':
+      return '#/import-modal';
 
     case 'open-workspace-vars':
       return '#/workspace-vars';

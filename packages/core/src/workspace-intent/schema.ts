@@ -101,6 +101,27 @@ export const OpenWorkspaceManagerIntentSchema = v.object({
   kind: v.literal('open-workspace-manager'),
 });
 
+/**
+ * Open the export modal for the recipient's *active* workspace, scoped
+ * to the whole workspace. Dispatched from popup / sidepanel surfaces
+ * where the export dialog cannot live (those views are too narrow for
+ * the modal). The navigator focuses or creates the workspace tab; the
+ * router then drives the modal open with `scope = 'workspace'`.
+ */
+export const OpenExportModalIntentSchema = v.object({
+  kind: v.literal('open-export-modal'),
+});
+
+/**
+ * Open the workspace's "Import from file…" modal (drop zone + Browse).
+ * Same hand-off pattern as `open-export-modal`: popup / sidepanel
+ * dispatches, navigator routes the user into the workspace tab, the
+ * router triggers the modal.
+ */
+export const OpenImportModalIntentSchema = v.object({
+  kind: v.literal('open-import-modal'),
+});
+
 export const OpenWorkspaceVarsIntentSchema = v.object({
   kind: v.literal('open-workspace-vars'),
 });
@@ -213,6 +234,8 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   EditLiveWorkflowIntentSchema,
   CreateLiveVariableIntentSchema,
   OpenImportPreviewIntentSchema,
+  OpenExportModalIntentSchema,
+  OpenImportModalIntentSchema,
 ]);
 
 export type WorkspaceIntent = v.InferOutput<typeof WorkspaceIntentSchema>;
@@ -240,6 +263,8 @@ export const WORKSPACE_INTENT_KINDS = [
   'edit-live-workflow',
   'create-live-variable',
   'open-import',
+  'open-export-modal',
+  'open-import-modal',
 ] as const;
 
 export type WorkspaceIntentKind = (typeof WORKSPACE_INTENT_KINDS)[number];

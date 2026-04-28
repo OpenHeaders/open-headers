@@ -62,6 +62,7 @@ import WorkspaceManager from './components/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/WorkspaceVariablesEditor';
 import ExportModal, { type ExportModalScope } from './components/workspace-export/ExportModal';
 import ImportPreviewModal, { type ImportPreviewSource } from './components/workspace-export/ImportPreviewModal';
+import ImportSourceModal from './components/workspace-export/ImportSourceModal';
 import { findLeaf } from './editor-groups';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditorGroups } from './hooks/useEditorGroups';
@@ -473,8 +474,23 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     });
   }, []);
   const importFileInputRef = useRef<HTMLInputElement>(null);
+  const [importSourceModalOpen, setImportSourceModalOpen] = useState(false);
+  // Hand-off: when the preview modal becomes visible, the source modal
+  // has done its job — close it so the preview stands alone. The brief
+  // skeleton state inside the source modal covers the parse + SW
+  // preview RPC window so the user sees one continuous loading
+  // affordance instead of a 1 s frozen-button gap.
+  useEffect(() => {
+    if (!importSourceModalOpen) return;
+    if (importPreviewState.open) setImportSourceModalOpen(false);
+  }, [importSourceModalOpen, importPreviewState.open]);
+  // Click the menu entry / receive an `open-import-modal` intent →
+  // show the drop-zone modal. The native picker is owned by the modal
+  // itself; the bare `<input>` below is kept only for compatibility
+  // with older direct-click sites that haven't migrated to the modal
+  // yet (none currently — the menu now goes through the modal).
   const openImportFilePicker = useCallback(() => {
-    importFileInputRef.current?.click();
+    setImportSourceModalOpen(true);
   }, []);
   const onImportFileChosen = useCallback(async (file: File) => {
     try {
@@ -798,6 +814,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
+    openExportModal: () => setExportModalState({ open: true, scope: { kind: 'workspace' } }),
+    openImportModal: () => setImportSourceModalOpen(true),
     openImportPreview: (args) => {
       if ('error' in args) {
         setImportPreviewState({ open: true, rawText: null, initialError: args.error, source: args.source });
@@ -1772,6 +1790,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               const [first, ...rest] = picked;
               setPendingImportFiles(rest);
               void onImportFileChosen(first);
+            }}
+          />
+
+          <ImportSourceModal
+            open={importSourceModalOpen}
+            // Skeleton is on while the preview modal is being prepared.
+            // It flips off (with the modal closing) the moment the
+            // preview modal goes `open: true` — see the effect just
+            // above the render that watches `importPreviewState.open`.
+            loading={importPreviewState.open}
+            onCancel={() => setImportSourceModalOpen(false)}
+            onFileChosen={(file) => {
+              void onImportFileChosen(file);
             }}
           />
 

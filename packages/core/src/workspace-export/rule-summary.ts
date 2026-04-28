@@ -88,9 +88,7 @@ function summarizeHeader(rule: HeaderRule): string {
   // Show the first 2 names + count to keep the row terse.
   const first = [...rule.action.requestHeaders, ...rule.action.responseHeaders]
     .slice(0, 2)
-    .map(
-      (h) => `${h.operation} ${h.headerName}${h.operation === 'remove' ? '' : ` = ${truncate(h.value ?? '', 40)}`}`,
-    );
+    .map((h) => `${h.operation} ${h.headerName}${h.operation === 'remove' ? '' : ` = ${truncate(h.value ?? '', 40)}`}`);
   const suffix = total > 2 ? ` (+${total - 2} more)` : '';
   return `${first.join('; ')}${suffix}`;
 }

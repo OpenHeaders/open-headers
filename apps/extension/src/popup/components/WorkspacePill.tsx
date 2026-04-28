@@ -7,7 +7,7 @@
  * popup is too narrow (800px) to host management UI cleanly.
  */
 
-import { CheckOutlined, DownOutlined, SettingOutlined } from '@ant-design/icons';
+import { CheckOutlined, DownOutlined, ExportOutlined, ImportOutlined, SettingOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
@@ -44,6 +44,27 @@ const WorkspacePill: React.FC = () => {
     }));
     return [
       ...rows,
+      { type: 'divider' as const, key: 'div-share' },
+      {
+        key: 'export',
+        icon: <ExportOutlined />,
+        label: 'Export…',
+        onClick: () => {
+          // Hand off to the workspace tab — popup is too narrow for
+          // the export modal. Navigator focuses an existing workspace
+          // tab or creates one; the intent router opens the modal
+          // pre-scoped to the active workspace.
+          void openWorkspace({ kind: 'open-export-modal' }, surface.mode);
+        },
+      },
+      {
+        key: 'import',
+        icon: <ImportOutlined />,
+        label: 'Import…',
+        onClick: () => {
+          void openWorkspace({ kind: 'open-import-modal' }, surface.mode);
+        },
+      },
       { type: 'divider' as const, key: 'div-manage' },
       {
         key: 'manage',

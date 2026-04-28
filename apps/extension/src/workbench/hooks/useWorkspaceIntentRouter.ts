@@ -76,9 +76,15 @@ interface UseWorkspaceIntentRouterOptions {
   openImportPreview: (
     args: { rawText: string; source: ImportIntentSource } | { error: string; source: ImportIntentSource },
   ) => void;
+  /** `open-export-modal` — show the export modal scoped to the active
+   *  workspace. Dispatched from popup / sidepanel surfaces. */
+  openExportModal: () => void;
+  /** `open-import-modal` — show the file-pick / drop-zone modal that
+   *  precedes the import-preview. Dispatched from popup / sidepanel. */
+  openImportModal: () => void;
 }
 
-/** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault` */
+/** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault`/`-export-modal`/`-import-picker` */
 function isDataFreeIntent(intent: WorkspaceIntent): boolean {
   switch (intent.kind) {
     case 'open-workspace':
@@ -87,6 +93,8 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
     case 'open-workspace-manager':
     case 'open-workspace-vars':
     case 'open-vault':
+    case 'open-export-modal':
+    case 'open-import-modal':
       return true;
     default:
       return false;
@@ -293,6 +301,12 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         case 'open-import':
           dispatchImportIntent(intent, o.openImportPreview);
           return;
+        case 'open-export-modal':
+          o.openExportModal();
+          return;
+        case 'open-import-modal':
+          o.openImportModal();
+          return;
         default:
           assertNever(intent);
       }
@@ -390,6 +404,12 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'open-import':
         dispatchImportIntent(pending, o.openImportPreview);
+        return;
+      case 'open-export-modal':
+        o.openExportModal();
+        return;
+      case 'open-import-modal':
+        o.openImportModal();
         return;
       default:
         assertNever(pending);

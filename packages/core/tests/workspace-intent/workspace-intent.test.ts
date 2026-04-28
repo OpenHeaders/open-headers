@@ -52,6 +52,8 @@ describe('WorkspaceIntentSchema — accepts every kind', () => {
     ['open-workspace-manager', { kind: 'open-workspace-manager' }],
     ['open-workspace-vars', { kind: 'open-workspace-vars' }],
     ['open-vault', { kind: 'open-vault' }],
+    ['open-export-modal', { kind: 'open-export-modal' }],
+    ['open-import-modal', { kind: 'open-import-modal' }],
     ['open-run-report', { kind: 'open-run-report', runId: UID_A }],
     ['open-rule-flow (bare)', { kind: 'open-rule-flow', scope: 'all-active' }],
     ['open-rule-flow (url)', { kind: 'open-rule-flow', scope: 'this-page', url: 'https://api.openheaders.io/v1' }],
@@ -131,6 +133,8 @@ describe('WORKSPACE_INTENT_KINDS', () => {
       'edit-live-workflow': { kind: 'edit-live-workflow', uid: UID_A },
       'create-live-variable': { kind: 'create-live-variable' },
       'open-import': { kind: 'open-import', handoffId: UID_A },
+      'open-export-modal': { kind: 'open-export-modal' },
+      'open-import-modal': { kind: 'open-import-modal' },
     };
     for (const kind of WORKSPACE_INTENT_KINDS) {
       expect(minimal[kind], `missing minimal-case fixture for kind ${kind}`).toBeDefined();
@@ -165,6 +169,8 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'open-workspace-manager' },
     { kind: 'open-workspace-vars' },
     { kind: 'open-vault' },
+    { kind: 'open-export-modal' },
+    { kind: 'open-import-modal' },
     { kind: 'open-run-report', runId: UID_A },
     { kind: 'open-rule-flow', scope: 'all-active' },
     { kind: 'open-rule-flow', scope: 'collection', entityId: UID_A },
