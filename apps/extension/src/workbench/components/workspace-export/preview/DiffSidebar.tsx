@@ -37,9 +37,20 @@ interface DiffSidebarProps {
   onSelect: (key: string) => void;
   lineCounts: Map<string, { added: number; removed: number }>;
   strategies: StrategyMap;
+  /** Short summary line (e.g. "1 rule, 5 envs") shown at the very top
+   *  of the sidebar, above the entity tree. Mirrors how a workspace
+   *  sidebar surfaces its own counts header. */
+  summary?: string;
 }
 
-const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSelect, lineCounts, strategies }) => {
+const DiffSidebar: React.FC<DiffSidebarProps> = ({
+  taxonomy,
+  selectionKey,
+  onSelect,
+  lineCounts,
+  strategies,
+  summary,
+}) => {
   const { token } = theme.useToken();
 
   const sections = useMemo(
@@ -92,12 +103,27 @@ const DiffSidebar: React.FC<DiffSidebarProps> = ({ taxonomy, selectionKey, onSel
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'flex-end',
-          padding: '4px 8px',
+          justifyContent: 'space-between',
+          gap: 8,
+          padding: '6px 10px',
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
           flexShrink: 0,
+          minHeight: 28,
         }}
       >
+        <span
+          style={{
+            fontSize: 11,
+            color: token.colorTextSecondary,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
+          {summary ?? ''}
+        </span>
         <Tooltip title={showStrategy ? 'Hide merge strategy on rows' : 'Show merge strategy on rows'}>
           <button
             type="button"

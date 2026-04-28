@@ -48,10 +48,10 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
 import { call } from '@/utils/bridge';
+import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
-import SourceAttribution from './preview/SourceAttribution';
 import StatusChips from './preview/StatusChips';
 import StripScriptsTopRow from './preview/StripScriptsTopRow';
 import TargetControl, { type ImportTargetSelection } from './preview/TargetControl';
@@ -59,6 +59,26 @@ import type { ImportPreviewSource } from './preview/types';
 import { VaultDecryptedBanner, VaultEncryptedBlock, VaultPartialDecryptPanel } from './preview/VaultBlocks';
 
 const { Text } = Typography;
+
+/**
+ * Compact "X rules, Y envs" summary used in the header + sidebar.
+ * Same shape SourceAttribution renders, hoisted here so we can hand
+ * it to whoever needs it (sidebar header, future post-import toast).
+ */
+function summarizeImportCounts(counts: WorkspaceExport['meta']['counts']): string {
+  const parts: string[] = [];
+  const push = (n: number, singular: string, plural: string): void => {
+    if (n > 0) parts.push(`${n} ${n === 1 ? singular : plural}`);
+  };
+  push(counts.rules, 'rule', 'rules');
+  push(counts.requests, 'request', 'requests');
+  push(counts.environments, 'env', 'envs');
+  push(counts.templates, 'template', 'templates');
+  push(counts.liveWorkflows, 'workflow', 'workflows');
+  push(counts.liveVariables, 'live var', 'live vars');
+  push(counts.secrets, 'secret', 'secrets');
+  return parts.join(', ');
+}
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -555,21 +575,32 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         },
       }}
     >
-      {/* Top header — title left, source attribution centered, chips
-          + close X right. 3-column grid keeps the centre slot honestly
-          centered regardless of how wide the chips group becomes. */}
-      <div
-        style={{
-          ...stripStyle,
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-        }}
-      >
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, justifySelf: 'start' }}>
-          IMPORT WORKSPACE EXPORT
-        </span>
-        <div style={{ justifySelf: 'center' }}>{parsed && <SourceAttribution envelope={parsed.envelope} />}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifySelf: 'end' }}>
+      {/* Top header — workspace prefix icon + name on the left
+          (replaces the generic "IMPORT WORKSPACE EXPORT" title with
+          the actual import target so the user immediately sees what's
+          coming in), status chips + close X on the right. The entity
+          counts that used to live here have moved into the sidebar's
+          own header (above the entity tree) — same pattern as a
+          workspace's own sidebar. */}
+      <div style={stripStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          {parsed ? (
+            <>
+              {renderWorkspacePrefix(
+                { icon: parsed.envelope.workspace.icon, color: parsed.envelope.workspace.color },
+                token,
+                { size: 20 },
+              )}
+              <Text strong style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {parsed.envelope.source.workspaceLabel ?? parsed.envelope.workspace.name}
+              </Text>
+            </>
+          ) : (
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5 }}>IMPORT WORKSPACE EXPORT</span>
+          )}
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {statusChips.length > 0 && <StatusChips chips={statusChips} />}
           <Button
             type="text"
@@ -708,9 +739,16 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             )}
 
             {preview && (
-              <div style={{ ...cardStyle, flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
+              // No outer card wrapper here — `ImportDiffWorkspace`
+              // owns its own white rounded card around the Allotment,
+              // with the activity rails living *outside* the card so
+              // the rounded corners stay visible. Wrapping it in
+              // another cardStyle would double-frame and re-hide the
+              // rails behind the outer card edge.
+              <div style={{ flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
                 <ImportDiffWorkspace
                   diff={preview.diff}
+                  summary={summarizeImportCounts(parsed.envelope.meta.counts)}
                   incomingEntities={{
                     workspaceVars: effectiveEnvelope?.entities.workspaceVars,
                     vault: effectiveEnvelope?.entities.vault,
