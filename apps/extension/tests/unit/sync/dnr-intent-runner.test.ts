@@ -3,18 +3,18 @@
  * broadcast and asks the rule engine to recompile. Phase A S2–S5.
  */
 
-import { addHeaderMod, RECOMPILE_DNR, type RuleMutatorContext, toggleEnabled } from '@openheaders/core/sync';
+import { addHeaderMod, RECOMPILE_DNR, type MutatorContext, toggleEnabled } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { createDnrIntentRunner } from '@/background/sync/dnr-intent-runner';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, RuleOracle } from '@/background/sync/oracle';
+import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 
 const wsId = 'ws-1';
 const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();
 
-const ctx = (physicalMs: number, nodeId = 'node-a'): RuleMutatorContext => ({
+const ctx = (physicalMs: number, nodeId = 'node-a'): MutatorContext => ({
   workspaceId: wsId,
   hlc: { physicalMs, logical: 0, nodeId },
   surfaceId: 'surface-test',
@@ -22,7 +22,7 @@ const ctx = (physicalMs: number, nodeId = 'node-a'): RuleMutatorContext => ({
 });
 
 interface Harness {
-  oracle: RuleOracle;
+  oracle: EntityOracle;
   intents: InMemoryPendingIntents;
   broadcast: InMemoryBroadcast;
   recompileCalls: string[];
@@ -34,7 +34,7 @@ function makeHarness(): Harness {
   const intents = new InMemoryPendingIntents();
   const broadcast = new InMemoryBroadcast();
   const recompileCalls: string[] = [];
-  const oracle = new RuleOracle({ workspaceId: wsId, lock: sequentialLock, log, intents, broadcast });
+  const oracle = new EntityOracle({ workspaceId: wsId, lock: sequentialLock, log, intents, broadcast });
   const runner = createDnrIntentRunner({
     broadcast,
     intents,

@@ -1,6 +1,6 @@
 /**
  * Sync bridge — adapts `SyncApplyRequest` / `SyncBroadcastEvent` from
- * `@openheaders/core/protocol` to the {@link RuleOracle} (Phase A R4).
+ * `@openheaders/core/protocol` to the {@link EntityOracle} (Phase A R4).
  *
  * This module is the seam between the platform RPC layer
  * (chrome.runtime / desktop bridge / direct in-memory transport for
@@ -22,22 +22,53 @@ import type {
 import { SYNC_BROADCAST_TYPE } from '@openheaders/core/protocol';
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import type { BroadcastEvent, MutationBroadcast } from './broadcast';
-import type { RuleOracle } from './oracle';
+import type { EntityOracle } from './oracle';
 
 /**
- * Optional per-envelope projection. Receives the committed envelope and
- * returns the entity-specific post-commit payload to attach to the
- * broadcast event. Returning `null` skips attachment (e.g. for
- * non-Rule envelopes during Phase A). Throws are caught by the caller
- * — projection failure must never tear down the broadcast.
+ * Per-envelope post-state attachment a projector contributes to a
+ * broadcast event. Each entity type owns its own optional field on
+ * {@link SyncBroadcastEvent} (`rulePostState`, `environmentPostState`,
+ * …); the projector registry composes per-entity projectors into one
+ * pipeline that runs every projector and shallow-merges their outputs
+ * onto the wire event.
  */
-export type BroadcastProjector = (
-  envelope: MutationEnvelope,
-) => Pick<SyncBroadcastEvent, 'rulePostState'> | null;
+export type EntityPostState = Partial<
+  Pick<SyncBroadcastEvent, 'rulePostState' | 'environmentPostState'>
+>;
+
+/**
+ * Optional per-envelope projection. Returns the post-commit slice for
+ * the entity it owns, or `null` for envelopes it doesn't recognize.
+ * Throws are caught by the caller — projection failure must never
+ * tear down the broadcast.
+ */
+export type BroadcastProjector = (envelope: MutationEnvelope) => EntityPostState | null;
+
+/**
+ * Compose per-entity projectors into one pipeline. Outputs are
+ * shallow-merged so each entity's slice lands in its own field of the
+ * broadcast event; per-projector throws are isolated.
+ */
+export function composeProjectors(...projectors: BroadcastProjector[]): BroadcastProjector {
+  return (envelope) => {
+    let merged: EntityPostState | null = null;
+    for (const project of projectors) {
+      let part: EntityPostState | null;
+      try {
+        part = project(envelope);
+      } catch {
+        part = null;
+      }
+      if (!part) continue;
+      merged = { ...(merged ?? {}), ...part };
+    }
+    return merged;
+  };
+}
 
 /** Glue: oracle apply result → on-the-wire {@link SyncApplyResponse}. */
 export async function handleSyncApply(
-  oracle: RuleOracle,
+  oracle: EntityOracle,
   request: SyncApplyRequest,
 ): Promise<SyncApplyResponse> {
   const result = await oracle.apply(request.batch, request.sideEffects);
@@ -66,7 +97,7 @@ export function wireBroadcastToSink(
     throw new Error('wireBroadcastToSink requires a broadcast that exposes subscribe()');
   }
   return broadcast.subscribe((e) => {
-    let projected: Pick<SyncBroadcastEvent, 'rulePostState'> | null = null;
+    let projected: EntityPostState | null = null;
     if (projector) {
       try {
         projected = projector(e.envelope);
@@ -82,7 +113,7 @@ export function wireBroadcastToSink(
       envelope: e.envelope,
       outcome: e.outcome,
       batchId: e.batchId,
-      ...(projected?.rulePostState ? { rulePostState: projected.rulePostState } : {}),
+      ...(projected ?? {}),
     });
   });
 }

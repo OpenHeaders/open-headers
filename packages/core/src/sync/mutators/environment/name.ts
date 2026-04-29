@@ -7,8 +7,9 @@
  * not the catalog name.
  */
 
+import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { ENVIRONMENT_ENTITY_TYPE, type EnvironmentIntent, type EnvironmentMutatorContext } from './types';
+import { ENVIRONMENT_ENTITY_TYPE } from './types';
 
 export interface RenameEnvironmentArgs {
   envId: string;
@@ -16,9 +17,9 @@ export interface RenameEnvironmentArgs {
 }
 
 export function renameEnvironment(
-  ctx: EnvironmentMutatorContext,
+  ctx: MutatorContext,
   args: RenameEnvironmentArgs,
-): EnvironmentIntent {
+): MutatorIntent {
   return {
     batch: mintBatch(ctx, [
       { kind: 'setField', type: ENVIRONMENT_ENTITY_TYPE, id: args.envId, path: 'name', value: args.name },

@@ -5,7 +5,7 @@
 
 import {
   type MutationEnvelope,
-  type RuleMutatorContext,
+  type MutatorContext,
   RULE_ENTITY_TYPE,
   mintBatch,
   toggleEnabled,
@@ -15,14 +15,14 @@ import { generateUid } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, RuleOracle } from '@/background/sync/oracle';
+import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 import { projectRuleByUid, projectRulePostState } from '@/background/sync/rule-post-state';
 import { seedRule } from '@/shared/sync/rule-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
-const ctx = (ms: number, hlc: [number, number] = [ms, 0]): RuleMutatorContext => ({
+const ctx = (ms: number, hlc: [number, number] = [ms, 0]): MutatorContext => ({
   workspaceId: wsId,
   hlc: { physicalMs: hlc[0], logical: hlc[1], nodeId: 'n0' },
   surfaceId: 's',
@@ -44,8 +44,8 @@ const makeRule = (uid: string): V5.Rule =>
     },
   }) as unknown as V5.Rule;
 
-async function newOracle(): Promise<RuleOracle> {
-  return new RuleOracle({
+async function newOracle(): Promise<EntityOracle> {
+  return new EntityOracle({
     workspaceId: wsId,
     lock,
     log: new InMemoryMutationLog(),

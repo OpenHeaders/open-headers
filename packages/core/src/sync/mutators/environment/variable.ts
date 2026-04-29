@@ -10,8 +10,9 @@
  */
 
 import type { MutationBody } from '../../envelope';
+import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE, type EnvironmentIntent, type EnvironmentMutatorContext } from './types';
+import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE } from './types';
 
 export type VariableType = 'default' | 'secret';
 
@@ -30,7 +31,7 @@ export interface SetEnvVarArgs {
  * LWW (§7.2). Whole-record replacement matches the rule header-mod
  * model.
  */
-export function setEnvVar(ctx: EnvironmentMutatorContext, args: SetEnvVarArgs): EnvironmentIntent {
+export function setEnvVar(ctx: MutatorContext, args: SetEnvVarArgs): MutatorIntent {
   const item = { name: args.name, value: args.value, type: args.type ?? 'default' };
   return {
     batch: mintBatch(ctx, [
@@ -58,7 +59,7 @@ export interface RemoveEnvVarArgs {
  * configured TTL (§9.2) so reconnecting offline nodes don't resurrect
  * the entry via a stale `setEnvVar` at lower HLC.
  */
-export function removeEnvVar(ctx: EnvironmentMutatorContext, args: RemoveEnvVarArgs): EnvironmentIntent {
+export function removeEnvVar(ctx: MutatorContext, args: RemoveEnvVarArgs): MutatorIntent {
   return {
     batch: mintBatch(ctx, [
       {
@@ -97,7 +98,7 @@ export interface RenameEnvVarArgs {
  * an existing name is the caller's responsibility to prevent at the UI
  * layer — semantically it would replace the target via per-itemId LWW.
  */
-export function renameEnvVar(ctx: EnvironmentMutatorContext, args: RenameEnvVarArgs): EnvironmentIntent {
+export function renameEnvVar(ctx: MutatorContext, args: RenameEnvVarArgs): MutatorIntent {
   if (args.oldName === args.newName) {
     return { batch: mintBatch(ctx, []), sideEffects: [] };
   }
@@ -137,7 +138,7 @@ export interface SetEnvVarTypeArgs {
  * type wins. Per-field-within-set LWW isn't a v1 generic primitive
  * (matches the rule-condition pattern in `rule/condition.ts`).
  */
-export function setEnvVarType(ctx: EnvironmentMutatorContext, args: SetEnvVarTypeArgs): EnvironmentIntent {
+export function setEnvVarType(ctx: MutatorContext, args: SetEnvVarTypeArgs): MutatorIntent {
   const item = { name: args.name, value: args.value, type: args.type };
   return {
     batch: mintBatch(ctx, [

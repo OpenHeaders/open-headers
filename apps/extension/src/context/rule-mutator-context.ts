@@ -1,5 +1,5 @@
 /**
- * Renderer-side HLC sequencer + `RuleMutatorContext` factory (Phase A
+ * Renderer-side HLC sequencer + `MutatorContext` factory (Phase A
  * Fw9).
  *
  * Mirrors {@link sw-context.ts}: every renderer surface (workbench tab,
@@ -18,7 +18,7 @@ import {
   createDefaultWallClock,
   type HLC,
   initialHlc,
-  type RuleMutatorContext,
+  type MutatorContext,
 } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
 
@@ -36,9 +36,9 @@ export interface RendererContextOptions {
 }
 
 export interface RendererContextHandle {
-  /** Mint a fresh `RuleMutatorContext` for one envelope (or one batch
+  /** Mint a fresh `MutatorContext` for one envelope (or one batch
    *  when `opts.batchId` is set). */
-  next(opts?: RendererContextOptions): RuleMutatorContext;
+  next(opts?: RendererContextOptions): MutatorContext;
   peekHlc(): HLC;
   readonly nodeId: string;
   readonly surfaceId: string;
@@ -62,7 +62,7 @@ export function createRendererContextHandle(opts: CreateRendererContextOptions):
     surfaceId: opts.surfaceId,
     workspaceId: opts.workspaceId,
     peekHlc: () => hlc,
-    next(callOpts = {}): RuleMutatorContext {
+    next(callOpts = {}): MutatorContext {
       hlc = advanceHlc(hlc, clock.now(), callOpts.observed);
       return {
         workspaceId: opts.workspaceId,

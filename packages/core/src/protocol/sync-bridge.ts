@@ -61,6 +61,19 @@ export interface SyncRulePostState {
   setItemIds: Record<string, string[]>;
 }
 
+/**
+ * Post-commit projection for an Environment envelope. Carries the
+ * materialized {@link V5.Environment} plus the live variable names
+ * (set member identity = name, see env mutators). Renderer-side
+ * mirrors fold this in lockstep with the SW oracle so they can read
+ * post-commit state without a round-trip.
+ */
+export interface SyncEnvironmentPostState {
+  environment: V5.Environment;
+  /** Live variable names — the set-member identity for env vars. */
+  varNames: string[];
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -73,6 +86,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   rulePostState?: SyncRulePostState;
+  /**
+   * Populated for Environment envelopes whose batch left a materialized
+   * environment in place. Tombstoned environments and rolled-back
+   * batches leave it `undefined`.
+   */
+  environmentPostState?: SyncEnvironmentPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

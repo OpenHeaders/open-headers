@@ -436,7 +436,7 @@ export async function deleteRule(uid: string): Promise<boolean> {
  * write.
  */
 async function applyRuleMutationOrThrow(
-  factory: (ctx: import('@openheaders/core/sync').RuleMutatorContext) => {
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
     batch: import('@openheaders/core/sync').MutationBatch;
     sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
   },

@@ -11,7 +11,7 @@
  *   - missing-rule short-circuits without firing the bridge
  */
 
-import type { MutationBatch, RuleMutatorContext } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { advanceHlc, initialHlc, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -69,7 +69,7 @@ function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): Rende
     peekHlc: () => hlc,
     next: (opts = {}) => {
       hlc = advanceHlc(hlc, hlc.physicalMs + 1, opts.observed);
-      const ctx: RuleMutatorContext = {
+      const ctx: MutatorContext = {
         workspaceId,
         hlc,
         surfaceId: opts.surfaceId ?? surfaceId,

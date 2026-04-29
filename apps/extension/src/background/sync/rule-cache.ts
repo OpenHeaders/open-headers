@@ -38,7 +38,7 @@ import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
-import type { RuleOracle } from './oracle';
+import type { EntityOracle } from './oracle';
 import { projectRule, seedRule } from '@/shared/sync/rule-projection';
 import type { SwMutatorContextFactory } from './sw-context';
 
@@ -69,7 +69,7 @@ export interface RuleCache {
  */
 export function createRuleCache(
   workspaceId: string,
-  oracle: RuleOracle,
+  oracle: EntityOracle,
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): RuleCache {

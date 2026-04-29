@@ -28,6 +28,7 @@ import type {
   AwarenessState,
   SyncApplyRequest,
   SyncApplyResponse,
+  SyncEnvironmentPostState,
   SyncRulePostState,
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
@@ -1433,6 +1434,12 @@ export interface BridgeBroadcastContract {
      * for set-modeled paths without an oracle round-trip.
      */
     rulePostState?: SyncRulePostState;
+    /**
+     * Post-commit projection for Environment envelopes (Phase B).
+     * Renderer-side environment mirrors fold this in lockstep with the
+     * SW oracle.
+     */
+    environmentPostState?: SyncEnvironmentPostState;
   };
 
   /**

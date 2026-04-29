@@ -8,16 +8,17 @@
  * doesn't dispatch on the catalog name, only on the body kind.
  */
 
+import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { recompileDnrIntent } from './side-effects';
-import { RULE_ENTITY_TYPE, type RuleIntent, type RuleMutatorContext } from './types';
+import { RULE_ENTITY_TYPE } from './types';
 
 export interface ToggleEnabledArgs {
   ruleUid: string;
   enabled: boolean;
 }
 
-export function toggleEnabled(ctx: RuleMutatorContext, args: ToggleEnabledArgs): RuleIntent {
+export function toggleEnabled(ctx: MutatorContext, args: ToggleEnabledArgs): MutatorIntent {
   return {
     batch: mintBatch(ctx, [
       { kind: 'setField', type: RULE_ENTITY_TYPE, id: args.ruleUid, path: 'enabled', value: args.enabled },

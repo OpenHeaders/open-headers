@@ -2,8 +2,6 @@ export {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   ENVIRONMENT_MUTATOR_VERSION,
-  type EnvironmentIntent,
-  type EnvironmentMutatorContext,
   type RemoveEnvVarArgs,
   removeEnvVar,
   type RenameEnvironmentArgs,
@@ -19,4 +17,11 @@ export { flattenToLeaves, type Leaf, unflattenLeaves } from './flatten';
 export { applyMutation } from './generic';
 export * from './rule';
 export { liveOrderedItemsAt, newEntityState, writeSetOrderIfNewer } from './state';
-export type { EntityState, MutatorContext, MutatorOutcome, MutatorStatus, SideEffectIntent } from './types';
+export type {
+  EntityState,
+  MutatorContext,
+  MutatorIntent,
+  MutatorOutcome,
+  MutatorStatus,
+  SideEffectIntent,
+} from './types';

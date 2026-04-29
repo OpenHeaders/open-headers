@@ -19,7 +19,8 @@ import { generateUid } from '../../../utils/workspace';
 import type { MutationBody } from '../../envelope';
 import { mintBatch } from './envelope';
 import { recompileDnrIntent } from './side-effects';
-import { RULE_ENTITY_TYPE, type RuleIntent, type RuleMutatorContext } from './types';
+import type { MutatorContext, MutatorIntent } from '../types';
+import { RULE_ENTITY_TYPE } from './types';
 
 export interface RuleConditionLike {
   type: string;
@@ -33,7 +34,7 @@ export interface AddConditionArgs {
   itemId?: string;
 }
 
-export function addCondition(ctx: RuleMutatorContext, args: AddConditionArgs): RuleIntent {
+export function addCondition(ctx: MutatorContext, args: AddConditionArgs): MutatorIntent {
   const itemId = args.itemId ?? generateUid();
   const bodies: MutationBody[] = [
     { kind: 'addToSet', type: RULE_ENTITY_TYPE, id: args.ruleUid, path: 'conditions', itemId, item: args.condition },
@@ -49,7 +50,7 @@ export interface RemoveConditionArgs {
   itemId: string;
 }
 
-export function removeCondition(ctx: RuleMutatorContext, args: RemoveConditionArgs): RuleIntent {
+export function removeCondition(ctx: MutatorContext, args: RemoveConditionArgs): MutatorIntent {
   return {
     batch: mintBatch(ctx, [
       {
@@ -71,7 +72,7 @@ export interface SetConditionFieldArgs {
   condition: RuleConditionLike;
 }
 
-export function setConditionField(ctx: RuleMutatorContext, args: SetConditionFieldArgs): RuleIntent {
+export function setConditionField(ctx: MutatorContext, args: SetConditionFieldArgs): MutatorIntent {
   return {
     batch: mintBatch(ctx, [
       {

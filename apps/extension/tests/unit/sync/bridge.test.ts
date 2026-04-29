@@ -13,7 +13,7 @@ import {
 } from '@openheaders/core/protocol';
 import {
   type MutationEnvelope,
-  type RuleMutatorContext,
+  type MutatorContext,
   RULE_ENTITY_TYPE,
   toggleEnabled,
 } from '@openheaders/core/sync';
@@ -21,12 +21,12 @@ import { describe, expect, it } from 'vitest';
 import { type BroadcastProjector, handleSyncApply, wireBroadcastToSink } from '@/background/sync/bridge';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, RuleOracle } from '@/background/sync/oracle';
+import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
-const ctx = (ms: number): RuleMutatorContext => ({
+const ctx = (ms: number): MutatorContext => ({
   workspaceId: wsId,
   hlc: { physicalMs: ms, logical: 0, nodeId: 'n0' },
   surfaceId: 's',
@@ -36,7 +36,7 @@ const ctx = (ms: number): RuleMutatorContext => ({
 describe('sync bridge', () => {
   it('handleSyncApply forwards to the oracle and returns a typed ack', async () => {
     const broadcast = new InMemoryBroadcast();
-    const oracle = new RuleOracle({
+    const oracle = new EntityOracle({
       workspaceId: wsId,
       lock,
       log: new InMemoryMutationLog(),
@@ -59,7 +59,7 @@ describe('sync bridge', () => {
 
   it('wireBroadcastToSink relays committed envelopes as SyncBroadcastEvents', async () => {
     const broadcast = new InMemoryBroadcast();
-    const oracle = new RuleOracle({
+    const oracle = new EntityOracle({
       workspaceId: wsId,
       lock,
       log: new InMemoryMutationLog(),
@@ -79,7 +79,7 @@ describe('sync bridge', () => {
 
   it('wireBroadcastToSink calls the projector and attaches rulePostState', async () => {
     const broadcast = new InMemoryBroadcast();
-    const oracle = new RuleOracle({
+    const oracle = new EntityOracle({
       workspaceId: wsId,
       lock,
       log: new InMemoryMutationLog(),
@@ -104,7 +104,7 @@ describe('sync bridge', () => {
 
   it('wireBroadcastToSink swallows projector throws and still emits the event', async () => {
     const broadcast = new InMemoryBroadcast();
-    const oracle = new RuleOracle({
+    const oracle = new EntityOracle({
       workspaceId: wsId,
       lock,
       log: new InMemoryMutationLog(),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { RECOMPILE_DNR, RULE_ENTITY_TYPE, type RuleMutatorContext, toggleEnabled } from '../../../../src/sync';
+import { RECOMPILE_DNR, RULE_ENTITY_TYPE, type MutatorContext, toggleEnabled } from '../../../../src/sync';
 
-const ctx = (): RuleMutatorContext => ({
+const ctx = (): MutatorContext => ({
   workspaceId: 'ws-1',
   hlc: { physicalMs: 2_000, logical: 0, nodeId: 'node-c' },
   surfaceId: 'surface-popup',

@@ -1,13 +1,13 @@
 /**
- * Sync service — singleton lifecycle around {@link RuleOracle} for the
+ * Sync service — singleton lifecycle around {@link EntityOracle} for the
  * SW background context (Phase A foundation).
  *
  * Responsibilities (all per-workspace):
- *   1. Construct the {@link RuleOracle} with production-wired
+ *   1. Construct the {@link EntityOracle} with production-wired
  *      dependencies — IDB-backed mutation log + pending intents, the
  *      lock adapter that reuses the existing per-entity Web Lock, and
  *      an in-memory broadcast bus.
- *   2. Mint an SW-side HLC sequencer + `RuleMutatorContext` factory
+ *   2. Mint an SW-side HLC sequencer + `MutatorContext` factory
  *      ({@link sw-context.ts}) — every mutation emitted from the
  *      background context (boot-time hydration, SW-internal write
  *      paths) carries a context built from this factory.
@@ -41,7 +41,7 @@ import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
-import { type BroadcastProjector, handleSyncApply, wireBroadcastToSink } from './bridge';
+import { type BroadcastProjector, composeProjectors, handleSyncApply, wireBroadcastToSink } from './bridge';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
 import { projectRuleByUid, projectRulePostState } from './rule-post-state';
 import { InMemoryBroadcast } from './broadcast';
@@ -49,14 +49,14 @@ import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
-import { type LockAcquirer, RuleOracle } from './oracle';
+import { type LockAcquirer, EntityOracle } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
 import { createRuleCache, type RuleCache, setActiveRuleCache } from './rule-cache';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
 
 interface ServiceState {
   workspaceId: string;
-  oracle: RuleOracle;
+  oracle: EntityOracle;
   broadcast: InMemoryBroadcast;
   cache: RuleCache;
   context: SwContextHandle;
@@ -83,7 +83,7 @@ export function initSyncService(workspaceId: string): void {
   const broadcast = new InMemoryBroadcast();
   const context = createSwContextHandle(workspaceId);
 
-  const oracle = new RuleOracle({
+  const oracle = new EntityOracle({
     workspaceId,
     lock: ruleOracleLockAcquirer,
     log,
@@ -112,12 +112,15 @@ export function initSyncService(workspaceId: string): void {
 
   // Re-publish every committed `(envelope, outcome)` to subscribed
   // surfaces via the existing chrome.runtime broadcast bus. The
-  // projector reads post-commit state for Rule envelopes so renderer
-  // mirrors can stay in lockstep with the oracle without round-tripping.
-  const projector: BroadcastProjector = (envelope) => {
+  // per-entity projectors read post-commit state so renderer mirrors
+  // stay in lockstep with the oracle without round-tripping; new
+  // entity types extend the registry by registering their own
+  // projector here.
+  const ruleProjector: BroadcastProjector = (envelope) => {
     const rulePostState = projectRulePostState(oracle, envelope);
     return rulePostState ? { rulePostState } : null;
   };
+  const projector = composeProjectors(ruleProjector);
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
     (event: SyncBroadcastEvent) => {
@@ -126,6 +129,7 @@ export function initSyncService(workspaceId: string): void {
         outcome: event.outcome,
         batchId: event.batchId,
         ...(event.rulePostState ? { rulePostState: event.rulePostState } : {}),
+        ...(event.environmentPostState ? { environmentPostState: event.environmentPostState } : {}),
       });
     },
     projector,
@@ -178,7 +182,7 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
  * been initialized so alarm dispatch paths don't crash on cold-wake
  * races.
  */
-export function getOracleForCurrentWorkspace(): RuleOracle | null {
+export function getOracleForCurrentWorkspace(): EntityOracle | null {
   return state?.oracle ?? null;
 }
 
@@ -237,11 +241,11 @@ export function snapshotAwarenessPresence(): AwarenessState[] {
 }
 
 /**
- * Mint a fresh `RuleMutatorContext` from the SW's HLC sequencer. Used
+ * Mint a fresh `MutatorContext` from the SW's HLC sequencer. Used
  * by SW-internal callers (rule-store, hydration) — surfaces hosted in
  * a renderer mint their own contexts with their own nodeId.
  */
-export function nextSwMutatorContext(opts?: Parameters<SwContextHandle['next']>[0]): import('@openheaders/core/sync').RuleMutatorContext | null {
+export function nextSwMutatorContext(opts?: Parameters<SwContextHandle['next']>[0]): import('@openheaders/core/sync').MutatorContext | null {
   return state?.context.next(opts) ?? null;
 }
 
@@ -273,7 +277,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   const broadcast = new InMemoryBroadcast();
   const context = createSwContextHandle(workspaceId);
 
-  const oracle = new RuleOracle({ workspaceId, lock, log, intents, broadcast });
+  const oracle = new EntityOracle({ workspaceId, lock, log, intents, broadcast });
   const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveRuleCache(cache);
 

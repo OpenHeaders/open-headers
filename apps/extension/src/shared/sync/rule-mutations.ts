@@ -32,7 +32,7 @@ import {
   type MutationBody,
   recompileDnrIntent,
   RULE_ENTITY_TYPE,
-  type RuleMutatorContext,
+  type MutatorContext,
   type SideEffectIntent,
   toggleEnabled,
 } from '@openheaders/core/sync';
@@ -57,7 +57,7 @@ export interface RuleMutationPayload {
 export type LiveSetItemIds = (ruleUid: string, setPath: string) => readonly string[];
 
 /** New rule → seed batch + DNR recompile intent. */
-export function buildAddBatch(rule: V5.Rule, ctx: RuleMutatorContext): RuleMutationPayload {
+export function buildAddBatch(rule: V5.Rule, ctx: MutatorContext): RuleMutationPayload {
   return {
     batch: seedRule(rule, ctx),
     sideEffects: [recompileDnrIntent(rule.uid, ctx.hlc)],
@@ -65,13 +65,13 @@ export function buildAddBatch(rule: V5.Rule, ctx: RuleMutatorContext): RuleMutat
 }
 
 /** Toggle a rule's `enabled` flag. */
-export function buildToggleBatch(ruleUid: string, enabled: boolean, ctx: RuleMutatorContext): RuleMutationPayload {
+export function buildToggleBatch(ruleUid: string, enabled: boolean, ctx: MutatorContext): RuleMutationPayload {
   const intent = toggleEnabled(ctx, { ruleUid, enabled });
   return { batch: intent.batch, sideEffects: intent.sideEffects };
 }
 
 /** Delete a rule. Tombstone is permanent under §7.2 delete-wins. */
-export function buildDeleteBatch(ruleUid: string, ctx: RuleMutatorContext): RuleMutationPayload {
+export function buildDeleteBatch(ruleUid: string, ctx: MutatorContext): RuleMutationPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: RULE_ENTITY_TYPE, id: ruleUid }];
   return {
     batch: mintBatch(ctx, bodies),
@@ -111,7 +111,7 @@ export function buildUpdateBatch(
   ruleUid: string,
   ruleType: V5.Rule['type'],
   updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
-  ctx: RuleMutatorContext,
+  ctx: MutatorContext,
   liveSetItemIds: LiveSetItemIds,
 ): RuleMutationPayload {
   const bodies: MutationBody[] = [];

@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { addHeaderMod, type RuleMutatorContext } from '../../../../src/sync';
+import { addHeaderMod, type MutatorContext } from '../../../../src/sync';
 import {
   RECOMPILE_DNR,
   removeHeaderMod,
@@ -18,7 +18,7 @@ import {
   RULE_ENTITY_TYPE,
 } from '../../../../src/sync/mutators/rule';
 
-const ctx = (): RuleMutatorContext => ({
+const ctx = (): MutatorContext => ({
   workspaceId: 'ws-1',
   hlc: { physicalMs: 1_000, logical: 0, nodeId: 'node-a' },
   surfaceId: 'surface-popup',

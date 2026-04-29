@@ -36,7 +36,7 @@ import {
   type MutationBatch,
   type MutationBody,
   RULE_ENTITY_TYPE,
-  type RuleMutatorContext,
+  type MutatorContext,
 } from '@openheaders/core/sync';
 
 /**
@@ -55,7 +55,7 @@ type SetPath = (typeof SET_PATHS)[number];
  * member of every set-modeled field. The batch is all-or-nothing under
  * the oracle's per-entity lock — partial seeding is impossible.
  */
-export function seedRule(rule: V5.Rule, ctx: RuleMutatorContext): MutationBatch {
+export function seedRule(rule: V5.Rule, ctx: MutatorContext): MutationBatch {
   const setItems: Array<{ path: SetPath; item: unknown }> = [];
   const scalarShell = stripSetFields(rule, setItems);
 

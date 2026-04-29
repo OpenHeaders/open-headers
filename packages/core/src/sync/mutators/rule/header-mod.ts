@@ -23,7 +23,8 @@ import { generateUid } from '../../../utils/workspace';
 import type { MutationBody } from '../../envelope';
 import { mintBatch } from './envelope';
 import { recompileDnrIntent } from './side-effects';
-import { RULE_ENTITY_TYPE, type RuleIntent, type RuleMutatorContext } from './types';
+import type { MutatorContext, MutatorIntent } from '../types';
+import { RULE_ENTITY_TYPE } from './types';
 
 /** Which side of the request lifecycle the mod targets. */
 export type HeaderSide = 'request' | 'response';
@@ -51,7 +52,7 @@ export interface AddHeaderModArgs {
   itemId?: string;
 }
 
-export function addHeaderMod(ctx: RuleMutatorContext, args: AddHeaderModArgs): RuleIntent {
+export function addHeaderMod(ctx: MutatorContext, args: AddHeaderModArgs): MutatorIntent {
   const itemId = args.itemId ?? generateUid();
   const path = setPath(args.side);
 
@@ -79,7 +80,7 @@ export interface RemoveHeaderModArgs {
   itemId: string;
 }
 
-export function removeHeaderMod(ctx: RuleMutatorContext, args: RemoveHeaderModArgs): RuleIntent {
+export function removeHeaderMod(ctx: MutatorContext, args: RemoveHeaderModArgs): MutatorIntent {
   const path = setPath(args.side);
   return {
     batch: mintBatch(ctx, [
@@ -100,7 +101,7 @@ export interface ReorderHeaderModArgs {
   orderKey: string;
 }
 
-export function reorderHeaderMod(ctx: RuleMutatorContext, args: ReorderHeaderModArgs): RuleIntent {
+export function reorderHeaderMod(ctx: MutatorContext, args: ReorderHeaderModArgs): MutatorIntent {
   const path = setPath(args.side);
   return {
     batch: mintBatch(ctx, [

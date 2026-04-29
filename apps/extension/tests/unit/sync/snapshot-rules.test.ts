@@ -6,7 +6,7 @@
  * returns an empty list when the service hasn't been initialized.
  */
 
-import { type RuleMutatorContext, RULE_ENTITY_TYPE, mintBatch, toggleEnabled } from '@openheaders/core/sync';
+import { type MutatorContext, RULE_ENTITY_TYPE, mintBatch, toggleEnabled } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -20,7 +20,7 @@ import {
 import { seedRule } from '@/shared/sync/rule-projection';
 
 const wsId = 'ws-snap';
-const ctx = (ms: number, surface = 's'): RuleMutatorContext => ({
+const ctx = (ms: number, surface = 's'): MutatorContext => ({
   workspaceId: wsId,
   hlc: { physicalMs: ms, logical: 0, nodeId: 'n0' },
   surfaceId: surface,

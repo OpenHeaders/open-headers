@@ -4,11 +4,11 @@ import {
   RECOMPILE_DNR,
   removeCondition,
   RULE_ENTITY_TYPE,
-  type RuleMutatorContext,
+  type MutatorContext,
   setConditionField,
 } from '../../../../src/sync';
 
-const ctx = (): RuleMutatorContext => ({
+const ctx = (): MutatorContext => ({
   workspaceId: 'ws-1',
   hlc: { physicalMs: 1_500, logical: 0, nodeId: 'node-b' },
   surfaceId: 'surface-workbench',

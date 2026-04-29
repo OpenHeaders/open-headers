@@ -17,7 +17,7 @@
 import type { SyncRulePostState } from '@openheaders/core/protocol';
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { RuleOracle } from './oracle';
+import type { EntityOracle } from './oracle';
 import { projectRule } from '@/shared/sync/rule-projection';
 
 /** Set-modeled paths on a Rule — mirrors {@link rule-projection.SET_PATHS}. */
@@ -30,7 +30,7 @@ const RULE_SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseH
  * fires; just without the optional payload.
  */
 export function projectRulePostState(
-  oracle: Pick<RuleOracle, 'materializeOne' | 'liveSetItems'>,
+  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
   envelope: MutationEnvelope,
 ): SyncRulePostState | null {
   if (envelope.body.type !== RULE_ENTITY_TYPE) return null;
@@ -43,7 +43,7 @@ export function projectRulePostState(
  * freshly-mounted renderer mirrors before the next live broadcast.
  */
 export function projectRuleByUid(
-  oracle: Pick<RuleOracle, 'materializeOne' | 'liveSetItems'>,
+  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
   ruleUid: string,
 ): SyncRulePostState | null {
   const materialized = oracle.materializeOne(RULE_ENTITY_TYPE, ruleUid);

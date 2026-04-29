@@ -6,16 +6,16 @@
  * testable without IDB or chrome.runtime. R3.
  */
 
-import { addHeaderMod, newBatchId, type RuleMutatorContext, toggleEnabled } from '@openheaders/core/sync';
+import { addHeaderMod, newBatchId, type MutatorContext, toggleEnabled } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, RuleOracle } from '@/background/sync/oracle';
+import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 
 const wsId = 'ws-1';
 
-const ctx = (physicalMs: number, nodeId = 'node-a'): RuleMutatorContext => ({
+const ctx = (physicalMs: number, nodeId = 'node-a'): MutatorContext => ({
   workspaceId: wsId,
   hlc: { physicalMs, logical: 0, nodeId },
   surfaceId: 'surface-test',
@@ -25,7 +25,7 @@ const ctx = (physicalMs: number, nodeId = 'node-a'): RuleMutatorContext => ({
 const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();
 
 interface Harness {
-  oracle: RuleOracle;
+  oracle: EntityOracle;
   log: InMemoryMutationLog;
   intents: InMemoryPendingIntents;
   broadcast: InMemoryBroadcast;
@@ -40,11 +40,11 @@ function makeHarness(lock: LockAcquirer = sequentialLock): Harness {
   broadcast.subscribe((e) =>
     events.push({ batchId: e.batchId, mutationId: e.envelope.mutationId, status: e.outcome.status }),
   );
-  const oracle = new RuleOracle({ workspaceId: wsId, lock, log, intents, broadcast });
+  const oracle = new EntityOracle({ workspaceId: wsId, lock, log, intents, broadcast });
   return { oracle, log, intents, broadcast, events };
 }
 
-describe('RuleOracle.apply', () => {
+describe('EntityOracle.apply', () => {
   it('commits a single-mutation batch: store, log, intents, broadcast', async () => {
     const h = makeHarness();
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });

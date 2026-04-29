@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   ENVIRONMENT_ENTITY_TYPE,
-  type EnvironmentMutatorContext,
+  type MutatorContext,
   renameEnvironment,
 } from '../../../../src/sync';
 
-const ctx = (): EnvironmentMutatorContext => ({
+const ctx = (): MutatorContext => ({
   workspaceId: 'ws-1',
   hlc: { physicalMs: 5_000, logical: 1, nodeId: 'node-y' },
   surfaceId: 'workbench',

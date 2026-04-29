@@ -1,5 +1,10 @@
 /**
- * Local oracle for the rule entity (Phase A R3).
+ * Local oracle (Phase A R3) — entity-agnostic by implementation.
+ *
+ * Dispatches solely on `envelope.body.type`; Rule, Environment, and
+ * future entity types share one apply path. The class was named
+ * `RuleOracle` while Phase A only had Rule; renamed in Phase B once
+ * Environment landed as a second consumer.
  *
  * Per `docs/SYNC_ENGINE_DESIGN.md` §11.1 the oracle:
  *
@@ -62,7 +67,7 @@ export interface OracleConfig {
   store?: InMemoryDocumentStore;
 }
 
-export class RuleOracle {
+export class EntityOracle {
   private readonly store: InMemoryDocumentStore;
 
   constructor(private readonly cfg: OracleConfig) {

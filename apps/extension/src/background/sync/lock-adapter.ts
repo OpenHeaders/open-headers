@@ -1,6 +1,6 @@
 /**
  * Lock adapter — bridges the SW's `withLock` + `entityLockName`
- * primitives to the {@link LockAcquirer} shape the {@link RuleOracle}
+ * primitives to the {@link LockAcquirer} shape the {@link EntityOracle}
  * expects (Phase A foundation).
  *
  * The oracle's contract is platform-agnostic: it asks for a function

@@ -20,4 +20,4 @@ export {
   type ReorderHeaderModArgs,
 } from './header-mod';
 export { RECOMPILE_DNR, recompileDnrIntent } from './side-effects';
-export { RULE_ENTITY_TYPE, type RuleIntent, type RuleMutatorContext } from './types';
+export { RULE_ENTITY_TYPE } from './types';

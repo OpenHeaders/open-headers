@@ -1,5 +1,5 @@
 /**
- * SW-side HLC sequencer + `RuleMutatorContext` factory.
+ * SW-side HLC sequencer + `MutatorContext` factory.
  *
  * Phase A is single-device, single-user — but every mutation envelope
  * still needs an HLC stamp that's strictly monotonic across the SW's
@@ -15,10 +15,10 @@
  * deviceId once cross-device sync ships.
  */
 
-import { advanceHlc, createDefaultWallClock, type HLC, initialHlc, type RuleMutatorContext } from '@openheaders/core/sync';
+import { advanceHlc, createDefaultWallClock, type HLC, initialHlc, type MutatorContext } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
 
-export type SwMutatorContextFactory = () => RuleMutatorContext;
+export type SwMutatorContextFactory = () => MutatorContext;
 
 /**
  * Build a context factory for `workspaceId`. The factory takes an
@@ -39,8 +39,8 @@ export interface SwContextOptions {
 }
 
 export interface SwContextHandle {
-  /** Mint a fresh `RuleMutatorContext` for a single envelope. */
-  next(opts?: SwContextOptions): RuleMutatorContext;
+  /** Mint a fresh `MutatorContext` for a single envelope. */
+  next(opts?: SwContextOptions): MutatorContext;
   /** Take the latest HLC (for observability / awareness — never the
    *  source of HLCs on the wire; that comes from `next`). */
   peekHlc(): HLC;
@@ -56,7 +56,7 @@ export function createSwContextHandle(workspaceId: string): SwContextHandle {
   return {
     nodeId,
     peekHlc: () => hlc,
-    next(opts = {}): RuleMutatorContext {
+    next(opts = {}): MutatorContext {
       hlc = advanceHlc(hlc, clock.now(), opts.observed);
       return {
         workspaceId,

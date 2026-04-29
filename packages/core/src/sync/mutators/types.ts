@@ -10,7 +10,7 @@
  * the store directly.
  */
 
-import type { EntityType, MutationEnvelope } from '../envelope';
+import type { EntityType } from '../envelope';
 import type { HLC } from '../hlc';
 
 /**
@@ -75,6 +75,36 @@ export interface EntityState {
   setOrder: Map<string, Map<string, { key: string; hlc: HLC }>>;
 }
 
+/**
+ * Per-batch context the local oracle stamps onto every envelope a
+ * factory mints. Identical across entity types — Rule, Environment,
+ * future Collection / Folder — because the wire envelope is generic
+ * and authorship metadata doesn't vary per entity. Surfaces fill these
+ * in once and pass through.
+ */
 export interface MutatorContext {
-  envelope: MutationEnvelope;
+  workspaceId: string;
+  hlc: HLC;
+  surfaceId: string;
+  deviceId: string;
+  /**
+   * Optional: when supplied, every envelope in the resulting batch
+   * shares this batchId. Otherwise a fresh one is minted per factory
+   * call. UI gestures that emit multiple intents in one tick (e.g.
+   * "delete header mod" → remove + recompile, "rename env var" →
+   * remove + add) should pass an explicit batchId so the oracle treats
+   * them all-or-nothing.
+   */
+  batchId?: string;
+  userId?: string;
+}
+
+/**
+ * The factory return shape — a batch plus side-effect intents to
+ * enqueue once the batch commits. Identical across entity types; the
+ * oracle coalesces side-effects by `(kind, key)` per §18.1.
+ */
+export interface MutatorIntent {
+  batch: import('../envelope').MutationBatch;
+  sideEffects: SideEffectIntent[];
 }

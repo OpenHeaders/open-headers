@@ -3,14 +3,14 @@ import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   ENVIRONMENT_MUTATOR_VERSION,
-  type EnvironmentMutatorContext,
+  type MutatorContext,
   removeEnvVar,
   renameEnvVar,
   setEnvVar,
   setEnvVarType,
 } from '../../../../src/sync';
 
-const ctx = (overrides: Partial<EnvironmentMutatorContext> = {}): EnvironmentMutatorContext => ({
+const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
   hlc: { physicalMs: 1_000, logical: 0, nodeId: 'node-x' },
   surfaceId: 'workbench',
