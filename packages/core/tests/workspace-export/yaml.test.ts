@@ -91,7 +91,6 @@ describe('serializeWorkspaceExport — path preserved (tree-affiliation)', () =>
     };
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'rq000001',
       path: 'requests/login-rq000001',
       name: 'Login',
@@ -147,7 +146,6 @@ describe('serializeWorkspaceExport — path preserved (tree-affiliation)', () =>
     };
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'rq000001',
       path: 'requests/login-rq000001',
       name: 'Login',

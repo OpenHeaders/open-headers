@@ -189,7 +189,6 @@ describe('walkMissingDeps — live entities', () => {
     // empty steps would fail schema; give it one step pointing at a request inside the export
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'req00001',
       path: 'requests/api-col/x-req00001',
       name: 'x',

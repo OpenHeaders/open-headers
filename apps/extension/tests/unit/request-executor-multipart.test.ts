@@ -55,7 +55,6 @@ function makeMultipartRequest(
 ): V5.Request {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'rMP',
     path: 'requests/default-xxxx/rMP',
     name: 'MP',
@@ -326,7 +325,6 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
     const { getWorkspaceVariables } = await import('@/background/modules/environment-store');
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
-      version: 1,
       variables: [
         { name: 'USER', value: 'alice', type: 'default' },
         { name: 'ROLE', value: 'admin', type: 'default' },
@@ -349,7 +347,6 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
     const { getWorkspaceVariables } = await import('@/background/modules/environment-store');
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'FIELD', value: 'upload', type: 'default' }],
     } as V5.WorkspaceVariables);
 

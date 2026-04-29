@@ -54,7 +54,6 @@ function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'rq000001',
     path: 'requests/login-rq000001',
     name: 'Login',

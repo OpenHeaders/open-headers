@@ -76,7 +76,6 @@ describe('parseWorkspaceExport — happy path', () => {
     };
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'rq000001',
       path: 'requests/login-rq000001',
       name: 'Login',

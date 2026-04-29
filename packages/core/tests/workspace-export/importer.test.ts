@@ -153,7 +153,6 @@ describe('buildImportPlan — force-disable', () => {
     const input = baseInput();
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'req00001',
       path: 'requests/api-req00001',
       name: 'API',
@@ -179,7 +178,6 @@ describe('buildImportPlan — force-disable', () => {
     const input = baseInput();
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'req00001',
       path: 'requests/api-req00001',
       name: 'API',
@@ -440,7 +438,6 @@ describe('buildImportPlan — omitOAuthConfigs', () => {
     const input = baseInput();
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'req00001',
       path: 'requests/api-req00001',
       name: 'API',
@@ -470,7 +467,6 @@ describe('buildImportPlan — omitOAuthConfigs', () => {
     const input = baseInput();
     const req: Request = {
       schemaVersion: 5,
-      version: 1,
       uid: 'req00002',
       path: 'requests/api-req00002',
       name: 'API',

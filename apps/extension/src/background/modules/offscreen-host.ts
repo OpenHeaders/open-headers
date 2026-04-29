@@ -364,7 +364,6 @@ async function dispatchAdHocRequest(snapshot: RequestSnapshot): Promise<Response
   }
   const request: V5.Request = {
     schemaVersion: 5,
-    version: 1,
     uid: `script-${Date.now().toString(36)}`,
     path: 'scripts/ad-hoc',
     name: 'script ad-hoc',

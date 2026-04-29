@@ -363,12 +363,6 @@ export const RequestBodySchema = v.variant('type', [
 
 export const RequestSchema = v.object({
   schemaVersion: SchemaVersionSchema,
-  /**
-   * Phase 10 monotonic write counter. See `RuleBase.version` for the
-   * full contract — v5 has zero users so the field is required from
-   * day one (no backwards-compat optionality).
-   */
-  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   uid: UidSchema,
   path: RelativePathSchema,
   name: v.string(),

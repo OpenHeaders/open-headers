@@ -6,7 +6,6 @@ import { isRequestComplete, isRequestResolvable, requestIncompleteReason } from 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'req00001',
     path: 'requests/demo-req00001',
     name: 'Demo',

@@ -89,7 +89,6 @@ function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow
 function makeRequest(overrides: Partial<V5.Request> = {}): V5.Request {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: overrides.uid ?? 'reqlogin1',
     path: `api-requests/login-${overrides.uid ?? 'reqlogin1'}`,
     name: overrides.name ?? 'Login',

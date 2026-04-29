@@ -61,7 +61,6 @@ const mockRequestCollections = getRequestCollections as ReturnType<typeof vi.fn>
 function makeRequest(overrides: Partial<V5.Request> = {}): V5.Request {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'r1',
     path: 'requests/default-xxxx/r1',
     name: 'R',
@@ -88,7 +87,6 @@ describe('RequestExecutor', () => {
   it('resolves workspace variables in URL', async () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     await executeRequestDraft(makeRequest({ url: 'https://{{HOST}}/v1/ping' }));

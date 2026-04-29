@@ -63,7 +63,6 @@ export const ENVIRONMENT_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'variabl
 
 export const REQUEST_FIELD_ORDER = [
   'schemaVersion',
-  'version',
   'uid',
   'name',
   'description',

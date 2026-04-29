@@ -65,7 +65,6 @@ import { executeRequestDraft } from '@/background/modules/request-executor';
 function makeOAuthRequest(authOverrides: Partial<V5.OAuth2Auth> = {}): V5.Request {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'r-oauth',
     path: 'requests/default-xxxx/r-oauth',
     name: 'OAuth R',

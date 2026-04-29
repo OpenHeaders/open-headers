@@ -40,7 +40,6 @@ import { type KeyValueRow, makeKvRow } from './request-editor/KeyValueTable';
 import ParamsTab from './request-editor/ParamsTab';
 import ScriptsTab from './request-editor/ScriptsTab';
 import SettingsTab, { type RequestSettingsDraft } from './request-editor/SettingsTab';
-import StaleDraftBanner from './StaleDraftBanner';
 import type { AutoSuggestionContextValue } from './template-input';
 import { SuggestionContextProvider, TemplateInput } from './template-input';
 
@@ -284,9 +283,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // in `useDirtyDraft` (its file-header comment documents the trap).
   const [persistedFp, setPersistedFp] = useState<string>(() => (isCreateMode ? '' : fingerprint(emptyDraft())));
 
-  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
-  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
-
   const [sending, setSending] = useState(false);
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
 
@@ -429,7 +425,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         const d = draftFromRequest(full);
         setDraft(d);
         setPersistedFp(fingerprint(d));
-        setLoadedVersion(full.version);
       }
       setLoading(false);
     });
@@ -475,14 +470,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       preRequestScript: draft.preRequestScript,
       postResponseScript: draft.postResponseScript,
     };
-    const result = await updateRequest(requestUid, updates, loadedVersion ?? undefined);
+    const result = await updateRequest(requestUid, updates);
     if (result.ok) {
       setPersistedFp(fingerprint(draft));
-      setLoadedVersion(result.version);
-      setStaleDraft(null);
       onDirtyChange?.(false);
-    } else if (result.reason === 'stale-draft') {
-      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
     } else if (result.reason === 'not-found') {
       message.error('Request was deleted from another tab');
     } else {
@@ -497,29 +488,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     updateRequest,
     onSaveDraft,
     onDirtyChange,
-    loadedVersion,
     message,
   ]);
-
-  const handleStaleDraftReload = useCallback(async () => {
-    if (!requestUid) return;
-    const full = await getRequest(requestUid);
-    if (full) {
-      const d = draftFromRequest(full);
-      setDraft(d);
-      setPersistedFp(fingerprint(d));
-      setLoadedVersion(full.version);
-    }
-    setStaleDraft(null);
-    onDirtyChange?.(false);
-  }, [requestUid, getRequest, onDirtyChange]);
-
-  const handleStaleDraftKeepEditing = useCallback(async () => {
-    if (!requestUid) return;
-    const full = await getRequest(requestUid);
-    if (full) setLoadedVersion(full.version);
-    setStaleDraft(null);
-  }, [requestUid, getRequest]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -545,7 +515,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
     const draftRequest: V5.Request = {
       schemaVersion: 5,
-      version: loadedVersion ?? 1,
       uid: summary?.uid ?? 'draft',
       path,
       name: summary?.name ?? draftName ?? 'Draft',
@@ -571,7 +540,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     preferredCollectionId,
     preferredFolderPath,
     requestCollections,
-    loadedVersion,
   ]);
 
   if (!isCreateMode && !summary) {
@@ -740,17 +708,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     <SuggestionContextProvider value={suggestionContext}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
-        {staleDraft && (
-          <div style={{ padding: '8px 16px 0' }}>
-            <StaleDraftBanner
-              entityLabel="request"
-              serverVersion={staleDraft.serverVersion}
-              loadedVersion={staleDraft.loadedVersion}
-              onReload={() => void handleStaleDraftReload()}
-              onKeepEditing={() => void handleStaleDraftKeepEditing()}
-            />
-          </div>
-        )}
 
         {needsSchemeNormalization(draft.url) && (
           <div
