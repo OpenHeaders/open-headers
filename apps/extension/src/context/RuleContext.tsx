@@ -17,6 +17,7 @@ import { computePausedUids, resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { applyPauseMarkersReplacement } from '@/shared/sync/pause-markers-write-client';
 import { applyRuleDelete, applyRuleUpdate } from '@/shared/sync/rule-write-client';
 import { extensionStorage, UI, wsKeys } from '@/shared/storage';
 
@@ -343,17 +344,24 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId 
 
   const mutatePauseMarkers = useCallback(
     (mutator: (prev: ReadonlyMap<string, PauseMarker>) => Map<string, PauseMarker>) => {
+      const wsId = activeWorkspaceIdRef.current;
       setPauseMarkers((prev) => {
         const next = mutator(prev);
-        // Route every pause-marker write through the SW so concurrent
-        // tab toggles serialize through the same `entityLockName(ws,
-        // 'pause-markers', 'singleton')` lock as every other Phase 10
-        // entity. The SW broadcasts via `storage.onChanged` so the
-        // other tabs' `extensionStorage.subscribe` listener picks up
-        // the canonical state; we don't have to care about the
-        // round-trip here — local state is optimistic and the
-        // broadcast corrects any divergence.
-        void call('setPauseMarkers', { markers: Object.fromEntries(next) }).catch(() => undefined);
+        // Route every pause-marker write through the sync oracle —
+        // concurrent tab toggles serialize through the same
+        // `entityLockName(ws, 'pause-markers', 'pause-markers')` lock
+        // every other Phase B entity uses. The cache broadcasts via
+        // `chrome.storage.local`'s onChanged so other tabs'
+        // `extensionStorage.subscribe` listener picks up the canonical
+        // state; we don't have to care about the round-trip here —
+        // local state is optimistic and the broadcast corrects any
+        // divergence.
+        if (wsId) {
+          void applyPauseMarkersReplacement(next, {
+            workspaceId: wsId,
+            surfaceId: 'rule-context',
+          }).catch(() => undefined);
+        }
         return next;
       });
     },

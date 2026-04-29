@@ -100,7 +100,6 @@ import {
 import { deleteTokenBundle, listTokenBundles } from './oauth-token-store';
 import { clearObservabilityLog, getObservabilityLog } from './observability-log';
 import { handleScriptHostRequest } from './offscreen-host';
-import { replaceMarkers as replacePauseMarkers } from './pause-markers-store';
 import { executeRequest, executeRequestDraft } from './request-executor';
 import { clearPendingScriptsReview, getPendingScriptsReview } from './request-scripts-review-store';
 import {
@@ -594,16 +593,6 @@ export function handleGeneralMessage(
       safeResponse({ value: getVaultSecret(message.key as string) });
     } else if (message.type === 'vaultListSecretNames') {
       safeResponse({ names: listVaultSecretNames() });
-    } else if (message.type === 'setPauseMarkers') {
-      const payload = message.markers as Record<string, 'paused' | 'unpaused'>;
-      replacePauseMarkers(payload)
-        .then(() => {
-          scheduleUpdate('pause-markers', { immediate: true });
-          updateBadgeCallback();
-          safeResponse({ success: true });
-        })
-        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
-      return true;
     } else if (message.type === 'updateCollectionVariables') {
       updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[])
         .then((result) => {

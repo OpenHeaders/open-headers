@@ -722,20 +722,6 @@ export interface BridgeRpcContract {
     res: { names: string[] };
   };
 
-  /**
-   * Replace the pause-markers map for the active workspace. Every
-   * renderer-side pause toggle goes through this RPC so writes
-   * serialize through the SW's `entityLockName(ws, 'pause-markers',
-   * 'singleton')` lock. The renderer computes the next full map from
-   * its local snapshot + the user action; the SW just writes it.
-   * Concurrent writers land atomically one-at-a-time through the
-   * lock; the broadcast back to other tabs keeps every renderer's
-   * view in sync.
-   */
-  setPauseMarkers: {
-    req: { markers: Record<string, 'paused' | 'unpaused'> };
-    res: { success: boolean };
-  };
   updateCollectionVariables: {
     req: {
       collectionUid: string;

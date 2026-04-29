@@ -6,28 +6,37 @@
  *   - 'unpaused' — explicit override that keeps the subtree active
  *                  even if an ancestor is paused.
  *
- * A path without a marker inherits its effective state from its closest
- * marked ancestor (default is unpaused at the root).
- *
- * Storage: `oh.ws.<id>.pauseMarkers` — Record<path, PauseMarker>.
- *
- * The store mirrors the map in memory. The DNR manager reads from
- * `getPauseMarkers()` on every compile; the RuleContext in the UI
- * reads via bridge RPC and subscribes to `oh.ws.<id>.pauseMarkers`
- * storage changes (through the storage.onChanged listener in
- * RuleContext).
+ * Phase B — every write routes through the sync oracle (catalog factory
+ * → MutationBatch → `oracle.apply`); the {@link PauseMarkersCache} owns
+ * `chrome.storage.local` persistence + drives the local mirror via
+ * broadcast-driven re-projection. Reads stay synchronous off the local
+ * mirror so the DNR engine + rule-state-observer don't have to await.
  */
 
-import type { PauseMarker } from '@openheaders/core/utils';
+import type {
+  MutationBatch,
+  MutatorContext,
+  PauseMarkerKind,
+  SideEffectIntent,
+} from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
+import {
+  buildClearPauseMarkerBatch,
+  buildReplacePauseMarkersBatch,
+  buildSetPauseMarkerBatch,
+} from '@/shared/sync/pause-markers-mutations';
+import { getActivePauseMarkersCache } from '../sync/pause-markers-cache';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
-// ── In-memory state ────────────────────────────────────────────────
+// ── Type re-export (legacy callers use the local name) ────────────
+
+export type PauseMarker = PauseMarkerKind;
+
+// ── In-memory mirror (active workspace) ───────────────────────────
 
 let markers: Map<string, PauseMarker> = new Map();
-let loadedWorkspaceId: string | null = null;
 
 type ChangeListener = () => void;
 const listeners: Set<ChangeListener> = new Set();
@@ -49,103 +58,116 @@ export function getPauseMarkers(): ReadonlyMap<string, PauseMarker> {
 
 // ── Writes ─────────────────────────────────────────────────────────
 
-function assertLoaded(): string {
-  if (!loadedWorkspaceId) {
-    throw new Error('PauseMarkersStore: mutation before hydration');
-  }
-  return loadedWorkspaceId;
-}
-
-/**
- * Phase 10 — every mutator runs inside the pause-markers lock so
- * renderer-side toggles (RuleContext funneling through the bridge)
- * serialize against each other and against any SW-side callers.
- * Before Phase 10 the renderer wrote `chrome.storage.local` directly,
- * racing with itself across tabs and with the `applyExternalSnapshot`
- * hydrate path. Routing every write through the store's lock is the
- * same fix applied to `setVault` / `putVaultSecret`.
- */
 export async function setMarker(path: string, marker: PauseMarker): Promise<void> {
-  const workspaceId = assertLoaded();
-  await withLock(
-    entityLockName(workspaceId, 'pause-markers', 'singleton'),
-    async () => {
-      markers.set(path, marker);
-      await persist();
-    },
-    { op: 'pause-markers-set' },
+  await applyPauseMarkersMutationOrThrow(
+    (ctx) => buildSetPauseMarkerBatch({ path, marker }, ctx),
+    'setMarker',
   );
 }
 
 export async function clearMarker(path: string): Promise<void> {
-  const workspaceId = assertLoaded();
-  await withLock(
-    entityLockName(workspaceId, 'pause-markers', 'singleton'),
-    async () => {
-      if (markers.delete(path)) await persist();
-    },
-    { op: 'pause-markers-clear' },
+  await applyPauseMarkersMutationOrThrow(
+    (ctx) => buildClearPauseMarkerBatch({ path }, ctx),
+    'clearMarker',
   );
-}
-
-export async function replaceMarkers(record: Record<string, PauseMarker>): Promise<void> {
-  const workspaceId = assertLoaded();
-  await withLock(
-    entityLockName(workspaceId, 'pause-markers', 'singleton'),
-    async () => {
-      markers = new Map(Object.entries(record));
-      await persist();
-    },
-    { op: 'pause-markers-replace' },
-  );
-}
-
-async function persist(): Promise<void> {
-  const workspaceId = assertLoaded();
-  const payload = Object.fromEntries(markers);
-  await extensionStorage.set(wsKeys(workspaceId).pauseMarkers, payload);
-  logger.debug('PauseMarkersStore', `Persisted ${markers.size} markers (ws=${workspaceId})`);
-  notifyChange();
-}
-
-// ── Hydration / workspace switch ──────────────────────────────────
-
-async function readMarkersFor(workspaceId: string): Promise<Map<string, PauseMarker>> {
-  const raw = await extensionStorage.get(wsKeys(workspaceId).pauseMarkers);
-  if (raw && typeof raw === 'object') {
-    return new Map(Object.entries(raw));
-  }
-  return new Map();
-}
-
-export async function hydratePauseMarkersFromStorage(): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
-  markers = await readMarkersFor(workspaceId);
-  loadedWorkspaceId = workspaceId;
-  logger.info('PauseMarkersStore', `Hydrated ws=${workspaceId}: ${markers.size} markers`);
-}
-
-export async function switchToWorkspace(workspaceId: string): Promise<void> {
-  if (loadedWorkspaceId === workspaceId) return;
-  markers = await readMarkersFor(workspaceId);
-  loadedWorkspaceId = workspaceId;
-  logger.info('PauseMarkersStore', `Switched to ws=${workspaceId}: ${markers.size} markers`);
-  notifyChange();
 }
 
 /**
- * External mutator: called when the UI writes to
- * `oh.ws.<id>.pauseMarkers` directly via storage.onChanged. The UI
- * (RuleContext) still owns the pause-toggle logic today; the store
- * just mirrors the persisted state so the DNR layer can read it.
+ * Replace the entire marker map. Used by the import / bulk-clear path
+ * + the renderer-side `setPauseMarkers` legacy bridge entry (kept for
+ * `RuleContext` until commit 3 swings it over to the renderer-direct
+ * write client). Diff is computed inside the catalog factory against
+ * the current mirror so removals fire only for paths the new map drops.
  */
-export function applyExternalSnapshot(record: Record<string, PauseMarker>): void {
-  markers = new Map(Object.entries(record));
-  notifyChange();
+export async function replaceMarkers(record: Record<string, PauseMarker>): Promise<void> {
+  await applyPauseMarkersMutationOrThrow(
+    (ctx) =>
+      buildReplacePauseMarkersBatch(
+        {
+          existing: markers,
+          next: record,
+        },
+        ctx,
+      ),
+    'replaceMarkers',
+  );
 }
+
+// ── Sync engine plumbing ──────────────────────────────────────────
+
+async function applyPauseMarkersMutationOrThrow(
+  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`PauseMarkersStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `PauseMarkersStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
+}
+
+// ── Hydration / bridge ────────────────────────────────────────────
+
+let cacheUnsubscribe: (() => void) | null = null;
+
+async function readMarkersFor(workspaceId: string): Promise<Record<string, PauseMarker>> {
+  const raw = await extensionStorage.get(wsKeys(workspaceId).pauseMarkers);
+  if (raw && typeof raw === 'object') return raw as Record<string, PauseMarker>;
+  return {};
+}
+
+/**
+ * Wire the local mirror to the active workspace's
+ * {@link PauseMarkersCache}. Idempotent — the prior subscription is
+ * dropped first. Seeds the oracle from the current persisted record.
+ */
+export async function bridgePauseMarkersSyncEngine(): Promise<void> {
+  const cache = getActivePauseMarkersCache();
+  if (!cache) return;
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  cacheUnsubscribe = cache.onChange(() => {
+    markers = new Map(Object.entries(cache.getSnapshot().markers));
+    notifyChange();
+  });
+  const workspaceId = getActiveWorkspaceId();
+  const persisted = await readMarkersFor(workspaceId);
+  await cache.seedFromPersistedPauseMarkers(persisted);
+  markers = new Map(Object.entries(cache.getSnapshot().markers));
+  logger.info(
+    'PauseMarkersStore',
+    `Bridged ws=${workspaceId}: ${markers.size} markers`,
+  );
+}
+
+// ── Test helpers ──────────────────────────────────────────────────
 
 export function __resetForTests(): void {
   markers = new Map();
-  loadedWorkspaceId = null;
   listeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+}
+
+/**
+ * Test-only mirror seed. Production callers must go through the
+ * cache + bridge path (`bridgePauseMarkersSyncEngine`); this helper
+ * lets DNR / rule-engine tests inject a marker map without booting
+ * the sync service.
+ */
+export function __setMarkersForTests(record: Record<string, PauseMarker>): void {
+  markers = new Map(Object.entries(record));
+  notifyChange();
 }

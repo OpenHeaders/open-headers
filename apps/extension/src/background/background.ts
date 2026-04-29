@@ -80,7 +80,7 @@ import {
 } from './modules/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
-import { applyExternalSnapshot as applyPauseMarkersSnapshot, getPauseMarkers } from './modules/pause-markers-store';
+import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
@@ -424,6 +424,13 @@ async function initializeExtension(): Promise<void> {
     void bridgeOAuthSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeOAuthSyncEngine after workspace switch failed', err);
     });
+    void bridgePauseMarkersSyncEngine().catch((err: unknown) => {
+      logger.warn(
+        'Background',
+        'bridgePauseMarkersSyncEngine after workspace switch failed',
+        err,
+      );
+    });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -567,6 +574,7 @@ async function initializeExtension(): Promise<void> {
   await bridgeLiveWorkflowSyncEngine();
   await bridgeLiveVariableSyncEngine();
   await bridgeOAuthSyncEngine();
+  await bridgePauseMarkersSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
@@ -794,10 +802,12 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
   if (area === 'local' && extensionInitialized) {
     const activeKey = `oh.ws.${getActiveWorkspaceId()}.pauseMarkers`;
     if (changes[activeKey]) {
-      const record = (changes[activeKey].newValue as Record<string, PauseMarker>) || {};
-      logger.info('Background', 'Pause markers changed:', record);
-      applyPauseMarkersSnapshot(record);
-      scheduleUpdate('pauseMarkers', { immediate: true });
+      // The pause-markers cache owns persistence + drives the in-memory
+      // mirror via broadcast; the dnr-intent runner schedules recompile
+      // off the same broadcast (RECOMPILE_DNR keyed by the singleton id).
+      // The renderer-side `extensionStorage.subscribe` listener in
+      // RuleContext.tsx still picks up the storage change directly. Only
+      // remaining side-effect on this listener is the badge refresh.
       debouncedUpdateBadge();
     }
     const scriptsReviewKey = `oh.ws.${getActiveWorkspaceId()}.requestScriptsReviewPending`;

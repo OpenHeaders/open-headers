@@ -208,34 +208,11 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
   // ── pause-markers-store ────────────────────────────────────────────
 
-  it('pause-markers-store: markers round-trip across SW kill', async () => {
-    const activeWs = 'ws-pause';
-    seedStorageMany({
-      'oh.workspaces': [workspace(activeWs)],
-      'oh.activeWorkspaceId': activeWs,
-      [`oh.ws.${activeWs}.pauseMarkers`]: {
-        'rules/coll-abcd1234': 'paused',
-        'rules/coll-efgh5678': 'unpaused',
-      },
-    });
-
-    let ws = await import('@/background/modules/workspace-store');
-    await ws.bootstrap();
-    let store = await import('@/background/modules/pause-markers-store');
-    await store.hydratePauseMarkersFromStorage();
-    const markers1 = store.getPauseMarkers();
-    expect(markers1.get('rules/coll-abcd1234')).toBe('paused');
-    expect(markers1.get('rules/coll-efgh5678')).toBe('unpaused');
-
-    vi.resetModules();
-    ws = await import('@/background/modules/workspace-store');
-    await ws.bootstrap();
-    store = await import('@/background/modules/pause-markers-store');
-    expect(store.getPauseMarkers().size).toBe(0);
-    await store.hydratePauseMarkersFromStorage();
-    const markers2 = store.getPauseMarkers();
-    expect(markers2.get('rules/coll-abcd1234')).toBe('paused');
-  });
+  // pause-markers SW round-trip is exercised through
+  // `pause-markers-cache.test.ts` + `pause-markers-post-state.test.ts`
+  // post Phase B. The legacy in-memory mirror no longer reads
+  // chrome.storage directly — the cache owns persistence and seeds the
+  // mirror via `bridgePauseMarkersSyncEngine` against the sync service.
 
   // ── end-to-end: orchestrator hydrates every per-workspace store ────
 

@@ -46,11 +46,7 @@ import {
 } from './live-workflow-store';
 import { purgeOAuthForWorkspace } from './oauth-token-store';
 import { recordLog } from './observability-log';
-import {
-  getPauseMarkers,
-  hydratePauseMarkersFromStorage,
-  switchToWorkspace as switchPauseMarkersToWorkspace,
-} from './pause-markers-store';
+import { getPauseMarkers } from './pause-markers-store';
 import {
   hydrateRequestScriptsReviewFromStorage,
   switchToWorkspace as switchRequestScriptsReviewToWorkspace,
@@ -119,7 +115,6 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
  */
 export async function hydrateActiveWorkspaceStores(): Promise<void> {
   await Promise.all([
-    hydratePauseMarkersFromStorage(),
     hydrateEnvironmentsFromStorage(),
     hydrateTemplatesFromStorage(),
     hydrateRulesFromStorage(),
@@ -156,7 +151,6 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
   await Promise.all([
     switchRulesToWorkspace(targetId),
     switchTemplatesToWorkspace(targetId),
-    switchPauseMarkersToWorkspace(targetId),
     switchEnvToWorkspace(targetId),
     switchRequestsToWorkspace(targetId),
     switchLiveWorkflowsToWorkspace(targetId),
@@ -343,7 +337,6 @@ export async function deleteWorkspaceWithData(id: string): Promise<string | null
     await Promise.all([
       switchRulesToWorkspace(newActive),
       switchTemplatesToWorkspace(newActive),
-      switchPauseMarkersToWorkspace(newActive),
       switchEnvToWorkspace(newActive),
       switchRequestsToWorkspace(newActive),
       switchLiveWorkflowsToWorkspace(newActive),

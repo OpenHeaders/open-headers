@@ -78,6 +78,9 @@ vi.mock('@/background/modules/observability-log', () => ({
 vi.mock('@/background/modules/oauth-token-store', () => ({
   bridgeOAuthSyncEngine: vi.fn(async () => {}),
 }));
+vi.mock('@/background/modules/pause-markers-store', () => ({
+  bridgePauseMarkersSyncEngine: vi.fn(async () => {}),
+}));
 vi.mock('@/background/modules/import-reports-store', () => ({
   recordImportReport: vi.fn(async (report: unknown) => {
     const current = (blobs.get('oh.ws.ws-active.importReports') as unknown[]) ?? [];
