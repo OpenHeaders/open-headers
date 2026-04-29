@@ -33,9 +33,10 @@ import type {
   SyncApplyRequest,
   SyncApplyResponse,
   SyncBroadcastEvent,
+  SyncEnvironmentPostState,
   SyncRulePostState,
 } from '@openheaders/core/protocol';
-import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { ENVIRONMENT_ENTITY_TYPE, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
@@ -43,6 +44,12 @@ import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { type BroadcastProjector, composeProjectors, handleSyncApply, wireBroadcastToSink } from './bridge';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
+import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
+import {
+  createEnvironmentCache,
+  type EnvironmentCache,
+  setActiveEnvironmentCache,
+} from './environment-cache';
 import { projectRuleByUid, projectRulePostState } from './rule-post-state';
 import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
@@ -58,7 +65,8 @@ interface ServiceState {
   workspaceId: string;
   oracle: EntityOracle;
   broadcast: InMemoryBroadcast;
-  cache: RuleCache;
+  ruleCache: RuleCache;
+  envCache: EnvironmentCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -91,8 +99,11 @@ export function initSyncService(workspaceId: string): void {
     broadcast,
   });
 
-  const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveRuleCache(cache);
+  const ruleCache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveRuleCache(ruleCache);
+
+  const envCache = createEnvironmentCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveEnvironmentCache(envCache);
 
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
@@ -120,7 +131,11 @@ export function initSyncService(workspaceId: string): void {
     const rulePostState = projectRulePostState(oracle, envelope);
     return rulePostState ? { rulePostState } : null;
   };
-  const projector = composeProjectors(ruleProjector);
+  const envProjector: BroadcastProjector = (envelope) => {
+    const environmentPostState = projectEnvironmentPostState(oracle, envelope);
+    return environmentPostState ? { environmentPostState } : null;
+  };
+  const projector = composeProjectors(ruleProjector, envProjector);
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
     (event: SyncBroadcastEvent) => {
@@ -135,7 +150,17 @@ export function initSyncService(workspaceId: string): void {
     projector,
   );
 
-  state = { workspaceId, oracle, broadcast, cache, context, awareness, dnrRunner, unsubscribeBroadcast };
+  state = {
+    workspaceId,
+    oracle,
+    broadcast,
+    ruleCache,
+    envCache,
+    context,
+    awareness,
+    dnrRunner,
+    unsubscribeBroadcast,
+  };
   logger.info(
     'SyncService',
     `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${context.nodeId})`,
@@ -147,9 +172,11 @@ export function dispose(): void {
   if (!state) return;
   state.unsubscribeBroadcast();
   state.dnrRunner.dispose();
-  state.cache.dispose();
+  state.ruleCache.dispose();
+  state.envCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
+  setActiveEnvironmentCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -202,6 +229,24 @@ export function snapshotRulePostStates(): SyncRulePostState[] {
   for (const materialized of oracle.materializeAll()) {
     if (materialized.type !== RULE_ENTITY_TYPE) continue;
     const projection = projectRuleByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
+ * Snapshot every Environment the active oracle holds. Same shape the
+ * `BroadcastProjector` attaches to live envelopes; consumed by the
+ * `oh.sync.snapshotEnvironments` RPC for renderer mirror bootstrap.
+ * Returns `[]` when the service isn't initialized.
+ */
+export function snapshotEnvironmentPostStates(): SyncEnvironmentPostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncEnvironmentPostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== ENVIRONMENT_ENTITY_TYPE) continue;
+    const projection = projectEnvironmentByUid(oracle, materialized.id);
     if (projection) out.push(projection);
   }
   return out;
@@ -278,8 +323,10 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   const context = createSwContextHandle(workspaceId);
 
   const oracle = new EntityOracle({ workspaceId, lock, log, intents, broadcast });
-  const cache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveRuleCache(cache);
+  const ruleCache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveRuleCache(ruleCache);
+  const envCache = createEnvironmentCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveEnvironmentCache(envCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -298,7 +345,8 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     workspaceId,
     oracle,
     broadcast,
-    cache,
+    ruleCache,
+    envCache,
     context,
     awareness,
     dnrRunner,

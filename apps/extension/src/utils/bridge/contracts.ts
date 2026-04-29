@@ -1257,6 +1257,17 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncRulePostState[] };
   };
+  /**
+   * Snapshot the active workspace's full Environment oracle state.
+   * Same semantics as `oh.sync.snapshotRules` for the Environment
+   * entity — `(environment, varNames)` per envId, matching the
+   * broadcast `environmentPostState` payload. Renderer-side env
+   * mirrors call this on construction.
+   */
+  'oh.sync.snapshotEnvironments': {
+    req: Record<string, never>;
+    res: { entries: SyncEnvironmentPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**

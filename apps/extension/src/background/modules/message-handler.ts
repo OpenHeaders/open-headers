@@ -19,6 +19,7 @@ import {
   applySyncRequest,
   publishAwareness,
   snapshotAwarenessPresence,
+  snapshotEnvironmentPostStates,
   snapshotRulePostStates,
 } from '@/background/sync/service';
 import { getStatusSnapshot } from '@/shared/status';
@@ -1399,6 +1400,8 @@ export function handleGeneralMessage(
       // ── Sync engine (Phase A) ──────────────────────────────────
     } else if (message.type === 'oh.sync.snapshotRules') {
       safeResponse({ entries: snapshotRulePostStates() });
+    } else if (message.type === 'oh.sync.snapshotEnvironments') {
+      safeResponse({ entries: snapshotEnvironmentPostStates() });
     } else if (message.type === 'oh.sync.apply') {
       // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
       // The bridge layer flattens `{ type, ...payload }` onto the

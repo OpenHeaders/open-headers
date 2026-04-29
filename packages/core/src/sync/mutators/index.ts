@@ -12,6 +12,7 @@ export {
   setEnvVar,
   type SetEnvVarTypeArgs,
   setEnvVarType,
+  type VariableType,
 } from './environment';
 export { flattenToLeaves, type Leaf, unflattenLeaves } from './flatten';
 export { applyMutation } from './generic';

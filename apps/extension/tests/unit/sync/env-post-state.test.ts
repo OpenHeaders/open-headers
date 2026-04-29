@@ -1,0 +1,110 @@
+/**
+ * Phase B — projector reads post-commit state for Environment
+ * envelopes and returns null for non-Environment envelopes / deletes /
+ * unknown ids. Mirrors rule-post-state.test.ts.
+ */
+
+import {
+  ENV_VARS_PATH,
+  ENVIRONMENT_ENTITY_TYPE,
+  mintBatch,
+  type MutationEnvelope,
+  type MutatorContext,
+  RULE_ENTITY_TYPE,
+  setEnvVar,
+} from '@openheaders/core/sync';
+import type { V5 } from '@openheaders/core/types';
+import { describe, expect, it } from 'vitest';
+import { InMemoryBroadcast } from '@/background/sync/broadcast';
+import { projectEnvironmentByUid, projectEnvironmentPostState } from '@/background/sync/env-post-state';
+import { InMemoryMutationLog } from '@/background/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
+import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { seedEnvironment } from '@/shared/sync/env-projection';
+
+const wsId = 'ws-1';
+const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
+const ctx = (ms: number, hlc: [number, number] = [ms, 0]): MutatorContext => ({
+  workspaceId: wsId,
+  hlc: { physicalMs: hlc[0], logical: hlc[1], nodeId: 'n0' },
+  surfaceId: 's',
+  deviceId: 'd',
+});
+
+const makeEnv = (uid: string): V5.Environment =>
+  ({
+    schemaVersion: 5,
+    uid,
+    name: 'staging',
+    variables: [
+      { name: 'API_BASE', value: 'https://staging.openheaders.io', type: 'default' },
+      { name: 'API_KEY', value: 'k', type: 'secret' },
+    ],
+    version: 1,
+  }) as unknown as V5.Environment;
+
+function newOracle(): EntityOracle {
+  return new EntityOracle({
+    workspaceId: wsId,
+    lock,
+    log: new InMemoryMutationLog(),
+    intents: new InMemoryPendingIntents(),
+    broadcast: new InMemoryBroadcast(),
+  });
+}
+
+describe('projectEnvironmentPostState', () => {
+  it('returns post-state after seedEnvironment + setEnvVar', async () => {
+    const oracle = newOracle();
+    const env = makeEnv('env-1');
+    const seedBatch = seedEnvironment(env, ctx(1));
+    await oracle.apply(seedBatch, []);
+    const setIntent = setEnvVar(ctx(2), { envId: env.uid, name: 'NEW_VAR', value: 'v' });
+    const setResult = await oracle.apply(setIntent.batch, []);
+    expect(setResult.ok).toBe(true);
+
+    const envelope = setIntent.batch.mutations[0];
+    const post = projectEnvironmentPostState(oracle, envelope);
+    expect(post).not.toBeNull();
+    expect(post?.environment.uid).toBe('env-1');
+    expect(post?.varNames.sort()).toEqual(['API_BASE', 'API_KEY', 'NEW_VAR']);
+  });
+
+  it('returns null for non-Environment envelopes', () => {
+    const oracle = newOracle();
+    const ruleEnvelope: MutationEnvelope = {
+      mutationId: 'm',
+      hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
+      origin: { surfaceId: 's', deviceId: 'd' },
+      workspaceId: wsId,
+      mutatorVersion: 1,
+      body: { kind: 'setField', type: RULE_ENTITY_TYPE, id: 'r', path: 'name', value: 'x' },
+    };
+    expect(projectEnvironmentPostState(oracle, ruleEnvelope)).toBeNull();
+  });
+
+  it('returns null for unknown env ids', () => {
+    const oracle = newOracle();
+    expect(projectEnvironmentByUid(oracle, 'no-such-id')).toBeNull();
+  });
+
+  it('returns null for tombstoned environments', async () => {
+    const oracle = newOracle();
+    const env = makeEnv('env-2');
+    await oracle.apply(seedEnvironment(env, ctx(1)), []);
+    const deleteBatch = mintBatch(ctx(2), [
+      { kind: 'delete', type: ENVIRONMENT_ENTITY_TYPE, id: env.uid },
+    ]);
+    await oracle.apply(deleteBatch, []);
+    expect(projectEnvironmentByUid(oracle, env.uid)).toBeNull();
+  });
+
+  it('reports varNames matching ENV_VARS_PATH itemIds', async () => {
+    const oracle = newOracle();
+    const env = makeEnv('env-3');
+    await oracle.apply(seedEnvironment(env, ctx(1)), []);
+    const live = oracle.liveSetItems(ENVIRONMENT_ENTITY_TYPE, env.uid, ENV_VARS_PATH);
+    const projected = projectEnvironmentByUid(oracle, env.uid);
+    expect(projected?.varNames.sort()).toEqual(live.map((e) => e.itemId).sort());
+  });
+});
