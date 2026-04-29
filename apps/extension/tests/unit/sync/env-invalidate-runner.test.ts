@@ -1,0 +1,120 @@
+/**
+ * Environment invalidate-resolver runner — drains
+ * `invalidate-resolver` intents on every Environment broadcast and
+ * asks the rule engine to recompile (which re-reads env state from
+ * `getEnvironments()`). Mirrors dnr-intent-runner.test.ts.
+ */
+
+import {
+  ENVIRONMENT_ENTITY_TYPE,
+  INVALIDATE_RESOLVER,
+  type MutatorContext,
+  setEnvVar,
+} from '@openheaders/core/sync';
+import { describe, expect, it } from 'vitest';
+import { InMemoryBroadcast } from '@/background/sync/broadcast';
+import { createEnvInvalidateRunner } from '@/background/sync/env-invalidate-runner';
+import { InMemoryMutationLog } from '@/background/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
+import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+
+const wsId = 'ws-1';
+const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();
+
+const ctx = (physicalMs: number, nodeId = 'node-a'): MutatorContext => ({
+  workspaceId: wsId,
+  hlc: { physicalMs, logical: 0, nodeId },
+  surfaceId: 'surface-test',
+  deviceId: 'device-a',
+});
+
+interface Harness {
+  oracle: EntityOracle;
+  intents: InMemoryPendingIntents;
+  broadcast: InMemoryBroadcast;
+  recompileCalls: string[];
+  dispose: () => void;
+}
+
+function makeHarness(): Harness {
+  const log = new InMemoryMutationLog();
+  const intents = new InMemoryPendingIntents();
+  const broadcast = new InMemoryBroadcast();
+  const recompileCalls: string[] = [];
+  const oracle = new EntityOracle({ workspaceId: wsId, lock: sequentialLock, log, intents, broadcast });
+  const runner = createEnvInvalidateRunner({
+    broadcast,
+    intents,
+    recompile: (reason) => recompileCalls.push(reason),
+  });
+  return { oracle, intents, broadcast, recompileCalls, dispose: runner.dispose };
+}
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe('EnvInvalidateRunner', () => {
+  it('recompiles after a setEnvVar mutation lands', async () => {
+    const h = makeHarness();
+    const intent = setEnvVar(ctx(1_000), { envId: 'e1', name: 'API_KEY', value: 'k' });
+    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await flush();
+    expect(h.recompileCalls).toEqual(['rules']);
+  });
+
+  it('does not recompile when the broadcast carries no matching intent', async () => {
+    const h = makeHarness();
+    h.broadcast.publish({
+      envelope: {
+        mutationId: 'm-orphan',
+        hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
+        origin: { surfaceId: 's', deviceId: 'd' },
+        workspaceId: wsId,
+        mutatorVersion: 1,
+        body: { kind: 'setField', type: ENVIRONMENT_ENTITY_TYPE, id: 'never-seen', path: 'name', value: 'x' },
+      },
+      outcome: { status: 'applied' },
+    });
+    await flush();
+    expect(h.recompileCalls).toHaveLength(0);
+  });
+
+  it('ignores broadcasts for non-Environment entity types', async () => {
+    const h = makeHarness();
+    h.broadcast.publish({
+      envelope: {
+        mutationId: 'm-rule',
+        hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
+        origin: { surfaceId: 's', deviceId: 'd' },
+        workspaceId: wsId,
+        mutatorVersion: 1,
+        body: { kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'x' },
+      },
+      outcome: { status: 'applied' },
+    });
+    await flush();
+    expect(h.recompileCalls).toHaveLength(0);
+  });
+
+  it('drains per-env intents in lockstep with broadcasts', async () => {
+    const h = makeHarness();
+    await h.intents.enqueue({
+      kind: INVALIDATE_RESOLVER,
+      key: 'e1',
+      hlc: { physicalMs: 0, logical: 0, nodeId: 'n' },
+    });
+    const intent = setEnvVar(ctx(1_000), { envId: 'e1', name: 'API_KEY', value: 'k' });
+    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await flush();
+    expect(h.recompileCalls).toEqual(['rules']);
+    expect(await h.intents.list()).toHaveLength(0);
+  });
+
+  it('dispose stops further recompile calls', async () => {
+    const h = makeHarness();
+    h.dispose();
+    const intent = setEnvVar(ctx(1_000), { envId: 'e1', name: 'API_KEY', value: 'k' });
+    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await flush();
+    expect(h.recompileCalls).toHaveLength(0);
+  });
+});

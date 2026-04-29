@@ -2,6 +2,8 @@ export {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   ENVIRONMENT_MUTATOR_VERSION,
+  INVALIDATE_RESOLVER,
+  invalidateResolverIntent,
   type RemoveEnvVarArgs,
   removeEnvVar,
   type RenameEnvironmentArgs,

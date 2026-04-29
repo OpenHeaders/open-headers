@@ -12,6 +12,7 @@
 import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
+import { invalidateResolverIntent } from './side-effects';
 import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE } from './types';
 
 export type VariableType = 'default' | 'secret';
@@ -45,7 +46,7 @@ export function setEnvVar(ctx: MutatorContext, args: SetEnvVarArgs): MutatorInte
         orderKey: args.orderKey,
       },
     ]),
-    sideEffects: [],
+    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
   };
 }
 
@@ -70,7 +71,7 @@ export function removeEnvVar(ctx: MutatorContext, args: RemoveEnvVarArgs): Mutat
         itemId: args.name,
       },
     ]),
-    sideEffects: [],
+    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
   };
 }
 
@@ -121,7 +122,10 @@ export function renameEnvVar(ctx: MutatorContext, args: RenameEnvVarArgs): Mutat
       orderKey: args.orderKey,
     },
   ];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  return {
+    batch: mintBatch(ctx, bodies),
+    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
+  };
 }
 
 export interface SetEnvVarTypeArgs {
@@ -151,6 +155,6 @@ export function setEnvVarType(ctx: MutatorContext, args: SetEnvVarTypeArgs): Mut
         item,
       },
     ]),
-    sideEffects: [],
+    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
   };
 }

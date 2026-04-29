@@ -3,6 +3,7 @@ import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   ENVIRONMENT_MUTATOR_VERSION,
+  INVALIDATE_RESOLVER,
   type MutatorContext,
   removeEnvVar,
   renameEnvVar,
@@ -32,7 +33,9 @@ describe('setEnvVar', () => {
       itemId: 'API_URL',
       item: { name: 'API_URL', value: 'https://openheaders.io', type: 'default' },
     });
-    expect(intent.sideEffects).toEqual([]);
+    expect(intent.sideEffects).toEqual([
+      { kind: INVALIDATE_RESOLVER, key: 'env-prod', hlc: ctx().hlc },
+    ]);
   });
 
   it('honors explicit type + orderKey when provided', () => {

@@ -44,6 +44,7 @@ import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { type BroadcastProjector, composeProjectors, handleSyncApply, wireBroadcastToSink } from './bridge';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
+import { createEnvInvalidateRunner, type EnvInvalidateRunner } from './env-invalidate-runner';
 import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
 import {
   createEnvironmentCache,
@@ -70,6 +71,7 @@ interface ServiceState {
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
+  envInvalidateRunner: EnvInvalidateRunner;
   unsubscribeBroadcast: () => void;
 }
 
@@ -109,6 +111,15 @@ export function initSyncService(workspaceId: string): void {
   // runner asks rule-engine to recompile, the rule mirror already
   // reflects post-commit state.
   const dnrRunner = createDnrIntentRunner({
+    broadcast,
+    intents,
+    recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
+  });
+
+  // Environment resolver-invalidation runner — same shape, fires on
+  // env envelopes. Subscribes AFTER the env cache so the recompile
+  // sees post-commit env state via `syncResolverFromStores`.
+  const envInvalidateRunner = createEnvInvalidateRunner({
     broadcast,
     intents,
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
@@ -159,6 +170,7 @@ export function initSyncService(workspaceId: string): void {
     context,
     awareness,
     dnrRunner,
+    envInvalidateRunner,
     unsubscribeBroadcast,
   };
   logger.info(
@@ -172,6 +184,7 @@ export function dispose(): void {
   if (!state) return;
   state.unsubscribeBroadcast();
   state.dnrRunner.dispose();
+  state.envInvalidateRunner.dispose();
   state.ruleCache.dispose();
   state.envCache.dispose();
   state.awareness.dispose();
@@ -333,6 +346,11 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     intents,
     recompile: deps.recompile ?? (() => {}),
   });
+  const envInvalidateRunner = createEnvInvalidateRunner({
+    broadcast,
+    intents,
+    recompile: deps.recompile ?? (() => {}),
+  });
 
   const awareness = createAwarenessStore({
     workspaceId,
@@ -350,6 +368,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     context,
     awareness,
     dnrRunner,
+    envInvalidateRunner,
     unsubscribeBroadcast: () => {
       // No chrome.runtime sink in tests.
     },
