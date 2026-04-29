@@ -33,24 +33,34 @@ import type {
   SyncApplyRequest,
   SyncApplyResponse,
   SyncBroadcastEvent,
+  SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncRulePostState,
 } from '@openheaders/core/protocol';
-import { ENVIRONMENT_ENTITY_TYPE, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { COLLECTION_ENTITY_TYPE, ENVIRONMENT_ENTITY_TYPE, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { type BroadcastProjector, composeProjectors, handleSyncApply, wireBroadcastToSink } from './bridge';
+import {
+  type CollectionCache,
+  createCollectionCache,
+  setActiveCollectionCache,
+} from './collection-cache';
+import { projectCollectionByUid, projectCollectionPostState } from './collection-post-state';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
-import { createEnvInvalidateRunner, type EnvInvalidateRunner } from './env-invalidate-runner';
 import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
 import {
   createEnvironmentCache,
   type EnvironmentCache,
   setActiveEnvironmentCache,
 } from './environment-cache';
+import {
+  createResolverInvalidateRunner,
+  type ResolverInvalidateRunner,
+} from './resolver-invalidate-runner';
 import { projectRuleByUid, projectRulePostState } from './rule-post-state';
 import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
@@ -68,10 +78,11 @@ interface ServiceState {
   broadcast: InMemoryBroadcast;
   ruleCache: RuleCache;
   envCache: EnvironmentCache;
+  collectionCache: CollectionCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
-  envInvalidateRunner: EnvInvalidateRunner;
+  resolverInvalidateRunner: ResolverInvalidateRunner;
   unsubscribeBroadcast: () => void;
 }
 
@@ -107,6 +118,9 @@ export function initSyncService(workspaceId: string): void {
   const envCache = createEnvironmentCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveEnvironmentCache(envCache);
 
+  const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveCollectionCache(collectionCache);
+
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
   // reflects post-commit state.
@@ -116,12 +130,14 @@ export function initSyncService(workspaceId: string): void {
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
   });
 
-  // Environment resolver-invalidation runner — same shape, fires on
-  // env envelopes. Subscribes AFTER the env cache so the recompile
-  // sees post-commit env state via `syncResolverFromStores`.
-  const envInvalidateRunner = createEnvInvalidateRunner({
+  // Resolver-invalidation runner — fires on any variable-scope envelope
+  // (env, collection; workspace + vault join in later sessions).
+  // Subscribes AFTER the entity caches so the recompile sees post-commit
+  // state via `syncResolverFromStores`.
+  const resolverInvalidateRunner = createResolverInvalidateRunner({
     broadcast,
     intents,
+    entityTypes: new Set([ENVIRONMENT_ENTITY_TYPE, COLLECTION_ENTITY_TYPE]),
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
   });
 
@@ -146,7 +162,11 @@ export function initSyncService(workspaceId: string): void {
     const environmentPostState = projectEnvironmentPostState(oracle, envelope);
     return environmentPostState ? { environmentPostState } : null;
   };
-  const projector = composeProjectors(ruleProjector, envProjector);
+  const collectionProjector: BroadcastProjector = (envelope) => {
+    const collectionPostState = projectCollectionPostState(oracle, envelope);
+    return collectionPostState ? { collectionPostState } : null;
+  };
+  const projector = composeProjectors(ruleProjector, envProjector, collectionProjector);
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
     (event: SyncBroadcastEvent) => {
@@ -156,6 +176,7 @@ export function initSyncService(workspaceId: string): void {
         batchId: event.batchId,
         ...(event.rulePostState ? { rulePostState: event.rulePostState } : {}),
         ...(event.environmentPostState ? { environmentPostState: event.environmentPostState } : {}),
+        ...(event.collectionPostState ? { collectionPostState: event.collectionPostState } : {}),
       });
     },
     projector,
@@ -167,10 +188,11 @@ export function initSyncService(workspaceId: string): void {
     broadcast,
     ruleCache,
     envCache,
+    collectionCache,
     context,
     awareness,
     dnrRunner,
-    envInvalidateRunner,
+    resolverInvalidateRunner,
     unsubscribeBroadcast,
   };
   logger.info(
@@ -184,12 +206,14 @@ export function dispose(): void {
   if (!state) return;
   state.unsubscribeBroadcast();
   state.dnrRunner.dispose();
-  state.envInvalidateRunner.dispose();
+  state.resolverInvalidateRunner.dispose();
   state.ruleCache.dispose();
   state.envCache.dispose();
+  state.collectionCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
+  setActiveCollectionCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -260,6 +284,23 @@ export function snapshotEnvironmentPostStates(): SyncEnvironmentPostState[] {
   for (const materialized of oracle.materializeAll()) {
     if (materialized.type !== ENVIRONMENT_ENTITY_TYPE) continue;
     const projection = projectEnvironmentByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
+ * Snapshot every Collection the active oracle holds. Same shape the
+ * `BroadcastProjector` attaches to live envelopes; consumed by the
+ * `oh.sync.snapshotCollections` RPC for renderer mirror bootstrap.
+ */
+export function snapshotCollectionPostStates(): SyncCollectionPostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncCollectionPostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== COLLECTION_ENTITY_TYPE) continue;
+    const projection = projectCollectionByUid(oracle, materialized.id);
     if (projection) out.push(projection);
   }
   return out;
@@ -340,15 +381,18 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   setActiveRuleCache(ruleCache);
   const envCache = createEnvironmentCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveEnvironmentCache(envCache);
+  const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveCollectionCache(collectionCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
     intents,
     recompile: deps.recompile ?? (() => {}),
   });
-  const envInvalidateRunner = createEnvInvalidateRunner({
+  const resolverInvalidateRunner = createResolverInvalidateRunner({
     broadcast,
     intents,
+    entityTypes: new Set([ENVIRONMENT_ENTITY_TYPE, COLLECTION_ENTITY_TYPE]),
     recompile: deps.recompile ?? (() => {}),
   });
 
@@ -365,10 +409,11 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     broadcast,
     ruleCache,
     envCache,
+    collectionCache,
     context,
     awareness,
     dnrRunner,
-    envInvalidateRunner,
+    resolverInvalidateRunner,
     unsubscribeBroadcast: () => {
       // No chrome.runtime sink in tests.
     },

@@ -28,6 +28,7 @@ import type {
   AwarenessState,
   SyncApplyRequest,
   SyncApplyResponse,
+  SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncRulePostState,
 } from '@openheaders/core/protocol';
@@ -1257,6 +1258,16 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncEnvironmentPostState[] };
   };
+  /**
+   * Snapshot the active workspace's full Collection oracle state.
+   * Same semantics as `oh.sync.snapshotEnvironments` —
+   * `(collection, varNames)` per uid, matching the broadcast
+   * `collectionPostState` payload.
+   */
+  'oh.sync.snapshotCollections': {
+    req: Record<string, never>;
+    res: { entries: SyncCollectionPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1440,6 +1451,12 @@ export interface BridgeBroadcastContract {
      * SW oracle.
      */
     environmentPostState?: SyncEnvironmentPostState;
+    /**
+     * Post-commit projection for Collection envelopes (Phase B).
+     * Renderer-side collection mirrors fold this in lockstep with the
+     * SW oracle.
+     */
+    collectionPostState?: SyncCollectionPostState;
   };
 
   /**

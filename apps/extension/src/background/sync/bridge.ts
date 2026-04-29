@@ -33,7 +33,7 @@ import type { EntityOracle } from './oracle';
  * onto the wire event.
  */
 export type EntityPostState = Partial<
-  Pick<SyncBroadcastEvent, 'rulePostState' | 'environmentPostState'>
+  Pick<SyncBroadcastEvent, 'rulePostState' | 'environmentPostState' | 'collectionPostState'>
 >;
 
 /**

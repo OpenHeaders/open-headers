@@ -74,6 +74,19 @@ export interface SyncEnvironmentPostState {
   varNames: string[];
 }
 
+/**
+ * Post-commit projection for a Collection envelope. Carries the
+ * materialized {@link V5.Collection} plus the live variable names
+ * (set member identity = name, same as env vars). Renderer-side
+ * mirrors fold this so collection-vars editing surfaces can read
+ * post-commit state without a round-trip.
+ */
+export interface SyncCollectionPostState {
+  collection: V5.Collection;
+  /** Live variable names — the set-member identity for collection vars. */
+  varNames: string[];
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -92,6 +105,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   environmentPostState?: SyncEnvironmentPostState;
+  /**
+   * Populated for Collection envelopes whose batch left a materialized
+   * collection in place. Tombstoned collections and rolled-back batches
+   * leave it `undefined`.
+   */
+  collectionPostState?: SyncCollectionPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

@@ -1,0 +1,112 @@
+/**
+ * Phase B — projector reads post-commit state for Collection envelopes
+ * and returns null for non-Collection envelopes / deletes / unknown ids.
+ * Mirrors env-post-state.test.ts.
+ */
+
+import {
+  COLLECTION_ENTITY_TYPE,
+  COLLECTION_VARS_PATH,
+  mintBatch,
+  type MutationEnvelope,
+  type MutatorContext,
+  RULE_ENTITY_TYPE,
+  setCollectionVar,
+} from '@openheaders/core/sync';
+import type { V5 } from '@openheaders/core/types';
+import { describe, expect, it } from 'vitest';
+import { InMemoryBroadcast } from '@/background/sync/broadcast';
+import { projectCollectionByUid, projectCollectionPostState } from '@/background/sync/collection-post-state';
+import { InMemoryMutationLog } from '@/background/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
+import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { seedCollection } from '@/shared/sync/collection-projection';
+
+const wsId = 'ws-1';
+const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
+const ctx = (ms: number, hlc: [number, number] = [ms, 0]): MutatorContext => ({
+  workspaceId: wsId,
+  hlc: { physicalMs: hlc[0], logical: hlc[1], nodeId: 'n0' },
+  surfaceId: 's',
+  deviceId: 'd',
+});
+
+const makeCollection = (uid: string): V5.Collection =>
+  ({
+    schemaVersion: 5,
+    uid,
+    name: 'staging',
+    path: `rules/staging-${uid}`,
+    variables: [
+      { name: 'API_BASE', value: 'https://staging.openheaders.io', type: 'default' },
+      { name: 'TIMEOUT', value: '10', type: 'default' },
+    ],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+    version: 1,
+  }) as unknown as V5.Collection;
+
+function newOracle(): EntityOracle {
+  return new EntityOracle({
+    workspaceId: wsId,
+    lock,
+    log: new InMemoryMutationLog(),
+    intents: new InMemoryPendingIntents(),
+    broadcast: new InMemoryBroadcast(),
+  });
+}
+
+describe('projectCollectionPostState', () => {
+  it('returns post-state after seedCollection + setCollectionVar', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('coll-1');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    const setIntent = setCollectionVar(ctx(2), { collectionUid: coll.uid, name: 'NEW', value: 'v' });
+    const setResult = await oracle.apply(setIntent.batch, []);
+    expect(setResult.ok).toBe(true);
+
+    const envelope = setIntent.batch.mutations[0];
+    const post = projectCollectionPostState(oracle, envelope);
+    expect(post).not.toBeNull();
+    expect(post?.collection.uid).toBe('coll-1');
+    expect(post?.varNames.sort()).toEqual(['API_BASE', 'NEW', 'TIMEOUT']);
+  });
+
+  it('returns null for non-Collection envelopes', () => {
+    const oracle = newOracle();
+    const ruleEnvelope: MutationEnvelope = {
+      mutationId: 'm',
+      hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
+      origin: { surfaceId: 's', deviceId: 'd' },
+      workspaceId: wsId,
+      mutatorVersion: 1,
+      body: { kind: 'setField', type: RULE_ENTITY_TYPE, id: 'r', path: 'name', value: 'x' },
+    };
+    expect(projectCollectionPostState(oracle, ruleEnvelope)).toBeNull();
+  });
+
+  it('returns null for unknown collection ids', () => {
+    const oracle = newOracle();
+    expect(projectCollectionByUid(oracle, 'no-such-id')).toBeNull();
+  });
+
+  it('returns null for tombstoned collections', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('coll-2');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    const deleteBatch = mintBatch(ctx(2), [
+      { kind: 'delete', type: COLLECTION_ENTITY_TYPE, id: coll.uid },
+    ]);
+    await oracle.apply(deleteBatch, []);
+    expect(projectCollectionByUid(oracle, coll.uid)).toBeNull();
+  });
+
+  it('reports varNames matching COLLECTION_VARS_PATH itemIds', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('coll-3');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    const live = oracle.liveSetItems(COLLECTION_ENTITY_TYPE, coll.uid, COLLECTION_VARS_PATH);
+    const projected = projectCollectionByUid(oracle, coll.uid);
+    expect(projected?.varNames.sort()).toEqual(live.map((e) => e.itemId).sort());
+  });
+});

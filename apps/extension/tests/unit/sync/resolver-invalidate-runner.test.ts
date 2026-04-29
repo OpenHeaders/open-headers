@@ -1,22 +1,26 @@
 /**
- * Environment invalidate-resolver runner — drains
- * `invalidate-resolver` intents on every Environment broadcast and
- * asks the rule engine to recompile (which re-reads env state from
- * `getEnvironments()`). Mirrors dnr-intent-runner.test.ts.
+ * Resolver-invalidate runner — drains `invalidate-resolver` intents
+ * on every broadcast for a configured entity-type set (Environment +
+ * Collection in Phase B; Workspace + Vault join in later sessions),
+ * and asks the rule engine to recompile (which re-reads variable
+ * scope state from `getEnvironments()` / `getCollections()` / etc.).
+ * Mirrors dnr-intent-runner.test.ts.
  */
 
 import {
+  COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
   INVALIDATE_RESOLVER,
   type MutatorContext,
+  setCollectionVar,
   setEnvVar,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { createEnvInvalidateRunner } from '@/background/sync/env-invalidate-runner';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { createResolverInvalidateRunner } from '@/background/sync/resolver-invalidate-runner';
 
 const wsId = 'ws-1';
 const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();
@@ -42,9 +46,10 @@ function makeHarness(): Harness {
   const broadcast = new InMemoryBroadcast();
   const recompileCalls: string[] = [];
   const oracle = new EntityOracle({ workspaceId: wsId, lock: sequentialLock, log, intents, broadcast });
-  const runner = createEnvInvalidateRunner({
+  const runner = createResolverInvalidateRunner({
     broadcast,
     intents,
+    entityTypes: new Set([ENVIRONMENT_ENTITY_TYPE, COLLECTION_ENTITY_TYPE]),
     recompile: (reason) => recompileCalls.push(reason),
   });
   return { oracle, intents, broadcast, recompileCalls, dispose: runner.dispose };
@@ -52,7 +57,7 @@ function makeHarness(): Harness {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('EnvInvalidateRunner', () => {
+describe('ResolverInvalidateRunner', () => {
   it('recompiles after a setEnvVar mutation lands', async () => {
     const h = makeHarness();
     const intent = setEnvVar(ctx(1_000), { envId: 'e1', name: 'API_KEY', value: 'k' });
@@ -78,7 +83,7 @@ describe('EnvInvalidateRunner', () => {
     expect(h.recompileCalls).toHaveLength(0);
   });
 
-  it('ignores broadcasts for non-Environment entity types', async () => {
+  it('ignores broadcasts for entity types outside the configured set', async () => {
     const h = makeHarness();
     h.broadcast.publish({
       envelope: {
@@ -93,6 +98,18 @@ describe('EnvInvalidateRunner', () => {
     });
     await flush();
     expect(h.recompileCalls).toHaveLength(0);
+  });
+
+  it('recompiles after a setCollectionVar mutation lands', async () => {
+    const h = makeHarness();
+    const intent = setCollectionVar(ctx(2_000), {
+      collectionUid: 'c1',
+      name: 'TOKEN',
+      value: 'tok',
+    });
+    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await flush();
+    expect(h.recompileCalls).toEqual(['rules']);
   });
 
   it('drains per-env intents in lockstep with broadcasts', async () => {

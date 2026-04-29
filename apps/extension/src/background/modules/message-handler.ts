@@ -19,6 +19,7 @@ import {
   applySyncRequest,
   publishAwareness,
   snapshotAwarenessPresence,
+  snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
   snapshotRulePostStates,
 } from '@/background/sync/service';
@@ -1397,6 +1398,8 @@ export function handleGeneralMessage(
       safeResponse({ entries: snapshotRulePostStates() });
     } else if (message.type === 'oh.sync.snapshotEnvironments') {
       safeResponse({ entries: snapshotEnvironmentPostStates() });
+    } else if (message.type === 'oh.sync.snapshotCollections') {
+      safeResponse({ entries: snapshotCollectionPostStates() });
     } else if (message.type === 'oh.sync.apply') {
       // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
       // The bridge layer flattens `{ type, ...payload }` onto the
