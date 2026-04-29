@@ -44,6 +44,9 @@ export type EntityPostState = Partial<
     | 'requestPostState'
     | 'requestCollectionPostState'
     | 'requestFolderPostState'
+    | 'templatePostState'
+    | 'templateCollectionPostState'
+    | 'templateFolderPostState'
   >
 >;
 

@@ -40,6 +40,9 @@ import type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncRulePostState,
+  SyncTemplateCollectionPostState,
+  SyncTemplateFolderPostState,
+  SyncTemplatePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
@@ -51,6 +54,9 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
@@ -124,6 +130,30 @@ import {
 import { projectRequestByUid, projectRequestPostState } from './request-post-state';
 import { createRuleCache, type RuleCache, setActiveRuleCache } from './rule-cache';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
+import {
+  createTemplateCache,
+  setActiveTemplateCache,
+  type TemplateCache,
+} from './template-cache';
+import {
+  createTemplateCollectionCache,
+  setActiveTemplateCollectionCache,
+  type TemplateCollectionCache,
+} from './template-collection-cache';
+import {
+  projectTemplateCollectionByUid,
+  projectTemplateCollectionPostState,
+} from './template-collection-post-state';
+import {
+  createTemplateFolderCache,
+  setActiveTemplateFolderCache,
+  type TemplateFolderCache,
+} from './template-folder-cache';
+import {
+  projectTemplateFolderByUid,
+  projectTemplateFolderPostState,
+} from './template-folder-post-state';
+import { projectTemplateByUid, projectTemplatePostState } from './template-post-state';
 
 interface ServiceState {
   workspaceId: string;
@@ -138,6 +168,9 @@ interface ServiceState {
   requestCache: RequestCache;
   requestCollectionCache: RequestCollectionCache;
   requestFolderCache: RequestFolderCache;
+  templateCache: TemplateCache;
+  templateCollectionCache: TemplateCollectionCache;
+  templateFolderCache: TemplateFolderCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -212,6 +245,25 @@ export function initSyncService(workspaceId: string): void {
     () => context.next(),
   );
   setActiveRequestFolderCache(requestFolderCache);
+
+  const templateCache = createTemplateCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveTemplateCache(templateCache);
+
+  const templateCollectionCache = createTemplateCollectionCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveTemplateCollectionCache(templateCollectionCache);
+
+  const templateFolderCache = createTemplateFolderCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveTemplateFolderCache(templateFolderCache);
 
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
@@ -291,6 +343,18 @@ export function initSyncService(workspaceId: string): void {
     const requestFolderPostState = projectRequestFolderPostState(oracle, envelope);
     return requestFolderPostState ? { requestFolderPostState } : null;
   };
+  const templateProjector: BroadcastProjector = (envelope) => {
+    const templatePostState = projectTemplatePostState(oracle, envelope);
+    return templatePostState ? { templatePostState } : null;
+  };
+  const templateCollectionProjector: BroadcastProjector = (envelope) => {
+    const templateCollectionPostState = projectTemplateCollectionPostState(oracle, envelope);
+    return templateCollectionPostState ? { templateCollectionPostState } : null;
+  };
+  const templateFolderProjector: BroadcastProjector = (envelope) => {
+    const templateFolderPostState = projectTemplateFolderPostState(oracle, envelope);
+    return templateFolderPostState ? { templateFolderPostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
@@ -301,6 +365,9 @@ export function initSyncService(workspaceId: string): void {
     requestProjector,
     requestCollectionProjector,
     requestFolderProjector,
+    templateProjector,
+    templateCollectionProjector,
+    templateFolderProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -324,6 +391,13 @@ export function initSyncService(workspaceId: string): void {
         ...(event.requestFolderPostState
           ? { requestFolderPostState: event.requestFolderPostState }
           : {}),
+        ...(event.templatePostState ? { templatePostState: event.templatePostState } : {}),
+        ...(event.templateCollectionPostState
+          ? { templateCollectionPostState: event.templateCollectionPostState }
+          : {}),
+        ...(event.templateFolderPostState
+          ? { templateFolderPostState: event.templateFolderPostState }
+          : {}),
       });
     },
     projector,
@@ -342,6 +416,9 @@ export function initSyncService(workspaceId: string): void {
     requestCache,
     requestCollectionCache,
     requestFolderCache,
+    templateCache,
+    templateCollectionCache,
+    templateFolderCache,
     context,
     awareness,
     dnrRunner,
@@ -369,6 +446,9 @@ export function dispose(): void {
   state.requestCache.dispose();
   state.requestCollectionCache.dispose();
   state.requestFolderCache.dispose();
+  state.templateCache.dispose();
+  state.templateCollectionCache.dispose();
+  state.templateFolderCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
@@ -379,6 +459,9 @@ export function dispose(): void {
   setActiveRequestCache(null);
   setActiveRequestCollectionCache(null);
   setActiveRequestFolderCache(null);
+  setActiveTemplateCache(null);
+  setActiveTemplateCollectionCache(null);
+  setActiveTemplateFolderCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -569,6 +652,57 @@ export function snapshotRequestFolderPostStates(): SyncRequestFolderPostState[] 
 }
 
 /**
+ * Snapshot every Template the active oracle holds — `(template, setItemIds)`
+ * per uid, the same shape `BroadcastProjector` attaches to live
+ * envelopes. Renderer surfaces call this on mount via the
+ * `oh.sync.snapshotTemplates` RPC.
+ */
+export function snapshotTemplatePostStates(): SyncTemplatePostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncTemplatePostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== TEMPLATE_ENTITY_TYPE) continue;
+    const projection = projectTemplateByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
+ * Snapshot every template-collection the active oracle holds.
+ * Consumed by the `oh.sync.snapshotTemplateCollections` RPC for
+ * renderer mirror bootstrap.
+ */
+export function snapshotTemplateCollectionPostStates(): SyncTemplateCollectionPostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncTemplateCollectionPostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== TEMPLATE_COLLECTION_ENTITY_TYPE) continue;
+    const projection = projectTemplateCollectionByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
+ * Snapshot every template-folder the active oracle holds. Folders
+ * whose parent linkage isn't currently resolvable are skipped.
+ */
+export function snapshotTemplateFolderPostStates(): SyncTemplateFolderPostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncTemplateFolderPostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== TEMPLATE_FOLDER_ENTITY_TYPE) continue;
+    const projection = projectTemplateFolderByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -672,6 +806,22 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     () => context.next(),
   );
   setActiveRequestFolderCache(requestFolderCache);
+  const templateCache = createTemplateCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveTemplateCache(templateCache);
+  const templateCollectionCache = createTemplateCollectionCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveTemplateCollectionCache(templateCollectionCache);
+  const templateFolderCache = createTemplateFolderCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveTemplateFolderCache(templateFolderCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -710,6 +860,9 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     requestCache,
     requestCollectionCache,
     requestFolderCache,
+    templateCache,
+    templateCollectionCache,
+    templateFolderCache,
     context,
     awareness,
     dnrRunner,

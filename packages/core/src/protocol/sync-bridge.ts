@@ -176,6 +176,43 @@ export interface SyncRequestFolderPostState {
   folder: V5.Folder;
 }
 
+/**
+ * Post-commit projection for a Template envelope. Parallel to
+ * {@link SyncRequestPostState} — carries the materialized
+ * {@link V5.Template} and the live itemIds the oracle holds at the
+ * set-modeled `conditions` path. Renderer-side write helpers fold this
+ * into their local mirror so partial-update emit paths can enumerate
+ * `removeFromSet` itemIds without round-tripping back to the SW
+ * (§19.4 synchronous-render discipline).
+ */
+export interface SyncTemplatePostState {
+  template: V5.Template;
+  /** Map keyed by set path (`conditions`). */
+  setItemIds: Record<string, string[]>;
+}
+
+/**
+ * Post-commit projection for a template-collection envelope. Mirrors
+ * {@link SyncRequestCollectionPostState} — the catalog ships rename-only
+ * at v1, so each entry carries `{ collection }` only. If a future
+ * surface adds variable-editing for template collections, copy the
+ * rule-collection shape (catalog flatten + projector inverse +
+ * `varNames` payload).
+ */
+export interface SyncTemplateCollectionPostState {
+  collection: V5.Collection;
+}
+
+/**
+ * Post-commit projection for a template-folder envelope. Same shape as
+ * {@link SyncRequestFolderPostState} — sibling order lives on the
+ * parent (§23.5) and the path is reconstructed from the parent walk
+ * (template-collection root → template-folder chain).
+ */
+export interface SyncTemplateFolderPostState {
+  folder: V5.Folder;
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -241,6 +278,25 @@ export interface SyncBroadcastEvent {
    * (parent yet to seed during boot replay) all leave it `undefined`.
    */
   requestFolderPostState?: SyncRequestFolderPostState;
+  /**
+   * Populated for Template envelopes whose batch left a materialized
+   * template in place. Tombstoned templates and rolled-back batches
+   * leave it `undefined`.
+   */
+  templatePostState?: SyncTemplatePostState;
+  /**
+   * Populated for template-collection envelopes whose batch left a
+   * materialized collection in place. Tombstoned collections and
+   * rolled-back batches leave it `undefined`.
+   */
+  templateCollectionPostState?: SyncTemplateCollectionPostState;
+  /**
+   * Populated for template-folder envelopes whose batch left a
+   * materialized folder in place. Tombstoned folders, rolled-back
+   * batches, and folders whose parent linkage couldn't be resolved
+   * (parent yet to seed during boot replay) all leave it `undefined`.
+   */
+  templateFolderPostState?: SyncTemplateFolderPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

@@ -25,6 +25,9 @@ export type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncRulePostState,
+  SyncTemplateCollectionPostState,
+  SyncTemplateFolderPostState,
+  SyncTemplatePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from './sync-bridge';

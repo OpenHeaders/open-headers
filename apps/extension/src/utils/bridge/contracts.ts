@@ -35,6 +35,9 @@ import type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncRulePostState,
+  SyncTemplateCollectionPostState,
+  SyncTemplateFolderPostState,
+  SyncTemplatePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
@@ -1302,6 +1305,35 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncRequestFolderPostState[] };
   };
+  /**
+   * Snapshot the active workspace's full Template oracle state. Same
+   * semantics as `oh.sync.snapshotRequests` — `(template, setItemIds)`
+   * per uid, matching the broadcast `templatePostState` payload.
+   */
+  'oh.sync.snapshotTemplates': {
+    req: Record<string, never>;
+    res: { entries: SyncTemplatePostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full template-collection oracle
+   * state. Mirror of `oh.sync.snapshotRequestCollections` for the
+   * template-collection entity type. Catalog ships rename-only at v1
+   * so each entry carries `{ collection }` only.
+   */
+  'oh.sync.snapshotTemplateCollections': {
+    req: Record<string, never>;
+    res: { entries: SyncTemplateCollectionPostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full template-folder oracle state.
+   * Mirror of `oh.sync.snapshotRequestFolders` for the template-folder
+   * entity type. Folders whose parent linkage isn't currently
+   * resolvable are skipped.
+   */
+  'oh.sync.snapshotTemplateFolders': {
+    req: Record<string, never>;
+    res: { entries: SyncTemplateFolderPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1526,6 +1558,23 @@ export interface BridgeBroadcastContract {
      * path included.
      */
     requestFolderPostState?: SyncRequestFolderPostState;
+    /**
+     * Post-commit projection for Template envelopes (Phase B). Renderer
+     * mirrors fold this so template editor surfaces see post-commit
+     * shape + live itemIds for the set-modeled `conditions` path
+     * without round-tripping.
+     */
+    templatePostState?: SyncTemplatePostState;
+    /**
+     * Post-commit projection for template-collection envelopes (Phase B).
+     */
+    templateCollectionPostState?: SyncTemplateCollectionPostState;
+    /**
+     * Post-commit projection for template-folder envelopes (Phase B).
+     * Same shape semantics as `requestFolderPostState` — full
+     * reconstructed path included.
+     */
+    templateFolderPostState?: SyncTemplateFolderPostState;
   };
 
   /**

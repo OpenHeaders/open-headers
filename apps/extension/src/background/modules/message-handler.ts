@@ -26,6 +26,9 @@ import {
   snapshotRequestPostStates,
   snapshotRulePostStates,
   snapshotFolderPostStates,
+  snapshotTemplateCollectionPostStates,
+  snapshotTemplateFolderPostStates,
+  snapshotTemplatePostStates,
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@/background/sync/service';
@@ -1421,6 +1424,12 @@ export function handleGeneralMessage(
       safeResponse({ entries: snapshotRequestCollectionPostStates() });
     } else if (message.type === 'oh.sync.snapshotRequestFolders') {
       safeResponse({ entries: snapshotRequestFolderPostStates() });
+    } else if (message.type === 'oh.sync.snapshotTemplates') {
+      safeResponse({ entries: snapshotTemplatePostStates() });
+    } else if (message.type === 'oh.sync.snapshotTemplateCollections') {
+      safeResponse({ entries: snapshotTemplateCollectionPostStates() });
+    } else if (message.type === 'oh.sync.snapshotTemplateFolders') {
+      safeResponse({ entries: snapshotTemplateFolderPostStates() });
     } else if (message.type === 'oh.sync.apply') {
       // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
       // The bridge layer flattens `{ type, ...payload }` onto the
