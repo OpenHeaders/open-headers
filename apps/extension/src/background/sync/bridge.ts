@@ -42,6 +42,8 @@ export type EntityPostState = Partial<
     | 'vaultPostState'
     | 'folderPostState'
     | 'requestPostState'
+    | 'requestCollectionPostState'
+    | 'requestFolderPostState'
   >
 >;
 

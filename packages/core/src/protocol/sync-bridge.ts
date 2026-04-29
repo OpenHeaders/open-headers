@@ -154,6 +154,28 @@ export interface SyncFolderPostState {
   folder: V5.Folder;
 }
 
+/**
+ * Post-commit projection for a request-collection envelope. Mirrors
+ * {@link SyncCollectionPostState} but the catalog ships rename-only at
+ * v1 — request collections don't expose collection-variable editing
+ * today, so no live `varNames` are carried. If a future surface adds
+ * variable-editing for request collections, copy the rule-collection
+ * shape (catalog flatten + projector inverse + `varNames` payload).
+ */
+export interface SyncRequestCollectionPostState {
+  collection: V5.Collection;
+}
+
+/**
+ * Post-commit projection for a request-folder envelope. Same shape as
+ * {@link SyncFolderPostState} — sibling order lives on the parent
+ * (§23.5) and the path is reconstructed from the parent walk
+ * (request-collection root → request-folder chain).
+ */
+export interface SyncRequestFolderPostState {
+  folder: V5.Folder;
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -206,6 +228,19 @@ export interface SyncBroadcastEvent {
    * it `undefined`.
    */
   requestPostState?: SyncRequestPostState;
+  /**
+   * Populated for request-collection envelopes whose batch left a
+   * materialized collection in place. Tombstoned collections and
+   * rolled-back batches leave it `undefined`.
+   */
+  requestCollectionPostState?: SyncRequestCollectionPostState;
+  /**
+   * Populated for request-folder envelopes whose batch left a
+   * materialized folder in place. Tombstoned folders, rolled-back
+   * batches, and folders whose parent linkage couldn't be resolved
+   * (parent yet to seed during boot replay) all leave it `undefined`.
+   */
+  requestFolderPostState?: SyncRequestFolderPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */
