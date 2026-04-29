@@ -82,6 +82,28 @@ export {
   type SetRequestFieldArgs,
 } from './request';
 export {
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_COLLECTION_MUTATOR_VERSION,
+  type RenameRequestCollectionArgs,
+  renameRequestCollection,
+} from './request-collection';
+export {
+  createRequestFolder,
+  type CreateRequestFolderArgs,
+  deleteRequestFolder,
+  type DeleteRequestFolderArgs,
+  moveRequestFolder,
+  type MoveRequestFolderArgs,
+  REQUEST_FOLDER_CHILDREN_PATH,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_FOLDER_MUTATOR_VERSION,
+  type RequestFolderParentRef,
+  type RequestFolderParentType,
+  type RequestFolderSlot,
+  renameRequestFolder,
+  type RenameRequestFolderArgs,
+} from './request-folder';
+export {
   invalidateResolverIntent as vaultInvalidateResolverIntent,
   removeVaultSecret,
   type RemoveVaultSecretArgs,
