@@ -19,6 +19,7 @@ import {
   genConcurrentRenames,
   genCreateDeleteHlcOrder,
   genEnvRename,
+  genFolderMove,
   genRuleReorder,
   genSameFieldSameHlc,
   genSetDeleteRace,
@@ -46,6 +47,7 @@ const BUCKETS: Bucket[] = [
   { name: 'workspace-vars-rename', generate: genWorkspaceVarsRename, count: 1500 },
   { name: 'vault-rename', generate: genVaultRename, count: 1500 },
   { name: 'rule-reorder', generate: genRuleReorder, count: 1500 },
+  { name: 'folder-move', generate: genFolderMove, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
 

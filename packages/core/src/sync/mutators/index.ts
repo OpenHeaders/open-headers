@@ -21,6 +21,22 @@ export {
   setPinnedEnvironments,
 } from './collection';
 export {
+  createFolder,
+  type CreateFolderArgs,
+  deleteFolder,
+  type DeleteFolderArgs,
+  FOLDER_CHILDREN_PATH,
+  FOLDER_ENTITY_TYPE,
+  FOLDER_MUTATOR_VERSION,
+  type FolderParentRef,
+  type FolderParentType,
+  type FolderSlot,
+  moveFolder,
+  type MoveFolderArgs,
+  renameFolder,
+  type RenameFolderArgs,
+} from './folder';
+export {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   ENVIRONMENT_MUTATOR_VERSION,
