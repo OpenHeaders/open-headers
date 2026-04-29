@@ -36,7 +36,6 @@ const ctx = (ms: number): MutatorContext => ({
 const makeTemplate = (uid: string): V5.Template =>
   ({
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `templates/col-1/tpl-${uid}`,
     name: `tpl-${uid}`,

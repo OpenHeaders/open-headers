@@ -1039,20 +1039,21 @@ export function handleGeneralMessage(
       const parentPath = message.parentPath as string | undefined;
       const collectionUid = message.collectionUid as string | undefined;
 
-      let created: V5.Template;
-      if (parentPath) {
-        created = addTemplate(templateData, parentPath);
-      } else {
-        const collection = collectionUid ? { uid: collectionUid } : ensureDefaultTemplateCollection();
-        created = addTemplateToCollection(templateData, collection.uid);
-      }
-      safeResponse({ success: true, template: created });
+      const create = async (): Promise<V5.Template> => {
+        if (parentPath) return addTemplate(templateData, parentPath);
+        const collection = collectionUid
+          ? { uid: collectionUid }
+          : await ensureDefaultTemplateCollection();
+        return addTemplateToCollection(templateData, collection.uid);
+      };
+      create()
+        .then((created) => safeResponse({ success: true, template: created }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'updateTemplate') {
-      const expectedVersion = message.expectedVersion as number | undefined;
       updateTemplate(
         message.templateUid as string,
         message.updates as Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-        { expectedVersion },
       )
         .then((result) => safeResponse(result))
         .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
@@ -1063,8 +1064,10 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'createTemplateCollection') {
-      const collection = createTemplateCollection(message.name as string);
-      safeResponse({ success: true, collection });
+      createTemplateCollection(message.name as string)
+        .then((collection) => safeResponse({ success: true, collection }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'renameTemplateCollection') {
       renameTemplateCollection(message.collectionUid as string, message.name as string)
         .then((success) => safeResponse({ success }))
@@ -1076,8 +1079,12 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'createTemplateFolder') {
-      const folder = createTemplateFolder(message.name as string, message.parentPath as string);
-      safeResponse({ success: true, folder });
+      createTemplateFolder(message.name as string, message.parentPath as string)
+        .then((folder) =>
+          safeResponse(folder ? { success: true, folder } : { success: false }),
+        )
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'renameTemplateFolder') {
       renameTemplateFolder(message.folderUid as string, message.name as string)
         .then((success) => safeResponse({ success }))

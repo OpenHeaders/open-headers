@@ -79,7 +79,12 @@ import {
   bridgeToSyncEngine,
   hydrateFromStorage as hydrateRulesFromStorage,
 } from './rule-store';
-import { hydrateTemplatesFromStorage } from './template-store';
+import {
+  bridgeTemplateCollectionSyncEngine,
+  bridgeTemplateFolderSyncEngine,
+  bridgeTemplateSyncEngine,
+  hydrateTemplatesFromStorage,
+} from './template-store';
 import {
   createWorkspace as createWorkspaceMeta,
   getActiveWorkspaceId,
@@ -375,6 +380,9 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeRequestSyncEngine();
         await bridgeRequestCollectionSyncEngine();
         await bridgeRequestFolderSyncEngine();
+        await bridgeTemplateCollectionSyncEngine();
+        await bridgeTemplateFolderSyncEngine();
+        await bridgeTemplateSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

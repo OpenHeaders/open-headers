@@ -118,7 +118,6 @@ function makeFolder(overrides: Partial<Folder> = {}): Folder {
 function makeTemplate(overrides: Partial<Template> = {}): Template {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'tpl00001',
     path: 'tpl-path',
     name: 'Bearer',

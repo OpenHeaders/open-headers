@@ -68,7 +68,6 @@ import {
   switchToWorkspace as switchRulesToWorkspace,
 } from './rule-store';
 import {
-  ensureDefaultTemplateCollection,
   hydrateTemplatesFromStorage,
   switchToWorkspace as switchTemplatesToWorkspace,
 } from './template-store';
@@ -129,12 +128,10 @@ export async function hydrateActiveWorkspaceStores(): Promise<void> {
     hydrateLiveVariablesFromStorage(),
     hydrateRequestScriptsReviewFromStorage(),
   ]);
-  // Seed a default "User Templates" collection so the Templates
-  // section has a ready destination for user-authored templates on
-  // a fresh workspace. Rules and requests stay unseeded — the user
-  // creates those collections explicitly. `ensureDefaultTemplateCollection`
-  // is idempotent; on an already-seeded workspace this is a no-op.
-  ensureDefaultTemplateCollection();
+  // Default "User Templates" collection is seeded lazily on first
+  // template create (message-handler `createTemplate` dispatch). Eager
+  // seed at hydration time is impossible now that the helper routes
+  // through the sync oracle — the oracle isn't initialized yet.
 }
 
 // ── Switch ──────────────────────────────────────────────────────────

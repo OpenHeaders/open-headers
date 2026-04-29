@@ -1,27 +1,51 @@
 /**
- * Template Store — per-workspace persistence for user-defined rule
- * templates.
+ * Template Store — single source of truth for V5 user-defined templates
+ * in the active workspace.
  *
- * Mirrors rule-store.ts:
- *   - Flat storage with path-based hierarchy
- *   - Separate collections and folders (independent from rule
- *     collections)
- *   - Tree derived at read time from flat data
- *   - In-memory state scoped to the active workspace; `switchToWorkspace`
- *     reloads from the target workspace's keys
+ * Mirrors `request-store.ts` post Phase B: writes route through the sync
+ * oracle (catalog factory → MutationBatch → `oracle.apply`); the
+ * {@link TemplateCache} / {@link TemplateCollectionCache} /
+ * {@link TemplateFolderCache} own `chrome.storage.local` persistence +
+ * drive the local mirrors via broadcast-driven re-projection. Reads stay
+ * synchronous off the local mirror.
  *
  * Storage keys (all scoped to active workspace id):
- *   - `oh.ws.<id>.templates`
- *   - `oh.ws.<id>.templateCollections`
- *   - `oh.ws.<id>.templateFolders`
+ *   - `oh.ws.<id>.templates`            (cache-owned)
+ *   - `oh.ws.<id>.templateCollections`  (cache-owned)
+ *   - `oh.ws.<id>.templateFolders`      (cache-owned)
  */
 
 import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/core/schemas';
+import {
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+  type TemplateFolderParentRef,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
+import {
+  buildDeleteTemplateCollectionBatch,
+  buildRenameTemplateCollectionBatch,
+} from '@/shared/sync/template-collection-mutations';
+import { seedTemplateCollection } from '@/shared/sync/template-collection-projection';
+import {
+  buildCreateTemplateFolderBatch,
+  buildDeleteTemplateFolderBatch,
+  buildDeleteTemplateFolderEntityBatch,
+  buildRenameTemplateFolderBatch,
+} from '@/shared/sync/template-folder-mutations';
+import {
+  buildAddBatch,
+  buildDeleteBatch,
+  buildUpdateBatch,
+} from '@/shared/sync/template-mutations';
+import { getActiveTemplateCache } from '../sync/template-cache';
+import { getActiveTemplateCollectionCache } from '../sync/template-collection-cache';
+import { getActiveTemplateFolderCache } from '../sync/template-folder-cache';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import type { LocalFolder } from './rule-store';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -117,7 +141,7 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
-export function ensureDefaultTemplateCollection(): V5.Collection {
+export async function ensureDefaultTemplateCollection(): Promise<V5.Collection> {
   const existing = templateCollections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
 
@@ -132,12 +156,18 @@ export function ensureDefaultTemplateCollection(): V5.Collection {
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
   };
+  // Optimistic local insert so synchronous callers see the new collection
+  // immediately; the oracle's broadcast confirms the same post-commit
+  // shape on the next tick.
   templateCollections = [...templateCollections, collection];
-  void persistTemplateCollections();
+  await applyTemplateCollectionMutationOrThrow(
+    (ctx) => ({ batch: seedTemplateCollection(collection, ctx), sideEffects: [] }),
+    'ensureDefaultTemplateCollection',
+  );
   return collection;
 }
 
-export function createTemplateCollection(name: string): V5.Collection {
+export async function createTemplateCollection(name: string): Promise<V5.Collection> {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
@@ -150,228 +180,290 @@ export function createTemplateCollection(name: string): V5.Collection {
     defaultEnvironmentId: null,
   };
   templateCollections = [...templateCollections, collection];
-  void persistTemplateCollections();
+  await applyTemplateCollectionMutationOrThrow(
+    (ctx) => ({ batch: seedTemplateCollection(collection, ctx), sideEffects: [] }),
+    'createTemplateCollection',
+  );
   return collection;
 }
 
 export async function renameTemplateCollection(uid: string, name: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'template-collection', uid),
-    async () => {
-      const col = templateCollections.find((c) => c.uid === uid);
-      if (!col) return false;
-      if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable/unrenamable
-      const index = templateCollections.indexOf(col);
-      templateCollections = [
-        ...templateCollections.slice(0, index),
-        { ...col, name },
-        ...templateCollections.slice(index + 1),
-      ];
-      await persistTemplateCollections();
-      return true;
-    },
-    { op: 'template-collection-rename' },
+  assertLoaded();
+  const col = templateCollections.find((c) => c.uid === uid);
+  if (!col) return false;
+  if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable/unrenamable
+  await applyTemplateCollectionMutationOrThrow(
+    (ctx) => buildRenameTemplateCollectionBatch({ collectionUid: uid, name }, ctx),
+    'renameTemplateCollection',
   );
+  return true;
 }
 
 export async function deleteTemplateCollection(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'template-collection', uid),
-    async () => {
-      const col = templateCollections.find((c) => c.uid === uid);
-      if (!col) return false;
-      if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable
+  assertLoaded();
+  const collection = templateCollections.find((c) => c.uid === uid);
+  if (!collection) return false;
+  if (collection.name === DEFAULT_COLLECTION_NAME) return false; // undeletable
 
-      templateCollections = templateCollections.filter((c) => c.uid !== uid);
-      templates = templates.filter((t) => !t.path.startsWith(col.path));
-      templateFolders = templateFolders.filter((f) => !f.path.startsWith(col.path));
-      await persistTemplateCollections();
-      await persistTemplates();
-      await persistTemplateFolders();
-      return true;
-    },
-    { op: 'template-collection-delete' },
+  // Cascade descendant template + template-folder deletes through the
+  // oracle. The collection's tombstone covers its own parent slot for
+  // top-level folders; nested folders/templates are deleted by uid.
+  const cascadingTemplateUids = templates
+    .filter((t) => t.path.startsWith(collection.path))
+    .map((t) => t.uid);
+  const cascadingFolderUids = templateFolders
+    .filter((f) => f.path.startsWith(collection.path))
+    .map((f) => f.uid);
+  for (const templateUid of cascadingTemplateUids) {
+    await applyTemplateMutationOrThrow(
+      (ctx) => buildDeleteBatch(templateUid, ctx),
+      'deleteTemplateCollection-cascade',
+    );
+  }
+  for (const folderUid of cascadingFolderUids) {
+    await applyTemplateFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(folderUid, ctx), sideEffects: [] }),
+      'deleteTemplateCollection-cascade-folder',
+    );
+  }
+  await applyTemplateCollectionMutationOrThrow(
+    (ctx) => ({ batch: buildDeleteTemplateCollectionBatch(uid, ctx), sideEffects: [] }),
+    'deleteTemplateCollection',
   );
+  return true;
 }
 
 // ── Folders ─────────────────────────────────────────────────────────
 
-export function createTemplateFolder(name: string, parentPath: string): LocalFolder {
+/**
+ * Resolve `parentPath` to a {@link TemplateFolderParentRef} via the local
+ * mirrors. `parentPath` matches a template collection root or a template
+ * folder path.
+ */
+function resolveTemplateFolderParent(parentPath: string): TemplateFolderParentRef | null {
+  const collection = templateCollections.find((c) => c.path === parentPath);
+  if (collection) return { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: collection.uid };
+  const folder = templateFolders.find((f) => f.path === parentPath);
+  if (folder) return { type: TEMPLATE_FOLDER_ENTITY_TYPE, uid: folder.uid };
+  return null;
+}
+
+export async function createTemplateFolder(
+  name: string,
+  parentPath: string,
+): Promise<LocalFolder | null> {
+  assertLoaded();
+  const parent = resolveTemplateFolderParent(parentPath);
+  if (!parent) return null;
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const folder: LocalFolder = {
-    schemaVersion: 5,
-    uid,
-    path: `${parentPath}/${folderName}`,
-    name,
-  };
-  templateFolders = [...templateFolders, folder];
-  void persistTemplateFolders();
-  return folder;
+  await applyTemplateFolderMutationOrThrow(
+    (ctx) =>
+      buildCreateTemplateFolderBatch(
+        { folderUid: uid, parent, name, pathSegment: folderName },
+        { ...ctx, batchId: ctx.batchId ?? `template-folder-create-${uid}` },
+      ),
+    'createTemplateFolder',
+  );
+  return { schemaVersion: 5, uid, path: `${parentPath}/${folderName}`, name };
 }
 
 export async function renameTemplateFolder(uid: string, name: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'template-folder', uid),
-    async () => {
-      const index = templateFolders.findIndex((f) => f.uid === uid);
-      if (index === -1) return false;
-      const existing = templateFolders[index];
-      templateFolders = [
-        ...templateFolders.slice(0, index),
-        { ...existing, name },
-        ...templateFolders.slice(index + 1),
-      ];
-      await persistTemplateFolders();
-      return true;
-    },
-    { op: 'template-folder-rename' },
+  assertLoaded();
+  if (!templateFolders.some((f) => f.uid === uid)) return false;
+  await applyTemplateFolderMutationOrThrow(
+    (ctx) => buildRenameTemplateFolderBatch({ folderUid: uid, name }, ctx),
+    'renameTemplateFolder',
   );
+  return true;
 }
 
 export async function deleteTemplateFolder(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'template-folder', uid),
-    async () => {
-      const folder = templateFolders.find((f) => f.uid === uid);
-      if (!folder) return false;
+  assertLoaded();
+  const folder = templateFolders.find((f) => f.uid === uid);
+  if (!folder) return false;
+  const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
+  const parent = resolveTemplateFolderParent(parentPath);
 
-      templateFolders = templateFolders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-      templates = templates.filter((t) => !t.path.startsWith(`${folder.path}/`));
-      await persistTemplateFolders();
-      await persistTemplates();
-      return true;
-    },
-    { op: 'template-folder-delete' },
-  );
+  // Cascade descendant template + template-folder deletes through the
+  // oracle.
+  const cascadingTemplateUids = templates
+    .filter((t) => t.path.startsWith(`${folder.path}/`))
+    .map((t) => t.uid);
+  const cascadingNestedFolderUids = templateFolders
+    .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
+    .map((f) => f.uid);
+  for (const templateUid of cascadingTemplateUids) {
+    await applyTemplateMutationOrThrow(
+      (ctx) => buildDeleteBatch(templateUid, ctx),
+      'deleteTemplateFolder-cascade-template',
+    );
+  }
+  for (const nestedUid of cascadingNestedFolderUids) {
+    await applyTemplateFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(nestedUid, ctx), sideEffects: [] }),
+      'deleteTemplateFolder-cascade-folder',
+    );
+  }
+  if (parent) {
+    await applyTemplateFolderMutationOrThrow(
+      (ctx) => buildDeleteTemplateFolderBatch({ folderUid: uid, parent }, ctx),
+      'deleteTemplateFolder',
+    );
+  } else {
+    await applyTemplateFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(uid, ctx), sideEffects: [] }),
+      'deleteTemplateFolder',
+    );
+  }
+  return true;
 }
 
 // ── Templates (CRUD) ────────────────────────────────────────────────
 
-export function addTemplate(
+export async function addTemplate(
   template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
   parentPath: string,
-): V5.Template {
+): Promise<V5.Template> {
   const uid = generateUid();
   const folderName = toFolderName(template.name, uid);
   const now = new Date().toISOString();
   const created: V5.Template = {
     schemaVersion: 5,
-    // Phase 10 write counter — starts at 1 on creation.
-    version: 1,
     ...template,
     uid,
     path: `${parentPath}/${folderName}`,
     createdAt: template.createdAt || now,
     updatedAt: template.updatedAt || now,
   };
-  templates = [...templates, created];
-  void persistTemplates();
+  await applyTemplateMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addTemplate');
   return created;
 }
 
-export function addTemplateToCollection(
+export async function addTemplateToCollection(
   template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
   collectionUid: string,
-): V5.Template {
+): Promise<V5.Template> {
   const collection = templateCollections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `templates/${collectionUid}`;
   return addTemplate(template, parentPath);
 }
 
 /**
- * Outcome of a versioned template write (Phase 10 stale-draft
- * contract — parallel to `RuleWriteResult` / `RequestWriteResult`).
+ * Outcome of a template write. The legacy stale-draft branch is retired
+ * in Phase B — convergence is per-(field) LWW at the oracle, not a
+ * versioned compare-and-set.
  */
 export type TemplateWriteResult =
-  | { ok: true; version: number; template: V5.Template }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverTemplate: V5.Template }
-  | { ok: false; reason: 'not-found' };
-
-export interface UpdateTemplateOptions {
-  expectedVersion?: number;
-}
-
-function templateVersionOf(t: V5.Template): number {
-  return t.version;
-}
+  | { ok: true; template: V5.Template }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message: string };
 
 export async function updateTemplate(
   uid: string,
   updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-  options: UpdateTemplateOptions = {},
 ): Promise<TemplateWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'template', uid),
-    async () => {
-      const index = templates.findIndex((t) => t.uid === uid);
-      if (index === -1) return { ok: false, reason: 'not-found' } as TemplateWriteResult;
-      const existing = templates[index];
-      const current = templateVersionOf(existing);
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverTemplate: existing,
-        } as TemplateWriteResult;
-      }
-      const nextVersion = current + 1;
-      const updated: V5.Template = {
-        ...existing,
-        ...updates,
-        version: nextVersion,
-        updatedAt: new Date().toISOString(),
-      };
-      templates = [...templates.slice(0, index), updated, ...templates.slice(index + 1)];
-      await persistTemplates();
-      return { ok: true, version: nextVersion, template: updated } as TemplateWriteResult;
-    },
-    { op: 'template-update' },
+  assertLoaded();
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    return { ok: false, reason: 'other', message: 'sync service not initialized' };
+  }
+  const existing = templates.find((t) => t.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' };
+
+  // Stamp updatedAt on every update unless the caller explicitly set it.
+  const stamped = updates.updatedAt ? updates : { ...updates, updatedAt: new Date().toISOString() };
+  const payload = buildUpdateBatch(uid, stamped, ctx, (templateUid, setPath) =>
+    oracle.liveSetItems(TEMPLATE_ENTITY_TYPE, templateUid, setPath).map((entry) => entry.itemId),
   );
+  if (payload.batch.mutations.length === 0) {
+    return { ok: true, template: existing };
+  }
+  const result = await oracle.apply(payload.batch, payload.sideEffects);
+  if (!result.ok) {
+    return {
+      ok: false,
+      reason: 'other',
+      message: result.failure?.detail ?? 'oracle rejected template batch',
+    };
+  }
+  return { ok: true, template: { ...existing, ...stamped } as V5.Template };
 }
 
 export async function deleteTemplate(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'template', uid),
-    async () => {
-      const before = templates.length;
-      templates = templates.filter((t) => t.uid !== uid);
-      if (templates.length === before) return false;
-      await persistTemplates();
-      return true;
-    },
-    { op: 'template-delete' },
-  );
+  assertLoaded();
+  if (!templates.some((t) => t.uid === uid)) return false;
+  await applyTemplateMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteTemplate');
+  return true;
 }
 
-// ── Persistence ─────────────────────────────────────────────────────
+// ── Sync engine plumbing ────────────────────────────────────────────
 
-async function persistTemplateCollections(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).templateCollections, templateCollections);
-  logger.debug('TemplateStore', `Persisted ${templateCollections.length} template collections (ws=${workspaceId})`);
-  notifyChange();
+async function applyTemplateMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`TemplateStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `TemplateStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
 
-async function persistTemplateFolders(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).templateFolders, templateFolders);
-  logger.debug('TemplateStore', `Persisted ${templateFolders.length} template folders (ws=${workspaceId})`);
-  notifyChange();
+async function applyTemplateCollectionMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`TemplateStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `TemplateStore.${op}: oracle rejected template-collection batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
 
-async function persistTemplates(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).templates, templates);
-  logger.debug('TemplateStore', `Persisted ${templates.length} templates (ws=${workspaceId})`);
-  notifyChange();
+async function applyTemplateFolderMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`TemplateStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `TemplateStore.${op}: oracle rejected template-folder batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
 
 // ── Hydration / workspace switch ────────────────────────────────────
@@ -384,18 +476,30 @@ interface WorkspaceSnapshot {
 
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
-  const [templates, templateCollections, templateFolders] = await Promise.all([
+  const [readTemplates, readCollections, readFolders] = await Promise.all([
     extensionStorage.getValidatedArray(keys.templates, TemplateSchema, {
       onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.templates.key, workspaceId }),
     }),
     extensionStorage.getValidatedArray(keys.templateCollections, CollectionSchema, {
-      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.templateCollections.key, workspaceId }),
+      onError: driftRecorder({
+        subsystem: 'rule-engine',
+        storageKey: keys.templateCollections.key,
+        workspaceId,
+      }),
     }),
     extensionStorage.getValidatedArray(keys.templateFolders, FolderSchema, {
-      onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.templateFolders.key, workspaceId }),
+      onError: driftRecorder({
+        subsystem: 'rule-engine',
+        storageKey: keys.templateFolders.key,
+        workspaceId,
+      }),
     }),
   ]);
-  return { templates, templateCollections, templateFolders };
+  return {
+    templates: readTemplates,
+    templateCollections: readCollections,
+    templateFolders: readFolders,
+  };
 }
 
 export async function hydrateTemplatesFromStorage(): Promise<void> {
@@ -425,6 +529,72 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
   notifyChange();
 }
 
+// ── Sync engine bridge ──────────────────────────────────────────────
+
+let cacheUnsubscribe: (() => void) | null = null;
+let collectionCacheUnsubscribe: (() => void) | null = null;
+let folderCacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local `templates` array to the active workspace's
+ * {@link TemplateCache}. Idempotent — the prior subscription is dropped
+ * first.
+ */
+export async function bridgeTemplateSyncEngine(): Promise<void> {
+  const cache = getActiveTemplateCache();
+  if (!cache) return;
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  cacheUnsubscribe = cache.onChange(() => {
+    templates = cache.getTemplates();
+    notifyChange();
+  });
+  await cache.seedFromPersistedTemplates(templates);
+  templates = cache.getTemplates();
+}
+
+/**
+ * Wire the local `templateCollections` array to the active workspace's
+ * template-collection cache.
+ */
+export async function bridgeTemplateCollectionSyncEngine(): Promise<void> {
+  const cache = getActiveTemplateCollectionCache();
+  if (!cache) return;
+  if (collectionCacheUnsubscribe) {
+    collectionCacheUnsubscribe();
+    collectionCacheUnsubscribe = null;
+  }
+  collectionCacheUnsubscribe = cache.onChange(() => {
+    templateCollections = cache.getTemplateCollections();
+    notifyChange();
+  });
+  await cache.seedFromPersistedTemplateCollections(templateCollections);
+  templateCollections = cache.getTemplateCollections();
+}
+
+/**
+ * Wire the local `templateFolders` array to the active workspace's
+ * template-folder cache. Call AFTER {@link bridgeTemplateCollectionSyncEngine}
+ * so the parent collection slots already exist in the oracle when each
+ * folder seeds.
+ */
+export async function bridgeTemplateFolderSyncEngine(): Promise<void> {
+  const cache = getActiveTemplateFolderCache();
+  if (!cache) return;
+  if (folderCacheUnsubscribe) {
+    folderCacheUnsubscribe();
+    folderCacheUnsubscribe = null;
+  }
+  folderCacheUnsubscribe = cache.onChange(() => {
+    templateFolders = cache.getTemplateFolders();
+    notifyChange();
+  });
+  await cache.seedFromPersistedTemplateFolders(templateFolders, templateCollections);
+  templateFolders = cache.getTemplateFolders();
+}
+
 // ── Test helpers ────────────────────────────────────────────────────
 
 export function __resetForTests(): void {
@@ -433,4 +603,16 @@ export function __resetForTests(): void {
   templateFolders = [];
   loadedWorkspaceId = null;
   changeListeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  if (collectionCacheUnsubscribe) {
+    collectionCacheUnsubscribe();
+    collectionCacheUnsubscribe = null;
+  }
+  if (folderCacheUnsubscribe) {
+    folderCacheUnsubscribe();
+    folderCacheUnsubscribe = null;
+  }
 }

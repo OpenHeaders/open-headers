@@ -358,7 +358,6 @@ describe('TemplateSchema', () => {
     expect(
       v.parse(TemplateSchema, {
         schemaVersion: 5,
-        version: 1,
         uid: 'abcd1234',
         path: 'templates/my/tpl-abcd1234',
         name: 'Bearer preset',

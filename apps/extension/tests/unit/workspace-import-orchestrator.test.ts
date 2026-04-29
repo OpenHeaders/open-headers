@@ -51,6 +51,9 @@ vi.mock('@/background/modules/request-store', () => ({
 }));
 vi.mock('@/background/modules/template-store', () => ({
   hydrateTemplatesFromStorage: vi.fn(async () => []),
+  bridgeTemplateSyncEngine: vi.fn(async () => undefined),
+  bridgeTemplateCollectionSyncEngine: vi.fn(async () => undefined),
+  bridgeTemplateFolderSyncEngine: vi.fn(async () => undefined),
 }));
 vi.mock('@/background/modules/environment-store', () => ({
   hydrateEnvironmentsFromStorage: vi.fn(async () => []),

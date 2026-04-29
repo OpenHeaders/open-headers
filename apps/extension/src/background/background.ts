@@ -101,7 +101,13 @@ import {
   onStoreChange,
 } from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
-import { getTemplates, onTemplateStoreChange } from './modules/template-store';
+import {
+  bridgeTemplateCollectionSyncEngine,
+  bridgeTemplateFolderSyncEngine,
+  bridgeTemplateSyncEngine,
+  getTemplates,
+  onTemplateStoreChange,
+} from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
@@ -380,6 +386,18 @@ async function initializeExtension(): Promise<void> {
           err,
         );
       });
+    // Templates: collection → folder → template (depth-first parent → child)
+    // so each layer's parent slots already exist when the next seeds.
+    void bridgeTemplateCollectionSyncEngine()
+      .then(() => bridgeTemplateFolderSyncEngine())
+      .then(() => bridgeTemplateSyncEngine())
+      .catch((err: unknown) => {
+        logger.warn(
+          'Background',
+          'bridgeTemplate/Collection/Folder after workspace switch failed',
+          err,
+        );
+      });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -517,6 +535,9 @@ async function initializeExtension(): Promise<void> {
   await bridgeRequestSyncEngine();
   await bridgeRequestCollectionSyncEngine();
   await bridgeRequestFolderSyncEngine();
+  await bridgeTemplateCollectionSyncEngine();
+  await bridgeTemplateFolderSyncEngine();
+  await bridgeTemplateSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /

@@ -198,7 +198,6 @@ describe('diffWorkspaceExport — diverged target', () => {
     // Use template path to test divergence detection.
     const t = {
       schemaVersion: 5 as const,
-      version: 1,
       uid: 'tpl00001',
       path: 'templates/x-tpl00001',
       name: 'X',
@@ -238,7 +237,6 @@ describe('applyBackupRestoreToggle', () => {
     const input = baseInput();
     const t = {
       schemaVersion: 5 as const,
-      version: 1,
       uid: 'tpl00001',
       path: 'templates/x-tpl00001',
       name: 'X',

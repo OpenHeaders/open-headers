@@ -23,7 +23,6 @@ const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 const makeTemplate = (uid: string, overrides: Partial<V5.Template> = {}): V5.Template =>
   ({
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `templates/col-1/tpl-${uid}`,
     name: `tpl-${uid}`,

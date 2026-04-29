@@ -83,7 +83,6 @@ futureMetadata:
 `;
 
 const TEMPLATE_WITH_UNKNOWN = `schemaVersion: 5
-version: 1
 uid: tmpl0001
 name: Bearer Token
 ruleType: header

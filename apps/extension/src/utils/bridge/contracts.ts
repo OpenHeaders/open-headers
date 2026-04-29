@@ -585,13 +585,10 @@ export interface BridgeRpcContract {
   updateTemplate: {
     req: {
       templateUid: string;
-      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
-      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
-      expectedVersion?: number;
+      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res:
-      | { ok: true; version: number; template: V5.Template }
-      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverTemplate: V5.Template }
+      | { ok: true; template: V5.Template }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };
