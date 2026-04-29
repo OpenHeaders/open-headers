@@ -33,6 +33,7 @@ import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
 import { applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvVariablesReplacement } from '@/shared/sync/env-write-client';
+import { applyVaultReplacement } from '@/shared/sync/vault-write-client';
 import { applyWorkspaceVariablesReplacement } from '@/shared/sync/workspace-variables-write-client';
 
 // ── Result shape ─────────────────────────────────────────────────────
@@ -61,7 +62,7 @@ export interface UseVariableMutatorApi {
     variables: V5.Variable[],
   ): Promise<MutationResult>;
   /** Replace the vault. */
-  replaceVault(secrets: V5.VaultSecret[], expectedVersion?: number): Promise<MutationResult>;
+  replaceVault(secrets: V5.VaultSecret[]): Promise<MutationResult>;
   /** Set or clear a live variable's manual override. */
   setLiveOverride(
     uid: string,
@@ -71,7 +72,7 @@ export interface UseVariableMutatorApi {
 }
 
 export function useVariableMutator(): UseVariableMutatorApi {
-  const { setVault, environments, workspaceVariables: currentWorkspaceVariables } = useEnvironments();
+  const { vault, environments, workspaceVariables: currentWorkspaceVariables } = useEnvironments();
   const { localCollections } = useRules();
   const { setOverride } = useLiveVariables();
   const workspaceId = useActiveWorkspaceId();
@@ -137,11 +138,22 @@ export function useVariableMutator(): UseVariableMutatorApi {
   );
 
   const replaceVault = useCallback<UseVariableMutatorApi['replaceVault']>(
-    async (secrets, expectedVersion) => {
-      const r = await setVault({ schemaVersion: 5, version: expectedVersion ?? 1, secrets }, expectedVersion);
-      return mapWriteResult(r);
+    async (secrets) => {
+      if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
+      const result = await applyVaultReplacement(secrets, vault.secrets, {
+        workspaceId,
+        surfaceId: 'workbench',
+      });
+      if (result.ok) {
+        // `version` is retired by Phase B (§24); the field is kept on
+        // the result shape until commit 4 sweeps every consumer of it.
+        // Synthetic 1 is honest — the LWW oracle decides convergence,
+        // not the counter.
+        return { ok: true, version: 1 };
+      }
+      return { ok: false, reason: 'other', message: result.message };
     },
-    [setVault],
+    [workspaceId, vault],
   );
 
   const setLiveOverride = useCallback<UseVariableMutatorApi['setLiveOverride']>(

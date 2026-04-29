@@ -575,7 +575,7 @@ async function runUpdate(
         return { ok: false, reason: 'other', message: 'Vault entry kind changed under us' };
       }
       next[idx] = { ...target, value: draft };
-      return mutator.replaceVault(next, snap.vault.version);
+      return mutator.replaceVault(next);
     }
     case 'environment': {
       const env = snap.environments.find((e) => e.uid === c.envUid);
@@ -632,7 +632,7 @@ async function runCreate(
         return { ok: false, reason: 'duplicate-name' };
       }
       const next: V5.VaultSecret[] = [...snap.vault.secrets, { kind: 'string', name, value }];
-      return mutator.replaceVault(next, snap.vault.version);
+      return mutator.replaceVault(next);
     }
     case 'environment': {
       const env = snap.activeEnvironment;

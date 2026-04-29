@@ -2,32 +2,40 @@
  * VaultEditor — tab body for the per-workspace secrets vault.
  *
  * Highest priority in the resolution chain and local-per-device:
- * secrets never leave this browser profile. Team workspace sync (v2)
- * explicitly excludes the vault keyspace. The banner makes this
- * contract visible to the user.
+ * secrets never leave this browser profile (§12.3 — vault is
+ * non-syncing in v1). The banner makes this contract visible.
  *
  * Each entry carries a `kind` discriminator:
  *   - `string` rows hold a literal value returned verbatim by `{{vault.X}}`.
  *   - `totp`   rows hold a base32 seed + RFC 6238 parameters; `{{vault.X}}`
  *              resolves to the freshly-computed code at request time.
  *
- * The shared `VariableTable` (mode="vault") handles both kinds inline;
- * this component owns the dirty-draft + stale-draft + save plumbing.
+ * Save commits via `useVariableMutator.replaceVault`, which delegates
+ * to the sync engine (`applyVaultReplacement` → `oh.sync.apply`); dirty
+ * state is tracked locally by comparing the draft's fingerprint
+ * against the broadcast-driven canonical view.
+ *
+ * Awareness publishes only `entityFocus = { type: VAULT_ENTITY_TYPE }`
+ * — the SW awareness store scrubs `fieldFocus` for this entity (§14.4)
+ * so per-secret-name presence never leaks the secret namespace.
  */
 
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useVariableMutator } from '@hooks/useVariableMutator';
+import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
-import StaleDraftBanner from './StaleDraftBanner';
 import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
+const SURFACE_ID = 'workbench';
 
 interface VaultEditorProps {
   onDirtyChange?: (dirty: boolean) => void;
@@ -53,21 +61,25 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { message } = App.useApp();
   const { vault } = useEnvironments();
   const { replaceVault } = useVariableMutator();
+  const workspaceId = useActiveWorkspaceId();
 
   const serverDraft = useMemo<V5.VaultSecret[]>(() => [...vault.secrets], [vault]);
-  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.VaultSecret[]>({
+  const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.VaultSecret[]>({
     serverDraft,
     fingerprint: fingerprintSecrets,
     empty: EMPTY_SECRETS,
   });
 
-  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
-  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
-
-  useEffect(() => {
-    if (loadedVersion !== null) return;
-    setLoadedVersion(vault.version);
-  }, [vault.version, loadedVersion]);
+  // Awareness — entity-level only. Vault is §12.1 schema-marked
+  // sensitive; the SW awareness store drops `fieldFocus` for this
+  // entity type even if a surface tries to publish it.
+  useAwareness({
+    workspaceId,
+    surfaceId: SURFACE_ID,
+    entityFocus: { type: VAULT_ENTITY_TYPE, id: VAULT_ID },
+    fieldFocus: null,
+    dirtyFields: isDirty ? ['*'] : [],
+  });
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -75,30 +87,15 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
-    const result = await replaceVault(draft, loadedVersion ?? undefined);
+    const result = await replaceVault(draft);
     if (result.ok) {
       markPersisted([...draft]);
-      setLoadedVersion(result.version);
-      setStaleDraft(null);
       onDirtyChange?.(false);
-    } else if (result.reason === 'stale-draft') {
-      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
     } else {
-      message.error(`Failed to save vault${result.message ? `: ${result.message}` : ''}`);
+      const detail = 'message' in result && result.message ? `: ${result.message}` : '';
+      message.error(`Failed to save vault${detail}`);
     }
-  }, [isDirty, draft, replaceVault, onDirtyChange, loadedVersion, message, markPersisted]);
-
-  const handleStaleDraftReload = useCallback(() => {
-    resetToServer();
-    setLoadedVersion(vault.version);
-    setStaleDraft(null);
-    onDirtyChange?.(false);
-  }, [vault.version, onDirtyChange, resetToServer]);
-
-  const handleStaleDraftKeepEditing = useCallback(() => {
-    setLoadedVersion(vault.version);
-    setStaleDraft(null);
-  }, [vault.version]);
+  }, [isDirty, draft, replaceVault, onDirtyChange, message, markPersisted]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -132,16 +129,6 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
       <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          {staleDraft && (
-            <StaleDraftBanner
-              entityLabel="vault"
-              serverVersion={staleDraft.serverVersion}
-              loadedVersion={staleDraft.loadedVersion}
-              onReload={handleStaleDraftReload}
-              onKeepEditing={handleStaleDraftKeepEditing}
-            />
-          )}
-
           <Alert
             type="warning"
             showIcon
