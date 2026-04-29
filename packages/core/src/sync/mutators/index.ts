@@ -83,6 +83,21 @@ export {
   type UnsetLiveWorkflowFieldArgs,
 } from './live-workflow';
 export {
+  clearPauseMarker,
+  type ClearPauseMarkerArgs,
+  PAUSE_MARKERS_ENTITY_TYPE,
+  PAUSE_MARKERS_ID,
+  PAUSE_MARKERS_MUTATOR_VERSION,
+  PAUSE_MARKERS_PATH,
+  type PauseMarkerKind,
+  type PauseMarkerSlot,
+  recompileDnrIntent as pauseMarkersRecompileDnrIntent,
+  replacePauseMarkers,
+  type ReplacePauseMarkersArgs,
+  setPauseMarker,
+  type SetPauseMarkerArgs,
+} from './pause-markers';
+export {
   deleteOAuthToken,
   type DeleteOAuthTokenArgs,
   OAUTH_BUNDLE_ENTITY_TYPE,
