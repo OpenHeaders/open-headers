@@ -31,6 +31,8 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFolderPostState,
+  SyncRequestCollectionPostState,
+  SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncRulePostState,
   SyncVaultPostState,
@@ -1279,6 +1281,27 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncRequestPostState[] };
   };
+  /**
+   * Snapshot the active workspace's full request-collection oracle
+   * state. Mirror of `oh.sync.snapshotCollections` for the
+   * request-collection entity type. Catalog ships rename-only at v1
+   * so each entry carries `{ collection }` only — no `varNames`.
+   */
+  'oh.sync.snapshotRequestCollections': {
+    req: Record<string, never>;
+    res: { entries: SyncRequestCollectionPostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full request-folder oracle state.
+   * Mirror of `oh.sync.snapshotFolders` for the request-folder entity
+   * type. Folders whose parent linkage isn't currently resolvable are
+   * skipped; they republish on the next folder/parent broadcast that
+   * resolves the chain.
+   */
+  'oh.sync.snapshotRequestFolders': {
+    req: Record<string, never>;
+    res: { entries: SyncRequestFolderPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1491,6 +1514,18 @@ export interface BridgeBroadcastContract {
      * shape + live itemIds for set-modeled paths without round-tripping.
      */
     requestPostState?: SyncRequestPostState;
+    /**
+     * Post-commit projection for request-collection envelopes (Phase B).
+     * Mirrors fold this so the request sidebar sees post-commit shape
+     * without a round-trip.
+     */
+    requestCollectionPostState?: SyncRequestCollectionPostState;
+    /**
+     * Post-commit projection for request-folder envelopes (Phase B).
+     * Same shape semantics as `folderPostState` — full reconstructed
+     * path included.
+     */
+    requestFolderPostState?: SyncRequestFolderPostState;
   };
 
   /**

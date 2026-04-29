@@ -76,7 +76,13 @@ import { setupRequestMonitoring } from './modules/request-monitor';
 import { markBootPhase } from './sync/boot-telemetry';
 import { initSyncService, reinitForWorkspace } from './sync/service';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
-import { bridgeRequestSyncEngine, getRequests, onRequestStoreChange } from './modules/request-store';
+import {
+  bridgeRequestCollectionSyncEngine,
+  bridgeRequestFolderSyncEngine,
+  bridgeRequestSyncEngine,
+  getRequests,
+  onRequestStoreChange,
+} from './modules/request-store';
 import {
   getActiveRulesForTab,
   precompileRulePatterns,
@@ -364,9 +370,16 @@ async function initializeExtension(): Promise<void> {
     void bridgeVaultSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeVaultSyncEngine after workspace switch failed', err);
     });
-    void bridgeRequestSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeRequestSyncEngine after workspace switch failed', err);
-    });
+    void bridgeRequestSyncEngine()
+      .then(() => bridgeRequestCollectionSyncEngine())
+      .then(() => bridgeRequestFolderSyncEngine())
+      .catch((err: unknown) => {
+        logger.warn(
+          'Background',
+          'bridgeRequest/RequestCollection/RequestFolder after workspace switch failed',
+          err,
+        );
+      });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -502,6 +515,8 @@ async function initializeExtension(): Promise<void> {
   await bridgeWorkspaceVariablesSyncEngine();
   await bridgeVaultSyncEngine();
   await bridgeRequestSyncEngine();
+  await bridgeRequestCollectionSyncEngine();
+  await bridgeRequestFolderSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /

@@ -640,18 +640,24 @@ export function handleGeneralMessage(
       // `requests/<deleted-uid>/...` path and orphan the request —
       // stored but not rendered by any tree.
       const knownCollections = getRequestCollections();
-      const targetCollectionUid =
-        collectionUid && knownCollections.some((c) => c.uid === collectionUid)
-          ? collectionUid
-          : ensureDefaultRequestCollection().uid;
+      const resolveTargetUid = async (): Promise<string> => {
+        if (collectionUid && knownCollections.some((c) => c.uid === collectionUid)) {
+          return collectionUid;
+        }
+        const fallback = await ensureDefaultRequestCollection();
+        return fallback.uid;
+      };
 
       // Folder parent takes precedence over collection root — if the
       // caller gave us an explicit `parentPath`, drop the request
       // directly there; otherwise use the collection's root path.
-      const createdPromise = parentPath
-        ? addRequest(name, parentPath, seed)
-        : addRequestToCollection(name, targetCollectionUid, seed);
-      createdPromise
+      (async () => {
+        const targetCollectionUid = parentPath ? '' : await resolveTargetUid();
+        const created = parentPath
+          ? await addRequest(name, parentPath, seed)
+          : await addRequestToCollection(name, targetCollectionUid, seed);
+        return created;
+      })()
         .then((created) => safeResponse({ success: true, request: created }))
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
@@ -669,8 +675,10 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'createLocalRequestCollection') {
-      const collection = createRequestCollection(message.name as string);
-      safeResponse({ success: true, collection });
+      createRequestCollection(message.name as string)
+        .then((collection) => safeResponse({ success: true, collection }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'renameLocalRequestCollection') {
       renameRequestCollection(message.collectionUid as string, message.name as string)
         .then((success) => safeResponse({ success }))
@@ -682,8 +690,14 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'createLocalRequestFolder') {
-      const folder = createRequestFolder(message.name as string, message.parentPath as string);
-      safeResponse({ success: true, folder });
+      createRequestFolder(message.name as string, message.parentPath as string)
+        .then((folder) =>
+          folder
+            ? safeResponse({ success: true, folder })
+            : safeResponse({ success: false, error: 'parent path not resolvable' }),
+        )
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'renameLocalRequestFolder') {
       renameRequestFolder(message.folderUid as string, message.name as string)
         .then((success) => safeResponse({ success }))

@@ -20,15 +20,33 @@
  */
 
 import { CollectionSchema, FolderSchema, RequestSchema } from '@openheaders/core/schemas';
-import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  type RequestFolderParentRef,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
-import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import type { PersistedLocalFolder } from '@/shared/storage';
+import {
+  buildDeleteRequestCollectionBatch,
+  buildRenameRequestCollectionBatch,
+} from '@/shared/sync/request-collection-mutations';
+import { seedRequestCollection } from '@/shared/sync/request-collection-projection';
+import {
+  buildCreateRequestFolderBatch,
+  buildDeleteRequestFolderBatch,
+  buildDeleteRequestFolderEntityBatch,
+  buildRenameRequestFolderBatch,
+} from '@/shared/sync/request-folder-mutations';
 import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@/shared/sync/request-mutations';
 import { getActiveRequestCache } from '../sync/request-cache';
+import { getActiveRequestCollectionCache } from '../sync/request-collection-cache';
+import { getActiveRequestFolderCache } from '../sync/request-folder-cache';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -107,13 +125,6 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
 }
 
 // ── Collections ─────────────────────────────────────────────────────
-//
-// Request collections + folders still flow through the legacy direct-
-// write path; routing them through the oracle requires the entity-type
-// decision documented in the status doc (extend Collection / Folder
-// types vs. introduce request-collection / request-folder). Until that
-// lands, cascade deletes emit per-request `buildDeleteBatch` envelopes
-// so the request entity's pipeline stays consistent.
 
 const DEFAULT_COLLECTION_NAME = 'My Requests';
 
@@ -124,7 +135,7 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
-export function ensureDefaultRequestCollection(): V5.Collection {
+export async function ensureDefaultRequestCollection(): Promise<V5.Collection> {
   const existing = collections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
 
@@ -139,12 +150,18 @@ export function ensureDefaultRequestCollection(): V5.Collection {
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
   };
+  // Optimistic local insert so synchronous callers see the new
+  // collection immediately; the oracle's broadcast confirms the same
+  // post-commit shape on the next tick.
   collections = [...collections, collection];
-  void persistCollections();
+  await applyRequestCollectionMutationOrThrow(
+    (ctx) => ({ batch: seedRequestCollection(collection, ctx), sideEffects: [] }),
+    'ensureDefaultRequestCollection',
+  );
   return collection;
 }
 
-export function createRequestCollection(name: string): V5.Collection {
+export async function createRequestCollection(name: string): Promise<V5.Collection> {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
@@ -157,114 +174,146 @@ export function createRequestCollection(name: string): V5.Collection {
     defaultEnvironmentId: null,
   };
   collections = [...collections, collection];
-  void persistCollections();
+  await applyRequestCollectionMutationOrThrow(
+    (ctx) => ({ batch: seedRequestCollection(collection, ctx), sideEffects: [] }),
+    'createRequestCollection',
+  );
   return collection;
 }
 
 export async function renameRequestCollection(uid: string, name: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'request-collection', uid),
-    async () => {
-      const index = collections.findIndex((c) => c.uid === uid);
-      if (index === -1) return false;
-      const existing = collections[index];
-      collections = [
-        ...collections.slice(0, index),
-        { ...existing, name },
-        ...collections.slice(index + 1),
-      ];
-      await persistCollections();
-      return true;
-    },
-    { op: 'request-collection-rename' },
+  assertLoaded();
+  if (!collections.some((c) => c.uid === uid)) return false;
+  await applyRequestCollectionMutationOrThrow(
+    (ctx) => buildRenameRequestCollectionBatch({ collectionUid: uid, name }, ctx),
+    'renameRequestCollection',
   );
+  return true;
 }
 
 export async function deleteRequestCollection(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'request-collection', uid),
-    async () => {
-      const collection = collections.find((c) => c.uid === uid);
-      if (!collection) return false;
+  assertLoaded();
+  const collection = collections.find((c) => c.uid === uid);
+  if (!collection) return false;
 
-      // Cascade per-request deletes through the oracle so the cache +
-      // local mirror stay consistent. Folders cascade via the legacy
-      // direct-write path until request-folder lands on the pipeline.
-      const cascadingRequestUids = requests
-        .filter((r) => r.path.startsWith(collection.path))
-        .map((r) => r.uid);
-      for (const reqUid of cascadingRequestUids) {
-        await applyRequestMutationOrThrow(
-          (ctx) => buildDeleteBatch(reqUid, ctx),
-          'deleteRequestCollection-cascade',
-        );
-      }
-
-      collections = collections.filter((c) => c.uid !== uid);
-      folders = folders.filter((f) => !f.path.startsWith(collection.path));
-      await persistCollections();
-      await persistFolders();
-      return true;
-    },
-    { op: 'request-collection-delete' },
+  // Cascade descendant request + request-folder deletes through the
+  // oracle so every cache stays consistent. The collection's tombstone
+  // covers its parent slot for top-level folders; nested folders/requests
+  // are deleted by uid through the oracle.
+  const cascadingRequestUids = requests
+    .filter((r) => r.path.startsWith(collection.path))
+    .map((r) => r.uid);
+  const cascadingFolderUids = folders
+    .filter((f) => f.path.startsWith(collection.path))
+    .map((f) => f.uid);
+  for (const reqUid of cascadingRequestUids) {
+    await applyRequestMutationOrThrow(
+      (ctx) => buildDeleteBatch(reqUid, ctx),
+      'deleteRequestCollection-cascade',
+    );
+  }
+  for (const folderUid of cascadingFolderUids) {
+    await applyRequestFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(folderUid, ctx), sideEffects: [] }),
+      'deleteRequestCollection-cascade-folder',
+    );
+  }
+  // Tombstone the collection through the oracle — the broadcast drives
+  // the cache + local mirror update.
+  await applyRequestCollectionMutationOrThrow(
+    (ctx) => ({ batch: buildDeleteRequestCollectionBatch(uid, ctx), sideEffects: [] }),
+    'deleteRequestCollection',
   );
+  return true;
 }
 
 // ── Folders ─────────────────────────────────────────────────────────
 
-export function createRequestFolder(name: string, parentPath: string): LocalFolder {
+/**
+ * Resolve `parentPath` to a {@link RequestFolderParentRef} via the
+ * local mirrors. `parentPath` matches a request collection root
+ * (`requests/<slug>-<uid>`) or a request folder path.
+ */
+function resolveRequestFolderParent(parentPath: string): RequestFolderParentRef | null {
+  const collection = collections.find((c) => c.path === parentPath);
+  if (collection) return { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid };
+  const folder = folders.find((f) => f.path === parentPath);
+  if (folder) return { type: REQUEST_FOLDER_ENTITY_TYPE, uid: folder.uid };
+  return null;
+}
+
+export async function createRequestFolder(
+  name: string,
+  parentPath: string,
+): Promise<LocalFolder | null> {
+  assertLoaded();
+  const parent = resolveRequestFolderParent(parentPath);
+  if (!parent) return null;
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const folder: LocalFolder = { schemaVersion: 5, uid, path: `${parentPath}/${folderName}`, name };
-  folders = [...folders, folder];
-  void persistFolders();
-  return folder;
+  await applyRequestFolderMutationOrThrow(
+    (ctx) =>
+      buildCreateRequestFolderBatch(
+        { folderUid: uid, parent, name, pathSegment: folderName },
+        { ...ctx, batchId: ctx.batchId ?? `request-folder-create-${uid}` },
+      ),
+    'createRequestFolder',
+  );
+  return { schemaVersion: 5, uid, path: `${parentPath}/${folderName}`, name };
 }
 
 export async function renameRequestFolder(uid: string, name: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'request-folder', uid),
-    async () => {
-      const index = folders.findIndex((f) => f.uid === uid);
-      if (index === -1) return false;
-      const existing = folders[index];
-      folders = [...folders.slice(0, index), { ...existing, name }, ...folders.slice(index + 1)];
-      await persistFolders();
-      return true;
-    },
-    { op: 'request-folder-rename' },
+  assertLoaded();
+  if (!folders.some((f) => f.uid === uid)) return false;
+  await applyRequestFolderMutationOrThrow(
+    (ctx) => buildRenameRequestFolderBatch({ folderUid: uid, name }, ctx),
+    'renameRequestFolder',
   );
+  return true;
 }
 
 export async function deleteRequestFolder(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'request-folder', uid),
-    async () => {
-      const folder = folders.find((f) => f.uid === uid);
-      if (!folder) return false;
+  assertLoaded();
+  const folder = folders.find((f) => f.uid === uid);
+  if (!folder) return false;
+  const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
+  const parent = resolveRequestFolderParent(parentPath);
 
-      // Cascade per-request deletes for every request nested under this
-      // folder (or any descendant folder) through the oracle.
-      const cascadingRequestUids = requests
-        .filter((r) => r.path.startsWith(`${folder.path}/`))
-        .map((r) => r.uid);
-      for (const reqUid of cascadingRequestUids) {
-        await applyRequestMutationOrThrow(
-          (ctx) => buildDeleteBatch(reqUid, ctx),
-          'deleteRequestFolder-cascade',
-        );
-      }
-
-      folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-      await persistFolders();
-      return true;
-    },
-    { op: 'request-folder-delete' },
-  );
+  // Cascade descendant request + request-folder deletes through the
+  // oracle. Same pattern as rule-folder cascades.
+  const cascadingRequestUids = requests
+    .filter((r) => r.path.startsWith(`${folder.path}/`))
+    .map((r) => r.uid);
+  const cascadingNestedFolderUids = folders
+    .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
+    .map((f) => f.uid);
+  for (const reqUid of cascadingRequestUids) {
+    await applyRequestMutationOrThrow(
+      (ctx) => buildDeleteBatch(reqUid, ctx),
+      'deleteRequestFolder-cascade-request',
+    );
+  }
+  for (const nestedUid of cascadingNestedFolderUids) {
+    await applyRequestFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(nestedUid, ctx), sideEffects: [] }),
+      'deleteRequestFolder-cascade-folder',
+    );
+  }
+  // Final delete: the folder itself + its parent slot. Parent ref is
+  // resolved above; if missing (parent already tombstoned), fall back
+  // to the bare entity tombstone.
+  if (parent) {
+    await applyRequestFolderMutationOrThrow(
+      (ctx) => buildDeleteRequestFolderBatch({ folderUid: uid, parent }, ctx),
+      'deleteRequestFolder',
+    );
+  } else {
+    await applyRequestFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(uid, ctx), sideEffects: [] }),
+      'deleteRequestFolder',
+    );
+  }
+  return true;
 }
 
 // ── Requests ────────────────────────────────────────────────────────
@@ -394,27 +443,56 @@ async function applyRequestMutationOrThrow(
   }
 }
 
+async function applyRequestCollectionMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`RequestStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `RequestStore.${op}: oracle rejected request-collection batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
+}
+
+async function applyRequestFolderMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`RequestStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `RequestStore.${op}: oracle rejected request-folder batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
+}
+
 // ── Persistence ─────────────────────────────────────────────────────
 //
-// Requests persistence is owned by the sync engine's
-// {@link RequestCache} — `chrome.storage.local` writes happen on every
-// broadcast-driven re-projection. Collections + folders still go
-// through the legacy direct path until request-collection /
-// request-folder land on the pipeline.
-
-async function persistCollections(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).requestCollections, collections);
-  logger.debug('RequestStore', `Persisted ${collections.length} request collections (ws=${workspaceId})`);
-  notifyChange();
-}
-
-async function persistFolders(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).requestFolders, folders);
-  logger.debug('RequestStore', `Persisted ${folders.length} request folders (ws=${workspaceId})`);
-  notifyChange();
-}
+// All three caches own `chrome.storage.local` writes via broadcast-
+// driven re-projection: {@link RequestCache} for requests, the
+// request-collection cache for `requestCollections`, the request-folder
+// cache for `requestFolders`.
 
 // ── Hydration / workspace switch ────────────────────────────────────
 
@@ -471,21 +549,19 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
 // ── Sync engine bridge ──────────────────────────────────────────────
 
 let cacheUnsubscribe: (() => void) | null = null;
+let collectionCacheUnsubscribe: (() => void) | null = null;
+let folderCacheUnsubscribe: (() => void) | null = null;
 
 /**
  * Wire the local `requests` array to the active workspace's
  * {@link RequestCache}: seed the oracle from the hydrated requests,
  * then subscribe to broadcast-driven re-projections so subsequent
- * mutations flow back into the local mirror. Same shape as
- * `bridgeToSyncEngine` in `rule-store.ts`. Idempotent — the prior
+ * mutations flow back into the local mirror. Idempotent — the prior
  * cache subscription is dropped first.
  */
 export async function bridgeRequestSyncEngine(): Promise<void> {
   const cache = getActiveRequestCache();
-  if (!cache) {
-    logger.info('RequestStore', 'bridgeRequestSyncEngine: no active cache; skipping');
-    return;
-  }
+  if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
@@ -495,10 +571,47 @@ export async function bridgeRequestSyncEngine(): Promise<void> {
     notifyChange();
   });
   await cache.seedFromPersistedRequests(requests);
-  // Belt-and-braces: copy the cache view explicitly so a zero-requests
-  // workspace (no broadcasts → listener never fires) still ends up with
-  // `requests` pointed at the cache's snapshot.
   requests = cache.getRequests();
+}
+
+/**
+ * Wire the local `collections` array to the active workspace's
+ * request-collection cache. Same shape as `bridgeRequestSyncEngine`.
+ */
+export async function bridgeRequestCollectionSyncEngine(): Promise<void> {
+  const cache = getActiveRequestCollectionCache();
+  if (!cache) return;
+  if (collectionCacheUnsubscribe) {
+    collectionCacheUnsubscribe();
+    collectionCacheUnsubscribe = null;
+  }
+  collectionCacheUnsubscribe = cache.onChange(() => {
+    collections = cache.getRequestCollections();
+    notifyChange();
+  });
+  await cache.seedFromPersistedRequestCollections(collections);
+  collections = cache.getRequestCollections();
+}
+
+/**
+ * Wire the local `folders` array to the active workspace's
+ * request-folder cache. Call AFTER `bridgeRequestCollectionSyncEngine()`
+ * so the parent collection slots already exist in the oracle when each
+ * folder seeds.
+ */
+export async function bridgeRequestFolderSyncEngine(): Promise<void> {
+  const cache = getActiveRequestFolderCache();
+  if (!cache) return;
+  if (folderCacheUnsubscribe) {
+    folderCacheUnsubscribe();
+    folderCacheUnsubscribe = null;
+  }
+  folderCacheUnsubscribe = cache.onChange(() => {
+    folders = cache.getRequestFolders();
+    notifyChange();
+  });
+  await cache.seedFromPersistedRequestFolders(folders, collections);
+  folders = cache.getRequestFolders();
 }
 
 // ── Test helpers ────────────────────────────────────────────────────
@@ -512,5 +625,13 @@ export function __resetForTests(): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
+  }
+  if (collectionCacheUnsubscribe) {
+    collectionCacheUnsubscribe();
+    collectionCacheUnsubscribe = null;
+  }
+  if (folderCacheUnsubscribe) {
+    folderCacheUnsubscribe();
+    folderCacheUnsubscribe = null;
   }
 }
