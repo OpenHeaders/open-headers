@@ -20,6 +20,7 @@ import {
   genCreateDeleteHlcOrder,
   genEnvRename,
   genFolderMove,
+  genRequestEdit,
   genRuleReorder,
   genSameFieldSameHlc,
   genSetDeleteRace,
@@ -48,6 +49,7 @@ const BUCKETS: Bucket[] = [
   { name: 'vault-rename', generate: genVaultRename, count: 1500 },
   { name: 'rule-reorder', generate: genRuleReorder, count: 1500 },
   { name: 'folder-move', generate: genFolderMove, count: 1500 },
+  { name: 'request-edit', generate: genRequestEdit, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
 
