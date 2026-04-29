@@ -55,6 +55,14 @@ export {
   type VariableType,
 } from './environment';
 export {
+  LAYOUT_STATE_ENTITY_TYPE,
+  LAYOUT_STATE_ID,
+  LAYOUT_STATE_MUTATOR_VERSION,
+  LAYOUT_STATE_PATH,
+  setLayoutState,
+  type SetLayoutStateArgs,
+} from './layout-state';
+export {
   createLiveVariable,
   type CreateLiveVariableArgs,
   deleteLiveVariable,
