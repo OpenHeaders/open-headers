@@ -21,6 +21,17 @@ export {
   setPinnedEnvironments,
 } from './collection';
 export {
+  addFileRef,
+  type AddFileRefArgs,
+  FILES_ENTITY_TYPE,
+  FILES_ID,
+  FILES_MUTATOR_VERSION,
+  FILES_REFS_PATH,
+  type FileRefSlot,
+  removeFileRef,
+  type RemoveFileRefArgs,
+} from './files';
+export {
   createFolder,
   type CreateFolderArgs,
   deleteFolder,
