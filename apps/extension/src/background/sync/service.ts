@@ -36,12 +36,14 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncRulePostState,
+  SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
@@ -69,6 +71,12 @@ import {
 } from './resolver-invalidate-runner';
 import { projectRuleByUid, projectRulePostState } from './rule-post-state';
 import {
+  createVaultCache,
+  setActiveVaultCache,
+  type VaultCache,
+} from './vault-cache';
+import { projectVaultPostState, projectVaultSingleton } from './vault-post-state';
+import {
   createWorkspaceVariablesCache,
   setActiveWorkspaceVariablesCache,
   type WorkspaceVariablesCache,
@@ -95,6 +103,7 @@ interface ServiceState {
   envCache: EnvironmentCache;
   collectionCache: CollectionCache;
   workspaceVariablesCache: WorkspaceVariablesCache;
+  vaultCache: VaultCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -145,6 +154,9 @@ export function initSyncService(workspaceId: string): void {
   );
   setActiveWorkspaceVariablesCache(workspaceVariablesCache);
 
+  const vaultCache = createVaultCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveVaultCache(vaultCache);
+
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
   // reflects post-commit state.
@@ -165,6 +177,7 @@ export function initSyncService(workspaceId: string): void {
       ENVIRONMENT_ENTITY_TYPE,
       COLLECTION_ENTITY_TYPE,
       WORKSPACE_VARIABLES_ENTITY_TYPE,
+      VAULT_ENTITY_TYPE,
     ]),
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
   });
@@ -174,6 +187,10 @@ export function initSyncService(workspaceId: string): void {
     emit: (presence) => {
       bridgeBroadcast('awarenessBroadcast', { workspaceId, presence });
     },
+    // Vault is §12.1 schema-marked sensitive — entity-level awareness
+    // only; per-secret-name presence would leak the secret namespace
+    // and access patterns (§14.4).
+    sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE]),
   });
 
   // Re-publish every committed `(envelope, outcome)` to subscribed
@@ -198,11 +215,16 @@ export function initSyncService(workspaceId: string): void {
     const workspaceVariablesPostState = projectWorkspaceVariablesPostState(oracle, envelope);
     return workspaceVariablesPostState ? { workspaceVariablesPostState } : null;
   };
+  const vaultProjector: BroadcastProjector = (envelope) => {
+    const vaultPostState = projectVaultPostState(oracle, envelope);
+    return vaultPostState ? { vaultPostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
     collectionProjector,
     workspaceVariablesProjector,
+    vaultProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -217,6 +239,7 @@ export function initSyncService(workspaceId: string): void {
         ...(event.workspaceVariablesPostState
           ? { workspaceVariablesPostState: event.workspaceVariablesPostState }
           : {}),
+        ...(event.vaultPostState ? { vaultPostState: event.vaultPostState } : {}),
       });
     },
     projector,
@@ -230,6 +253,7 @@ export function initSyncService(workspaceId: string): void {
     envCache,
     collectionCache,
     workspaceVariablesCache,
+    vaultCache,
     context,
     awareness,
     dnrRunner,
@@ -252,11 +276,13 @@ export function dispose(): void {
   state.envCache.dispose();
   state.collectionCache.dispose();
   state.workspaceVariablesCache.dispose();
+  state.vaultCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
   setActiveCollectionCache(null);
   setActiveWorkspaceVariablesCache(null);
+  setActiveVaultCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -363,6 +389,19 @@ export function snapshotWorkspaceVariablesPostStates(): SyncWorkspaceVariablesPo
 }
 
 /**
+ * Snapshot the singleton vault record. Same shape the
+ * `BroadcastProjector` attaches to live envelopes; consumed by the
+ * `oh.sync.snapshotVault` RPC for renderer mirror bootstrap. Returns
+ * `[]` when the service isn't initialized or the singleton hasn't been
+ * seeded yet. Local-only by §12.3 — never crosses any sync transport.
+ */
+export function snapshotVaultPostStates(): SyncVaultPostState[] {
+  if (!state) return [];
+  const projection = projectVaultSingleton(state.oracle);
+  return projection ? [projection] : [];
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -446,6 +485,8 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     () => context.next(),
   );
   setActiveWorkspaceVariablesCache(workspaceVariablesCache);
+  const vaultCache = createVaultCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveVaultCache(vaultCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -459,6 +500,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
       ENVIRONMENT_ENTITY_TYPE,
       COLLECTION_ENTITY_TYPE,
       WORKSPACE_VARIABLES_ENTITY_TYPE,
+      VAULT_ENTITY_TYPE,
     ]),
     recompile: deps.recompile ?? (() => {}),
   });
@@ -478,6 +520,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     envCache,
     collectionCache,
     workspaceVariablesCache,
+    vaultCache,
     context,
     awareness,
     dnrRunner,

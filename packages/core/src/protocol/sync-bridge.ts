@@ -102,6 +102,26 @@ export interface SyncWorkspaceVariablesPostState {
   varNames: string[];
 }
 
+/**
+ * Post-commit projection for a vault envelope. Singleton entity per
+ * workspace — there is exactly one materialized record at the fixed
+ * id `vault`. Carries the materialized {@link V5.Vault} plus the live
+ * secret names (set member identity = name, same shape as the other
+ * variable scopes). Renderer mirrors fold this so the vault editing
+ * surface reads post-commit state without a round-trip.
+ *
+ * The vault is §12.1 schema-marked sensitive in full — the broadcast
+ * is local-only and never leaves the device (Vault is non-syncing in
+ * v1, §12.3). Awareness publishes for entities of this type carry no
+ * `fieldFocus` (§14.4); the post-state itself is data the local
+ * editor needs.
+ */
+export interface SyncVaultPostState {
+  vault: V5.Vault;
+  /** Live secret names — the set-member identity for vault entries. */
+  secretNames: string[];
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -133,6 +153,12 @@ export interface SyncBroadcastEvent {
    * `undefined`.
    */
   workspaceVariablesPostState?: SyncWorkspaceVariablesPostState;
+  /**
+   * Populated for vault envelopes whose batch left a materialized
+   * record in place. Tombstoned (singleton deletion is not a
+   * production gesture) and rolled-back batches leave it `undefined`.
+   */
+  vaultPostState?: SyncVaultPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

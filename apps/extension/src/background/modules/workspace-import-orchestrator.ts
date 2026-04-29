@@ -56,6 +56,7 @@ import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, type StorageKey, wsKeys } from '@/shared/storage';
 import {
   bridgeEnvironmentSyncEngine,
+  bridgeVaultSyncEngine,
   bridgeWorkspaceVariablesSyncEngine,
   hydrateEnvironmentsFromStorage,
 } from './environment-store';
@@ -364,6 +365,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeEnvironmentSyncEngine();
         await bridgeCollectionSyncEngine();
         await bridgeWorkspaceVariablesSyncEngine();
+        await bridgeVaultSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

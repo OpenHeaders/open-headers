@@ -21,6 +21,7 @@ export type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncRulePostState,
+  SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from './sync-bridge';
 

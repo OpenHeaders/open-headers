@@ -31,6 +31,7 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncRulePostState,
+  SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
@@ -1260,6 +1261,16 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncWorkspaceVariablesPostState[] };
   };
+  /**
+   * Snapshot the active workspace's singleton vault oracle state.
+   * Same semantics as `oh.sync.snapshotWorkspaceVariables` — singleton
+   * `entries` carries 0 or 1 element. Local-only by §12.3; the
+   * payload never crosses any sync transport.
+   */
+  'oh.sync.snapshotVault': {
+    req: Record<string, never>;
+    res: { entries: SyncVaultPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1455,6 +1466,11 @@ export interface BridgeBroadcastContract {
      * with the SW oracle.
      */
     workspaceVariablesPostState?: SyncWorkspaceVariablesPostState;
+    /**
+     * Post-commit projection for vault envelopes (Phase B). Singleton
+     * entity. Local-only by §12.3 — never crosses any sync transport.
+     */
+    vaultPostState?: SyncVaultPostState;
   };
 
   /**

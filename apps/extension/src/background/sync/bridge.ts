@@ -35,7 +35,11 @@ import type { EntityOracle } from './oracle';
 export type EntityPostState = Partial<
   Pick<
     SyncBroadcastEvent,
-    'rulePostState' | 'environmentPostState' | 'collectionPostState' | 'workspaceVariablesPostState'
+    | 'rulePostState'
+    | 'environmentPostState'
+    | 'collectionPostState'
+    | 'workspaceVariablesPostState'
+    | 'vaultPostState'
   >
 >;
 
