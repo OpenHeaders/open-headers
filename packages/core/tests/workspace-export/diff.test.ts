@@ -80,7 +80,7 @@ function makeHeaderRule(uid: string, name: string, path: string): HeaderRule {
 }
 
 function makeEnv(uid: string, name: string): Environment {
-  return { schemaVersion: 5, version: 1, uid, path: `environments/${name}-${uid}`, name, variables: [] };
+  return { schemaVersion: 5, uid, path: `environments/${name}-${uid}`, name, variables: [] };
 }
 
 // ── Per-entity collision matrix ────────────────────────────────────

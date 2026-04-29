@@ -96,7 +96,7 @@ function folder(uid: string, name: string, path: string): Folder {
 }
 
 function env(uid: string, name: string): Environment {
-  return { schemaVersion: 5, version: 1, uid, path: `environments/${name}-${uid}`, name, variables: [] };
+  return { schemaVersion: 5, uid, path: `environments/${name}-${uid}`, name, variables: [] };
 }
 
 function workflow(uid: string, name: string, enabled = true): LiveWorkflow {

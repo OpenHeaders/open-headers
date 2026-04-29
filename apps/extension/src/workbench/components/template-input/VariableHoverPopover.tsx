@@ -584,7 +584,7 @@ async function runUpdate(
       if (idx === -1) return { ok: false, reason: 'not-found' };
       const next = env.variables.slice();
       next[idx] = { ...next[idx], value: draft };
-      return mutator.replaceEnvironmentVariables(env.uid, next, env.version);
+      return mutator.replaceEnvironmentVariables(env.uid, next);
     }
     case 'collection': {
       const collection = snap.localCollections.find((cc) => cc.uid === c.collectionUid);
@@ -641,7 +641,7 @@ async function runCreate(
         return { ok: false, reason: 'duplicate-name' };
       }
       const next: V5.Variable[] = [...env.variables, { name, value, type: 'default' }];
-      return mutator.replaceEnvironmentVariables(env.uid, next, env.version);
+      return mutator.replaceEnvironmentVariables(env.uid, next);
     }
     case 'collection': {
       if (!snap.collectionId) return { ok: false, reason: 'other', message: 'No collection in context' };

@@ -48,17 +48,14 @@ export interface UseEnvironmentsApi {
 
   createEnvironment: (name: string, variables?: V5.Variable[]) => Promise<V5.Environment | null>;
   /**
-   * Rename — returns the full Phase 10 write result. Callers that
-   * don't track `expectedVersion` (sidebar, context menu) omit it
-   * and get last-write-wins semantics. Editors pass the loaded
-   * version so a cross-tab rename collision surfaces `stale-draft`.
+   * Rename — last-write-wins through the env-store (legacy path).
+   * The editor surface (`EnvironmentEditor`) goes through
+   * `useEnvironmentMutator.renameEnvironment` instead, which routes
+   * via `oh.sync.apply` and the catalog factory; this entry remains
+   * for non-editor surfaces (sidebar / breadcrumb rename).
    */
-  renameEnvironment: (uid: string, name: string, expectedVersion?: number) => Promise<EnvironmentWriteResult>;
-  updateEnvironmentVariables: (
-    uid: string,
-    variables: V5.Variable[],
-    expectedVersion?: number,
-  ) => Promise<EnvironmentWriteResult>;
+  renameEnvironment: (uid: string, name: string) => Promise<EnvironmentWriteResult>;
+  updateEnvironmentVariables: (uid: string, variables: V5.Variable[]) => Promise<EnvironmentWriteResult>;
   deleteEnvironment: (uid: string) => Promise<boolean>;
   /** Raw setter — replaces the active env without touching
    *  `manualEnvId`. Used by the env-switcher service (auto-switch
@@ -185,17 +182,15 @@ export function useEnvironments(): UseEnvironmentsApi {
     return resp?.success ? (resp.environment ?? null) : null;
   }, []);
 
-  const renameEnvironment = useCallback<UseEnvironmentsApi['renameEnvironment']>(async (uid, name, expectedVersion) => {
-    const payload = expectedVersion !== undefined ? { uid, name, expectedVersion } : { uid, name };
-    return call('renameEnvironment', payload).catch(
+  const renameEnvironment = useCallback<UseEnvironmentsApi['renameEnvironment']>(async (uid, name) => {
+    return call('renameEnvironment', { uid, name }).catch(
       (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
     );
   }, []);
 
   const updateEnvironmentVariables = useCallback<UseEnvironmentsApi['updateEnvironmentVariables']>(
-    async (uid, variables, expectedVersion) => {
-      const payload = expectedVersion !== undefined ? { uid, variables, expectedVersion } : { uid, variables };
-      return call('updateEnvironmentVariables', payload).catch(
+    async (uid, variables) => {
+      return call('updateEnvironmentVariables', { uid, variables }).catch(
         (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
       );
     },

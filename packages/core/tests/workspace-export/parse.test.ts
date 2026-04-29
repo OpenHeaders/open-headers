@@ -89,7 +89,6 @@ describe('parseWorkspaceExport — happy path', () => {
     };
     const env: Environment = {
       schemaVersion: 5,
-      version: 1,
       uid: 'env00001',
       path: 'environments/staging-env00001',
       name: 'Staging',

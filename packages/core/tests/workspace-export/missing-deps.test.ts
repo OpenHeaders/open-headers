@@ -77,7 +77,6 @@ function makeCollection(
 function makeEnv(uid: string, name: string, vars: string[] = []): Environment {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `environments/${name}-${uid}`,
     name,

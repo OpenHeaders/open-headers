@@ -11,7 +11,7 @@ function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
 }
 
 function makeEnvironment(name: string, vars: Variable[]): Environment {
-  return { schemaVersion: 5, version: 1, uid: `env-${name}`, name, variables: vars };
+  return { schemaVersion: 5, uid: `env-${name}`, name, variables: vars };
 }
 
 function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {

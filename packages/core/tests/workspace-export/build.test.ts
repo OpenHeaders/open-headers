@@ -85,7 +85,6 @@ function makeOAuthRequest(overrides: Partial<OAuth2Auth> = {}): Request {
 function makeEnvironment(overrides: Partial<Environment> = {}): Environment {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'env00001',
     path: 'whatever',
     name: 'Staging',

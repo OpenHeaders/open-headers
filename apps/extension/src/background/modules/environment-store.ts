@@ -139,7 +139,6 @@ function assertLoaded(): string {
 export function createEnvironment(name: string, variables: V5.Variable[] = []): V5.Environment {
   const env: V5.Environment = {
     schemaVersion: 5,
-    version: 1,
     uid: generateUid(),
     name: name.trim() || 'Untitled Environment',
     variables,
@@ -150,59 +149,28 @@ export function createEnvironment(name: string, variables: V5.Variable[] = []): 
 }
 
 /**
- * Outcome of a versioned environment write (Phase 10 stale-draft
- * contract — parallel to `RuleWriteResult`).
+ * Outcome of an environment write. Phase B retired the stale-draft
+ * branch (§24) — concurrent edits reconcile via HLC LWW at the oracle.
  */
 export type EnvironmentWriteResult =
-  | { ok: true; version: number; environment: V5.Environment }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverEnvironment: V5.Environment }
+  | { ok: true; environment: V5.Environment }
   | { ok: false; reason: 'not-found' };
 
-export interface EnvironmentUpdateOptions {
-  /**
-   * Version the client loaded. Omit to opt out of stale-draft
-   * detection — used by call sites that don't track a version
-   * (sidebar rename, context-menu actions, bulk external imports).
-   * The lock still serializes writes; without the check these are
-   * last-write-wins.
-   */
-  expectedVersion?: number;
-}
-
-function environmentVersionOf(env: V5.Environment): number {
-  return env.version;
-}
-
-export async function renameEnvironment(
-  uid: string,
-  name: string,
-  options: EnvironmentUpdateOptions = {},
-): Promise<EnvironmentWriteResult> {
+export async function renameEnvironment(uid: string, name: string): Promise<EnvironmentWriteResult> {
   const workspaceId = assertLoaded();
   return withLock(
     entityLockName(workspaceId, 'environment', uid),
     async () => {
       const idx = environments.findIndex((e) => e.uid === uid);
-      if (idx === -1) return { ok: false, reason: 'not-found' } as EnvironmentWriteResult;
+      if (idx === -1) return { ok: false, reason: 'not-found' };
       const existing = environments[idx];
-      const current = environmentVersionOf(existing);
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverEnvironment: existing,
-        } as EnvironmentWriteResult;
-      }
-      const nextVersion = current + 1;
       const updated: V5.Environment = {
         ...existing,
         name: name.trim() || existing.name,
-        version: nextVersion,
       };
       environments = [...environments.slice(0, idx), updated, ...environments.slice(idx + 1)];
       await persistEnvironments();
-      return { ok: true, version: nextVersion, environment: updated } as EnvironmentWriteResult;
+      return { ok: true, environment: updated };
     },
     { op: 'environment-rename' },
   );
@@ -211,29 +179,18 @@ export async function renameEnvironment(
 export async function updateEnvironmentVariables(
   uid: string,
   variables: V5.Variable[],
-  options: EnvironmentUpdateOptions = {},
 ): Promise<EnvironmentWriteResult> {
   const workspaceId = assertLoaded();
   return withLock(
     entityLockName(workspaceId, 'environment', uid),
     async () => {
       const idx = environments.findIndex((e) => e.uid === uid);
-      if (idx === -1) return { ok: false, reason: 'not-found' } as EnvironmentWriteResult;
+      if (idx === -1) return { ok: false, reason: 'not-found' };
       const existing = environments[idx];
-      const current = environmentVersionOf(existing);
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverEnvironment: existing,
-        } as EnvironmentWriteResult;
-      }
-      const nextVersion = current + 1;
-      const updated: V5.Environment = { ...existing, variables, version: nextVersion };
+      const updated: V5.Environment = { ...existing, variables };
       environments = [...environments.slice(0, idx), updated, ...environments.slice(idx + 1)];
       await persistEnvironments();
-      return { ok: true, version: nextVersion, environment: updated } as EnvironmentWriteResult;
+      return { ok: true, environment: updated };
     },
     { op: 'environment-variables' },
   );

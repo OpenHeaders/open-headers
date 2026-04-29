@@ -11,7 +11,7 @@ function makeVariable(name: string, value: string, type: 'default' | 'secret' = 
 let envCounter = 0;
 function makeEnvironment(name: string, vars: Variable[]): Environment {
   envCounter += 1;
-  return { schemaVersion: 5, version: 1, uid: `env-${envCounter}`, name, variables: vars };
+  return { schemaVersion: 5, uid: `env-${envCounter}`, name, variables: vars };
 }
 
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
@@ -292,7 +292,6 @@ describe('VariableResolver — explicit namespaces', () => {
     resolver.setEnvironments([
       {
         schemaVersion: 5,
-        version: 1,
         uid: 'e-staging',
         name: 'staging',
         variables: [{ name: 'API_URL', value: 'https://api.staging', type: 'default' }],
@@ -364,7 +363,6 @@ describe('VariableResolver — default environment fallback', () => {
 
   const makeEnv = (uid: string, name: string, vars: Array<[string, string]>): Environment => ({
     schemaVersion: 5,
-    version: 1,
     uid,
     name,
     variables: vars.map(([n, v]) => ({ name: n, value: v, type: 'default' as const })),

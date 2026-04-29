@@ -30,7 +30,6 @@ export type VariableCandidate =
       scope: 'environment';
       envUid: string;
       envName: string;
-      envVersion: number;
       isActive: boolean;
       isDefault: boolean;
       variable: V5.Variable;
@@ -153,7 +152,6 @@ export function useVariableLookup(reference: string, collectionId?: string): Var
           scope: 'environment',
           envUid: env.uid,
           envName: env.name,
-          envVersion: env.version,
           isActive: env.uid === activeEnvironmentId,
           isDefault: env.uid === defaultEnvironmentId,
           variable,

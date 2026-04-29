@@ -166,7 +166,6 @@ rotationPolicy: monthly
 
   it('environment default file retains unknown top-level key', () => {
     const defaultRaw = `schemaVersion: 5
-version: 1
 uid: env00001
 name: staging
 variables: []
