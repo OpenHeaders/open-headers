@@ -25,6 +25,7 @@ import {
   genRuleReorder,
   genSameFieldSameHlc,
   genSetDeleteRace,
+  genTemplateFolderMove,
   genUniformRandom,
   genVaultRename,
   genWorkspaceVarsRename,
@@ -52,6 +53,7 @@ const BUCKETS: Bucket[] = [
   { name: 'folder-move', generate: genFolderMove, count: 1500 },
   { name: 'request-edit', generate: genRequestEdit, count: 1500 },
   { name: 'request-folder-move', generate: genRequestFolderMove, count: 1500 },
+  { name: 'template-folder-move', generate: genTemplateFolderMove, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
 

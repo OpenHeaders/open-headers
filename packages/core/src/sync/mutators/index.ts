@@ -104,6 +104,47 @@ export {
   type RenameRequestFolderArgs,
 } from './request-folder';
 export {
+  addTemplateCondition,
+  type AddTemplateConditionArgs,
+  createTemplate,
+  type CreateTemplateArgs,
+  deleteTemplate,
+  type DeleteTemplateArgs,
+  removeTemplateCondition,
+  type RemoveTemplateConditionArgs,
+  setTemplateConditionField,
+  type SetTemplateConditionFieldArgs,
+  setTemplateField,
+  type SetTemplateFieldArgs,
+  TEMPLATE_CONDITIONS_PATH,
+  TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_MUTATOR_VERSION,
+  type TemplateConditionLike,
+  type TemplateScalarPath,
+} from './template';
+export {
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_MUTATOR_VERSION,
+  type RenameTemplateCollectionArgs,
+  renameTemplateCollection,
+} from './template-collection';
+export {
+  createTemplateFolder,
+  type CreateTemplateFolderArgs,
+  deleteTemplateFolder,
+  type DeleteTemplateFolderArgs,
+  moveTemplateFolder,
+  type MoveTemplateFolderArgs,
+  TEMPLATE_FOLDER_CHILDREN_PATH,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+  TEMPLATE_FOLDER_MUTATOR_VERSION,
+  type TemplateFolderParentRef,
+  type TemplateFolderParentType,
+  type TemplateFolderSlot,
+  renameTemplateFolder,
+  type RenameTemplateFolderArgs,
+} from './template-folder';
+export {
   invalidateResolverIntent as vaultInvalidateResolverIntent,
   removeVaultSecret,
   type RemoveVaultSecretArgs,
