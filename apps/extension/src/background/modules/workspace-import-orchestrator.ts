@@ -70,6 +70,7 @@ import { scheduleUpdate } from './rule-engine';
 import { reinitForWorkspace } from '../sync/service';
 import {
   bridgeCollectionSyncEngine,
+  bridgeFolderSyncEngine,
   bridgeToSyncEngine,
   hydrateFromStorage as hydrateRulesFromStorage,
 } from './rule-store';
@@ -363,6 +364,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeToSyncEngine();
         await bridgeEnvironmentSyncEngine();
         await bridgeCollectionSyncEngine();
+        await bridgeFolderSyncEngine();
         await bridgeWorkspaceVariablesSyncEngine();
         await bridgeVaultSyncEngine();
         scheduleUpdate('import', { immediate: true });

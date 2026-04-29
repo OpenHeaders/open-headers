@@ -22,6 +22,8 @@ import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   collectionInvalidateResolverIntent,
+  FOLDER_ENTITY_TYPE,
+  type FolderParentRef,
   mintBatch as mintCollectionBatch,
   type MutationBody,
 } from '@openheaders/core/sync';
@@ -36,8 +38,15 @@ import {
   buildSetPinnedAndDefaultBatch,
 } from '@/shared/sync/collection-mutations';
 import { seedCollection } from '@/shared/sync/collection-projection';
+import {
+  buildCreateFolderBatch,
+  buildDeleteFolderBatch,
+  buildDeleteFolderEntityBatch,
+  buildRenameFolderBatch,
+} from '@/shared/sync/folder-mutations';
 import { buildAddBatch, buildDeleteBatch } from '@/shared/sync/rule-mutations';
 import { getActiveCollectionCache } from '../sync/collection-cache';
+import { getActiveFolderCache } from '../sync/folder-cache';
 import { getActiveRuleCache } from '../sync/rule-cache';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
@@ -234,14 +243,23 @@ export async function deleteCollection(uid: string): Promise<boolean> {
       const collection = collections.find((c) => c.uid === uid);
       if (!collection) return false;
 
-      // Cascade rule deletes through the oracle so the rule cache stays
-      // consistent. Folders are still on the legacy direct-write path
-      // until a future session brings them onto the oracle.
+      // Cascade rule + folder deletes through the oracle so every cache
+      // stays consistent. The collection's tombstone covers its parent
+      // slot for top-level folders; nested folders/rules are deleted by
+      // uid through the oracle.
       const cascadingRuleUids = rules.filter((r) => r.path.startsWith(collection.path)).map((r) => r.uid);
-      folders = folders.filter((f) => !f.path.startsWith(collection.path));
-      await persistFolders();
+      const cascadingFolderUids = folders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
       for (const ruleUid of cascadingRuleUids) {
         await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteCollection-cascade');
+      }
+      for (const folderUid of cascadingFolderUids) {
+        await applyFolderMutationOrThrow(
+          (ctx) => ({
+            batch: buildDeleteFolderEntityBatch(folderUid, ctx),
+            sideEffects: [],
+          }),
+          'deleteCollection-cascade-folder',
+        );
       }
       // Tombstone the collection through the oracle — the broadcast
       // drives the cache + local mirror update.
@@ -348,54 +366,97 @@ function buildVariableReplacementBodies(
 
 // ── Folders ─────────────────────────────────────────────────────────
 
-export function createFolder(name: string, parentPath: string): LocalFolder {
+/**
+ * Resolve `parentPath` to a {@link FolderParentRef} via the local
+ * mirrors. `parentPath` matches a collection root (`rules/<slug>-<uid>`)
+ * or a folder path (`<collectionPath>/<slug>-<uid>`); we look up
+ * collections first because their paths are shorter prefixes of
+ * descendant folders.
+ */
+function resolveFolderParent(parentPath: string): FolderParentRef | null {
+  const collection = collections.find((c) => c.path === parentPath);
+  if (collection) return { type: COLLECTION_ENTITY_TYPE, uid: collection.uid };
+  const folder = folders.find((f) => f.path === parentPath);
+  if (folder) return { type: FOLDER_ENTITY_TYPE, uid: folder.uid };
+  return null;
+}
+
+/**
+ * Create a folder under `parentPath`. Routes through the oracle via
+ * the folder catalog's atomic `(create folder + addToSet on parent)`
+ * batch (§11.2). Returns the synthesized folder shape immediately —
+ * the broadcast-driven `bridgeFolderSyncEngine` confirms the same
+ * post-commit shape on the next tick.
+ */
+export async function createFolder(name: string, parentPath: string): Promise<LocalFolder | null> {
+  assertLoaded();
+  const parent = resolveFolderParent(parentPath);
+  if (!parent) {
+    logger.info('RuleStore', `createFolder: parent path not resolvable: ${parentPath}`);
+    return null;
+  }
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const folder: LocalFolder = {
-    schemaVersion: 5,
-    uid,
-    path: `${parentPath}/${folderName}`,
-    name,
-  };
-  folders = [...folders, folder];
-  void persistFolders();
-  return folder;
+  await applyFolderMutationOrThrow(
+    (ctx) =>
+      buildCreateFolderBatch(
+        { folderUid: uid, parent, name, pathSegment: folderName },
+        { ...ctx, batchId: ctx.batchId ?? `folder-create-${uid}` },
+      ),
+    'createFolder',
+  );
+  return { schemaVersion: 5, uid, path: `${parentPath}/${folderName}`, name };
 }
 
 export async function renameFolder(uid: string, name: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'folder', uid),
-    async () => {
-      const index = folders.findIndex((f) => f.uid === uid);
-      if (index === -1) return false;
-      const existing = folders[index];
-      folders = [...folders.slice(0, index), { ...existing, name }, ...folders.slice(index + 1)];
-      await persistFolders();
-      return true;
-    },
-    { op: 'folder-rename' },
+  assertLoaded();
+  if (!folders.some((f) => f.uid === uid)) return false;
+  await applyFolderMutationOrThrow(
+    (ctx) => buildRenameFolderBatch({ folderUid: uid, name }, ctx),
+    'renameFolder',
   );
+  return true;
 }
 
 export async function deleteFolder(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'folder', uid),
-    async () => {
-      const folder = folders.find((f) => f.uid === uid);
-      if (!folder) return false;
+  assertLoaded();
+  const folder = folders.find((f) => f.uid === uid);
+  if (!folder) return false;
+  const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
+  const parent = resolveFolderParent(parentPath);
 
-      const cascadingRuleUids = rules.filter((r) => r.path.startsWith(`${folder.path}/`)).map((r) => r.uid);
-      folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-      await persistFolders();
-      for (const ruleUid of cascadingRuleUids) {
-        await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteFolder-cascade');
-      }
-      return true;
-    },
-    { op: 'folder-delete' },
-  );
+  // Cascade descendant rule + folder deletes through the oracle.
+  // Folder cascade walks every nested folder by path-prefix; rules use
+  // the same pattern (rules can also live inside nested folders).
+  const cascadingRuleUids = rules.filter((r) => r.path.startsWith(`${folder.path}/`)).map((r) => r.uid);
+  const cascadingNestedFolderUids = folders
+    .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
+    .map((f) => f.uid);
+  for (const ruleUid of cascadingRuleUids) {
+    await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteFolder-cascade-rule');
+  }
+  for (const nestedUid of cascadingNestedFolderUids) {
+    await applyFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteFolderEntityBatch(nestedUid, ctx), sideEffects: [] }),
+      'deleteFolder-cascade-folder',
+    );
+  }
+  // Final delete: the folder itself + its parent slot. Parent ref is
+  // resolved above; if missing (parent already tombstoned), fall back
+  // to the bare entity tombstone — the parent's tombstone covers slot
+  // cleanup.
+  if (parent) {
+    await applyFolderMutationOrThrow(
+      (ctx) => buildDeleteFolderBatch({ folderUid: uid, parent }, ctx),
+      'deleteFolder',
+    );
+  } else {
+    await applyFolderMutationOrThrow(
+      (ctx) => ({ batch: buildDeleteFolderEntityBatch(uid, ctx), sideEffects: [] }),
+      'deleteFolder',
+    );
+  }
+  return true;
 }
 
 // ── Rules ───────────────────────────────────────────────────────────
@@ -478,6 +539,28 @@ async function applyRuleMutationOrThrow(
   }
 }
 
+async function applyFolderMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`RuleStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `RuleStore.${op}: oracle rejected folder batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
+}
+
 async function applyCollectionMutationOrThrow(
   factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
     batch: import('@openheaders/core/sync').MutationBatch;
@@ -502,18 +585,10 @@ async function applyCollectionMutationOrThrow(
 
 // ── Persistence (scoped to loadedWorkspaceId) ──────────────────────
 //
-// Rules + collections persistence is owned by the sync engine's
-// {@link RuleCache} + {@link CollectionCache} — `chrome.storage.local`
-// writes happen on every broadcast-driven re-projection. Folders stay
-// on the legacy direct-write path until a future session brings them
-// onto the oracle.
-
-async function persistFolders(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).folders, folders);
-  logger.debug('RuleStore', `Persisted ${folders.length} folders (ws=${workspaceId})`);
-  notifyChange();
-}
+// Rules + collections + folders persistence is owned by the sync
+// engine's {@link RuleCache} + {@link CollectionCache} +
+// {@link FolderCache} — `chrome.storage.local` writes happen on every
+// broadcast-driven re-projection.
 
 // ── Hydration / workspace switch ────────────────────────────────────
 
@@ -600,6 +675,7 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
 
 let cacheUnsubscribe: (() => void) | null = null;
 let collectionCacheUnsubscribe: (() => void) | null = null;
+let folderCacheUnsubscribe: (() => void) | null = null;
 
 /**
  * Wire the local `rules` array to the active workspace's
@@ -661,6 +737,33 @@ export async function bridgeCollectionSyncEngine(): Promise<void> {
   collections = cache.getCollections();
 }
 
+/**
+ * Wire the local `folders` array to the active workspace's
+ * {@link FolderCache}: seed the oracle from the hydrated folders +
+ * collections (the seed walks the parent linkage from `path` strings),
+ * then subscribe to broadcast-driven re-projections so subsequent
+ * mutations flow back into the local mirror. Idempotent. Call AFTER
+ * `bridgeCollectionSyncEngine()` so the parent collection slots already
+ * exist in the oracle when each folder seeds.
+ */
+export async function bridgeFolderSyncEngine(): Promise<void> {
+  const cache = getActiveFolderCache();
+  if (!cache) {
+    logger.info('RuleStore', 'bridgeFolderSyncEngine: no active cache; skipping');
+    return;
+  }
+  if (folderCacheUnsubscribe) {
+    folderCacheUnsubscribe();
+    folderCacheUnsubscribe = null;
+  }
+  folderCacheUnsubscribe = cache.onChange(() => {
+    folders = cache.getFolders();
+    notifyChange();
+  });
+  await cache.seedFromPersistedFolders(folders, collections);
+  folders = cache.getFolders();
+}
+
 // ── Test helpers ────────────────────────────────────────────────────
 
 /** Test-only: reset the module without touching storage. */
@@ -677,5 +780,9 @@ export function __resetForTests(): void {
   if (collectionCacheUnsubscribe) {
     collectionCacheUnsubscribe();
     collectionCacheUnsubscribe = null;
+  }
+  if (folderCacheUnsubscribe) {
+    folderCacheUnsubscribe();
+    folderCacheUnsubscribe = null;
   }
 }

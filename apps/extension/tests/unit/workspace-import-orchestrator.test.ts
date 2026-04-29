@@ -41,6 +41,7 @@ vi.mock('@/background/modules/rule-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
   bridgeToSyncEngine: vi.fn(async () => undefined),
   bridgeCollectionSyncEngine: vi.fn(async () => undefined),
+  bridgeFolderSyncEngine: vi.fn(async () => undefined),
 }));
 vi.mock('@/background/modules/request-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),

@@ -88,6 +88,7 @@ import { scheduleUpdate } from './modules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
 import {
   bridgeCollectionSyncEngine,
+  bridgeFolderSyncEngine,
   bridgeToSyncEngine,
   getCollectionTrees,
   getRules,
@@ -352,9 +353,11 @@ async function initializeExtension(): Promise<void> {
     void bridgeEnvironmentSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeEnvironmentSyncEngine after workspace switch failed', err);
     });
-    void bridgeCollectionSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeCollectionSyncEngine after workspace switch failed', err);
-    });
+    void bridgeCollectionSyncEngine()
+      .then(() => bridgeFolderSyncEngine())
+      .catch((err: unknown) => {
+        logger.warn('Background', 'bridgeCollectionSyncEngine/Folder after workspace switch failed', err);
+      });
     void bridgeWorkspaceVariablesSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeWorkspaceVariablesSyncEngine after workspace switch failed', err);
     });
@@ -492,6 +495,7 @@ async function initializeExtension(): Promise<void> {
   await bridgeToSyncEngine();
   await bridgeEnvironmentSyncEngine();
   await bridgeCollectionSyncEngine();
+  await bridgeFolderSyncEngine();
   await bridgeWorkspaceVariablesSyncEngine();
   await bridgeVaultSyncEngine();
   markBootPhase('bridge-done');

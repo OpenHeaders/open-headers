@@ -875,8 +875,10 @@ export function handleGeneralMessage(
     } else if (message.type === 'getLocalFolders') {
       safeResponse({ folders: getFolders() });
     } else if (message.type === 'createLocalFolder') {
-      const folder = createFolder(message.name as string, message.parentPath as string);
-      safeResponse({ success: true, folder });
+      createFolder(message.name as string, message.parentPath as string)
+        .then((folder) => safeResponse({ success: Boolean(folder), folder: folder ?? undefined }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'renameLocalFolder') {
       renameFolder(message.folderUid as string, message.name as string)
         .then((success) => safeResponse({ success }))

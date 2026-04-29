@@ -12,14 +12,43 @@
 import {
   createFolder,
   deleteFolder,
+  FOLDER_ENTITY_TYPE,
+  FOLDER_MUTATOR_VERSION,
   type FolderParentRef,
   moveFolder,
+  type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
+  newBatchId,
+  newMutationId,
   renameFolder,
 } from '@openheaders/core/sync';
 
 export type FolderMutationPayload = MutatorIntent;
+
+/**
+ * Build a bare folder-entity `delete` envelope. Used by cross-entity
+ * cascades (collection delete cascades into its descendant folders)
+ * where the parent slot is already covered by the parent's tombstone
+ * — emitting a `removeFromSet` against a tombstoned parent is wasted
+ * wire churn. The catalog's full `deleteFolder` factory is the right
+ * call when the parent is still live.
+ */
+export function buildDeleteFolderEntityBatch(folderUid: string, ctx: MutatorContext): MutationBatch {
+  return {
+    batchId: ctx.batchId ?? newBatchId(),
+    mutations: [
+      {
+        mutationId: newMutationId(),
+        hlc: ctx.hlc,
+        origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
+        workspaceId: ctx.workspaceId,
+        mutatorVersion: FOLDER_MUTATOR_VERSION,
+        body: { kind: 'delete', type: FOLDER_ENTITY_TYPE, id: folderUid },
+      },
+    ],
+  };
+}
 
 export interface RenameFolderInput {
   folderUid: string;
@@ -37,6 +66,8 @@ export interface CreateFolderInput {
   folderUid: string;
   parent: FolderParentRef;
   name: string;
+  /** Optional override for the persisted last-segment slug. */
+  pathSegment?: string;
   orderKey?: string;
 }
 
