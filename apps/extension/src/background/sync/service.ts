@@ -36,8 +36,14 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncRulePostState,
+  SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
-import { COLLECTION_ENTITY_TYPE, ENVIRONMENT_ENTITY_TYPE, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  COLLECTION_ENTITY_TYPE,
+  ENVIRONMENT_ENTITY_TYPE,
+  RULE_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
@@ -62,6 +68,15 @@ import {
   type ResolverInvalidateRunner,
 } from './resolver-invalidate-runner';
 import { projectRuleByUid, projectRulePostState } from './rule-post-state';
+import {
+  createWorkspaceVariablesCache,
+  setActiveWorkspaceVariablesCache,
+  type WorkspaceVariablesCache,
+} from './workspace-variables-cache';
+import {
+  projectWorkspaceVariablesPostState,
+  projectWorkspaceVariablesSingleton,
+} from './workspace-variables-post-state';
 import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
@@ -79,6 +94,7 @@ interface ServiceState {
   ruleCache: RuleCache;
   envCache: EnvironmentCache;
   collectionCache: CollectionCache;
+  workspaceVariablesCache: WorkspaceVariablesCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -121,6 +137,14 @@ export function initSyncService(workspaceId: string): void {
   const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveCollectionCache(collectionCache);
 
+  const workspaceVariablesCache = createWorkspaceVariablesCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveWorkspaceVariablesCache(workspaceVariablesCache);
+
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
   // reflects post-commit state.
@@ -137,7 +161,11 @@ export function initSyncService(workspaceId: string): void {
   const resolverInvalidateRunner = createResolverInvalidateRunner({
     broadcast,
     intents,
-    entityTypes: new Set([ENVIRONMENT_ENTITY_TYPE, COLLECTION_ENTITY_TYPE]),
+    entityTypes: new Set([
+      ENVIRONMENT_ENTITY_TYPE,
+      COLLECTION_ENTITY_TYPE,
+      WORKSPACE_VARIABLES_ENTITY_TYPE,
+    ]),
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
   });
 
@@ -166,7 +194,16 @@ export function initSyncService(workspaceId: string): void {
     const collectionPostState = projectCollectionPostState(oracle, envelope);
     return collectionPostState ? { collectionPostState } : null;
   };
-  const projector = composeProjectors(ruleProjector, envProjector, collectionProjector);
+  const workspaceVariablesProjector: BroadcastProjector = (envelope) => {
+    const workspaceVariablesPostState = projectWorkspaceVariablesPostState(oracle, envelope);
+    return workspaceVariablesPostState ? { workspaceVariablesPostState } : null;
+  };
+  const projector = composeProjectors(
+    ruleProjector,
+    envProjector,
+    collectionProjector,
+    workspaceVariablesProjector,
+  );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
     (event: SyncBroadcastEvent) => {
@@ -177,6 +214,9 @@ export function initSyncService(workspaceId: string): void {
         ...(event.rulePostState ? { rulePostState: event.rulePostState } : {}),
         ...(event.environmentPostState ? { environmentPostState: event.environmentPostState } : {}),
         ...(event.collectionPostState ? { collectionPostState: event.collectionPostState } : {}),
+        ...(event.workspaceVariablesPostState
+          ? { workspaceVariablesPostState: event.workspaceVariablesPostState }
+          : {}),
       });
     },
     projector,
@@ -189,6 +229,7 @@ export function initSyncService(workspaceId: string): void {
     ruleCache,
     envCache,
     collectionCache,
+    workspaceVariablesCache,
     context,
     awareness,
     dnrRunner,
@@ -210,10 +251,12 @@ export function dispose(): void {
   state.ruleCache.dispose();
   state.envCache.dispose();
   state.collectionCache.dispose();
+  state.workspaceVariablesCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
   setActiveCollectionCache(null);
+  setActiveWorkspaceVariablesCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -307,6 +350,19 @@ export function snapshotCollectionPostStates(): SyncCollectionPostState[] {
 }
 
 /**
+ * Snapshot the singleton workspace-variables record. Same shape the
+ * `BroadcastProjector` attaches to live envelopes; consumed by the
+ * `oh.sync.snapshotWorkspaceVariables` RPC for renderer mirror
+ * bootstrap. Returns `[]` when the service isn't initialized or the
+ * singleton hasn't been seeded yet.
+ */
+export function snapshotWorkspaceVariablesPostStates(): SyncWorkspaceVariablesPostState[] {
+  if (!state) return [];
+  const projection = projectWorkspaceVariablesSingleton(state.oracle);
+  return projection ? [projection] : [];
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -383,6 +439,13 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   setActiveEnvironmentCache(envCache);
   const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveCollectionCache(collectionCache);
+  const workspaceVariablesCache = createWorkspaceVariablesCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveWorkspaceVariablesCache(workspaceVariablesCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -392,7 +455,11 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   const resolverInvalidateRunner = createResolverInvalidateRunner({
     broadcast,
     intents,
-    entityTypes: new Set([ENVIRONMENT_ENTITY_TYPE, COLLECTION_ENTITY_TYPE]),
+    entityTypes: new Set([
+      ENVIRONMENT_ENTITY_TYPE,
+      COLLECTION_ENTITY_TYPE,
+      WORKSPACE_VARIABLES_ENTITY_TYPE,
+    ]),
     recompile: deps.recompile ?? (() => {}),
   });
 
@@ -410,6 +477,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     ruleCache,
     envCache,
     collectionCache,
+    workspaceVariablesCache,
     context,
     awareness,
     dnrRunner,

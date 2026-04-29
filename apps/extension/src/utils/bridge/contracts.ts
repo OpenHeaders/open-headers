@@ -31,6 +31,7 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncRulePostState,
+  SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -1265,6 +1266,16 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncCollectionPostState[] };
   };
+  /**
+   * Snapshot the active workspace's singleton workspace-variables
+   * oracle state. Same semantics as the other snapshot RPCs;
+   * `entries` carries 0 or 1 element (singleton — present once seeded,
+   * absent on a cold oracle prior to the first seed).
+   */
+  'oh.sync.snapshotWorkspaceVariables': {
+    req: Record<string, never>;
+    res: { entries: SyncWorkspaceVariablesPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1454,6 +1465,12 @@ export interface BridgeBroadcastContract {
      * SW oracle.
      */
     collectionPostState?: SyncCollectionPostState;
+    /**
+     * Post-commit projection for workspace-variables envelopes (Phase B).
+     * Renderer-side workspace-variables mirror folds this in lockstep
+     * with the SW oracle.
+     */
+    workspaceVariablesPostState?: SyncWorkspaceVariablesPostState;
   };
 
   /**

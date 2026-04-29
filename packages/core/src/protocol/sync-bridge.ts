@@ -87,6 +87,21 @@ export interface SyncCollectionPostState {
   varNames: string[];
 }
 
+/**
+ * Post-commit projection for a workspace-variables envelope. Singleton
+ * entity per workspace — there is exactly one materialized record at
+ * the fixed id `workspace-vars`. Carries the materialized
+ * {@link V5.WorkspaceVariables} plus the live variable names (set
+ * member identity = name, same as env + collection vars). Renderer
+ * mirrors fold this so the workspace-vars editing surface reads
+ * post-commit state without a round-trip.
+ */
+export interface SyncWorkspaceVariablesPostState {
+  workspaceVariables: V5.WorkspaceVariables;
+  /** Live variable names — the set-member identity for workspace vars. */
+  varNames: string[];
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -111,6 +126,13 @@ export interface SyncBroadcastEvent {
    * leave it `undefined`.
    */
   collectionPostState?: SyncCollectionPostState;
+  /**
+   * Populated for workspace-variables envelopes whose batch left a
+   * materialized record in place. Tombstoned (singleton deletion is
+   * not a production gesture) and rolled-back batches leave it
+   * `undefined`.
+   */
+  workspaceVariablesPostState?: SyncWorkspaceVariablesPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */
