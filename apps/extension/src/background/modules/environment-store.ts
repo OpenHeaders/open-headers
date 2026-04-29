@@ -288,34 +288,6 @@ export async function setCollectionEnvOverride(collectionId: string, envId: stri
   notifyChange();
 }
 
-// ── Workspace variables ────────────────────────────────────────────
-
-/**
- * Outcome of a workspace-vars write. Phase B retired the stale-draft
- * branch (§24) — concurrent edits reconcile via HLC LWW at the oracle.
- * Singleton — the blob always exists (init on hydrate), so a
- * `not-found` branch is absent.
- */
-export type WorkspaceVariablesWriteResult = { ok: true; workspaceVariables: V5.WorkspaceVariables };
-
-export async function setWorkspaceVariables(
-  next: Omit<V5.WorkspaceVariables, 'schemaVersion'> & { schemaVersion?: number },
-): Promise<WorkspaceVariablesWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'workspace-vars', 'singleton'),
-    async () => {
-      workspaceVariables = {
-        schemaVersion: 5,
-        variables: next.variables,
-      };
-      await persistWorkspaceVariables();
-      return { ok: true, workspaceVariables };
-    },
-    { op: 'workspace-vars-set' },
-  );
-}
-
 function reconcileOverrides(
   overrides: Record<string, string | null>,
   envs: V5.Environment[],
@@ -352,18 +324,6 @@ async function persistDefaultEnvironment(): Promise<void> {
 async function persistManualEnvId(): Promise<void> {
   const workspaceId = assertLoaded();
   await extensionStorage.set(wsKeys(workspaceId).manualEnvId, manualEnvId);
-  notifyChange();
-}
-
-async function persistWorkspaceVariables(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).workspaceVars, workspaceVariables);
-  notifyChange();
-}
-
-async function persistVault(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).vault, vault);
   notifyChange();
 }
 

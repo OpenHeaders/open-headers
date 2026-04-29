@@ -56,13 +56,14 @@ export function __setExecuteRequestDraft(fn: typeof executeRequestDraftRef): voi
   executeRequestDraftRef = fn;
 }
 
+import { buildSetWorkspaceVarBatch } from '@/shared/sync/workspace-variables-mutations';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
   getEnvironments,
   getVault,
   getWorkspaceVariables,
-  setWorkspaceVariables,
 } from './environment-store';
 import { getTokenBundle as getOAuthTokenBundle } from './oauth-token-store';
 import { getRequestCollections } from './request-store';
@@ -332,15 +333,24 @@ function buildHostResolver(): VariableResolver {
 }
 
 async function writeWorkspaceVariable(name: string, value: string): Promise<void> {
-  const current = getWorkspaceVariables();
   const trimmed = name.trim();
   if (!trimmed) throw new Error('oh.variables.set: empty variable name');
-  const idx = current.variables.findIndex((v) => v.name === trimmed);
-  const nextVariables: V5.Variable[] =
-    idx >= 0
-      ? [...current.variables.slice(0, idx), { ...current.variables[idx]!, value }, ...current.variables.slice(idx + 1)]
-      : [...current.variables, { name: trimmed, value, type: 'default' }];
-  await setWorkspaceVariables({ variables: nextVariables });
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw-script-host' });
+  if (!oracle || !ctx) {
+    throw new Error('oh.variables.set: sync service not initialized');
+  }
+  const existing = getWorkspaceVariables().variables.find((v) => v.name === trimmed);
+  const { batch, sideEffects } = buildSetWorkspaceVarBatch(
+    { name: trimmed, value, type: existing?.type ?? 'default' },
+    ctx,
+  );
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `oh.variables.set: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
 
 async function resolveVaultRef(ref: string): Promise<string | null> {
