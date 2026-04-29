@@ -55,6 +55,34 @@ export {
   type VariableType,
 } from './environment';
 export {
+  createLiveVariable,
+  type CreateLiveVariableArgs,
+  deleteLiveVariable,
+  type DeleteLiveVariableArgs,
+  invalidateResolverIntent as liveVariableInvalidateResolverIntent,
+  LIVE_VARIABLE_ENTITY_TYPE,
+  LIVE_VARIABLE_MUTATOR_VERSION,
+  type LiveVariableScalarPath,
+  setLiveVariableField,
+  type SetLiveVariableFieldArgs,
+  unsetLiveVariableField,
+  type UnsetLiveVariableFieldArgs,
+} from './live-variable';
+export {
+  createLiveWorkflow,
+  type CreateLiveWorkflowArgs,
+  deleteLiveWorkflow,
+  type DeleteLiveWorkflowArgs,
+  invalidateResolverIntent as liveWorkflowInvalidateResolverIntent,
+  LIVE_WORKFLOW_ENTITY_TYPE,
+  LIVE_WORKFLOW_MUTATOR_VERSION,
+  type LiveWorkflowScalarPath,
+  setLiveWorkflowField,
+  type SetLiveWorkflowFieldArgs,
+  unsetLiveWorkflowField,
+  type UnsetLiveWorkflowFieldArgs,
+} from './live-workflow';
+export {
   addRequestHeader,
   type AddRequestHeaderArgs,
   addRequestParam,
