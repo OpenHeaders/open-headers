@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: wfdagbrn
 name: Probe-Driven Branching
 description: Probe step decides which of two paths runs. pathA runs when the probe's flag capture equals "a"; pathB runs when it equals "b". Mutually exclusive gates are the v1 OR-workaround until the Any-of-clauses toggle ships. Both paths depend on probe but are siblings — neither depends on the other.

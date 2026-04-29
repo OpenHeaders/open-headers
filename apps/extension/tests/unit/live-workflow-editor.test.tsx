@@ -46,7 +46,6 @@ beforeAll(() => {
 // package's vite / tsconfig.
 const workflowFixture: V5.LiveWorkflow = {
   schemaVersion: 5,
-  version: 1,
   uid: 'wftestfxt',
   path: 'live-workflows/test-fixture-wftestfxt',
   name: 'test fixture',

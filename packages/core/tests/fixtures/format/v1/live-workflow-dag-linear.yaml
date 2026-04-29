@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: wfdaglin
 name: Explicit Linear Chain
 description: Three-step chain with explicit dependsOn declarations. Verifies that explicit dependsOn reproduces the implicit prior-step semantics — this workflow runs identically to the backwards-compat live-workflow-chain.yaml fixture.

@@ -98,7 +98,6 @@ export const RUNTIME_ONLY_FIELDS = ['path'] as const;
  */
 export const LIVE_WORKFLOW_FIELD_ORDER = [
   'schemaVersion',
-  'version',
   'uid',
   'name',
   'description',
@@ -114,7 +113,6 @@ export const LIVE_WORKFLOW_FIELD_ORDER = [
  */
 export const LIVE_VARIABLE_FIELD_ORDER = [
   'schemaVersion',
-  'version',
   'uid',
   'name',
   'description',

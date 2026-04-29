@@ -276,8 +276,6 @@ export const RefreshPolicySchema = v.variant('kind', [
 
 export const LiveWorkflowSchema = v.object({
   schemaVersion: SchemaVersionSchema,
-  /** Phase 10 monotonic write counter (stale-draft detection). */
-  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   uid: UidSchema,
   path: RelativePathSchema,
   name: v.pipe(v.string(), v.minLength(1)),
@@ -311,7 +309,6 @@ export const LiveVariableOverrideSchema = v.object({
 
 export const LiveVariableSchema = v.object({
   schemaVersion: SchemaVersionSchema,
-  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   uid: UidSchema,
   path: RelativePathSchema,
   /** Namespace key: referenced as `{{live.<name>}}`. Unique within the workspace. */

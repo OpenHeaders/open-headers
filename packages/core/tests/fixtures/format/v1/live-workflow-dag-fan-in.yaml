@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: wfdagfan
 name: Two-Parent Fan-In
 description: Two independent root steps (explicit dependsOn [] declares them as parallel roots) both feed a single descendant. The descendant's request template references both parents' captures via {{step.X.Y}} — exercises transitive-ancestor reachability for template validation. Sequential execution still applies in v1 (roots run in declared order; descendant runs after both).

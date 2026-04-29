@@ -19,7 +19,6 @@ function cap(name: string): Capture {
 function lv(overrides: Partial<LiveVariable>): LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'lvxxxxxx',
     path: 'live-variables/lv',
     name: 'n',
@@ -34,7 +33,6 @@ function lv(overrides: Partial<LiveVariable>): LiveVariable {
 function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wfxxxxxx',
     path: 'live-workflows/wf',
     name: 'wf',

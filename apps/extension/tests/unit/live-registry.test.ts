@@ -57,7 +57,6 @@ vi.mock('@utils/logger', () => ({
 function makeLV(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: overrides.uid ?? 'lvar0001',
     path: `live-variables/${overrides.name ?? 'token'}-${overrides.uid ?? 'lvar0001'}`,
     name: overrides.name ?? 'token',

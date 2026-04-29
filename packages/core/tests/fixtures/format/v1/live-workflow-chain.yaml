@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 3
 uid: wflow002
 name: CSRF-Protected Auth Chain
 description: Three-step dance — login sets session cookie, /csrf returns a token, /finalize exchanges both for an access token.

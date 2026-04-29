@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: wfdagprt
 name: Priority-Ordered Refresh
 description: Probe returns staleness values for two independent refresh targets. Both refresh steps depend on probe but neither depends on the other. priorityFrom reads the staleness numeric from probe to order the ready-set ascending — the more-stale target refreshes first. Ties fall back to declared-list position.

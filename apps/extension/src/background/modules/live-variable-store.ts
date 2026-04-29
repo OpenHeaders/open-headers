@@ -9,20 +9,37 @@
  * live on the backing workflow (`live-workflow-store.ts`), and the
  * cached values live in `live-cache-store.ts`.
  *
+ * Writes route through the sync oracle (catalog factory →
+ * MutationBatch → `oracle.apply`); the {@link LiveVariableCache} owns
+ * `chrome.storage.local` persistence + drives the local mirror via
+ * broadcast-driven re-projection. Reads stay synchronous off the local
+ * mirror.
+ *
  * Deleting a workflow does NOT cascade into LV deletion — orphaned
  * LVs surface `workflow-not-found` resolution errors at resolve time
- * (Phase E) so the user sees the broken binding and can rebind rather
- * than silently losing the namespace entry.
+ * so the user sees the broken binding and can rebind rather than
+ * silently losing the namespace entry.
  *
- * Storage: `oh.ws.<id>.liveVariables`.
+ * Storage: `oh.ws.<id>.liveVariables` (cache-owned).
  */
 
 import { LiveVariableSchema } from '@openheaders/core/schemas';
+import type {
+  MutationBatch,
+  MutatorContext,
+  SideEffectIntent,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
+import {
+  buildAddLiveVariableBatch,
+  buildDeleteLiveVariableBatch,
+  buildUpdateLiveVariableBatch,
+} from '@/shared/sync/live-variable-mutations';
+import { getActiveLiveVariableCache } from '../sync/live-variable-cache';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -59,11 +76,6 @@ export function getLiveVariableByName(name: string): V5.LiveVariable | null {
   return variables.find((v) => v.name === name) ?? null;
 }
 
-/**
- * LVs bound to a given workflow. Used by the scheduler + resolver to
- * reference-count a workflow (auto-pause when no enabled LV references
- * it) and to narrow DNR rebuilds when a cache entry changes.
- */
 export function getLiveVariablesForWorkflow(workflowUid: string): V5.LiveVariable[] {
   return variables.filter((v) => v.workflowUid === workflowUid);
 }
@@ -87,12 +99,14 @@ export interface CreateLiveVariableInput {
   enabled?: boolean;
 }
 
-export function createLiveVariable(input: CreateLiveVariableInput): V5.LiveVariable {
+export async function createLiveVariable(
+  input: CreateLiveVariableInput,
+): Promise<V5.LiveVariable> {
+  assertLoaded();
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
   const created: V5.LiveVariable = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live-variables/${folderName}`,
     name: input.name,
@@ -103,88 +117,94 @@ export function createLiveVariable(input: CreateLiveVariableInput): V5.LiveVaria
     ...(input.requireFreshOnRuleBuild ? { requireFreshOnRuleBuild: true } : {}),
     enabled: input.enabled ?? true,
   };
-  variables = [...variables, created];
-  void persist();
+  await applyLiveVariableMutationOrThrow(
+    (ctx) => buildAddLiveVariableBatch(created, ctx),
+    'createLiveVariable',
+  );
   return created;
 }
 
+/**
+ * Outcome of a live-variable write. The legacy stale-draft branch is
+ * retired in Phase B — convergence is per-(field) LWW at the oracle,
+ * not a versioned compare-and-set.
+ */
 export type LiveVariableWriteResult =
-  | { ok: true; version: number; variable: V5.LiveVariable }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverVariable: V5.LiveVariable }
-  | { ok: false; reason: 'not-found' };
-
-export interface UpdateLiveVariableOptions {
-  /** Version the client loaded. Omit to opt out of stale-draft detection. */
-  expectedVersion?: number;
-}
+  | { ok: true; variable: V5.LiveVariable }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message: string };
 
 export async function updateLiveVariable(
   uid: string,
-  updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-  options: UpdateLiveVariableOptions = {},
+  updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>,
 ): Promise<LiveVariableWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'live-variable-def', uid),
-    async () => {
-      const index = variables.findIndex((v) => v.uid === uid);
-      if (index === -1) return { ok: false, reason: 'not-found' } as LiveVariableWriteResult;
-      const existing = variables[index];
-      if (options.expectedVersion !== undefined && options.expectedVersion !== existing.version) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: existing.version,
-          serverVariable: existing,
-        } as LiveVariableWriteResult;
-      }
-      const nextVersion = existing.version + 1;
-      const updated = { ...existing, ...updates, version: nextVersion } as V5.LiveVariable;
-      variables = [...variables.slice(0, index), updated, ...variables.slice(index + 1)];
-      await persist();
-      return { ok: true, version: nextVersion, variable: updated } as LiveVariableWriteResult;
-    },
-    { op: 'live-variable-update' },
-  );
+  assertLoaded();
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    return { ok: false, reason: 'other', message: 'sync service not initialized' };
+  }
+  const existing = variables.find((v) => v.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' };
+
+  const payload = buildUpdateLiveVariableBatch(uid, updates, ctx);
+  if (payload.batch.mutations.length === 0) {
+    return { ok: true, variable: existing };
+  }
+  const result = await oracle.apply(payload.batch, payload.sideEffects);
+  if (!result.ok) {
+    return {
+      ok: false,
+      reason: 'other',
+      message: result.failure?.detail ?? 'oracle rejected live-variable batch',
+    };
+  }
+  return { ok: true, variable: { ...existing, ...updates } as V5.LiveVariable };
 }
 
 export async function deleteLiveVariable(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'live-variable-def', uid),
-    async () => {
-      const before = variables.length;
-      variables = variables.filter((v) => v.uid !== uid);
-      if (variables.length === before) return false;
-      await persist();
-      return true;
-    },
-    { op: 'live-variable-delete' },
+  assertLoaded();
+  if (!variables.some((v) => v.uid === uid)) return false;
+  await applyLiveVariableMutationOrThrow(
+    (ctx) => buildDeleteLiveVariableBatch(uid, ctx),
+    'deleteLiveVariable',
   );
+  return true;
 }
 
 /**
  * Set or clear a manual-override on an LV. Thin wrapper over
- * `updateLiveVariable` that keeps the override's shape coherent —
- * `value` required when setting, clears both `value` and `until`
- * when the caller passes `null`.
+ * `updateLiveVariable` that keeps the override's shape coherent.
  */
 export async function setLiveVariableOverride(
   uid: string,
   override: V5.LiveVariableOverride | null,
-  options: UpdateLiveVariableOptions = {},
 ): Promise<LiveVariableWriteResult> {
-  return updateLiveVariable(uid, { manualOverride: override ?? undefined }, options);
+  return updateLiveVariable(uid, { manualOverride: override ?? undefined });
 }
 
-// ── Persistence ─────────────────────────────────────────────────────
+// ── Sync engine plumbing ────────────────────────────────────────────
 
-async function persist(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).liveVariables, variables);
-  logger.debug('LiveVariableStore', `Persisted ${variables.length} variables (ws=${workspaceId})`);
-  notifyChange();
+async function applyLiveVariableMutationOrThrow(
+  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`LiveVariableStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `LiveVariableStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
+
+// ── Hydration / workspace switch ────────────────────────────────────
 
 async function readSnapshot(workspaceId: string): Promise<V5.LiveVariable[]> {
   return extensionStorage.getValidatedArray(wsKeys(workspaceId).liveVariables, LiveVariableSchema, {
@@ -219,10 +239,38 @@ export async function purgeLiveVariablesForWorkspace(workspaceId: string): Promi
   logger.info('LiveVariableStore', `Purged variables for workspace ${workspaceId}`);
 }
 
+// ── Sync engine bridge ──────────────────────────────────────────────
+
+let cacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local `variables` array to the active workspace's
+ * {@link LiveVariableCache}. Idempotent — the prior subscription is
+ * dropped first.
+ */
+export async function bridgeLiveVariableSyncEngine(): Promise<void> {
+  const cache = getActiveLiveVariableCache();
+  if (!cache) return;
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  cacheUnsubscribe = cache.onChange(() => {
+    variables = cache.getLiveVariables();
+    notifyChange();
+  });
+  await cache.seedFromPersistedLiveVariables(variables);
+  variables = cache.getLiveVariables();
+}
+
 // ── Test helpers ────────────────────────────────────────────────────
 
 export function __resetForTests(): void {
   variables = [];
   loadedWorkspaceId = null;
   changeListeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
 }

@@ -18,7 +18,6 @@ import { buildDependencyRows, MAX_INDENT } from '@/workbench/components/live/dep
 function mkWorkflow(steps: V5.WorkflowStep[]): V5.LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wfabcdef',
     path: 'live-workflows/test-wfabcdef',
     name: 'test',

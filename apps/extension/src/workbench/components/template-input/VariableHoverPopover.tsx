@@ -604,7 +604,7 @@ async function runUpdate(
       return mutator.replaceWorkspaceVariables(next);
     }
     case 'live':
-      return mutator.setLiveOverride(c.lv.uid, { value: draft }, c.lv.version);
+      return mutator.setLiveOverride(c.lv.uid, { value: draft });
     case 'step':
     case 'file':
     case 'reserved':

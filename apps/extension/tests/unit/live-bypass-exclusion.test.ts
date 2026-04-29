@@ -37,10 +37,10 @@ import * as liveVarStore from '@/background/modules/live-variable-store';
 import { LIVE_BYPASS_HEADER, liveBypassHeaderValue } from '@/background/modules/request-executor';
 import { computeRuleLiveBypass, __resetForTests as resetResolver } from '@/background/modules/variables-resolver';
 import * as workspaceStore from '@/background/modules/workspace-store';
+import { __initSyncServiceForTests, dispose as disposeSyncService } from '@/background/sync/service';
 
 const LV_A: V5.LiveVariable = {
   schemaVersion: 5,
-  version: 1,
   uid: 'lvaaaaa1',
   path: 'live-variables/a',
   name: 'token',
@@ -52,7 +52,6 @@ const LV_A: V5.LiveVariable = {
 
 const LV_B_DISABLED: V5.LiveVariable = {
   schemaVersion: 5,
-  version: 1,
   uid: 'lvbbbbb1',
   path: 'live-variables/b',
   name: 'csrf',
@@ -134,22 +133,25 @@ describe('attachLiveBypassExclusion', () => {
 });
 
 describe('computeRuleLiveBypass', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     liveVarStore.__resetForTests();
     // Prime the store so assertLoaded() inside mutators doesn't throw;
     // here we only need reads, but hydrate ties the internal workspaceId
     // to a real one so the store's loader guards pass.
     vi.spyOn(workspaceStore, 'getActiveWorkspaceId').mockReturnValue('ws-1');
+    __initSyncServiceForTests('ws-1');
+    await liveVarStore.hydrateFromStorage();
+    await liveVarStore.bridgeLiveVariableSyncEngine();
   });
 
   afterEach(() => {
     resetResolver();
+    disposeSyncService();
     vi.restoreAllMocks();
   });
 
   it('returns the workflow uid for a rule referencing an enabled LV', async () => {
-    await liveVarStore.hydrateFromStorage();
-    liveVarStore.createLiveVariable({
+    await liveVarStore.createLiveVariable({
       name: LV_A.name,
       workflowUid: LV_A.workflowUid,
       stepId: LV_A.stepId,
@@ -162,8 +164,7 @@ describe('computeRuleLiveBypass', () => {
   });
 
   it('ignores references to disabled LVs (no feedback-loop risk)', async () => {
-    await liveVarStore.hydrateFromStorage();
-    liveVarStore.createLiveVariable({
+    await liveVarStore.createLiveVariable({
       name: LV_B_DISABLED.name,
       workflowUid: LV_B_DISABLED.workflowUid,
       stepId: LV_B_DISABLED.stepId,
@@ -177,14 +178,13 @@ describe('computeRuleLiveBypass', () => {
   });
 
   it('collects multiple distinct workflow uids for a rule touching several LVs', async () => {
-    await liveVarStore.hydrateFromStorage();
-    liveVarStore.createLiveVariable({
+    await liveVarStore.createLiveVariable({
       name: LV_A.name,
       workflowUid: LV_A.workflowUid,
       stepId: LV_A.stepId,
       captureName: LV_A.captureName,
     });
-    liveVarStore.createLiveVariable({
+    await liveVarStore.createLiveVariable({
       name: 'csrf',
       workflowUid: 'wflowbb2',
       stepId: 'setup',
@@ -197,8 +197,7 @@ describe('computeRuleLiveBypass', () => {
   });
 
   it('returns an empty set for a rule with no live references', async () => {
-    await liveVarStore.hydrateFromStorage();
-    liveVarStore.createLiveVariable({
+    await liveVarStore.createLiveVariable({
       name: LV_A.name,
       workflowUid: LV_A.workflowUid,
       stepId: LV_A.stepId,
@@ -211,7 +210,6 @@ describe('computeRuleLiveBypass', () => {
   });
 
   it('returns an empty set for a rule referencing an LV that does not exist', async () => {
-    await liveVarStore.hydrateFromStorage();
     // No LV named `phantom` in the store.
     const rule = makeHeaderRule('Bearer {{live.phantom}}');
     const result = computeRuleLiveBypass(rule);

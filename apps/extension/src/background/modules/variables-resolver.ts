@@ -42,7 +42,7 @@ import {
   getWorkspaceVariables,
 } from './environment-store';
 import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from './live-cache-store';
-import { getLiveVariables, onLiveVariableStoreChange } from './live-variable-store';
+import { getLiveVariables } from './live-variable-store';
 import { recordLog } from './observability-log';
 import { getCollections, getRules } from './rule-store';
 import { getCachedTotpCodes } from './totp-scheduler';
@@ -182,13 +182,6 @@ onLiveCacheStoreChange((workspaceId, _workflowUid, runs) => {
   // foreign captures into the mirror.
   if (workspaceId !== getActiveWorkspaceId()) return;
   cachedLiveRuns = [...runs];
-});
-onLiveVariableStoreChange(() => {
-  // LV definition changes don't alter the cache, but they alter the
-  // LV→(workflow,step,capture) mapping. Nothing to re-read — the
-  // registry is rebuilt lazily in `buildLiveRegistry` on every
-  // `syncResolverFromStores`, so we only need the mirror to stay
-  // fresh. Left as a no-op for symmetry + documentation.
 });
 
 /**

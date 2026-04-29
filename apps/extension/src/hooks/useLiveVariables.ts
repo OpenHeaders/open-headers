@@ -4,8 +4,7 @@
  *
  * One bridge call at mount for the initial snapshot + one
  * `liveVariablesChanged` subscription. CRUD + `setOverride` are thin
- * wrappers over the typed RPCs so editors can reuse the Phase 10
- * stale-draft result shape without reimplementing it.
+ * wrappers over the typed RPCs.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -30,14 +29,12 @@ export interface UseLiveVariablesApi {
   }) => Promise<V5.LiveVariable | null>;
   updateVariable: (
     uid: string,
-    updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-    expectedVersion?: number,
+    updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>,
   ) => Promise<LiveVariableWriteResult>;
   deleteVariable: (uid: string) => Promise<boolean>;
   setOverride: (
     uid: string,
     override: V5.LiveVariableOverride | null,
-    expectedVersion?: number,
   ) => Promise<LiveVariableOverrideResult>;
 }
 
@@ -75,10 +72,10 @@ export function useLiveVariables(): UseLiveVariablesApi {
     return resp?.success ? (resp.variable ?? null) : null;
   }, []);
 
-  const updateVariable = useCallback<UseLiveVariablesApi['updateVariable']>(async (uid, updates, expectedVersion) => {
-    return call('updateLiveVariable', { uid, updates, expectedVersion }).catch(
+  const updateVariable = useCallback<UseLiveVariablesApi['updateVariable']>(async (uid, updates) => {
+    return call('updateLiveVariable', { uid, updates }).catch(
       (err: Error) =>
-        ({ success: false, reason: 'not-found', error: err.message }) as unknown as LiveVariableWriteResult,
+        ({ success: false, reason: 'other', error: err.message }) as unknown as LiveVariableWriteResult,
     );
   }, []);
 
@@ -87,10 +84,10 @@ export function useLiveVariables(): UseLiveVariablesApi {
     return Boolean(resp?.success);
   }, []);
 
-  const setOverride = useCallback<UseLiveVariablesApi['setOverride']>(async (uid, override, expectedVersion) => {
-    return call('setLiveVariableOverride', { uid, override, expectedVersion }).catch(
+  const setOverride = useCallback<UseLiveVariablesApi['setOverride']>(async (uid, override) => {
+    return call('setLiveVariableOverride', { uid, override }).catch(
       (err: Error) =>
-        ({ success: false, reason: 'not-found', error: err.message }) as unknown as LiveVariableOverrideResult,
+        ({ success: false, reason: 'other', error: err.message }) as unknown as LiveVariableOverrideResult,
     );
   }, []);
 

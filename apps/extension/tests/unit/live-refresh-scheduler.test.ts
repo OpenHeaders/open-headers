@@ -157,7 +157,6 @@ const NOW = 1_700_000_000_000;
 function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wflow001',
     path: 'live-workflows/demo-wflow001',
     name: 'Demo',
@@ -177,7 +176,6 @@ function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow
 function makeVariable(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'livvar01',
     path: 'live-variables/demo-livvar01',
     name: 'authToken',

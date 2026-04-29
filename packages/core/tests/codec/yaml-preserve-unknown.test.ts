@@ -174,7 +174,6 @@ futureMeta: retain
 
   it('live-workflow.yaml retains unknown top-level key', () => {
     const raw = `schemaVersion: 5
-version: 1
 uid: wflow003
 name: Example
 enabled: true
@@ -197,7 +196,6 @@ ownerTeam: platform
 
   it('live-variable.yaml retains unknown top-level key', () => {
     const raw = `schemaVersion: 5
-version: 1
 uid: livvar03
 name: exampleValue
 enabled: true

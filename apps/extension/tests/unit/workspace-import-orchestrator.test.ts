@@ -63,9 +63,11 @@ vi.mock('@/background/modules/environment-store', () => ({
 }));
 vi.mock('@/background/modules/live-workflow-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
+  bridgeLiveWorkflowSyncEngine: vi.fn(async () => {}),
 }));
 vi.mock('@/background/modules/live-variable-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
+  bridgeLiveVariableSyncEngine: vi.fn(async () => {}),
 }));
 vi.mock('@/background/modules/rule-engine', () => ({
   scheduleUpdate: vi.fn(),

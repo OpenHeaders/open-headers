@@ -101,7 +101,6 @@ function env(uid: string, name: string): Environment {
 function workflow(uid: string, name: string, enabled = true): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live-workflows/${name}-${uid}`,
     name,
@@ -114,7 +113,6 @@ function workflow(uid: string, name: string, enabled = true): LiveWorkflow {
 function liveVar(uid: string, name: string, workflowUid: string, enabled = true): LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live-variables/${name}-${uid}`,
     name,

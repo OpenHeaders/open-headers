@@ -75,7 +75,6 @@ import {
 function makeLv(overrides: Partial<V5.LiveVariable>): V5.LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'lv000001',
     path: 'live-variables/v',
     name: 'token',

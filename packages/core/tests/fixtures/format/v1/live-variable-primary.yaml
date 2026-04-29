@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: livvar01
 name: debugAuth
 description: Referenced as {{live.debugAuth}} — 5-minute debug-auth bearer.

@@ -5,7 +5,6 @@ import type { LiveWorkflow, WorkflowStep } from '../../src/types/v5/live';
 function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wfxxxxxx',
     path: 'live-workflows/wf',
     name: 'wf',

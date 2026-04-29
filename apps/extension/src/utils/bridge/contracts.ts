@@ -1075,21 +1075,15 @@ export interface BridgeRpcContract {
     };
     res: { success: boolean; workflow?: V5.LiveWorkflow; error?: string };
   };
-  /**
-   * Update a workflow. Returns the Phase 10 write result so editors
-   * can surface `stale-draft` on concurrent-edit races. Callers that
-   * don't track `expectedVersion` opt into last-write-wins.
-   */
   updateLiveWorkflow: {
     req: {
       uid: string;
-      updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
-      expectedVersion?: number;
+      updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res:
-      | { success: true; workflow: V5.LiveWorkflow; version: number }
-      | { success: false; reason: 'stale-draft'; serverVersion: number; serverWorkflow: V5.LiveWorkflow }
-      | { success: false; reason: 'not-found' };
+      | { success: true; workflow: V5.LiveWorkflow }
+      | { success: false; reason: 'not-found' }
+      | { success: false; reason: 'other'; error: string };
   };
   deleteLiveWorkflow: {
     req: { uid: string };
@@ -1119,13 +1113,12 @@ export interface BridgeRpcContract {
   updateLiveVariable: {
     req: {
       uid: string;
-      updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
-      expectedVersion?: number;
+      updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res:
-      | { success: true; variable: V5.LiveVariable; version: number }
-      | { success: false; reason: 'stale-draft'; serverVersion: number; serverVariable: V5.LiveVariable }
-      | { success: false; reason: 'not-found' };
+      | { success: true; variable: V5.LiveVariable }
+      | { success: false; reason: 'not-found' }
+      | { success: false; reason: 'other'; error: string };
   };
   deleteLiveVariable: {
     req: { uid: string };
@@ -1133,15 +1126,14 @@ export interface BridgeRpcContract {
   };
   /**
    * Pin an LV to a fixed value (debug override) or clear an existing
-   * override. Pass `null` to clear. Same stale-draft semantics as
-   * `updateLiveVariable`.
+   * override. Pass `null` to clear.
    */
   setLiveVariableOverride: {
-    req: { uid: string; override: V5.LiveVariableOverride | null; expectedVersion?: number };
+    req: { uid: string; override: V5.LiveVariableOverride | null };
     res:
-      | { success: true; variable: V5.LiveVariable; version: number }
-      | { success: false; reason: 'stale-draft'; serverVersion: number; serverVariable: V5.LiveVariable }
-      | { success: false; reason: 'not-found' };
+      | { success: true; variable: V5.LiveVariable }
+      | { success: false; reason: 'not-found' }
+      | { success: false; reason: 'other'; error: string };
   };
   /**
    * Every cached run for a workflow — one entry per active environment

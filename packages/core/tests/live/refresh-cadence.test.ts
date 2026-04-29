@@ -12,7 +12,6 @@ const NOW = 1_700_000_000_000;
 function makeWorkflow(refresh: RefreshPolicy, overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wflow001',
     path: 'live-workflows/demo-wflow001',
     name: 'Demo',

@@ -56,8 +56,16 @@ import {
   refreshLiveWorkflowSynchronously,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
-import { getLiveVariables, onLiveVariableStoreChange } from './modules/live-variable-store';
-import { getLiveWorkflows, onLiveWorkflowStoreChange } from './modules/live-workflow-store';
+import {
+  bridgeLiveVariableSyncEngine,
+  getLiveVariables,
+  onLiveVariableStoreChange,
+} from './modules/live-variable-store';
+import {
+  bridgeLiveWorkflowSyncEngine,
+  getLiveWorkflows,
+  onLiveWorkflowStoreChange,
+} from './modules/live-workflow-store';
 import { handleGeneralMessage } from './modules/message-handler';
 import {
   handleOAuthAlarm,
@@ -398,6 +406,17 @@ async function initializeExtension(): Promise<void> {
           err,
         );
       });
+    // Live: workflow → variable (parent → child) so workflows are in
+    // the oracle when LV bindings seed.
+    void bridgeLiveWorkflowSyncEngine()
+      .then(() => bridgeLiveVariableSyncEngine())
+      .catch((err: unknown) => {
+        logger.warn(
+          'Background',
+          'bridgeLiveWorkflow/LiveVariable after workspace switch failed',
+          err,
+        );
+      });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -538,6 +557,8 @@ async function initializeExtension(): Promise<void> {
   await bridgeTemplateCollectionSyncEngine();
   await bridgeTemplateFolderSyncEngine();
   await bridgeTemplateSyncEngine();
+  await bridgeLiveWorkflowSyncEngine();
+  await bridgeLiveVariableSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /

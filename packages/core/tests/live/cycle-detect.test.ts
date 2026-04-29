@@ -5,7 +5,6 @@ import type { LiveVariable, LiveWorkflow } from '../../src/types/v5/live';
 function wf(uid: string, name: string, requestUid: string, captureName = 'value'): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live-workflows/${name}-${uid}`,
     name,
@@ -24,7 +23,6 @@ function wf(uid: string, name: string, requestUid: string, captureName = 'value'
 function lv(uid: string, name: string, workflowUid: string, captureName = 'value'): LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live-variables/${name}-${uid}`,
     name,

@@ -136,7 +136,6 @@ function makeTemplate(overrides: Partial<Template> = {}): Template {
 function makeLiveWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wf000001',
     path: 'lw-path',
     name: 'Refresh token',
@@ -150,7 +149,6 @@ function makeLiveWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
 function makeLiveVariable(overrides: Partial<LiveVariable> = {}): LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'lv000001',
     path: 'lv-path',
     name: 'TOKEN',

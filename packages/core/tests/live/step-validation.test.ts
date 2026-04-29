@@ -10,7 +10,6 @@ import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '../../src/types/
 function wf(steps: WorkflowStep[], refresh: RefreshPolicy = { kind: 'manual' }): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wflow001',
     path: 'live-workflows/wf',
     name: 'wf',

@@ -28,7 +28,6 @@ function singleStep(id: string, requestUid: string, captureExtractors: Array<[st
 function workflow(steps: WorkflowStep[]): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wflow001',
     path: 'live-workflows/demo-wflow001',
     name: 'Demo',

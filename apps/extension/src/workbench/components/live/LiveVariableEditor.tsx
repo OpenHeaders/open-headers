@@ -36,7 +36,6 @@ import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typograp
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import EditorHeader from '../EditorHeader';
-import StaleDraftBanner from '../StaleDraftBanner';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
 import {
   classifyRun,
@@ -345,8 +344,6 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   // `useDirtyDraft` hook file-header comment documents the trap.
   const [persistedFp, setPersistedFp] = useState<string>(lv ? fingerprintEdit(editDraftFromVariable(lv)) : '');
 
-  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
-  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
   const [revealValue, setRevealValue] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -366,12 +363,6 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     }
   }, [lv, draft, persistedFp]);
 
-  useEffect(() => {
-    if (loadedVersion !== null) return;
-    if (!lv) return;
-    setLoadedVersion(lv.version);
-  }, [lv, loadedVersion]);
-
   const isDirty = useMemo(() => (draft ? fingerprintEdit(draft) !== persistedFp : false), [draft, persistedFp]);
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -379,28 +370,18 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
 
   const handleSave = useCallback(async () => {
     if (!lv || !draft) return;
-    const result = await updateVariable(
-      lv.uid,
-      {
-        name: draft.name,
-        description: draft.description.trim() ? draft.description : undefined,
-        enabled: draft.enabled,
-        requireFreshOnRuleBuild: draft.requireFreshOnRuleBuild,
-        workflowUid: draft.workflowUid,
-        stepId: draft.stepId,
-        captureName: draft.captureName,
-      },
-      loadedVersion ?? undefined,
-    );
+    const result = await updateVariable(lv.uid, {
+      name: draft.name,
+      description: draft.description.trim() ? draft.description : undefined,
+      enabled: draft.enabled,
+      requireFreshOnRuleBuild: draft.requireFreshOnRuleBuild,
+      workflowUid: draft.workflowUid,
+      stepId: draft.stepId,
+      captureName: draft.captureName,
+    });
     if (result.success) {
       setPersistedFp(fingerprintEdit(draft));
-      setLoadedVersion(result.version);
-      setStaleDraft(null);
       onDirtyChange?.(false);
-      return;
-    }
-    if (result.reason === 'stale-draft') {
-      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
       return;
     }
     if (result.reason === 'not-found') {
@@ -408,28 +389,12 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       return;
     }
     message.error('Failed to save live variable');
-  }, [lv, draft, updateVariable, loadedVersion, onDirtyChange, message]);
+  }, [lv, draft, updateVariable, onDirtyChange, message]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
   useEffect(() => {
     registerSaveRef?.(handleSaveSync);
   }, [registerSaveRef, handleSaveSync]);
-
-  const handleStaleReload = useCallback(() => {
-    if (!lv) return;
-    const seeded = editDraftFromVariable(lv);
-    setPersistedFp(fingerprintEdit(seeded));
-    setDraft(seeded);
-    setLoadedVersion(lv.version);
-    setStaleDraft(null);
-    onDirtyChange?.(false);
-  }, [lv, onDirtyChange]);
-
-  const handleStaleKeepEditing = useCallback(() => {
-    if (!lv) return;
-    setLoadedVersion(lv.version);
-    setStaleDraft(null);
-  }, [lv]);
 
   const handleRefreshNow = useCallback(async () => {
     if (!lv) return;
@@ -444,19 +409,14 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     async (override: { value: string; until: number | null } | null) => {
       if (!lv) return;
       const payload = override ? { value: override.value, until: override.until ?? undefined } : null;
-      const resp = await setOverride(lv.uid, payload, loadedVersion ?? undefined);
+      const resp = await setOverride(lv.uid, payload);
       if (!resp.success) {
-        message.error(
-          resp.reason === 'stale-draft' ? 'Override save collided with another tab.' : 'Override save failed.',
-        );
+        message.error('Override save failed.');
         return;
       }
-      // Override bumps the LV's version; track it so a follow-up
-      // updateVariable doesn't hit stale-draft rejection.
-      setLoadedVersion(resp.version);
       message.success(override ? 'Override applied' : 'Override cleared');
     },
-    [lv, setOverride, loadedVersion, message],
+    [lv, setOverride, message],
   );
 
   if (!lv) {
@@ -513,16 +473,6 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          {staleDraft && (
-            <StaleDraftBanner
-              entityLabel="live variable"
-              serverVersion={staleDraft.serverVersion}
-              loadedVersion={staleDraft.loadedVersion}
-              onReload={handleStaleReload}
-              onKeepEditing={handleStaleKeepEditing}
-            />
-          )}
-
           {/* Current value — single compact row */}
           <div
             style={{

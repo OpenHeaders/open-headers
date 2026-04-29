@@ -61,8 +61,14 @@ import {
   hydrateEnvironmentsFromStorage,
 } from './environment-store';
 import { recordImportReport } from './import-reports-store';
-import { hydrateFromStorage as hydrateLiveVariablesFromStorage } from './live-variable-store';
-import { hydrateFromStorage as hydrateLiveWorkflowsFromStorage } from './live-workflow-store';
+import {
+  bridgeLiveVariableSyncEngine,
+  hydrateFromStorage as hydrateLiveVariablesFromStorage,
+} from './live-variable-store';
+import {
+  bridgeLiveWorkflowSyncEngine,
+  hydrateFromStorage as hydrateLiveWorkflowsFromStorage,
+} from './live-workflow-store';
 import { recordLog } from './observability-log';
 import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
 import {
@@ -383,6 +389,8 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeTemplateCollectionSyncEngine();
         await bridgeTemplateFolderSyncEngine();
         await bridgeTemplateSyncEngine();
+        await bridgeLiveWorkflowSyncEngine();
+        await bridgeLiveVariableSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

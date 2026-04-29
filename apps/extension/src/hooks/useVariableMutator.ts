@@ -67,7 +67,6 @@ export interface UseVariableMutatorApi {
   setLiveOverride(
     uid: string,
     override: V5.LiveVariableOverride | null,
-    expectedVersion?: number,
   ): Promise<MutationResult>;
 }
 
@@ -157,16 +156,13 @@ export function useVariableMutator(): UseVariableMutatorApi {
   );
 
   const setLiveOverride = useCallback<UseVariableMutatorApi['setLiveOverride']>(
-    async (uid, override, expectedVersion) => {
-      const r = await setOverride(uid, override, expectedVersion);
+    async (uid, override) => {
+      const r = await setOverride(uid, override);
       // Live variable RPCs use {success, reason} — distinct from the
       // {ok, reason} editor shape. Map both into MutationResult so
       // callers don't care which RPC family they hit.
       if (r.success) {
-        return { ok: true, version: r.variable.version };
-      }
-      if (r.reason === 'stale-draft') {
-        return { ok: false, reason: 'stale-draft', serverVersion: r.serverVersion ?? 0 };
+        return { ok: true, version: 1 };
       }
       if (r.reason === 'not-found') return { ok: false, reason: 'not-found' };
       return { ok: false, reason: 'other' };

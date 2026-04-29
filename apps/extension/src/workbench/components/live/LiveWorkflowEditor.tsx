@@ -50,7 +50,6 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
 import EditorHeader from '../EditorHeader';
-import StaleDraftBanner from '../StaleDraftBanner';
 import { buildDependencyRows } from './dependencies-view';
 import { InlineNameDescription, Section } from './layout';
 import {
@@ -164,8 +163,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     workflow ? fingerprint(draftFromWorkflow(workflow, variables)) : '',
   );
 
-  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
-  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -200,12 +197,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     }
   }, [workflow, variables, draft, persistedFp, seedStep]);
 
-  useEffect(() => {
-    if (loadedVersion !== null) return;
-    if (!workflow) return;
-    setLoadedVersion(workflow.version);
-  }, [workflow, loadedVersion]);
-
   const isDirty = useMemo(() => (draft ? fingerprint(draft) !== persistedFp : false), [draft, persistedFp]);
 
   useEffect(() => {
@@ -217,17 +208,13 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     // 1. Persist the workflow itself. Captures are stripped of their
     //    draft-only exposure overlay — the workflow schema doesn't
     //    include `exposed` / `liveName` / `liveUid`.
-    const result = await updateWorkflow(
-      workflow.uid,
-      {
-        name: draft.name,
-        description: draft.description.trim() ? draft.description : undefined,
-        steps: stripDraftSteps(draft.steps),
-        refresh: draft.refresh,
-        enabled: draft.enabled,
-      },
-      loadedVersion ?? undefined,
-    );
+    const result = await updateWorkflow(workflow.uid, {
+      name: draft.name,
+      description: draft.description.trim() ? draft.description : undefined,
+      steps: stripDraftSteps(draft.steps),
+      refresh: draft.refresh,
+      enabled: draft.enabled,
+    });
     if (result.success) {
       // 2. Apply the LV reconcile plan the pure core helper computed
       //    from the draft's exposure state. Aliases (LVs pointing at
@@ -255,13 +242,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         await deleteVariable(uid);
       }
       setPersistedFp(fingerprint(draft));
-      setLoadedVersion(result.version);
-      setStaleDraft(null);
       onDirtyChange?.(false);
-      return;
-    }
-    if (result.reason === 'stale-draft') {
-      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
       return;
     }
     if (result.reason === 'not-found') {
@@ -273,7 +254,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     workflow,
     draft,
     updateWorkflow,
-    loadedVersion,
     onDirtyChange,
     message,
     variables,
@@ -286,22 +266,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   useEffect(() => {
     registerSaveRef?.(handleSaveSync);
   }, [registerSaveRef, handleSaveSync]);
-
-  const handleStaleReload = useCallback(() => {
-    if (!workflow) return;
-    const seeded = draftFromWorkflow(workflow, variables);
-    setPersistedFp(fingerprint(seeded));
-    setDraft(seeded);
-    setLoadedVersion(workflow.version);
-    setStaleDraft(null);
-    onDirtyChange?.(false);
-  }, [workflow, variables, onDirtyChange]);
-
-  const handleStaleKeepEditing = useCallback(() => {
-    if (!workflow) return;
-    setLoadedVersion(workflow.version);
-    setStaleDraft(null);
-  }, [workflow]);
 
   const handleRefreshNow = useCallback(async () => {
     if (!workflow) return;
@@ -368,16 +332,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          {staleDraft && (
-            <StaleDraftBanner
-              entityLabel="workflow"
-              serverVersion={staleDraft.serverVersion}
-              loadedVersion={staleDraft.loadedVersion}
-              onReload={handleStaleReload}
-              onKeepEditing={handleStaleKeepEditing}
-            />
-          )}
-
           <div
             style={{
               display: 'flex',

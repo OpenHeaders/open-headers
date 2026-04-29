@@ -75,7 +75,6 @@ function makeStep(overrides: Partial<V5.WorkflowStep> = {}): V5.WorkflowStep {
 function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'wflowxxx',
     path: 'live-workflows/demo-wflowxxx',
     name: 'Demo',

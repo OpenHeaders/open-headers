@@ -106,7 +106,6 @@ function makeRuleWithRef(
 function makeWorkflow(uid: string, name: string, requestUids: string[]): LiveWorkflow {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live/${name}-${uid}`,
     name,
@@ -124,7 +123,6 @@ function makeWorkflow(uid: string, name: string, requestUids: string[]): LiveWor
 function makeLiveVar(uid: string, name: string, workflowUid: string): LiveVariable {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live/${name}-${uid}`,
     name,

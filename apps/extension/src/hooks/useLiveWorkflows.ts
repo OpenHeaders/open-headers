@@ -4,9 +4,7 @@
  *
  * One bridge call at mount for the initial snapshot + one
  * `liveWorkflowsChanged` subscription that keeps every surface in sync
- * afterwards. CRUD methods are thin wrappers over the typed RPCs so
- * editors can call them without re-implementing the discriminated
- * write-result shape.
+ * afterwards.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -14,7 +12,6 @@ import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import { useCallback, useEffect, useState } from 'react';
 
-/** Phase 10 write-result shape surfaced to editors. */
 export type LiveWorkflowWriteResult = BridgeRpcResponse<'updateLiveWorkflow'>;
 
 export interface UseLiveWorkflowsApi {
@@ -29,11 +26,9 @@ export interface UseLiveWorkflowsApi {
   }) => Promise<V5.LiveWorkflow | null>;
   updateWorkflow: (
     uid: string,
-    updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-    expectedVersion?: number,
+    updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
   ) => Promise<LiveWorkflowWriteResult>;
   deleteWorkflow: (uid: string) => Promise<boolean>;
-  /** Trigger a manual refresh. Phase B stub — Phase C wires the runner. */
   refreshNow: (
     workflowUid: string,
     environmentId?: string | null,
@@ -74,10 +69,10 @@ export function useLiveWorkflows(): UseLiveWorkflowsApi {
     return resp?.success ? (resp.workflow ?? null) : null;
   }, []);
 
-  const updateWorkflow = useCallback<UseLiveWorkflowsApi['updateWorkflow']>(async (uid, updates, expectedVersion) => {
-    return call('updateLiveWorkflow', { uid, updates, expectedVersion }).catch(
+  const updateWorkflow = useCallback<UseLiveWorkflowsApi['updateWorkflow']>(async (uid, updates) => {
+    return call('updateLiveWorkflow', { uid, updates }).catch(
       (err: Error) =>
-        ({ success: false, reason: 'not-found', error: err.message }) as unknown as LiveWorkflowWriteResult,
+        ({ success: false, reason: 'other', error: err.message }) as unknown as LiveWorkflowWriteResult,
     );
   }, []);
 

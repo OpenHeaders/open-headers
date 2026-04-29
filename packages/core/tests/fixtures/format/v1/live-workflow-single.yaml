@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 uid: wflow001
 name: Debug Auth Token
 description: Single-request LV — fetch a short-lived debug-auth token.

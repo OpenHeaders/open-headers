@@ -3,29 +3,38 @@
  * definitions that power `{{live.X}}` refresh (see
  * `docs/LIVE_VARIABLES_PLAN.md`).
  *
- * Shape mirrors `request-store.ts`: a flat in-memory list hydrated
- * per-active-workspace, mutated through `withLock` + Phase 10 version
- * counters. The workflow owns the ordered step list + refresh policy;
- * its extracted values live in the separate `live-cache-store.ts` keyed
- * by `(workflowUid, environmentId)` so definition edits never clobber
- * cached captures.
+ * Writes route through the sync oracle (catalog factory →
+ * MutationBatch → `oracle.apply`); the {@link LiveWorkflowCache} owns
+ * `chrome.storage.local` persistence + drives the local mirror via
+ * broadcast-driven re-projection.
  *
  * The store does NOT cascade-delete Live Variables when a workflow is
  * removed. Orphaned LVs surface `workflow-not-found` resolution errors
- * at resolve time (Phase E) so the user sees the broken binding and can
- * rebind the LV rather than silently losing the namespace entry.
+ * at resolve time so the user sees the broken binding and can rebind
+ * the LV rather than silently losing the namespace entry.
  *
  * Storage:
- *   - definitions: `oh.ws.<id>.liveWorkflows`
+ *   - definitions: `oh.ws.<id>.liveWorkflows` (cache-owned)
  *   (cache lives at `oh.ws.<id>.liveCache` — see `live-cache-store.ts`)
  */
 
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
+import type {
+  MutationBatch,
+  MutatorContext,
+  SideEffectIntent,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
+import {
+  buildAddLiveWorkflowBatch,
+  buildDeleteLiveWorkflowBatch,
+  buildUpdateLiveWorkflowBatch,
+} from '@/shared/sync/live-workflow-mutations';
+import { getActiveLiveWorkflowCache } from '../sync/live-workflow-cache';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -69,9 +78,7 @@ function assertLoaded(): string {
 
 /**
  * Default refresh policy for a brand-new workflow — manual-only until
- * the user picks a cadence. Matches the request-editor convention of
- * starting from a conservative default rather than picking an auto
- * schedule the user didn't intend.
+ * the user picks a cadence.
  */
 const DEFAULT_REFRESH: V5.RefreshPolicy = { kind: 'manual' };
 
@@ -83,17 +90,14 @@ export interface CreateLiveWorkflowInput {
   enabled?: boolean;
 }
 
-/**
- * Seed a brand-new workflow in memory + persist. Callers without a
- * step list get an empty steps array and a `manual` refresh policy —
- * the editor fills both in before the workflow can actually run.
- */
-export function createLiveWorkflow(input: CreateLiveWorkflowInput): V5.LiveWorkflow {
+export async function createLiveWorkflow(
+  input: CreateLiveWorkflowInput,
+): Promise<V5.LiveWorkflow> {
+  assertLoaded();
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
   const created: V5.LiveWorkflow = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `live-workflows/${folderName}`,
     name: input.name,
@@ -102,74 +106,78 @@ export function createLiveWorkflow(input: CreateLiveWorkflowInput): V5.LiveWorkf
     refresh: input.refresh ?? DEFAULT_REFRESH,
     enabled: input.enabled ?? true,
   };
-  workflows = [...workflows, created];
-  void persist();
+  await applyLiveWorkflowMutationOrThrow(
+    (ctx) => buildAddLiveWorkflowBatch(created, ctx),
+    'createLiveWorkflow',
+  );
   return created;
 }
 
 export type LiveWorkflowWriteResult =
-  | { ok: true; version: number; workflow: V5.LiveWorkflow }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverWorkflow: V5.LiveWorkflow }
-  | { ok: false; reason: 'not-found' };
-
-export interface UpdateLiveWorkflowOptions {
-  /** Version the client loaded. Omit to opt out of stale-draft detection. */
-  expectedVersion?: number;
-}
+  | { ok: true; workflow: V5.LiveWorkflow }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message: string };
 
 export async function updateLiveWorkflow(
   uid: string,
-  updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-  options: UpdateLiveWorkflowOptions = {},
+  updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
 ): Promise<LiveWorkflowWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'live-workflow-def', uid),
-    async () => {
-      const index = workflows.findIndex((w) => w.uid === uid);
-      if (index === -1) return { ok: false, reason: 'not-found' } as LiveWorkflowWriteResult;
-      const existing = workflows[index];
-      if (options.expectedVersion !== undefined && options.expectedVersion !== existing.version) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: existing.version,
-          serverWorkflow: existing,
-        } as LiveWorkflowWriteResult;
-      }
-      const nextVersion = existing.version + 1;
-      const updated = { ...existing, ...updates, version: nextVersion } as V5.LiveWorkflow;
-      workflows = [...workflows.slice(0, index), updated, ...workflows.slice(index + 1)];
-      await persist();
-      return { ok: true, version: nextVersion, workflow: updated } as LiveWorkflowWriteResult;
-    },
-    { op: 'live-workflow-update' },
-  );
+  assertLoaded();
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    return { ok: false, reason: 'other', message: 'sync service not initialized' };
+  }
+  const existing = workflows.find((w) => w.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' };
+
+  const payload = buildUpdateLiveWorkflowBatch(uid, updates, ctx);
+  if (payload.batch.mutations.length === 0) {
+    return { ok: true, workflow: existing };
+  }
+  const result = await oracle.apply(payload.batch, payload.sideEffects);
+  if (!result.ok) {
+    return {
+      ok: false,
+      reason: 'other',
+      message: result.failure?.detail ?? 'oracle rejected live-workflow batch',
+    };
+  }
+  return { ok: true, workflow: { ...existing, ...updates } as V5.LiveWorkflow };
 }
 
 export async function deleteLiveWorkflow(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'live-workflow-def', uid),
-    async () => {
-      const before = workflows.length;
-      workflows = workflows.filter((w) => w.uid !== uid);
-      if (workflows.length === before) return false;
-      await persist();
-      return true;
-    },
-    { op: 'live-workflow-delete' },
+  assertLoaded();
+  if (!workflows.some((w) => w.uid === uid)) return false;
+  await applyLiveWorkflowMutationOrThrow(
+    (ctx) => buildDeleteLiveWorkflowBatch(uid, ctx),
+    'deleteLiveWorkflow',
   );
+  return true;
 }
 
-// ── Persistence ─────────────────────────────────────────────────────
+// ── Sync engine plumbing ────────────────────────────────────────────
 
-async function persist(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).liveWorkflows, workflows);
-  logger.debug('LiveWorkflowStore', `Persisted ${workflows.length} workflows (ws=${workspaceId})`);
-  notifyChange();
+async function applyLiveWorkflowMutationOrThrow(
+  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`LiveWorkflowStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `LiveWorkflowStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
+
+// ── Hydration / workspace switch ────────────────────────────────────
 
 async function readSnapshot(workspaceId: string): Promise<V5.LiveWorkflow[]> {
   return extensionStorage.getValidatedArray(wsKeys(workspaceId).liveWorkflows, LiveWorkflowSchema, {
@@ -204,10 +212,40 @@ export async function purgeLiveWorkflowsForWorkspace(workspaceId: string): Promi
   logger.info('LiveWorkflowStore', `Purged workflows for workspace ${workspaceId}`);
 }
 
+// ── Sync engine bridge ──────────────────────────────────────────────
+
+let cacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local `workflows` array to the active workspace's
+ * {@link LiveWorkflowCache}. Idempotent — the prior subscription is
+ * dropped first. Call BEFORE {@link bridgeLiveVariableSyncEngine} so
+ * parent (workflow) state is already in the oracle when bound LVs
+ * seed.
+ */
+export async function bridgeLiveWorkflowSyncEngine(): Promise<void> {
+  const cache = getActiveLiveWorkflowCache();
+  if (!cache) return;
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  cacheUnsubscribe = cache.onChange(() => {
+    workflows = cache.getLiveWorkflows();
+    notifyChange();
+  });
+  await cache.seedFromPersistedLiveWorkflows(workflows);
+  workflows = cache.getLiveWorkflows();
+}
+
 // ── Test helpers ────────────────────────────────────────────────────
 
 export function __resetForTests(): void {
   workflows = [];
   loadedWorkspaceId = null;
   changeListeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
 }
