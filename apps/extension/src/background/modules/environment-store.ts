@@ -24,6 +24,7 @@ import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '@openh
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
+import { getActiveEnvironmentCache } from '@/background/sync/environment-cache';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
@@ -666,6 +667,42 @@ export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promis
     keys.collectionEnvOverrides,
     keys.manualEnvId,
   ]);
+}
+
+// ── Sync engine bridge ──────────────────────────────────────────────
+
+let envCacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local `environments` array to the active workspace's
+ * {@link EnvironmentCache}: seed the oracle from the hydrated env list,
+ * then subscribe to broadcast-driven re-projections so subsequent
+ * mutations flow back into the local mirror. Mirrors
+ * `rule-store.bridgeToSyncEngine`.
+ *
+ * Call AFTER `initSyncService(workspaceId)` AND AFTER
+ * `hydrateEnvironmentsFromStorage()` (or `switchToWorkspace`).
+ * Re-runs are safe — the prior cache subscription is dropped first.
+ */
+export async function bridgeEnvironmentSyncEngine(): Promise<void> {
+  const cache = getActiveEnvironmentCache();
+  if (!cache) {
+    logger.info('EnvironmentStore', 'bridgeEnvironmentSyncEngine: no active cache; skipping');
+    return;
+  }
+  if (envCacheUnsubscribe) {
+    envCacheUnsubscribe();
+    envCacheUnsubscribe = null;
+  }
+  envCacheUnsubscribe = cache.onChange(() => {
+    environments = cache.getEnvironments();
+    notifyChange();
+  });
+  await cache.seedFromPersistedEnvironments(environments);
+  // Belt-and-braces — pick up the cache view explicitly so a
+  // zero-environments workspace (no broadcasts → no listener fire)
+  // still ends with `environments` pointed at the cache snapshot.
+  environments = cache.getEnvironments();
 }
 
 // ── Test helpers ───────────────────────────────────────────────────

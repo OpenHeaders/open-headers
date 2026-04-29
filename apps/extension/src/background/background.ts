@@ -28,6 +28,7 @@ import { updateExtensionBadge } from './modules/badge-manager';
 import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
 import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 import {
+  bridgeEnvironmentSyncEngine,
   getActiveEnvironmentId,
   getCollectionEnvOverrides,
   getDefaultEnvironmentId,
@@ -340,6 +341,9 @@ async function initializeExtension(): Promise<void> {
     void bridgeToSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeToSyncEngine after workspace switch failed', err);
     });
+    void bridgeEnvironmentSyncEngine().catch((err: unknown) => {
+      logger.warn('Background', 'bridgeEnvironmentSyncEngine after workspace switch failed', err);
+    });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -469,6 +473,7 @@ async function initializeExtension(): Promise<void> {
   // the local mirror. After this call rule writes route through the
   // oracle; reads stay synchronous off the local mirror.
   await bridgeToSyncEngine();
+  await bridgeEnvironmentSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /

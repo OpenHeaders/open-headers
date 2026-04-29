@@ -25,10 +25,12 @@
  * leak past this hook.
  */
 
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
+import { applyEnvVariablesReplacement } from '@/shared/sync/env-write-client';
 
 // ── Result shape ─────────────────────────────────────────────────────
 
@@ -67,8 +69,9 @@ export interface UseVariableMutatorApi {
 }
 
 export function useVariableMutator(): UseVariableMutatorApi {
-  const { setVault, updateEnvironmentVariables, updateCollectionVariables, setWorkspaceVariables } = useEnvironments();
+  const { setVault, environments, updateCollectionVariables, setWorkspaceVariables } = useEnvironments();
   const { setOverride } = useLiveVariables();
+  const workspaceId = useActiveWorkspaceId();
 
   const replaceWorkspaceVariables = useCallback<UseVariableMutatorApi['replaceWorkspaceVariables']>(
     async (variables, expectedVersion) => {
@@ -82,11 +85,25 @@ export function useVariableMutator(): UseVariableMutatorApi {
   );
 
   const replaceEnvironmentVariables = useCallback<UseVariableMutatorApi['replaceEnvironmentVariables']>(
-    async (envUid, variables, expectedVersion) => {
-      const r = await updateEnvironmentVariables(envUid, variables, expectedVersion);
-      return mapWriteResult(r);
+    async (envUid, variables) => {
+      if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
+      const env = environments.find((e) => e.uid === envUid);
+      if (!env) return { ok: false, reason: 'not-found' };
+      const result = await applyEnvVariablesReplacement(envUid, variables, env.variables, {
+        workspaceId,
+        surfaceId: 'workbench',
+      });
+      if (result.ok) {
+        // `version` is retired by Phase B (§24); the field is kept on
+        // the result shape until commit 5 sweeps every consumer of it.
+        // Synthetic 1 is honest — the LWW oracle decides convergence,
+        // not the counter.
+        return { ok: true, version: 1 };
+      }
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message };
     },
-    [updateEnvironmentVariables],
+    [workspaceId, environments],
   );
 
   const replaceCollectionVariables = useCallback<UseVariableMutatorApi['replaceCollectionVariables']>(

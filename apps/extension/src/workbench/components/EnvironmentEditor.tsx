@@ -1,24 +1,29 @@
 /**
  * EnvironmentEditor — tab body for editing one environment's variables.
  *
- * Controlled by a local draft: edits are live in UI, committed to the
- * SW via `updateEnvironmentVariables` on Save. Dirty tracking piggybacks
- * on the draft vs persisted fingerprint so the breadcrumb bar renders
- * the save cue consistently with every other editor tab.
+ * Routes saves through `useEnvironmentMutator.replaceVariables`, which
+ * folds the editor's pre-image + post-image into the catalog
+ * primitives (`setEnvVar` for adds/changes, `removeEnvVar` for
+ * deletions) and emits one all-or-nothing batch through `oh.sync.apply`.
+ * Concurrent edits reconcile per-(env, name) via HLC LWW + the
+ * awareness ribbon — the legacy `version` / `expectedVersion` /
+ * `StaleDraftBanner` branch is retired by Phase B (§24).
  */
 
 import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
-import { useVariableMutator } from '@hooks/useVariableMutator';
+import { useEnvironmentMutator } from '@hooks/useEnvironmentMutator';
+import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
-import StaleDraftBanner from './StaleDraftBanner';
 import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
@@ -37,34 +42,33 @@ function fingerprint(vars: V5.Variable[]): string {
 // initial-state factory never sees a fresh `[]` per render.
 const EMPTY_VARS: V5.Variable[] = [];
 
+const SURFACE_ID = 'workbench';
+
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { environments, activeEnvironmentId, defaultEnvironmentId, setDefaultEnvironment } = useEnvironments();
   const { pickActiveEnvironment } = useEnvSwitcher();
-  const { replaceEnvironmentVariables } = useVariableMutator();
+  const workspaceId = useActiveWorkspaceId();
+  const mutator = useEnvironmentMutator({ workspaceId, surfaceId: SURFACE_ID });
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
 
-  const { draft, setDraft, isDirty, markPersisted, resetToServer } = useDirtyDraft<V5.Variable[]>({
+  const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
     serverDraft: env?.variables ?? null,
     fingerprint,
     empty: EMPTY_VARS,
   });
 
-  // ── Phase 10 stale-draft tracking ─────────────────────────────────
-  //
-  // Same pattern as `RuleEditor`: snapshot `env.version` at first
-  // arrival, send it as `expectedVersion` on save, show the
-  // `StaleDraftBanner` on `reason: 'stale-draft'` rejection.
-  const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
-  const [staleDraft, setStaleDraft] = useState<{ serverVersion: number; loadedVersion: number } | null>(null);
-
-  useEffect(() => {
-    if (loadedVersion !== null) return;
-    if (typeof env?.version !== 'number') return;
-    setLoadedVersion(env.version);
-  }, [env?.version, loadedVersion]);
+  // Awareness — declare the surface is editing this environment.
+  useAwareness({
+    workspaceId,
+    surfaceId: SURFACE_ID,
+    entityFocus: env ? { type: ENVIRONMENT_ENTITY_TYPE, id: env.uid } : null,
+    fieldFocus: null,
+    dirtyFields: isDirty ? ['*'] : [],
+    enabled: env !== null,
+  });
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -72,40 +76,16 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
 
   const handleSave = useCallback(async () => {
     if (!env || !isDirty) return;
-    const result = await replaceEnvironmentVariables(env.uid, draft, loadedVersion ?? undefined);
+    const result = await mutator.replaceVariables(env.uid, draft, env.variables);
     if (result.ok) {
       markPersisted(draft);
-      setLoadedVersion(result.version);
-      setStaleDraft(null);
       onDirtyChange?.(false);
-    } else if (result.reason === 'stale-draft') {
-      setStaleDraft({ serverVersion: result.serverVersion, loadedVersion: loadedVersion ?? 0 });
     } else if (result.reason === 'not-found') {
       message.error('Environment was deleted from another tab');
     } else {
       message.error(`Failed to update environment${result.message ? `: ${result.message}` : ''}`);
     }
-  }, [env, isDirty, draft, replaceEnvironmentVariables, onDirtyChange, loadedVersion, message, markPersisted]);
-
-  const handleStaleDraftReload = useCallback(() => {
-    // Discard this tab's in-memory edits; snap loadedVersion to the
-    // server's current version (the live `env` is broadcast-refreshed
-    // by the winning save's `environmentsChanged` event).
-    if (!env) return;
-    resetToServer();
-    setLoadedVersion(env.version);
-    setStaleDraft(null);
-    onDirtyChange?.(false);
-  }, [env, onDirtyChange, resetToServer]);
-
-  const handleStaleDraftKeepEditing = useCallback(() => {
-    // Snap loadedVersion forward so the next save's expectedVersion
-    // matches the server and isn't rejected. This tab's draft wins
-    // last-write-wins on the next Save click.
-    if (!env) return;
-    setLoadedVersion(env.version);
-    setStaleDraft(null);
-  }, [env]);
+  }, [env, isDirty, draft, mutator, onDirtyChange, message, markPersisted]);
 
   // registerSaveRef takes a sync callback; wrap our async handler so
   // the breadcrumb Save button kicks off the save without awaiting.
@@ -176,15 +156,6 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
       <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          {staleDraft && (
-            <StaleDraftBanner
-              entityLabel="environment"
-              serverVersion={staleDraft.serverVersion}
-              loadedVersion={staleDraft.loadedVersion}
-              onReload={handleStaleDraftReload}
-              onKeepEditing={handleStaleDraftKeepEditing}
-            />
-          )}
           <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
             VARIABLES ({nonEmptyCount})
           </Text>
