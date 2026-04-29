@@ -83,6 +83,20 @@ export {
   type UnsetLiveWorkflowFieldArgs,
 } from './live-workflow';
 export {
+  deleteOAuthToken,
+  type DeleteOAuthTokenArgs,
+  OAUTH_BUNDLE_ENTITY_TYPE,
+  OAUTH_BUNDLE_ID,
+  OAUTH_BUNDLE_MUTATOR_VERSION,
+  OAUTH_CONFIGS_PATH,
+  OAUTH_REFRESH_ERRORS_PATH,
+  OAUTH_TOKENS_PATH,
+  recordOAuthRefreshError,
+  type RecordOAuthRefreshErrorArgs,
+  setOAuthToken,
+  type SetOAuthTokenArgs,
+} from './oauth-bundle';
+export {
   addRequestHeader,
   type AddRequestHeaderArgs,
   addRequestParam,
