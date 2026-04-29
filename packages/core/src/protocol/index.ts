@@ -23,6 +23,7 @@ export type {
   SyncFolderPostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
+  SyncOAuthBundlePostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,

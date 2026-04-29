@@ -33,6 +33,7 @@ import type {
   SyncFolderPostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
+  SyncOAuthBundlePostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
@@ -1343,6 +1344,16 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncLiveWorkflowPostState[] };
   };
+  /**
+   * Snapshot the active workspace's singleton oauth-bundle oracle
+   * state. Same semantics as `oh.sync.snapshotVault` — singleton
+   * `entries` carries 0 or 1 element. Local-only by §12.3; the
+   * payload (token + secret material) never crosses any sync transport.
+   */
+  'oh.sync.snapshotOAuthBundle': {
+    req: Record<string, never>;
+    res: { entries: SyncOAuthBundlePostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1594,6 +1605,12 @@ export interface BridgeBroadcastContract {
      * `steps` rides as a whole-array scalar — no itemId map.
      */
     liveWorkflowPostState?: SyncLiveWorkflowPostState;
+    /**
+     * Post-commit projection for oauth-bundle envelopes (Phase B).
+     * Singleton entity. Local-only by §12.3 — never crosses any sync
+     * transport.
+     */
+    oauthBundlePostState?: SyncOAuthBundlePostState;
   };
 
   /**

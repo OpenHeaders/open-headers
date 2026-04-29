@@ -233,6 +233,34 @@ export interface SyncLiveWorkflowPostState {
   workflow: V5.LiveWorkflow;
 }
 
+/**
+ * Post-commit projection for an oauth-bundle envelope. Singleton entity
+ * per workspace — one materialized record at the fixed id `oauth`. The
+ * three set-modeled paths (`tokens`, `configs`, `refreshErrors`) are
+ * projected back into Records keyed by `credentialRef` so the renderer
+ * mirror + scheduler both see post-commit state without iterating
+ * arrays. Item payloads stay opaque to core — they're typed at the
+ * extension boundary (`OAuth2TokenBundle`, `V5.OAuth2Auth`,
+ * `OAuthRefreshErrorState`).
+ *
+ * The bundle is §12.1 schema-marked sensitive in full — broadcast is
+ * local-only and never crosses any sync transport (Vault + OAuth share
+ * the §12.3 v1 commitment). Awareness publishes for entities of this
+ * type carry no `fieldFocus` (§14.4); the post-state itself is data
+ * the local scheduler / executor consume.
+ */
+export interface SyncOAuthBundlePostState {
+  /** Per-credentialRef token bundle map. */
+  tokens: Record<string, unknown>;
+  /** Per-credentialRef captured config sidecar. */
+  configs: Record<string, unknown>;
+  /** Per-credentialRef refresh failure state. */
+  refreshErrors: Record<string, unknown>;
+  /** Sorted union of credentialRefs across all three maps — convenient
+   *  for consumers (scheduler, UI) that iterate by credential. */
+  credentialRefs: string[];
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -329,6 +357,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   liveWorkflowPostState?: SyncLiveWorkflowPostState;
+  /**
+   * Populated for oauth-bundle envelopes whose batch left a materialized
+   * record in place. Tombstoned (singleton deletion is a workspace-level
+   * teardown gesture only) and rolled-back batches leave it `undefined`.
+   */
+  oauthBundlePostState?: SyncOAuthBundlePostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

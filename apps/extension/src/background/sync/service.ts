@@ -38,6 +38,7 @@ import type {
   SyncFolderPostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
+  SyncOAuthBundlePostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
@@ -54,6 +55,7 @@ import {
   FOLDER_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
+  OAUTH_BUNDLE_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
@@ -92,6 +94,15 @@ import {
   setActiveLiveWorkflowCache,
 } from './live-workflow-cache';
 import { projectLiveWorkflowByUid, projectLiveWorkflowPostState } from './live-workflow-post-state';
+import {
+  createOAuthBundleCache,
+  type OAuthBundleCache,
+  setActiveOAuthBundleCache,
+} from './oauth-bundle-cache';
+import {
+  projectOAuthBundlePostState,
+  projectOAuthBundleSingleton,
+} from './oauth-bundle-post-state';
 import {
   createEnvironmentCache,
   type EnvironmentCache,
@@ -189,6 +200,7 @@ interface ServiceState {
   templateFolderCache: TemplateFolderCache;
   liveVariableCache: LiveVariableCache;
   liveWorkflowCache: LiveWorkflowCache;
+  oauthBundleCache: OAuthBundleCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -299,6 +311,14 @@ export function initSyncService(workspaceId: string): void {
   );
   setActiveLiveWorkflowCache(liveWorkflowCache);
 
+  const oauthBundleCache = createOAuthBundleCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveOAuthBundleCache(oauthBundleCache);
+
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
   // reflects post-commit state.
@@ -331,10 +351,10 @@ export function initSyncService(workspaceId: string): void {
     emit: (presence) => {
       bridgeBroadcast('awarenessBroadcast', { workspaceId, presence });
     },
-    // Vault is §12.1 schema-marked sensitive — entity-level awareness
-    // only; per-secret-name presence would leak the secret namespace
-    // and access patterns (§14.4).
-    sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE]),
+    // Vault + OAuth bundles are §12.1 schema-marked sensitive — entity-level
+    // awareness only; per-secret-name / per-credentialRef presence would
+    // leak the secret namespace and access patterns (§14.4).
+    sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE]),
   });
 
   // Re-publish every committed `(envelope, outcome)` to subscribed
@@ -399,6 +419,10 @@ export function initSyncService(workspaceId: string): void {
     const liveWorkflowPostState = projectLiveWorkflowPostState(oracle, envelope);
     return liveWorkflowPostState ? { liveWorkflowPostState } : null;
   };
+  const oauthBundleProjector: BroadcastProjector = (envelope) => {
+    const oauthBundlePostState = projectOAuthBundlePostState(oracle, envelope);
+    return oauthBundlePostState ? { oauthBundlePostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
@@ -414,6 +438,7 @@ export function initSyncService(workspaceId: string): void {
     templateFolderProjector,
     liveVariableProjector,
     liveWorkflowProjector,
+    oauthBundleProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -450,6 +475,9 @@ export function initSyncService(workspaceId: string): void {
         ...(event.liveWorkflowPostState
           ? { liveWorkflowPostState: event.liveWorkflowPostState }
           : {}),
+        ...(event.oauthBundlePostState
+          ? { oauthBundlePostState: event.oauthBundlePostState }
+          : {}),
       });
     },
     projector,
@@ -473,6 +501,7 @@ export function initSyncService(workspaceId: string): void {
     templateFolderCache,
     liveVariableCache,
     liveWorkflowCache,
+    oauthBundleCache,
     context,
     awareness,
     dnrRunner,
@@ -505,6 +534,7 @@ export function dispose(): void {
   state.templateFolderCache.dispose();
   state.liveVariableCache.dispose();
   state.liveWorkflowCache.dispose();
+  state.oauthBundleCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
@@ -520,6 +550,7 @@ export function dispose(): void {
   setActiveTemplateFolderCache(null);
   setActiveLiveVariableCache(null);
   setActiveLiveWorkflowCache(null);
+  setActiveOAuthBundleCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -793,6 +824,20 @@ export function snapshotLiveWorkflowPostStates(): SyncLiveWorkflowPostState[] {
 }
 
 /**
+ * Snapshot the singleton oauth-bundle record. Same shape the
+ * `BroadcastProjector` attaches to live envelopes; consumed by the
+ * `oh.sync.snapshotOAuthBundle` RPC for renderer mirror bootstrap.
+ * Returns `[]` when the service isn't initialized or the singleton
+ * hasn't been seeded yet. Local-only by §12.3 — never crosses any sync
+ * transport.
+ */
+export function snapshotOAuthBundlePostStates(): SyncOAuthBundlePostState[] {
+  if (!state) return [];
+  const projection = projectOAuthBundleSingleton(state.oracle);
+  return projection ? [projection] : [];
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -926,6 +971,13 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     () => context.next(),
   );
   setActiveLiveWorkflowCache(liveWorkflowCache);
+  const oauthBundleCache = createOAuthBundleCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveOAuthBundleCache(oauthBundleCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -951,6 +1003,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     emit: () => {
       // No chrome.runtime sink in tests.
     },
+    sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE]),
   });
 
   state = {
@@ -971,6 +1024,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     templateFolderCache,
     liveVariableCache,
     liveWorkflowCache,
+    oauthBundleCache,
     context,
     awareness,
     dnrRunner,
