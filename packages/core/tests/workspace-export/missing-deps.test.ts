@@ -64,7 +64,6 @@ function makeCollection(
 ): Collection {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path,
     name,

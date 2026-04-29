@@ -105,7 +105,6 @@ function makeRun(overrides: Partial<StoredTestRun> = {}): StoredTestRun {
 function makeCollectionTree(uid: string, ruleNodes: V5.TreeNode[]): V5.CollectionTree {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `rules/${uid}`,
     name: uid,

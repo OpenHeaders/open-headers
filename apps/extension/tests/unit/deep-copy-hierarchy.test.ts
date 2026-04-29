@@ -15,7 +15,6 @@ import { describe, expect, it } from 'vitest';
 function makeCollection(uid: string, name: string, path: string): V5.Collection {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path,
     name,
@@ -26,7 +25,7 @@ function makeCollection(uid: string, name: string, path: string): V5.Collection 
 }
 
 function makeFolder(uid: string, name: string, path: string): LocalFolder {
-  return { schemaVersion: 5, version: 1, uid, name, path };
+  return { schemaVersion: 5, uid, name, path };
 }
 
 function makeRule(uid: string, name: string, path: string, partial: Partial<V5.HeaderRule> = {}): V5.HeaderRule {

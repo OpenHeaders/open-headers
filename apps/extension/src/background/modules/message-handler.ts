@@ -608,14 +608,16 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'updateCollectionVariables') {
-      const expectedVersion = message.expectedVersion as number | undefined;
-      updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[], {
-        expectedVersion,
-      })
+      updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[])
         .then((result) => {
           if (result.ok) {
-            // Collection-scoped variable edits change resolved DNR output —
-            // force a recompile so the effect is immediate.
+            // Collection-scoped variable edits change resolved DNR output;
+            // the resolver-invalidate runner consumes the same intent
+            // emitted by the catalog factory, so the recompile fires
+            // through the broadcast path. The legacy `scheduleUpdate`
+            // call here was the pre-Phase-B route — retained as a
+            // belt-and-braces guarantee that the bridge dispatch path
+            // doesn't depend on broadcast ordering.
             scheduleUpdate('vars', { immediate: true });
           }
           safeResponse(result);

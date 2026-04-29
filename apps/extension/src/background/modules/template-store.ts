@@ -125,7 +125,6 @@ export function ensureDefaultTemplateCollection(): V5.Collection {
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `templates/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -143,7 +142,6 @@ export function createTemplateCollection(name: string): V5.Collection {
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `templates/${folderName}`,
     name,
@@ -165,10 +163,9 @@ export async function renameTemplateCollection(uid: string, name: string): Promi
       if (!col) return false;
       if (col.name === DEFAULT_COLLECTION_NAME) return false; // undeletable/unrenamable
       const index = templateCollections.indexOf(col);
-      const nextVersion = col.version + 1;
       templateCollections = [
         ...templateCollections.slice(0, index),
-        { ...col, name, version: nextVersion },
+        { ...col, name },
         ...templateCollections.slice(index + 1),
       ];
       await persistTemplateCollections();
@@ -206,7 +203,6 @@ export function createTemplateFolder(name: string, parentPath: string): LocalFol
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -224,10 +220,9 @@ export async function renameTemplateFolder(uid: string, name: string): Promise<b
       const index = templateFolders.findIndex((f) => f.uid === uid);
       if (index === -1) return false;
       const existing = templateFolders[index];
-      const nextVersion = existing.version + 1;
       templateFolders = [
         ...templateFolders.slice(0, index),
-        { ...existing, name, version: nextVersion },
+        { ...existing, name },
         ...templateFolders.slice(index + 1),
       ];
       await persistTemplateFolders();

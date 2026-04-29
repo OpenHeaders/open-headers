@@ -52,7 +52,6 @@ function emptyTarget(): Parameters<typeof diffWorkspaceExport>[1] {
 function makeCollection(uid: string, name: string, path: string): Collection {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path,
     name,
@@ -63,7 +62,7 @@ function makeCollection(uid: string, name: string, path: string): Collection {
 }
 
 function makeFolder(uid: string, name: string, path: string): Folder {
-  return { schemaVersion: 5, version: 1, uid, name, path };
+  return { schemaVersion: 5, uid, name, path };
 }
 
 function makeHeaderRule(uid: string, name: string, path: string): HeaderRule {

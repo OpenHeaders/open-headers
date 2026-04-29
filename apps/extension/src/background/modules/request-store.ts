@@ -119,7 +119,6 @@ export function ensureDefaultRequestCollection(): V5.Collection {
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `requests/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -137,7 +136,6 @@ export function createRequestCollection(name: string): V5.Collection {
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `requests/${folderName}`,
     name,
@@ -158,10 +156,9 @@ export async function renameRequestCollection(uid: string, name: string): Promis
       const index = collections.findIndex((c) => c.uid === uid);
       if (index === -1) return false;
       const existing = collections[index];
-      const nextVersion = existing.version + 1;
       collections = [
         ...collections.slice(0, index),
-        { ...existing, name, version: nextVersion },
+        { ...existing, name },
         ...collections.slice(index + 1),
       ];
       await persistCollections();
@@ -195,7 +192,7 @@ export async function deleteRequestCollection(uid: string): Promise<boolean> {
 export function createRequestFolder(name: string, parentPath: string): LocalFolder {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const folder: LocalFolder = { schemaVersion: 5, version: 1, uid, path: `${parentPath}/${folderName}`, name };
+  const folder: LocalFolder = { schemaVersion: 5, uid, path: `${parentPath}/${folderName}`, name };
   folders = [...folders, folder];
   void persistFolders();
   return folder;
@@ -209,8 +206,7 @@ export async function renameRequestFolder(uid: string, name: string): Promise<bo
       const index = folders.findIndex((f) => f.uid === uid);
       if (index === -1) return false;
       const existing = folders[index];
-      const nextVersion = existing.version + 1;
-      folders = [...folders.slice(0, index), { ...existing, name, version: nextVersion }, ...folders.slice(index + 1)];
+      folders = [...folders.slice(0, index), { ...existing, name }, ...folders.slice(index + 1)];
       await persistFolders();
       return true;
     },

@@ -189,7 +189,6 @@ describe('CollectionSchema', () => {
     expect(
       v.parse(CollectionSchema, {
         schemaVersion: 5,
-        version: 1,
         uid: 'abcd1234',
         path: 'rules/auth-abcd1234',
         name: 'Auth',
@@ -202,7 +201,6 @@ describe('CollectionSchema', () => {
     expect(
       v.parse(CollectionSchema, {
         schemaVersion: 5,
-        version: 1,
         uid: 'abcd1234',
         path: 'rules/auth-abcd1234',
         name: 'Auth',
@@ -211,31 +209,6 @@ describe('CollectionSchema', () => {
       }),
     ).toBeTruthy();
   });
-
-  it('rejects a missing version (Phase 10 write counter required)', () => {
-    expect(
-      v.safeParse(CollectionSchema, {
-        schemaVersion: 5,
-        uid: 'abcd1234',
-        path: 'rules/auth-abcd1234',
-        name: 'Auth',
-        variables: [],
-      }).success,
-    ).toBe(false);
-  });
-
-  it('rejects version below 1', () => {
-    expect(
-      v.safeParse(CollectionSchema, {
-        schemaVersion: 5,
-        version: 0,
-        uid: 'abcd1234',
-        path: 'rules/auth-abcd1234',
-        name: 'Auth',
-        variables: [],
-      }).success,
-    ).toBe(false);
-  });
 });
 
 describe('FolderSchema', () => {
@@ -243,23 +216,11 @@ describe('FolderSchema', () => {
     expect(
       v.parse(FolderSchema, {
         schemaVersion: 5,
-        version: 1,
         uid: 'abcd1234',
         path: 'rules/auth-wxyz1234/tokens-abcd1234',
         name: 'Tokens',
       }),
     ).toBeTruthy();
-  });
-
-  it('rejects a missing version (Phase 10 write counter required)', () => {
-    expect(
-      v.safeParse(FolderSchema, {
-        schemaVersion: 5,
-        uid: 'abcd1234',
-        path: 'rules/auth-wxyz1234/tokens-abcd1234',
-        name: 'Tokens',
-      }).success,
-    ).toBe(false);
   });
 });
 

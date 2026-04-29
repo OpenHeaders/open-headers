@@ -167,7 +167,6 @@ export function ensureDefaultCollection(): V5.Collection {
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `rules/${folderName}`,
     name: DEFAULT_COLLECTION_NAME,
@@ -192,7 +191,6 @@ export function createCollection(name: string): V5.Collection {
   const folderName = toFolderName(name, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
-    version: 1,
     uid,
     path: `rules/${folderName}`,
     name,
@@ -209,44 +207,23 @@ export function createCollection(name: string): V5.Collection {
 }
 
 /**
- * Outcome of a versioned collection write (Phase 10 stale-draft
- * contract — parallel to `RuleWriteResult`). Editors that load a
- * collection's variables track the returned version and pass it back
- * as `expectedVersion` on save.
+ * Outcome of a collection write. The legacy stale-draft branch is
+ * retired in Phase B — convergence is per-(field) LWW at the oracle,
+ * not a versioned compare-and-set.
  */
 export type CollectionWriteResult =
-  | { ok: true; version: number; collection: V5.Collection }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverCollection: V5.Collection }
+  | { ok: true; collection: V5.Collection }
   | { ok: false; reason: 'not-found' };
 
-export interface UpdateCollectionOptions {
-  /**
-   * Version the client loaded. Omit to opt out of stale-draft
-   * detection — used by sidebar rename (no tracked version). The lock
-   * alone serializes writes in that case, so the race is still safe.
-   */
-  expectedVersion?: number;
-}
-
-export async function renameCollection(
-  uid: string,
-  name: string,
-  _options: UpdateCollectionOptions = {},
-): Promise<CollectionWriteResult> {
+export async function renameCollection(uid: string, name: string): Promise<CollectionWriteResult> {
   assertLoaded();
   const existing = collections.find((c) => c.uid === uid);
-  if (!existing) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
+  if (!existing) return { ok: false, reason: 'not-found' };
   await applyCollectionMutationOrThrow(
     (ctx) => buildRenameCollectionBatch({ collectionUid: uid, name }, ctx),
     'renameCollection',
   );
-  // Synthetic version: 1 — retired by commit 4 (the OCC sweep). LWW
-  // by HLC at the oracle is the convergence guarantee, not the counter.
-  return {
-    ok: true,
-    version: 1,
-    collection: { ...existing, name, version: 1 },
-  } as CollectionWriteResult;
+  return { ok: true, collection: { ...existing, name } };
 }
 
 export async function deleteCollection(uid: string): Promise<boolean> {
@@ -288,11 +265,10 @@ export async function deleteCollection(uid: string): Promise<boolean> {
 export async function updateCollectionVariables(
   uid: string,
   variables: V5.Variable[],
-  _options: UpdateCollectionOptions = {},
 ): Promise<CollectionWriteResult> {
   assertLoaded();
   const existing = collections.find((c) => c.uid === uid);
-  if (!existing) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
+  if (!existing) return { ok: false, reason: 'not-found' };
 
   await applyCollectionMutationOrThrow((ctx) => {
     const replaceCtx = { ...ctx, batchId: ctx.batchId ?? `coll-replace-${uid}` };
@@ -304,11 +280,7 @@ export async function updateCollectionVariables(
     };
   }, 'updateCollectionVariables');
 
-  return {
-    ok: true,
-    version: 1,
-    collection: { ...existing, variables, version: 1 },
-  } as CollectionWriteResult;
+  return { ok: true, collection: { ...existing, variables } };
 }
 
 export async function updateCollectionPinnedEnvs(
@@ -381,8 +353,6 @@ export function createFolder(name: string, parentPath: string): LocalFolder {
   const folderName = toFolderName(name, uid);
   const folder: LocalFolder = {
     schemaVersion: 5,
-    // Phase 10 write counter — advances on renameFolder / deleteFolder.
-    version: 1,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -400,8 +370,7 @@ export async function renameFolder(uid: string, name: string): Promise<boolean> 
       const index = folders.findIndex((f) => f.uid === uid);
       if (index === -1) return false;
       const existing = folders[index];
-      const nextVersion = existing.version + 1;
-      folders = [...folders.slice(0, index), { ...existing, name, version: nextVersion }, ...folders.slice(index + 1)];
+      folders = [...folders.slice(0, index), { ...existing, name }, ...folders.slice(index + 1)];
       await persistFolders();
       return true;
     },

@@ -85,17 +85,13 @@ export interface UseEnvironmentsApi {
   setVault: (vault: V5.Vault, expectedVersion?: number) => Promise<VaultWriteResult>;
 
   /**
-   * Replace a collection's variables. Returns the full Phase 10 write
-   * result so the CollectionVariablesEditor can surface stale-draft
-   * conflicts. Callers that don't track a version (sidebar "add
-   * variable" CTAs) omit `expectedVersion` and get last-write-wins
-   * semantics — the per-entity lock still serializes the storage
-   * write, so no silent drift.
+   * Replace a collection's variables. Phase B routes through the sync
+   * oracle — convergence is per-(name) LWW; the legacy stale-draft
+   * branch is retired (§24).
    */
   updateCollectionVariables: (
     collectionUid: string,
     variables: V5.Variable[],
-    expectedVersion?: number,
   ) => Promise<CollectionWriteResult>;
 }
 
@@ -236,10 +232,8 @@ export function useEnvironments(): UseEnvironmentsApi {
   }, []);
 
   const updateCollectionVariables = useCallback<UseEnvironmentsApi['updateCollectionVariables']>(
-    async (collectionUid, variables, expectedVersion) => {
-      const payload =
-        expectedVersion !== undefined ? { collectionUid, variables, expectedVersion } : { collectionUid, variables };
-      return call('updateCollectionVariables', payload).catch(
+    async (collectionUid, variables) => {
+      return call('updateCollectionVariables', { collectionUid, variables }).catch(
         (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
       );
     },

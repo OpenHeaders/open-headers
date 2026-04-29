@@ -17,7 +17,6 @@ function markers(record: Record<string, PauseMarker>): Map<string, PauseMarker> 
 const trees: CollectionTree[] = [
   {
     schemaVersion: 5,
-    version: 1,
     uid: 'col-a',
     name: 'Col A',
     path: 'rules/col-a',
@@ -61,7 +60,6 @@ const trees: CollectionTree[] = [
   },
   {
     schemaVersion: 5,
-    version: 1,
     uid: 'col-b',
     name: 'Col B',
     path: 'rules/col-b',

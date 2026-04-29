@@ -96,7 +96,6 @@ function makeEnvironment(overrides: Partial<Environment> = {}): Environment {
 function makeCollection(overrides: Partial<Collection> = {}): Collection {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'col00001',
     path: 'old-path',
     name: 'API Calls',
@@ -110,7 +109,6 @@ function makeCollection(overrides: Partial<Collection> = {}): Collection {
 function makeFolder(overrides: Partial<Folder> = {}): Folder {
   return {
     schemaVersion: 5,
-    version: 1,
     uid: 'fld00001',
     path: 'old-path',
     name: 'Auth',

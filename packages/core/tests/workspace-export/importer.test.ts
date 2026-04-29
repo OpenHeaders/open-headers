@@ -81,7 +81,6 @@ function rule(uid: string, name: string, path: string, enabled = true): HeaderRu
 function collection(uid: string, name: string, path: string): Collection {
   return {
     schemaVersion: 5,
-    version: 1,
     uid,
     path,
     name,
@@ -92,7 +91,7 @@ function collection(uid: string, name: string, path: string): Collection {
 }
 
 function folder(uid: string, name: string, path: string): Folder {
-  return { schemaVersion: 5, version: 1, uid, name, path };
+  return { schemaVersion: 5, uid, name, path };
 }
 
 function env(uid: string, name: string): Environment {

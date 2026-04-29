@@ -758,12 +758,9 @@ export interface BridgeRpcContract {
     req: {
       collectionUid: string;
       variables: V5.Variable[];
-      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
-      expectedVersion?: number;
     };
     res:
-      | { ok: true; version: number; collection: V5.Collection }
-      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverCollection: V5.Collection }
+      | { ok: true; collection: V5.Collection }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };

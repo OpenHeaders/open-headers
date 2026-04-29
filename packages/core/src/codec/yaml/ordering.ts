@@ -11,7 +11,6 @@ export const WORKSPACE_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'descripti
 
 export const COLLECTION_FIELD_ORDER = [
   'schemaVersion',
-  'version',
   'uid',
   'name',
   'description',
@@ -21,7 +20,7 @@ export const COLLECTION_FIELD_ORDER = [
   'variables',
 ] as const;
 
-export const FOLDER_FIELD_ORDER = ['schemaVersion', 'version', 'uid', 'name', 'order'] as const;
+export const FOLDER_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'order'] as const;
 
 /**
  * Rule entries — shared across all 8 variants. Each variant carries its

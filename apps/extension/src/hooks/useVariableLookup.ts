@@ -38,7 +38,6 @@ export type VariableCandidate =
       scope: 'collection';
       collectionUid: string;
       collectionName: string;
-      collectionVersion: number;
       variable: V5.Variable;
     }
   | {
@@ -170,7 +169,6 @@ export function useVariableLookup(reference: string, collectionId?: string): Var
             scope: 'collection',
             collectionUid: collection.uid,
             collectionName: collection.name,
-            collectionVersion: collection.version,
             variable,
           });
         }

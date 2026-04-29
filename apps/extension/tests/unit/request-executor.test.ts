@@ -101,7 +101,6 @@ describe('RequestExecutor', () => {
     mockRequestCollections.mockReturnValue([
       {
         schemaVersion: 5,
-        version: 1,
         uid: 'rc-1',
         path: 'requests/auth-coll',
         name: 'Auth',

@@ -133,7 +133,6 @@ describe('VariablesResolver (extension)', () => {
   it('resolves collection-scoped variables for rules inside that collection', () => {
     const collection: V5.Collection = {
       schemaVersion: 5,
-      version: 1,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
@@ -157,7 +156,6 @@ describe('VariablesResolver (extension)', () => {
   it('falls back to workspace scope for rules outside any collection', () => {
     const collection: V5.Collection = {
       schemaVersion: 5,
-      version: 1,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',

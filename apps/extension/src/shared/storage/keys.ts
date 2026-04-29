@@ -82,8 +82,6 @@ export interface PersistedPanelLayout {
 export interface PersistedLocalFolder {
   /** Persisted format version for each `_folder.yaml` once the codec lands. */
   schemaVersion: number;
-  /** Phase 10 monotonic write counter — mirrors `FolderSchema.version`. */
-  version: number;
   uid: string;
   path: string;
   name: string;
