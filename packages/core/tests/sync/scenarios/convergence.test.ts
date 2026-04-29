@@ -15,6 +15,7 @@ import { makeRng } from '../harness/random';
 import { assertConvergent, type Scenario } from '../harness/run';
 import {
   genAddRemoveAdd,
+  genCollectionRename,
   genConcurrentRenames,
   genCreateDeleteHlcOrder,
   genEnvRename,
@@ -39,6 +40,7 @@ const BUCKETS: Bucket[] = [
   { name: 'create-delete-hlc-order', generate: genCreateDeleteHlcOrder, count: 1500 },
   { name: 'concurrent-renames', generate: genConcurrentRenames, count: 1500 },
   { name: 'env-rename', generate: genEnvRename, count: 1500 },
+  { name: 'collection-rename', generate: genCollectionRename, count: 1500 },
   { name: 'rule-reorder', generate: genRuleReorder, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];

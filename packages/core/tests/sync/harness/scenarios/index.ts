@@ -1,4 +1,5 @@
 export { genAddRemoveAdd } from './add-remove-add';
+export { genCollectionRename } from './collection-rename';
 export { genConcurrentRenames } from './concurrent-renames';
 export { genCreateDeleteHlcOrder } from './create-delete-hlc-order';
 export { genEnvRename } from './env-rename';
