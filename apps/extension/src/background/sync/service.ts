@@ -35,6 +35,7 @@ import type {
   SyncBroadcastEvent,
   SyncCollectionPostState,
   SyncEnvironmentPostState,
+  SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
   SyncLiveVariablePostState,
@@ -54,6 +55,7 @@ import type {
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
+  FILES_ENTITY_TYPE,
   FOLDER_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
@@ -83,6 +85,12 @@ import {
 import { projectCollectionByUid, projectCollectionPostState } from './collection-post-state';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
 import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
+import {
+  createFilesCache,
+  type FilesCache,
+  setActiveFilesCache,
+} from './files-cache';
+import { projectFilesPostState, projectFilesSingleton } from './files-post-state';
 import { createFolderCache, type FolderCache, setActiveFolderCache } from './folder-cache';
 import { projectFolderByUid, projectFolderPostState } from './folder-post-state';
 import {
@@ -221,6 +229,7 @@ interface ServiceState {
   oauthBundleCache: OAuthBundleCache;
   pauseMarkersCache: PauseMarkersCache;
   layoutStateCache: LayoutStateCache;
+  filesCache: FilesCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -355,6 +364,9 @@ export function initSyncService(workspaceId: string): void {
   );
   setActiveLayoutStateCache(layoutStateCache);
 
+  const filesCache = createFilesCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveFilesCache(filesCache);
+
   // DNR intent runner — subscribes AFTER the rule + pause-markers
   // caches so by the time the runner asks rule-engine to recompile,
   // the relevant mirror already reflects post-commit state.
@@ -468,6 +480,10 @@ export function initSyncService(workspaceId: string): void {
     const layoutStatePostState = projectLayoutStatePostState(oracle, envelope);
     return layoutStatePostState ? { layoutStatePostState } : null;
   };
+  const filesProjector: BroadcastProjector = (envelope) => {
+    const filesPostState = projectFilesPostState(oracle, envelope);
+    return filesPostState ? { filesPostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
@@ -486,6 +502,7 @@ export function initSyncService(workspaceId: string): void {
     oauthBundleProjector,
     pauseMarkersProjector,
     layoutStateProjector,
+    filesProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -531,6 +548,7 @@ export function initSyncService(workspaceId: string): void {
         ...(event.layoutStatePostState
           ? { layoutStatePostState: event.layoutStatePostState }
           : {}),
+        ...(event.filesPostState ? { filesPostState: event.filesPostState } : {}),
       });
     },
     projector,
@@ -557,6 +575,7 @@ export function initSyncService(workspaceId: string): void {
     oauthBundleCache,
     pauseMarkersCache,
     layoutStateCache,
+    filesCache,
     context,
     awareness,
     dnrRunner,
@@ -592,6 +611,7 @@ export function dispose(): void {
   state.oauthBundleCache.dispose();
   state.pauseMarkersCache.dispose();
   state.layoutStateCache.dispose();
+  state.filesCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
@@ -610,6 +630,7 @@ export function dispose(): void {
   setActiveOAuthBundleCache(null);
   setActivePauseMarkersCache(null);
   setActiveLayoutStateCache(null);
+  setActiveFilesCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -923,6 +944,19 @@ export function snapshotLayoutStatePostStates(): SyncLayoutStatePostState[] {
 }
 
 /**
+ * Snapshot the singleton files record. Same shape the
+ * `BroadcastProjector` attaches to live envelopes; consumed by the
+ * `oh.sync.snapshotFiles` RPC for renderer mirror bootstrap. Returns
+ * `[]` when the service isn't initialized or the singleton hasn't been
+ * seeded yet.
+ */
+export function snapshotFilesPostStates(): SyncFilesPostState[] {
+  if (!state) return [];
+  const projection = projectFilesSingleton(state.oracle);
+  return projection ? [projection] : [];
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -1077,6 +1111,8 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     () => context.next(),
   );
   setActiveLayoutStateCache(layoutStateCache);
+  const filesCache = createFilesCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveFilesCache(filesCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -1127,6 +1163,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     oauthBundleCache,
     pauseMarkersCache,
     layoutStateCache,
+    filesCache,
     context,
     awareness,
     dnrRunner,

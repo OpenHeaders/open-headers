@@ -296,6 +296,31 @@ export interface SyncLayoutStatePostState {
   layout: unknown;
 }
 
+/**
+ * Post-commit projection for a files envelope. Singleton entity per
+ * workspace — there is exactly one materialized record at the fixed id
+ * `files`. The catalog stores entries as set members at `refs` (set
+ * member identity = `fileId`); the projection folds the live set back
+ * into a `FileRef[]` (with an alongside-sorted `fileIds: string[]` for
+ * deterministic iteration) so renderer + executor consumers see post-
+ * commit state without iterating arrays.
+ *
+ * Bytes never appear in this payload — the catalog governs only
+ * `(fileId, hash, filename, mimeType, size)`. The actual blob bytes
+ * live in the platform `BlobStore` (extension IDB) keyed by `fileId`
+ * and are read lazily on demand.
+ *
+ * Not sensitive — file metadata is user-visible. Same broadcast posture
+ * as pause-markers.
+ */
+export interface SyncFilesPostState {
+  /** All currently-known FileRefs, in fileId order. */
+  refs: V5.FileRef[];
+  /** Sorted live set of fileIds — convenient for consumers iterating
+   *  in deterministic order. */
+  fileIds: string[];
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -411,6 +436,12 @@ export interface SyncBroadcastEvent {
    * teardown gesture only) and rolled-back batches leave it `undefined`.
    */
   layoutStatePostState?: SyncLayoutStatePostState;
+  /**
+   * Populated for files envelopes whose batch left a materialized
+   * record in place. Tombstoned (singleton deletion is a workspace-level
+   * teardown gesture only) and rolled-back batches leave it `undefined`.
+   */
+  filesPostState?: SyncFilesPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

@@ -30,6 +30,7 @@ import type {
   SyncApplyResponse,
   SyncCollectionPostState,
   SyncEnvironmentPostState,
+  SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
   SyncLiveVariablePostState,
@@ -1347,6 +1348,17 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncLayoutStatePostState[] };
   };
+  /**
+   * Snapshot the active workspace's singleton files oracle state. Same
+   * semantics as `oh.sync.snapshotPauseMarkers` — singleton `entries`
+   * carries 0 or 1 element. The catalog only governs `(fileId, hash,
+   * filename, mimeType, size)` shells; the actual blob bytes live in
+   * the platform `BlobStore` IDB and are read lazily on demand.
+   */
+  'oh.sync.snapshotFiles': {
+    req: Record<string, never>;
+    res: { entries: SyncFilesPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1616,6 +1628,12 @@ export interface BridgeBroadcastContract {
      * transports carry it freely.
      */
     layoutStatePostState?: SyncLayoutStatePostState;
+    /**
+     * Post-commit projection for files envelopes (Phase B). Singleton
+     * entity. Catalog only — bytes live in the platform `BlobStore` IDB
+     * and are read lazily on demand.
+     */
+    filesPostState?: SyncFilesPostState;
   };
 
   /**

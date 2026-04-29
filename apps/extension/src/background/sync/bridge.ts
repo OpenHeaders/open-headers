@@ -52,6 +52,7 @@ export type EntityPostState = Partial<
     | 'oauthBundlePostState'
     | 'pauseMarkersPostState'
     | 'layoutStatePostState'
+    | 'filesPostState'
   >
 >;
 
