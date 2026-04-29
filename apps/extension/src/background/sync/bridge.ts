@@ -40,6 +40,7 @@ export type EntityPostState = Partial<
     | 'collectionPostState'
     | 'workspaceVariablesPostState'
     | 'vaultPostState'
+    | 'folderPostState'
   >
 >;
 

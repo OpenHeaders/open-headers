@@ -54,7 +54,7 @@ describe('createFolder', () => {
       kind: 'create',
       type: FOLDER_ENTITY_TYPE,
       id: 'f-1',
-      payload: { schemaVersion: 5, name: 'New folder' },
+      payload: { schemaVersion: 5, name: 'New folder', pathSegment: 'new-folder-f-1' },
     });
     expect(addBody).toEqual({
       kind: 'addToSet',

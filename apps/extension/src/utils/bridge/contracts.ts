@@ -30,6 +30,7 @@ import type {
   SyncApplyResponse,
   SyncCollectionPostState,
   SyncEnvironmentPostState,
+  SyncFolderPostState,
   SyncRulePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
@@ -1259,6 +1260,18 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncVaultPostState[] };
   };
+  /**
+   * Snapshot the active workspace's full Folder oracle state. Same
+   * semantics as `oh.sync.snapshotCollections` — `(folder)` per uid,
+   * matching the broadcast `folderPostState` payload. Folders whose
+   * parent linkage isn't currently resolvable are skipped; they
+   * republish on the next folder/parent broadcast that resolves the
+   * chain.
+   */
+  'oh.sync.snapshotFolders': {
+    req: Record<string, never>;
+    res: { entries: SyncFolderPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1459,6 +1472,12 @@ export interface BridgeBroadcastContract {
      * entity. Local-only by §12.3 — never crosses any sync transport.
      */
     vaultPostState?: SyncVaultPostState;
+    /**
+     * Post-commit projection for Folder envelopes (Phase B). Renderer
+     * mirrors fold this so sidebar tree consumers see post-commit
+     * shape (full reconstructed path) without round-tripping the SW.
+     */
+    folderPostState?: SyncFolderPostState;
   };
 
   /**

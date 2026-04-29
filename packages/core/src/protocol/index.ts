@@ -20,6 +20,7 @@ export type {
   SyncBroadcastEvent,
   SyncCollectionPostState,
   SyncEnvironmentPostState,
+  SyncFolderPostState,
   SyncRulePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,

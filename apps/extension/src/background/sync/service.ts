@@ -35,6 +35,7 @@ import type {
   SyncBroadcastEvent,
   SyncCollectionPostState,
   SyncEnvironmentPostState,
+  SyncFolderPostState,
   SyncRulePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
@@ -42,6 +43,7 @@ import type {
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
+  FOLDER_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
@@ -60,6 +62,8 @@ import {
 import { projectCollectionByUid, projectCollectionPostState } from './collection-post-state';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
 import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
+import { createFolderCache, type FolderCache, setActiveFolderCache } from './folder-cache';
+import { projectFolderByUid, projectFolderPostState } from './folder-post-state';
 import {
   createEnvironmentCache,
   type EnvironmentCache,
@@ -102,6 +106,7 @@ interface ServiceState {
   ruleCache: RuleCache;
   envCache: EnvironmentCache;
   collectionCache: CollectionCache;
+  folderCache: FolderCache;
   workspaceVariablesCache: WorkspaceVariablesCache;
   vaultCache: VaultCache;
   context: SwContextHandle;
@@ -145,6 +150,9 @@ export function initSyncService(workspaceId: string): void {
 
   const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveCollectionCache(collectionCache);
+
+  const folderCache = createFolderCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveFolderCache(folderCache);
 
   const workspaceVariablesCache = createWorkspaceVariablesCache(
     workspaceId,
@@ -219,12 +227,17 @@ export function initSyncService(workspaceId: string): void {
     const vaultPostState = projectVaultPostState(oracle, envelope);
     return vaultPostState ? { vaultPostState } : null;
   };
+  const folderProjector: BroadcastProjector = (envelope) => {
+    const folderPostState = projectFolderPostState(oracle, envelope);
+    return folderPostState ? { folderPostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
     collectionProjector,
     workspaceVariablesProjector,
     vaultProjector,
+    folderProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -240,6 +253,7 @@ export function initSyncService(workspaceId: string): void {
           ? { workspaceVariablesPostState: event.workspaceVariablesPostState }
           : {}),
         ...(event.vaultPostState ? { vaultPostState: event.vaultPostState } : {}),
+        ...(event.folderPostState ? { folderPostState: event.folderPostState } : {}),
       });
     },
     projector,
@@ -252,6 +266,7 @@ export function initSyncService(workspaceId: string): void {
     ruleCache,
     envCache,
     collectionCache,
+    folderCache,
     workspaceVariablesCache,
     vaultCache,
     context,
@@ -275,12 +290,14 @@ export function dispose(): void {
   state.ruleCache.dispose();
   state.envCache.dispose();
   state.collectionCache.dispose();
+  state.folderCache.dispose();
   state.workspaceVariablesCache.dispose();
   state.vaultCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
   setActiveCollectionCache(null);
+  setActiveFolderCache(null);
   setActiveWorkspaceVariablesCache(null);
   setActiveVaultCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
@@ -402,6 +419,25 @@ export function snapshotVaultPostStates(): SyncVaultPostState[] {
 }
 
 /**
+ * Snapshot every Folder the active oracle holds — `(folder)` per uid,
+ * the same shape `BroadcastProjector` attaches to live envelopes.
+ * Renderer surfaces call this on mount via the `oh.sync.snapshotFolders`
+ * RPC. Folders whose parent linkage isn't currently resolvable are
+ * skipped — the next folder/parent broadcast republishes them.
+ */
+export function snapshotFolderPostStates(): SyncFolderPostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncFolderPostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== FOLDER_ENTITY_TYPE) continue;
+    const projection = projectFolderByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -478,6 +514,8 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   setActiveEnvironmentCache(envCache);
   const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveCollectionCache(collectionCache);
+  const folderCache = createFolderCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveFolderCache(folderCache);
   const workspaceVariablesCache = createWorkspaceVariablesCache(
     workspaceId,
     oracle,
@@ -519,6 +557,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     ruleCache,
     envCache,
     collectionCache,
+    folderCache,
     workspaceVariablesCache,
     vaultCache,
     context,

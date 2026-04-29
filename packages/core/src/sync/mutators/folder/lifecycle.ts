@@ -14,6 +14,7 @@
  * the folder catalog matches what session 14 did for collection-delete.
  */
 
+import { toFolderName } from '../../../utils/workspace';
 import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
@@ -24,6 +25,16 @@ export interface CreateFolderArgs {
   parent: FolderParentRef;
   name: string;
   /**
+   * Stable last path segment for the folder's filesystem-style path
+   * (e.g. `login-x7k2abcd`). Frozen at create time so the projected
+   * `V5.Folder.path` doesn't shift on rename — rule paths embed this
+   * segment, so a moving target would orphan every rule under the
+   * folder. Defaults to `toFolderName(name, folderUid)` when the
+   * caller omits it (the legacy invariant: slug derived from initial
+   * name).
+   */
+  pathSegment?: string;
+  /**
    * Pre-computed fractional-indexing key for the new slot's position
    * in the parent's `folders` set. Omit to let the seed key handle
    * ordering — fine for first child or when the caller doesn't care.
@@ -33,12 +44,13 @@ export interface CreateFolderArgs {
 
 export function createFolder(ctx: MutatorContext, args: CreateFolderArgs): MutatorIntent {
   const slot: FolderSlot = { uid: args.folderUid };
+  const pathSegment = args.pathSegment ?? toFolderName(args.name, args.folderUid);
   const bodies: MutationBody[] = [
     {
       kind: 'create',
       type: FOLDER_ENTITY_TYPE,
       id: args.folderUid,
-      payload: { schemaVersion: 5, name: args.name },
+      payload: { schemaVersion: 5, name: args.name, pathSegment },
     },
     {
       kind: 'addToSet',

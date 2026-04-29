@@ -122,6 +122,23 @@ export interface SyncVaultPostState {
   secretNames: string[];
 }
 
+/**
+ * Post-commit projection for a Folder envelope. Carries the
+ * materialized {@link V5.Folder} with its full path reconstructed from
+ * the parent walk (collection root → folder chain). Folders are
+ * non-singleton entities keyed by uid; renderer-side mirrors fold this
+ * per uid so sidebar tree consumers see post-commit shape without a
+ * round-trip.
+ *
+ * Sibling order does not live on the folder itself (§23.5). The
+ * parent's `folders` set carries the ordered slots — when the
+ * drag-reorder gesture lands, the parent's post-state will be the
+ * source for `keyBetween` lookups.
+ */
+export interface SyncFolderPostState {
+  folder: V5.Folder;
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -159,6 +176,15 @@ export interface SyncBroadcastEvent {
    * production gesture) and rolled-back batches leave it `undefined`.
    */
   vaultPostState?: SyncVaultPostState;
+  /**
+   * Populated for Folder envelopes whose batch left a materialized
+   * folder in place. Tombstoned folders and rolled-back batches leave
+   * it `undefined`. Folders whose parent linkage couldn't be resolved
+   * (parent yet to seed during boot replay) also leave it undefined —
+   * the next folder/parent broadcast will republish once the chain is
+   * resolvable.
+   */
+  folderPostState?: SyncFolderPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */
