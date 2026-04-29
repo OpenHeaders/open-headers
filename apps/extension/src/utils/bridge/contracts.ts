@@ -687,42 +687,6 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { vault: V5.Vault };
   };
-  /**
-   * Per-secret vault mutators — the channel the `ChromeStorageVault`
-   * renderer-side Vault interface uses for `put` / `delete`. Routing
-   * every write through the SW keeps the Web Lock wrapping
-   * authoritative; direct `chrome.storage.local.set` on the vault key
-   * is architecturally forbidden (two writers = race). Phase B
-   * retired the OCC counter (§24) — the lock alone prevents lost
-   * updates and the sync engine's HLC LWW handles concurrent writes.
-   * Bulk edits from `VaultEditor` route through `oh.sync.apply` via
-   * `applyVaultReplacement`; this RPC is the script-API / OAuth-flow
-   * path that hasn't been routed through the oracle yet (parallel to
-   * the workspace-vars `oh.variables.set` retention noted in session 16).
-   */
-  vaultPutSecret: {
-    req: { key: string; value: string };
-    res: { ok: true; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
-  };
-  vaultDeleteSecret: {
-    req: { key: string };
-    res: { ok: true; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
-  };
-  /**
-   * Per-secret read — returns the SW's in-memory snapshot value.
-   * Reads are consistent without a lock (single-threaded SW; no
-   * concurrent writer visible to the reader).
-   */
-  vaultGetSecret: {
-    req: { key: string };
-    res: { value: string | null };
-  };
-  /** List every secret name in the active workspace's vault. */
-  vaultListSecretNames: {
-    req: Record<string, never>;
-    res: { names: string[] };
-  };
-
   updateCollectionVariables: {
     req: {
       collectionUid: string;

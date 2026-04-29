@@ -298,14 +298,6 @@ export async function setCollectionEnvOverride(collectionId: string, envId: stri
  */
 export type WorkspaceVariablesWriteResult = { ok: true; workspaceVariables: V5.WorkspaceVariables };
 
-/**
- * Outcome of a vault write. Phase B retired the stale-draft branch
- * (§24) — concurrent edits reconcile via HLC LWW at the oracle.
- * Singleton — the blob always exists (init on hydrate), so a
- * `not-found` branch is absent.
- */
-export type VaultWriteResult = { ok: true; vault: V5.Vault };
-
 export async function setWorkspaceVariables(
   next: Omit<V5.WorkspaceVariables, 'schemaVersion'> & { schemaVersion?: number },
 ): Promise<WorkspaceVariablesWriteResult> {
@@ -322,101 +314,6 @@ export async function setWorkspaceVariables(
     },
     { op: 'workspace-vars-set' },
   );
-}
-
-// ── Vault (secrets) ────────────────────────────────────────────────
-
-export async function setVault(
-  next: Omit<V5.Vault, 'schemaVersion'> & { schemaVersion?: number },
-): Promise<VaultWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'vault', 'singleton'),
-    async () => {
-      vault = {
-        schemaVersion: 5,
-        secrets: next.secrets,
-      };
-      await persistVault();
-      return { ok: true, vault };
-    },
-    { op: 'vault-set' },
-  );
-}
-
-/**
- * Per-key vault mutators. These share the same lock + version counter
- * as `setVault` so the Vault interface (ChromeStorageVault in the
- * renderer) can manage individual secrets without racing the bulk
- * editor path (VaultEditor → setVault). One writer, one lock, one
- * version counter — no silent drift between the two APIs.
- *
- * `expectedVersion` is optional here: per-key callers (OAuth token
- * refresh, API-key features) don't track the vault version at the
- * call site. The lock still serializes writes, so last-write-wins is
- * the documented semantics and is race-free (vs. the pre-Phase-10
- * bypass which had a read-modify-write race against direct storage).
- */
-export async function putVaultSecret(key: string, value: string): Promise<VaultWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'vault', 'singleton'),
-    async () => {
-      const idx = vault.secrets.findIndex((s) => s.name === key);
-      // Per-key writers (OAuth refresh, API-key flows) only ever
-      // produce string-kind entries — TOTP entries are managed via
-      // the bulk vault editor path. If a TOTP entry of the same name
-      // already exists, the put OVERWRITES it with a string entry;
-      // deliberate name-collision contract — one namespace per vault.
-      const next: V5.VaultSecret = { kind: 'string', name: key, value };
-      const nextSecrets =
-        idx >= 0 ? [...vault.secrets.slice(0, idx), next, ...vault.secrets.slice(idx + 1)] : [...vault.secrets, next];
-      vault = { schemaVersion: 5, secrets: nextSecrets };
-      await persistVault();
-      return { ok: true, vault };
-    },
-    { op: 'vault-put-secret' },
-  );
-}
-
-export async function deleteVaultSecret(key: string): Promise<VaultWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'vault', 'singleton'),
-    async () => {
-      const before = vault.secrets.length;
-      const nextSecrets = vault.secrets.filter((s) => s.name !== key);
-      // No-op when the key was already absent — still return ok so
-      // callers treat idempotent deletes uniformly.
-      if (nextSecrets.length === before) {
-        return { ok: true, vault };
-      }
-      vault = { schemaVersion: 5, secrets: nextSecrets };
-      await persistVault();
-      return { ok: true, vault };
-    },
-    { op: 'vault-delete-secret' },
-  );
-}
-
-/**
- * Read a single secret by name from the SW's in-memory snapshot. No
- * lock needed — reads are consistent by default (JS is single-
- * threaded inside the SW, and the SW's vault snapshot is the write
- * target). Returns null if the key isn't present, or if the entry is
- * a TOTP-kind secret — per-key callers (OAuth refresh, generic API)
- * read literal strings only; TOTP codes go through the request
- * executor's TotpRegistry instead.
- */
-export function getVaultSecret(key: string): string | null {
-  const found = vault.secrets.find((s) => s.name === key);
-  if (!found || found.kind !== 'string') return null;
-  return found.value;
-}
-
-/** Read all secret names from the SW's in-memory snapshot. */
-export function listVaultSecretNames(): string[] {
-  return vault.secrets.map((s) => s.name);
 }
 
 function reconcileOverrides(
