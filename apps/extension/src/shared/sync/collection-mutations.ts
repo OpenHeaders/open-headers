@@ -10,8 +10,13 @@
  */
 
 import {
+  COLLECTION_ENTITY_TYPE,
+  COLLECTION_MUTATOR_VERSION,
+  type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
+  newBatchId,
+  newMutationId,
   removeCollectionVar,
   renameCollection,
   renameCollectionVar,
@@ -24,6 +29,28 @@ import {
 } from '@openheaders/core/sync';
 
 export type CollectionMutationPayload = MutatorIntent;
+
+/**
+ * Build a `delete` envelope for a collection. The catalog doesn't ship
+ * a dedicated factory because delete is the generic primitive — the
+ * envelope shape is uniform across entities. Lifted here so the SW
+ * call site doesn't have to assemble envelope fields by hand.
+ */
+export function buildDeleteCollectionBatch(collectionUid: string, ctx: MutatorContext): MutationBatch {
+  return {
+    batchId: ctx.batchId ?? newBatchId(),
+    mutations: [
+      {
+        mutationId: newMutationId(),
+        hlc: ctx.hlc,
+        origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
+        workspaceId: ctx.workspaceId,
+        mutatorVersion: COLLECTION_MUTATOR_VERSION,
+        body: { kind: 'delete', type: COLLECTION_ENTITY_TYPE, id: collectionUid },
+      },
+    ],
+  };
+}
 
 export interface SetCollectionVarInput {
   collectionUid: string;

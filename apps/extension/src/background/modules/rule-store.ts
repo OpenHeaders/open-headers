@@ -18,12 +18,26 @@
  */
 
 import { CollectionSchema, FolderSchema, RuleSchema } from '@openheaders/core/schemas';
+import {
+  COLLECTION_ENTITY_TYPE,
+  COLLECTION_VARS_PATH,
+  collectionInvalidateResolverIntent,
+  mintBatch as mintCollectionBatch,
+  type MutationBody,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import {
+  buildDeleteCollectionBatch,
+  buildRenameCollectionBatch,
+  buildSetPinnedAndDefaultBatch,
+} from '@/shared/sync/collection-mutations';
+import { seedCollection } from '@/shared/sync/collection-projection';
 import { buildAddBatch, buildDeleteBatch } from '@/shared/sync/rule-mutations';
+import { getActiveCollectionCache } from '../sync/collection-cache';
 import { getActiveRuleCache } from '../sync/rule-cache';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
@@ -138,6 +152,13 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
+/**
+ * Synchronously return the default collection if it already exists,
+ * or mint and seed one through the oracle. The seed batch fires
+ * fire-and-forget; the local mirror updates on the broadcast that
+ * follows. Callers that need the post-commit collection on disk
+ * should `await ensureDefaultCollection()`.
+ */
 export function ensureDefaultCollection(): V5.Collection {
   const existing = collections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
@@ -146,8 +167,6 @@ export function ensureDefaultCollection(): V5.Collection {
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
   const collection: V5.Collection = {
     schemaVersion: 5,
-    // Phase 10 write counter — advances on every
-    // renameCollection / deleteCollection / updateCollectionVariables.
     version: 1,
     uid,
     path: `rules/${folderName}`,
@@ -156,8 +175,15 @@ export function ensureDefaultCollection(): V5.Collection {
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
   };
+  // Optimistic local insert so synchronous callers see the new
+  // collection immediately; the oracle's broadcast will confirm the
+  // identical post-commit shape (variables list re-projected from
+  // its addToSet members).
   collections = [...collections, collection];
-  void persistCollections();
+  void applyCollectionMutationOrThrow(
+    (ctx) => ({ batch: seedCollection(collection, ctx), sideEffects: [] }),
+    'ensureDefaultCollection',
+  );
   return collection;
 }
 
@@ -175,7 +201,10 @@ export function createCollection(name: string): V5.Collection {
     defaultEnvironmentId: null,
   };
   collections = [...collections, collection];
-  void persistCollections();
+  void applyCollectionMutationOrThrow(
+    (ctx) => ({ batch: seedCollection(collection, ctx), sideEffects: [] }),
+    'createCollection',
+  );
   return collection;
 }
 
@@ -199,39 +228,25 @@ export interface UpdateCollectionOptions {
   expectedVersion?: number;
 }
 
-function collectionVersionOf(c: V5.Collection): number {
-  return c.version;
-}
-
 export async function renameCollection(
   uid: string,
   name: string,
-  options: UpdateCollectionOptions = {},
+  _options: UpdateCollectionOptions = {},
 ): Promise<CollectionWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'collection', uid),
-    async () => {
-      const index = collections.findIndex((c) => c.uid === uid);
-      if (index === -1) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
-      const existing = collections[index];
-      const current = collectionVersionOf(existing);
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverCollection: existing,
-        } as CollectionWriteResult;
-      }
-      const nextVersion = current + 1;
-      const updated: V5.Collection = { ...existing, name, version: nextVersion };
-      collections = [...collections.slice(0, index), updated, ...collections.slice(index + 1)];
-      await persistCollections();
-      return { ok: true, version: nextVersion, collection: updated } as CollectionWriteResult;
-    },
-    { op: 'collection-rename' },
+  assertLoaded();
+  const existing = collections.find((c) => c.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
+  await applyCollectionMutationOrThrow(
+    (ctx) => buildRenameCollectionBatch({ collectionUid: uid, name }, ctx),
+    'renameCollection',
   );
+  // Synthetic version: 1 — retired by commit 4 (the OCC sweep). LWW
+  // by HLC at the oracle is the convergence guarantee, not the counter.
+  return {
+    ok: true,
+    version: 1,
+    collection: { ...existing, name, version: 1 },
+  } as CollectionWriteResult;
 }
 
 export async function deleteCollection(uid: string): Promise<boolean> {
@@ -242,17 +257,21 @@ export async function deleteCollection(uid: string): Promise<boolean> {
       const collection = collections.find((c) => c.uid === uid);
       if (!collection) return false;
 
-      // Cascade rule deletes through the oracle so the cache (and
-      // hence chrome.storage.local) stays consistent with the
-      // collection/folder removals we apply locally.
+      // Cascade rule deletes through the oracle so the rule cache stays
+      // consistent. Folders are still on the legacy direct-write path
+      // until a future session brings them onto the oracle.
       const cascadingRuleUids = rules.filter((r) => r.path.startsWith(collection.path)).map((r) => r.uid);
-      collections = collections.filter((c) => c.uid !== uid);
       folders = folders.filter((f) => !f.path.startsWith(collection.path));
-      await persistCollections();
       await persistFolders();
       for (const ruleUid of cascadingRuleUids) {
         await applyRuleMutationOrThrow((ctx) => buildDeleteBatch(ruleUid, ctx), 'deleteCollection-cascade');
       }
+      // Tombstone the collection through the oracle — the broadcast
+      // drives the cache + local mirror update.
+      await applyCollectionMutationOrThrow(
+        (ctx) => ({ batch: buildDeleteCollectionBatch(uid, ctx), sideEffects: [] }),
+        'deleteCollection',
+      );
       return true;
     },
     { op: 'collection-delete' },
@@ -260,40 +279,36 @@ export async function deleteCollection(uid: string): Promise<boolean> {
 }
 
 /**
- * Replace a collection's scoped variables. Used by the Variables editor
- * (collection-vars tab) and by the Inspector "add variable" affordance.
- * Returns the full Phase 10 write result so editors can detect
- * stale-draft conflicts when two tabs edit the same collection.
+ * Replace a collection's scoped variables. SW entry point used by the
+ * legacy `updateCollectionVariables` bridge dispatch; the renderer
+ * goes through `applyCollectionVariablesReplacement` directly via
+ * `useVariableMutator` / `useCollectionMutator`. Both paths converge
+ * through the same oracle.
  */
 export async function updateCollectionVariables(
   uid: string,
   variables: V5.Variable[],
-  options: UpdateCollectionOptions = {},
+  _options: UpdateCollectionOptions = {},
 ): Promise<CollectionWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'collection', uid),
-    async () => {
-      const index = collections.findIndex((c) => c.uid === uid);
-      if (index === -1) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
-      const existing = collections[index];
-      const current = collectionVersionOf(existing);
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverCollection: existing,
-        } as CollectionWriteResult;
-      }
-      const nextVersion = current + 1;
-      const updated: V5.Collection = { ...existing, variables, version: nextVersion };
-      collections = [...collections.slice(0, index), updated, ...collections.slice(index + 1)];
-      await persistCollections();
-      return { ok: true, version: nextVersion, collection: updated } as CollectionWriteResult;
-    },
-    { op: 'collection-variables' },
-  );
+  assertLoaded();
+  const existing = collections.find((c) => c.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' } as CollectionWriteResult;
+
+  await applyCollectionMutationOrThrow((ctx) => {
+    const replaceCtx = { ...ctx, batchId: ctx.batchId ?? `coll-replace-${uid}` };
+    const bodies = buildVariableReplacementBodies(uid, existing.variables, variables);
+    if (bodies.length === 0) return { batch: mintCollectionBatch(replaceCtx, []), sideEffects: [] };
+    return {
+      batch: mintCollectionBatch(replaceCtx, bodies),
+      sideEffects: [collectionInvalidateResolverIntent(uid, replaceCtx.hlc)],
+    };
+  }, 'updateCollectionVariables');
+
+  return {
+    ok: true,
+    version: 1,
+    collection: { ...existing, variables, version: 1 },
+  } as CollectionWriteResult;
 }
 
 export async function updateCollectionPinnedEnvs(
@@ -301,25 +316,62 @@ export async function updateCollectionPinnedEnvs(
   pinnedEnvironmentIds: string[],
   defaultEnvironmentId: string | null,
 ): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'collection', collectionUid),
-    async () => {
-      const index = collections.findIndex((c) => c.uid === collectionUid);
-      if (index === -1) return false;
-      const existing = collections[index];
-      const updated: V5.Collection = {
-        ...existing,
-        pinnedEnvironmentIds,
-        defaultEnvironmentId,
-        version: existing.version + 1,
-      };
-      collections = [...collections.slice(0, index), updated, ...collections.slice(index + 1)];
-      await persistCollections();
-      return true;
-    },
-    { op: 'collection-pinned-envs' },
+  assertLoaded();
+  if (!collections.some((c) => c.uid === collectionUid)) return false;
+  await applyCollectionMutationOrThrow(
+    (ctx) =>
+      buildSetPinnedAndDefaultBatch({ collectionUid, pinnedEnvironmentIds, defaultEnvironmentId }, {
+        ...ctx,
+        batchId: ctx.batchId ?? `coll-pinned-${collectionUid}`,
+      }),
+    'updateCollectionPinnedEnvs',
   );
+  return true;
+}
+
+function buildVariableReplacementBodies(
+  collectionUid: string,
+  oldVars: readonly V5.Variable[],
+  newVars: readonly V5.Variable[],
+): MutationBody[] {
+  const oldByName = new Map<string, V5.Variable>();
+  for (const v of oldVars) oldByName.set(v.name, v);
+  const newByName = new Map<string, V5.Variable>();
+  for (const v of newVars) {
+    if (!v.name.trim()) continue;
+    newByName.set(v.name, v);
+  }
+
+  const bodies: MutationBody[] = [];
+  for (const [name] of oldByName) {
+    if (newByName.has(name)) continue;
+    bodies.push({
+      kind: 'removeFromSet',
+      type: COLLECTION_ENTITY_TYPE,
+      id: collectionUid,
+      path: COLLECTION_VARS_PATH,
+      itemId: name,
+    });
+  }
+  for (const [name, variable] of newByName) {
+    const prev = oldByName.get(name);
+    if (
+      prev &&
+      prev.value === variable.value &&
+      (prev.type ?? 'default') === (variable.type ?? 'default')
+    ) {
+      continue;
+    }
+    bodies.push({
+      kind: 'addToSet',
+      type: COLLECTION_ENTITY_TYPE,
+      id: collectionUid,
+      path: COLLECTION_VARS_PATH,
+      itemId: name,
+      item: { name, value: variable.value, type: variable.type ?? 'default' },
+    });
+  }
+  return bodies;
 }
 
 // ── Folders ─────────────────────────────────────────────────────────
@@ -457,19 +509,35 @@ async function applyRuleMutationOrThrow(
   }
 }
 
+async function applyCollectionMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`RuleStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `RuleStore.${op}: oracle rejected collection batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
+}
+
 // ── Persistence (scoped to loadedWorkspaceId) ──────────────────────
 //
-// Rules persistence is owned by the sync engine's `RuleCache` —
-// `chrome.storage.local` writes happen on every broadcast-driven
-// re-projection. The collection + folder helpers below stay on the
-// legacy direct-write path until Phase B brings them onto the oracle.
-
-async function persistCollections(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).collections, collections);
-  logger.debug('RuleStore', `Persisted ${collections.length} collections (ws=${workspaceId})`);
-  notifyChange();
-}
+// Rules + collections persistence is owned by the sync engine's
+// {@link RuleCache} + {@link CollectionCache} — `chrome.storage.local`
+// writes happen on every broadcast-driven re-projection. Folders stay
+// on the legacy direct-write path until a future session brings them
+// onto the oracle.
 
 async function persistFolders(): Promise<void> {
   const workspaceId = assertLoaded();
@@ -562,6 +630,7 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
 // ── Sync engine bridge ──────────────────────────────────────────────
 
 let cacheUnsubscribe: (() => void) | null = null;
+let collectionCacheUnsubscribe: (() => void) | null = null;
 
 /**
  * Wire the local `rules` array to the active workspace's
@@ -597,6 +666,32 @@ export async function bridgeToSyncEngine(): Promise<void> {
   rules = cache.getRules();
 }
 
+/**
+ * Wire the local `collections` array to the active workspace's
+ * {@link CollectionCache}: seed the oracle from the hydrated
+ * collections, then subscribe to broadcast-driven re-projections so
+ * subsequent mutations flow back into the local mirror. Same shape as
+ * {@link bridgeToSyncEngine}; idempotent. Call AFTER
+ * `initSyncService(workspaceId)` AND AFTER hydration / switch.
+ */
+export async function bridgeCollectionSyncEngine(): Promise<void> {
+  const cache = getActiveCollectionCache();
+  if (!cache) {
+    logger.info('RuleStore', 'bridgeCollectionSyncEngine: no active cache; skipping');
+    return;
+  }
+  if (collectionCacheUnsubscribe) {
+    collectionCacheUnsubscribe();
+    collectionCacheUnsubscribe = null;
+  }
+  collectionCacheUnsubscribe = cache.onChange(() => {
+    collections = cache.getCollections();
+    notifyChange();
+  });
+  await cache.seedFromPersistedCollections(collections);
+  collections = cache.getCollections();
+}
+
 // ── Test helpers ────────────────────────────────────────────────────
 
 /** Test-only: reset the module without touching storage. */
@@ -609,5 +704,9 @@ export function __resetForTests(): void {
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
+  }
+  if (collectionCacheUnsubscribe) {
+    collectionCacheUnsubscribe();
+    collectionCacheUnsubscribe = null;
   }
 }

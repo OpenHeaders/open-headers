@@ -594,7 +594,7 @@ async function runUpdate(
       if (idx === -1) return { ok: false, reason: 'not-found' };
       const next = variables.slice();
       next[idx] = { ...next[idx], value: draft };
-      return mutator.replaceCollectionVariables(collection.uid, next, collection.version);
+      return mutator.replaceCollectionVariables(collection.uid, next);
     }
     case 'workspace': {
       const idx = snap.workspaceVariables.variables.findIndex((v) => v.name === c.variable.name);
@@ -652,7 +652,7 @@ async function runCreate(
         return { ok: false, reason: 'duplicate-name' };
       }
       const next: V5.Variable[] = [...variables, { name, value, type: 'default' }];
-      return mutator.replaceCollectionVariables(collection.uid, next, collection.version);
+      return mutator.replaceCollectionVariables(collection.uid, next);
     }
   }
 }

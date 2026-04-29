@@ -63,7 +63,11 @@ import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from '
 import { hydrateFromStorage as hydrateRequestsFromStorage } from './request-store';
 import { scheduleUpdate } from './rule-engine';
 import { reinitForWorkspace } from '../sync/service';
-import { bridgeToSyncEngine, hydrateFromStorage as hydrateRulesFromStorage } from './rule-store';
+import {
+  bridgeCollectionSyncEngine,
+  bridgeToSyncEngine,
+  hydrateFromStorage as hydrateRulesFromStorage,
+} from './rule-store';
 import { hydrateTemplatesFromStorage } from './template-store';
 import {
   createWorkspace as createWorkspaceMeta,
@@ -355,6 +359,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         reinitForWorkspace(targetWorkspaceId);
         await bridgeToSyncEngine();
         await bridgeEnvironmentSyncEngine();
+        await bridgeCollectionSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

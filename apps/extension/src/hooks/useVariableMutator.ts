@@ -28,8 +28,10 @@
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveVariables } from '@hooks/useLiveVariables';
+import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
+import { applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvVariablesReplacement } from '@/shared/sync/env-write-client';
 
 // ── Result shape ─────────────────────────────────────────────────────
@@ -56,7 +58,6 @@ export interface UseVariableMutatorApi {
   replaceCollectionVariables(
     collectionUid: string,
     variables: V5.Variable[],
-    expectedVersion?: number,
   ): Promise<MutationResult>;
   /** Replace the vault. */
   replaceVault(secrets: V5.VaultSecret[], expectedVersion?: number): Promise<MutationResult>;
@@ -69,7 +70,8 @@ export interface UseVariableMutatorApi {
 }
 
 export function useVariableMutator(): UseVariableMutatorApi {
-  const { setVault, environments, updateCollectionVariables, setWorkspaceVariables } = useEnvironments();
+  const { setVault, environments, setWorkspaceVariables } = useEnvironments();
+  const { localCollections } = useRules();
   const { setOverride } = useLiveVariables();
   const workspaceId = useActiveWorkspaceId();
 
@@ -107,11 +109,21 @@ export function useVariableMutator(): UseVariableMutatorApi {
   );
 
   const replaceCollectionVariables = useCallback<UseVariableMutatorApi['replaceCollectionVariables']>(
-    async (collectionUid, variables, expectedVersion) => {
-      const r = await updateCollectionVariables(collectionUid, variables, expectedVersion);
-      return mapWriteResult(r);
+    async (collectionUid, variables) => {
+      if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
+      const collection = localCollections.find((c) => c.uid === collectionUid);
+      if (!collection) return { ok: false, reason: 'not-found' };
+      const result = await applyCollectionVariablesReplacement(
+        collectionUid,
+        variables,
+        collection.variables,
+        { workspaceId, surfaceId: 'workbench' },
+      );
+      if (result.ok) return { ok: true, version: 1 };
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message };
     },
-    [updateCollectionVariables],
+    [workspaceId, localCollections],
   );
 
   const replaceVault = useCallback<UseVariableMutatorApi['replaceVault']>(

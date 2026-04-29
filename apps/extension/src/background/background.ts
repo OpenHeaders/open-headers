@@ -84,7 +84,13 @@ import {
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
-import { bridgeToSyncEngine, getCollectionTrees, getRules, onStoreChange } from './modules/rule-store';
+import {
+  bridgeCollectionSyncEngine,
+  bridgeToSyncEngine,
+  getCollectionTrees,
+  getRules,
+  onStoreChange,
+} from './modules/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { getTemplates, onTemplateStoreChange } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
@@ -344,6 +350,9 @@ async function initializeExtension(): Promise<void> {
     void bridgeEnvironmentSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeEnvironmentSyncEngine after workspace switch failed', err);
     });
+    void bridgeCollectionSyncEngine().catch((err: unknown) => {
+      logger.warn('Background', 'bridgeCollectionSyncEngine after workspace switch failed', err);
+    });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -474,6 +483,7 @@ async function initializeExtension(): Promise<void> {
   // oracle; reads stay synchronous off the local mirror.
   await bridgeToSyncEngine();
   await bridgeEnvironmentSyncEngine();
+  await bridgeCollectionSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
