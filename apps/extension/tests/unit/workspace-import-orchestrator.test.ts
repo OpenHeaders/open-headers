@@ -45,6 +45,7 @@ vi.mock('@/background/modules/rule-store', () => ({
 }));
 vi.mock('@/background/modules/request-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
+  bridgeRequestSyncEngine: vi.fn(async () => undefined),
 }));
 vi.mock('@/background/modules/template-store', () => ({
   hydrateTemplatesFromStorage: vi.fn(async () => []),
@@ -332,7 +333,6 @@ describe('importWorkspace — scripts review pending set', () => {
   function makeRequest(uid: string, opts: { pre?: string; post?: string } = {}) {
     return {
       schemaVersion: 5 as const,
-      version: 1,
       uid,
       path: `requests/api-col/req-${uid}`,
       name: `Request ${uid}`,
@@ -447,7 +447,6 @@ describe('importWorkspace — quota pre-check (best-effort, warn-only)', () => {
         requests: [
           {
             schemaVersion: 5,
-            version: 1,
             uid: 'req99999',
             path: 'requests/api-col/req99999',
             name: 'Big',

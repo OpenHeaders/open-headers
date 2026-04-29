@@ -2,27 +2,33 @@
  * Request Store — single source of truth for V5 HTTP requests in the
  * active workspace.
  *
- * Mirrors `rule-store.ts`: flat in-memory lists with path-encoded
- * hierarchy, tree derived on read. Workspace switch reloads from the
- * target workspace's keys; listeners fire on every mutation so the
- * orchestrator and UI bridges can broadcast `requestsUpdated`.
+ * Mirrors `rule-store.ts` post Phase B: writes route through the sync
+ * oracle (catalog factory → MutationBatch → `oracle.apply`); the
+ * {@link RequestCache} owns `chrome.storage.local` persistence + drives
+ * the local mirror via broadcast-driven re-projection. Reads stay
+ * synchronous off the local mirror so consumers (executor, sidebar,
+ * inspector) don't have to thread the oracle through their call paths.
  *
  * Storage (every key scoped under the active workspace id):
- *   - requests            → `oh.ws.<id>.requests`
- *   - requestCollections  → `oh.ws.<id>.requestCollections`
- *   - requestFolders      → `oh.ws.<id>.requestFolders`
+ *   - requests            → `oh.ws.<id>.requests`           (cache-owned)
+ *   - requestCollections  → `oh.ws.<id>.requestCollections` (legacy direct write — request collections + folders are queued for their own pipeline pass; see status doc Session 21)
+ *   - requestFolders      → `oh.ws.<id>.requestFolders`     (legacy direct write)
  *
  * Paths live under `requests/` (vs. `rules/` for rule-store) so the
  * two entity trees never collide in on-disk format used by team
- * workspaces in v2.
+ * workspaces.
  */
 
 import { CollectionSchema, FolderSchema, RequestSchema } from '@openheaders/core/schemas';
+import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@/shared/sync/request-mutations';
+import { getActiveRequestCache } from '../sync/request-cache';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -101,6 +107,13 @@ function buildTreeForPath(parentPath: string): V5.TreeNode[] {
 }
 
 // ── Collections ─────────────────────────────────────────────────────
+//
+// Request collections + folders still flow through the legacy direct-
+// write path; routing them through the oracle requires the entity-type
+// decision documented in the status doc (extend Collection / Folder
+// types vs. introduce request-collection / request-folder). Until that
+// lands, cascade deletes emit per-request `buildDeleteBatch` envelopes
+// so the request entity's pipeline stays consistent.
 
 const DEFAULT_COLLECTION_NAME = 'My Requests';
 
@@ -175,11 +188,23 @@ export async function deleteRequestCollection(uid: string): Promise<boolean> {
     async () => {
       const collection = collections.find((c) => c.uid === uid);
       if (!collection) return false;
+
+      // Cascade per-request deletes through the oracle so the cache +
+      // local mirror stay consistent. Folders cascade via the legacy
+      // direct-write path until request-folder lands on the pipeline.
+      const cascadingRequestUids = requests
+        .filter((r) => r.path.startsWith(collection.path))
+        .map((r) => r.uid);
+      for (const reqUid of cascadingRequestUids) {
+        await applyRequestMutationOrThrow(
+          (ctx) => buildDeleteBatch(reqUid, ctx),
+          'deleteRequestCollection-cascade',
+        );
+      }
+
       collections = collections.filter((c) => c.uid !== uid);
-      requests = requests.filter((r) => !r.path.startsWith(collection.path));
       folders = folders.filter((f) => !f.path.startsWith(collection.path));
       await persistCollections();
-      await persistRequests();
       await persistFolders();
       return true;
     },
@@ -221,10 +246,21 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
     async () => {
       const folder = folders.find((f) => f.uid === uid);
       if (!folder) return false;
+
+      // Cascade per-request deletes for every request nested under this
+      // folder (or any descendant folder) through the oracle.
+      const cascadingRequestUids = requests
+        .filter((r) => r.path.startsWith(`${folder.path}/`))
+        .map((r) => r.uid);
+      for (const reqUid of cascadingRequestUids) {
+        await applyRequestMutationOrThrow(
+          (ctx) => buildDeleteBatch(reqUid, ctx),
+          'deleteRequestFolder-cascade',
+        );
+      }
+
       folders = folders.filter((f) => f.uid !== uid && !f.path.startsWith(`${folder.path}/`));
-      requests = requests.filter((r) => !r.path.startsWith(`${folder.path}/`));
       await persistFolders();
-      await persistRequests();
       return true;
     },
     { op: 'request-folder-delete' },
@@ -233,21 +269,16 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
 
 // ── Requests ────────────────────────────────────────────────────────
 
-/** Seed shape for a fresh request — name + minimal defaults. Callers
- *  hand us the new request's display name; everything else is a sane
- *  empty default the editor can populate. */
-export function addRequest(
+/** Seed shape for a fresh request — name + minimal defaults. */
+export async function addRequest(
   name: string,
   parentPath: string,
   seed?: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-): V5.Request {
+): Promise<V5.Request> {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
   const created: V5.Request = {
     schemaVersion: 5,
-    // Phase 10 write counter — starts at 1 on creation. See
-    // `RuleBase.version` for the stale-draft contract.
-    version: 1,
     uid,
     path: `${parentPath}/${folderName}`,
     name,
@@ -263,8 +294,7 @@ export function addRequest(
     ...(seed?.preRequestScript ? { preRequestScript: seed.preRequestScript } : {}),
     ...(seed?.postResponseScript ? { postResponseScript: seed.postResponseScript } : {}),
   };
-  requests = [...requests, created];
-  void persistRequests();
+  await applyRequestMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addRequest');
   return created;
 }
 
@@ -272,7 +302,7 @@ export function addRequestToCollection(
   name: string,
   collectionUid: string,
   seed?: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-): V5.Request {
+): Promise<V5.Request> {
   const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `requests/${collectionUid}`;
   return addRequest(name, parentPath, seed);
@@ -283,77 +313,94 @@ export function getRequest(uid: string): V5.Request | null {
 }
 
 /**
- * Outcome of a versioned request write (Phase 10 stale-draft contract
- * — parallel to `RuleWriteResult` / `EnvironmentWriteResult`).
+ * Outcome of a request write. The legacy stale-draft branch is retired
+ * in Phase B — convergence is per-(field) LWW at the oracle, not a
+ * versioned compare-and-set.
  */
 export type RequestWriteResult =
-  | { ok: true; version: number; request: V5.Request }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverRequest: V5.Request }
-  | { ok: false; reason: 'not-found' };
-
-export interface UpdateRequestOptions {
-  /** Version the client loaded. Omit to opt out of stale-draft detection. */
-  expectedVersion?: number;
-}
-
-function requestVersionOf(r: V5.Request): number {
-  return r.version;
-}
+  | { ok: true; request: V5.Request }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message: string };
 
 export async function updateRequest(
   uid: string,
   updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-  options: UpdateRequestOptions = {},
 ): Promise<RequestWriteResult> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'request', uid),
-    async () => {
-      const index = requests.findIndex((r) => r.uid === uid);
-      if (index === -1) return { ok: false, reason: 'not-found' } as RequestWriteResult;
-      const existing = requests[index];
-      const current = requestVersionOf(existing);
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverRequest: existing,
-        } as RequestWriteResult;
-      }
-      const nextVersion = current + 1;
-      const updated = { ...existing, ...updates, version: nextVersion } as V5.Request;
-      requests = [...requests.slice(0, index), updated, ...requests.slice(index + 1)];
-      await persistRequests();
-      return { ok: true, version: nextVersion, request: updated } as RequestWriteResult;
-    },
-    { op: 'request-update' },
+  assertLoaded();
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    return { ok: false, reason: 'other', message: 'sync service not initialized' };
+  }
+  const existing = requests.find((r) => r.uid === uid);
+  if (!existing) return { ok: false, reason: 'not-found' };
+
+  // SW-side `liveSetItems` returns the richer `{itemId, item}` shape;
+  // adapt down to the `LiveSetItemIds` string-only contract.
+  const payload = buildUpdateBatch(uid, updates, ctx, (requestUid, setPath) =>
+    oracle.liveSetItems(REQUEST_ENTITY_TYPE, requestUid, setPath).map((entry) => entry.itemId),
   );
+  if (payload.batch.mutations.length === 0) {
+    // No-op patch — return the canonical pre-image.
+    return { ok: true, request: existing };
+  }
+  const result = await oracle.apply(payload.batch, payload.sideEffects);
+  if (!result.ok) {
+    return {
+      ok: false,
+      reason: 'other',
+      message: result.failure?.detail ?? 'oracle rejected request batch',
+    };
+  }
+  // Optimistic merge — broadcast-driven cache projection lands the
+  // authoritative shape back into the local mirror momentarily.
+  return { ok: true, request: { ...existing, ...updates } as V5.Request };
 }
 
 export async function deleteRequest(uid: string): Promise<boolean> {
-  const workspaceId = assertLoaded();
-  return withLock(
-    entityLockName(workspaceId, 'request', uid),
-    async () => {
-      const before = requests.length;
-      requests = requests.filter((r) => r.uid !== uid);
-      if (requests.length === before) return false;
-      await persistRequests();
-      return true;
-    },
-    { op: 'request-delete' },
-  );
+  assertLoaded();
+  if (!requests.some((r) => r.uid === uid)) return false;
+  await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(uid, ctx), 'deleteRequest');
+  return true;
+}
+
+// ── Sync engine plumbing ────────────────────────────────────────────
+
+/**
+ * Mint an SW context, build a batch via `factory`, and apply it through
+ * the active oracle. Mirrors {@link rule-store}'s helper — throws when
+ * the sync service hasn't been initialized so the order violation
+ * surfaces immediately rather than silently dropping the write.
+ */
+async function applyRequestMutationOrThrow(
+  factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
+    batch: import('@openheaders/core/sync').MutationBatch;
+    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
+  },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`RequestStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `RequestStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
 
 // ── Persistence ─────────────────────────────────────────────────────
-
-async function persistRequests(): Promise<void> {
-  const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).requests, requests);
-  logger.debug('RequestStore', `Persisted ${requests.length} requests (ws=${workspaceId})`);
-  notifyChange();
-}
+//
+// Requests persistence is owned by the sync engine's
+// {@link RequestCache} — `chrome.storage.local` writes happen on every
+// broadcast-driven re-projection. Collections + folders still go
+// through the legacy direct path until request-collection /
+// request-folder land on the pipeline.
 
 async function persistCollections(): Promise<void> {
   const workspaceId = assertLoaded();
@@ -421,6 +468,39 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
   notifyChange();
 }
 
+// ── Sync engine bridge ──────────────────────────────────────────────
+
+let cacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local `requests` array to the active workspace's
+ * {@link RequestCache}: seed the oracle from the hydrated requests,
+ * then subscribe to broadcast-driven re-projections so subsequent
+ * mutations flow back into the local mirror. Same shape as
+ * `bridgeToSyncEngine` in `rule-store.ts`. Idempotent — the prior
+ * cache subscription is dropped first.
+ */
+export async function bridgeRequestSyncEngine(): Promise<void> {
+  const cache = getActiveRequestCache();
+  if (!cache) {
+    logger.info('RequestStore', 'bridgeRequestSyncEngine: no active cache; skipping');
+    return;
+  }
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  cacheUnsubscribe = cache.onChange(() => {
+    requests = cache.getRequests();
+    notifyChange();
+  });
+  await cache.seedFromPersistedRequests(requests);
+  // Belt-and-braces: copy the cache view explicitly so a zero-requests
+  // workspace (no broadcasts → listener never fires) still ends up with
+  // `requests` pointed at the cache's snapshot.
+  requests = cache.getRequests();
+}
+
 // ── Test helpers ────────────────────────────────────────────────────
 
 export function __resetForTests(): void {
@@ -429,4 +509,8 @@ export function __resetForTests(): void {
   folders = [];
   loadedWorkspaceId = null;
   changeListeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
 }

@@ -40,15 +40,12 @@ export interface UseRequestsApi {
     seed?: Partial<V5.Request>;
   }) => Promise<V5.Request | null>;
   /**
-   * Update a request. Returns the full Phase 10 write result so
-   * editors can surface `stale-draft` on concurrent-edit races.
-   * Callers that don't track `expectedVersion` (scriptable imports,
-   * programmatic edits) omit it and get last-write-wins semantics.
+   * Update a request. Sync engine §24 retired the `version` counter +
+   * stale-draft contract; convergence is per-(field) LWW at the oracle.
    */
   updateRequest: (
     requestUid: string,
     updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-    expectedVersion?: number,
   ) => Promise<RequestWriteResult>;
   deleteRequest: (requestUid: string) => Promise<boolean>;
 
@@ -116,9 +113,8 @@ export function useRequests(): UseRequestsApi {
     return resp?.success ? (resp.request ?? null) : null;
   }, []);
 
-  const updateRequest = useCallback<UseRequestsApi['updateRequest']>(async (requestUid, updates, expectedVersion) => {
-    const payload = expectedVersion !== undefined ? { requestUid, updates, expectedVersion } : { requestUid, updates };
-    return call('updateLocalRequest', payload).catch(
+  const updateRequest = useCallback<UseRequestsApi['updateRequest']>(async (requestUid, updates) => {
+    return call('updateLocalRequest', { requestUid, updates }).catch(
       (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
     );
   }, []);

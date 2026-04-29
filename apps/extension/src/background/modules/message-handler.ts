@@ -646,16 +646,17 @@ export function handleGeneralMessage(
       // Folder parent takes precedence over collection root — if the
       // caller gave us an explicit `parentPath`, drop the request
       // directly there; otherwise use the collection's root path.
-      const created = parentPath
+      const createdPromise = parentPath
         ? addRequest(name, parentPath, seed)
         : addRequestToCollection(name, targetCollectionUid, seed);
-      safeResponse({ success: true, request: created });
+      createdPromise
+        .then((created) => safeResponse({ success: true, request: created }))
+        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
+      return true;
     } else if (message.type === 'updateLocalRequest') {
-      const expectedVersion = message.expectedVersion as number | undefined;
       updateRequest(
         message.requestUid as string,
         message.updates as Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-        { expectedVersion },
       )
         .then((result) => safeResponse(result))
         .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));

@@ -775,12 +775,9 @@ export interface BridgeRpcContract {
     req: {
       requestUid: string;
       updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
-      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
-      expectedVersion?: number;
     };
     res:
-      | { ok: true; version: number; request: V5.Request }
-      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverRequest: V5.Request }
+      | { ok: true; request: V5.Request }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };
