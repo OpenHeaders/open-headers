@@ -31,6 +31,7 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFolderPostState,
+  SyncRequestPostState,
   SyncRulePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
@@ -1272,6 +1273,15 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncFolderPostState[] };
   };
+  /**
+   * Snapshot the active workspace's full Request oracle state. Same
+   * semantics as `oh.sync.snapshotRules` — `(request, setItemIds)` per
+   * uid, matching the broadcast `requestPostState` payload.
+   */
+  'oh.sync.snapshotRequests': {
+    req: Record<string, never>;
+    res: { entries: SyncRequestPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1478,6 +1488,12 @@ export interface BridgeBroadcastContract {
      * shape (full reconstructed path) without round-tripping the SW.
      */
     folderPostState?: SyncFolderPostState;
+    /**
+     * Post-commit projection for Request envelopes (Phase B). Renderer
+     * mirrors fold this so request editor surfaces see post-commit
+     * shape + live itemIds for set-modeled paths without round-tripping.
+     */
+    requestPostState?: SyncRequestPostState;
   };
 
   /**

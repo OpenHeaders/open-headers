@@ -123,6 +123,21 @@ export interface SyncVaultPostState {
 }
 
 /**
+ * Post-commit projection for a Request envelope. Parallel to
+ * {@link SyncRulePostState} — carries the materialized
+ * {@link V5.Request} and the live itemIds the oracle holds at each
+ * set-modeled path (`headers`, `params`). Renderer-side write helpers
+ * fold this into their local mirror so partial-update emit paths can
+ * enumerate `removeFromSet` itemIds without round-tripping back to the
+ * SW (§19.4 synchronous-render discipline).
+ */
+export interface SyncRequestPostState {
+  request: V5.Request;
+  /** Map keyed by set path (`headers`, `params`). */
+  setItemIds: Record<string, string[]>;
+}
+
+/**
  * Post-commit projection for a Folder envelope. Carries the
  * materialized {@link V5.Folder} with its full path reconstructed from
  * the parent walk (collection root → folder chain). Folders are
@@ -185,6 +200,12 @@ export interface SyncBroadcastEvent {
    * resolvable.
    */
   folderPostState?: SyncFolderPostState;
+  /**
+   * Populated for Request envelopes whose batch left a materialized
+   * request in place. Tombstoned requests and rolled-back batches leave
+   * it `undefined`.
+   */
+  requestPostState?: SyncRequestPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

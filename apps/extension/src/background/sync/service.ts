@@ -36,6 +36,7 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFolderPostState,
+  SyncRequestPostState,
   SyncRulePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
@@ -44,6 +45,7 @@ import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
   FOLDER_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
@@ -96,6 +98,8 @@ import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { type LockAcquirer, EntityOracle } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
+import { createRequestCache, type RequestCache, setActiveRequestCache } from './request-cache';
+import { projectRequestByUid, projectRequestPostState } from './request-post-state';
 import { createRuleCache, type RuleCache, setActiveRuleCache } from './rule-cache';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
 
@@ -109,6 +113,7 @@ interface ServiceState {
   folderCache: FolderCache;
   workspaceVariablesCache: WorkspaceVariablesCache;
   vaultCache: VaultCache;
+  requestCache: RequestCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -164,6 +169,9 @@ export function initSyncService(workspaceId: string): void {
 
   const vaultCache = createVaultCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveVaultCache(vaultCache);
+
+  const requestCache = createRequestCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveRequestCache(requestCache);
 
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
@@ -231,6 +239,10 @@ export function initSyncService(workspaceId: string): void {
     const folderPostState = projectFolderPostState(oracle, envelope);
     return folderPostState ? { folderPostState } : null;
   };
+  const requestProjector: BroadcastProjector = (envelope) => {
+    const requestPostState = projectRequestPostState(oracle, envelope);
+    return requestPostState ? { requestPostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
@@ -238,6 +250,7 @@ export function initSyncService(workspaceId: string): void {
     workspaceVariablesProjector,
     vaultProjector,
     folderProjector,
+    requestProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -254,6 +267,7 @@ export function initSyncService(workspaceId: string): void {
           : {}),
         ...(event.vaultPostState ? { vaultPostState: event.vaultPostState } : {}),
         ...(event.folderPostState ? { folderPostState: event.folderPostState } : {}),
+        ...(event.requestPostState ? { requestPostState: event.requestPostState } : {}),
       });
     },
     projector,
@@ -269,6 +283,7 @@ export function initSyncService(workspaceId: string): void {
     folderCache,
     workspaceVariablesCache,
     vaultCache,
+    requestCache,
     context,
     awareness,
     dnrRunner,
@@ -293,6 +308,7 @@ export function dispose(): void {
   state.folderCache.dispose();
   state.workspaceVariablesCache.dispose();
   state.vaultCache.dispose();
+  state.requestCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
@@ -300,6 +316,7 @@ export function dispose(): void {
   setActiveFolderCache(null);
   setActiveWorkspaceVariablesCache(null);
   setActiveVaultCache(null);
+  setActiveRequestCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -438,6 +455,24 @@ export function snapshotFolderPostStates(): SyncFolderPostState[] {
 }
 
 /**
+ * Snapshot every Request the active oracle holds — `(request, setItemIds)`
+ * per uid, the same shape `BroadcastProjector` attaches to live
+ * envelopes. Renderer surfaces call this on mount via the
+ * `oh.sync.snapshotRequests` RPC.
+ */
+export function snapshotRequestPostStates(): SyncRequestPostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncRequestPostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== REQUEST_ENTITY_TYPE) continue;
+    const projection = projectRequestByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -525,6 +560,8 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   setActiveWorkspaceVariablesCache(workspaceVariablesCache);
   const vaultCache = createVaultCache(workspaceId, oracle, broadcast, () => context.next());
   setActiveVaultCache(vaultCache);
+  const requestCache = createRequestCache(workspaceId, oracle, broadcast, () => context.next());
+  setActiveRequestCache(requestCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -560,6 +597,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     folderCache,
     workspaceVariablesCache,
     vaultCache,
+    requestCache,
     context,
     awareness,
     dnrRunner,
