@@ -27,10 +27,13 @@ import {
   ReloadOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -328,6 +331,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const { variables, updateVariable, setOverride } = useLiveVariables();
   const { workflows, refreshNow } = useLiveWorkflows();
   const { activeEnvironmentId } = useEnvironments();
+  const workspaceId = useActiveWorkspaceId();
 
   const lv = useMemo(() => variables.find((v) => v.uid === variableUid) ?? null, [variables, variableUid]);
   const workflow = useMemo(
@@ -367,6 +371,16 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  // Awareness — declare the surface is editing this live variable.
+  useAwareness({
+    workspaceId,
+    surfaceId: 'workbench',
+    entityFocus: lv ? { type: LIVE_VARIABLE_ENTITY_TYPE, id: lv.uid } : null,
+    fieldFocus: null,
+    dirtyFields: isDirty ? ['*'] : [],
+    enabled: !!lv,
+  });
 
   const handleSave = useCallback(async () => {
     if (!lv || !draft) return;

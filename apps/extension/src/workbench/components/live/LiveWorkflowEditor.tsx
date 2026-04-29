@@ -30,6 +30,8 @@
  */
 
 import { InfoCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
@@ -44,6 +46,7 @@ import {
   stripDraftSteps,
   validateWorkflowShape,
 } from '@openheaders/core/live';
+import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -150,6 +153,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const { variables, createVariable, updateVariable, deleteVariable } = useLiveVariables();
   const { environments, activeEnvironmentId } = useEnvironments();
   const { runs } = useLiveWorkflowCache(workflowUid);
+  const workspaceId = useActiveWorkspaceId();
 
   const workflow = useMemo(() => workflows.find((w) => w.uid === workflowUid) ?? null, [workflows, workflowUid]);
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
@@ -202,6 +206,16 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  // Awareness — declare the surface is editing this live workflow.
+  useAwareness({
+    workspaceId,
+    surfaceId: 'workbench',
+    entityFocus: workflow ? { type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflow.uid } : null,
+    fieldFocus: null,
+    dirtyFields: isDirty ? ['*'] : [],
+    enabled: !!workflow,
+  });
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;

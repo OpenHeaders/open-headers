@@ -19,9 +19,12 @@
  */
 
 import { CaretRightOutlined, DownOutlined, LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useAwareness } from '@hooks/useAwareness';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useVariableResolver } from '@hooks/useVariableResolver';
+import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
@@ -265,6 +268,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
+  const workspaceId = useActiveWorkspaceId();
 
   const isCreateMode = mode === 'request-create';
   const [activeTab, setActiveTab] = useState<TabKey>('params');
@@ -437,6 +441,18 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  // Awareness — declare the surface is editing this request. Create
+  // mode has no entity uid yet, so presence stays unpublished until
+  // the first save assigns one.
+  useAwareness({
+    workspaceId,
+    surfaceId: 'workbench',
+    entityFocus: !isCreateMode && requestUid ? { type: REQUEST_ENTITY_TYPE, id: requestUid } : null,
+    fieldFocus: null,
+    dirtyFields: isDirty ? ['*'] : [],
+    enabled: !isCreateMode && !!requestUid,
+  });
 
   const handleSave = useCallback(async () => {
     if (isCreateMode) {

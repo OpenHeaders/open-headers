@@ -6,7 +6,10 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useAwareness } from '@hooks/useAwareness';
 import { useRules } from '@hooks/useRules';
+import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
@@ -47,9 +50,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { templates, updateTemplate } = useRules();
+  const workspaceId = useActiveWorkspaceId();
   const [form] = Form.useForm();
   const initializedRef = useRef(false);
-  const isDirtyRef = useRef(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [headerActiveTab, setHeaderActiveTab] = useState('request');
   const [headerReqCount, setHeaderReqCount] = useState(0);
   const [headerResCount, setHeaderResCount] = useState(0);
@@ -126,7 +130,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     const success = await updateTemplate(template.uid, updates);
     if (success) {
       message.success('Template saved');
-      isDirtyRef.current = false;
+      setIsDirty(false);
       onDirtyChange?.(false);
     } else {
       message.error('Failed to save template');
@@ -137,12 +141,22 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     registerSaveRef?.(handleSave);
   }, [registerSaveRef, handleSave]);
 
+  // Awareness — declare the surface is editing this template.
+  useAwareness({
+    workspaceId,
+    surfaceId: 'workbench',
+    entityFocus: template ? { type: TEMPLATE_ENTITY_TYPE, id: template.uid } : null,
+    fieldFocus: null,
+    dirtyFields: isDirty ? ['*'] : [],
+    enabled: !!template,
+  });
+
   const handleValuesChange = useCallback(
     (changedValues: Record<string, unknown>) => {
-      if (!isDirtyRef.current) {
-        isDirtyRef.current = true;
-        onDirtyChange?.(true);
-      }
+      setIsDirty((prev) => {
+        if (!prev) onDirtyChange?.(true);
+        return true;
+      });
       const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
       const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
       setHeaderReqCount(reqH?.length ?? 0);
