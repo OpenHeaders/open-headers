@@ -280,6 +280,22 @@ export interface SyncPauseMarkersPostState {
   paths: string[];
 }
 
+/**
+ * Post-commit projection for a layout-state envelope. Singleton entity
+ * per workspace — there is exactly one materialized record at the fixed
+ * id `layout-state`. The catalog stores the layout as a whole-object
+ * scalar at `layout`; the projection re-emits that opaque blob so the
+ * renderer's `useResponsiveLayout` / `useDockLayoutStorage` hooks can
+ * pick it up without inspecting the engine's internals.
+ *
+ * Not sensitive — layout is pure UX state.
+ */
+export interface SyncLayoutStatePostState {
+  /** Opaque layout blob — shape lives in the renderer hooks. `null`
+   *  when the singleton hasn't been seeded yet. */
+  layout: unknown;
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -389,6 +405,12 @@ export interface SyncBroadcastEvent {
    * leave it `undefined`.
    */
   pauseMarkersPostState?: SyncPauseMarkersPostState;
+  /**
+   * Populated for layout-state envelopes whose batch left a materialized
+   * record in place. Tombstoned (singleton deletion is a workspace-level
+   * teardown gesture only) and rolled-back batches leave it `undefined`.
+   */
+  layoutStatePostState?: SyncLayoutStatePostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

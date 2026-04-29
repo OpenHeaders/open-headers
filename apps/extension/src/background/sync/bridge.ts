@@ -51,6 +51,7 @@ export type EntityPostState = Partial<
     | 'liveWorkflowPostState'
     | 'oauthBundlePostState'
     | 'pauseMarkersPostState'
+    | 'layoutStatePostState'
   >
 >;
 

@@ -31,6 +31,7 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFolderPostState,
+  SyncLayoutStatePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncOAuthBundlePostState,
@@ -1351,6 +1352,15 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncPauseMarkersPostState[] };
   };
+  /**
+   * Snapshot the active workspace's singleton layout-state oracle
+   * state. Same semantics as `oh.sync.snapshotPauseMarkers` — singleton
+   * `entries` carries 0 or 1 element. Pure UX state, not secrets.
+   */
+  'oh.sync.snapshotLayoutState': {
+    req: Record<string, never>;
+    res: { entries: SyncLayoutStatePostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1614,6 +1624,12 @@ export interface BridgeBroadcastContract {
      * + sync transports carry it freely.
      */
     pauseMarkersPostState?: SyncPauseMarkersPostState;
+    /**
+     * Post-commit projection for layout-state envelopes (Phase B).
+     * Singleton entity. Pure UX state, not secrets — broadcast + sync
+     * transports carry it freely.
+     */
+    layoutStatePostState?: SyncLayoutStatePostState;
   };
 
   /**

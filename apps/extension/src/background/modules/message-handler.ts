@@ -21,6 +21,7 @@ import {
   snapshotAwarenessPresence,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
+  snapshotLayoutStatePostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
   snapshotOAuthBundlePostStates,
@@ -1430,6 +1431,8 @@ export function handleGeneralMessage(
       safeResponse({ entries: snapshotOAuthBundlePostStates() });
     } else if (message.type === 'oh.sync.snapshotPauseMarkers') {
       safeResponse({ entries: snapshotPauseMarkersPostStates() });
+    } else if (message.type === 'oh.sync.snapshotLayoutState') {
+      safeResponse({ entries: snapshotLayoutStatePostStates() });
     } else if (message.type === 'oh.sync.apply') {
       // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
       // The bridge layer flattens `{ type, ...payload }` onto the
