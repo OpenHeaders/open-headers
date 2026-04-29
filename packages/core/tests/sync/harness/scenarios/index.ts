@@ -7,4 +7,5 @@ export { genRuleReorder } from './rule-reorder';
 export { genSameFieldSameHlc } from './same-field-same-hlc';
 export { genSetDeleteRace } from './set-delete-race';
 export { genUniformRandom } from './uniform-random';
+export { genVaultRename } from './vault-rename';
 export { genWorkspaceVarsRename } from './workspace-vars-rename';

@@ -39,6 +39,19 @@ export {
   type VariableType,
 } from './environment';
 export {
+  invalidateResolverIntent as vaultInvalidateResolverIntent,
+  removeVaultSecret,
+  type RemoveVaultSecretArgs,
+  renameVaultSecret,
+  type RenameVaultSecretArgs,
+  setVaultSecret,
+  type SetVaultSecretArgs,
+  VAULT_ENTITY_TYPE,
+  VAULT_ID,
+  VAULT_MUTATOR_VERSION,
+  VAULT_PATH,
+} from './vault';
+export {
   invalidateResolverIntent as workspaceVariablesInvalidateResolverIntent,
   type RemoveWorkspaceVarArgs,
   removeWorkspaceVar,

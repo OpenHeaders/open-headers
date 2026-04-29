@@ -23,6 +23,7 @@ import {
   genSameFieldSameHlc,
   genSetDeleteRace,
   genUniformRandom,
+  genVaultRename,
   genWorkspaceVarsRename,
 } from '../harness/scenarios';
 
@@ -43,6 +44,7 @@ const BUCKETS: Bucket[] = [
   { name: 'env-rename', generate: genEnvRename, count: 1500 },
   { name: 'collection-rename', generate: genCollectionRename, count: 1500 },
   { name: 'workspace-vars-rename', generate: genWorkspaceVarsRename, count: 1500 },
+  { name: 'vault-rename', generate: genVaultRename, count: 1500 },
   { name: 'rule-reorder', generate: genRuleReorder, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
