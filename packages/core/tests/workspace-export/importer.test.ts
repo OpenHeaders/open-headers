@@ -408,7 +408,7 @@ describe('buildImportPlan — singleton resolution', () => {
   it('vault stays skipped when the incoming export has no vault block', () => {
     const exp = buildWorkspaceExport(baseInput());
     const target = emptyTarget();
-    target.vault = { schemaVersion: 5, version: 1, secrets: [{ kind: 'string', name: 'X', value: 'y' }] };
+    target.vault = { schemaVersion: 5, secrets: [{ kind: 'string', name: 'X', value: 'y' }] };
     const diff = diffWorkspaceExport(exp, target);
     const plan = buildImportPlan(exp, diff, target);
     expect(plan.vault.action).toBe('skip');

@@ -48,7 +48,6 @@ import {
   setCollectionEnvOverride,
   setDefaultEnvironment,
   setManualEnv,
-  setVault,
   updateEnvironmentVariables,
 } from './environment-store';
 import { deleteFile, getFileBlob, listFiles, putFile } from './files-store';
@@ -570,13 +569,6 @@ export function handleGeneralMessage(
       safeResponse({ workspaceVariables: getWorkspaceVariables() });
     } else if (message.type === 'getVault') {
       safeResponse({ vault: getVault() });
-    } else if (message.type === 'setVault') {
-      const expectedVersion = message.expectedVersion as number | undefined;
-      const payload = message.vault as V5.Vault;
-      setVault({ secrets: payload.secrets }, { expectedVersion })
-        .then((result) => safeResponse(result))
-        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
-      return true;
     } else if (message.type === 'vaultPutSecret') {
       putVaultSecret(message.key as string, message.value as string)
         .then((result) => safeResponse(result))

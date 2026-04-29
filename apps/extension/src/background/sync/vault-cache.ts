@@ -27,11 +27,8 @@ import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';
 
-// `version` is retired by Phase B (§24); kept on the empty default
-// until commit 4 sweeps the schema field.
 const EMPTY_VAULT: V5.Vault = {
   schemaVersion: 5,
-  version: 1,
   secrets: [],
 };
 

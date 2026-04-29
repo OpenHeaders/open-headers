@@ -444,7 +444,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           ...parsed.envelope.entities,
           vault: {
             schemaVersion: 5,
-            version: 1,
             secrets: result.secrets,
           },
         },

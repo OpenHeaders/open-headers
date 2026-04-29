@@ -7,7 +7,7 @@ vi.mock('@/background/modules/environment-store', () => {
     getActiveEnvironmentId: vi.fn(() => null as string | null),
     getDefaultEnvironmentId: vi.fn(() => null as string | null),
     getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as V5.WorkspaceVariables),
-    getVault: vi.fn(() => ({ schemaVersion: 5, version: 1, secrets: [] }) as V5.Vault),
+    getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as V5.Vault),
   };
 });
 
@@ -80,7 +80,7 @@ describe('VariablesResolver (extension)', () => {
     mockEnvs.mockReturnValue([]);
     mockActiveEnvId.mockReturnValue(null);
     mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
-    mockVault.mockReturnValue({ schemaVersion: 5, version: 1, secrets: [] });
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] });
     mockCollections.mockReturnValue([]);
     mockStoreRules.mockReturnValue([]);
   });
@@ -120,7 +120,7 @@ describe('VariablesResolver (extension)', () => {
     mockActiveEnvId.mockReturnValue('e-prod');
     mockVault.mockReturnValue({
       schemaVersion: 5,
-      version: 1,
+      
       secrets: [{ kind: 'string', name: 'TOKEN', value: 'vault-token' }],
     });
 

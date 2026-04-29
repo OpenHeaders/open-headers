@@ -16,7 +16,7 @@ vi.stubGlobal('chrome', {
 // Capture environment-store change listeners so we can fire them ourselves.
 type ChangeListener = () => void;
 const envListeners: ChangeListener[] = [];
-let mockVault: V5.Vault = { schemaVersion: 5, version: 1, secrets: [] };
+let mockVault: V5.Vault = { schemaVersion: 5, secrets: [] };
 
 vi.mock('@/background/modules/environment-store', () => ({
   getVault: vi.fn(() => mockVault),
@@ -65,7 +65,7 @@ beforeEach(() => {
   alarmCreate.mockReset();
   alarmClear.mockReset().mockResolvedValue(true);
   envListeners.length = 0;
-  mockVault = { schemaVersion: 5, version: 1, secrets: [] };
+  mockVault = { schemaVersion: 5, secrets: [] };
   vi.useFakeTimers();
   vi.setSystemTime(new Date(REF_T_MS));
 });
@@ -80,14 +80,14 @@ describe('totp-scheduler — cache', () => {
   });
 
   it('bootstrap populates the cache from the current vault', async () => {
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('GitHubTOTP')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('GitHubTOTP')] };
     const onTick = vi.fn();
     await bootstrapTotpScheduler(onTick);
     expect(getCachedTotpCodes().get('GitHubTOTP')).toBe('287082');
   });
 
   it('bootstrap with no TOTP entries leaves the cache empty AND skips the alarm', async () => {
-    mockVault = { schemaVersion: 5, version: 1, secrets: [stringEntry('TOKEN', 'abc')] };
+    mockVault = { schemaVersion: 5, secrets: [stringEntry('TOKEN', 'abc')] };
     await bootstrapTotpScheduler(vi.fn());
     expect(getCachedTotpCodes().size).toBe(0);
     expect(alarmCreate).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe('totp-scheduler — cache', () => {
   it('survives a TOTP entry with a malformed seed — logs + skips that entry', async () => {
     mockVault = {
       schemaVersion: 5,
-      version: 1,
+      
       secrets: [totpEntry('Good'), totpEntry('Bad', { seed: '!!!INVALID!!!' })],
     };
     await bootstrapTotpScheduler(vi.fn());
@@ -107,7 +107,7 @@ describe('totp-scheduler — cache', () => {
 
 describe('totp-scheduler — alarm scheduling', () => {
   it('schedules a one-shot alarm at the next 30s window-flip + guardband', async () => {
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('A')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('A')] };
     await bootstrapTotpScheduler(vi.fn());
     // At t=59s, next 30s flip is t=60s. Guardband = 250ms → fire at t=60.25s.
     // Uses absolute `when:` so dev/unpacked builds fire at the exact flip
@@ -120,7 +120,7 @@ describe('totp-scheduler — alarm scheduling', () => {
     vi.setSystemTime(new Date(45_000));
     mockVault = {
       schemaVersion: 5,
-      version: 1,
+      
       secrets: [totpEntry('Fast', { period: 30 }), totpEntry('Slow', { period: 60 })],
     };
     await bootstrapTotpScheduler(vi.fn());
@@ -130,7 +130,7 @@ describe('totp-scheduler — alarm scheduling', () => {
   });
 
   it('clears any prior alarm before scheduling a new one', async () => {
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('A')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('A')] };
     await bootstrapTotpScheduler(vi.fn());
     expect(alarmClear).toHaveBeenCalledWith('oh-totp-tick');
   });
@@ -138,7 +138,7 @@ describe('totp-scheduler — alarm scheduling', () => {
 
 describe('totp-scheduler — handleTotpAlarm', () => {
   it('refreshes codes + signals onTick + reschedules the next alarm', async () => {
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('A')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('A')] };
     const onTick = vi.fn();
     await bootstrapTotpScheduler(onTick);
     onTick.mockClear();
@@ -161,7 +161,7 @@ describe('totp-scheduler — vault-change reschedule', () => {
     expect(alarmCreate).not.toHaveBeenCalled(); // no TOTP entries yet
     alarmCreate.mockClear();
 
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('NewEntry')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('NewEntry')] };
     for (const fn of envListeners) fn();
     await vi.waitFor(() => expect(alarmCreate).toHaveBeenCalledTimes(1));
     // Refresh is the COMPILE-PATH's job via `refreshCachedTotpCodes`,
@@ -171,12 +171,12 @@ describe('totp-scheduler — vault-change reschedule', () => {
   });
 
   it('cancels the alarm when the last TOTP entry is removed', async () => {
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('A')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('A')] };
     await bootstrapTotpScheduler(vi.fn());
     alarmClear.mockClear();
     alarmCreate.mockClear();
 
-    mockVault = { schemaVersion: 5, version: 1, secrets: [] };
+    mockVault = { schemaVersion: 5, secrets: [] };
     for (const fn of envListeners) fn();
     // The listener kicks an async `scheduleNextFlip()` — wait for it.
     await vi.waitFor(() => expect(alarmClear).toHaveBeenCalledWith('oh-totp-tick'));
@@ -191,17 +191,17 @@ describe('totp-scheduler — refreshCachedTotpCodes (compile-path entry)', () =>
     // is empty (e.g., fresh SW boot mid-compile, or a vault edit that
     // beat the listener-driven refresh). The compile-path entry
     // populates the cache so the resolver reads current codes.
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('A')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('A')] };
     expect(getCachedTotpCodes().size).toBe(0);
     await refreshCachedTotpCodes();
     expect(getCachedTotpCodes().get('A')).toBe('287082');
   });
 
   it('clears the cache when every TOTP entry has been removed', async () => {
-    mockVault = { schemaVersion: 5, version: 1, secrets: [totpEntry('A')] };
+    mockVault = { schemaVersion: 5, secrets: [totpEntry('A')] };
     await refreshCachedTotpCodes();
     expect(getCachedTotpCodes().get('A')).toBe('287082');
-    mockVault = { schemaVersion: 5, version: 1, secrets: [] };
+    mockVault = { schemaVersion: 5, secrets: [] };
     await refreshCachedTotpCodes();
     expect(getCachedTotpCodes().size).toBe(0);
   });

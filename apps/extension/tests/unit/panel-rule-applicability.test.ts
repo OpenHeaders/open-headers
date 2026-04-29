@@ -148,7 +148,7 @@ describe('computeRuleApplicability', () => {
     resolver.setDeferredVaultMode('defer');
     resolver.setVault({
       schemaVersion: 5,
-      version: 1,
+      
       secrets: [
         {
           kind: 'totp',

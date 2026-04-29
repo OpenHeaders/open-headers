@@ -299,7 +299,6 @@ describe('buildWorkspaceExport — vault include modes', () => {
     const input = baseInput();
     input.entities.vault = {
       schemaVersion: 5,
-      version: 1,
       secrets: [{ name: 'API_KEY', kind: 'string', value: 'sekret' }],
     };
     const exp = buildWorkspaceExport(input, { vaultMode: 'plaintext' });
@@ -311,7 +310,7 @@ describe('buildWorkspaceExport — vault include modes', () => {
 
   it('plaintext + deep-link destination is refused', () => {
     const input = baseInput();
-    input.entities.vault = { schemaVersion: 5, version: 1, secrets: [] };
+    input.entities.vault = { schemaVersion: 5, secrets: [] };
     expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'deep-link' })).toThrow(
       /Plaintext-vault/,
     );
@@ -319,7 +318,7 @@ describe('buildWorkspaceExport — vault include modes', () => {
 
   it('plaintext on file/clipboard destinations is allowed', () => {
     const input = baseInput();
-    input.entities.vault = { schemaVersion: 5, version: 1, secrets: [] };
+    input.entities.vault = { schemaVersion: 5, secrets: [] };
     expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'file' })).not.toThrow();
     expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'clipboard' })).not.toThrow();
   });
@@ -332,7 +331,6 @@ describe('buildWorkspaceExport — vault include modes', () => {
     const input = baseInput();
     input.entities.vault = {
       schemaVersion: 5,
-      version: 1,
       secrets: [
         { name: 'API_KEY', kind: 'string', value: 'sekret' },
         { name: 'DB_URL', kind: 'string', value: 'postgres://x' },

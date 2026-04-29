@@ -29,7 +29,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getEnvironments: vi.fn(() => []),
   getActiveEnvironmentId: () => getActiveEnvironmentIdMock(),
   getDefaultEnvironmentId: vi.fn(() => null),
-  getVault: vi.fn(() => ({ schemaVersion: 5, version: 1, secrets: [] })),
+  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] })),
   getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] })),
 }));
 

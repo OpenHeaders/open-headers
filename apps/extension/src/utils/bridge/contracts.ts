@@ -678,38 +678,26 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { vault: V5.Vault };
   };
-  setVault: {
-    req: {
-      vault: V5.Vault;
-      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
-      expectedVersion?: number;
-    };
-    res:
-      | { ok: true; version: number; vault: V5.Vault }
-      | { ok: false; reason: 'stale-draft'; serverVersion: number; serverVault: V5.Vault }
-      | { ok: false; reason: 'other'; message: string };
-  };
-
   /**
    * Per-secret vault mutators — the channel the `ChromeStorageVault`
    * renderer-side Vault interface uses for `put` / `delete`. Routing
-   * every write through the SW keeps the Web Lock wrapping + version
-   * counter authoritative; direct `chrome.storage.local.set` on the
-   * vault key is architecturally forbidden (two writers = race).
-   *
-   * Last-write-wins semantics — the per-key callers (OAuth refresh,
-   * API-key flows) don't track a loaded version, and the lock alone
-   * prevents lost updates. Bulk edits from `VaultEditor` still use
-   * `setVault` with an explicit `expectedVersion` for full
-   * stale-draft semantics.
+   * every write through the SW keeps the Web Lock wrapping
+   * authoritative; direct `chrome.storage.local.set` on the vault key
+   * is architecturally forbidden (two writers = race). Phase B
+   * retired the OCC counter (§24) — the lock alone prevents lost
+   * updates and the sync engine's HLC LWW handles concurrent writes.
+   * Bulk edits from `VaultEditor` route through `oh.sync.apply` via
+   * `applyVaultReplacement`; this RPC is the script-API / OAuth-flow
+   * path that hasn't been routed through the oracle yet (parallel to
+   * the workspace-vars `oh.variables.set` retention noted in session 16).
    */
   vaultPutSecret: {
     req: { key: string; value: string };
-    res: { ok: true; version: number; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
+    res: { ok: true; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
   };
   vaultDeleteSecret: {
     req: { key: string };
-    res: { ok: true; version: number; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
+    res: { ok: true; vault: V5.Vault } | { ok: false; reason: 'other'; message: string };
   };
   /**
    * Per-secret read — returns the SW's in-memory snapshot value.

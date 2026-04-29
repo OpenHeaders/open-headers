@@ -178,7 +178,7 @@ describe('diffWorkspaceExport — Singletons', () => {
 
   it('reports vault no-collision when target has no secrets', () => {
     const target = emptyTarget();
-    target.vault = { schemaVersion: 5, version: 1, secrets: [] };
+    target.vault = { schemaVersion: 5, secrets: [] };
     const exp = buildWorkspaceExport(baseInput());
     const diff = diffWorkspaceExport(exp, target);
     expect(diff.vault.state).toBe('no-collision');

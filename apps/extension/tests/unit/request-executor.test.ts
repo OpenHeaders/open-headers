@@ -30,7 +30,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
   getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as V5.WorkspaceVariables),
-  getVault: vi.fn(() => ({ schemaVersion: 5, version: 1, secrets: [] }) as V5.Vault),
+  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as V5.Vault),
 }));
 
 vi.mock('@/background/modules/request-store', () => ({
@@ -81,7 +81,7 @@ describe('RequestExecutor', () => {
     mockEnvs.mockReturnValue([]);
     mockActiveEnvId.mockReturnValue(null);
     mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
-    mockVault.mockReturnValue({ schemaVersion: 5, version: 1, secrets: [] });
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] });
     mockRequestCollections.mockReturnValue([]);
   });
 
@@ -389,7 +389,7 @@ describe('pre-flight URL validation', () => {
     mockEnvs.mockReturnValue([] as V5.Environment[]);
     mockActiveEnvId.mockReturnValue(null);
     mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] } as V5.WorkspaceVariables);
-    mockVault.mockReturnValue({ schemaVersion: 5, version: 1, secrets: [] } as V5.Vault);
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] } as V5.Vault);
     mockRequestCollections.mockReturnValue([] as V5.Collection[]);
   });
 
@@ -443,7 +443,7 @@ describe('fetch-failure classification', () => {
     mockEnvs.mockReturnValue([] as V5.Environment[]);
     mockActiveEnvId.mockReturnValue(null);
     mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] } as V5.WorkspaceVariables);
-    mockVault.mockReturnValue({ schemaVersion: 5, version: 1, secrets: [] } as V5.Vault);
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] } as V5.Vault);
     mockRequestCollections.mockReturnValue([] as V5.Collection[]);
   });
 

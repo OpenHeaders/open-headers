@@ -57,7 +57,7 @@ export const TEMPLATE_FIELD_ORDER = [
 
 export const WORKSPACE_VARIABLES_FIELD_ORDER = ['schemaVersion', 'variables'] as const;
 
-export const VAULT_FIELD_ORDER = ['schemaVersion', 'version', 'secrets'] as const;
+export const VAULT_FIELD_ORDER = ['schemaVersion', 'secrets'] as const;
 
 export const ENVIRONMENT_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'variables'] as const;
 

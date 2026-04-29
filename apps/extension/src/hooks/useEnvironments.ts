@@ -28,7 +28,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
  * here for the consumer-facing API.
  */
 export type EnvironmentWriteResult = BridgeRpcResponse<'updateEnvironmentVariables'>;
-export type VaultWriteResult = BridgeRpcResponse<'setVault'>;
 export type CollectionWriteResult = BridgeRpcResponse<'updateCollectionVariables'>;
 
 export interface UseEnvironmentsApi {
@@ -71,8 +70,6 @@ export interface UseEnvironmentsApi {
   setCollectionEnvOverride: (collectionId: string, envId: string | null | undefined) => Promise<void>;
   setCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
 
-  setVault: (vault: V5.Vault, expectedVersion?: number) => Promise<VaultWriteResult>;
-
   /**
    * Replace a collection's variables. Phase B routes through the sync
    * oracle — convergence is per-(name) LWW; the legacy stale-draft
@@ -92,7 +89,7 @@ export function useEnvironments(): UseEnvironmentsApi {
     schemaVersion: 5,
     variables: [],
   });
-  const [vault, setVaultState] = useState<V5.Vault>({ schemaVersion: 5, version: 1, secrets: [] });
+  const [vault, setVaultState] = useState<V5.Vault>({ schemaVersion: 5, secrets: [] });
   const [isReady, setIsReady] = useState(false);
   const [collectionEnvOverrides, setCollectionEnvOverrides] = useState<Record<string, string | null>>({});
   const [manualEnvId, setManualEnvIdState] = useState<string | null>(null);
@@ -201,13 +198,6 @@ export function useEnvironments(): UseEnvironmentsApi {
     return Boolean(resp?.success);
   }, []);
 
-  const setVault = useCallback<UseEnvironmentsApi['setVault']>(async (next, expectedVersion) => {
-    const payload = expectedVersion !== undefined ? { vault: next, expectedVersion } : { vault: next };
-    return call('setVault', payload).catch(
-      (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
-    );
-  }, []);
-
   const updateCollectionVariables = useCallback<UseEnvironmentsApi['updateCollectionVariables']>(
     async (collectionUid, variables) => {
       return call('updateCollectionVariables', { collectionUid, variables }).catch(
@@ -263,7 +253,6 @@ export function useEnvironments(): UseEnvironmentsApi {
     setManualEnv,
     setCollectionEnvOverride,
     setCollectionPinnedEnvs,
-    setVault,
     updateCollectionVariables,
   };
 }

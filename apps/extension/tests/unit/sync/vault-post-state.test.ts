@@ -33,7 +33,7 @@ const ctx = (ms: number): MutatorContext => ({
 
 const makeVault = (secrets: V5.VaultSecret[]): V5.Vault => ({
   schemaVersion: 5,
-  version: 1,
+  
   secrets,
 });
 

@@ -53,7 +53,7 @@ describe('ChromeStorageVault — personal scope', () => {
   });
 
   it('put fires vaultPutSecret — NO direct storage write', async () => {
-    mockCall.mockResolvedValue({ ok: true, version: 2, vault: { schemaVersion: 5, version: 2, secrets: [] } });
+    mockCall.mockResolvedValue({ ok: true, version: 2, vault: { schemaVersion: 5, secrets: [] } });
     const vault = new ChromeStorageVault();
     await vault.put('TOKEN', 'abc123', PERSONAL);
     expect(mockCall).toHaveBeenCalledTimes(1);
@@ -61,7 +61,7 @@ describe('ChromeStorageVault — personal scope', () => {
   });
 
   it('delete fires vaultDeleteSecret', async () => {
-    mockCall.mockResolvedValue({ ok: true, version: 3, vault: { schemaVersion: 5, version: 3, secrets: [] } });
+    mockCall.mockResolvedValue({ ok: true, version: 3, vault: { schemaVersion: 5, secrets: [] } });
     const vault = new ChromeStorageVault();
     await vault.delete('TOKEN', PERSONAL);
     expect(mockCall).toHaveBeenCalledWith('vaultDeleteSecret', { key: 'TOKEN' });
@@ -102,7 +102,7 @@ describe('ChromeStorageVault — cipher injection', () => {
   };
 
   it('encrypts in the renderer BEFORE shipping across the bridge', async () => {
-    mockCall.mockResolvedValue({ ok: true, version: 2, vault: { schemaVersion: 5, version: 2, secrets: [] } });
+    mockCall.mockResolvedValue({ ok: true, version: 2, vault: { schemaVersion: 5, secrets: [] } });
     const vault = new ChromeStorageVault(upperCipher);
     await vault.put('TOKEN', 'hello', PERSONAL);
     // SW sees the encrypted payload, never the plaintext.

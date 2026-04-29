@@ -282,7 +282,6 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
           ? undefined
           : {
               schemaVersion: 5,
-              version: target.vault?.version ?? 1,
               secrets: plan.vault.secrets,
             };
 

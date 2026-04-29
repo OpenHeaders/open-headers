@@ -24,7 +24,6 @@ export type VariableCandidate =
       scope: 'vault';
       kind: 'string' | 'totp';
       secret: V5.VaultSecret;
-      vaultVersion: number;
     }
   | {
       scope: 'environment';
@@ -131,7 +130,6 @@ export function useVariableLookup(reference: string, collectionId?: string): Var
           scope: 'vault',
           kind: secret.kind,
           secret,
-          vaultVersion: vault.version,
         });
       }
     }

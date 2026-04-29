@@ -3,7 +3,7 @@ import type { Vault } from '../../src/types/v5';
 import { EMPTY_TOTP_REGISTRY, VariableResolver } from '../../src/variables';
 
 function vaultWith(secrets: Vault['secrets']): Vault {
-  return { schemaVersion: 5, version: 1, secrets };
+  return { schemaVersion: 5, secrets };
 }
 
 describe('VariableResolver — vault `kind` discriminator', () => {

@@ -272,7 +272,7 @@ export class VariableResolver {
   private stepCaptures: StepCaptureContext;
 
   constructor() {
-    this.vault = { schemaVersion: 5, version: 1, secrets: [] };
+    this.vault = { schemaVersion: 5, secrets: [] };
     this.environments = [];
     this.activeEnvironmentId = null;
     this.defaultEnvironmentId = null;

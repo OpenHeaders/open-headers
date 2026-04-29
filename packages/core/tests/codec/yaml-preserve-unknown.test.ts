@@ -152,7 +152,6 @@ futureMeta: keep-me
 
   it('workspace-vars.secret.yaml (vault) retains unknown top-level key', () => {
     const raw = `schemaVersion: 5
-version: 1
 secrets: []
 rotationPolicy: monthly
 `;

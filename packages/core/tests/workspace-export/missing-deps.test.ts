@@ -286,7 +286,6 @@ describe('walkMissingDeps — variable references', () => {
     const target = emptyTarget();
     const vault: Vault = {
       schemaVersion: 5,
-      version: 1,
       secrets: [{ kind: 'string', name: 'API_KEY', value: 'shh' }],
     };
     target.vault = vault;

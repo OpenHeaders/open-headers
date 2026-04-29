@@ -43,11 +43,10 @@ let collectionEnvOverrides: Record<string, string | null> = {};
 // restored when a collection has no default of its own. Updated only
 // on manual picks, not by auto-switch flows.
 let manualEnvId: string | null = null;
-// Workspace-scoped singletons — both start at `version: 1` just like a
-// freshly-created persisted entity. The counter advances on every
-// SW-side write (see `setWorkspaceVariables` / `setVault`).
+// Workspace-scoped singletons — Phase B retired the OCC counter (§24);
+// concurrent edits reconcile through HLC LWW at the oracle.
 let workspaceVariables: V5.WorkspaceVariables = { schemaVersion: 5, variables: [] };
-let vault: V5.Vault = { schemaVersion: 5, version: 1, secrets: [] };
+let vault: V5.Vault = { schemaVersion: 5, secrets: [] };
 let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
@@ -299,13 +298,13 @@ export async function setCollectionEnvOverride(collectionId: string, envId: stri
  */
 export type WorkspaceVariablesWriteResult = { ok: true; workspaceVariables: V5.WorkspaceVariables };
 
-export type VaultWriteResult =
-  | { ok: true; version: number; vault: V5.Vault }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverVault: V5.Vault };
-
-export interface SingletonUpdateOptions {
-  expectedVersion?: number;
-}
+/**
+ * Outcome of a vault write. Phase B retired the stale-draft branch
+ * (§24) — concurrent edits reconcile via HLC LWW at the oracle.
+ * Singleton — the blob always exists (init on hydrate), so a
+ * `not-found` branch is absent.
+ */
+export type VaultWriteResult = { ok: true; vault: V5.Vault };
 
 export async function setWorkspaceVariables(
   next: Omit<V5.WorkspaceVariables, 'schemaVersion'> & { schemaVersion?: number },
@@ -328,30 +327,18 @@ export async function setWorkspaceVariables(
 // ── Vault (secrets) ────────────────────────────────────────────────
 
 export async function setVault(
-  next: Omit<V5.Vault, 'schemaVersion' | 'version'> & { schemaVersion?: number },
-  options: SingletonUpdateOptions = {},
+  next: Omit<V5.Vault, 'schemaVersion'> & { schemaVersion?: number },
 ): Promise<VaultWriteResult> {
   const workspaceId = assertLoaded();
   return withLock(
     entityLockName(workspaceId, 'vault', 'singleton'),
     async () => {
-      const current = vault.version;
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverVault: vault,
-        } as VaultWriteResult;
-      }
-      const nextVersion = current + 1;
       vault = {
         schemaVersion: 5,
-        version: nextVersion,
         secrets: next.secrets,
       };
       await persistVault();
-      return { ok: true, version: nextVersion, vault } as VaultWriteResult;
+      return { ok: true, vault };
     },
     { op: 'vault-set' },
   );
@@ -375,20 +362,18 @@ export async function putVaultSecret(key: string, value: string): Promise<VaultW
   return withLock(
     entityLockName(workspaceId, 'vault', 'singleton'),
     async () => {
-      const nextVersion = vault.version + 1;
       const idx = vault.secrets.findIndex((s) => s.name === key);
       // Per-key writers (OAuth refresh, API-key flows) only ever
       // produce string-kind entries — TOTP entries are managed via
-      // the bulk `setVault` editor path. If a TOTP entry of the same
-      // name already exists, the put OVERWRITES it with a string
-      // entry; that's a deliberate, name-collision contract since
-      // there is one namespace per vault.
+      // the bulk vault editor path. If a TOTP entry of the same name
+      // already exists, the put OVERWRITES it with a string entry;
+      // deliberate name-collision contract — one namespace per vault.
       const next: V5.VaultSecret = { kind: 'string', name: key, value };
       const nextSecrets =
         idx >= 0 ? [...vault.secrets.slice(0, idx), next, ...vault.secrets.slice(idx + 1)] : [...vault.secrets, next];
-      vault = { schemaVersion: 5, version: nextVersion, secrets: nextSecrets };
+      vault = { schemaVersion: 5, secrets: nextSecrets };
       await persistVault();
-      return { ok: true, version: nextVersion, vault } as VaultWriteResult;
+      return { ok: true, vault };
     },
     { op: 'vault-put-secret' },
   );
@@ -402,16 +387,13 @@ export async function deleteVaultSecret(key: string): Promise<VaultWriteResult> 
       const before = vault.secrets.length;
       const nextSecrets = vault.secrets.filter((s) => s.name !== key);
       // No-op when the key was already absent — still return ok so
-      // callers treat idempotent deletes uniformly. Don't advance the
-      // version counter if nothing actually changed (keeps triage
-      // clean for "is the vault being thrashed?" investigations).
+      // callers treat idempotent deletes uniformly.
       if (nextSecrets.length === before) {
-        return { ok: true, version: vault.version, vault } as VaultWriteResult;
+        return { ok: true, vault };
       }
-      const nextVersion = vault.version + 1;
-      vault = { schemaVersion: 5, version: nextVersion, secrets: nextSecrets };
+      vault = { schemaVersion: 5, secrets: nextSecrets };
       await persistVault();
-      return { ok: true, version: nextVersion, vault } as VaultWriteResult;
+      return { ok: true, vault };
     },
     { op: 'vault-delete-secret' },
   );
@@ -548,7 +530,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     activeEnvironmentId: typeof activeEnvironmentId === 'string' ? activeEnvironmentId : null,
     defaultEnvironmentId: typeof defaultEnvironmentId === 'string' ? defaultEnvironmentId : null,
     workspaceVariables: workspaceVariables ?? { schemaVersion: 5, variables: [] },
-    vault: vault ?? { schemaVersion: 5, version: 1, secrets: [] },
+    vault: vault ?? { schemaVersion: 5, secrets: [] },
     collectionEnvOverrides: parsedOverrides,
     manualEnvId: typeof manualEnvId === 'string' ? manualEnvId : null,
   };
@@ -724,7 +706,7 @@ export function __resetForTests(): void {
   collectionEnvOverrides = {};
   manualEnvId = null;
   workspaceVariables = { schemaVersion: 5, variables: [] };
-  vault = { schemaVersion: 5, version: 1, secrets: [] };
+  vault = { schemaVersion: 5, secrets: [] };
   loadedWorkspaceId = null;
   listeners.clear();
 }

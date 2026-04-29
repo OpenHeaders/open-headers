@@ -57,7 +57,7 @@ vi.mock('@/background/modules/workspace-store', () => ({
 
 const activeEnv: { id: string | null } = { id: 'env-prod' };
 vi.mock('@/background/modules/environment-store', () => ({
-  getVault: () => ({ schemaVersion: 5, version: 1, secrets: [] }),
+  getVault: () => ({ schemaVersion: 5, secrets: [] }),
   getEnvironments: () => [],
   getActiveEnvironmentId: () => activeEnv.id,
   getDefaultEnvironmentId: () => null,

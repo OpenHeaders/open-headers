@@ -546,7 +546,7 @@ export function __resetForTests(): void {
   lastResolutionErrors = new Map();
   cachedLiveRuns = [];
   syncWarmRunner = null;
-  resolver.setVault({ schemaVersion: 5, version: 1, secrets: [] });
+  resolver.setVault({ schemaVersion: 5, secrets: [] });
   resolver.setEnvironments([]);
   resolver.setActiveEnvironmentId(null);
   resolver.setDefaultEnvironmentId(null);

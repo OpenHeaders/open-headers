@@ -17,7 +17,6 @@ function makeEnvironment(name: string, vars: Variable[]): Environment {
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
   return {
     schemaVersion: 5,
-    version: 1,
     secrets: secrets.map((s) => ({ kind: 'string' as const, name: s.name, value: s.value })),
   };
 }
@@ -286,7 +285,6 @@ describe('VariableResolver — explicit namespaces', () => {
     resolver = new VariableResolver();
     resolver.setVault({
       schemaVersion: 5,
-      version: 1,
       secrets: [{ kind: 'string', name: 'TOKEN', value: 'vault-token' }],
     });
     resolver.setEnvironments([

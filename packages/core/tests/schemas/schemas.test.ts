@@ -36,27 +36,26 @@ describe('VariableSchema', () => {
 
 describe('VaultSchema', () => {
   it('accepts an empty vault', () => {
-    expect(v.parse(VaultSchema, { schemaVersion: 5, version: 1, secrets: [] })).toEqual({
+    expect(v.parse(VaultSchema, { schemaVersion: 5, secrets: [] })).toEqual({
       schemaVersion: 5,
-      version: 1,
       secrets: [],
     });
   });
 
   it('rejects a missing schemaVersion', () => {
-    expect(v.safeParse(VaultSchema, { version: 1, secrets: [] }).success).toBe(false);
+    expect(v.safeParse(VaultSchema, { secrets: [] }).success).toBe(false);
   });
 
   it('rejects schemaVersion below 5 — V5 is the baseline; no pre-5 snapshots exist', () => {
     for (const pre5 of [0, 1, 2, 3, 4]) {
-      expect(v.safeParse(VaultSchema, { schemaVersion: pre5, version: 1, secrets: [] }).success).toBe(false);
+      expect(v.safeParse(VaultSchema, { schemaVersion: pre5, secrets: [] }).success).toBe(false);
     }
   });
 
   it('accepts schemaVersion 5 and later (for future entity bumps)', () => {
-    expect(v.safeParse(VaultSchema, { schemaVersion: 5, version: 1, secrets: [] }).success).toBe(true);
-    expect(v.safeParse(VaultSchema, { schemaVersion: 6, version: 1, secrets: [] }).success).toBe(true);
-    expect(v.safeParse(VaultSchema, { schemaVersion: 100, version: 1, secrets: [] }).success).toBe(true);
+    expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [] }).success).toBe(true);
+    expect(v.safeParse(VaultSchema, { schemaVersion: 6, secrets: [] }).success).toBe(true);
+    expect(v.safeParse(VaultSchema, { schemaVersion: 100, secrets: [] }).success).toBe(true);
   });
 });
 
