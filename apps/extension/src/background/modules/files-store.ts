@@ -1,26 +1,43 @@
 /**
- * Files Store — SW-side wrapper around the IDB `BlobStore` that
- * serializes mutating operations through `withLock` (Phase 10
- * discipline). Blob UPLOADS write to IDB, which is atomic per
- * transaction; the outer lock still matters when a single upload
- * dedups or when list → delete → list cycles race across tabs.
+ * Files Store — SW-side wrapper around the IDB `BlobStore` plus the
+ * sync engine's catalog of `FileRef` shells.
  *
- * Reads (`list`, `get`) are lock-free — IDB transactions give us
- * atomic snapshot semantics for free.
+ * Two-layer split (Phase B):
+ *   • Bytes — `@/shared/files/blob-store` (IndexedDB, keyed by
+ *     `(workspaceId, fileId)`). Always the source of truth for actual
+ *     blob content.
+ *   • Catalog — sync engine `files` entity (singleton, set-modeled by
+ *     `fileId`). Routes through `oracle.apply` so concurrent uploads
+ *     across surfaces converge under per-(setPath, itemId) LWW. The
+ *     {@link FilesCache} owns the in-memory mirror via broadcast-driven
+ *     re-projection — no separate `chrome.storage.local` write because
+ *     the durable record is already in BlobStore IDB.
  *
- * See `@/shared/files/blob-store` for the IDB contract and
- * ARCHITECTURE.md §6 for the file-reference model.
+ * Every mutating write does the byte layer first, then emits the
+ * catalog mutation; on cold boot the bridge seeds the oracle from
+ * `BlobStore.listBlobs` so the catalog matches the durable record.
+ *
+ * Reads (`list`, `get`) stay synchronous off the active mirror when the
+ * service is bridged; cross-workspace reads + cold-boot reads (before
+ * the bridge) fall back to BlobStore directly.
  */
 
 import type { FileRef } from '@openheaders/core/files';
+import type {
+  FileRefSlot,
+  MutationBatch,
+  MutatorContext,
+  SideEffectIntent,
+} from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import * as BlobStore from '@/shared/files/blob-store';
+import {
+  buildAddFileRefBatch,
+  buildRemoveFileRefBatch,
+} from '@/shared/sync/files-mutations';
+import { getActiveFilesCache } from '../sync/files-cache';
+import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
-
-function withFilesLock<T>(workspaceId: string, fn: () => Promise<T>): Promise<T> {
-  return withLock(entityLockName(workspaceId, 'files', 'singleton'), fn, { op: 'files-mutate' });
-}
 
 // ── Change listeners ────────────────────────────────────────────────
 //
@@ -42,24 +59,20 @@ function notifyChange(): void {
   for (const fn of listeners) fn();
 }
 
-/**
- * Upload a blob. Returns the resulting FileRef. Dedups within the
- * workspace by content hash (see `putBlob`).
- */
-export async function putFile(input: { blob: Blob; filename: string; mimeType?: string }): Promise<FileRef> {
-  const workspaceId = getActiveWorkspaceId();
-  const ref = await withFilesLock(workspaceId, async () => {
-    const result = await BlobStore.putBlob(workspaceId, input);
-    logger.debug('FilesStore', `Stored "${result.filename}" (${result.size}B, ${result.hash.slice(0, 14)}…)`);
-    return result;
-  });
-  notifyChange();
-  return ref;
-}
+// ── In-memory mirror (active workspace) ───────────────────────────
+
+let mirror: FileRef[] = [];
+let mirrorWorkspaceId: string | null = null;
+
+// ── Reads ──────────────────────────────────────────────────────────
 
 /** List every file in the active workspace. Metadata only (no bytes). */
 export async function listFiles(): Promise<FileRef[]> {
   const workspaceId = getActiveWorkspaceId();
+  if (workspaceId === mirrorWorkspaceId) {
+    // Defensive copy — callers occasionally sort the result in place.
+    return mirror.slice();
+  }
   return BlobStore.listBlobs(workspaceId);
 }
 
@@ -83,27 +96,129 @@ export async function getFileBlobByHash(hash: string): Promise<Blob | null> {
   return BlobStore.getBlobByHash(workspaceId, hash);
 }
 
+// ── Writes ─────────────────────────────────────────────────────────
+
+/**
+ * Upload a blob. Returns the resulting FileRef. Always creates a fresh
+ * `fileId` even when the bytes already exist in the workspace (matches
+ * the user's mental model: identical bytes uploaded under two filenames
+ * = two files).
+ *
+ * Two-step write: BlobStore first (durable), catalog mutation second.
+ * If the catalog emit fails, the bytes are present but unindexed —
+ * acceptable; eventually consistent. The reverse (catalog before bytes)
+ * could expose a fileId that has no bytes attached.
+ */
+export async function putFile(input: { blob: Blob; filename: string; mimeType?: string }): Promise<FileRef> {
+  const workspaceId = getActiveWorkspaceId();
+  const ref = await BlobStore.putBlob(workspaceId, input);
+  logger.debug('FilesStore', `Stored "${ref.filename}" (${ref.size}B, ${ref.hash.slice(0, 14)}…)`);
+  await applyFilesMutationOrThrow(
+    (ctx) => buildAddFileRefBatch({ ref: toSlot(ref) }, ctx),
+    'putFile',
+  );
+  notifyChange();
+  return ref;
+}
+
 /** Delete a file by `fileId`. Returns `true` iff an entry was removed. */
 export async function deleteFile(fileId: string): Promise<boolean> {
   const workspaceId = getActiveWorkspaceId();
-  const removed = await withFilesLock(workspaceId, async () => {
-    const dropped = await BlobStore.deleteBlob(workspaceId, fileId);
-    if (dropped) logger.info('FilesStore', `Deleted file ${fileId}`);
-    return dropped;
-  });
-  if (removed) notifyChange();
-  return removed;
+  const removed = await BlobStore.deleteBlob(workspaceId, fileId);
+  if (!removed) return false;
+  logger.info('FilesStore', `Deleted file ${fileId}`);
+  await applyFilesMutationOrThrow(
+    (ctx) => buildRemoveFileRefBatch({ fileId }, ctx),
+    'deleteFile',
+  );
+  notifyChange();
+  return true;
 }
 
 /**
  * Drop every blob owned by a workspace. Called by the
  * workspace-orchestrator during workspace delete to keep the
- * per-workspace-data-keys discipline honest.
+ * per-workspace-data-keys discipline honest. Direct BlobStore call —
+ * the sync service is being torn down for that workspace, so emitting
+ * a catalog tombstone wouldn't reach an oracle.
  */
 export async function purgeFilesForWorkspace(workspaceId: string): Promise<void> {
-  await withFilesLock(workspaceId, async () => {
-    await BlobStore.clearWorkspaceBlobs(workspaceId);
-    logger.info('FilesStore', `Purged all files for workspace ${workspaceId}`);
-  });
+  await BlobStore.clearWorkspaceBlobs(workspaceId);
+  logger.info('FilesStore', `Purged all files for workspace ${workspaceId}`);
+  if (workspaceId === mirrorWorkspaceId) {
+    mirror = [];
+  }
   notifyChange();
+}
+
+// ── Sync engine plumbing ──────────────────────────────────────────
+
+async function applyFilesMutationOrThrow(
+  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  op: string,
+): Promise<void> {
+  const oracle = getOracleForCurrentWorkspace();
+  const ctx = nextSwMutatorContext({ surfaceId: 'sw' });
+  if (!oracle || !ctx) {
+    throw new Error(`FilesStore.${op}: sync service not initialized`);
+  }
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `FilesStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
+}
+
+function toSlot(ref: FileRef): FileRefSlot {
+  return {
+    fileId: ref.fileId,
+    hash: ref.hash,
+    filename: ref.filename,
+    mimeType: ref.mimeType,
+    size: ref.size,
+  };
+}
+
+// ── Hydration / bridge ────────────────────────────────────────────
+
+let cacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local mirror to the active workspace's {@link FilesCache}.
+ * Idempotent — the prior subscription is dropped first. Seeds the
+ * oracle from the workspace's current `BlobStore` rows (the durable
+ * record).
+ */
+export async function bridgeFilesSyncEngine(): Promise<void> {
+  const cache = getActiveFilesCache();
+  if (!cache) return;
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  const workspaceId = getActiveWorkspaceId();
+  cacheUnsubscribe = cache.onChange(() => {
+    mirror = cache.getSnapshot().refs.slice();
+    notifyChange();
+  });
+  const persisted = await BlobStore.listBlobs(workspaceId);
+  await cache.seedFromPersistedFiles(persisted);
+  mirror = cache.getSnapshot().refs.slice();
+  mirrorWorkspaceId = workspaceId;
+  logger.info('FilesStore', `Bridged ws=${workspaceId}: ${mirror.length} refs`);
+}
+
+// ── Test helpers ──────────────────────────────────────────────────
+
+export function __resetForTests(): void {
+  mirror = [];
+  mirrorWorkspaceId = null;
+  listeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
 }

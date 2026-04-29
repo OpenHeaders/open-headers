@@ -40,7 +40,7 @@ import {
   getWorkspaceVariables,
   onEnvironmentStoreChange,
 } from './modules/environment-store';
-import { listFiles, onFilesStoreChange } from './modules/files-store';
+import { bridgeFilesSyncEngine, listFiles, onFilesStoreChange } from './modules/files-store';
 // Module-load side effect: registers `liveChainAdapter` with the live
 // scheduler via `__setLiveRefreshAdapter`. Import for its side effect
 // even though we don't name anything from it here — the scheduler's
@@ -435,6 +435,9 @@ async function initializeExtension(): Promise<void> {
     void bridgeLayoutStateSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeLayoutStateSyncEngine after workspace switch failed', err);
     });
+    void bridgeFilesSyncEngine().catch((err: unknown) => {
+      logger.warn('Background', 'bridgeFilesSyncEngine after workspace switch failed', err);
+    });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -580,6 +583,7 @@ async function initializeExtension(): Promise<void> {
   await bridgeOAuthSyncEngine();
   await bridgePauseMarkersSyncEngine();
   await bridgeLayoutStateSyncEngine();
+  await bridgeFilesSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
