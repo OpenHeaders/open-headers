@@ -213,6 +213,26 @@ export interface SyncTemplateFolderPostState {
   folder: V5.Folder;
 }
 
+/**
+ * Post-commit projection for a Live-Variable envelope. LV is fully
+ * flat-scalar (no set-modeled paths), so the payload carries only the
+ * projected entity. Renderer-side mirrors fold this into their local
+ * cache so partial-update emit paths can read the canonical shape
+ * without round-tripping back to the SW (§19.4).
+ */
+export interface SyncLiveVariablePostState {
+  liveVariable: V5.LiveVariable;
+}
+
+/**
+ * Post-commit projection for a Live-Workflow envelope. LW has no
+ * set-modeled paths — `steps` is a whole-array scalar — so the payload
+ * carries only the projected entity.
+ */
+export interface SyncLiveWorkflowPostState {
+  workflow: V5.LiveWorkflow;
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -297,6 +317,18 @@ export interface SyncBroadcastEvent {
    * (parent yet to seed during boot replay) all leave it `undefined`.
    */
   templateFolderPostState?: SyncTemplateFolderPostState;
+  /**
+   * Populated for Live-Variable envelopes whose batch left a materialized
+   * LV in place. Tombstoned LVs and rolled-back batches leave it
+   * `undefined`.
+   */
+  liveVariablePostState?: SyncLiveVariablePostState;
+  /**
+   * Populated for Live-Workflow envelopes whose batch left a
+   * materialized workflow in place. Tombstoned workflows and rolled-back
+   * batches leave it `undefined`.
+   */
+  liveWorkflowPostState?: SyncLiveWorkflowPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

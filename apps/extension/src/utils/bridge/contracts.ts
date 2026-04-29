@@ -31,6 +31,8 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFolderPostState,
+  SyncLiveVariablePostState,
+  SyncLiveWorkflowPostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
@@ -1331,6 +1333,24 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncTemplateFolderPostState[] };
   };
+  /**
+   * Snapshot the active workspace's full Live-Variable oracle state.
+   * Each entry carries `{ liveVariable }` — LV is fully flat-scalar so
+   * no itemId map rides along.
+   */
+  'oh.sync.snapshotLiveVariables': {
+    req: Record<string, never>;
+    res: { entries: SyncLiveVariablePostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full Live-Workflow oracle state.
+   * Each entry carries `{ workflow }` — `steps` is a whole-array scalar
+   * so no itemId map rides along.
+   */
+  'oh.sync.snapshotLiveWorkflows': {
+    req: Record<string, never>;
+    res: { entries: SyncLiveWorkflowPostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1572,6 +1592,16 @@ export interface BridgeBroadcastContract {
      * reconstructed path included.
      */
     templateFolderPostState?: SyncTemplateFolderPostState;
+    /**
+     * Post-commit projection for Live-Variable envelopes (Phase B).
+     * Flat-scalar entity — no itemId map.
+     */
+    liveVariablePostState?: SyncLiveVariablePostState;
+    /**
+     * Post-commit projection for Live-Workflow envelopes (Phase B).
+     * `steps` rides as a whole-array scalar — no itemId map.
+     */
+    liveWorkflowPostState?: SyncLiveWorkflowPostState;
   };
 
   /**

@@ -47,6 +47,8 @@ export type EntityPostState = Partial<
     | 'templatePostState'
     | 'templateCollectionPostState'
     | 'templateFolderPostState'
+    | 'liveVariablePostState'
+    | 'liveWorkflowPostState'
   >
 >;
 

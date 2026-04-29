@@ -21,6 +21,8 @@ export type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFolderPostState,
+  SyncLiveVariablePostState,
+  SyncLiveWorkflowPostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,

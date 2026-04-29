@@ -36,6 +36,8 @@ import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFolderPostState,
+  SyncLiveVariablePostState,
+  SyncLiveWorkflowPostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
@@ -50,6 +52,8 @@ import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
   FOLDER_ENTITY_TYPE,
+  LIVE_VARIABLE_ENTITY_TYPE,
+  LIVE_WORKFLOW_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
@@ -76,6 +80,18 @@ import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner
 import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
 import { createFolderCache, type FolderCache, setActiveFolderCache } from './folder-cache';
 import { projectFolderByUid, projectFolderPostState } from './folder-post-state';
+import {
+  createLiveVariableCache,
+  type LiveVariableCache,
+  setActiveLiveVariableCache,
+} from './live-variable-cache';
+import { projectLiveVariableByUid, projectLiveVariablePostState } from './live-variable-post-state';
+import {
+  createLiveWorkflowCache,
+  type LiveWorkflowCache,
+  setActiveLiveWorkflowCache,
+} from './live-workflow-cache';
+import { projectLiveWorkflowByUid, projectLiveWorkflowPostState } from './live-workflow-post-state';
 import {
   createEnvironmentCache,
   type EnvironmentCache,
@@ -171,6 +187,8 @@ interface ServiceState {
   templateCache: TemplateCache;
   templateCollectionCache: TemplateCollectionCache;
   templateFolderCache: TemplateFolderCache;
+  liveVariableCache: LiveVariableCache;
+  liveWorkflowCache: LiveWorkflowCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -265,6 +283,22 @@ export function initSyncService(workspaceId: string): void {
   );
   setActiveTemplateFolderCache(templateFolderCache);
 
+  const liveVariableCache = createLiveVariableCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveLiveVariableCache(liveVariableCache);
+
+  const liveWorkflowCache = createLiveWorkflowCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveLiveWorkflowCache(liveWorkflowCache);
+
   // DNR intent runner — subscribes AFTER the cache so by the time the
   // runner asks rule-engine to recompile, the rule mirror already
   // reflects post-commit state.
@@ -286,6 +320,8 @@ export function initSyncService(workspaceId: string): void {
       COLLECTION_ENTITY_TYPE,
       WORKSPACE_VARIABLES_ENTITY_TYPE,
       VAULT_ENTITY_TYPE,
+      LIVE_VARIABLE_ENTITY_TYPE,
+      LIVE_WORKFLOW_ENTITY_TYPE,
     ]),
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
   });
@@ -355,6 +391,14 @@ export function initSyncService(workspaceId: string): void {
     const templateFolderPostState = projectTemplateFolderPostState(oracle, envelope);
     return templateFolderPostState ? { templateFolderPostState } : null;
   };
+  const liveVariableProjector: BroadcastProjector = (envelope) => {
+    const liveVariablePostState = projectLiveVariablePostState(oracle, envelope);
+    return liveVariablePostState ? { liveVariablePostState } : null;
+  };
+  const liveWorkflowProjector: BroadcastProjector = (envelope) => {
+    const liveWorkflowPostState = projectLiveWorkflowPostState(oracle, envelope);
+    return liveWorkflowPostState ? { liveWorkflowPostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
@@ -368,6 +412,8 @@ export function initSyncService(workspaceId: string): void {
     templateProjector,
     templateCollectionProjector,
     templateFolderProjector,
+    liveVariableProjector,
+    liveWorkflowProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -398,6 +444,12 @@ export function initSyncService(workspaceId: string): void {
         ...(event.templateFolderPostState
           ? { templateFolderPostState: event.templateFolderPostState }
           : {}),
+        ...(event.liveVariablePostState
+          ? { liveVariablePostState: event.liveVariablePostState }
+          : {}),
+        ...(event.liveWorkflowPostState
+          ? { liveWorkflowPostState: event.liveWorkflowPostState }
+          : {}),
       });
     },
     projector,
@@ -419,6 +471,8 @@ export function initSyncService(workspaceId: string): void {
     templateCache,
     templateCollectionCache,
     templateFolderCache,
+    liveVariableCache,
+    liveWorkflowCache,
     context,
     awareness,
     dnrRunner,
@@ -449,6 +503,8 @@ export function dispose(): void {
   state.templateCache.dispose();
   state.templateCollectionCache.dispose();
   state.templateFolderCache.dispose();
+  state.liveVariableCache.dispose();
+  state.liveWorkflowCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
@@ -462,6 +518,8 @@ export function dispose(): void {
   setActiveTemplateCache(null);
   setActiveTemplateCollectionCache(null);
   setActiveTemplateFolderCache(null);
+  setActiveLiveVariableCache(null);
+  setActiveLiveWorkflowCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -703,6 +761,38 @@ export function snapshotTemplateFolderPostStates(): SyncTemplateFolderPostState[
 }
 
 /**
+ * Snapshot every Live-Variable the active oracle holds — `(liveVariable)`
+ * per uid, the same shape `BroadcastProjector` attaches to live envelopes.
+ */
+export function snapshotLiveVariablePostStates(): SyncLiveVariablePostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncLiveVariablePostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== LIVE_VARIABLE_ENTITY_TYPE) continue;
+    const projection = projectLiveVariableByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
+ * Snapshot every Live-Workflow the active oracle holds — `(workflow)`
+ * per uid, the same shape `BroadcastProjector` attaches to live envelopes.
+ */
+export function snapshotLiveWorkflowPostStates(): SyncLiveWorkflowPostState[] {
+  if (!state) return [];
+  const oracle = state.oracle;
+  const out: SyncLiveWorkflowPostState[] = [];
+  for (const materialized of oracle.materializeAll()) {
+    if (materialized.type !== LIVE_WORKFLOW_ENTITY_TYPE) continue;
+    const projection = projectLiveWorkflowByUid(oracle, materialized.id);
+    if (projection) out.push(projection);
+  }
+  return out;
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -822,6 +912,20 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     () => context.next(),
   );
   setActiveTemplateFolderCache(templateFolderCache);
+  const liveVariableCache = createLiveVariableCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveLiveVariableCache(liveVariableCache);
+  const liveWorkflowCache = createLiveWorkflowCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActiveLiveWorkflowCache(liveWorkflowCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
@@ -836,6 +940,8 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
       COLLECTION_ENTITY_TYPE,
       WORKSPACE_VARIABLES_ENTITY_TYPE,
       VAULT_ENTITY_TYPE,
+      LIVE_VARIABLE_ENTITY_TYPE,
+      LIVE_WORKFLOW_ENTITY_TYPE,
     ]),
     recompile: deps.recompile ?? (() => {}),
   });
@@ -863,6 +969,8 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     templateCache,
     templateCollectionCache,
     templateFolderCache,
+    liveVariableCache,
+    liveWorkflowCache,
     context,
     awareness,
     dnrRunner,
