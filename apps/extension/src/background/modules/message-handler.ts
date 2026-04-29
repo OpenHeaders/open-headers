@@ -48,7 +48,6 @@ import {
   setDefaultEnvironment,
   setManualEnv,
   setVault,
-  setWorkspaceVariables,
   updateEnvironmentVariables,
 } from './environment-store';
 import { deleteFile, getFileBlob, listFiles, putFile } from './files-store';
@@ -568,13 +567,6 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'getWorkspaceVariables') {
       safeResponse({ workspaceVariables: getWorkspaceVariables() });
-    } else if (message.type === 'setWorkspaceVariables') {
-      const expectedVersion = message.expectedVersion as number | undefined;
-      const payload = message.workspaceVariables as V5.WorkspaceVariables;
-      setWorkspaceVariables({ variables: payload.variables }, { expectedVersion })
-        .then((result) => safeResponse(result))
-        .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
-      return true;
     } else if (message.type === 'getVault') {
       safeResponse({ vault: getVault() });
     } else if (message.type === 'setVault') {

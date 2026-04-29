@@ -30,7 +30,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getActiveEnvironmentId: () => getActiveEnvironmentIdMock(),
   getDefaultEnvironmentId: vi.fn(() => null),
   getVault: vi.fn(() => ({ schemaVersion: 5, version: 1, secrets: [] })),
-  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, version: 1, variables: [] })),
+  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] })),
 }));
 
 vi.mock('@/background/modules/rule-store', () => ({

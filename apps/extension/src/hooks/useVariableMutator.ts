@@ -48,7 +48,7 @@ export type MutationResult =
 
 export interface UseVariableMutatorApi {
   /** Replace the workspace variables list. */
-  replaceWorkspaceVariables(variables: V5.Variable[], expectedVersion?: number): Promise<MutationResult>;
+  replaceWorkspaceVariables(variables: V5.Variable[]): Promise<MutationResult>;
   /** Replace an environment's variables list. */
   replaceEnvironmentVariables(
     envUid: string,

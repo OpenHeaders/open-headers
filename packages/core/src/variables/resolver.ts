@@ -277,7 +277,7 @@ export class VariableResolver {
     this.activeEnvironmentId = null;
     this.defaultEnvironmentId = null;
     this.collectionVariables = new Map();
-    this.workspaceVariables = { schemaVersion: 5, version: 1, variables: [] };
+    this.workspaceVariables = { schemaVersion: 5, variables: [] };
     this.fileRegistry = EMPTY_FILE_REGISTRY;
     this.liveRegistry = EMPTY_LIVE_REGISTRY;
     this.totpRegistry = EMPTY_TOTP_REGISTRY;

@@ -88,44 +88,6 @@ afterEach(() => {
   setLockRuntime(null);
 });
 
-describe('workspace-vars — version stamping + stale-draft', () => {
-  it('hydrates with version: 1 as a fresh default', () => {
-    expect(store.getWorkspaceVariables().version).toBe(1);
-  });
-
-  it('setWorkspaceVariables increments version and returns the new value', async () => {
-    const r = await store.setWorkspaceVariables({ variables: [{ name: 'X', value: '1', type: 'default' }] });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.version).toBe(2);
-    expect(store.getWorkspaceVariables().version).toBe(2);
-  });
-
-  it('rejects stale expectedVersion with server copy', async () => {
-    await store.setWorkspaceVariables({ variables: [{ name: 'A', value: '1', type: 'default' }] });
-    const r = await store.setWorkspaceVariables(
-      { variables: [{ name: 'B', value: '2', type: 'default' }] },
-      { expectedVersion: 1 },
-    );
-    expect(r.ok).toBe(false);
-    if (!r.ok && r.reason === 'stale-draft') {
-      expect(r.serverVersion).toBe(2);
-      expect(r.serverWorkspaceVariables.variables[0]?.name).toBe('A');
-    } else {
-      throw new Error('expected stale-draft');
-    }
-  });
-
-  it('concurrent setWorkspaceVariables — one wins, one stale-drafts', async () => {
-    const [a, b] = await Promise.all([
-      store.setWorkspaceVariables({ variables: [{ name: 'A', value: '1', type: 'default' }] }, { expectedVersion: 1 }),
-      store.setWorkspaceVariables({ variables: [{ name: 'B', value: '2', type: 'default' }] }, { expectedVersion: 1 }),
-    ]);
-    expect([a, b].filter((r) => r.ok)).toHaveLength(1);
-    expect([a, b].filter((r) => !r.ok)).toHaveLength(1);
-    expect(store.getWorkspaceVariables().version).toBe(2);
-  });
-});
-
 describe('vault — version stamping + stale-draft', () => {
   it('hydrates with version: 1 as a fresh default', () => {
     expect(store.getVault().version).toBe(1);

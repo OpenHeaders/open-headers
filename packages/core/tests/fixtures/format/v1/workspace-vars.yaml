@@ -1,5 +1,4 @@
 schemaVersion: 5
-version: 1
 variables:
   - name: API_URL
     value: https://api.openheaders.io

@@ -42,7 +42,6 @@ export type VariableCandidate =
     }
   | {
       scope: 'workspace';
-      workspaceVersion: number;
       variable: V5.Variable;
     }
   | {
@@ -181,7 +180,6 @@ export function useVariableLookup(reference: string, collectionId?: string): Var
       if (variable) {
         candidates.push({
           scope: 'workspace',
-          workspaceVersion: workspaceVariables.version,
           variable,
         });
       }

@@ -59,8 +59,6 @@ export const VaultSchema = v.object({
 
 export const WorkspaceVariablesSchema = v.object({
   schemaVersion: SchemaVersionSchema,
-  /** Phase 10 monotonic write counter — see `RuleBase.version`. */
-  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   variables: v.array(VariableSchema),
 });
 

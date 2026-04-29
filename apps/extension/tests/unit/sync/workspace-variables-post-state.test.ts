@@ -36,7 +36,6 @@ const ctx = (ms: number): MutatorContext => ({
 
 const makeWorkspaceVars = (vars: V5.Variable[]): V5.WorkspaceVariables => ({
   schemaVersion: 5,
-  version: 1,
   variables: vars,
 });
 

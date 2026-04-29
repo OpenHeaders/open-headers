@@ -284,7 +284,7 @@ export function parseWorkspaceExport(input: string, opts: ParseOptions = {}): Pa
       reason: 'schema-invalid',
       details: workspaceVarsParsed.issues.map((i) => i.message).join('; '),
     });
-    workspaceVars = { schemaVersion: 5, version: 1, variables: [] };
+    workspaceVars = { schemaVersion: 5, variables: [] };
   }
 
   let vault: v.InferOutput<typeof VaultSchema> | undefined;
@@ -343,7 +343,7 @@ function emptyEntitiesShell(): WorkspaceExport['entities'] {
     requests: [],
     templates: [],
     environments: [],
-    workspaceVars: { schemaVersion: 5, version: 1, variables: [] },
+    workspaceVars: { schemaVersion: 5, variables: [] },
     liveWorkflows: [],
     liveVariables: [],
   };

@@ -17,7 +17,6 @@ const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
 const makeWorkspaceVars = (vars: V5.Variable[]): V5.WorkspaceVariables => ({
   schemaVersion: 5,
-  version: 1,
   variables: vars,
 });
 

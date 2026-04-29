@@ -16,7 +16,7 @@ import { buildWorkspaceExport, serializeWorkspaceExport } from '../../src/worksp
 const FIXED_TIMESTAMP = '2026-04-27T18:30:00.000Z';
 
 function makeWorkspaceVars(): WorkspaceVariables {
-  return { schemaVersion: 5, version: 1, variables: [] };
+  return { schemaVersion: 5, variables: [] };
 }
 
 function baseInput(): Parameters<typeof buildWorkspaceExport>[0] {

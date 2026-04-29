@@ -340,10 +340,7 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
     idx >= 0
       ? [...current.variables.slice(0, idx), { ...current.variables[idx]!, value }, ...current.variables.slice(idx + 1)]
       : [...current.variables, { name: trimmed, value, type: 'default' }];
-  const result = await setWorkspaceVariables({ variables: nextVariables });
-  if (!result.ok) {
-    throw new Error(`oh.variables.set failed: ${result.reason}`);
-  }
+  await setWorkspaceVariables({ variables: nextVariables });
 }
 
 async function resolveVaultRef(ref: string): Promise<string | null> {

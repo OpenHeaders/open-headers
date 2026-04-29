@@ -550,6 +550,6 @@ export function __resetForTests(): void {
   resolver.setEnvironments([]);
   resolver.setActiveEnvironmentId(null);
   resolver.setDefaultEnvironmentId(null);
-  resolver.setWorkspaceVariables({ schemaVersion: 5, version: 1, variables: [] });
+  resolver.setWorkspaceVariables({ schemaVersion: 5, variables: [] });
   resolver.setLiveRegistry(EMPTY_LIVE_REGISTRY);
 }

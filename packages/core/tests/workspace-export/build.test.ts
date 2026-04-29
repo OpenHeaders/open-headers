@@ -34,7 +34,7 @@ const EXPORT_ID = 'e8a1b2c3';
 // ── Factories (schema-valid by construction) ───────────────────────
 
 function makeWorkspaceVars(overrides: Partial<WorkspaceVariables> = {}): WorkspaceVariables {
-  return { schemaVersion: 5, version: 1, variables: [], ...overrides };
+  return { schemaVersion: 5, variables: [], ...overrides };
 }
 
 function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {

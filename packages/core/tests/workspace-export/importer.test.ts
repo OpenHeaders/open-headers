@@ -28,7 +28,7 @@ import {
 const FIXED_TIMESTAMP = '2026-04-27T18:30:00.000Z';
 
 function makeWorkspaceVars(): WorkspaceVariables {
-  return { schemaVersion: 5, version: 1, variables: [] };
+  return { schemaVersion: 5, variables: [] };
 }
 
 function baseInput(): Parameters<typeof buildWorkspaceExport>[0] {
@@ -346,7 +346,6 @@ describe('buildImportPlan — singleton resolution', () => {
     const input = baseInput();
     input.entities.workspaceVars = {
       schemaVersion: 5,
-      version: 1,
       variables: [
         { name: 'A', value: 'incoming-a', type: 'default' },
         { name: 'C', value: 'incoming-c', type: 'default' },
@@ -356,7 +355,6 @@ describe('buildImportPlan — singleton resolution', () => {
     const target = emptyTarget();
     target.workspaceVars = {
       schemaVersion: 5,
-      version: 1,
       variables: [
         { name: 'A', value: 'target-a', type: 'default' },
         { name: 'B', value: 'target-b', type: 'default' },
@@ -375,14 +373,12 @@ describe('buildImportPlan — singleton resolution', () => {
     const input = baseInput();
     input.entities.workspaceVars = {
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'X', value: 'incoming', type: 'default' }],
     };
     const exp = buildWorkspaceExport(input);
     const target = emptyTarget();
     target.workspaceVars = {
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'Y', value: 'target', type: 'default' }],
     };
     const diff = diffWorkspaceExport(exp, target);
@@ -395,14 +391,12 @@ describe('buildImportPlan — singleton resolution', () => {
     const input = baseInput();
     input.entities.workspaceVars = {
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'X', value: 'incoming', type: 'default' }],
     };
     const exp = buildWorkspaceExport(input);
     const target = emptyTarget();
     target.workspaceVars = {
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'Y', value: 'target', type: 'default' }],
     };
     const diff = diffWorkspaceExport(exp, target);

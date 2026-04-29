@@ -513,7 +513,7 @@ export async function gatherWorkspaceExport(
       requests,
       templates,
       environments,
-      workspaceVars: workspaceVarsOut ?? { schemaVersion: 5, version: 1, variables: [] },
+      workspaceVars: workspaceVarsOut ?? { schemaVersion: 5, variables: [] },
       liveWorkflows,
       liveVariables,
     },

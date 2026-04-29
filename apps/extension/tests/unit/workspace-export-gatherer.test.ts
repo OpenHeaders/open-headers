@@ -73,7 +73,7 @@ function seedWorkspace(opts: {
   blobs.set('oh.ws.ws-test.templateCollections', []);
   blobs.set('oh.ws.ws-test.templateFolders', []);
   blobs.set('oh.ws.ws-test.environments', opts.environments ?? []);
-  blobs.set('oh.ws.ws-test.workspaceVars', opts.workspaceVars ?? { schemaVersion: 5, version: 1, variables: [] });
+  blobs.set('oh.ws.ws-test.workspaceVars', opts.workspaceVars ?? { schemaVersion: 5, variables: [] });
   blobs.set('oh.ws.ws-test.liveWorkflows', opts.liveWorkflows ?? []);
   blobs.set('oh.ws.ws-test.liveVariables', opts.liveVariables ?? []);
 }
@@ -136,7 +136,6 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       rules: [rule],
       workspaceVars: {
         schemaVersion: 5,
-        version: 1,
         variables: [
           { name: 'region', value: 'us-east', type: 'default' },
           { name: 'unrelated', value: 'leak-me', type: 'default' },
@@ -215,7 +214,6 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       environments: [env],
       workspaceVars: {
         schemaVersion: 5,
-        version: 1,
         variables: [{ name: 'region', value: 'us-east', type: 'default' }],
       },
     });
@@ -236,7 +234,6 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       rules: [rule],
       workspaceVars: {
         schemaVersion: 5,
-        version: 1,
         variables: [
           { name: 'a', value: '1', type: 'default' },
           { name: 'b', value: '2', type: 'default' },

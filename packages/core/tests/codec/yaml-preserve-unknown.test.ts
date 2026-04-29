@@ -142,7 +142,6 @@ describe('yaml codec — preserve-unknown on identity write', () => {
 
   it('workspace-vars.yaml retains unknown top-level key', () => {
     const raw = `schemaVersion: 5
-version: 1
 variables: []
 futureMeta: keep-me
 `;

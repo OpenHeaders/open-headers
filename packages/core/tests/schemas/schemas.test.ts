@@ -378,7 +378,7 @@ describe('TemplateSchema', () => {
 
 describe('WorkspaceVariablesSchema', () => {
   it('accepts empty variables', () => {
-    expect(v.parse(WorkspaceVariablesSchema, { schemaVersion: 5, version: 1, variables: [] })).toBeTruthy();
+    expect(v.parse(WorkspaceVariablesSchema, { schemaVersion: 5, variables: [] })).toBeTruthy();
   });
 });
 

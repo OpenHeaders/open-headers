@@ -7,7 +7,7 @@ function makeVariable(name: string, value: string, type: 'default' | 'secret' = 
 }
 
 function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
-  return { schemaVersion: 5, version: 1, variables: vars };
+  return { schemaVersion: 5, variables: vars };
 }
 
 function makeEnvironment(name: string, vars: Variable[]): Environment {

@@ -601,7 +601,7 @@ async function runUpdate(
       if (idx === -1) return { ok: false, reason: 'not-found' };
       const next = snap.workspaceVariables.variables.slice();
       next[idx] = { ...next[idx], value: draft };
-      return mutator.replaceWorkspaceVariables(next, snap.workspaceVariables.version);
+      return mutator.replaceWorkspaceVariables(next);
     }
     case 'live':
       return mutator.setLiveOverride(c.lv.uid, { value: draft }, c.lv.version);
@@ -625,7 +625,7 @@ async function runCreate(
         return { ok: false, reason: 'duplicate-name' };
       }
       const next: V5.Variable[] = [...snap.workspaceVariables.variables, { name, value, type: 'default' }];
-      return mutator.replaceWorkspaceVariables(next, snap.workspaceVariables.version);
+      return mutator.replaceWorkspaceVariables(next);
     }
     case 'vault': {
       if (snap.vault.secrets.some((s) => s.name === name)) {

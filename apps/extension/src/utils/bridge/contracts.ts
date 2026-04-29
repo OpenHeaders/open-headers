@@ -673,22 +673,6 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { workspaceVariables: V5.WorkspaceVariables };
   };
-  setWorkspaceVariables: {
-    req: {
-      workspaceVariables: V5.WorkspaceVariables;
-      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
-      expectedVersion?: number;
-    };
-    res:
-      | { ok: true; version: number; workspaceVariables: V5.WorkspaceVariables }
-      | {
-          ok: false;
-          reason: 'stale-draft';
-          serverVersion: number;
-          serverWorkspaceVariables: V5.WorkspaceVariables;
-        }
-      | { ok: false; reason: 'other'; message: string };
-  };
   getVault: {
     req: Record<string, never>;
     res: { vault: V5.Vault };

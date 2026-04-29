@@ -268,7 +268,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       [`oh.ws.${activeWs}.folders`]: [],
       [`oh.ws.${activeWs}.environments`]: [env],
       [`oh.ws.${activeWs}.vault`]: { schemaVersion: 5, version: 1, secrets: [] },
-      [`oh.ws.${activeWs}.workspaceVars`]: { schemaVersion: 5, version: 1, variables: [] },
+      [`oh.ws.${activeWs}.workspaceVars`]: { schemaVersion: 5, variables: [] },
       [`oh.ws.${activeWs}.templates`]: [],
       [`oh.ws.${activeWs}.templateCollections`]: [],
       [`oh.ws.${activeWs}.templateFolders`]: [],

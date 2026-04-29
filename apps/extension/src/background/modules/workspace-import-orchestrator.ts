@@ -274,7 +274,6 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       // Singletons.
       const nextWorkspaceVars: V5.WorkspaceVariables = {
         schemaVersion: 5,
-        version: target.workspaceVars?.version ?? 1,
         variables: plan.workspaceVars.variables,
       };
       const nextVault: V5.Vault | undefined =

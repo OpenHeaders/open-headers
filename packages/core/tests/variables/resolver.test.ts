@@ -23,7 +23,7 @@ function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
 }
 
 function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {
-  return { schemaVersion: 5, version: 1, variables: vars };
+  return { schemaVersion: 5, variables: vars };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -300,7 +300,6 @@ describe('VariableResolver — explicit namespaces', () => {
     resolver.setActiveEnvironmentId('e-staging');
     resolver.setWorkspaceVariables({
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
     resolver.setCollectionVariables('coll-1', [{ name: 'REGION', value: 'eu-west-1', type: 'default' }]);
@@ -444,7 +443,6 @@ describe('VariableResolver — structured resolution errors', () => {
     resolver = new VariableResolver();
     resolver.setWorkspaceVariables({
       schemaVersion: 5,
-      version: 1,
       variables: [{ name: 'KNOWN', value: 'v', type: 'default' }],
     });
     resolver.setActiveEnvironmentId('e-staging');

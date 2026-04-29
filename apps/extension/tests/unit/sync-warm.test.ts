@@ -61,7 +61,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getEnvironments: () => [],
   getActiveEnvironmentId: () => activeEnv.id,
   getDefaultEnvironmentId: () => null,
-  getWorkspaceVariables: () => ({ schemaVersion: 5, version: 1, variables: [] }),
+  getWorkspaceVariables: () => ({ schemaVersion: 5, variables: [] }),
 }));
 
 import {

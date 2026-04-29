@@ -33,7 +33,6 @@ import type { SwMutatorContextFactory } from './sw-context';
 
 const EMPTY_WORKSPACE_VARIABLES: V5.WorkspaceVariables = {
   schemaVersion: 5,
-  version: 1,
   variables: [],
 };
 

@@ -65,7 +65,7 @@ function envelope(rules: HeaderRule[], requests: Request[] = []): WorkspaceExpor
       requests,
       templates: [],
       environments: [],
-      workspaceVars: { schemaVersion: 5, version: 1, variables: [] },
+      workspaceVars: { schemaVersion: 5, variables: [] },
       liveWorkflows: [],
       liveVariables: [],
     },
