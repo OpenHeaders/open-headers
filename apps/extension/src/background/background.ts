@@ -29,6 +29,7 @@ import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from '.
 import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 import {
   bridgeEnvironmentSyncEngine,
+  bridgeWorkspaceVariablesSyncEngine,
   getActiveEnvironmentId,
   getCollectionEnvOverrides,
   getDefaultEnvironmentId,
@@ -353,6 +354,9 @@ async function initializeExtension(): Promise<void> {
     void bridgeCollectionSyncEngine().catch((err: unknown) => {
       logger.warn('Background', 'bridgeCollectionSyncEngine after workspace switch failed', err);
     });
+    void bridgeWorkspaceVariablesSyncEngine().catch((err: unknown) => {
+      logger.warn('Background', 'bridgeWorkspaceVariablesSyncEngine after workspace switch failed', err);
+    });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -484,6 +488,7 @@ async function initializeExtension(): Promise<void> {
   await bridgeToSyncEngine();
   await bridgeEnvironmentSyncEngine();
   await bridgeCollectionSyncEngine();
+  await bridgeWorkspaceVariablesSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /

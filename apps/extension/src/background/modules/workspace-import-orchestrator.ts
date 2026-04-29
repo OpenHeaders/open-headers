@@ -54,7 +54,11 @@ import {
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, type StorageKey, wsKeys } from '@/shared/storage';
-import { bridgeEnvironmentSyncEngine, hydrateEnvironmentsFromStorage } from './environment-store';
+import {
+  bridgeEnvironmentSyncEngine,
+  bridgeWorkspaceVariablesSyncEngine,
+  hydrateEnvironmentsFromStorage,
+} from './environment-store';
 import { recordImportReport } from './import-reports-store';
 import { hydrateFromStorage as hydrateLiveVariablesFromStorage } from './live-variable-store';
 import { hydrateFromStorage as hydrateLiveWorkflowsFromStorage } from './live-workflow-store';
@@ -360,6 +364,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeToSyncEngine();
         await bridgeEnvironmentSyncEngine();
         await bridgeCollectionSyncEngine();
+        await bridgeWorkspaceVariablesSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

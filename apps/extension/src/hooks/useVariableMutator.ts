@@ -33,6 +33,7 @@ import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
 import { applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvVariablesReplacement } from '@/shared/sync/env-write-client';
+import { applyWorkspaceVariablesReplacement } from '@/shared/sync/workspace-variables-write-client';
 
 // ── Result shape ─────────────────────────────────────────────────────
 
@@ -70,20 +71,29 @@ export interface UseVariableMutatorApi {
 }
 
 export function useVariableMutator(): UseVariableMutatorApi {
-  const { setVault, environments, setWorkspaceVariables } = useEnvironments();
+  const { setVault, environments, workspaceVariables: currentWorkspaceVariables } = useEnvironments();
   const { localCollections } = useRules();
   const { setOverride } = useLiveVariables();
   const workspaceId = useActiveWorkspaceId();
 
   const replaceWorkspaceVariables = useCallback<UseVariableMutatorApi['replaceWorkspaceVariables']>(
-    async (variables, expectedVersion) => {
-      const r = await setWorkspaceVariables(
-        { schemaVersion: 5, version: expectedVersion ?? 1, variables },
-        expectedVersion,
+    async (variables) => {
+      if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
+      const result = await applyWorkspaceVariablesReplacement(
+        variables,
+        currentWorkspaceVariables.variables,
+        { workspaceId, surfaceId: 'workbench' },
       );
-      return mapWriteResult(r);
+      if (result.ok) {
+        // `version` is retired by Phase B (§24); the field is kept on
+        // the result shape until commit 4 sweeps every consumer of it.
+        // Synthetic 1 is honest — the LWW oracle decides convergence,
+        // not the counter.
+        return { ok: true, version: 1 };
+      }
+      return { ok: false, reason: 'other', message: result.message };
     },
-    [setWorkspaceVariables],
+    [workspaceId, currentWorkspaceVariables],
   );
 
   const replaceEnvironmentVariables = useCallback<UseVariableMutatorApi['replaceEnvironmentVariables']>(

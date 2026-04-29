@@ -25,6 +25,7 @@ import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { getActiveEnvironmentCache } from '@/background/sync/environment-cache';
+import { getActiveWorkspaceVariablesCache } from '@/background/sync/workspace-variables-cache';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
@@ -660,6 +661,38 @@ export async function bridgeEnvironmentSyncEngine(): Promise<void> {
   // zero-environments workspace (no broadcasts → no listener fire)
   // still ends with `environments` pointed at the cache snapshot.
   environments = cache.getEnvironments();
+}
+
+// ── Workspace variables sync bridge ───────────────────────────────
+
+let workspaceVarsCacheUnsubscribe: (() => void) | null = null;
+
+/**
+ * Wire the local `workspaceVariables` singleton to the active
+ * workspace's {@link WorkspaceVariablesCache}: seed the oracle from
+ * the hydrated record, then subscribe to broadcast-driven re-projections
+ * so subsequent mutations flow back into the local mirror. Mirrors
+ * `bridgeEnvironmentSyncEngine`.
+ */
+export async function bridgeWorkspaceVariablesSyncEngine(): Promise<void> {
+  const cache = getActiveWorkspaceVariablesCache();
+  if (!cache) {
+    logger.info(
+      'EnvironmentStore',
+      'bridgeWorkspaceVariablesSyncEngine: no active cache; skipping',
+    );
+    return;
+  }
+  if (workspaceVarsCacheUnsubscribe) {
+    workspaceVarsCacheUnsubscribe();
+    workspaceVarsCacheUnsubscribe = null;
+  }
+  workspaceVarsCacheUnsubscribe = cache.onChange(() => {
+    workspaceVariables = cache.getWorkspaceVariables();
+    notifyChange();
+  });
+  await cache.seedFromPersistedWorkspaceVariables(workspaceVariables);
+  workspaceVariables = cache.getWorkspaceVariables();
 }
 
 // ── Test helpers ───────────────────────────────────────────────────
