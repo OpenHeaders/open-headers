@@ -75,6 +75,9 @@ vi.mock('@/background/modules/rule-engine', () => ({
 vi.mock('@/background/modules/observability-log', () => ({
   recordLog: vi.fn(),
 }));
+vi.mock('@/background/modules/oauth-token-store', () => ({
+  bridgeOAuthSyncEngine: vi.fn(async () => {}),
+}));
 vi.mock('@/background/modules/import-reports-store', () => ({
   recordImportReport: vi.fn(async (report: unknown) => {
     const current = (blobs.get('oh.ws.ws-active.importReports') as unknown[]) ?? [];

@@ -70,6 +70,7 @@ import {
   hydrateFromStorage as hydrateLiveWorkflowsFromStorage,
 } from './live-workflow-store';
 import { recordLog } from './observability-log';
+import { bridgeOAuthSyncEngine } from './oauth-token-store';
 import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
 import {
   bridgeRequestCollectionSyncEngine,
@@ -391,6 +392,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeTemplateSyncEngine();
         await bridgeLiveWorkflowSyncEngine();
         await bridgeLiveVariableSyncEngine();
+        await bridgeOAuthSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

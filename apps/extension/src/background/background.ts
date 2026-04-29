@@ -73,7 +73,11 @@ import {
   reconcileOAuthSchedules,
   startOAuthScheduler,
 } from './modules/oauth-refresh-scheduler';
-import { listTokenBundles, onOAuthStoreChange } from './modules/oauth-token-store';
+import {
+  bridgeOAuthSyncEngine,
+  listTokenBundles,
+  onOAuthStoreChange,
+} from './modules/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { applyExternalSnapshot as applyPauseMarkersSnapshot, getPauseMarkers } from './modules/pause-markers-store';
@@ -417,6 +421,9 @@ async function initializeExtension(): Promise<void> {
           err,
         );
       });
+    void bridgeOAuthSyncEngine().catch((err: unknown) => {
+      logger.warn('Background', 'bridgeOAuthSyncEngine after workspace switch failed', err);
+    });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
@@ -559,6 +566,7 @@ async function initializeExtension(): Promise<void> {
   await bridgeTemplateSyncEngine();
   await bridgeLiveWorkflowSyncEngine();
   await bridgeLiveVariableSyncEngine();
+  await bridgeOAuthSyncEngine();
   markBootPhase('bridge-done');
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
