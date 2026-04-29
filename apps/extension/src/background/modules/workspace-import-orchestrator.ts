@@ -71,6 +71,7 @@ import {
 } from './live-workflow-store';
 import { recordLog } from './observability-log';
 import { bridgeOAuthSyncEngine } from './oauth-token-store';
+import { bridgeLayoutStateSyncEngine } from './layout-store';
 import { bridgePauseMarkersSyncEngine } from './pause-markers-store';
 import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
 import {
@@ -395,6 +396,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         await bridgeLiveVariableSyncEngine();
         await bridgeOAuthSyncEngine();
         await bridgePauseMarkersSyncEngine();
+        await bridgeLayoutStateSyncEngine();
         scheduleUpdate('import', { immediate: true });
         if (scriptsPendingUids.length > 0) {
           await markPendingScriptsReview(scriptsPendingUids);

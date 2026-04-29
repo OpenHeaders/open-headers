@@ -69,7 +69,6 @@ import {
   listImportReports,
   recordImportReport,
 } from './import-reports-store';
-import { setPanelLayout } from './layout-store';
 import {
   clearWorkflowRunCache,
   getWorkflowRunCache,
@@ -1378,12 +1377,6 @@ export function handleGeneralMessage(
     } else if (message.type === 'getStatusSnapshot') {
       safeResponse({ snapshot: getStatusSnapshot() });
 
-      // ── Layout ───────────────────────────────────────────────────
-    } else if (message.type === 'setLayout') {
-      setPanelLayout(message.layout as import('@/shared/storage').PersistedPanelLayout)
-        .then(() => safeResponse({ success: true }))
-        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
-      return true;
       // ── Awareness (Phase A A1) ─────────────────────────────────
     } else if (message.type === 'oh.awareness.publish') {
       const request = message as unknown as import('@openheaders/core/protocol').AwarenessPublishRequest;

@@ -55,7 +55,6 @@ import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
 import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
 import type { LogEntry as ObservabilityLogEntry } from '@/shared/observability/types';
 import type { StatusSnapshot } from '@/shared/status/types';
-import type { PersistedPanelLayout } from '@/shared/storage';
 import type { ActiveRule } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import type { RecordingData, RecordingStateInfo } from '@/types/recording';
@@ -1160,19 +1159,6 @@ export interface BridgeRpcContract {
   getStatusSnapshot: {
     req: Record<string, never>;
     res: { snapshot: StatusSnapshot };
-  };
-
-  // ── Layout (panel ratios + tool-window dock state) ───────────────
-  /**
-   * Persist the active workspace's panel-layout record. Routed
-   * through the SW so the write is serialized through the
-   * `layoutLockName(ws)` Web Lock — two tabs dragging different
-   * panes concurrently can't stomp each other. The layout blob is
-   * opaque at the SW boundary; the renderer owns its shape.
-   */
-  setLayout: {
-    req: { layout: PersistedPanelLayout };
-    res: { success: boolean; error?: string };
   };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────

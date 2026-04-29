@@ -1,39 +1,44 @@
 /**
- * Layout Store — SW-side serialization of workspace layout writes.
+ * Layout Store — per-workspace opaque panel-layout blob.
  *
- * Phase 10 — routes every layout mutation through a Web Lock so two
- * tabs dragging different panes simultaneously serialize their
- * read-modify-write at the storage boundary. Before Phase 10 the
- * renderer wrote `chrome.storage.local` directly, racing with itself
- * across tabs; ARCHITECTURE.md §13's Web Locks discipline (and plan
- * §10.2 Option A) puts the writer on the SW side like every other
- * persisted-entity store in this project.
+ * Phase B — every write routes through the sync oracle (the renderer
+ * emits envelopes directly via `applyLayoutSet`); this module owns
+ * boot-time hydration only. The {@link LayoutStateCache} owns
+ * `chrome.storage.local` persistence + drives the local mirror via
+ * broadcast-driven re-projection.
  *
  * Layout is opaque at the SW boundary — the renderer computes ratios
- * and tool-window dock state, the SW just locks + writes. No schema
- * validation here because layout shape lives entirely in the
- * renderer's `useResponsiveLayout` / `useDockLayoutStorage` hooks.
+ * and tool-window dock state, the SW just LWW's the whole blob. No
+ * schema validation here because the layout shape lives entirely in
+ * the renderer's `useResponsiveLayout` / `useDockLayoutStorage` hooks.
  */
 
 import { logger } from '@utils/logger';
-import { layoutLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
+import { getActiveLayoutStateCache } from '../sync/layout-state-cache';
 import { getActiveWorkspaceId } from './workspace-store';
 
+// ── Hydration / bridge ────────────────────────────────────────────
+
+async function readLayoutFor(workspaceId: string): Promise<PersistedPanelLayout | null> {
+  const raw = await extensionStorage.get(wsKeys(workspaceId).panelLayout);
+  if (raw && typeof raw === 'object') return raw;
+  return null;
+}
+
 /**
- * Replace the active workspace's panel-layout record. Called from the
- * renderer via the `setLayout` bridge RPC. The SW doesn't introspect
- * the layout shape; it just serializes the write through the
- * workspace-scoped layout lock.
+ * Seed the active workspace's {@link LayoutStateCache} from the
+ * persisted layout blob. Idempotent — calling twice in a row replays
+ * the same batch through the oracle, which dedups by mutationId.
  */
-export async function setPanelLayout(layout: PersistedPanelLayout): Promise<void> {
+export async function bridgeLayoutStateSyncEngine(): Promise<void> {
+  const cache = getActiveLayoutStateCache();
+  if (!cache) return;
   const workspaceId = getActiveWorkspaceId();
-  await withLock(
-    layoutLockName(workspaceId),
-    async () => {
-      await extensionStorage.set(wsKeys(workspaceId).panelLayout, layout);
-      logger.debug('LayoutStore', `Persisted panel layout (ws=${workspaceId})`);
-    },
-    { op: 'layout-set' },
+  const persisted = await readLayoutFor(workspaceId);
+  await cache.seedFromPersistedLayout(persisted);
+  logger.info(
+    'LayoutStore',
+    `Bridged ws=${workspaceId}: ${persisted ? 'seeded' : 'empty'}`,
   );
 }

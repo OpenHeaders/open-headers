@@ -9,9 +9,10 @@
  *   5. Guard against degenerate viewport values (browser restore, 0-width)
  */
 
-import { call, subscribe } from '@utils/bridge';
+import { subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@utils/frame-scheduler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { applyLayoutSet } from '@/shared/sync/layout-state-write-client';
 import { extensionStorage, OH, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
 import type { ToolLayoutState } from '../types';
 
@@ -225,12 +226,18 @@ export function useResponsiveLayout(): ResponsiveLayout {
   // ── Persist helpers (debounced 500ms) ──────────────────────────
 
   const flushPersist = useCallback((ratios: PersistedLayout) => {
-    // Phase 10 — route through SW's `setLayout` RPC so the write
-    // serializes through `layoutLockName(ws)`. Two tabs dragging
-    // different panes simultaneously can't stomp each other; the
-    // lock is origin-scoped but living on the SW side keeps layout
-    // writes symmetric with every other persisted-entity store.
-    void call('setLayout', { layout: ratios as PersistedPanelLayout }).catch(() => undefined);
+    // Routes the layout write through the renderer-direct sync client.
+    // Two surfaces dragging different panes simultaneously serialize
+    // through the oracle's per-entity lock; whole-blob LWW means the
+    // newest HLC wins. Workspace switch: ref is updated by the
+    // workspaceChanged listener before `flushPersist` fires the
+    // debounced write.
+    const workspaceId = activeWorkspaceIdRef.current;
+    if (!workspaceId) return;
+    void applyLayoutSet(
+      { layout: ratios as PersistedPanelLayout },
+      { workspaceId, surfaceId: 'workbench' },
+    ).catch(() => undefined);
   }, []);
 
   const schedulePersist = useCallback(
