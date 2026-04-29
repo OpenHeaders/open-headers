@@ -38,6 +38,21 @@ export {
   setEnvVarType,
   type VariableType,
 } from './environment';
+export {
+  invalidateResolverIntent as workspaceVariablesInvalidateResolverIntent,
+  type RemoveWorkspaceVarArgs,
+  removeWorkspaceVar,
+  type RenameWorkspaceVarArgs,
+  renameWorkspaceVar,
+  type SetWorkspaceVarArgs,
+  setWorkspaceVar,
+  type SetWorkspaceVarTypeArgs,
+  setWorkspaceVarType,
+  WORKSPACE_VARIABLES_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_ID,
+  WORKSPACE_VARIABLES_MUTATOR_VERSION,
+  WORKSPACE_VARIABLES_PATH,
+} from './workspace-variables';
 export { flattenToLeaves, type Leaf, unflattenLeaves } from './flatten';
 export { applyMutation } from './generic';
 export * from './rule';

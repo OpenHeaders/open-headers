@@ -23,6 +23,7 @@ import {
   genSameFieldSameHlc,
   genSetDeleteRace,
   genUniformRandom,
+  genWorkspaceVarsRename,
 } from '../harness/scenarios';
 
 const PERMUTATIONS_PER_SCENARIO = 4;
@@ -41,6 +42,7 @@ const BUCKETS: Bucket[] = [
   { name: 'concurrent-renames', generate: genConcurrentRenames, count: 1500 },
   { name: 'env-rename', generate: genEnvRename, count: 1500 },
   { name: 'collection-rename', generate: genCollectionRename, count: 1500 },
+  { name: 'workspace-vars-rename', generate: genWorkspaceVarsRename, count: 1500 },
   { name: 'rule-reorder', generate: genRuleReorder, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
