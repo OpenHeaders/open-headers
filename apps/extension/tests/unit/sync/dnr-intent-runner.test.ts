@@ -3,7 +3,15 @@
  * broadcast and asks the rule engine to recompile. Phase A S2–S5.
  */
 
-import { addHeaderMod, RECOMPILE_DNR, type MutatorContext, toggleEnabled } from '@openheaders/core/sync';
+import {
+  addHeaderMod,
+  PAUSE_MARKERS_ENTITY_TYPE,
+  RECOMPILE_DNR,
+  RULE_ENTITY_TYPE,
+  type MutatorContext,
+  setPauseMarker,
+  toggleEnabled,
+} from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { createDnrIntentRunner } from '@/background/sync/dnr-intent-runner';
@@ -38,6 +46,7 @@ function makeHarness(): Harness {
   const runner = createDnrIntentRunner({
     broadcast,
     intents,
+    entityTypes: new Set([RULE_ENTITY_TYPE, PAUSE_MARKERS_ENTITY_TYPE]),
     recompile: (reason) => recompileCalls.push(reason),
   });
   return { oracle, intents, broadcast, recompileCalls, dispose: runner.dispose };
@@ -122,6 +131,31 @@ describe('DnrIntentRunner', () => {
     await flush();
     expect(h.recompileCalls).toEqual(['rules']);
     expect(await h.intents.list()).toHaveLength(0);
+  });
+
+  it('recompiles after a pause-markers mutation lands', async () => {
+    const h = makeHarness();
+    const intent = setPauseMarker(ctx(1_000), { path: 'collections/auth', marker: 'paused' });
+    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await flush();
+    expect(h.recompileCalls).toEqual(['rules']);
+  });
+
+  it('ignores broadcasts for entity types not in the filter', async () => {
+    const h = makeHarness();
+    h.broadcast.publish({
+      envelope: {
+        mutationId: 'm-other',
+        hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
+        origin: { surfaceId: 's', deviceId: 'd' },
+        workspaceId: wsId,
+        mutatorVersion: 1,
+        body: { kind: 'setField', type: 'vault', id: 'vault', path: 'name', value: 'x' },
+      },
+      outcome: { status: 'applied' },
+    });
+    await flush();
+    expect(h.recompileCalls).toHaveLength(0);
   });
 
   it('dispose stops further recompile calls', async () => {

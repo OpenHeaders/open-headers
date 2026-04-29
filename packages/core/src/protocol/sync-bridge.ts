@@ -261,6 +261,25 @@ export interface SyncOAuthBundlePostState {
   credentialRefs: string[];
 }
 
+/**
+ * Post-commit projection for a pause-markers envelope. Singleton entity
+ * per workspace — there is exactly one materialized record at the fixed
+ * id `pause-markers`. The catalog stores entries as set members at
+ * `markers` (set member identity = path); the projection folds the live
+ * set back into a `Record<path, marker>` so renderer + DNR consumers
+ * see post-commit state without iterating arrays.
+ *
+ * Pause markers are user-visible UX state, not secrets — broadcast +
+ * sync transports carry them freely.
+ */
+export interface SyncPauseMarkersPostState {
+  /** Path → 'paused' | 'unpaused'. */
+  markers: Record<string, 'paused' | 'unpaused'>;
+  /** Sorted live set of marked paths — convenient for consumers
+   *  iterating in deterministic order. */
+  paths: string[];
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -363,6 +382,13 @@ export interface SyncBroadcastEvent {
    * teardown gesture only) and rolled-back batches leave it `undefined`.
    */
   oauthBundlePostState?: SyncOAuthBundlePostState;
+  /**
+   * Populated for pause-markers envelopes whose batch left a
+   * materialized record in place. Tombstoned (singleton deletion is a
+   * workspace-level teardown gesture only) and rolled-back batches
+   * leave it `undefined`.
+   */
+  pauseMarkersPostState?: SyncPauseMarkersPostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

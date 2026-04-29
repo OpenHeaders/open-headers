@@ -39,6 +39,7 @@ import type {
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncOAuthBundlePostState,
+  SyncPauseMarkersPostState,
   SyncRequestCollectionPostState,
   SyncRequestFolderPostState,
   SyncRequestPostState,
@@ -56,6 +57,7 @@ import {
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   OAUTH_BUNDLE_ENTITY_TYPE,
+  PAUSE_MARKERS_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
@@ -103,6 +105,15 @@ import {
   projectOAuthBundlePostState,
   projectOAuthBundleSingleton,
 } from './oauth-bundle-post-state';
+import {
+  createPauseMarkersCache,
+  type PauseMarkersCache,
+  setActivePauseMarkersCache,
+} from './pause-markers-cache';
+import {
+  projectPauseMarkersPostState,
+  projectPauseMarkersSingleton,
+} from './pause-markers-post-state';
 import {
   createEnvironmentCache,
   type EnvironmentCache,
@@ -201,6 +212,7 @@ interface ServiceState {
   liveVariableCache: LiveVariableCache;
   liveWorkflowCache: LiveWorkflowCache;
   oauthBundleCache: OAuthBundleCache;
+  pauseMarkersCache: PauseMarkersCache;
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -319,12 +331,21 @@ export function initSyncService(workspaceId: string): void {
   );
   setActiveOAuthBundleCache(oauthBundleCache);
 
-  // DNR intent runner — subscribes AFTER the cache so by the time the
-  // runner asks rule-engine to recompile, the rule mirror already
-  // reflects post-commit state.
+  const pauseMarkersCache = createPauseMarkersCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActivePauseMarkersCache(pauseMarkersCache);
+
+  // DNR intent runner — subscribes AFTER the rule + pause-markers
+  // caches so by the time the runner asks rule-engine to recompile,
+  // the relevant mirror already reflects post-commit state.
   const dnrRunner = createDnrIntentRunner({
     broadcast,
     intents,
+    entityTypes: new Set([RULE_ENTITY_TYPE, PAUSE_MARKERS_ENTITY_TYPE]),
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
   });
 
@@ -423,6 +444,10 @@ export function initSyncService(workspaceId: string): void {
     const oauthBundlePostState = projectOAuthBundlePostState(oracle, envelope);
     return oauthBundlePostState ? { oauthBundlePostState } : null;
   };
+  const pauseMarkersProjector: BroadcastProjector = (envelope) => {
+    const pauseMarkersPostState = projectPauseMarkersPostState(oracle, envelope);
+    return pauseMarkersPostState ? { pauseMarkersPostState } : null;
+  };
   const projector = composeProjectors(
     ruleProjector,
     envProjector,
@@ -439,6 +464,7 @@ export function initSyncService(workspaceId: string): void {
     liveVariableProjector,
     liveWorkflowProjector,
     oauthBundleProjector,
+    pauseMarkersProjector,
   );
   const unsubscribeBroadcast = wireBroadcastToSink(
     broadcast,
@@ -478,6 +504,9 @@ export function initSyncService(workspaceId: string): void {
         ...(event.oauthBundlePostState
           ? { oauthBundlePostState: event.oauthBundlePostState }
           : {}),
+        ...(event.pauseMarkersPostState
+          ? { pauseMarkersPostState: event.pauseMarkersPostState }
+          : {}),
       });
     },
     projector,
@@ -502,6 +531,7 @@ export function initSyncService(workspaceId: string): void {
     liveVariableCache,
     liveWorkflowCache,
     oauthBundleCache,
+    pauseMarkersCache,
     context,
     awareness,
     dnrRunner,
@@ -535,6 +565,7 @@ export function dispose(): void {
   state.liveVariableCache.dispose();
   state.liveWorkflowCache.dispose();
   state.oauthBundleCache.dispose();
+  state.pauseMarkersCache.dispose();
   state.awareness.dispose();
   setActiveRuleCache(null);
   setActiveEnvironmentCache(null);
@@ -551,6 +582,7 @@ export function dispose(): void {
   setActiveLiveVariableCache(null);
   setActiveLiveWorkflowCache(null);
   setActiveOAuthBundleCache(null);
+  setActivePauseMarkersCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -838,6 +870,19 @@ export function snapshotOAuthBundlePostStates(): SyncOAuthBundlePostState[] {
 }
 
 /**
+ * Snapshot the singleton pause-markers record. Same shape the
+ * `BroadcastProjector` attaches to live envelopes; consumed by the
+ * `oh.sync.snapshotPauseMarkers` RPC for renderer mirror bootstrap.
+ * Returns `[]` when the service isn't initialized or the singleton
+ * hasn't been seeded yet.
+ */
+export function snapshotPauseMarkersPostStates(): SyncPauseMarkersPostState[] {
+  if (!state) return [];
+  const projection = projectPauseMarkersSingleton(state.oracle);
+  return projection ? [projection] : [];
+}
+
+/**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
@@ -978,10 +1023,18 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     () => context.next(),
   );
   setActiveOAuthBundleCache(oauthBundleCache);
+  const pauseMarkersCache = createPauseMarkersCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    () => context.next(),
+  );
+  setActivePauseMarkersCache(pauseMarkersCache);
 
   const dnrRunner = createDnrIntentRunner({
     broadcast,
     intents,
+    entityTypes: new Set([RULE_ENTITY_TYPE, PAUSE_MARKERS_ENTITY_TYPE]),
     recompile: deps.recompile ?? (() => {}),
   });
   const resolverInvalidateRunner = createResolverInvalidateRunner({
@@ -1025,6 +1078,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     liveVariableCache,
     liveWorkflowCache,
     oauthBundleCache,
+    pauseMarkersCache,
     context,
     awareness,
     dnrRunner,
