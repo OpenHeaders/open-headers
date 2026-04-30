@@ -22,6 +22,7 @@ import {
   genCrossEntityRuleEnv,
   genCrossEntityRuleVault,
   genCrossEntityRuleWorkspaceVars,
+  genCrossEntityWorkspaceMeta,
   genEnvRename,
   genFolderMove,
   genRequestEdit,
@@ -62,6 +63,7 @@ const BUCKETS: Bucket[] = [
   { name: 'cross-entity-rule-vault', generate: genCrossEntityRuleVault, count: 1500 },
   { name: 'cross-entity-rule-workspace-vars', generate: genCrossEntityRuleWorkspaceVars, count: 1500 },
   { name: 'cross-entity-request-folder', generate: genCrossEntityRequestFolder, count: 1500 },
+  { name: 'cross-entity-workspace-meta', generate: genCrossEntityWorkspaceMeta, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
 
