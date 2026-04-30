@@ -1,69 +1,38 @@
 /**
  * Per-envelope rule post-state projection (Phase A Fw7).
  *
- * Renderer-side write helpers (`buildUpdateBatch`, popup toggle, etc.)
- * need to know the live `(itemId, item)` pairs at each set-modeled
- * path on a rule before they can emit the matching `removeFromSet`
- * envelopes. Round-tripping back to the SW per write would kill the
- * synchronous-render discipline (§19.4), so we attach the post-commit
- * projection to every Rule {@link SyncBroadcastEvent}: the renderer
- * mirror folds it into its local view in lockstep with the oracle.
- *
- * The projector is intentionally minimal — one `materializeOne` lookup
- * + three `liveSetItems` reads per Rule envelope. Cheap. Coalescing
- * by batch can wait for profiling to show it matters.
+ * Thin adapter over `flat-entity-post-state.ts`. Renderer-side write
+ * helpers (`buildUpdateBatch`, popup toggle) need to know the live
+ * `(itemId, orderKey, item)` triplets at each set-modeled path on a rule
+ * before they can emit the matching synthesizer envelopes — round-
+ * tripping back to the SW per write would kill the synchronous-render
+ * discipline (§19.4), so we attach the post-commit projection to every
+ * Rule {@link SyncBroadcastEvent}.
  */
 
 import type { SyncRulePostState } from '@openheaders/core/protocol';
-import type { MutationEnvelope } from '@openheaders/core/sync';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { EntityOracle } from './oracle';
+import type { V5 } from '@openheaders/core/types';
 import { projectRule } from '@/shared/sync/rule-projection';
+import {
+  buildSetMembersExtras,
+  makeFlatEntityProjectors,
+} from './flat-entity-post-state';
+import type { EntityOracle } from './oracle';
 
 /** Set-modeled paths on a Rule — mirrors {@link rule-projection.SET_PATHS}. */
 const RULE_SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseHeaders'] as const;
 
-/**
- * Build the rule post-state for `envelope` using `oracle`. Returns
- * `null` for non-Rule envelopes, deletes (entity tombstoned), and any
- * envelope whose target rule fails to project — the broadcast still
- * fires; just without the optional payload.
- */
-export function projectRulePostState(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>,
-  envelope: MutationEnvelope,
-): SyncRulePostState | null {
-  if (envelope.body.type !== RULE_ENTITY_TYPE) return null;
-  return projectRuleByUid(oracle, envelope.body.id);
-}
+type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 
-/**
- * Build the rule post-state for a known rule uid. Same shape the
- * envelope projector returns; used by the snapshot RPC to seed
- * freshly-mounted renderer mirrors before the next live broadcast.
- */
-export function projectRuleByUid(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>,
-  ruleUid: string,
-): SyncRulePostState | null {
-  const materialized = oracle.materializeOne(RULE_ENTITY_TYPE, ruleUid);
-  if (!materialized) return null;
+const projectors = makeFlatEntityProjectors<Reads, V5.Rule, SyncRulePostState>({
+  entityType: RULE_ENTITY_TYPE,
+  project: projectRule,
+  composeResult: (rule, oracle, uid) => ({
+    rule,
+    ...buildSetMembersExtras(oracle, RULE_ENTITY_TYPE, uid, RULE_SET_PATHS),
+  }),
+});
 
-  const rule = projectRule(materialized);
-  if (!rule) return null;
-
-  // One ordered read per set path; the renderer's mirror needs both the
-  // bare itemId list (legacy enumeration callers) AND the per-itemId
-  // order keys (synthesizer-driven write paths). Computing both from
-  // the same ordered read keeps the two views byte-aligned.
-  const setItemIds: Record<string, string[]> = {};
-  const setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>> = {};
-  for (const path of RULE_SET_PATHS) {
-    const items = oracle.liveOrderedSetItems(RULE_ENTITY_TYPE, ruleUid, path);
-    if (items.length === 0) continue;
-    setItemIds[path] = items.map((entry) => entry.itemId);
-    setOrderKeys[path] = items.map((entry) => ({ itemId: entry.itemId, orderKey: entry.key }));
-  }
-
-  return { rule, setItemIds, setOrderKeys };
-}
+export const projectRulePostState = projectors.projectPostState;
+export const projectRuleByUid = projectors.projectByUid;
