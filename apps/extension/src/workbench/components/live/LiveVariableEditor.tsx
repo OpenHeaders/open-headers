@@ -361,10 +361,15 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     }
     const persisted = editDraftFromVariable(lv);
     const fp = fingerprintEdit(persisted);
-    if (fp !== persistedFp) {
-      setPersistedFp(fp);
-      setDraft(persisted);
-    }
+    if (fp === persistedFp) return;
+    // Sync engine §6.3 — re-prime only while clean. When the editor
+    // has uncommitted edits, leave the draft alone; the LWW save
+    // resolves the conflict at oracle time. Without this gate an
+    // external commit would silently clobber the user's typing.
+    const dirty = fingerprintEdit(draft) !== persistedFp;
+    if (dirty) return;
+    setPersistedFp(fp);
+    setDraft(persisted);
   }, [lv, draft, persistedFp]);
 
   const isDirty = useMemo(() => (draft ? fingerprintEdit(draft) !== persistedFp : false), [draft, persistedFp]);
