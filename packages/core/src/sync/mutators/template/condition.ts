@@ -23,6 +23,11 @@ import { TEMPLATE_CONDITIONS_PATH, TEMPLATE_ENTITY_TYPE, type TemplateConditionL
 export interface AddTemplateConditionArgs {
   templateUid: string;
   condition: TemplateConditionLike;
+  /**
+   * Optional explicit itemId override. Defaults to `condition.uid` so
+   * the persisted row identity and the oracle's set-member identity
+   * stay the same string (the synthesizer keys on this).
+   */
   itemId?: string;
 }
 
@@ -30,7 +35,7 @@ export function addTemplateCondition(
   ctx: MutatorContext,
   args: AddTemplateConditionArgs,
 ): MutatorIntent {
-  const itemId = args.itemId ?? generateUid();
+  const itemId = args.itemId ?? args.condition.uid ?? generateUid();
   const bodies: MutationBody[] = [
     {
       kind: 'addToSet',

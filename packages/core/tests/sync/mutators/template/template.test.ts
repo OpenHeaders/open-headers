@@ -24,7 +24,7 @@ describe('addTemplateCondition', () => {
   it('emits one addToSet on the template entity at the conditions path', () => {
     const intent = addTemplateCondition(ctx(), {
       templateUid: 'tpl-1',
-      condition: { type: 'urlEquals', values: ['https://api.openheaders.io/v1'] },
+      condition: { uid: 'tcd00001', type: 'urlEquals', values: ['https://api.openheaders.io/v1'] },
       itemId: 'c-1',
     });
     expect(intent.batch.mutations).toHaveLength(1);
@@ -36,20 +36,19 @@ describe('addTemplateCondition', () => {
       id: 'tpl-1',
       path: TEMPLATE_CONDITIONS_PATH,
       itemId: 'c-1',
-      item: { type: 'urlEquals', values: ['https://api.openheaders.io/v1'] },
+      item: { uid: 'tcd00001', type: 'urlEquals', values: ['https://api.openheaders.io/v1'] },
     });
     expect(intent.sideEffects).toEqual([]);
   });
 
-  it('mints an itemId when one is not supplied', () => {
+  it("defaults itemId to the condition's persisted uid when not overridden", () => {
     const intent = addTemplateCondition(ctx(), {
       templateUid: 'tpl-1',
-      condition: { type: 'hostMatches', values: ['*.openheaders.io'] },
+      condition: { uid: 'tcd00077', type: 'hostMatches', values: ['*.openheaders.io'] },
     });
     const body = intent.batch.mutations[0].body;
     if (body.kind !== 'addToSet') throw new Error('expected addToSet');
-    expect(typeof body.itemId).toBe('string');
-    expect(body.itemId.length).toBeGreaterThan(0);
+    expect(body.itemId).toBe('tcd00077');
   });
 });
 
@@ -71,7 +70,7 @@ describe('setTemplateConditionField', () => {
     const intent = setTemplateConditionField(ctx(), {
       templateUid: 'tpl-1',
       itemId: 'c-1',
-      condition: { type: 'urlMatches', values: ['^https://.*\\.openheaders\\.io'] },
+      condition: { uid: 'tcd00002', type: 'urlMatches', values: ['^https://.*\\.openheaders\\.io'] },
     });
     expect(intent.batch.mutations[0].body).toEqual({
       kind: 'addToSet',
@@ -79,7 +78,7 @@ describe('setTemplateConditionField', () => {
       id: 'tpl-1',
       path: TEMPLATE_CONDITIONS_PATH,
       itemId: 'c-1',
-      item: { type: 'urlMatches', values: ['^https://.*\\.openheaders\\.io'] },
+      item: { uid: 'tcd00002', type: 'urlMatches', values: ['^https://.*\\.openheaders\\.io'] },
     });
   });
 });
@@ -168,7 +167,7 @@ describe('batch atomicity', () => {
   it('shares one batchId across emitted envelopes when ctx.batchId is supplied', () => {
     const intent = addTemplateCondition(ctx({ batchId: 'b-add-condition' }), {
       templateUid: 'tpl-1',
-      condition: { type: 'urlEquals', values: ['x'] },
+      condition: { uid: 'tcd00003', type: 'urlEquals', values: ['x'] },
     });
     expect(intent.batch.batchId).toBe('b-add-condition');
   });

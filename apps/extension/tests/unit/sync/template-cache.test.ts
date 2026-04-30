@@ -79,7 +79,7 @@ describe('TemplateCache', () => {
     await cache.seedFromPersistedTemplates([makeTemplate('tp')]);
     const intent = addTemplateCondition(ctxFactory(), {
       templateUid: 'tp',
-      condition: { type: 'method', values: ['GET'] },
+      condition: { uid: 'cnd00002', type: 'method', values: ['GET'] },
     });
     await oracle.apply(intent.batch, []);
     expect(cache.getTemplates()[0].conditions.length).toBe(2);

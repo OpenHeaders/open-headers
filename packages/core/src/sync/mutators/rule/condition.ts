@@ -23,6 +23,12 @@ import type { MutatorContext, MutatorIntent } from '../types';
 import { RULE_ENTITY_TYPE } from './types';
 
 export interface RuleConditionLike {
+  /**
+   * Persisted per-row identity. Doubles as the sync engine's itemId so
+   * row identity round-trips through save/reload (parallel to
+   * {@link HeaderModification.uid} from the rule-header-mod slice).
+   */
+  uid: string;
   type: string;
   values: string[];
   headerName?: string;
@@ -31,11 +37,16 @@ export interface RuleConditionLike {
 export interface AddConditionArgs {
   ruleUid: string;
   condition: RuleConditionLike;
+  /**
+   * Optional explicit itemId override. Defaults to `condition.uid` so
+   * the persisted row identity and the oracle's set-member identity
+   * stay the same string (the synthesizer keys on this).
+   */
   itemId?: string;
 }
 
 export function addCondition(ctx: MutatorContext, args: AddConditionArgs): MutatorIntent {
-  const itemId = args.itemId ?? generateUid();
+  const itemId = args.itemId ?? args.condition.uid ?? generateUid();
   const bodies: MutationBody[] = [
     { kind: 'addToSet', type: RULE_ENTITY_TYPE, id: args.ruleUid, path: 'conditions', itemId, item: args.condition },
   ];

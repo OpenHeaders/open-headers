@@ -19,7 +19,7 @@ describe('addCondition', () => {
   it('emits a single addToSet at `conditions` and a recompile-dnr intent', () => {
     const intent = addCondition(ctx(), {
       ruleUid: 'rule-1',
-      condition: { type: 'request-domains', values: ['openheaders.io'] },
+      condition: { uid: 'cnd00001', type: 'request-domains', values: ['openheaders.io'] },
       itemId: 'cond-1',
     });
     expect(intent.batch.mutations).toHaveLength(1);
@@ -51,7 +51,7 @@ describe('setConditionField', () => {
     const intent = setConditionField(ctx(), {
       ruleUid: 'rule-1',
       itemId: 'cond-1',
-      condition: { type: 'request-domains', values: ['openheaders.io', 'api.openheaders.io'] },
+      condition: { uid: 'cnd00002', type: 'request-domains', values: ['openheaders.io', 'api.openheaders.io'] },
     });
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'addToSet',

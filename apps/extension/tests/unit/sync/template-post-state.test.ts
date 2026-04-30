@@ -67,7 +67,7 @@ describe('projectTemplatePostState', () => {
 
     const intent = addTemplateCondition(ctx(2), {
       templateUid: 'tp1',
-      condition: { type: 'method', values: ['POST'] },
+      condition: { uid: 'cnd00002', type: 'method', values: ['POST'] },
       itemId: 'c-method',
     });
     await oracle.apply(intent.batch, []);

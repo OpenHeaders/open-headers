@@ -40,6 +40,12 @@ export const TEMPLATE_CONDITIONS_PATH = 'conditions';
  * their row shapes local).
  */
 export interface TemplateConditionLike {
+  /**
+   * Persisted per-row identity. Doubles as the sync engine's itemId so
+   * row identity round-trips through save/reload — same posture as
+   * `RuleConditionLike.uid` and `HeaderModification.uid`.
+   */
+  uid: string;
   type: string;
   values: string[];
   headerName?: string;
