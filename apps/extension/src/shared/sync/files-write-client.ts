@@ -15,11 +15,7 @@
  * place.
  */
 
-import {
-  type FileRefSlot,
-  type MutatorIntent,
-} from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
+import { type FileRefSlot } from '@openheaders/core/sync';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -29,6 +25,7 @@ import {
   getActiveFilesSyncMirror,
   type FilesSyncMirror,
 } from '@/context/files-sync-mirror';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildAddFileRefBatch,
   buildRemoveFileRefBatch,
@@ -37,7 +34,7 @@ import {
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createFilesSyncMirror } from '@/context/files-sync-mirror';
 
-export type FilesResult = { ok: true } | { ok: false; reason: 'other'; message?: string };
+export type FilesResult = SyncSimpleResult;
 
 export interface FilesWriteOptions {
   workspaceId: string;
@@ -56,21 +53,6 @@ function resolveMirror(opts: FilesWriteOptions): FilesSyncMirror {
   return opts.mirror ?? getActiveFilesSyncMirror();
 }
 
-async function applyPayload(payload: MutatorIntent): Promise<FilesResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyFileAddInput {
   ref: FileRefSlot;
 }
@@ -80,7 +62,7 @@ export async function applyFileAdd(
   opts: FilesWriteOptions,
 ): Promise<FilesResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildAddFileRefBatch(input, ctx));
+  return applySyncPayload(buildAddFileRefBatch(input, ctx));
 }
 
 export interface ApplyFileRemoveInput {
@@ -92,7 +74,7 @@ export async function applyFileRemove(
   opts: FilesWriteOptions,
 ): Promise<FilesResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRemoveFileRefBatch(input, ctx));
+  return applySyncPayload(buildRemoveFileRefBatch(input, ctx));
 }
 
 export function activeMirror(): FilesSyncMirror {

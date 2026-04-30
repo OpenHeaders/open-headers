@@ -18,6 +18,7 @@
  * the schema-marked-sensitive payload never crosses any sync transport.
  */
 
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   mintBatch,
   type MutationBody,
@@ -29,7 +30,6 @@ import {
   vaultInvalidateResolverIntent,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -43,13 +43,12 @@ import {
   buildRemoveVaultSecretBatch,
   buildRenameVaultSecretBatch,
   buildSetVaultSecretBatch,
-  type VaultMutationPayload,
 } from '@/shared/sync/vault-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createVaultSyncMirror } from '@/context/vault-sync-mirror';
 
-export type VaultSimpleResult = { ok: true } | { ok: false; reason: 'other'; message?: string };
+export type VaultSimpleResult = SyncSimpleResult;
 
 export interface VaultWriteOptions {
   workspaceId: string;
@@ -64,21 +63,6 @@ function resolveContext(opts: VaultWriteOptions): RendererContextHandle {
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(payload: VaultMutationPayload): Promise<VaultSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyVaultSecretSetInput {
   secret: V5.VaultSecret;
 }
@@ -88,7 +72,7 @@ export async function applyVaultSecretSet(
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildSetVaultSecretBatch({ secret: input.secret }, ctx));
+  return applySyncPayload(buildSetVaultSecretBatch({ secret: input.secret }, ctx));
 }
 
 export interface ApplyVaultSecretRemoveInput {
@@ -100,7 +84,7 @@ export async function applyVaultSecretRemove(
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRemoveVaultSecretBatch({ name: input.name }, ctx));
+  return applySyncPayload(buildRemoveVaultSecretBatch({ name: input.name }, ctx));
 }
 
 export interface ApplyVaultSecretRenameInput {
@@ -113,7 +97,7 @@ export async function applyVaultSecretRename(
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRenameVaultSecretBatch(input, ctx));
+  return applySyncPayload(buildRenameVaultSecretBatch(input, ctx));
 }
 
 /**
@@ -168,7 +152,7 @@ export async function applyVaultReplacement(
 
   const sideEffects: SideEffectIntent[] = [vaultInvalidateResolverIntent(ctx.hlc)];
   const batch = mintBatch(ctx, bodies);
-  return applyPayload({ batch, sideEffects });
+  return applySyncPayload({ batch, sideEffects });
 }
 
 export type { MutationEnvelope };

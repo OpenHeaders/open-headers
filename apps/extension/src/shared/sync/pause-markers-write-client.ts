@@ -15,11 +15,11 @@
  * reach for the singleton mirror, keeping it injectable for tests).
  */
 
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   type MutatorIntent,
   type PauseMarkerKind,
 } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -38,7 +38,7 @@ import {
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createPauseMarkersSyncMirror } from '@/context/pause-markers-sync-mirror';
 
-export type PauseMarkersResult = { ok: true } | { ok: false; reason: 'other'; message?: string };
+export type PauseMarkersResult = SyncSimpleResult;
 
 export interface PauseMarkersWriteOptions {
   workspaceId: string;
@@ -57,21 +57,6 @@ function resolveMirror(opts: PauseMarkersWriteOptions): PauseMarkersSyncMirror {
   return opts.mirror ?? getActivePauseMarkersSyncMirror();
 }
 
-async function applyPayload(payload: MutatorIntent): Promise<PauseMarkersResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyPauseMarkerSetInput {
   path: string;
   marker: PauseMarkerKind;
@@ -82,7 +67,7 @@ export async function applyPauseMarkerSet(
   opts: PauseMarkersWriteOptions,
 ): Promise<PauseMarkersResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildSetPauseMarkerBatch(input, ctx));
+  return applySyncPayload(buildSetPauseMarkerBatch(input, ctx));
 }
 
 export interface ApplyPauseMarkerClearInput {
@@ -94,7 +79,7 @@ export async function applyPauseMarkerClear(
   opts: PauseMarkersWriteOptions,
 ): Promise<PauseMarkersResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildClearPauseMarkerBatch(input, ctx));
+  return applySyncPayload(buildClearPauseMarkerBatch(input, ctx));
 }
 
 /**
@@ -110,7 +95,7 @@ export async function applyPauseMarkersReplacement(
   const mirror = resolveMirror(opts);
   const existing = mirror.liveMarkers();
   const ctx = resolveContext(opts).next({ batchId: opts.batchId ?? `pause-markers-replace` });
-  return applyPayload(buildReplacePauseMarkersBatch({ existing, next }, ctx));
+  return applySyncPayload(buildReplacePauseMarkersBatch({ existing, next }, ctx));
 }
 
 export function activeMirror(): PauseMarkersSyncMirror {

@@ -5,8 +5,8 @@
  * request-collection entity type. Catalog ships rename-only at v1.
  */
 
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import {
   getActiveRequestCollectionSyncMirror,
   type RequestCollectionSyncMirror,
@@ -18,15 +18,11 @@ import {
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
-  type RequestCollectionMutationPayload,
 } from '@/shared/sync/request-collection-mutations';
 
 export { createRequestCollectionSyncMirror } from '@/context/request-collection-sync-mirror';
 
-export type RequestCollectionSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type RequestCollectionSimpleResult = SyncSimpleResult;
 
 export interface RequestCollectionWriteOptions {
   workspaceId: string;
@@ -45,23 +41,6 @@ function resolveContext(opts: RequestCollectionWriteOptions): RendererContextHan
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(
-  payload: RequestCollectionMutationPayload,
-): Promise<RequestCollectionSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyRequestCollectionRenameInput {
   collectionUid: string;
   name: string;
@@ -76,7 +55,7 @@ export async function applyRequestCollectionRename(
     return { ok: false, reason: 'not-found' };
   }
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRenameRequestCollectionBatch(input, ctx));
+  return applySyncPayload(buildRenameRequestCollectionBatch(input, ctx));
 }
 
 export interface ApplyRequestCollectionDeleteInput {
@@ -92,7 +71,7 @@ export async function applyRequestCollectionDelete(
       ? { batchId: opts.batchId }
       : { batchId: `request-collection-delete-${input.collectionUid}` },
   );
-  return applyPayload({
+  return applySyncPayload({
     batch: buildDeleteRequestCollectionBatch(input.collectionUid, ctx),
     sideEffects: [],
   });

@@ -7,7 +7,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -20,7 +20,6 @@ import {
   buildAddLiveWorkflowBatch,
   buildDeleteLiveWorkflowBatch,
   buildUpdateLiveWorkflowBatch,
-  type LiveWorkflowMutationPayload,
 } from '@/shared/sync/live-workflow-mutations';
 
 export type LiveWorkflowUpdates = Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
@@ -30,10 +29,7 @@ export type LiveWorkflowMutationResult =
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
-export type LiveWorkflowSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type LiveWorkflowSimpleResult = SyncSimpleResult;
 
 export interface LiveWorkflowWriteOptions {
   workspaceId: string;
@@ -52,21 +48,6 @@ function resolveContext(opts: LiveWorkflowWriteOptions): RendererContextHandle {
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(payload: LiveWorkflowMutationPayload): Promise<LiveWorkflowSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export async function applyLiveWorkflowUpdate(
   workflowUid: string,
   updates: LiveWorkflowUpdates,
@@ -77,7 +58,7 @@ export async function applyLiveWorkflowUpdate(
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildUpdateLiveWorkflowBatch(workflowUid, updates, ctx);
-  const ack = await applyPayload(payload);
+  const ack = await applySyncPayload(payload);
   if (ack.ok) {
     return { ok: true, workflow: { ...entry.workflow, ...updates } as V5.LiveWorkflow };
   }
@@ -91,7 +72,7 @@ export async function applyLiveWorkflowCreate(
 ): Promise<LiveWorkflowSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddLiveWorkflowBatch(workflow, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }
 
 export async function applyLiveWorkflowDelete(
@@ -102,5 +83,5 @@ export async function applyLiveWorkflowDelete(
   if (!mirror.getLiveWorkflowMirror(workflowUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveWorkflowBatch(workflowUid, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }

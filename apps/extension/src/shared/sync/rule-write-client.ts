@@ -14,7 +14,6 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -23,11 +22,11 @@ import {
   getActiveRuleSyncMirror,
   type RuleSyncMirror,
 } from '@/context/rule-sync-mirror';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildDeleteBatch,
   buildToggleBatch,
   buildUpdateBatch,
-  type RuleMutationPayload,
 } from '@/shared/sync/rule-mutations';
 
 export type RuleUpdates = Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
@@ -37,10 +36,7 @@ export type RuleMutationResult =
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
-export type RuleSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type RuleSimpleResult = SyncSimpleResult;
 
 export interface RuleWriteOptions {
   workspaceId: string;
@@ -60,18 +56,6 @@ function resolveMirror(opts: RuleWriteOptions): RuleSyncMirror {
 function resolveContext(opts: RuleWriteOptions): RendererContextHandle {
   if (opts.context) return opts.context;
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
-async function applyPayload(payload: RuleMutationPayload): Promise<RuleSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', { batch: payload.batch, sideEffects: payload.sideEffects });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
 }
 
 /**
@@ -106,7 +90,7 @@ export async function applyRuleUpdate(
     for (const row of rows) byUid.set(row.uid, row);
     return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
   });
-  const ack = await applyPayload(payload);
+  const ack = await applySyncPayload(payload);
   if (ack.ok) {
     return { ok: true, rule: { ...entry.rule, ...updates } as V5.Rule };
   }
@@ -123,7 +107,7 @@ export async function applyRuleToggle(
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildToggleBatch(ruleUid, enabled, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }
 
 export async function applyRuleDelete(
@@ -134,7 +118,7 @@ export async function applyRuleDelete(
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(ruleUid, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }
 
 /**

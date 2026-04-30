@@ -22,6 +22,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { mintBatch, type MutationBody, type MutationEnvelope, type SideEffectIntent } from '@openheaders/core/sync';
 import {
   ENV_VARS_PATH,
@@ -29,7 +30,6 @@ import {
   invalidateResolverIntent,
   type VariableType,
 } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import {
   createEnvSyncMirror,
   type EnvSyncMirror,
@@ -45,17 +45,13 @@ import {
   buildRenameEnvVarBatch,
   buildSetEnvVarBatch,
   buildSetEnvVarTypeBatch,
-  type EnvMutationPayload,
 } from '@/shared/sync/env-mutations';
 
 // `createEnvSyncMirror` is re-exported so tests can construct a mirror
 // without going through the singleton.
 export { createEnvSyncMirror } from '@/context/env-sync-mirror';
 
-export type EnvSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type EnvSimpleResult = SyncSimpleResult;
 
 export interface EnvWriteOptions {
   workspaceId: string;
@@ -74,18 +70,6 @@ function resolveContext(opts: EnvWriteOptions): RendererContextHandle {
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(payload: EnvMutationPayload): Promise<EnvSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', { batch: payload.batch, sideEffects: payload.sideEffects });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyEnvSetVarInput {
   envId: string;
   name: string;
@@ -95,7 +79,7 @@ export interface ApplyEnvSetVarInput {
 
 export async function applyEnvSetVar(input: ApplyEnvSetVarInput, opts: EnvWriteOptions): Promise<EnvSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildSetEnvVarBatch(input, ctx));
+  return applySyncPayload(buildSetEnvVarBatch(input, ctx));
 }
 
 export interface ApplyEnvRemoveVarInput {
@@ -108,7 +92,7 @@ export async function applyEnvRemoveVar(
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRemoveEnvVarBatch(input, ctx));
+  return applySyncPayload(buildRemoveEnvVarBatch(input, ctx));
 }
 
 export interface ApplyEnvRenameVarInput {
@@ -124,7 +108,7 @@ export async function applyEnvRenameVar(
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRenameEnvVarBatch(input, ctx));
+  return applySyncPayload(buildRenameEnvVarBatch(input, ctx));
 }
 
 export interface ApplyEnvSetVarTypeInput {
@@ -139,7 +123,7 @@ export async function applyEnvSetVarType(
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildSetEnvVarTypeBatch(input, ctx));
+  return applySyncPayload(buildSetEnvVarTypeBatch(input, ctx));
 }
 
 export interface ApplyRenameEnvironmentInput {
@@ -152,7 +136,7 @@ export async function applyRenameEnvironment(
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRenameEnvironmentBatch(input, ctx));
+  return applySyncPayload(buildRenameEnvironmentBatch(input, ctx));
 }
 
 /**
@@ -219,7 +203,7 @@ export async function applyEnvVariablesReplacement(
   // once keeps the wire payload tight.
   const sideEffects: SideEffectIntent[] = [invalidateResolverIntent(envId, ctx.hlc)];
   const batch = mintBatch(ctx, bodies);
-  return applyPayload({ batch, sideEffects });
+  return applySyncPayload({ batch, sideEffects });
 }
 
 /**

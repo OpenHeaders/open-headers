@@ -10,12 +10,11 @@
  * broadcast for cross-surface consistency.
  */
 
-import { type MutatorIntent } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import { ensureRendererContext, type RendererContextHandle } from '@/context/renderer-mutator-context';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { buildSetLayoutBatch } from '@/shared/sync/layout-state-mutations';
 
-export type LayoutStateResult = { ok: true } | { ok: false; reason: 'other'; message?: string };
+export type LayoutStateResult = SyncSimpleResult;
 
 export interface LayoutStateWriteOptions {
   workspaceId: string;
@@ -29,21 +28,6 @@ function resolveContext(opts: LayoutStateWriteOptions): RendererContextHandle {
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(payload: MutatorIntent): Promise<LayoutStateResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyLayoutSetInput {
   layout: unknown;
 }
@@ -53,5 +37,5 @@ export async function applyLayoutSet(
   opts: LayoutStateWriteOptions,
 ): Promise<LayoutStateResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildSetLayoutBatch({ layout: input.layout }, ctx));
+  return applySyncPayload(buildSetLayoutBatch({ layout: input.layout }, ctx));
 }

@@ -5,8 +5,8 @@
  * template-folder entity type.
  */
 
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope, type TemplateFolderParentRef } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import {
   getActiveTemplateFolderSyncMirror,
   type TemplateFolderSyncMirror,
@@ -20,15 +20,11 @@ import {
   buildDeleteTemplateFolderBatch,
   buildMoveTemplateFolderBatch,
   buildRenameTemplateFolderBatch,
-  type TemplateFolderMutationPayload,
 } from '@/shared/sync/template-folder-mutations';
 
 export { createTemplateFolderSyncMirror } from '@/context/template-folder-sync-mirror';
 
-export type TemplateFolderSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type TemplateFolderSimpleResult = SyncSimpleResult;
 
 export interface TemplateFolderWriteOptions {
   workspaceId: string;
@@ -47,23 +43,6 @@ function resolveContext(opts: TemplateFolderWriteOptions): RendererContextHandle
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(
-  payload: TemplateFolderMutationPayload,
-): Promise<TemplateFolderSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyTemplateFolderRenameInput {
   folderUid: string;
   name: string;
@@ -76,7 +55,7 @@ export async function applyTemplateFolderRename(
   const mirror = resolveMirror(opts);
   if (!mirror.getTemplateFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRenameTemplateFolderBatch(input, ctx));
+  return applySyncPayload(buildRenameTemplateFolderBatch(input, ctx));
 }
 
 export interface ApplyTemplateFolderCreateInput {
@@ -96,7 +75,7 @@ export async function applyTemplateFolderCreate(
       ? { batchId: opts.batchId }
       : { batchId: `template-folder-create-${input.folderUid}` },
   );
-  return applyPayload(buildCreateTemplateFolderBatch(input, ctx));
+  return applySyncPayload(buildCreateTemplateFolderBatch(input, ctx));
 }
 
 export interface ApplyTemplateFolderDeleteInput {
@@ -113,7 +92,7 @@ export async function applyTemplateFolderDelete(
       ? { batchId: opts.batchId }
       : { batchId: `template-folder-delete-${input.folderUid}` },
   );
-  return applyPayload(buildDeleteTemplateFolderBatch(input, ctx));
+  return applySyncPayload(buildDeleteTemplateFolderBatch(input, ctx));
 }
 
 export interface ApplyTemplateFolderMoveInput {
@@ -132,7 +111,7 @@ export async function applyTemplateFolderMove(
       ? { batchId: opts.batchId }
       : { batchId: `template-folder-move-${input.folderUid}` },
   );
-  return applyPayload(buildMoveTemplateFolderBatch(input, ctx));
+  return applySyncPayload(buildMoveTemplateFolderBatch(input, ctx));
 }
 
 export type { MutationEnvelope };

@@ -12,7 +12,6 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -21,11 +20,11 @@ import {
   getActiveTemplateSyncMirror,
   type TemplateSyncMirror,
 } from '@/context/template-sync-mirror';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildAddBatch,
   buildDeleteBatch,
   buildUpdateBatch,
-  type TemplateMutationPayload,
 } from '@/shared/sync/template-mutations';
 
 export type TemplateUpdates = Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>;
@@ -35,10 +34,7 @@ export type TemplateMutationResult =
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
-export type TemplateSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type TemplateSimpleResult = SyncSimpleResult;
 
 export interface TemplateWriteOptions {
   workspaceId: string;
@@ -55,21 +51,6 @@ function resolveMirror(opts: TemplateWriteOptions): TemplateSyncMirror {
 function resolveContext(opts: TemplateWriteOptions): RendererContextHandle {
   if (opts.context) return opts.context;
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
-async function applyPayload(payload: TemplateMutationPayload): Promise<TemplateSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
 }
 
 export async function applyTemplateUpdate(
@@ -95,7 +76,7 @@ export async function applyTemplateUpdate(
     for (const row of rows) byUid.set(row.uid, row);
     return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
   });
-  const ack = await applyPayload(payload);
+  const ack = await applySyncPayload(payload);
   if (ack.ok) {
     return { ok: true, template: { ...entry.template, ...updates } as V5.Template };
   }
@@ -109,7 +90,7 @@ export async function applyTemplateCreate(
 ): Promise<TemplateSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(template, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }
 
 /**
@@ -136,5 +117,5 @@ export async function applyTemplateDelete(
   if (!mirror.getTemplateMirror(templateUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(templateUid, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }

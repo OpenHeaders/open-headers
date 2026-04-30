@@ -6,8 +6,8 @@
  * no renderer-direct create gesture today.
  */
 
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import {
   getActiveTemplateCollectionSyncMirror,
   type TemplateCollectionSyncMirror,
@@ -19,15 +19,11 @@ import {
 import {
   buildDeleteTemplateCollectionBatch,
   buildRenameTemplateCollectionBatch,
-  type TemplateCollectionMutationPayload,
 } from '@/shared/sync/template-collection-mutations';
 
 export { createTemplateCollectionSyncMirror } from '@/context/template-collection-sync-mirror';
 
-export type TemplateCollectionSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type TemplateCollectionSimpleResult = SyncSimpleResult;
 
 export interface TemplateCollectionWriteOptions {
   workspaceId: string;
@@ -46,23 +42,6 @@ function resolveContext(opts: TemplateCollectionWriteOptions): RendererContextHa
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(
-  payload: TemplateCollectionMutationPayload,
-): Promise<TemplateCollectionSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyTemplateCollectionRenameInput {
   collectionUid: string;
   name: string;
@@ -77,7 +56,7 @@ export async function applyTemplateCollectionRename(
     return { ok: false, reason: 'not-found' };
   }
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRenameTemplateCollectionBatch(input, ctx));
+  return applySyncPayload(buildRenameTemplateCollectionBatch(input, ctx));
 }
 
 export interface ApplyTemplateCollectionDeleteInput {
@@ -93,7 +72,7 @@ export async function applyTemplateCollectionDelete(
       ? { batchId: opts.batchId }
       : { batchId: `template-collection-delete-${input.collectionUid}` },
   );
-  return applyPayload({
+  return applySyncPayload({
     batch: buildDeleteTemplateCollectionBatch(input.collectionUid, ctx),
     sideEffects: [],
   });

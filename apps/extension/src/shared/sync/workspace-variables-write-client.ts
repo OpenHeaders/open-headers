@@ -17,6 +17,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   mintBatch,
   type MutationBody,
@@ -28,7 +29,6 @@ import {
   WORKSPACE_VARIABLES_PATH,
   workspaceVariablesInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -43,15 +43,12 @@ import {
   buildRenameWorkspaceVarBatch,
   buildSetWorkspaceVarBatch,
   buildSetWorkspaceVarTypeBatch,
-  type WorkspaceVariablesMutationPayload,
 } from '@/shared/sync/workspace-variables-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createWorkspaceVariablesSyncMirror } from '@/context/workspace-variables-sync-mirror';
 
-export type WorkspaceVariablesSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'other'; message?: string };
+export type WorkspaceVariablesSimpleResult = SyncSimpleResult;
 
 export interface WorkspaceVariablesWriteOptions {
   workspaceId: string;
@@ -66,23 +63,6 @@ function resolveContext(opts: WorkspaceVariablesWriteOptions): RendererContextHa
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
-async function applyPayload(
-  payload: WorkspaceVariablesMutationPayload,
-): Promise<WorkspaceVariablesSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
-}
-
 export interface ApplyWorkspaceVarSetInput {
   name: string;
   value: string;
@@ -94,7 +74,7 @@ export async function applyWorkspaceVarSet(
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildSetWorkspaceVarBatch(input, ctx));
+  return applySyncPayload(buildSetWorkspaceVarBatch(input, ctx));
 }
 
 export interface ApplyWorkspaceVarRemoveInput {
@@ -106,7 +86,7 @@ export async function applyWorkspaceVarRemove(
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRemoveWorkspaceVarBatch(input, ctx));
+  return applySyncPayload(buildRemoveWorkspaceVarBatch(input, ctx));
 }
 
 export interface ApplyWorkspaceVarRenameInput {
@@ -121,7 +101,7 @@ export async function applyWorkspaceVarRename(
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildRenameWorkspaceVarBatch(input, ctx));
+  return applySyncPayload(buildRenameWorkspaceVarBatch(input, ctx));
 }
 
 export interface ApplyWorkspaceVarSetTypeInput {
@@ -135,7 +115,7 @@ export async function applyWorkspaceVarSetType(
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applyPayload(buildSetWorkspaceVarTypeBatch(input, ctx));
+  return applySyncPayload(buildSetWorkspaceVarTypeBatch(input, ctx));
 }
 
 /**
@@ -194,7 +174,7 @@ export async function applyWorkspaceVariablesReplacement(
 
   const sideEffects: SideEffectIntent[] = [workspaceVariablesInvalidateResolverIntent(ctx.hlc)];
   const batch = mintBatch(ctx, bodies);
-  return applyPayload({ batch, sideEffects });
+  return applySyncPayload({ batch, sideEffects });
 }
 
 export type { MutationEnvelope };

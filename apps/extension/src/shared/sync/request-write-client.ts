@@ -13,7 +13,6 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -22,11 +21,11 @@ import {
   getActiveRequestSyncMirror,
   type RequestSyncMirror,
 } from '@/context/request-sync-mirror';
+import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildAddBatch,
   buildDeleteBatch,
   buildUpdateBatch,
-  type RequestMutationPayload,
 } from '@/shared/sync/request-mutations';
 
 export type RequestUpdates = Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion'>>;
@@ -36,10 +35,7 @@ export type RequestMutationResult =
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
-export type RequestSimpleResult =
-  | { ok: true }
-  | { ok: false; reason: 'not-found' }
-  | { ok: false; reason: 'other'; message?: string };
+export type RequestSimpleResult = SyncSimpleResult;
 
 export interface RequestWriteOptions {
   workspaceId: string;
@@ -59,18 +55,6 @@ function resolveMirror(opts: RequestWriteOptions): RequestSyncMirror {
 function resolveContext(opts: RequestWriteOptions): RendererContextHandle {
   if (opts.context) return opts.context;
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
-async function applyPayload(payload: RequestMutationPayload): Promise<RequestSimpleResult> {
-  if (payload.batch.mutations.length === 0) return { ok: true };
-  try {
-    const resp = await call('oh.sync.apply', { batch: payload.batch, sideEffects: payload.sideEffects });
-    if (resp.ok) return { ok: true };
-    return { ok: false, reason: 'other', message: resp.failure?.detail };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return { ok: false, reason: 'other', message };
-  }
 }
 
 /**
@@ -103,7 +87,7 @@ export async function applyRequestUpdate(
     for (const row of rows) byUid.set(row.uid, row);
     return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
   });
-  const ack = await applyPayload(payload);
+  const ack = await applySyncPayload(payload);
   if (ack.ok) {
     return { ok: true, request: { ...entry.request, ...updates } as V5.Request };
   }
@@ -120,7 +104,7 @@ export async function applyRequestCreate(
 ): Promise<RequestSimpleResult> {
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(request, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }
 
 export async function applyRequestDelete(
@@ -131,5 +115,5 @@ export async function applyRequestDelete(
   if (!mirror.getRequestMirror(requestUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(requestUid, ctx);
-  return applyPayload(payload);
+  return applySyncPayload(payload);
 }

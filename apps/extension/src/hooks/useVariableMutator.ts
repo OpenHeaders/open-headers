@@ -74,7 +74,8 @@ export function useVariableMutator(): UseVariableMutatorApi {
         surfaceId: 'workbench',
       });
       if (result.ok) return { ok: true };
-      return { ok: false, reason: 'other', message: result.message };
+      const message = result.reason === 'other' ? result.message : undefined;
+      return { ok: false, reason: 'other', message };
     },
     [workspaceId, currentWorkspaceVariables],
   );
@@ -119,7 +120,8 @@ export function useVariableMutator(): UseVariableMutatorApi {
         surfaceId: 'workbench',
       });
       if (result.ok) return { ok: true };
-      return { ok: false, reason: 'other', message: result.message };
+      const message = result.reason === 'other' ? result.message : undefined;
+      return { ok: false, reason: 'other', message };
     },
     [workspaceId, vault],
   );
