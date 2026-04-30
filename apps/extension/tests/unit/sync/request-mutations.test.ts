@@ -1,14 +1,20 @@
 /**
- * Phase B Request — `buildUpdateBatch` reorder + content-replacement
- * fast paths. Pure-reorder gestures must collapse to `moveBefore`
- * envelopes via `keyBetween`; mixed gestures (content edit + reorder /
- * row add / row remove) fall back to `removeFromSet + addToSet` keyed
- * by the row's persisted `uid`.
+ * Phase B Request — `buildUpdateBatch` minimum-diff synthesizer
+ * coverage. Set-modeled paths (`headers`, `params`) collapse to the
+ * smallest envelope sequence via {@link synthesizeSetDiff}:
+ *   - vanished uids → `removeFromSet`
+ *   - new uids → `addToSet(uid, item, orderKey)`
+ *   - content-changed uids → `addToSet(uid, item, orderKey)` (LWW; no removeFromSet)
+ *   - position-only-changed → `moveBefore(uid, orderKey)`
+ *   - unchanged → emit nothing
  */
 
 import {
+  type AddToSetMutation,
+  type MoveBeforeMutation,
   type MutationBody,
   REQUEST_HEADERS_PATH,
+  type RemoveFromSetMutation,
   type MutatorContext,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
@@ -23,9 +29,19 @@ const ctx: MutatorContext = {
 
 const liveOf =
   (entries: ReadonlyArray<{ itemId: string; orderKey: string; item: unknown }>): LiveSetEntries =>
-  () => entries;
+  () =>
+    entries;
 
 const header = (uid: string, key: string, value: string) => ({ uid, key, value, enabled: true });
+
+const onlyAdds = (bodies: ReadonlyArray<MutationBody>) =>
+  bodies.filter((b): b is AddToSetMutation => b.kind === 'addToSet');
+
+const onlyMoves = (bodies: ReadonlyArray<MutationBody>) =>
+  bodies.filter((b): b is MoveBeforeMutation => b.kind === 'moveBefore');
+
+const onlyRemoves = (bodies: ReadonlyArray<MutationBody>) =>
+  bodies.filter((b): b is RemoveFromSetMutation => b.kind === 'removeFromSet');
 
 describe('buildUpdateBatch — request set replacement', () => {
   it('emits moveBefore for a pure reorder (same uids, same content, swapped positions)', () => {
@@ -38,16 +54,15 @@ describe('buildUpdateBatch — request set replacement', () => {
       headers: [header('h2', 'X-B', 'b'), header('h1', 'X-A', 'a'), header('h3', 'X-C', 'c')],
     };
     const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
-    const kinds = batch.mutations.map((m) => m.body.kind);
-    expect(kinds.length).toBeGreaterThan(0);
-    expect(kinds.every((k) => k === 'moveBefore')).toBe(true);
-    // No removeFromSet / addToSet emitted — row identity preserved.
-    expect(kinds).not.toContain('removeFromSet');
-    expect(kinds).not.toContain('addToSet');
-    expectFinalOrderMatches(live, batch.mutations.map((m) => m.body), ['h2', 'h1', 'h3']);
+    const bodies = batch.mutations.map((m) => m.body);
+    expect(bodies.length).toBeGreaterThan(0);
+    expect(onlyMoves(bodies).length).toBe(bodies.length);
+    expect(onlyRemoves(bodies)).toHaveLength(0);
+    expect(onlyAdds(bodies)).toHaveLength(0);
+    expectFinalOrderMatches(live, bodies, ['h2', 'h1', 'h3']);
   });
 
-  it('emits zero envelopes when the order is byte-identical', () => {
+  it('emits zero envelopes when content + order are byte-identical', () => {
     const live = [
       { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
       { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
@@ -59,23 +74,7 @@ describe('buildUpdateBatch — request set replacement', () => {
     expect(batch.mutations).toHaveLength(0);
   });
 
-  it('falls back to remove+add when a row is added (uid set differs)', () => {
-    const live = [{ itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') }];
-    const updates = {
-      headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
-    };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
-    const kinds = batch.mutations.map((m) => m.body.kind);
-    expect(kinds).toContain('removeFromSet');
-    expect(kinds).toContain('addToSet');
-    // The two new rows re-add at their persisted uids — itemId == row.uid.
-    const adds = batch.mutations
-      .map((m) => m.body)
-      .filter((b): b is MutationBody & { kind: 'addToSet'; itemId: string } => b.kind === 'addToSet');
-    expect(adds.map((a) => a.itemId).sort()).toEqual(['h1', 'h2']);
-  });
-
-  it('falls back to remove+add when a row content changes (uid same, value edited)', () => {
+  it('emits exactly addToSet (no removeFromSet) for a content edit on an existing uid', () => {
     const live = [
       { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
       { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
@@ -84,14 +83,79 @@ describe('buildUpdateBatch — request set replacement', () => {
       headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'EDITED')],
     };
     const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
-    const kinds = batch.mutations.map((m) => m.body.kind);
-    expect(kinds).toContain('removeFromSet');
-    expect(kinds).toContain('addToSet');
-    expect(kinds).not.toContain('moveBefore');
+    const bodies = batch.mutations.map((m) => m.body);
+    // Only the changed row emits an addToSet; the unchanged row emits nothing.
+    expect(bodies).toHaveLength(1);
+    expect(onlyRemoves(bodies)).toHaveLength(0);
+    const adds = onlyAdds(bodies);
+    expect(adds).toHaveLength(1);
+    expect(adds[0].itemId).toBe('h2');
+    expect(adds[0].orderKey).toBe('b'); // position preserved
+    expect((adds[0].item as { value: string }).value).toBe('EDITED');
   });
 
-  it('emits moveBefore that converges to the requested order (single-row drag)', () => {
-    // 3 rows in order [h1, h2, h3]; drag h3 to first position.
+  it('emits removeFromSet only for vanished uids and addToSet only for new uids', () => {
+    const live = [
+      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
+    ];
+    const updates = {
+      // h2 vanishes; h3 is new; h1 stays unchanged.
+      headers: [header('h1', 'X-A', 'a'), header('h3', 'X-C', 'c')],
+    };
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const bodies = batch.mutations.map((m) => m.body);
+    const removes = onlyRemoves(bodies);
+    const adds = onlyAdds(bodies);
+    expect(removes.map((r) => r.itemId)).toEqual(['h2']);
+    expect(adds.map((a) => a.itemId)).toEqual(['h3']);
+    // The new row carries an explicit orderKey computed via keyBetween.
+    expect(typeof adds[0].orderKey).toBe('string');
+    expect(adds[0].orderKey!.length).toBeGreaterThan(0);
+  });
+
+  it('handles mixed gestures (reorder + content edit) without redundant removeFromSet', () => {
+    const live = [
+      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
+      { itemId: 'h3', orderKey: 'c', item: header('h3', 'X-C', 'c') },
+    ];
+    const updates = {
+      // h3 moves to front, h2 content edit, h1 unchanged.
+      headers: [header('h3', 'X-C', 'c'), header('h2', 'X-B', 'EDITED'), header('h1', 'X-A', 'a')],
+    };
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const bodies = batch.mutations.map((m) => m.body);
+    // Architectural invariant 1: no tombstones — content change rides
+    // per-itemId LWW, so the explicit removeFromSet is redundant.
+    expect(onlyRemoves(bodies)).toHaveLength(0);
+    // Architectural invariant 2: h2's content edit lands as addToSet
+    // (the only envelope that carries the new item value).
+    const adds = onlyAdds(bodies);
+    const h2Add = adds.find((a) => a.itemId === 'h2');
+    expect(h2Add).toBeDefined();
+    expect((h2Add!.item as { value: string }).value).toBe('EDITED');
+    // Architectural invariant 3: every emitted addToSet carries an
+    // explicit orderKey so the engine doesn't seedKey() the position.
+    for (const add of adds) expect(typeof add.orderKey).toBe('string');
+    // Architectural invariant 4: convergence — the resulting wire diff
+    // produces the requested order under the (orderKey, itemId) sort.
+    expectFinalOrderMatches(live, bodies, ['h3', 'h2', 'h1']);
+  });
+
+  it('addToSet always carries an explicit orderKey', () => {
+    const live = [{ itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') }];
+    const updates = {
+      headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
+    };
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    for (const add of onlyAdds(batch.mutations.map((m) => m.body))) {
+      expect(add.orderKey).toBeDefined();
+      expect(typeof add.orderKey).toBe('string');
+    }
+  });
+
+  it('emits moveBefore that converges to the requested order (single-row drag-to-front)', () => {
     const live = [
       { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
       { itemId: 'h2', orderKey: 'm', item: header('h2', 'X-B', 'b') },
@@ -101,10 +165,11 @@ describe('buildUpdateBatch — request set replacement', () => {
       headers: [header('h3', 'X-C', 'c'), header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
     };
     const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
-    const kinds = batch.mutations.map((m) => m.body.kind);
-    expect(kinds.every((k) => k === 'moveBefore')).toBe(true);
-    expect(kinds).not.toContain('removeFromSet');
-    expectFinalOrderMatches(live, batch.mutations.map((m) => m.body), ['h3', 'h1', 'h2']);
+    const bodies = batch.mutations.map((m) => m.body);
+    expect(onlyMoves(bodies).length).toBe(bodies.length);
+    expect(onlyRemoves(bodies)).toHaveLength(0);
+    expect(onlyAdds(bodies)).toHaveLength(0);
+    expectFinalOrderMatches(live, bodies, ['h3', 'h1', 'h2']);
   });
 });
 
@@ -113,15 +178,16 @@ function expectFinalOrderMatches(
   bodies: ReadonlyArray<MutationBody>,
   expected: ReadonlyArray<string>,
 ): void {
-  // Apply moveBefore envelopes against a fresh copy of live's keys, then
-  // sort by (orderKey, itemId) — same canonical order the document store
-  // uses (§materialization). Asserts the engine would land at `expected`
-  // after replay.
+  // Apply moveBefore + addToSet envelopes against a fresh copy of live's
+  // keys, then sort by (orderKey, itemId) — the canonical order the
+  // document store uses (§materialization). Asserts the engine would land
+  // at `expected` after replay.
   const finalKey = new Map<string, string>();
   for (const e of live) finalKey.set(e.itemId, e.orderKey);
   for (const body of bodies) {
-    if (body.kind !== 'moveBefore') continue;
-    finalKey.set(body.itemId, body.orderKey);
+    if (body.kind === 'moveBefore') finalKey.set(body.itemId, body.orderKey);
+    else if (body.kind === 'addToSet' && body.orderKey) finalKey.set(body.itemId, body.orderKey);
+    else if (body.kind === 'removeFromSet') finalKey.delete(body.itemId);
   }
   const ordered = Array.from(finalKey.entries())
     .sort(([aId, aKey], [bId, bKey]) => (aKey === bKey ? (aId < bId ? -1 : 1) : aKey < bKey ? -1 : 1))
