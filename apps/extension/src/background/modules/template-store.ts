@@ -19,6 +19,7 @@ import { CollectionSchema, FolderSchema, TemplateSchema } from '@openheaders/cor
 import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
   type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
@@ -87,21 +88,45 @@ export function getTemplateFolders(): LocalFolder[] {
 
 export function getTemplateCollectionTrees(): V5.CollectionTree[] {
   return templateCollections.map((collection) => {
-    const tree = buildTreeForPath(collection.path);
+    const tree = buildTreeForParent(TEMPLATE_COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
     return { ...collection, tree };
   });
 }
 
-function buildTreeForPath(parentPath: string): V5.TreeNode[] {
+/**
+ * Build TreeNode[] for the children of a template-collection or
+ * template-folder. Folder siblings render in the order carried by the
+ * parent's `folders` set (§7.2 + §23.5). Templates inside the same
+ * parent keep their cache-array order — templates don't live in a
+ * parent set today.
+ */
+function buildTreeForParent(
+  parentType: typeof TEMPLATE_COLLECTION_ENTITY_TYPE | typeof TEMPLATE_FOLDER_ENTITY_TYPE,
+  parentUid: string,
+  parentPath: string,
+): V5.TreeNode[] {
   const nodes: V5.TreeNode[] = [];
 
-  const childFolders = templateFolders.filter((f) => {
-    const parent = f.path.substring(0, f.path.lastIndexOf('/'));
-    return parent === parentPath;
-  });
+  const oracle = getOracleForCurrentWorkspace();
+  const slots = oracle
+    ? oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_CHILDREN_PATH)
+    : [];
+
+  let childFolders: LocalFolder[];
+  if (slots.length > 0) {
+    const byUid = new Map(templateFolders.map((f) => [f.uid, f]));
+    childFolders = slots
+      .map((slot) => byUid.get(slot.itemId))
+      .filter((f): f is LocalFolder => Boolean(f));
+  } else {
+    childFolders = templateFolders.filter((f) => {
+      const parent = f.path.substring(0, f.path.lastIndexOf('/'));
+      return parent === parentPath;
+    });
+  }
 
   for (const folder of childFolders) {
-    const children = buildTreeForPath(folder.path);
+    const children = buildTreeForParent(TEMPLATE_FOLDER_ENTITY_TYPE, folder.uid, folder.path);
     nodes.push({
       type: 'folder',
       uid: folder.uid,

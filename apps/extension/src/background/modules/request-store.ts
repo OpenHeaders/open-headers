@@ -23,6 +23,7 @@ import { CollectionSchema, FolderSchema, RequestSchema } from '@openheaders/core
 import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
@@ -91,22 +92,47 @@ export function getRequestFolders(): LocalFolder[] {
 /** Build CollectionTree[] from flat collections + folders + requests. */
 export function getRequestCollectionTrees(): V5.CollectionTree[] {
   return collections.map((collection) => {
-    const tree = buildTreeForPath(collection.path);
+    const tree = buildTreeForParent(REQUEST_COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
     return { ...collection, tree };
   });
 }
 
-function buildTreeForPath(parentPath: string): V5.TreeNode[] {
+/**
+ * Build TreeNode[] for the children of a request-collection or
+ * request-folder. Folder siblings render in the order carried by the
+ * parent's `folders` set (§7.2 + §23.5). Requests inside the same
+ * parent keep their cache-array order — requests don't live in a
+ * parent set today.
+ */
+function buildTreeForParent(
+  parentType: typeof REQUEST_COLLECTION_ENTITY_TYPE | typeof REQUEST_FOLDER_ENTITY_TYPE,
+  parentUid: string,
+  parentPath: string,
+): V5.TreeNode[] {
   const nodes: V5.TreeNode[] = [];
 
-  const childFolders = folders.filter((f) => f.path.substring(0, f.path.lastIndexOf('/')) === parentPath);
+  const oracle = getOracleForCurrentWorkspace();
+  const slots = oracle
+    ? oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_CHILDREN_PATH)
+    : [];
+
+  let childFolders: PersistedLocalFolder[];
+  if (slots.length > 0) {
+    const byUid = new Map(folders.map((f) => [f.uid, f]));
+    childFolders = slots
+      .map((slot) => byUid.get(slot.itemId))
+      .filter((f): f is PersistedLocalFolder => Boolean(f));
+  } else {
+    childFolders = folders.filter((f) => f.path.substring(0, f.path.lastIndexOf('/')) === parentPath);
+  }
+
   for (const folder of childFolders) {
     nodes.push({
       type: 'folder',
       uid: folder.uid,
       name: folder.name,
       path: folder.path,
-      children: buildTreeForPath(folder.path),
+      children: buildTreeForParent(REQUEST_FOLDER_ENTITY_TYPE, folder.uid, folder.path),
     });
   }
 
