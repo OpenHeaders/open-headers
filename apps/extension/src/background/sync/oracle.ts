@@ -112,6 +112,20 @@ export class EntityOracle {
     return this.store.liveSetItems(type, id, setPath);
   }
 
+  /**
+   * Same as {@link liveSetItems} but exposes the per-entry order key.
+   * Used by write-side helpers that need to PRESERVE an entry's
+   * position on a replace (e.g. workspace rename) or compute a fresh
+   * key via `keyBetween` against the neighbours.
+   */
+  liveOrderedSetItems(
+    type: string,
+    id: string,
+    setPath: string,
+  ): Array<{ itemId: string; item: unknown; key: string }> {
+    return this.store.liveOrderedSetItems(type, id, setPath);
+  }
+
   // ── internals ────────────────────────────────────────────────────
 
   private async applyUnderLock(

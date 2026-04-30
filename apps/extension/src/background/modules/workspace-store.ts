@@ -8,6 +8,17 @@
  * orchestrator in background.ts flushes and swaps when `setActive` is
  * called.
  *
+ * Phase B (sync engine session 32 commit 3): every write routes through
+ * the global-scope `extensionWorkspace` oracle (`global-service.ts`).
+ * The legacy per-entity-id `withLock` is gone — the oracle's per-entity
+ * lock + per-batch all-or-nothing (§11.2) cover the concurrency posture.
+ * The legacy `persistWorkspaces` / `persistActiveId` direct-writes are
+ * gone — the {@link ExtensionWorkspaceCache}'s broadcast-driven onChange
+ * subscription writes back to `oh.workspaces` + `oh.activeWorkspaceId`
+ * after every commit. The in-memory `workspaces` / `activeWorkspaceId`
+ * mirrors stay (synchronous reads from `getActiveWorkspaceId()` etc.)
+ * but are now fed by the cache, not by the writers.
+ *
  * Storage:
  *   - `oh.workspaces`         — ExtensionWorkspace[], sorted by sortIndex
  *   - `oh.activeWorkspaceId`  — string (always points at a live workspace)
@@ -26,12 +37,32 @@
  */
 
 import { ExtensionWorkspaceSchema } from '@openheaders/core/schemas';
+import {
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ID,
+  EXTENSION_WORKSPACES_SET_PATH,
+  type ExtensionWorkspaceSlot,
+  keyBetween,
+  type MutationBatch,
+  type MutatorContext,
+  type SideEffectIntent,
+  seedKey,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, OH } from '@/shared/storage';
-import { getActiveExtensionWorkspaceCache } from '@/background/sync/extension-workspace-cache';
+import {
+  buildMoveExtensionWorkspaceBeforeBatch,
+  buildRemoveExtensionWorkspaceBatch,
+  buildSetActiveExtensionWorkspaceBatch,
+  buildSetExtensionWorkspaceBatch,
+} from '@/shared/sync/extension-workspace-mutations';
+import {
+  type ExtensionWorkspaceCache,
+  getActiveExtensionWorkspaceCache,
+} from '@/background/sync/extension-workspace-cache';
+import { getGlobalOracle, nextGlobalSwContext } from '@/background/sync/global-service';
 import { driftRecorder } from './storage-drift';
 
 const DEFAULT_WORKSPACE_NAME = 'Workspace';
@@ -123,11 +154,6 @@ function compareWorkspaces(a: V5.ExtensionWorkspace, b: V5.ExtensionWorkspace): 
   return a.createdAt.localeCompare(b.createdAt);
 }
 
-function nextSortIndex(): number {
-  if (workspaces.length === 0) return 0;
-  return Math.max(...workspaces.map((w) => w.sortIndex)) + 1;
-}
-
 // ── Writes ────────────────────────────────────────────────────────────
 
 export interface CreateWorkspaceInput {
@@ -139,29 +165,32 @@ export interface CreateWorkspaceInput {
 }
 
 export async function createWorkspace(input: CreateWorkspaceInput): Promise<V5.ExtensionWorkspace> {
-  return withLock(
-    entityLockName('global', 'workspace-meta', 'list'),
-    async () => {
-      const now = new Date().toISOString();
-      const workspace: V5.ExtensionWorkspace = {
-        schemaVersion: 5,
-        id: generateUid(),
-        kind: input.kind ?? 'personal',
-        name: input.name.trim() || 'Untitled Workspace',
-        description: input.description,
-        color: input.color,
-        icon: input.icon,
-        sortIndex: nextSortIndex(),
-        createdAt: now,
-        updatedAt: now,
-      };
-      workspaces = [...workspaces, workspace];
-      await persistWorkspaces();
-      logger.info('WorkspaceStore', `Created workspace ${workspace.id} "${workspace.name}"`);
-      return workspace;
-    },
-    { op: 'workspace-create' },
+  const now = new Date().toISOString();
+  const id = generateUid();
+  const slot: ExtensionWorkspaceSlot = {
+    id,
+    kind: input.kind ?? 'personal',
+    name: input.name.trim() || 'Untitled Workspace',
+    description: input.description,
+    color: input.color,
+    icon: input.icon,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const orderKey = nextOrderKey();
+  await applyExtensionWorkspaceMutationOrThrow(
+    (ctx) => buildSetExtensionWorkspaceBatch({ slot, orderKey }, ctx),
+    'createWorkspace',
   );
+  // Post-commit: the cache has been updated by the broadcast subscription
+  // installed in `bridgeExtensionWorkspaceSyncEngine`, so the local
+  // mirror already reflects the new workspace.
+  const created = getWorkspace(id);
+  if (!created) {
+    throw new Error(`WorkspaceStore.createWorkspace: post-commit lookup failed for ${id}`);
+  }
+  logger.info('WorkspaceStore', `Created workspace ${id} "${slot.name}"`);
+  return created;
 }
 
 export interface UpdateWorkspaceInput {
@@ -178,16 +207,13 @@ export interface UpdateWorkspaceInput {
 }
 
 /**
- * Outcome of a workspace metadata write. Sync engine §24 retired the
- * Phase 10 stale-draft contract; the per-entity-id `withLock` below
- * still serializes concurrent puts so storage-level interleaving stays
- * coherent, and convergence is per-(field) LWW by arrival order.
+ * Outcome of a workspace metadata write. Cross-tab convergence is
+ * per-(field) LWW by HLC at the global oracle (§7.2). The `not-found`
+ * branch fires when the requested id isn't present in the cache at the
+ * time of the call (e.g. concurrent delete on another tab).
  *
- * ExtensionWorkspace is the cross-workspace ("global") metadata entity
- * — it doesn't fit the per-workspace oracle scope used by the eighteen
- * Phase-B-closed entities, so it remains on the legacy direct-write
- * path. Full sync-engine treatment is a separate slice (would need a
- * global-scope oracle).
+ * ExtensionWorkspace lives at the GLOBAL scope — the oracle persists
+ * across workspace-switch dispose+init cycles (`global-service.ts`).
  */
 export type WorkspaceUpdateResult =
   | { ok: true; workspace: V5.ExtensionWorkspace }
@@ -198,31 +224,43 @@ export async function updateWorkspace(
   id: string,
   updates: UpdateWorkspaceInput,
 ): Promise<WorkspaceUpdateResult> {
-  return withLock(
-    entityLockName('global', 'workspace-meta', id),
-    async () => {
-      const idx = workspaces.findIndex((w) => w.id === id);
-      if (idx === -1) return { ok: false, reason: 'not-found' } as WorkspaceUpdateResult;
+  const prev = workspaces.find((w) => w.id === id);
+  if (!prev) return { ok: false, reason: 'not-found' };
 
-      const prev = workspaces[idx];
-      const next: V5.ExtensionWorkspace = {
-        ...prev,
-        ...(updates.name !== undefined && { name: updates.name.trim() || prev.name }),
-        ...(updates.description !== undefined && { description: updates.description }),
-        ...(updates.color !== undefined && { color: updates.color }),
-        updatedAt: new Date().toISOString(),
-      };
-      if (updates.icon === null) {
-        delete next.icon;
-      } else if (updates.icon !== undefined) {
-        next.icon = updates.icon;
-      }
-      workspaces = [...workspaces.slice(0, idx), next, ...workspaces.slice(idx + 1)];
-      await persistWorkspaces();
-      return { ok: true, workspace: next } as WorkspaceUpdateResult;
-    },
-    { op: 'workspace-update' },
+  // Preserve position on rename: reuse the existing entry's order key
+  // if the oracle holds one. The cache projection strips keys (the
+  // public V5.ExtensionWorkspace shape doesn't carry them), so the
+  // SW-internal `liveOrderedSetItems` is the single source.
+  const oracle = getGlobalOracle();
+  const existing = oracle
+    ?.liveOrderedSetItems(EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_ID, EXTENSION_WORKSPACES_SET_PATH)
+    .find((entry) => entry.itemId === id);
+  const orderKey = existing?.key ?? seedKey();
+
+  const next: ExtensionWorkspaceSlot = {
+    id,
+    kind: prev.kind,
+    name: updates.name !== undefined ? updates.name.trim() || prev.name : prev.name,
+    description: updates.description !== undefined ? updates.description : prev.description,
+    color: updates.color !== undefined ? updates.color : prev.color,
+    icon:
+      updates.icon === null
+        ? undefined
+        : updates.icon !== undefined
+          ? updates.icon
+          : prev.icon,
+    createdAt: prev.createdAt,
+    updatedAt: new Date().toISOString(),
+    source: prev.source,
+  };
+
+  await applyExtensionWorkspaceMutationOrThrow(
+    (ctx) => buildSetExtensionWorkspaceBatch({ slot: next, orderKey }, ctx),
+    'updateWorkspace',
   );
+  const updated = getWorkspace(id);
+  if (!updated) return { ok: false, reason: 'not-found' };
+  return { ok: true, workspace: updated };
 }
 
 /**
@@ -237,41 +275,47 @@ export async function updateWorkspace(
  * workspace was deleted), or `null` if the delete was rejected.
  */
 export async function deleteWorkspace(id: string): Promise<string | null> {
-  return withLock(
-    entityLockName('global', 'workspace-meta', id),
-    async () => {
-      if (workspaces.length <= 1) {
-        logger.info('WorkspaceStore', `Refusing to delete last workspace ${id}`);
-        return null;
-      }
-      const idx = workspaces.findIndex((w) => w.id === id);
-      if (idx === -1) return activeWorkspaceId;
+  if (workspaces.length <= 1) {
+    logger.info('WorkspaceStore', `Refusing to delete last workspace ${id}`);
+    return null;
+  }
+  const idx = workspaces.findIndex((w) => w.id === id);
+  if (idx === -1) return activeWorkspaceId;
 
-      const wasActive = activeWorkspaceId === id;
-      const prevActiveId = activeWorkspaceId;
-      workspaces = [...workspaces.slice(0, idx), ...workspaces.slice(idx + 1)];
+  const wasActive = activeWorkspaceId === id;
+  let neighbourId: string | null = null;
+  if (wasActive) {
+    // Pick neighbour the same way the legacy code did: previous by sort
+    // order, else first remaining (after the delete).
+    const sortedAfter = workspaces.filter((w) => w.id !== id).sort(compareWorkspaces);
+    neighbourId = sortedAfter[Math.max(0, idx - 1)]?.id ?? sortedAfter[0]?.id ?? null;
+  }
 
-      if (wasActive) {
-        // Pick neighbour: previous by sort order, else first remaining.
-        const sorted = [...workspaces].sort(compareWorkspaces);
-        const neighbour = sorted[Math.max(0, idx - 1)] ?? sorted[0];
-        activeWorkspaceId = neighbour.id;
-      }
-      await persistWorkspaces();
-      await persistActiveId();
-      // Auto-promotion after deleting the active workspace IS a switch
-      // — reactive subscribers (live-refresh scheduler's switch-warm
-      // pass) must see it as one. Without this notify the scheduler
-      // would keep firing alarms against the deleted workspace until
-      // the next reconcile, and the new active workspace's stale LVs
-      // wouldn't get a warm pass.
-      if (wasActive && activeWorkspaceId && activeWorkspaceId !== prevActiveId) {
-        notifyActiveChange(activeWorkspaceId, prevActiveId);
-      }
-      return activeWorkspaceId;
-    },
-    { op: 'workspace-delete' },
+  // Per-batch all-or-nothing: remove + re-point active in one batch.
+  // Half-and-half (remove succeeds, active flip fails) would leave a
+  // dangling active pointer — exactly what §11.2 says we don't do.
+  const result = await applyExtensionWorkspaceMutationOrThrow(
+    (ctx) => composeDeleteBatch(id, wasActive ? neighbourId : null, ctx),
+    'deleteWorkspace',
   );
+  void result;
+  return activeWorkspaceId;
+}
+
+function composeDeleteBatch(
+  id: string,
+  newActiveId: string | null,
+  ctx: MutatorContext,
+): { batch: MutationBatch; sideEffects: SideEffectIntent[] } {
+  const remove = buildRemoveExtensionWorkspaceBatch({ id }, ctx);
+  if (!newActiveId) return remove;
+  // Bundle the active-flip into the same batch by sharing batchId.
+  const sharedCtx = { ...ctx, batchId: remove.batch.batchId };
+  const setActive = buildSetActiveExtensionWorkspaceBatch({ id: newActiveId }, sharedCtx);
+  return {
+    batch: { batchId: remove.batch.batchId, mutations: [...remove.batch.mutations, ...setActive.batch.mutations] },
+    sideEffects: [...remove.sideEffects, ...setActive.sideEffects],
+  };
 }
 
 /**
@@ -280,30 +324,45 @@ export async function deleteWorkspace(id: string): Promise<string | null> {
  * drag-to-reorder in the switcher UI.
  */
 export async function reorderWorkspaces(idOrder: readonly string[]): Promise<void> {
-  return withLock(
-    entityLockName('global', 'workspace-meta', 'list'),
-    async () => {
-      const byId = new Map(workspaces.map((w) => [w.id, w] as const));
-      const touched = new Set<string>();
-      const reordered: V5.ExtensionWorkspace[] = [];
-
-      let index = 0;
-      for (const id of idOrder) {
-        const ws = byId.get(id);
-        if (!ws || touched.has(id)) continue;
-        touched.add(id);
-        reordered.push({ ...ws, sortIndex: index++ });
+  const byId = new Map(workspaces.map((w) => [w.id, w] as const));
+  const seen = new Set<string>();
+  const finalOrder: string[] = [];
+  for (const id of idOrder) {
+    if (!byId.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    finalOrder.push(id);
+  }
+  for (const ws of [...workspaces].sort(compareWorkspaces)) {
+    if (seen.has(ws.id)) continue;
+    finalOrder.push(ws.id);
+  }
+  // Mint strictly-increasing fractional keys for the final positions.
+  const newKeys: string[] = [];
+  let prev: string | null = null;
+  for (let i = 0; i < finalOrder.length; i++) {
+    const k: string = i === 0 ? seedKey() : keyBetween(prev, null);
+    newKeys.push(k);
+    prev = k;
+  }
+  await applyExtensionWorkspaceMutationOrThrow((ctx) => {
+    let batchId: string | undefined;
+    let combined: MutationBatch | null = null;
+    const sideEffects: SideEffectIntent[] = [];
+    for (let i = 0; i < finalOrder.length; i++) {
+      const intent = buildMoveExtensionWorkspaceBeforeBatch(
+        { id: finalOrder[i], orderKey: newKeys[i] },
+        batchId === undefined ? ctx : { ...ctx, batchId },
+      );
+      if (combined === null) {
+        combined = intent.batch;
+        batchId = intent.batch.batchId;
+      } else {
+        combined.mutations.push(...intent.batch.mutations);
       }
-      for (const ws of workspaces) {
-        if (touched.has(ws.id)) continue;
-        reordered.push({ ...ws, sortIndex: index++ });
-      }
-      const now = new Date().toISOString();
-      workspaces = reordered.map((w) => ({ ...w, updatedAt: now }));
-      await persistWorkspaces();
-    },
-    { op: 'workspace-reorder' },
-  );
+      sideEffects.push(...intent.sideEffects);
+    }
+    return { batch: combined ?? { batchId: 'noop', mutations: [] }, sideEffects };
+  }, 'reorderWorkspaces');
 }
 
 /**
@@ -315,28 +374,45 @@ export async function setActiveWorkspaceId(id: string): Promise<boolean> {
   const target = workspaces.find((w) => w.id === id);
   if (!target) return false;
   if (activeWorkspaceId === id) return true;
-  const prevId = activeWorkspaceId;
-  activeWorkspaceId = id;
-  await persistActiveId();
-  notifyActiveChange(id, prevId);
+  await applyExtensionWorkspaceMutationOrThrow(
+    (ctx) => buildSetActiveExtensionWorkspaceBatch({ id }, ctx),
+    'setActiveWorkspaceId',
+  );
   return true;
 }
 
-// ── Persistence ───────────────────────────────────────────────────────
+// ── Sync engine plumbing ──────────────────────────────────────────────
 
-async function persistWorkspaces(): Promise<void> {
-  await extensionStorage.set(OH.workspaces, workspaces);
-  notifyChange();
+async function applyExtensionWorkspaceMutationOrThrow(
+  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  op: string,
+): Promise<void> {
+  const oracle = getGlobalOracle();
+  if (!oracle) {
+    throw new Error(`WorkspaceStore.${op}: global sync service not initialized`);
+  }
+  const ctx = nextGlobalSwContext({ surfaceId: 'sw' });
+  const { batch, sideEffects } = factory(ctx);
+  if (batch.mutations.length === 0) return;
+  const result = await oracle.apply(batch, sideEffects);
+  if (!result.ok) {
+    throw new Error(
+      `WorkspaceStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+    );
+  }
 }
 
-async function persistActiveId(): Promise<void> {
-  // Routed through the typed adapter even though `activeWorkspaceId` is
-  // nullable in-memory — the registry declares it as `string`, so we
-  // only call set once we have a real id.
-  if (activeWorkspaceId) {
-    await extensionStorage.set(OH.activeWorkspaceId, activeWorkspaceId);
-  }
-  notifyChange();
+function nextOrderKey(): string {
+  const oracle = getGlobalOracle();
+  if (!oracle) return seedKey();
+  const entries = oracle.liveOrderedSetItems(
+    EXTENSION_WORKSPACE_ENTITY_TYPE,
+    EXTENSION_WORKSPACE_ID,
+    EXTENSION_WORKSPACES_SET_PATH,
+  );
+  if (entries.length === 0) return seedKey();
+  const max = entries[entries.length - 1].key;
+  return keyBetween(max, null);
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────
@@ -346,6 +422,12 @@ async function persistActiveId(): Promise<void> {
  * workspace and set it active. Call exactly once at SW boot, before any
  * per-workspace store is hydrated — the stores key their reads off the
  * active workspace id.
+ *
+ * Storage writes are deferred to {@link bridgeExtensionWorkspaceSyncEngine}
+ * — the cache subscription it installs is the single writer of
+ * `oh.workspaces` + `oh.activeWorkspaceId`. Bootstrap stages the
+ * authoritative state in memory; bridge replays it through the global
+ * oracle, and the cache.onChange listener writes back.
  */
 export async function bootstrap(): Promise<void> {
   const [storedList, storedActive] = await Promise.all([
@@ -362,12 +444,13 @@ export async function bootstrap(): Promise<void> {
       activeCandidate && workspaces.some((w) => w.id === activeCandidate)
         ? activeCandidate
         : [...workspaces].sort(compareWorkspaces)[0].id;
-    if (activeWorkspaceId !== storedActive) await persistActiveId();
     logger.info('WorkspaceStore', `Loaded ${workspaces.length} workspace(s), active=${activeWorkspaceId}`);
     return;
   }
 
-  // First boot — seed a default personal workspace.
+  // First boot — seed a default personal workspace IN MEMORY ONLY.
+  // The bridge's cache.seedFromPersistedState fires the broadcast that
+  // ultimately writes both storage keys via the cache.onChange sink.
   const now = new Date().toISOString();
   const defaultWorkspace: V5.ExtensionWorkspace = {
     schemaVersion: 5,
@@ -381,38 +464,77 @@ export async function bootstrap(): Promise<void> {
   };
   workspaces = [defaultWorkspace];
   activeWorkspaceId = defaultWorkspace.id;
-  await persistWorkspaces();
-  await persistActiveId();
   logger.info('WorkspaceStore', `Seeded default workspace ${defaultWorkspace.id}`);
 }
 
 // ── Sync engine bridge ────────────────────────────────────────────────
 
+let cacheUnsubscribe: (() => void) | null = null;
+
 /**
- * Seed the global-scope `extensionWorkspace` oracle from the in-memory
- * workspaces list + active id. Idempotent — re-running rebuilds the
- * singleton's set against the current authoritative state. Call after
- * `bootstrap()` resolves; commit 3 will additionally re-call this on
- * any cross-cutting state change (workspace add/remove/reorder/rename
- * via the SW path) so the cache stays in lockstep until the legacy
- * direct-write path is removed.
+ * Wire the local mirror to the global {@link ExtensionWorkspaceCache}.
+ * Idempotent — the prior subscription is dropped first. Two-step:
  *
- * The cache it talks to is `getActiveExtensionWorkspaceCache()`, owned
- * by `global-service.ts`. The global service must already be init'd
- * (caller is `background.ts` at boot or `__initGlobalSyncServiceForTests`
- * for test fixtures).
+ *   1. Install the cache.onChange subscription that mirrors the
+ *      cache's snapshot back into the local `workspaces` /
+ *      `activeWorkspaceId` arrays AND writes both chrome.storage keys
+ *      (taking over from the legacy `persistWorkspaces` /
+ *      `persistActiveId` direct-writes that were deleted in the same
+ *      change).
+ *   2. Seed the global oracle from the in-memory state populated by
+ *      `bootstrap()`. The seed fires a broadcast which fires the
+ *      onChange listener, which writes back to chrome.storage —
+ *      first-boot defaults persist via this path.
+ *
+ * The global service must already be init'd (caller is `background.ts`
+ * at boot or `__initGlobalSyncServiceForTests` for test fixtures).
  */
 export async function bridgeExtensionWorkspaceSyncEngine(): Promise<void> {
   const cache = getActiveExtensionWorkspaceCache();
   if (!cache) {
-    logger.info('WorkspaceStore', 'bridgeExtensionWorkspaceSyncEngine: no global cache; skipping seed');
+    logger.info('WorkspaceStore', 'bridgeExtensionWorkspaceSyncEngine: no global cache; skipping');
     return;
   }
-  const currentActive = activeWorkspaceId;
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
+  cacheUnsubscribe = installCacheSink(cache);
   await cache.seedFromPersistedState({
     workspaces: listWorkspaces(),
-    activeWorkspaceId: currentActive,
+    activeWorkspaceId,
   });
+}
+
+function installCacheSink(cache: ExtensionWorkspaceCache): () => void {
+  return cache.onChange(() => {
+    const snap = cache.getSnapshot();
+    workspaces = snap.workspaces;
+    const prev = activeWorkspaceId;
+    activeWorkspaceId = snap.activeWorkspaceId;
+    // Persist to chrome.storage. Errors get logged but don't unwind
+    // the in-memory update — readers prefer fresh-but-unpersisted
+    // state to stale-and-persisted state, and the next commit will
+    // re-trigger persistence anyway.
+    void persistFromCache(snap).catch((err) => {
+      logger.warn('WorkspaceStore', 'persistFromCache failed', err);
+    });
+    notifyChange();
+    if (activeWorkspaceId && activeWorkspaceId !== prev) {
+      notifyActiveChange(activeWorkspaceId, prev);
+    }
+  });
+}
+
+async function persistFromCache(snap: {
+  workspaces: V5.ExtensionWorkspace[];
+  activeWorkspaceId: string | null;
+}): Promise<void> {
+  const tasks: Array<Promise<void>> = [extensionStorage.set(OH.workspaces, snap.workspaces)];
+  if (snap.activeWorkspaceId) {
+    tasks.push(extensionStorage.set(OH.activeWorkspaceId, snap.activeWorkspaceId));
+  }
+  await Promise.all(tasks);
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────
@@ -422,4 +544,8 @@ export function __resetForTests(): void {
   workspaces = [];
   activeWorkspaceId = null;
   listeners.clear();
+  if (cacheUnsubscribe) {
+    cacheUnsubscribe();
+    cacheUnsubscribe = null;
+  }
 }

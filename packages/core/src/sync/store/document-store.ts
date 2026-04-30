@@ -74,6 +74,24 @@ export class InMemoryDocumentStore {
   }
 
   /**
+   * Same as {@link liveSetItems} but exposes the per-entry order key.
+   * Write-side helpers that need to PRESERVE position on a replace
+   * (e.g. workspace rename without reorder) re-emit `addToSet` with the
+   * existing key; callers computing a NEW position via `keyBetween`
+   * read the neighbours' keys here. Internal-shape consumers only —
+   * the public projectors should keep using the keyless variant.
+   */
+  liveOrderedSetItems(
+    type: EntityType,
+    id: string,
+    setPath: string,
+  ): Array<{ itemId: string; item: unknown; key: string }> {
+    const state = this.entities.get(entityKey(type, id));
+    if (!state) return [];
+    return liveOrderedItemsAt(state, setPath);
+  }
+
+  /**
    * Materialize a single entity by `(type, id)`. Returns `null` when
    * the entity is unknown or has been tombstoned (delete-wins, §7.2).
    * Hot path for per-envelope projectors that don't want to pay the
