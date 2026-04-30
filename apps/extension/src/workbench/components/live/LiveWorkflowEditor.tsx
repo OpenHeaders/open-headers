@@ -57,6 +57,7 @@ import { computeRequestTrail } from '../../breadcrumbs';
 import EditorHeader from '../EditorHeader';
 import { buildDependencyRows } from './dependencies-view';
 import { InlineNameDescription, Section } from './layout';
+import { LIVE_WORKFLOW_FIELD, readFieldPath } from './live-field-paths';
 import {
   classifyRun,
   describeCircuit,
@@ -214,12 +215,29 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
+  // Per-field focus path. Live editors don't use antd Form, so focus
+  // mapping rides `data-field-path` attributes on field-section
+  // wrappers (within `WorkflowFormBody`).
+  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
+  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const path = readFieldPath(e.target);
+    if (path) setFocusedFieldPath(path);
+  }, []);
+  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const next = e.relatedTarget as HTMLElement | null;
+    if (next && e.currentTarget.contains(next)) return;
+    setFocusedFieldPath(null);
+  }, []);
+
   // Awareness — declare the surface is editing this live workflow.
   useAwareness({
     workspaceId,
     surfaceId: 'workbench',
     entityFocus: workflow ? { type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflow.uid } : null,
-    fieldFocus: null,
+    fieldFocus:
+      workflow && focusedFieldPath
+        ? { type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflow.uid, path: focusedFieldPath }
+        : null,
     dirtyFields: isDirty ? ['*'] : [],
     enabled: !!workflow,
   });
@@ -349,7 +367,11 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
+      onFocusCapture={handleFocusCapture}
+      onBlurCapture={handleBlurCapture}
+    >
       <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
@@ -672,13 +694,19 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <InlineNameDescription
-        name={draft.name}
-        description={draft.description}
-        onChangeName={(name) => setDraft({ ...draft, name })}
-        onChangeDescription={(description) => setDraft({ ...draft, description })}
-        namePlaceholder="Workflow name"
-      />
+      {/* InlineNameDescription holds two inputs (name + description) so
+          we wrap with a coarse `name` path; sub-field discrimination
+          would require splitting the component. The dominant collision
+          target is the workflow name; description rarely conflicts. */}
+      <div data-field-path={LIVE_WORKFLOW_FIELD.name}>
+        <InlineNameDescription
+          name={draft.name}
+          description={draft.description}
+          onChangeName={(name) => setDraft({ ...draft, name })}
+          onChangeDescription={(description) => setDraft({ ...draft, description })}
+          namePlaceholder="Workflow name"
+        />
+      </div>
 
       {workflowLevelErrors.length > 0 && (
         <Alert
@@ -697,6 +725,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
         />
       )}
 
+      <div data-field-path={LIVE_WORKFLOW_FIELD.steps}>
       <Section
         title={
           <>
@@ -744,7 +773,9 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
           );
         })}
       </Section>
+      </div>
 
+      <div data-field-path={LIVE_WORKFLOW_FIELD.refresh}>
       <Section title="Refresh policy">
         <RefreshPolicyEditor
           value={draft.refresh}
@@ -752,6 +783,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
           availableCaptures={availableCaptures}
         />
       </Section>
+      </div>
 
       <div
         style={{
@@ -764,7 +796,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
           borderTop: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div data-field-path={LIVE_WORKFLOW_FIELD.enabled} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Switch
             size="small"
             aria-label="Workflow enabled"

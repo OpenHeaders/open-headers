@@ -29,13 +29,18 @@ interface FieldRowProps {
   /** Vertically center the input against the label (default). Set `false`
    *  when the input is multi-line and should start-align. */
   center?: boolean;
+  /** Canonical schema path. When set, focus capture by ancestors that
+   *  walk `closest('[data-field-path]')` resolves to this string —
+   *  used by per-field awareness publishing. */
+  fieldPath?: string;
   children: React.ReactNode;
 }
 
-export const FieldRow: React.FC<FieldRowProps> = ({ label, hint, center = true, children }) => {
+export const FieldRow: React.FC<FieldRowProps> = ({ label, hint, center = true, fieldPath, children }) => {
   const { token } = theme.useToken();
   return (
     <div
+      data-field-path={fieldPath}
       style={{
         display: 'grid',
         gridTemplateColumns: `${LIVE_ROW_LABEL_WIDTH}px 1fr`,

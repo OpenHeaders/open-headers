@@ -41,6 +41,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import EditorHeader from '../EditorHeader';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
+import { LIVE_VARIABLE_FIELD, readFieldPath } from './live-field-paths';
 import {
   classifyRun,
   describeRefreshPolicy,
@@ -296,14 +297,20 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
                 borderTop: `1px solid ${token.colorBorderSecondary}`,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div
+                data-field-path={LIVE_VARIABLE_FIELD.enabled}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
                 <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
                 <Text style={{ fontSize: 12 }}>Enabled</Text>
                 <Tooltip title={ENABLED_TOOLTIP}>
                   <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
                 </Tooltip>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div
+                data-field-path={LIVE_VARIABLE_FIELD.requireFreshOnRuleBuild}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
                 <Switch
                   size="small"
                   checked={draft.requireFreshOnRuleBuild}
@@ -378,12 +385,25 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
+  // Per-field focus path. Live editors don't use antd Form, so focus
+  // mapping rides `data-field-path` attributes on FieldRow wrappers.
+  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
+  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const path = readFieldPath(e.target);
+    if (path) setFocusedFieldPath(path);
+  }, []);
+  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const next = e.relatedTarget as HTMLElement | null;
+    if (next && e.currentTarget.contains(next)) return;
+    setFocusedFieldPath(null);
+  }, []);
+
   // Awareness — declare the surface is editing this live variable.
   useAwareness({
     workspaceId,
     surfaceId: 'workbench',
     entityFocus: lv ? { type: LIVE_VARIABLE_ENTITY_TYPE, id: lv.uid } : null,
-    fieldFocus: null,
+    fieldFocus: lv && focusedFieldPath ? { type: LIVE_VARIABLE_ENTITY_TYPE, id: lv.uid, path: focusedFieldPath } : null,
     dirtyFields: isDirty ? ['*'] : [],
     enabled: !!lv,
   });
@@ -489,7 +509,11 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
+      onFocusCapture={handleFocusCapture}
+      onBlurCapture={handleBlurCapture}
+    >
       <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -552,6 +576,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <FieldRow
               label="Name"
+              fieldPath={LIVE_VARIABLE_FIELD.name}
               hint={
                 <>
                   Reference as {'{{'}live.NAME{'}}'}
@@ -561,7 +586,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
               <Input size="small" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
             </FieldRow>
 
-            <FieldRow label="Description" center={false}>
+            <FieldRow label="Description" center={false} fieldPath={LIVE_VARIABLE_FIELD.description}>
               <Input.TextArea
                 size="small"
                 autoSize={{ minRows: 1, maxRows: 3 }}
@@ -594,7 +619,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                 </>
               }
             >
-              <FieldRow label="Workflow">
+              <FieldRow label="Workflow" fieldPath={LIVE_VARIABLE_FIELD.workflowUid}>
                 <Select
                   size="small"
                   style={{ width: '100%' }}
@@ -604,7 +629,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                   placeholder="Select a workflow"
                 />
               </FieldRow>
-              <FieldRow label="Step">
+              <FieldRow label="Step" fieldPath={LIVE_VARIABLE_FIELD.stepId}>
                 <Select
                   size="small"
                   style={{ width: '100%' }}
@@ -618,7 +643,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                   disabled={!selectedWorkflow}
                 />
               </FieldRow>
-              <FieldRow label="Capture">
+              <FieldRow label="Capture" fieldPath={LIVE_VARIABLE_FIELD.captureName}>
                 <Select
                   size="small"
                   style={{ width: '100%' }}
@@ -637,7 +662,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
             <Section title="Manual override">
               {draft.manualOverride ? (
                 <>
-                  <FieldRow label="Value">
+                  <FieldRow label="Value" fieldPath={LIVE_VARIABLE_FIELD.manualOverrideValue}>
                     <Input
                       size="small"
                       value={draft.manualOverride.value}
@@ -650,7 +675,11 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                       placeholder="Fixed override value"
                     />
                   </FieldRow>
-                  <FieldRow label="Expires (ms)" hint="Wall-clock epoch ms — leave blank for permanent override">
+                  <FieldRow
+                    label="Expires (ms)"
+                    fieldPath={LIVE_VARIABLE_FIELD.manualOverrideUntil}
+                    hint="Wall-clock epoch ms — leave blank for permanent override"
+                  >
                     <InputNumber
                       size="small"
                       style={{ width: 220 }}
@@ -708,14 +737,20 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
                 borderTop: `1px solid ${token.colorBorderSecondary}`,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div
+                data-field-path={LIVE_VARIABLE_FIELD.enabled}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
                 <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
                 <Text style={{ fontSize: 12 }}>Enabled</Text>
                 <Tooltip title={ENABLED_TOOLTIP}>
                   <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
                 </Tooltip>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div
+                data-field-path={LIVE_VARIABLE_FIELD.requireFreshOnRuleBuild}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
                 <Switch
                   size="small"
                   checked={draft.requireFreshOnRuleBuild}

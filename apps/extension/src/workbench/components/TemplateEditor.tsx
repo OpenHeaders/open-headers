@@ -13,8 +13,9 @@ import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ConditionEditor from './ConditionEditor';
+import { mapAntdIdToTemplateFieldPath } from './template-field-path-map';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
@@ -161,12 +162,32 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     registerSaveRef?.(handleSave);
   }, [registerSaveRef, handleSave]);
 
-  // Awareness — declare the surface is editing this template.
+  // Per-field focus path — same posture as RuleEditor session 12.
+  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
+  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    const id = target?.getAttribute?.('id') ?? null;
+    const path = mapAntdIdToTemplateFieldPath(id);
+    if (path) setFocusedFieldPath(path);
+  }, []);
+  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const next = e.relatedTarget as HTMLElement | null;
+    if (next && e.currentTarget.contains(next)) return;
+    setFocusedFieldPath(null);
+  }, []);
+  const fieldFocus = useMemo(
+    () =>
+      template && focusedFieldPath
+        ? { type: TEMPLATE_ENTITY_TYPE, id: template.uid, path: focusedFieldPath }
+        : null,
+    [template, focusedFieldPath],
+  );
+
   useAwareness({
     workspaceId,
     surfaceId: 'workbench',
     entityFocus: template ? { type: TEMPLATE_ENTITY_TYPE, id: template.uid } : null,
-    fieldFocus: null,
+    fieldFocus,
     dirtyFields: isDirty ? ['*'] : [],
     enabled: !!template,
   });
@@ -208,7 +229,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   }
 
   return (
-    <div className="rules-rule-editor">
+    <div className="rules-rule-editor" onFocusCapture={handleFocusCapture} onBlurCapture={handleBlurCapture}>
       <Form form={form} layout="vertical" onFinish={handleSave} onValuesChange={handleValuesChange} size="small">
         <Form.Item name="ruleType" hidden>
           <input type="hidden" />

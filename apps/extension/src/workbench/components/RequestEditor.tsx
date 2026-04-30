@@ -35,6 +35,7 @@ import type { ExecutedRequestSnapshot } from '@/background/modules/request-execu
 import { getActiveRequestSyncMirror } from '@/context/request-sync-mirror';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import EditorHeader from './EditorHeader';
+import { REQUEST_METHOD_PATH, REQUEST_URL_PATH, tabKeyToRequestFieldPath } from './request-field-path-map';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
 import AuthorizationTab from './request-editor/AuthorizationTab';
 import BodyTab from './request-editor/BodyTab';
@@ -468,6 +469,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     return mirror.subscribeRequestMirror(requestUid, reprime);
   }, [isCreateMode, requestUid, isDirty]);
 
+  // Per-field focus path. RequestEditor uses controlled state (no
+  // antd Form), so url + method publish through explicit focus
+  // handlers; everything else falls back to the active tab's
+  // canonical path. `inputFocus` overrides tab-derived path while
+  // either of the header inputs is focused.
+  const [inputFocus, setInputFocus] = useState<typeof REQUEST_URL_PATH | typeof REQUEST_METHOD_PATH | null>(null);
+  const fieldFocusPath = inputFocus ?? tabKeyToRequestFieldPath(activeTab);
+
   // Awareness — declare the surface is editing this request. Create
   // mode has no entity uid yet, so presence stays unpublished until
   // the first save assigns one.
@@ -475,7 +484,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     workspaceId,
     surfaceId: 'workbench',
     entityFocus: !isCreateMode && requestUid ? { type: REQUEST_ENTITY_TYPE, id: requestUid } : null,
-    fieldFocus: null,
+    fieldFocus:
+      !isCreateMode && requestUid
+        ? { type: REQUEST_ENTITY_TYPE, id: requestUid, path: fieldFocusPath }
+        : null,
     dirtyFields: isDirty ? ['*'] : [],
     enabled: !isCreateMode && !!requestUid,
   });
@@ -687,6 +699,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         size="small"
         style={{ width: 96, flexShrink: 0 }}
         popupMatchSelectWidth={false}
+        onFocus={() => setInputFocus(REQUEST_METHOD_PATH)}
+        onBlur={() => setInputFocus((prev) => (prev === REQUEST_METHOD_PATH ? null : prev))}
         labelRender={({ label }) => <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>}
       />
       <TemplateInput
@@ -713,7 +727,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           lineHeight: '22px',
         }}
         onPressEnter={() => void handleSend()}
+        onFocus={() => setInputFocus(REQUEST_URL_PATH)}
         onBlur={() => {
+          setInputFocus((prev) => (prev === REQUEST_URL_PATH ? null : prev));
           const trimmed = draft.url.trim();
           if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
             const normalized = ensureScheme(trimmed);
